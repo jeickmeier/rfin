@@ -17,32 +17,6 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "mc")]
 use crate::instruments::common_impl::models::monte_carlo::traits::RandomStream;
 
-/// Comparator for headroom calculation.
-/// Comparison operator for covenant threshold tests
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Comparator {
-    /// Less than or equal to threshold (e.g., Leverage ≤ 3.0x)
-    LessOrEqual,
-    /// Greater than or equal to threshold (e.g., Coverage ≥ 1.2x)
-    GreaterOrEqual,
-}
-
-impl From<BoundKind> for Comparator {
-    fn from(kind: BoundKind) -> Self {
-        match kind {
-            BoundKind::AtMost => Comparator::LessOrEqual,
-            BoundKind::AtLeast => Comparator::GreaterOrEqual,
-        }
-    }
-}
-
-/// MC configuration (subset; integrates with instruments/common/models/monte_carlo RNG).
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct McConfig {
-    /// When true, uses antithetic variates (simple variance reduction).
-    pub antithetic: bool,
-}
-
 /// Covenant forecast configuration.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct CovenantForecastConfig {
@@ -54,8 +28,9 @@ pub struct CovenantForecastConfig {
     pub volatility: Option<f64>,
     /// Random seed for reproducibility
     pub random_seed: Option<u64>,
-    /// Monte Carlo configuration
-    pub mc: Option<McConfig>,
+    /// When true, uses antithetic variates for MC variance reduction.
+    #[serde(default)]
+    pub antithetic: bool,
     /// Reference date for time-scaling MC shocks. When set, shocks scale with
     /// `sqrt(T)` where T is the year-fraction from this date to the test date.
     /// When `None`, the engine uses the end date of the period immediately
@@ -71,7 +46,7 @@ pub struct CovenantForecast {
     /// Covenant identifier
     pub covenant_id: String,
     /// Comparison direction for the covenant threshold test.
-    pub comparator: Comparator,
+    pub comparator: BoundKind,
     /// Future test dates for covenant evaluation
     pub test_dates: Vec<Date>,
     /// Projected metric values at each test date
@@ -115,8 +90,8 @@ impl CovenantForecast {
             let hr = self.headroom[i];
             let bp = self.breach_probability[i];
             let is_breach = match self.comparator {
-                Comparator::LessOrEqual => value > thr,
-                Comparator::GreaterOrEqual => value < thr,
+                BoundKind::AtMost => value > thr,
+                BoundKind::AtLeast => value < thr,
             };
             let status = if is_breach { "BREACH" } else { "OK" };
             s.push_str(&format!(
@@ -180,16 +155,30 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
     }
 
     let id = covenant.covenant.description();
+    tracing::debug!(
+        covenant = %id,
+        periods = periods.len(),
+        stochastic = config.stochastic,
+        "forecasting covenant",
+    );
     let bound_kind = covenant
         .covenant
         .covenant_type
         .bound_kind()
-        .ok_or(Error::from(InputError::Invalid))?;
+        .ok_or_else(|| {
+            Error::Validation(format!(
+                "covenant '{id}' has no bound kind (non-numeric covenants cannot be forecasted)"
+            ))
+        })?;
     let base_threshold = covenant
         .covenant
         .covenant_type
         .threshold_value()
-        .ok_or(Error::from(InputError::Invalid))?;
+        .ok_or_else(|| {
+            Error::Validation(format!(
+                "covenant '{id}' has no threshold (non-numeric covenants cannot be forecasted)"
+            ))
+        })?;
 
     // Resolve thresholds and values
     let mut test_dates: Vec<Date> = Vec::with_capacity(periods.len());
@@ -215,7 +204,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
 
         let v = metric_value_for_spec(covenant, model, pid).ok_or_else(|| {
             Error::from(finstack_core::InputError::NotFound {
-                id: format!("metric:{}", id),
+                id: format!("metric for covenant '{}' in period {}", id, pid),
             })
         })?;
         values.push(v);
@@ -260,7 +249,14 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         let sigma = config.volatility.unwrap_or(0.0);
         let total_paths = config.num_paths.max(1);
         let seed = config.random_seed.unwrap_or(42);
-        let antithetic = config.mc.as_ref().map(|m| m.antithetic).unwrap_or(false);
+        let antithetic = config.antithetic;
+        tracing::debug!(
+            num_paths = total_paths,
+            sigma,
+            seed,
+            antithetic,
+            "starting MC simulation"
+        );
 
         let ref_date = config.reference_date.unwrap_or_else(|| {
             periods[0]
@@ -356,7 +352,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
         }
     });
 
-    let comparator = Comparator::from(bound_kind);
+    let comparator = bound_kind;
 
     #[cfg(feature = "mc")]
     let breach_probability_stderr = if config.stochastic {
@@ -576,7 +572,7 @@ mod tests {
             num_paths: 10_000,
             volatility: Some(0.25),
             random_seed: Some(42),
-            mc: Some(McConfig { antithetic: true }),
+            antithetic: true,
             reference_date: None,
         };
         let fc = forecast_covenant_generic(&spec, &mts, &periods, cfg)

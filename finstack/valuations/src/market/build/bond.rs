@@ -26,6 +26,7 @@ pub fn build_bond_instrument(
     ctx: &BuildCtx,
     market: Option<&MarketContext>,
 ) -> Result<Box<dyn crate::instruments::Instrument>> {
+    tracing::debug!(quote_id = %quote.id(), "building bond instrument");
     match quote {
         BondQuote::FixedRateBulletCleanPrice {
             id,

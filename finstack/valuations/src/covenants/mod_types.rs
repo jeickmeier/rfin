@@ -6,6 +6,10 @@ pub struct CovenantReport {
     /// Type of covenant being checked
     pub covenant_type: String,
 
+    /// Stable machine-readable identifier (from [`CovenantType::covenant_id`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub covenant_id: Option<String>,
+
     /// Whether the covenant passed
     pub passed: bool,
 
@@ -27,6 +31,7 @@ impl CovenantReport {
     pub fn passed(covenant_type: &str) -> Self {
         Self {
             covenant_type: covenant_type.to_string(),
+            covenant_id: None,
             passed: true,
             actual_value: None,
             threshold: None,
@@ -39,12 +44,19 @@ impl CovenantReport {
     pub fn failed(covenant_type: &str) -> Self {
         Self {
             covenant_type: covenant_type.to_string(),
+            covenant_id: None,
             passed: false,
             actual_value: None,
             threshold: None,
             details: None,
             headroom: None,
         }
+    }
+
+    /// Attach the stable covenant identifier.
+    pub fn with_covenant_id(mut self, id: &str) -> Self {
+        self.covenant_id = Some(id.to_string());
+        self
     }
 
     /// Add actual value to the report.

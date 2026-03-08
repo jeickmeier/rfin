@@ -4,6 +4,7 @@
 //! Volatility quotes include strike, expiry, and implied volatility values for building
 //! volatility surfaces.
 
+use crate::instruments::OptionType;
 use crate::market::conventions::ids::{OptionConventionId, SwaptionConventionId};
 use finstack_core::dates::Date;
 use finstack_core::types::UnderlyingId;
@@ -30,7 +31,7 @@ use ts_rs::TS;
 ///     expiry: Date::from_calendar_date(2024, time::Month::December, 20).unwrap(),
 ///     strike: 4500.0,
 ///     vol: 0.20, // 20% implied volatility
-///     option_type: "Call".to_string(),
+///     option_type: OptionType::Call,
 ///     convention: OptionConventionId::new("USD-EQUITY"),
 /// };
 /// ```
@@ -69,8 +70,8 @@ pub enum VolQuote {
         strike: f64,
         /// Implied volatility
         vol: f64,
-        /// Option type ("Call", "Put", "Straddle")
-        option_type: String,
+        /// Option type (Call or Put).
+        option_type: OptionType,
         /// Per-instrument conventions
         #[cfg_attr(feature = "ts_export", ts(type = "string"))]
         convention: OptionConventionId,
@@ -119,7 +120,7 @@ impl VolQuote {
     ///     expiry: Date::from_calendar_date(2024, time::Month::December, 20).unwrap(),
     ///     strike: 4500.0,
     ///     vol: 0.20,
-    ///     option_type: "Call".to_string(),
+    ///     option_type: OptionType::Call,
     ///     convention: OptionConventionId::new("USD-EQUITY"),
     /// };
     ///
@@ -140,7 +141,7 @@ impl VolQuote {
                 expiry: *expiry,
                 strike: *strike,
                 vol: vol + vol_bump,
-                option_type: option_type.clone(),
+                option_type: *option_type,
                 convention: convention.clone(),
             },
             VolQuote::SwaptionVol {

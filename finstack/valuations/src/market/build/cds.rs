@@ -120,6 +120,7 @@ use rust_decimal::Decimal;
 /// - [`CdsQuote`](crate::market::quotes::cds::CdsQuote) for supported quote types
 /// - [`BuildCtx`](crate::market::BuildCtx) for build context configuration
 pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
+    tracing::debug!(quote_id = %quote.id(), "building CDS instrument");
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {
         Error::Input(InputError::NotFound {
@@ -163,6 +164,8 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
             Some(*upfront_pct),
         ),
     };
+
+    crate::instruments::common_impl::validation::validate_recovery_rate(recovery_rate)?;
 
     let conv = registry.require_cds(convention_key)?;
     let spot = resolve_spot_date(
@@ -372,5 +375,41 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_cds_rejects_recovery_rate_above_one() {
+        let ctx = cds_build_ctx();
+        let quote = CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-TEST"),
+            entity: "Test Corp".to_string(),
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+            pillar: Pillar::Tenor("5Y".parse().unwrap()),
+            spread_bp: 100.0,
+            recovery_rate: 1.5,
+        };
+        let result = build_cds_instrument(&quote, &ctx);
+        assert!(result.is_err(), "recovery_rate > 1.0 should be rejected");
+    }
+
+    #[test]
+    fn test_cds_rejects_negative_recovery_rate() {
+        let ctx = cds_build_ctx();
+        let quote = CdsQuote::CdsParSpread {
+            id: QuoteId::new("CDS-TEST"),
+            entity: "Test Corp".to_string(),
+            convention: CdsConventionKey {
+                currency: Currency::USD,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+            pillar: Pillar::Tenor("5Y".parse().unwrap()),
+            spread_bp: 100.0,
+            recovery_rate: -0.1,
+        };
+        let result = build_cds_instrument(&quote, &ctx);
+        assert!(result.is_err(), "negative recovery_rate should be rejected");
     }
 }

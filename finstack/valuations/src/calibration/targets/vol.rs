@@ -378,6 +378,7 @@ Set params.expiry_extrapolation='clamp' to allow flat extrapolation.",
 mod tests {
     use super::*;
     use crate::instruments::common_impl::models::SABRParameters;
+    use crate::instruments::OptionType;
     use crate::market::conventions::ids::OptionConventionId;
     use finstack_core::dates::{Date, DateExt};
     use finstack_core::market_data::context::MarketContext;
@@ -519,7 +520,7 @@ mod tests {
                 expiry: expiry_1y,
                 strike: 90.0,
                 vol: 0.20,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
 
                 convention: OptionConventionId::new("USD-Option"),
             }),
@@ -528,7 +529,7 @@ mod tests {
                 expiry: expiry_1y,
                 strike: 100.0,
                 vol: 0.19,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
 
                 convention: OptionConventionId::new("USD-Option"),
             }),
@@ -538,7 +539,7 @@ mod tests {
                 strike: 110.0,
 
                 vol: 0.18,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-Option"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -546,7 +547,7 @@ mod tests {
                 expiry: expiry_2y,
                 strike: 0.0,
                 vol: 0.20,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
 
                 convention: OptionConventionId::new("USD-Option"),
             }),
@@ -555,7 +556,7 @@ mod tests {
                 expiry: expiry_2y,
                 strike: 100.0,
                 vol: 0.19,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
 
                 convention: OptionConventionId::new("USD-Option"),
             }),
@@ -564,7 +565,7 @@ mod tests {
                 expiry: expiry_2y,
                 strike: 110.0,
                 vol: 0.18,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
 
                 convention: OptionConventionId::new("USD-Option"),
             }),

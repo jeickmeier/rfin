@@ -15,6 +15,7 @@ use rust_decimal::Decimal;
 
 /// Build a cross-currency swap instrument from an [`XccyQuote`].
 pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
+    tracing::debug!(quote_id = %quote.id(), "building XCCY instrument");
     let registry = ConventionRegistry::try_global()?;
 
     match quote {

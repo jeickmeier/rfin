@@ -87,13 +87,6 @@ pub const PERCENT_TO_DECIMAL: f64 = 0.01;
 /// ```
 pub const DECIMAL_TO_PERCENT: f64 = 100.0;
 
-/// Tolerance for numerical calculations.
-///
-/// **Deprecated**: Use [`numerical::ZERO_TOLERANCE`] instead. This alias exists for
-/// backward compatibility and will be removed in a future release.
-#[deprecated(note = "Use numerical::ZERO_TOLERANCE instead")]
-pub const NUMERICAL_TOLERANCE: f64 = numerical::ZERO_TOLERANCE;
-
 /// Numerical constants for floating-point comparisons and integration.
 ///
 /// These constants replace magic numbers scattered throughout the codebase,

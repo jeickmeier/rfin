@@ -235,7 +235,7 @@ fn vol_quote_bump_and_swaption_maturity_alias() {
         expiry: d(2024, time::Month::December, 20),
         strike: 4500.0,
         vol: 0.20,
-        option_type: "Call".to_string(),
+        option_type: OptionType::Call,
         convention: OptionConventionId::new("USD-EQUITY"),
     };
     let bumped = opt.bump_vol_absolute(0.01);
@@ -365,7 +365,7 @@ fn quote_serialization_roundtrip() {
         expiry: d(2024, time::Month::December, 20),
         strike: 4500.0,
         vol: 0.20,
-        option_type: "Call".to_string(),
+        option_type: OptionType::Call,
         convention: OptionConventionId::new("USD-EQUITY"),
     };
     let vol_json = serde_json::to_string(&vol).expect("serialize vol");
@@ -631,7 +631,7 @@ fn quote_denies_unknown_fields() {
         "expiry": "2024-12-20",
         "strike": 4500.0,
         "vol": 0.20,
-        "option_type": "Call",
+        "option_type": "call",
         "convention": "USD-EQUITY",
         "extra": 123
       }

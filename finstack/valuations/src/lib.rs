@@ -308,7 +308,6 @@ pub mod error;
 pub mod margin;
 /// Market quotes and conventions
 pub mod market;
-/// Convenient re-exports for pricing and risk calculations
 /// Convenient re-exports for pricing and risk calculations.
 pub mod prelude;
 /// Pricing dispatch and registry infrastructure.
@@ -319,7 +318,6 @@ pub mod results;
 pub mod schema;
 pub(crate) mod serde_defaults;
 
-// Export macros before instruments module
 #[macro_use]
 /// Financial instrument definitions and builders.
 pub mod instruments;

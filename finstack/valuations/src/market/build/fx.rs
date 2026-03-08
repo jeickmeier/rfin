@@ -15,6 +15,7 @@ use finstack_core::Result;
 
 /// Build an FX instrument from an [`FxQuote`].
 pub fn build_fx_instrument(quote: &FxQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
+    tracing::debug!(quote_id = %quote.id(), "building FX instrument");
     let registry = ConventionRegistry::try_global()?;
 
     match quote {

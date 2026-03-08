@@ -197,178 +197,37 @@ pub trait ExtractQuoteRefs<'a, T> {
     fn extract_quote_refs(&'a self) -> Vec<&'a T>;
 }
 
-impl ExtractQuotes<RateQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<RateQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Rates(rq) => Some(rq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
+macro_rules! impl_extract_quotes {
+    ($quote_type:ty, $variant:ident) => {
+        impl ExtractQuotes<$quote_type> for [MarketQuote] {
+            fn extract_quotes(&self) -> Vec<$quote_type> {
+                self.iter()
+                    .filter_map(|q| match q {
+                        MarketQuote::$variant(inner) => Some(inner.clone()),
+                        _ => None,
+                    })
+                    .collect()
+            }
+        }
+
+        impl ExtractQuoteRefs<'_, $quote_type> for [MarketQuote] {
+            fn extract_quote_refs(&self) -> Vec<&$quote_type> {
+                self.iter()
+                    .filter_map(|q| match q {
+                        MarketQuote::$variant(inner) => Some(inner),
+                        _ => None,
+                    })
+                    .collect()
+            }
+        }
+    };
 }
 
-impl ExtractQuotes<BondQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<BondQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Bond(bq) => Some(bq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, BondQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&BondQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Bond(bq) => Some(bq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, RateQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&RateQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Rates(rq) => Some(rq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuotes<CdsQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<CdsQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Cds(cq) => Some(cq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, CdsQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&CdsQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Cds(cq) => Some(cq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuotes<CDSTrancheQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<CDSTrancheQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::CDSTranche(ctq) => Some(ctq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, CDSTrancheQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&CDSTrancheQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::CDSTranche(ctq) => Some(ctq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuotes<InflationQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<InflationQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Inflation(iq) => Some(iq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, InflationQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&InflationQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Inflation(iq) => Some(iq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuotes<FxQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<FxQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Fx(fq) => Some(fq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, FxQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&FxQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Fx(fq) => Some(fq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuotes<VolQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<VolQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Vol(vq) => Some(vq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, VolQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&VolQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Vol(vq) => Some(vq),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuotes<XccyQuote> for [MarketQuote] {
-    fn extract_quotes(&self) -> Vec<XccyQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Xccy(xq) => Some(xq.clone()),
-                _ => None,
-            })
-            .collect()
-    }
-}
-
-impl ExtractQuoteRefs<'_, XccyQuote> for [MarketQuote] {
-    fn extract_quote_refs(&self) -> Vec<&XccyQuote> {
-        self.iter()
-            .filter_map(|q| match q {
-                MarketQuote::Xccy(xq) => Some(xq),
-                _ => None,
-            })
-            .collect()
-    }
-}
+impl_extract_quotes!(RateQuote, Rates);
+impl_extract_quotes!(BondQuote, Bond);
+impl_extract_quotes!(CdsQuote, Cds);
+impl_extract_quotes!(CDSTrancheQuote, CDSTranche);
+impl_extract_quotes!(InflationQuote, Inflation);
+impl_extract_quotes!(FxQuote, Fx);
+impl_extract_quotes!(VolQuote, Vol);
+impl_extract_quotes!(XccyQuote, Xccy);

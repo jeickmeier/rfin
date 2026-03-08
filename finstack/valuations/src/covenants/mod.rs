@@ -70,13 +70,13 @@ pub(crate) mod schedule;
 pub mod templates;
 
 pub use engine::{
-    ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence, CovenantEngine,
-    CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWaiver, CovenantWindow,
-    EvaluationTrigger, InstrumentMutator, SpringingCondition, ThresholdTest,
+    BoundKind, ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence,
+    CovenantEngine, CovenantScope, CovenantSpec, CovenantTestSpec, CovenantType, CovenantWaiver,
+    CovenantWindow, EvaluationTrigger, InstrumentMutator, SpringingCondition, ThresholdTest,
 };
 pub use forward::{
-    forecast_breaches_generic, forecast_covenant_generic, Comparator,
-    CovenantForecast as GenericCovenantForecast, CovenantForecastConfig, FutureBreach, McConfig,
+    forecast_breaches_generic, forecast_covenant_generic,
+    CovenantForecast as GenericCovenantForecast, CovenantForecastConfig, FutureBreach,
     ModelTimeSeries,
 };
 pub use mod_types::CovenantReport;

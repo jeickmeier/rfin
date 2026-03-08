@@ -102,6 +102,7 @@ use rust_decimal::Decimal;
 /// - [`RateQuote`](crate::market::quotes::rates::RateQuote) for supported quote types
 /// - [`BuildCtx`](crate::market::BuildCtx) for build context configuration
 pub fn build_rate_instrument(quote: &RateQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
+    tracing::debug!(quote_id = %quote.id(), "building rate instrument");
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {
         Error::Input(InputError::NotFound {

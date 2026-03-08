@@ -15,6 +15,19 @@ use finstack_core::HashMap;
 /// - `notional` is used consistently across all instruments unless overridden
 /// - `curve_ids` maps role names (e.g., "discount", "forward", "credit") to curve identifiers
 ///
+/// # Curve Role Conventions
+///
+/// Each builder requires or optionally uses specific curve roles from `curve_ids`:
+///
+/// | Builder | Required roles | Optional (fallback) |
+/// |---------|---------------|---------------------|
+/// | **Rates** | `"discount"`, `"forward"` | *(none -- errors if missing)* |
+/// | **CDS** | `"discount"`, `"credit"` | *(none -- errors if missing)* |
+/// | **Bond** | | `"discount"` (falls back to convention's `default_discount_curve_id`) |
+/// | **FX** | | `"domestic_discount"`, `"foreign_discount"` (fall back to `"{CCY}-OIS"`) |
+/// | **XCCY** | | `"domestic_discount"`, `"foreign_discount"`, `"domestic_forward"`, `"foreign_forward"` (convention-derived defaults) |
+/// | **CDS Tranche** | `"discount"`, `"credit"` | *(none -- errors if missing)* |
+///
 /// # Examples
 ///
 /// Basic usage:

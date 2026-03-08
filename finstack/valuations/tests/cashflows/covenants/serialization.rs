@@ -4,10 +4,10 @@
 
 use finstack_core::dates::{Date, Tenor};
 use finstack_valuations::covenants::{
-    Comparator, ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence,
+    BoundKind, ConsequenceApplication, Covenant, CovenantBreach, CovenantConsequence,
     CovenantEngine, CovenantForecastConfig, CovenantReport, CovenantScope, CovenantSpec,
     CovenantTestSpec, CovenantType, CovenantWindow, FutureBreach,
-    GenericCovenantForecast as CovenantForecast, McConfig, SpringingCondition, ThresholdSchedule,
+    GenericCovenantForecast as CovenantForecast, SpringingCondition, ThresholdSchedule,
     ThresholdTest,
 };
 use finstack_valuations::metrics::MetricId;
@@ -225,13 +225,11 @@ fn covenant_window_roundtrip() {
             ),
             MetricId::custom("liquidity"),
         )],
-        is_grace_period: false,
     };
 
     let rt = roundtrip(&window);
     assert_eq!(window.start, rt.start);
     assert_eq!(window.end, rt.end);
-    assert_eq!(window.is_grace_period, rt.is_grace_period);
     assert_eq!(window.covenants.len(), rt.covenants.len());
 }
 
@@ -278,7 +276,6 @@ fn covenant_engine_roundtrip() {
             ),
             MetricId::custom("interest_coverage"),
         )],
-        is_grace_period: false,
     });
 
     engine.breach_history.push(CovenantBreach {
@@ -318,20 +315,12 @@ fn consequence_application_roundtrip() {
 // ============================================================================
 
 #[test]
-fn comparator_roundtrip() {
-    let less = Comparator::LessOrEqual;
-    let greater = Comparator::GreaterOrEqual;
+fn bound_kind_roundtrip() {
+    let at_most = BoundKind::AtMost;
+    let at_least = BoundKind::AtLeast;
 
-    assert_eq!(less, roundtrip(&less));
-    assert_eq!(greater, roundtrip(&greater));
-}
-
-#[test]
-fn mc_config_roundtrip() {
-    let config = McConfig { antithetic: true };
-
-    let rt = roundtrip(&config);
-    assert_eq!(config, rt);
+    assert_eq!(at_most, roundtrip(&at_most));
+    assert_eq!(at_least, roundtrip(&at_least));
 }
 
 #[test]
@@ -341,7 +330,7 @@ fn covenant_forecast_config_roundtrip() {
         num_paths: 10_000,
         volatility: Some(0.25),
         random_seed: Some(42),
-        mc: Some(McConfig { antithetic: true }),
+        antithetic: true,
         reference_date: Some(date(2025, 1, 1)),
     };
 
@@ -360,7 +349,7 @@ fn covenant_forecast_config_default_roundtrip() {
 fn covenant_forecast_roundtrip() {
     let forecast = CovenantForecast {
         covenant_id: "Debt/EBITDA <= 5.00x".to_string(),
-        comparator: Comparator::LessOrEqual,
+        comparator: BoundKind::AtMost,
         test_dates: vec![date(2025, 3, 31), date(2025, 6, 30), date(2025, 9, 30)],
         projected_values: vec![4.2, 4.5, 4.8],
         thresholds: vec![5.0, 5.0, 5.0],
@@ -380,7 +369,7 @@ fn covenant_forecast_roundtrip() {
 fn covenant_forecast_with_breach_roundtrip() {
     let forecast = CovenantForecast {
         covenant_id: "Interest Coverage >= 1.50x".to_string(),
-        comparator: Comparator::GreaterOrEqual,
+        comparator: BoundKind::AtLeast,
         test_dates: vec![date(2025, 3, 31), date(2025, 6, 30)],
         projected_values: vec![1.6, 1.3],
         thresholds: vec![1.5, 1.5],
@@ -417,7 +406,7 @@ fn future_breach_roundtrip() {
 
 #[test]
 fn threshold_schedule_roundtrip() {
-    let schedule = ThresholdSchedule(vec![
+    let schedule = ThresholdSchedule::new(vec![
         (date(2025, 1, 1), 5.0),
         (date(2025, 7, 1), 4.75),
         (date(2026, 1, 1), 4.5),
@@ -430,17 +419,17 @@ fn threshold_schedule_roundtrip() {
 
 #[test]
 fn threshold_schedule_empty_roundtrip() {
-    let schedule = ThresholdSchedule(vec![]);
+    let schedule = ThresholdSchedule::new(vec![]);
     let rt = roundtrip(&schedule);
     assert_eq!(schedule, rt);
 }
 
 #[test]
 fn threshold_schedule_is_empty_helper() {
-    let empty = ThresholdSchedule(vec![]);
+    let empty = ThresholdSchedule::new(vec![]);
     assert!(empty.is_empty());
 
-    let populated = ThresholdSchedule(vec![(date(2025, 1, 1), 5.0)]);
+    let populated = ThresholdSchedule::new(vec![(date(2025, 1, 1), 5.0)]);
     assert!(!populated.is_empty());
 }
 

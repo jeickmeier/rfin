@@ -27,6 +27,7 @@ mod golden_tests {
     };
     use finstack_core::currency::Currency;
     use finstack_core::math::special_functions::norm_cdf;
+    use finstack_valuations::instruments::OptionType;
 
     /// Black-Scholes call price
     fn bs_call(spot: f64, strike: f64, rate: f64, dividend: f64, vol: f64, t: f64) -> f64 {
@@ -125,7 +126,7 @@ mod golden_tests {
             (mc_price - bs_price).abs()
         };
 
-        let option_type = if is_call { "Call" } else { "Put" };
+        let option_type = if is_call { OptionType::Call } else { OptionType::Put };
         assert!(
             rel_error < rel_tol,
             "{} option: MC={:.6}, BS={:.6}, rel_err={:.4}% (tol={:.4}%)\n\

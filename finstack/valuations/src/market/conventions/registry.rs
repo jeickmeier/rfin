@@ -116,8 +116,7 @@ impl ConventionRegistry {
             return Ok(reg);
         }
 
-        // Build outside the lock. If multiple threads race here, all but one `set` will lose and
-        // we will return the stored singleton.
+        tracing::debug!("initializing ConventionRegistry from embedded JSON");
         let built = ConventionRegistry {
             rate_index: super::loaders::rate_index::load_registry()?,
             cds: super::loaders::cds::load_registry()?,

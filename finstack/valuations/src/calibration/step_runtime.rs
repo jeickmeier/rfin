@@ -407,6 +407,7 @@ mod tests {
         CDSTranche, CDSTranchePricer, CDSTranchePricerConfig, TrancheSide,
     };
     use crate::instruments::Attributes;
+    use crate::instruments::OptionType;
     use crate::market::conventions::ids::{
         CdsConventionKey, CdsDocClause, OptionConventionId, SwaptionConventionId,
     };
@@ -629,7 +630,7 @@ mod tests {
                 expiry: expiry_1,
                 strike: 80.0,
                 vol: 0.30,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -637,7 +638,7 @@ mod tests {
                 expiry: expiry_1,
                 strike: 90.0,
                 vol: 0.24,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -645,7 +646,7 @@ mod tests {
                 expiry: expiry_1,
                 strike: 100.0,
                 vol: 0.20,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -653,7 +654,7 @@ mod tests {
                 expiry: expiry_1,
                 strike: 110.0,
                 vol: 0.22,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -661,7 +662,7 @@ mod tests {
                 expiry: expiry_1,
                 strike: 120.0,
                 vol: 0.27,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -669,7 +670,7 @@ mod tests {
                 expiry: expiry_2,
                 strike: 80.0,
                 vol: 0.32,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -677,7 +678,7 @@ mod tests {
                 expiry: expiry_2,
                 strike: 90.0,
                 vol: 0.27,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -685,7 +686,7 @@ mod tests {
                 expiry: expiry_2,
                 strike: 100.0,
                 vol: 0.23,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -693,7 +694,7 @@ mod tests {
                 expiry: expiry_2,
                 strike: 110.0,
                 vol: 0.24,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
             MarketQuote::Vol(VolQuote::OptionVol {
@@ -701,7 +702,7 @@ mod tests {
                 expiry: expiry_2,
                 strike: 120.0,
                 vol: 0.28,
-                option_type: "Call".to_string(),
+                option_type: OptionType::Call,
                 convention: OptionConventionId::new("USD-EQ"),
             }),
         ];

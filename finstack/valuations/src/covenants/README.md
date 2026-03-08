@@ -44,7 +44,7 @@ Central orchestrator for covenant evaluation and consequence application.
 
 - **CovenantSpec**: Links a `Covenant` to either a `MetricId` or custom evaluator
 - **CovenantTestSpec**: Serialization helper used by higher-level planners (not consumed directly by `CovenantEngine`)
-- **CovenantWindow**: Time-based covenant activation windows (the `is_grace_period` flag is advisory; cure tracking uses `CovenantBreach`)
+- **CovenantWindow**: Time-based covenant activation windows
 - **CovenantBreach**: Breach tracking with cure deadlines and applied consequences
 - **InstrumentMutator**: Trait for instruments that can be mutated by consequences
 
@@ -134,7 +134,6 @@ Time-based covenant activation:
 
 - Define windows with `start`, `end`, and active covenants
 - Overrides base specs during window periods
-- Support grace period windows
 
 ---
 
@@ -299,7 +298,6 @@ let window = CovenantWindow {
             MetricId::custom("debt_to_ebitda"),
         ),
     ],
-    is_grace_period: false,
 };
 
 engine.add_window(window);
@@ -372,16 +370,15 @@ for i in 0..forecast.test_dates.len() {
 ### 8. Forward Projection (Stochastic MC)
 
 ```rust
-use finstack_valuations::covenants::{CovenantForecastConfig, McConfig};
+use finstack_valuations::covenants::CovenantForecastConfig;
 
 let config = CovenantForecastConfig {
     stochastic: true,
     num_paths: 10_000,
     volatility: Some(0.20), // 20% volatility
     random_seed: Some(42),
-    mc: Some(McConfig {
-        antithetic: true, // variance reduction
-    }),
+    antithetic: true, // variance reduction
+    ..Default::default()
 };
 
 let forecast = forecast_covenant_generic(&spec, &adapter, &periods, config)?;
@@ -413,7 +410,7 @@ println!("{}", forecast.explain());
 use finstack_valuations::covenants::{ThresholdSchedule, threshold_for_date};
 
 // Define step-down schedule
-let schedule = ThresholdSchedule(vec![
+let schedule = ThresholdSchedule::new(vec![
     (Date::from_ymd(2025, 1, 1), 6.0),
     (Date::from_ymd(2025, 7, 1), 5.5),
     (Date::from_ymd(2026, 1, 1), 5.0),
@@ -616,7 +613,7 @@ Currently, `CovenantType` has static thresholds. To support time-varying thresho
 **Option 1: Use Custom evaluator**
 
 ```rust
-let schedule = Arc::new(ThresholdSchedule(vec![
+let schedule = Arc::new(ThresholdSchedule::new(vec![
     (Date::from_ymd(2025, 1, 1), 6.0),
     (Date::from_ymd(2026, 1, 1), 5.0),
 ]));
@@ -734,9 +731,7 @@ Custom evaluators and metric calculators use `Arc<dyn Fn + Send + Sync>` for thr
 
 - [ ] Covenant groups with AND/OR logic
 - [ ] Multi-level consequence escalation (warning → default → acceleration)
-- [ ] Covenant waivers and amendments tracking
 - [ ] Polars DataFrame exports for forecasts (in meta crate)
-- [ ] Covenant package templates (e.g., "Leveraged Loan Standard")
 - [ ] Integration with reporting/disclosure systems
 
 ---

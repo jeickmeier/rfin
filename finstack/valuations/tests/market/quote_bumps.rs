@@ -2,6 +2,7 @@ use crate::common::tolerances;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::types::UnderlyingId;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId, OptionConventionId,
 };
@@ -258,7 +259,7 @@ fn vol_bump_rejects_rate_and_spread_units_and_allows_negative() {
         expiry: Date::from_calendar_date(2025, Month::January, 1).expect("date"),
         strike: 100.0,
         vol: 0.005,
-        option_type: "Call".to_string(),
+        option_type: OptionType::Call,
         convention: OptionConventionId::new("USD-EQUITY"),
     });
 

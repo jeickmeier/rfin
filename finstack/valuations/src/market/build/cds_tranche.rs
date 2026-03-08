@@ -180,6 +180,7 @@ pub fn build_cds_tranche_instrument(
     ctx: &BuildCtx,
     overrides: &CDSTrancheBuildOverrides,
 ) -> Result<Box<dyn Instrument>> {
+    tracing::debug!(quote_id = %quote.id(), "building CDS tranche instrument");
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {
         Error::Input(InputError::NotFound {

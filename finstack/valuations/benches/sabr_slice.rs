@@ -4,6 +4,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_valuations::calibration::api::schema::{StepParams, VolSurfaceParams};
 use finstack_valuations::calibration::CalibrationConfig;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::market::conventions::ids::OptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
@@ -26,7 +27,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             expiry: base_date + time::Duration::days(30),
             strike: 95.0,
             vol: 0.22,
-            option_type: "Call".to_string(),
+            option_type: OptionType::Call,
             convention: OptionConventionId::new("USD-Option"),
         },
         VolQuote::OptionVol {
@@ -34,7 +35,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             expiry: base_date + time::Duration::days(30),
             strike: 100.0,
             vol: 0.20,
-            option_type: "Call".to_string(),
+            option_type: OptionType::Call,
             convention: OptionConventionId::new("USD-Option"),
         },
         VolQuote::OptionVol {
@@ -42,7 +43,7 @@ fn bench_sabr_slice(c: &mut Criterion) {
             expiry: base_date + time::Duration::days(30),
             strike: 105.0,
             vol: 0.21,
-            option_type: "Call".to_string(),
+            option_type: OptionType::Call,
             convention: OptionConventionId::new("USD-Option"),
         },
     ];

@@ -182,7 +182,10 @@ pub fn prepare_rate_quote(
     ) {
         fut.period_end.unwrap_or(fut.expiry)
     } else {
-        base_date
+        return Err(finstack_core::Error::Validation(
+            "prepare_rate_quote: unrecognized instrument type (not Deposit, FRA, IRS, or IRFuture)"
+                .to_string(),
+        ));
     };
 
     let pillar_time =
@@ -266,6 +269,45 @@ mod tests {
         assert_eq!(
             prepared.pillar_date,
             future.period_end.expect("future period_end")
+        );
+    }
+
+    #[test]
+    fn prepare_rate_quote_uses_swap_end_as_pillar() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 10).expect("valid date");
+        let mut curve_ids = HashMap::default();
+        curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+        curve_ids.insert("forward".to_string(), "USD-SOFR".to_string());
+        let ctx = BuildCtx::new(as_of, 1_000_000.0, curve_ids);
+
+        let quote = RateQuote::Swap {
+            id: QuoteId::new("USD-SOFR-OIS-SWAP-5Y"),
+            index: crate::market::conventions::ids::IndexId::new("USD-SOFR-OIS"),
+            pillar: crate::market::quotes::ids::Pillar::Tenor(finstack_core::dates::Tenor::new(
+                5,
+                finstack_core::dates::TenorUnit::Years,
+            )),
+            rate: 0.0450,
+            spread_decimal: None,
+        };
+
+        let prepared = prepare_rate_quote(
+            quote,
+            &ctx,
+            DayCount::Act365F,
+            as_of,
+            &PillarPolicy::default(),
+        )
+        .expect("prepared swap quote");
+
+        assert!(
+            prepared.pillar_time > 4.0,
+            "5Y swap pillar time should be > 4.0, got {}",
+            prepared.pillar_time
+        );
+        assert!(
+            prepared.pillar_date > as_of,
+            "swap pillar date should be after as_of"
         );
     }
 }

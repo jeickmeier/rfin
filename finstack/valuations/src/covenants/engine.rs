@@ -230,17 +230,19 @@ pub enum ThresholdTest {
 }
 
 /// Direction of inequality for numeric covenants.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum BoundKind {
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BoundKind {
     /// Covenant passes when the metric is less than or equal to the threshold.
+    #[serde(alias = "LessOrEqual")]
     AtMost,
     /// Covenant passes when the metric is greater than or equal to the threshold.
+    #[serde(alias = "GreaterOrEqual")]
     AtLeast,
 }
 
 impl CovenantType {
     /// Returns the inequality direction required for numeric covenants.
-    pub(crate) fn bound_kind(&self) -> Option<BoundKind> {
+    pub fn bound_kind(&self) -> Option<BoundKind> {
         match self {
             CovenantType::MaxDebtToEBITDA { .. }
             | CovenantType::MaxTotalLeverage { .. }
@@ -488,11 +490,6 @@ pub struct CovenantWindow {
     pub end: Date,
     /// Covenants active during this window
     pub covenants: Vec<CovenantSpec>,
-    /// Whether this is a grace period window.
-    ///
-    /// This flag is currently informational only; the engine relies on
-    /// `CovenantBreach::cure_deadline` to manage cure periods.
-    pub is_grace_period: bool,
 }
 
 /// Covenant breach tracking.
@@ -536,6 +533,21 @@ pub struct CovenantEngine {
     /// Not serializable - will be empty after deserialization.
     #[serde(skip)]
     pub custom_metrics: HashMap<String, CustomMetricCalculator>,
+}
+
+impl std::fmt::Debug for CovenantEngine {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CovenantEngine")
+            .field("specs", &self.specs)
+            .field("breach_history", &self.breach_history)
+            .field("windows", &self.windows)
+            .field("waivers", &self.waivers)
+            .field(
+                "custom_metrics",
+                &self.custom_metrics.keys().collect::<Vec<_>>(),
+            )
+            .finish()
+    }
 }
 
 impl Default for CovenantEngine {
@@ -621,6 +633,7 @@ impl CovenantEngine {
         context: &mut MetricContext,
         test_date: Date,
     ) -> finstack_core::Result<IndexMap<String, CovenantReport>> {
+        tracing::debug!(spec_count = specs.len(), %test_date, "evaluating covenants");
         let mut reports = IndexMap::new();
 
         for spec in specs {
@@ -630,16 +643,20 @@ impl CovenantEngine {
             if !spec.covenant.is_active {
                 reports.insert(
                     description.clone(),
-                    CovenantReport::passed(&description).with_details("Covenant inactive"),
+                    CovenantReport::passed(&description)
+                        .with_covenant_id(cid)
+                        .with_details("Covenant inactive"),
                 );
                 continue;
             }
 
             if let Some(waiver) = self.active_waiver(cid, test_date) {
                 if waiver.amended_threshold.is_none() {
+                    tracing::info!(covenant_id = cid, %test_date, "covenant waived by lender agreement");
                     reports.insert(
                         description.clone(),
                         CovenantReport::passed(&description)
+                            .with_covenant_id(cid)
                             .with_details("Waived by lender agreement"),
                     );
                     continue;
@@ -653,6 +670,7 @@ impl CovenantEngine {
             } else {
                 CovenantReport::failed(&description)
             };
+            report = report.with_covenant_id(cid);
 
             if let Some(value) = evaluation.actual_value {
                 report = report.with_actual(value);
@@ -665,6 +683,13 @@ impl CovenantEngine {
             }
 
             if !evaluation.passed {
+                tracing::warn!(
+                    covenant_id = cid,
+                    actual = evaluation.actual_value,
+                    threshold = evaluation.threshold,
+                    %test_date,
+                    "covenant breach detected",
+                );
                 if let Some(breach) = self.find_active_breach(cid, test_date) {
                     if breach.cure_deadline.is_some_and(|d| test_date <= d) {
                         report = report.with_details("In cure period");
@@ -725,20 +750,20 @@ impl CovenantEngine {
                 continue;
             }
 
-            let spec = self
-                .specs
-                .iter()
-                .find(|s| s.covenant.description() == *description);
+            let cid = report.covenant_id.as_deref().unwrap_or("unknown");
 
-            let cid = spec.map(|s| s.covenant.covenant_type.covenant_id());
-            let already_tracked = cid.is_some_and(|id| {
-                self.breach_history
-                    .iter()
-                    .any(|b| b.covenant_id == id && !b.is_cured && b.breach_date == test_date)
-            });
+            let already_tracked = self
+                .breach_history
+                .iter()
+                .any(|b| b.covenant_id == cid && !b.is_cured && b.breach_date == test_date);
             if already_tracked {
                 continue;
             }
+
+            let spec = self
+                .specs
+                .iter()
+                .find(|s| s.covenant.covenant_type.covenant_id() == cid);
 
             let cure_deadline = spec.and_then(|s| {
                 s.covenant
@@ -746,8 +771,16 @@ impl CovenantEngine {
                     .map(|d| test_date + time::Duration::days(d as i64))
             });
 
+            tracing::warn!(
+                covenant_id = cid,
+                actual = report.actual_value,
+                threshold = report.threshold,
+                %test_date,
+                "recording new covenant breach",
+            );
+
             self.breach_history.push(CovenantBreach {
-                covenant_id: cid.unwrap_or("unknown").to_string(),
+                covenant_id: cid.to_string(),
                 covenant_type: description.clone(),
                 breach_date: test_date,
                 actual_value: report.actual_value,
@@ -762,6 +795,9 @@ impl CovenantEngine {
     }
 
     /// Apply consequences for breached covenants.
+    ///
+    /// Consequences that have already been applied (recorded in `breach_history`)
+    /// are skipped to prevent double-application.
     pub fn apply_consequences<T>(
         &mut self,
         instrument: &mut T,
@@ -774,7 +810,6 @@ impl CovenantEngine {
         let mut applications = Vec::new();
 
         for breach in breaches {
-            // Skip if already cured or in cure period
             if breach.is_cured {
                 continue;
             }
@@ -782,6 +817,21 @@ impl CovenantEngine {
                 if as_of <= deadline {
                     continue;
                 }
+            }
+
+            // Guard: skip if consequences were already applied for this breach
+            let already_applied = self.breach_history.iter().any(|b| {
+                b.covenant_id == breach.covenant_id
+                    && b.breach_date == breach.breach_date
+                    && !b.applied_consequences.is_empty()
+            });
+            if already_applied {
+                tracing::debug!(
+                    covenant_id = %breach.covenant_id,
+                    breach_date = %breach.breach_date,
+                    "skipping consequence application — already applied",
+                );
+                continue;
             }
 
             let spec = self
@@ -792,9 +842,14 @@ impl CovenantEngine {
                     id: format!("covenant_spec:{}", breach.covenant_id),
                 })?;
 
-            // Apply each consequence
             for consequence in &spec.covenant.consequences {
                 let application = self.apply_single_consequence(instrument, consequence, as_of)?;
+                tracing::info!(
+                    covenant_id = %breach.covenant_id,
+                    consequence = %application.consequence_type,
+                    %as_of,
+                    "applied covenant consequence",
+                );
                 applications.push(application);
 
                 if let Some(historical_breach) = self.breach_history.iter_mut().find(|b| {
@@ -844,6 +899,11 @@ impl CovenantEngine {
             };
 
             if !condition_met {
+                tracing::debug!(
+                    metric = condition.metric_id.as_str(),
+                    value = condition_value,
+                    "springing condition not met — covenant inactive",
+                );
                 return Ok(SpecEvaluation {
                     passed: true,
                     actual_value: None,
@@ -1385,7 +1445,6 @@ mod tests {
             start: date(2025, 1, 1),
             end: date(2025, 6, 30),
             covenants: vec![custom_metric_spec, evaluator_spec],
-            is_grace_period: false,
         });
 
         let instrument = TestInstrument::new("WINDOW-TEST", date(2026, 1, 1));

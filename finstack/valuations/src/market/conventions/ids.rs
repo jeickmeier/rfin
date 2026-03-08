@@ -11,57 +11,81 @@ use std::fmt;
 /// Canonical rate index identifier (shared with finstack-core).
 pub type IndexId = finstack_core::types::IndexId;
 
-/// Stable identifier for an Interest Rate Future contract (e.g., "CME:SR3").
-///
-/// Used to look up [`IrFutureConventions`](crate::market::conventions::defs::IrFutureConventions)
-/// from the convention registry. Contract IDs typically follow exchange:contract format.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::market::conventions::ids::IrFutureContractId;
-///
-/// let id = IrFutureContractId::new("CME:SR3");
-/// assert_eq!(id.as_str(), "CME:SR3");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct IrFutureContractId(String);
+macro_rules! define_convention_id {
+    ($(#[$meta:meta])* $name:ident) => {
+        $(#[$meta])*
+        #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
+        pub struct $name(String);
 
-impl IrFutureContractId {
-    /// Create a new `IrFutureContractId` from a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The contract identifier string
-    ///
-    /// # Returns
-    ///
-    /// A new `IrFutureContractId` instance.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
+        impl $name {
+            /// Create a new identifier from a string.
+            pub fn new(s: impl Into<String>) -> Self { Self(s.into()) }
 
-    /// View the inner string representation.
-    ///
-    /// # Returns
-    ///
-    /// A string slice containing the identifier.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
+            /// View the inner string representation.
+            pub fn as_str(&self) -> &str { &self.0 }
+        }
+
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
+        }
+
+        impl From<&str> for $name {
+            fn from(s: &str) -> Self { Self::new(s) }
+        }
+    };
 }
 
-impl fmt::Display for IrFutureContractId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
+define_convention_id!(
+    /// Stable identifier for an Interest Rate Future contract (e.g., "CME:SR3").
+    ///
+    /// Used to look up [`IrFutureConventions`](crate::market::conventions::defs::IrFutureConventions)
+    /// from the convention registry.
+    IrFutureContractId
+);
 
-impl From<&str> for IrFutureContractId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
+define_convention_id!(
+    /// Identifier for Option market conventions (Equity/FX/Commodity).
+    ///
+    /// Used to look up [`OptionConventions`](crate::market::conventions::defs::OptionConventions)
+    /// from the convention registry.
+    OptionConventionId
+);
+
+define_convention_id!(
+    /// Identifier for Swaption market conventions (e.g., "USD", "EUR").
+    ///
+    /// Used to look up [`SwaptionConventions`](crate::market::conventions::defs::SwaptionConventions)
+    /// from the convention registry.
+    SwaptionConventionId
+);
+
+define_convention_id!(
+    /// Identifier for Inflation Swap market conventions (e.g., "USD-CPI", "UK-RPI").
+    ///
+    /// Used to look up [`InflationSwapConventions`](crate::market::conventions::defs::InflationSwapConventions)
+    /// from the convention registry.
+    InflationSwapConventionId
+);
+
+define_convention_id!(
+    /// Identifier for FX pair market conventions (e.g., "EUR/USD", "USD/CAD").
+    FxConventionId
+);
+
+define_convention_id!(
+    /// Identifier for bond market conventions (e.g., "USD-UST", "USD-CORP").
+    BondConventionId
+);
+
+define_convention_id!(
+    /// Identifier for cross-currency swap market conventions (e.g., "EUR/USD-XCCY").
+    XccyConventionId
+);
+
+define_convention_id!(
+    /// Identifier for FX option market conventions (e.g., "EUR/USD-VANILLA").
+    FxOptionConventionId
+);
 
 /// CDS market standard documentation clauses.
 ///
@@ -149,270 +173,5 @@ pub struct CdsConventionKey {
 impl fmt::Display for CdsConventionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{:?}", self.currency, self.doc_clause)
-    }
-}
-
-/// Identifier for Option market conventions (Equity/FX/Commodity).
-///
-/// Used to look up [`OptionConventions`](crate::market::conventions::defs::OptionConventions)
-/// from the convention registry. Convention IDs typically follow "{currency}-{asset-class}" format.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::market::conventions::ids::OptionConventionId;
-///
-/// let id = OptionConventionId::new("USD-EQUITY");
-/// assert_eq!(id.as_str(), "USD-EQUITY");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct OptionConventionId(String);
-
-impl OptionConventionId {
-    /// Create a new `OptionConventionId` from a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The convention identifier string
-    ///
-    /// # Returns
-    ///
-    /// A new `OptionConventionId` instance.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-    /// View the inner string representation.
-    ///
-    /// # Returns
-    ///
-    /// A string slice containing the identifier.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for OptionConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for OptionConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-/// Identifier for Swaption market conventions (e.g., "USD", "EUR").
-///
-/// Used to look up [`SwaptionConventions`](crate::market::conventions::defs::SwaptionConventions)
-/// from the convention registry. Convention IDs are typically currency codes.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::market::conventions::ids::SwaptionConventionId;
-///
-/// let id = SwaptionConventionId::new("USD");
-/// assert_eq!(id.as_str(), "USD");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct SwaptionConventionId(String);
-
-impl SwaptionConventionId {
-    /// Create a new `SwaptionConventionId` from a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The convention identifier string
-    ///
-    /// # Returns
-    ///
-    /// A new `SwaptionConventionId` instance.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-    /// View the inner string representation.
-    ///
-    /// # Returns
-    ///
-    /// A string slice containing the identifier.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for SwaptionConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for SwaptionConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-/// Identifier for Inflation Swap market conventions (e.g., "USD-CPI", "UK-RPI").
-///
-/// Used to look up [`InflationSwapConventions`](crate::market::conventions::defs::InflationSwapConventions)
-/// from the convention registry. Convention IDs typically follow "{currency}-{index}" format.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_valuations::market::conventions::ids::InflationSwapConventionId;
-///
-/// let id = InflationSwapConventionId::new("USD-CPI");
-/// assert_eq!(id.as_str(), "USD-CPI");
-/// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct InflationSwapConventionId(String);
-
-impl InflationSwapConventionId {
-    /// Create a new `InflationSwapConventionId` from a string.
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - The convention identifier string
-    ///
-    /// # Returns
-    ///
-    /// A new `InflationSwapConventionId` instance.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-    /// View the inner string representation.
-    ///
-    /// # Returns
-    ///
-    /// A string slice containing the identifier.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for InflationSwapConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for InflationSwapConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-/// Identifier for FX pair market conventions (e.g., "EUR/USD", "USD/CAD").
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct FxConventionId(String);
-
-impl FxConventionId {
-    /// Create a new `FxConventionId` from a string.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-
-    /// View the inner string representation.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for FxConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for FxConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-/// Identifier for bond market conventions (e.g., "USD-UST", "USD-CORP").
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct BondConventionId(String);
-
-impl BondConventionId {
-    /// Create a new `BondConventionId` from a string.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-
-    /// View the inner string representation.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for BondConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for BondConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-/// Identifier for cross-currency swap market conventions (e.g., "EUR/USD-XCCY").
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct XccyConventionId(String);
-
-impl XccyConventionId {
-    /// Create a new `XccyConventionId` from a string.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-
-    /// View the inner string representation.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for XccyConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for XccyConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
-    }
-}
-
-/// Identifier for FX option market conventions (e.g., "EUR/USD-VANILLA").
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, PartialOrd, Ord)]
-pub struct FxOptionConventionId(String);
-
-impl FxOptionConventionId {
-    /// Create a new `FxOptionConventionId` from a string.
-    pub fn new(s: impl Into<String>) -> Self {
-        Self(s.into())
-    }
-
-    /// View the inner string representation.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl fmt::Display for FxOptionConventionId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl From<&str> for FxOptionConventionId {
-    fn from(s: &str) -> Self {
-        Self::new(s)
     }
 }

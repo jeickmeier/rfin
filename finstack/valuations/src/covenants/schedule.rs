@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// test date is the last entry with date <= test_date. If no entry applies,
 /// `threshold_for_date` returns `None`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ThresholdSchedule(pub Vec<(Date, f64)>);
+pub struct ThresholdSchedule(Vec<(Date, f64)>);
 
 impl ThresholdSchedule {
     /// Create a new threshold schedule, sorting entries by date.
@@ -24,6 +24,16 @@ impl ThresholdSchedule {
     /// Number of threshold entries.
     pub fn len(&self) -> usize {
         self.0.len()
+    }
+
+    /// Read-only access to the sorted schedule entries.
+    pub fn entries(&self) -> &[(Date, f64)] {
+        &self.0
+    }
+
+    /// Consume the schedule and return the sorted entries.
+    pub fn into_inner(self) -> Vec<(Date, f64)> {
+        self.0
     }
 }
 
