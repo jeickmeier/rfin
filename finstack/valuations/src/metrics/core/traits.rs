@@ -293,10 +293,17 @@ impl MetricContext {
     /// Returns an error if the instrument is not of the expected type
     #[inline(never)] // Prevent inlining to reduce coverage metadata conflicts
     pub fn instrument_as<T: 'static>(&self) -> finstack_core::Result<&T> {
-        self.instrument
-            .as_any()
-            .downcast_ref::<T>()
-            .ok_or_else(|| finstack_core::InputError::Invalid.into())
+        self.instrument.as_any().downcast_ref::<T>().ok_or_else(|| {
+            finstack_core::InputError::NotFound {
+                id: format!(
+                    "instrument downcast: expected {}, got {} (id={})",
+                    std::any::type_name::<T>(),
+                    self.instrument.key(),
+                    self.instrument.id(),
+                ),
+            }
+            .into()
+        })
     }
 
     /// Store a 1D bucketed series under `base_metric_id` and optionally

@@ -201,9 +201,6 @@ pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
 /// Format a standard risk bucket (years) as a human-readable label.
 pub use sensitivities::config::format_bucket_label;
-/// Parse simple period strings (e.g., "1D", "2W") to day counts.
-#[allow(deprecated)]
-pub use sensitivities::theta::parse_period_days;
 
 // -----------------------------------------------------------------------------
 // Crate-internal re-exports (NOT part of the public API)
@@ -356,257 +353,218 @@ pub fn standard_registry() -> &'static MetricRegistry {
     STANDARD_REGISTRY.get_or_init(|| {
         let mut registry = MetricRegistry::new();
 
-        // Universal metrics (work with any instrument via trait object)
-        registry.register_metric(
-            MetricId::Theta,
-            std::sync::Arc::new(GenericThetaAny),
-            &[], // Empty = applies to all instruments
-        );
-        registry.register_metric(
-            MetricId::ThetaCarry,
-            std::sync::Arc::new(GenericThetaDecomposed),
-            &[],
-        );
-        registry.register_metric(
-            MetricId::ThetaRollDown,
-            std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaRollDown)),
-            &[],
-        );
-        registry.register_metric(
-            MetricId::ThetaDecay,
-            std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaDecay)),
-            &[],
-        );
-        registry.register_metric(
-            MetricId::HVAR,
-            std::sync::Arc::new(GenericHVar::new(VarConfig::var_95())),
-            &[], // Empty = applies to all instruments
-        );
-        registry.register_metric(
-            MetricId::EXPECTED_SHORTFALL,
-            std::sync::Arc::new(GenericExpectedShortfall::new(VarConfig::var_95())),
-            &[], // Empty = applies to all instruments
-        );
+        register_universal_metrics(&mut registry);
+        register_credit_cs01_metrics(&mut registry);
 
-        // Register generic CS01 calculator for credit instruments
-        // Uses GenericBucketedCs01 which computes key-rate CS01 by default
-        registry.register_metric(
-            MetricId::BucketedCs01,
-            std::sync::Arc::new(
-                GenericBucketedCs01::<crate::instruments::CreditDefaultSwap>::default(),
-            ),
-            &[crate::pricer::InstrumentType::CDS],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01,
-            std::sync::Arc::new(
-                GenericBucketedCs01::<crate::instruments::credit_derivatives::cds_index::CDSIndex>::default(),
-            ),
-            &[crate::pricer::InstrumentType::CDSIndex],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01,
-            std::sync::Arc::new(GenericBucketedCs01::<
-                crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
-            >::default()),
-            &[crate::pricer::InstrumentType::CDSTranche],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01,
-            std::sync::Arc::new(GenericBucketedCs01::<
-                crate::instruments::credit_derivatives::cds_option::CDSOption,
-            >::default()),
-            &[crate::pricer::InstrumentType::CDSOption],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01,
-            std::sync::Arc::new(GenericBucketedCs01::<
-                crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
-            >::default()),
-            &[crate::pricer::InstrumentType::RevolvingCredit],
-        );
-
-        // Register generic Cs01Hazard (direct hazard-rate bump) for credit instruments
-        registry.register_metric(
-            MetricId::Cs01Hazard,
-            std::sync::Arc::new(
-                GenericParallelCs01Hazard::<crate::instruments::CreditDefaultSwap>::default(),
-            ),
-            &[crate::pricer::InstrumentType::CDS],
-        );
-        registry.register_metric(
-            MetricId::Cs01Hazard,
-            std::sync::Arc::new(GenericParallelCs01Hazard::<
-                crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
-            >::default()),
-            &[crate::pricer::InstrumentType::CDSTranche],
-        );
-        registry.register_metric(
-            MetricId::Cs01Hazard,
-            std::sync::Arc::new(GenericParallelCs01Hazard::<
-                crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
-            >::default()),
-            &[crate::pricer::InstrumentType::RevolvingCredit],
-        );
-
-        // Register generic BucketedCs01Hazard for credit instruments
-        registry.register_metric(
-            MetricId::BucketedCs01Hazard,
-            std::sync::Arc::new(
-                GenericBucketedCs01Hazard::<crate::instruments::CreditDefaultSwap>::default(),
-            ),
-            &[crate::pricer::InstrumentType::CDS],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01Hazard,
-            std::sync::Arc::new(
-                GenericBucketedCs01Hazard::<crate::instruments::credit_derivatives::cds_index::CDSIndex>::default(),
-            ),
-            &[crate::pricer::InstrumentType::CDSIndex],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01Hazard,
-            std::sync::Arc::new(GenericBucketedCs01Hazard::<
-                crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
-            >::default()),
-            &[crate::pricer::InstrumentType::CDSTranche],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01Hazard,
-            std::sync::Arc::new(GenericBucketedCs01Hazard::<
-                crate::instruments::credit_derivatives::cds_option::CDSOption,
-            >::default()),
-            &[crate::pricer::InstrumentType::CDSOption],
-        );
-        registry.register_metric(
-            MetricId::BucketedCs01Hazard,
-            std::sync::Arc::new(GenericBucketedCs01Hazard::<
-                crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
-            >::default()),
-            &[crate::pricer::InstrumentType::RevolvingCredit],
-        );
-
+        // Equity
         crate::instruments::equity::spot::metrics::register_equity_metrics(&mut registry);
+        crate::instruments::equity::equity_option::metrics::register_equity_option_metrics(&mut registry);
+        crate::instruments::equity::equity_trs::metrics::register_equity_trs_metrics(&mut registry);
+        crate::instruments::equity::variance_swap::metrics::register_variance_swap_metrics(&mut registry);
+        crate::instruments::equity::pe_fund::register_private_markets_fund_metrics(&mut registry);
+        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
+        crate::instruments::equity::vol_index_future::metrics::register_vol_index_future_metrics(&mut registry);
+        crate::instruments::equity::vol_index_option::metrics::register_vol_index_option_metrics(&mut registry);
+        crate::instruments::equity::equity_index_future::metrics::register_equity_index_future_metrics(&mut registry);
+        crate::instruments::equity::real_estate::metrics::register_real_estate_metrics(&mut registry);
+        crate::instruments::equity::real_estate::metrics::register_levered_real_estate_metrics(&mut registry);
         crate::instruments::exotics::basket::metrics::register_basket_metrics(&mut registry);
+
+        // Fixed income
         crate::instruments::fixed_income::bond::metrics::register_bond_metrics(&mut registry);
+        crate::instruments::fixed_income::bond_future::metrics::register_bond_future_metrics(&mut registry);
+        crate::instruments::fixed_income::convertible::metrics::register_convertible_metrics(&mut registry);
+        crate::instruments::fixed_income::mbs_passthrough::metrics::register_mbs_passthrough_metrics(&mut registry);
+        crate::instruments::fixed_income::tba::metrics::register_tba_metrics(&mut registry);
+        crate::instruments::fixed_income::dollar_roll::metrics::register_dollar_roll_metrics(&mut registry);
+        crate::instruments::fixed_income::cmo::metrics::register_cmo_metrics(&mut registry);
+        crate::instruments::fixed_income::inflation_linked_bond::metrics::register_ilb_metrics(&mut registry);
+        crate::instruments::fixed_income::structured_credit::metrics::register_structured_credit_metrics(&mut registry);
+        crate::instruments::fixed_income::term_loan::metrics::register_term_loan_metrics(&mut registry);
+        crate::instruments::fixed_income::revolving_credit::metrics::register_revolving_credit_metrics(&mut registry);
+        crate::instruments::fixed_income::fi_trs::metrics::register_fi_trs_metrics(&mut registry);
+
+        // Rates
         crate::instruments::rates::irs::metrics::register_irs_metrics(&mut registry);
         crate::instruments::rates::deposit::metrics::register_deposit_metrics(&mut registry);
         crate::instruments::rates::fra::metrics::register_fra_metrics(&mut registry);
         crate::instruments::rates::ir_future::metrics::register_ir_future_metrics(&mut registry);
         crate::instruments::rates::ir_future_option::metrics::register_ir_future_option_metrics(&mut registry);
-        crate::instruments::fixed_income::bond_future::metrics::register_bond_future_metrics(&mut registry);
+        crate::instruments::rates::inflation_swap::metrics::register_inflation_swap_metrics(&mut registry);
+        crate::instruments::rates::inflation_cap_floor::metrics::register_inflation_cap_floor_metrics(&mut registry);
+        crate::instruments::rates::cap_floor::metrics::register_interest_rate_option_metrics(&mut registry);
+        crate::instruments::rates::swaption::metrics::register_swaption_metrics(&mut registry);
+        crate::instruments::rates::xccy_swap::metrics::register_xccy_swap_metrics(&mut registry);
+        crate::instruments::rates::repo::metrics::register_repo_metrics(&mut registry);
+        crate::instruments::rates::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
+        crate::instruments::rates::cms_option::metrics::register_cms_option_metrics(&mut registry);
+        crate::instruments::rates::cms_swap::metrics::register_cms_swap_metrics(&mut registry);
+
+        // Credit derivatives
         crate::instruments::credit_derivatives::cds::metrics::register_cds_metrics(&mut registry);
         crate::instruments::credit_derivatives::cds_index::metrics::register_cds_index_metrics(&mut registry);
         crate::instruments::credit_derivatives::cds_tranche::metrics::register_cds_tranche_metrics(&mut registry);
-        crate::instruments::fixed_income::convertible::metrics::register_convertible_metrics(&mut registry);
-        crate::instruments::fixed_income::mbs_passthrough::metrics::register_mbs_passthrough_metrics(
-            &mut registry,
-        );
-        crate::instruments::fixed_income::tba::metrics::register_tba_metrics(&mut registry);
-        crate::instruments::fixed_income::dollar_roll::metrics::register_dollar_roll_metrics(&mut registry);
-        crate::instruments::fixed_income::cmo::metrics::register_cmo_metrics(&mut registry);
-        crate::instruments::fixed_income::inflation_linked_bond::metrics::register_ilb_metrics(&mut registry);
+        crate::instruments::credit_derivatives::cds_option::metrics::register_cds_option_metrics(&mut registry);
+
+        // FX
         crate::instruments::fx::fx_spot::metrics::register_fx_spot_metrics(&mut registry);
         crate::instruments::fx::fx_swap::metrics::register_fx_swap_metrics(&mut registry);
-        crate::instruments::rates::inflation_swap::metrics::register_inflation_swap_metrics(&mut registry);
-        crate::instruments::rates::inflation_cap_floor::metrics::register_inflation_cap_floor_metrics(
-            &mut registry,
-        );
-        crate::instruments::equity::equity_option::metrics::register_equity_option_metrics(&mut registry);
-        crate::instruments::fx::fx_option::metrics::register_fx_option_metrics(&mut registry);
-        crate::instruments::rates::cap_floor::metrics::register_interest_rate_option_metrics(
-            &mut registry,
-        );
-        crate::instruments::credit_derivatives::cds_option::metrics::register_cds_option_metrics(&mut registry);
-        crate::instruments::rates::swaption::metrics::register_swaption_metrics(&mut registry);
-        crate::instruments::rates::xccy_swap::metrics::register_xccy_swap_metrics(&mut registry);
-
-        // Structured credit metrics (unified)
-        crate::instruments::fixed_income::structured_credit::metrics::register_structured_credit_metrics(
-            &mut registry,
-        );
-        crate::instruments::rates::repo::metrics::register_repo_metrics(&mut registry);
-        crate::instruments::fixed_income::term_loan::metrics::register_term_loan_metrics(&mut registry);
-        crate::instruments::fixed_income::revolving_credit::metrics::register_revolving_credit_metrics(
-            &mut registry,
-        );
-        crate::instruments::rates::basis_swap::metrics::register_basis_swap_metrics(&mut registry);
-        crate::instruments::equity::equity_trs::metrics::register_equity_trs_metrics(&mut registry);
-        crate::instruments::fixed_income::fi_trs::metrics::register_fi_trs_metrics(&mut registry);
-        crate::instruments::equity::variance_swap::metrics::register_variance_swap_metrics(&mut registry);
-        crate::instruments::equity::pe_fund::register_private_markets_fund_metrics(
-            &mut registry,
-        );
-        // Commodity instruments
-        crate::instruments::commodity::commodity_forward::metrics::register_commodity_forward_metrics(
-            &mut registry,
-        );
-        crate::instruments::commodity::commodity_swap::metrics::register_commodity_swap_metrics(&mut registry);
-        crate::instruments::commodity::commodity_option::metrics::register_commodity_option_metrics(
-            &mut registry,
-        );
-        crate::instruments::commodity::commodity_asian_option::metrics::register_commodity_asian_option_metrics(
-            &mut registry,
-        );
-        crate::instruments::commodity::commodity_swaption::metrics::register_commodity_swaption_metrics(
-            &mut registry,
-        );
-        crate::instruments::commodity::commodity_spread_option::metrics::register_commodity_spread_option_metrics(
-            &mut registry,
-        );
-        // FX instruments
         crate::instruments::fx::fx_forward::metrics::register_fx_forward_metrics(&mut registry);
         crate::instruments::fx::ndf::metrics::register_ndf_metrics(&mut registry);
-        crate::instruments::fx::fx_variance_swap::metrics::register_fx_variance_swap_metrics(
-            &mut registry,
-        );
-        // Exotic options
-        crate::instruments::fx::fx_barrier_option::metrics::register_fx_barrier_option_metrics(
-            &mut registry,
-        );
-        crate::instruments::fx::fx_digital_option::metrics::register_fx_digital_option_metrics(
-            &mut registry,
-        );
-        crate::instruments::fx::fx_touch_option::metrics::register_fx_touch_option_metrics(
-            &mut registry,
-        );
-        #[cfg(feature = "mc")]
-        crate::instruments::exotics::lookback_option::metrics::register_lookback_option_metrics(
-            &mut registry,
-        );
+        crate::instruments::fx::fx_option::metrics::register_fx_option_metrics(&mut registry);
+        crate::instruments::fx::fx_variance_swap::metrics::register_fx_variance_swap_metrics(&mut registry);
+        crate::instruments::fx::fx_barrier_option::metrics::register_fx_barrier_option_metrics(&mut registry);
+        crate::instruments::fx::fx_digital_option::metrics::register_fx_digital_option_metrics(&mut registry);
+        crate::instruments::fx::fx_touch_option::metrics::register_fx_touch_option_metrics(&mut registry);
+
+        // Commodity
+        crate::instruments::commodity::commodity_forward::metrics::register_commodity_forward_metrics(&mut registry);
+        crate::instruments::commodity::commodity_swap::metrics::register_commodity_swap_metrics(&mut registry);
+        crate::instruments::commodity::commodity_option::metrics::register_commodity_option_metrics(&mut registry);
+        crate::instruments::commodity::commodity_asian_option::metrics::register_commodity_asian_option_metrics(&mut registry);
+        crate::instruments::commodity::commodity_swaption::metrics::register_commodity_swaption_metrics(&mut registry);
+        crate::instruments::commodity::commodity_spread_option::metrics::register_commodity_spread_option_metrics(&mut registry);
+
+        // Exotic / MC-priced instruments
         #[cfg(feature = "mc")]
         {
+            crate::instruments::exotics::lookback_option::metrics::register_lookback_option_metrics(&mut registry);
             crate::instruments::exotics::asian_option::metrics::register_asian_option_metrics(&mut registry);
             crate::instruments::equity::autocallable::metrics::register_autocallable_metrics(&mut registry);
-            crate::instruments::exotics::barrier_option::metrics::register_barrier_option_metrics(
-                &mut registry,
-            );
-            crate::instruments::equity::cliquet_option::metrics::register_cliquet_option_metrics(
-                &mut registry,
-            );
-            crate::instruments::fx::quanto_option::metrics::register_quanto_option_metrics(
-                &mut registry,
-            );
-            crate::instruments::rates::range_accrual::metrics::register_range_accrual_metrics(
-                &mut registry,
-            );
+            crate::instruments::exotics::barrier_option::metrics::register_barrier_option_metrics(&mut registry);
+            crate::instruments::equity::cliquet_option::metrics::register_cliquet_option_metrics(&mut registry);
+            crate::instruments::fx::quanto_option::metrics::register_quanto_option_metrics(&mut registry);
+            crate::instruments::rates::range_accrual::metrics::register_range_accrual_metrics(&mut registry);
         }
-        crate::instruments::rates::cms_option::metrics::register_cms_option_metrics(&mut registry);
-        crate::instruments::rates::cms_swap::metrics::register_cms_swap_metrics(&mut registry);
-        crate::instruments::equity::dcf_equity::metrics::register_dcf_metrics(&mut registry);
-        crate::instruments::equity::vol_index_future::metrics::register_vol_index_future_metrics(
-            &mut registry,
-        );
-        crate::instruments::equity::vol_index_option::metrics::register_vol_index_option_metrics(
-            &mut registry,
-        );
-        crate::instruments::equity::equity_index_future::metrics::register_equity_index_future_metrics(
-            &mut registry,
-        );
-        crate::instruments::equity::real_estate::metrics::register_real_estate_metrics(&mut registry);
-        crate::instruments::equity::real_estate::metrics::register_levered_real_estate_metrics(
-            &mut registry,
-        );
+
         registry
     })
+}
+
+fn register_universal_metrics(registry: &mut MetricRegistry) {
+    registry.register_metric(MetricId::Theta, std::sync::Arc::new(GenericThetaAny), &[]);
+    registry.register_metric(
+        MetricId::ThetaCarry,
+        std::sync::Arc::new(GenericThetaDecomposed),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::ThetaRollDown,
+        std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaRollDown)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::ThetaDecay,
+        std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaDecay)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::HVAR,
+        std::sync::Arc::new(GenericHVar::new(VarConfig::var_95())),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::EXPECTED_SHORTFALL,
+        std::sync::Arc::new(GenericExpectedShortfall::new(VarConfig::var_95())),
+        &[],
+    );
+}
+
+fn register_credit_cs01_metrics(registry: &mut MetricRegistry) {
+    // BucketedCs01 (par-spread rebootstrap)
+    registry.register_metric(
+        MetricId::BucketedCs01,
+        std::sync::Arc::new(
+            GenericBucketedCs01::<crate::instruments::CreditDefaultSwap>::default(),
+        ),
+        &[crate::pricer::InstrumentType::CDS],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01,
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::credit_derivatives::cds_index::CDSIndex,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSIndex],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01,
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSTranche],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01,
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::credit_derivatives::cds_option::CDSOption,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSOption],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01,
+        std::sync::Arc::new(GenericBucketedCs01::<
+            crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
+        >::default()),
+        &[crate::pricer::InstrumentType::RevolvingCredit],
+    );
+
+    // Cs01Hazard (direct hazard-rate bump, parallel)
+    registry.register_metric(
+        MetricId::Cs01Hazard,
+        std::sync::Arc::new(GenericParallelCs01Hazard::<
+            crate::instruments::CreditDefaultSwap,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDS],
+    );
+    registry.register_metric(
+        MetricId::Cs01Hazard,
+        std::sync::Arc::new(GenericParallelCs01Hazard::<
+            crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSTranche],
+    );
+    registry.register_metric(
+        MetricId::Cs01Hazard,
+        std::sync::Arc::new(GenericParallelCs01Hazard::<
+            crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
+        >::default()),
+        &[crate::pricer::InstrumentType::RevolvingCredit],
+    );
+
+    // BucketedCs01Hazard (direct hazard-rate bump, bucketed)
+    registry.register_metric(
+        MetricId::BucketedCs01Hazard,
+        std::sync::Arc::new(GenericBucketedCs01Hazard::<
+            crate::instruments::CreditDefaultSwap,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDS],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01Hazard,
+        std::sync::Arc::new(GenericBucketedCs01Hazard::<
+            crate::instruments::credit_derivatives::cds_index::CDSIndex,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSIndex],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01Hazard,
+        std::sync::Arc::new(GenericBucketedCs01Hazard::<
+            crate::instruments::credit_derivatives::cds_tranche::CDSTranche,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSTranche],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01Hazard,
+        std::sync::Arc::new(GenericBucketedCs01Hazard::<
+            crate::instruments::credit_derivatives::cds_option::CDSOption,
+        >::default()),
+        &[crate::pricer::InstrumentType::CDSOption],
+    );
+    registry.register_metric(
+        MetricId::BucketedCs01Hazard,
+        std::sync::Arc::new(GenericBucketedCs01Hazard::<
+            crate::instruments::fixed_income::revolving_credit::RevolvingCredit,
+        >::default()),
+        &[crate::pricer::InstrumentType::RevolvingCredit],
+    );
 }

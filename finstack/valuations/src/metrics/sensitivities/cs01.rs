@@ -241,11 +241,11 @@ where
         false
     };
 
-    let mut series: Vec<(String, f64)> = Vec::new();
+    let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
     let mut total = 0.0;
 
     for t in bucket_times_years.into_iter() {
-        let label = format_bucket_label(t);
+        let label = super::config::format_bucket_label_cow(t);
 
         let bump_request_up = BumpRequest::Tenors(vec![(t, bump_bp)]);
         let bump_request_down = BumpRequest::Tenors(vec![(t, -bump_bp)]);
@@ -323,9 +323,6 @@ where
         |ctx| Ok(revalue_with_context(ctx)?.amount()),
     )
 }
-
-// Use shared bucket label formatter
-use super::config::format_bucket_label;
 
 // ===== Generic Calculators =====
 
@@ -550,11 +547,11 @@ where
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
-        let mut series: Vec<(String, f64)> = Vec::new();
+        let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
         let mut total = 0.0;
 
         for t in buckets {
-            let label = format_bucket_label(t);
+            let label = super::config::format_bucket_label_cow(t);
 
             let bumped_up =
                 bump_hazard_shift(hazard_ref, &BumpRequest::Tenors(vec![(t, bump_bp)]))?;

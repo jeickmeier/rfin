@@ -264,8 +264,8 @@ use finstack_core::Result;
 /// - "1Y", "2Y", etc. -> years (365 days each, approximate)
 ///
 /// # Examples
-/// ```
-/// # use finstack_valuations::metrics::parse_period_days;
+/// ```rust,ignore
+/// use finstack_valuations::metrics::sensitivities::theta::parse_period_days;
 /// assert_eq!(parse_period_days("1D").expect("should succeed"), 1);
 /// assert_eq!(parse_period_days("1W").expect("should succeed"), 7);
 /// assert_eq!(parse_period_days("1M").expect("should succeed"), 30);  // Approximate!

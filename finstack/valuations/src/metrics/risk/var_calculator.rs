@@ -7,7 +7,7 @@ use crate::instruments::common_impl::helpers::instrument_to_arc;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
-use crate::metrics::sensitivities::config::format_bucket_label;
+use crate::metrics::sensitivities::config::format_bucket_label_cow;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -484,17 +484,11 @@ fn calculate_var_taylor_approximation(
     let sensitivities = compute_taylor_sensitivities(instrument, base_market, as_of, base_value)?;
 
     let mut spot_cache: HashMap<String, f64> = HashMap::default();
-    let mut vol_cache: HashMap<String, f64> = HashMap::default();
     let mut pnls = Vec::with_capacity(history.len());
 
     for scenario in history.iter() {
-        let pnl_local = taylor_pnl_for_scenario(
-            &sensitivities,
-            base_market,
-            scenario,
-            &mut spot_cache,
-            &mut vol_cache,
-        );
+        let pnl_local =
+            taylor_pnl_for_scenario(&sensitivities, base_market, scenario, &mut spot_cache);
         pnls.push(convert_money_to_reporting(
             Money::new(pnl_local, sensitivities.currency),
             reporting_currency,
@@ -596,7 +590,6 @@ fn taylor_pnl_for_scenario(
     base_market: &MarketContext,
     scenario: &crate::metrics::risk::MarketScenario,
     spot_cache: &mut HashMap<String, f64>,
-    _vol_cache: &mut HashMap<String, f64>,
 ) -> f64 {
     let mut pnl = 0.0;
     let mut total_rate_shift_bp = 0.0;
@@ -612,10 +605,10 @@ fn taylor_pnl_for_scenario(
                 curve_id,
                 tenor_years,
             } => {
-                let bucket = format_bucket_label(*tenor_years);
+                let bucket = format_bucket_label_cow(*tenor_years);
                 let dv01 = sensitivities
                     .dv01
-                    .get(curve_id.as_str(), bucket.as_str())
+                    .get(curve_id.as_str(), bucket.as_ref())
                     .unwrap_or(sensitivities.parallel_dv01);
                 let shift_bp = shift.shift * 10_000.0;
                 pnl += dv01 * shift_bp;
@@ -626,10 +619,10 @@ fn taylor_pnl_for_scenario(
                 curve_id,
                 tenor_years,
             } => {
-                let bucket = format_bucket_label(*tenor_years);
+                let bucket = format_bucket_label_cow(*tenor_years);
                 let cs01 = sensitivities
                     .cs01
-                    .get(curve_id.as_str(), bucket.as_str())
+                    .get(curve_id.as_str(), bucket.as_ref())
                     .unwrap_or(sensitivities.parallel_cs01);
                 pnl += cs01 * shift.shift * 10_000.0;
             }
@@ -746,19 +739,12 @@ fn calculate_portfolio_var_taylor(
     )?;
 
     let mut spot_cache: HashMap<String, f64> = HashMap::default();
-    let mut vol_cache: HashMap<String, f64> = HashMap::default();
     let mut pnls = Vec::with_capacity(history.len());
 
     for scenario in history.iter() {
         let mut total = 0.0;
         for sens in &sensitivities {
-            let pnl_local = taylor_pnl_for_scenario(
-                sens,
-                base_market,
-                scenario,
-                &mut spot_cache,
-                &mut vol_cache,
-            );
+            let pnl_local = taylor_pnl_for_scenario(sens, base_market, scenario, &mut spot_cache);
             total += convert_money_to_reporting(
                 Money::new(pnl_local, sens.currency),
                 reporting_currency,
@@ -1110,7 +1096,6 @@ mod tests {
             &sensitivities,
             &base_market,
             &scenario,
-            &mut HashMap::default(),
             &mut HashMap::default(),
         );
 

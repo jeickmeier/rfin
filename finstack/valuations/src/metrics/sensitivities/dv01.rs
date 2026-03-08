@@ -410,10 +410,10 @@ where
         let as_of = context.as_of;
 
         let buckets = &self.config.buckets;
-        let mut series: Vec<(String, f64)> = Vec::new();
+        let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
 
         for (i, &target_time) in buckets.iter().enumerate() {
-            let label = format_bucket_label(target_time);
+            let label = super::config::format_bucket_label_cow(target_time);
 
             let prev_bucket = if i == 0 { 0.0 } else { buckets[i - 1] };
             let next_bucket = if i == buckets.len() - 1 {
@@ -452,9 +452,6 @@ where
         Ok(total)
     }
 }
-
-// Re-export for backward compatibility and convenience
-pub use super::config::format_bucket_label;
 
 /// Calculate DV01 from PV changes using central differencing (high-precision f64 version).
 ///

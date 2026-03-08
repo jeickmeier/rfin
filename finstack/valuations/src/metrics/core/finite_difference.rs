@@ -25,7 +25,8 @@ pub mod bump_sizes {
     /// Correlation bump: 1% (0.01)
     ///
     /// Used by correlation sensitivity calculators (e.g., quanto options).
-    #[allow(dead_code)]
+    /// Only exercised when the `mc` feature is active.
+    #[cfg_attr(not(feature = "mc"), allow(dead_code))]
     pub const CORRELATION: f64 = 0.01;
 }
 
@@ -135,28 +136,6 @@ pub fn bump_discount_curve_parallel(
         id: curve_id.clone(),
         spec: BumpSpec::parallel_bp(bump_bp),
     }])
-}
-
-/// Scale a volatility surface by a multiplicative factor.
-///
-/// This is useful for finite-difference style vega calculations where the bump is expressed
-/// as a multiplicative shock (e.g., "vol up 1%"). For market-standard vega definitions
-/// (absolute bump in vol points), prefer [`bump_surface_vol_absolute`].
-#[allow(dead_code)]
-pub fn scale_surface(
-    context: &finstack_core::market_data::context::MarketContext,
-    vol_surface_id: &str,
-    scale: f64,
-) -> finstack_core::Result<finstack_core::market_data::context::MarketContext> {
-    if !scale.is_finite() {
-        return Err(finstack_core::InputError::Invalid.into());
-    }
-    if (scale - 1.0).abs() < 1e-15 {
-        return Ok(context.clone());
-    }
-    let vol_surface = context.get_surface(vol_surface_id)?;
-    let bumped_surface = vol_surface.scaled(scale);
-    Ok(context.clone().insert_surface(bumped_surface))
 }
 
 /// Helper to bump a volatility surface by an **absolute** volatility amount (vol points).

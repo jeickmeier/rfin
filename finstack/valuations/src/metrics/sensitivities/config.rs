@@ -38,19 +38,25 @@ pub const STANDARD_BUCKET_LABELS: [&str; 11] = [
 /// ```
 #[inline]
 pub fn format_bucket_label(years: f64) -> String {
-    // Check if this matches a standard bucket (with small tolerance for floating point)
+    format_bucket_label_cow(years).into_owned()
+}
+
+/// Same as [`format_bucket_label`] but returns `Cow<'static, str>` to avoid
+/// allocation for the 11 standard buckets (the common case in DV01/CS01 loops).
+#[inline]
+pub(crate) fn format_bucket_label_cow(years: f64) -> std::borrow::Cow<'static, str> {
     for (i, &bucket_time) in STANDARD_BUCKETS_YEARS.iter().enumerate() {
         if (years - bucket_time).abs() < 0.01 {
-            return STANDARD_BUCKET_LABELS[i].to_string();
+            return std::borrow::Cow::Borrowed(STANDARD_BUCKET_LABELS[i]);
         }
     }
 
-    // Fall back to dynamic formatting for non-standard buckets
-    if years < 1.0 {
+    let s = if years < 1.0 {
         format!("{:.0}m", (years * 12.0).round())
     } else {
         format!("{:.0}y", years)
-    }
+    };
+    std::borrow::Cow::Owned(s)
 }
 
 /// Resolved (fully-populated) sensitivities configuration.

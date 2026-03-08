@@ -148,7 +148,9 @@ where
 
         let mut raw_matrix = Vec::new();
         let mut raw_total = 0.0;
-        let debug = std::env::var("DEBUG_BUCKETED_VEGA").is_ok();
+        static DEBUG_BUCKETED_VEGA: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        let debug =
+            *DEBUG_BUCKETED_VEGA.get_or_init(|| std::env::var("DEBUG_BUCKETED_VEGA").is_ok());
 
         let use_ratio_strikes = self.strikes.iter().all(|k| *k <= 10.0);
         let strike_grid: Vec<f64> = if use_ratio_strikes {
