@@ -198,7 +198,7 @@ fn test_delta_calculation() {
 
 #[test]
 fn test_num_contracts() {
-    let future = EquityIndexFuture::example();
+    let future = EquityIndexFuture::example().unwrap();
     // At price 4500: contracts = 2,250,000 / (4500 × 50) = 10
     assert_eq!(future.num_contracts(4500.0), 10.0);
 }
@@ -208,7 +208,7 @@ fn test_instrument_trait() {
     use finstack_valuations::instruments::Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
-    let future = EquityIndexFuture::example();
+    let future = EquityIndexFuture::example().unwrap();
 
     assert_eq!(future.id(), "ES-2025M03");
     assert_eq!(future.key(), InstrumentType::EquityIndexFuture);
@@ -218,7 +218,7 @@ fn test_instrument_trait() {
 fn test_curve_dependencies() {
     use finstack_valuations::instruments::CurveDependencies;
 
-    let future = EquityIndexFuture::example();
+    let future = EquityIndexFuture::example().unwrap();
     let deps = future.curve_dependencies().expect("curve_dependencies");
 
     assert_eq!(deps.discount_curves.len(), 1);
@@ -227,7 +227,7 @@ fn test_curve_dependencies() {
 
 #[test]
 fn test_serde_roundtrip() {
-    let future = EquityIndexFuture::example();
+    let future = EquityIndexFuture::example().unwrap();
     let json = serde_json::to_string(&future).expect("serialize");
     let recovered: EquityIndexFuture = serde_json::from_str(&json).expect("deserialize");
 

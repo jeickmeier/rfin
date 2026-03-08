@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_price_dollar_roll() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
 

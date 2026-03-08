@@ -17,7 +17,7 @@
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
 //!
-//! let facility = RevolvingCredit::example();
+//! let facility = RevolvingCredit::example().unwrap();
 //! let market = MarketContext::new();
 //! let as_of = date!(2025-01-01);
 //!

@@ -182,7 +182,7 @@ mod tests {
 
     #[test]
     fn test_create_assumed_pool() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         let as_of = Date::from_calendar_date(2027, Month::January, 15).expect("valid");
 
         let pool = create_assumed_pool(&tba, as_of).expect("should create pool");
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_price_tba() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         let as_of = Date::from_calendar_date(2027, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
 
@@ -206,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_tba_expired() {
-        let mut tba = AgencyTba::example();
+        let mut tba = AgencyTba::example().expect("AgencyTba example is valid");
         tba.settlement_year = 2026;
         tba.settlement_month = 1;
 

@@ -113,7 +113,7 @@ fn dataframe_exports_have_expected_columns() {
     let config = FinstackConfig::default();
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market).unwrap();
+        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 
     let df_pos = finstack_portfolio::dataframe::positions_to_dataframe(&valuation).unwrap();
     let df_ent = finstack_portfolio::dataframe::entities_to_dataframe(&valuation).unwrap();

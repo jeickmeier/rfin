@@ -34,7 +34,7 @@
 //! ```
 //! use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 //!
-//! let trs = FIIndexTotalReturnSwap::example();
+//! let trs = FIIndexTotalReturnSwap::example().unwrap();
 //! // let pv = trs.value(&market_context, as_of_date)?;
 //! ```
 //!

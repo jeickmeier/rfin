@@ -412,7 +412,7 @@ impl ConvertibleBond {
     /// Create a canonical example convertible bond for testing and documentation.
     ///
     /// Returns a 5-year convertible with fixed coupon and voluntary conversion.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use crate::cashflow::builder::specs::FixedCouponSpec;
         use crate::cashflow::builder::CouponType;
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
@@ -449,9 +449,6 @@ impl ConvertibleBond {
             .floating_coupon_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example convertible bond with valid constants should never fail")
-            })
     }
 
     /// Calculate parity ratio of this convertible bond

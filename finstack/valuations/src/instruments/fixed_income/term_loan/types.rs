@@ -24,7 +24,7 @@
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a simple example term loan
-//! let loan = TermLoan::example();
+//! let loan = TermLoan::example().unwrap();
 //!
 //! assert_eq!(loan.currency, Currency::USD);
 //! assert_eq!(loan.notional_limit, Money::new(10_000_000.0, Currency::USD));
@@ -295,11 +295,11 @@ impl TermLoan {
     /// use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
     /// use finstack_core::currency::Currency;
     ///
-    /// let loan = TermLoan::example();
+    /// let loan = TermLoan::example().unwrap();
     /// assert_eq!(loan.currency, Currency::USD);
     /// assert_eq!(loan.notional_limit.amount(), 10_000_000.0);
     /// ```
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::dates::BusinessDayConvention;
         use finstack_core::dates::StubKind;
         use time::macros::date;
@@ -327,9 +327,6 @@ impl TermLoan {
             .call_schedule_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example TermLoan with valid constants should never fail")
-            })
     }
 
     /// Resolve settlement date from `as_of` using business-day conventions when available.

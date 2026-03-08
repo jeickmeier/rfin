@@ -131,7 +131,7 @@ impl BarrierOption {
     /// Create a canonical example barrier option (up-and-out call).
     ///
     /// Note: Uses `use_gobet_miri = true` by default for realistic discrete monitoring.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         use time::macros::date;
@@ -155,9 +155,6 @@ impl BarrierOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example BarrierOption with valid constants should never fail")
-            })
     }
 
     /// Calculate the net present value using Monte Carlo.
@@ -254,7 +251,7 @@ mod tests {
     #[cfg(not(feature = "mc"))]
     #[test]
     fn value_rejects_discrete_mode_when_mc_disabled() {
-        let option = super::BarrierOption::example();
+        let option = super::BarrierOption::example().expect("BarrierOption example is valid");
         let market = finstack_core::market_data::context::MarketContext::new();
         let as_of = option.expiry;
         let err =
@@ -268,7 +265,7 @@ mod tests {
 
     #[test]
     fn expired_barrier_requires_observed_state() {
-        let mut option = super::BarrierOption::example();
+        let mut option = super::BarrierOption::example().expect("BarrierOption example is valid");
         option.use_gobet_miri = false;
         option.observed_barrier_breached = None;
         let market = MarketContext::new()

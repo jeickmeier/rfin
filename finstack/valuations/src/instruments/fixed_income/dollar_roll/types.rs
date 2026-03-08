@@ -131,7 +131,7 @@ pub struct DollarRoll {
 
 impl DollarRoll {
     /// Create a canonical example dollar roll for testing.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new("FN30-4.0-ROLL-0324-0424"))
             .agency(AgencyProgram::Fnma)
@@ -152,9 +152,6 @@ impl DollarRoll {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example dollar roll with valid constants should never fail")
-            })
     }
 
     /// Get the drop (price difference between front and back month).
@@ -286,14 +283,14 @@ mod tests {
 
     #[test]
     fn test_dollar_roll_example() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         assert_eq!(roll.agency, AgencyProgram::Fnma);
         assert!((roll.coupon - 0.04).abs() < 1e-10);
     }
 
     #[test]
     fn test_drop_calculation() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         let drop = roll.drop();
 
         // Front price 98.5 - back price 98.0 = 0.5
@@ -306,7 +303,7 @@ mod tests {
 
     #[test]
     fn test_leg_creation() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
 
         let front = roll.front_leg().expect("front leg construction");
         let back = roll.back_leg().expect("back leg construction");
@@ -319,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_settlement_days() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         let days = roll.settlement_days().expect("valid dates");
 
         // One month apart should be roughly 28-31 days

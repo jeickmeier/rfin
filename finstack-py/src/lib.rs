@@ -166,7 +166,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         }
     }
 
-    // Convenience re-exports for covenant forecasting at package root
+    // Convenience re-exports: covenant types from valuations, forecast functions from statements
     if let Ok(valuations_mod) = m.getattr("valuations") {
         if let Ok(val_mod) = valuations_mod.cast::<PyModule>() {
             if let Ok(cov_mod) = val_mod.getattr("covenants") {
@@ -179,10 +179,24 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
                     "SpringingCondition",
                     "CovenantForecastConfig",
                     "CovenantForecast",
-                    "forecast_covenant",
-                    "forecast_breaches",
                 ] {
                     if let Ok(value) = cov_mod.getattr(attr) {
+                        m.setattr(attr, &value)?;
+                    }
+                }
+            }
+        }
+    }
+    if let Ok(statements_mod) = m.getattr("statements") {
+        if let Ok(stmt_mod) = statements_mod.cast::<PyModule>() {
+            if let Ok(analysis_mod) = stmt_mod.getattr("analysis") {
+                let analysis_mod = analysis_mod.cast::<PyModule>()?;
+                for attr in [
+                    "forecast_covenant",
+                    "forecast_covenants",
+                    "forecast_breaches",
+                ] {
+                    if let Ok(value) = analysis_mod.getattr(attr) {
                         m.setattr(attr, &value)?;
                     }
                 }
@@ -224,6 +238,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "CovenantForecastConfig",
             "CovenantForecast",
             "forecast_covenant",
+            "forecast_covenants",
             "forecast_breaches",
             "FinstackError",
             "ConfigurationError",

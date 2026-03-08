@@ -231,7 +231,7 @@ mod term_loan_contract {
     fn example_term_loan_satisfies_contract() {
         // TermLoan only exposes example() constructor; use builder for production
         let as_of = d(2025, 1, 1);
-        let loan = TermLoan::example();
+        let loan = TermLoan::example().unwrap();
 
         verify_provider_contract(&loan, &minimal_market(), as_of);
     }

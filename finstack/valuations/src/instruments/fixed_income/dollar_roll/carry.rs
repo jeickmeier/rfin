@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn test_implied_financing_rate() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         let prepay_rate = 0.005;
 
         let result = implied_financing_rate(&roll, prepay_rate).expect("should calculate");
@@ -164,7 +164,7 @@ mod tests {
 
     #[test]
     fn test_implied_financing_zero_prepay() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
 
         let result = implied_financing_rate(&roll, 0.0).expect("should calculate");
         assert!(result.implied_rate > -0.20);
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_roll_specialness() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         let prepay_rate = 0.005;
         let repo_rate = 0.05;
 
@@ -203,7 +203,7 @@ mod tests {
 
     #[test]
     fn test_carry_round_trip_consistency() {
-        let roll = DollarRoll::example();
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
         let result = implied_financing_rate(&roll, 0.005).expect("ok");
 
         let be = break_even_drop(

@@ -93,8 +93,12 @@ pub enum InstrumentJson {
     InterestRateFuture(InterestRateFuture),
     /// Interest rate option (cap/floor)
     InterestRateOption(InterestRateOption),
+    /// Constant maturity swap (CMS) swap
+    CmsSwap(CmsSwap),
     /// Constant maturity swap (CMS) option
     CmsOption(CmsOption),
+    /// Interest rate future option
+    IrFutureOption(IrFutureOption),
     /// Money market deposit
     Deposit(Deposit),
     /// Repurchase agreement
@@ -144,6 +148,10 @@ pub enum InstrumentJson {
     Ndf(Ndf),
     /// Vanilla FX option
     FxOption(FxOption),
+    /// FX digital (binary) option
+    FxDigitalOption(FxDigitalOption),
+    /// FX touch/no-touch option
+    FxTouchOption(FxTouchOption),
     /// FX barrier option
     FxBarrierOption(FxBarrierOption),
     /// FX variance swap
@@ -154,6 +162,8 @@ pub enum InstrumentJson {
     // Commodity
     /// Commodity option
     CommodityOption(CommodityOption),
+    /// Commodity Asian option
+    CommodityAsianOption(CommodityAsianOption),
     /// Commodity forward
     CommodityForward(CommodityForward),
     /// Commodity swap
@@ -190,6 +200,8 @@ pub enum InstrumentJson {
     RealEstateAsset(RealEstateAsset),
     /// Levered real estate equity
     LeveredRealEstateEquity(Box<crate::instruments::equity::real_estate::LeveredRealEstateEquity>),
+    /// Discounted cash flow (DCF) valuation
+    DiscountedCashFlow(DiscountedCashFlow),
 }
 
 impl InstrumentJson {
@@ -230,7 +242,9 @@ impl InstrumentJson {
             InstrumentJson::Swaption(i) => Ok(Box::new(i)),
             InstrumentJson::InterestRateFuture(i) => Ok(Box::new(i)),
             InstrumentJson::InterestRateOption(i) => Ok(Box::new(i)),
+            InstrumentJson::CmsSwap(i) => Ok(Box::new(i)),
             InstrumentJson::CmsOption(i) => Ok(Box::new(i)),
+            InstrumentJson::IrFutureOption(i) => Ok(Box::new(i)),
 
             // Credit
             InstrumentJson::CreditDefaultSwap(i) => Ok(Box::new(i)),
@@ -253,12 +267,15 @@ impl InstrumentJson {
             InstrumentJson::FxForward(i) => Ok(Box::new(i)),
             InstrumentJson::Ndf(i) => Ok(Box::new(i)),
             InstrumentJson::FxOption(i) => Ok(Box::new(i)),
+            InstrumentJson::FxDigitalOption(i) => Ok(Box::new(i)),
+            InstrumentJson::FxTouchOption(i) => Ok(Box::new(i)),
             InstrumentJson::FxBarrierOption(i) => Ok(Box::new(i)),
             InstrumentJson::FxVarianceSwap(i) => Ok(Box::new(i)),
             InstrumentJson::QuantoOption(i) => Ok(Box::new(i)),
 
             // Commodity
             InstrumentJson::CommodityOption(i) => Ok(Box::new(i)),
+            InstrumentJson::CommodityAsianOption(i) => Ok(Box::new(i)),
             InstrumentJson::CommodityForward(i) => Ok(Box::new(i)),
             InstrumentJson::CommoditySwap(i) => Ok(Box::new(i)),
             InstrumentJson::CommoditySwaption(i) => Ok(Box::new(i)),
@@ -284,6 +301,7 @@ impl InstrumentJson {
             InstrumentJson::RealEstateAsset(i) => Ok(Box::new(i)),
             InstrumentJson::LeveredRealEstateEquity(i) => Ok(Box::new(*i)),
             InstrumentJson::RevolvingCredit(i) => Ok(Box::new(i)),
+            InstrumentJson::DiscountedCashFlow(i) => Ok(Box::new(i)),
         }
     }
 }
@@ -383,8 +401,14 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "interest_rate_option" => serde_json::from_str(&spec_str)
                 .map(Self::InterestRateOption)
                 .map_err(D::Error::custom),
+            "cms_swap" => serde_json::from_str(&spec_str)
+                .map(Self::CmsSwap)
+                .map_err(D::Error::custom),
             "cms_option" => serde_json::from_str(&spec_str)
                 .map(Self::CmsOption)
+                .map_err(D::Error::custom),
+            "ir_future_option" => serde_json::from_str(&spec_str)
+                .map(Self::IrFutureOption)
                 .map_err(D::Error::custom),
 
             // Credit
@@ -440,6 +464,12 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "fx_option" => serde_json::from_str(&spec_str)
                 .map(Self::FxOption)
                 .map_err(D::Error::custom),
+            "fx_digital_option" => serde_json::from_str(&spec_str)
+                .map(Self::FxDigitalOption)
+                .map_err(D::Error::custom),
+            "fx_touch_option" => serde_json::from_str(&spec_str)
+                .map(Self::FxTouchOption)
+                .map_err(D::Error::custom),
             "fx_barrier_option" => serde_json::from_str(&spec_str)
                 .map(Self::FxBarrierOption)
                 .map_err(D::Error::custom),
@@ -453,6 +483,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             // Commodity
             "commodity_option" => serde_json::from_str(&spec_str)
                 .map(Self::CommodityOption)
+                .map_err(D::Error::custom),
+            "commodity_asian_option" => serde_json::from_str(&spec_str)
+                .map(Self::CommodityAsianOption)
                 .map_err(D::Error::custom),
             "commodity_forward" => serde_json::from_str(&spec_str)
                 .map(Self::CommodityForward)
@@ -515,6 +548,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
             "revolving_credit" => serde_json::from_str(&spec_str)
                 .map(Self::RevolvingCredit)
                 .map_err(D::Error::custom),
+            "discounted_cash_flow" => serde_json::from_str(&spec_str)
+                .map(Self::DiscountedCashFlow)
+                .map_err(D::Error::custom),
 
             other => Err(D::Error::unknown_variant(
                 other,
@@ -544,7 +580,9 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "swaption",
                     "interest_rate_future",
                     "interest_rate_option",
+                    "cms_swap",
                     "cms_option",
+                    "ir_future_option",
                     // Credit
                     "credit_default_swap",
                     "cds_index",
@@ -564,11 +602,14 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "fx_forward",
                     "ndf",
                     "fx_option",
+                    "fx_digital_option",
+                    "fx_touch_option",
                     "fx_barrier_option",
                     "fx_variance_swap",
                     "quanto_option",
                     // Commodity
                     "commodity_option",
+                    "commodity_asian_option",
                     "commodity_forward",
                     "commodity_swap",
                     // Exotics
@@ -588,6 +629,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
                     "real_estate_asset",
                     "levered_real_estate_equity",
                     "revolving_credit",
+                    "discounted_cash_flow",
                 ],
             )),
         }
@@ -1256,7 +1298,7 @@ mod tests {
 
     #[test]
     fn test_cds_option_defaults_when_optional_fields_omitted() {
-        let option = CDSOption::example();
+        let option = CDSOption::example().expect("CDSOption example is valid");
         let mut json = serde_json::to_value(InstrumentJson::CDSOption(option))
             .expect("CDSOption JSON serialization should succeed");
         remove_spec_key(&mut json, "underlying_is_index");
@@ -1275,7 +1317,7 @@ mod tests {
 
     #[test]
     fn test_equity_option_default_discrete_dividends_when_omitted() {
-        let option = EquityOption::example();
+        let option = EquityOption::example().expect("EquityOption example is valid");
         let mut json = serde_json::to_value(InstrumentJson::EquityOption(option))
             .expect("EquityOption JSON serialization should succeed");
         remove_spec_key(&mut json, "discrete_dividends");
@@ -1317,22 +1359,27 @@ mod tests {
         "cds_tranche",
         "cliquet_option",
         "cms_option",
+        "cms_swap",
+        "commodity_asian_option",
         "commodity_forward",
         "commodity_option",
         "commodity_swap",
         "convertible_bond",
         "credit_default_swap",
         "deposit",
+        "discounted_cash_flow",
         "dollar_roll",
         "equity",
         "equity_index_future",
         "equity_option",
         "forward_rate_agreement",
         "fx_barrier_option",
+        "fx_digital_option",
         "fx_forward",
         "fx_option",
         "fx_spot",
         "fx_swap",
+        "fx_touch_option",
         "fx_variance_swap",
         "inflation_cap_floor",
         "inflation_linked_bond",
@@ -1340,6 +1387,7 @@ mod tests {
         "interest_rate_future",
         "interest_rate_option",
         "interest_rate_swap",
+        "ir_future_option",
         "lookback_option",
         "ndf",
         "private_markets_fund",

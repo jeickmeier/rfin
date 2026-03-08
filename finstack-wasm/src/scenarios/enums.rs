@@ -26,9 +26,9 @@ impl JsCurveKind {
 
     /// Forward rate curve.
     #[wasm_bindgen(getter)]
-    pub fn FORECAST() -> JsCurveKind {
+    pub fn FORWARD() -> JsCurveKind {
         JsCurveKind {
-            inner: CurveKind::Forecast,
+            inner: CurveKind::Forward,
         }
     }
 

@@ -17,7 +17,7 @@
 ```rust
 use finstack_valuations::instruments::fx::fx_option::FxOption;
 
-let option = FxOption::example();
+let option = FxOption::example().unwrap();
 let pv = option.value(&market_context, as_of_date)?;
 ```
 

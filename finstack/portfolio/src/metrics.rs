@@ -174,6 +174,7 @@ pub fn is_summable(metric_id: &str) -> bool {
 /// * `valuation` - Portfolio valuation containing per-position valuation results.
 /// * `base_ccy` - Portfolio base currency for aggregation.
 /// * `market` - Market context providing FX rates for zero-PV positions.
+/// * `as_of` - Valuation date used for FX rate lookups.
 ///
 /// # Returns
 ///
@@ -187,16 +188,16 @@ pub fn aggregate_metrics(
     valuation: &PortfolioValuation,
     base_ccy: Currency,
     market: &MarketContext,
+    as_of: finstack_core::dates::Date,
 ) -> Result<PortfolioMetrics> {
-    // Use parallel execution if feature is enabled
     #[cfg(feature = "parallel")]
     {
-        aggregate_metrics_parallel(valuation, base_ccy, market)
+        aggregate_metrics_parallel(valuation, base_ccy, market, as_of)
     }
 
     #[cfg(not(feature = "parallel"))]
     {
-        aggregate_metrics_serial(valuation, base_ccy, market)
+        aggregate_metrics_serial(valuation, base_ccy, market, as_of)
     }
 }
 
@@ -209,37 +210,33 @@ fn fx_rate_for_position(
     base_ccy: Currency,
     market: &MarketContext,
     as_of: finstack_core::dates::Date,
-) -> f64 {
+) -> Result<f64> {
     let native_ccy = position_value.value_native.currency();
 
-    // Same currency: no conversion needed
     if native_ccy == base_ccy {
-        return 1.0;
+        return Ok(1.0);
     }
 
-    // Try to derive from existing valuation (avoids extra market lookup)
     let native_amount = position_value.value_native.amount();
     if native_amount.abs() > 1e-12 {
         let base_amount = position_value.value_base.amount();
-        return base_amount / native_amount;
+        return Ok(base_amount / native_amount);
     }
 
-    // Fall back to FX matrix for zero-PV positions
-    if let Some(fx_matrix) = market.fx() {
-        let query = FxQuery::new(native_ccy, base_ccy, as_of);
-        if let Ok(rate_result) = fx_matrix.rate(query) {
-            return rate_result.rate;
-        }
-    }
-
-    // Last resort: log warning and return 1.0 (same-currency fallback)
-    tracing::warn!(
-        position_id = %position_value.position_id,
-        native_ccy = %native_ccy,
-        base_ccy = %base_ccy,
-        "Unable to determine FX rate for metric conversion; using 1.0"
-    );
-    1.0
+    let fx_matrix = market.fx().ok_or_else(|| {
+        crate::error::Error::MissingMarketData(
+            "FX matrix not available for metric FX conversion".to_string(),
+        )
+    })?;
+    let query = FxQuery::new(native_ccy, base_ccy, as_of);
+    let rate_result =
+        fx_matrix
+            .rate(query)
+            .map_err(|_| crate::error::Error::FxConversionFailed {
+                from: native_ccy,
+                to: base_ccy,
+            })?;
+    Ok(rate_result.rate)
 }
 
 fn scale_position_metric(metric_id: &str, value: f64, metric_scale: f64) -> f64 {
@@ -256,20 +253,10 @@ fn aggregate_metrics_serial(
     valuation: &PortfolioValuation,
     base_ccy: Currency,
     market: &MarketContext,
+    as_of: finstack_core::dates::Date,
 ) -> Result<PortfolioMetrics> {
-    use crate::types::EntityId;
+    let mut collected = Vec::new();
 
-    // Derive as_of from the first position's valuation, or fall back to today.
-    let as_of = derive_as_of(valuation);
-
-    let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
-
-    // Intermediate collection: metric_id -> (total_values, entity_id -> values)
-    // Collecting all values first allows proper compensated summation
-    let mut metric_values: IndexMap<String, Vec<f64>> = IndexMap::new();
-    let mut entity_values: IndexMap<String, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
-
-    // Phase 1: Collect metrics from each position
     for (position_id, position_value) in &valuation.position_values {
         if let Some(val_result) = &position_value.valuation_result {
             let metrics: IndexMap<String, f64> = val_result
@@ -281,75 +268,17 @@ fn aggregate_metrics_serial(
                     (metric_id, scaled)
                 })
                 .collect();
-            // Store native-currency metrics for per-position drill-down
-            by_position.insert(position_id.clone(), metrics.clone());
-
-            // FX rate for converting this position's metrics to base currency
-            let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of);
-
-            // Phase 2: Collect summable metrics (FX-converted) for later aggregation
-            for (metric_id, value) in metrics {
-                if is_summable(&metric_id) {
-                    // Skip non-finite values (NaN, Inf)
-                    if !value.is_finite() {
-                        tracing::warn!(
-                            metric_id = %metric_id,
-                            position_id = %position_id,
-                            value,
-                            "Skipping non-finite metric value"
-                        );
-                        continue;
-                    }
-
-                    let value_base = value * fx_rate;
-
-                    // Collect for total
-                    metric_values
-                        .entry(metric_id.clone())
-                        .or_default()
-                        .push(value_base);
-
-                    // Collect for entity
-                    entity_values
-                        .entry(metric_id)
-                        .or_default()
-                        .entry(position_value.entity_id.clone())
-                        .or_default()
-                        .push(value_base);
-                }
-            }
+            let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of)?;
+            collected.push(PositionMetricData {
+                position_id: position_id.clone(),
+                entity_id: position_value.entity_id.clone(),
+                metrics,
+                fx_rate,
+            });
         }
     }
 
-    // Phase 3: Apply compensated summation to collected values
-    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
-
-    for (metric_id, values) in metric_values {
-        // Apply neumaier_sum to all collected values at once
-        let total = neumaier_sum(values.into_iter());
-
-        let mut by_entity: IndexMap<EntityId, f64> = IndexMap::new();
-        if let Some(entity_map) = entity_values.get(&metric_id) {
-            for (entity_id, entity_vals) in entity_map {
-                let entity_total = neumaier_sum(entity_vals.iter().copied());
-                by_entity.insert(entity_id.clone(), entity_total);
-            }
-        }
-
-        aggregated.insert(
-            metric_id.clone(),
-            AggregatedMetric {
-                metric_id,
-                total,
-                by_entity,
-            },
-        );
-    }
-
-    Ok(PortfolioMetrics {
-        aggregated,
-        by_position,
-    })
+    Ok(aggregate_collected_metrics(collected))
 }
 
 /// Parallel implementation of metrics aggregation.
@@ -358,21 +287,17 @@ fn aggregate_metrics_parallel(
     valuation: &PortfolioValuation,
     base_ccy: Currency,
     market: &MarketContext,
+    as_of: finstack_core::dates::Date,
 ) -> Result<PortfolioMetrics> {
-    use crate::types::EntityId;
     use rayon::prelude::*;
 
-    let as_of = derive_as_of(valuation);
-
-    // Phase 1: Collect metrics from each position in parallel
-    // Convert to Vec for parallel iteration
     let position_entries: Vec<_> = valuation.position_values.iter().collect();
 
-    let position_metrics: Vec<_> = position_entries
+    let collected: Vec<PositionMetricData> = position_entries
         .par_iter()
         .filter_map(|(position_id, position_value)| {
             position_value.valuation_result.as_ref().map(|val_result| {
-                let measures: IndexMap<String, f64> = val_result
+                let metrics: IndexMap<String, f64> = val_result
                     .measures
                     .iter()
                     .map(|(id, v)| {
@@ -382,68 +307,71 @@ fn aggregate_metrics_parallel(
                         (metric_id, scaled)
                     })
                     .collect();
-                let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of);
-                (
-                    (*position_id).clone(),
-                    position_value.entity_id.clone(),
-                    measures,
+                let fx_rate = fx_rate_for_position(position_value, base_ccy, market, as_of)?;
+                Ok(PositionMetricData {
+                    position_id: (*position_id).clone(),
+                    entity_id: position_value.entity_id.clone(),
+                    metrics,
                     fx_rate,
-                )
+                })
             })
         })
-        .collect();
+        .collect::<Result<Vec<_>>>()?;
 
-    // Phase 2: Build by_position map and collect values for summable metrics
+    Ok(aggregate_collected_metrics(collected))
+}
+
+/// Collected per-position metric data ready for aggregation.
+struct PositionMetricData {
+    position_id: PositionId,
+    entity_id: EntityId,
+    metrics: IndexMap<String, f64>,
+    fx_rate: f64,
+}
+
+/// Aggregate collected position metric data into portfolio metrics.
+///
+/// This is the shared Phase 2+3 logic used by both serial and parallel implementations.
+fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioMetrics {
     let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
-
-    // Intermediate collection: metric_id -> (total_values, entity_id -> values)
-    // Collecting all values first allows proper compensated summation
     let mut metric_values: IndexMap<String, Vec<f64>> = IndexMap::new();
     let mut entity_values: IndexMap<String, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
 
-    for (position_id, entity_id, metrics, fx_rate) in position_metrics {
-        let position_id_clone = position_id.clone();
-        // Store native-currency metrics for per-position drill-down
-        by_position.insert(position_id, metrics.clone());
+    for data in &collected {
+        by_position.insert(data.position_id.clone(), data.metrics.clone());
 
-        // Collect summable metrics (FX-converted) for later aggregation
-        for (metric_id, value) in &metrics {
+        for (metric_id, value) in &data.metrics {
             if is_summable(metric_id) {
-                // Skip non-finite values (NaN, Inf)
                 if !value.is_finite() {
                     tracing::warn!(
                         metric_id = %metric_id,
-                        position_id = %position_id_clone,
+                        position_id = %data.position_id,
                         value,
                         "Skipping non-finite metric value"
                     );
                     continue;
                 }
 
-                let value_base = *value * fx_rate;
+                let value_base = *value * data.fx_rate;
 
-                // Collect for total
                 metric_values
                     .entry(metric_id.clone())
                     .or_default()
                     .push(value_base);
 
-                // Collect for entity
                 entity_values
                     .entry(metric_id.clone())
                     .or_default()
-                    .entry(entity_id.clone())
+                    .entry(data.entity_id.clone())
                     .or_default()
                     .push(value_base);
             }
         }
     }
 
-    // Phase 3: Apply compensated summation to collected values
     let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
 
     for (metric_id, values) in metric_values {
-        // Apply neumaier_sum to all collected values at once
         let total = neumaier_sum(values.into_iter());
 
         let mut by_entity: IndexMap<EntityId, f64> = IndexMap::new();
@@ -464,24 +392,10 @@ fn aggregate_metrics_parallel(
         );
     }
 
-    Ok(PortfolioMetrics {
+    PortfolioMetrics {
         aggregated,
         by_position,
-    })
-}
-
-/// Derive as_of date from the valuation results.
-///
-/// Looks at the first position's valuation result timestamp. Falls back
-/// to the current date if no positions have been valued.
-fn derive_as_of(valuation: &PortfolioValuation) -> finstack_core::dates::Date {
-    for pv in valuation.position_values.values() {
-        if let Some(ref vr) = pv.valuation_result {
-            return vr.as_of;
-        }
     }
-    // Safe fallback: use current date (only hit for empty portfolios)
-    time::OffsetDateTime::now_utc().date()
 }
 
 #[cfg(test)]
@@ -553,8 +467,8 @@ mod tests {
         let config = FinstackConfig::default();
 
         let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
-        let metrics =
-            aggregate_metrics(&valuation, Currency::USD, &market).expect("test should succeed");
+        let metrics = aggregate_metrics(&valuation, Currency::USD, &market, as_of)
+            .expect("test should succeed");
 
         // Should have position-level metrics
         assert_eq!(valuation.position_values.len(), 1);

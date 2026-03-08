@@ -113,7 +113,7 @@ pub struct Autocallable {
 
 impl Autocallable {
     /// Create a canonical example autocallable (quarterly observations, simple barriers/coupons).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         let observation_dates = vec![
@@ -144,9 +144,6 @@ impl Autocallable {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example Autocallable with valid constants should never fail")
-            })
     }
 }
 

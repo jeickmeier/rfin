@@ -23,7 +23,7 @@ CurveKind = finstack.scenarios.CurveKind
 def test_basic_enum() -> None:
     """Test basic enum functionality."""
     assert CurveKind.Discount == CurveKind.Discount
-    assert CurveKind.Discount != CurveKind.Forecast
+    assert CurveKind.Discount != CurveKind.Forward
 
 
 def test_operation_creation() -> None:

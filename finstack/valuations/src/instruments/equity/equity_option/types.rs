@@ -179,7 +179,7 @@ impl EquityOption {
     /// Create a canonical example equity option for testing and documentation.
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         let underlying = EquityUnderlyingParams::new("SPX", "EQUITY-SPOT", Currency::USD)
             .with_dividend_yield("EQUITY-DIVYIELD");
 
@@ -201,9 +201,6 @@ impl EquityOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example equity option with valid constants should never fail")
-            })
     }
 
     /// Create a European call option with standard conventions.

@@ -47,7 +47,7 @@
 //! use finstack_valuations::instruments::fixed_income::bond::Bond;
 //! use finstack_valuations::metrics::{MetricRegistry, MetricId};
 //!
-//! # let bond = Bond::example();
+//! # let bond = Bond::example().unwrap();
 //! // Register metrics and compute
 //! // V_call will be positive for callable bonds
 //! # Ok::<(), Box<dyn std::error::Error>>(())

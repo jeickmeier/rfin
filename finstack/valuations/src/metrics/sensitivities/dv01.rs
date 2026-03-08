@@ -30,7 +30,7 @@
 //! use finstack_valuations::instruments::{Bond, Instrument};
 //! use finstack_valuations::metrics::MetricId;
 //!
-//! let bond = Bond::example();
+//! let bond = Bond::example().unwrap();
 //! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01])?;
 //! // DV01 is in currency units per 1bp rate move
 //! ```

@@ -162,7 +162,7 @@ pub struct AgencyTba {
 
 impl AgencyTba {
     /// Create a canonical example TBA for testing and documentation.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new("FN30-4.0-202703"))
             .agency(AgencyProgram::Fnma)
@@ -180,7 +180,6 @@ impl AgencyTba {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .unwrap_or_else(|_| unreachable!("Example TBA with valid constants should never fail"))
     }
 
     /// Builder helper for settlement month.
@@ -310,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_tba_example() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         assert_eq!(tba.agency, AgencyProgram::Fnma);
         assert!((tba.coupon - 0.04).abs() < 1e-10);
         assert_eq!(tba.term, TbaTerm::ThirtyYear);
@@ -318,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_tba_identifier() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         let id = tba.tba_identifier();
         assert!(id.contains("FN30"));
         assert!(id.contains("4.0"));
@@ -326,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_trade_value() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         let value = tba.trade_value();
         // 10M at 98.5 = 9.85M
         assert!((value.amount() - 9_850_000.0).abs() < 1.0);
@@ -334,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_settlement_date() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         let settle = tba.get_settlement_date().expect("valid date");
         assert_eq!(settle.month(), Month::March);
         assert_eq!(settle.year(), 2027);

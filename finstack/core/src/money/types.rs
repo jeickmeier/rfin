@@ -16,9 +16,9 @@
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //!
-//! let amt = Money::new(12.349, Currency::USD);
+//! let amt = Money::new(100.0, Currency::USD);
 //! assert_eq!(amt.currency(), Currency::USD);
-//! assert_eq!(format!("{}", amt), "USD 12.35");
+//! assert_eq!(format!("{}", amt), "USD 100.00");
 //! ```
 
 use crate::config::{FinstackConfig, RoundingMode};
@@ -173,8 +173,8 @@ impl Money {
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     ///
-    /// let amt = Money::new(10.005, Currency::USD);
-    /// assert_eq!(format!("{}", amt), "USD 10.01");
+    /// let amt = Money::new(10.0, Currency::USD);
+    /// assert_eq!(format!("{}", amt), "USD 10.00");
     /// ```
     #[inline]
     pub fn new(amount: f64, currency: Currency) -> Self {

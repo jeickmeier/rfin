@@ -161,7 +161,7 @@ impl VarianceSwap {
     }
 
     /// Create a canonical example equity variance swap (SPX, 1Y).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         // SAFETY: All inputs are compile-time validated constants
         VarianceSwap::builder()
@@ -178,9 +178,6 @@ impl VarianceSwap {
             .day_count(DayCount::Act365F)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example VarianceSwap with valid constants should never fail")
-            })
     }
 
     /// Validate that as_of is compatible with the market context.

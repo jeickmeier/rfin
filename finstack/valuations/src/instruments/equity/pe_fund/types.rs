@@ -70,7 +70,7 @@ impl PrivateMarketsFund {
     }
 
     /// Create a canonical example private markets fund with a simple waterfall and events.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use super::waterfall::{WaterfallSpec, WaterfallStyle};
         use finstack_core::currency::Currency;
         // Build a simple European-style waterfall: Return of capital -> 8% pref -> 50% catchup -> 80/20 promote
@@ -80,10 +80,7 @@ impl PrivateMarketsFund {
             .preferred_irr(0.08)
             .catchup(0.5)
             .promote_tier(0.12, 0.8, 0.2)
-            .build()
-            .unwrap_or_else(|_| {
-                unreachable!("WaterfallSpec with valid constants should never fail")
-            });
+            .build()?;
         // Define a few cashflow events: contributions in year 1, proceeds in year 3, distribution in year 4
         let events = vec![
             super::waterfall::FundEvent::contribution(
@@ -104,13 +101,13 @@ impl PrivateMarketsFund {
                 Money::new(4_000_000.0, Currency::USD),
             ),
         ];
-        PrivateMarketsFund::new(
+        Ok(PrivateMarketsFund::new(
             InstrumentId::new("PMF-EXAMPLE"),
             Currency::USD,
             spec,
             events,
         )
-        .with_discount_curve("USD-OIS")
+        .with_discount_curve("USD-OIS"))
     }
     /// Set the discount curve for NAV present-value calculations.
     pub fn with_discount_curve(mut self, discount_curve_id: impl Into<CurveId>) -> Self {

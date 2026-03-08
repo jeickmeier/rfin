@@ -209,8 +209,8 @@ impl EquityFutureSpecs {
 ///     .id(InstrumentId::new("ES-2025M03"))
 ///     .underlying_ticker("SPX".to_string())
 ///     .notional(Money::new(2_250_000.0, Currency::USD))
-///     .expiry(Date::from_calendar_date(2025, Month::March, 21).unwrap())
-///     .last_trading_date(Date::from_calendar_date(2025, Month::March, 20).unwrap())
+///     .expiry(Date::from_calendar_date(2025, Month::March, 21).expect("EquityIndexFuture example is valid"))
+///     .last_trading_date(Date::from_calendar_date(2025, Month::March, 20).expect("EquityIndexFuture example is valid"))
 ///     .position(Position::Long)
 ///     .contract_specs(EquityFutureSpecs::sp500_emini())
 ///     .discount_curve_id(CurveId::new("USD-OIS"))
@@ -280,7 +280,7 @@ pub struct EquityIndexFuture {
 
 impl EquityIndexFuture {
     /// Create a canonical example E-mini S&P 500 future for testing and documentation.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         Self::builder()
             .id(InstrumentId::new("ES-2025M03"))
             .underlying_ticker("SPX".to_string())
@@ -295,9 +295,6 @@ impl EquityIndexFuture {
             .spot_id("SPX-SPOT".into())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example EquityIndexFuture with valid constants should never fail")
-            })
     }
 
     /// Create an E-mini S&P 500 future with common defaults.
@@ -692,7 +689,7 @@ mod tests {
 
     #[test]
     fn test_equity_index_future_example() {
-        let future = EquityIndexFuture::example();
+        let future = EquityIndexFuture::example().expect("EquityIndexFuture example is valid");
         assert_eq!(future.id.as_str(), "ES-2025M03");
         assert_eq!(future.underlying_ticker, "SPX");
         assert_eq!(future.notional.amount(), 2_250_000.0);
@@ -745,7 +742,7 @@ mod tests {
 
     #[test]
     fn test_position_sign() {
-        let mut future = EquityIndexFuture::example();
+        let mut future = EquityIndexFuture::example().expect("EquityIndexFuture example is valid");
         assert_eq!(future.position_sign(), 1.0);
 
         future.position = Position::Short;
@@ -754,7 +751,7 @@ mod tests {
 
     #[test]
     fn test_delta_calculation() {
-        let future = EquityIndexFuture::example();
+        let future = EquityIndexFuture::example().expect("EquityIndexFuture example is valid");
         // Long 10 ES contracts: delta = 50 × 10 × 1 = 500
         assert_eq!(future.delta(), 500.0);
 
@@ -766,14 +763,14 @@ mod tests {
 
     #[test]
     fn test_num_contracts() {
-        let future = EquityIndexFuture::example();
+        let future = EquityIndexFuture::example().expect("EquityIndexFuture example is valid");
         // At price 4500: contracts = 2,250,000 / (4500 × 50) = 10
         assert_eq!(future.num_contracts(4500.0), 10.0);
     }
 
     #[test]
     fn test_serde_round_trip() {
-        let future = EquityIndexFuture::example();
+        let future = EquityIndexFuture::example().expect("EquityIndexFuture example is valid");
         let json = serde_json::to_string(&future).expect("serialize");
         let recovered: EquityIndexFuture = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(future.id, recovered.id);

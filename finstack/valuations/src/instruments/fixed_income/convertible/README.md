@@ -28,7 +28,7 @@ use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 2)?;
-let cb = ConvertibleBond::example();
+let cb = ConvertibleBond::example().unwrap();
 let pv = cb.value(&market_context, as_of)?;
 ```
 

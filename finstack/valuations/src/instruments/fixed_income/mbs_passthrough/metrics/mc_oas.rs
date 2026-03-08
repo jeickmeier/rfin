@@ -281,7 +281,7 @@ fn price_on_path(
 ///     metrics::mc_oas::{calculate_mc_oas, McOasConfig},
 /// };
 ///
-/// let mbs = AgencyMbsPassthrough::example();
+/// let mbs = AgencyMbsPassthrough::example().unwrap();
 /// let config = McOasConfig { num_paths: 1024, ..Default::default() };
 /// let result = calculate_mc_oas(&mbs, 98.5, &market, as_of, &config)?;
 /// println!("MC OAS: {:.0} bps", result.oas * 10_000.0);

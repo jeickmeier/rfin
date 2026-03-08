@@ -57,7 +57,7 @@ fn test_fx_forward_builder_with_optional_fields() {
 
 #[test]
 fn test_fx_forward_example() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
 
     assert_eq!(forward.id.as_str(), "EURUSD-FWD-6M");
     assert_eq!(forward.base_currency, Currency::EUR);
@@ -98,7 +98,7 @@ fn test_fx_forward_from_trade_date() {
 
 #[test]
 fn test_fx_forward_instrument_trait() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
 
     assert_eq!(forward.id(), "EURUSD-FWD-6M");
     assert_eq!(forward.key(), InstrumentType::FxForward);
@@ -107,7 +107,7 @@ fn test_fx_forward_instrument_trait() {
 
 #[test]
 fn test_fx_forward_curve_dependencies() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
     let deps = forward.curve_dependencies().expect("curve_dependencies");
 
     assert_eq!(deps.discount_curves.len(), 2);
@@ -117,7 +117,7 @@ fn test_fx_forward_curve_dependencies() {
 
 #[test]
 fn test_fx_forward_required_discount_curves() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
     let curves = forward
         .market_dependencies()
         .expect("market_dependencies")
@@ -149,7 +149,7 @@ fn test_fx_forward_with_forward_points_builder() {
 
 #[test]
 fn test_fx_forward_clone() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
     let cloned = forward.clone();
 
     assert_eq!(forward.id.as_str(), cloned.id.as_str());

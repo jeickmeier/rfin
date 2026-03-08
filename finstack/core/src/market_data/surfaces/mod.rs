@@ -30,6 +30,13 @@ mod delta_vol_surface;
 pub mod fx_delta_vol_surface;
 mod vol_surface;
 
+#[inline]
+pub(crate) fn recover_fx_wing_vols(atm: f64, rr: f64, bf: f64) -> (f64, f64) {
+    let sigma_call = atm + bf + 0.5 * rr;
+    let sigma_put = atm + bf - 0.5 * rr;
+    (sigma_put, sigma_call)
+}
+
 // Re-export for ergonomic access (curated list)
 pub use delta_vol_surface::FxDeltaVolSurfaceBuilder;
 pub use fx_delta_vol_surface::FxDeltaVolSurface;

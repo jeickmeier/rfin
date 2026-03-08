@@ -10,7 +10,7 @@ use pyo3::types::PyModule;
 /// Parameters
 /// ----------
 /// None
-///     Use class attributes: ``CurveKind.Discount``, ``CurveKind.Forecast``, etc.
+///     Use class attributes: ``CurveKind.Discount``, ``CurveKind.Forward``, etc.
 ///
 /// Examples
 /// --------
@@ -43,8 +43,8 @@ impl PyCurveKind {
 
     #[classattr]
     #[allow(non_snake_case)]
-    fn Forecast() -> Self {
-        Self::new(CurveKind::Forecast)
+    fn Forward() -> Self {
+        Self::new(CurveKind::Forward)
     }
 
     #[classattr]
@@ -74,7 +74,7 @@ impl PyCurveKind {
     fn __repr__(&self) -> String {
         match self.inner {
             CurveKind::Discount => "CurveKind.Discount".to_string(),
-            CurveKind::Forecast => "CurveKind.Forecast".to_string(),
+            CurveKind::Forward => "CurveKind.Forward".to_string(),
             CurveKind::ParCDS => "CurveKind.ParCDS".to_string(),
             CurveKind::Inflation => "CurveKind.Inflation".to_string(),
             CurveKind::Commodity => "CurveKind.Commodity".to_string(),
@@ -85,7 +85,7 @@ impl PyCurveKind {
     fn __str__(&self) -> String {
         match self.inner {
             CurveKind::Discount => "Discount".to_string(),
-            CurveKind::Forecast => "Forecast".to_string(),
+            CurveKind::Forward => "Forward".to_string(),
             CurveKind::ParCDS => "ParCDS".to_string(),
             CurveKind::Inflation => "Inflation".to_string(),
             CurveKind::Commodity => "Commodity".to_string(),

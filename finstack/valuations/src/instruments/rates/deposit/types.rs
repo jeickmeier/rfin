@@ -108,7 +108,7 @@ impl Deposit {
     ///
     /// Returns a 6-month USD deposit with 4.5% quoted rate and standard
     /// T+2 spot settlement with ModifiedFollowing business day convention.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("DEP-USD-6M"))
@@ -122,9 +122,6 @@ impl Deposit {
             .spot_lag_days_opt(Some(2))
             .bdc(BusinessDayConvention::ModifiedFollowing)
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example deposit with valid constants should never fail")
-            })
     }
 
     /// Calculate the raw (unrounded) net present value of this deposit.

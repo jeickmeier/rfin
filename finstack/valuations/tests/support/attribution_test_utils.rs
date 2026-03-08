@@ -43,6 +43,10 @@ impl Instrument for TestInstrument {
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn attributes(&self) -> &Attributes {
         static ATTRS: OnceLock<Attributes> = OnceLock::new();
         ATTRS.get_or_init(Attributes::default)

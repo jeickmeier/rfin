@@ -34,7 +34,7 @@
 //! use finstack_valuations::instruments::exotics::{AsianOption, AveragingMethod};
 //!
 //! // Use the example Asian option (arithmetic average call)
-//! let asian = AsianOption::example();
+//! let asian = AsianOption::example().unwrap();
 //! ```
 //!
 //! Or build a custom option:

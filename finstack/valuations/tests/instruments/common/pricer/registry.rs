@@ -573,7 +573,7 @@ fn test_price_batch_preserves_order() {
         "USD-OIS",
     )
     .expect("Bond::fixed should succeed with valid parameters");
-    let deposit = Deposit::example();
+    let deposit = Deposit::example().unwrap();
     let bond_two = Bond::fixed(
         "BOND-ORDER-2",
         Money::new(500_000.0, Currency::USD),
@@ -618,7 +618,7 @@ fn test_price_batch_matches_serial_results() {
         "USD-OIS",
     )
     .expect("Bond::fixed should succeed with valid parameters");
-    let deposit = Deposit::example();
+    let deposit = Deposit::example().unwrap();
     let bond_two = Bond::fixed(
         "BOND-PAR-2",
         Money::new(500_000.0, Currency::USD),

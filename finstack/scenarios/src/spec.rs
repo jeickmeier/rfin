@@ -527,7 +527,8 @@ pub enum CurveKind {
     /// Discount factor curve.
     Discount,
     /// Forward rate curve.
-    Forecast,
+    #[serde(rename = "forward", alias = "forecast")]
+    Forward,
     /// Credit Par CDS curve (bumping spreads)
     #[serde(rename = "par_cds")]
     ParCDS,

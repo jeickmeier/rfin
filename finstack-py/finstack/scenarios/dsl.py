@@ -181,7 +181,7 @@ class DSLParser:
         # Map common names to CurveKind enum values
         curve_kinds = {
             "discount": CurveKind.Discount,
-            "forward": CurveKind.Forecast,  # 'forward' in DSL maps to Forecast curve kind
+            "forward": CurveKind.Forward,
             "hazard": CurveKind.ParCDS,
             "inflation": CurveKind.Inflation,
         }

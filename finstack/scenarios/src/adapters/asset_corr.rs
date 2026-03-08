@@ -48,17 +48,25 @@ impl ScenarioAdapter for AssetCorrAdapter {
         _ctx: &ExecutionContext,
     ) -> Result<Option<Vec<ScenarioEffect>>> {
         match op {
-            OperationSpec::AssetCorrelationPts { .. }
-            | OperationSpec::PrepayDefaultCorrelationPts { .. }
-            | OperationSpec::RecoveryCorrelationPts { .. }
-            | OperationSpec::PrepayFactorLoadingPts { .. } => {
-                // Currently returning warning as engine only holds generic instruments
-                Ok(Some(vec![ScenarioEffect::Warning(format!(
-                    "Correlation operation {:?} skipped: ExecutionContext does not support \
-                         typed StructuredCredit instruments. Use the standalone \
-                         apply_*_correlation_shock() functions directly.",
-                    op,
-                ))]))
+            OperationSpec::AssetCorrelationPts { delta_pts } => {
+                Ok(Some(vec![ScenarioEffect::AssetCorrelationShock {
+                    delta_pts: *delta_pts,
+                }]))
+            }
+            OperationSpec::PrepayDefaultCorrelationPts { delta_pts } => {
+                Ok(Some(vec![ScenarioEffect::PrepayDefaultCorrelationShock {
+                    delta_pts: *delta_pts,
+                }]))
+            }
+            OperationSpec::RecoveryCorrelationPts { delta_pts } => {
+                Ok(Some(vec![ScenarioEffect::RecoveryCorrelationShock {
+                    delta_pts: *delta_pts,
+                }]))
+            }
+            OperationSpec::PrepayFactorLoadingPts { delta_pts } => {
+                Ok(Some(vec![ScenarioEffect::PrepayFactorLoadingShock {
+                    delta_pts: *delta_pts,
+                }]))
             }
             _ => Ok(None),
         }

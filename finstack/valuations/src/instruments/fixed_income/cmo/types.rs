@@ -262,7 +262,7 @@ pub struct AgencyCmo {
 
 impl AgencyCmo {
     /// Create a canonical example CMO for testing.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
         // Create sequential structure: A (front), B (middle), Z (last)
         let tranches = vec![
@@ -288,11 +288,10 @@ impl AgencyCmo {
                     .with_meta("deal", "fnr-2024-1"),
             )
             .build()
-            .unwrap_or_else(|_| unreachable!("Example CMO with valid constants should never fail"))
     }
 
     /// Create an example PAC/Support structure.
-    pub fn example_pac_support() -> Self {
+    pub fn example_pac_support() -> finstack_core::Result<Self> {
         use time::macros::date;
         let tranches = vec![
             CmoTranche::pac(
@@ -316,13 +315,10 @@ impl AgencyCmo {
             .collateral_wam(360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example PAC/Support CMO with valid constants should never fail")
-            })
     }
 
     /// Create an example IO/PO strip structure.
-    pub fn example_io_po() -> Self {
+    pub fn example_io_po() -> finstack_core::Result<Self> {
         use time::macros::date;
         let tranches = vec![
             CmoTranche::io_strip("IO", Money::new(100_000_000.0, Currency::USD), 0.04),
@@ -340,9 +336,6 @@ impl AgencyCmo {
             .collateral_wam(360)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example IO/PO CMO with valid constants should never fail")
-            })
     }
 
     /// Get the reference tranche being valued.
@@ -396,14 +389,14 @@ mod tests {
 
     #[test]
     fn test_cmo_example() {
-        let cmo = AgencyCmo::example();
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
         assert_eq!(cmo.agency, AgencyProgram::Fnma);
         assert_eq!(cmo.waterfall.tranches.len(), 3);
     }
 
     #[test]
     fn test_tranche_types() {
-        let cmo = AgencyCmo::example();
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
 
         for tranche in &cmo.waterfall.tranches {
             assert_eq!(tranche.tranche_type, CmoTrancheType::Sequential);
@@ -412,7 +405,7 @@ mod tests {
 
     #[test]
     fn test_pac_support_structure() {
-        let cmo = AgencyCmo::example_pac_support();
+        let cmo = AgencyCmo::example_pac_support().expect("AgencyCmo PAC/support example is valid");
 
         let pac = cmo.waterfall.get_tranche("PAC").expect("PAC exists");
         assert_eq!(pac.tranche_type, CmoTrancheType::Pac);
@@ -424,7 +417,7 @@ mod tests {
 
     #[test]
     fn test_io_po_structure() {
-        let cmo = AgencyCmo::example_io_po();
+        let cmo = AgencyCmo::example_io_po().expect("AgencyCmo IO/PO example is valid");
 
         let io = cmo.waterfall.get_tranche("IO").expect("IO exists");
         assert_eq!(io.tranche_type, CmoTrancheType::InterestOnly);
@@ -439,7 +432,7 @@ mod tests {
 
     #[test]
     fn test_total_face() {
-        let cmo = AgencyCmo::example();
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
         let total = cmo.waterfall.total_current_face();
 
         // 40M + 30M + 30M = 100M
@@ -448,7 +441,7 @@ mod tests {
 
     #[test]
     fn test_reference_tranche() {
-        let cmo = AgencyCmo::example();
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
         let ref_tranche = cmo.reference_tranche().expect("ref exists");
 
         assert_eq!(ref_tranche.id, "A");

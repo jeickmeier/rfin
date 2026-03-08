@@ -125,7 +125,7 @@ fn test_aggregated_metrics_are_finite() {
 
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market).unwrap();
+        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 
     // Verify that all aggregated metrics are finite
     for (metric_id, agg_metric) in &metrics.aggregated {

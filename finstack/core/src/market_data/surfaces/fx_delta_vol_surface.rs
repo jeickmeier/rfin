@@ -36,7 +36,7 @@ use crate::{
     types::CurveId,
 };
 
-use super::{FxDeltaVolSurfaceBuilder, VolSurface};
+use super::{recover_fx_wing_vols, FxDeltaVolSurfaceBuilder, VolSurface};
 
 // ---------------------------------------------------------------------------
 // FxDeltaVolSurface
@@ -176,8 +176,7 @@ impl FxDeltaVolSurface {
         let atm = self.atm_vols[expiry_idx];
         let rr = self.rr_25d[expiry_idx];
         let bf = self.bf_25d[expiry_idx];
-        let sigma_call = atm + 0.5 * bf + 0.5 * rr;
-        let sigma_put = atm + 0.5 * bf - 0.5 * rr;
+        let (sigma_put, sigma_call) = recover_fx_wing_vols(atm, rr, bf);
         (atm, sigma_put, sigma_call)
     }
 
@@ -242,8 +241,7 @@ impl FxDeltaVolSurface {
         let bf = interp_linear_clamp(&self.expiries, &self.bf_25d, expiry);
 
         // Step 2: Recover wing vols.
-        let sigma_call = atm + 0.5 * bf + 0.5 * rr;
-        let sigma_put = atm + 0.5 * bf - 0.5 * rr;
+        let (sigma_put, sigma_call) = recover_fx_wing_vols(atm, rr, bf);
 
         // Step 3: Convert to strikes.
         let _ = r_d; // r_d not needed for forward delta convention
@@ -606,13 +604,10 @@ mod tests {
         let (atm, sigma_put, sigma_call) = surface.pillar_vols(0);
 
         assert!((atm - 0.08).abs() < 1e-12);
-        // sigma_call = ATM + 0.5*BF + 0.5*RR = 0.08 + 0.0025 + 0.005 = 0.0875
-        assert!(
-            (sigma_call - 0.0875).abs() < 1e-12,
-            "sigma_call={sigma_call}"
-        );
-        // sigma_put  = ATM + 0.5*BF - 0.5*RR = 0.08 + 0.0025 - 0.005 = 0.0775
-        assert!((sigma_put - 0.0775).abs() < 1e-12, "sigma_put={sigma_put}");
+        // sigma_call = ATM + BF + 0.5*RR = 0.08 + 0.005 + 0.005 = 0.09
+        assert!((sigma_call - 0.09).abs() < 1e-12, "sigma_call={sigma_call}");
+        // sigma_put  = ATM + BF - 0.5*RR = 0.08 + 0.005 - 0.005 = 0.08
+        assert!((sigma_put - 0.08).abs() < 1e-12, "sigma_put={sigma_put}");
     }
 
     // -- to_vol_surface produces valid VolSurface --------------------------

@@ -197,6 +197,15 @@ impl PortfolioMarginResult {
     /// * `fx_rate` - FX rate to convert from netting set currency to base currency
     ///   (e.g., if netting set is EUR and base is USD, rate is EUR/USD)
     pub fn add_netting_set_with_fx(&mut self, result: NettingSetMargin, fx_rate: f64) {
+        if !fx_rate.is_finite() || fx_rate <= 0.0 {
+            tracing::error!(
+                netting_set_id = ?result.netting_set_id,
+                fx_rate,
+                "Invalid FX rate for margin aggregation; must be positive and finite"
+            );
+            return;
+        }
+
         let im = result.initial_margin.amount() * fx_rate;
         let vm = result.variation_margin.amount() * fx_rate;
         let total = result.total_margin.amount() * fx_rate;

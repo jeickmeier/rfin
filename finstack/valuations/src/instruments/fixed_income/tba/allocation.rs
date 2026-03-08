@@ -181,7 +181,7 @@ mod tests {
 
     #[test]
     fn test_allocate_generic_pool() {
-        let tba = AgencyTba::example();
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
         let result = allocate_generic_pool(&tba).expect("should allocate");
 
         assert!(!result.is_specified);

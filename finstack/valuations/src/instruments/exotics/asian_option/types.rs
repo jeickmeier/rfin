@@ -116,7 +116,7 @@ pub struct AsianOption {
 
 impl AsianOption {
     /// Create a canonical example Asian option (arithmetic average).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         use time::macros::date;
@@ -145,9 +145,6 @@ impl AsianOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example AsianOption with valid constants should never fail")
-            })
     }
 
     /// Calculate the net present value of this Asian option using Monte Carlo.
@@ -272,7 +269,7 @@ mod tests {
             Date::from_calendar_date(2024, Month::March, 1).expect("valid date"),
         ];
 
-        let mut asian = AsianOption::example();
+        let mut asian = AsianOption::example().expect("AsianOption example is valid");
         asian.fixing_dates = fixings.clone();
 
         // No history

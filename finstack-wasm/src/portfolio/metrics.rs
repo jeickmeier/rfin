@@ -283,7 +283,8 @@ pub fn js_aggregate_metrics(
     let currency: finstack_core::currency::Currency = base_ccy
         .parse()
         .map_err(|_| JsValue::from_str(&format!("Invalid currency: {}", base_ccy)))?;
-    finstack_portfolio::aggregate_metrics(&valuation.inner, currency, market_context.inner())
+    let as_of = valuation.inner.as_of;
+    finstack_portfolio::aggregate_metrics(&valuation.inner, currency, market_context.inner(), as_of)
         .map(JsPortfolioMetrics::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }

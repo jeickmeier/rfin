@@ -19,7 +19,7 @@
 ```rust
 use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 
-let trs = EquityTotalReturnSwap::example();
+let trs = EquityTotalReturnSwap::example().unwrap();
 let pv = trs.value(&market_context, as_of_date)?;
 ```
 

@@ -1,10 +1,9 @@
 use crate::statements::evaluator::JsStatementResult;
 use crate::statements::types::JsFinancialModelSpec;
-use finstack_core::dates::{Date, PeriodId};
+use finstack_core::dates::PeriodId;
 use finstack_valuations::covenants::{
     Covenant, CovenantForecastConfig as ValCovForecastConfig, CovenantSpec, CovenantType,
-    GenericCovenantForecast as ValCovForecast, McConfig as ValMcConfig, ModelTimeSeries,
-    ThresholdTest,
+    GenericCovenantForecast as ValCovForecast, ThresholdTest,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -119,13 +118,12 @@ impl JsCovenantForecastConfig {
         seed: Option<u64>,
         antithetic: bool,
     ) -> JsCovenantForecastConfig {
-        let mc = antithetic.then_some(ValMcConfig { antithetic: true });
         let cfg = ValCovForecastConfig {
             stochastic,
             num_paths,
             volatility,
             random_seed: seed,
-            mc,
+            antithetic,
             reference_date: None,
         };
         JsCovenantForecastConfig { inner: cfg }
@@ -182,34 +180,6 @@ impl JsCovenantForecast {
     }
 }
 
-struct StatementsAdapter<'a> {
-    model: &'a finstack_statements::types::FinancialModelSpec,
-    results: &'a finstack_statements::evaluator::StatementResult,
-}
-
-impl<'a> StatementsAdapter<'a> {
-    fn new(
-        model: &'a finstack_statements::types::FinancialModelSpec,
-        results: &'a finstack_statements::evaluator::StatementResult,
-    ) -> Self {
-        Self { model, results }
-    }
-}
-
-impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
-    fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64> {
-        self.results.get(node_id, period)
-    }
-    fn period_end_date(&self, period: &PeriodId) -> Date {
-        for p in &self.model.periods {
-            if p.id == *period {
-                return p.end;
-            }
-        }
-        Date::from_calendar_date(period.year, time::Month::December, 31).unwrap_or(Date::MIN)
-    }
-}
-
 #[wasm_bindgen(js_name = forecastCovenant)]
 pub fn forecast_covenant(
     spec: &JsCovenantSpec,
@@ -218,7 +188,6 @@ pub fn forecast_covenant(
     periods: js_sys::Array,
     config: Option<JsCovenantForecastConfig>,
 ) -> Result<JsCovenantForecast, JsValue> {
-    let adapter = StatementsAdapter::new(&model.inner, &base_case.inner);
     let mut ps: Vec<PeriodId> = Vec::with_capacity(periods.length() as usize);
     for v in periods.iter() {
         let s = v
@@ -229,7 +198,13 @@ pub fn forecast_covenant(
         ps.push(pid);
     }
     let cfg = config.map(|c| c.inner).unwrap_or_default();
-    finstack_valuations::covenants::forecast_covenant_generic(&spec.inner, &adapter, &ps, cfg)
-        .map(|inner| JsCovenantForecast { inner })
-        .map_err(|e| JsValue::from_str(&e.to_string()))
+    finstack_statements::analysis::covenants::forecast_covenant(
+        &spec.inner,
+        &model.inner,
+        &base_case.inner,
+        &ps,
+        cfg,
+    )
+    .map(|inner| JsCovenantForecast { inner })
+    .map_err(|e| JsValue::from_str(&e.to_string()))
 }

@@ -138,7 +138,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for LookbackOpti
 
 impl LookbackOption {
     /// Create a canonical example lookback option (fixed strike call).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         use time::macros::date;
@@ -160,9 +160,6 @@ impl LookbackOption {
             .observed_max_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example LookbackOption with valid constants should never fail")
-            })
     }
     /// Calculate the net present value using Monte Carlo.
     #[cfg(feature = "mc")]

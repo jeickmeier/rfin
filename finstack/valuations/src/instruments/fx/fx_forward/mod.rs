@@ -44,7 +44,7 @@
 //! use finstack_core::currency::Currency;
 //!
 //! // Create a EUR/USD forward
-//! let forward = FxForward::example();
+//! let forward = FxForward::example().unwrap();
 //! assert_eq!(forward.base_currency, Currency::EUR);
 //! assert_eq!(forward.quote_currency, Currency::USD);
 //! ```

@@ -197,7 +197,9 @@ fn test_position_from_spec_preserves_book_tags_and_meta() {
         position_id: "POS_001".into(),
         entity_id: "ENTITY_A".into(),
         instrument_id: "BOND_EXAMPLE".to_string(),
-        instrument_spec: Some(InstrumentJson::Bond(Bond::example())),
+        instrument_spec: Some(InstrumentJson::Bond(
+            Bond::example().expect("valid bond example"),
+        )),
         quantity: 1.0,
         unit: PositionUnit::Units,
         book_id: Some(BookId::new("ig")),
@@ -234,7 +236,9 @@ fn test_portfolio_from_spec_preserves_position_metadata() {
             position_id: "POS_001".into(),
             entity_id: "ENTITY_A".into(),
             instrument_id: "BOND_EXAMPLE".to_string(),
-            instrument_spec: Some(InstrumentJson::Bond(Bond::example())),
+            instrument_spec: Some(InstrumentJson::Bond(
+                Bond::example().expect("valid bond example"),
+            )),
             quantity: 1.0,
             unit: PositionUnit::Units,
             book_id: Some(BookId::new("ig")),

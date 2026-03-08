@@ -17,7 +17,7 @@
 ```rust
 use finstack_valuations::instruments::rates::ir_future::InterestRateFuture;
 
-let fut = InterestRateFuture::example();
+let fut = InterestRateFuture::example().unwrap();
 let pv = fut.value(&market_context, as_of_date)?;
 ```
 

@@ -50,6 +50,10 @@ impl Instrument for FixedMetricInstrument {
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn attributes(&self) -> &Attributes {
         &self.attributes
     }
@@ -118,7 +122,7 @@ fn summable_vs_non_summable_metrics() {
     let config = FinstackConfig::default();
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market).unwrap();
+        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 
     // Position should have some metrics recorded (may be empty depending on measure availability)
     assert!(metrics.get_position_metrics("POS_1").is_some());
@@ -175,7 +179,7 @@ fn summable_metrics_scale_with_quantity_and_short_sign() {
     let config = FinstackConfig::default();
     let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
     let metrics =
-        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market).unwrap();
+        finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 
     let long_metrics = metrics.get_position_metrics("LONG").unwrap();
     let short_metrics = metrics.get_position_metrics("SHORT").unwrap();

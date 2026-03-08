@@ -188,7 +188,7 @@ pub struct Basket {
 impl Basket {
     // Builder provided by derive
     /// Create a canonical example basket with two market data constituents.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         let constituents = vec![
             BasketConstituent {
@@ -222,13 +222,10 @@ impl Basket {
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example Basket with valid constants should never fail")
-            })
     }
 
     /// Create an example basket with instrument-backed constituents.
-    pub fn example_with_instruments() -> Self {
+    pub fn example_with_instruments() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::money::Money;
         use time::macros::date;
@@ -241,8 +238,7 @@ impl Basket {
             date!(2024 - 01 - 01),
             date!(2034 - 01 - 01),
             "USD-OIS",
-        )
-        .unwrap_or_else(|_| unreachable!("Example bond with valid constants should never fail"));
+        )?;
 
         let constituents = vec![
             BasketConstituent {
@@ -276,9 +272,6 @@ impl Basket {
             .attributes(Attributes::new())
             .pricing_config(BasketPricingConfig::default())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example Basket with valid constants should never fail")
-            })
     }
 
     /// Create a new basket with custom pricing configuration.

@@ -2,24 +2,9 @@
 
 use crate::dates::calendar::registry::CalendarRegistry;
 use crate::dates::calendar::types::Calendar;
-use crate::dates::{adjust, BusinessDayConvention, Date, HolidayCalendar};
+use crate::dates::{adjust, BusinessDayConvention, CompositeCalendar, Date, HolidayCalendar};
 use crate::{Error, Result};
 use time::Duration;
-
-/// Maximum number of joint calendar adjustment iterations.
-///
-/// When adjusting a date across two calendars, we alternate between adjusting on
-/// the base calendar and the quote calendar until convergence. In practice, this
-/// converges within 2-3 iterations. The limit of 5 provides safety margin for
-/// unusual calendar combinations where holidays cluster together.
-///
-/// # Rationale
-///
-/// Consider a date that falls on a holiday in calendar A, but the adjusted date
-/// lands on a holiday in calendar B, and so on. This is rare but possible when
-/// calendars have adjacent or overlapping holiday patterns (e.g., New Year period
-/// across multiple regions).
-const JOINT_CALENDAR_MAX_ITERATIONS: usize = 5;
 
 fn weekends_only() -> Calendar {
     Calendar::new("weekends_only", "Weekends Only", true, &[])
@@ -91,10 +76,20 @@ impl CalendarWrapper {
     }
 }
 
+fn with_joint_calendar<R>(
+    base: &dyn HolidayCalendar,
+    quote: &dyn HolidayCalendar,
+    f: impl FnOnce(&CompositeCalendar<'_>) -> R,
+) -> R {
+    let calendars = [base, quote];
+    let joint = CompositeCalendar::new(&calendars);
+    f(&joint)
+}
+
 /// Adjust a date so it is a business day for both base and quote calendars.
 ///
-/// Applies the business day convention sequentially on the base and quote
-/// calendars until the date stabilizes or a small iteration limit is reached.
+/// Applies the business day convention on the true union calendar, where a day
+/// is a holiday if either currency market is closed.
 ///
 /// # Errors
 ///
@@ -110,22 +105,11 @@ pub fn adjust_joint_calendar(
     let base_cal = resolve_calendar(base_cal_id)?;
     let quote_cal = resolve_calendar(quote_cal_id)?;
 
-    let mut d = date;
-    for _ in 0..JOINT_CALENDAR_MAX_ITERATIONS {
-        let adj_base = adjust(d, bdc, base_cal.as_holiday_calendar())?;
-        let adj_quote = adjust(adj_base, bdc, quote_cal.as_holiday_calendar())?;
-        if adj_quote == d {
-            return Ok(adj_quote);
-        }
-        d = adj_quote;
-    }
-    Err(Error::Input(
-        crate::error::InputError::JointCalendarNonConvergent {
-            date,
-            convention: bdc,
-            max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
-        },
-    ))
+    with_joint_calendar(
+        base_cal.as_holiday_calendar(),
+        quote_cal.as_holiday_calendar(),
+        |joint_calendar| adjust(date, bdc, joint_calendar),
+    )
 }
 
 /// Add N business days on a joint calendar.
@@ -364,22 +348,11 @@ impl ResolvedCalendarPair {
     ///
     /// The adjusted date that is a business day on both calendars.
     pub fn adjust_joint_calendar(&self, date: Date, bdc: BusinessDayConvention) -> Result<Date> {
-        let mut d = date;
-        for _ in 0..JOINT_CALENDAR_MAX_ITERATIONS {
-            let adj_base = adjust(d, bdc, self.base.as_holiday_calendar())?;
-            let adj_quote = adjust(adj_base, bdc, self.quote.as_holiday_calendar())?;
-            if adj_quote == d {
-                return Ok(adj_quote);
-            }
-            d = adj_quote;
-        }
-        Err(Error::Input(
-            crate::error::InputError::JointCalendarNonConvergent {
-                date,
-                convention: bdc,
-                max_iterations: JOINT_CALENDAR_MAX_ITERATIONS as u32,
-            },
-        ))
+        with_joint_calendar(
+            self.base.as_holiday_calendar(),
+            self.quote.as_holiday_calendar(),
+            |joint_calendar| adjust(date, bdc, joint_calendar),
+        )
     }
 }
 
@@ -390,6 +363,24 @@ mod tests {
     use super::*;
     use crate::dates::create_date;
     use time::Month;
+
+    struct Jan29Holiday;
+    struct Jan30And31Holidays;
+
+    impl HolidayCalendar for Jan29Holiday {
+        fn is_holiday(&self, date: Date) -> bool {
+            date.year() == 2025 && date.month() == Month::January && date.day() == 29
+        }
+    }
+
+    impl HolidayCalendar for Jan30And31Holidays {
+        fn is_holiday(&self, date: Date) -> bool {
+            date.year() == 2025 && date.month() == Month::January && matches!(date.day(), 30 | 31)
+        }
+    }
+
+    static JAN_29_HOLIDAY: Jan29Holiday = Jan29Holiday;
+    static JAN_30_AND_31_HOLIDAYS: Jan30And31Holidays = Jan30And31Holidays;
 
     #[test]
     fn test_add_joint_business_days_no_holidays() {
@@ -605,5 +596,24 @@ mod tests {
         );
 
         assert!(result.is_err(), "Unknown calendar should error");
+    }
+
+    #[test]
+    fn test_adjust_joint_calendar_uses_union_calendar_modified_following() {
+        let pair = ResolvedCalendarPair {
+            base: CalendarWrapper::Borrowed(&JAN_29_HOLIDAY),
+            quote: CalendarWrapper::Borrowed(&JAN_30_AND_31_HOLIDAYS),
+        };
+
+        let date = create_date(2025, Month::January, 29).unwrap();
+        let adjusted = pair
+            .adjust_joint_calendar(date, BusinessDayConvention::ModifiedFollowing)
+            .expect("Union calendar adjustment should succeed");
+
+        let expected = create_date(2025, Month::January, 28).unwrap();
+        assert_eq!(
+            adjusted, expected,
+            "ModifiedFollowing must be evaluated on the joint calendar, not sequentially"
+        );
     }
 }

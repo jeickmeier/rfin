@@ -164,7 +164,7 @@ class ScenarioBuilder:
         ScenarioBuilder
             Self for method chaining.
         """
-        return self.shift_curve(curve_id, bp_shift, CurveKind.Forecast)
+        return self.shift_curve(curve_id, bp_shift, CurveKind.Forward)
 
     def shift_hazard_curve(self, curve_id: str, bp_shift: float) -> ScenarioBuilder:
         """Add a hazard/credit curve parallel shift.

@@ -297,6 +297,10 @@ mod tests {
             self
         }
 
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
+
         fn value(&self, _market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
             Ok(Money::new(123.45, Currency::USD))
         }

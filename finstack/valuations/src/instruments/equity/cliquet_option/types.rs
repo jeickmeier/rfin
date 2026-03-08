@@ -75,7 +75,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CliquetOptio
 
 impl CliquetOption {
     /// Create a canonical example cliquet option (quarterly resets with local/global caps).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::dates::DayCount;
         let reset_dates = vec![
@@ -102,9 +102,6 @@ impl CliquetOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example CliquetOption with valid constants should never fail")
-            })
     }
 }
 

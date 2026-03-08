@@ -1,9 +1,9 @@
-//! Forward rate curves for floating-rate indices.
+//! Forward rate curves for simple term floating-rate indices.
 //!
-//! A forward curve represents expected future interest rates for a specific
-//! index (e.g., 3-month SOFR, 6-month EURIBOR). These curves are essential
-//! for pricing floating-rate instruments and calculating forward-looking
-//! cash flows in swaps and floating-rate notes.
+//! A forward curve represents expected future simple rates for a specific
+//! tenor-index projection (e.g., 3-month SOFR term, 6-month EURIBOR). These
+//! curves are essential for pricing floating-rate instruments and calculating
+//! forward-looking cash flows in swaps and floating-rate notes.
 //!
 //! # Financial Concept
 //!
@@ -26,11 +26,10 @@
 //!
 //! # Index Conventions
 //!
-//! Each index has specific conventions:
-//! - **SOFR**: Daily compounded in arrears, Act/360
-//! - **EURIBOR**: Simple rate, Act/360, 2-day spot lag
-//! - **SONIA**: Daily compounded in arrears, Act/365F
-//! - **TIBOR**: Simple rate, Act/365F
+//! This type stores simple tenor forwards plus day-count/reset-lag metadata.
+//! It does **not** model overnight compounded-in-arrears fixings, observation
+//! shifts, or lookbacks. Use it for term indices or already-compounded term
+//! projections. Overnight RFR instruments need a separate compounding model.
 //!
 //! # Use Cases
 //!
@@ -67,7 +66,10 @@
 //!   Know About Multiple Interest Rate Curve Bootstrapping but Were Afraid to Ask."
 //!   SSRN Working Paper.
 
-use super::common::{build_interp_allow_any_values, roll_knots, split_points, triangular_weight};
+use super::common::{
+    build_interp_allow_any_values, infer_forward_curve_defaults, roll_knots, split_points,
+    triangular_weight,
+};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -77,11 +79,11 @@ use crate::{
     types::CurveId,
 };
 
-/// Forward rate curve for a floating-rate index with fixed tenor.
+/// Forward rate curve for a simple floating-rate index with fixed tenor.
 ///
-/// Represents expected future interest rates for a specific index (e.g., 3-month
-/// SOFR, 6-month EURIBOR). Stores simple forward rates at knot times and
-/// interpolates between them.
+/// Represents expected future simple rates for a specific tenor-index projection
+/// (e.g., 3-month SOFR term, 6-month EURIBOR). Stores simple forward rates at
+/// knot times and interpolates between them.
 ///
 /// # Index Components
 ///
@@ -97,7 +99,7 @@ use crate::{
 pub struct ForwardCurve {
     id: CurveId,
     base: Date,
-    /// Calendar days from fixing to spot.
+    /// Business days from fixing to spot using positive T-minus semantics.
     reset_lag: i32,
     /// Day-count basis used for accrual.
     day_count: DayCount,
@@ -118,7 +120,7 @@ struct RawForwardCurve {
     common_id: super::common::StateId,
     /// Base date
     pub base: Date,
-    /// Reset lag in calendar days
+    /// Reset lag in business days
     pub reset_lag: i32,
     /// Day count convention
     pub day_count: DayCount,
@@ -174,17 +176,20 @@ impl TryFrom<RawForwardCurve> for ForwardCurve {
 impl ForwardCurve {
     /// Start building a forward curve for `id` with tenor `tenor_years`.
     ///
-    /// **Defaults:** Linear interpolation with FlatForward extrapolation maintains
-    /// stable tail forward rates consistent with market practice.
+    /// **Defaults:** The builder infers day-count and reset-lag conventions from
+    /// the curve ID when possible, then uses Linear interpolation with FlatForward
+    /// extrapolation.
     pub fn builder(id: impl Into<CurveId>, tenor_years: f64) -> ForwardCurveBuilder {
+        let id: CurveId = id.into();
+        let defaults = infer_forward_curve_defaults(id.as_str());
         // Epoch date - unwrap_or provides defensive fallback for infallible operation
         let base =
             Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         ForwardCurveBuilder {
-            id: id.into(),
+            id,
             base,
-            reset_lag: 2,
-            day_count: DayCount::Act360,
+            reset_lag: defaults.reset_lag_business_days,
+            day_count: defaults.day_count,
             tenor: tenor_years,
             points: Vec::new(),
             style: InterpStyle::Linear,
@@ -200,9 +205,15 @@ impl ForwardCurve {
         self.interp.interp(t)
     }
 
-    /// Reset lag in calendar days from fixing to spot.
+    /// Reset lag in business days from fixing to spot.
     #[inline]
     pub fn reset_lag(&self) -> i32 {
+        self.reset_lag
+    }
+
+    /// Reset lag in business days from fixing to spot.
+    #[inline]
+    pub fn reset_lag_business_days(&self) -> i32 {
         self.reset_lag
     }
 
@@ -286,7 +297,7 @@ impl ForwardCurve {
 
         // Adaptive sub-intervals (must be even). More intervals for longer
         // periods to maintain accuracy for long-dated forward averages while
-        // keeping performance for short periods used by RFR compounding.
+        // keeping performance for short periods used in repeated projection steps.
         let n: usize = if dt > 20.0 {
             32
         } else if dt > 5.0 {
@@ -328,6 +339,7 @@ impl ForwardCurve {
     /// -----
     /// - This is **not** a discount curve used for PV discounting; it is an *implied projection DF*.
     /// - The stepping size uses the curve’s `tenor_years` with a final fractional step when needed.
+    /// - This is a simple-rate chaining helper, not an overnight compounded-in-arrears engine.
     #[must_use = "computed discount factor should not be discarded"]
     pub fn df(&self, t: f64) -> crate::Result<f64> {
         if !t.is_finite() {
@@ -627,10 +639,15 @@ impl ForwardCurveBuilder {
         self.base = d;
         self
     }
-    /// Override the **reset lag** (fixing → spot) in calendar days.
+    /// Override the **reset lag** (fixing → spot) in business days.
     pub fn reset_lag(mut self, lag: i32) -> Self {
         self.reset_lag = lag;
         self
+    }
+
+    /// Override the **reset lag** (fixing → spot) in business days.
+    pub fn reset_lag_business_days(self, lag: i32) -> Self {
+        self.reset_lag(lag)
     }
     /// Choose the **day-count** convention.
     pub fn day_count(mut self, dc: DayCount) -> Self {
@@ -665,6 +682,12 @@ impl ForwardCurveBuilder {
 
     /// Validate input and build the [`ForwardCurve`].
     pub fn build(self) -> crate::Result<ForwardCurve> {
+        if self.reset_lag < 0 {
+            return Err(crate::Error::Validation(format!(
+                "ForwardCurve reset_lag must be non-negative business days; got {}",
+                self.reset_lag
+            )));
+        }
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
@@ -787,6 +810,35 @@ mod tests {
             "Tail forward should remain positive with FlatForward: {:.6}",
             rate_tail
         );
+    }
+
+    #[test]
+    fn builder_infers_market_conventions_from_curve_id() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+
+        let sofr_term = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(base)
+            .knots([(0.0, 0.03), (1.0, 0.04)])
+            .build()
+            .expect("USD-SOFR-3M curve should build");
+        assert_eq!(sofr_term.day_count(), DayCount::Act360);
+        assert_eq!(sofr_term.reset_lag_business_days(), 2);
+
+        let sonia = ForwardCurve::builder("GBP-SONIA", 1.0 / 365.0)
+            .base_date(base)
+            .knots([(0.0, 0.03), (1.0, 0.035)])
+            .build()
+            .expect("GBP-SONIA curve should build");
+        assert_eq!(sonia.day_count(), DayCount::Act365F);
+        assert_eq!(sonia.reset_lag_business_days(), 0);
+
+        let generic = ForwardCurve::builder("TEST", 0.25)
+            .base_date(base)
+            .knots([(0.0, 0.03), (1.0, 0.035)])
+            .build()
+            .expect("Generic forward curve should build");
+        assert_eq!(generic.reset_lag_business_days(), 0);
     }
 
     #[test]

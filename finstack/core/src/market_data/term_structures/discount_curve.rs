@@ -104,7 +104,10 @@
 //!   - OpenGamma (2013). "Interest Rate Instruments and Market Conventions Guide."
 //!   - ISDA (2006). "2006 ISDA Definitions." Sections on discount factors and rates.
 
-use super::common::{build_interp_input_error, roll_knots, split_points, triangular_weight};
+use super::common::{
+    build_interp_input_error, infer_discount_curve_day_count, roll_knots, split_points,
+    triangular_weight,
+};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -229,6 +232,7 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
 }
 
 fn default_day_count() -> DayCount {
+    // Legacy deserialization fallback for older payloads that omitted the field.
     DayCount::Act365F
 }
 
@@ -882,16 +886,20 @@ impl DiscountCurve {
     /// no-arbitrage conditions. Use `.allow_non_monotonic()` if you need to disable this
     /// validation (not recommended for production use).
     ///
-    /// **Defaults:** MonotoneConvex interpolation with FlatForward extrapolation follow
-    /// market-standard practices for no-arbitrage discount curves.
+    /// **Defaults:** The builder infers a market day-count from the curve ID when
+    /// possible (for example `USD-OIS -> Act360`, `GBP-SONIA -> Act365F`). Synthetic
+    /// IDs without a market hint fall back to `Act365F`. Interpolation defaults to
+    /// MonotoneConvex with FlatForward extrapolation.
     pub fn builder(id: impl Into<CurveId>) -> DiscountCurveBuilder {
+        let id: CurveId = id.into();
+        let day_count = infer_discount_curve_day_count(id.as_str());
         // Epoch date - unwrap_or provides defensive fallback for infallible operation
         let base =
             Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         DiscountCurveBuilder {
-            id: id.into(),
+            id,
             base,
-            day_count: DayCount::Act365F,
+            day_count,
             points: Vec::new(),
             style: InterpStyle::MonotoneConvex,
             extrapolation: ExtrapolationPolicy::FlatForward,
@@ -1000,6 +1008,7 @@ impl DiscountCurve {
         // Build forward curve with the specified interpolation style
         ForwardCurve::builder(forward_id, tenor_years)
             .base_date(self.base)
+            .day_count(self.day_count)
             .knots(forward_rates)
             .interp(style)
             .build()
@@ -1651,6 +1660,33 @@ mod tests {
             zero_at_last > 0.0,
             "Zero rate should be positive for decreasing DF curve"
         );
+    }
+
+    #[test]
+    fn builder_infers_market_day_count_from_curve_id() {
+        let base =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date");
+
+        let usd_ois = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .build()
+            .expect("USD-OIS curve should build");
+        assert_eq!(usd_ois.day_count(), DayCount::Act360);
+
+        let gbp_sonia = DiscountCurve::builder("GBP-SONIA")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.96)])
+            .build()
+            .expect("GBP-SONIA curve should build");
+        assert_eq!(gbp_sonia.day_count(), DayCount::Act365F);
+
+        let jpy_tonar = DiscountCurve::builder("JPY-TONAR")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.99)])
+            .build()
+            .expect("JPY-TONAR curve should build");
+        assert_eq!(jpy_tonar.day_count(), DayCount::Act365F);
     }
 
     #[test]

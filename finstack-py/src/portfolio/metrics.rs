@@ -240,7 +240,8 @@ fn py_aggregate_metrics(
         pyo3::exceptions::PyValueError::new_err(format!("Invalid currency: {}", base_ccy))
     })?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
-    let metrics = aggregate_metrics(&valuation_inner, currency, &market_ctx.inner)
+    let as_of = valuation_inner.as_of;
+    let metrics = aggregate_metrics(&valuation_inner, currency, &market_ctx.inner, as_of)
         .map_err(portfolio_to_py)?;
     Ok(PyPortfolioMetrics::new(metrics))
 }

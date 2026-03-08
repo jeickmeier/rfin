@@ -17,7 +17,7 @@
 ```rust
 use finstack_valuations::instruments::equity::pe_fund::PrivateMarketsFund;
 
-let fund = PrivateMarketsFund::example();
+let fund = PrivateMarketsFund::example().unwrap();
 let pv = fund.value(&market_context, fund.events.last().unwrap().date)?;
 ```
 

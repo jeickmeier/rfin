@@ -129,7 +129,7 @@ fn validate_fee_tier_ordering(tiers: &[FeeTier], context: &str) -> finstack_core
 
 impl RevolvingCredit {
     /// Create a canonical example revolving credit facility (USD, deterministic draws).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use finstack_core::dates::{DayCount, Tenor};
         use time::macros::date;
@@ -187,9 +187,6 @@ impl RevolvingCredit {
             .stub(StubKind::ShortFront)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example RevolvingCredit with valid constants should never fail")
-            })
     }
 }
 

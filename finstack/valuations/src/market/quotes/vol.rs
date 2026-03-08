@@ -23,6 +23,7 @@ use ts_rs::TS;
 /// ```rust
 /// use finstack_valuations::market::quotes::vol::VolQuote;
 /// use finstack_valuations::market::conventions::ids::OptionConventionId;
+/// use finstack_valuations::instruments::OptionType;
 /// use finstack_core::dates::Date;
 /// use finstack_core::types::UnderlyingId;
 ///
@@ -112,6 +113,7 @@ impl VolQuote {
     /// ```rust
     /// use finstack_valuations::market::quotes::vol::VolQuote;
     /// use finstack_valuations::market::conventions::ids::OptionConventionId;
+    /// use finstack_valuations::instruments::OptionType;
     /// use finstack_core::dates::Date;
     /// use finstack_core::types::UnderlyingId;
     ///

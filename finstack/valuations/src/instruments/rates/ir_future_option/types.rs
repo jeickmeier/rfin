@@ -252,7 +252,7 @@ impl IrFutureOption {
     }
 
     /// Create a canonical example 3M SOFR futures option.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
         IrFutureOption::builder()
             .id(InstrumentId::new("IRFO-SOFR-3M-CALL-9550"))
@@ -266,9 +266,6 @@ impl IrFutureOption {
             .volatility(0.20)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example IrFutureOption with valid constants should never fail")
-            })
     }
 }
 
@@ -373,7 +370,7 @@ mod tests {
 
     #[test]
     fn example_constructs_successfully() {
-        let opt = IrFutureOption::example();
+        let opt = IrFutureOption::example().expect("IrFutureOption example is valid");
         assert_eq!(opt.id.as_str(), "IRFO-SOFR-3M-CALL-9550");
         assert_eq!(opt.futures_price, 95.50);
         assert_eq!(opt.strike, 95.50);
@@ -381,7 +378,7 @@ mod tests {
 
     #[test]
     fn atm_call_delta_near_half() {
-        let opt = IrFutureOption::example();
+        let opt = IrFutureOption::example().expect("IrFutureOption example is valid");
         let delta = opt.delta(date!(2025 - 01 - 15));
         // ATM call delta should be close to 0.5
         assert!((delta - 0.5).abs() < 0.1, "ATM call delta = {delta}");
@@ -429,14 +426,14 @@ mod tests {
 
     #[test]
     fn gamma_is_non_negative() {
-        let opt = IrFutureOption::example();
+        let opt = IrFutureOption::example().expect("IrFutureOption example is valid");
         let gamma = opt.gamma(date!(2025 - 01 - 15));
         assert!(gamma >= 0.0, "Gamma should be non-negative: {gamma}");
     }
 
     #[test]
     fn vega_is_non_negative() {
-        let opt = IrFutureOption::example();
+        let opt = IrFutureOption::example().expect("IrFutureOption example is valid");
         let vega = opt.vega_per_pct(date!(2025 - 01 - 15));
         assert!(vega >= 0.0, "Vega should be non-negative: {vega}");
     }

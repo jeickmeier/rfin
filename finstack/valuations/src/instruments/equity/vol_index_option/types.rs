@@ -163,7 +163,7 @@ impl VolIndexOptionSpecs {
 
 impl VolatilityIndexOption {
     /// Create a canonical example VIX call option for testing.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("VIX-CALL-20-2025M03"))
@@ -179,9 +179,6 @@ impl VolatilityIndexOption {
             .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example VIX option with valid constants should never fail")
-            })
     }
 
     /// Create a VIX call option.
@@ -842,7 +839,8 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let option = VolatilityIndexOption::example();
+        let option =
+            VolatilityIndexOption::example().expect("VolatilityIndexOption example is valid");
         let json = serde_json::to_string(&option).expect("json serialization");
         let recovered: VolatilityIndexOption =
             serde_json::from_str(&json).expect("json deserialization");

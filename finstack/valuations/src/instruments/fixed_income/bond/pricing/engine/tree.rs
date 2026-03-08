@@ -23,7 +23,7 @@
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //!
-//! # let bond = Bond::example();
+//! # let bond = Bond::example().unwrap();
 //! # let market = MarketContext::new();
 //! # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
 //! let pricer = TreePricer::new();
@@ -300,7 +300,7 @@ impl Default for TreePricerConfig {
 /// use finstack_valuations::instruments::fixed_income::bond::Bond;
 /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::bond_tree_config;
 ///
-/// let bond = Bond::example();
+/// let bond = Bond::example().unwrap();
 /// let config = bond_tree_config(&bond);
 /// ```
 pub fn bond_tree_config(bond: &Bond) -> TreePricerConfig {
@@ -614,7 +614,7 @@ impl TreePricerConfig {
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
-/// # let bond = Bond::example();
+/// # let bond = Bond::example().unwrap();
 /// # let market = MarketContext::new();
 /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
 /// let valuator = BondValuator::new(bond, &market, as_of, 5.0, 100)?;
@@ -723,7 +723,7 @@ impl BondValuator {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// # let market = MarketContext::new();
     /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
     /// let valuator = BondValuator::new(bond, &market, as_of, 5.0, 100)?;
@@ -1159,7 +1159,7 @@ const _: () = {
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
-/// # let bond = Bond::example();
+/// # let bond = Bond::example().unwrap();
 /// # let market = MarketContext::new();
 /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
 /// let pricer = TreePricer::new();
@@ -1255,7 +1255,7 @@ impl TreePricer {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// # let market = MarketContext::new();
     /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
     /// let pricer = TreePricer::new();
@@ -1563,7 +1563,7 @@ impl Default for TreePricer {
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
-/// # let bond = Bond::example();
+/// # let bond = Bond::example().unwrap();
 /// # let market = MarketContext::new();
 /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
 /// let oas_bp = calculate_oas(&bond, &market, as_of, 98.5)?;

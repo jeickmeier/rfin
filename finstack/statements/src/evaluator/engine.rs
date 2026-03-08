@@ -196,39 +196,12 @@ impl Evaluator {
             model.periods.first(),
         ) {
             for (instrument_id, instrument) in insts {
-                let schedule = instrument.build_full_schedule(market_ctx, as_of_date)?;
-                let outstanding_path = schedule.outstanding_by_date()?;
-                let opening_balance = outstanding_path
-                    .iter()
-                    .filter(|(d, _)| *d <= first_period.start)
-                    .map(|(_, outstanding)| {
-                        if outstanding.amount() < 0.0 {
-                            Money::new(-outstanding.amount(), outstanding.currency())
-                        } else {
-                            *outstanding
-                        }
-                    })
-                    .next_back()
-                    .unwrap_or_else(|| {
-                        outstanding_path
-                            .first()
-                            .map(|(_, outstanding)| {
-                                if outstanding.amount() < 0.0 {
-                                    Money::new(-outstanding.amount(), outstanding.currency())
-                                } else {
-                                    *outstanding
-                                }
-                            })
-                            .unwrap_or_else(|| {
-                                schedule
-                                    .flows
-                                    .first()
-                                    .map(|cf| Money::new(0.0, cf.amount.currency()))
-                                    .unwrap_or_else(|| {
-                                        Money::new(0.0, finstack_core::currency::Currency::USD)
-                                    })
-                            })
-                    });
+                let opening_balance = resolve_opening_balance(
+                    instrument.as_ref(),
+                    market_ctx,
+                    as_of_date,
+                    first_period.start,
+                )?;
 
                 state
                     .opening_balances
@@ -387,7 +360,7 @@ impl Evaluator {
             num_nodes: model.nodes.len(),
             num_periods: model.periods.len(),
             numeric_mode: crate::evaluator::NumericMode::Float64,
-            rounding_context: None, // Not implemented yet
+            rounding_context: None, // TODO(v0.5): wire through from FinstackConfig
             parallel: false,
             warnings: all_warnings,
         };
@@ -455,46 +428,57 @@ impl Evaluator {
             .map(|(i, node_id)| (node_id.clone(), i))
             .collect();
 
-        // Collect per-path node/period results.
-        let mut all_paths: Vec<IndexMap<String, IndexMap<PeriodId, f64>>> =
-            Vec::with_capacity(config.n_paths);
+        // Run paths — parallel when the `parallel` feature is enabled.
+        let all_paths = {
+            let run_single_path =
+                |path_idx: usize| -> Result<IndexMap<String, IndexMap<PeriodId, f64>>> {
+                    let mut path_eval = self.clone();
+                    path_eval.forecast_cache.clear();
 
-        for path_idx in 0..config.n_paths {
-            // Clear forecast cache for each path to avoid sharing simulated
-            // values across paths.
-            self.forecast_cache.clear();
+                    let seed_offset = config.seed.wrapping_add(path_idx as u64);
+                    let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
 
-            let seed_offset = config.seed.wrapping_add(path_idx as u64);
-            let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+                    for period in &model.periods {
+                        let (period_results, _warnings) = path_eval.evaluate_period_mc(
+                            model,
+                            &period.id,
+                            period.is_actual,
+                            &eval_order,
+                            &node_to_column,
+                            &historical,
+                            seed_offset,
+                        )?;
+                        historical.insert(period.id, period_results.clone());
+                    }
 
-            for period in &model.periods {
-                let (period_results, _warnings) = self.evaluate_period_mc(
-                    model,
-                    &period.id,
-                    period.is_actual,
-                    &eval_order,
-                    &node_to_column,
-                    &historical,
-                    seed_offset,
-                )?;
+                    let mut node_map: IndexMap<String, IndexMap<PeriodId, f64>> = IndexMap::new();
+                    for (period_id, values) in &historical {
+                        for (node_id, value) in values {
+                            node_map
+                                .entry(node_id.clone())
+                                .or_default()
+                                .insert(*period_id, *value);
+                        }
+                    }
+                    Ok(node_map)
+                };
 
-                // Store in historical context for next period
-                historical.insert(period.id, period_results.clone());
+            #[cfg(feature = "parallel")]
+            {
+                use rayon::prelude::*;
+                (0..config.n_paths)
+                    .into_par_iter()
+                    .map(run_single_path)
+                    .collect::<Result<Vec<_>>>()?
             }
 
-            // Transpose historical (period-centric) into node-centric layout.
-            let mut node_map: IndexMap<String, IndexMap<PeriodId, f64>> = IndexMap::new();
-            for (period_id, values) in &historical {
-                for (node_id, value) in values {
-                    node_map
-                        .entry(node_id.clone())
-                        .or_default()
-                        .insert(*period_id, *value);
-                }
+            #[cfg(not(feature = "parallel"))]
+            {
+                (0..config.n_paths)
+                    .map(run_single_path)
+                    .collect::<Result<Vec<_>>>()?
             }
-
-            all_paths.push(node_map);
-        }
+        };
 
         crate::analysis::monte_carlo::aggregate_monte_carlo_paths(model, config, &all_paths)
     }
@@ -631,10 +615,10 @@ impl Evaluator {
 
     /// Evaluate a period with dynamic capital structure support.
     ///
-    /// This method:
-    /// 1. Pre-Model: Calculate contractual CS flows based on opening balances
-    /// 2. Model Eval: Evaluate standard model nodes
-    /// 3. Post-Model: Run waterfall logic to calculate sweeps/prepayments
+    /// Orchestrates three phases:
+    /// 1. **Pre-Model:** Calculate contractual CS flows from opening balances
+    /// 2. **Model Eval:** Evaluate standard model nodes
+    /// 3. **Post-Model:** Run waterfall, then re-evaluate CS-dependent nodes
     #[allow(clippy::too_many_arguments)]
     fn evaluate_period_dynamic(
         &mut self,
@@ -657,83 +641,23 @@ impl Evaluator {
         Vec<EvalWarning>,
         crate::capital_structure::CapitalStructureCashflows,
     )> {
-        use crate::capital_structure::integration;
-        use indexmap::IndexMap;
-
-        // Step 1: Pre-Model - Calculate contractual flows based on opening balances
-        let mut contractual_flows: IndexMap<String, crate::capital_structure::CashflowBreakdown> =
-            IndexMap::new();
-
-        for (instrument_id, instrument) in instruments {
-            let opening_balance =
-                if let Some(balance) = cs_state.opening_balances.get(instrument_id).copied() {
-                    balance
-                } else {
-                    let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
-                    Money::new(0.0, schedule.notional.initial.currency())
-                };
-
-            let (breakdown, closing_balance) = integration::calculate_period_flows(
-                instrument.as_ref(),
-                period,
-                opening_balance,
-                market_ctx,
-                as_of,
-            )?;
-
-            contractual_flows.insert(instrument_id.to_string(), breakdown.clone());
-            cs_state.set_closing_balance(instrument_id.to_string(), closing_balance);
-        }
-
         let period_id = period.id;
-        let recompute_totals =
-            |cashflows: &mut crate::capital_structure::CapitalStructureCashflows| {
-                let mut total_breakdown: Option<crate::capital_structure::CashflowBreakdown> = None;
 
-                for breakdown in cashflows
-                    .by_instrument
-                    .values()
-                    .filter_map(|period_map| period_map.get(&period_id))
-                {
-                    if let Some(total) = &mut total_breakdown {
-                        total.interest_expense_cash += breakdown.interest_expense_cash;
-                        total.interest_expense_pik += breakdown.interest_expense_pik;
-                        total.principal_payment += breakdown.principal_payment;
-                        total.fees += breakdown.fees;
-                        total.debt_balance += breakdown.debt_balance;
-                        total.accrued_interest += breakdown.accrued_interest;
-                    } else {
-                        total_breakdown = Some(breakdown.clone());
-                    }
-                }
+        // Phase 1: Pre-Model — contractual flows from opening balances
+        let contractual_flows =
+            compute_contractual_flows(instruments, cs_state, period, market_ctx, as_of)?;
 
-                if let Some(total) = total_breakdown {
-                    cashflows.totals.insert(period_id, total.clone());
-                    cashflows.reporting_currency = Some(total.interest_expense_cash.currency());
-                }
-            };
-
-        let mut cs_cashflows = crate::capital_structure::CapitalStructureCashflows::new();
-        for (inst_id, breakdown) in &contractual_flows {
-            let mut period_map: indexmap::IndexMap<
-                finstack_core::dates::PeriodId,
-                crate::capital_structure::CashflowBreakdown,
-            > = indexmap::IndexMap::new();
-            period_map.insert(period_id, breakdown.clone());
-            cs_cashflows
-                .by_instrument
-                .insert(inst_id.clone(), period_map);
-        }
-        recompute_totals(&mut cs_cashflows);
+        let mut cs_cashflows = build_cs_cashflows_from_contractual(&contractual_flows, period_id);
+        recompute_cs_totals(&mut cs_cashflows, period_id);
 
         let mut context =
             EvaluationContext::new(period_id, node_to_column.clone(), historical.clone());
         context.capital_structure_cashflows = Some(cs_cashflows.clone());
 
-        // Step 2: Model Eval - Evaluate standard model nodes
+        // Phase 2: Model Eval — evaluate standard model nodes
         self.evaluate_nodes_in_order(
             model,
-            &period.id,
+            &period_id,
             is_actual,
             eval_order,
             &mut context,
@@ -741,7 +665,7 @@ impl Evaluator {
             None,
         )?;
 
-        // Step 3: Post-Model - Run waterfall logic if configured
+        // Phase 3: Post-Model — waterfall then re-evaluate CS-dependent nodes
         if let Some(cs_spec) = &model.capital_structure {
             if let Some(waterfall_spec) = &cs_spec.waterfall {
                 let updated_flows = crate::capital_structure::waterfall::execute_waterfall(
@@ -752,21 +676,8 @@ impl Evaluator {
                     &contractual_flows,
                 )?;
 
-                for (inst_id, breakdown) in &updated_flows {
-                    if let Some(period_map) = cs_cashflows.by_instrument.get_mut(inst_id) {
-                        period_map.insert(period_id, breakdown.clone());
-                    } else {
-                        let mut period_map: indexmap::IndexMap<
-                            finstack_core::dates::PeriodId,
-                            crate::capital_structure::CashflowBreakdown,
-                        > = indexmap::IndexMap::new();
-                        period_map.insert(period_id, breakdown.clone());
-                        cs_cashflows
-                            .by_instrument
-                            .insert(inst_id.clone(), period_map);
-                    }
-                }
-                recompute_totals(&mut cs_cashflows);
+                merge_updated_flows(&mut cs_cashflows, &updated_flows, period_id);
+                recompute_cs_totals(&mut cs_cashflows, period_id);
                 context.capital_structure_cashflows = Some(cs_cashflows);
             }
         }
@@ -774,7 +685,7 @@ impl Evaluator {
         if context.capital_structure_cashflows.is_some() && !cs_affected_nodes.is_empty() {
             self.evaluate_nodes_in_order(
                 model,
-                &period.id,
+                &period_id,
                 is_actual,
                 eval_order,
                 &mut context,
@@ -853,6 +764,146 @@ impl Evaluator {
 
         Ok(context.into_results())
     }
+}
+
+/// Compute contractual cashflows for all instruments in a single period.
+fn compute_contractual_flows(
+    instruments: &IndexMap<
+        String,
+        Arc<dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync>,
+    >,
+    cs_state: &mut crate::capital_structure::CapitalStructureState,
+    period: &finstack_core::dates::Period,
+    market_ctx: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+) -> Result<IndexMap<String, crate::capital_structure::CashflowBreakdown>> {
+    use crate::capital_structure::integration;
+
+    let mut flows = IndexMap::new();
+    for (instrument_id, instrument) in instruments {
+        let opening_balance =
+            if let Some(balance) = cs_state.opening_balances.get(instrument_id).copied() {
+                balance
+            } else {
+                let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+                Money::new(0.0, schedule.notional.initial.currency())
+            };
+
+        let (breakdown, closing_balance) = integration::calculate_period_flows(
+            instrument.as_ref(),
+            period,
+            opening_balance,
+            market_ctx,
+            as_of,
+        )?;
+
+        flows.insert(instrument_id.to_string(), breakdown.clone());
+        cs_state.set_closing_balance(instrument_id.to_string(), closing_balance);
+    }
+    Ok(flows)
+}
+
+/// Build a `CapitalStructureCashflows` from contractual flow breakdowns for one period.
+fn build_cs_cashflows_from_contractual(
+    contractual_flows: &IndexMap<String, crate::capital_structure::CashflowBreakdown>,
+    period_id: PeriodId,
+) -> crate::capital_structure::CapitalStructureCashflows {
+    let mut cs = crate::capital_structure::CapitalStructureCashflows::new();
+    for (inst_id, breakdown) in contractual_flows {
+        let mut period_map = IndexMap::new();
+        period_map.insert(period_id, breakdown.clone());
+        cs.by_instrument.insert(inst_id.clone(), period_map);
+    }
+    cs
+}
+
+/// Recompute the `totals` row of a `CapitalStructureCashflows` for one period.
+fn recompute_cs_totals(
+    cashflows: &mut crate::capital_structure::CapitalStructureCashflows,
+    period_id: PeriodId,
+) {
+    let mut total: Option<crate::capital_structure::CashflowBreakdown> = None;
+
+    for breakdown in cashflows
+        .by_instrument
+        .values()
+        .filter_map(|pm| pm.get(&period_id))
+    {
+        if let Some(t) = &mut total {
+            t.interest_expense_cash += breakdown.interest_expense_cash;
+            t.interest_expense_pik += breakdown.interest_expense_pik;
+            t.principal_payment += breakdown.principal_payment;
+            t.fees += breakdown.fees;
+            t.debt_balance += breakdown.debt_balance;
+            t.accrued_interest += breakdown.accrued_interest;
+        } else {
+            total = Some(breakdown.clone());
+        }
+    }
+
+    if let Some(t) = total {
+        cashflows.reporting_currency = Some(t.interest_expense_cash.currency());
+        cashflows.totals.insert(period_id, t);
+    }
+}
+
+/// Merge waterfall-updated flows back into the cashflows structure.
+fn merge_updated_flows(
+    cs_cashflows: &mut crate::capital_structure::CapitalStructureCashflows,
+    updated_flows: &IndexMap<String, crate::capital_structure::CashflowBreakdown>,
+    period_id: PeriodId,
+) {
+    for (inst_id, breakdown) in updated_flows {
+        cs_cashflows
+            .by_instrument
+            .entry(inst_id.clone())
+            .or_default()
+            .insert(period_id, breakdown.clone());
+    }
+}
+
+/// Resolve the opening balance for an instrument at the start of the model.
+///
+/// Walks the outstanding path backward from the first period start date.
+/// Falls back to zero in the instrument's currency if no schedule data exists.
+fn resolve_opening_balance(
+    instrument: &(dyn finstack_valuations::cashflow::CashflowProvider + Send + Sync),
+    market_ctx: &finstack_core::market_data::context::MarketContext,
+    as_of: finstack_core::dates::Date,
+    period_start: finstack_core::dates::Date,
+) -> Result<Money> {
+    let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+    let outstanding_path = schedule.outstanding_by_date()?;
+
+    let abs_money = |m: &Money| -> Money {
+        if m.amount() < 0.0 {
+            Money::new(-m.amount(), m.currency())
+        } else {
+            *m
+        }
+    };
+
+    // Primary: last outstanding value on or before the period start
+    if let Some((_, m)) = outstanding_path
+        .iter()
+        .filter(|(d, _)| *d <= period_start)
+        .next_back()
+    {
+        return Ok(abs_money(m));
+    }
+
+    // Fallback: first outstanding value in the schedule
+    if let Some((_, m)) = outstanding_path.first() {
+        return Ok(abs_money(m));
+    }
+
+    // Last resort: zero in the instrument's cashflow currency, or USD
+    let currency = schedule
+        .flows
+        .first()
+        .map(|cf| cf.amount.currency())
+        .unwrap_or(finstack_core::currency::Currency::USD);
+    Ok(Money::new(0.0, currency))
 }
 
 fn dependent_closure(graph: &DependencyGraph, seeds: &HashSet<String>) -> HashSet<String> {

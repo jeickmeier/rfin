@@ -26,7 +26,7 @@
 //! // Setup: create an example bond and an (empty) market context.
 //! // Note: real runs require a populated market context with required curves.
 //! let as_of = date!(2025-01-01);
-//! let bond = Bond::example();
+//! let bond = Bond::example().unwrap();
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::BucketedDv01];
 //!

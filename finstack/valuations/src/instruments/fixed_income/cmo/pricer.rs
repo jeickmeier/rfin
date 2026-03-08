@@ -222,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_generate_tranche_cashflows() {
-        let cmo = AgencyCmo::example();
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
 
         let cfs = generate_tranche_cashflows(&cmo, as_of, Some(12)).expect("should generate");
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_price_cmo() {
-        let cmo = AgencyCmo::example();
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
 
@@ -250,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_price_io_strip() {
-        let cmo = AgencyCmo::example_io_po();
+        let cmo = AgencyCmo::example_io_po().expect("AgencyCmo IO/PO example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
 
@@ -266,7 +266,7 @@ mod tests {
 
     #[test]
     fn test_price_po_strip() {
-        let cmo = AgencyCmo::example_io_po();
+        let cmo = AgencyCmo::example_io_po().expect("AgencyCmo IO/PO example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
 

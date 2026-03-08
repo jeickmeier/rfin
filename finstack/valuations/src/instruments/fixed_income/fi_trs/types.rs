@@ -42,7 +42,7 @@ use rust_decimal::Decimal;
 /// ```
 /// use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 ///
-/// let trs = FIIndexTotalReturnSwap::example();
+/// let trs = FIIndexTotalReturnSwap::example().unwrap();
 /// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
 #[derive(
@@ -79,7 +79,7 @@ pub struct FIIndexTotalReturnSwap {
 
 impl FIIndexTotalReturnSwap {
     /// Create a canonical example fixed income index TRS (USD Corporate Index, 1Y).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
         let underlying = IndexUnderlyingParams::new("US-CORP-INDEX", Currency::USD)
             .with_yield("US-CORP-YIELD")
@@ -115,11 +115,6 @@ impl FIIndexTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!(
-                    "Example FIIndexTotalReturnSwap with valid constants should never fail"
-                )
-            })
     }
 
     /// Creates an FI TRS that replicates a bond ETF.

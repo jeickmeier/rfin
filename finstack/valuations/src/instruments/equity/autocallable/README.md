@@ -20,7 +20,7 @@ use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 2)?;
-let note = Autocallable::example();
+let note = Autocallable::example().unwrap();
 let pv = note.value(&market_context, as_of)?;
 ```
 

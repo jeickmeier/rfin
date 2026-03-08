@@ -132,7 +132,7 @@ impl FxTouchOption {
     /// Create a canonical example FX touch option for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD down-and-in one-touch option.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FXTOUCH-EURUSD-OT"))
@@ -151,9 +151,6 @@ impl FxTouchOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example FX touch option with valid constants should never fail")
-            })
     }
 
     fn price_internal(

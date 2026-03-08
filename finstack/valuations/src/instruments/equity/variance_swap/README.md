@@ -17,7 +17,7 @@
 ```rust
 use finstack_valuations::instruments::equity::variance_swap::VarianceSwap;
 
-let swap = VarianceSwap::example();
+let swap = VarianceSwap::example().unwrap();
 let pv = swap.value(&market_context, as_of_date)?;
 ```
 

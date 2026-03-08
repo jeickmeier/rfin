@@ -56,7 +56,7 @@ pub struct OasResult {
 /// use finstack_core::dates::Date;
 /// use time::Month;
 ///
-/// let mbs = AgencyMbsPassthrough::example();
+/// let mbs = AgencyMbsPassthrough::example().unwrap();
 /// let market = MarketContext::new(); // Add curves...
 /// let as_of = Date::from_calendar_date(2024, Month::January, 15).unwrap();
 ///

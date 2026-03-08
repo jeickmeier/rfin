@@ -63,7 +63,7 @@ fn test_all_operation_types_serialize() {
             bp: 50.0,
         },
         OperationSpec::CurveNodeBp {
-            curve_kind: CurveKind::Forecast,
+            curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR".into(),
             nodes: vec![("1Y".into(), 25.0), ("5Y".into(), -10.0)],
             match_mode: TenorMatchMode::Interpolate,

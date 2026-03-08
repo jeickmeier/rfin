@@ -257,8 +257,6 @@ impl ScenarioAdapter for VolAdapter {
                     ));
                 }
 
-                // Parse tenor strings to years using calendar-aware computation
-                // (consistent with curve adapter which also uses calendar-aware parsing).
                 let exp_years = if let Some(t) = tenors {
                     let parsed: std::result::Result<Vec<f64>, _> = t
                         .iter()
@@ -272,13 +270,7 @@ impl ScenarioAdapter for VolAdapter {
                             )
                         })
                         .collect();
-                    match parsed {
-                        Ok(v) => Some(v),
-                        Err(e) => {
-                            warnings.push(format!("Vol bucket tenor parse failed: {}", e));
-                            None
-                        }
-                    }
+                    Some(parsed?)
                 } else {
                     None
                 };

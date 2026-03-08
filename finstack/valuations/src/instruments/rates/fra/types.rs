@@ -236,7 +236,7 @@ impl ForwardRateAgreement {
     /// Create a canonical example FRA for testing and documentation.
     ///
     /// Returns a 3x6 FRA (3 months forward, 3 month tenor).
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("FRA-3X6-USD"))
@@ -252,7 +252,6 @@ impl ForwardRateAgreement {
             .side(PayReceive::ReceiveFixed)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example FRA with valid constants should never fail"))
     }
 
     /// Settlement amount at period start (undiscounted).

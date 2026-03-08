@@ -98,6 +98,7 @@ use indexmap::IndexMap;
 ///
 /// let covenant = CovenantReport {
 ///     covenant_type: "dscr".to_string(),
+///     covenant_id: None,
 ///     passed: true,
 ///     actual_value: Some(1.5),
 ///     threshold: Some(1.25),
@@ -433,6 +434,7 @@ impl ValuationResult {
     /// let mut covenants = IndexMap::new();
     /// covenants.insert("dscr".to_string(), CovenantReport {
     ///     covenant_type: "dscr".to_string(),
+    ///     covenant_id: None,
     ///     passed: true,
     ///     actual_value: Some(1.5),
     ///     threshold: Some(1.25),
@@ -482,6 +484,7 @@ impl ValuationResult {
     /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
     ///     .with_covenant("dscr", CovenantReport {
     ///         covenant_type: "dscr".to_string(),
+    ///         covenant_id: None,
     ///         passed: true,
     ///         actual_value: Some(1.5),
     ///         threshold: Some(1.25),
@@ -490,6 +493,7 @@ impl ValuationResult {
     ///     })
     ///     .with_covenant("ltv", CovenantReport {
     ///         covenant_type: "ltv".to_string(),
+    ///         covenant_id: None,
     ///         passed: true,
     ///         actual_value: Some(0.70),
     ///         threshold: Some(0.80),
@@ -535,6 +539,7 @@ impl ValuationResult {
     /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
     ///     .with_covenant("dscr", CovenantReport {
     ///         covenant_type: "dscr".to_string(),
+    ///         covenant_id: None,
     ///         passed: true,
     ///         actual_value: Some(1.5),
     ///         threshold: Some(1.25),
@@ -578,6 +583,7 @@ impl ValuationResult {
     /// let result = ValuationResult::stamped("LOAN-001", as_of, pv)
     ///     .with_covenant("dscr", CovenantReport {
     ///         covenant_type: "dscr".to_string(),
+    ///         covenant_id: None,
     ///         passed: false,
     ///         actual_value: Some(1.1),
     ///         threshold: Some(1.25),

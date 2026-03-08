@@ -123,7 +123,7 @@
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
-//! let bond = Bond::example();
+//! let bond = Bond::example().unwrap();
 //!
 //! // Setup market
 //! # let market = MarketContext::new();

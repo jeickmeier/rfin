@@ -44,7 +44,7 @@ use super::super::super::types::Bond;
 /// use finstack_core::market_data::context::MarketContext;
 /// use time::macros::date;
 ///
-/// let bond = Bond::example();
+/// let bond = Bond::example().unwrap();
 /// let market = MarketContext::new();
 /// let as_of = date!(2024-01-15);
 ///
@@ -86,7 +86,7 @@ impl BondEngine {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// # let market = MarketContext::new();
     /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
     /// let pv = BondEngine::price(&bond, &market, as_of)?;
@@ -132,7 +132,7 @@ impl BondEngine {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// # let market = MarketContext::new();
     /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
     /// let (pv, trace) = BondEngine::price_with_explanation(

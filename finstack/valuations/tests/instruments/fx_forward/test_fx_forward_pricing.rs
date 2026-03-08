@@ -316,13 +316,13 @@ fn test_fx_forward_registry_pricer() {
 
 #[test]
 fn test_fx_forward_instrument_key() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
     assert_eq!(forward.key(), InstrumentType::FxForward);
 }
 
 #[test]
 fn test_fx_forward_serde_roundtrip() {
-    let forward = FxForward::example();
+    let forward = FxForward::example().unwrap();
 
     let json = serde_json::to_string_pretty(&forward).expect("serialize");
     let parsed: FxForward = serde_json::from_str(&json).expect("deserialize");

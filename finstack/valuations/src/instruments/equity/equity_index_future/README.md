@@ -99,7 +99,7 @@ let es_future2 = EquityIndexFuture::sp500_emini(
 ```rust
 use finstack_valuations::instruments::equity::equity_index_future::EquityIndexFuture;
 
-let future = EquityIndexFuture::example();
+let future = EquityIndexFuture::example().unwrap();
 let delta = future.delta();
 // For 10 long ES contracts: delta = 50 × 10 × 1 = 500
 // This means $500 P&L per 1-point index move
@@ -128,7 +128,7 @@ let market = MarketContext::new()
     .insert_price("SPX-SPOT", MarketScalar::Unitless(4500.0));
 
 // Price the future
-let future = EquityIndexFuture::example();
+let future = EquityIndexFuture::example().unwrap();
 let npv = future.value(&market, base_date).expect("should price");
 println!("NPV: {}", npv);
 ```

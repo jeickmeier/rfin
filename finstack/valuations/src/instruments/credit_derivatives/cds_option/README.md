@@ -20,7 +20,7 @@ use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 5)?;
-let opt = CDSOption::example();
+let opt = CDSOption::example().unwrap();
 let pv = opt.value(&market_context, as_of)?;
 ```
 

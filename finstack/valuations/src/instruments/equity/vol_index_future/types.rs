@@ -170,7 +170,7 @@ impl VolIndexContractSpecs {
 
 impl VolatilityIndexFuture {
     /// Create a canonical example VIX future for testing and documentation.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("VIX-FUT-2025M03"))
@@ -184,9 +184,6 @@ impl VolatilityIndexFuture {
             .vol_index_curve_id(CurveId::new("VIX"))
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example VIX future with valid constants should never fail")
-            })
     }
 
     /// Calculate the number of contracts based on notional and quoted price.
@@ -481,7 +478,8 @@ mod tests {
 
     #[test]
     fn test_serde_round_trip() {
-        let future = VolatilityIndexFuture::example();
+        let future =
+            VolatilityIndexFuture::example().expect("VolatilityIndexFuture example is valid");
         let json = serde_json::to_string(&future).expect("json serialization");
         let recovered: VolatilityIndexFuture =
             serde_json::from_str(&json).expect("json deserialization");

@@ -5,7 +5,7 @@
 
 use crate::evaluator::StatementResult;
 use crate::types::{FinancialModelSpec, ForecastMethod};
-use finstack_core::dates::{Date, PeriodId};
+use finstack_core::dates::{Date, PeriodId, PeriodKind};
 use finstack_core::Result;
 use finstack_valuations::covenants::GenericCovenantForecast as ValuationCovenantForecast;
 use finstack_valuations::covenants::{
@@ -43,34 +43,62 @@ impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
                 }
             }
         }
-        // Fallback if model not provided or period not found: end of quarter/year approximation
-        // This should match the logic in valuations/src/covenants/forward.rs tests or be robust
-        let month = match period.index {
-            1 => Month::March,
-            2 => Month::June,
-            3 => Month::September,
-            4 => Month::December,
-            _ => Month::December, // Should not happen for valid quarters
-        };
+        approximate_period_end(period)
+    }
+}
 
-        // Simple end of month approximation (30th or 31st)
-        // Using 28th to be safe for Feb if we ever supported monthly, but for quarters 30 is fine
-        // except for Q1 which is March 31.
-        // Let's use the last day of the month logic if we had it, but for now specific dates:
-        let day = match month {
-            Month::March | Month::December => 31,
-            Month::June | Month::September => 30,
-            _ => 30,
-        };
+/// Approximate the end date of a period from its `PeriodId` when the model is
+/// not available. Handles all `PeriodKind` variants.
+fn approximate_period_end(period: &PeriodId) -> Date {
+    let (month, day) = match period.kind() {
+        PeriodKind::Monthly => {
+            let m = Month::try_from(period.index as u8).unwrap_or(Month::December);
+            let d = last_day_of_month(period.year, m);
+            (m, d)
+        }
+        PeriodKind::Quarterly => {
+            let m = match period.index {
+                1 => Month::March,
+                2 => Month::June,
+                3 => Month::September,
+                _ => Month::December,
+            };
+            let d = last_day_of_month(period.year, m);
+            (m, d)
+        }
+        PeriodKind::SemiAnnual => {
+            let m = if period.index == 1 {
+                Month::June
+            } else {
+                Month::December
+            };
+            let d = last_day_of_month(period.year, m);
+            (m, d)
+        }
+        PeriodKind::Annual | PeriodKind::Daily | PeriodKind::Weekly => (Month::December, 31),
+    };
+    Date::from_calendar_date(period.year, month, day).unwrap_or_else(|_| {
+        Date::from_calendar_date(period.year, Month::December, 31).unwrap_or(time::Date::MIN)
+    })
+}
 
-        // Try the target date, fallback to Dec 31 which is always valid for any year
-        Date::from_calendar_date(period.year, month, day)
-            .or_else(|_| Date::from_calendar_date(period.year, Month::December, 31))
-            .unwrap_or_else(|_| {
-                // This fallback should never be reached since Dec 31 is always valid,
-                // but we need a value for the type system. Use epoch as ultimate fallback.
-                Date::from_calendar_date(1970, Month::January, 1).unwrap_or(time::Date::MIN)
-            })
+fn last_day_of_month(year: i32, month: Month) -> u8 {
+    match month {
+        Month::January
+        | Month::March
+        | Month::May
+        | Month::July
+        | Month::August
+        | Month::October
+        | Month::December => 31,
+        Month::April | Month::June | Month::September | Month::November => 30,
+        Month::February => {
+            if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) {
+                29
+            } else {
+                28
+            }
+        }
     }
 }
 
@@ -210,6 +238,77 @@ mod tests {
     use finstack_valuations::metrics::MetricId;
     use indexmap::IndexMap;
     use time::Month;
+
+    #[test]
+    fn approximate_period_end_quarterly() {
+        let q1 = PeriodId::quarter(2025, 1);
+        assert_eq!(
+            approximate_period_end(&q1),
+            Date::from_calendar_date(2025, Month::March, 31).expect("valid date")
+        );
+        let q2 = PeriodId::quarter(2025, 2);
+        assert_eq!(
+            approximate_period_end(&q2),
+            Date::from_calendar_date(2025, Month::June, 30).expect("valid date")
+        );
+        let q3 = PeriodId::quarter(2025, 3);
+        assert_eq!(
+            approximate_period_end(&q3),
+            Date::from_calendar_date(2025, Month::September, 30).expect("valid date")
+        );
+        let q4 = PeriodId::quarter(2025, 4);
+        assert_eq!(
+            approximate_period_end(&q4),
+            Date::from_calendar_date(2025, Month::December, 31).expect("valid date")
+        );
+    }
+
+    #[test]
+    fn approximate_period_end_monthly() {
+        let jan = PeriodId::month(2025, 1);
+        assert_eq!(
+            approximate_period_end(&jan),
+            Date::from_calendar_date(2025, Month::January, 31).expect("valid date")
+        );
+        let feb = PeriodId::month(2024, 2); // leap year
+        assert_eq!(
+            approximate_period_end(&feb),
+            Date::from_calendar_date(2024, Month::February, 29).expect("valid date")
+        );
+        let feb_non_leap = PeriodId::month(2025, 2);
+        assert_eq!(
+            approximate_period_end(&feb_non_leap),
+            Date::from_calendar_date(2025, Month::February, 28).expect("valid date")
+        );
+        let jun = PeriodId::month(2025, 6);
+        assert_eq!(
+            approximate_period_end(&jun),
+            Date::from_calendar_date(2025, Month::June, 30).expect("valid date")
+        );
+    }
+
+    #[test]
+    fn approximate_period_end_semi_annual() {
+        let h1 = PeriodId::half(2025, 1);
+        assert_eq!(
+            approximate_period_end(&h1),
+            Date::from_calendar_date(2025, Month::June, 30).expect("valid date")
+        );
+        let h2 = PeriodId::half(2025, 2);
+        assert_eq!(
+            approximate_period_end(&h2),
+            Date::from_calendar_date(2025, Month::December, 31).expect("valid date")
+        );
+    }
+
+    #[test]
+    fn approximate_period_end_annual() {
+        let y = PeriodId::annual(2025);
+        assert_eq!(
+            approximate_period_end(&y),
+            Date::from_calendar_date(2025, Month::December, 31).expect("valid date")
+        );
+    }
 
     #[test]
     fn test_forecast_breaches_concrete() {

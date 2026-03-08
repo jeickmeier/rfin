@@ -31,7 +31,7 @@ fn test_forecast_curve_parallel_shock() {
         name: Some("Forward Curve Shock".into()),
         description: None,
         operations: vec![OperationSpec::CurveParallelBp {
-            curve_kind: CurveKind::Forecast,
+            curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
             bp: 25.0, // +25bp
         }],
@@ -176,7 +176,7 @@ fn test_forecast_curve_node_shock() {
         name: None,
         description: None,
         operations: vec![OperationSpec::CurveNodeBp {
-            curve_kind: CurveKind::Forecast,
+            curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
             nodes: vec![("1Y".into(), 50.0)],
             match_mode: TenorMatchMode::Exact,
@@ -408,7 +408,7 @@ fn test_all_curve_types_in_one_scenario() {
                 bp: 25.0,
             },
             OperationSpec::CurveParallelBp {
-                curve_kind: CurveKind::Forecast,
+                curve_kind: CurveKind::Forward,
                 curve_id: "USD_LIBOR_3M".into(),
                 bp: 30.0,
             },

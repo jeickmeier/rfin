@@ -93,7 +93,7 @@ impl FxDigitalOption {
     /// Create a canonical example FX digital option for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD cash-or-nothing digital call.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FXDIG-EURUSD-CALL"))
@@ -112,9 +112,6 @@ impl FxDigitalOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example FX digital option with valid constants should never fail")
-            })
     }
 
     fn price_internal(

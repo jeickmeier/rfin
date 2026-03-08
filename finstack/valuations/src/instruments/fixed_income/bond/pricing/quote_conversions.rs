@@ -889,7 +889,7 @@ pub fn price_from_dm(
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
-/// # let bond = Bond::example();
+/// # let bond = Bond::example().unwrap();
 /// # let curves = MarketContext::new();
 /// # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
 /// let quotes = compute_quotes(&bond, &curves, as_of, BondQuoteInput::CleanPricePct(98.5))?;

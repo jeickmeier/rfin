@@ -18,7 +18,6 @@ pub enum ScenarioEffect {
     Warning(String),
 
     /// Update a discount curve in the market.
-    #[allow(dead_code)] // Engine will use this
     UpdateDiscountCurve {
         /// The curve identifier.
         id: String,
@@ -26,7 +25,6 @@ pub enum ScenarioEffect {
         curve: Arc<DiscountCurve>,
     },
     /// Update a forward curve in the market.
-    #[allow(dead_code)]
     UpdateForwardCurve {
         /// The curve identifier.
         id: String,
@@ -34,7 +32,6 @@ pub enum ScenarioEffect {
         curve: Arc<ForwardCurve>,
     },
     /// Update a hazard curve in the market.
-    #[allow(dead_code)]
     UpdateHazardCurve {
         /// The curve identifier.
         id: String,
@@ -42,7 +39,6 @@ pub enum ScenarioEffect {
         curve: Arc<HazardCurve>,
     },
     /// Update an inflation curve in the market.
-    #[allow(dead_code)]
     UpdateInflationCurve {
         /// The curve identifier.
         id: String,
@@ -50,7 +46,6 @@ pub enum ScenarioEffect {
         curve: Arc<InflationCurve>,
     },
     /// Update a volatility index curve in the market.
-    #[allow(dead_code)]
     UpdateVolIndexCurve {
         /// The curve identifier.
         id: String,
@@ -96,6 +91,27 @@ pub enum ScenarioEffect {
         attrs: Option<indexmap::IndexMap<String, String>>,
         /// The spread shock in basis points.
         bp: f64,
+    },
+
+    /// Shock asset correlation on StructuredCredit instruments.
+    AssetCorrelationShock {
+        /// Additive shock in correlation points.
+        delta_pts: f64,
+    },
+    /// Shock prepay-default correlation on StructuredCredit instruments.
+    PrepayDefaultCorrelationShock {
+        /// Additive shock in correlation points.
+        delta_pts: f64,
+    },
+    /// Shock recovery-default correlation on StructuredCredit instruments.
+    RecoveryCorrelationShock {
+        /// Additive shock in correlation points.
+        delta_pts: f64,
+    },
+    /// Shock prepay factor loading on StructuredCredit instruments.
+    PrepayFactorLoadingShock {
+        /// Additive shock to factor loading.
+        delta_pts: f64,
     },
 }
 

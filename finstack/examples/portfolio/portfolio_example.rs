@@ -89,7 +89,7 @@ fn main() -> finstack_portfolio::Result<()> {
 
     // 4. Aggregate metrics
     println!("\n--- Metrics Aggregation ---");
-    let metrics = aggregate_metrics(&valuation, portfolio.base_ccy, &market)?;
+    let metrics = aggregate_metrics(&valuation, portfolio.base_ccy, &market, portfolio.as_of)?;
     println!("Aggregated {} metrics", metrics.aggregated.len());
     println!(
         "Position-level metrics: {} positions",
@@ -225,7 +225,12 @@ fn main() -> finstack_portfolio::Result<()> {
     }
 
     // Show metrics impact if available
-    let stressed_metrics = aggregate_metrics(&stressed_valuation, portfolio.base_ccy, &market)?;
+    let stressed_metrics = aggregate_metrics(
+        &stressed_valuation,
+        portfolio.base_ccy,
+        &market,
+        portfolio.as_of,
+    )?;
     if !metrics.aggregated.is_empty() && !stressed_metrics.aggregated.is_empty() {
         println!("\nMetrics Impact:");
         for (metric_id, base_agg) in &metrics.aggregated {

@@ -12,6 +12,13 @@ use crate::error::Result;
 use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec};
 use indexmap::IndexMap;
 
+fn rounding_stamp() -> Option<String> {
+    Some(format!(
+        "{:?}",
+        finstack_core::config::RoundingMode::default()
+    ))
+}
+
 /// Execution context for scenario application.
 ///
 /// The context pins all mutable state that a scenario can touch — market data,
@@ -124,7 +131,8 @@ impl ScenarioEngine {
 
     /// Compose multiple scenarios into a single deterministic spec.
     ///
-    /// Operations are sorted by (priority, declaration_index); conflicts use last-wins.
+    /// Operations are sorted by priority (lower = first); operations targeting the
+    /// same curve stack additively (two +25bp shocks produce +50bp).
     ///
     /// # Arguments
     /// - `scenarios`: Collection of scenario specifications to combine. Lower
@@ -266,19 +274,6 @@ impl ScenarioEngine {
         // but ApplicationReport doesn't support it yet.
         // We focus on operations_applied and warnings.
 
-        // Validate: at most one TimeRollForward per scenario
-        let time_roll_count = spec
-            .operations
-            .iter()
-            .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
-            .count();
-        if time_roll_count > 1 {
-            return Err(crate::error::Error::Validation(format!(
-                "Scenario contains {} TimeRollForward operations; at most one is allowed",
-                time_roll_count
-            )));
-        }
-
         // Phase 0: Time Roll Forward
         for op in &spec.operations {
             if let OperationSpec::TimeRollForward {
@@ -287,15 +282,14 @@ impl ScenarioEngine {
                 roll_mode,
             } = op
             {
-                // Use the adapter logic
                 crate::adapters::time_roll::apply_time_roll_forward(ctx, period, *roll_mode)?;
+                applied += 1;
 
-                // If shocks should NOT be applied, we stop here.
                 if !*apply_shocks {
                     return Ok(ApplicationReport {
-                        operations_applied: 1,
+                        operations_applied: applied,
                         warnings,
-                        rounding_context: Some("default".into()),
+                        rounding_context: rounding_stamp(),
                     });
                 }
             }
@@ -324,14 +318,13 @@ impl ScenarioEngine {
             &asset_corr_adapter,
         ];
 
+        let has_rate_bindings = ctx.rate_bindings.is_some();
         let mut deferred_stmts = Vec::new();
 
         // Phase 1: Market data operations & Instrument operations
         for op in &spec.operations {
-            // Skip TimeRoll as it was handled (or skipped) in Phase 0
             if let OperationSpec::TimeRollForward { .. } = op {
-                applied += 1;
-                continue;
+                continue; // handled in Phase 0
             }
 
             let mut adapter_effects = None;
@@ -476,6 +469,14 @@ impl ScenarioEngine {
                                 }
                             }
                         }
+                        crate::adapters::traits::ScenarioEffect::AssetCorrelationShock { delta_pts }
+                        | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock { delta_pts }
+                        | crate::adapters::traits::ScenarioEffect::RecoveryCorrelationShock { delta_pts }
+                        | crate::adapters::traits::ScenarioEffect::PrepayFactorLoadingShock { delta_pts } => {
+                            let (count, ws) = apply_correlation_effect(&effect, delta_pts, ctx);
+                            applied += count;
+                            warnings.extend(ws);
+                        }
                         crate::adapters::traits::ScenarioEffect::StmtForecastPercent { .. }
                         | crate::adapters::traits::ScenarioEffect::StmtForecastAssign { .. }
                         | crate::adapters::traits::ScenarioEffect::RateBinding { .. } => {
@@ -520,6 +521,7 @@ impl ScenarioEngine {
         }
 
         // Phase 3: Statement Operations (Deferred)
+        let mut applied_stmt_ops = 0usize;
         for effect in deferred_stmts {
             match effect {
                 crate::adapters::traits::ScenarioEffect::RateBinding { binding } => {
@@ -541,29 +543,100 @@ impl ScenarioEngine {
                 crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
                     crate::adapters::statements::apply_forecast_percent(ctx.model, &node_id, pct)?;
                     applied += 1;
+                    applied_stmt_ops += 1;
                 }
                 crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
                     crate::adapters::statements::apply_forecast_assign(ctx.model, &node_id, value)?;
                     applied += 1;
+                    applied_stmt_ops += 1;
                 }
                 _ => {}
             }
         }
 
-        // Phase 4: Re-evaluate statements to propagate changes
-        match crate::adapters::statements::reevaluate_model(ctx.model) {
-            Ok(eval_warnings) => warnings.extend(
-                eval_warnings
-                    .into_iter()
-                    .map(|w| format!("Model evaluation: {}", w)),
-            ),
-            Err(e) => warnings.push(format!("Model re-evaluation: {}", e)),
+        // Phase 4: Re-evaluate statements only if statement work was performed
+        if applied_stmt_ops > 0 || has_rate_bindings {
+            match crate::adapters::statements::reevaluate_model(ctx.model) {
+                Ok(eval_warnings) => warnings.extend(
+                    eval_warnings
+                        .into_iter()
+                        .map(|w| format!("Model evaluation: {}", w)),
+                ),
+                Err(e) => warnings.push(format!("Model re-evaluation: {}", e)),
+            }
         }
 
         Ok(ApplicationReport {
             operations_applied: applied,
             warnings,
-            rounding_context: Some("default".into()),
+            rounding_context: rounding_stamp(),
         })
     }
+}
+
+/// Apply a correlation shock effect to StructuredCredit instruments via downcast.
+fn apply_correlation_effect(
+    effect: &crate::adapters::traits::ScenarioEffect,
+    delta_pts: f64,
+    ctx: &mut ExecutionContext,
+) -> (usize, Vec<String>) {
+    use crate::adapters::traits::ScenarioEffect;
+    use finstack_valuations::instruments::fixed_income::structured_credit::StructuredCredit;
+
+    // Recovery and prepay factor loading shocks are not yet supported by CorrelationStructure
+    if matches!(
+        effect,
+        ScenarioEffect::RecoveryCorrelationShock { .. }
+            | ScenarioEffect::PrepayFactorLoadingShock { .. }
+    ) {
+        return (
+            0,
+            vec![format!(
+                "Correlation shock {:?} not yet supported by CorrelationStructure model",
+                std::mem::discriminant(effect)
+            )],
+        );
+    }
+
+    let instruments = match ctx.instruments.as_mut() {
+        Some(insts) => insts,
+        None => {
+            return (
+                0,
+                vec!["Correlation shock requested but no instruments provided".to_string()],
+            );
+        }
+    };
+
+    let mut count = 0usize;
+    let mut warnings = Vec::new();
+
+    for inst in instruments.iter_mut() {
+        let Some(sc) = inst.as_any_mut().downcast_mut::<StructuredCredit>() else {
+            continue;
+        };
+        let Some(ref corr) = sc.credit_model.correlation_structure else {
+            continue;
+        };
+
+        let new_corr = match effect {
+            ScenarioEffect::AssetCorrelationShock { .. } => corr.bump_asset(delta_pts),
+            ScenarioEffect::PrepayDefaultCorrelationShock { .. } => {
+                corr.bump_prepay_default(delta_pts)
+            }
+            _ => continue,
+        };
+
+        sc.credit_model.correlation_structure = Some(new_corr);
+        count += 1;
+    }
+
+    if count == 0 {
+        warnings.push(
+            "Correlation shock: no StructuredCredit instruments with correlation structure found"
+                .to_string(),
+        );
+    }
+
+    (count, warnings)
 }

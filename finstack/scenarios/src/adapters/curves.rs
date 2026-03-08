@@ -224,7 +224,7 @@ impl ScenarioAdapter for CurveAdapter {
                             curve: std::sync::Arc::new(new_curve),
                         }]))
                     }
-                    CurveKind::Forecast => {
+                    CurveKind::Forward => {
                         // Forward curve parallel bump uses direct additive rate shifts.
                         //
                         // METHODOLOGY NOTE:
@@ -412,7 +412,7 @@ impl ScenarioAdapter for CurveAdapter {
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }
-                    CurveKind::Forecast => {
+                    CurveKind::Forward => {
                         // Forward curve node bumps use direct additive rate shifts.
                         //
                         // METHODOLOGY NOTE:

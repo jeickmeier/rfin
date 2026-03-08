@@ -616,75 +616,6 @@ class FutureBreach:
 
     def __repr__(self) -> str: ...
 
-# ---------------------------------------------------------------------------
-# Module-level functions
-# ---------------------------------------------------------------------------
-
-def forecast_covenant(
-    covenant_spec: CovenantSpec,
-    model: FinancialModelSpec,
-    base_case: StatementResult,
-    periods: list[PeriodId],
-    config: CovenantForecastConfig | None = None,
-) -> CovenantForecast:
-    """Forecast a single covenant across the given periods.
-
-    Parameters
-    ----------
-    covenant_spec : CovenantSpec
-        Covenant specification bound to a metric.
-    model : FinancialModelSpec
-        Financial model specification with period definitions.
-    base_case : StatementResult
-        Base-case evaluation results from the financial model.
-    periods : list[PeriodId]
-        Periods to forecast over.
-    config : CovenantForecastConfig or None, optional
-        Forecast configuration (stochastic settings, etc.).
-
-    Returns
-    -------
-    CovenantForecast
-        Forecast result with projected values, headroom, and breach probability.
-
-    Raises
-    ------
-    RuntimeError
-        If forecasting fails.
-    """
-    ...
-
-def forecast_breaches(
-    specs: list[CovenantSpec],
-    model: FinancialModelSpec,
-    base_case: StatementResult,
-    config: CovenantForecastConfig | None = None,
-) -> list[FutureBreach]:
-    """Forecast covenant breaches across all provided specs.
-
-    Parameters
-    ----------
-    specs : list[CovenantSpec]
-        Covenant specifications to evaluate.
-    model : FinancialModelSpec
-        Financial model specification.
-    base_case : StatementResult
-        Base-case statement results.
-    config : CovenantForecastConfig or None, optional
-        Forecast configuration.
-
-    Returns
-    -------
-    list[FutureBreach]
-        List of projected future breaches (may be empty).
-
-    Raises
-    ------
-    RuntimeError
-        If breach forecasting fails.
-    """
-    ...
-
 __all__ = [
     "CovenantType",
     "Covenant",
@@ -694,6 +625,4 @@ __all__ = [
     "CovenantForecastConfig",
     "CovenantForecast",
     "FutureBreach",
-    "forecast_covenant",
-    "forecast_breaches",
 ]

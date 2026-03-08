@@ -1,17 +1,11 @@
-use crate::core::dates::periods::PyPeriodId;
 use crate::core::dates::utils::date_to_py;
-use crate::statements::evaluator::PyStatementResult;
-use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_core::dates::{Date, PeriodId};
 use finstack_valuations::covenants::{
     Covenant, CovenantForecastConfig as ValCovForecastConfig, CovenantScope, CovenantSpec,
-    CovenantType, GenericCovenantForecast as ValCovForecast, McConfig as ValMcConfig,
-    ModelTimeSeries, SpringingCondition, ThresholdTest,
+    CovenantType, GenericCovenantForecast as ValCovForecast, SpringingCondition, ThresholdTest,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-use time::Month;
 
 #[pyclass(
     module = "finstack.valuations.covenants",
@@ -274,16 +268,14 @@ impl PyCovenantForecastConfig {
         seed: Option<u64>,
         antithetic: Option<bool>,
     ) -> Self {
-        let mut cfg = ValCovForecastConfig {
+        let cfg = ValCovForecastConfig {
             stochastic: stochastic.unwrap_or(false),
             num_paths: num_paths.unwrap_or(0),
             volatility,
             random_seed: seed,
+            antithetic: antithetic.unwrap_or(false),
             ..Default::default()
         };
-        if antithetic.unwrap_or(false) {
-            cfg.mc = Some(ValMcConfig { antithetic: true });
-        }
         Self { inner: cfg }
     }
 }
@@ -376,56 +368,6 @@ impl PyCovenantForecast {
     }
 }
 
-struct StatementsAdapter<'a> {
-    model: &'a finstack_statements::types::FinancialModelSpec,
-    results: &'a finstack_statements::evaluator::StatementResult,
-}
-
-impl<'a> StatementsAdapter<'a> {
-    fn new(
-        model: &'a finstack_statements::types::FinancialModelSpec,
-        results: &'a finstack_statements::evaluator::StatementResult,
-    ) -> Self {
-        Self { model, results }
-    }
-}
-
-impl<'a> ModelTimeSeries for StatementsAdapter<'a> {
-    fn get_scalar(&self, node_id: &str, period: &PeriodId) -> Option<f64> {
-        self.results.get(node_id, period)
-    }
-    fn period_end_date(&self, period: &PeriodId) -> Date {
-        for p in &self.model.periods {
-            if p.id == *period {
-                return p.end;
-            }
-        }
-        // Fall back to a deterministic date instead of panicking.
-        Date::from_calendar_date(period.year, Month::December, 31).unwrap_or(Date::MIN)
-    }
-}
-
-#[pyfunction(name = "forecast_covenant")]
-pub fn py_forecast_covenant(
-    covenant_spec: &PyCovenantSpec,
-    model: &PyFinancialModelSpec,
-    base_case: &PyStatementResult,
-    periods: Vec<PyPeriodId>,
-    config: Option<&PyCovenantForecastConfig>,
-) -> PyResult<PyCovenantForecast> {
-    let adapter = StatementsAdapter::new(&model.inner, &base_case.inner);
-    let ps: Vec<PeriodId> = periods.into_iter().map(|p| p.inner).collect();
-    let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
-    finstack_valuations::covenants::forecast_covenant_generic(
-        &covenant_spec.inner,
-        &adapter,
-        &ps,
-        cfg,
-    )
-    .map(|inner| PyCovenantForecast { inner })
-    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
-}
-
 #[pyclass(
     module = "finstack.valuations.covenants",
     name = "FutureBreach",
@@ -481,40 +423,6 @@ impl PyFutureBreach {
     }
 }
 
-#[pyfunction(name = "forecast_breaches")]
-pub fn py_forecast_breaches(
-    specs: Vec<PyCovenantSpec>,
-    model: &PyFinancialModelSpec,
-    base_case: &PyStatementResult,
-    config: Option<&PyCovenantForecastConfig>,
-) -> PyResult<Vec<PyFutureBreach>> {
-    let mut engine = finstack_valuations::covenants::CovenantEngine::new();
-    for spec in specs {
-        engine.add_spec(spec.inner.clone());
-    }
-
-    let _adapter = StatementsAdapter::new(&model.inner, &base_case.inner);
-
-    // We need periods. The Rust `forecast_breaches` extracts them from results.
-    // Using `finstack_statements::analysis::covenants::forecast_breaches` which takes `&Results` and `&CovenantEngine`.
-
-    let cfg = config.map(|c| c.inner.clone()).unwrap_or_default();
-
-    finstack_statements::analysis::covenants::forecast_breaches(
-        &base_case.inner,
-        &engine,
-        Some(&model.inner),
-        cfg,
-    )
-    .map(|breaches| {
-        breaches
-            .into_iter()
-            .map(|b| PyFutureBreach { inner: b })
-            .collect()
-    })
-    .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
-}
-
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -532,8 +440,6 @@ pub(crate) fn register<'py>(
     module.add_class::<PyCovenantForecastConfig>()?;
     module.add_class::<PyCovenantForecast>()?;
     module.add_class::<PyFutureBreach>()?;
-    module.add_function(pyo3::wrap_pyfunction!(py_forecast_covenant, &module)?)?;
-    module.add_function(pyo3::wrap_pyfunction!(py_forecast_breaches, &module)?)?;
     let exports = [
         "CovenantType",
         "Covenant",
@@ -543,8 +449,6 @@ pub(crate) fn register<'py>(
         "CovenantForecastConfig",
         "CovenantForecast",
         "FutureBreach",
-        "forecast_covenant",
-        "forecast_breaches",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;

@@ -38,7 +38,7 @@
 //! use time::Month;
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let loan = TermLoan::example();
+//! let loan = TermLoan::example().unwrap();
 //! let market = MarketContext::new();
 //! let as_of = Date::from_calendar_date(2025, Month::January, 15)?;
 //!

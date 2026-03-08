@@ -8,6 +8,7 @@ use crate::portfolio::Portfolio;
 use crate::position::PositionUnit;
 use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
@@ -18,7 +19,6 @@ use finstack_valuations::attribution::{
     InflationCurvesAttribution, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
     VolAttribution,
 };
-use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -136,13 +136,153 @@ pub struct PortfolioAttribution {
     pub scalars_detail: Option<ScalarsAttribution>,
 }
 
-/// Default set of metrics for metrics-based attribution at the portfolio level.
-///
-/// This mirrors the standard metrics used by the valuations crate for
-/// metrics-based attribution and should stay in sync with
-/// `default_attribution_metrics` in `finstack-valuations`.
-fn default_metrics_for_metrics_based() -> Vec<MetricId> {
-    default_attribution_metrics()
+struct PositionAttributionData {
+    position_id: PositionId,
+    pos_attr: PnlAttribution,
+    val_t0_native: Money,
+    inst_ccy: Currency,
+}
+
+fn attribute_single_position(
+    position: &crate::position::Position,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t0: Date,
+    as_of_t1: Date,
+    config: &FinstackConfig,
+    method: &AttributionMethod,
+) -> Result<PositionAttributionData> {
+    let (mut pos_attr, val_t0_native_unit) = match method {
+        AttributionMethod::Parallel => {
+            let attr = attribute_pnl_parallel(
+                &position.instrument,
+                market_t0,
+                market_t1,
+                as_of_t0,
+                as_of_t1,
+                config,
+                None,
+            )
+            .map_err(|e| Error::ValuationError {
+                position_id: position.position_id.clone(),
+                message: format!("Attribution failed: {}", e),
+            })?;
+
+            let val_t0 = position
+                .instrument
+                .value(market_t0, as_of_t0)
+                .map_err(|e| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Attribution T0 valuation failed: {}", e),
+                })?;
+
+            (attr, val_t0)
+        }
+
+        AttributionMethod::Waterfall(ref order) => {
+            let attr = finstack_valuations::attribution::attribute_pnl_waterfall(
+                &position.instrument,
+                market_t0,
+                market_t1,
+                as_of_t0,
+                as_of_t1,
+                config,
+                order.clone(),
+                false,
+                None,
+            )
+            .map_err(|e| Error::ValuationError {
+                position_id: position.position_id.clone(),
+                message: format!("Attribution failed: {}", e),
+            })?;
+
+            let val_t0 = position
+                .instrument
+                .value(market_t0, as_of_t0)
+                .map_err(|e| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Attribution T0 valuation failed: {}", e),
+                })?;
+
+            (attr, val_t0)
+        }
+
+        AttributionMethod::MetricsBased => {
+            let metrics = default_attribution_metrics();
+
+            let val_t0 = position
+                .instrument
+                .price_with_metrics(market_t0, as_of_t0, &metrics)
+                .map_err(|e: finstack_core::Error| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Attribution T0 valuation failed: {}", e),
+                })?;
+
+            let val_t1 = position
+                .instrument
+                .price_with_metrics(market_t1, as_of_t1, &metrics)
+                .map_err(|e: finstack_core::Error| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Attribution T1 valuation failed: {}", e),
+                })?;
+
+            let attr = attribute_pnl_metrics_based(
+                &position.instrument,
+                market_t0,
+                market_t1,
+                &val_t0,
+                &val_t1,
+                as_of_t0,
+                as_of_t1,
+            )
+            .map_err(|e| Error::ValuationError {
+                position_id: position.position_id.clone(),
+                message: format!("Attribution failed: {}", e),
+            })?;
+
+            (attr, val_t0.value)
+        }
+
+        AttributionMethod::Taylor(ref taylor_config) => {
+            let attr = finstack_valuations::attribution::attribute_pnl_taylor_compat(
+                &position.instrument,
+                market_t0,
+                market_t1,
+                as_of_t0,
+                as_of_t1,
+                taylor_config,
+            )
+            .map_err(|e| Error::ValuationError {
+                position_id: position.position_id.clone(),
+                message: format!("Taylor attribution failed: {}", e),
+            })?;
+
+            let val_t0 = position
+                .instrument
+                .value(market_t0, as_of_t0)
+                .map_err(|e| Error::ValuationError {
+                    position_id: position.position_id.clone(),
+                    message: format!("Attribution T0 valuation failed: {}", e),
+                })?;
+
+            (attr, val_t0)
+        }
+    };
+
+    let scale_factor = match position.unit {
+        PositionUnit::Percentage => position.quantity / 100.0,
+        _ => position.quantity,
+    };
+    pos_attr.scale(scale_factor);
+    let val_t0_native = position.scale_value(val_t0_native_unit);
+    let inst_ccy = pos_attr.total_pnl.currency();
+
+    Ok(PositionAttributionData {
+        position_id: position.position_id.clone(),
+        pos_attr,
+        val_t0_native,
+        inst_ccy,
+    })
 }
 
 /// Perform P&L attribution for an entire portfolio.
@@ -216,161 +356,55 @@ pub fn attribute_portfolio_pnl(
 ) -> Result<PortfolioAttribution> {
     let base_ccy = portfolio.base_ccy;
 
-    // Accumulators for Neumaier summation (collect per-factor, then sum once)
-    let mut total_pnl_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut carry_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut rates_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut credit_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut inflation_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut corr_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut fx_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut vol_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut model_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut scalars_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
-    let mut residual_vals: Vec<f64> = Vec::with_capacity(portfolio.positions.len());
+    #[cfg(feature = "parallel")]
+    let position_data: Vec<PositionAttributionData> = {
+        use rayon::prelude::*;
+        portfolio
+            .positions
+            .par_iter()
+            .map(|position| {
+                attribute_single_position(
+                    position, market_t0, market_t1, as_of_t0, as_of_t1, config, &method,
+                )
+            })
+            .collect::<Result<Vec<_>>>()?
+    };
+
+    #[cfg(not(feature = "parallel"))]
+    let position_data: Vec<PositionAttributionData> = portfolio
+        .positions
+        .iter()
+        .map(|position| {
+            attribute_single_position(
+                position, market_t0, market_t1, as_of_t0, as_of_t1, config, &method,
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let n = position_data.len();
+    let mut total_pnl_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut carry_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut rates_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut credit_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut inflation_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut corr_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut fx_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut vol_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut model_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut scalars_vals: Vec<f64> = Vec::with_capacity(n);
+    let mut residual_vals: Vec<f64> = Vec::with_capacity(n);
     let mut fx_translation_vals: Vec<f64> = Vec::new();
 
     let mut by_position: IndexMap<PositionId, PnlAttribution> = IndexMap::new();
 
-    // Attribute each position
-    for position in &portfolio.positions {
-        // Perform instrument-level attribution and get T0 value
-        let (mut pos_attr, val_t0_native_unit) = match method {
-            AttributionMethod::Parallel => {
-                let attr = attribute_pnl_parallel(
-                    &position.instrument,
-                    market_t0,
-                    market_t1,
-                    as_of_t0,
-                    as_of_t1,
-                    config,
-                    None,
-                )
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Attribution failed: {}", e),
-                })?;
+    for data in position_data {
+        let PositionAttributionData {
+            position_id,
+            pos_attr,
+            val_t0_native,
+            inst_ccy,
+        } = data;
 
-                // Get T0 value for FX revaluation (on principal)
-                let val_t0 = position
-                    .instrument
-                    .value(market_t0, as_of_t0)
-                    .map_err(|e| Error::ValuationError {
-                        position_id: position.position_id.clone(),
-                        message: format!("Attribution T0 valuation failed: {}", e),
-                    })?;
-
-                (attr, val_t0)
-            }
-
-            AttributionMethod::Waterfall(ref order) => {
-                let attr = finstack_valuations::attribution::attribute_pnl_waterfall(
-                    &position.instrument,
-                    market_t0,
-                    market_t1,
-                    as_of_t0,
-                    as_of_t1,
-                    config,
-                    order.clone(),
-                    false,
-                    None,
-                )
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Attribution failed: {}", e),
-                })?;
-
-                // Get T0 value for FX revaluation (on principal)
-                let val_t0 = position
-                    .instrument
-                    .value(market_t0, as_of_t0)
-                    .map_err(|e| Error::ValuationError {
-                        position_id: position.position_id.clone(),
-                        message: format!("Attribution T0 valuation failed: {}", e),
-                    })?;
-
-                (attr, val_t0)
-            }
-
-            AttributionMethod::MetricsBased => {
-                // For metrics-based attribution, compute valuations with the
-                // standard attribution metrics set and delegate to the
-                // valuations crate's metrics-based engine.
-                let metrics = default_metrics_for_metrics_based();
-
-                let val_t0 = position
-                    .instrument
-                    .price_with_metrics(market_t0, as_of_t0, &metrics)
-                    .map_err(|e: finstack_core::Error| Error::ValuationError {
-                        position_id: position.position_id.clone(),
-                        message: format!("Attribution T0 valuation failed: {}", e),
-                    })?;
-
-                let val_t1 = position
-                    .instrument
-                    .price_with_metrics(market_t1, as_of_t1, &metrics)
-                    .map_err(|e: finstack_core::Error| Error::ValuationError {
-                        position_id: position.position_id.clone(),
-                        message: format!("Attribution T1 valuation failed: {}", e),
-                    })?;
-
-                let attr = attribute_pnl_metrics_based(
-                    &position.instrument,
-                    market_t0,
-                    market_t1,
-                    &val_t0,
-                    &val_t1,
-                    as_of_t0,
-                    as_of_t1,
-                )
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Attribution failed: {}", e),
-                })?;
-
-                (attr, val_t0.value)
-            }
-
-            AttributionMethod::Taylor(ref taylor_config) => {
-                let attr = finstack_valuations::attribution::attribute_pnl_taylor_compat(
-                    &position.instrument,
-                    market_t0,
-                    market_t1,
-                    as_of_t0,
-                    as_of_t1,
-                    taylor_config,
-                )
-                .map_err(|e| Error::ValuationError {
-                    position_id: position.position_id.clone(),
-                    message: format!("Taylor attribution failed: {}", e),
-                })?;
-
-                let val_t0 = position
-                    .instrument
-                    .value(market_t0, as_of_t0)
-                    .map_err(|e| Error::ValuationError {
-                        position_id: position.position_id.clone(),
-                        message: format!("Attribution T0 valuation failed: {}", e),
-                    })?;
-
-                (attr, val_t0)
-            }
-        };
-
-        // Scale attribution and T0 value using unit-aware scaling
-        // For attribution, we still use direct quantity scaling since PnlAttribution.scale()
-        // expects a scalar multiplier. The unit-aware logic is applied to the T0 value.
-        let scale_factor = match position.unit {
-            PositionUnit::Percentage => {
-                // Percentage values are always in points: 50 = 50%
-                position.quantity / 100.0
-            }
-            _ => position.quantity,
-        };
-        pos_attr.scale(scale_factor);
-        let val_t0_native = position.scale_value(val_t0_native_unit);
-
-        // Convert each factor to base currency
         let convert = |money: Money| -> Result<Money> {
             if money.currency() == base_ccy {
                 Ok(money)
@@ -389,7 +423,6 @@ pub fn attribute_portfolio_pnl(
             }
         };
 
-        // Collect FX-converted factor values for Neumaier summation
         total_pnl_vals.push(convert(pos_attr.total_pnl)?.amount());
         carry_vals.push(convert(pos_attr.carry)?.amount());
         rates_vals.push(convert(pos_attr.rates_curves_pnl)?.amount());
@@ -402,11 +435,7 @@ pub fn attribute_portfolio_pnl(
         scalars_vals.push(convert(pos_attr.market_scalars_pnl)?.amount());
         residual_vals.push(convert(pos_attr.residual)?.amount());
 
-        // FX translation P&L: effect of translating instrument-currency P&L
-        // into portfolio base currency as FX rates move from T₀ to T₁.
-        if pos_attr.total_pnl.currency() != base_ccy {
-            let inst_ccy = pos_attr.total_pnl.currency();
-
+        if inst_ccy != base_ccy {
             let fx_t0 = market_t0.fx().ok_or_else(|| {
                 Error::MissingMarketData("FX matrix at T0 not available".to_string())
             })?;
@@ -430,30 +459,21 @@ pub fn attribute_portfolio_pnl(
                     to: base_ccy,
                 })?;
 
-            // 1. Translation of P&L Flow: (Pnl_Native * R1) - (Pnl_Native * R0)
             let pnl_amount = pos_attr.total_pnl.amount();
             let flow_translation = pnl_amount * (rate_t1.rate - rate_t0.rate);
 
-            // 2. Revaluation of Opening Principal: Val_T0_Native * (R1 - R0)
-            // This captures the FX risk on the principal amount held.
             let principal_amount = val_t0_native.amount();
             let principal_translation = principal_amount * (rate_t1.rate - rate_t0.rate);
 
-            // Total FX Translation P&L
             let total_translation = flow_translation + principal_translation;
             fx_translation_vals.push(total_translation);
 
-            // Add principal translation to total portfolio P&L
-            // (Note: translation_of_pnl is already included because we added
-            // total_pnl_base = Pnl_Native * R1 above)
             total_pnl_vals.push(principal_translation);
         }
 
-        // Store position-level attribution
-        by_position.insert(position.position_id.clone(), pos_attr);
+        by_position.insert(position_id, pos_attr);
     }
 
-    // Apply Neumaier compensated summation to collected values
     let portfolio_attr = PortfolioAttribution {
         total_pnl: Money::new(neumaier_sum(total_pnl_vals), base_ccy),
         carry: Money::new(neumaier_sum(carry_vals), base_ccy),
@@ -607,8 +627,6 @@ impl PortfolioAttribution {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use finstack_core::currency::Currency;
-    use finstack_valuations::attribution::default_attribution_metrics;
 
     #[test]
     fn test_portfolio_attribution_structure() {
@@ -644,10 +662,7 @@ mod tests {
     }
 
     #[test]
-    fn test_default_metrics_alignment() {
-        assert_eq!(
-            default_metrics_for_metrics_based(),
-            default_attribution_metrics()
-        );
+    fn test_default_metrics_nonempty() {
+        assert!(!default_attribution_metrics().is_empty());
     }
 }

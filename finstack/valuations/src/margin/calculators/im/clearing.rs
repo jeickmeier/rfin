@@ -403,6 +403,10 @@ mod tests {
             self
         }
 
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
         fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
             &self.attributes
         }

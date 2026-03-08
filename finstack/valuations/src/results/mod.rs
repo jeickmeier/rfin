@@ -38,7 +38,7 @@
 //! use time::macros::date;
 //!
 //! # fn main() -> finstack_core::Result<()> {
-//! let bond = Bond::example();
+//! let bond = Bond::example().unwrap();
 //! let market = MarketContext::new();
 //! let as_of = date!(2025-01-15);
 //!

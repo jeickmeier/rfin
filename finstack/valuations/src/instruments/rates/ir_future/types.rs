@@ -200,7 +200,7 @@ impl InterestRateFuture {
     // Note: use the builder (FinancialBuilder) for construction.
 
     /// Create a canonical example 3M Eurodollar-style interest rate future.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         // SAFETY: All inputs are compile-time validated constants
         InterestRateFuture::builder()
@@ -221,9 +221,6 @@ impl InterestRateFuture {
             .forward_curve_id(CurveId::new("USD-SOFR-3M"))
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example InterestRateFuture with valid constants should never fail")
-            })
     }
 
     /// Set contract specifications.

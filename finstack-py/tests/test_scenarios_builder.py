@@ -50,7 +50,7 @@ class TestBuilderCurveOperations:
 
     def test_shift_curve_explicit_kind(self) -> None:
         """Test shift_curve with explicit curve kind."""
-        spec = ScenarioBuilder("test").shift_curve("USD.SOFR", -25, CurveKind.Forecast).build()
+        spec = ScenarioBuilder("test").shift_curve("USD.SOFR", -25, CurveKind.Forward).build()
         assert len(spec.operations) == 1
 
     def test_shift_discount_curve(self) -> None:

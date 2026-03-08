@@ -21,7 +21,7 @@ use finstack_core::dates::Date;
 use time::Month;
 
 let as_of = Date::from_calendar_date(2024, Month::January, 2)?;
-let dep = Deposit::example();
+let dep = Deposit::example().unwrap();
 let pv = dep.value(&market_context, as_of)?;
 ```
 

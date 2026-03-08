@@ -61,7 +61,7 @@
 //!     .expect("Valid MBS");
 //!
 //! // Use the example constructor for quick testing
-//! let example_mbs = AgencyMbsPassthrough::example();
+//! let example_mbs = AgencyMbsPassthrough::example().unwrap();
 //! ```
 
 pub mod delay;

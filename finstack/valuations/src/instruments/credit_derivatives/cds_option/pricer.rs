@@ -652,7 +652,7 @@ mod tests {
 
     #[test]
     fn synthetic_underlying_cds_uses_option_convention() {
-        let mut option = CDSOption::example();
+        let mut option = CDSOption::example().expect("CDSOption example is valid");
         option.underlying_convention = CDSConvention::IsdaEu;
 
         let cds = synthetic_underlying_cds(&option).expect("synthetic CDS should build");

@@ -13,7 +13,6 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::InstrumentType;
 use good_lp::{constraint, default_solver, variable, Expression, Solution, SolverModel};
 use indexmap::IndexMap;
 
@@ -142,40 +141,6 @@ impl DefaultLpOptimizer {
         }
 
         metrics
-    }
-
-    /// Whether the optimization problem relies on price-based yield/spread metrics for bonds.
-    fn uses_price_based_yield_metrics(required: &[MetricId]) -> bool {
-        required.iter().any(|m| {
-            m.as_str().contains("Ytm")
-                || m.as_str().contains("Spread")
-                || m.as_str().contains("Oas")
-        })
-    }
-
-    /// Validate that all bond decision variables have an explicit quoted price when
-    /// using price-based yield/spread metrics (e.g., YTM) in the optimization.
-    fn validate_bond_price_overrides(
-        problem: &PortfolioOptimizationProblem,
-        decision_items: &[DecisionItem],
-    ) -> Result<()> {
-        for item in decision_items {
-            let position_opt = if item.is_existing {
-                problem.portfolio.get_position(item.position_id.as_str())
-            } else {
-                None // Candidates handling if needed
-            };
-
-            if let Some(position) = position_opt {
-                if position.instrument.key() == InstrumentType::Bond {
-                    // Check if price override exists
-                    // Simplified check: assume if strict metrics are on, the system would fail calculation if price missing.
-                    // But here we might want to enforce "QuotedCleanPrice" is present in inputs or overrides.
-                    // Implementation omitted for brevity as it requires deeper inspection of valuation inputs which we don't have here.
-                }
-            }
-        }
-        Ok(())
     }
 
     /// Check if a position matches a filter.
@@ -319,12 +284,6 @@ impl PortfolioOptimizer for DefaultLpOptimizer {
         // Step 2: Build decision space.
         let (decision_items, mut decision_features, current_weights, denominators) =
             build_decision_space(problem, &valuation, &required_metrics, market, config)?;
-
-        // If the problem optimizes on price-based yield/spread metrics, require that all
-        // bond decision variables have an explicit quoted clean price override.
-        if Self::uses_price_based_yield_metrics(&required_metrics) {
-            Self::validate_bond_price_overrides(problem, &decision_items)?;
-        }
 
         if decision_items.is_empty() {
             return Err(Error::invalid_input(

@@ -490,7 +490,7 @@ fn test_levered_real_estate_equity_value_is_asset_minus_debt() {
         .build()
         .expect("loan build");
 
-    let bond = Bond::example();
+    let bond = Bond::example().unwrap();
 
     let levered = LeveredRealEstateEquity::builder()
         .id(InstrumentId::new("RE-EQ-L"))

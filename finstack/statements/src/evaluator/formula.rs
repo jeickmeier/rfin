@@ -549,15 +549,16 @@ fn evaluate_function(
                 ));
             }
 
-            // Get the lag periods (default to 1)
+            // Get the lag periods (default to 1); validated as non-negative by
+            // evaluate_non_negative_integer_arg, so 0 is the only non-positive case.
             let lag_periods = if args.len() == 2 {
                 evaluate_non_negative_integer_arg("diff", &args[1], context, node_id)?
             } else {
                 1
             };
 
-            if lag_periods <= 0 {
-                return Err(eval_error(node_id, "diff() periods must be positive"));
+            if lag_periods == 0 {
+                return evaluate_expr(&args[0], context, node_id).map(|_| 0.0);
             }
 
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
@@ -591,15 +592,16 @@ fn evaluate_function(
                 ));
             }
 
-            // Get the lag periods (default to 1)
+            // Get the lag periods (default to 1); validated as non-negative by
+            // evaluate_non_negative_integer_arg, so 0 is the only non-positive case.
             let lag_periods = if args.len() == 2 {
                 evaluate_non_negative_integer_arg("pct_change", &args[1], context, node_id)?
             } else {
                 1
             };
 
-            if lag_periods <= 0 {
-                return Err(eval_error(node_id, "pct_change() periods must be positive"));
+            if lag_periods == 0 {
+                return Ok(0.0);
             }
 
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;

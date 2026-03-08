@@ -172,7 +172,7 @@ impl FxOption {
     /// Create a canonical example FX option for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD call option.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("FXOPT-EURUSD-CALL"))
@@ -191,9 +191,6 @@ impl FxOption {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example FX option with valid constants should never fail")
-            })
     }
 
     /// Create a European FX option on a pair with standard conventions.

@@ -1272,7 +1272,7 @@ fn test_lag_negative_periods_error() {
 }
 
 #[test]
-fn test_diff_zero_periods_error() {
+fn test_diff_zero_periods_returns_zero() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..2025Q2", None)
         .unwrap()
@@ -1283,15 +1283,22 @@ fn test_diff_zero_periods_error() {
                 (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
             ],
         )
-        .compute("bad_diff", "diff(revenue, 0)")
+        .compute("zero_diff", "diff(revenue, 0)")
         .unwrap()
         .build()
         .unwrap();
 
     let mut evaluator = Evaluator::new();
-    let result = evaluator.evaluate(&model);
+    let result = evaluator.evaluate(&model).unwrap();
 
-    assert!(result.is_err());
+    assert_eq!(
+        result.get("zero_diff", &PeriodId::quarter(2025, 1)),
+        Some(0.0)
+    );
+    assert_eq!(
+        result.get("zero_diff", &PeriodId::quarter(2025, 2)),
+        Some(0.0)
+    );
 }
 
 #[test]

@@ -4,6 +4,7 @@ use crate::error::{Error, Result};
 use crate::portfolio::Portfolio;
 use crate::types::{EntityId, PositionId};
 use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::summation::neumaier_sum;
 use finstack_core::money::{fx::FxQuery, Money};
@@ -54,6 +55,9 @@ pub struct PositionValue {
 /// Provides per-position valuations, totals by entity, and the grand total.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioValuation {
+    /// Valuation date carried through from the portfolio.
+    pub as_of: finstack_core::dates::Date,
+
     /// Values for each position
     pub position_values: IndexMap<PositionId, PositionValue>,
 
@@ -123,6 +127,66 @@ fn standard_portfolio_metrics() -> Vec<MetricId> {
         MetricId::Rho,
         MetricId::Pv01,
     ]
+}
+
+/// Resolve the metric set to request based on valuation options.
+fn resolve_metrics(options: &PortfolioValuationOptions) -> Vec<MetricId> {
+    match (
+        &options.additional_metrics,
+        options.replace_standard_metrics,
+    ) {
+        (Some(additional), true) => additional.clone(),
+        (Some(additional), false) => {
+            let mut merged = standard_portfolio_metrics();
+            for m in additional {
+                if !merged.contains(m) {
+                    merged.push(m.clone());
+                }
+            }
+            merged
+        }
+        (None, _) => standard_portfolio_metrics(),
+    }
+}
+
+/// Assemble final valuation from per-position results.
+fn assemble_valuation(
+    position_values_vec: Vec<PositionValue>,
+    base_ccy: Currency,
+    as_of: finstack_core::dates::Date,
+) -> Result<PortfolioValuation> {
+    let mut position_values = IndexMap::new();
+    let mut entity_amounts: IndexMap<EntityId, Vec<f64>> = IndexMap::new();
+
+    for pv in position_values_vec {
+        entity_amounts
+            .entry(pv.entity_id.clone())
+            .or_default()
+            .push(pv.value_base.amount());
+        position_values.insert(pv.position_id.clone(), pv);
+    }
+
+    let by_entity: IndexMap<EntityId, Money> = entity_amounts
+        .into_iter()
+        .map(|(entity_id, amounts)| (entity_id, Money::new(neumaier_sum(amounts), base_ccy)))
+        .collect();
+
+    let total_amount = neumaier_sum(by_entity.values().map(|v| v.amount()).collect::<Vec<_>>());
+    let total_base_ccy = Money::new(total_amount, base_ccy);
+
+    let degraded_positions = position_values
+        .values()
+        .filter(|pv| !pv.risk_metrics_complete)
+        .map(|pv| pv.position_id.clone())
+        .collect();
+
+    Ok(PortfolioValuation {
+        as_of,
+        position_values,
+        total_base_ccy,
+        by_entity,
+        degraded_positions,
+    })
 }
 
 /// Options controlling portfolio valuation behaviour.
@@ -233,59 +297,15 @@ fn value_portfolio_serial(
     _config: &FinstackConfig,
     options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
-    let mut position_values = IndexMap::new();
-    let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
-
-    // Determine which metrics to compute for this valuation
-    let metrics = match (
-        &options.additional_metrics,
-        options.replace_standard_metrics,
-    ) {
-        (Some(additional), true) => additional.clone(),
-        (Some(additional), false) => {
-            let mut merged = standard_portfolio_metrics();
-            for m in additional {
-                if !merged.contains(m) {
-                    merged.push(m.clone());
-                }
-            }
-            merged
-        }
-        (None, _) => standard_portfolio_metrics(),
-    };
-
-    for position in &portfolio.positions {
-        let position_value =
-            value_single_position(position, market, portfolio, &metrics, options.strict_risk)?;
-
-        // Aggregate by entity using compensated summation
-        let entity_total = by_entity
-            .entry(position.entity_id.clone())
-            .or_insert_with(|| Money::new(0.0, portfolio.base_ccy));
-        *entity_total = entity_total
-            .checked_add(position_value.value_base)
-            .map_err(Error::Core)?;
-
-        // Store position value
-        position_values.insert(position.position_id.clone(), position_value);
-    }
-
-    // Calculate total using compensated summation for numerical stability
-    let entity_amounts: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
-    let total_amount = neumaier_sum(entity_amounts);
-    let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
-    let degraded_positions = position_values
-        .values()
-        .filter(|pv| !pv.risk_metrics_complete)
-        .map(|pv| pv.position_id.clone())
-        .collect();
-
-    Ok(PortfolioValuation {
-        position_values,
-        total_base_ccy,
-        by_entity,
-        degraded_positions,
-    })
+    let metrics = resolve_metrics(options);
+    let position_values_vec: Vec<PositionValue> = portfolio
+        .positions
+        .iter()
+        .map(|position| {
+            value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
 }
 
 /// Parallel implementation of portfolio valuation.
@@ -297,25 +317,7 @@ fn value_portfolio_parallel(
     options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
     use rayon::prelude::*;
-
-    let metrics = match (
-        &options.additional_metrics,
-        options.replace_standard_metrics,
-    ) {
-        (Some(additional), true) => additional.clone(),
-        (Some(additional), false) => {
-            let mut merged = standard_portfolio_metrics();
-            for m in additional {
-                if !merged.contains(m) {
-                    merged.push(m.clone());
-                }
-            }
-            merged
-        }
-        (None, _) => standard_portfolio_metrics(),
-    };
-
-    // Value all positions in parallel and aggregate using fold/reduce
+    let metrics = resolve_metrics(options);
     let position_values_vec: Vec<PositionValue> = portfolio
         .positions
         .par_iter()
@@ -323,53 +325,7 @@ fn value_portfolio_parallel(
             value_single_position(position, market, portfolio, &metrics, options.strict_risk)
         })
         .collect::<Result<Vec<_>>>()?;
-
-    // Parallel aggregation of entity totals using fold/reduce
-    // Collect amounts per entity in parallel, then use compensated summation
-    let entity_amounts_map: IndexMap<EntityId, Vec<f64>> = position_values_vec
-        .par_iter()
-        .fold(IndexMap::new, |mut acc, pv| {
-            acc.entry(pv.entity_id.clone())
-                .or_insert_with(Vec::new)
-                .push(pv.value_base.amount());
-            acc
-        })
-        .reduce(IndexMap::new, |mut a, b| {
-            for (entity_id, amounts) in b {
-                a.entry(entity_id).or_insert_with(Vec::new).extend(amounts);
-            }
-            a
-        });
-
-    // Build position_values IndexMap deterministically (preserve order)
-    let mut position_values = IndexMap::new();
-    for pv in position_values_vec {
-        position_values.insert(pv.position_id.clone(), pv);
-    }
-
-    // Convert entity amounts to Money using compensated summation per entity
-    let mut by_entity: IndexMap<EntityId, Money> = IndexMap::new();
-    for (entity_id, amounts) in entity_amounts_map {
-        let total_amount = neumaier_sum(amounts.into_iter());
-        by_entity.insert(entity_id, Money::new(total_amount, portfolio.base_ccy));
-    }
-
-    // Calculate total using compensated summation for numerical stability
-    let entity_amounts_for_total: Vec<f64> = by_entity.values().map(|v| v.amount()).collect();
-    let total_amount = neumaier_sum(entity_amounts_for_total);
-    let total_base_ccy = Money::new(total_amount, portfolio.base_ccy);
-    let degraded_positions = position_values
-        .values()
-        .filter(|pv| !pv.risk_metrics_complete)
-        .map(|pv| pv.position_id.clone())
-        .collect();
-
-    Ok(PortfolioValuation {
-        position_values,
-        total_base_ccy,
-        by_entity,
-        degraded_positions,
-    })
+    assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
 }
 
 fn metric_scale_factor(position: &crate::position::Position) -> f64 {

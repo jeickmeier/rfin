@@ -71,6 +71,10 @@ impl Instrument for ScaledInstrument {
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn attributes(&self) -> &Attributes {
         static ATTRS: OnceLock<Attributes> = OnceLock::new();
         ATTRS.get_or_init(Attributes::default)
@@ -133,6 +137,10 @@ impl Instrument for CompositeInstrument {
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
 

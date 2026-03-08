@@ -288,7 +288,7 @@ impl Bond {
     /// Create a canonical example bond for testing and documentation.
     ///
     /// Returns a 10-year USD Treasury-style bond with realistic parameters.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::with_convention(
             "US912828XG33",
@@ -299,7 +299,6 @@ impl Bond {
             crate::instruments::common_impl::parameters::BondConvention::USTreasury,
             "USD-TREASURY",
         )
-        .unwrap_or_else(|_| unreachable!("Example bond with valid constants should never fail"))
     }
 
     /// Create a standard fixed-rate bond (most common use case).
@@ -869,7 +868,7 @@ impl Bond {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::Date;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// # let schedule = CashFlowSchedule::builder()
     /// #     .principal(Money::new(1_000_000.0, Currency::USD), Date::from_calendar_date(2024, time::Month::January, 1).unwrap(), Date::from_calendar_date(2034, time::Month::January, 1).unwrap())
     /// #     .build_with_curves(None).unwrap();
@@ -911,7 +910,7 @@ impl Bond {
     /// ```rust,no_run
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// let accrual_config = bond.accrual_config();
     /// ```
     pub fn accrual_config(&self) -> crate::cashflow::accrual::AccrualConfig {
@@ -961,7 +960,7 @@ impl Bond {
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::market_data::context::MarketContext;
     ///
-    /// # let bond = Bond::example();
+    /// # let bond = Bond::example().unwrap();
     /// # let curves = MarketContext::new();
     /// let schedule = bond.get_full_schedule(&curves)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
@@ -2346,7 +2345,8 @@ mod tests {
 
     #[test]
     fn test_bond_serde_rejects_missing_issue_date_without_custom_cashflows() {
-        let mut value = serde_json::to_value(Bond::example()).expect("serialize");
+        let mut value = serde_json::to_value(Bond::example().expect("Bond example is valid"))
+            .expect("serialize");
         let obj = value
             .as_object_mut()
             .expect("Bond should serialize to an object");
@@ -2361,7 +2361,8 @@ mod tests {
 
     #[test]
     fn test_bond_serde_rejects_missing_issue_date_even_with_clean_price() {
-        let mut value = serde_json::to_value(Bond::example()).expect("serialize");
+        let mut value = serde_json::to_value(Bond::example().expect("Bond example is valid"))
+            .expect("serialize");
         let obj = value
             .as_object_mut()
             .expect("Bond should serialize to an object");

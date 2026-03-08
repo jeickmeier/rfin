@@ -165,7 +165,9 @@ impl MarketDependencies {
             InstrumentJson::Swaption(i) => Self::from_curve_dependencies(i),
             InstrumentJson::InterestRateFuture(i) => Self::from_curve_dependencies(i),
             InstrumentJson::InterestRateOption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::CmsSwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::CmsOption(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::IrFutureOption(i) => Self::from_curve_dependencies(i),
             InstrumentJson::Deposit(i) => Self::from_curve_dependencies(i),
             InstrumentJson::Repo(i) => Self::from_curve_dependencies(i),
 
@@ -213,6 +215,18 @@ impl MarketDependencies {
                 deps.add_fx_pair(i.base_currency, i.quote_currency);
                 Ok(deps)
             }
+            InstrumentJson::FxDigitalOption(i) => {
+                let mut deps = Self::from_curve_dependencies(i)?;
+                deps.add_vol_surface_id(i.vol_surface_id.as_str());
+                deps.add_fx_pair(i.base_currency, i.quote_currency);
+                Ok(deps)
+            }
+            InstrumentJson::FxTouchOption(i) => {
+                let mut deps = Self::from_curve_dependencies(i)?;
+                deps.add_vol_surface_id(i.vol_surface_id.as_str());
+                deps.add_fx_pair(i.base_currency, i.quote_currency);
+                Ok(deps)
+            }
             InstrumentJson::FxBarrierOption(i) => {
                 let mut deps = Self::from_curve_dependencies(i)?;
                 if let Some(spot_id) = i.fx_spot_id.as_ref() {
@@ -240,6 +254,7 @@ impl MarketDependencies {
 
             // Commodity
             InstrumentJson::CommodityOption(i) => Self::from_curves_and_equity(i),
+            InstrumentJson::CommodityAsianOption(i) => i.market_dependencies(),
             InstrumentJson::CommodityForward(i) => Self::from_curves_and_equity(i),
             InstrumentJson::CommoditySwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::CommoditySwaption(i) => Self::from_curve_dependencies(i),
@@ -262,6 +277,7 @@ impl MarketDependencies {
             InstrumentJson::PrivateMarketsFund(i) => i.market_dependencies(),
             InstrumentJson::RealEstateAsset(i) => Self::from_curve_dependencies(i),
             InstrumentJson::LeveredRealEstateEquity(i) => Self::from_curve_dependencies(i.as_ref()),
+            InstrumentJson::DiscountedCashFlow(i) => Self::from_curve_dependencies(i),
         }
     }
 }

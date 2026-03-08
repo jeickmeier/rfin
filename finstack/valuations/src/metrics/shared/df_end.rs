@@ -75,7 +75,7 @@ mod tests {
     #[test]
     fn df_end_matches_curve_for_bond() {
         let as_of = date!(2024 - 01 - 01);
-        let bond = Bond::example();
+        let bond = Bond::example().unwrap();
         let curve = flat_curve("USD-TREASURY", as_of);
         let expected = curve.df_on_date_curve(bond.maturity).expect("df on date");
         let market = MarketContext::new().insert(curve);
@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn df_end_matches_curve_for_deposit() {
         let as_of = date!(2024 - 01 - 01);
-        let deposit = Deposit::example();
+        let deposit = Deposit::example().unwrap();
         let curve = flat_curve("USD-OIS", as_of);
         let effective_end = deposit.effective_end_date().expect("effective end date");
         let expected = curve.df_on_date_curve(effective_end).expect("df on date");

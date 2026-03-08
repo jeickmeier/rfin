@@ -174,7 +174,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         name: None,
         description: None,
         operations: vec![OperationSpec::CurveParallelBp {
-            curve_kind: CurveKind::Forecast,
+            curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
             bp: 100.0,
         }],
@@ -240,7 +240,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         name: None,
         description: None,
         operations: vec![OperationSpec::CurveNodeBp {
-            curve_kind: CurveKind::Forecast,
+            curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
             nodes: vec![("1Y".into(), 50.0)],
             match_mode: finstack_scenarios::TenorMatchMode::Interpolate,

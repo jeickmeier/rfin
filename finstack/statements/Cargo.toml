@@ -17,6 +17,7 @@ thiserror = { workspace = true }
 nom = "8"
 tracing = { version = "0.1", default-features = false }
 polars = { version = "0.53", optional = true, default-features = false }
+rayon = { version = "1.11", optional = true }
 time = { workspace = true }
 rust_decimal = { workspace = true }
 
@@ -29,6 +30,7 @@ rust_decimal_macros = { workspace = true }
 [features]
 default = []
 dataframes = ["dep:polars"]
+parallel = ["dep:rayon"]
 
 [[bench]]
 name = "statements_operations"

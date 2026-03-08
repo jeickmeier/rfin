@@ -247,7 +247,7 @@ mod tests {
                 MarketScalar::Price(Money::new(150.0, Currency::USD)),
             );
 
-        let basket = Basket::example_with_instruments();
+        let basket = Basket::example_with_instruments().expect("Basket example is valid");
         let base_value = basket
             .value(&market, as_of)
             .expect("base basket value should succeed");

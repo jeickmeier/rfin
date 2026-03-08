@@ -17,7 +17,7 @@
 ```rust
 use finstack_valuations::instruments::exotics::basket::Basket;
 
-let basket = Basket::example();
+let basket = Basket::example().unwrap();
 let pv = basket.value(&market_context, as_of_date)?;
 ```
 

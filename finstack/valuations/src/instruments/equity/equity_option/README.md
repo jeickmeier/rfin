@@ -17,7 +17,7 @@
 ```rust
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
 
-let option = EquityOption::example();
+let option = EquityOption::example().unwrap();
 let pv = option.value(&market_context, as_of_date)?;
 ```
 

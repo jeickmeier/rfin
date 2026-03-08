@@ -33,7 +33,7 @@
 //! use time::Month;
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let loan = TermLoan::example();
+//! let loan = TermLoan::example().expect("TermLoan example is valid");
 //! let market = MarketContext::new();
 //! let as_of = Date::from_calendar_date(2025, Month::January, 15)?;
 //!
@@ -90,7 +90,7 @@ use crate::instruments::fixed_income::term_loan::TermLoan;
 ///
 /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
 /// let pricer = TermLoanDiscountingPricer;
-/// let loan = TermLoan::example();
+/// let loan = TermLoan::example().expect("TermLoan example is valid");
 /// let market = MarketContext::new();
 /// let as_of = Date::from_calendar_date(2025, Month::January, 15)?;
 ///
@@ -149,7 +149,7 @@ impl TermLoanDiscountingPricer {
     /// use time::Month;
     ///
     /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let loan = TermLoan::example();
+    /// let loan = TermLoan::example().expect("TermLoan example is valid");
     /// let market = MarketContext::new();
     /// let as_of = Date::from_calendar_date(2025, Month::January, 15)?;
     ///
@@ -248,7 +248,7 @@ mod tests {
             .expect("discount curve");
         let market = MarketContext::new().insert(disc.clone());
 
-        let mut loan = TermLoan::example();
+        let mut loan = TermLoan::example().expect("TermLoan example is valid");
         loan.coupon_type = CouponType::PIK;
         loan.discount_curve_id = CurveId::new("USD-OIS");
 

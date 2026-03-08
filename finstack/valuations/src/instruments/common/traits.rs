@@ -567,6 +567,10 @@ macro_rules! impl_instrument_base {
             self
         }
 
+        fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+            self
+        }
+
         fn attributes(&self) -> &$crate::instruments::common_impl::traits::Attributes {
             &self.attributes
         }
@@ -687,6 +691,14 @@ pub trait Instrument: Send + Sync {
     /// # }
     /// ```
     fn as_any(&self) -> &dyn Any;
+
+    /// Access to the concrete type for mutable downcasting.
+    ///
+    /// Enables mutable downcasting from `dyn Instrument` trait objects to
+    /// concrete instrument types using `Any::downcast_mut()`. Used by
+    /// scenario adapters that need to modify typed instrument state
+    /// (e.g., correlation shocks on `StructuredCredit`).
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Expose this instrument as a [`CashflowProvider`] when supported.
     ///
@@ -1156,7 +1168,7 @@ pub trait Instrument: Send + Sync {
     /// ```rust,ignore
     /// use finstack_valuations::instruments::{Bond, Instrument};
     ///
-    /// let bond = Bond::example();
+    /// let bond = Bond::example().unwrap();
     /// if let Some(maturity) = bond.expiry() {
     ///     println!("Bond matures on: {}", maturity);
     /// }

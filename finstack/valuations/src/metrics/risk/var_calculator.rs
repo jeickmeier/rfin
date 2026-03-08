@@ -228,7 +228,7 @@ impl VarResult {
 /// use time::macros::date;
 ///
 /// # fn main() -> finstack_core::Result<()> {
-/// let bond = Bond::example();
+/// let bond = Bond::example().unwrap();
 /// let market = MarketContext::new();
 /// let as_of = date!(2025-01-01);
 /// let history = MarketHistory::new(as_of, 0, Vec::<MarketScenario>::new());
@@ -816,6 +816,10 @@ mod tests {
         }
 
         fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
             self
         }
 

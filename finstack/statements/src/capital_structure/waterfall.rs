@@ -114,17 +114,18 @@ pub fn execute_waterfall(
     // This ensures PIK interest accrues on the reduced (post-sweep) balance,
     // matching standard LPA (Loan and Purchase Agreement) conventions.
     let mut remaining_sweep = sweep_amount;
-    for (instrument_id, mut breakdown) in contractual_flows.clone() {
+    for (instrument_id, breakdown) in contractual_flows {
+        let mut breakdown = breakdown.clone();
         let currency = breakdown.interest_expense_cash.currency();
 
         // Get opening balance for this instrument
-        let opening_balance = state.get_opening_balance(&instrument_id, currency);
+        let opening_balance = state.get_opening_balance(instrument_id, currency);
 
         // Apply PIK mode update for this instrument (if configured)
         if let Some(enable_pik) = pik_enable {
             let should_apply = pik_targets
                 .as_ref()
-                .map(|set| set.contains(&instrument_id))
+                .map(|set| set.contains(instrument_id))
                 .unwrap_or(true);
             if should_apply {
                 // Apply hysteresis: once PIK is enabled, it must stay active for
@@ -136,10 +137,14 @@ pub fn execute_waterfall(
                     .unwrap_or(0);
                 let periods_active = state
                     .pik_periods_active
-                    .get(&instrument_id)
+                    .get(instrument_id.as_str())
                     .copied()
                     .unwrap_or(0);
-                let currently_pik = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
+                let currently_pik = state
+                    .pik_mode
+                    .get(instrument_id.as_str())
+                    .copied()
+                    .unwrap_or(false);
 
                 let effective_pik = if currently_pik && !enable_pik && periods_active < min_periods
                 {
@@ -149,15 +154,19 @@ pub fn execute_waterfall(
                     enable_pik
                 };
 
-                state.pik_mode.insert(instrument_id.clone(), effective_pik);
+                state
+                    .pik_mode
+                    .insert(instrument_id.to_string(), effective_pik);
 
                 // Track consecutive PIK periods
                 if effective_pik {
                     state
                         .pik_periods_active
-                        .insert(instrument_id.clone(), periods_active + 1);
+                        .insert(instrument_id.to_string(), periods_active + 1);
                 } else {
-                    state.pik_periods_active.insert(instrument_id.clone(), 0);
+                    state
+                        .pik_periods_active
+                        .insert(instrument_id.to_string(), 0);
                 }
             }
         }
@@ -167,7 +176,7 @@ pub fn execute_waterfall(
             if ecf_spec
                 .target_instrument_id
                 .as_ref()
-                .map(|id| id == &instrument_id)
+                .map(|id| id == instrument_id)
                 .unwrap_or(true)
             {
                 // Limit sweep to outstanding balance
@@ -194,7 +203,11 @@ pub fn execute_waterfall(
         let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
 
         // Step 3c: Apply PIK mode — PIK accrues on post-sweep balance
-        let is_pik_enabled = state.pik_mode.get(&instrument_id).copied().unwrap_or(false);
+        let is_pik_enabled = state
+            .pik_mode
+            .get(instrument_id.as_str())
+            .copied()
+            .unwrap_or(false);
         if is_pik_enabled {
             breakdown.interest_expense_pik += breakdown.interest_expense_cash;
             breakdown.interest_expense_cash = Money::new(0.0, currency);
@@ -202,13 +215,13 @@ pub fn execute_waterfall(
 
         // Step 3d: Closing balance = post-sweep + PIK accrual
         let closing_balance = post_sweep_balance.checked_add(breakdown.interest_expense_pik)?;
-        state.set_closing_balance(instrument_id.clone(), closing_balance);
+        state.set_closing_balance(instrument_id.to_string(), closing_balance);
         breakdown.debt_balance = closing_balance;
 
         // Update cumulative metrics
-        update_cumulative_metrics(state, &instrument_id, &breakdown, currency)?;
+        update_cumulative_metrics(state, instrument_id, &breakdown, currency)?;
 
-        result.insert(instrument_id, breakdown);
+        result.insert(instrument_id.to_string(), breakdown);
     }
 
     Ok(result)

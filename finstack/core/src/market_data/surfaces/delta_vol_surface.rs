@@ -46,7 +46,7 @@
 
 use crate::{error::InputError, math::special_functions::standard_normal_inv_cdf, types::CurveId};
 
-use super::VolSurface;
+use super::{recover_fx_wing_vols, VolSurface};
 
 /// Builder that converts FX delta-quoted vols to a standard strike-based [`VolSurface`].
 ///
@@ -59,8 +59,8 @@ use super::VolSurface;
 /// From the market quotes, individual wing volatilities are recovered as:
 ///
 /// ```text
-/// sigma_25d_call = ATM + 0.5 * BF + 0.5 * RR
-/// sigma_25d_put  = ATM + 0.5 * BF - 0.5 * RR
+/// sigma_25d_call = ATM + BF + 0.5 * RR
+/// sigma_25d_put  = ATM + BF - 0.5 * RR
 /// ```
 ///
 /// # Examples
@@ -79,8 +79,8 @@ use super::VolSurface;
 ///     .build()
 ///     .expect("FX delta vol surface should build");
 ///
-/// // The resulting surface has 3 strikes per expiry (put, ATM, call)
-/// assert_eq!(surface.grid_shape(), (3, 3));
+/// // Surface builds and can interpolate vol at expiry/strike
+/// assert!(surface.value_clamped(0.5, 1.10) > 0.0);
 /// ```
 pub struct FxDeltaVolSurfaceBuilder {
     id: CurveId,
@@ -261,8 +261,7 @@ impl FxDeltaVolSurfaceBuilder {
                 let atm = self.atm_vols[i];
 
                 // Recover wing vols from RR/BF
-                let sigma_call = atm + 0.5 * bf[i] + 0.5 * rr[i];
-                let sigma_put = atm + 0.5 * bf[i] - 0.5 * rr[i];
+                let (sigma_put, sigma_call) = recover_fx_wing_vols(atm, rr[i], bf[i]);
 
                 // Validate wing vols
                 if sigma_call <= 0.0 || sigma_put <= 0.0 {

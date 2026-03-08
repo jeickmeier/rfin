@@ -34,7 +34,7 @@
 //! use finstack_valuations::instruments::fx::FxOption;
 //!
 //! // Use the example FX option (EUR/USD call)
-//! let _option = FxOption::example();
+//! let _option = FxOption::example().unwrap();
 //! ```
 //!
 //! # Greeks

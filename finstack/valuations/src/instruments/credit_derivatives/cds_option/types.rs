@@ -169,8 +169,7 @@ impl CDSOption {
     }
 
     /// Create a canonical example CDS option (call on CDS spread).
-    #[must_use]
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use finstack_core::currency::Currency;
         use time::macros::date;
         let option_params = CDSOptionParams::call(
@@ -178,10 +177,7 @@ impl CDSOption {
             date!(2025 - 06 - 20),
             date!(2030 - 06 - 20),
             Money::new(10_000_000.0, Currency::USD),
-        )
-        .unwrap_or_else(|_| {
-            unreachable!("Example CDSOptionParams with valid constants should never fail")
-        });
+        )?;
         let credit_params =
             crate::instruments::common_impl::parameters::CreditParams::corporate_standard(
                 "CORP",
@@ -194,9 +190,6 @@ impl CDSOption {
             "USD-OIS",
             "CDSOPT-VOL",
         )
-        .unwrap_or_else(|_| {
-            unreachable!("Example CDSOption with valid constants should never fail")
-        })
     }
 
     /// Create a new credit option using parameter structs with validation.

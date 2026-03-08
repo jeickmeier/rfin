@@ -43,7 +43,7 @@ use time::macros::date;
 /// ```
 /// use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 ///
-/// let trs = EquityTotalReturnSwap::example();
+/// let trs = EquityTotalReturnSwap::example().unwrap();
 /// // let pv = trs.value(&market_context, as_of_date)?;
 /// ```
 #[derive(
@@ -107,7 +107,7 @@ impl EquityTotalReturnSwap {
     /// Create a canonical example equity TRS for testing and documentation.
     ///
     /// Returns a 1-year SPX total return swap with quarterly resets.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("TRS-SPX-1Y"))
@@ -142,7 +142,6 @@ impl EquityTotalReturnSwap {
             .initial_level_opt(None)
             .attributes(Attributes::new())
             .build()
-            .unwrap_or_else(|_| unreachable!("Example TRS with valid constants should never fail"))
     }
 
     /// Creates an equity TRS that replicates an ETF.

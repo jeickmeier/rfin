@@ -290,7 +290,7 @@ impl AgencyMbsPassthrough {
     /// Create a canonical example MBS for testing and documentation.
     ///
     /// Returns a FNMA 30-year pool with realistic parameters.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         use time::macros::date;
         Self::builder()
             .id(InstrumentId::new("FN-MA1234"))
@@ -318,7 +318,6 @@ impl AgencyMbsPassthrough {
                     .with_meta("program", "fnma"),
             )
             .build()
-            .unwrap_or_else(|_| unreachable!("Example MBS with valid constants should never fail"))
     }
 
     /// Get the approximate stated delay in days (from accrual start).
@@ -486,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_mbs_example() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         assert_eq!(mbs.id.as_str(), "FN-MA1234");
         assert_eq!(mbs.agency, AgencyProgram::Fnma);
         assert_eq!(mbs.pool_type, PoolType::Generic);
@@ -496,7 +495,7 @@ mod tests {
 
     #[test]
     fn test_effective_payment_delay() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         assert_eq!(mbs.effective_payment_delay(), 55);
 
         let mut mbs_custom = mbs.clone();
@@ -506,7 +505,7 @@ mod tests {
 
     #[test]
     fn test_payment_date_for_accrual_period_calendar() {
-        let mbs = AgencyMbsPassthrough::example(); // FNMA
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid"); // FNMA
         let period_start = Date::from_calendar_date(2024, Month::February, 1).expect("valid date");
         let pay = mbs
             .payment_date_for_accrual_period(period_start)
@@ -517,7 +516,8 @@ mod tests {
 
     #[test]
     fn test_payment_date_for_accrual_period_custom_delay() {
-        let mut mbs = AgencyMbsPassthrough::example();
+        let mut mbs =
+            AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         mbs.payment_lag_days = Some(45);
         let period_start = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
         let pay = mbs
@@ -529,7 +529,7 @@ mod tests {
 
     #[test]
     fn test_seasoning_months() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
         let seasoning = mbs.seasoning_months(as_of);
         assert!((23..=24).contains(&seasoning));
@@ -537,14 +537,14 @@ mod tests {
 
     #[test]
     fn test_calculated_net_coupon() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         let calculated = mbs.calculated_net_coupon();
         assert!((calculated - 0.04).abs() < 1e-10);
     }
 
     #[test]
     fn test_coupon_consistency_validation() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         assert!(mbs.validate_coupon_consistency().is_ok());
 
         let mut bad_mbs = mbs.clone();
@@ -554,7 +554,7 @@ mod tests {
 
     #[test]
     fn test_smm_calculation() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         let as_of = Date::from_calendar_date(2024, Month::January, 1).expect("valid date");
         let smm = mbs.smm(as_of).expect("smm should succeed");
         assert!(smm > 0.0 && smm < 0.02);
@@ -562,7 +562,7 @@ mod tests {
 
     #[test]
     fn test_mbs_serde_roundtrip() {
-        let mbs = AgencyMbsPassthrough::example();
+        let mbs = AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid");
         let json = serde_json::to_string(&mbs).expect("serialize");
         let deserialized: AgencyMbsPassthrough = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(mbs.id.as_str(), deserialized.id.as_str());
@@ -571,7 +571,10 @@ mod tests {
 
     #[test]
     fn test_serde_defaults_fee_rates_to_zero_when_omitted() {
-        let mut value = serde_json::to_value(AgencyMbsPassthrough::example()).expect("serialize");
+        let mut value = serde_json::to_value(
+            AgencyMbsPassthrough::example().expect("AgencyMbsPassthrough example is valid"),
+        )
+        .expect("serialize");
         let obj = value
             .as_object_mut()
             .expect("AgencyMbsPassthrough should serialize to an object");

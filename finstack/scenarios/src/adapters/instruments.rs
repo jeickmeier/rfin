@@ -209,9 +209,3 @@ fn normalise_filters(attrs: &indexmap::IndexMap<String, String>) -> Vec<(String,
         .map(|(k, v)| (k.to_lowercase(), v.to_lowercase()))
         .collect()
 }
-
-#[cfg(test)]
-mod tests {
-    // Note: Full testing requires concrete instrument implementations
-    // These tests are placeholders for when integration testing is added
-}

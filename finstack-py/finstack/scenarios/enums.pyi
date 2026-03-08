@@ -6,7 +6,7 @@ from typing import ClassVar
 class CurveKind:
     """Identifies which family of curve an operation targets.
 
-    Use class attributes: CurveKind.Discount, CurveKind.Forecast, etc.
+    Use class attributes: CurveKind.Discount, CurveKind.Forward, etc.
 
     Examples:
         >>> from finstack.scenarios import CurveKind
@@ -15,7 +15,7 @@ class CurveKind:
 
     # Class attributes
     Discount: ClassVar[CurveKind]
-    Forecast: ClassVar[CurveKind]
+    Forward: ClassVar[CurveKind]
     ParCDS: ClassVar[CurveKind]
     Inflation: ClassVar[CurveKind]
     Commodity: ClassVar[CurveKind]

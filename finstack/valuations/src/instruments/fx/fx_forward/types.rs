@@ -157,7 +157,7 @@ impl FxForward {
     /// Create a canonical example FX forward for testing and documentation.
     ///
     /// Returns a 6-month EUR/USD forward with realistic parameters.
-    pub fn example() -> Self {
+    pub fn example() -> finstack_core::Result<Self> {
         // SAFETY: All inputs are compile-time validated constants
         Self::builder()
             .id(InstrumentId::new("EURUSD-FWD-6M"))
@@ -170,9 +170,6 @@ impl FxForward {
             .contract_rate_opt(Some(1.12))
             .attributes(Attributes::new().with_tag("fx").with_meta("pair", "EURUSD"))
             .build()
-            .unwrap_or_else(|_| {
-                unreachable!("Example FX forward with valid constants should never fail")
-            })
     }
 
     /// Returns the standard spot settlement days for a currency pair.
@@ -590,7 +587,7 @@ mod tests {
 
     #[test]
     fn test_fx_forward_example() {
-        let forward = FxForward::example();
+        let forward = FxForward::example().unwrap();
         assert_eq!(forward.id.as_str(), "EURUSD-FWD-6M");
         assert_eq!(forward.base_currency, Currency::EUR);
         assert_eq!(forward.quote_currency, Currency::USD);
@@ -620,7 +617,7 @@ mod tests {
     fn test_fx_forward_instrument_trait() {
         use crate::instruments::common_impl::traits::Instrument;
 
-        let forward = FxForward::example();
+        let forward = FxForward::example().unwrap();
 
         assert_eq!(forward.id(), "EURUSD-FWD-6M");
         assert_eq!(forward.key(), crate::pricer::InstrumentType::FxForward);
@@ -631,7 +628,7 @@ mod tests {
     fn test_fx_forward_curve_dependencies() {
         use crate::instruments::common_impl::traits::CurveDependencies;
 
-        let forward = FxForward::example();
+        let forward = FxForward::example().unwrap();
         let deps = forward.curve_dependencies().expect("curve_dependencies");
 
         assert_eq!(deps.discount_curves.len(), 2);
@@ -639,7 +636,7 @@ mod tests {
 
     #[test]
     fn test_fx_forward_serde_roundtrip() {
-        let forward = FxForward::example();
+        let forward = FxForward::example().unwrap();
         let json = serde_json::to_string(&forward).expect("serialize");
         let deserialized: FxForward = serde_json::from_str(&json).expect("deserialize");
 
@@ -754,7 +751,7 @@ mod tests {
 
     #[test]
     fn test_validation_valid_forward_passes() {
-        let forward = FxForward::example();
+        let forward = FxForward::example().unwrap();
         assert!(forward.validate().is_ok());
     }
 }

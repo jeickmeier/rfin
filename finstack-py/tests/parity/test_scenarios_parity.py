@@ -242,7 +242,7 @@ class TestCurveKindParity:
     def test_curve_kind_values(self) -> None:
         """Test curve kind enum values."""
         assert CurveKind.Discount is not None
-        assert CurveKind.Forecast is not None
+        assert CurveKind.Forward is not None
         assert CurveKind.ParCDS is not None
         assert CurveKind.Inflation is not None
 
