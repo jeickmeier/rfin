@@ -69,12 +69,6 @@ pub struct XvaConfig {
     /// and CDS pricing practices.
     pub recovery_rate: f64,
 
-    /// Whether to include wrong-way risk (placeholder for future implementation).
-    ///
-    /// When enabled, correlation between exposure and default probability
-    /// is modeled, which can significantly increase CVA for certain portfolios.
-    pub include_wrong_way_risk: bool,
-
     /// Recovery rate for own default (used in DVA calculation).
     ///
     /// If `None`, defaults to the counterparty `recovery_rate`.
@@ -99,7 +93,6 @@ impl Default for XvaConfig {
         Self {
             time_grid,
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         }
@@ -164,8 +157,6 @@ impl XvaConfig {
                         "XvaConfig: funding_benefit_bps {benefit} must be non-negative and finite"
                     )));
                 }
-            }
-            if let Some(benefit) = funding.funding_benefit_bps {
                 if benefit > funding.funding_spread_bps {
                     return Err(finstack_core::Error::Validation(format!(
                         "XvaConfig: funding_benefit_bps {benefit} must not exceed funding_spread_bps {}",
@@ -276,6 +267,22 @@ pub struct XvaResult {
     pub effective_epe: f64,
 }
 
+/// Diagnostics from exposure simulation capturing data quality metrics.
+///
+/// Populated by [`compute_exposure_profile`](super::exposure::compute_exposure_profile)
+/// to let callers distinguish genuine zero exposure from missing data.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct ExposureDiagnostics {
+    /// Number of time grid points where market data could not be rolled forward.
+    pub market_roll_failures: usize,
+
+    /// Total number of individual instrument valuation failures across all time points.
+    pub valuation_failures: usize,
+
+    /// Total time grid points evaluated.
+    pub total_time_points: usize,
+}
+
 /// Exposure profile computed at each time grid point.
 ///
 /// This is the intermediate result from exposure simulation,
@@ -293,6 +300,10 @@ pub struct ExposureProfile {
 
     /// Expected Negative Exposure at each time point: max(-V(t), 0).
     pub ene: Vec<f64>,
+
+    /// Simulation quality diagnostics (populated by the exposure engine).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub diagnostics: Option<ExposureDiagnostics>,
 }
 
 impl ExposureProfile {
@@ -551,7 +562,6 @@ mod tests {
         config.validate().expect("Default config should be valid");
         assert_eq!(config.time_grid.len(), 120); // quarterly to 30Y
         assert!((config.recovery_rate - 0.40).abs() < f64::EPSILON);
-        assert!(!config.include_wrong_way_risk);
     }
 
     #[test]
@@ -559,7 +569,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -571,7 +580,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![1.0, 0.5, 2.0],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -583,7 +591,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![1.0, 2.0],
             recovery_rate: 1.5,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -592,7 +599,6 @@ mod tests {
         let config_neg = XvaConfig {
             time_grid: vec![1.0, 2.0],
             recovery_rate: -0.1,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -604,7 +610,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![0.0, 1.0],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -616,7 +621,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![0.5, 1.0],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: Some(FundingConfig {
                 funding_spread_bps: 35.0,
@@ -635,6 +639,7 @@ mod tests {
             mtm_values: vec![100.0, -50.0, 25.0],
             epe: vec![100.0, 0.0, 25.0],
             ene: vec![0.0, 50.0, 0.0],
+            diagnostics: None,
         };
         profile.validate().expect("Valid profile should pass");
     }
@@ -646,6 +651,7 @@ mod tests {
             mtm_values: vec![100.0],
             epe: vec![100.0, 0.0],
             ene: vec![0.0, 50.0],
+            diagnostics: None,
         };
         assert!(profile.validate().is_err());
     }
@@ -657,6 +663,7 @@ mod tests {
             mtm_values: vec![100.0],
             epe: vec![-1.0],
             ene: vec![0.0],
+            diagnostics: None,
         };
         assert!(profile.validate().is_err());
     }
@@ -668,6 +675,7 @@ mod tests {
             mtm_values: vec![f64::NAN],
             epe: vec![0.0],
             ene: vec![0.0],
+            diagnostics: None,
         };
         assert!(profile.validate().is_err());
     }
@@ -679,6 +687,7 @@ mod tests {
             mtm_values: vec![100.0, 50.0],
             epe: vec![100.0, 50.0],
             ene: vec![0.0, 0.0],
+            diagnostics: None,
         };
         assert!(profile.validate().is_err());
     }

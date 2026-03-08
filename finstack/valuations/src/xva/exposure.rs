@@ -178,6 +178,7 @@ fn interpolate_quantile(samples: &mut [f64], quantile: f64) -> f64 {
 /// - PFE equals EPE in this simplified model
 /// - Does not model margin period of risk (MPOR) explicitly
 /// - Curve roll uses constant-curves assumption (no carry/theta)
+#[tracing::instrument(skip(instruments, market), fields(grid_points = config.time_grid.len()))]
 pub fn compute_exposure_profile(
     instruments: &[Arc<dyn Instrument>],
     market: &MarketContext,
@@ -224,9 +225,13 @@ pub fn compute_exposure_profile(
                 convert_to_reporting(value, reporting_currency, &rolled_market, future_date)
             }) {
                 Ok(v) => values.push(v),
-                Err(_) => {
-                    // Instrument may have expired or be unvaluable at this horizon.
-                    // Treat expired instruments as zero value (matured/settled).
+                Err(e) => {
+                    tracing::debug!(
+                        instrument = inst.id(),
+                        horizon_years = t,
+                        error = %e,
+                        "instrument valuation failed at future horizon; treating as zero"
+                    );
                     instrument_valuation_failures += 1;
                     values.push(0.0);
                 }
@@ -235,16 +240,16 @@ pub fn compute_exposure_profile(
 
         // Apply close-out netting: net portfolio value
         let net_value: f64 = values.iter().sum();
-        let gross_positive_exposure = apply_netting(&values);
-        let gross_negative_exposure = (-net_value).max(0.0);
+        let net_positive_exposure = apply_netting(&values);
+        let net_negative_exposure = (-net_value).max(0.0);
 
         let (positive_exposure, negative_exposure) = if let Some(ref csa) = netting_set.csa {
             (
-                apply_collateral(gross_positive_exposure, csa),
-                apply_collateral(gross_negative_exposure, csa),
+                apply_collateral(net_positive_exposure, csa),
+                apply_collateral(net_negative_exposure, csa),
             )
         } else {
-            (gross_positive_exposure, gross_negative_exposure)
+            (net_positive_exposure, net_negative_exposure)
         };
 
         times.push(t);
@@ -262,24 +267,31 @@ pub fn compute_exposure_profile(
         )));
     }
 
-    // Log a warning-level summary (via the error context) if any failures occurred
     if market_roll_failures > 0 || instrument_valuation_failures > 0 {
-        // In a production system this would use a proper logging framework.
-        // For now, the failure counts are captured in the profile for inspection
-        // and the caller can validate using ExposureProfile::validate().
-        #[cfg(debug_assertions)]
-        eprintln!(
-            "XVA exposure warning: {market_roll_failures} market roll failures, \
-             {instrument_valuation_failures} instrument valuation failures \
-             across {n} time points"
+        tracing::warn!(
+            market_roll_failures,
+            instrument_valuation_failures,
+            total_time_points = n,
+            "XVA exposure simulation completed with failures"
         );
     }
+
+    let diagnostics = if market_roll_failures > 0 || instrument_valuation_failures > 0 {
+        Some(super::types::ExposureDiagnostics {
+            market_roll_failures,
+            valuation_failures: instrument_valuation_failures,
+            total_time_points: n,
+        })
+    } else {
+        None
+    };
 
     Ok(ExposureProfile {
         times,
         mtm_values,
         epe,
         ene,
+        diagnostics,
     })
 }
 
@@ -365,6 +377,7 @@ where
         mtm_values,
         epe,
         ene,
+        diagnostics: None,
     };
     profile.validate()?;
 
@@ -500,7 +513,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![0.25, 0.5, 1.0],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -516,6 +528,7 @@ mod tests {
             mtm_values: vec![100.0, -50.0, 25.0],
             epe: vec![100.0, 0.0, 25.0],
             ene: vec![0.0, 50.0, 0.0],
+            diagnostics: None,
         };
         for &e in &profile.epe {
             assert!(e >= 0.0, "EPE must be non-negative, got {e}");
@@ -529,6 +542,7 @@ mod tests {
             mtm_values: vec![100.0, -50.0],
             epe: vec![100.0, 0.0],
             ene: vec![0.0, 50.0],
+            diagnostics: None,
         };
         for &e in &profile.ene {
             assert!(e >= 0.0, "ENE must be non-negative, got {e}");
@@ -577,6 +591,7 @@ mod tests {
             mtm_values: times.iter().map(|_| 1_000_000.0).collect(),
             epe: times.iter().map(|_| 1_000_000.0).collect(),
             ene: times.iter().map(|_| 0.0).collect(),
+            diagnostics: None,
         };
 
         // Collateralized profile: apply CSA to reduce EPE
@@ -595,6 +610,7 @@ mod tests {
             mtm_values: times.iter().map(|_| 1_000_000.0).collect(),
             epe: collat_epe,
             ene: times.iter().map(|_| 0.0).collect(),
+            diagnostics: None,
         };
 
         let cva_uncollat = compute_cva(&uncollat_profile, &hazard, &discount, 0.40)
@@ -626,6 +642,7 @@ mod tests {
             mtm_values: times.iter().map(|_| trade_a).collect(),
             epe: gross_epe,
             ene: times.iter().map(|_| 0.0).collect(),
+            diagnostics: None,
         };
 
         // Netted: use netting to compute net exposure
@@ -641,6 +658,7 @@ mod tests {
                 .iter()
                 .map(|_| (-(trade_a + trade_b)).max(0.0))
                 .collect(),
+            diagnostics: None,
         };
 
         let cva_gross = compute_cva(&gross_profile, &hazard, &discount, 0.40)
@@ -667,6 +685,7 @@ mod tests {
             mtm_values: vec![0.0; times.len()],
             epe: vec![0.0; times.len()],
             ene: vec![0.0; times.len()],
+            diagnostics: None,
         };
 
         let result = compute_cva(&profile, &hazard, &discount, 0.40)
@@ -694,6 +713,7 @@ mod tests {
             mtm_values: epe.clone(),
             epe: epe.clone(),
             ene: vec![0.0; times.len()],
+            diagnostics: None,
         };
 
         let result = compute_cva(&profile, &hazard, &discount, 0.40)
@@ -721,6 +741,7 @@ mod tests {
             mtm_values: vec![100.0, -50.0, 25.0, 75.0, -10.0],
             epe: vec![100.0, 0.0, 25.0, 75.0, 0.0],
             ene: vec![0.0, 50.0, 0.0, 0.0, 10.0],
+            diagnostics: None,
         };
         profile
             .validate()
@@ -736,7 +757,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![0.25],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -789,7 +809,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![0.25],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -834,7 +853,6 @@ mod tests {
         let config = XvaConfig {
             time_grid: vec![0.25],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -862,7 +880,6 @@ mod tests {
         let xva_config = XvaConfig {
             time_grid: vec![0.5, 1.0],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };
@@ -901,7 +918,6 @@ mod tests {
         let xva_config = XvaConfig {
             time_grid: vec![0.25, 0.5, 1.0],
             recovery_rate: 0.40,
-            include_wrong_way_risk: false,
             own_recovery_rate: None,
             funding: None,
         };

@@ -26,8 +26,6 @@ use finstack_valuations::xva;
 ///     time_grid: Time points (in years) for the exposure simulation.
 ///         Defaults to a quarterly grid out to 30 years.
 ///     recovery_rate: Assumed recovery rate upon default (0 to 1, default 0.40).
-///     include_wrong_way_risk: Placeholder for future wrong-way-risk modelling
-///         (default ``False``).
 #[pyclass(
     module = "finstack.valuations.xva",
     name = "XvaConfig",
@@ -42,17 +40,12 @@ pub struct PyXvaConfig {
 #[pymethods]
 impl PyXvaConfig {
     #[new]
-    #[pyo3(signature = (time_grid=None, recovery_rate=0.40, include_wrong_way_risk=false))]
-    fn new(
-        time_grid: Option<Vec<f64>>,
-        recovery_rate: f64,
-        include_wrong_way_risk: bool,
-    ) -> PyResult<Self> {
+    #[pyo3(signature = (time_grid=None, recovery_rate=0.40))]
+    fn new(time_grid: Option<Vec<f64>>, recovery_rate: f64) -> PyResult<Self> {
         let time_grid = time_grid.unwrap_or_else(|| (1..=120).map(|i| i as f64 * 0.25).collect());
         let inner = xva::types::XvaConfig {
             time_grid,
             recovery_rate,
-            include_wrong_way_risk,
             own_recovery_rate: None,
             funding: None,
         };
@@ -70,17 +63,11 @@ impl PyXvaConfig {
         self.inner.recovery_rate
     }
 
-    #[getter]
-    fn include_wrong_way_risk(&self) -> bool {
-        self.inner.include_wrong_way_risk
-    }
-
     fn __repr__(&self) -> String {
         format!(
-            "XvaConfig(grid_points={}, recovery_rate={:.2}, wrong_way_risk={})",
+            "XvaConfig(grid_points={}, recovery_rate={:.2})",
             self.inner.time_grid.len(),
-            self.inner.recovery_rate,
-            self.inner.include_wrong_way_risk
+            self.inner.recovery_rate
         )
     }
 }
@@ -255,6 +242,21 @@ impl PyExposureProfile {
     #[getter]
     fn ene(&self) -> Vec<f64> {
         self.inner.ene.clone()
+    }
+
+    /// Simulation quality diagnostics, if any failures occurred.
+    ///
+    /// Returns a dict with ``market_roll_failures``, ``valuation_failures``,
+    /// and ``total_time_points``; or ``None`` when every grid point succeeded.
+    #[getter]
+    fn diagnostics(&self) -> Option<std::collections::HashMap<&'static str, usize>> {
+        self.inner.diagnostics.as_ref().map(|d| {
+            let mut m = std::collections::HashMap::with_capacity(3);
+            m.insert("market_roll_failures", d.market_roll_failures);
+            m.insert("valuation_failures", d.valuation_failures);
+            m.insert("total_time_points", d.total_time_points);
+            m
+        })
     }
 
     fn __repr__(&self) -> String {

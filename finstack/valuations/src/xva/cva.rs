@@ -380,7 +380,7 @@ fn compute_fva_internal(
 ///
 /// # fn example() -> finstack_core::Result<()> {
 /// // ... construct profile, hazard_curve, discount_curve ...
-/// # let profile = ExposureProfile { times: vec![], mtm_values: vec![], epe: vec![], ene: vec![] };
+/// # let profile = ExposureProfile { times: vec![], mtm_values: vec![], epe: vec![], ene: vec![], diagnostics: None };
 /// # let hazard_curve = todo!();
 /// # let discount_curve = todo!();
 /// let result = compute_cva(&profile, &hazard_curve, &discount_curve, 0.40)?;
@@ -630,6 +630,7 @@ mod tests {
             mtm_values: times.iter().map(|_| epe_value).collect(),
             epe: times.iter().map(|_| epe_value).collect(),
             ene: times.iter().map(|_| 0.0).collect(),
+            diagnostics: None,
         }
     }
 
@@ -789,6 +790,7 @@ mod tests {
             mtm_values: vec![100.0, 200.0, 50.0, 150.0, 80.0],
             epe: vec![100.0, 200.0, 50.0, 150.0, 80.0],
             ene: vec![0.0; 5],
+            diagnostics: None,
         };
 
         let result =
@@ -834,6 +836,7 @@ mod tests {
             mtm_values: vec![100.0, 300.0, 200.0],
             epe: vec![100.0, 300.0, 200.0],
             ene: vec![0.0; 3],
+            diagnostics: None,
         };
 
         let result =
@@ -855,6 +858,7 @@ mod tests {
             mtm_values: vec![],
             epe: vec![],
             ene: vec![],
+            diagnostics: None,
         };
 
         let result = compute_cva(&profile, &hazard, &discount, 0.40);
@@ -924,6 +928,7 @@ mod tests {
             mtm_values: vec![100.0, 200.0, 300.0],
             epe: vec![100.0, 200.0], // one short
             ene: vec![0.0, 0.0, 0.0],
+            diagnostics: None,
         };
         assert!(
             compute_cva(&profile, &hazard, &discount, 0.40).is_err(),
@@ -940,6 +945,7 @@ mod tests {
             mtm_values: vec![100.0, 200.0],
             epe: vec![100.0, 200.0],
             ene: vec![0.0], // one short
+            diagnostics: None,
         };
         assert!(
             compute_cva(&profile, &hazard, &discount, 0.40).is_err(),
@@ -998,6 +1004,7 @@ mod tests {
             mtm_values: times.iter().map(|_| -ene_value).collect(),
             epe: times.iter().map(|_| 0.0).collect(),
             ene: times.iter().map(|_| ene_value).collect(),
+            diagnostics: None,
         }
     }
 
@@ -1190,6 +1197,7 @@ mod tests {
             mtm_values: times.iter().map(|_| 500_000.0).collect(),
             epe: times.iter().map(|_| 800_000.0).collect(),
             ene: times.iter().map(|_| 300_000.0).collect(),
+            diagnostics: None,
         };
 
         let result = compute_bilateral_xva(
@@ -1239,6 +1247,7 @@ mod tests {
             mtm_values: times.iter().map(|_| 500_000.0).collect(),
             epe: times.iter().map(|_| 800_000.0).collect(),
             ene: times.iter().map(|_| 300_000.0).collect(),
+            diagnostics: None,
         };
 
         let funding = FundingConfig {
@@ -1336,6 +1345,7 @@ mod tests {
             mtm_values: times.iter().map(|_| 250_000.0).collect(),
             epe: times.iter().map(|_| 800_000.0).collect(),
             ene: times.iter().map(|_| 500_000.0).collect(),
+            diagnostics: None,
         };
 
         let funding = FundingConfig {
