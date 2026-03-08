@@ -47,6 +47,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use tracing::{debug, warn};
 
 /// Initial margin metric calculator.
 ///
@@ -110,25 +111,27 @@ impl InitialMarginMetric {
         // Check if instrument has margin spec
         let margin_spec = instrument.margin_spec();
 
-        // Determine methodology and calculate
         if let Some(spec) = margin_spec {
+            debug!(instrument = instrument.id(), methodology = %spec.im_methodology, "IM dispatch: OTC margin spec");
             self.calculate_otc_im(instrument, spec, market, as_of)
         } else if let Some(repo_spec) = instrument.repo_margin_spec() {
-            // For repos, use haircut-based IM
+            debug!(instrument = instrument.id(), "IM dispatch: repo haircut");
             let haircut_calc = HaircutImCalculator::new(
                 repo_spec.eligible_substitutes.clone().unwrap_or_default(),
             );
             haircut_calc.calculate(instrument, market, as_of)
         } else {
-            // No margin spec - return zero IM
-            // Try to get MTM to determine currency, otherwise default to USD
+            warn!(
+                instrument = instrument.id(),
+                "No margin spec; returning zero IM"
+            );
             let currency = instrument
                 .mtm_for_vm(market, as_of)
                 .map(|m| m.currency())
                 .unwrap_or(Currency::USD);
             Ok(ImResult::simple(
                 Money::new(0.0, currency),
-                ImMethodology::Schedule, // Default methodology for no-margin case
+                ImMethodology::Schedule,
                 as_of,
                 0,
             ))

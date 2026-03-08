@@ -31,7 +31,9 @@ pub const DEFAULT_BOND_INDEX_DURATION: f64 = 5.0;
 
 /// SIMM tenor bucket boundaries in years.
 pub mod tenor_buckets {
-    /// Tenor thresholds for bucket assignment (in years).
+    /// 3 month bucket threshold (short-dated).
+    pub const BUCKET_3M: f64 = 0.25;
+    /// 6 month bucket threshold.
     pub const BUCKET_6M: f64 = 0.5;
     /// 1 year bucket threshold.
     pub const BUCKET_1Y: f64 = 1.0;
@@ -47,8 +49,6 @@ pub mod tenor_buckets {
     pub const BUCKET_15Y: f64 = 15.0;
     /// 20 year bucket threshold.
     pub const BUCKET_20Y: f64 = 20.0;
-    /// 25 year bucket threshold (3M bucket for short-dated).
-    pub const BUCKET_3M: f64 = 0.25;
 }
 
 /// Default credit qualifying spread threshold in basis points.

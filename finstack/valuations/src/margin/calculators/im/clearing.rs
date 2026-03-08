@@ -301,13 +301,16 @@ impl ImCalculator for ClearingHouseImCalculator {
         context: &MarketContext,
         as_of: Date,
     ) -> Result<ImResult> {
-        let pv = instrument.value(context, as_of)?;
-        let currency = pv.currency();
-        let notional = instrument
+        let notional = match instrument
             .as_cashflow_provider()
             .and_then(|cp| cp.notional())
-            .map(|n| Money::new(n.amount().abs(), n.currency()))
-            .unwrap_or_else(|| Money::new(pv.amount().abs(), currency));
+        {
+            Some(n) => Money::new(n.amount().abs(), n.currency()),
+            None => {
+                let pv = instrument.value(context, as_of)?;
+                Money::new(pv.amount().abs(), pv.currency())
+            }
+        };
 
         let mut im_amount = self.calculate_conservative(notional);
         let mut mpor_days = self.params().mpor_days;

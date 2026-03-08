@@ -31,9 +31,6 @@ pub struct ImResult {
     /// Keys are risk class names (e.g., "interest_rate", "credit", "equity")
     /// Values are IM amounts for that risk class
     pub breakdown: finstack_core::HashMap<String, Money>,
-
-    /// Any add-ons applied (e.g., jump-to-default for credit)
-    pub addons: Vec<ImAddon>,
 }
 
 impl ImResult {
@@ -46,7 +43,6 @@ impl ImResult {
             as_of,
             mpor_days,
             breakdown: finstack_core::HashMap::default(),
-            addons: vec![],
         }
     }
 
@@ -65,22 +61,8 @@ impl ImResult {
             as_of,
             mpor_days,
             breakdown,
-            addons: vec![],
         }
     }
-}
-
-/// IM add-on component.
-///
-/// Represents additional margin requirements beyond the base calculation,
-/// such as jump-to-default risk for credit derivatives.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ImAddon {
-    /// Description of the add-on
-    pub description: String,
-
-    /// Add-on amount
-    pub amount: Money,
 }
 
 /// Trait for initial margin calculators.

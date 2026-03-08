@@ -13,7 +13,9 @@ mod call;
 mod collateral;
 mod csa;
 mod enums;
+pub mod netting;
 mod otc;
+pub mod simm_types;
 mod thresholds;
 
 // Re-export all types
@@ -24,5 +26,7 @@ pub use collateral::{
 };
 pub use csa::{CsaSpec, MarginCallTiming};
 pub use enums::{ClearingStatus, ImMethodology, MarginTenor};
+pub use netting::{InstrumentMarginResult, NettingSetId};
 pub use otc::OtcMarginSpec;
+pub use simm_types::{SimmCreditSector, SimmRiskClass, SimmSensitivities};
 pub use thresholds::{ImParameters, VmParameters};

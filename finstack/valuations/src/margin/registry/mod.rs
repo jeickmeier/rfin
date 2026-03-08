@@ -5,6 +5,7 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::money::Money;
 use finstack_core::{Error, HashMap, Result};
 use serde_json::Value;
+use tracing::{debug, info};
 
 use crate::margin::calculators::im::schedule::{MaturityBucket, ScheduleAssetClass};
 use crate::margin::calculators::im::simm::SimmVersion;
@@ -147,6 +148,7 @@ pub fn embedded_registry() -> Result<&'static MarginRegistry> {
 pub fn build_registry(overlay: Option<&Value>) -> Result<MarginRegistry> {
     let mut root = embedded::load_embedded_root()?;
     if let Some(ov) = overlay {
+        debug!("Applying margin registry overlay");
         merge::merge_json(&mut root, ov);
     }
 
@@ -156,6 +158,15 @@ pub fn build_registry(overlay: Option<&Value>) -> Result<MarginRegistry> {
     let defaults = parse_defaults(root.get("defaults"))?;
     let (ccp, ccp_default) = parse_ccp(root.get("ccp"))?;
     let (simm, simm_default) = parse_simm(root.get("simm"))?;
+
+    info!(
+        schedules = schedule_im.len(),
+        collateral_schedules = collateral_schedules.len(),
+        ccps = ccp.len(),
+        simm_versions = simm.len(),
+        has_overlay = overlay.is_some(),
+        "Margin registry loaded"
+    );
 
     Ok(MarginRegistry {
         defaults,
@@ -662,5 +673,88 @@ impl ImMethodDefaults {
             mta: Money::new(self.mta, currency),
             segregated: self.segregated,
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_registry_loads_successfully() {
+        let registry = embedded_registry().expect("embedded registry should load");
+
+        assert!(
+            !registry.schedule_im.is_empty(),
+            "schedule_im should have entries"
+        );
+        assert!(
+            registry.schedule_im.contains_key("bcbs_iosco"),
+            "bcbs_iosco schedule should be present"
+        );
+
+        assert!(
+            !registry.collateral_schedules.is_empty(),
+            "collateral_schedules should have entries"
+        );
+        assert!(
+            registry.collateral_schedules.contains_key("bcbs_standard"),
+            "bcbs_standard collateral schedule should be present"
+        );
+        assert!(
+            registry.collateral_schedules.contains_key("cash_only"),
+            "cash_only collateral schedule should be present"
+        );
+
+        assert!(
+            !registry.collateral_asset_class_defaults.is_empty(),
+            "collateral_asset_class_defaults should have entries"
+        );
+        assert!(
+            registry
+                .collateral_asset_class_defaults
+                .contains_key(&CollateralAssetClass::Cash),
+            "Cash default should be present"
+        );
+
+        assert!(!registry.simm.is_empty(), "simm should have entries");
+        assert!(
+            registry.simm_default.is_some(),
+            "simm_default should be set"
+        );
+
+        assert!(!registry.ccp.is_empty(), "ccp should have entries");
+
+        assert!(
+            registry.defaults.im.simm.mpor_days > 0,
+            "simm mpor_days should be positive"
+        );
+    }
+
+    #[test]
+    fn simm_params_have_required_weights() {
+        let registry = embedded_registry().expect("embedded registry should load");
+        let simm_id = registry.simm_default.as_ref().expect("simm_default set");
+        let params = registry.simm.get(simm_id).expect("default simm params");
+
+        assert!(
+            params.ir_delta_weights.contains_key("5y"),
+            "5y IR weight should be present"
+        );
+        assert!(
+            params.cq_delta_weights.contains_key("corporates"),
+            "corporates CQ weight should be present"
+        );
+        assert!(params.cnq_delta_weight > 0.0, "CNQ weight should be > 0");
+        assert!(
+            params.equity_delta_weight > 0.0,
+            "equity weight should be > 0"
+        );
+        assert!(params.fx_delta_weight > 0.0, "FX weight should be > 0");
+        assert!(
+            !params.risk_class_correlations.is_empty(),
+            "risk class correlations should be populated"
+        );
     }
 }

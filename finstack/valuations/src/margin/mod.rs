@@ -81,6 +81,8 @@ pub mod traits;
 pub mod types;
 
 // Re-export main types for convenience
+pub use calculators::im::schedule::ScheduleAssetClass;
+pub use calculators::im::simm::SimmVersion;
 pub use calculators::{
     CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, HaircutImCalculator,
     ImCalculator, ImResult, InternalModelImCalculator, InternalModelInputSource,

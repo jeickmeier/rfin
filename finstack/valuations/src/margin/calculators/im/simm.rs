@@ -37,6 +37,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
 use finstack_core::Result;
+use tracing::debug;
 
 /// SIMM version identifier.
 #[derive(
@@ -625,6 +626,13 @@ impl ImCalculator for SimmCalculator {
         })?;
         let sensitivities = marginable.simm_sensitivities(context, as_of)?;
         let (total_im, breakdown) = self.calculate_from_sensitivities(&sensitivities, currency);
+
+        debug!(
+            instrument = instrument.id(),
+            total_im,
+            risk_classes = breakdown.len(),
+            "SIMM IM calculated"
+        );
 
         Ok(ImResult::with_breakdown(
             Money::new(total_im, currency),

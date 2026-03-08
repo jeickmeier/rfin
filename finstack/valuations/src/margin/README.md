@@ -32,7 +32,7 @@ margin/
 │   ├── csa.rs               # Credit Support Annex specification
 │   ├── collateral.rs        # Collateral eligibility and haircuts
 │   ├── thresholds.rs        # VM/IM parameters (threshold, MTA)
-│   ├── enums.rs             # MarginFrequency, ImMethodology, ClearingStatus
+│   ├── enums.rs             # MarginTenor, ImMethodology, ClearingStatus
 │   ├── otc.rs               # OTC derivative margin specification
 │   └── call.rs              # Margin call event types
 ├── calculators/              # Margin calculation engines
@@ -67,7 +67,7 @@ The CSA governs collateral exchange between counterparties under ISDA documentat
 ```rust
 use finstack_valuations::margin::{
     CsaSpec, VmParameters, ImParameters, EligibleCollateralSchedule,
-    MarginCallTiming, ImMethodology, MarginFrequency,
+    MarginCallTiming, ImMethodology, MarginTenor,
 };
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -83,8 +83,8 @@ let custom_csa = CsaSpec {
         threshold: Money::new(1_000_000.0, Currency::USD),
         mta: Money::new(100_000.0, Currency::USD),
         rounding: Money::new(10_000.0, Currency::USD),
-        independent_amount: Money::zero(Currency::USD),
-        frequency: MarginFrequency::Daily,
+        independent_amount: Money::new(0.0, Currency::USD),
+        frequency: MarginTenor::Daily,
         settlement_lag: 1,
     },
     im_params: Some(ImParameters::simm_standard(Currency::USD)),
@@ -131,8 +131,8 @@ let cash_only = EligibleCollateralSchedule::cash_only();
 let treasuries = EligibleCollateralSchedule::us_treasuries();
 
 // Check eligibility and haircuts
-let haircut = schedule.haircut_for(CollateralAssetClass::GovernmentBonds);
-let is_eligible = schedule.is_eligible(CollateralAssetClass::Cash);
+let haircut = schedule.haircut_for(&CollateralAssetClass::GovernmentBonds);
+let is_eligible = schedule.is_eligible(&CollateralAssetClass::Cash);
 ```
 
 #### Collateral Asset Classes and Standard Haircuts
@@ -179,7 +179,7 @@ let exposures = vec![
     (date2, Money::new(2_000_000.0, Currency::USD)),
     (date3, Money::new(1_500_000.0, Currency::USD)),
 ];
-let calls = calc.generate_margin_calls(&exposures, Money::zero(Currency::USD))?;
+let calls = calc.generate_margin_calls(&exposures, Money::new(0.0, Currency::USD))?;
 ```
 
 #### VM Calculation Formula

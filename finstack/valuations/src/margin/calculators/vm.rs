@@ -9,6 +9,7 @@ use finstack_core::dates::{adjust, BusinessDayConvention, CalendarRegistry, Date
 use finstack_core::money::Money;
 use finstack_core::Result;
 use time::Month;
+use tracing::{debug, warn};
 
 /// Variation margin calculation result.
 #[derive(Debug, Clone, PartialEq)]
@@ -177,6 +178,7 @@ impl VmCalculator {
         let currency = self.csa.base_currency;
 
         if exposure.currency() != currency {
+            warn!(expected = %currency, got = %exposure.currency(), "VM exposure currency mismatch");
             return Err(finstack_core::Error::Validation(format!(
                 "VM exposure currency mismatch: expected {}, got {}",
                 currency,
@@ -184,6 +186,7 @@ impl VmCalculator {
             )));
         }
         if posted_collateral.currency() != currency {
+            warn!(expected = %currency, got = %posted_collateral.currency(), "VM collateral currency mismatch");
             return Err(finstack_core::Error::Validation(format!(
                 "VM collateral currency mismatch: expected {}, got {}",
                 currency,
@@ -250,6 +253,7 @@ impl VmCalculator {
                 let settlement_date = result.settlement_date;
 
                 if result.delivery_amount.amount() > 0.0 {
+                    debug!(date = %date, amount = result.delivery_amount.amount(), "VM delivery margin call");
                     calls.push(MarginCall::vm_delivery(
                         *date,
                         settlement_date,
@@ -260,6 +264,7 @@ impl VmCalculator {
                     ));
                     current_collateral = current_collateral.checked_add(result.delivery_amount)?;
                 } else if result.return_amount.amount() > 0.0 {
+                    debug!(date = %date, amount = result.return_amount.amount(), "VM return margin call");
                     calls.push(MarginCall::vm_return(
                         *date,
                         settlement_date,
