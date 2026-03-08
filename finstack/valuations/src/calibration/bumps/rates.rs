@@ -15,6 +15,25 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::ExtrapolationPolicy;
 
+/// Infer currency from a discount curve ID using string heuristics.
+///
+/// This is a best-effort fallback for callers that don't have explicit currency
+/// metadata. Returns USD if the curve ID doesn't match a known pattern.
+pub fn infer_currency_from_discount_curve_id(curve: &DiscountCurve) -> Currency {
+    let id_str = curve.id().as_str();
+    if id_str.contains("USD") {
+        Currency::USD
+    } else if id_str.contains("EUR") {
+        Currency::EUR
+    } else if id_str.contains("GBP") {
+        Currency::GBP
+    } else if id_str.contains("JPY") {
+        Currency::JPY
+    } else {
+        Currency::USD
+    }
+}
+
 /// Bump a discount curve by shocking rate quotes and re-calibrating.
 ///
 /// This applies a [`BumpRequest`] to a collection of [`RateQuote`]s and
@@ -109,43 +128,23 @@ pub fn find_closest_quote(quotes: &[RateQuote], target_years: f64, as_of: Date) 
         .map(|(i, _)| i)
 }
 
-/// Bump discount curve by synthesizing par instruments (OIS Swaps) from the curve, shocking them, and re-calibrating.
+/// Bump discount curve by synthesizing par instruments from the curve, shocking them, and re-calibrating.
 ///
 /// Used when original quotes are unavailable. It implies par rates from
 /// the current curve discount factors, applies shocks, and re-bootstraps.
+///
+/// # Arguments
+/// * `currency` - Currency of the curve (required; DiscountCurve does not carry currency metadata).
 pub fn bump_discount_curve_synthetic(
     curve: &finstack_core::market_data::term_structures::DiscountCurve,
     context: &MarketContext,
     bump: &BumpRequest,
     as_of: Date,
-    currency_override: Option<Currency>,
+    currency: Currency,
 ) -> finstack_core::Result<DiscountCurve> {
     let curve_id = curve.id();
     let base_date = as_of;
     let knots = curve.knots();
-
-    // Determine currency: use explicit override if provided, otherwise fall back to string heuristic
-    let currency = if let Some(ccy) = currency_override {
-        ccy
-    } else {
-        tracing::warn!(
-            "bump_discount_curve_synthetic: no currency provided for '{}', \
-             falling back to string heuristic",
-            curve_id.as_str()
-        );
-        let id_str = curve_id.as_str();
-        if id_str.contains("USD") {
-            Currency::USD
-        } else if id_str.contains("EUR") {
-            Currency::EUR
-        } else if id_str.contains("GBP") {
-            Currency::GBP
-        } else if id_str.contains("JPY") {
-            Currency::JPY
-        } else {
-            Currency::USD
-        }
-    };
 
     // Choose synthetic indices. Deposits use a short-dated money-market index,
     // while swaps must use the corresponding OIS index conventions.

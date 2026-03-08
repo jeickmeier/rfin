@@ -53,7 +53,7 @@ use std::collections::BTreeMap;
 /// market context as a `MarketScalar::Unitless` under a key derived from
 /// the step configuration.
 #[allow(dead_code)]
-pub struct StudentTCalibrator {
+pub struct StudentTTarget {
     /// Parameters defining the calibration structure.
     pub params: StudentTParams,
     /// Baseline market context used when pricing trial copula configurations.
@@ -63,7 +63,7 @@ pub struct StudentTCalibrator {
 }
 
 #[allow(dead_code)]
-impl StudentTCalibrator {
+impl StudentTTarget {
     fn resolve_discount_curve_id(
         params: &StudentTParams,
         context: &MarketContext,
@@ -127,9 +127,12 @@ impl StudentTCalibrator {
     ///
     /// # Returns
     ///
-    /// A tuple of `(MarketContext, CalibrationReport)` where the context
-    /// contains the calibrated `df` stored under the scalar key
-    /// `"{tranche_instrument_id}_STUDENT_T_DF"`.
+    /// A tuple of `(MarketContext, f64, CalibrationReport)` where:
+    /// - The context contains the calibrated `df` stored under the scalar key
+    ///   `"{tranche_instrument_id}_STUDENT_T_DF"`.
+    /// - The extra `f64` is the calibrated degrees-of-freedom value, returned
+    ///   separately because `step_runtime` needs it to build a `StepOutput::Scalar`
+    ///   without parsing it back from report metadata.
     pub fn solve(
         params: &StudentTParams,
         quotes: &[MarketQuote],

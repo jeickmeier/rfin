@@ -237,11 +237,11 @@ pub struct ValidationConfig {
 }
 
 fn default_butterfly_upper_ratio() -> f64 {
-    1.25 // Variance must be at most 25% above linear interpolation
+    1.10 // Variance must be at most 10% above linear interpolation
 }
 
 fn default_butterfly_lower_ratio() -> f64 {
-    0.75 // Variance must be at least 25% below linear interpolation
+    0.90 // Variance must be at least 10% below linear interpolation
 }
 
 impl Default for ValidationConfig {
@@ -372,6 +372,12 @@ impl ValidationConfig {
             return Err(Error::Validation(format!(
                 "ValidationConfig invalid: max_volatility must be > 0.0, got {}",
                 self.max_volatility
+            )));
+        }
+        if self.butterfly_upper_ratio < self.butterfly_lower_ratio {
+            return Err(Error::Validation(format!(
+                "ValidationConfig invalid: butterfly_upper_ratio ({}) must be >= butterfly_lower_ratio ({})",
+                self.butterfly_upper_ratio, self.butterfly_lower_ratio
             )));
         }
         Ok(())

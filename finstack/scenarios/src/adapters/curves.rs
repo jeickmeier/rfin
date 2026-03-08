@@ -182,7 +182,8 @@ impl ScenarioAdapter for CurveAdapter {
     ) -> Result<Option<Vec<ScenarioEffect>>> {
         use finstack_valuations::calibration::bumps::{
             bump_discount_curve_synthetic, bump_hazard_shift, bump_hazard_spreads,
-            bump_inflation_rates, BumpRequest,
+            bump_inflation_rates, infer_currency_from_curve_id,
+            infer_currency_from_discount_curve_id, observation_lag_from_curve, BumpRequest,
         };
 
         match op {
@@ -206,12 +207,13 @@ impl ScenarioAdapter for CurveAdapter {
                             }
                         })?;
 
+                        let currency = infer_currency_from_discount_curve_id(&base_curve);
                         let new_curve = bump_discount_curve_synthetic(
                             &base_curve,
                             ctx.market,
                             &bump_req,
                             as_of,
-                            None,
+                            currency,
                         )
                         .map_err(|e| {
                             Error::Internal(format!("Failed to bump discount curve: {}", e))
@@ -284,12 +286,16 @@ impl ScenarioAdapter for CurveAdapter {
                         let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
+                        let currency = infer_currency_from_curve_id(&base_curve);
+                        let lag = observation_lag_from_curve(&base_curve);
                         let new_curve = bump_inflation_rates(
                             &base_curve,
                             ctx.market,
                             &bump_req,
                             &discount_id,
                             as_of,
+                            currency,
+                            &lag,
                         )
                         .map_err(|e| {
                             Error::Internal(format!("Failed to bump inflation curve: {}", e))
@@ -384,12 +390,13 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(result.targets);
 
+                        let currency = infer_currency_from_discount_curve_id(&base_curve);
                         let new_curve = bump_discount_curve_synthetic(
                             &base_curve,
                             ctx.market,
                             &bump_req,
                             as_of,
-                            None,
+                            currency,
                         )
                         .map_err(|e| {
                             Error::Internal(format!(
@@ -535,12 +542,16 @@ impl ScenarioAdapter for CurveAdapter {
                         let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
                             .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
+                        let currency = infer_currency_from_curve_id(&base_curve);
+                        let lag = observation_lag_from_curve(&base_curve);
                         let new_curve = bump_inflation_rates(
                             &base_curve,
                             ctx.market,
                             &bump_req,
                             &discount_id,
                             as_of,
+                            currency,
+                            &lag,
                         )
                         .map_err(|e| {
                             Error::Internal(format!(

@@ -331,6 +331,13 @@ fn execute_sequential(
 /// processes a sequential list of calibration steps, updates the market
 /// context statefully, and produces a final aggregated result.
 pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelope> {
+    let _span = tracing::info_span!(
+        "calibration_plan",
+        plan_id = %envelope.plan.id,
+        steps = envelope.plan.steps.len(),
+    )
+    .entered();
+
     let mut context: MarketContext = match &envelope.initial_market {
         Some(state) => MarketContext::try_from(state.clone())
             .map_err(|e| finstack_core::Error::Validation(e.to_string()))?,
@@ -339,25 +346,30 @@ pub fn execute(envelope: &CalibrationEnvelope) -> Result<CalibrationResultEnvelo
     let plan = &envelope.plan;
     let mut state = ExecutionState::new();
 
-    // Execute based on mode
     if plan.settings.use_parallel {
         execute_parallel(plan, &mut context, &mut state)?;
     } else {
         execute_sequential(plan, &mut context, &mut state)?;
     }
 
-    // Build result
     let step_reports = state.step_reports.clone();
     let aggregated_report = aggregate_plan_report(state, &plan.settings);
 
     let result = CalibrationResult {
         final_market: (&context).into(),
-        report: aggregated_report,
+        report: aggregated_report.clone(),
         step_reports,
         results_meta: finstack_core::config::results_meta(
             &finstack_core::config::FinstackConfig::default(),
         ),
     };
+
+    tracing::info!(
+        success = %aggregated_report.success,
+        max_residual = %aggregated_report.max_residual,
+        iterations = %aggregated_report.iterations,
+        "calibration plan completed"
+    );
 
     Ok(CalibrationResultEnvelope::new(result))
 }

@@ -11,45 +11,16 @@ use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::Result;
 use std::collections::BTreeMap;
 
-/// A newtype wrapper for f64 that implements Ord for use as BTreeMap keys.
-/// Uses total ordering where NaN values are treated as greater than all other values.
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct OrderedF64(f64);
-
-impl Eq for OrderedF64 {}
-
-impl PartialOrd for OrderedF64 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for OrderedF64 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.total_cmp(&other.0)
-    }
-}
-
-impl From<f64> for OrderedF64 {
-    fn from(value: f64) -> Self {
-        Self(value)
-    }
-}
-
-impl OrderedF64 {
-    fn into_inner(self) -> f64 {
-        self.0
-    }
-}
+use crate::calibration::constants::OrderedF64;
 
 /// Bootstrapper for calibrating option volatility surfaces.
 ///
 /// Calibrates volatility surfaces from option quotes using the SABR model.
 /// Groups quotes by expiry, calibrates SABR parameters per expiry, and builds
 /// a volatility surface grid.
-pub struct VolSurfaceBootstrapper;
+pub struct VolSurfaceTarget;
 
-impl VolSurfaceBootstrapper {
+impl VolSurfaceTarget {
     /// Calibrates an option volatility surface from market quotes.
     ///
     /// Groups option quotes by expiry, calibrates SABR parameters for each
@@ -429,12 +400,9 @@ mod tests {
         map.insert(OrderedF64(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
         map.insert(OrderedF64(2.0), params(0.20, 0.5, 0.40, -0.10, 0.01));
 
-        let err = VolSurfaceBootstrapper::interpolate_params(
-            0.5,
-            &map,
-            SurfaceExtrapolationPolicy::Error,
-        )
-        .expect_err("out-of-bounds should error");
+        let err =
+            VolSurfaceTarget::interpolate_params(0.5, &map, SurfaceExtrapolationPolicy::Error)
+                .expect_err("out-of-bounds should error");
         assert!(err.to_string().contains("out of bounds"));
     }
 
@@ -446,20 +414,14 @@ mod tests {
         map.insert(OrderedF64(1.0), p1.clone());
         map.insert(OrderedF64(2.0), p2.clone());
 
-        let left = VolSurfaceBootstrapper::interpolate_params(
-            0.5,
-            &map,
-            SurfaceExtrapolationPolicy::Clamp,
-        )
-        .expect("clamp-left");
+        let left =
+            VolSurfaceTarget::interpolate_params(0.5, &map, SurfaceExtrapolationPolicy::Clamp)
+                .expect("clamp-left");
         assert_eq!(left.alpha, p1.alpha);
 
-        let right = VolSurfaceBootstrapper::interpolate_params(
-            3.0,
-            &map,
-            SurfaceExtrapolationPolicy::Clamp,
-        )
-        .expect("clamp-right");
+        let right =
+            VolSurfaceTarget::interpolate_params(3.0, &map, SurfaceExtrapolationPolicy::Clamp)
+                .expect("clamp-right");
         assert_eq!(right.alpha, p2.alpha);
     }
 
@@ -469,12 +431,9 @@ mod tests {
         map.insert(OrderedF64(1.0), params(0.10, 0.5, 0.30, -0.20, 0.01));
         map.insert(OrderedF64(2.0), params(0.20, 0.5, 0.50, 0.10, 0.01));
 
-        let mid = VolSurfaceBootstrapper::interpolate_params(
-            1.5,
-            &map,
-            SurfaceExtrapolationPolicy::Error,
-        )
-        .expect("in-range");
+        let mid =
+            VolSurfaceTarget::interpolate_params(1.5, &map, SurfaceExtrapolationPolicy::Error)
+                .expect("in-range");
 
         // α and ν use log-space: geometric mean at midpoint
         let expected_alpha = (0.10_f64 * 0.20).sqrt(); // ≈ 0.1414
@@ -514,7 +473,7 @@ mod tests {
             expiry_extrapolation: SurfaceExtrapolationPolicy::Clamp,
         };
 
-        let err = VolSurfaceBootstrapper::solve(
+        let err = VolSurfaceTarget::solve(
             &params,
             &[],
             &MarketContext::new(),
@@ -612,7 +571,7 @@ mod tests {
         ];
 
         let (_surface, report) =
-            VolSurfaceBootstrapper::solve(&params, &quotes, &ctx, &CalibrationConfig::default())
+            VolSurfaceTarget::solve(&params, &quotes, &ctx, &CalibrationConfig::default())
                 .expect("calibrate");
 
         assert_eq!(

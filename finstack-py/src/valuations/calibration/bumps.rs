@@ -12,7 +12,8 @@ use finstack_core::types::CurveId;
 use finstack_valuations::calibration::api::schema::DiscountCurveParams;
 use finstack_valuations::calibration::bumps::{
     bump_discount_curve, bump_discount_curve_synthetic, bump_hazard_shift, bump_hazard_spreads,
-    bump_inflation_rates, BumpRequest,
+    bump_inflation_rates, infer_currency_from_curve_id, infer_currency_from_discount_curve_id,
+    observation_lag_from_curve, BumpRequest,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -163,6 +164,7 @@ fn py_bump_discount_curve_synthetic(
     let curve_inner = curve.inner.clone();
     let market_inner = market.inner.clone();
     let bump_inner = bump.inner.clone();
+    let currency = infer_currency_from_discount_curve_id(&curve_inner);
     let bumped = py
         .detach(|| {
             bump_discount_curve_synthetic(
@@ -170,7 +172,7 @@ fn py_bump_discount_curve_synthetic(
                 &market_inner,
                 &bump_inner,
                 as_of_date,
-                None,
+                currency,
             )
         })
         .map_err(core_to_py)?;
@@ -294,6 +296,8 @@ fn py_bump_inflation_rates(
     let curve_inner = curve.inner.clone();
     let market_inner = market.inner.clone();
     let bump_inner = bump.inner.clone();
+    let currency = infer_currency_from_curve_id(&curve_inner);
+    let lag = observation_lag_from_curve(&curve_inner);
     let bumped = py
         .detach(|| {
             bump_inflation_rates(
@@ -302,6 +306,8 @@ fn py_bump_inflation_rates(
                 &bump_inner,
                 &discount_curve_id,
                 as_of_date,
+                currency,
+                &lag,
             )
         })
         .map_err(core_to_py)?;

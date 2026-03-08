@@ -91,13 +91,6 @@ impl ForwardCurveTarget {
         }
     }
 
-    /// Calculate scale-aware tolerance for knot collision detection.
-    #[allow(dead_code)]
-    pub fn scale_aware_tolerance(&self, knot_time: f64) -> f64 {
-        let tol = self.config.solver.tolerance();
-        (tol * (1.0 + knot_time)).max(tol)
-    }
-
     fn with_temp_context<F, T>(&self, curve: &ForwardCurve, op: F) -> Result<T>
     where
         F: FnOnce(&MarketContext) -> Result<T>,

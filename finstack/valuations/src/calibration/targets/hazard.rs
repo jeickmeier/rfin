@@ -28,7 +28,7 @@ use std::cell::RefCell;
 ///
 /// # See Also
 /// - [`crate::instruments::cds`] for details on the underlying instruments.
-pub struct HazardBootstrapper {
+pub struct HazardCurveTarget {
     /// Parameters defining the hazard curve structure and IDs.
     pub params: HazardCurveParams,
     /// CDS market conventions resolved from (currency, doc_clause).
@@ -41,7 +41,7 @@ pub struct HazardBootstrapper {
     reuse_context: Option<RefCell<MarketContext>>,
 }
 
-impl HazardBootstrapper {
+impl HazardCurveTarget {
     /// Creates a new hazard curve bootstrapper.
     ///
     /// # Arguments
@@ -52,7 +52,7 @@ impl HazardBootstrapper {
     ///
     /// # Returns
     ///
-    /// A new `HazardBootstrapper` instance ready for calibration.
+    /// A new `HazardCurveTarget` instance ready for calibration.
     ///
     /// # Note
     ///
@@ -116,7 +116,7 @@ impl HazardBootstrapper {
         }
         config.calibration_method = params.method.clone();
 
-        let target = HazardBootstrapper::new(params.clone(), context.clone(), config.clone())?;
+        let target = HazardCurveTarget::new(params.clone(), context.clone(), config.clone())?;
 
         let mut prepared_quotes: Vec<CalibrationQuote> = Vec::with_capacity(cds_quotes.len());
         let mut curve_ids = HashMap::default();
@@ -231,7 +231,7 @@ impl HazardBootstrapper {
     }
 }
 
-impl BootstrapTarget for HazardBootstrapper {
+impl BootstrapTarget for HazardCurveTarget {
     type Quote = crate::calibration::prepared::CalibrationQuote;
     type Curve = HazardCurve;
 
@@ -379,7 +379,7 @@ impl BootstrapTarget for HazardBootstrapper {
     }
 }
 
-impl GlobalSolveTarget for HazardBootstrapper {
+impl GlobalSolveTarget for HazardCurveTarget {
     type Quote = CalibrationQuote;
     type Curve = HazardCurve;
 
@@ -593,7 +593,7 @@ mod tests {
 
     #[test]
     fn validate_knot_rejects_negative_hazard() {
-        let target = HazardBootstrapper::new(
+        let target = HazardCurveTarget::new(
             base_params(),
             MarketContext::default(),
             CalibrationConfig::default(),
@@ -609,7 +609,7 @@ mod tests {
     fn validate_knot_rejects_hazard_above_max() {
         let config = CalibrationConfig::default();
         let hazard_max = config.hazard_curve.hazard_hard_max;
-        let target = HazardBootstrapper::new(base_params(), MarketContext::default(), config)
+        let target = HazardCurveTarget::new(base_params(), MarketContext::default(), config)
             .expect("target");
         let err = target
             .validate_knot(1.0, hazard_max + 1e-6)
@@ -622,7 +622,7 @@ mod tests {
         let mut p = base_params();
         p.par_interp = ParInterp::LogLinear;
         let target =
-            HazardBootstrapper::new(p, MarketContext::default(), CalibrationConfig::default())
+            HazardCurveTarget::new(p, MarketContext::default(), CalibrationConfig::default())
                 .expect("target");
 
         let curve = target

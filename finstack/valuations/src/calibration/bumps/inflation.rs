@@ -14,41 +14,54 @@ use finstack_core::market_data::term_structures::InflationCurve;
 
 use finstack_core::dates::Date;
 
-/// Bump inflation curve by shocking implied zero-coupon swap rates and re-calibrating.
+/// Infer currency from an inflation curve ID using string heuristics.
 ///
-/// Converts the current inflation curve back to implied ZCIS rates,
-/// applies shocks to those rates, and re-executes the inflation bootstrapper.
-pub fn bump_inflation_rates(
-    curve: &InflationCurve,
-    context: &MarketContext,
-    bump: &BumpRequest,
-    discount_id: &finstack_core::types::CurveId,
-    as_of: Date,
-) -> finstack_core::Result<InflationCurve> {
-    let base_date = as_of;
-    // Inflation curves usually don't carry their currency, but the calibrator needs it?
-    // Actually InflationCurve doesn't have currency field.
-    // InflationCurveCalibrator::new takes currency.
-    // We might need to imply it or pass it.
-    // For now, let's assume USD as default or try to infer from ID?
-    // In scenarios, we often know the currency.
-    // The curve ID usually contains the currency (e.g. "USD-CPI").
-    // Let's rely on the caller to provide valid context, but here we just need to build quotes.
-    // The calibrator needs to know the currency to look up the Discount Curve if it's currency dependent?
-    // Actually InflationCurveCalibrator takes `currency` in `new`.
-
-    // We'll try to parse currency from ID, or default to USD.
-    let curve_id = curve.id();
-    let id_str = curve_id.as_str();
-    let currency = if id_str.contains("USD") {
+/// This is a best-effort fallback for callers that don't have explicit currency
+/// metadata. Returns USD if the curve ID doesn't match a known pattern.
+pub fn infer_currency_from_curve_id(curve: &InflationCurve) -> Currency {
+    let id_str = curve.id().as_str();
+    if id_str.contains("USD") {
         Currency::USD
     } else if id_str.contains("EUR") {
         Currency::EUR
     } else if id_str.contains("GBP") {
         Currency::GBP
     } else {
-        Currency::USD // Fallback
-    };
+        Currency::USD
+    }
+}
+
+/// Derive the observation lag string from the curve's `indexation_lag_months`.
+///
+/// Returns `"NONE"` when the lag is 0, otherwise formats as `"{n}M"`.
+pub fn observation_lag_from_curve(curve: &InflationCurve) -> String {
+    let months = curve.indexation_lag_months();
+    if months == 0 {
+        "NONE".to_string()
+    } else {
+        format!("{months}M")
+    }
+}
+
+/// Bump inflation curve by shocking implied zero-coupon swap rates and re-calibrating.
+///
+/// Converts the current inflation curve back to implied ZCIS rates,
+/// applies shocks to those rates, and re-executes the inflation bootstrapper.
+///
+/// # Arguments
+/// * `currency` - Currency of the inflation index (required; InflationCurve does not carry currency metadata).
+/// * `observation_lag` - Observation lag string (e.g. "3M", "NONE") matching the original calibration.
+pub fn bump_inflation_rates(
+    curve: &InflationCurve,
+    context: &MarketContext,
+    bump: &BumpRequest,
+    discount_id: &finstack_core::types::CurveId,
+    as_of: Date,
+    currency: Currency,
+    observation_lag: &str,
+) -> finstack_core::Result<InflationCurve> {
+    let base_date = as_of;
+    let curve_id = curve.id();
 
     // Map currency to standard inflation convention ID
     let convention_id = match currency {
@@ -112,7 +125,7 @@ pub fn bump_inflation_rates(
         base_date,
         discount_curve_id: discount_id.clone(),
         index: curve_id.as_str().to_string(),
-        observation_lag: "NONE".to_string(),
+        observation_lag: observation_lag.to_string(),
         base_cpi,
         notional: 1.0,
         method: CalibrationMethod::Bootstrap,

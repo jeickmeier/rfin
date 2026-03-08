@@ -164,7 +164,10 @@ fn bump_hazard_shift_fallback(
             temp_bumped
                 .to_builder_with_id(hazard.id().clone())
                 .build()
-                .map_err(|_| finstack_core::Error::Internal)
+                .map_err(|e| finstack_core::Error::Calibration {
+                    message: format!("Failed to rebuild hazard curve after parallel bump: {e}"),
+                    category: "bumps".to_string(),
+                })
         }
         BumpRequest::Tenors(targets) => {
             // Sequential bumping for each target
@@ -253,5 +256,8 @@ fn with_key_rate_hazard_bump(
 
     builder
         .build()
-        .map_err(|_e| finstack_core::Error::from(finstack_core::InputError::Invalid))
+        .map_err(|e| finstack_core::Error::Calibration {
+            message: format!("Failed to rebuild hazard curve after key-rate bump: {e}"),
+            category: "bumps".to_string(),
+        })
 }

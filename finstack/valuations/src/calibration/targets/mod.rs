@@ -25,6 +25,8 @@ pub mod hazard;
 pub mod inflation;
 /// Student-t copula degrees of freedom calibration.
 pub mod student_t;
+/// SVI volatility surface calibration.
+pub mod svi;
 /// Swaption volatility surface calibration.
 pub mod swaption;
 /// Shared utility functions for calibration targets.

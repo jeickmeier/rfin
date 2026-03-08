@@ -182,14 +182,14 @@ fn normalize_pct(value: f64) -> f64 {
 // =============================================================================
 
 /// Bootstrapper that calibrates a [`BaseCorrelationCurve`] from tranche quotes.
-pub struct BaseCorrelationBootstrapper {
+pub struct BaseCorrelationTarget {
     /// Calibration inputs (curve IDs, schedule conventions, detachment points).
     pub params: BaseCorrelationParams,
     /// Baseline market context used when pricing trial curves.
     pub base_context: MarketContext,
 }
 
-impl BaseCorrelationBootstrapper {
+impl BaseCorrelationTarget {
     /// Create a new base correlation bootstrapper.
     pub fn new(params: BaseCorrelationParams, base_context: MarketContext) -> Self {
         Self {
@@ -354,7 +354,7 @@ impl BaseCorrelationBootstrapper {
             ));
         }
 
-        let target = BaseCorrelationBootstrapper::new(params.clone(), context.clone());
+        let target = BaseCorrelationTarget::new(params.clone(), context.clone());
         let prepared_quotes = target.prepare_quotes(tranche_quotes)?;
 
         // Base correlation uses discount curve validation tolerance as the closest target-specific config.
@@ -383,7 +383,7 @@ impl BaseCorrelationBootstrapper {
     }
 }
 
-impl BootstrapTarget for BaseCorrelationBootstrapper {
+impl BootstrapTarget for BaseCorrelationTarget {
     type Quote = CalibrationQuote;
     type Curve = BaseCorrelationCurve;
 

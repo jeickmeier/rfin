@@ -24,9 +24,9 @@ use crate::market::conventions::ids::SwaptionConventionId;
 /// Calibrates volatility surfaces from swaption quotes using the SABR model.
 /// Groups quotes by expiry and tenor, calibrates SABR parameters per group,
 /// and builds a volatility surface grid.
-pub struct SwaptionVolBootstrapper;
+pub struct SwaptionVolTarget;
 
-impl SwaptionVolBootstrapper {
+impl SwaptionVolTarget {
     /// Convert a quoted swaption vol to internal model units (decimal).
     ///
     /// Internal contract:
@@ -939,17 +939,15 @@ mod tests {
 
     #[test]
     fn normalize_quoted_vol_converts_units_to_decimals() {
-        let normal =
-            SwaptionVolBootstrapper::normalize_quoted_vol(50.0, SwaptionVolConvention::Normal)
-                .expect("normal");
+        let normal = SwaptionVolTarget::normalize_quoted_vol(50.0, SwaptionVolConvention::Normal)
+            .expect("normal");
         assert!((normal - 0.005).abs() < 1e-12);
 
-        let ln =
-            SwaptionVolBootstrapper::normalize_quoted_vol(20.0, SwaptionVolConvention::Lognormal)
-                .expect("lognormal");
+        let ln = SwaptionVolTarget::normalize_quoted_vol(20.0, SwaptionVolConvention::Lognormal)
+            .expect("lognormal");
         assert!((ln - 0.20).abs() < 1e-12);
 
-        let shifted = SwaptionVolBootstrapper::normalize_quoted_vol(
+        let shifted = SwaptionVolTarget::normalize_quoted_vol(
             20.0,
             SwaptionVolConvention::ShiftedLognormal { shift: 0.01 },
         )
@@ -988,8 +986,8 @@ mod tests {
         p.target_tenors = vec![t_ten];
         p.vol_tolerance = Some(0.0020);
 
-        let leg = SwaptionVolBootstrapper::default_leg_conventions(&p).expect("leg conventions");
-        let fwd = SwaptionVolBootstrapper::calculate_forward_swap_rate_years(
+        let leg = SwaptionVolTarget::default_leg_conventions(&p).expect("leg conventions");
+        let fwd = SwaptionVolTarget::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
             tenor_years,
@@ -1025,7 +1023,7 @@ mod tests {
 
         let config = CalibrationConfig::default();
         let (surface, _report) =
-            SwaptionVolBootstrapper::solve(&p, &quotes, &ctx, &config).expect("solve");
+            SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
 
         let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
         let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
@@ -1070,8 +1068,8 @@ mod tests {
         p.target_tenors = vec![t_ten];
         p.vol_tolerance = Some(0.0020);
 
-        let leg = SwaptionVolBootstrapper::default_leg_conventions(&p).expect("leg conventions");
-        let fwd = SwaptionVolBootstrapper::calculate_forward_swap_rate_years(
+        let leg = SwaptionVolTarget::default_leg_conventions(&p).expect("leg conventions");
+        let fwd = SwaptionVolTarget::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
             tenor_years,
@@ -1111,7 +1109,7 @@ mod tests {
             ..CalibrationConfig::default()
         };
         let (surface, _report) =
-            SwaptionVolBootstrapper::solve(&p, &quotes, &ctx, &config).expect("solve");
+            SwaptionVolTarget::solve(&p, &quotes, &ctx, &config).expect("solve");
 
         let fitted_atm = surface.value_checked(t_exp, t_ten).expect("surface point");
         let true_atm = model.implied_volatility(fwd, fwd, t_exp).expect("true atm");
@@ -1163,8 +1161,8 @@ mod tests {
         p.target_expiries = vec![t_exp];
         p.target_tenors = vec![t_ten];
 
-        let leg = SwaptionVolBootstrapper::default_leg_conventions(&p).expect("leg conventions");
-        let fwd = SwaptionVolBootstrapper::calculate_forward_swap_rate_years(
+        let leg = SwaptionVolTarget::default_leg_conventions(&p).expect("leg conventions");
+        let fwd = SwaptionVolTarget::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
             tenor_years,
@@ -1189,7 +1187,7 @@ mod tests {
         }
 
         let config = CalibrationConfig::default();
-        let err = SwaptionVolBootstrapper::solve(&p, &quotes, &ctx, &config)
+        let err = SwaptionVolTarget::solve(&p, &quotes, &ctx, &config)
             .expect_err("insufficient explicit shift should not be auto-adjusted");
         assert!(
             err.to_string().contains("Swaption SABR params missing"),
@@ -1210,7 +1208,7 @@ mod tests {
         let ctx = MarketContext::new().insert(disc);
 
         let p = params(base_date);
-        let leg = SwaptionVolBootstrapper::default_leg_conventions(&p).expect("leg conventions");
+        let leg = SwaptionVolTarget::default_leg_conventions(&p).expect("leg conventions");
 
         let expiry_years: f64 = 1.0;
         let tenor_years: f64 = 5.0;
@@ -1220,7 +1218,7 @@ mod tests {
         let disc_ref = ctx
             .get_discount(p.discount_curve_id.as_ref())
             .expect("disc");
-        let pv01 = SwaptionVolBootstrapper::calculate_pv01_proper(
+        let pv01 = SwaptionVolTarget::calculate_pv01_proper(
             expiry_date,
             maturity_date,
             &leg,
@@ -1237,7 +1235,7 @@ mod tests {
             .expect("t_end");
         let expected = (disc_ref.df(t_start) - disc_ref.df(t_end)) / pv01;
 
-        let actual = SwaptionVolBootstrapper::calculate_forward_swap_rate_years(
+        let actual = SwaptionVolTarget::calculate_forward_swap_rate_years(
             &p,
             expiry_years,
             tenor_years,
@@ -1291,7 +1289,7 @@ mod tests {
         grid.insert((to_basis_points(1.0), to_basis_points(10.0)), p01);
         grid.insert((to_basis_points(2.0), to_basis_points(10.0)), p11);
 
-        let mid = SwaptionVolBootstrapper::interpolate_sabr_params_bilinear(
+        let mid = SwaptionVolTarget::interpolate_sabr_params_bilinear(
             1.5,
             7.5,
             &grid,

@@ -32,23 +32,10 @@ pub const MIN_GRID_SPACING: f64 = 1e-8;
 /// impossible or result in non-finite logarithms.
 pub const DF_MIN_HARD: f64 = 1e-12;
 
-/// Hard maximum for discount factors (sanity check against overflow).
-///
-/// Acts as a safety ceiling for discount factors during search. While DFs are
-/// usually <= 1.0, deep negative rates can lead to DFs > 1.0.
-#[allow(dead_code)]
-pub const DF_MAX_HARD: f64 = 1e6;
-
 /// Minimum weight floor to avoid division by zero or effectively ignoring valid quotes.
 ///
 /// Used when weighting residuals by inverse duration or other dynamic schemes.
 pub const WEIGHT_MIN_FLOOR: f64 = 1e-3;
-
-/// Tolerance for floating point equality checks in validation.
-///
-/// General-purpose precision threshold for comparing calibrated values.
-#[allow(dead_code)]
-pub const TOLERANCE_FLOAT_EQ: f64 = 1e-12;
 
 /// Finite penalty value used in objective functions instead of infinity.
 ///
@@ -68,3 +55,35 @@ pub const OBJECTIVE_VALID_ABS_MAX: f64 = PENALTY / 10.0;
 /// If the final residual exceeds this value, the calibration is considered to have
 /// hit a hard constraint or failed significantly.
 pub const RESIDUAL_PENALTY_ABS_MIN: f64 = PENALTY * 0.5;
+
+/// Newtype wrapper for `f64` that implements `Ord` for use as `BTreeMap` keys.
+///
+/// Uses `f64::total_cmp` so NaN values sort consistently (greater than all finite values).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct OrderedF64(pub f64);
+
+impl Eq for OrderedF64 {}
+
+impl PartialOrd for OrderedF64 {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for OrderedF64 {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.0.total_cmp(&other.0)
+    }
+}
+
+impl From<f64> for OrderedF64 {
+    fn from(value: f64) -> Self {
+        Self(value)
+    }
+}
+
+impl OrderedF64 {
+    pub fn into_inner(self) -> f64 {
+        self.0
+    }
+}

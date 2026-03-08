@@ -1,4 +1,4 @@
-use crate::calibration::api::schema::{InflationCurveParams, SeasonalFactors};
+use crate::calibration::api::schema::InflationCurveParams;
 use crate::calibration::config::{CalibrationConfig, CalibrationMethod, ResidualWeightingScheme};
 use crate::calibration::constants::{TOLERANCE_DUP_KNOTS, WEIGHT_MIN_FLOOR};
 use crate::calibration::prepared::CalibrationQuote;
@@ -36,7 +36,7 @@ use std::sync::Arc;
 /// # Supported Methods
 /// - **Bootstrap**: Sequential solving, one knot at a time (default).
 /// - **GlobalSolve**: Simultaneous Levenberg-Marquardt fit of all CPI knots.
-pub struct InflationBootstrapper {
+pub struct InflationCurveTarget {
     /// Parameters for the inflation curve (ID, interpolation, etc).
     pub params: InflationCurveParams,
     /// Baseline market context containing discount curves.
@@ -47,7 +47,7 @@ pub struct InflationBootstrapper {
     reuse_context: Option<RefCell<MarketContext>>,
 }
 
-impl InflationBootstrapper {
+impl InflationCurveTarget {
     /// Creates a new inflation curve bootstrapper.
     ///
     /// # Arguments
@@ -58,7 +58,7 @@ impl InflationBootstrapper {
     ///
     /// # Returns
     ///
-    /// A new `InflationBootstrapper` instance ready for calibration.
+    /// A new `InflationCurveTarget` instance ready for calibration.
     pub fn new(
         params: InflationCurveParams,
         base_context: MarketContext,
@@ -296,7 +296,7 @@ impl InflationBootstrapper {
         let mut config = global_config.clone();
         config.calibration_method = params.method.clone();
 
-        let target = InflationBootstrapper::new(params.clone(), context.clone(), config.clone());
+        let target = InflationCurveTarget::new(params.clone(), context.clone(), config.clone());
         let prepared_quotes = target.prepare_quotes(inflation_quotes)?;
 
         // Target-specific validation tolerance for inflation curves.
@@ -385,25 +385,7 @@ impl InflationBootstrapper {
     }
 }
 
-/// Deseasonalize a CPI value by removing the monthly seasonal component.
-///
-/// Returns CPI_deseasonalized = CPI * exp(-adjustment[month])
-#[allow(dead_code)]
-fn deseasonalize_cpi(cpi: f64, month: u32, factors: &SeasonalFactors) -> f64 {
-    let idx = (month as usize).min(11);
-    cpi * (-factors.monthly_adjustments[idx]).exp()
-}
-
-/// Reseasonalize a CPI value by adding back the monthly seasonal component.
-///
-/// Returns CPI_seasonalized = CPI * exp(adjustment[month])
-#[allow(dead_code)]
-fn reseasonalize_cpi(cpi: f64, month: u32, factors: &SeasonalFactors) -> f64 {
-    let idx = (month as usize).min(11);
-    cpi * factors.monthly_adjustments[idx].exp()
-}
-
-impl BootstrapTarget for InflationBootstrapper {
+impl BootstrapTarget for InflationCurveTarget {
     type Quote = CalibrationQuote;
     type Curve = InflationCurve;
 
@@ -459,7 +441,7 @@ impl BootstrapTarget for InflationBootstrapper {
     }
 }
 
-impl GlobalSolveTarget for InflationBootstrapper {
+impl GlobalSolveTarget for InflationCurveTarget {
     type Quote = CalibrationQuote;
     type Curve = InflationCurve;
 

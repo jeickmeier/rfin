@@ -4,14 +4,15 @@ use crate::calibration::hull_white::{
     calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess, HullWhiteParams,
     SwapFrequency, SwaptionQuote,
 };
-use crate::calibration::targets::base_correlation::BaseCorrelationBootstrapper;
+use crate::calibration::targets::base_correlation::BaseCorrelationTarget;
 use crate::calibration::targets::discount::DiscountCurveTarget;
 use crate::calibration::targets::forward::ForwardCurveTarget;
-use crate::calibration::targets::hazard::HazardBootstrapper;
-use crate::calibration::targets::inflation::InflationBootstrapper;
-use crate::calibration::targets::student_t::StudentTCalibrator;
-use crate::calibration::targets::swaption::SwaptionVolBootstrapper;
-use crate::calibration::targets::vol::VolSurfaceBootstrapper;
+use crate::calibration::targets::hazard::HazardCurveTarget;
+use crate::calibration::targets::inflation::InflationCurveTarget;
+use crate::calibration::targets::student_t::StudentTTarget;
+use crate::calibration::targets::svi::SviSurfaceTarget;
+use crate::calibration::targets::swaption::SwaptionVolTarget;
+use crate::calibration::targets::vol::VolSurfaceTarget;
 use crate::calibration::validation::ValidationMode;
 use crate::calibration::{CalibrationReport, CurveValidator, SurfaceValidator};
 use crate::market::quotes::market_quote::MarketQuote;
@@ -24,37 +25,7 @@ use finstack_core::market_data::surfaces::{VolSurface, VolSurfaceAxis};
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
-use std::collections::BTreeMap;
 use std::sync::Arc;
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct OrderedF64(f64);
-
-impl Eq for OrderedF64 {}
-
-impl PartialOrd for OrderedF64 {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
-impl Ord for OrderedF64 {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.0.total_cmp(&other.0)
-    }
-}
-
-impl From<f64> for OrderedF64 {
-    fn from(value: f64) -> Self {
-        Self(value)
-    }
-}
-
-impl OrderedF64 {
-    fn into_inner(self) -> f64 {
-        self.0
-    }
-}
 
 /// Normalized output key for a step.
 pub(crate) enum OutputKey {
@@ -69,55 +40,6 @@ pub(crate) enum StepOutput {
     Surface(Arc<VolSurface>),
     Scalar { key: String, value: MarketScalar },
     Scalars(Vec<(String, MarketScalar)>),
-}
-
-fn interpolate_svi_params(
-    target_expiry: f64,
-    params_by_expiry: &BTreeMap<OrderedF64, finstack_core::math::volatility::svi::SviParams>,
-) -> Result<finstack_core::math::volatility::svi::SviParams> {
-    let Some((&first_key, &first_params)) = params_by_expiry.iter().next() else {
-        return Err(finstack_core::Error::Input(
-            finstack_core::InputError::TooFewPoints,
-        ));
-    };
-
-    if params_by_expiry.len() == 1 || target_expiry <= first_key.into_inner() {
-        return Ok(first_params);
-    }
-
-    let Some((&last_key, &last_params)) = params_by_expiry.iter().next_back() else {
-        return Ok(first_params);
-    };
-    if target_expiry >= last_key.into_inner() {
-        return Ok(last_params);
-    }
-
-    let mut lower = (first_key.into_inner(), first_params);
-    let mut upper = (last_key.into_inner(), last_params);
-
-    for (&expiry_key, &params) in params_by_expiry {
-        let expiry = expiry_key.into_inner();
-        if expiry <= target_expiry {
-            lower = (expiry, params);
-        }
-        if expiry >= target_expiry {
-            upper = (expiry, params);
-            break;
-        }
-    }
-
-    if (upper.0 - lower.0).abs() < f64::EPSILON {
-        return Ok(lower.1);
-    }
-
-    let w = (target_expiry - lower.0) / (upper.0 - lower.0);
-    Ok(finstack_core::math::volatility::svi::SviParams {
-        a: lower.1.a + w * (upper.1.a - lower.1.a),
-        b: lower.1.b + w * (upper.1.b - lower.1.b),
-        rho: lower.1.rho + w * (upper.1.rho - lower.1.rho),
-        m: lower.1.m + w * (upper.1.m - lower.1.m),
-        sigma: lower.1.sigma + w * (upper.1.sigma - lower.1.sigma),
-    })
 }
 
 /// Aggregated outcome of a single calibration step.
@@ -234,7 +156,7 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::Hazard(p) => {
-            let (ctx, report) = HazardBootstrapper::solve(p, quotes, context, global_config)?;
+            let (ctx, report) = HazardCurveTarget::solve(p, quotes, context, global_config)?;
             let curve = ctx.get_hazard(&p.curve_id)?;
             let output = StepOutput::Curve(curve.clone().into());
             let mut validation_cfg = global_config.validation.clone();
@@ -260,7 +182,7 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::Inflation(p) => {
-            let (ctx, report) = InflationBootstrapper::solve(p, quotes, context, global_config)?;
+            let (ctx, report) = InflationCurveTarget::solve(p, quotes, context, global_config)?;
             let curve = ctx.get_inflation_curve(&p.curve_id)?;
             let output = StepOutput::Curve(curve.clone().into());
             let report = attach_validation_result(
@@ -275,8 +197,7 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::BaseCorrelation(p) => {
-            let (ctx, report) =
-                BaseCorrelationBootstrapper::solve(p, quotes, context, global_config)?;
+            let (ctx, report) = BaseCorrelationTarget::solve(p, quotes, context, global_config)?;
             let curve_id = CurveId::from(format!("{}_CORR", p.index_id));
             let curve = ctx.get_base_correlation(curve_id.as_str())?;
             let output = StepOutput::Curve(curve.clone().into());
@@ -296,8 +217,7 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::VolSurface(p) => {
-            let (surface, report) =
-                VolSurfaceBootstrapper::solve(p, quotes, context, global_config)?;
+            let (surface, report) = VolSurfaceTarget::solve(p, quotes, context, global_config)?;
             // Preserve context insertion behavior
             let mut new_report = report.clone();
             new_report
@@ -323,8 +243,7 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::SwaptionVol(p) => {
-            let (surface, report) =
-                SwaptionVolBootstrapper::solve(p, quotes, context, global_config)?;
+            let (surface, report) = SwaptionVolTarget::solve(p, quotes, context, global_config)?;
             let report = if surface.secondary_axis() == VolSurfaceAxis::Strike {
                 attach_validation_result(
                     report,
@@ -342,7 +261,7 @@ pub(crate) fn execute_params(
         }
         StepParams::StudentT(p) => {
             let (_, calibrated_df, report) =
-                StudentTCalibrator::solve(p, quotes, context, global_config)?;
+                StudentTTarget::solve(p, quotes, context, global_config)?;
             let scalar_key = format!("{}_STUDENT_T_DF", p.tranche_instrument_id);
             Ok(StepOutcome {
                 output: StepOutput::Scalar {
@@ -432,145 +351,7 @@ pub(crate) fn execute_params(
             })
         }
         StepParams::SviSurface(p) => {
-            if p.target_expiries.is_empty() || p.target_strikes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::TooFewPoints,
-                ));
-            }
-
-            let option_quotes: Vec<&VolQuote> = quotes
-                .iter()
-                .filter_map(|quote| match quote {
-                    MarketQuote::Vol(vol_quote) => Some(vol_quote),
-                    _ => None,
-                })
-                .filter(|quote| match quote {
-                    VolQuote::OptionVol { underlying, .. } => {
-                        underlying.as_str() == p.underlying_ticker.as_str()
-                    }
-                    VolQuote::SwaptionVol { .. } => false,
-                })
-                .collect();
-
-            if option_quotes.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::TooFewPoints,
-                ));
-            }
-
-            let spot = if let Some(spot) = p.spot_override {
-                spot
-            } else {
-                match context.get_price(&p.underlying_ticker)? {
-                    MarketScalar::Price(money) => money.amount(),
-                    MarketScalar::Unitless(value) => *value,
-                }
-            };
-
-            let discount = p
-                .discount_curve_id
-                .as_ref()
-                .map(|curve_id| context.get_discount(curve_id))
-                .transpose()?;
-
-            let forward_fn = |t: f64| -> f64 {
-                if let Some(curve) = discount.as_ref() {
-                    let r = curve.zero(t);
-                    spot * (r * t).exp()
-                } else {
-                    spot
-                }
-            };
-
-            let mut quotes_by_expiry: BTreeMap<OrderedF64, Vec<(f64, f64)>> = BTreeMap::new();
-            for quote in option_quotes {
-                if let VolQuote::OptionVol {
-                    expiry,
-                    strike,
-                    vol,
-                    ..
-                } = quote
-                {
-                    let t = DayCount::Act365F.year_fraction(
-                        p.base_date,
-                        *expiry,
-                        DayCountCtx::default(),
-                    )?;
-                    if t > 0.0 {
-                        quotes_by_expiry
-                            .entry(t.into())
-                            .or_default()
-                            .push((*strike, *vol));
-                    }
-                }
-            }
-
-            if quotes_by_expiry.is_empty() {
-                return Err(finstack_core::Error::Input(
-                    finstack_core::InputError::TooFewPoints,
-                ));
-            }
-
-            let mut params_by_expiry = BTreeMap::new();
-            let mut residuals = BTreeMap::new();
-
-            for (&expiry_key, expiry_quotes) in &quotes_by_expiry {
-                if expiry_quotes.len() < 5 {
-                    return Err(finstack_core::Error::Validation(format!(
-                        "SVI surface calibration requires at least 5 strikes per expiry; got {} at t={:.6}",
-                        expiry_quotes.len(),
-                        expiry_key.into_inner()
-                    )));
-                }
-
-                let expiry = expiry_key.into_inner();
-                let forward = forward_fn(expiry);
-                let strikes: Vec<f64> = expiry_quotes.iter().map(|(strike, _)| *strike).collect();
-                let vols: Vec<f64> = expiry_quotes.iter().map(|(_, vol)| *vol).collect();
-
-                let params = finstack_core::math::volatility::svi::calibrate_svi(
-                    &strikes, &vols, forward, expiry,
-                )?;
-
-                for (idx, (strike, market_vol)) in expiry_quotes.iter().enumerate() {
-                    let log_moneyness = (*strike / forward).ln();
-                    let model_vol = params.implied_vol(log_moneyness, expiry);
-                    residuals.insert(
-                        format!("svi_t{expiry:.6}_k{strike:.6}_i{idx}"),
-                        (model_vol - *market_vol).abs(),
-                    );
-                }
-
-                params_by_expiry.insert(expiry_key, params);
-            }
-
-            let mut grid = Vec::with_capacity(p.target_expiries.len() * p.target_strikes.len());
-            for &target_expiry in &p.target_expiries {
-                let params = interpolate_svi_params(target_expiry, &params_by_expiry)?;
-                let forward = forward_fn(target_expiry);
-                for &target_strike in &p.target_strikes {
-                    let log_moneyness = (target_strike / forward).ln();
-                    let vol = params.implied_vol(log_moneyness, target_expiry);
-                    if !vol.is_finite() || vol <= 0.0 {
-                        return Err(finstack_core::Error::Validation(format!(
-                            "SVI surface produced invalid implied vol at t={target_expiry:.6}, strike={target_strike:.6}",
-                        )));
-                    }
-                    grid.push(vol);
-                }
-            }
-
-            let surface =
-                VolSurface::from_grid(&p.surface_id, &p.target_expiries, &p.target_strikes, &grid)?;
-            let mut report = CalibrationReport::new(
-                residuals,
-                params_by_expiry.len(),
-                true,
-                "SVI surface calibration completed",
-            )
-            .with_model_version("SVI v1.0");
-            report.update_solver_config(global_config.solver.clone());
-
+            let (surface, report) = SviSurfaceTarget::solve(p, quotes, context, global_config)?;
             Ok(StepOutcome {
                 output: StepOutput::Surface(surface.into()),
                 credit_index_update: None,
@@ -587,7 +368,15 @@ pub(crate) fn execute(
     context: &MarketContext,
     global_config: &CalibrationConfig,
 ) -> Result<StepOutcome> {
-    execute_params(&step.params, quotes, context, global_config)
+    let _span = tracing::info_span!("calibration_step", step_id = %step.id).entered();
+    let outcome = execute_params(&step.params, quotes, context, global_config)?;
+    tracing::info!(
+        success = %outcome.report.success,
+        max_residual = %outcome.report.max_residual,
+        iterations = %outcome.report.iterations,
+        "calibration step completed"
+    );
+    Ok(outcome)
 }
 
 /// Execute [`StepParams`] directly and apply the output to a cloned context.

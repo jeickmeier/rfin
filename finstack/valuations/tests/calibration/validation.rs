@@ -301,10 +301,10 @@ fn test_valid_surface_passes_arbitrage_checks() {
     let expiries = vec![0.25, 0.5, 1.0];
     let strikes = vec![90.0, 100.0, 110.0];
     let vol_grid = vec![
-        // T=0.25
-        0.22, 0.20, 0.21, // T=0.5
-        0.23, 0.21, 0.22, // T=1.0
-        0.25, 0.23, 0.24,
+        // T=0.25: mild smile that satisfies total-variance convexity
+        0.215, 0.21, 0.215, // T=0.5
+        0.225, 0.22, 0.225, // T=1.0
+        0.245, 0.24, 0.245,
     ];
 
     let surface = VolSurface::from_grid("TEST-VALID-SURFACE", &expiries, &strikes, &vol_grid)

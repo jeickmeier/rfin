@@ -282,7 +282,7 @@ mod tests {
             &market,
             &BumpRequest::Parallel(100.0),
             as_of,
-            None,
+            Currency::USD,
         )
         .expect("bump");
         let bumped_market = market.clone().insert(bumped_curve);
