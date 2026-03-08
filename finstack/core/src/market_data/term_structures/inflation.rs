@@ -417,6 +417,22 @@ impl InflationCurve {
         self.knots.is_empty()
     }
 
+    /// Create a builder pre-populated with this curve's data but a new ID.
+    pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> InflationCurveBuilder {
+        InflationCurve::builder(new_id)
+            .base_cpi(self.base_cpi)
+            .base_date(self.base_date)
+            .day_count(self.day_count)
+            .indexation_lag_months(self.indexation_lag_months)
+            .knots(
+                self.knots
+                    .iter()
+                    .copied()
+                    .zip(self.cpi_levels.iter().copied()),
+            )
+            .interp(self.interp.style())
+    }
+
     /// Roll the curve forward by a specified number of days.
     ///
     /// This creates a new curve with:

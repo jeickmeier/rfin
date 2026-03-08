@@ -48,8 +48,8 @@ pub fn format_suggestions(suggestions: &[String]) -> String {
 ///
 /// # Returns
 ///
-/// A vector of up to 3 matching identifiers, ordered by iteration order
-/// (not by match quality). Returns an empty vector if no matches found.
+/// A vector of up to 3 matching identifiers, sorted by edit distance
+/// (best match first). Returns an empty vector if no matches found.
 ///
 /// # Complexity
 ///
@@ -75,10 +75,6 @@ pub fn fuzzy_suggestions<'a>(
     let mut suggestions: Vec<String> = available
         .filter(|id| {
             let id_lower = id.to_lowercase();
-            // Match if:
-            // 1. Contains the requested string
-            // 2. Requested contains this ID
-            // 3. Edit distance is small
             id_lower.contains(&requested_lower)
                 || requested_lower.contains(&id_lower)
                 || edit_distance(&requested_chars, &id_lower) <= 2
@@ -86,7 +82,7 @@ pub fn fuzzy_suggestions<'a>(
         .map(|s| s.to_string())
         .collect();
 
-    // Limit to top 3 suggestions
+    suggestions.sort_by_key(|s| edit_distance(&requested_chars, &s.to_lowercase()));
     suggestions.truncate(3);
     suggestions
 }

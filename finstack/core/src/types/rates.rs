@@ -155,8 +155,17 @@ fn non_finite_kind(v: f64) -> NonFiniteKind {
 pub struct Rate(f64);
 
 impl Rate {
-    /// Create a rate from a decimal value (0.05 = 5%)
+    /// Create a rate from a decimal value (0.05 = 5%).
+    ///
+    /// # Panics (debug only)
+    ///
+    /// Debug-asserts that `decimal` is finite. Use [`try_from_decimal`](Self::try_from_decimal)
+    /// for untrusted or external input.
     pub fn from_decimal(decimal: f64) -> Self {
+        debug_assert!(
+            decimal.is_finite(),
+            "Rate::from_decimal called with non-finite value: {decimal}"
+        );
         Self(decimal)
     }
 
@@ -179,8 +188,17 @@ impl Rate {
         Ok(Self::from_decimal(decimal))
     }
 
-    /// Create a rate from a percentage value (5.0 = 5%)
+    /// Create a rate from a percentage value (5.0 = 5%).
+    ///
+    /// # Panics (debug only)
+    ///
+    /// Debug-asserts that `percent` is finite. Use [`try_from_decimal`](Self::try_from_decimal)
+    /// with manual conversion for untrusted input.
     pub fn from_percent(percent: f64) -> Self {
+        debug_assert!(
+            percent.is_finite(),
+            "Rate::from_percent called with non-finite value: {percent}"
+        );
         Self(percent / 100.0)
     }
 
@@ -201,7 +219,12 @@ impl Rate {
         self.0 * 100.0
     }
 
-    /// Get the rate as basis points (rounded to nearest integer)
+    /// Get the rate as basis points (rounded to nearest integer).
+    ///
+    /// # Overflow
+    ///
+    /// Returns are truncated to `i32` range. For rates beyond ~±214,748 bps
+    /// (~±21.47%), consider using `(self.as_decimal() * 10_000.0).round() as i64`.
     #[must_use]
     pub fn as_bps(self) -> i32 {
         (self.0 * 10_000.0).round() as i32
@@ -495,8 +518,17 @@ impl Neg for Bps {
 pub struct Percentage(f64);
 
 impl Percentage {
-    /// Create a new percentage (12.5 = 12.5%)
+    /// Create a new percentage (12.5 = 12.5%).
+    ///
+    /// # Panics (debug only)
+    ///
+    /// Debug-asserts that `percent` is finite. Use [`try_new`](Self::try_new)
+    /// for untrusted or external input.
     pub fn new(percent: f64) -> Self {
+        debug_assert!(
+            percent.is_finite(),
+            "Percentage::new called with non-finite value: {percent}"
+        );
         Self(percent)
     }
 

@@ -88,22 +88,7 @@ pub fn build_correlation_matrix_js(n: usize, correlations: JsValue) -> Result<Ve
     let corr_array: Vec<(usize, usize, f64)> = serde_wasm_bindgen::from_value(correlations)
         .map_err(|e| JsValue::from_str(&format!("Invalid correlations format: {}", e)))?;
 
-    // Validate indices
-    for &(i, j, _) in &corr_array {
-        if i >= n || j >= n {
-            return Err(JsValue::from_str(&format!(
-                "Index out of bounds: ({}, {}) for matrix size {}",
-                i, j, n
-            )));
-        }
-        if i == j {
-            return Err(JsValue::from_str(
-                "Diagonal elements must be 1.0, cannot specify correlation for (i, i)",
-            ));
-        }
-    }
-
-    Ok(build_correlation_matrix(n, &corr_array))
+    build_correlation_matrix(n, &corr_array).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Validate that a matrix is a valid correlation matrix.

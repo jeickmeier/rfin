@@ -240,8 +240,8 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 /// Uses a Neumaier accumulator in log-space for numerical stability on
 /// long series. Growth factors are clamped to [`MIN_GROWTH_FACTOR`] so
 /// that returns ≤ −1.0 produce a near-total-loss (≈ −100 %) rather than NaN.
-/// NaN returns are also clamped to the floor (treated as total losses)
-/// rather than poisoning the entire accumulator.
+/// Non-finite returns (NaN, ±Inf) are clamped to the floor, treating them
+/// as total losses rather than poisoning the entire accumulator.
 ///
 /// # Arguments
 ///
@@ -267,18 +267,10 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
     let mut acc = NeumaierAccumulator::new();
     let mut out = Vec::with_capacity(returns.len());
     for &r in returns {
-        if !r.is_finite() {
-            out.push(f64::NAN);
-            continue;
-        }
-        let g = (1.0 + r).max(MIN_GROWTH_FACTOR);
+        let r_clamped = if r.is_finite() { r } else { -1.0 };
+        let g = (1.0 + r_clamped).max(MIN_GROWTH_FACTOR);
         acc.add(g.ln());
-        let compounded = acc.total().exp() - 1.0;
-        if out.last().is_some_and(|v| v.is_nan()) {
-            out.push(f64::NAN);
-        } else {
-            out.push(compounded);
-        }
+        out.push(acc.total().exp() - 1.0);
     }
     out
 }
@@ -291,7 +283,8 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 /// Uses Kahan summation in log-space for numerical stability. Growth
 /// factors are clamped to [`MIN_GROWTH_FACTOR`] so that returns ≤ −1.0
 /// produce a near-total-loss rather than NaN. NaN returns are also
-/// clamped to the floor rather than poisoning the result.
+/// Non-finite returns (NaN, ±Inf) are clamped to the floor, treating them
+/// as total losses rather than poisoning the result.
 ///
 /// # Arguments
 ///
@@ -320,14 +313,11 @@ pub fn comp_total(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
-    // Single pass: check finiteness and Kahan-accumulate log-space sum.
     let mut sum = 0.0_f64;
     let mut comp = 0.0_f64;
     for &r in returns {
-        if !r.is_finite() {
-            return f64::NAN;
-        }
-        let y = (1.0 + r).max(MIN_GROWTH_FACTOR).ln() - comp;
+        let r_clamped = if r.is_finite() { r } else { -1.0 };
+        let y = (1.0 + r_clamped).max(MIN_GROWTH_FACTOR).ln() - comp;
         let t = sum + y;
         comp = (t - sum) - y;
         sum = t;
@@ -421,21 +411,22 @@ mod tests {
     }
 
     #[test]
-    fn comp_total_propagates_nan_returns() {
+    fn comp_total_clamps_nan_returns() {
         let ct = comp_total(&[0.05, f64::NAN, 0.10]);
-        assert!(ct.is_nan(), "NaN inputs should remain invalid, got {ct}");
+        assert!(ct.is_finite(), "NaN inputs should be clamped to total loss");
+        assert!(ct < -0.99, "result should reflect the clamped total loss");
     }
 
     #[test]
-    fn comp_sum_propagates_nan_tail() {
+    fn comp_sum_clamps_nan_to_total_loss() {
         let cs = comp_sum(&[0.05, f64::NAN, 0.10]);
         assert!(
-            cs[1].is_nan(),
-            "NaN period should produce NaN compounded return"
+            cs[1].is_finite(),
+            "NaN period should be clamped to total loss, not propagate NaN"
         );
         assert!(
-            cs[2].is_nan(),
-            "Subsequent periods should remain NaN after invalid input"
+            cs[2].is_finite(),
+            "subsequent periods should remain finite after clamped NaN"
         );
     }
 

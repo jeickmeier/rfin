@@ -192,14 +192,9 @@ impl VolSurface {
 
     /// Bilinear interpolation of vol for given expiry and strike.
     ///
-    /// # Panics
-    ///
     /// Returns `NaN` if `expiry` or `strike` is outside the grid bounds.
-    ///
-    /// # Alternatives
-    ///
-    /// - Use [`value_checked`](Self::value_checked) for explicit error handling (recommended).
-    /// - Use [`value_clamped`](Self::value_clamped) for flat extrapolation to edge values.
+    /// Prefer [`value_checked`](Self::value_checked) for explicit error handling
+    /// or [`value_clamped`](Self::value_clamped) for flat extrapolation to edge values.
     pub fn value_unchecked(&self, expiry: f64, strike: f64) -> f64 {
         self.value_checked(expiry, strike).unwrap_or(f64::NAN)
     }

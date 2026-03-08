@@ -278,6 +278,17 @@ impl VolatilityIndexCurve {
         self.knots.is_empty()
     }
 
+    /// Create a builder pre-populated with this curve's data but a new ID.
+    pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> VolatilityIndexCurveBuilder {
+        VolatilityIndexCurve::builder(new_id)
+            .base_date(self.base)
+            .day_count(self.day_count)
+            .spot_level(self.spot_level)
+            .knots(self.knots.iter().copied().zip(self.levels.iter().copied()))
+            .interp(self.interp.style())
+            .extrapolation(self.interp.extrapolation())
+    }
+
     /// Create a new curve with a parallel bump applied (additive, in index points).
     ///
     /// # Arguments

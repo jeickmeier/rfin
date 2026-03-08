@@ -34,48 +34,6 @@ impl MarketContext {
         self
     }
 
-    /// Insert a volatility index curve.
-    ///
-    /// # Parameters
-    /// - `curve`: [`VolatilityIndexCurve`] to store (VIX, VXN, VSTOXX)
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::VolatilityIndexCurve;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let curve = VolatilityIndexCurve::builder("VIX")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
-    ///     .spot_level(18.5)
-    ///     .knots([(0.0, 18.5), (0.5, 20.0)])
-    ///     .build()
-    ///     .expect("VolatilityIndexCurve builder should succeed");
-    /// let ctx = MarketContext::new().insert(curve);
-    /// assert!(ctx.get_vol_index_curve("VIX").is_ok());
-    /// ```
-    /// Insert a price curve (forward prices for commodities/indices).
-    ///
-    /// # Parameters
-    /// - `curve`: [`PriceCurve`] to store (e.g., WTI forward prices)
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::market_data::context::MarketContext;
-    /// use finstack_core::market_data::term_structures::PriceCurve;
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
-    ///
-    /// let curve = PriceCurve::builder("WTI-FORWARD")
-    ///     .base_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid date"))
-    ///     .spot_price(75.0)
-    ///     .knots([(0.0, 75.0), (0.5, 77.0)])
-    ///     .build()
-    ///     .expect("PriceCurve builder should succeed");
-    /// let ctx = MarketContext::new().insert(curve);
-    /// assert!(ctx.get_price_curve("WTI-FORWARD").is_ok());
-    /// ```
     /// Insert a volatility surface.
     ///
     /// Accepts either an owned [`VolSurface`] or an `Arc<VolSurface>`.

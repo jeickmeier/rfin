@@ -182,18 +182,24 @@ impl SobolRng {
 
     /// Get the next point in the Sobol sequence.
     ///
-    /// Returns a vector of `dimension` values in [0, 1).
+    /// Returns a vector of `dimension` values in \[0, 1).
+    /// For allocation-free usage in tight loops, prefer [`fill_point`](Self::fill_point).
     pub fn next_point(&mut self) -> Vec<f64> {
-        let mut point = Vec::with_capacity(self.dimension);
-
-        for d in 0..self.dimension {
-            let value = self.sobol_value(d);
-            let scrambled = self.owen_scramble(value, d);
-            point.push(scrambled);
-        }
-
-        self.index += 1;
+        let mut point = vec![0.0; self.dimension];
+        self.fill_point(&mut point);
         point
+    }
+
+    /// Fill `buf` with the next Sobol point, avoiding per-call allocation.
+    ///
+    /// Writes `min(buf.len(), dimension)` values into `buf`. Advances the
+    /// sequence index by one regardless of buffer length.
+    pub fn fill_point(&mut self, buf: &mut [f64]) {
+        for (d, slot) in buf.iter_mut().enumerate().take(self.dimension) {
+            let value = self.sobol_value(d);
+            *slot = self.owen_scramble(value, d);
+        }
+        self.index += 1;
     }
 
     /// Compute Sobol value for dimension d at current index.

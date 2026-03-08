@@ -288,32 +288,47 @@ pub fn cholesky_solve(chol: &[f64], b: &[f64], x: &mut [f64]) -> Result<()> {
 ///
 /// Symmetric correlation matrix (n x n, row-major)
 ///
+/// # Errors
+///
+/// Returns [`CholeskyError::DimensionMismatch`] if an index in `correlations`
+/// is out of bounds, or [`crate::Error::Validation`] if a diagonal pair `(i, i)` is
+/// supplied.
+///
 /// # Example
 ///
 /// ```
 /// use finstack_core::math::linalg::build_correlation_matrix;
 ///
 /// let correlations = vec![(0, 1, 0.5)];
-/// let matrix = build_correlation_matrix(2, &correlations);
+/// let matrix = build_correlation_matrix(2, &correlations).unwrap();
 /// // matrix = [[1.0, 0.5], [0.5, 1.0]]
 /// ```
-pub fn build_correlation_matrix(n: usize, correlations: &[(usize, usize, f64)]) -> Vec<f64> {
+pub fn build_correlation_matrix(
+    n: usize,
+    correlations: &[(usize, usize, f64)],
+) -> crate::Result<Vec<f64>> {
     let mut matrix = vec![0.0; n * n];
 
-    // Set diagonal to 1.0
     for i in 0..n {
         matrix[i * n + i] = 1.0;
     }
 
-    // Set off-diagonal elements (symmetric)
     for &(i, j, rho) in correlations {
-        assert!(i < n && j < n, "Indices out of bounds");
-        assert!(i != j, "Diagonal elements must be 1.0");
+        if i >= n || j >= n {
+            return Err(crate::Error::Validation(format!(
+                "correlation index out of bounds: ({i}, {j}) for matrix size {n}"
+            )));
+        }
+        if i == j {
+            return Err(crate::Error::Validation(format!(
+                "correlation entry ({i}, {j}) is on the diagonal; diagonal elements are fixed at 1.0"
+            )));
+        }
         matrix[i * n + j] = rho;
-        matrix[j * n + i] = rho; // Symmetric
+        matrix[j * n + i] = rho;
     }
 
-    matrix
+    Ok(matrix)
 }
 
 /// Validate that a matrix is a valid correlation matrix.
@@ -424,7 +439,7 @@ mod tests {
     #[test]
     fn test_build_correlation_matrix() {
         let correlations = vec![(0, 1, 0.5)];
-        let matrix = build_correlation_matrix(2, &correlations);
+        let matrix = build_correlation_matrix(2, &correlations).expect("valid correlations");
 
         assert!((matrix[0] - 1.0).abs() < 1e-10); // [0,0]
         assert!((matrix[1] - 0.5).abs() < 1e-10); // [0,1]

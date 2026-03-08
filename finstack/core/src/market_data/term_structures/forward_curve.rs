@@ -396,6 +396,22 @@ impl ForwardCurve {
         self.df(t)
     }
 
+    /// Create a builder pre-populated with this curve's data but a new ID.
+    pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> ForwardCurveBuilder {
+        ForwardCurve::builder(new_id, self.tenor)
+            .base_date(self.base)
+            .reset_lag(self.reset_lag)
+            .day_count(self.day_count)
+            .interp(self.interp.style())
+            .extrapolation(self.interp.extrapolation())
+            .knots(
+                self.knots
+                    .iter()
+                    .copied()
+                    .zip(self.forwards.iter().copied()),
+            )
+    }
+
     /// Create a new curve with a key-rate bump applied at a target time `t` (in years) (fallible).
     ///
     /// Create a new curve with a triangular key-rate bump using explicit bucket neighbors.

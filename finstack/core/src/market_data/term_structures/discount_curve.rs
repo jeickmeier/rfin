@@ -901,6 +901,18 @@ impl DiscountCurve {
         }
     }
 
+    /// Create a builder pre-populated with this curve's data but a new ID.
+    pub fn to_builder_with_id(&self, new_id: impl Into<CurveId>) -> DiscountCurveBuilder {
+        DiscountCurve::builder(new_id)
+            .base_date(self.base)
+            .day_count(self.day_count)
+            .interp(self.style)
+            .extrapolation(self.extrapolation)
+            .min_forward_tenor(self.min_forward_tenor)
+            .apply_non_monotonic_settings(self.allow_non_monotonic, self.min_forward_rate)
+            .knots(self.knots.iter().copied().zip(self.dfs.iter().copied()))
+    }
+
     /// Create a forward curve from this discount curve.
     ///
     /// For single-curve bootstrapping, this creates a forward curve from the

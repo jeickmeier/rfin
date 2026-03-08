@@ -524,6 +524,12 @@ pub enum DayCount {
     ///
     /// Requires `calendar` in [`DayCountCtx`] to determine business days.
     ///
+    /// # Performance
+    ///
+    /// Iterates each calendar day in the range to check business-day status,
+    /// giving O(n) cost where n is the number of calendar days between the
+    /// dates. For 30Y instruments this is ~11,000 iterations.
+    ///
     /// # Examples
     ///
     /// ```rust

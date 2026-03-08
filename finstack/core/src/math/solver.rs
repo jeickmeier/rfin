@@ -501,6 +501,14 @@ impl NewtonSolver {
     {
         use crate::error::InputError;
 
+        #[cfg(feature = "tracing")]
+        tracing::debug!(
+            x0,
+            tol = self.tolerance,
+            max_iter = self.max_iterations,
+            "newton: start"
+        );
+
         let mut x = x0;
         let mut last_fx = f64::NAN;
         let mut last_fpx = f64::NAN;
@@ -519,8 +527,9 @@ impl NewtonSolver {
                 .into());
             }
 
-            // Check for convergence
             if fx.abs() < self.tolerance {
+                #[cfg(feature = "tracing")]
+                tracing::debug!(iteration, x, residual = fx.abs(), "newton: converged");
                 return Ok(x);
             }
 
@@ -913,6 +922,15 @@ impl BrentSolver {
     {
         use crate::error::InputError;
 
+        #[cfg(feature = "tracing")]
+        tracing::debug!(
+            lo,
+            hi,
+            tol = self.tolerance,
+            max_iter = self.max_iterations,
+            "brent: start"
+        );
+
         let flo = f(lo);
         let fhi = f(hi);
         // Reject non-finite endpoint evaluations
@@ -975,6 +993,8 @@ impl BrentSolver {
             let tol1 = 2.0 * f64::EPSILON * b.abs() + 0.5 * self.tolerance;
             let xm = 0.5 * (c - b);
             if xm.abs() <= tol1 || fb == 0.0 {
+                #[cfg(feature = "tracing")]
+                tracing::debug!(x = b, residual = fb.abs(), "brent: converged");
                 return Ok(b);
             }
 

@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use serde::{de::DeserializeOwned, Serialize};
-
 use crate::market_data::bumps::{BumpSpec, BumpType, Bumpable};
 use crate::market_data::term_structures::{
     BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
@@ -23,29 +21,15 @@ pub(crate) trait RebuildableWithId: Sized {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self>;
 }
 
-fn rebuild_via_serde<C>(curve: &C, id: CurveId) -> Result<C>
-where
-    C: Serialize + DeserializeOwned,
-{
-    let mut value = serde_json::to_value(curve)
-        .map_err(|e| crate::Error::Validation(format!("failed to serialize curve state: {e}")))?;
-    let object = value.as_object_mut().ok_or_else(|| {
-        crate::Error::Validation("curve state did not serialize as an object".to_string())
-    })?;
-    object.insert("id".to_string(), serde_json::Value::String(id.to_string()));
-    serde_json::from_value(value)
-        .map_err(|e| crate::Error::Validation(format!("failed to deserialize curve state: {e}")))
-}
-
 impl RebuildableWithId for DiscountCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        rebuild_via_serde(self, id)
+        self.to_builder_with_id(id).build()
     }
 }
 
 impl RebuildableWithId for ForwardCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        rebuild_via_serde(self, id)
+        self.to_builder_with_id(id).build()
     }
 }
 
@@ -57,7 +41,7 @@ impl RebuildableWithId for HazardCurve {
 
 impl RebuildableWithId for InflationCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        rebuild_via_serde(self, id)
+        self.to_builder_with_id(id).build()
     }
 }
 
@@ -76,13 +60,13 @@ impl RebuildableWithId for BaseCorrelationCurve {
 
 impl RebuildableWithId for VolatilityIndexCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        rebuild_via_serde(self, id)
+        self.to_builder_with_id(id).build()
     }
 }
 
 impl RebuildableWithId for PriceCurve {
     fn rebuild_with_id(&self, id: CurveId) -> Result<Self> {
-        rebuild_via_serde(self, id)
+        self.to_builder_with_id(id).build()
     }
 }
 

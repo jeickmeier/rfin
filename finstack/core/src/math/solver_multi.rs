@@ -473,13 +473,23 @@ impl LevenbergMarquardtSolver {
         let mut last_step_norm = 0.0_f64;
         let mut lambda_bound_hits = 0usize;
 
+        #[cfg(feature = "tracing")]
+        tracing::debug!(
+            n_params,
+            n_residuals,
+            initial_resid_norm = resid_norm,
+            max_iter = self.max_iterations,
+            "lm: start"
+        );
+
         for _iter in 0..self.max_iterations {
             // Compute Jacobian (strategy depends on use case)
             jacobian_evals += 1;
             let jacobian = jacobian_func(&params, &resid_vec, &mut residual_evals);
 
-            // Check custom convergence criteria (e.g. gradient norm vs residual norm)
             if let Some(reason) = convergence_check(&params, &resid_vec, &jacobian) {
+                #[cfg(feature = "tracing")]
+                tracing::debug!(iterations, resid_norm, ?reason, "lm: converged");
                 return Ok(LmSolution {
                     params,
                     stats: LmStats {
