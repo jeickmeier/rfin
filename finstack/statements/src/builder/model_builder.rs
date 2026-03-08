@@ -28,6 +28,46 @@ fn validate_node_id(node_id: &str) -> Result<()> {
     Ok(())
 }
 
+fn replace_standalone_identifier(formula: &str, identifier: &str, replacement: &str) -> String {
+    let mut result = formula.to_string();
+    let mut idx = 0;
+    while let Some(pos) = result[idx..].find(identifier) {
+        let abs_pos = idx + pos;
+        let end_pos = abs_pos + identifier.len();
+        if crate::utils::formula::is_standalone_identifier(&result, abs_pos, end_pos, false) {
+            result.replace_range(abs_pos..end_pos, replacement);
+            idx = abs_pos + replacement.len();
+        } else {
+            idx = end_pos;
+        }
+    }
+    result
+}
+
+fn normalize_formula_aliases(
+    formula: &str,
+    registry: &crate::registry::AliasRegistry,
+    available_nodes: &IndexSet<String>,
+) -> Result<String> {
+    let identifiers = crate::utils::formula::extract_all_identifiers(formula)?;
+    let mut normalized = formula.to_string();
+    let mut ordered: Vec<_> = identifiers.into_iter().collect();
+    ordered.sort_by_key(|id| std::cmp::Reverse(id.len()));
+
+    for identifier in ordered {
+        let replacement = registry
+            .normalize(&identifier)
+            .or_else(|| registry.normalize_fuzzy(&identifier, available_nodes));
+        if let Some(replacement) = replacement {
+            if replacement != identifier {
+                normalized = replace_standalone_identifier(&normalized, &identifier, &replacement);
+            }
+        }
+    }
+
+    Ok(normalized)
+}
+
 /// Type-state marker: Periods not yet defined
 #[derive(Debug)]
 pub struct NeedPeriods;
@@ -721,6 +761,20 @@ impl ModelBuilder<Ready> {
             }
         }
 
+        if let Some(alias_registry) = &self.alias_registry {
+            let available_nodes: IndexSet<String> = self.nodes.keys().cloned().collect();
+            for node in self.nodes.values_mut() {
+                if let Some(formula) = node.formula_text.as_mut() {
+                    *formula =
+                        normalize_formula_aliases(formula, alias_registry, &available_nodes)?;
+                }
+                if let Some(where_text) = node.where_text.as_mut() {
+                    *where_text =
+                        normalize_formula_aliases(where_text, alias_registry, &available_nodes)?;
+                }
+            }
+        }
+
         // Create the model spec
         let mut spec = FinancialModelSpec::new(self.id, self.periods);
         spec.nodes = self.nodes;
@@ -966,5 +1020,33 @@ impl ModelBuilder<Ready> {
     pub fn with_aliases(mut self, registry: crate::registry::AliasRegistry) -> Self {
         self.alias_registry = Some(registry);
         self
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::evaluator::Evaluator;
+
+    #[test]
+    fn test_name_normalization_rewrites_formula_aliases() {
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("alias-test")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .with_name_normalization()
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
+            .value("cogs", &[(period, AmountOrScalar::scalar(40_000.0))])
+            .compute("gross_profit", "rev - cogs")
+            .expect("valid formula")
+            .build()
+            .expect("valid model");
+
+        let mut evaluator = Evaluator::new();
+        let results = evaluator
+            .evaluate(&model)
+            .expect("evaluation should succeed");
+        assert_eq!(results.get("gross_profit", &period), Some(60_000.0));
     }
 }

@@ -69,6 +69,7 @@ pub struct CorkscrewExtension {
 
 /// Configuration for corkscrew analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CorkscrewConfig {
     /// List of balance sheet accounts to validate
     #[serde(default)]
@@ -85,6 +86,7 @@ pub struct CorkscrewConfig {
 
 /// Configuration for a single corkscrew account.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CorkscrewAccount {
     /// Node ID for the balance account
     pub node_id: String,
@@ -159,11 +161,27 @@ impl CorkscrewExtension {
         self.config = Some(config);
     }
 
+    fn resolve_config<'a>(&'a self, context: &'a ExtensionContext) -> Result<CorkscrewConfig> {
+        if let Some(config) = context.config {
+            serde_json::from_value(config.clone()).map_err(|e| {
+                crate::error::Error::invalid_input(format!(
+                    "Invalid corkscrew configuration: {}",
+                    e
+                ))
+            })
+        } else {
+            self.config.clone().ok_or_else(|| {
+                crate::error::Error::registry("Corkscrew extension requires configuration")
+            })
+        }
+    }
+
     /// Validate a single account's roll-forward schedule.
     fn validate_account(
         &self,
         account: &CorkscrewAccount,
         context: &ExtensionContext,
+        tolerance: f64,
     ) -> Result<AccountValidation> {
         let mut validation = AccountValidation {
             account_id: account.node_id.clone(),
@@ -218,11 +236,7 @@ impl CorkscrewExtension {
             validation.max_error = validation.max_error.max(error);
             validation.periods_validated += 1;
 
-            let tol = self
-                .config
-                .as_ref()
-                .map_or(DEFAULT_CORKSCREW_TOLERANCE, |c| c.tolerance);
-            if error > tol {
+            if error > tolerance {
                 validation.is_valid = false;
             }
         }
@@ -238,10 +252,9 @@ impl CorkscrewExtension {
     fn check_articulation(
         &self,
         context: &ExtensionContext,
+        config: &CorkscrewConfig,
         tolerance: f64,
     ) -> Option<ArticulationResult> {
-        let config = self.config.as_ref()?;
-
         let last_period = context.model.periods.last()?;
         let period_id = &last_period.id;
 
@@ -310,9 +323,7 @@ impl Extension for CorkscrewExtension {
 
     fn execute(&mut self, context: &ExtensionContext) -> Result<ExtensionResult> {
         // Validate balance sheet roll-forward schedules
-        let config = self.config.as_ref().ok_or_else(|| {
-            crate::error::Error::registry("Corkscrew extension requires configuration")
-        })?;
+        let config = self.resolve_config(context)?;
 
         let mut validations = Vec::new();
         let mut errors = Vec::new();
@@ -320,7 +331,7 @@ impl Extension for CorkscrewExtension {
 
         // Process each configured account
         for account in &config.accounts {
-            match self.validate_account(account, context) {
+            match self.validate_account(account, context, config.tolerance) {
                 Ok(validation) => validations.push(validation),
                 Err(e) => {
                     if config.fail_on_error {
@@ -333,7 +344,9 @@ impl Extension for CorkscrewExtension {
         }
 
         // Check for balance sheet articulation using actual balances
-        if let Some(articulation_result) = self.check_articulation(context, config.tolerance) {
+        if let Some(articulation_result) =
+            self.check_articulation(context, &config, config.tolerance)
+        {
             if !articulation_result.is_balanced {
                 let msg = format!(
                     "Balance sheet not articulated. Total imbalance: {:.2}",
@@ -513,6 +526,35 @@ mod tests {
             .expect_err("should fail")
             .to_string()
             .contains("requires configuration"));
+    }
+
+    #[test]
+    fn test_corkscrew_execute_accepts_runtime_context_config() {
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .value(
+                "cash",
+                &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+            )
+            .build()
+            .expect("model should build");
+        let mut evaluator = Evaluator::new();
+        let results = evaluator
+            .evaluate(&model)
+            .expect("evaluation should succeed");
+
+        let config = serde_json::json!({
+            "accounts": [],
+            "fail_on_error": false
+        });
+        let context = ExtensionContext::new(&model, &results).with_config(&config);
+
+        let mut extension = CorkscrewExtension::new();
+        let result = extension
+            .execute(&context)
+            .expect("runtime config should be accepted");
+        assert_eq!(result.status, ExtensionStatus::Success);
     }
 
     #[test]

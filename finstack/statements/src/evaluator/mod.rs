@@ -7,6 +7,7 @@
 //! - Evaluating formulas for each period
 //! - Handling where clause masking
 
+mod capital_structure_runtime;
 mod cashflow_export;
 mod context;
 mod dag;
@@ -15,6 +16,7 @@ mod engine;
 mod export;
 mod forecast_eval;
 pub(crate) mod formula;
+pub(crate) mod monte_carlo;
 mod precedence;
 mod results;
 
@@ -22,6 +24,7 @@ pub use cashflow_export::{node_to_dated_schedule, PeriodDateConvention};
 pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
 pub use engine::{Evaluator, EvaluatorWithContext};
+pub use monte_carlo::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
 pub use precedence::{resolve_node_value, NodeValueSource};
 pub use results::{EvalWarning, NumericMode, ResultsMeta, StatementResult};
 

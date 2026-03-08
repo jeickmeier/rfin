@@ -61,6 +61,7 @@ enum EquityMode {
 ///     .value("ufcf", &[
 ///         (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100_000.0)),
 ///     ])
+///     .with_meta("currency", serde_json::json!("USD"))
 ///     .build()?;
 ///
 /// let _result = CorporateAnalysisBuilder::new(model)
@@ -171,9 +172,8 @@ impl CorporateAnalysisBuilder {
     /// 3. Compute credit context metrics for each capital structure instrument,
     ///    using enterprise value from step 2 as the LTV reference when available
     ///
-    /// **Note:** The DCF equity valuation (step 2) internally re-evaluates the
-    /// statement model. A future optimization could pass the pre-evaluated results
-    /// through to avoid this redundant computation.
+    /// **Note:** The DCF equity valuation reuses the already evaluated statement
+    /// results so analysis stays consistent with the active `market` / `as_of` context.
     pub fn analyze(self) -> Result<CorporateAnalysis> {
         // Step 1: Evaluate statement
         let mut evaluator = crate::evaluator::Evaluator::new();
@@ -192,14 +192,17 @@ impl CorporateAnalysisBuilder {
                 net_debt_override,
                 dcf_options,
             }) => {
-                let result = crate::analysis::corporate::evaluate_dcf_with_market(
+                let (result, _trace) = crate::analysis::corporate::evaluate_dcf_from_results_impl(
                     &self.model,
+                    &statement,
                     wacc,
                     terminal_value,
                     &ufcf_node,
-                    net_debt_override,
-                    &dcf_options,
-                    self.market.as_ref(),
+                    crate::analysis::corporate::DcfEvalContext {
+                        net_debt_override,
+                        options: &dcf_options,
+                        market: self.market.as_ref(),
+                    },
                 )
                 .map_err(|e| {
                     crate::error::Error::Eval(format!(
@@ -248,6 +251,29 @@ mod tests {
     use crate::builder::ModelBuilder;
     use crate::types::AmountOrScalar;
     use finstack_core::dates::PeriodId;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::money::Money;
+    use time::macros::date;
+
+    fn flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+        let mut builder = DiscountCurve::builder(curve_id)
+            .base_date(base_date)
+            .day_count(finstack_core::dates::DayCount::Act360)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-rate).exp()),
+                (5.0, (-rate * 5.0).exp()),
+                (10.0, (-rate * 10.0).exp()),
+                (30.0, (-rate * 30.0).exp()),
+            ]);
+
+        if rate.abs() < 1e-10 || rate < 0.0 {
+            builder = builder.interp(InterpStyle::Linear).allow_non_monotonic();
+        }
+
+        builder.build().expect("valid flat discount curve")
+    }
 
     #[test]
     fn test_statement_only_analysis() {
@@ -310,6 +336,7 @@ mod tests {
                     ),
                 ],
             )
+            .with_meta("currency", serde_json::json!("USD"))
             .build()
             .expect("model");
 
@@ -323,5 +350,53 @@ mod tests {
         let equity = result.equity.as_ref().expect("equity should be present");
         assert!(equity.equity_value.amount() > 0.0);
         assert!(equity.enterprise_value.amount() > equity.equity_value.amount());
+    }
+
+    #[test]
+    fn test_dcf_analysis_with_as_of_and_capital_structure_succeeds() {
+        let as_of = date!(2025 - 01 - 01);
+        let market = MarketContext::new().insert(flat_discount_curve(0.05, as_of, "USD-OIS"));
+        let model = ModelBuilder::new("dcf-cs-test")
+            .periods("2025Q1..Q2", Some("2025Q1"))
+            .expect("periods")
+            .value(
+                "revenue",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(1_000_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(1_100_000.0),
+                    ),
+                ],
+            )
+            .add_bond(
+                "BOND-001",
+                Money::new(1_000_000.0, finstack_core::currency::Currency::USD),
+                0.05,
+                date!(2025 - 01 - 01),
+                date!(2026 - 01 - 01),
+                "USD-OIS",
+            )
+            .expect("bond")
+            .compute("ufcf", "revenue - cs.interest_expense.total")
+            .expect("formula")
+            .with_meta("currency", serde_json::json!("USD"))
+            .build()
+            .expect("model");
+
+        let result = CorporateAnalysisBuilder::new(model)
+            .market(market)
+            .as_of(as_of)
+            .dcf(0.10, TerminalValueSpec::GordonGrowth { growth_rate: 0.02 })
+            .net_debt_override(0.0)
+            .analyze();
+
+        assert!(
+            result.is_ok(),
+            "DCF analysis should reuse the as-of aware statement evaluation"
+        );
     }
 }

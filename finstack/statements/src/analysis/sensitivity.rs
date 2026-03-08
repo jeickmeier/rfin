@@ -85,7 +85,10 @@ impl<'a> SensitivityAnalyzer<'a> {
 
                 // Store scenario
                 let mut parameter_values = IndexMap::new();
-                parameter_values.insert(param.node_id.clone(), *perturbation);
+                parameter_values.insert(
+                    scenario_parameter_key(&param.node_id, param.period_id),
+                    *perturbation,
+                );
 
                 scenarios.push(SensitivityScenario {
                     parameter_values,
@@ -101,17 +104,67 @@ impl<'a> SensitivityAnalyzer<'a> {
     }
 
     /// Run full grid sensitivity (factorial).
-    fn run_full_grid(&self, _config: &SensitivityConfig) -> Result<SensitivityResult> {
-        // Simplified implementation - full factorial would be more complex
-        Err(Error::invalid_input(
-            "Full grid sensitivity not yet implemented",
-        ))
+    fn run_full_grid(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
+        if config.parameters.is_empty() {
+            return Err(Error::invalid_input(
+                "Full grid sensitivity requires at least one parameter",
+            ));
+        }
+
+        let mut combinations = Vec::new();
+        let mut current = Vec::new();
+        build_parameter_grid(&config.parameters, 0, &mut current, &mut combinations);
+
+        let mut scenarios = Vec::with_capacity(combinations.len());
+        for combination in combinations {
+            let mut model_clone = self.model.clone();
+            let mut parameter_values = IndexMap::new();
+
+            for (param_idx, perturbation) in combination.into_iter().enumerate() {
+                let param = &config.parameters[param_idx];
+                self.apply_parameter_override(
+                    &mut model_clone,
+                    &param.node_id,
+                    param.period_id,
+                    perturbation,
+                )?;
+                parameter_values.insert(
+                    scenario_parameter_key(&param.node_id, param.period_id),
+                    perturbation,
+                );
+            }
+
+            let mut evaluator = Evaluator::new();
+            let results = evaluator.evaluate(&model_clone)?;
+            scenarios.push(SensitivityScenario {
+                parameter_values,
+                results,
+            });
+        }
+
+        Ok(SensitivityResult {
+            config: config.clone(),
+            scenarios,
+        })
     }
 
     /// Run tornado sensitivity.
     fn run_tornado(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
-        // For tornado, we run diagonal and then rank by impact
-        self.run_diagonal(config)
+        let mut result = self.run_diagonal(config)?;
+        if config.target_metrics.is_empty() {
+            return Ok(result);
+        }
+
+        let mut baseline_evaluator = Evaluator::new();
+        let baseline = baseline_evaluator.evaluate(self.model)?;
+        result.scenarios.sort_by(|lhs, rhs| {
+            let rhs_impact = max_target_impact(&baseline, &rhs.results, &config.target_metrics);
+            let lhs_impact = max_target_impact(&baseline, &lhs.results, &config.target_metrics);
+            rhs_impact
+                .partial_cmp(&lhs_impact)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        Ok(result)
     }
 
     // Helper to override a parameter value in the model
@@ -135,6 +188,53 @@ impl<'a> SensitivityAnalyzer<'a> {
             )))
         }
     }
+}
+
+fn scenario_parameter_key(node_id: &str, period_id: finstack_core::dates::PeriodId) -> String {
+    format!("{}@{}", node_id, period_id)
+}
+
+fn build_parameter_grid(
+    parameters: &[super::types::ParameterSpec],
+    idx: usize,
+    current: &mut Vec<f64>,
+    combinations: &mut Vec<Vec<f64>>,
+) {
+    if idx == parameters.len() {
+        combinations.push(current.clone());
+        return;
+    }
+
+    for perturbation in &parameters[idx].perturbations {
+        current.push(*perturbation);
+        build_parameter_grid(parameters, idx + 1, current, combinations);
+        current.pop();
+    }
+}
+
+fn max_target_impact(
+    baseline: &crate::evaluator::StatementResult,
+    scenario: &crate::evaluator::StatementResult,
+    target_metrics: &[String],
+) -> f64 {
+    target_metrics
+        .iter()
+        .flat_map(|metric| {
+            baseline
+                .nodes
+                .get(metric)
+                .into_iter()
+                .flat_map(move |baseline_periods| {
+                    baseline_periods
+                        .iter()
+                        .filter_map(move |(period_id, baseline_value)| {
+                            scenario
+                                .get(metric, period_id)
+                                .map(|scenario_value| (scenario_value - baseline_value).abs())
+                        })
+                })
+        })
+        .fold(0.0, f64::max)
 }
 
 #[cfg(test)]
@@ -181,5 +281,123 @@ mod tests {
             .run(&config)
             .expect("sensitivity analysis should succeed");
         assert_eq!(result.scenarios.len(), 3); // 3 perturbations
+    }
+
+    #[test]
+    fn test_full_grid_sensitivity_builds_cartesian_product() {
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q1", None)
+            .expect("valid period range")
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
+            .value("cogs", &[(period, AmountOrScalar::scalar(40_000.0))])
+            .compute("gross_profit", "revenue - cogs")
+            .expect("valid formula")
+            .build()
+            .expect("valid model");
+
+        let analyzer = SensitivityAnalyzer::new(&model);
+        let mut config = SensitivityConfig::new(SensitivityMode::FullGrid);
+        config.add_parameter(ParameterSpec::new(
+            "revenue",
+            period,
+            100_000.0,
+            vec![90_000.0, 110_000.0],
+        ));
+        config.add_parameter(ParameterSpec::new(
+            "cogs",
+            period,
+            40_000.0,
+            vec![35_000.0, 45_000.0],
+        ));
+        config.add_target_metric("gross_profit");
+
+        let result = analyzer.run(&config).expect("full grid should succeed");
+        assert_eq!(result.scenarios.len(), 4);
+        assert!(result
+            .scenarios
+            .iter()
+            .all(|scenario| scenario.parameter_values.len() == 2));
+    }
+
+    #[test]
+    fn test_tornado_orders_scenarios_by_target_metric_impact() {
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q1", None)
+            .expect("valid period range")
+            .value("revenue", &[(period, AmountOrScalar::scalar(100_000.0))])
+            .value("cogs", &[(period, AmountOrScalar::scalar(40_000.0))])
+            .compute("gross_profit", "revenue - cogs")
+            .expect("valid formula")
+            .build()
+            .expect("valid model");
+
+        let analyzer = SensitivityAnalyzer::new(&model);
+        let mut config = SensitivityConfig::new(SensitivityMode::Tornado);
+        config.add_parameter(ParameterSpec::new(
+            "revenue",
+            period,
+            100_000.0,
+            vec![80_000.0, 120_000.0],
+        ));
+        config.add_parameter(ParameterSpec::new(
+            "cogs",
+            period,
+            40_000.0,
+            vec![30_000.0, 50_000.0],
+        ));
+        config.add_target_metric("gross_profit");
+
+        let result = analyzer.run(&config).expect("tornado should succeed");
+        assert_eq!(result.scenarios.len(), 4);
+        assert_eq!(
+            result.scenarios[0].parameter_values.keys().next(),
+            Some(&"revenue@2025Q1".to_string())
+        );
+        assert_eq!(
+            result.scenarios[1].parameter_values.keys().next(),
+            Some(&"revenue@2025Q1".to_string())
+        );
+    }
+
+    #[test]
+    fn test_full_grid_scenario_metadata_distinguishes_period_overrides() {
+        let period1 = PeriodId::quarter(2025, 1);
+        let period2 = PeriodId::quarter(2025, 2);
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q2", None)
+            .expect("valid period range")
+            .value(
+                "revenue",
+                &[
+                    (period1, AmountOrScalar::scalar(100_000.0)),
+                    (period2, AmountOrScalar::scalar(110_000.0)),
+                ],
+            )
+            .build()
+            .expect("valid model");
+
+        let analyzer = SensitivityAnalyzer::new(&model);
+        let mut config = SensitivityConfig::new(SensitivityMode::FullGrid);
+        config.add_parameter(ParameterSpec::new(
+            "revenue",
+            period1,
+            100_000.0,
+            vec![90_000.0, 110_000.0],
+        ));
+        config.add_parameter(ParameterSpec::new(
+            "revenue",
+            period2,
+            110_000.0,
+            vec![100_000.0, 120_000.0],
+        ));
+
+        let result = analyzer.run(&config).expect("full grid should succeed");
+        assert_eq!(result.scenarios.len(), 4);
+        assert!(result.scenarios.iter().all(|scenario| {
+            scenario.parameter_values.contains_key("revenue@2025Q1")
+                && scenario.parameter_values.contains_key("revenue@2025Q2")
+        }));
     }
 }

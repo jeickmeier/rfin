@@ -407,8 +407,10 @@ impl PyAgencyMbsPassthrough {
 
     /// Create an example MBS for testing.
     #[classmethod]
-    fn example(_cls: &Bound<'_, PyType>) -> Self {
-        Self::new(AgencyMbsPassthrough::example())
+    fn example(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        AgencyMbsPassthrough::example()
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(format!("{e}")))
     }
 
     /// Instrument identifier.

@@ -58,6 +58,12 @@ fn extract_distribution_params(
             std_dev
         )));
     }
+    if !mean.is_finite() || !std_dev.is_finite() {
+        return Err(Error::forecast(format!(
+            "{} forecast requires finite mean and std_dev",
+            method_name
+        )));
+    }
 
     Ok(DistributionParams {
         mean,
@@ -121,6 +127,12 @@ pub fn normal_forecast(
     for period_id in forecast_periods {
         let z = box_muller_sample(&mut rng);
         let value = p.mean + p.std_dev * z;
+        if !value.is_finite() {
+            return Err(Error::forecast(format!(
+                "Normal forecast produced a non-finite value at period {:?}",
+                period_id
+            )));
+        }
         results.insert(*period_id, value);
     }
 
@@ -180,6 +192,12 @@ pub fn lognormal_forecast(
         let normal_value = p.mean + p.std_dev * z;
         // Exponentiate to get log-normal
         let value = normal_value.exp();
+        if !value.is_finite() {
+            return Err(Error::forecast(format!(
+                "LogNormal forecast produced a non-finite value at period {:?}",
+                period_id
+            )));
+        }
         results.insert(*period_id, value);
     }
 
@@ -308,5 +326,18 @@ mod tests {
             results1[&PeriodId::quarter(2025, 1)],
             results2[&PeriodId::quarter(2025, 1)]
         );
+    }
+
+    #[test]
+    fn test_lognormal_forecast_rejects_non_finite_output() {
+        let periods = vec![PeriodId::quarter(2025, 1)];
+
+        let mut params = IndexMap::new();
+        params.insert("mean".to_string(), serde_json::json!(1000.0));
+        params.insert("std_dev".to_string(), serde_json::json!(0.0));
+        params.insert("seed".to_string(), serde_json::json!(42));
+
+        let result = lognormal_forecast(0.0, &periods, &params);
+        assert!(result.is_err(), "overflowing lognormal paths must fail");
     }
 }

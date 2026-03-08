@@ -51,6 +51,7 @@ fn test_full_lbo_analysis() {
             "USD-OIS",
         )
         .expect("valid bond")
+        .with_meta("currency", serde_json::json!("USD"))
         .build()
         .expect("valid model");
 

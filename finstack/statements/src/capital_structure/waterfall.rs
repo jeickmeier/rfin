@@ -80,7 +80,21 @@ pub fn execute_waterfall(
     state: &mut CapitalStructureState,
     contractual_flows: &IndexMap<String, CashflowBreakdown>,
 ) -> Result<IndexMap<String, CashflowBreakdown>> {
+    let _span = tracing::info_span!(
+        "statements.capital_structure.waterfall",
+        period = _period_id.to_string(),
+        instruments = contractual_flows.len(),
+        has_sweep = waterfall_spec.ecf_sweep.is_some(),
+        has_pik_toggle = waterfall_spec.pik_toggle.is_some()
+    )
+    .entered();
     let mut result = IndexMap::new();
+    let sweep_priority =
+        priority_index(&waterfall_spec.priority_of_payments, PaymentPriority::Sweep);
+    let interest_priority = priority_index(
+        &waterfall_spec.priority_of_payments,
+        PaymentPriority::Interest,
+    );
 
     // Step 1: Check PIK toggle conditions
     let (pik_enable, pik_targets): (Option<bool>, Option<HashSet<String>>) =
@@ -171,16 +185,34 @@ pub fn execute_waterfall(
             }
         }
 
-        // Step 3a: Apply sweep BEFORE PIK conversion (sweep reduces balance first)
+        if is_pik_enabled_for_priority(state, instrument_id)
+            && interest_priority < sweep_priority
+            && sweep_priority != usize::MAX
+        {
+            breakdown.interest_expense_pik += breakdown.interest_expense_cash;
+            breakdown.interest_expense_cash = Money::new(0.0, currency);
+        }
+
+        let sweep_base_balance = if is_pik_enabled_for_priority(state, instrument_id)
+            && interest_priority < sweep_priority
+            && sweep_priority != usize::MAX
+        {
+            opening_balance.checked_add(breakdown.interest_expense_pik)?
+        } else {
+            opening_balance
+        };
+
+        // Step 3a: Apply sweep according to the configured priority ordering
         let sweep_for_instrument = if let Some(ecf_spec) = &waterfall_spec.ecf_sweep {
-            if ecf_spec
-                .target_instrument_id
-                .as_ref()
-                .map(|id| id == instrument_id)
-                .unwrap_or(true)
+            if sweep_priority != usize::MAX
+                && ecf_spec
+                    .target_instrument_id
+                    .as_ref()
+                    .map(|id| id == instrument_id)
+                    .unwrap_or(true)
             {
                 // Limit sweep to outstanding balance
-                let max_sweep = opening_balance;
+                let max_sweep = sweep_base_balance;
                 if remaining_sweep.currency() == currency {
                     Money::new(remaining_sweep.amount().min(max_sweep.amount()), currency)
                 } else {
@@ -202,13 +234,9 @@ pub fn execute_waterfall(
         // Step 3b: Calculate post-sweep balance (before PIK accrual)
         let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
 
-        // Step 3c: Apply PIK mode — PIK accrues on post-sweep balance
-        let is_pik_enabled = state
-            .pik_mode
-            .get(instrument_id.as_str())
-            .copied()
-            .unwrap_or(false);
-        if is_pik_enabled {
+        // Step 3c: Apply PIK mode — PIK accrues on the balance implied by payment priority
+        let is_pik_enabled = is_pik_enabled_for_priority(state, instrument_id);
+        if is_pik_enabled && !(interest_priority < sweep_priority && sweep_priority != usize::MAX) {
             breakdown.interest_expense_pik += breakdown.interest_expense_cash;
             breakdown.interest_expense_cash = Money::new(0.0, currency);
         }
@@ -225,6 +253,17 @@ pub fn execute_waterfall(
     }
 
     Ok(result)
+}
+
+fn priority_index(priorities: &[PaymentPriority], target: PaymentPriority) -> usize {
+    priorities
+        .iter()
+        .position(|priority| *priority == target)
+        .unwrap_or(usize::MAX)
+}
+
+fn is_pik_enabled_for_priority(state: &CapitalStructureState, instrument_id: &str) -> bool {
+    state.pik_mode.get(instrument_id).copied().unwrap_or(false)
 }
 
 fn eval_value_or_formula(context: &EvaluationContext, expr: &str) -> Result<f64> {
@@ -579,5 +618,76 @@ mod tests {
 
         // ECF = 1_000_000 - 200_000 - 50_000 = 750,000 => sweep 375,000
         assert_eq!(total_principal, 375_000.0);
+    }
+
+    #[test]
+    fn test_priority_of_payments_changes_pik_sweep_order() {
+        let period = PeriodId::quarter(2025, 1);
+        let context = build_context(period, &[("ebitda", 2_100.0), ("liquidity", 50.0)]);
+
+        let mut contractual_flows: IndexMap<String, CashflowBreakdown> = IndexMap::new();
+        let mut breakdown = CashflowBreakdown::with_currency(Currency::USD);
+        breakdown.interest_expense_cash = Money::new(100.0, Currency::USD);
+        contractual_flows.insert("TL-1".to_string(), breakdown);
+
+        let mut sweep_first_state = CapitalStructureState::new();
+        sweep_first_state
+            .opening_balances
+            .insert("TL-1".to_string(), Money::new(1_000.0, Currency::USD));
+        let mut interest_first_state = sweep_first_state.clone();
+
+        let sweep_first = WaterfallSpec {
+            priority_of_payments: vec![
+                PaymentPriority::Sweep,
+                PaymentPriority::Interest,
+                PaymentPriority::Equity,
+            ],
+            ecf_sweep: Some(EcfSweepSpec {
+                ebitda_node: "ebitda".into(),
+                taxes_node: None,
+                capex_node: None,
+                working_capital_node: None,
+                cash_interest_node: None,
+                sweep_percentage: 0.5,
+                target_instrument_id: Some("TL-1".into()),
+            }),
+            pik_toggle: Some(PikToggleSpec {
+                liquidity_metric: "liquidity".into(),
+                threshold: 100.0,
+                target_instrument_ids: Some(vec!["TL-1".into()]),
+                min_periods_in_pik: 0,
+            }),
+        };
+        let interest_first = WaterfallSpec {
+            priority_of_payments: vec![
+                PaymentPriority::Interest,
+                PaymentPriority::Sweep,
+                PaymentPriority::Equity,
+            ],
+            ecf_sweep: sweep_first.ecf_sweep.clone(),
+            pik_toggle: sweep_first.pik_toggle.clone(),
+        };
+
+        let sweep_first_result = execute_waterfall(
+            &period,
+            &context,
+            &sweep_first,
+            &mut sweep_first_state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+        let interest_first_result = execute_waterfall(
+            &period,
+            &context,
+            &interest_first,
+            &mut interest_first_state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        let sweep_first_balance = sweep_first_result["TL-1"].debt_balance.amount();
+        let interest_first_balance = interest_first_result["TL-1"].debt_balance.amount();
+        assert_eq!(sweep_first_balance, 100.0);
+        assert_eq!(interest_first_balance, 50.0);
     }
 }

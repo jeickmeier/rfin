@@ -147,6 +147,7 @@ pub struct CreditScorecardExtension {
 
 /// Configuration for credit scorecard analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScorecardConfig {
     /// Rating scale to use (e.g., "S&P", "Moody's", "Fitch")
     #[serde(default = "default_rating_scale")]
@@ -163,6 +164,7 @@ pub struct ScorecardConfig {
 
 /// Definition of a scorecard metric.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ScorecardMetric {
     /// Metric name
     pub name: String,
@@ -227,11 +229,27 @@ impl CreditScorecardExtension {
         self.config = Some(config);
     }
 
+    fn resolve_config<'a>(&'a self, context: &'a ExtensionContext) -> Result<ScorecardConfig> {
+        if let Some(config) = context.config {
+            serde_json::from_value(config.clone()).map_err(|e| {
+                crate::error::Error::invalid_input(format!(
+                    "Invalid scorecard configuration: {}",
+                    e
+                ))
+            })
+        } else {
+            self.config.clone().ok_or_else(|| {
+                crate::error::Error::registry("Credit scorecard extension requires configuration")
+            })
+        }
+    }
+
     /// Evaluate a single metric.
     fn evaluate_metric(
         &self,
         metric: &ScorecardMetric,
         context: &ExtensionContext,
+        config: &ScorecardConfig,
     ) -> Result<MetricScore> {
         // Parse and evaluate the formula
         let expr = crate::dsl::parse_and_compile(&metric.formula)?;
@@ -273,7 +291,7 @@ impl CreditScorecardExtension {
         )?;
 
         // Calculate score based on thresholds
-        let score = self.calculate_metric_score(value, &metric.thresholds);
+        let score = self.calculate_metric_score(value, &metric.thresholds, &config.rating_scale);
 
         Ok(MetricScore {
             metric_name: metric.name.clone(),
@@ -291,13 +309,9 @@ impl CreditScorecardExtension {
         &self,
         value: f64,
         thresholds: &indexmap::IndexMap<String, (f64, f64)>,
+        rating_scale: &str,
     ) -> f64 {
-        // Get rating scale (defaults to S&P if not configured)
-        let scale = self
-            .config
-            .as_ref()
-            .map(|c| get_rating_scale(&c.rating_scale))
-            .unwrap_or_else(get_sp_scale);
+        let scale = get_rating_scale(rating_scale);
 
         // Find which threshold range the value falls into
         for level in &scale.ratings {
@@ -352,12 +366,8 @@ impl CreditScorecardExtension {
     ///
     /// Compares ratings using the configured rating scale with exact matching.
     /// Returns true if the rating is equal to or better than the minimum.
-    fn meets_minimum_rating(&self, rating: &str, min_rating: &str) -> bool {
-        let scale = self
-            .config
-            .as_ref()
-            .map(|c| get_rating_scale(&c.rating_scale))
-            .unwrap_or_else(get_sp_scale);
+    fn meets_minimum_rating(&self, rating: &str, min_rating: &str, rating_scale: &str) -> bool {
+        let scale = get_rating_scale(rating_scale);
 
         // Find positions in the rating scale (lower index = better rating).
         // Use exact string matching to avoid false matches (e.g., "AA" matching "A").
@@ -397,9 +407,7 @@ impl Extension for CreditScorecardExtension {
 
     fn execute(&mut self, context: &ExtensionContext) -> Result<ExtensionResult> {
         // Credit scorecard analysis implementation
-        let config = self.config.as_ref().ok_or_else(|| {
-            crate::error::Error::registry("Credit scorecard extension requires configuration")
-        })?;
+        let config = self.resolve_config(context)?;
 
         let mut scores = Vec::new();
         let mut errors = Vec::new();
@@ -407,7 +415,7 @@ impl Extension for CreditScorecardExtension {
 
         // Evaluate each metric
         for metric_config in &config.metrics {
-            match self.evaluate_metric(metric_config, context) {
+            match self.evaluate_metric(metric_config, context, &config) {
                 Ok(score) => scores.push(score),
                 Err(e) => errors.push(format!("Metric '{}': {}", metric_config.name, e)),
             }
@@ -421,7 +429,7 @@ impl Extension for CreditScorecardExtension {
 
         // Check minimum rating requirement
         if let Some(min_rating) = &config.min_rating {
-            if !self.meets_minimum_rating(&rating, min_rating) {
+            if !self.meets_minimum_rating(&rating, min_rating, &config.rating_scale) {
                 warnings.push(format!(
                     "Credit rating {} is below minimum required {}",
                     rating, min_rating

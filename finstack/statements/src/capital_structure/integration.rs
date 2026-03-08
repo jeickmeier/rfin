@@ -62,29 +62,32 @@ pub fn calculate_period_flows(
     let mut breakdown = CashflowBreakdown::with_currency(currency);
     let snapshot_date = period_snapshot_date(period);
     let outstanding_path = full_schedule.outstanding_by_date()?;
+    let scheduled_opening = outstanding_path
+        .iter()
+        .filter(|(d, _)| *d <= period.start)
+        .map(|(_, balance)| {
+            if balance.amount() < 0.0 {
+                Money::new(-balance.amount(), balance.currency())
+            } else {
+                *balance
+            }
+        })
+        .next_back()
+        .unwrap_or(full_schedule.notional.initial);
 
     // Use opening balance to scale cashflows when the schedule notional differs from the
     // stateful outstanding (e.g., after applying sweeps). This is an approximation but
     // prevents obviously overstated interest after large paydowns.
-    let scale = {
-        let scheduled_opening = outstanding_path
-            .iter()
-            .filter(|(d, _)| *d <= period.start)
-            .map(|(_, balance)| {
-                if balance.amount() < 0.0 {
-                    Money::new(-balance.amount(), balance.currency())
-                } else {
-                    *balance
-                }
-            })
-            .next_back()
-            .unwrap_or(full_schedule.notional.initial);
-
-        if opening_balance.amount() == 0.0 || scheduled_opening.amount() == 0.0 {
+    let scale = if opening_balance.amount() == 0.0 {
+        if scheduled_opening.amount() == 0.0 {
             1.0
         } else {
-            opening_balance.amount() / scheduled_opening.amount()
+            0.0
         }
+    } else if scheduled_opening.amount() == 0.0 {
+        1.0
+    } else {
+        opening_balance.amount() / scheduled_opening.amount()
     };
 
     // Extract flows that fall within this period
@@ -138,7 +141,7 @@ pub fn calculate_period_flows(
     // Find the most recent outstanding balance at or before period end.
     // Note: outstanding_path only has entries on dates when cashflows occur,
     // so we need to find the latest entry <= period.end to get the correct balance.
-    let closing_balance = outstanding_path
+    let scheduled_closing_balance = outstanding_path
         .iter()
         .rev()
         .find(|(date, _)| *date <= snapshot_date)
@@ -160,13 +163,49 @@ pub fn calculate_period_flows(
             }
         });
 
+    let has_new_funding = full_schedule.flows.iter().any(|cf| {
+        (cf.date >= period.start
+            && cf.date < period.end
+            && matches!(cf.kind, CFKind::RevolvingDraw))
+            || (cf.date >= period.start
+                && cf.date < period.end
+                && matches!(cf.kind, CFKind::Notional)
+                && cf.amount.amount() <= 0.0)
+    });
+    let net_new_funding: f64 = full_schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.date >= period.start && cf.date < period.end)
+        .filter_map(|cf| match cf.kind {
+            CFKind::RevolvingDraw => Some(cf.amount.amount().abs()),
+            CFKind::Notional if cf.amount.amount() <= 0.0 => Some(cf.amount.amount().abs()),
+            _ => None,
+        })
+        .sum();
+    let closing_balance = if opening_balance.amount() == 0.0 {
+        if has_new_funding {
+            Money::new(
+                scheduled_closing_balance.amount().max(net_new_funding),
+                currency,
+            )
+        } else {
+            Money::new(0.0, currency)
+        }
+    } else {
+        scheduled_closing_balance
+    };
     breakdown.debt_balance = closing_balance;
 
     // Calculate accrued interest at period end
     // Note: detailed accrual config (day count, compounding) comes from the schedule itself
     let accrued_scalar =
         accrued_interest_amount(&full_schedule, snapshot_date, &AccrualConfig::default())?;
-    breakdown.accrued_interest = Money::new(accrued_scalar * scale, currency);
+    let accrued_interest = if opening_balance.amount() == 0.0 && !has_new_funding {
+        0.0
+    } else {
+        accrued_scalar * scale
+    };
+    breakdown.accrued_interest = Money::new(accrued_interest, currency);
 
     Ok((breakdown, closing_balance))
 }
@@ -767,5 +806,103 @@ mod tests {
         .expect("period flow calculation should succeed");
 
         assert_eq!(breakdown.interest_expense_cash.amount(), -50_000.0);
+    }
+
+    #[test]
+    fn calculate_period_flows_zero_opening_balance_zeroes_contractual_flows() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
+        let period = Period {
+            id: PeriodId::quarter(2025, 1),
+            start,
+            end,
+            is_actual: false,
+        };
+
+        let instrument = SignedFlowInstrument {
+            schedule: CashFlowSchedule {
+                flows: vec![
+                    CashFlow {
+                        date: Date::from_calendar_date(2025, Month::February, 15)
+                            .expect("valid date"),
+                        reset_date: None,
+                        amount: Money::new(-50_000.0, Currency::USD),
+                        kind: CFKind::Fixed,
+                        accrual_factor: 0.25,
+                        rate: None,
+                    },
+                    CashFlow {
+                        date: Date::from_calendar_date(2025, Month::March, 15).expect("valid date"),
+                        reset_date: None,
+                        amount: Money::new(-100_000.0, Currency::USD),
+                        kind: CFKind::Amortization,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    },
+                ],
+                notional: Notional::par(1_000_000.0, Currency::USD),
+                day_count: DayCount::Act365F,
+                meta: CashFlowMeta::default(),
+            },
+        };
+
+        let market_ctx = MarketContext::new();
+        let (breakdown, closing_balance) = calculate_period_flows(
+            &instrument,
+            &period,
+            Money::new(0.0, Currency::USD),
+            &market_ctx,
+            start,
+        )
+        .expect("period flow calculation should succeed");
+
+        assert_eq!(breakdown.interest_expense_cash.amount(), 0.0);
+        assert_eq!(breakdown.principal_payment.amount(), 0.0);
+        assert_eq!(breakdown.accrued_interest.amount(), 0.0);
+        assert_eq!(breakdown.debt_balance.amount(), 0.0);
+        assert_eq!(closing_balance.amount(), 0.0);
+    }
+
+    #[test]
+    fn calculate_period_flows_zero_opening_balance_preserves_new_draws() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
+        let period = Period {
+            id: PeriodId::quarter(2025, 1),
+            start,
+            end,
+            is_actual: false,
+        };
+
+        let instrument = SignedFlowInstrument {
+            schedule: CashFlowSchedule {
+                flows: vec![CashFlow {
+                    date: Date::from_calendar_date(2025, Month::February, 15).expect("valid date"),
+                    reset_date: None,
+                    amount: Money::new(100_000.0, Currency::USD),
+                    kind: CFKind::RevolvingDraw,
+                    accrual_factor: 0.0,
+                    rate: None,
+                }],
+                notional: Notional::par(0.0, Currency::USD),
+                day_count: DayCount::Act365F,
+                meta: CashFlowMeta::default(),
+            },
+        };
+
+        let market_ctx = MarketContext::new();
+        let (breakdown, closing_balance) = calculate_period_flows(
+            &instrument,
+            &period,
+            Money::new(0.0, Currency::USD),
+            &market_ctx,
+            start,
+        )
+        .expect("period flow calculation should succeed");
+
+        assert_eq!(breakdown.interest_expense_cash.amount(), 0.0);
+        assert_eq!(breakdown.principal_payment.amount(), 0.0);
+        assert_eq!(breakdown.debt_balance.amount(), 100_000.0);
+        assert_eq!(closing_balance.amount(), 100_000.0);
     }
 }

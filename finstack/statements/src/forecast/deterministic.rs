@@ -84,6 +84,11 @@ pub fn growth_pct(
              Expected a number (e.g., 0.05 for 5% growth).",
         )
     })?;
+    if !base_value.is_finite() || !rate.is_finite() {
+        return Err(Error::forecast(
+            "GrowthPct forecast requires finite base_value and rate",
+        ));
+    }
 
     // Warn on extreme growth rates (>100% per period)
     if rate.abs() > 1.0 {
@@ -162,6 +167,11 @@ pub fn curve_pct(
             e
         ))
     })?;
+    if !base_value.is_finite() {
+        return Err(Error::forecast(
+            "CurvePct forecast requires a finite base_value",
+        ));
+    }
 
     if curve.len() != forecast_periods.len() {
         return Err(Error::forecast(format!(
@@ -176,7 +186,19 @@ pub fn curve_pct(
     let mut current_value = base_value;
 
     for (i, period_id) in forecast_periods.iter().enumerate() {
+        if !curve[i].is_finite() {
+            return Err(Error::forecast(format!(
+                "CurvePct growth rate at index {} must be finite, got {}",
+                i, curve[i]
+            )));
+        }
         current_value *= 1.0 + curve[i];
+        if !current_value.is_finite() {
+            return Err(Error::forecast(format!(
+                "CurvePct forecast produced a non-finite value at period {:?}",
+                period_id
+            )));
+        }
         results.insert(*period_id, current_value);
     }
 
@@ -286,5 +308,16 @@ mod tests {
 
         let result = curve_pct(100.0, &periods, &params);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_curve_pct_rejects_non_finite_output() {
+        let periods = vec![PeriodId::quarter(2025, 1)];
+
+        let mut params = IndexMap::new();
+        params.insert("curve".to_string(), serde_json::json!([1.0]));
+
+        let result = curve_pct(f64::MAX, &periods, &params);
+        assert!(result.is_err(), "non-finite forecasts must be rejected");
     }
 }

@@ -297,8 +297,10 @@ impl PyDollarRoll {
 
     /// Create an example dollar roll for testing.
     #[classmethod]
-    fn example(_cls: &Bound<'_, PyType>) -> Self {
-        Self::new(DollarRoll::example())
+    fn example(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        DollarRoll::example()
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(format!("{e}")))
     }
 
     /// Instrument identifier.

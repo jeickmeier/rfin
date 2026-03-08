@@ -166,12 +166,22 @@ impl ExtensionRegistry {
     ///
     /// Returns the extension result or an error if the extension is not found.
     pub fn execute(&mut self, name: &str, context: &ExtensionContext) -> Result<ExtensionResult> {
+        let _span = tracing::info_span!(
+            "statements.extension.execute",
+            extension = name,
+            has_runtime_config = context.config.is_some()
+        )
+        .entered();
         let extension = self.extensions.get_mut(name).ok_or_else(|| {
             crate::error::Error::invalid_input(format!("Extension '{}' not found", name))
         })?;
 
         if !extension.is_enabled() {
             return Ok(ExtensionResult::skipped("Extension is disabled"));
+        }
+
+        if let Some(config) = context.config {
+            extension.validate_config(config)?;
         }
 
         extension.execute(context)
@@ -191,9 +201,15 @@ impl ExtensionRegistry {
         context: &ExtensionContext,
     ) -> Result<IndexMap<String, ExtensionResult>> {
         let mut results = IndexMap::new();
+        let shared_context = ExtensionContext {
+            model: context.model,
+            results: context.results,
+            config: None,
+            runtime_context: context.runtime_context.clone(),
+        };
 
         for name in &self.execution_order.clone() {
-            let result = self.execute(name, context)?;
+            let result = self.execute(name, &shared_context)?;
             results.insert(name.clone(), result);
         }
 
@@ -216,9 +232,15 @@ impl ExtensionRegistry {
         context: &ExtensionContext,
     ) -> IndexMap<String, Result<ExtensionResult>> {
         let mut results = IndexMap::new();
+        let shared_context = ExtensionContext {
+            model: context.model,
+            results: context.results,
+            config: None,
+            runtime_context: context.runtime_context.clone(),
+        };
 
         for name in &self.execution_order.clone() {
-            let result = self.execute(name, context);
+            let result = self.execute(name, &shared_context);
             results.insert(name.clone(), result);
         }
 
@@ -253,6 +275,7 @@ impl Default for ExtensionRegistry {
 mod tests {
     use super::*;
     use crate::extensions::plugin::ExtensionMetadata;
+    use crate::types::FinancialModelSpec;
 
     struct TestExtension {
         name: String,
@@ -287,6 +310,31 @@ mod tests {
 
         fn is_enabled(&self) -> bool {
             self.enabled
+        }
+    }
+
+    struct ValidatingExtension;
+
+    impl Extension for ValidatingExtension {
+        fn metadata(&self) -> ExtensionMetadata {
+            ExtensionMetadata {
+                name: "validating".into(),
+                version: "1.0.0".into(),
+                description: None,
+                author: None,
+            }
+        }
+
+        fn execute(&mut self, _context: &ExtensionContext) -> Result<ExtensionResult> {
+            Ok(ExtensionResult::success("validated"))
+        }
+
+        fn validate_config(&self, config: &serde_json::Value) -> Result<()> {
+            if config.get("ok").and_then(|value| value.as_bool()) == Some(true) {
+                Ok(())
+            } else {
+                Err(crate::error::Error::invalid_input("missing ok=true"))
+            }
         }
     }
 
@@ -389,5 +437,44 @@ mod tests {
 
         assert_eq!(registry.len(), 0);
         assert!(registry.is_empty());
+    }
+
+    #[test]
+    fn test_execute_validates_runtime_config() {
+        let mut registry = ExtensionRegistry::new();
+        registry
+            .register(Box::new(ValidatingExtension))
+            .expect("registration should succeed");
+
+        let model = FinancialModelSpec::new("test", vec![]);
+        let results = crate::evaluator::StatementResult::new();
+        let invalid = serde_json::json!({"ok": false});
+        let context = ExtensionContext::new(&model, &results).with_config(&invalid);
+
+        let err = registry
+            .execute("validating", &context)
+            .expect_err("invalid config should fail");
+        assert!(err.to_string().contains("missing ok=true"));
+    }
+
+    #[test]
+    fn test_execute_all_does_not_fan_out_extension_specific_config() {
+        let mut registry = ExtensionRegistry::new();
+        registry
+            .register(Box::new(ValidatingExtension))
+            .expect("registration should succeed");
+        registry
+            .register(Box::new(TestExtension::new("plain")))
+            .expect("registration should succeed");
+
+        let model = FinancialModelSpec::new("test", vec![]);
+        let results = crate::evaluator::StatementResult::new();
+        let invalid = serde_json::json!({"ok": false});
+        let context = ExtensionContext::new(&model, &results).with_config(&invalid);
+
+        let results = registry
+            .execute_all(&context)
+            .expect("fan-out config should be stripped");
+        assert_eq!(results.len(), 2);
     }
 }

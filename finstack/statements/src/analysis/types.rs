@@ -115,7 +115,7 @@ impl SensitivityConfig {
 /// Result of a single sensitivity scenario.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SensitivityScenario {
-    /// Parameter values for this scenario
+    /// Parameter values for this scenario keyed as `node_id@period_id`.
     pub parameter_values: IndexMap<String, f64>,
 
     /// Full evaluation results

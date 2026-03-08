@@ -6,6 +6,26 @@ use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
+fn parse_historical_series(historical: &[serde_json::Value], context: &str) -> Result<Vec<f64>> {
+    let mut parsed = Vec::with_capacity(historical.len());
+    for (idx, value) in historical.iter().enumerate() {
+        let number = value.as_f64().ok_or_else(|| {
+            Error::forecast(format!(
+                "{} historical value at index {} must be numeric, got {}",
+                context, idx, value
+            ))
+        })?;
+        if !number.is_finite() {
+            return Err(Error::forecast(format!(
+                "{} historical value at index {} must be finite, got {}",
+                context, idx, number
+            )));
+        }
+        parsed.push(number);
+    }
+    Ok(parsed)
+}
+
 /// Apply time-series forecasting to generate future values.
 ///
 /// Supports multiple methods:
@@ -40,16 +60,7 @@ pub fn timeseries_forecast(
     }
 
     // Convert to f64 array
-    let hist_data: Vec<f64> = historical.iter().filter_map(|v| v.as_f64()).collect();
-
-    if hist_data.len() < 2 {
-        return Err(Error::forecast(format!(
-            "Historical data must contain valid numbers. Got {} valid values out of {} total. \
-             Ensure all historical values are valid numbers.",
-            hist_data.len(),
-            historical.len()
-        )));
-    }
+    let hist_data = parse_historical_series(historical, "Time-series forecast")?;
 
     // Get method (default to "linear")
     let method = params
@@ -68,6 +79,12 @@ pub fn timeseries_forecast(
             for (i, period_id) in forecast_periods.iter().enumerate() {
                 let t = n_hist + i as f64 + 1.0;
                 let value = slope * t + intercept;
+                if !value.is_finite() {
+                    return Err(Error::forecast(format!(
+                        "Linear forecast produced a non-finite value at period {:?}",
+                        period_id
+                    )));
+                }
                 result.insert(*period_id, value);
             }
         }
@@ -122,6 +139,12 @@ pub fn timeseries_forecast(
 
             for (i, period_id) in forecast_periods.iter().enumerate() {
                 let value = level + trend * (i + 1) as f64;
+                if !value.is_finite() {
+                    return Err(Error::forecast(format!(
+                        "Exponential smoothing produced a non-finite value at period {:?}",
+                        period_id
+                    )));
+                }
                 result.insert(*period_id, value);
             }
         }
@@ -168,6 +191,12 @@ pub fn timeseries_forecast(
 
                 for (i, period_id) in forecast_periods.iter().enumerate() {
                     let value = ma + trend * (i + 1) as f64;
+                    if !value.is_finite() {
+                        return Err(Error::forecast(format!(
+                            "Moving average forecast produced a non-finite value at period {:?}",
+                            period_id
+                        )));
+                    }
                     result.insert(*period_id, value);
                 }
             } else {
@@ -302,7 +331,7 @@ fn seasonal_forecast_with_decomposition(
         .ok_or_else(|| Error::forecast("'historical' must be an array"))?;
 
     // Convert to f64 array
-    let hist_data: Vec<f64> = historical.iter().filter_map(|v| v.as_f64()).collect();
+    let hist_data = parse_historical_series(historical, "Seasonal forecast")?;
 
     // Get season length (required parameter - no default per market standards)
     let season_length = params
@@ -315,6 +344,10 @@ fn seasonal_forecast_with_decomposition(
              Must match the cyclical pattern in your data.",
             )
         })? as usize;
+
+    if season_length == 0 {
+        return Err(Error::forecast("season_length must be greater than 0"));
+    }
 
     if hist_data.len() < season_length * 2 {
         return Err(Error::forecast(format!(
@@ -382,6 +415,13 @@ fn seasonal_forecast_with_decomposition(
                 trend_value * seasonal_factor
             }
         };
+
+        if !value.is_finite() {
+            return Err(Error::forecast(format!(
+                "Seasonal forecast produced a non-finite value at period {:?}",
+                period_id
+            )));
+        }
 
         // Allow negative values for financial metrics (losses, declines, etc.)
         results.insert(*period_id, value);
@@ -591,6 +631,34 @@ mod tests {
         assert!(
             seasonal_max > seasonal_min,
             "Seasonal should have variation"
+        );
+    }
+
+    #[test]
+    fn test_seasonal_forecast_rejects_zero_season_length() {
+        let params = indexmap! {
+            "historical".into() => serde_json::json!([100.0, 90.0, 110.0, 85.0]),
+            "season_length".into() => serde_json::json!(0),
+            "mode".into() => serde_json::json!("additive"),
+        };
+        let periods = vec![PeriodId::quarter(2025, 1)];
+
+        let result = seasonal_forecast(100.0, &periods, &params);
+        assert!(result.is_err(), "zero season length must be rejected");
+    }
+
+    #[test]
+    fn test_timeseries_forecast_rejects_non_numeric_history_entries() {
+        let params = indexmap! {
+            "historical".into() => serde_json::json!([100.0, "bad", 110.0]),
+            "method".into() => serde_json::json!("linear"),
+        };
+        let periods = vec![PeriodId::quarter(2025, 1)];
+
+        let result = timeseries_forecast(100.0, &periods, &params);
+        assert!(
+            result.is_err(),
+            "malformed historical series should fail instead of being compacted"
         );
     }
 }

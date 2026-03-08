@@ -4,7 +4,6 @@ use crate::dsl::{compile, parse_formula};
 use crate::error::{Error, Result};
 use crate::registry::schema::{MetricDefinition, MetricRegistry};
 use crate::registry::validation::validate_metric_definition;
-use finstack_core::expr::Expr;
 use indexmap::{IndexMap, IndexSet};
 use std::collections::HashSet;
 
@@ -21,7 +20,7 @@ pub struct Registry {
     namespaces: HashSet<String>,
 }
 
-/// Stored metric with compiled expression.
+/// Stored metric.
 #[derive(Debug, Clone)]
 pub struct StoredMetric {
     /// Namespace
@@ -29,9 +28,6 @@ pub struct StoredMetric {
 
     /// Metric definition
     pub definition: MetricDefinition,
-
-    /// Compiled expression (cached)
-    pub compiled: Expr,
 }
 
 impl Registry {
@@ -134,7 +130,7 @@ impl Registry {
 
             // Parse and compile formula
             let ast = parse_formula(&metric.formula)?;
-            let compiled = compile(&ast)?;
+            compile(&ast)?;
 
             // Store metric
             self.metrics.insert(
@@ -142,7 +138,6 @@ impl Registry {
                 StoredMetric {
                     namespace: namespace.clone(),
                     definition: metric,
-                    compiled,
                 },
             );
         }

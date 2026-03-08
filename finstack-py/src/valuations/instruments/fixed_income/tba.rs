@@ -312,8 +312,10 @@ impl PyAgencyTba {
 
     /// Create an example TBA for testing.
     #[classmethod]
-    fn example(_cls: &Bound<'_, PyType>) -> Self {
-        Self::new(AgencyTba::example())
+    fn example(_cls: &Bound<'_, PyType>) -> PyResult<Self> {
+        AgencyTba::example()
+            .map(Self::new)
+            .map_err(|e| PyValueError::new_err(format!("{e}")))
     }
 
     /// Instrument identifier.

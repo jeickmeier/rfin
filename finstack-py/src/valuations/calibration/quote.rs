@@ -4,6 +4,7 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::dates::PyTenor;
 use finstack_core::dates::Tenor;
 use finstack_core::types::{CurveId, UnderlyingId};
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId, IrFutureContractId,
     OptionConventionId, SwaptionConventionId,
@@ -43,6 +44,10 @@ fn parse_index(obj: Bound<'_, PyAny>) -> PyResult<IndexId> {
 
 fn parse_doc_clause(text: &str) -> PyResult<CdsDocClause> {
     CdsDocClause::from_str(text).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+}
+
+fn parse_option_type(text: &str) -> PyResult<OptionType> {
+    OptionType::from_str(text).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 #[pyclass(
@@ -439,12 +444,13 @@ impl PyVolQuote {
         convention: &str,
     ) -> PyResult<Self> {
         let expiry_date = py_to_date(&expiry)?;
+        let option_type = parse_option_type(option_type)?;
         Ok(Self::new(VolQuote::OptionVol {
             underlying: UnderlyingId::new(underlying),
             expiry: expiry_date,
             strike,
             vol,
-            option_type: option_type.to_string(),
+            option_type,
             convention: OptionConventionId::new(convention),
         }))
     }
@@ -690,4 +696,24 @@ pub(crate) fn register<'py>(
         "InflationQuote",
         "MarketQuote",
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_option_type;
+    use finstack_valuations::instruments::OptionType;
+
+    #[test]
+    fn parse_option_type_accepts_supported_aliases() {
+        assert_eq!(parse_option_type("call").unwrap(), OptionType::Call);
+        assert_eq!(
+            parse_option_type("sell_protection").unwrap(),
+            OptionType::Put
+        );
+    }
+
+    #[test]
+    fn parse_option_type_rejects_unknown_labels() {
+        assert!(parse_option_type("straddle").is_err());
+    }
 }

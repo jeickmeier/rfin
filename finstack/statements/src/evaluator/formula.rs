@@ -281,6 +281,19 @@ fn collect_expression_values_sorted(
     context: &EvaluationContext,
     node_id: Option<&str>,
 ) -> Result<BTreeMap<PeriodId, f64>> {
+    match &expr.node {
+        ExprNode::Column(name) => return collect_historical_values_sorted(name, context),
+        ExprNode::Literal(value) => {
+            let mut values = BTreeMap::new();
+            for period in context.historical_results.keys() {
+                values.insert(*period, *value);
+            }
+            values.insert(context.period_id, *value);
+            return Ok(values);
+        }
+        _ => {}
+    }
+
     let mut periods = BTreeMap::new();
     for period in context.historical_results.keys() {
         periods.insert(*period, ());

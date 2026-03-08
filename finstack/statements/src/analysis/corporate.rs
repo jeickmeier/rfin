@@ -5,7 +5,7 @@
 //! from forecast models.
 
 use crate::error::Result;
-use crate::evaluator::Evaluator;
+use crate::evaluator::{Evaluator, StatementResult};
 use crate::types::FinancialModelSpec;
 use finstack_core::currency::Currency;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
@@ -53,6 +53,13 @@ pub struct DcfOptions {
     pub valuation_discounts: Option<ValuationDiscounts>,
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct DcfEvalContext<'a> {
+    pub(crate) net_debt_override: Option<f64>,
+    pub(crate) options: &'a DcfOptions,
+    pub(crate) market: Option<&'a MarketContext>,
+}
+
 /// Evaluate a financial model using DCF methodology.
 ///
 /// # Arguments
@@ -75,7 +82,7 @@ pub struct DcfOptions {
 /// use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let model: FinancialModelSpec = unimplemented!("build or load a FinancialModelSpec");
+/// # let model: FinancialModelSpec = unimplemented!("build or load a FinancialModelSpec with model.meta[\"currency\"] set");
 /// let result = evaluate_dcf(
 ///     &model,
 ///     0.10,  // 10% WACC
@@ -100,9 +107,11 @@ pub fn evaluate_dcf(
         wacc,
         terminal_value,
         ufcf_node,
-        net_debt_override,
-        &DcfOptions::default(),
-        None,
+        DcfEvalContext {
+            net_debt_override,
+            options: &DcfOptions::default(),
+            market: None,
+        },
     )?;
     Ok(result)
 }
@@ -124,9 +133,11 @@ pub fn evaluate_dcf_with_options(
         wacc,
         terminal_value,
         ufcf_node,
-        net_debt_override,
-        options,
-        None,
+        DcfEvalContext {
+            net_debt_override,
+            options,
+            market: None,
+        },
     )?;
     Ok(result)
 }
@@ -148,9 +159,11 @@ pub fn evaluate_dcf_with_trace(
         wacc,
         terminal_value,
         ufcf_node,
-        net_debt_override,
-        &DcfOptions::default(),
-        None,
+        DcfEvalContext {
+            net_debt_override,
+            options: &DcfOptions::default(),
+            market: None,
+        },
     )
 }
 
@@ -172,9 +185,11 @@ pub fn evaluate_dcf_with_market(
         wacc,
         terminal_value,
         ufcf_node,
-        net_debt_override,
-        options,
-        market,
+        DcfEvalContext {
+            net_debt_override,
+            options,
+            market,
+        },
     )?;
     Ok(result)
 }
@@ -185,14 +200,23 @@ fn evaluate_dcf_impl(
     wacc: f64,
     terminal_value: TerminalValueSpec,
     ufcf_node: &str,
-    net_debt_override: Option<f64>,
-    options: &DcfOptions,
-    market: Option<&MarketContext>,
+    context: DcfEvalContext<'_>,
 ) -> Result<(CorporateValuationResult, ExplanationTrace)> {
     // Create evaluator and evaluate the model
     let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate_with_market_context(model, market, None)?;
+    let results = evaluator.evaluate_with_market_context(model, context.market, None)?;
 
+    evaluate_dcf_from_results_impl(model, &results, wacc, terminal_value, ufcf_node, context)
+}
+
+pub(crate) fn evaluate_dcf_from_results_impl(
+    model: &FinancialModelSpec,
+    results: &StatementResult,
+    wacc: f64,
+    terminal_value: TerminalValueSpec,
+    ufcf_node: &str,
+    context: DcfEvalContext<'_>,
+) -> Result<(CorporateValuationResult, ExplanationTrace)> {
     let first_forecast_period = model.periods.iter().find(|period| !period.is_actual);
     let last_actual_period = model
         .periods
@@ -276,10 +300,10 @@ fn evaluate_dcf_impl(
     }
 
     // Determine net debt
-    let net_debt = if let Some(override_val) = net_debt_override {
+    let net_debt = if let Some(override_val) = context.net_debt_override {
         override_val
     } else {
-        calculate_net_debt_from_model(model, &results, last_actual_period.map(|period| period.id))?
+        calculate_net_debt_from_model(model, results, last_actual_period.map(|period| period.id))?
     };
 
     // Determine valuation date. When historical actuals exist, anchor the DCF to the
@@ -306,16 +330,16 @@ fn evaluate_dcf_impl(
         .net_debt(net_debt)
         .valuation_date(valuation_date)
         .discount_curve_id(discount_curve_id)
-        .mid_year_convention(options.mid_year_convention)
+        .mid_year_convention(context.options.mid_year_convention)
         .attributes(Attributes::new());
 
-    if let Some(ref bridge) = options.equity_bridge {
+    if let Some(ref bridge) = context.options.equity_bridge {
         builder = builder.equity_bridge(bridge.clone());
     }
-    if let Some(shares) = options.shares_outstanding {
+    if let Some(shares) = context.options.shares_outstanding {
         builder = builder.shares_outstanding(shares);
     }
-    if let Some(ref discounts) = options.valuation_discounts {
+    if let Some(ref discounts) = context.options.valuation_discounts {
         builder = builder.valuation_discounts(discounts.clone());
     }
 
@@ -325,7 +349,7 @@ fn evaluate_dcf_impl(
 
     // Calculate valuation
     let default_market = MarketContext::default();
-    let market_ref = market.unwrap_or(&default_market);
+    let market_ref = context.market.unwrap_or(&default_market);
     let equity_value = dcf
         .value(market_ref, valuation_date)
         .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
@@ -490,15 +514,16 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
                 crate::error::Error::Eval(format!("Invalid currency: {}", currency_str))
             });
         }
+        return Err(crate::error::Error::Eval(
+            "Model metadata key 'currency' must be a string ISO currency code".into(),
+        ));
     }
 
-    // Warn instead of silently defaulting — callers should set model.meta["currency"]
-    tracing::warn!(
-        "No 'currency' key in model metadata for '{}'; defaulting to USD. \
-         Set model.meta[\"currency\"] to avoid this warning.",
+    Err(crate::error::Error::Eval(format!(
+        "Model '{}' is missing required metadata key 'currency'. \
+         Set model.meta[\"currency\"] to an ISO currency code such as 'USD'.",
         model.id
-    );
-    Ok(Currency::USD)
+    )))
 }
 
 /// Calculate net debt from the model.
@@ -532,18 +557,103 @@ fn calculate_net_debt_from_model(
         .get("cash", &selected_period_id)
         .or_else(|| results.get("cash_and_equivalents", &selected_period_id));
 
-    if total_debt.is_none() {
-        tracing::warn!(
-            "Net debt: 'total_debt' / 'debt' node not found in model results; assuming 0.0. \
-             Add a 'total_debt' node or use net_debt_override for accurate equity value."
+    let total_debt = total_debt.ok_or_else(|| {
+        crate::error::Error::Eval(format!(
+            "Net debt calculation requires a 'total_debt' or 'debt' node at period {}. \
+             Provide the balance-sheet node or use net_debt_override.",
+            selected_period_id
+        ))
+    })?;
+    let cash = cash.ok_or_else(|| {
+        crate::error::Error::Eval(format!(
+            "Net debt calculation requires a 'cash' or 'cash_and_equivalents' node at period {}. \
+             Provide the balance-sheet node or use net_debt_override.",
+            selected_period_id
+        ))
+    })?;
+
+    Ok(total_debt - cash)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::builder::ModelBuilder;
+    use crate::types::AmountOrScalar;
+    use finstack_core::dates::PeriodId;
+
+    #[test]
+    fn evaluate_dcf_requires_explicit_currency_metadata() {
+        let model = ModelBuilder::new("dcf-missing-currency")
+            .periods("2025Q1..Q2", None)
+            .expect("valid periods")
+            .value(
+                "ufcf",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                ],
+            )
+            .value(
+                "total_debt",
+                &[(PeriodId::quarter(2025, 2), AmountOrScalar::scalar(50_000.0))],
+            )
+            .value(
+                "cash",
+                &[(PeriodId::quarter(2025, 2), AmountOrScalar::scalar(10_000.0))],
+            )
+            .build()
+            .expect("valid model");
+
+        let result = evaluate_dcf(
+            &model,
+            0.10,
+            TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+            "ufcf",
+            None,
         );
-    }
-    if cash.is_none() {
-        tracing::warn!(
-            "Net debt: 'cash' / 'cash_and_equivalents' node not found in model results; assuming 0.0. \
-             Add a 'cash' node or use net_debt_override for accurate equity value."
-        );
+        assert!(result.is_err(), "currency metadata must be explicit");
     }
 
-    Ok(total_debt.unwrap_or(0.0) - cash.unwrap_or(0.0))
+    #[test]
+    fn evaluate_dcf_requires_balance_sheet_inputs_without_override() {
+        let model = ModelBuilder::new("dcf-missing-balance-sheet")
+            .periods("2025Q1..Q2", None)
+            .expect("valid periods")
+            .value(
+                "ufcf",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                ],
+            )
+            .with_meta("currency", serde_json::json!("USD"))
+            .build()
+            .expect("valid model");
+
+        let result = evaluate_dcf(
+            &model,
+            0.10,
+            TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+            "ufcf",
+            None,
+        );
+        assert!(
+            result.is_err(),
+            "missing debt and cash inputs must fail without an override"
+        );
+    }
 }

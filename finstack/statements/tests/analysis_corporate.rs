@@ -39,6 +39,7 @@ fn test_dcf_evaluation_gordon_growth() {
                 ),
             ],
         )
+        .with_meta("currency", serde_json::json!("USD"))
         .build()
         .expect("valid model");
 
@@ -158,6 +159,7 @@ fn test_dcf_with_market_context() {
                 ),
             ],
         )
+        .with_meta("currency", serde_json::json!("USD"))
         .build()
         .expect("valid model");
 
@@ -224,6 +226,7 @@ fn test_dcf_excludes_historical_periods_from_explicit_flows() {
                 ),
             ],
         )
+        .with_meta("currency", serde_json::json!("USD"))
         .build()
         .expect("valid model");
 
@@ -292,6 +295,7 @@ fn test_dcf_uses_forecast_boundary_for_valuation_date_and_auto_net_debt() {
                 (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.0)),
             ],
         )
+        .with_meta("currency", serde_json::json!("USD"))
         .build()
         .expect("valid model");
 
