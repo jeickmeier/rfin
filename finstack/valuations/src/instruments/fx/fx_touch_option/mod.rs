@@ -38,10 +38,8 @@
 //! # See Also
 //!
 //! - [`FxTouchOption`] for the instrument struct
-//! - `FxTouchOptionCalculator` for pricing calculations
+//! - `pricer::FxTouchOptionCalculator` for pricing calculations
 
-/// FX touch option calculator
-pub(crate) mod calculator;
 /// FX touch option risk metrics
 pub(crate) mod metrics;
 /// FX touch option pricer implementation

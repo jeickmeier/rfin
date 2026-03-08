@@ -299,23 +299,23 @@ impl VolSurfaceTarget {
         params: &BTreeMap<OrderedF64, SABRParameters>,
         extrapolation: SurfaceExtrapolationPolicy,
     ) -> Result<SABRParameters> {
-        if params.is_empty() {
-            return Err(finstack_core::Error::Calibration {
-                message: "No calibrated SABR parameters".to_string(),
-                category: "vol_surface".to_string(),
-            });
-        }
-
-        let min_t = params
+        let min_key = params
             .keys()
             .next()
-            .expect("params non-empty (checked above)")
-            .into_inner();
-        let max_t = params
-            .keys()
-            .next_back()
-            .expect("params non-empty (checked above)")
-            .into_inner();
+            .ok_or_else(|| finstack_core::Error::Calibration {
+                message: "No calibrated SABR parameters".to_string(),
+                category: "vol_surface".to_string(),
+            })?;
+        let max_key =
+            params
+                .keys()
+                .next_back()
+                .ok_or_else(|| finstack_core::Error::Calibration {
+                    message: "No calibrated SABR parameters".to_string(),
+                    category: "vol_surface".to_string(),
+                })?;
+        let min_t = min_key.into_inner();
+        let max_t = max_key.into_inner();
 
         if extrapolation == SurfaceExtrapolationPolicy::Error {
             // Require targets to be within the calibrated expiry range.

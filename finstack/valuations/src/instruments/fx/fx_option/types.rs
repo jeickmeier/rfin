@@ -53,7 +53,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
-use super::calculator::{FxOptionCalculator, FxOptionGreeks};
+use super::pricer::{self, FxOptionGreeks};
 use crate::impl_instrument_base;
 
 fn default_fx_underlying(base_currency: Currency, quote_currency: Currency) -> FxUnderlyingParams {
@@ -145,8 +145,7 @@ impl FxOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        let calculator = FxOptionCalculator::default();
-        calculator.npv(self, market, as_of)
+        pricer::compute_pv(self, market, as_of)
     }
 
     fn greeks_internal(
@@ -154,8 +153,7 @@ impl FxOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<FxOptionGreeks> {
-        let calculator = FxOptionCalculator::default();
-        calculator.compute_greeks(self, market, as_of)
+        pricer::compute_greeks(self, market, as_of)
     }
 
     fn implied_vol_internal(
@@ -165,8 +163,7 @@ impl FxOption {
         target_price: f64,
         initial_guess: Option<f64>,
     ) -> Result<f64> {
-        let calculator = FxOptionCalculator::default();
-        calculator.implied_vol(self, curves, as_of, target_price, initial_guess)
+        pricer::implied_vol(self, curves, as_of, target_price, initial_guess)
     }
 
     /// Create a canonical example FX option for testing and documentation.

@@ -43,10 +43,8 @@
 //! # See Also
 //!
 //! - [`FxDigitalOption`] for the instrument struct
-//! - `FxDigitalOptionCalculator` for pricing calculations
+//! - `pricer::FxDigitalOptionCalculator` for pricing calculations
 
-/// FX digital option calculator and Greeks computation
-pub(crate) mod calculator;
 /// FX digital option risk metrics
 pub(crate) mod metrics;
 /// FX digital option pricer implementation

@@ -1,5 +1,6 @@
 //! FX touch option (American binary option) instrument definition.
 
+use super::pricer;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
@@ -158,8 +159,7 @@ impl FxTouchOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let calculator = super::calculator::FxTouchOptionCalculator;
-        calculator.npv(self, market, as_of)
+        pricer::compute_pv(self, market, as_of)
     }
 }
 

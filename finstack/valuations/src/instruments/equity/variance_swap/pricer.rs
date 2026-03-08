@@ -1,12 +1,402 @@
-use crate::instruments::common_impl::GenericInstrumentPricer;
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::variance_swap::VarianceSwap;
+use crate::pricer::{
+    InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
+};
+use crate::results::ValuationResult;
+use finstack_core::{
+    dates::Date, market_data::context::MarketContext, math::stats::realized_variance, money::Money,
+    Result,
+};
 
-// Use the generic discounting pricer for registry integration
-/// Type alias for variance swap discounting pricer using generic implementation
-pub type SimpleVarianceSwapDiscountingPricer = GenericInstrumentPricer<VarianceSwap>;
+/// Registry-facing pricer for variance swaps.
+pub struct SimpleVarianceSwapDiscountingPricer;
+
+pub(crate) fn compute_pv(
+    inst: &VarianceSwap,
+    curves: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
+    if inst.strike_variance < 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "VarianceSwap strike_variance ({:.6}) must be non-negative",
+            inst.strike_variance
+        )));
+    }
+
+    inst.validate_as_of(curves, as_of)?;
+    let disc = curves.get_discount(inst.discount_curve_id.as_str())?;
+
+    if as_of >= inst.maturity {
+        let prices = get_historical_prices(inst, curves, as_of)?;
+        if prices.is_empty() {
+            return Ok(Money::new(0.0, inst.notional.currency()));
+        }
+
+        let realized_var = realized_variance(
+            &prices,
+            inst.realized_var_method,
+            annualization_factor_with_policy(inst, curves),
+        );
+        return Ok(inst.payoff(realized_var));
+    }
+
+    if as_of < inst.start_date {
+        let forward_var = remaining_forward_variance(inst, curves, as_of)?;
+        let undiscounted = inst.payoff(forward_var);
+        let t = inst
+            .day_count
+            .year_fraction(as_of, inst.maturity, Default::default())?;
+        return Ok(undiscounted * disc.df(t));
+    }
+
+    let realized = partial_realized_variance(inst, curves, as_of)?;
+    let forward = remaining_forward_variance(inst, curves, as_of)?;
+    let w = realized_fraction_by_observations(inst, as_of);
+    let expected_var = realized * w + forward * (1.0 - w);
+    let undiscounted = inst.payoff(expected_var);
+    let t = inst
+        .day_count
+        .year_fraction(as_of, inst.maturity, Default::default())?;
+    Ok(undiscounted * disc.df(t))
+}
+
+pub(crate) fn observation_dates(inst: &VarianceSwap) -> Vec<Date> {
+    use finstack_core::dates::DateExt;
+
+    let mut dates = Vec::new();
+    let mut current = inst.start_date;
+
+    if let Some(months_step) = inst.observation_freq.months() {
+        while current <= inst.maturity {
+            dates.push(current);
+            current = current.add_months(months_step as i32);
+            if current > inst.maturity {
+                break;
+            }
+        }
+    } else if let Some(days_step) = inst.observation_freq.days() {
+        while current <= inst.maturity {
+            if !matches!(
+                current.weekday(),
+                time::Weekday::Saturday | time::Weekday::Sunday
+            ) {
+                dates.push(current);
+            }
+            current += time::Duration::days(days_step as i64);
+            if current > inst.maturity {
+                break;
+            }
+        }
+    } else {
+        while current <= inst.maturity {
+            dates.push(current);
+            current += time::Duration::days(1);
+            if current > inst.maturity {
+                break;
+            }
+        }
+    }
+
+    if dates.is_empty() || dates.last() != Some(&inst.maturity) {
+        dates.push(inst.maturity);
+    }
+
+    dates
+}
+
+pub(crate) fn annualization_factor(inst: &VarianceSwap) -> f64 {
+    const TRADING_DAYS_PER_YEAR: f64 = 252.0;
+
+    if let Some(months) = inst.observation_freq.months() {
+        match months {
+            1 => 12.0,
+            3 => 4.0,
+            6 => 2.0,
+            12 => 1.0,
+            _ => TRADING_DAYS_PER_YEAR,
+        }
+    } else if let Some(days) = inst.observation_freq.days() {
+        match days {
+            1 => TRADING_DAYS_PER_YEAR,
+            7 => TRADING_DAYS_PER_YEAR / 7.0,
+            14 => TRADING_DAYS_PER_YEAR / 14.0,
+            _ => TRADING_DAYS_PER_YEAR / days as f64,
+        }
+    } else {
+        TRADING_DAYS_PER_YEAR
+    }
+}
+
+pub(crate) fn annualization_factor_with_policy(
+    inst: &VarianceSwap,
+    context: &MarketContext,
+) -> f64 {
+    let tdy_override = context
+        .get_price(format!("{}_TRADING_DAYS_PER_YEAR", inst.underlying_ticker))
+        .ok()
+        .and_then(|s| match s {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
+            _ => None,
+        })
+        .or_else(|| {
+            context
+                .get_price("TRADING_DAYS_PER_YEAR")
+                .ok()
+                .and_then(|s| match s {
+                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
+                    _ => None,
+                })
+        })
+        .unwrap_or(252.0);
+
+    if let Some(months) = inst.observation_freq.months() {
+        return match months {
+            1 => 12.0,
+            3 => 4.0,
+            6 => 2.0,
+            12 => 1.0,
+            _ => tdy_override,
+        };
+    }
+    if let Some(days) = inst.observation_freq.days() {
+        return match days {
+            1 => tdy_override,
+            7 => tdy_override / 7.0,
+            14 => tdy_override / 14.0,
+            _ => tdy_override / days as f64,
+        };
+    }
+    tdy_override
+}
+
+pub(crate) fn realized_fraction_by_observations(inst: &VarianceSwap, as_of: Date) -> f64 {
+    let all = observation_dates(inst);
+    if all.is_empty() {
+        return 0.0;
+    }
+    if as_of <= inst.start_date {
+        return 0.0;
+    }
+    if as_of >= inst.maturity {
+        return 1.0;
+    }
+    let total = all.len() as f64;
+    let realized = all.iter().filter(|&&d| d <= as_of).count() as f64;
+    (realized / total).clamp(0.0, 1.0)
+}
+
+pub(crate) fn get_historical_prices(
+    inst: &VarianceSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<Vec<f64>> {
+    if let Ok(series) = context.get_series(&inst.underlying_ticker) {
+        let dates: Vec<Date> = observation_dates(inst)
+            .into_iter()
+            .filter(|&d| d <= as_of)
+            .collect();
+        if dates.len() >= 2 {
+            return series.values_on(&dates);
+        }
+    }
+    if let Ok(scalar) = context.get_price(&inst.underlying_ticker) {
+        let spot = match scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
+        };
+        Ok(vec![spot])
+    } else {
+        Ok(vec![])
+    }
+}
+
+pub(crate) fn partial_realized_variance(
+    inst: &VarianceSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<f64> {
+    let prices = get_historical_prices(inst, context, as_of)?;
+    if prices.len() < 2 {
+        return Ok(0.0);
+    }
+    Ok(realized_variance(
+        &prices,
+        inst.realized_var_method,
+        annualization_factor_with_policy(inst, context),
+    ))
+}
+
+pub(crate) fn remaining_forward_variance(
+    inst: &VarianceSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<f64> {
+    let t = inst
+        .day_count
+        .year_fraction(as_of, inst.maturity, Default::default())?;
+
+    for sid in [
+        inst.underlying_ticker.as_str(),
+        &format!("{}_VOL", inst.underlying_ticker),
+        &format!("{}_IMPL_VOL", inst.underlying_ticker),
+    ] {
+        if let Ok(surface) = context.get_surface(sid) {
+            if let Ok(disc) = context.get_discount(&inst.discount_curve_id) {
+                if let Ok(spot_scalar) = context.get_price(&inst.underlying_ticker) {
+                    let spot = match spot_scalar {
+                        finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+                        finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
+                    };
+                    let r = disc.zero(t.max(1e-8));
+                    let q = context
+                        .get_price(format!("{}-DIVYIELD", inst.underlying_ticker))
+                        .ok()
+                        .and_then(|s| match s {
+                            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => {
+                                Some(*v)
+                            }
+                            _ => None,
+                        })
+                        .unwrap_or(0.0);
+                    let fwd = spot * ((r - q) * t).exp();
+                    let strikes = surface.strikes();
+                    if t > 0.0 && strikes.len() >= 3 && fwd.is_finite() && fwd > 0.0 {
+                        let mut k0_idx = 0usize;
+                        for (i, &k) in strikes.iter().enumerate() {
+                            if k <= fwd {
+                                k0_idx = i;
+                            } else {
+                                break;
+                            }
+                        }
+                        let k0 = strikes[k0_idx].max(1e-12);
+                        let mut sum = 0.0;
+                        for i in 0..strikes.len() {
+                            let k = strikes[i].max(1e-12);
+                            let dk = if i == 0 {
+                                strikes[1] - strikes[0]
+                            } else if i + 1 == strikes.len() {
+                                strikes[i] - strikes[i - 1]
+                            } else {
+                                0.5 * (strikes[i + 1] - strikes[i - 1])
+                            };
+                            let vol = surface.value_clamped(t, k).max(1e-8);
+                            let sqrt_t = t.sqrt();
+                            let d1 = if vol > 0.0 && t > 0.0 {
+                                ((spot / k).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t)
+                            } else {
+                                0.0
+                            };
+                            let d2 = d1 - vol * sqrt_t;
+                            let exp_mqt = (-q * t).exp();
+                            let exp_mrt = (-r * t).exp();
+                            let call = spot * exp_mqt * finstack_core::math::norm_cdf(d1)
+                                - k * exp_mrt * finstack_core::math::norm_cdf(d2);
+                            let put = k * exp_mrt * finstack_core::math::norm_cdf(-d2)
+                                - spot * exp_mqt * finstack_core::math::norm_cdf(-d1);
+                            let qk = if (i == k0_idx)
+                                || ((k0 - k).abs() < 1e-12 && (fwd - k0).abs() < 1e-12)
+                            {
+                                0.5 * (call + put)
+                            } else if k < fwd {
+                                put
+                            } else {
+                                call
+                            };
+                            sum += (dk / (k * k)) * qk;
+                        }
+                        let variance = (2.0 * (r * t).exp() / t) * sum
+                            - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
+                        if variance.is_finite() && variance > 0.0 {
+                            return Ok(variance);
+                        }
+                    }
+                    let vol_atm = surface.value_clamped(t.max(1e-8), spot);
+                    if vol_atm.is_finite() && vol_atm > 0.0 {
+                        tracing::warn!(
+                            instrument_id = %inst.id,
+                            vol_atm = vol_atm,
+                            "Carr-Madan replication failed; falling back to ATM vol^2 for forward variance"
+                        );
+                        return Ok(vol_atm * vol_atm);
+                    }
+                }
+            }
+        }
+    }
+
+    if let Ok(scalar) = context.get_price(format!("{}_IMPL_VOL", inst.underlying_ticker)) {
+        let vol = match scalar {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
+            finstack_core::market_data::scalars::MarketScalar::Price(p) => p.amount(),
+        };
+        Ok(vol * vol)
+    } else {
+        Ok(inst.strike_variance)
+    }
+}
 
 impl Default for SimpleVarianceSwapDiscountingPricer {
     fn default() -> Self {
-        Self::discounting(crate::pricer::InstrumentType::VarianceSwap)
+        Self
+    }
+}
+
+impl Pricer for SimpleVarianceSwapDiscountingPricer {
+    fn key(&self) -> PricerKey {
+        PricerKey::new(InstrumentType::VarianceSwap, ModelKey::Discounting)
+    }
+
+    fn price_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> std::result::Result<ValuationResult, PricingError> {
+        let swap = instrument
+            .as_any()
+            .downcast_ref::<VarianceSwap>()
+            .ok_or_else(|| {
+                PricingError::type_mismatch(InstrumentType::VarianceSwap, instrument.key())
+            })?;
+
+        let pv = compute_pv(swap, market, as_of).map_err(|e| {
+            PricingError::model_failure_with_context(e.to_string(), PricingErrorContext::default())
+        })?;
+
+        Ok(ValuationResult::stamped(swap.id(), as_of, pv))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::traits::Instrument;
+    use finstack_core::dates::Date;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use time::macros::date;
+
+    fn build_market(as_of: Date) -> MarketContext {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (1.0, (-0.03_f64).exp())])
+            .build()
+            .expect("curve");
+        MarketContext::new().insert(curve)
+    }
+
+    #[test]
+    fn variance_swap_pricer_compute_pv_matches_instrument_value() {
+        let swap = VarianceSwap::example().expect("example swap");
+        let as_of = date!(2025 - 01 - 01);
+        let market = build_market(as_of);
+
+        let via_pricer = compute_pv(&swap, &market, as_of).expect("pricer pv");
+        let via_instrument = swap.value(&market, as_of).expect("instrument pv");
+
+        assert_eq!(via_pricer, via_instrument);
     }
 }

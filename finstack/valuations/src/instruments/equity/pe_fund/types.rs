@@ -1,11 +1,10 @@
 //! Private markets fund investment instrument type and implementations.
 
+use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
-use crate::instruments::equity::pe_fund::waterfall::{
-    AllocationLedger, EquityWaterfallEngine, FundEvent, WaterfallSpec,
-};
+use crate::instruments::equity::pe_fund::waterfall::{AllocationLedger, FundEvent, WaterfallSpec};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -117,22 +116,12 @@ impl PrivateMarketsFund {
 
     /// Run the waterfall allocation engine on all fund events.
     pub fn run_waterfall(&self) -> finstack_core::Result<AllocationLedger> {
-        for event in &self.events {
-            if event.amount.currency() != self.currency {
-                return Err(finstack_core::Error::CurrencyMismatch {
-                    expected: self.currency,
-                    actual: event.amount.currency(),
-                });
-            }
-        }
-        let engine = EquityWaterfallEngine::new(&self.waterfall_spec);
-        engine.run(&self.events)
+        pricer::run_waterfall(self)
     }
 
     /// Compute LP cashflows from running the waterfall.
     pub fn lp_cashflows(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
-        let ledger = self.run_waterfall()?;
-        Ok(ledger.lp_cashflows())
+        pricer::lp_cashflows(self)
     }
 }
 
@@ -144,24 +133,7 @@ impl Instrument for PrivateMarketsFund {
     // === Pricing Methods ===
 
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        if let Some(ref discount_curve_id) = self.discount_curve_id {
-            use crate::instruments::common_impl::discountable::Discountable;
-            let flows = self.lp_cashflows()?;
-            let disc = curves.get_discount(discount_curve_id.as_str())?;
-            flows.npv(
-                disc.as_ref(),
-                disc.base_date(),
-                Some(self.waterfall_spec.irr_basis),
-            )
-        } else {
-            let ledger = self.run_waterfall()?;
-            let residual_value = ledger
-                .rows
-                .last()
-                .map(|r| r.lp_unreturned)
-                .unwrap_or_else(|| Money::new(0.0, self.currency));
-            Ok(residual_value)
-        }
+        pricer::compute_pv(self, curves)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

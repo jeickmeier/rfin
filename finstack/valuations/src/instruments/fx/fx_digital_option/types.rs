@@ -1,5 +1,6 @@
 //! FX digital (binary) option instrument definition.
 
+use super::pricer::{self, FxDigitalOptionGreeks};
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::OptionType;
@@ -119,17 +120,15 @@ impl FxDigitalOption {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let calculator = super::calculator::FxDigitalOptionCalculator::default();
-        calculator.npv(self, market, as_of)
+        pricer::compute_pv(self, market, as_of)
     }
 
     fn greeks_internal(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
-    ) -> finstack_core::Result<super::calculator::FxDigitalOptionGreeks> {
-        let calculator = super::calculator::FxDigitalOptionCalculator::default();
-        calculator.compute_greeks(self, market, as_of)
+    ) -> finstack_core::Result<FxDigitalOptionGreeks> {
+        pricer::compute_greeks(self, market, as_of)
     }
 }
 

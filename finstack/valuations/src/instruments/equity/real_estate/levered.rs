@@ -5,8 +5,8 @@
 //! - Equity value as `Asset PV - Financing PV`
 //! - Levered deal-style metrics (IRR, MOIC, DSCR, LTV)
 
+use super::levered_pricer;
 use super::types::RealEstateAsset;
-use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
@@ -18,8 +18,6 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Error as CoreError;
-use std::collections::BTreeMap;
 
 /// Levered real estate equity = unlevered asset + financing.
 ///
@@ -68,34 +66,8 @@ pub struct LeveredRealEstateEquity {
 }
 
 impl LeveredRealEstateEquity {
-    fn validate_currency(&self) -> finstack_core::Result<()> {
-        if self.asset.currency != self.currency {
-            return Err(CoreError::Validation(
-                "asset currency must match levered equity currency".into(),
-            ));
-        }
-        Ok(())
-    }
-
     pub(crate) fn resolve_exit_date(&self, as_of: Date) -> finstack_core::Result<Date> {
-        if let Some(d) = self.exit_date {
-            return Ok(d);
-        }
-        // Default: last NOI flow date on/after as_of.
-        let flows = self.asset.unlevered_flows(as_of)?;
-        flows
-            .last()
-            .map(|(d, _)| *d)
-            .ok_or_else(|| CoreError::Validation("Missing cashflows for exit date".into()))
-    }
-
-    fn asset_sale_proceeds_at(&self, as_of: Date, exit: Date) -> finstack_core::Result<f64> {
-        let Some((_d, proceeds)) = self.asset.sale_proceeds_at(as_of, exit)? else {
-            return Err(CoreError::Validation(
-                "sale_price or terminal_cap_rate is required to compute sale proceeds".into(),
-            ));
-        };
-        Ok(proceeds)
+        levered_pricer::resolve_exit_date(self, as_of)
     }
 
     pub(crate) fn financing_schedules_supported(
@@ -103,34 +75,7 @@ impl LeveredRealEstateEquity {
         market: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<crate::cashflow::builder::CashFlowSchedule>> {
-        let mut schedules = Vec::with_capacity(self.financing.len());
-        for inst in &self.financing {
-            let sched = match inst {
-                InstrumentJson::TermLoan(i) => i.build_full_schedule(market, as_of)?,
-                InstrumentJson::Bond(i) => i.build_full_schedule(market, as_of)?,
-                InstrumentJson::RevolvingCredit(i) => i.build_full_schedule(market, as_of)?,
-                InstrumentJson::Repo(i) => i.build_full_schedule(market, as_of)?,
-                _ => {
-                    return Err(CoreError::Validation(
-                        "Unsupported financing instrument for cashflow-based metrics (supported: term_loan, bond, revolving_credit, repo)".into(),
-                    ));
-                }
-            };
-            schedules.push(sched);
-        }
-        Ok(schedules)
-    }
-
-    fn outstanding_before(out_path: &[(Date, Money)], target: Date, currency: Currency) -> Money {
-        let mut last = Money::new(0.0, currency);
-        for (d, amt) in out_path {
-            if *d < target {
-                last = *amt;
-            } else {
-                break;
-            }
-        }
-        last
+        levered_pricer::financing_schedules_supported(self, market, as_of)
     }
 
     /// Build a dated equity cashflow schedule for levered return metrics.
@@ -139,72 +84,7 @@ impl LeveredRealEstateEquity {
         market: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Vec<(Date, f64)>> {
-        self.validate_currency()?;
-        let exit = self.resolve_exit_date(as_of)?;
-
-        let purchase = self
-            .asset
-            .purchase_price
-            .ok_or_else(|| CoreError::Validation("purchase_price is required".into()))?;
-        if purchase.currency() != self.currency {
-            return Err(CoreError::Validation(
-                "purchase_price currency must match instrument currency".into(),
-            ));
-        }
-
-        let mut flows: BTreeMap<Date, f64> = BTreeMap::new();
-
-        // Equity purchase (outflow) at as_of.
-        let acq_cost = self.asset.acquisition_cost_total()?;
-        *flows.entry(as_of).or_insert(0.0) += -(purchase.amount() + acq_cost);
-
-        // Asset interim unlevered flows (NOI - CapEx).
-        for (d, a) in self.asset.unlevered_flows(as_of)? {
-            if d <= exit {
-                *flows.entry(d).or_insert(0.0) += a;
-            }
-        }
-
-        let financing_schedules = self.financing_schedules_supported(market, as_of)?;
-
-        // Financing borrower flows derived from lender schedules.
-        for sched in &financing_schedules {
-            for cf in &sched.flows {
-                if cf.date < as_of || cf.date > exit {
-                    continue;
-                }
-                // Borrower perspective is negative of lender flows.
-                // Exclude PIK flows (non-cash).
-                if matches!(cf.kind, finstack_core::cashflow::CFKind::PIK) {
-                    continue;
-                }
-                // If we repay at exit via explicit payoff, exclude principal legs on the exit date
-                // to avoid double-counting.
-                let is_principal = matches!(
-                    cf.kind,
-                    finstack_core::cashflow::CFKind::Notional
-                        | finstack_core::cashflow::CFKind::Amortization
-                );
-                if cf.date == exit && is_principal {
-                    continue;
-                }
-                *flows.entry(cf.date).or_insert(0.0) += -cf.amount.amount();
-            }
-        }
-
-        // Terminal sale proceeds and financing payoff.
-        let sale = self.asset_sale_proceeds_at(as_of, exit)?;
-        *flows.entry(exit).or_insert(0.0) += sale;
-
-        let mut payoff_amt = 0.0;
-        for sched in &financing_schedules {
-            let out_path = sched.outstanding_by_date()?;
-            let payoff = Self::outstanding_before(&out_path, exit, self.currency);
-            payoff_amt += payoff.amount().abs();
-        }
-        *flows.entry(exit).or_insert(0.0) += -payoff_amt;
-
-        Ok(flows.into_iter().collect())
+        levered_pricer::equity_cashflows(self, market, as_of)
     }
 
     /// Convenience: compute financing payoff amount at exit (absolute amount).
@@ -213,15 +93,7 @@ impl LeveredRealEstateEquity {
         market: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        self.validate_currency()?;
-        let exit = self.resolve_exit_date(as_of)?;
-        let mut payoff_amt = 0.0;
-        for sched in self.financing_schedules_supported(market, as_of)? {
-            let out_path = sched.outstanding_by_date()?;
-            let payoff = Self::outstanding_before(&out_path, exit, self.currency);
-            payoff_amt += payoff.amount().abs();
-        }
-        Ok(Money::new(payoff_amt, self.currency))
+        levered_pricer::financing_payoff_at_exit(self, market, as_of)
     }
 
     pub(crate) fn irr_day_count(&self) -> DayCount {
@@ -233,23 +105,7 @@ impl Instrument for LeveredRealEstateEquity {
     impl_instrument_base!(InstrumentType::LeveredRealEstateEquity);
 
     fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        self.validate_currency()?;
-        let asset_pv = self.asset.value(market, as_of)?;
-        if asset_pv.currency() != self.currency {
-            return Err(CoreError::Validation("asset PV currency mismatch".into()));
-        }
-        let mut financing_pv = 0.0;
-        for inst in &self.financing {
-            let boxed = inst.clone().into_boxed()?;
-            let pv = boxed.value(market, as_of)?;
-            if pv.currency() != self.currency {
-                return Err(CoreError::Validation(
-                    "financing PV currency mismatch".into(),
-                ));
-            }
-            financing_pv += pv.amount();
-        }
-        Ok(Money::new(asset_pv.amount() - financing_pv, self.currency))
+        levered_pricer::compute_pv(self, market, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

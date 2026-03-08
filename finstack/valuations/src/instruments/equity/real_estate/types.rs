@@ -1,16 +1,16 @@
-//! Real estate asset valuation types and logic.
+//! Real estate asset valuation types.
 
+use super::pricer;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
 use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_core::Error as CoreError;
 
 /// Broad property classification for reporting / tagging.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -150,195 +150,8 @@ pub struct RealEstateAsset {
 }
 
 impl RealEstateAsset {
-    /// DCF valuation using **annual compounding** per real estate appraisal
-    /// standards (RICS Red Book / USPAP).
-    ///
-    /// Real estate industry convention uses discrete annual discounting:
-    /// ```text
-    /// PV = NOI / (1 + r)^t
-    /// ```
-    /// rather than the continuous compounding (`exp(-r*t)`) used by capital
-    /// markets instruments elsewhere in this library.  This is deliberate
-    /// and aligns with how discount rates are quoted in property appraisals.
-    fn npv_dcf(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        // Prefer a term-structure discount curve when available so DV01/theta behave
-        // consistently with the rest of the library. Fall back to a flat appraisal-style
-        // discount_rate when the curve is absent.
-        let discount_curve = market.get_discount(&self.discount_curve_id).ok();
-
-        let discount_rate = if discount_curve.is_none() {
-            let r = self
-                .discount_rate
-                .ok_or_else(|| CoreError::Validation("Missing discount_rate for DCF".into()))?;
-            if r <= -1.0 {
-                return Err(CoreError::Validation(
-                    "discount_rate must be greater than -100%".into(),
-                ));
-            }
-            Some(r)
-        } else {
-            None
-        };
-
-        // Determine horizon date for DCF: sale_date (if set) else last NOI date.
-        let horizon = if let Some(d) = self.sale_date {
-            if d < as_of {
-                return Err(CoreError::Validation(
-                    "sale_date must be on/after as_of".into(),
-                ));
-            }
-            d
-        } else {
-            self.last_noi(as_of)?.0
-        };
-
-        // Value unlevered net cash flows: NOI - CapEx (CapEx treated as positive outflow).
-        let flows = self
-            .future_unlevered_flows(as_of)?
-            .into_iter()
-            .filter(|(d, _)| *d <= horizon)
-            .collect::<Vec<_>>();
-
-        // Allow terminal-only valuation (e.g., explicit sale_price at/near as_of).
-        // If there are no cashflows on/before the horizon date, we still allow pricing
-        // as long as terminal proceeds are configured.
-        let terminal_at_horizon = self.sale_proceeds_at(as_of, horizon)?;
-        if flows.is_empty() && terminal_at_horizon.is_none() {
-            return Err(CoreError::Validation(
-                "No cashflows on/before horizon date and no terminal proceeds configured".into(),
-            ));
-        }
-
-        // Optional transaction cost at time 0.
-        let pv_acq_cost = self.acquisition_cost_total()?;
-
-        let pv_flows: f64 = flows
-            .iter()
-            .map(|(date, amount)| {
-                let t = self.year_fraction(as_of, *date)?;
-                if let Some(curve) = &discount_curve {
-                    Ok(amount * curve.df(t))
-                } else if let Some(r) = discount_rate {
-                    Ok(amount / (1.0 + r).powf(t))
-                } else {
-                    unreachable!("discount_curve and discount_rate cannot both be None");
-                }
-            })
-            .collect::<finstack_core::Result<Vec<f64>>>()?
-            .into_iter()
-            .sum();
-
-        let pv_terminal = match terminal_at_horizon {
-            Some((date, amount)) => {
-                let t = self.year_fraction(as_of, date)?;
-                if let Some(curve) = &discount_curve {
-                    amount * curve.df(t)
-                } else if let Some(r) = discount_rate {
-                    amount / (1.0 + r).powf(t)
-                } else {
-                    unreachable!("discount_curve and discount_rate cannot both be None");
-                }
-            }
-            None => 0.0,
-        };
-
-        Ok(pv_flows + pv_terminal - pv_acq_cost)
-    }
-
-    fn npv_direct_cap(&self, as_of: Date) -> finstack_core::Result<f64> {
-        let cap_rate = self
-            .cap_rate
-            .ok_or_else(|| CoreError::Validation("Missing cap_rate for direct cap".into()))?;
-        if cap_rate <= 0.0 {
-            return Err(CoreError::Validation("cap_rate must be positive".into()));
-        }
-
-        let noi = if let Some(noi) = self.stabilized_noi {
-            noi
-        } else {
-            let flows = self.future_noi_flows(as_of)?;
-            flows
-                .first()
-                .map(|(_, amount)| *amount)
-                .ok_or_else(|| CoreError::Validation("NOI schedule is empty".into()))?
-        };
-
-        Ok(noi / cap_rate)
-    }
-
-    fn future_noi_flows(&self, as_of: Date) -> finstack_core::Result<Vec<(Date, f64)>> {
-        let mut flows: Vec<(Date, f64)> = self
-            .noi_schedule
-            .iter()
-            .copied()
-            .filter(|(date, _)| *date >= as_of)
-            .collect();
-        if flows.is_empty() {
-            return Err(CoreError::Validation(
-                "NOI schedule must include at least one flow on/after as_of".into(),
-            ));
-        }
-        flows.sort_by_key(|(date, _)| *date);
-        Ok(flows)
-    }
-
-    fn future_unlevered_flows(&self, as_of: Date) -> finstack_core::Result<Vec<(Date, f64)>> {
-        let mut noi = self.future_noi_flows(as_of)?;
-        let mut capex: Vec<(Date, f64)> = self
-            .capex_schedule
-            .as_ref()
-            .map(|v| {
-                v.iter()
-                    .copied()
-                    .filter(|(d, _)| *d >= as_of)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        capex.sort_by_key(|(d, _)| *d);
-
-        // Merge NOI and CapEx by date.
-        // Convention: CapEx amounts are positive outflows and reduce net cashflow.
-        noi.extend(capex.into_iter().map(|(d, a)| (d, -a)));
-        noi.sort_by_key(|(d, _)| *d);
-
-        // Coalesce same-date entries.
-        let mut merged: Vec<(Date, f64)> = Vec::with_capacity(noi.len());
-        for (d, a) in noi {
-            if let Some((last_d, last_a)) = merged.last_mut() {
-                if *last_d == d {
-                    *last_a += a;
-                    continue;
-                }
-            }
-            merged.push((d, a));
-        }
-        Ok(merged)
-    }
-
     pub(crate) fn acquisition_cost_total(&self) -> finstack_core::Result<f64> {
-        let mut total = self.acquisition_cost.unwrap_or(0.0);
-        for m in &self.acquisition_costs {
-            if m.currency() != self.currency {
-                return Err(CoreError::Validation(
-                    "acquisition_costs currency must match instrument currency".into(),
-                ));
-            }
-            total += m.amount();
-        }
-        Ok(total)
-    }
-
-    pub(crate) fn disposition_cost_total(&self) -> finstack_core::Result<f64> {
-        let mut total = 0.0;
-        for m in &self.disposition_costs {
-            if m.currency() != self.currency {
-                return Err(CoreError::Validation(
-                    "disposition_costs currency must match instrument currency".into(),
-                ));
-            }
-            total += m.amount();
-        }
-        Ok(total)
+        pricer::acquisition_cost_total(self)
     }
 
     /// Compute net sale proceeds (undiscounted) realized at `exit_date`, if configured.
@@ -356,90 +169,22 @@ impl RealEstateAsset {
         as_of: Date,
         exit_date: Date,
     ) -> finstack_core::Result<Option<(Date, f64)>> {
-        if exit_date < as_of {
-            return Err(CoreError::Validation(
-                "exit_date must be on/after as_of".into(),
-            ));
-        }
-
-        let gross = if let Some(px) = self.sale_price {
-            if px.currency() != self.currency {
-                return Err(CoreError::Validation(
-                    "sale_price currency must match instrument currency".into(),
-                ));
-            }
-            px.amount()
-        } else if let Some(cap_rate) = self.terminal_cap_rate {
-            if cap_rate <= 0.0 {
-                return Err(CoreError::Validation(
-                    "terminal_cap_rate must be positive".into(),
-                ));
-            }
-            let terminal_noi_n = self
-                .future_noi_flows(as_of)?
-                .iter()
-                .copied()
-                .filter(|(d, _)| *d <= exit_date)
-                .next_back()
-                .map(|(_, a)| a)
-                .ok_or_else(|| {
-                    CoreError::Validation("No NOI on/before exit_date for terminal value".into())
-                })?;
-            let g = self.terminal_growth_rate.unwrap_or(0.0);
-            if !(-1.0..=0.20).contains(&g) {
-                return Err(CoreError::Validation(format!(
-                    "terminal_growth_rate must be in [-100%, 20%], got {g}"
-                )));
-            }
-            let terminal_noi_n1 = terminal_noi_n * (1.0 + g);
-            terminal_noi_n1 / cap_rate
-        } else {
-            return Ok(None);
-        };
-
-        let mut net = gross;
-        if let Some(pct) = self.disposition_cost_pct {
-            if !(0.0..1.0).contains(&pct) {
-                return Err(CoreError::Validation(
-                    "disposition_cost_pct must be in [0, 1)".into(),
-                ));
-            }
-            net *= 1.0 - pct;
-        }
-        net -= self.disposition_cost_total()?;
-
-        Ok(Some((exit_date, net)))
-    }
-
-    fn year_fraction(&self, start: Date, end: Date) -> finstack_core::Result<f64> {
-        self.day_count
-            .year_fraction(start, end, DayCountCtx::default())
+        pricer::sale_proceeds_at(self, as_of, exit_date)
     }
 
     /// First future NOI amount on/after `as_of`.
     pub(crate) fn first_noi(&self, as_of: Date) -> finstack_core::Result<f64> {
-        self.future_noi_flows(as_of)?
-            .first()
-            .map(|(_, a)| *a)
-            .ok_or_else(|| CoreError::Validation("NOI schedule is empty".into()))
-    }
-
-    /// Last future NOI `(date, amount)` on/after `as_of`.
-    pub(crate) fn last_noi(&self, as_of: Date) -> finstack_core::Result<(Date, f64)> {
-        self.future_noi_flows(as_of)?
-            .last()
-            .copied()
-            .ok_or_else(|| CoreError::Validation("NOI schedule is empty".into()))
+        pricer::first_noi(self, as_of)
     }
 
     /// Unlevered net cash flows (NOI - CapEx) on/after `as_of`.
     pub(crate) fn unlevered_flows(&self, as_of: Date) -> finstack_core::Result<Vec<(Date, f64)>> {
-        self.future_unlevered_flows(as_of)
+        pricer::unlevered_flows(self, as_of)
     }
 
     /// NOI cash flows on/after `as_of`.
     pub(crate) fn noi_flows(&self, as_of: Date) -> finstack_core::Result<Vec<(Date, f64)>> {
-        self.future_noi_flows(as_of)
+        pricer::noi_flows(self, as_of)
     }
 
     /// Compute net sale proceeds at the terminal date (undiscounted), if configured.
@@ -450,8 +195,7 @@ impl RealEstateAsset {
         &self,
         as_of: Date,
     ) -> finstack_core::Result<Option<(Date, f64)>> {
-        let terminal_date = self.sale_date.unwrap_or(self.last_noi(as_of)?.0);
-        self.sale_proceeds_at(as_of, terminal_date)
+        pricer::terminal_sale_proceeds(self, as_of)
     }
 }
 
@@ -459,23 +203,7 @@ impl Instrument for RealEstateAsset {
     impl_instrument_base!(InstrumentType::RealEstateAsset);
 
     fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        if let Some(appraisal) = &self.appraisal_value {
-            if appraisal.currency() != self.currency {
-                return Err(CoreError::Validation(format!(
-                    "Appraisal currency {} does not match instrument currency {}",
-                    appraisal.currency(),
-                    self.currency
-                )));
-            }
-            return Ok(*appraisal);
-        }
-
-        let value = match self.valuation_method {
-            RealEstateValuationMethod::Dcf => self.npv_dcf(market, as_of)?,
-            RealEstateValuationMethod::DirectCap => self.npv_direct_cap(as_of)?,
-        };
-
-        Ok(finstack_core::money::Money::new(value, self.currency))
+        pricer::compute_pv(self, market, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

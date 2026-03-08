@@ -1,17 +1,16 @@
 //! FX variance swap type definitions and pricing logic.
 
+use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
-use crate::instruments::common_impl::models::bs_price;
-use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::traits::CurveDependencies;
 use crate::instruments::common_impl::traits::Instrument as InstrumentTrait;
 use crate::instruments::common_impl::traits::InstrumentCurves;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DateExt, DayCount, DayCountCtx, Tenor};
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
+use finstack_core::math::stats::RealizedVarMethod;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -98,7 +97,7 @@ impl FxVarianceSwap {
             .expect("Example FxVarianceSwap construction should not fail")
     }
 
-    fn validate_as_of(&self, context: &MarketContext, as_of: Date) -> Result<()> {
+    pub(crate) fn validate_as_of(&self, context: &MarketContext, as_of: Date) -> Result<()> {
         let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
         let for_curve = context.get_discount(self.foreign_discount_curve_id.as_str())?;
         let dom_base = dom.base_date();
@@ -112,7 +111,7 @@ impl FxVarianceSwap {
         Ok(())
     }
 
-    fn series_id(&self) -> String {
+    pub(crate) fn series_id(&self) -> String {
         if let Some(id) = &self.spot_id {
             id.clone()
         } else {
@@ -120,7 +119,7 @@ impl FxVarianceSwap {
         }
     }
 
-    fn spot_rate(&self, context: &MarketContext, as_of: Date) -> Result<f64> {
+    pub(crate) fn spot_rate(&self, context: &MarketContext, as_of: Date) -> Result<f64> {
         if let Some(fx) = context.fx() {
             let rate = fx
                 .rate(FxQuery::new(self.base_currency, self.quote_currency, as_of))?
@@ -159,59 +158,7 @@ impl FxVarianceSwap {
     /// For other frequencies (weekly, monthly), all dates are included and
     /// the caller should ensure alignment with market data.
     pub fn observation_dates(&self) -> Vec<Date> {
-        let mut dates = Vec::new();
-        let mut current = self.start_date;
-
-        if let Some(months_step) = self.observation_freq.months() {
-            while current <= self.maturity {
-                dates.push(current);
-                current = current.add_months(months_step as i32);
-                if current > self.maturity {
-                    break;
-                }
-            }
-        } else if let Some(days_step) = self.observation_freq.days() {
-            if days_step == 1 {
-                // Daily observations: skip weekends for consistency with 252 annualization
-                while current <= self.maturity {
-                    if current.weekday() != time::Weekday::Saturday
-                        && current.weekday() != time::Weekday::Sunday
-                    {
-                        dates.push(current);
-                    }
-                    current += time::Duration::days(1);
-                }
-            } else {
-                // Other day-based frequencies (e.g., weekly): include all dates
-                while current <= self.maturity {
-                    dates.push(current);
-                    current += time::Duration::days(days_step as i64);
-                    if current > self.maturity {
-                        break;
-                    }
-                }
-            }
-        } else {
-            // Default to daily weekday observations
-            while current <= self.maturity {
-                if current.weekday() != time::Weekday::Saturday
-                    && current.weekday() != time::Weekday::Sunday
-                {
-                    dates.push(current);
-                }
-                current += time::Duration::days(1);
-            }
-        }
-
-        // Ensure maturity is included (even if on weekend, it's the settlement date)
-        if dates.is_empty() || dates.last() != Some(&self.maturity) {
-            // For maturity, always include regardless of weekend
-            if !dates.contains(&self.maturity) {
-                dates.push(self.maturity);
-            }
-        }
-
-        dates
+        pricer::observation_dates(self)
     }
 
     /// Calculate annualization factor based on observation frequency.
@@ -232,166 +179,27 @@ impl FxVarianceSwap {
     /// | Weekly    | 52     |
     /// | Bi-weekly | 26     |
     pub fn annualization_factor(&self) -> f64 {
-        if let Some(months) = self.observation_freq.months() {
-            return match months {
-                1 => 12.0,
-                3 => 4.0,
-                6 => 2.0,
-                12 => 1.0,
-                _ => 252.0,
-            };
-        }
-        if let Some(days) = self.observation_freq.days() {
-            return match days {
-                1 => 252.0, // Daily: 252 trading days (weekdays only)
-                7 => 52.0,  // Weekly: 52 weeks
-                14 => 26.0, // Bi-weekly: 26 periods
-                _ => 252.0, // Other: default to trading days
-            };
-        }
-        252.0 // Default for daily observations
+        pricer::annualization_factor(self)
     }
 
     /// Calculate realized fraction based on observation counts.
     pub fn realized_fraction_by_observations(&self, as_of: Date) -> f64 {
-        let all = self.observation_dates();
-        if all.is_empty() {
-            return 0.0;
-        }
-        if as_of <= self.start_date {
-            return 0.0;
-        }
-        if as_of >= self.maturity {
-            return 1.0;
-        }
-        let total = all.len() as f64;
-        let realized = all.iter().filter(|&&d| d <= as_of).count() as f64;
-        (realized / total).clamp(0.0, 1.0)
+        pricer::realized_fraction_by_observations(self, as_of)
     }
 
     /// Get historical prices aligned to observation dates when available.
     pub fn get_historical_prices(&self, context: &MarketContext, as_of: Date) -> Result<Vec<f64>> {
-        let series_id = self.series_id();
-        if let Ok(series) = context.get_series(&series_id) {
-            let dates: Vec<Date> = self
-                .observation_dates()
-                .into_iter()
-                .filter(|&d| d <= as_of)
-                .collect();
-            if dates.len() >= 2 {
-                return series.values_on(&dates);
-            }
-        }
-
-        let spot = self.spot_rate(context, as_of)?;
-        Ok(vec![spot])
+        pricer::get_historical_prices(self, context, as_of)
     }
 
     /// Calculate partial realized variance for the elapsed period.
     pub fn partial_realized_variance(&self, context: &MarketContext, as_of: Date) -> Result<f64> {
-        let prices = self.get_historical_prices(context, as_of)?;
-        if prices.len() < 2 {
-            return Ok(0.0);
-        }
-        Ok(realized_variance(
-            &prices,
-            self.realized_var_method,
-            self.annualization_factor(),
-        ))
+        pricer::partial_realized_variance(self, context, as_of)
     }
 
     /// Calculate implied forward variance for the remaining period.
     pub fn remaining_forward_variance(&self, context: &MarketContext, as_of: Date) -> Result<f64> {
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let spot = self.spot_rate(context, as_of)?;
-        let surface = context.get_surface(self.vol_surface_id.as_str())?;
-
-        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
-        let for_curve = context.get_discount(self.foreign_discount_curve_id.as_str())?;
-        let t_dom = dom
-            .day_count()
-            .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-        let t_for =
-            for_curve
-                .day_count()
-                .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-        let df_dom = dom.df(t_dom.max(0.0));
-        let df_for = for_curve.df(t_for.max(0.0));
-
-        let r_d = -df_dom.ln() / t;
-        let r_f = -df_for.ln() / t;
-        let fwd = spot * ((r_d - r_f) * t).exp();
-
-        let strikes = surface.strikes();
-        if strikes.len() >= 3 && fwd.is_finite() && fwd > 0.0 {
-            let mut k0_idx = 0usize;
-            for (i, &k) in strikes.iter().enumerate() {
-                if k <= fwd {
-                    k0_idx = i;
-                } else {
-                    break;
-                }
-            }
-            let k0 = strikes[k0_idx].max(1e-12);
-
-            let mut sum = 0.0;
-            for i in 0..strikes.len() {
-                let k = strikes[i].max(1e-12);
-                let dk = if i == 0 {
-                    strikes[1] - strikes[0]
-                } else if i + 1 == strikes.len() {
-                    strikes[i] - strikes[i - 1]
-                } else {
-                    0.5 * (strikes[i + 1] - strikes[i - 1])
-                };
-
-                let vol = surface.value_clamped(t, k).max(1e-8);
-                let call = bs_price(spot, k, r_d, r_f, vol, t, OptionType::Call);
-                let put = bs_price(spot, k, r_d, r_f, vol, t, OptionType::Put);
-
-                let qk = if i == k0_idx {
-                    0.5 * (call + put)
-                } else if k < fwd {
-                    put
-                } else {
-                    call
-                };
-
-                sum += (dk / (k * k)) * qk;
-            }
-
-            let variance =
-                (2.0 * (r_d * t).exp() / t) * sum - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
-            if variance.is_finite() && variance > 0.0 {
-                return Ok(variance);
-            }
-
-            // Replication produced non-positive variance — the K0 correction term
-            // (fwd/K0 - 1)^2 may dominate when the forward is far from K0 or the
-            // strike grid is coarse. Fall back to ATM implied variance with a warning.
-            tracing::warn!(
-                instrument = %self.id,
-                variance,
-                fwd,
-                k0,
-                "Variance swap replication integral produced non-positive variance ({:.6}); \
-                 falling back to ATM implied variance. Consider using a finer strike grid.",
-                variance
-            );
-        }
-
-        let vol_atm = surface.value_clamped(t, fwd.max(1e-12));
-        if vol_atm.is_finite() && vol_atm > 0.0 {
-            return Ok(vol_atm * vol_atm);
-        }
-
-        Ok(self.strike_variance)
+        pricer::remaining_forward_variance(self, context, as_of)
     }
 }
 
@@ -415,43 +223,7 @@ impl InstrumentTrait for FxVarianceSwap {
     }
 
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
-        self.validate_as_of(context, as_of)?;
-
-        let dom = context.get_discount(self.domestic_discount_curve_id.as_str())?;
-
-        if as_of >= self.maturity {
-            let prices = self.get_historical_prices(context, as_of)?;
-            if prices.is_empty() {
-                return Ok(Money::new(0.0, self.notional.currency()));
-            }
-            let realized_var = realized_variance(
-                &prices,
-                self.realized_var_method,
-                self.annualization_factor(),
-            );
-            return Ok(self.payoff(realized_var));
-        }
-
-        if as_of < self.start_date {
-            let forward_var = self.remaining_forward_variance(context, as_of)?;
-            let undiscounted = self.payoff(forward_var);
-            let t = self
-                .day_count
-                .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-            let df = dom.df(t.max(0.0));
-            return Ok(undiscounted * df);
-        }
-
-        let realized = self.partial_realized_variance(context, as_of)?;
-        let forward = self.remaining_forward_variance(context, as_of)?;
-        let w = self.realized_fraction_by_observations(as_of);
-        let expected_var = realized * w + forward * (1.0 - w);
-        let undiscounted = self.payoff(expected_var);
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.maturity, DayCountCtx::default())?;
-        let df = dom.df(t.max(0.0));
-        Ok(undiscounted * df)
+        pricer::compute_pv(self, context, as_of)
     }
 
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {

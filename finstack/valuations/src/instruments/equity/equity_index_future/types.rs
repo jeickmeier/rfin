@@ -30,6 +30,7 @@
 //! - Hull, J. C. (2018). "Options, Futures, and Other Derivatives." Chapter 5.
 //! - CME Group. "E-mini S&P 500 Futures Contract Specifications."
 
+use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
@@ -409,72 +410,7 @@ impl EquityIndexFuture {
 
     /// Calculate the raw present value as f64.
     pub fn npv_raw(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        // If expired, value is zero
-        if self.expiry < as_of {
-            return Ok(0.0);
-        }
-
-        // Use quoted price if available (mark-to-market)
-        if let Some(quoted) = self.quoted_price {
-            return self.price_quoted(quoted);
-        }
-
-        // Otherwise calculate fair value
-        self.price_fair_value(context, as_of)
-    }
-
-    /// Price using quoted market price (mark-to-market).
-    fn price_quoted(&self, quoted_price: f64) -> finstack_core::Result<f64> {
-        let entry = self.entry_price.unwrap_or(0.0);
-        let price_diff = quoted_price - entry;
-        let contracts = self.entry_contracts();
-        let pv = price_diff * self.contract_specs.multiplier * contracts * self.position_sign();
-        Ok(pv)
-    }
-
-    /// Price using fair value (cost-of-carry model).
-    ///
-    /// Delegates to [`fair_forward`](Self::fair_forward) for the forward
-    /// price calculation, then computes P&L relative to entry price.
-    fn price_fair_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let fair_value = self.fair_forward(context, as_of)?;
-
-        let entry = self.entry_price.unwrap_or(0.0);
-        let price_diff = fair_value - entry;
-        let contracts = self.entry_contracts();
-        let pv = price_diff * self.contract_specs.multiplier * contracts * self.position_sign();
-
-        Ok(pv)
-    }
-
-    /// Resolve dividend yield from market context.
-    ///
-    /// When `div_yield_id` is set, the lookup **must** succeed and
-    /// return a `Unitless` scalar.  A `Price` scalar is rejected to match
-    /// the convention used by equity options and TRS (dividend yield is a
-    /// dimensionless rate, not a monetary amount).
-    fn resolve_dividend_yield(&self, context: &MarketContext) -> finstack_core::Result<f64> {
-        use finstack_core::market_data::scalars::MarketScalar;
-
-        if let Some(ref div_id) = self.div_yield_id {
-            let ms = context.get_price(div_id.as_str()).map_err(|e| {
-                finstack_core::Error::Validation(format!(
-                    "Dividend yield lookup failed for '{}': {}. \
-                     If dividend yield is not needed, set div_yield_id to None.",
-                    div_id, e
-                ))
-            })?;
-            match ms {
-                MarketScalar::Unitless(v) => Ok(*v),
-                MarketScalar::Price(m) => Err(finstack_core::Error::Validation(format!(
-                    "Dividend yield '{}' should be a unitless scalar, got Price({})",
-                    div_id,
-                    m.currency()
-                ))),
-            }
-        } else {
-            Ok(0.0)
-        }
+        pricer::compute_pv_raw(self, context, as_of)
     }
 
     /// Get the fair forward price using cost-of-carry model.
@@ -484,51 +420,7 @@ impl EquityIndexFuture {
     /// F = S₀ × exp((r - q) × T)
     /// ```
     pub fn fair_forward(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        use finstack_core::dates::{DayCount, DayCountCtx};
-        use finstack_core::market_data::scalars::MarketScalar;
-
-        // Get spot level
-        let spot = match context.get_price(&self.spot_id)? {
-            MarketScalar::Unitless(v) => *v,
-            MarketScalar::Price(m) => m.amount(),
-        };
-
-        // Get discount curve and calculate time to expiry
-        let disc = context.get_discount(&self.discount_curve_id)?;
-        let t = DayCount::Act365F
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        // Get risk-free rate
-        let r = disc.zero(t);
-
-        // If discrete dividends are provided, use spot-adjustment method and zero q.
-        if !self.discrete_dividends.is_empty() {
-            let day_count = DayCount::Act365F;
-            let mut future_divs = Vec::new();
-            for (div_date, amount) in &self.discrete_dividends {
-                if *div_date <= as_of
-                    || *div_date > self.expiry
-                    || !amount.is_finite()
-                    || *amount <= 0.0
-                {
-                    continue;
-                }
-                let t_div = day_count
-                    .year_fraction(as_of, *div_date, DayCountCtx::default())?
-                    .max(0.0);
-                future_divs.push((t_div, *amount));
-            }
-            let spot_adj =
-                crate::instruments::equity::equity_option::pricer::adjust_spot_for_discrete_dividends(
-                    spot, r, &future_divs,
-                );
-            return Ok(spot_adj * (r * t).exp());
-        }
-
-        // Fallback to continuous dividend yield carry model.
-        let q = self.resolve_dividend_yield(context)?;
-        Ok(spot * ((r - q) * t).exp())
+        pricer::fair_forward(self, context, as_of)
     }
 }
 
@@ -566,15 +458,11 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
     }
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(curves, as_of)?;
-        Ok(finstack_core::money::Money::new(
-            pv,
-            self.notional.currency(),
-        ))
+        pricer::compute_pv(self, curves, as_of)
     }
 
     fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        self.npv_raw(curves, as_of)
+        pricer::compute_pv_raw(self, curves, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

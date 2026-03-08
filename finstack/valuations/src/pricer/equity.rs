@@ -47,7 +47,7 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::VarianceSwap,
         ModelKey::Discounting,
-        crate::instruments::equity::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer::default(),
+        crate::instruments::equity::variance_swap::pricer::SimpleVarianceSwapDiscountingPricer,
     );
 
     // Equity Index Future - uses GenericInstrumentPricer

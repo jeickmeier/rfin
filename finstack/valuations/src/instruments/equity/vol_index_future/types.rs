@@ -31,6 +31,7 @@
 //! - CBOE (2019). "VIX Futures Contract Specifications."
 //! - Whaley, R. E. (2009). "Understanding the VIX." *Journal of Portfolio Management*.
 
+use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
@@ -203,65 +204,19 @@ impl VolatilityIndexFuture {
 
     /// Calculate the raw present value as f64.
     pub fn npv_raw(&self, context: &MarketContext) -> finstack_core::Result<f64> {
-        // Get the vol index curve
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-
-        // Calculate time to settlement using the curve's day count
-        let t = vol_curve
-            .day_count()
-            .year_fraction(
-                vol_curve.base_date(),
-                self.settlement_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-
-        // Get forward volatility level at settlement
-        let forward_vol = vol_curve.forward_level(t);
-
-        // Position sign
-        let sign = match self.position {
-            Position::Long => 1.0,
-            Position::Short => -1.0,
-        };
-
-        // Calculate number of contracts
-        let contracts = self.num_contracts();
-
-        // NPV = (Quoted - Forward) × Multiplier × Contracts × Sign
-        // Long benefits when quoted > forward (we bought cheap)
-        // Short benefits when quoted < forward (we sold expensive)
-        let pv_per_contract = (self.quoted_price - forward_vol) * self.contract_specs.multiplier;
-        let pv_total = sign * contracts * pv_per_contract;
-
-        Ok(pv_total)
+        pricer::compute_pv_raw(self, context)
     }
 
     /// Get the forward volatility level at settlement.
     pub fn forward_vol(&self, context: &MarketContext) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-        let t = vol_curve
-            .day_count()
-            .year_fraction(
-                vol_curve.base_date(),
-                self.settlement_date,
-                finstack_core::dates::DayCountCtx::default(),
-            )?
-            .max(0.0);
-        Ok(vol_curve.forward_level(t))
+        pricer::forward_vol(self, context)
     }
 
     /// Calculate DV01 (delta with respect to vol index level).
     ///
     /// Returns the P&L change for a 1-point increase in the vol index level.
     pub fn delta_vol(&self) -> f64 {
-        let sign = match self.position {
-            Position::Long => 1.0,
-            Position::Short => -1.0,
-        };
-        // Delta = -Multiplier × Contracts × Sign
-        // (negative because NPV increases when forward_vol decreases for long)
-        -sign * self.num_contracts() * self.contract_specs.multiplier
+        pricer::delta_vol(self)
     }
 }
 
@@ -273,15 +228,11 @@ impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexFutu
     impl_instrument_base!(crate::pricer::InstrumentType::VolatilityIndexFuture);
 
     fn value(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(curves)?;
-        Ok(finstack_core::money::Money::new(
-            pv,
-            self.notional.currency(),
-        ))
+        pricer::compute_pv(self, curves)
     }
 
     fn value_raw(&self, curves: &MarketContext, _as_of: Date) -> finstack_core::Result<f64> {
-        self.npv_raw(curves)
+        pricer::compute_pv_raw(self, curves)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

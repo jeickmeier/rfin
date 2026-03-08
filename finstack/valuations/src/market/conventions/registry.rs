@@ -67,18 +67,14 @@ impl ConventionRegistry {
 
     /// Access the global singleton registry.
     ///
-    /// This will be initialized with embedded JSON data on the first call. The registry
-    /// is loaded from embedded JSON files in `data/conventions/` and cached for the
-    /// lifetime of the program.
+    /// Initialized with embedded JSON data on the first call. The registry is loaded
+    /// from embedded JSON files in `data/conventions/` and cached for the lifetime
+    /// of the program.
     ///
-    /// # Returns
+    /// # Errors
     ///
-    /// A reference to the global `ConventionRegistry` instance.
-    ///
-    /// # Panics
-    ///
-    /// Panics if convention data cannot be loaded from embedded JSON files. This should
-    /// only occur if the build process is misconfigured.
+    /// Returns an error if convention data cannot be loaded (e.g., corrupted embedded
+    /// JSON). Prefer this fallible API over panicking in production.
     ///
     /// # Examples
     ///
@@ -91,25 +87,6 @@ impl ConventionRegistry {
     /// # Ok(())
     /// # }
     /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if any embedded conventions file is corrupted or malformed.
-    /// This is intentional: corrupted embedded data represents a build/packaging error
-    /// that cannot be recovered at runtime and should fail fast during startup.
-    ///
-    /// For callers that prefer structured error handling (e.g., bindings / services),
-    /// use [`try_global()`](Self::try_global).
-    #[allow(clippy::expect_used)]
-    #[allow(dead_code)]
-    pub(crate) fn global() -> &'static Self {
-        Self::try_global().expect("Failed to load embedded conventions registry")
-    }
-
-    /// Access the global singleton registry (fallible).
-    ///
-    /// This is the error-returning variant of `global()`. It is preferred in
-    /// library/binding contexts where panics are unacceptable.
     pub fn try_global() -> Result<&'static Self> {
         static REGISTRY: OnceLock<ConventionRegistry> = OnceLock::new();
         if let Some(reg) = REGISTRY.get() {

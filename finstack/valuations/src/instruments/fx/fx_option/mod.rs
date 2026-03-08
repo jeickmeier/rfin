@@ -102,12 +102,10 @@
 //! # See Also
 //!
 //! - [`FxOption`] for FX option struct
-//! - `FxOptionCalculator` for pricing calculations
+//! - `pricer::FxOptionCalculator` for pricing calculations
 //! - `FxOptionGreeks` for Greeks computation
 //! - FX option metrics module for risk metrics
 
-/// Garman-Kohlhagen FX option calculator and Greeks computation
-pub(crate) mod calculator;
 /// FX option risk metrics (delta, gamma, vega, theta, rho)
 pub(crate) mod metrics;
 /// FX option parameters and market data extraction

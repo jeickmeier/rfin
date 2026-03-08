@@ -40,15 +40,14 @@
 //! - Carr, P., & Lee, R. (2009). "Volatility Derivatives."
 //!   *Annual Review of Financial Economics*, 1, 319-339.
 
+use super::pricer;
 use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
-use crate::instruments::common_impl::models::volatility::black::{d1_black76, d2_black76};
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::norm_cdf;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use time::macros::date;
@@ -257,49 +256,7 @@ impl VolatilityIndexOption {
     /// * `context` - Market context with vol index curves and surfaces
     /// * `as_of` - Valuation date for time to expiry calculation
     pub fn npv_raw(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        // Get discount curve for DF
-        let disc = context.get_discount(&self.discount_curve_id)?;
-
-        // Get the vol index curve for forward level
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-
-        // Get the vol-of-vol surface for implied vol
-        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
-
-        // Calculate time to expiry from as_of date
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        if t <= 0.0 {
-            // Option has expired, return intrinsic value
-            let forward = vol_curve.spot_level();
-            let intrinsic = match self.option_type {
-                OptionType::Call => (forward - self.strike).max(0.0),
-                OptionType::Put => (self.strike - forward).max(0.0),
-            };
-            return Ok(intrinsic * self.contract_specs.multiplier * self.num_contracts());
-        }
-
-        // Get forward volatility level at expiry
-        let forward = vol_curve.forward_level(t);
-
-        // Get vol-of-vol from surface (using strike and time to expiry)
-        // Use value_clamped for flat extrapolation at boundaries
-        let vol_of_vol = vol_surface.value_clamped(t, self.strike);
-
-        // Get discount factor from as_of to expiry
-        let df = disc.df_between_dates(as_of, self.expiry)?;
-
-        // Black model price (undiscounted)
-        let black_price = self.black_price(forward, vol_of_vol, t);
-
-        // Total PV = Black_Price × Multiplier × Contracts × DF
-        let contracts = self.num_contracts();
-        let pv_total = black_price * self.contract_specs.multiplier * contracts * df;
-
-        Ok(pv_total)
+        pricer::compute_pv_raw(self, context, as_of)
     }
 
     /// Calculate the Black model option price (undiscounted).
@@ -312,20 +269,7 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Undiscounted option price per index point
     pub fn black_price(&self, forward: f64, sigma: f64, t: f64) -> f64 {
-        if t <= 0.0 || sigma <= 0.0 {
-            return match self.option_type {
-                OptionType::Call => (forward - self.strike).max(0.0),
-                OptionType::Put => (self.strike - forward).max(0.0),
-            };
-        }
-
-        let d1 = d1_black76(forward, self.strike, sigma, t);
-        let d2 = d2_black76(forward, self.strike, sigma, t);
-
-        match self.option_type {
-            OptionType::Call => forward * norm_cdf(d1) - self.strike * norm_cdf(d2),
-            OptionType::Put => self.strike * norm_cdf(-d2) - forward * norm_cdf(-d1),
-        }
+        pricer::black_price(self, forward, sigma, t)
     }
 
     /// Get the forward volatility level at expiry.
@@ -334,12 +278,7 @@ impl VolatilityIndexOption {
     /// * `context` - Market context with vol index curves
     /// * `as_of` - Valuation date for time to expiry calculation
     pub fn forward_vol(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-        Ok(vol_curve.forward_level(t))
+        pricer::forward_vol(self, context, as_of)
     }
 
     /// Calculate delta (sensitivity to forward vol level).
@@ -351,39 +290,7 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Delta per contract (change in option value per 1-point change in forward)
     pub fn delta(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
-        let disc = context.get_discount(&self.discount_curve_id)?;
-
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        if t <= 0.0 {
-            // Expired option: delta is 1 if ITM, 0 if OTM
-            let forward = vol_curve.spot_level();
-            let itm = match self.option_type {
-                OptionType::Call => forward > self.strike,
-                OptionType::Put => forward < self.strike,
-            };
-            return Ok(if itm { 1.0 } else { 0.0 });
-        }
-
-        let forward = vol_curve.forward_level(t);
-        let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.df_between_dates(as_of, self.expiry)?;
-
-        let d1 = d1_black76(forward, self.strike, sigma, t);
-
-        let delta_per_point = match self.option_type {
-            OptionType::Call => norm_cdf(d1),
-            OptionType::Put => norm_cdf(d1) - 1.0,
-        };
-
-        // Scale by contract multiplier, contracts, and DF
-        let contracts = self.num_contracts();
-        Ok(delta_per_point * self.contract_specs.multiplier * contracts * df)
+        pricer::delta(self, context, as_of)
     }
 
     /// Calculate gamma (second derivative w.r.t. forward vol level).
@@ -392,30 +299,7 @@ impl VolatilityIndexOption {
     /// * `context` - Market context with curves and surfaces
     /// * `as_of` - Valuation date for time to expiry calculation
     pub fn gamma(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
-        let disc = context.get_discount(&self.discount_curve_id)?;
-
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let forward = vol_curve.forward_level(t);
-        let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.df_between_dates(as_of, self.expiry)?;
-
-        let d1 = d1_black76(forward, self.strike, sigma, t);
-        let n_prime_d1 = (-0.5 * d1 * d1).exp() / (2.0 * std::f64::consts::PI).sqrt();
-
-        let gamma_per_point = n_prime_d1 / (forward * sigma * t.sqrt());
-
-        let contracts = self.num_contracts();
-        Ok(gamma_per_point * self.contract_specs.multiplier * contracts * df)
+        pricer::gamma(self, context, as_of)
     }
 
     /// Calculate vega (sensitivity to vol-of-vol).
@@ -427,33 +311,7 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Change in option value for a 1% change in vol-of-vol
     pub fn vega(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
-        let disc = context.get_discount(&self.discount_curve_id)?;
-
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let forward = vol_curve.forward_level(t);
-        let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.df_between_dates(as_of, self.expiry)?;
-
-        let d1 = d1_black76(forward, self.strike, sigma, t);
-        let n_prime_d1 = (-0.5 * d1 * d1).exp() / (2.0 * std::f64::consts::PI).sqrt();
-
-        // Vega per point = F × N'(d1) × √T
-        let vega_per_point = forward * n_prime_d1 * t.sqrt();
-
-        // Scale by contract multiplier, contracts, and DF
-        // Vega is typically quoted per 1% vol change, so multiply by 0.01
-        let contracts = self.num_contracts();
-        Ok(vega_per_point * self.contract_specs.multiplier * contracts * df * 0.01)
+        pricer::vega(self, context, as_of)
     }
 
     /// Calculate theta (time decay, per day).
@@ -465,37 +323,7 @@ impl VolatilityIndexOption {
     /// # Returns
     /// Change in option value for 1 day passing
     pub fn theta(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let vol_curve = context.get_vol_index_curve(&self.vol_index_curve_id)?;
-        let vol_surface = context.get_surface(&self.vol_of_vol_surface_id)?;
-        let disc = context.get_discount(&self.discount_curve_id)?;
-
-        let t = self
-            .day_count
-            .year_fraction(as_of, self.expiry, DayCountCtx::default())?
-            .max(0.0);
-
-        if t <= 0.0 {
-            return Ok(0.0);
-        }
-
-        let forward = vol_curve.forward_level(t);
-        let sigma = vol_surface.value_clamped(t, self.strike);
-        let df = disc.df_between_dates(as_of, self.expiry)?;
-        let r = -df.ln() / t; // Implied rate
-
-        let d1 = d1_black76(forward, self.strike, sigma, t);
-        let n_prime_d1 = (-0.5 * d1 * d1).exp() / (2.0 * std::f64::consts::PI).sqrt();
-
-        // Theta = -F × N'(d1) × σ / (2√T) - r × Option_Price
-        let time_decay = -forward * n_prime_d1 * sigma / (2.0 * t.sqrt());
-        let option_price = self.black_price(forward, sigma, t);
-        let carry_cost = -r * option_price;
-
-        let theta_per_year = time_decay + carry_cost;
-        let theta_per_day = theta_per_year / 365.0;
-
-        let contracts = self.num_contracts();
-        Ok(theta_per_day * self.contract_specs.multiplier * contracts * df)
+        pricer::theta(self, context, as_of)
     }
 
     /// Calculate intrinsic value.
@@ -508,12 +336,7 @@ impl VolatilityIndexOption {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<f64> {
-        let forward = self.forward_vol(context, as_of)?;
-        let intrinsic = match self.option_type {
-            OptionType::Call => (forward - self.strike).max(0.0),
-            OptionType::Put => (self.strike - forward).max(0.0),
-        };
-        Ok(intrinsic * self.contract_specs.multiplier * self.num_contracts())
+        pricer::intrinsic_value(self, context, as_of)
     }
 
     /// Calculate time value (option value minus intrinsic value).
@@ -522,9 +345,7 @@ impl VolatilityIndexOption {
     /// * `context` - Market context with curves and surfaces
     /// * `as_of` - Valuation date for time to expiry calculation
     pub fn time_value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        let npv = self.npv_raw(context, as_of)?;
-        let intrinsic = self.intrinsic_value(context, as_of)?;
-        Ok(npv - intrinsic)
+        pricer::time_value(self, context, as_of)
     }
 }
 
@@ -552,15 +373,11 @@ impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexOpti
     impl_instrument_base!(crate::pricer::InstrumentType::VolatilityIndexOption);
 
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
-        let pv = self.npv_raw(curves, as_of)?;
-        Ok(finstack_core::money::Money::new(
-            pv,
-            self.notional.currency(),
-        ))
+        pricer::compute_pv(self, curves, as_of)
     }
 
     fn value_raw(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
-        self.npv_raw(curves, as_of)
+        pricer::compute_pv_raw(self, curves, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

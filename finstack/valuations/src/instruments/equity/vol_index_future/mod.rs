@@ -50,8 +50,10 @@
 //! - [`crate::instruments::equity::vol_index_option`] for VIX options
 
 pub(crate) mod metrics;
+pub(crate) mod pricer;
 mod types;
 
+pub use pricer::VolIndexFutureDiscountingPricer;
 pub use types::{VolIndexContractSpecs, VolatilityIndexFuture};
 
 // Builder provided by FinancialBuilder derive

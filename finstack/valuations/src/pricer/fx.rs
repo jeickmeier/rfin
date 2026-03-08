@@ -46,7 +46,7 @@ pub fn register_fx_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::FxVarianceSwap,
         ModelKey::Discounting,
-        crate::instruments::fx::fx_variance_swap::pricer::SimpleFxVarianceSwapDiscountingPricer::default(),
+        crate::instruments::fx::fx_variance_swap::pricer::SimpleFxVarianceSwapDiscountingPricer,
     );
 
     // FX Forward - uses GenericInstrumentPricer (curve dependencies)

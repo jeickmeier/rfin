@@ -9,6 +9,7 @@ use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::{
     Attributes, CurveDependencies, Instrument, InstrumentCurves,
 };
+use crate::instruments::equity::dcf_equity::pricer;
 use crate::pricer::InstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -361,7 +362,10 @@ impl DiscountedCashFlow {
     /// Apply valuation discounts (DLOM, DLOC, other) to an equity value.
     ///
     /// Returns `Err` if any discount is outside `[0.0, 1.0]`.
-    fn apply_valuation_discounts(&self, equity_value: f64) -> finstack_core::Result<f64> {
+    pub(crate) fn apply_valuation_discounts(
+        &self,
+        equity_value: f64,
+    ) -> finstack_core::Result<f64> {
         if let Some(ref discounts) = self.valuation_discounts {
             discounts.apply(equity_value)
         } else {
@@ -454,50 +458,8 @@ impl Instrument for DiscountedCashFlow {
         MarketDependencies::from_curve_dependencies(self)
     }
 
-    fn value(&self, market: &MarketContext, _as_of: Date) -> finstack_core::Result<Money> {
-        // DCF is anchored to `self.valuation_date`; the trait-level `as_of` is
-        // intentionally ignored to keep discount timing deterministic for a
-        // configured valuation scenario.
-        // Validate terminal value constraints upfront via calculate_terminal_value().
-        // This catches WACC <= growth for Gordon Growth and H-Model.
-        let terminal_value = self.calculate_terminal_value()?;
-        let bridge_amount = self.effective_net_debt();
-
-        // Try to use the market discount curve for discounting if available.
-        // This allows proper term-structure discounting instead of a flat WACC.
-        // Falls back to WACC-based discounting when the curve is not in the market context.
-        let enterprise_value =
-            if let Ok(discount_curve) = market.get_discount(&self.discount_curve_id) {
-                let pv_explicit: f64 = self
-                    .flows
-                    .iter()
-                    .map(|(date, amount)| {
-                        let years = self.discount_years(self.valuation_date, *date);
-                        let df = discount_curve.df(years);
-                        amount * df
-                    })
-                    .sum();
-
-                let pv_terminal = if let Some((terminal_date, _)) = self.flows.last() {
-                    let years = self.discount_years(self.valuation_date, *terminal_date);
-                    let df = discount_curve.df(years);
-                    terminal_value * df
-                } else {
-                    0.0
-                };
-
-                pv_explicit + pv_terminal
-            } else {
-                // Fallback to WACC-based discounting (flat rate)
-                let pv_explicit = self.calculate_pv_explicit_flows();
-                let pv_terminal = self.discount_terminal_value(terminal_value)?;
-                pv_explicit + pv_terminal
-            };
-
-        let equity_value = enterprise_value - bridge_amount;
-        let equity_value = self.apply_valuation_discounts(equity_value)?;
-
-        Ok(Money::new(equity_value, self.currency))
+    fn value(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
+        pricer::compute_pv(self, market, as_of)
     }
 
     fn effective_start_date(&self) -> Option<Date> {
