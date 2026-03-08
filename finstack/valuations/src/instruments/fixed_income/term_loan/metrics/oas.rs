@@ -1,5 +1,5 @@
 use crate::instruments::TermLoan;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates Option-Adjusted Spread (OAS) for callable term loans.
 ///
@@ -20,10 +20,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 pub struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
 

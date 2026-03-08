@@ -1,7 +1,7 @@
 //! Gamma calculator for interest rate options (caps/floors/caplets/floorlets).
 
 use crate::instruments::rates::cap_floor::{CapFloorVolType, InterestRateOption};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Gamma calculator (model-consistent forward gamma, aggregated for caps/floors).
@@ -51,9 +51,5 @@ impl MetricCalculator for GammaCalculator {
                 }
             }
         })
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

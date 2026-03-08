@@ -2,7 +2,7 @@
 
 use crate::cashflow::primitives::CFKind;
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates Weighted Average Life (WAL) for bonds.
 ///
@@ -67,9 +67,5 @@ impl MetricCalculator for BondWalCalculator {
         } else {
             Ok(0.0)
         }
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

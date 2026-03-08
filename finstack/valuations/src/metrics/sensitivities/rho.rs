@@ -8,7 +8,7 @@
 
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::metrics::sensitivities::dv01::{Dv01CalculatorConfig, UnifiedDv01Calculator};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use std::marker::PhantomData;
 
 /// Generic Rho calculator using parallel finite difference.
@@ -44,9 +44,5 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         self.inner.calculate(context)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

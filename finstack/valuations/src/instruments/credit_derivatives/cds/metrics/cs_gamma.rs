@@ -10,17 +10,13 @@
 use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::instruments::credit_derivatives::cds::CreditDefaultSwap;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
 /// Calculates CS-Gamma for credit default swaps.
 pub struct CsGammaCalculator;
 
 impl MetricCalculator for CsGammaCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // Independent metric
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let cds: &CreditDefaultSwap = context.instrument_as()?;
         let as_of = context.as_of;

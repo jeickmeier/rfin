@@ -390,12 +390,7 @@ fn cds_conventions_registry() -> &'static finstack_core::HashMap<String, CdsConv
                     }
                 }
                 Err(e) => {
-                    // Log warning but continue - this is startup-time validation
-                    // The entry will be missing and lookups will fall back to defaults
-                    eprintln!(
-                        "Warning: Failed to load CDS convention '{:?}': {}",
-                        entry.ids, e
-                    );
+                    tracing::warn!(ids = ?entry.ids, error = %e, "Failed to load CDS convention");
                 }
             }
         }

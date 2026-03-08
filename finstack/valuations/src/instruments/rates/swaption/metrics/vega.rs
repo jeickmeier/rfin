@@ -27,7 +27,7 @@
 //! with other Greeks and to avoid potential numerical issues with d1 calculation.
 
 use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Minimum time to expiry (in years) for valid vega calculation.
@@ -78,9 +78,5 @@ impl MetricCalculator for VegaCalculator {
         let vega = vega_raw / super::config::VOL_PCT_SCALE;
         // Scale by notional and annuity for cash vega
         Ok(vega * option.notional.amount() * inputs.annuity)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

@@ -1,17 +1,13 @@
 //! Expected variance metric (blend of realized and forward).
 
 use super::super::types::FxVarianceSwap;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate the expected variance (blend of realized and forward).
 pub struct ExpectedVarianceCalculator;
 
 impl MetricCalculator for ExpectedVarianceCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let swap = context.instrument_as::<FxVarianceSwap>()?;
         let as_of = context.as_of;

@@ -1,7 +1,7 @@
 //! Delta calculator for interest rate options (caps/floors/caplets/floorlets).
 
 use crate::instruments::rates::cap_floor::{CapFloorVolType, InterestRateOption, RateOptionType};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Delta calculator (model-consistent forward delta, aggregated for caps/floors).
@@ -56,9 +56,5 @@ impl MetricCalculator for DeltaCalculator {
                 }
             }
         })
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

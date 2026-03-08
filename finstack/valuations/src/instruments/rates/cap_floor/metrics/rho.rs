@@ -9,7 +9,7 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cap_floor::InterestRateOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
@@ -34,9 +34,5 @@ impl MetricCalculator for RhoCalculator {
         // Rho per 1bp
         let rho = bumped.amount() - base;
         Ok(rho)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

@@ -2,7 +2,7 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cap_floor::InterestRateOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;
 
@@ -48,9 +48,5 @@ impl MetricCalculator for ForwardPv01Calculator {
 
         // Normalize to per-1bp semantics even when configured bump differs.
         Ok((bumped.amount() - base) / bump_bp)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

@@ -17,7 +17,7 @@ use crate::instruments::rates::cap_floor::pricing::black::{
     price_caplet_floorlet, CapletFloorletInputs,
 };
 use crate::instruments::rates::cap_floor::{InterestRateOption, RateOptionType};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
@@ -147,9 +147,5 @@ impl MetricCalculator for ImpliedVolCalculator {
                 "Unreasonable implied volatility".to_string(),
             ))
         }
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // No dependencies on other metrics
     }
 }

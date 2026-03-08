@@ -1,5 +1,5 @@
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates Option-Adjusted Spread for bonds with embedded options.
 ///
@@ -31,10 +31,6 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 pub struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 

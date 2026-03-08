@@ -68,11 +68,6 @@ impl MetricCalculator for GenericHVar {
 
         Ok(result.var)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        // VaR doesn't depend on other metrics (it revalues directly)
-        &[]
-    }
 }
 
 /// Generic Expected Shortfall (ES / CVaR) calculator that works with any instrument.

@@ -34,10 +34,6 @@ impl MetricCalculator for DirtyPriceCalculator {
 
         Ok(dirty_price)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // Uses base NPV from context
-    }
 }
 
 /// Calculates clean price as percentage of par (excludes accrued interest).

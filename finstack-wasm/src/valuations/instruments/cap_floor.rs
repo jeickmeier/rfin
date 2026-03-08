@@ -167,7 +167,8 @@ impl JsInterestRateOptionBuilder {
                 curve_id_from_str(discount_curve),
                 curve_id_from_str(forward_curve),
                 vol_surface_id,
-            ),
+            )
+            .map_err(|e| js_error(e.to_string()))?,
             "floor" => InterestRateOption::new_floor(
                 instrument_id_from_str(&self.instrument_id),
                 notional,
@@ -179,7 +180,8 @@ impl JsInterestRateOptionBuilder {
                 curve_id_from_str(discount_curve),
                 curve_id_from_str(forward_curve),
                 vol_surface_id,
-            ),
+            )
+            .map_err(|e| js_error(e.to_string()))?,
             other => {
                 return Err(js_error(format!(
                     "Invalid kind '{other}'; expected 'cap' or 'floor'"
@@ -243,7 +245,8 @@ impl JsInterestRateOption {
             curve_id_from_str(discount_curve),
             curve_id_from_str(forward_curve),
             vol_surface_id,
-        );
+        )
+        .map_err(|e| js_error(e.to_string()))?;
 
         Ok(JsInterestRateOption::from_inner(option))
     }
@@ -298,7 +301,8 @@ impl JsInterestRateOption {
             curve_id_from_str(discount_curve),
             curve_id_from_str(forward_curve),
             vol_surface_id,
-        );
+        )
+        .map_err(|e| js_error(e.to_string()))?;
 
         Ok(JsInterestRateOption::from_inner(option))
     }

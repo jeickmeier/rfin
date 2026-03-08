@@ -19,7 +19,7 @@ use crate::instruments::common_impl::traits::{
     OptionRhoProvider, OptionThetaProvider, OptionVannaProvider, OptionVegaProvider,
     OptionVolgaProvider,
 };
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Delta metric calculator (cash delta).
@@ -42,10 +42,6 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let inst: &I = context.instrument_as()?;
         inst.option_delta(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }
 
@@ -70,10 +66,6 @@ where
         let inst: &I = context.instrument_as()?;
         inst.option_gamma(&context.curves, context.as_of)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
 }
 
 /// Vega metric calculator (per 1% vol point).
@@ -96,10 +88,6 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let inst: &I = context.instrument_as()?;
         inst.option_vega(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }
 
@@ -124,10 +112,6 @@ where
         let inst: &I = context.instrument_as()?;
         inst.option_theta(&context.curves, context.as_of)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
 }
 
 /// Rho metric calculator (domestic rate sensitivity per 1bp).
@@ -150,10 +134,6 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let inst: &I = context.instrument_as()?;
         inst.option_rho_bp(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }
 
@@ -179,10 +159,6 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let inst: &I = context.instrument_as()?;
         inst.option_foreign_rho_bp(&context.curves, context.as_of)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }
 
@@ -212,10 +188,6 @@ where
         let inst: &I = context.instrument_as()?;
         inst.option_vanna(&context.curves, context.as_of)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
 }
 
 /// Volga metric calculator (∂²V/∂σ²) computed via PV bumps.
@@ -240,9 +212,5 @@ where
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let inst: &I = context.instrument_as()?;
         inst.option_volga(&context.curves, context.as_of, context.base_value.amount())
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

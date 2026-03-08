@@ -287,7 +287,9 @@ impl InterestRateOption {
         }
     }
 
-    /// Create a cap instrument using parameter structs
+    /// Create a cap instrument using parameter structs.
+    ///
+    /// Returns an error if the strike value is not representable as `Decimal` (e.g., NaN or Inf).
     #[allow(clippy::too_many_arguments)]
     pub fn new_cap(
         id: impl Into<InstrumentId>,
@@ -300,9 +302,9 @@ impl InterestRateOption {
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        let option_params = InterestRateOptionParams::cap(notional, strike, frequency, day_count);
-        Self::new(
+    ) -> finstack_core::Result<Self> {
+        let option_params = InterestRateOptionParams::cap(notional, strike, frequency, day_count)?;
+        Ok(Self::new(
             id,
             &option_params,
             start_date,
@@ -310,10 +312,12 @@ impl InterestRateOption {
             discount_curve_id.into(),
             forward_curve_id.into(),
             vol_surface_id,
-        )
+        ))
     }
 
-    /// Create a floor instrument using parameter structs
+    /// Create a floor instrument using parameter structs.
+    ///
+    /// Returns an error if the strike value is not representable as `Decimal` (e.g., NaN or Inf).
     #[allow(clippy::too_many_arguments)]
     pub fn new_floor(
         id: impl Into<InstrumentId>,
@@ -326,9 +330,10 @@ impl InterestRateOption {
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        let option_params = InterestRateOptionParams::floor(notional, strike, frequency, day_count);
-        Self::new(
+    ) -> finstack_core::Result<Self> {
+        let option_params =
+            InterestRateOptionParams::floor(notional, strike, frequency, day_count)?;
+        Ok(Self::new(
             id,
             &option_params,
             start_date,
@@ -336,7 +341,7 @@ impl InterestRateOption {
             discount_curve_id.into(),
             forward_curve_id.into(),
             vol_surface_id,
-        )
+        ))
     }
 
     /// Create a single-period caplet instrument.
@@ -464,7 +469,7 @@ impl InterestRateOption {
     ///     CurveId::new("EUR-OIS"),
     ///     CurveId::new("EUR-ESTR-3M"),
     ///     CurveId::new("EUR-CAPFLOOR-VOL"),
-    /// )
+    /// )?
     ///     .with_vol_type(CapFloorVolType::Normal);
     /// # let _ = floor;
     /// # Ok(())
@@ -808,7 +813,8 @@ mod tests {
             "TEST-DISC",
             "TEST-FWD",
             "TEST-VOL",
-        );
+        )
+        .expect("valid strike");
 
         let floor = InterestRateOption::new_floor(
             "TEST-FLOOR",
@@ -821,7 +827,8 @@ mod tests {
             "TEST-DISC",
             "TEST-FWD",
             "TEST-VOL",
-        );
+        )
+        .expect("valid strike");
 
         let cap_pv = cap
             .value(&ctx, base_date)
@@ -914,7 +921,8 @@ mod tests {
                 "TEST-DISC",
                 "TEST-FWD",
                 "TEST-VOL",
-            );
+            )
+            .expect("valid strike");
 
             let floor = InterestRateOption::new_floor(
                 format!("FLOOR-{}", strike),
@@ -927,7 +935,8 @@ mod tests {
                 "TEST-DISC",
                 "TEST-FWD",
                 "TEST-VOL",
-            );
+            )
+            .expect("valid strike");
 
             let cap_pv = cap.value(&ctx, base_date).expect("cap pricing");
             let floor_pv = floor.value(&ctx, base_date).expect("floor pricing");
@@ -998,6 +1007,7 @@ mod tests {
             "TEST-FWD-NEG",
             "TEST-VOL-NORMAL",
         )
+        .expect("valid strike")
         .with_vol_type(CapFloorVolType::Normal);
 
         let black_floorlet = InterestRateOption::new_floor(
@@ -1012,6 +1022,7 @@ mod tests {
             "TEST-FWD-NEG",
             "TEST-VOL-NORMAL",
         )
+        .expect("valid strike")
         .with_vol_type(CapFloorVolType::Lognormal);
 
         // This should succeed under normal model.
@@ -1047,7 +1058,8 @@ mod tests {
             "TEST-DISC",
             "DOES-NOT-EXIST",
             "TEST-VOL",
-        );
+        )
+        .expect("valid strike");
         assert_eq!(
             instrument_with_unknown_index.resolved_payment_lag_days(),
             0,
@@ -1065,7 +1077,8 @@ mod tests {
             "TEST-DISC",
             "USD-SOFR-OIS",
             "TEST-VOL",
-        );
+        )
+        .expect("valid strike");
         assert!(
             instrument_with_convention.resolved_payment_lag_days() >= 0,
             "Convention-based lag should resolve to a non-negative business-day delay"

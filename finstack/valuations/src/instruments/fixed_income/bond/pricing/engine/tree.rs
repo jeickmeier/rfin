@@ -1851,11 +1851,11 @@ mod tests {
         let vars = StateVariables::default();
 
         let pv_low = tree_low
-            .get_price(vars.clone(), time_to_maturity, &ctx_low, &valuator_low)
+            .price(vars.clone(), time_to_maturity, &ctx_low, &valuator_low)
             .expect("price low");
 
         let pv_high = tree_high
-            .get_price(vars, time_to_maturity, &ctx_high, &valuator_high)
+            .price(vars, time_to_maturity, &ctx_high, &valuator_high)
             .expect("price high");
 
         // With higher hazard, price should be lower (all else equal)

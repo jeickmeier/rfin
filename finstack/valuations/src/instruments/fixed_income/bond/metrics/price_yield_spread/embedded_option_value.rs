@@ -60,7 +60,7 @@ use crate::instruments::fixed_income::bond::pricing::tree_engine::{
     bond_tree_config, BondValuator,
 };
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCountCtx;
 
 /// Calculates the embedded option value for callable/putable bonds.
@@ -134,11 +134,6 @@ impl EmbeddedOptionValueCalculator {
 }
 
 impl MetricCalculator for EmbeddedOptionValueCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        // No dependencies - standalone metric
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 

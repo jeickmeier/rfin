@@ -50,6 +50,12 @@ pub(crate) fn compute_conversion_value(bond: &ConvertibleBond, spot: f64) -> Res
             lower_conversion_price,
             ..
         } => {
+            if *lower_conversion_price <= 0.0 || *upper_conversion_price <= 0.0 {
+                return Err(Error::Validation(format!(
+                    "Conversion prices must be positive: lower={}, upper={}",
+                    lower_conversion_price, upper_conversion_price
+                )));
+            }
             let face = bond.notional.amount();
             if spot <= *lower_conversion_price {
                 Ok((face / lower_conversion_price) * spot)
@@ -291,6 +297,20 @@ impl ConvertibleBondValuator {
                 risky_step_dfs.push(risky_fwd);
             } else {
                 risky_step_dfs.push(rf_fwd);
+            }
+        }
+
+        if let ConversionPolicy::MandatoryVariable {
+            upper_conversion_price,
+            lower_conversion_price,
+            ..
+        } = &bond.conversion.policy
+        {
+            if *lower_conversion_price <= 0.0 || *upper_conversion_price <= 0.0 {
+                return Err(Error::Validation(format!(
+                    "Conversion prices must be positive: lower={}, upper={}",
+                    lower_conversion_price, upper_conversion_price
+                )));
             }
         }
 

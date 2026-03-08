@@ -178,6 +178,21 @@ impl BumpConfig {
                 return Err(InputError::NegativeValue.into());
             }
         }
+        if let Some(v) = self.rho_bump_decimal {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.vega_bump_decimal {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.credit_spread_bump_bp {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
         Ok(())
     }
 }
@@ -271,6 +286,11 @@ impl ModelConfig {
             }
         }
         if let Some(v) = self.call_friction_cents {
+            if !nonneg(v) {
+                return Err(InputError::NegativeValue.into());
+            }
+        }
+        if let Some(v) = self.mean_reversion {
             if !nonneg(v) {
                 return Err(InputError::NegativeValue.into());
             }

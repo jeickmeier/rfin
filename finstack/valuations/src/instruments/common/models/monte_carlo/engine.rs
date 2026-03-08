@@ -547,23 +547,22 @@ impl McEngine {
         let mut z = vec![0.0; num_factors];
         let mut work = vec![0.0; work_size];
 
+        // Single clone reused across all paths (reset between iterations)
+        let mut payoff_local = payoff.clone();
+
         for path_id in 0..self.config.num_paths {
-            // Create independent RNG stream for this path
             let mut path_rng = rng.split(path_id as u64);
 
-            // Clone payoff for this path (required since Payoff trait needs &mut self)
-            let mut payoff_clone = payoff.clone();
-            // Allow payoff to draw per-path state (e.g., default threshold)
-            payoff_clone.on_path_start(&mut path_rng);
+            payoff_local.reset();
+            payoff_local.on_path_start(&mut path_rng);
 
-            // Simulate one path
             let payoff_value = if self.config.antithetic {
                 self.simulate_antithetic_pair(
                     &mut path_rng,
                     process,
                     disc,
                     initial_state,
-                    &mut payoff_clone,
+                    &mut payoff_local,
                     currency,
                 )?
             } else {
@@ -572,7 +571,7 @@ impl McEngine {
                     process,
                     disc,
                     initial_state,
-                    &mut payoff_clone,
+                    &mut payoff_local,
                     &mut state,
                     &mut z,
                     &mut work,
@@ -786,29 +785,27 @@ impl McEngine {
             None
         };
 
+        let mut payoff_local = payoff.clone();
+
         for path_id in 0..self.config.num_paths {
-            // Create independent RNG stream for this path
             let mut path_rng = rng.split(path_id as u64);
 
-            // Clone payoff for this path
-            let mut payoff_clone = payoff.clone();
-            payoff_clone.on_path_start(&mut path_rng);
+            payoff_local.reset();
+            payoff_local.on_path_start(&mut path_rng);
 
-            // Determine if we should capture this path
             let should_capture = capture_enabled
                 && self
                     .config
                     .path_capture
                     .should_capture(path_id, self.config.num_paths);
 
-            // Simulate path with optional capture
             let (payoff_value, captured_path) = if should_capture {
                 self.simulate_path_with_capture(
                     &mut path_rng,
                     process,
                     disc,
                     initial_state,
-                    &mut payoff_clone,
+                    &mut payoff_local,
                     &mut state,
                     &mut z,
                     &mut work,
@@ -823,7 +820,7 @@ impl McEngine {
                         process,
                         disc,
                         initial_state,
-                        &mut payoff_clone,
+                        &mut payoff_local,
                         currency,
                     )?
                 } else {
@@ -832,7 +829,7 @@ impl McEngine {
                         process,
                         disc,
                         initial_state,
-                        &mut payoff_clone,
+                        &mut payoff_local,
                         &mut state,
                         &mut z,
                         &mut work,
@@ -963,7 +960,11 @@ impl McEngine {
                 let mut state = vec![0.0; dim];
                 let mut z = vec![0.0; num_factors];
                 let mut work = vec![0.0; work_size];
-                let mut chunk_paths = Vec::new();
+                let mut chunk_paths = if capture_enabled {
+                    Vec::with_capacity(range.len() / 10 + 1)
+                } else {
+                    Vec::new()
+                };
 
                 for path_id in range.clone() {
                     let mut path_rng = rng.split(path_id as u64);

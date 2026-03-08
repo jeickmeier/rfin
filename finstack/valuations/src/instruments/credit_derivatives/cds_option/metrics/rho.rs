@@ -13,7 +13,7 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Standard rate bump: 1 basis point.
@@ -60,9 +60,5 @@ impl MetricCalculator for RhoCalculator {
         let rho = (pv_bumped - base_pv) / RHO_BUMP_BP;
 
         Ok(rho)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

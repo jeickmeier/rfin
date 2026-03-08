@@ -6,7 +6,7 @@
 //! - `market_price_id`: id of a scalar in `MarketContext`
 
 use crate::instruments::equity::equity_option::EquityOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 pub struct ImpliedVolCalculator;
@@ -31,9 +31,5 @@ impl MetricCalculator for ImpliedVolCalculator {
         };
 
         option.implied_vol(&context.curves, context.as_of, market_price)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

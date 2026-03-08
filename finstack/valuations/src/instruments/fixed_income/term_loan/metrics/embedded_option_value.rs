@@ -10,16 +10,12 @@
 //! This is positive when callability reduces lender value (borrower owns the call).
 
 use crate::instruments::TermLoan;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Embedded option value calculator for term loans (callability only).
 pub struct EmbeddedOptionValueCalculator;
 
 impl MetricCalculator for EmbeddedOptionValueCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let loan: &TermLoan = context.instrument_as()?;
 

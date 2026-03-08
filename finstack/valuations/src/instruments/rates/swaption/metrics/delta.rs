@@ -12,7 +12,7 @@
 
 use crate::instruments::common_impl::parameters::OptionType;
 use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Minimum time to expiry (in years) for Black/Normal model delta.
@@ -84,9 +84,5 @@ impl MetricCalculator for DeltaCalculator {
 
         // Scale by notional and annuity for cash delta
         Ok(delta * option.notional.amount() * inputs.annuity)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

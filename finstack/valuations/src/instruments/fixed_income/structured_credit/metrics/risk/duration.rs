@@ -2,7 +2,7 @@
 
 use crate::cashflow::traits::DatedFlows;
 use crate::constants::ONE_BASIS_POINT;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
@@ -82,10 +82,6 @@ impl MetricCalculator for MacaulayDurationCalculator {
         } else {
             Ok(0.0)
         }
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // Uses cashflows and discount curve from context
     }
 }
 
@@ -170,10 +166,6 @@ impl MetricCalculator for ModifiedDurationCalculator {
         let modified_duration = -(price_change / base_npv) / yield_shift;
 
         Ok(modified_duration)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // Uses cashflows and discount curve from context
     }
 }
 

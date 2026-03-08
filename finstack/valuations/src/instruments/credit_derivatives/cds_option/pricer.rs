@@ -22,6 +22,14 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
+fn decimal_to_f64(value: Decimal, field: &str) -> Result<f64> {
+    value.to_f64().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "CDS option {field} ({value}) cannot be converted to f64"
+        ))
+    })
+}
+
 /// Pricing engine for `CDSOption`.
 ///
 /// Stateless wrapper that sources required market inputs and delegates
@@ -93,9 +101,10 @@ impl CDSOptionPricer {
         let sigma = if let Some(vol) = option.pricing_overrides.market_quotes.implied_volatility {
             vol
         } else {
+            let strike_f64 = decimal_to_f64(option.strike, "strike")?;
             curves
                 .get_surface(option.vol_surface_id.as_str())?
-                .value_clamped(t, option.strike.to_f64().unwrap_or(0.0))
+                .value_clamped(t, strike_f64)
         };
 
         // Price using Black-style on spreads
@@ -159,9 +168,8 @@ impl CDSOptionPricer {
         let pricer = CDSPricer::new();
         let mut forward_bp = pricer.par_spread(&cds, disc, surv, as_of)?;
         if option.underlying_is_index {
-            // Convert decimal adjustment to bp for consistency with forward_bp
-            forward_bp +=
-                option.forward_spread_adjust.to_f64().unwrap_or(0.0) * self.config.bp_per_unit;
+            forward_bp += decimal_to_f64(option.forward_spread_adjust, "forward_spread_adjust")?
+                * self.config.bp_per_unit;
         }
         Ok(forward_bp)
     }
@@ -190,7 +198,7 @@ impl CDSOptionPricer {
         } else {
             1.0
         };
-        let strike = option.strike.to_f64().unwrap_or(0.0);
+        let strike = decimal_to_f64(option.strike, "strike")?;
 
         if t <= 0.0 {
             let forward = forward_spread_bp / self.config.bp_per_unit;
@@ -261,18 +269,17 @@ impl CDSOptionPricer {
         risky_annuity: f64,
         sigma: f64,
         t: f64,
-    ) -> f64 {
+    ) -> Result<f64> {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
             1.0
         };
-        let strike = option.strike.to_f64().unwrap_or(0.0);
+        let strike = decimal_to_f64(option.strike, "strike")?;
 
-        // Delta is effectively A * Delta_Black
         if t <= 0.0 || sigma <= 0.0 {
             let forward = forward_spread_bp / self.config.bp_per_unit;
-            return match option.option_type {
+            return Ok(match option.option_type {
                 OptionType::Call => {
                     if forward > strike {
                         scale * risky_annuity
@@ -287,17 +294,17 @@ impl CDSOptionPricer {
                         0.0
                     }
                 }
-            };
+            });
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
+            return Ok(0.0);
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        match option.option_type {
+        Ok(match option.option_type {
             OptionType::Call => scale * risky_annuity * norm_cdf(d1),
             OptionType::Put => -scale * risky_annuity * norm_cdf(-d1),
-        }
+        })
     }
 
     /// Gamma per unit spread squared (i.e., ∂²V/∂S² where S is the decimal spread).
@@ -314,25 +321,23 @@ impl CDSOptionPricer {
         risky_annuity: f64,
         sigma: f64,
         t: f64,
-    ) -> f64 {
+    ) -> Result<f64> {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
             1.0
         };
-        let strike = option.strike.to_f64().unwrap_or(0.0);
+        let strike = decimal_to_f64(option.strike, "strike")?;
 
-        // Guard against numerical instability near expiry or with very low vol
-        // The denominator (forward * sigma * sqrt(t)) approaches zero in these cases
         if t < credit::MIN_TIME_TO_EXPIRY_GREEKS || sigma < credit::MIN_VOLATILITY_GREEKS {
-            return 0.0;
+            return Ok(0.0);
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
+            return Ok(0.0);
         }
         let d1 = d1(forward, strike, 0.0, sigma, t, 0.0);
-        scale * risky_annuity * norm_pdf(d1) / (forward * sigma * t.sqrt())
+        Ok(scale * risky_annuity * norm_pdf(d1) / (forward * sigma * t.sqrt()))
     }
 
     /// Vega per 1% vol change.
@@ -345,28 +350,27 @@ impl CDSOptionPricer {
         risky_annuity: f64,
         sigma: f64,
         t: f64,
-    ) -> f64 {
+    ) -> Result<f64> {
         let scale = if option.underlying_is_index {
             option.index_factor.unwrap_or(1.0)
         } else {
             1.0
         };
-        let strike = option.strike.to_f64().unwrap_or(0.0);
+        let strike = decimal_to_f64(option.strike, "strike")?;
 
-        // Guard against numerical instability near expiry
         if t < credit::MIN_TIME_TO_EXPIRY_GREEKS {
-            return 0.0;
+            return Ok(0.0);
         }
         let forward = forward_spread_bp / self.config.bp_per_unit;
         if forward <= 0.0 || strike <= 0.0 {
-            return 0.0;
+            return Ok(0.0);
         }
         let d1 = if sigma >= credit::MIN_VOLATILITY_GREEKS {
             d1(forward, strike, 0.0, sigma, t, 0.0)
         } else {
             0.0
         };
-        scale * risky_annuity * forward * norm_pdf(d1) * t.sqrt() / 100.0
+        Ok(scale * risky_annuity * forward * norm_pdf(d1) * t.sqrt() / 100.0)
     }
 
     /// Delta per basis point: sensitivity of option value to a 1bp change in forward spread.
@@ -381,8 +385,11 @@ impl CDSOptionPricer {
         risky_annuity: f64,
         sigma: f64,
         t: f64,
-    ) -> f64 {
-        self.delta(option, forward_spread_bp, risky_annuity, sigma, t) / self.config.bp_per_unit
+    ) -> Result<f64> {
+        Ok(
+            self.delta(option, forward_spread_bp, risky_annuity, sigma, t)?
+                / self.config.bp_per_unit,
+        )
     }
 
     /// Gamma per basis point squared: second derivative per 1bp² change in spread.
@@ -396,9 +403,11 @@ impl CDSOptionPricer {
         risky_annuity: f64,
         sigma: f64,
         t: f64,
-    ) -> f64 {
-        self.gamma(option, forward_spread_bp, risky_annuity, sigma, t)
-            / (self.config.bp_per_unit * self.config.bp_per_unit)
+    ) -> Result<f64> {
+        Ok(
+            self.gamma(option, forward_spread_bp, risky_annuity, sigma, t)?
+                / (self.config.bp_per_unit * self.config.bp_per_unit),
+        )
     }
 
     /// Finite-difference theta (complete, including risky annuity decay).
@@ -554,7 +563,7 @@ impl CDSOptionPricer {
             curves
                 .get_surface(option.vol_surface_id.as_str())
                 .ok()
-                .map(|s| s.value_clamped(t, option.strike.to_f64().unwrap_or(0.0)))
+                .map(|s| s.value_clamped(t, decimal_to_f64(option.strike, "strike").unwrap_or(0.0)))
                 .unwrap_or(self.config.iv_initial_guess)
         };
         let x0 = (initial_guess.unwrap_or(sigma0.max(credit::MIN_VOLATILITY_GREEKS))).ln();

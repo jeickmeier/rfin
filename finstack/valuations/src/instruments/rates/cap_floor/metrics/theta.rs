@@ -6,7 +6,7 @@
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::calculate_theta_date;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Theta calculator (bump-and-reprice with customizable period)
@@ -68,9 +68,5 @@ impl MetricCalculator for ThetaCalculator {
         let bumped = option.value(&context.curves, rolled_date)?;
 
         Ok(bumped.amount() - base_pv)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

@@ -351,7 +351,7 @@ impl CDSOption {
             inputs.risky_annuity,
             inputs.sigma,
             inputs.t,
-        );
+        )?;
         Ok(delta * self.notional.amount())
     }
 
@@ -377,7 +377,7 @@ impl CDSOption {
             inputs.risky_annuity,
             inputs.sigma,
             inputs.t,
-        );
+        )?;
         Ok(gamma * self.notional.amount())
     }
 
@@ -402,7 +402,7 @@ impl CDSOption {
             inputs.risky_annuity,
             inputs.sigma,
             inputs.t,
-        );
+        )?;
         Ok(vega * self.notional.amount())
     }
 

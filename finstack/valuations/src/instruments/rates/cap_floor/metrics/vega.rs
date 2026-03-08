@@ -1,7 +1,7 @@
 //! Vega calculator for interest rate options (caps/floors/caplets/floorlets).
 
 use crate::instruments::rates::cap_floor::{CapFloorVolType, InterestRateOption};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Vega calculator (model-consistent vega per 1% vol, aggregated for caps/floors).
@@ -53,9 +53,5 @@ impl MetricCalculator for VegaCalculator {
                 }
             }
         })
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

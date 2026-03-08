@@ -8,7 +8,7 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
@@ -19,10 +19,6 @@ const INFLATION_BUMP_BP: f64 = 0.0001;
 pub struct InflationConvexityCalculator;
 
 impl MetricCalculator for InflationConvexityCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // Independent metric
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond: &InflationLinkedBond = context.instrument_as()?;
         let as_of = context.as_of;

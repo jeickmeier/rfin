@@ -13,7 +13,7 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::Result;
 
@@ -67,10 +67,6 @@ impl MetricCalculator for Cs01HazardCalculator {
         let cs01 = (pv_up - pv_down) / (2.0 * CS01_BUMP_BP);
 
         Ok(cs01)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }
 

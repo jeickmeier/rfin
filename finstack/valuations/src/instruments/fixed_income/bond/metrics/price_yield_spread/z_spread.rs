@@ -1,7 +1,7 @@
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::math::solver::{BrentSolver, Solver};
 
@@ -190,11 +190,6 @@ impl ZSpreadCalculator {
 }
 
 impl MetricCalculator for ZSpreadCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        // No dependencies - we compute accrued internally at quote_date
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         // Get bond and compute quote-date context
         let bond: &Bond = context.instrument_as()?;

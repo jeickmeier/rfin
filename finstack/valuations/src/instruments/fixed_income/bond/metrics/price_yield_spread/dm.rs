@@ -2,7 +2,7 @@ use crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_dm
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::fixed_income::bond::CashflowSpec;
 use crate::instruments::Bond;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use std::cell::RefCell;
@@ -185,11 +185,6 @@ impl DiscountMarginCalculator {
 }
 
 impl MetricCalculator for DiscountMarginCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        // No dependencies - we compute accrued internally at quote_date
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 

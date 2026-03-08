@@ -1,6 +1,6 @@
 //! Accrued interest calculator for structured credit instruments.
 
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::money::Money;
 use finstack_core::Result;
@@ -68,10 +68,6 @@ impl MetricCalculator for AccruedCalculator {
         let accrued = period_interest * (accrual_fraction / period_fraction);
 
         Ok(accrued)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // No dependencies - uses cashflows from context
     }
 }
 

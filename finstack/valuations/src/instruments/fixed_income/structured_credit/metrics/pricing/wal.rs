@@ -1,7 +1,7 @@
 //! WAL (Weighted Average Life) calculator for structured credit.
 
 use crate::instruments::fixed_income::structured_credit::types::TrancheCashflows;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::cashflow::CFKind;
 use finstack_core::dates::Date;
 use finstack_core::Result;
@@ -156,10 +156,6 @@ impl MetricCalculator for WalCalculator {
                 id: "detailed_tranche_cashflows".to_string(),
             },
         ))
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // No metric dependencies - uses cashflows from context
     }
 }
 

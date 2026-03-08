@@ -12,7 +12,7 @@
 //! undefined for vanilla options.
 
 use crate::instruments::rates::swaption::{Swaption, VolatilityModel};
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Minimum time to expiry (in years) for valid gamma calculation.
@@ -67,9 +67,5 @@ impl MetricCalculator for GammaCalculator {
 
         // Scale by notional and annuity for cash gamma
         Ok(gamma * option.notional.amount() * inputs.annuity)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

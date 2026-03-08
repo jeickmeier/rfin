@@ -567,7 +567,8 @@ fn test_single_period_cap_matches_caplet_with_resolved_lags() {
         "USD_OIS",
         "USD-SOFR-OIS",
         "USD_CAP_VOL",
-    );
+    )
+    .expect("valid strike");
     let caplet = InterestRateOption::new_caplet(
         "ONE_PERIOD_CAPLET",
         notional,

@@ -357,10 +357,6 @@ pub fn asw_market_with_forward_config(
 }
 
 impl MetricCalculator for AssetSwapParCalculator {
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
 

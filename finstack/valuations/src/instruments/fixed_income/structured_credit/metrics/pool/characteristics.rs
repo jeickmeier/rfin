@@ -1,7 +1,7 @@
 //! Pool characteristic metrics for structured credit.
 
 use crate::instruments::fixed_income::structured_credit::StructuredCredit;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculates WAM (Weighted Average Maturity) for the underlying pool.
@@ -40,10 +40,6 @@ impl MetricCalculator for WamCalculator {
 
         // Fallback: return 0
         Ok(0.0)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // No dependencies
     }
 }
 
@@ -97,10 +93,6 @@ impl MetricCalculator for CprCalculator {
 
         Ok(0.0)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // No dependencies
-    }
 }
 
 /// Calculates CDR (Constant Default Rate) assumption.
@@ -153,9 +145,5 @@ impl MetricCalculator for CdrCalculator {
         }
 
         Ok(0.0)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[] // No dependencies
     }
 }

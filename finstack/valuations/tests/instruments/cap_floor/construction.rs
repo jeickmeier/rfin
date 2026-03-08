@@ -18,7 +18,8 @@ fn test_cap_creation_basic() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let params =
-        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360);
+        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360)
+            .expect("valid strike");
     let cap = InterestRateOption::new(
         "USD_CAP_3%",
         &params,
@@ -47,7 +48,8 @@ fn test_floor_creation_basic() {
     let end = Date::from_calendar_date(2028, Month::March, 15).unwrap();
 
     let params =
-        InterestRateOptionParams::floor(notional, 0.01, Tenor::semi_annual(), DayCount::Thirty360);
+        InterestRateOptionParams::floor(notional, 0.01, Tenor::semi_annual(), DayCount::Thirty360)
+            .expect("valid strike");
     let floor = InterestRateOption::new(
         "EUR_FLOOR_1%",
         &params,
@@ -86,7 +88,8 @@ fn test_cap_new_cap_helper() {
         "GBP-OIS",
         "GBP-LIBOR-3M",
         "GBP-CAP-VOL",
-    );
+    )
+    .expect("valid strike");
 
     assert_eq!(cap.rate_option_type, RateOptionType::Cap);
     assert_eq!(cap.strike, Decimal::try_from(0.04).expect("valid decimal"));
@@ -110,7 +113,8 @@ fn test_floor_new_floor_helper() {
         "JPY-OIS",
         "JPY-LIBOR-3M",
         "JPY-CAP-VOL",
-    );
+    )
+    .expect("valid strike");
 
     assert_eq!(floor.rate_option_type, RateOptionType::Floor);
     assert_eq!(
@@ -193,7 +197,8 @@ fn test_custom_calendar() {
     let end = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let params =
-        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360);
+        InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), DayCount::Act360)
+            .expect("valid strike");
     let mut cap = InterestRateOption::new(
         "CAP_WITH_CALENDAR",
         &params,
@@ -222,7 +227,8 @@ fn test_different_day_counts() {
     ];
 
     for dc in day_counts {
-        let params = InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), dc);
+        let params = InterestRateOptionParams::cap(notional, 0.03, Tenor::quarterly(), dc)
+            .expect("valid strike");
         let cap = InterestRateOption::new(
             "CAP_DC_TEST",
             &params,
@@ -251,7 +257,8 @@ fn test_different_frequencies() {
     ];
 
     for freq in frequencies {
-        let params = InterestRateOptionParams::cap(notional, 0.03, freq, DayCount::Act360);
+        let params = InterestRateOptionParams::cap(notional, 0.03, freq, DayCount::Act360)
+            .expect("valid strike");
         let cap = InterestRateOption::new(
             "CAP_FREQ_TEST",
             &params,

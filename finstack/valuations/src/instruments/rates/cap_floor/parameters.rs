@@ -35,46 +35,69 @@ pub struct InterestRateOptionParams {
 }
 
 impl InterestRateOptionParams {
-    /// Create cap parameters
-    pub fn cap(notional: Money, strike: f64, frequency: Tenor, day_count: DayCount) -> Self {
-        Self {
+    fn to_decimal(value: f64) -> finstack_core::Result<Decimal> {
+        Decimal::try_from(value).map_err(|_| {
+            finstack_core::Error::Validation(format!(
+                "Strike {value} is not representable as Decimal (must be finite)"
+            ))
+        })
+    }
+
+    /// Create cap parameters.
+    pub fn cap(
+        notional: Money,
+        strike: f64,
+        frequency: Tenor,
+        day_count: DayCount,
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             rate_option_type: RateOptionType::Cap,
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            strike: Self::to_decimal(strike)?,
             frequency,
             day_count,
             stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
-        }
+        })
     }
 
     /// Create cap parameters using a typed strike rate.
-    pub fn cap_rate(notional: Money, strike: Rate, frequency: Tenor, day_count: DayCount) -> Self {
-        Self {
+    pub fn cap_rate(
+        notional: Money,
+        strike: Rate,
+        frequency: Tenor,
+        day_count: DayCount,
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             rate_option_type: RateOptionType::Cap,
             notional,
-            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
+            strike: Self::to_decimal(strike.as_decimal())?,
             frequency,
             day_count,
             stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
-        }
+        })
     }
 
-    /// Create floor parameters
-    pub fn floor(notional: Money, strike: f64, frequency: Tenor, day_count: DayCount) -> Self {
-        Self {
+    /// Create floor parameters.
+    pub fn floor(
+        notional: Money,
+        strike: f64,
+        frequency: Tenor,
+        day_count: DayCount,
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             rate_option_type: RateOptionType::Floor,
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            strike: Self::to_decimal(strike)?,
             frequency,
             day_count,
             stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
-        }
+        })
     }
 
     /// Create floor parameters using a typed strike rate.
@@ -83,16 +106,16 @@ impl InterestRateOptionParams {
         strike: Rate,
         frequency: Tenor,
         day_count: DayCount,
-    ) -> Self {
-        Self {
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             rate_option_type: RateOptionType::Floor,
             notional,
-            strike: Decimal::try_from(strike.as_decimal()).unwrap_or_default(),
+            strike: Self::to_decimal(strike.as_decimal())?,
             frequency,
             day_count,
             stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
-        }
+        })
     }
 }

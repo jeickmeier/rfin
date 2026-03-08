@@ -1563,3 +1563,81 @@ pub trait OptionVolgaProvider {
         base_pv: f64,
     ) -> finstack_core::Result<f64>;
 }
+
+/// Implement standard equity-exotic trait boilerplate for instruments with
+/// `spot_id`, `vol_surface_id`, `pricing_overrides`, `day_count` fields.
+///
+/// # Variants
+///
+/// - With `curve_deps`: also implements `CurveDependencies` using `discount_curve_id`.
+/// - For types with custom `HasExpiry`, use the internal `@equity`, `@mc_overrides`,
+///   `@mc_daycount` arms directly and implement `HasExpiry` manually.
+#[macro_export]
+macro_rules! impl_equity_exotic_traits {
+    ($ty:ty, curve_deps: true) => {
+        impl $crate::instruments::common_impl::traits::CurveDependencies for $ty {
+            fn curve_dependencies(
+                &self,
+            ) -> finstack_core::Result<$crate::instruments::common_impl::traits::InstrumentCurves>
+            {
+                $crate::instruments::common_impl::traits::InstrumentCurves::builder()
+                    .discount(self.discount_curve_id.clone())
+                    .build()
+            }
+        }
+
+        $crate::impl_equity_exotic_traits!(@inner $ty);
+    };
+
+    ($ty:ty) => {
+        $crate::impl_equity_exotic_traits!(@inner $ty);
+    };
+
+    (@inner $ty:ty) => {
+        $crate::impl_equity_exotic_traits!(@equity $ty);
+        $crate::impl_equity_exotic_traits!(@mc_overrides $ty);
+        $crate::impl_equity_exotic_traits!(@mc_daycount $ty);
+
+        #[cfg(feature = "mc")]
+        impl $crate::metrics::HasExpiry for $ty {
+            fn expiry(&self) -> finstack_core::dates::Date {
+                self.expiry
+            }
+        }
+    };
+
+    (@equity $ty:ty) => {
+        impl $crate::instruments::common_impl::traits::EquityDependencies for $ty {
+            fn equity_dependencies(
+                &self,
+            ) -> finstack_core::Result<
+                $crate::instruments::common_impl::traits::EquityInstrumentDeps,
+            > {
+                $crate::instruments::common_impl::traits::EquityInstrumentDeps::builder()
+                    .spot(self.spot_id.as_str())
+                    .vol_surface(self.vol_surface_id.as_str())
+                    .build()
+            }
+        }
+    };
+
+    (@mc_overrides $ty:ty) => {
+        #[cfg(feature = "mc")]
+        impl $crate::metrics::HasPricingOverrides for $ty {
+            fn pricing_overrides_mut(
+                &mut self,
+            ) -> &mut $crate::instruments::PricingOverrides {
+                &mut self.pricing_overrides
+            }
+        }
+    };
+
+    (@mc_daycount $ty:ty) => {
+        #[cfg(feature = "mc")]
+        impl $crate::metrics::HasDayCount for $ty {
+            fn day_count(&self) -> finstack_core::dates::DayCount {
+                self.day_count
+            }
+        }
+    };
+}

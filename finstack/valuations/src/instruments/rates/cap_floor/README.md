@@ -30,7 +30,7 @@ let cap = InterestRateOption::new_cap(
     CurveId::new("USD-OIS"),
     CurveId::new("USD-SOFR-3M"),
     CurveId::new("USD-CAP-VOL"),
-);
+)?;
 let pv = cap.value(&market_context, Date::from_calendar_date(2024, Month::January, 3)?)?;
 ```
 

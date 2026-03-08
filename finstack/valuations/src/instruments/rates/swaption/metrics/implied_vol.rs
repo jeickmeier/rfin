@@ -8,7 +8,7 @@
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use crate::instruments::rates::swaption::Swaption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::surfaces::VolSurfaceAxis;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
@@ -104,9 +104,5 @@ impl MetricCalculator for ImpliedVolCalculator {
 
         let sigma = implied_x.exp();
         Ok(sigma)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

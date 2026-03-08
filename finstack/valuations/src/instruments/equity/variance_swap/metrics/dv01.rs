@@ -2,7 +2,7 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::variance_swap::VarianceSwap;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
+use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
 /// Variance swap DV01 expressed as PV change per 1bp parallel discount-curve bump.
@@ -21,9 +21,5 @@ impl MetricCalculator for Dv01Calculator {
         let bumped_pv = swap.value(&bumped_ctx, context.as_of)?.amount();
 
         Ok((bumped_pv - base_pv) / bump_bp)
-    }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
     }
 }

@@ -622,7 +622,11 @@ impl InstrumentEnvelope {
             return Err(finstack_core::InputError::Invalid.into());
         }
 
-        envelope.instrument.into_boxed()
+        let instrument = envelope.instrument.into_boxed()?;
+        if let Some(overrides) = instrument.scenario_overrides() {
+            overrides.validate()?;
+        }
+        Ok(instrument)
     }
 
     /// Load an instrument from a JSON string.
@@ -1141,7 +1145,8 @@ mod tests {
             CurveId::new("USD-OIS"),
             CurveId::new("USD-SOFR-3M"),
             CurveId::new("USD-CAPFLOOR-VOL"),
-        );
+        )
+        .expect("valid strike");
         let mut json = serde_json::to_value(InstrumentJson::InterestRateOption(option))
             .expect("InterestRateOption JSON serialization should succeed");
         remove_spec_key(&mut json, "stub");

@@ -4,21 +4,15 @@
 //! instrument's current PV (`context.base_value`) using the CDS option
 //! pricer and core math solvers (HybridSolver).
 
+use crate::define_metric_calculator;
 use crate::instruments::credit_derivatives::cds_option::CDSOption;
-use crate::metrics::{MetricCalculator, MetricContext, MetricId};
-use finstack_core::Result;
 
-/// Implied Volatility calculator for credit options on CDS spreads.
-pub struct ImpliedVolCalculator;
-
-impl MetricCalculator for ImpliedVolCalculator {
-    fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let option: &CDSOption = context.instrument_as()?;
-        let target = context.base_value.amount();
-        option.implied_vol(&context.curves, context.as_of, target, None)
+define_metric_calculator!(
+    /// Implied volatility metric for credit options on CDS spreads.
+    ImpliedVolCalculator,
+    instrument = CDSOption,
+    calc = |option, ctx| {
+        let target = ctx.base_value.amount();
+        option.implied_vol(&ctx.curves, ctx.as_of, target, None)
     }
-
-    fn dependencies(&self) -> &[MetricId] {
-        &[]
-    }
-}
+);
