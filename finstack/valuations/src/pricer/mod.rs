@@ -41,18 +41,6 @@ mod fx;
 mod inflation;
 mod rates;
 
-// Canonical `register_pricer!` macro — each submodule carries its own copy
-// because `macro_rules!` macros are not brought into scope by `use super::*`.
-#[allow(unused_macros)]
-macro_rules! register_pricer {
-    ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
-        $registry.register_pricer(
-            PricerKey::new(InstrumentType::$inst, ModelKey::$model),
-            Box::new($pricer),
-        );
-    };
-}
-
 /// Register all standard pricers explicitly.
 ///
 /// This function registers all instrument pricers in a single, visible location.

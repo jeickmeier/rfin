@@ -4,7 +4,9 @@
 //! identifiers used by the pricing registry to route instruments to the
 //! appropriate pricer implementation.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, strum::EnumIter,
+)]
 #[repr(u16)]
 /// Strongly-typed instrument classification for pricer dispatch.
 ///
@@ -304,6 +306,9 @@ impl std::str::FromStr for InstrumentType {
             }
             "commodity_swap" | "commodityswap" => Ok(InstrumentType::CommoditySwap),
             "commodity_option" | "commodityoption" => Ok(InstrumentType::CommodityOption),
+            "commodity_asian_option" | "commodityasianoption" => {
+                Ok(InstrumentType::CommodityAsianOption)
+            }
             "commodity_swaption" | "commodityswaption" => Ok(InstrumentType::CommoditySwaption),
             "commodity_spread_option" | "commodityspreadoption" => {
                 Ok(InstrumentType::CommoditySpreadOption)
@@ -375,7 +380,9 @@ impl std::str::FromStr for InstrumentType {
 /// let model: ModelKey = "black76".parse().unwrap();
 /// assert_eq!(model, ModelKey::Black76);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, strum::EnumIter,
+)]
 #[non_exhaustive]
 #[repr(u16)]
 pub enum ModelKey {
@@ -597,6 +604,7 @@ impl PricerKey {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use strum::IntoEnumIterator;
 
     #[test]
     fn abi_is_stable() {
@@ -611,5 +619,27 @@ mod tests {
         let inst_type = InstrumentType::BondFuture;
         assert_eq!(format!("{}", inst_type), "bond_future");
         assert_eq!(inst_type as u16, 54);
+    }
+
+    #[test]
+    fn instrument_type_display_from_str_roundtrip() {
+        for variant in InstrumentType::iter() {
+            let s = variant.to_string();
+            let parsed: InstrumentType = s
+                .parse()
+                .unwrap_or_else(|e| panic!("{variant:?} Display=\"{s}\" failed FromStr: {e}"));
+            assert_eq!(parsed, variant, "round-trip failed for {variant:?}");
+        }
+    }
+
+    #[test]
+    fn model_key_display_from_str_roundtrip() {
+        for variant in ModelKey::iter() {
+            let s = variant.to_string();
+            let parsed: ModelKey = s
+                .parse()
+                .unwrap_or_else(|e| panic!("{variant:?} Display=\"{s}\" failed FromStr: {e}"));
+            assert_eq!(parsed, variant, "round-trip failed for {variant:?}");
+        }
     }
 }

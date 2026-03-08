@@ -3,68 +3,53 @@
 //! Covers: CommodityForward, CommoditySwap, CommodityOption,
 //! CommoditySwaption, CommoditySpreadOption.
 
-use super::*;
-
-macro_rules! register_pricer {
-    ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
-        $registry.register_pricer(
-            PricerKey::new(InstrumentType::$inst, ModelKey::$model),
-            Box::new($pricer),
-        );
-    };
-}
+use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register pricers for commodity instruments.
 pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
     // Commodity Forward
-    register_pricer!(
-        registry,
-        CommodityForward,
-        Discounting,
+    registry.register(
+        InstrumentType::CommodityForward,
+        ModelKey::Discounting,
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::CommodityForward,
-        >::discounting(InstrumentType::CommodityForward)
+        >::discounting(InstrumentType::CommodityForward),
     );
 
     // Commodity Swap
-    register_pricer!(
-        registry,
-        CommoditySwap,
-        Discounting,
+    registry.register(
+        InstrumentType::CommoditySwap,
+        ModelKey::Discounting,
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::CommoditySwap,
-        >::discounting(InstrumentType::CommoditySwap)
+        >::discounting(InstrumentType::CommoditySwap),
     );
 
     // Commodity Option
-    register_pricer!(
-        registry,
-        CommodityOption,
-        Black76,
-        crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::default()
+    registry.register(
+        InstrumentType::CommodityOption,
+        ModelKey::Black76,
+        crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::default(),
     );
-    register_pricer!(
-        registry,
-        CommodityOption,
-        Discounting,
+    registry.register(
+        InstrumentType::CommodityOption,
+        ModelKey::Discounting,
         crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
 
     // Commodity Swaption
-    register_pricer!(
-        registry,
-        CommoditySwaption,
-        Black76,
-        crate::instruments::commodity::commodity_swaption::pricer::CommoditySwaptionBlackPricer::default()
+    registry.register(
+        InstrumentType::CommoditySwaption,
+        ModelKey::Black76,
+        crate::instruments::commodity::commodity_swaption::pricer::CommoditySwaptionBlackPricer::default(),
     );
 
     // Commodity Spread Option (Kirk's approximation)
-    register_pricer!(
-        registry,
-        CommoditySpreadOption,
-        Black76,
-        crate::instruments::commodity::commodity_spread_option::pricer::CommoditySpreadOptionKirkPricer::default()
+    registry.register(
+        InstrumentType::CommoditySpreadOption,
+        ModelKey::Black76,
+        crate::instruments::commodity::commodity_spread_option::pricer::CommoditySpreadOptionKirkPricer::default(),
     );
 }

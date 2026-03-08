@@ -2,88 +2,70 @@
 //!
 //! Covers: CDS, CDSIndex, CDSTranche, CDSOption, StructuredCredit.
 
-use super::*;
-
-macro_rules! register_pricer {
-    ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
-        $registry.register_pricer(
-            PricerKey::new(InstrumentType::$inst, ModelKey::$model),
-            Box::new($pricer),
-        );
-    };
-}
+use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register pricers for credit instruments.
 pub fn register_credit_pricers(registry: &mut PricerRegistry) {
     // CDS
-    register_pricer!(
-        registry,
-        CDS,
-        HazardRate,
-        crate::instruments::common_impl::GenericInstrumentPricer::cds()
+    registry.register(
+        InstrumentType::CDS,
+        ModelKey::HazardRate,
+        crate::instruments::common_impl::GenericInstrumentPricer::cds(),
     );
-    register_pricer!(
-        registry,
-        CDS,
-        Discounting,
+    registry.register(
+        InstrumentType::CDS,
+        ModelKey::Discounting,
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::CreditDefaultSwap,
-        >::new(InstrumentType::CDS, ModelKey::Discounting)
+        >::new(InstrumentType::CDS, ModelKey::Discounting),
     );
 
     // CDS Index
-    register_pricer!(
-        registry,
-        CDSIndex,
-        HazardRate,
-        crate::instruments::credit_derivatives::cds_index::pricer::SimpleCdsIndexHazardPricer::default()
+    registry.register(
+        InstrumentType::CDSIndex,
+        ModelKey::HazardRate,
+        crate::instruments::credit_derivatives::cds_index::pricer::SimpleCdsIndexHazardPricer::default(),
     );
-    register_pricer!(
-        registry,
-        CDSIndex,
-        Discounting,
+    registry.register(
+        InstrumentType::CDSIndex,
+        ModelKey::Discounting,
         crate::instruments::credit_derivatives::cds_index::pricer::SimpleCdsIndexHazardPricer::with_model(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
 
     // CDS Tranche
-    register_pricer!(
-        registry,
-        CDSTranche,
-        HazardRate,
-        crate::instruments::credit_derivatives::cds_tranche::pricer::SimpleCDSTrancheHazardPricer::default()
+    registry.register(
+        InstrumentType::CDSTranche,
+        ModelKey::HazardRate,
+        crate::instruments::credit_derivatives::cds_tranche::pricer::SimpleCDSTrancheHazardPricer::default(),
     );
-    register_pricer!(
-        registry,
-        CDSTranche,
-        Discounting,
+    registry.register(
+        InstrumentType::CDSTranche,
+        ModelKey::Discounting,
         crate::instruments::credit_derivatives::cds_tranche::pricer::SimpleCDSTrancheHazardPricer::with_model(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
 
     // CDS Option
-    register_pricer!(
-        registry,
-        CDSOption,
-        Black76,
-        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer::default()
+    registry.register(
+        InstrumentType::CDSOption,
+        ModelKey::Black76,
+        crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer::default(),
     );
-    register_pricer!(
-        registry,
-        CDSOption,
-        Discounting,
+    registry.register(
+        InstrumentType::CDSOption,
+        ModelKey::Discounting,
         crate::instruments::credit_derivatives::cds_option::pricer::SimpleCDSOptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
 
     // Structured Credit - unified pricer for ABS, CLO, CMBS, RMBS
-    register_pricer!(
-        registry,
-        StructuredCredit,
-        Discounting,
-        crate::instruments::fixed_income::structured_credit::StructuredCreditDiscountingPricer::default()
+    registry.register(
+        InstrumentType::StructuredCredit,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::structured_credit::StructuredCreditDiscountingPricer::default(),
     );
 }

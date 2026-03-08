@@ -73,7 +73,22 @@ impl PricerRegistry {
     /// * `key` - Pricer key identifying the (instrument type, model) pair
     /// * `pricer` - Pricer implementation for this combination
     pub fn register_pricer(&mut self, key: PricerKey, pricer: Box<dyn Pricer>) {
+        debug_assert!(
+            !self.pricers.contains_key(&key),
+            "Duplicate pricer registration for {key:?} -- this overwrites the existing pricer"
+        );
         self.pricers.insert(key, pricer);
+    }
+
+    /// Convenience method to register a pricer with separate instrument type
+    /// and model key arguments, boxing the pricer automatically.
+    pub fn register(
+        &mut self,
+        inst: InstrumentType,
+        model: ModelKey,
+        pricer: impl Pricer + 'static,
+    ) {
+        self.register_pricer(PricerKey::new(inst, model), Box::new(pricer));
     }
 
     /// Look up a pricer for a specific (instrument type, model) combination.
@@ -127,6 +142,10 @@ impl PricerRegistry {
     /// - No pricer registered for this (instrument, model) combination
     /// - Pricing calculation fails
     /// - Required market data is missing
+    #[tracing::instrument(
+        skip(self, instrument, market, cfg),
+        fields(instrument_id = %instrument.id(), model = %model)
+    )]
     pub fn price_with_registry(
         &self,
         instrument: &dyn Priceable,
@@ -170,6 +189,10 @@ impl PricerRegistry {
     /// * `as_of` - Valuation date
     /// * `metrics` - Standard metrics to compute (e.g., `MetricId::Ytm`, `MetricId::ZSpread`)
     /// * `cfg` - Optional FinstackConfig for rounding/tolerance policy
+    #[tracing::instrument(
+        skip(self, instrument, market, metrics, cfg),
+        fields(instrument_id = %instrument.id(), model = %model, num_metrics = metrics.len())
+    )]
     pub fn price_with_metrics(
         &self,
         instrument: &dyn Priceable,
@@ -187,6 +210,7 @@ impl PricerRegistry {
             return Ok(base_result);
         }
 
+        let err_ctx = PricingErrorContext::from_instrument(instrument).model(model);
         let needs_split = model != ModelKey::Discounting;
 
         if !needs_split {
@@ -200,10 +224,7 @@ impl PricerRegistry {
                 None,
             )
             .map_err(|e| {
-                PricingError::model_failure_with_context(
-                    e.to_string(),
-                    PricingErrorContext::default(),
-                )
+                PricingError::model_failure_with_context(e.to_string(), err_ctx.clone())
             })?;
 
             for (k, v) in base_result.measures {
@@ -253,12 +274,7 @@ impl PricerRegistry {
                 cfg_arc.clone(),
                 None,
             )
-            .map_err(|e| {
-                PricingError::model_failure_with_context(
-                    e.to_string(),
-                    PricingErrorContext::default(),
-                )
-            })?
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), err_ctx.clone()))?
         } else {
             crate::results::ValuationResult::stamped(instrument.id(), as_of, base_result.value)
         };
@@ -275,10 +291,7 @@ impl PricerRegistry {
                 None,
             )
             .map_err(|e| {
-                PricingError::model_failure_with_context(
-                    e.to_string(),
-                    PricingErrorContext::default(),
-                )
+                PricingError::model_failure_with_context(e.to_string(), err_ctx.clone())
             })?;
             for (k, v) in risk_result.measures {
                 result.measures.insert(k, v);

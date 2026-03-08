@@ -81,47 +81,6 @@ impl PricingErrorContext {
             .extend(curve_ids.into_iter().map(|s| s.into()));
         self
     }
-
-    // -- Deprecated aliases for naming consistency --
-
-    /// Deprecated: use [`instrument_id`](Self::instrument_id) instead.
-    #[deprecated(
-        since = "0.8.0",
-        note = "renamed to `instrument_id` for naming consistency"
-    )]
-    pub fn with_instrument_id(self, id: impl Into<String>) -> Self {
-        self.instrument_id(id)
-    }
-
-    /// Deprecated: use [`instrument_type`](Self::instrument_type) instead.
-    #[deprecated(
-        since = "0.8.0",
-        note = "renamed to `instrument_type` for naming consistency"
-    )]
-    pub fn with_instrument_type(self, typ: InstrumentType) -> Self {
-        self.instrument_type(typ)
-    }
-
-    /// Deprecated: use [`model`](Self::model) instead.
-    #[deprecated(since = "0.8.0", note = "renamed to `model` for naming consistency")]
-    pub fn with_model(self, model: ModelKey) -> Self {
-        self.model(model)
-    }
-
-    /// Deprecated: use [`curve_id`](Self::curve_id) instead.
-    #[deprecated(since = "0.8.0", note = "renamed to `curve_id` for naming consistency")]
-    pub fn with_curve_id(self, curve_id: impl Into<String>) -> Self {
-        self.curve_id(curve_id)
-    }
-
-    /// Deprecated: use [`curve_ids`](Self::curve_ids) instead.
-    #[deprecated(
-        since = "0.8.0",
-        note = "renamed to `curve_ids` for naming consistency"
-    )]
-    pub fn with_curve_ids(self, curve_ids: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.curve_ids(curve_ids)
-    }
 }
 
 impl std::fmt::Display for PricingErrorContext {
@@ -685,6 +644,58 @@ mod tests {
                 assert!(message.contains("solver did not converge"));
             }
             other => panic!("unexpected mapping for calibration: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pricing_context_ext_maps_core_result() {
+        let core_result: finstack_core::Result<f64> =
+            Err(finstack_core::Error::Validation("negative rate".into()));
+
+        let pricing_result =
+            core_result.with_pricing_context("BOND-001", InstrumentType::Bond, "discount factor");
+
+        match pricing_result {
+            Err(PricingError::ModelFailure { message, context }) => {
+                assert!(
+                    message.contains("discount factor"),
+                    "message should contain operation: {message}"
+                );
+                assert!(
+                    message.contains("negative rate"),
+                    "message should contain original error: {message}"
+                );
+                assert_eq!(context.instrument_id.as_deref(), Some("BOND-001"));
+                assert_eq!(context.instrument_type, Some(InstrumentType::Bond));
+            }
+            other => panic!("expected ModelFailure, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pricing_context_ext_enriches_pricing_result() {
+        let pricing_result: PricingResult<f64> = Err(PricingError::ModelFailure {
+            message: "solver diverged".into(),
+            context: PricingErrorContext::default(),
+        });
+
+        let enriched =
+            pricing_result.with_pricing_context("IRS-042", InstrumentType::IRS, "PV calculation");
+
+        match enriched {
+            Err(PricingError::ModelFailure { message, context }) => {
+                assert!(
+                    message.contains("PV calculation"),
+                    "message should be prefixed with operation: {message}"
+                );
+                assert!(
+                    message.contains("solver diverged"),
+                    "message should contain original error: {message}"
+                );
+                assert_eq!(context.instrument_id.as_deref(), Some("IRS-042"));
+                assert_eq!(context.instrument_type, Some(InstrumentType::IRS));
+            }
+            other => panic!("expected ModelFailure, got {other:?}"),
         }
     }
 }

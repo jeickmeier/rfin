@@ -3,108 +3,88 @@
 //! Covers: FIIndexTotalReturnSwap, Convertible, InflationLinkedBond,
 //! RevolvingCredit, TermLoan, AgencyMbsPassthrough, AgencyTba, DollarRoll, AgencyCmo.
 
-use super::*;
-
-macro_rules! register_pricer {
-    ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
-        $registry.register_pricer(
-            PricerKey::new(InstrumentType::$inst, ModelKey::$model),
-            Box::new($pricer),
-        );
-    };
-}
+use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register pricers for additional fixed-income instruments (convertibles, MBS,
 /// revolving credit, term loans) not included in the minimal rates set.
 pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
     // FI Index TRS
-    register_pricer!(
-        registry,
-        FIIndexTotalReturnSwap,
-        Discounting,
+    registry.register(
+        InstrumentType::FIIndexTotalReturnSwap,
+        ModelKey::Discounting,
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap,
-        >::discounting(InstrumentType::FIIndexTotalReturnSwap)
+        >::discounting(InstrumentType::FIIndexTotalReturnSwap),
     );
 
     // Convertible Bond
-    register_pricer!(
-        registry,
-        Convertible,
-        Discounting,
-        crate::instruments::fixed_income::convertible::pricer::ConvertibleTreePricer
+    registry.register(
+        InstrumentType::Convertible,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::convertible::pricer::ConvertibleTreePricer,
     );
 
     // Inflation Linked Bond
-    register_pricer!(
-        registry,
-        InflationLinkedBond,
-        Discounting,
-        crate::instruments::fixed_income::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default()
+    registry.register(
+        InstrumentType::InflationLinkedBond,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default(),
     );
 
     // Revolving Credit
-    register_pricer!(
-        registry,
-        RevolvingCredit,
-        Discounting,
+    registry.register(
+        InstrumentType::RevolvingCredit,
+        ModelKey::Discounting,
         crate::instruments::fixed_income::revolving_credit::pricer::RevolvingCreditPricer::new(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
     #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        RevolvingCredit,
-        MonteCarloGBM,
+    registry.register(
+        InstrumentType::RevolvingCredit,
+        ModelKey::MonteCarloGBM,
         crate::instruments::fixed_income::revolving_credit::pricer::RevolvingCreditPricer::new(
-            ModelKey::MonteCarloGBM
-        )
+            ModelKey::MonteCarloGBM,
+        ),
     );
 
     // Term Loan (including DDTL)
-    register_pricer!(
-        registry,
-        TermLoan,
-        Discounting,
-        crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer
+    registry.register(
+        InstrumentType::TermLoan,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::term_loan::pricing::TermLoanDiscountingPricer,
     );
-    register_pricer!(
-        registry,
-        TermLoan,
-        Tree,
-        crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::default()
+    registry.register(
+        InstrumentType::TermLoan,
+        ModelKey::Tree,
+        crate::instruments::fixed_income::term_loan::pricing::TermLoanTreePricer::default(),
     );
 
     // Agency MBS Passthrough
-    register_pricer!(
-        registry,
-        AgencyMbsPassthrough,
-        Discounting,
-        crate::instruments::fixed_income::mbs_passthrough::AgencyMbsDiscountingPricer
+    registry.register(
+        InstrumentType::AgencyMbsPassthrough,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::mbs_passthrough::AgencyMbsDiscountingPricer,
     );
 
     // Agency TBA
-    register_pricer!(
-        registry,
-        AgencyTba,
-        Discounting,
-        crate::instruments::fixed_income::tba::AgencyTbaDiscountingPricer
+    registry.register(
+        InstrumentType::AgencyTba,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::tba::AgencyTbaDiscountingPricer,
     );
 
     // Dollar Roll
-    register_pricer!(
-        registry,
-        DollarRoll,
-        Discounting,
-        crate::instruments::fixed_income::dollar_roll::DollarRollDiscountingPricer
+    registry.register(
+        InstrumentType::DollarRoll,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::dollar_roll::DollarRollDiscountingPricer,
     );
 
     // Agency CMO
-    register_pricer!(
-        registry,
-        AgencyCmo,
-        Discounting,
-        crate::instruments::fixed_income::cmo::AgencyCmoDiscountingPricer
+    registry.register(
+        InstrumentType::AgencyCmo,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::cmo::AgencyCmoDiscountingPricer,
     );
 }

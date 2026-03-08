@@ -18,10 +18,10 @@ serde_json = { workspace = true, features = ["raw_value"] }
 time = { workspace = true }
 rust_decimal = { workspace = true }
 nalgebra = { version = "0.34", optional = true }
-tracing = { version = "0.1", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 thiserror = { workspace = true }
 num-complex = "0.4"
-strum = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
 ts-rs = { version = "12", optional = true, features = ["serde-compat", "no-serde-warnings"] }
 
 [dev-dependencies]

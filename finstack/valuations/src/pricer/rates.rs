@@ -3,16 +3,7 @@
 //! Covers: Bond, IRS, FRA, BasisSwap, Deposit, InterestRateFuture, IrFutureOption,
 //! BondFuture, CapFloor, Swaption, Repo, DCF.
 
-use super::*;
-
-macro_rules! register_pricer {
-    ($registry:expr, $inst:ident, $model:ident, $pricer:expr) => {
-        $registry.register_pricer(
-            PricerKey::new(InstrumentType::$inst, ModelKey::$model),
-            Box::new($pricer),
-        );
-    };
-}
+use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register a minimal set of pricers for rates instruments.
 ///
@@ -20,135 +11,118 @@ macro_rules! register_pricer {
 /// too memory intensive.
 pub fn register_rates_pricers(registry: &mut PricerRegistry) {
     // Bond pricers
-    register_pricer!(
-        registry,
-        Bond,
-        Discounting,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondDiscountingPricer::default()
+    registry.register(
+        InstrumentType::Bond,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondDiscountingPricer::default(),
     );
-    register_pricer!(
-        registry,
-        Bond,
-        HazardRate,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondHazardPricer
+    registry.register(
+        InstrumentType::Bond,
+        ModelKey::HazardRate,
+        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondHazardPricer,
     );
-    register_pricer!(
-        registry,
-        Bond,
-        Tree,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondOasPricer
+    registry.register(
+        InstrumentType::Bond,
+        ModelKey::Tree,
+        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondOasPricer,
     );
     #[cfg(feature = "mc")]
-    register_pricer!(
-        registry,
-        Bond,
-        MertonMc,
-        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondMertonMcPricer
+    registry.register(
+        InstrumentType::Bond,
+        ModelKey::MertonMc,
+        crate::instruments::fixed_income::bond::pricing::pricer::SimpleBondMertonMcPricer,
     );
 
     // Interest Rate Swaps
-    register_pricer!(
-        registry,
-        IRS,
-        Discounting,
+    registry.register(
+        InstrumentType::IRS,
+        ModelKey::Discounting,
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::InterestRateSwap,
-        >::discounting(InstrumentType::IRS)
+        >::discounting(InstrumentType::IRS),
     );
 
     // FRA
-    register_pricer!(
-        registry,
-        FRA,
-        Discounting,
-        crate::instruments::rates::fra::pricer::SimpleFraDiscountingPricer::default()
+    registry.register(
+        InstrumentType::FRA,
+        ModelKey::Discounting,
+        crate::instruments::rates::fra::pricer::SimpleFraDiscountingPricer::default(),
     );
 
     // Basis Swap
-    register_pricer!(
-        registry,
-        BasisSwap,
-        Discounting,
-        crate::instruments::rates::basis_swap::pricer::SimpleBasisSwapDiscountingPricer::default()
+    registry.register(
+        InstrumentType::BasisSwap,
+        ModelKey::Discounting,
+        crate::instruments::rates::basis_swap::pricer::SimpleBasisSwapDiscountingPricer::default(),
     );
 
     // Deposit
-    register_pricer!(
-        registry,
-        Deposit,
-        Discounting,
-        crate::instruments::rates::deposit::pricer::SimpleDepositDiscountingPricer::default()
+    registry.register(
+        InstrumentType::Deposit,
+        ModelKey::Discounting,
+        crate::instruments::rates::deposit::pricer::SimpleDepositDiscountingPricer::default(),
     );
 
     // Interest Rate Future
-    register_pricer!(
-        registry,
-        InterestRateFuture,
-        Discounting,
-        crate::instruments::rates::ir_future::pricer::SimpleIrFutureDiscountingPricer::default()
+    registry.register(
+        InstrumentType::InterestRateFuture,
+        ModelKey::Discounting,
+        crate::instruments::rates::ir_future::pricer::SimpleIrFutureDiscountingPricer::default(),
     );
 
     // IR Future Option
-    register_pricer!(
-        registry,
-        IrFutureOption,
-        Discounting,
-        crate::instruments::rates::ir_future_option::pricer::IrFutureOptionPricer::default()
+    registry.register(
+        InstrumentType::IrFutureOption,
+        ModelKey::Discounting,
+        crate::instruments::rates::ir_future_option::pricer::IrFutureOptionPricer::default(),
     );
 
     // Bond Future
-    register_pricer!(
-        registry,
-        BondFuture,
-        Discounting,
-        crate::instruments::fixed_income::bond_future::pricer::BondFuturePricer
+    registry.register(
+        InstrumentType::BondFuture,
+        ModelKey::Discounting,
+        crate::instruments::fixed_income::bond_future::pricer::BondFuturePricer,
     );
 
     // Cap/Floor
-    register_pricer!(
-        registry,
-        CapFloor,
-        Black76,
-        crate::instruments::rates::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::default()
+    registry.register(
+        InstrumentType::CapFloor,
+        ModelKey::Black76,
+        crate::instruments::rates::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::default(),
     );
-    register_pricer!(
-        registry,
-        CapFloor,
-        Discounting,
+    registry.register(
+        InstrumentType::CapFloor,
+        ModelKey::Discounting,
         crate::instruments::rates::cap_floor::pricing::pricer::SimpleCapFloorBlackPricer::with_model(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
 
     // Swaption
-    register_pricer!(
-        registry,
-        Swaption,
-        Black76,
-        crate::instruments::rates::swaption::pricer::SimpleSwaptionBlackPricer::default()
+    registry.register(
+        InstrumentType::Swaption,
+        ModelKey::Black76,
+        crate::instruments::rates::swaption::pricer::SimpleSwaptionBlackPricer::default(),
     );
-    register_pricer!(
-        registry,
-        Swaption,
-        Discounting,
+    registry.register(
+        InstrumentType::Swaption,
+        ModelKey::Discounting,
         crate::instruments::rates::swaption::pricer::SimpleSwaptionBlackPricer::with_model(
-            ModelKey::Discounting
-        )
+            ModelKey::Discounting,
+        ),
     );
 
     // Repo
-    register_pricer!(
-        registry,
-        Repo,
-        Discounting,
-        crate::instruments::rates::repo::pricer::SimpleRepoDiscountingPricer::default()
+    registry.register(
+        InstrumentType::Repo,
+        ModelKey::Discounting,
+        crate::instruments::rates::repo::pricer::SimpleRepoDiscountingPricer::default(),
     );
 
     // DCF (Discounted Cash Flow)
-    register_pricer!(
-        registry,
-        DCF,
-        Discounting,
-        crate::instruments::equity::dcf_equity::pricer::DcfPricer
+    registry.register(
+        InstrumentType::DCF,
+        ModelKey::Discounting,
+        crate::instruments::equity::dcf_equity::pricer::DcfPricer,
     );
 }
