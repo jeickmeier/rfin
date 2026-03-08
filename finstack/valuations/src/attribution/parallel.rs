@@ -110,6 +110,7 @@ use std::sync::Arc;
 /// # Ok(())
 /// # }
 /// ```
+#[tracing::instrument(skip_all, fields(instrument_id = %instrument.id(), method = "parallel"))]
 pub fn attribute_pnl_parallel(
     instrument: &Arc<dyn Instrument>,
     market_t0: &MarketContext,
@@ -414,8 +415,13 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     }
 
     // Step 11: Compute residual
-    // Ignore error as notes will be populated
-    let _ = attribution.compute_residual();
+    if let Err(e) = attribution.compute_residual() {
+        tracing::warn!(
+            error = %e,
+            instrument_id = %instrument.id(),
+            "Residual computation failed; attribution may be incomplete"
+        );
+    }
 
     // Update metadata
     attribution.meta.num_repricings = num_repricings;

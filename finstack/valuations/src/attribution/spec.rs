@@ -7,6 +7,7 @@ use super::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_compat,
     attribute_pnl_waterfall, AttributionMethod, JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
 };
+use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::json_loader::InstrumentJson;
 use crate::metrics::MetricId;
 use finstack_core::{
@@ -129,14 +130,20 @@ impl AttributionSpec {
     pub fn execute(&self) -> Result<AttributionResult> {
         // Reconstruct instrument from JSON
         let instrument = self.instrument.clone().into_boxed()?;
-        let instrument_arc = std::sync::Arc::from(instrument);
+        let instrument_arc: std::sync::Arc<dyn Instrument> = std::sync::Arc::from(instrument);
 
         // Reconstruct market contexts
         let market_t0 = MarketContext::try_from(self.market_t0.clone())?;
         let market_t1 = MarketContext::try_from(self.market_t1.clone())?;
 
+        // Determine instrument currency for config (avoids hardcoding USD)
+        let instrument_ccy = instrument_arc
+            .value(&market_t0, self.as_of_t0)
+            .ok()
+            .map(|m| m.currency());
+
         // Build config (defaults unless overridden)
-        let config = self.build_finstack_config();
+        let config = self.build_finstack_config(instrument_ccy);
 
         // Determine strict validation
         let strict_validation = self
@@ -246,21 +253,15 @@ impl AttributionSpec {
 }
 
 impl AttributionSpec {
-    fn build_finstack_config(&self) -> FinstackConfig {
+    fn build_finstack_config(&self, instrument_ccy: Option<Currency>) -> FinstackConfig {
         let mut config = FinstackConfig::default();
 
         if let Some(ref cfg) = self.config {
             if let Some(scale) = cfg.rounding_scale {
-                config
-                    .rounding
-                    .output_scale
-                    .overrides
-                    .insert(Currency::USD, scale);
-                config
-                    .rounding
-                    .ingest_scale
-                    .overrides
-                    .insert(Currency::USD, scale);
+                if let Some(ccy) = instrument_ccy {
+                    config.rounding.output_scale.overrides.insert(ccy, scale);
+                    config.rounding.ingest_scale.overrides.insert(ccy, scale);
+                }
             }
             if let Some(rate_bump_bp) = cfg.rate_bump_bp {
                 config.extensions.insert(

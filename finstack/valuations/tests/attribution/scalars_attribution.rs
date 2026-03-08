@@ -13,7 +13,7 @@ use finstack_valuations::instruments::Instrument;
 
 #[test]
 fn test_scalars_snapshot_extraction() {
-    use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
+    use finstack_valuations::attribution::{restore_scalars, ScalarsSnapshot};
 
     // Create market with various scalars
     let market = MarketContext::new()
@@ -49,7 +49,7 @@ fn test_scalars_snapshot_extraction() {
 
 #[test]
 fn test_market_scalar_freeze_restore() {
-    use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
+    use finstack_valuations::attribution::{restore_scalars, ScalarsSnapshot};
 
     // Market at T₀ with lower prices
     let market_t0 = MarketContext::new().insert_price(
@@ -78,7 +78,7 @@ fn test_market_scalar_freeze_restore() {
 
 #[test]
 fn test_equity_price_id_uses_restored_scalar_price() {
-    use finstack_valuations::attribution::{restore_scalars, MarketExtractable, ScalarsSnapshot};
+    use finstack_valuations::attribution::{restore_scalars, ScalarsSnapshot};
 
     let equity = Equity::new("AAPL", "AAPL", Currency::USD)
         .with_price_id("AAPL-SPOT")

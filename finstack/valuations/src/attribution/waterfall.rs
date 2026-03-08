@@ -143,6 +143,7 @@ pub fn default_waterfall_order() -> Vec<AttributionFactor> {
 /// # }
 /// ```
 #[allow(clippy::too_many_arguments)]
+#[tracing::instrument(skip_all, fields(instrument_id = %instrument.id(), method = "waterfall"))]
 pub fn attribute_pnl_waterfall(
     instrument: &Arc<dyn Instrument>,
     market_t0: &MarketContext,
@@ -276,8 +277,13 @@ fn attribute_pnl_waterfall_impl(
     }
 
     // Compute residual (should be minimal for waterfall)
-    // Ignore error as notes will be populated
-    let _ = attribution.compute_residual();
+    if let Err(e) = attribution.compute_residual() {
+        tracing::warn!(
+            error = %e,
+            instrument_id = %instrument.id(),
+            "Residual computation failed; attribution may be incomplete"
+        );
+    }
 
     // Update metadata
     attribution.meta.num_repricings = ctx.num_repricings();
@@ -305,11 +311,31 @@ impl<'a> WaterfallContext<'a> {
     }
 
     fn apply_factor(&mut self, factor: &AttributionFactor) -> Result<Money> {
+        let _span = tracing::info_span!("waterfall_factor", factor = %factor).entered();
         let prev_val = self.current_val;
         let base_currency = prev_val.currency();
 
         if matches!(factor, AttributionFactor::ModelParameters) {
             return self.apply_model_params(prev_val, base_currency, factor);
+        }
+
+        // Carry only changes the date, not the market — skip the clone
+        if matches!(factor, AttributionFactor::Carry) {
+            let new_val = reprice_instrument(
+                &self.current_instrument,
+                &self.current_market,
+                self.as_of_t1,
+            )?;
+            self.num_repricings += 1;
+            let factor_pnl = compute_pnl(
+                prev_val,
+                new_val,
+                base_currency,
+                &self.current_market,
+                self.as_of_t1,
+            )?;
+            self.update_current_value(prev_val, factor_pnl)?;
+            return Ok(factor_pnl);
         }
 
         let new_market = self.build_market_for_factor(factor)?;

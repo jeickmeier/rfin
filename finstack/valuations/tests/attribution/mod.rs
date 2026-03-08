@@ -12,6 +12,7 @@
 //! - `serialization_roundtrip`: JSON serialization tests
 
 mod bond_attribution;
+mod factors_snapshot;
 mod fx_attribution;
 mod invariants;
 mod metrics_based_convexity;
@@ -19,6 +20,7 @@ mod model_params_attribution;
 mod quantlib_parity;
 mod scalars_attribution;
 mod serialization_roundtrip;
+mod types_pnl;
 
 // Note: rounding_policy.rs and spec_tests.rs use pub(crate) test utilities
 // or have other issues and are tested within the library via `cargo test`

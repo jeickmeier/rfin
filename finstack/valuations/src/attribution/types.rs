@@ -19,6 +19,7 @@ use crate::results::ValuationResult;
 
 use serde::{Deserialize, Serialize};
 
+use crate::attribution::json_envelope::JsonEnvelope;
 use crate::attribution::taylor::TaylorAttributionConfig;
 
 /// Attribution methodology for decomposing P&L.
@@ -102,91 +103,11 @@ pub enum AttributionFactor {
 /// Input parameters for P&L attribution.
 ///
 /// Consolidates common parameters used across all attribution methods
-/// (parallel, waterfall, metrics-based) to reduce function parameter counts
-/// and improve API ergonomics.
+/// (parallel, waterfall, metrics-based) to reduce function parameter counts.
 ///
-/// # Method-Specific Parameters
-///
-/// Different attribution methods use different subsets of these parameters:
-///
-/// - **Parallel**: Uses `config` and `model_params_t0`
-/// - **Waterfall**: Uses `config`, `model_params_t0`, and `strict_validation`
-/// - **MetricsBased**: Uses `val_t0` and `val_t1`
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use finstack_valuations::attribution::AttributionMethod;
-/// use finstack_valuations::attribution::AttributionInput;
-/// use finstack_valuations::attribution::default_attribution_metrics;
-/// use finstack_valuations::instruments::rates::deposit::Deposit;
-/// use finstack_core::config::FinstackConfig;
-/// use finstack_core::currency::Currency;
-/// use finstack_core::market_data::context::MarketContext;
-/// use finstack_core::money::Money;
-/// use std::sync::Arc;
-/// use time::macros::date;
-///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let as_of_t0 = date!(2024-01-01);
-/// let as_of_t1 = date!(2024-01-02);
-/// let market_t0 = MarketContext::new();
-/// let market_t1 = MarketContext::new();
-/// let config = FinstackConfig::default();
-///
-/// let instrument = Arc::new(
-///     Deposit::builder()
-///         .id("DEP-1D".into())
-///         .notional(Money::new(1_000_000.0, Currency::USD))
-///         .start_date(as_of_t0)
-///         .maturity(as_of_t1)
-///         .day_count(finstack_core::dates::DayCount::Act360)
-///         .discount_curve_id("USD-OIS".into())
-///         .build()
-///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn finstack_valuations::instruments::Instrument>;
-///
-/// // Parallel attribution
-/// let input = AttributionInput {
-///     instrument: &instrument,
-///     market_t0: &market_t0,
-///     market_t1: &market_t1,
-///     as_of_t0,
-///     as_of_t1,
-///     config: Some(&config),
-///     model_params_t0: None,
-///     val_t0: None,
-///     val_t1: None,
-///     strict_validation: false,
-/// };
-///
-/// // `AttributionInput` is consumed by internal implementations; public entrypoints
-/// // accept the same fields as direct parameters (e.g. `attribute_pnl_parallel`).
-/// let _method = AttributionMethod::Parallel;
-/// let _input_parallel = input;
-///
-/// // Metrics-based attribution
-/// let metrics = default_attribution_metrics();
-/// let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics)?;
-/// let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics)?;
-/// let input = AttributionInput {
-///     instrument: &instrument,
-///     market_t0: &market_t0,
-///     market_t1: &market_t1,
-///     as_of_t0,
-///     as_of_t1,
-///     config: None,
-///     model_params_t0: None,
-///     val_t0: Some(&val_t0),
-///     val_t1: Some(&val_t1),
-///     strict_validation: false,
-/// };
-///
-/// let _method = AttributionMethod::MetricsBased;
-/// let _input_metrics = input;
-/// # Ok(())
-/// # }
-/// ```
+/// Different methods use different subsets:
+/// - **Parallel/Waterfall**: `config`, `model_params_t0`
+/// - **MetricsBased**: `val_t0`, `val_t1`
 #[derive(Clone)]
 pub struct AttributionInput<'a> {
     /// Instrument to attribute P&L for.
@@ -654,97 +575,48 @@ impl PnlAttribution {
         self.market_scalars_pnl *= factor;
         self.residual *= factor;
 
-        // Scale details if present
         if let Some(d) = &mut self.carry_detail {
             d.total *= factor;
-            if let Some(v) = &mut d.theta {
-                *v *= factor;
-            }
-            if let Some(v) = &mut d.roll_down {
-                *v *= factor;
-            }
+            scale_money_opt(&mut d.theta, factor);
+            scale_money_opt(&mut d.roll_down, factor);
         }
-
         if let Some(d) = &mut self.rates_detail {
-            for v in d.by_curve.values_mut() {
-                *v *= factor;
-            }
-            for v in d.by_tenor.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.by_curve, factor);
+            scale_money_map(&mut d.by_tenor, factor);
             d.discount_total *= factor;
             d.forward_total *= factor;
         }
-
         if let Some(d) = &mut self.credit_detail {
-            for v in d.by_curve.values_mut() {
-                *v *= factor;
-            }
-            for v in d.by_tenor.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.by_curve, factor);
+            scale_money_map(&mut d.by_tenor, factor);
         }
-
         if let Some(d) = &mut self.inflation_detail {
-            for v in d.by_curve.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.by_curve, factor);
             if let Some(bt) = &mut d.by_tenor {
-                for v in bt.values_mut() {
-                    *v *= factor;
-                }
+                scale_money_map(bt, factor);
             }
         }
-
         if let Some(d) = &mut self.correlations_detail {
-            for v in d.by_curve.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.by_curve, factor);
         }
-
         if let Some(d) = &mut self.fx_detail {
-            for v in d.by_pair.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.by_pair, factor);
         }
-
         if let Some(d) = &mut self.vol_detail {
-            for v in d.by_surface.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.by_surface, factor);
         }
-
         if let Some(d) = &mut self.model_params_detail {
-            if let Some(v) = &mut d.prepayment {
-                *v *= factor;
-            }
-            if let Some(v) = &mut d.default_rate {
-                *v *= factor;
-            }
-            if let Some(v) = &mut d.recovery_rate {
-                *v *= factor;
-            }
-            if let Some(v) = &mut d.conversion_ratio {
-                *v *= factor;
-            }
-            for v in d.other.values_mut() {
-                *v *= factor;
-            }
+            scale_money_opt(&mut d.prepayment, factor);
+            scale_money_opt(&mut d.default_rate, factor);
+            scale_money_opt(&mut d.recovery_rate, factor);
+            scale_money_opt(&mut d.conversion_ratio, factor);
+            scale_money_map(&mut d.other, factor);
         }
-
         if let Some(d) = &mut self.scalars_detail {
-            for v in d.dividends.values_mut() {
-                *v *= factor;
-            }
-            for v in d.inflation.values_mut() {
-                *v *= factor;
-            }
-            for v in d.equity_prices.values_mut() {
-                *v *= factor;
-            }
-            for v in d.commodity_prices.values_mut() {
-                *v *= factor;
-            }
+            scale_money_map(&mut d.dividends, factor);
+            scale_money_map(&mut d.inflation, factor);
+            scale_money_map(&mut d.equity_prices, factor);
+            scale_money_map(&mut d.commodity_prices, factor);
         }
     }
 
@@ -768,12 +640,12 @@ impl PnlAttribution {
             ("market_scalars", self.market_scalars_pnl.currency()),
         ];
 
-        for (_name, ccy) in &factors {
+        for (name, ccy) in &factors {
             if *ccy != expected {
-                return Err(Error::CurrencyMismatch {
-                    expected,
-                    actual: *ccy,
-                });
+                return Err(Error::Validation(format!(
+                    "Currency mismatch in '{}' factor: expected {}, got {}",
+                    name, expected, ccy
+                )));
             }
         }
 
@@ -1085,696 +957,22 @@ impl std::fmt::Display for AttributionFactor {
     }
 }
 
+fn scale_money_map<K: std::hash::Hash + Eq>(map: &mut IndexMap<K, Money>, factor: f64) {
+    for v in map.values_mut() {
+        *v *= factor;
+    }
+}
+
+fn scale_money_opt(opt: &mut Option<Money>, factor: f64) {
+    if let Some(v) = opt {
+        *v *= factor;
+    }
+}
+
 fn add_factor(sum: Money, value: Money, label: &str, notes: &mut Vec<String>) -> Result<Money> {
     sum.checked_add(value).map_err(|e| {
         let note = format!("Failed to add {}: {}", label, e);
         notes.push(note.clone());
         e
     })
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
-mod tests {
-    use super::*;
-    use time::macros::date;
-
-    #[test]
-    fn test_pnl_attribution_new() {
-        let total = Money::new(1000.0, Currency::USD);
-        let attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        assert_eq!(attr.total_pnl, total);
-        assert_eq!(attr.carry.amount(), 0.0);
-        assert_eq!(attr.residual, total);
-        assert_eq!(attr.meta.residual_pct, 100.0);
-    }
-
-    #[test]
-    fn test_compute_residual() {
-        let total = Money::new(1000.0, Currency::USD);
-        let mut attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        attr.carry = Money::new(100.0, Currency::USD);
-        attr.rates_curves_pnl = Money::new(500.0, Currency::USD);
-        attr.fx_pnl = Money::new(390.0, Currency::USD);
-
-        attr.compute_residual()
-            .expect("Residual computation should succeed in test");
-
-        assert_eq!(attr.residual.amount(), 10.0); // 1000 - 100 - 500 - 390
-        assert!((attr.meta.residual_pct - 1.0).abs() < 1e-10); // 10/1000 * 100
-    }
-
-    #[test]
-    fn test_residual_tolerance() {
-        let total = Money::new(10000.0, Currency::USD);
-        let mut attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        attr.carry = Money::new(9990.0, Currency::USD);
-        attr.compute_residual()
-            .expect("Residual computation should succeed in test");
-
-        // Residual is 10.0
-        // 0.1% of 10000 = 10, so should pass
-        assert!(attr.residual_within_tolerance(0.1, 100.0));
-
-        // But not 0.05% tolerance (= 5.0)
-        assert!(!attr.residual_within_tolerance(0.05, 5.0));
-
-        // Absolute tolerance of 100 should pass
-        assert!(attr.residual_within_tolerance(0.01, 100.0));
-    }
-
-    #[test]
-    fn test_currency_validation() {
-        let total = Money::new(1000.0, Currency::USD);
-        let mut attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        // Valid - all USD
-        assert!(attr.validate_currencies().is_ok());
-
-        // Invalid - inject EUR
-        attr.fx_pnl = Money::new(100.0, Currency::EUR);
-        assert!(attr.validate_currencies().is_err());
-
-        // Compute residual should handle gracefully
-        let result = attr.compute_residual();
-        assert!(result.is_err());
-        assert!(!attr.meta.notes.is_empty());
-        assert_eq!(attr.residual.amount(), 0.0);
-    }
-
-    #[test]
-    fn test_zero_total_pnl_with_nonzero_factors() {
-        // Edge case: total P&L is zero but individual factors have non-zero values
-        // (e.g., carry and rates cancel out)
-        let total = Money::new(0.0, Currency::USD);
-        let mut attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        // Carry and rates cancel out
-        attr.carry = Money::new(100.0, Currency::USD);
-        attr.rates_curves_pnl = Money::new(-100.0, Currency::USD);
-
-        attr.compute_residual()
-            .expect("Residual computation should succeed with zero total P&L");
-
-        // Residual should be zero (100 + (-100) = 0, matches total)
-        assert_eq!(attr.residual.amount(), 0.0);
-
-        // Residual percentage should be 0 (not NaN or Inf) when total is zero
-        assert!(!attr.meta.residual_pct.is_nan());
-        assert!(!attr.meta.residual_pct.is_infinite());
-        assert_eq!(attr.meta.residual_pct, 0.0);
-
-        // Tolerance check should pass (residual is zero)
-        assert!(attr.residual_within_tolerance(0.01, 0.01));
-    }
-
-    #[test]
-    fn test_zero_total_pnl_with_nonzero_residual() {
-        // Edge case: total P&L is zero but factors don't sum to zero
-        // This can happen due to cross-effects in parallel attribution
-        let total = Money::new(0.0, Currency::USD);
-        let mut attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        // Factors sum to 50, but total is 0 → residual = -50
-        attr.carry = Money::new(100.0, Currency::USD);
-        attr.rates_curves_pnl = Money::new(-50.0, Currency::USD);
-
-        attr.compute_residual()
-            .expect("Residual computation should succeed");
-
-        // Residual = 0 - (100 + -50) = -50
-        assert_eq!(attr.residual.amount(), -50.0);
-
-        // Residual percentage should be 0 when total is zero (avoids division by zero)
-        assert!(!attr.meta.residual_pct.is_nan());
-        assert!(!attr.meta.residual_pct.is_infinite());
-        assert_eq!(attr.meta.residual_pct, 0.0);
-
-        // Tolerance check should use absolute tolerance when total is zero
-        assert!(!attr.residual_within_tolerance(0.01, 10.0)); // abs(50) > 10
-        assert!(attr.residual_within_tolerance(0.01, 100.0)); // abs(50) < 100
-    }
-
-    #[test]
-    fn test_pnl_attribution_json_envelope_trait() {
-        let total = Money::new(1000.0, Currency::USD);
-        let mut attr = PnlAttribution::new(
-            total,
-            "BOND-001",
-            date!(2025 - 01 - 15),
-            date!(2025 - 01 - 16),
-            AttributionMethod::Parallel,
-        );
-
-        // Set some values
-        attr.carry = Money::new(100.0, Currency::USD);
-        attr.rates_curves_pnl = Money::new(500.0, Currency::USD);
-        attr.fx_pnl = Money::new(390.0, Currency::USD);
-        attr.compute_residual()
-            .expect("Residual computation should succeed");
-
-        // Test to_json from JsonEnvelope trait
-        let json = attr.to_json().expect("to_json should succeed");
-        assert!(json.contains("BOND-001"));
-        assert!(json.contains("\"carry\""));
-
-        // Test from_json from JsonEnvelope trait
-        let parsed = PnlAttribution::from_json(&json).expect("from_json should succeed");
-        assert_eq!(parsed.total_pnl, attr.total_pnl);
-        assert_eq!(parsed.carry, attr.carry);
-        assert_eq!(parsed.rates_curves_pnl, attr.rates_curves_pnl);
-        assert_eq!(parsed.fx_pnl, attr.fx_pnl);
-        assert_eq!(parsed.residual.amount(), attr.residual.amount());
-
-        // Test from_reader from JsonEnvelope trait
-        let reader = std::io::Cursor::new(json.as_bytes());
-        let parsed_from_reader =
-            PnlAttribution::from_reader(reader).expect("from_reader should succeed");
-        assert_eq!(parsed_from_reader.total_pnl, attr.total_pnl);
-    }
-}
-
-/// Trait for types that can be serialized to/from JSON envelopes.
-///
-/// Provides default implementations for common JSON I/O operations with
-/// consistent error handling. Types implementing this trait must provide
-/// error conversion methods to map `serde_json` errors to domain-specific
-/// error types.
-///
-/// # Type Requirements
-///
-/// Implementors must:
-/// - Implement `serde::Serialize` for JSON output
-/// - Implement `serde::de::DeserializeOwned` for JSON input
-/// - Provide `parse_error` to convert deserialization errors
-/// - Provide `serialize_error` to convert serialization errors
-///
-/// # Examples
-///
-/// ```rust,no_run
-/// use finstack_valuations::attribution::JsonEnvelope;
-/// use serde::{Deserialize, Serialize};
-///
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// #[derive(Serialize, Deserialize)]
-/// struct MyEnvelope {
-///     schema: String,
-///     data: String,
-/// }
-///
-/// impl JsonEnvelope for MyEnvelope {
-///     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-///         finstack_core::Error::Calibration {
-///             message: format!("Failed to parse envelope: {}", e),
-///             category: "json_parse".to_string(),
-///         }
-///     }
-///
-///     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-///         finstack_core::Error::Calibration {
-///             message: format!("Failed to serialize envelope: {}", e),
-///             category: "json_serialize".to_string(),
-///         }
-///     }
-/// }
-///
-/// // Now you can use the trait methods:
-/// let envelope = MyEnvelope {
-///     schema: "v1".to_string(),
-///     data: "test".to_string(),
-/// };
-///
-/// // Serialize to JSON string
-/// let json = envelope.to_json()?;
-///
-/// // Parse from JSON string
-/// let parsed = MyEnvelope::from_json(&json)?;
-///
-/// // Parse from reader
-/// let cursor = std::io::Cursor::new(json.as_bytes());
-/// let from_reader = MyEnvelope::from_reader(cursor)?;
-/// # let _ = (parsed, from_reader);
-/// # Ok(())
-/// # }
-/// ```
-///
-/// # Design Rationale
-///
-/// This trait eliminates boilerplate code for envelope types while maintaining:
-/// - **Type safety**: Uses associated error types rather than generic `serde_json::Error`
-/// - **Consistency**: All envelopes use the same serialization format (pretty-printed JSON)
-/// - **Flexibility**: Implementors control error messages and categories
-/// - **Ergonomics**: Three-line trait impl replaces ~30 lines of duplicate code per type
-///
-/// # Performance
-///
-/// JSON serialization is not optimized for performance. For high-throughput scenarios,
-/// consider binary formats (bincode, MessagePack) or zero-copy alternatives (flatbuffers).
-pub trait JsonEnvelope: Sized + Serialize + serde::de::DeserializeOwned {
-    /// Convert a JSON parsing error to the domain error type.
-    ///
-    /// # Arguments
-    ///
-    /// * `e` - The serde_json deserialization error
-    ///
-    /// # Returns
-    ///
-    /// Domain-specific error with context about the failure.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-    ///     finstack_core::Error::Calibration {
-    ///         message: format!("Failed to parse attribution envelope: {}", e),
-    ///         category: "json_parse".to_string(),
-    ///     }
-    /// }
-    /// ```
-    fn parse_error(e: serde_json::Error) -> finstack_core::Error;
-
-    /// Convert a JSON serialization error to the domain error type.
-    ///
-    /// # Arguments
-    ///
-    /// * `e` - The serde_json serialization error
-    ///
-    /// # Returns
-    ///
-    /// Domain-specific error with context about the failure.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-    ///     finstack_core::Error::Calibration {
-    ///         message: format!("Failed to serialize attribution envelope: {}", e),
-    ///         category: "json_serialize".to_string(),
-    ///     }
-    /// }
-    /// ```
-    fn serialize_error(e: serde_json::Error) -> finstack_core::Error;
-
-    /// Parse from a JSON string.
-    ///
-    /// Uses `serde_json::from_str` internally with custom error conversion.
-    ///
-    /// # Arguments
-    ///
-    /// * `json` - JSON string to parse
-    ///
-    /// # Returns
-    ///
-    /// Parsed instance or error if JSON is malformed or fields are missing.
-    ///
-    /// # Errors
-    ///
-    /// Returns error via `parse_error` if:
-    /// - JSON syntax is invalid
-    /// - Required fields are missing (for `#[serde(deny_unknown_fields)]` types)
-    /// - Type conversions fail
-    /// - Custom validation fails (for types with `#[serde(deserialize_with)]`)
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use finstack_valuations::attribution::JsonEnvelope;
-    /// # use serde::{Deserialize, Serialize};
-    /// #
-    /// # #[derive(Serialize, Deserialize)]
-    /// # struct MyEnvelope {
-    /// #     schema: String,
-    /// #     data: String,
-    /// # }
-    /// #
-    /// # impl JsonEnvelope for MyEnvelope {
-    /// #     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-    /// #         finstack_core::Error::Calibration {
-    /// #             message: format!("Failed to parse envelope: {}", e),
-    /// #             category: "json_parse".to_string(),
-    /// #         }
-    /// #     }
-    /// #
-    /// #     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-    /// #         finstack_core::Error::Calibration {
-    /// #             message: format!("Failed to serialize envelope: {}", e),
-    /// #             category: "json_serialize".to_string(),
-    /// #         }
-    /// #     }
-    /// # }
-    /// #
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let json = r#"{"schema":"v1","data":"test"}"#;
-    /// let envelope = MyEnvelope::from_json(json)?;
-    /// # let _ = envelope;
-    /// # Ok(())
-    /// # }
-    /// ```
-    fn from_json(json: &str) -> Result<Self> {
-        serde_json::from_str(json).map_err(Self::parse_error)
-    }
-
-    /// Parse from a reader (file, socket, buffer, etc.).
-    ///
-    /// Uses `serde_json::from_reader` internally with custom error conversion.
-    /// Efficient for large JSON payloads as it streams parsing.
-    ///
-    /// # Arguments
-    ///
-    /// * `reader` - Any type implementing `std::io::Read`
-    ///
-    /// # Returns
-    ///
-    /// Parsed instance or error if JSON is malformed or fields are missing.
-    ///
-    /// # Errors
-    ///
-    /// Same error conditions as `from_json`, plus I/O errors from the reader.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use finstack_valuations::attribution::JsonEnvelope;
-    /// # use serde::{Deserialize, Serialize};
-    /// #
-    /// # #[derive(Serialize, Deserialize)]
-    /// # struct MyEnvelope {
-    /// #     schema: String,
-    /// #     data: String,
-    /// # }
-    /// #
-    /// # impl JsonEnvelope for MyEnvelope {
-    /// #     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-    /// #         finstack_core::Error::Calibration {
-    /// #             message: format!("Failed to parse envelope: {}", e),
-    /// #             category: "json_parse".to_string(),
-    /// #         }
-    /// #     }
-    /// #
-    /// #     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-    /// #         finstack_core::Error::Calibration {
-    /// #             message: format!("Failed to serialize envelope: {}", e),
-    /// #             category: "json_serialize".to_string(),
-    /// #         }
-    /// #     }
-    /// # }
-    /// #
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let json = r#"{"schema":"v1","data":"test"}"#;
-    /// let cursor = std::io::Cursor::new(json.as_bytes());
-    /// let envelope = MyEnvelope::from_reader(cursor)?;
-    /// # let _ = envelope;
-    /// # Ok(())
-    /// # }
-    /// ```
-    fn from_reader<R: std::io::Read>(reader: R) -> Result<Self> {
-        serde_json::from_reader(reader).map_err(Self::parse_error)
-    }
-
-    /// Serialize to a pretty-printed JSON string.
-    ///
-    /// Uses `serde_json::to_string_pretty` for human-readable output with
-    /// 2-space indentation. For compact JSON, use `serde_json::to_string(self)`
-    /// directly.
-    ///
-    /// # Returns
-    ///
-    /// JSON string with proper formatting or error if serialization fails.
-    ///
-    /// # Errors
-    ///
-    /// Returns error via `serialize_error` if:
-    /// - Circular references detected (should not happen with finite types)
-    /// - Custom serialization logic fails
-    /// - Very rare serde_json internal errors
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// # use finstack_valuations::attribution::JsonEnvelope;
-    /// # use serde::{Deserialize, Serialize};
-    /// #
-    /// # #[derive(Serialize, Deserialize)]
-    /// # struct MyEnvelope {
-    /// #     schema: String,
-    /// #     data: String,
-    /// # }
-    /// #
-    /// # impl JsonEnvelope for MyEnvelope {
-    /// #     fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-    /// #         finstack_core::Error::Calibration {
-    /// #             message: format!("Failed to parse envelope: {}", e),
-    /// #             category: "json_parse".to_string(),
-    /// #         }
-    /// #     }
-    /// #
-    /// #     fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-    /// #         finstack_core::Error::Calibration {
-    /// #             message: format!("Failed to serialize envelope: {}", e),
-    /// #             category: "json_serialize".to_string(),
-    /// #         }
-    /// #     }
-    /// # }
-    /// #
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let envelope = MyEnvelope { schema: "v1".to_string(), data: "test".to_string() };
-    /// let json = envelope.to_json()?;
-    /// println!("{}", json);  // Pretty-printed with indentation
-    /// # Ok(())
-    /// # }
-    /// ```
-    fn to_json(&self) -> Result<String> {
-        serde_json::to_string_pretty(self).map_err(Self::serialize_error)
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
-mod json_envelope_tests {
-    use super::*;
-
-    /// Test envelope type to verify JsonEnvelope trait functionality.
-    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-    struct TestEnvelope {
-        schema: String,
-        data: String,
-        number: i32,
-    }
-
-    impl JsonEnvelope for TestEnvelope {
-        fn parse_error(e: serde_json::Error) -> finstack_core::Error {
-            finstack_core::Error::Calibration {
-                message: format!("Failed to parse test envelope: {}", e),
-                category: "test_parse".to_string(),
-            }
-        }
-
-        fn serialize_error(e: serde_json::Error) -> finstack_core::Error {
-            finstack_core::Error::Calibration {
-                message: format!("Failed to serialize test envelope: {}", e),
-                category: "test_serialize".to_string(),
-            }
-        }
-    }
-
-    #[test]
-    fn test_json_envelope_roundtrip() {
-        let envelope = TestEnvelope {
-            schema: "test/v1".to_string(),
-            data: "test data".to_string(),
-            number: 42,
-        };
-
-        // Serialize to JSON
-        let json = envelope.to_json().expect("Serialization should succeed");
-        assert!(json.contains("\"schema\""));
-        assert!(json.contains("\"test/v1\""));
-        assert!(json.contains("\"data\""));
-        assert!(json.contains("\"test data\""));
-        assert!(json.contains("\"number\""));
-        assert!(json.contains("42"));
-
-        // Parse back from JSON
-        let parsed = TestEnvelope::from_json(&json).expect("Deserialization should succeed");
-        assert_eq!(parsed.schema, envelope.schema);
-        assert_eq!(parsed.data, envelope.data);
-        assert_eq!(parsed.number, envelope.number);
-    }
-
-    #[test]
-    fn test_json_envelope_from_reader() {
-        let envelope = TestEnvelope {
-            schema: "test/v1".to_string(),
-            data: "reader test".to_string(),
-            number: 123,
-        };
-
-        // Serialize to JSON
-        let json = envelope.to_json().expect("Serialization should succeed");
-
-        // Create a reader from the JSON string
-        let cursor = std::io::Cursor::new(json.as_bytes());
-
-        // Parse from reader
-        let parsed =
-            TestEnvelope::from_reader(cursor).expect("Deserialization from reader should succeed");
-        assert_eq!(parsed.schema, envelope.schema);
-        assert_eq!(parsed.data, envelope.data);
-        assert_eq!(parsed.number, envelope.number);
-    }
-
-    #[test]
-    fn test_json_envelope_parse_error() {
-        let invalid_json = r#"{"schema": "test/v1", "data": "test", "number": "not a number"}"#;
-
-        let result = TestEnvelope::from_json(invalid_json);
-        assert!(result.is_err());
-
-        // Verify error message contains expected details
-        let err = result.expect_err("Expected error from invalid JSON");
-        if let finstack_core::Error::Calibration { message, category } = err {
-            assert!(message.contains("Failed to parse test envelope"));
-            assert_eq!(category, "test_parse");
-        } else {
-            panic!("Expected Calibration error, got: {:?}", err);
-        }
-    }
-
-    #[test]
-    fn test_json_envelope_missing_fields() {
-        let incomplete_json = r#"{"schema": "test/v1"}"#;
-
-        let result = TestEnvelope::from_json(incomplete_json);
-        assert!(result.is_err());
-
-        let err = result.expect_err("Expected error from incomplete JSON");
-        if let finstack_core::Error::Calibration { message, category } = err {
-            assert!(message.contains("Failed to parse test envelope"));
-            assert_eq!(category, "test_parse");
-        } else {
-            panic!("Expected Calibration error, got: {:?}", err);
-        }
-    }
-
-    #[test]
-    fn test_json_envelope_malformed_json() {
-        let malformed_json = r#"{"schema": "test/v1", "data": "test", "number": 42"#; // Missing closing brace
-
-        let result = TestEnvelope::from_json(malformed_json);
-        assert!(result.is_err());
-
-        let err = result.expect_err("Expected error from malformed JSON");
-        if let finstack_core::Error::Calibration { message, category } = err {
-            assert!(message.contains("Failed to parse test envelope"));
-            assert_eq!(category, "test_parse");
-        } else {
-            panic!("Expected Calibration error, got: {:?}", err);
-        }
-    }
-
-    #[test]
-    fn test_json_envelope_reader_io_error() {
-        // Create a reader that will fail
-        struct FailingReader;
-        impl std::io::Read for FailingReader {
-            fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-                Err(std::io::Error::other("Simulated I/O error"))
-            }
-        }
-
-        let result = TestEnvelope::from_reader(FailingReader);
-        assert!(result.is_err());
-
-        let err = result.expect_err("Expected error from I/O failure");
-        if let finstack_core::Error::Calibration { message, .. } = err {
-            assert!(message.contains("Failed to parse test envelope"));
-        } else {
-            panic!("Expected Calibration error, got: {:?}", err);
-        }
-    }
-
-    #[test]
-    fn test_json_envelope_pretty_printing() {
-        let envelope = TestEnvelope {
-            schema: "test/v1".to_string(),
-            data: "test".to_string(),
-            number: 42,
-        };
-
-        let json = envelope.to_json().expect("Serialization should succeed");
-
-        // Verify pretty-printing (should have newlines and indentation)
-        assert!(json.contains('\n'));
-        assert!(json.lines().count() > 1);
-
-        // Should be parseable
-        let parsed = TestEnvelope::from_json(&json).expect("Parsing pretty JSON should succeed");
-        assert_eq!(parsed, envelope);
-    }
-
-    #[test]
-    fn test_json_envelope_equivalence() {
-        let envelope1 = TestEnvelope {
-            schema: "test/v1".to_string(),
-            data: "data1".to_string(),
-            number: 100,
-        };
-
-        let envelope2 = TestEnvelope {
-            schema: "test/v1".to_string(),
-            data: "data1".to_string(),
-            number: 100,
-        };
-
-        let json1 = envelope1.to_json().expect("Serialization should succeed");
-        let json2 = envelope2.to_json().expect("Serialization should succeed");
-
-        // JSON should be identical for identical structs
-        assert_eq!(json1, json2);
-
-        // Both should parse to equivalent structs
-        let parsed1 = TestEnvelope::from_json(&json1).expect("Parse should succeed");
-        let parsed2 = TestEnvelope::from_json(&json2).expect("Parse should succeed");
-        assert_eq!(parsed1, parsed2);
-        assert_eq!(parsed1, envelope1);
-    }
 }

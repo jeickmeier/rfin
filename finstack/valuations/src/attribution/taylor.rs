@@ -102,6 +102,10 @@ pub struct TaylorAttributionResult {
     pub factors: Vec<TaylorFactorResult>,
     /// Number of repricings performed (bump-and-reprice calls).
     pub num_repricings: usize,
+    /// Present value at T0 (cached to avoid redundant repricing in compat layer).
+    pub pv_t0: Money,
+    /// Present value at T1 (cached to avoid redundant repricing in compat layer).
+    pub pv_t1: Money,
 }
 
 /// Compute Taylor-based P&L attribution.
@@ -209,6 +213,8 @@ pub fn attribute_pnl_taylor(
         unexplained_pct,
         factors,
         num_repricings,
+        pv_t0,
+        pv_t1,
     })
 }
 
@@ -227,9 +233,13 @@ pub fn attribute_pnl_taylor_compat(
     let taylor =
         attribute_pnl_taylor(instrument, market_t0, market_t1, as_of_t0, as_of_t1, config)?;
 
-    let pv_t0 = reprice_instrument(instrument, market_t0, as_of_t0)?;
-    let pv_t1 = reprice_instrument(instrument, market_t1, as_of_t1)?;
-    let total_pnl = compute_pnl(pv_t0, pv_t1, pv_t1.currency(), market_t1, as_of_t1)?;
+    let total_pnl = compute_pnl(
+        taylor.pv_t0,
+        taylor.pv_t1,
+        taylor.pv_t1.currency(),
+        market_t1,
+        as_of_t1,
+    )?;
 
     let ccy = total_pnl.currency();
     let mut attribution = PnlAttribution::new(
@@ -267,7 +277,13 @@ pub fn attribute_pnl_taylor_compat(
         }
     }
 
-    let _ = attribution.compute_residual();
+    if let Err(e) = attribution.compute_residual() {
+        tracing::warn!(
+            error = %e,
+            instrument_id = %instrument.id(),
+            "Taylor compat: residual computation failed"
+        );
+    }
 
     attribution.meta.num_repricings = taylor.num_repricings;
     attribution.meta.tolerance_abs = 10.0;
