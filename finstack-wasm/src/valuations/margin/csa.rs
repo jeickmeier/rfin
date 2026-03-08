@@ -43,18 +43,18 @@ impl JsCsaSpec {
     /// - SIMM for IM
     /// - Cash and government bonds as eligible collateral
     #[wasm_bindgen(js_name = usdRegulatory)]
-    pub fn usd_regulatory() -> JsCsaSpec {
-        JsCsaSpec {
-            inner: CsaSpec::usd_regulatory(),
-        }
+    pub fn usd_regulatory() -> Result<JsCsaSpec, JsValue> {
+        Ok(JsCsaSpec {
+            inner: CsaSpec::usd_regulatory().map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Create a standard regulatory CSA for EUR derivatives.
     #[wasm_bindgen(js_name = eurRegulatory)]
-    pub fn eur_regulatory() -> JsCsaSpec {
-        JsCsaSpec {
-            inner: CsaSpec::eur_regulatory(),
-        }
+    pub fn eur_regulatory() -> Result<JsCsaSpec, JsValue> {
+        Ok(JsCsaSpec {
+            inner: CsaSpec::eur_regulatory().map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Create a custom CSA specification.

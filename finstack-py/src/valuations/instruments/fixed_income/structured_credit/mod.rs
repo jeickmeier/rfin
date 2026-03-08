@@ -20,7 +20,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     CreditFactors, CreditModelConfig, DealType, DefaultAssumptions, MarketConditions,
     Metadata as DealMetadata, Overrides as DealOverrides, Pool, Seniority, StructuredCredit,
-    TrancheStructure, TrancheValuationExt,
+    TrancheStructure,
 };
 use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::exceptions::{PyTypeError, PyValueError};

@@ -74,6 +74,11 @@ pub fn build_bond_instrument(
             let flows = <Bond as CashflowProvider>::build_dated_flows(&bond, market, ctx.as_of())?;
             let dirty_price_ccy =
                 dirty_price_from_ytm_with_frequency_ctx(&bond, &flows, quote_ctx.quote_date, *ytm)?;
+            if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {
+                return Err(finstack_core::Error::Validation(
+                    "bond notional must be non-zero for price conversion".to_string(),
+                ));
+            }
             let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
                 / bond.notional.amount()
                 * 100.0;
@@ -113,6 +118,11 @@ pub fn build_bond_instrument(
                     quote_ctx.quote_date,
                     *z_spread,
                 )?;
+            if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {
+                return Err(finstack_core::Error::Validation(
+                    "bond notional must be non-zero for price conversion".to_string(),
+                ));
+            }
             let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
                 / bond.notional.amount()
                 * 100.0;
@@ -150,6 +160,11 @@ pub fn build_bond_instrument(
                     quote_ctx.quote_date,
                     *oas,
                 )?;
+            if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {
+                return Err(finstack_core::Error::Validation(
+                    "bond notional must be non-zero for price conversion".to_string(),
+                ));
+            }
             let clean_price_pct = (dirty_price_ccy - quote_ctx.accrued_at_quote_date)
                 / bond.notional.amount()
                 * 100.0;

@@ -82,8 +82,9 @@ impl std::str::FromStr for RepoMarginType {
 ///     pays_margin_interest: true,
 ///     margin_interest_rate: Some(0.05),
 ///     substitution_allowed: true,
-///     eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()),
+///     eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()?),
 /// };
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 ///
 /// # GMRA 2011 References
@@ -164,57 +165,72 @@ impl RepoMarginSpec {
     }
 
     /// Create a standard mark-to-market margin spec.
-    #[must_use]
-    pub fn mark_to_market(margin_ratio: f64, threshold: f64) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn mark_to_market(margin_ratio: f64, threshold: f64) -> finstack_core::Result<Self> {
+        Ok(Self {
             margin_type: RepoMarginType::MarkToMarket,
             margin_ratio,
             margin_call_threshold: threshold,
             call_frequency: MarginTenor::Daily,
             settlement_lag: 1,
             pays_margin_interest: true,
-            margin_interest_rate: None, // Set from market data
+            margin_interest_rate: None,
             substitution_allowed: true,
-            eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()),
-        }
+            eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()?),
+        })
     }
 
     /// Create a standard mark-to-market margin spec using typed percentages.
-    #[must_use]
-    pub fn mark_to_market_pct(margin_ratio: Percentage, threshold: Percentage) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn mark_to_market_pct(
+        margin_ratio: Percentage,
+        threshold: Percentage,
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             margin_type: RepoMarginType::MarkToMarket,
             margin_ratio: margin_ratio.as_decimal(),
             margin_call_threshold: threshold.as_decimal(),
             call_frequency: MarginTenor::Daily,
             settlement_lag: 1,
             pays_margin_interest: true,
-            margin_interest_rate: None, // Set from market data
+            margin_interest_rate: None,
             substitution_allowed: true,
-            eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()),
-        }
+            eligible_substitutes: Some(EligibleCollateralSchedule::us_treasuries()?),
+        })
     }
 
     /// Create a tri-party repo margin spec.
-    #[must_use]
-    pub fn triparty(margin_ratio: f64) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn triparty(margin_ratio: f64) -> finstack_core::Result<Self> {
+        Ok(Self {
             margin_type: RepoMarginType::Triparty,
             margin_ratio,
-            margin_call_threshold: 0.005, // Tighter threshold for tri-party
+            margin_call_threshold: 0.005,
             call_frequency: MarginTenor::Daily,
-            settlement_lag: 0, // Same-day for tri-party
+            settlement_lag: 0,
             pays_margin_interest: true,
             margin_interest_rate: None,
             substitution_allowed: true,
-            eligible_substitutes: Some(EligibleCollateralSchedule::bcbs_standard()),
-        }
+            eligible_substitutes: Some(EligibleCollateralSchedule::bcbs_standard()?),
+        })
     }
 
     /// Create a tri-party repo margin spec using a typed percentage.
-    #[must_use]
-    pub fn triparty_pct(margin_ratio: Percentage) -> Self {
-        Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn triparty_pct(margin_ratio: Percentage) -> finstack_core::Result<Self> {
+        Ok(Self {
             margin_type: RepoMarginType::Triparty,
             margin_ratio: margin_ratio.as_decimal(),
             margin_call_threshold: 0.005,
@@ -223,8 +239,8 @@ impl RepoMarginSpec {
             pays_margin_interest: true,
             margin_interest_rate: None,
             substitution_allowed: true,
-            eligible_substitutes: Some(EligibleCollateralSchedule::bcbs_standard()),
-        }
+            eligible_substitutes: Some(EligibleCollateralSchedule::bcbs_standard()?),
+        })
     }
 
     /// Check if this spec has active margin management.
@@ -299,21 +315,21 @@ mod tests {
 
     #[test]
     fn mark_to_market_has_margining() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         assert!(spec.has_margining());
         assert_eq!(spec.margin_type, RepoMarginType::MarkToMarket);
     }
 
     #[test]
     fn required_collateral_calculation() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         let required = spec.required_collateral(100_000_000.0);
         assert_eq!(required, 102_000_000.0);
     }
 
     #[test]
     fn margin_call_trigger() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         let trigger = spec.call_trigger_value(100_000_000.0);
         // 102M * 0.99 = 100.98M
         assert!((trigger - 100_980_000.0).abs() < 1.0);
@@ -321,7 +337,7 @@ mod tests {
 
     #[test]
     fn requires_margin_call_below_threshold() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         // Cash 100M, threshold 102M * 0.99 = 100.98M
         // Collateral at 100M should trigger call
         assert!(spec.requires_margin_call(100_000_000.0, 100_000_000.0));
@@ -331,7 +347,7 @@ mod tests {
 
     #[test]
     fn margin_deficit_calculation() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         let deficit = spec.margin_deficit(100_000_000.0, 100_000_000.0);
         // Need 102M, have 100M, deficit = 2M
         assert_eq!(deficit, 2_000_000.0);
@@ -339,7 +355,7 @@ mod tests {
 
     #[test]
     fn excess_collateral_calculation() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         let excess = spec.excess_collateral(100_000_000.0, 105_000_000.0);
         // Need 102M, have 105M, excess = 3M
         assert_eq!(excess, 3_000_000.0);
@@ -347,7 +363,7 @@ mod tests {
 
     #[test]
     fn triparty_spec() {
-        let spec = RepoMarginSpec::triparty(1.02);
+        let spec = RepoMarginSpec::triparty(1.02).expect("registry should load");
         assert_eq!(spec.margin_type, RepoMarginType::Triparty);
         assert_eq!(spec.settlement_lag, 0); // Same-day for tri-party
         assert!(spec.substitution_allowed);

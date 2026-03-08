@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheStructure, TrancheValuationExt,
+    TrancheStructure,
 };
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;

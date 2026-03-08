@@ -3,8 +3,6 @@
 //! Defines the CSA agreement terms that govern collateral exchange for
 //! OTC derivatives under ISDA documentation.
 
-#![allow(clippy::unwrap_used)]
-
 use super::collateral::EligibleCollateralSchedule;
 use super::enums::ImMethodology;
 use super::thresholds::{ImParameters, VmParameters};
@@ -36,18 +34,23 @@ pub struct MarginCallTiming {
 }
 
 impl Default for MarginCallTiming {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
-        let registry = embedded_registry().unwrap();
+        let registry =
+            embedded_registry().expect("embedded margin registry is a compile-time asset");
         registry.defaults.timing.standard.clone()
     }
 }
 
 impl MarginCallTiming {
     /// Standard timing for regulatory VM CSA.
-    #[must_use]
-    pub fn regulatory_standard() -> Self {
-        let registry = embedded_registry().unwrap();
-        registry.defaults.timing.regulatory_vm.clone()
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn regulatory_standard() -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(registry.defaults.timing.regulatory_vm.clone())
     }
 }
 
@@ -73,15 +76,18 @@ impl MarginCallTiming {
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// let csa = CsaSpec {
 ///     id: "USD-CSA-2024".to_string(),
 ///     base_currency: Currency::USD,
-///     vm_params: VmParameters::regulatory_standard(Currency::USD),
-///     im_params: Some(ImParameters::simm_standard(Currency::USD)),
-///     eligible_collateral: EligibleCollateralSchedule::bcbs_standard(),
-///     call_timing: MarginCallTiming::regulatory_standard(),
+///     vm_params: VmParameters::regulatory_standard(Currency::USD)?,
+///     im_params: Some(ImParameters::simm_standard(Currency::USD)?),
+///     eligible_collateral: EligibleCollateralSchedule::bcbs_standard()?,
+///     call_timing: MarginCallTiming::regulatory_standard()?,
 ///     collateral_curve_id: "USD-OIS".into(),
 /// };
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CsaSpec {
@@ -129,27 +135,37 @@ impl CsaSpec {
     /// - Daily margin exchange
     /// - SIMM for IM
     /// - Cash and government bonds as eligible collateral
-    #[must_use]
-    pub fn usd_regulatory() -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn usd_regulatory() -> Result<Self> {
         Self::regulatory_for_currency(Currency::USD, "USD-REGULATORY-CSA", "USD-OIS")
     }
 
     /// Create a standard regulatory CSA for EUR derivatives.
-    #[must_use]
-    pub fn eur_regulatory() -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn eur_regulatory() -> Result<Self> {
         Self::regulatory_for_currency(Currency::EUR, "EUR-REGULATORY-CSA", "EUR-ESTR")
     }
 
-    fn regulatory_for_currency(currency: Currency, id: &str, collateral_curve: &str) -> Self {
-        Self {
+    fn regulatory_for_currency(
+        currency: Currency,
+        id: &str,
+        collateral_curve: &str,
+    ) -> Result<Self> {
+        Ok(Self {
             id: id.to_string(),
             base_currency: currency,
-            vm_params: VmParameters::regulatory_standard(currency),
-            im_params: Some(ImParameters::simm_standard(currency)),
-            eligible_collateral: EligibleCollateralSchedule::bcbs_standard(),
-            call_timing: MarginCallTiming::regulatory_standard(),
+            vm_params: VmParameters::regulatory_standard(currency)?,
+            im_params: Some(ImParameters::simm_standard(currency)?),
+            eligible_collateral: EligibleCollateralSchedule::bcbs_standard()?,
+            call_timing: MarginCallTiming::regulatory_standard()?,
             collateral_curve_id: CurveId::new(collateral_curve),
-        }
+        })
     }
 
     /// Create a CSA using overrides resolved from a config.
@@ -198,8 +214,9 @@ impl CsaSpec {
 }
 
 impl Default for CsaSpec {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
-        Self::usd_regulatory()
+        Self::usd_regulatory().expect("embedded margin registry is a compile-time asset")
     }
 }
 
@@ -211,7 +228,7 @@ mod tests {
 
     #[test]
     fn usd_regulatory_csa() {
-        let csa = CsaSpec::usd_regulatory();
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
         assert_eq!(csa.base_currency, Currency::USD);
         assert_eq!(csa.vm_params.threshold, Money::new(0.0, Currency::USD));
         assert!(csa.requires_im());
@@ -219,7 +236,7 @@ mod tests {
 
     #[test]
     fn eur_regulatory_csa() {
-        let csa = CsaSpec::eur_regulatory();
+        let csa = CsaSpec::eur_regulatory().expect("registry should load");
         assert_eq!(csa.base_currency, Currency::EUR);
         assert_eq!(csa.collateral_curve_id.as_str(), "EUR-ESTR");
     }

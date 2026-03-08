@@ -36,10 +36,11 @@ impl JsMarginCallTiming {
 
     /// Standard timing for regulatory VM CSA.
     #[wasm_bindgen(js_name = regulatoryStandard)]
-    pub fn regulatory_standard() -> JsMarginCallTiming {
-        JsMarginCallTiming {
-            inner: MarginCallTiming::regulatory_standard(),
-        }
+    pub fn regulatory_standard() -> Result<JsMarginCallTiming, JsValue> {
+        Ok(JsMarginCallTiming {
+            inner: MarginCallTiming::regulatory_standard()
+                .map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Notification deadline (hours after valuation).
@@ -110,10 +111,11 @@ pub struct JsVmParameters {
 impl JsVmParameters {
     /// Create VM parameters with zero threshold (regulatory standard).
     #[wasm_bindgen(js_name = regulatoryStandard)]
-    pub fn regulatory_standard(currency: &JsCurrency) -> JsVmParameters {
-        JsVmParameters {
-            inner: VmParameters::regulatory_standard(currency.inner()),
-        }
+    pub fn regulatory_standard(currency: &JsCurrency) -> Result<JsVmParameters, JsValue> {
+        Ok(JsVmParameters {
+            inner: VmParameters::regulatory_standard(currency.inner())
+                .map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Create VM parameters with a custom threshold.
@@ -251,34 +253,38 @@ pub struct JsImParameters {
 impl JsImParameters {
     /// Create IM parameters using ISDA SIMM methodology.
     #[wasm_bindgen(js_name = simmStandard)]
-    pub fn simm_standard(currency: &JsCurrency) -> JsImParameters {
-        JsImParameters {
-            inner: ImParameters::simm_standard(currency.inner()),
-        }
+    pub fn simm_standard(currency: &JsCurrency) -> Result<JsImParameters, JsValue> {
+        Ok(JsImParameters {
+            inner: ImParameters::simm_standard(currency.inner())
+                .map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Create IM parameters using schedule-based methodology.
     #[wasm_bindgen(js_name = scheduleBased)]
-    pub fn schedule_based(currency: &JsCurrency) -> JsImParameters {
-        JsImParameters {
-            inner: ImParameters::schedule_based(currency.inner()),
-        }
+    pub fn schedule_based(currency: &JsCurrency) -> Result<JsImParameters, JsValue> {
+        Ok(JsImParameters {
+            inner: ImParameters::schedule_based(currency.inner())
+                .map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Create IM parameters for cleared trades (CCP methodology).
     #[wasm_bindgen(js_name = cleared)]
-    pub fn cleared(currency: &JsCurrency) -> JsImParameters {
-        JsImParameters {
-            inner: ImParameters::cleared(currency.inner()),
-        }
+    pub fn cleared(currency: &JsCurrency) -> Result<JsImParameters, JsValue> {
+        Ok(JsImParameters {
+            inner: ImParameters::cleared(currency.inner())
+                .map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Create IM parameters for repos using haircut methodology.
     #[wasm_bindgen(js_name = repoHaircut)]
-    pub fn repo_haircut(currency: &JsCurrency) -> JsImParameters {
-        JsImParameters {
-            inner: ImParameters::repo_haircut(currency.inner()),
-        }
+    pub fn repo_haircut(currency: &JsCurrency) -> Result<JsImParameters, JsValue> {
+        Ok(JsImParameters {
+            inner: ImParameters::repo_haircut(currency.inner())
+                .map_err(|e| JsValue::from_str(&e.to_string()))?,
+        })
     }
 
     /// Get the IM methodology.

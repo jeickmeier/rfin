@@ -16,7 +16,7 @@ use finstack_core::types::CreditRating;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
     DealType, Pool, PoolAsset, Seniority, StructuredCredit, Tranche, TrancheCoupon,
-    TrancheStructure, TrancheValuationExt,
+    TrancheStructure,
 };
 use finstack_valuations::metrics::MetricId;
 use rust_decimal_macros::dec;

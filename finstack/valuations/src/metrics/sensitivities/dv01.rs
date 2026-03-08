@@ -471,7 +471,12 @@ where
 /// * `pv_up` - Present value after upward bump (in currency units)
 /// * `pv_down` - Present value after downward bump (in currency units)
 /// * `bump_bp` - Bump size in basis points (typically 1.0)
+const MIN_BUMP_BP_THRESHOLD: f64 = 1e-10;
+
 #[inline]
 fn calculate_dv01_central(pv_up: f64, pv_down: f64, bump_bp: f64) -> f64 {
+    if bump_bp.abs() <= MIN_BUMP_BP_THRESHOLD {
+        return 0.0;
+    }
     (pv_up - pv_down) / (2.0 * bump_bp)
 }

@@ -10,14 +10,7 @@
 
 use finstack_core::dates::Date;
 use finstack_core::Result;
-use std::fmt::Debug;
 use std::sync::Arc;
-
-/// Trait for 2D interpolation.
-pub trait Interp2D: Send + Sync + Debug {
-    /// Interpolate at coordinate (x, y).
-    fn interpolate(&self, x: f64, y: f64) -> Result<f64>;
-}
 
 /// Bilinear Interpolation in 2D.
 #[derive(Debug, Clone)]
@@ -47,10 +40,9 @@ impl BilinearInterp {
         // (Omitted for brevity, assume sorted from builder)
         Ok(Self { xs, ys, z_flat })
     }
-}
 
-impl Interp2D for BilinearInterp {
-    fn interpolate(&self, x: f64, y: f64) -> Result<f64> {
+    /// Interpolate at coordinate (x, y).
+    pub fn interpolate(&self, x: f64, y: f64) -> Result<f64> {
         // Find indices
         let i = match self.xs.binary_search_by(|v| v.total_cmp(&x)) {
             Ok(idx) => idx,
@@ -118,12 +110,12 @@ pub struct LocalVolSurface {
     /// X-axis: Time (years)
     /// Y-axis: Spot/Strike
     /// Z-axis: Local Volatility
-    pub surface: Arc<dyn Interp2D>,
+    pub surface: Arc<BilinearInterp>,
 }
 
 impl LocalVolSurface {
     /// Create a new Local Volatility Surface.
-    pub fn new(base_date: Date, surface: Arc<dyn Interp2D>) -> Self {
+    pub fn new(base_date: Date, surface: Arc<BilinearInterp>) -> Self {
         Self { base_date, surface }
     }
 

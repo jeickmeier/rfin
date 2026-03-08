@@ -174,20 +174,22 @@ pub struct SimmCalculator {
 }
 
 impl Default for SimmCalculator {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
-        Self::new(SimmVersion::V2_6)
+        Self::new(SimmVersion::V2_6).expect("embedded margin registry is a compile-time asset")
     }
 }
 
 impl SimmCalculator {
     /// Create a new SIMM calculator with the specified version.
-    #[must_use]
-    pub fn new(version: SimmVersion) -> Self {
-        #[allow(clippy::unwrap_used)]
-        let registry = embedded_registry().unwrap();
-        #[allow(clippy::unwrap_used)]
-        let params = resolve_simm_params(version, registry).unwrap().clone();
-        Self { params }
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn new(version: SimmVersion) -> Result<Self> {
+        let registry = embedded_registry()?;
+        let params = resolve_simm_params(version, registry)?.clone();
+        Ok(Self { params })
     }
 
     /// Create a new SIMM calculator resolved from a `FinstackConfig`.
@@ -664,7 +666,7 @@ mod tests {
 
     #[test]
     fn ir_delta_calculation() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
         // Single-tenor: correlation matrix is 1.0 on diagonal so
         // result = sqrt((dv01 * weight)^2) = |dv01 * weight|
@@ -682,7 +684,7 @@ mod tests {
 
     #[test]
     fn credit_delta_calculation() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
         let cs01 = 50_000.0; // $50K CS01
 
@@ -697,7 +699,7 @@ mod tests {
 
     #[test]
     fn params_loaded() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
         assert_eq!(calc.version(), SimmVersion::V2_6);
         assert!(calc.params.ir_delta_weights.contains_key("5y"));
         assert!(calc.params.cq_delta_weights.contains_key("corporates"));
@@ -722,7 +724,7 @@ mod tests {
 
     #[test]
     fn calculate_from_sensitivities_uses_risk_class_correlation() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
         let mut sens = SimmSensitivities::new(Currency::USD);
         sens.add_ir_delta(Currency::USD, "5y", 100_000.0);
@@ -747,7 +749,7 @@ mod tests {
 
     #[test]
     fn ir_delta_multi_tenor_with_correlations() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
         let dv01_by_tenor: HashMap<String, f64> = [
             ("5y".to_string(), 100_000.0),
@@ -767,7 +769,7 @@ mod tests {
 
     #[test]
     fn ir_vega_calculation() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
 
         let vega_by_tenor: HashMap<String, f64> =
             [("5y".to_string(), 500_000.0)].into_iter().collect();
@@ -901,7 +903,7 @@ mod tests {
 
     #[test]
     fn public_calculate_matches_full_simm_sensitivities() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
 
         let mut sensitivities = SimmSensitivities::new(Currency::USD);
@@ -945,7 +947,7 @@ mod tests {
 
     #[test]
     fn public_calculate_rejects_instruments_without_simm_sensitivities() {
-        let calc = SimmCalculator::new(SimmVersion::V2_6);
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
         let instrument = NonMarginableTestInstrument::new(Money::new(500_000.0, Currency::USD));
         let market = MarketContext::new();

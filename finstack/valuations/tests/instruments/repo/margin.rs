@@ -126,7 +126,7 @@ fn test_margin_frequency_options() {
 #[test]
 fn test_vm_calculator_with_repo_exposure() {
     // Create a CSA spec for testing VM calculations
-    let csa = CsaSpec::usd_regulatory();
+    let csa = CsaSpec::usd_regulatory().expect("registry should load");
     let vm_calc = VmCalculator::new(csa);
 
     // Simulate repo exposure (positive = we are owed money)

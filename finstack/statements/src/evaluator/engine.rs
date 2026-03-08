@@ -565,6 +565,70 @@ impl Evaluator {
         Ok(Some(instruments))
     }
 
+    /// Evaluate nodes in topological order within a context.
+    ///
+    /// This is the shared inner loop used by all period evaluation methods.
+    /// It handles where-clause masking, precedence resolution, forecast/formula
+    /// dispatch, and storing results in the context.
+    #[allow(clippy::too_many_arguments)]
+    fn evaluate_nodes_in_order(
+        &mut self,
+        model: &FinancialModelSpec,
+        period_id: &PeriodId,
+        is_actual: bool,
+        eval_order: &[String],
+        context: &mut EvaluationContext,
+        seed_offset: Option<u64>,
+        node_filter: Option<&HashSet<String>>,
+    ) -> Result<()> {
+        for node_id in eval_order {
+            if let Some(filter) = node_filter {
+                if !filter.contains(node_id) {
+                    continue;
+                }
+            }
+
+            let node_spec = model
+                .get_node(node_id)
+                .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+
+            if node_spec.where_text.is_some() {
+                let where_key = format!("__where__{}", node_id);
+                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
+                    let where_result = evaluate_formula(where_expr, context, None)?;
+                    if where_result == 0.0 {
+                        context.set_value(node_id, 0.0)?;
+                        continue;
+                    }
+                }
+            }
+
+            let source = resolve_node_value(node_spec, period_id, is_actual)?;
+
+            let value = match source {
+                NodeValueSource::Value(v) => v,
+                NodeValueSource::Forecast => forecast_eval::evaluate_forecast(
+                    node_spec,
+                    model,
+                    period_id,
+                    context,
+                    &mut self.forecast_cache,
+                    seed_offset,
+                )?,
+                NodeValueSource::Formula(_) => {
+                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
+                        Error::eval(format!("No compiled formula for node '{}'", node_id))
+                    })?;
+                    evaluate_formula(expr, context, Some(node_id))?
+                }
+            };
+
+            context.set_value(node_id, value)?;
+        }
+
+        Ok(())
+    }
+
     /// Evaluate a period with dynamic capital structure support.
     ///
     /// This method:
@@ -605,8 +669,6 @@ impl Evaluator {
                 if let Some(balance) = cs_state.opening_balances.get(instrument_id).copied() {
                     balance
                 } else {
-                    // Fallback: if state has no opening balance for this instrument, seed a
-                    // zero balance in the instrument's currency.
                     let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
                     Money::new(0.0, schedule.notional.initial.currency())
                 };
@@ -623,7 +685,6 @@ impl Evaluator {
             cs_state.set_closing_balance(instrument_id.to_string(), closing_balance);
         }
 
-        // Helper to recompute capital structure totals for the current period
         let period_id = period.id;
         let recompute_totals =
             |cashflows: &mut crate::capital_structure::CapitalStructureCashflows| {
@@ -652,7 +713,6 @@ impl Evaluator {
                 }
             };
 
-        // Create initial context with contractual CS flows
         let mut cs_cashflows = crate::capital_structure::CapitalStructureCashflows::new();
         for (inst_id, breakdown) in &contractual_flows {
             let mut period_map: indexmap::IndexMap<
@@ -671,47 +731,15 @@ impl Evaluator {
         context.capital_structure_cashflows = Some(cs_cashflows.clone());
 
         // Step 2: Model Eval - Evaluate standard model nodes
-        for node_id in eval_order {
-            let node_spec = model
-                .get_node(node_id)
-                .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
-
-            if node_spec.where_text.is_some() {
-                let where_key = format!("__where__{}", node_id);
-                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result = evaluate_formula(where_expr, &mut context, None)?;
-                    if where_result == 0.0 {
-                        context.set_value(node_id, 0.0)?;
-                        continue;
-                    }
-                }
-            }
-
-            let source =
-                crate::evaluator::precedence::resolve_node_value(node_spec, &period.id, is_actual)?;
-
-            let value = match source {
-                crate::evaluator::precedence::NodeValueSource::Value(v) => v,
-                crate::evaluator::precedence::NodeValueSource::Forecast => {
-                    crate::evaluator::forecast_eval::evaluate_forecast(
-                        node_spec,
-                        model,
-                        &period.id,
-                        &context,
-                        &mut self.forecast_cache,
-                        None,
-                    )?
-                }
-                crate::evaluator::precedence::NodeValueSource::Formula(_) => {
-                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
-                        Error::eval(format!("No compiled formula for node '{}'", node_id))
-                    })?;
-                    evaluate_formula(expr, &mut context, Some(node_id))?
-                }
-            };
-
-            context.set_value(node_id, value)?;
-        }
+        self.evaluate_nodes_in_order(
+            model,
+            &period.id,
+            is_actual,
+            eval_order,
+            &mut context,
+            None,
+            None,
+        )?;
 
         // Step 3: Post-Model - Run waterfall logic if configured
         if let Some(cs_spec) = &model.capital_structure {
@@ -724,7 +752,6 @@ impl Evaluator {
                     &contractual_flows,
                 )?;
 
-                // Update CS cashflows with sweep amounts
                 for (inst_id, breakdown) in &updated_flows {
                     if let Some(period_map) = cs_cashflows.by_instrument.get_mut(inst_id) {
                         period_map.insert(period_id, breakdown.clone());
@@ -745,49 +772,15 @@ impl Evaluator {
         }
 
         if context.capital_structure_cashflows.is_some() && !cs_affected_nodes.is_empty() {
-            // Re-evaluate any nodes that are downstream of CS references now that CS cashflows have
-            // been updated by the waterfall.
-            for node_id in eval_order {
-                if !cs_affected_nodes.contains(node_id) {
-                    continue;
-                }
-
-                let node_spec = model
-                    .get_node(node_id)
-                    .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
-
-                if node_spec.where_text.is_some() {
-                    let where_key = format!("__where__{}", node_id);
-                    if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                        let where_result = evaluate_formula(where_expr, &mut context, None)?;
-                        if where_result == 0.0 {
-                            context.set_value(node_id, 0.0)?;
-                            continue;
-                        }
-                    }
-                }
-
-                let source = resolve_node_value(node_spec, &period.id, is_actual)?;
-                let value = match source {
-                    NodeValueSource::Value(v) => v,
-                    NodeValueSource::Forecast => forecast_eval::evaluate_forecast(
-                        node_spec,
-                        model,
-                        &period.id,
-                        &context,
-                        &mut self.forecast_cache,
-                        None,
-                    )?,
-                    NodeValueSource::Formula(_) => {
-                        let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
-                            Error::eval(format!("No compiled formula for node '{}'", node_id))
-                        })?;
-                        evaluate_formula(expr, &mut context, Some(node_id))?
-                    }
-                };
-
-                context.set_value(node_id, value)?;
-            }
+            self.evaluate_nodes_in_order(
+                model,
+                &period.id,
+                is_actual,
+                eval_order,
+                &mut context,
+                None,
+                Some(cs_affected_nodes),
+            )?;
         }
 
         let period_cs_cashflows = context
@@ -810,74 +803,30 @@ impl Evaluator {
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         cs_cashflows: Option<&crate::capital_structure::CapitalStructureCashflows>,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
-        // Create evaluation context
         let mut context =
             EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
 
-        // Add capital structure cashflows if available
         if let Some(cs) = cs_cashflows {
             context.capital_structure_cashflows = Some(cs.clone());
         }
 
-        // Evaluate nodes in topological order
-        for node_id in eval_order {
-            let node_spec = model
-                .get_node(node_id)
-                .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+        self.evaluate_nodes_in_order(
+            model,
+            period_id,
+            is_actual,
+            eval_order,
+            &mut context,
+            None,
+            None,
+        )?;
 
-            // Check where clause if present
-            if node_spec.where_text.is_some() {
-                let where_key = format!("__where__{}", node_id);
-                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result = evaluate_formula(where_expr, &mut context, None)?;
-                    // If where clause evaluates to false (0.0), skip this node
-                    if where_result == 0.0 {
-                        // Set value to 0.0 or NaN for masked nodes
-                        context.set_value(node_id, 0.0)?;
-                        continue;
-                    }
-                }
-            }
-
-            // Resolve value using precedence: Value > Forecast > Formula
-            let source = resolve_node_value(node_spec, period_id, is_actual)?;
-
-            let value = match source {
-                NodeValueSource::Value(v) => v,
-                NodeValueSource::Forecast => {
-                    // Evaluate forecast
-                    forecast_eval::evaluate_forecast(
-                        node_spec,
-                        model,
-                        period_id,
-                        &context,
-                        &mut self.forecast_cache,
-                        None,
-                    )?
-                }
-                NodeValueSource::Formula(_) => {
-                    // Evaluate formula
-                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
-                        Error::eval(format!("No compiled formula for node '{}'", node_id))
-                    })?;
-                    evaluate_formula(expr, &mut context, Some(node_id))?
-                }
-            };
-
-            // Store in context for dependent nodes
-            context.set_value(node_id, value)?;
-        }
-
-        // Return results for this period
-        let (values, warnings) = context.into_results();
-        Ok((values, warnings))
+        Ok(context.into_results())
     }
 
     /// Evaluate a single period for Monte Carlo paths.
     ///
-    /// This is similar to [`evaluate_period`] but accepts a seed offset used to
-    /// perturb stochastic forecast methods while keeping all other behavior
-    /// identical.
+    /// Identical to [`evaluate_period`] but passes a seed offset to perturb
+    /// stochastic forecast methods.
     #[allow(clippy::too_many_arguments)]
     fn evaluate_period_mc(
         &mut self,
@@ -889,61 +838,20 @@ impl Evaluator {
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         seed_offset: u64,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
-        // Create evaluation context
         let mut context =
             EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
 
-        // Evaluate nodes in topological order
-        for node_id in eval_order {
-            let node_spec = model
-                .get_node(node_id)
-                .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
+        self.evaluate_nodes_in_order(
+            model,
+            period_id,
+            is_actual,
+            eval_order,
+            &mut context,
+            Some(seed_offset),
+            None,
+        )?;
 
-            // Check where clause if present
-            if node_spec.where_text.is_some() {
-                let where_key = format!("__where__{}", node_id);
-                if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result = evaluate_formula(where_expr, &mut context, None)?;
-                    // If where clause evaluates to false (0.0), skip this node
-                    if where_result == 0.0 {
-                        context.set_value(node_id, 0.0)?;
-                        continue;
-                    }
-                }
-            }
-
-            // Resolve value using precedence: Value > Forecast > Formula
-            let source = resolve_node_value(node_spec, period_id, is_actual)?;
-
-            let value = match source {
-                NodeValueSource::Value(v) => v,
-                NodeValueSource::Forecast => {
-                    // Evaluate forecast with per-path seed offset
-                    forecast_eval::evaluate_forecast(
-                        node_spec,
-                        model,
-                        period_id,
-                        &context,
-                        &mut self.forecast_cache,
-                        Some(seed_offset),
-                    )?
-                }
-                NodeValueSource::Formula(_) => {
-                    // Evaluate formula
-                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
-                        Error::eval(format!("No compiled formula for node '{}'", node_id))
-                    })?;
-                    evaluate_formula(expr, &mut context, Some(node_id))?
-                }
-            };
-
-            // Store in context for dependent nodes
-            context.set_value(node_id, value)?;
-        }
-
-        // Return results for this period
-        let (values, warnings) = context.into_results();
-        Ok((values, warnings))
+        Ok(context.into_results())
     }
 }
 

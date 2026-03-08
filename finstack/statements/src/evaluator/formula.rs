@@ -525,18 +525,15 @@ fn evaluate_function(
             // Calculate the target period
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
 
-            // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
                 if let Some(value) = context.get_historical_value(node_name, &target_period) {
                     Ok(value)
                 } else {
-                    // No historical value found, return NaN
                     Ok(f64::NAN)
                 }
             } else {
-                // For complex expressions, we can't easily evaluate them in a different period context
-                // Return NaN to indicate the value is not available
-                Ok(f64::NAN)
+                let mut hist_ctx = build_context_for_period(target_period, context)?;
+                evaluate_expr(&args[0], &mut hist_ctx, node_id)
             }
         }
         Function::Lead => {
@@ -563,29 +560,27 @@ fn evaluate_function(
                 return Err(eval_error(node_id, "diff() periods must be positive"));
             }
 
-            // For column references, check if value exists in current period
+            let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
+
             if let ExprNode::Column(node_name) = &args[0].node {
-                // Get current value
                 let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
                 if current_value.is_nan() {
-                    // No current value, return NaN
                     return Ok(f64::NAN);
                 }
-
-                // Get the lagged value
-                let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
                 if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
                 {
                     Ok(current_value - lagged_value)
                 } else {
-                    // No historical value, return NaN
                     Ok(f64::NAN)
                 }
             } else {
-                // For complex expressions, evaluate current value
-                let _current_value = evaluate_expr(&args[0], context, node_id)?;
-                // Can't get historical value for complex expressions
-                Ok(f64::NAN)
+                let current_value = evaluate_expr(&args[0], context, node_id)?;
+                if current_value.is_nan() {
+                    return Ok(f64::NAN);
+                }
+                let mut hist_ctx = build_context_for_period(target_period, context)?;
+                let lagged_value = evaluate_expr(&args[0], &mut hist_ctx, node_id)?;
+                Ok(current_value - lagged_value)
             }
         }
         Function::PctChange => {
@@ -607,44 +602,39 @@ fn evaluate_function(
                 return Err(eval_error(node_id, "pct_change() periods must be positive"));
             }
 
-            // For column references, check if value exists in current period
-            if let ExprNode::Column(node_name) = &args[0].node {
-                // Get current value
-                let current_value = context.get_value(node_name).unwrap_or(f64::NAN);
-                if current_value.is_nan() {
-                    // No current value, return NaN
-                    return Ok(f64::NAN);
-                }
+            let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
 
-                // Get the lagged value
-                let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
-                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
-                {
-                    if lagged_value.abs() < EPSILON {
-                        // Avoid division by zero
-                        tracing::warn!(
-                            "pct_change() division by near-zero lagged value in period {:?}",
-                            context.period_id
-                        );
-                        if let Some(id) = node_id {
-                            context.push_warning(EvalWarning::DivisionByZero {
-                                node_id: id.to_string(),
-                                period: context.period_id,
-                            });
-                        }
-                        Ok(f64::NAN)
-                    } else {
-                        Ok((current_value - lagged_value) / lagged_value)
-                    }
-                } else {
-                    // No historical value, return NaN
-                    Ok(f64::NAN)
-                }
+            let (current_value, lagged_value) = if let ExprNode::Column(node_name) = &args[0].node {
+                let current = context.get_value(node_name).unwrap_or(f64::NAN);
+                let lagged = context
+                    .get_historical_value(node_name, &target_period)
+                    .unwrap_or(f64::NAN);
+                (current, lagged)
             } else {
-                // For complex expressions, evaluate current value
-                let _current_value = evaluate_expr(&args[0], context, node_id)?;
-                // Can't get historical value for complex expressions
+                let current = evaluate_expr(&args[0], context, node_id)?;
+                let mut hist_ctx = build_context_for_period(target_period, context)?;
+                let lagged = evaluate_expr(&args[0], &mut hist_ctx, node_id)?;
+                (current, lagged)
+            };
+
+            if current_value.is_nan() || lagged_value.is_nan() {
+                return Ok(f64::NAN);
+            }
+
+            if lagged_value.abs() < EPSILON {
+                tracing::warn!(
+                    "pct_change() division by near-zero lagged value in period {:?}",
+                    context.period_id
+                );
+                if let Some(id) = node_id {
+                    context.push_warning(EvalWarning::DivisionByZero {
+                        node_id: id.to_string(),
+                        period: context.period_id,
+                    });
+                }
                 Ok(f64::NAN)
+            } else {
+                Ok((current_value - lagged_value) / lagged_value)
             }
         }
         Function::GrowthRate => {
@@ -732,14 +722,11 @@ fn evaluate_function(
         | Function::RollingMin
         | Function::RollingMax
         | Function::RollingCount => {
-            require_args(&format!("{:?}", func), args, 2, node_id)?;
+            require_args(&func.to_string(), args, 2, node_id)?;
 
-            let window = evaluate_non_negative_integer_arg(
-                &format!("{:?}", func),
-                &args[1],
-                context,
-                node_id,
-            )? as usize;
+            let window =
+                evaluate_non_negative_integer_arg(&func.to_string(), &args[1], context, node_id)?
+                    as usize;
             if window == 0 {
                 return Err(eval_error(node_id, "Window size must be greater than 0"));
             }
@@ -773,7 +760,7 @@ fn evaluate_function(
 
         // Statistical functions (operate on all historical values)
         Function::Std | Function::Var | Function::Median => {
-            require_min_args(&format!("{:?}", func), args, 1, node_id)?;
+            require_min_args(&func.to_string(), args, 1, node_id)?;
 
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
@@ -797,7 +784,7 @@ fn evaluate_function(
 
         // Cumulative functions (operate on all historical values)
         Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
-            require_min_args(&format!("{:?}", func), args, 1, node_id)?;
+            require_min_args(&func.to_string(), args, 1, node_id)?;
 
             // Collect all historical values
             let values = if let ExprNode::Column(node_name) = &args[0].node {
@@ -1350,10 +1337,7 @@ fn evaluate_function(
             if args.len() < 2 || args.len() > 3 {
                 return Err(eval_error(
                     node_id,
-                    format!(
-                        "{}() requires 2 or 3 arguments (series, alpha, [adjust])",
-                        format!("{:?}", func).to_lowercase()
-                    ),
+                    format!("{func}() requires 2 or 3 arguments (series, alpha, [adjust])"),
                 ));
             }
 

@@ -184,7 +184,7 @@ mod tests {
 
     #[test]
     fn generates_margin_call_on_deficit() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         let cash = Money::new(100_000_000.0, Currency::USD);
         let valuations = vec![
             (test_date(2025, 1, 15), 102_000_000.0), // Adequate
@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn generates_margin_return_on_excess() {
-        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         let cash = Money::new(100_000_000.0, Currency::USD);
         let valuations = vec![
             (test_date(2025, 1, 15), 102_000_000.0), // Adequate
@@ -220,7 +220,7 @@ mod tests {
     fn margin_interest_generation() {
         use finstack_core::dates::DayCount;
 
-        let mut spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let mut spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         spec.margin_interest_rate = Some(0.05); // 5% annual
 
         let margin_balances = vec![
@@ -245,7 +245,7 @@ mod tests {
     fn margin_interest_respects_day_count() {
         use finstack_core::dates::DayCount;
 
-        let mut spec = RepoMarginSpec::mark_to_market(1.02, 0.01);
+        let mut spec = RepoMarginSpec::mark_to_market(1.02, 0.01).expect("registry should load");
         spec.margin_interest_rate = Some(0.05); // 5% annual
 
         let margin_balances = vec![

@@ -88,7 +88,6 @@ pub mod prelude {
     // Results
     pub use super::TrancheCashflows;
     pub use super::TrancheValuation;
-    pub use super::TrancheValuationExt;
 
     // Configuration
     pub use super::DealConfig;
@@ -156,7 +155,6 @@ pub use types::{
     TrancheCoupon,
     TrancheStructure,
     TrancheValuation,
-    TrancheValuationExt,
     TriggerConsequence,
     Waterfall,
     WaterfallBuilder,

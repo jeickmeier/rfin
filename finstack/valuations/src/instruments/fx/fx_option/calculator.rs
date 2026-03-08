@@ -13,6 +13,8 @@ use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
+const STRIKE_ZERO_TOL: f64 = 1e-12;
+
 /// Configuration for the FX option calculator.
 #[derive(Debug, Clone)]
 pub struct FxOptionCalculatorConfig {
@@ -71,10 +73,16 @@ impl FxOptionCalculator {
             ));
         }
 
+        if !inst.strike.is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "FX option strike must be finite".to_string(),
+            ));
+        }
+
         // Strike = 0 edge case:
         // - Call with K=0 is always exercised: PV = S * exp(-r_f * t)
         // - Put with K=0 is worthless: PV = 0
-        if inst.strike == 0.0 {
+        if inst.strike.abs() < STRIKE_ZERO_TOL {
             let unit_price = match inst.option_type {
                 OptionType::Call => spot * (-r_f * t).exp(),
                 OptionType::Put => 0.0,
@@ -318,10 +326,16 @@ impl FxOptionCalculator {
             });
         }
 
+        if !inst.strike.is_finite() {
+            return Err(finstack_core::Error::Validation(
+                "FX option strike must be finite".to_string(),
+            ));
+        }
+
         // Strike = 0 edge case:
         // - Call: PV = S * exp(-r_f t) → delta = exp(-r_f t), gamma/vega/theta = 0
         // - Put: PV = 0 → all greeks = 0
-        if inst.strike == 0.0 {
+        if inst.strike.abs() < STRIKE_ZERO_TOL {
             let scale = inst.notional.amount();
             let exp_rf_t = (-r_f * t).exp();
             let delta_unit = match inst.option_type {

@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn uses_clearing_house_calculator_for_cleared_spec() {
-        let spec = OtcMarginSpec::cleared("LCH", Currency::USD);
+        let spec = OtcMarginSpec::cleared("LCH", Currency::USD).expect("registry should load");
         let instrument = TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec));
         let metric = InitialMarginMetric::new();
         let market = MarketContext::new();
@@ -518,7 +518,7 @@ mod tests {
 
     #[test]
     fn uses_internal_model_for_internal_model_spec() {
-        let mut spec = OtcMarginSpec::usd_bilateral();
+        let mut spec = OtcMarginSpec::usd_bilateral().expect("registry should load");
         spec.im_methodology = ImMethodology::InternalModel;
         if let Some(im_params) = spec.csa.im_params.as_mut() {
             im_params.threshold = Money::new(0.0, Currency::USD);
@@ -536,14 +536,15 @@ mod tests {
 
     #[test]
     fn simm_im_subtracts_threshold_after_breach() {
-        let mut spec = OtcMarginSpec::usd_bilateral();
+        let mut spec = OtcMarginSpec::usd_bilateral().expect("registry should load");
         spec.im_methodology = ImMethodology::Simm;
         let mut sensitivities = SimmSensitivities::new(Currency::USD);
         sensitivities.add_ir_delta(Currency::USD, "5Y", 50_000.0);
         sensitivities.add_equity_delta("AAPL", 100_000.0);
         sensitivities.add_fx_delta(Currency::EUR, 80_000.0);
 
-        let calc = SimmCalculator::new(crate::margin::calculators::im::simm::SimmVersion::V2_6);
+        let calc = SimmCalculator::new(crate::margin::calculators::im::simm::SimmVersion::V2_6)
+            .expect("registry should load");
         let (gross_im, _) = calc.calculate_from_sensitivities(&sensitivities, Currency::USD);
         assert!(gross_im > 0.0, "test setup must produce non-zero SIMM IM");
 

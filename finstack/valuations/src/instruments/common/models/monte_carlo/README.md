@@ -52,7 +52,7 @@ The `McEngine` orchestrates the simulation loop: for each path it splits the RNG
 ```
 monte_carlo/
 ├── mod.rs                    # Module root, prelude, re-exports
-├── traits.rs                 # Core traits: RandomStream, StochasticProcess, Discretization, Payoff, PathObserver
+├── traits.rs                 # Core traits: RandomStream, StochasticProcess, Discretization, Payoff
 ├── engine.rs                 # McEngine, McEngineBuilder, McEngineConfig, path simulation loop
 ├── results.rs                # MoneyEstimate, MonteCarloResult, MonteCarloGreeks
 ├── paths.rs                  # PathPoint, SimulatedPath, PathDataset, ProcessParams, CashflowType
@@ -200,18 +200,6 @@ pub trait Payoff: Send + Sync + Clone {
 ```
 
 Payoffs accumulate state through `on_event` calls at each time step and return a final `Money` value. The `on_path_start` hook enables per-path randomization (e.g., drawing a default threshold E ~ Exp(1) for credit instruments).
-
-### `PathObserver`
-
-Optional observer for collecting intermediate path statistics:
-
-```rust
-pub trait PathObserver: Send + Sync {
-    fn observe(&mut self, state: &mut PathState);
-    fn reset(&mut self);
-    fn data(&self) -> Vec<f64>;
-}
-```
 
 ### State Variables
 

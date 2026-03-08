@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! OTC derivative margin specification.
 //!
 //! Shared margin specification for CSA-governed OTC derivatives
@@ -32,11 +30,14 @@ use finstack_core::Result;
 /// ```rust,no_run
 /// use finstack_valuations::margin::{OtcMarginSpec, CsaSpec, ClearingStatus, ImMethodology, MarginTenor};
 ///
+/// # fn main() -> finstack_core::Result<()> {
 /// // Bilateral (uncleared) derivative
-/// let bilateral_spec = OtcMarginSpec::bilateral_simm(CsaSpec::usd_regulatory());
+/// let bilateral_spec = OtcMarginSpec::bilateral_simm(CsaSpec::usd_regulatory()?);
 ///
 /// // Cleared derivative
-/// let cleared_spec = OtcMarginSpec::cleared("LCH", finstack_core::currency::Currency::USD);
+/// let cleared_spec = OtcMarginSpec::cleared("LCH", finstack_core::currency::Currency::USD)?;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct OtcMarginSpec {
@@ -97,12 +98,14 @@ impl OtcMarginSpec {
     ///
     /// * `ccp` - Clearing house identifier (e.g., "LCH", "CME", "ICE")
     /// * `currency` - Settlement currency
-    #[must_use]
-    pub fn cleared(ccp: impl Into<String>, currency: Currency) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn cleared(ccp: impl Into<String>, currency: Currency) -> Result<Self> {
         let ccp_name = ccp.into();
-        let registry = embedded_registry().unwrap();
+        let registry = embedded_registry()?;
 
-        // CCPs have zero thresholds and daily margining
         let csa = CsaSpec {
             id: format!("{}-CCP-CSA", ccp_name),
             base_currency: currency,
@@ -123,47 +126,66 @@ impl OtcMarginSpec {
                 .collateral_schedules
                 .get("bcbs_standard")
                 .cloned()
-                .unwrap(),
+                .ok_or_else(|| {
+                    finstack_core::Error::Validation(
+                        "collateral schedule 'bcbs_standard' not found in registry".to_string(),
+                    )
+                })?,
             call_timing: registry.defaults.timing.ccp.clone(),
             collateral_curve_id: finstack_core::types::CurveId::new(format!("{}-OIS", currency)),
         };
 
-        Self {
+        Ok(Self {
             csa,
             clearing_status: ClearingStatus::Cleared { ccp: ccp_name },
             im_methodology: ImMethodology::ClearingHouse,
             vm_frequency: MarginTenor::Daily,
             settlement_lag: registry.defaults.cleared_settlement.settlement_lag,
-        }
+        })
     }
 
     /// Create a USD bilateral spec with standard regulatory terms.
-    #[must_use]
-    pub fn usd_bilateral() -> Self {
-        Self::bilateral_simm(CsaSpec::usd_regulatory())
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn usd_bilateral() -> Result<Self> {
+        Ok(Self::bilateral_simm(CsaSpec::usd_regulatory()?))
     }
 
     /// Create a EUR bilateral spec with standard regulatory terms.
-    #[must_use]
-    pub fn eur_bilateral() -> Self {
-        Self::bilateral_simm(CsaSpec::eur_regulatory())
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn eur_bilateral() -> Result<Self> {
+        Ok(Self::bilateral_simm(CsaSpec::eur_regulatory()?))
     }
 
     /// Create a spec for LCH SwapClear cleared IRS.
-    #[must_use]
-    pub fn lch_swapclear(currency: Currency) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn lch_swapclear(currency: Currency) -> Result<Self> {
         Self::cleared("LCH", currency)
     }
 
     /// Create a spec for CME cleared derivatives.
-    #[must_use]
-    pub fn cme_cleared(currency: Currency) -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn cme_cleared(currency: Currency) -> Result<Self> {
         Self::cleared("CME", currency)
     }
 
     /// Create a spec for ICE Clear Credit (cleared CDS).
-    #[must_use]
-    pub fn ice_clear_credit() -> Self {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn ice_clear_credit() -> Result<Self> {
         Self::cleared("ICE", Currency::USD)
     }
 
@@ -241,8 +263,9 @@ impl OtcMarginSpec {
 }
 
 impl Default for OtcMarginSpec {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
-        Self::usd_bilateral()
+        Self::usd_bilateral().expect("embedded margin registry is a compile-time asset")
     }
 }
 
@@ -254,7 +277,7 @@ mod tests {
 
     #[test]
     fn bilateral_simm_spec() {
-        let spec = OtcMarginSpec::usd_bilateral();
+        let spec = OtcMarginSpec::usd_bilateral().expect("registry should load");
         assert!(spec.is_bilateral());
         assert!(!spec.is_cleared());
         assert_eq!(spec.im_methodology, ImMethodology::Simm);
@@ -264,7 +287,7 @@ mod tests {
 
     #[test]
     fn cleared_spec() {
-        let spec = OtcMarginSpec::lch_swapclear(Currency::USD);
+        let spec = OtcMarginSpec::lch_swapclear(Currency::USD).expect("registry should load");
         assert!(spec.is_cleared());
         assert!(!spec.is_bilateral());
         assert_eq!(spec.im_methodology, ImMethodology::ClearingHouse);
@@ -274,7 +297,7 @@ mod tests {
 
     #[test]
     fn ice_clear_credit_spec() {
-        let spec = OtcMarginSpec::ice_clear_credit();
+        let spec = OtcMarginSpec::ice_clear_credit().expect("registry should load");
         assert!(spec.is_cleared());
         assert_eq!(spec.ccp(), Some("ICE"));
         assert_eq!(spec.base_currency(), Currency::USD);
@@ -282,7 +305,7 @@ mod tests {
 
     #[test]
     fn csa_thresholds() {
-        let spec = OtcMarginSpec::cleared("CME", Currency::EUR);
+        let spec = OtcMarginSpec::cleared("CME", Currency::EUR).expect("registry should load");
         assert_eq!(spec.csa.vm_params.threshold, Money::new(0.0, Currency::EUR));
     }
 }

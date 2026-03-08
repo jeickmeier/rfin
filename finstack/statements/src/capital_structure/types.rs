@@ -140,12 +140,9 @@ impl CashflowBreakdown {
     }
 }
 
-impl Default for CashflowBreakdown {
-    fn default() -> Self {
-        // Default to USD for backward compatibility
-        Self::with_currency(Currency::USD)
-    }
-}
+// NOTE: CashflowBreakdown intentionally does NOT implement Default.
+// All construction must go through `with_currency()` to ensure correct
+// currency propagation in multi-currency models.
 
 impl CapitalStructureCashflows {
     /// Create empty capital-structure cashflows.
@@ -350,8 +347,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_cashflow_breakdown_default() {
-        let cf = CashflowBreakdown::default();
+    fn test_cashflow_breakdown_with_currency() {
+        let cf = CashflowBreakdown::with_currency(Currency::USD);
         assert_eq!(cf.interest_expense_cash.amount(), 0.0);
         assert_eq!(cf.interest_expense_pik.amount(), 0.0);
         assert_eq!(cf.interest_expense_total().amount(), 0.0);
@@ -359,6 +356,10 @@ mod tests {
         assert_eq!(cf.fees.amount(), 0.0);
         assert_eq!(cf.debt_balance.amount(), 0.0);
         assert_eq!(cf.accrued_interest.amount(), 0.0);
+        assert_eq!(cf.interest_expense_cash.currency(), Currency::USD);
+
+        let cf_eur = CashflowBreakdown::with_currency(Currency::EUR);
+        assert_eq!(cf_eur.interest_expense_cash.currency(), Currency::EUR);
     }
 
     #[test]

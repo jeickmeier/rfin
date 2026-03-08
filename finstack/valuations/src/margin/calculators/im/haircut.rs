@@ -44,7 +44,7 @@ use finstack_core::Result;
 /// use time::macros::date;
 ///
 /// # fn main() -> finstack_core::Result<()> {
-/// let schedule = EligibleCollateralSchedule::us_treasuries();
+/// let schedule = EligibleCollateralSchedule::us_treasuries()?;
 /// let calc = HaircutImCalculator::new(schedule);
 ///
 /// # let repo: &dyn Instrument = todo!("provide a repo / secured financing instrument");
@@ -79,15 +79,21 @@ impl HaircutImCalculator {
     }
 
     /// Create a calculator for US Treasury collateral.
-    #[must_use]
-    pub fn us_treasuries() -> Self {
-        Self::new(EligibleCollateralSchedule::us_treasuries())
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn us_treasuries() -> Result<Self> {
+        Ok(Self::new(EligibleCollateralSchedule::us_treasuries()?))
     }
 
     /// Create a calculator with BCBS-IOSCO standard haircuts.
-    #[must_use]
-    pub fn bcbs_standard() -> Self {
-        Self::new(EligibleCollateralSchedule::bcbs_standard())
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn bcbs_standard() -> Result<Self> {
+        Ok(Self::new(EligibleCollateralSchedule::bcbs_standard()?))
     }
 
     /// Set whether to apply FX haircut addon.
@@ -183,7 +189,7 @@ mod tests {
 
     #[test]
     fn haircut_calculation() {
-        let calc = HaircutImCalculator::us_treasuries();
+        let calc = HaircutImCalculator::us_treasuries().expect("registry should load");
 
         let collateral = Money::new(10_000_000.0, Currency::USD);
         let im = calc
@@ -197,7 +203,9 @@ mod tests {
 
     #[test]
     fn fx_addon_applied() {
-        let calc = HaircutImCalculator::bcbs_standard().with_fx_addon(true);
+        let calc = HaircutImCalculator::bcbs_standard()
+            .expect("registry should load")
+            .with_fx_addon(true);
 
         let collateral = Money::new(10_000_000.0, Currency::USD);
 

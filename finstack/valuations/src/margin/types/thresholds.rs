@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! Variation margin and initial margin parameter specifications.
 //!
 //! Defines the threshold, MTA (Minimum Transfer Amount), and other parameters
@@ -80,10 +78,13 @@ pub struct VmParameters {
 
 impl VmParameters {
     /// Create VM parameters with zero threshold (regulatory standard).
-    #[must_use]
-    pub fn regulatory_standard(currency: Currency) -> Self {
-        let registry = embedded_registry().unwrap();
-        Self::from_defaults(currency, &registry.defaults.vm)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn regulatory_standard(currency: Currency) -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(Self::from_defaults(currency, &registry.defaults.vm))
     }
 
     /// Create VM parameters with a threshold (bilateral thresholds).
@@ -184,8 +185,10 @@ impl VmParameters {
 }
 
 impl Default for VmParameters {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
         Self::regulatory_standard(Currency::USD)
+            .expect("embedded margin registry is a compile-time asset")
     }
 }
 
@@ -248,47 +251,59 @@ pub struct ImParameters {
 
 impl ImParameters {
     /// Create IM parameters using ISDA SIMM methodology.
-    #[must_use]
-    pub fn simm_standard(currency: Currency) -> Self {
-        let registry = embedded_registry().unwrap();
-        registry
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn simm_standard(currency: Currency) -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(registry
             .defaults
             .im
             .simm
-            .to_im_params(ImMethodology::Simm, currency)
+            .to_im_params(ImMethodology::Simm, currency))
     }
 
     /// Create IM parameters using schedule-based methodology.
-    #[must_use]
-    pub fn schedule_based(currency: Currency) -> Self {
-        let registry = embedded_registry().unwrap();
-        registry
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn schedule_based(currency: Currency) -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(registry
             .defaults
             .im
             .schedule
-            .to_im_params(ImMethodology::Schedule, currency)
+            .to_im_params(ImMethodology::Schedule, currency))
     }
 
     /// Create IM parameters for cleared trades (CCP methodology).
-    #[must_use]
-    pub fn cleared(currency: Currency) -> Self {
-        let registry = embedded_registry().unwrap();
-        registry
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn cleared(currency: Currency) -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(registry
             .defaults
             .im
             .cleared
-            .to_im_params(ImMethodology::ClearingHouse, currency)
+            .to_im_params(ImMethodology::ClearingHouse, currency))
     }
 
     /// Create IM parameters for repos using haircut methodology.
-    #[must_use]
-    pub fn repo_haircut(currency: Currency) -> Self {
-        let registry = embedded_registry().unwrap();
-        registry
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn repo_haircut(currency: Currency) -> Result<Self> {
+        let registry = embedded_registry()?;
+        Ok(registry
             .defaults
             .im
             .repo_haircut
-            .to_im_params(ImMethodology::Haircut, currency)
+            .to_im_params(ImMethodology::Haircut, currency))
     }
 
     /// Create IM parameters using defaults resolved from a config.
@@ -310,8 +325,10 @@ impl ImParameters {
 }
 
 impl Default for ImParameters {
+    #[allow(clippy::expect_used)]
     fn default() -> Self {
         Self::simm_standard(Currency::USD)
+            .expect("embedded margin registry is a compile-time asset")
     }
 }
 
@@ -322,7 +339,8 @@ mod tests {
 
     #[test]
     fn vm_params_regulatory_standard() {
-        let params = VmParameters::regulatory_standard(Currency::USD);
+        let params =
+            VmParameters::regulatory_standard(Currency::USD).expect("registry should load");
         assert_eq!(params.threshold, Money::new(0.0, Currency::USD));
         assert_eq!(params.frequency, MarginTenor::Daily);
         assert_eq!(params.settlement_lag, 1);
@@ -364,7 +382,7 @@ mod tests {
 
     #[test]
     fn im_params_simm_standard() {
-        let params = ImParameters::simm_standard(Currency::EUR);
+        let params = ImParameters::simm_standard(Currency::EUR).expect("registry should load");
         assert_eq!(params.methodology, ImMethodology::Simm);
         assert_eq!(params.mpor_days, 10);
         assert!(params.segregated);
@@ -372,7 +390,7 @@ mod tests {
 
     #[test]
     fn im_params_cleared() {
-        let params = ImParameters::cleared(Currency::USD);
+        let params = ImParameters::cleared(Currency::USD).expect("registry should load");
         assert_eq!(params.methodology, ImMethodology::ClearingHouse);
         assert_eq!(params.mpor_days, 5);
         assert!(!params.segregated);

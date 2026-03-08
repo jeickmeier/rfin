@@ -387,6 +387,51 @@ pub enum Function {
     GrowthRate,
 }
 
+impl std::fmt::Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let name = match self {
+            Self::Lag => "lag",
+            Self::Lead => "lead",
+            Self::Diff => "diff",
+            Self::PctChange => "pct_change",
+            Self::CumSum => "cumsum",
+            Self::CumProd => "cumprod",
+            Self::CumMin => "cummin",
+            Self::CumMax => "cummax",
+            Self::RollingMean => "rolling_mean",
+            Self::RollingSum => "rolling_sum",
+            Self::RollingStd => "rolling_std",
+            Self::RollingVar => "rolling_var",
+            Self::RollingMedian => "rolling_median",
+            Self::RollingMin => "rolling_min",
+            Self::RollingMax => "rolling_max",
+            Self::RollingCount => "rolling_count",
+            Self::EwmMean => "ewm_mean",
+            Self::EwmStd => "ewm_std",
+            Self::EwmVar => "ewm_var",
+            Self::Std => "std",
+            Self::Var => "var",
+            Self::Median => "median",
+            Self::Shift => "shift",
+            Self::Rank => "rank",
+            Self::Quantile => "quantile",
+            Self::Sum => "sum",
+            Self::Mean => "mean",
+            Self::Annualize => "annualize",
+            Self::AnnualizeRate => "annualize_rate",
+            Self::Ttm => "ttm",
+            Self::Ytd => "ytd",
+            Self::Qtd => "qtd",
+            Self::FiscalYtd => "fiscal_ytd",
+            Self::Coalesce => "coalesce",
+            Self::Abs => "abs",
+            Self::Sign => "sign",
+            Self::GrowthRate => "growth_rate",
+        };
+        f.write_str(name)
+    }
+}
+
 // WindowSpec removed with time-window API cleanup
 
 // ExecMeta removed in favor of unified config::ResultsMeta

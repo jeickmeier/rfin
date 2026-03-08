@@ -78,6 +78,17 @@ fn safe_bump_size(spot: f64, bump_pct: f64) -> f64 {
     (spot * bump_pct).abs().max(MIN_ABSOLUTE_BUMP)
 }
 
+/// Guard against NaN / ±Inf leaking out of finite-difference calculations.
+fn ensure_finite(value: f64, metric_name: &str) -> finstack_core::Result<f64> {
+    if value.is_finite() {
+        Ok(value)
+    } else {
+        Err(finstack_core::Error::Validation(format!(
+            "{metric_name} produced non-finite result: {value}"
+        )))
+    }
+}
+
 // ================================================================================================
 // Traits for Instruments with Expiry and DayCount Information
 // ================================================================================================
@@ -339,7 +350,7 @@ where
         // Central difference: delta = (PV_up - PV_down) / (2 * bump_size)
         let delta = (pv_up - pv_down) / (2.0 * bump_size);
 
-        Ok(delta)
+        ensure_finite(delta, "fd_delta")
     }
 }
 
@@ -438,7 +449,7 @@ where
 
         let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size);
 
-        Ok(gamma)
+        ensure_finite(gamma, "fd_gamma")
     }
 }
 
@@ -512,7 +523,9 @@ where
         // Vega is ∂V/∂σ (per absolute vol unit). With the default bump of 0.01, this is the
         // market-standard “per 1 vol point” sensitivity.
         // Central difference: vega = (PV_up - PV_down) / (2 * bump)
-        Ok((pv_up - pv_down) / (2.0 * bump_abs))
+        let vega = (pv_up - pv_down) / (2.0 * bump_abs);
+
+        ensure_finite(vega, "fd_vega")
     }
 }
 
@@ -588,7 +601,9 @@ where
         let pv_up = inst_up.value_raw(&curves_up, as_of)?;
         let pv_down = inst_down.value_raw(&curves_down, as_of)?;
 
-        Ok((pv_up - 2.0 * base_pv + pv_down) / (bump_abs * bump_abs))
+        let volga = (pv_up - 2.0 * base_pv + pv_down) / (bump_abs * bump_abs);
+
+        ensure_finite(volga, "fd_volga")
     }
 }
 
@@ -711,7 +726,9 @@ where
             move || inst.value_raw(&curves, as_of)
         };
 
-        central_mixed(su_vu, su_vd, sd_vu, sd_vd, h_abs, k_abs)
+        let vanna = central_mixed(su_vu, su_vd, sd_vu, sd_vd, h_abs, k_abs)?;
+
+        ensure_finite(vanna, "fd_vanna")
     }
 }
 

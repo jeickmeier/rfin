@@ -576,7 +576,7 @@ mod tests {
 
         // Add cleared margin spec
         swap.margin_spec = Some(OtcMarginSpec {
-            csa: CsaSpec::usd_regulatory(),
+            csa: CsaSpec::usd_regulatory().expect("registry should load"),
             clearing_status: ClearingStatus::Cleared {
                 ccp: "LCH".to_string(),
             },

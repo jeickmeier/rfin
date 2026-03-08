@@ -199,7 +199,6 @@ Constructs a Dupire local volatility surface from an implied volatility surface.
 
 | Type              | Description                                          |
 |-------------------|------------------------------------------------------|
-| `Interp2D` trait  | 2D interpolation abstraction (`Send + Sync + Debug`) |
 | `BilinearInterp`  | Bilinear interpolation on a rectangular grid         |
 | `LocalVolSurface` | Stores the computed local vol surface with base date |
 | `LocalVolBuilder` | `from_implied_vol(...)` builds the surface           |
@@ -370,11 +369,9 @@ call_price = heston.price_european_call(S=100.0, K=100.0, T=1.0, r=0.05, q=0.02)
 
 ### Adding a new interpolation scheme for local vol
 
-1. Implement the `Interp2D` trait in `local_vol.rs` (or a new file).
-2. The trait requires `Send + Sync + Debug` for thread-safe usage in pricing engines.
-3. Update `LocalVolBuilder` to support the new interpolation type if it should be
-   selectable by users.
-4. Add tests comparing against bilinear interpolation for known smooth surfaces.
+1. Add the new interpolation type in `local_vol.rs` (or a new file).
+2. Update `LocalVolSurface` to use the new type (currently uses `Arc<BilinearInterp>`).
+3. Add tests comparing against bilinear interpolation for known smooth surfaces.
 
 ### General checklist
 

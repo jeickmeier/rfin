@@ -52,69 +52,12 @@
 //! - **builder**: Type-safe builder API with compile-time state enforcement
 //! - **error**: Comprehensive error types with context
 //! - **adjustments**: Normalization engine plus add-back specs/caps for adjusted EBITDA
-//!
-//! ## Implementation Status
-//!
-//! ### Phase 1: Foundation ✅
-//! - ✅ Core wire types (`NodeSpec`, `NodeType`, `AmountOrScalar`)
-//! - ✅ Type-state builder pattern (`ModelBuilder<NeedPeriods>`, `ModelBuilder<Ready>`)
-//! - ✅ Period integration using `finstack-core::dates::build_periods`
-//! - ✅ Value nodes with explicit period values
-//! - ✅ Calculated nodes with formulas
-//!
-//! ### Phase 2: DSL Engine ✅
-//! - ✅ Parser for formula text (arithmetic, functions, operators)
-//! - ✅ AST representation (`StmtExpr`)
-//! - ✅ Compiler to core `Expr`
-//! - ✅ Time-series operators (lag, lead, diff, pct_change) - fully implemented
-//! - ✅ Rolling window functions (all variants: mean, sum, std, var, median, min, max)
-//! - ✅ Statistical functions (std, var, median, cumsum, cumprod, cummin, cummax)
-//! - ✅ Custom functions (sum, mean, ttm, annualize, coalesce)
-//!
-//! ### Phase 3: Evaluator ✅
-//! - ✅ Evaluation context (`StatementContext`)
-//! - ✅ Basic evaluator with period-by-period evaluation
-//! - ✅ DAG construction and topological sort
-//! - ✅ Precedence resolution (Value > Forecast > Formula)
-//! - ✅ Where clause masking (conditional node evaluation)
-//! - ✅ Circular dependency detection
-//!
-//! ### Phase 4: Forecast Methods ✅
-//! - ✅ Forward fill
-//! - ✅ Growth percentage (compound growth)
-//! - ✅ Curve percentage (period-specific rates)
-//! - ✅ Normal distribution (deterministic with seed)
-//! - ✅ Log-normal distribution (always positive)
-//! - ✅ Override (sparse period values)
-//! - ✅ TimeSeries (external data reference)
-//! - ✅ Seasonal (patterns with optional growth)
-//!
-//! ### Phase 5: Dynamic Registry ✅
-//! - ✅ JSON schema for metrics
-//! - ✅ Registry loader
-//! - ✅ Built-in metrics (fin.* namespace)
-//! - ✅ Inter-metric dependencies
-//! - ✅ Namespace management
-//!
-//! ### Phase 6: Capital Structure ✅
-//! - ✅ Bond and swap instruments
-//! - ✅ Generic instrument support (automatic deserialization)
-//! - ✅ Cashflow computation with market context
-//! - ✅ `cs.*` namespace in DSL
-//! - ✅ Integration with finstack-valuations
-//!
-//! ### Phase 7: Extensions ✅
-//! - ✅ Extensions framework
-//! - ✅ Corkscrew extension (balance sheet roll-forward validation)
-//! - ✅ Credit scorecard extension (rating assignment)
-//! - ✅ Results export to Polars DataFrames
-//!
-//! ### Phase 8: Adjustments Module ✅
-//! - ✅ Normalization engine that reads evaluated nodes and produces adjusted metrics
-//! - ✅ Add-backs tracker with detailed audit trail (raw/capped amounts per period)
-//! - ✅ Capping policies tied to base nodes (e.g., synergies capped at % of EBITDA)
-//! - ✅ Merge helpers for stamping Adjusted EBITDA (or other normalized nodes) back into results
-//! - ✅ Serializable configs for adjustments to enable registry-driven workflows
+//! - **dsl**: Formula DSL (parser, AST, compiler) for arithmetic, time-series, rolling and statistical functions
+//! - **evaluator**: DAG-based evaluation with topological sort, precedence resolution, and capital structure integration
+//! - **forecast**: Deterministic and statistical forecast methods (growth, seasonal, Monte Carlo)
+//! - **registry**: Dynamic metric registry with namespace management and built-in `fin.*` metrics
+//! - **extensions**: Corkscrew, credit scorecard, and custom plugin support
+//! - **analysis**: Sensitivity, scenario, variance, DCF, goal seek, covenants, backtesting, and introspection tools
 
 /// Normalization engine and add-back tracking for adjusted metrics.
 pub mod adjustments;

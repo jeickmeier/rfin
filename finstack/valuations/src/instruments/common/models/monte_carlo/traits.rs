@@ -356,23 +356,6 @@ pub trait Payoff: Send + Sync + Clone {
     fn on_path_start<R: RandomStream>(&mut self, _rng: &mut R) {}
 }
 
-/// Path observer for collecting statistics along paths.
-///
-/// This trait enables extracting intermediate path information
-/// beyond just the final payoff (useful for debugging, Greeks, etc.).
-pub trait PathObserver: Send + Sync {
-    /// Observe a path state.
-    fn observe(&mut self, state: &mut PathState);
-
-    /// Reset observer for next path.
-    fn reset(&mut self);
-
-    /// Extract collected data (format depends on observer).
-    fn data(&self) -> Vec<f64> {
-        Vec::new()
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

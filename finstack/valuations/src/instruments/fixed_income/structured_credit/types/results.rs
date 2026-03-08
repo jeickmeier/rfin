@@ -6,11 +6,8 @@
 use crate::cashflow::traits::DatedFlows;
 use crate::metrics::MetricId;
 use finstack_core::cashflow::CashFlow;
-use finstack_core::dates::Date;
-use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
-use finstack_core::Result;
 
 use serde::{Deserialize, Serialize};
 
@@ -70,39 +67,12 @@ pub struct TrancheValuation {
     pub metrics: HashMap<MetricId, f64>,
 }
 
-/// Extension trait for tranche-specific valuation.
-pub trait TrancheValuationExt {
-    /// Generate cashflows for a specific tranche after waterfall allocation.
-    fn get_tranche_cashflows(
-        &self,
-        tranche_id: &str,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<TrancheCashflows>;
-
-    /// Calculate present value for a specific tranche.
-    fn value_tranche(
-        &self,
-        tranche_id: &str,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<Money>;
-
-    /// Get full valuation with metrics for a specific tranche.
-    fn value_tranche_with_metrics(
-        &self,
-        tranche_id: &str,
-        context: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> Result<TrancheValuation>;
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
 
     #[test]
     fn test_tranche_cashflows_creation() {

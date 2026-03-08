@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! Eligible collateral specifications and haircuts.
 //!
 //! Defines collateral eligibility criteria and haircut schedules following
@@ -295,8 +293,9 @@ impl CollateralEligibility {
 /// use finstack_valuations::margin::{CollateralEligibility, EligibleCollateralSchedule};
 ///
 /// // Start from a standard schedule (BCBS-IOSCO compliant)
-/// let schedule = EligibleCollateralSchedule::bcbs_standard();
+/// let schedule = EligibleCollateralSchedule::bcbs_standard()?;
 /// # let _ = schedule;
+/// # Ok::<(), finstack_core::Error>(())
 /// ```
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EligibleCollateralSchedule {
@@ -329,38 +328,59 @@ impl Default for EligibleCollateralSchedule {
 
 impl EligibleCollateralSchedule {
     /// Create a schedule accepting only cash.
-    #[must_use]
-    pub fn cash_only() -> Self {
-        let registry = embedded_registry().unwrap();
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn cash_only() -> finstack_core::Result<Self> {
+        let registry = embedded_registry()?;
         registry
             .collateral_schedules
             .get("cash_only")
             .cloned()
-            .unwrap()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "collateral schedule 'cash_only' not found in registry".to_string(),
+                )
+            })
     }
 
     /// Create a standard BCBS-IOSCO compliant schedule.
     ///
     /// Includes cash and government bonds with standard haircuts.
-    #[must_use]
-    pub fn bcbs_standard() -> Self {
-        let registry = embedded_registry().unwrap();
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn bcbs_standard() -> finstack_core::Result<Self> {
+        let registry = embedded_registry()?;
         registry
             .collateral_schedules
             .get("bcbs_standard")
             .cloned()
-            .unwrap()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "collateral schedule 'bcbs_standard' not found in registry".to_string(),
+                )
+            })
     }
 
     /// Create a standard repo collateral schedule (US Treasuries).
-    #[must_use]
-    pub fn us_treasuries() -> Self {
-        let registry = embedded_registry().unwrap();
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded margin registry cannot be loaded.
+    pub fn us_treasuries() -> finstack_core::Result<Self> {
+        let registry = embedded_registry()?;
         registry
             .collateral_schedules
             .get("us_treasuries")
             .cloned()
-            .unwrap()
+            .ok_or_else(|| {
+                finstack_core::Error::Validation(
+                    "collateral schedule 'us_treasuries' not found in registry".to_string(),
+                )
+            })
     }
 
     /// Load a named schedule from a provided config (with overrides).
@@ -506,14 +526,14 @@ mod tests {
 
     #[test]
     fn schedule_finds_haircut() {
-        let schedule = EligibleCollateralSchedule::cash_only();
+        let schedule = EligibleCollateralSchedule::cash_only().expect("registry should load");
         assert_eq!(schedule.haircut_for(&CollateralAssetClass::Cash), Some(0.0));
         assert_eq!(schedule.haircut_for(&CollateralAssetClass::Equity), None);
     }
 
     #[test]
     fn bcbs_standard_schedule() {
-        let schedule = EligibleCollateralSchedule::bcbs_standard();
+        let schedule = EligibleCollateralSchedule::bcbs_standard().expect("registry should load");
         assert!(schedule.is_eligible(&CollateralAssetClass::Cash));
         assert!(schedule.is_eligible(&CollateralAssetClass::GovernmentBonds));
         assert!(!schedule.is_eligible(&CollateralAssetClass::Equity));

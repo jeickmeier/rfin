@@ -183,8 +183,10 @@ impl PyMarginCallTiming {
     }
 
     #[staticmethod]
-    fn regulatory_standard() -> Self {
-        Self::new(MarginCallTiming::regulatory_standard())
+    fn regulatory_standard() -> PyResult<Self> {
+        Ok(Self::new(MarginCallTiming::regulatory_standard().map_err(
+            |e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()),
+        )?))
     }
 
     #[getter]
@@ -272,9 +274,10 @@ impl PyVmParameters {
 
     #[staticmethod]
     fn regulatory_standard(currency: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self::new(VmParameters::regulatory_standard(
-            parse_currency(currency)?,
-        )))
+        Ok(Self::new(
+            VmParameters::regulatory_standard(parse_currency(currency)?)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[staticmethod]
@@ -362,28 +365,34 @@ impl PyImParameters {
 
     #[staticmethod]
     fn simm_standard(currency: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self::new(ImParameters::simm_standard(parse_currency(
-            currency,
-        )?)))
+        Ok(Self::new(
+            ImParameters::simm_standard(parse_currency(currency)?)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[staticmethod]
     fn schedule_based(currency: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self::new(ImParameters::schedule_based(parse_currency(
-            currency,
-        )?)))
+        Ok(Self::new(
+            ImParameters::schedule_based(parse_currency(currency)?)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[staticmethod]
     fn cleared(currency: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self::new(ImParameters::cleared(parse_currency(currency)?)))
+        Ok(Self::new(
+            ImParameters::cleared(parse_currency(currency)?)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[staticmethod]
     fn repo_haircut(currency: &Bound<'_, PyAny>) -> PyResult<Self> {
-        Ok(Self::new(ImParameters::repo_haircut(parse_currency(
-            currency,
-        )?)))
+        Ok(Self::new(
+            ImParameters::repo_haircut(parse_currency(currency)?)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[getter]
@@ -444,18 +453,26 @@ impl PyEligibleCollateralSchedule {
     }
 
     #[staticmethod]
-    fn cash_only() -> Self {
-        Self::new(EligibleCollateralSchedule::cash_only())
+    fn cash_only() -> PyResult<Self> {
+        Ok(Self::new(EligibleCollateralSchedule::cash_only().map_err(
+            |e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()),
+        )?))
     }
 
     #[staticmethod]
-    fn bcbs_standard() -> Self {
-        Self::new(EligibleCollateralSchedule::bcbs_standard())
+    fn bcbs_standard() -> PyResult<Self> {
+        Ok(Self::new(
+            EligibleCollateralSchedule::bcbs_standard()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[staticmethod]
-    fn us_treasuries() -> Self {
-        Self::new(EligibleCollateralSchedule::us_treasuries())
+    fn us_treasuries() -> PyResult<Self> {
+        Ok(Self::new(
+            EligibleCollateralSchedule::us_treasuries()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        ))
     }
 
     #[getter]
@@ -533,29 +550,39 @@ impl PyCsaSpec {
         call_timing: Option<PyMarginCallTiming>,
         collateral_curve_id: String,
     ) -> PyResult<Self> {
+        let collateral = match eligible_collateral {
+            Some(s) => s.inner,
+            None => EligibleCollateralSchedule::bcbs_standard()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        };
+        let timing = match call_timing {
+            Some(t) => t.inner,
+            None => MarginCallTiming::regulatory_standard()
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?,
+        };
         Ok(Self::new(CsaSpec {
             id,
             base_currency: parse_currency(base_currency)?,
             vm_params: vm_params.inner,
             im_params: im_params.map(|p| p.inner),
-            eligible_collateral: eligible_collateral
-                .map(|s| s.inner)
-                .unwrap_or_else(EligibleCollateralSchedule::bcbs_standard),
-            call_timing: call_timing
-                .map(|t| t.inner)
-                .unwrap_or_else(MarginCallTiming::regulatory_standard),
+            eligible_collateral: collateral,
+            call_timing: timing,
             collateral_curve_id: CurveId::new(&collateral_curve_id),
         }))
     }
 
     #[staticmethod]
-    fn usd_regulatory() -> Self {
-        Self::new(CsaSpec::usd_regulatory())
+    fn usd_regulatory() -> PyResult<Self> {
+        Ok(Self::new(CsaSpec::usd_regulatory().map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(e.to_string())
+        })?))
     }
 
     #[staticmethod]
-    fn eur_regulatory() -> Self {
-        Self::new(CsaSpec::eur_regulatory())
+    fn eur_regulatory() -> PyResult<Self> {
+        Ok(Self::new(CsaSpec::eur_regulatory().map_err(|e| {
+            pyo3::exceptions::PyRuntimeError::new_err(e.to_string())
+        })?))
     }
 
     #[getter]

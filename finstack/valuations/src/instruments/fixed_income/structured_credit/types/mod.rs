@@ -67,7 +67,7 @@ pub use waterfall::{
 };
 
 // Result types
-pub use results::{TrancheCashflows, TrancheValuation, TrancheValuationExt};
+pub use results::{TrancheCashflows, TrancheValuation};
 
 // Stochastic specs - re-export from pricing
 pub use crate::instruments::fixed_income::structured_credit::pricing::{
@@ -886,8 +886,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for StructuredCr
     }
 }
 
-impl TrancheValuationExt for StructuredCredit {
-    fn get_tranche_cashflows(
+impl StructuredCredit {
+    /// Generate cashflows for a specific tranche after waterfall allocation.
+    pub fn get_tranche_cashflows(
         &self,
         tranche_id: &str,
         context: &MarketContext,
@@ -898,7 +899,8 @@ impl TrancheValuationExt for StructuredCredit {
         )
     }
 
-    fn value_tranche(
+    /// Calculate present value for a specific tranche.
+    pub fn value_tranche(
         &self,
         tranche_id: &str,
         context: &MarketContext,
@@ -919,7 +921,8 @@ impl TrancheValuationExt for StructuredCredit {
         Ok(pv)
     }
 
-    fn value_tranche_with_metrics(
+    /// Get full valuation with metrics for a specific tranche.
+    pub fn value_tranche_with_metrics(
         &self,
         tranche_id: &str,
         context: &MarketContext,

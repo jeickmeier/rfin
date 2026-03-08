@@ -77,7 +77,7 @@ impl VmResult {
 /// use finstack_core::dates::Date;
 ///
 /// # fn main() -> finstack_core::Result<()> {
-/// let csa = CsaSpec::usd_regulatory();
+/// let csa = CsaSpec::usd_regulatory()?;
 /// let calc = VmCalculator::new(csa);
 ///
 /// let exposure = Money::new(5_000_000.0, Currency::USD);
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn vm_calculator_no_threshold() {
-        let csa = CsaSpec::usd_regulatory();
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
         let calc = VmCalculator::new(csa);
 
         let exposure = Money::new(5_000_000.0, Currency::USD);
@@ -381,7 +381,7 @@ mod tests {
 
     #[test]
     fn vm_calculator_return_excess() {
-        let csa = CsaSpec::usd_regulatory();
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
         let calc = VmCalculator::new(csa);
 
         // Exposure dropped, have excess collateral
@@ -398,7 +398,7 @@ mod tests {
 
     #[test]
     fn vm_calculator_below_mta() {
-        let csa = CsaSpec::usd_regulatory(); // MTA = 500K
+        let csa = CsaSpec::usd_regulatory().expect("registry should load"); // MTA = 500K
         let calc = VmCalculator::new(csa);
 
         let exposure = Money::new(300_000.0, Currency::USD);
@@ -413,7 +413,7 @@ mod tests {
 
     #[test]
     fn vm_calculator_matches_vm_params() {
-        let csa = CsaSpec::usd_regulatory();
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
         let calc = VmCalculator::new(csa.clone());
         let as_of = test_date(2025, 1, 15);
 
@@ -448,7 +448,7 @@ mod tests {
 
     #[test]
     fn generate_margin_call_series() {
-        let csa = CsaSpec::usd_regulatory();
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
         let calc = VmCalculator::new(csa);
 
         let exposures = vec![
@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn settlement_lag_uses_business_days() {
-        let csa = CsaSpec::usd_regulatory(); // settlement_lag = 1
+        let csa = CsaSpec::usd_regulatory().expect("registry should load"); // settlement_lag = 1
         let calc = VmCalculator::new(csa);
         let friday = test_date(2025, 1, 10);
         let exposure = Money::new(1_000_000.0, Currency::USD);
@@ -492,7 +492,7 @@ mod tests {
 
     #[test]
     fn daily_margin_call_dates_skip_weekends() {
-        let csa = CsaSpec::usd_regulatory();
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
         let calc = VmCalculator::new(csa);
         let dates = calc.margin_call_dates(test_date(2025, 1, 10), test_date(2025, 1, 14));
         assert_eq!(
