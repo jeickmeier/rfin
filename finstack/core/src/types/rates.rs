@@ -157,12 +157,12 @@ pub struct Rate(f64);
 impl Rate {
     /// Create a rate from a decimal value (0.05 = 5%).
     ///
-    /// # Panics (debug only)
+    /// # Panics
     ///
-    /// Debug-asserts that `decimal` is finite. Use [`try_from_decimal`](Self::try_from_decimal)
+    /// Panics if `decimal` is not finite. Use [`try_from_decimal`](Self::try_from_decimal)
     /// for untrusted or external input.
     pub fn from_decimal(decimal: f64) -> Self {
-        debug_assert!(
+        assert!(
             decimal.is_finite(),
             "Rate::from_decimal called with non-finite value: {decimal}"
         );
@@ -190,12 +190,12 @@ impl Rate {
 
     /// Create a rate from a percentage value (5.0 = 5%).
     ///
-    /// # Panics (debug only)
+    /// # Panics
     ///
-    /// Debug-asserts that `percent` is finite. Use [`try_from_decimal`](Self::try_from_decimal)
+    /// Panics if `percent` is not finite. Use [`try_from_decimal`](Self::try_from_decimal)
     /// with manual conversion for untrusted input.
     pub fn from_percent(percent: f64) -> Self {
-        debug_assert!(
+        assert!(
             percent.is_finite(),
             "Rate::from_percent called with non-finite value: {percent}"
         );
@@ -520,12 +520,12 @@ pub struct Percentage(f64);
 impl Percentage {
     /// Create a new percentage (12.5 = 12.5%).
     ///
-    /// # Panics (debug only)
+    /// # Panics
     ///
-    /// Debug-asserts that `percent` is finite. Use [`try_new`](Self::try_new)
+    /// Panics if `percent` is not finite. Use [`try_new`](Self::try_new)
     /// for untrusted or external input.
     pub fn new(percent: f64) -> Self {
-        debug_assert!(
+        assert!(
             percent.is_finite(),
             "Percentage::new called with non-finite value: {percent}"
         );

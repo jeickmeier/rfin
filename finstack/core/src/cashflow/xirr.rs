@@ -236,15 +236,22 @@ impl InternalRateOfReturn for [(Date, f64)] {
 
     /// Calculates XIRR (Extended Internal Rate of Return) for irregular cashflows
     /// with configurable day count convention.
+    ///
+    /// For day-count conventions that require extra context (for example
+    /// `ActActIsma` or `Bus252`), use [`xirr_with_daycount_ctx`] instead.
     fn irr_with_daycount(&self, day_count: DayCount, guess: Option<f64>) -> crate::Result<f64> {
-        solve_xirr_internal(self, day_count, guess)
+        xirr_with_daycount_ctx(self, day_count, DayCountCtx::default(), guess)
     }
 }
 
-/// Internal helper for XIRR calculation.
-fn solve_xirr_internal(
+/// Calculate XIRR with an explicit day-count context.
+///
+/// Use this helper for day-count conventions that require additional context,
+/// such as `ActActIsma` (coupon frequency) or `Bus252` (holiday calendar).
+pub fn xirr_with_daycount_ctx(
     flows: &[(Date, f64)],
     day_count: DayCount,
+    ctx: DayCountCtx<'_>,
     guess: Option<f64>,
 ) -> crate::Result<f64> {
     if flows.len() < 2 {
@@ -265,7 +272,6 @@ fn solve_xirr_internal(
     }
 
     let first_date = sorted_flows[0].0;
-    let ctx = DayCountCtx::default();
 
     // Precompute (year_fraction, amount) once for performance and
     // propagate any day-count errors rather than masking/panicking.

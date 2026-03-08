@@ -93,7 +93,7 @@ impl Money {
     /// Format the amount with custom decimals and optional currency symbol.
     ///
     /// Uses Bankers rounding (IEEE 754 round-half-to-even). For other rounding
-    /// modes, use [`format_with_config`].
+    /// modes, use [`Money::format_with_config`].
     ///
     /// # Arguments
     ///
@@ -128,7 +128,7 @@ impl Money {
 
     /// Format with thousands separators and currency.
     ///
-    /// Uses Bankers rounding. For custom rounding, use [`format_with_config`].
+    /// Uses Bankers rounding. For custom rounding, use [`Money::format_with_config`].
     ///
     /// # Example
     ///

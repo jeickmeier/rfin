@@ -8,11 +8,12 @@
 
 use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::Instrument;
 use proptest::prelude::*;
@@ -27,8 +28,12 @@ fn create_option_market(
     rate: f64,
     div_yield: f64,
 ) -> MarketContext {
+    // Use log-linear interpolation so a flat continuously compounded rate is
+    // represented exactly between the supplied discount factor knots.
     let mut builder = DiscountCurve::builder("USD-OIS")
         .base_date(base_date)
+        .day_count(DayCount::Act365F)
+        .interp(InterpStyle::LogLinear)
         .knots([
             (0.0, 1.0),
             (0.5, (-rate * 0.5).exp()),
@@ -36,7 +41,7 @@ fn create_option_market(
             (2.0, (-rate * 2.0).exp()),
         ]);
 
-    // Allow non-monotonic for zero or negative rates (flat/increasing DFs)
+    // Allow non-monotonic for zero or negative rates (flat/increasing DFs).
     if rate.abs() < 1e-10 || rate < 0.0 {
         builder = builder.allow_non_monotonic();
     }
@@ -254,4 +259,38 @@ proptest! {
             price_low, price_high
         );
     }
+}
+
+#[test]
+fn put_lower_bound_regression_deep_itm_flat_curve_case() {
+    let spot = 50.0;
+    let strike = 141.4882274604004;
+    let vol = 0.1;
+    let rate = 0.09285993274128063;
+    let div_yield = 0.0;
+    let time_to_expiry_days = 212i64;
+
+    let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let expiry = base_date + time::Duration::days(time_to_expiry_days);
+
+    let put =
+        test_utils::equity_option_european_put("PUT-LB-REGRESSION", "AAPL", strike, expiry, 1.0)
+            .unwrap();
+
+    let market = create_option_market(base_date, spot, vol, rate, div_yield);
+    let put_price = put.value(&market, base_date).unwrap().amount();
+
+    let t = time_to_expiry_days as f64 / 365.0;
+    let forward_spot = spot * (-div_yield * t).exp();
+    let pv_strike = strike * (-rate * t).exp();
+    let intrinsic = (pv_strike - forward_spot).max(0.0);
+    let tolerance = scaled_tolerance(1e-4, intrinsic, 0.10);
+
+    assert!(
+        put_price >= intrinsic - tolerance,
+        "Put price {:.4} < intrinsic {:.4} (tol={:.4})",
+        put_price,
+        intrinsic,
+        tolerance
+    );
 }

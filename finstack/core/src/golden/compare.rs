@@ -306,15 +306,22 @@ pub fn assert_money(
     case_id: &str,
     metric: &str,
     actual: Money,
-    expected_amount: f64,
+    expected: Money,
     tolerance: Tolerance,
 ) -> Result<(), Error> {
+    if actual.currency() != expected.currency() {
+        return Err(Error::Validation(format!(
+            "[{suite_id}/{case_id}] {metric} failed: actual currency={}, expected currency={}",
+            actual.currency(),
+            expected.currency()
+        )));
+    }
     assert_within_tolerance(
         suite_id,
         case_id,
         metric,
         actual.amount(),
-        expected_amount,
+        expected.amount(),
         tolerance,
     )
 }
@@ -325,15 +332,22 @@ pub fn assert_money_abs(
     case_id: &str,
     metric: &str,
     actual: Money,
-    expected_amount: f64,
+    expected: Money,
     tolerance: f64,
 ) -> Result<(), Error> {
+    if actual.currency() != expected.currency() {
+        return Err(Error::Validation(format!(
+            "[{suite_id}/{case_id}] {metric} failed: actual currency={}, expected currency={}",
+            actual.currency(),
+            expected.currency()
+        )));
+    }
     assert_abs(
         suite_id,
         case_id,
         metric,
         actual.amount(),
-        expected_amount,
+        expected.amount(),
         tolerance,
     )
 }
@@ -581,7 +595,7 @@ impl<'a> GoldenAssert<'a> {
         &self,
         metric: &str,
         actual: Money,
-        expected_amount: f64,
+        expected: Money,
         tolerance: f64,
     ) -> Result<(), Error> {
         assert_money_abs(
@@ -589,7 +603,7 @@ impl<'a> GoldenAssert<'a> {
             self.case_id,
             metric,
             actual,
-            expected_amount,
+            expected,
             tolerance,
         )
     }
@@ -662,5 +676,22 @@ mod tests {
         assert!(msg.contains("price"));
         assert!(msg.contains("100.5"));
         assert!(msg.contains("100"));
+    }
+
+    #[test]
+    fn test_assert_money_rejects_currency_mismatch() {
+        let result = assert_money_abs(
+            "suite",
+            "case",
+            "money",
+            Money::new(100.0, crate::currency::Currency::USD),
+            Money::new(100.0, crate::currency::Currency::JPY),
+            0.0,
+        );
+
+        assert!(
+            result.is_err(),
+            "golden money assertions should reject matching amounts with mismatched currencies"
+        );
     }
 }

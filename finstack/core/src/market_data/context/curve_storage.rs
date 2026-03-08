@@ -301,7 +301,11 @@ impl CurveStorage {
 
                     let rebuilt = InflationCurve::builder(original_id.clone())
                         .base_cpi(original.base_cpi())
+                        .base_date(original.base_date())
+                        .day_count(original.day_count())
+                        .indexation_lag_months(original.indexation_lag_months())
                         .knots(points)
+                        .interp(original.interp_style())
                         .build()?;
                     return Ok(Self::Inflation(Arc::new(rebuilt)));
                 }

@@ -176,6 +176,7 @@ impl PriceCurve {
         PriceCurveBuilder {
             id: id.into(),
             base,
+            base_is_set: false,
             day_count: DayCount::Act365F,
             spot_price: None,
             points: Vec::new(),
@@ -451,6 +452,7 @@ impl PriceCurve {
 pub struct PriceCurveBuilder {
     id: CurveId,
     base: Date,
+    base_is_set: bool,
     day_count: DayCount,
     spot_price: Option<f64>,
     points: Vec<(f64, f64)>,
@@ -462,6 +464,7 @@ impl PriceCurveBuilder {
     /// Set the curve's valuation **base date**.
     pub fn base_date(mut self, d: Date) -> Self {
         self.base = d;
+        self.base_is_set = true;
         self
     }
 
@@ -502,6 +505,9 @@ impl PriceCurveBuilder {
 
     /// Validate input and build the [`PriceCurve`].
     pub fn build(self) -> crate::Result<PriceCurve> {
+        if !self.base_is_set {
+            return Err(InputError::Invalid.into());
+        }
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
@@ -519,8 +525,12 @@ impl PriceCurveBuilder {
             }
         }
 
-        // Infer spot price from first point if not explicitly set
-        let spot_price = self.spot_price.unwrap_or(pvec[0]);
+        // Infer spot price only when the first knot is explicitly anchored at t=0.
+        let spot_price = match self.spot_price {
+            Some(spot) => spot,
+            None if kvec.first().is_some_and(|t| t.abs() <= 1e-14) => pvec[0],
+            None => return Err(InputError::Invalid.into()),
+        };
 
         if spot_price < 0.0 {
             return Err(crate::Error::Validation(format!(
@@ -572,6 +582,9 @@ mod tests {
 
     fn sample_wti_curve() -> PriceCurve {
         PriceCurve::builder("WTI-FORWARD")
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
+            )
             .knots([(0.0, 75.0), (0.25, 76.5), (0.5, 77.2), (1.0, 78.0)])
             .spot_price(75.0)
             .build()
@@ -593,6 +606,26 @@ mod tests {
         let curve = sample_wti_curve();
         assert!((curve.price(0.0) - 75.0).abs() < 1e-10);
         assert!((curve.spot_price() - 75.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn builder_requires_explicit_base_date() {
+        let result = PriceCurve::builder("WTI-FWD")
+            .spot_price(75.0)
+            .knots([(0.0, 75.0), (1.0, 78.0)])
+            .build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn builder_rejects_missing_spot_when_first_knot_is_not_zero() {
+        let result = PriceCurve::builder("WTI-FWD")
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
+            )
+            .knots([(0.25, 76.5), (1.0, 78.0)])
+            .build();
+        assert!(result.is_err());
     }
 
     #[test]

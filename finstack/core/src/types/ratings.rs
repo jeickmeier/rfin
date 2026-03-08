@@ -24,7 +24,7 @@
 //! assert!(!CreditRating::BB.is_investment_grade());
 //!
 //! // Get WARF factor for a rating
-//! let factor = moodys_warf_factor(CreditRating::B);
+//! let factor = moodys_warf_factor(CreditRating::B).unwrap();
 //! assert_eq!(factor, 2720.0);
 //! ```
 
@@ -507,7 +507,7 @@ fn parse_notched_rating(value: &str) -> Result<NotchedRating, crate::Error> {
 /// use finstack_core::types::{CreditRating, RatingFactorTable};
 ///
 /// let table = RatingFactorTable::moodys_standard();
-/// let factor = table.get_factor(CreditRating::B);
+/// let factor = table.get_factor(CreditRating::B).unwrap();
 /// assert_eq!(factor, 2720.0);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -536,8 +536,8 @@ impl RatingFactorTable {
     /// use finstack_core::types::{CreditRating, RatingFactorTable};
     ///
     /// let table = RatingFactorTable::moodys_standard();
-    /// assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
-    /// assert_eq!(table.get_factor(CreditRating::B), 2720.0);
+    /// assert_eq!(table.get_factor(CreditRating::AAA).unwrap(), 1.0);
+    /// assert_eq!(table.get_factor(CreditRating::B).unwrap(), 2720.0);
     /// ```
     pub fn moodys_standard() -> Self {
         let mut factors = HashMap::default();
@@ -576,8 +576,9 @@ impl RatingFactorTable {
     /// Get factor for a specific rating (with optional notch precision).
     ///
     /// If the exact notch is missing, falls back to the flat notch for the same
-    /// base rating before returning the table default (`3650.0`).
-    pub fn get_factor<R>(&self, rating: R) -> f64
+    /// base rating. If no entry exists, returns an error instead of silently
+    /// substituting the table default.
+    pub fn get_factor<R>(&self, rating: R) -> crate::Result<f64>
     where
         R: Into<NotchedRating>,
     {
@@ -586,7 +587,20 @@ impl RatingFactorTable {
             .get(&rating)
             .copied()
             .or_else(|| self.factors.get(&rating.without_notch()).copied())
-            .unwrap_or(self.default_factor)
+            .ok_or_else(|| {
+                crate::Error::Input(crate::error::InputError::NotFound {
+                    id: format!("rating factor for {}", rating),
+                })
+            })
+    }
+
+    /// Get factor for a specific rating, falling back to the table default when missing.
+    pub fn get_factor_or_default<R>(&self, rating: R) -> f64
+    where
+        R: Into<NotchedRating>,
+    {
+        let rating = rating.into();
+        self.get_factor(rating).unwrap_or(self.default_factor)
     }
 
     /// Get agency name.
@@ -631,14 +645,14 @@ static MOODYS_WARF_TABLE: OnceLock<RatingFactorTable> = OnceLock::new();
 /// ```rust
 /// use finstack_core::types::{CreditRating, RatingNotch, moodys_warf_factor};
 ///
-/// assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
-/// assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);
+/// assert_eq!(moodys_warf_factor(CreditRating::AAA).unwrap(), 1.0);
+/// assert_eq!(moodys_warf_factor(CreditRating::B).unwrap(), 2720.0);
 /// assert_eq!(
-///     moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Plus)),
+///     moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Plus)).unwrap(),
 ///     260.0
 /// );
 /// ```
-pub fn moodys_warf_factor<R>(rating: R) -> f64
+pub fn moodys_warf_factor<R>(rating: R) -> crate::Result<f64>
 where
     R: Into<NotchedRating>,
 {
@@ -793,18 +807,34 @@ mod tests {
         let table = RatingFactorTable::moodys_standard();
 
         // Verify key rating factors
-        assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
         assert_eq!(
-            table.get_factor(CreditRating::AA.with_notch(RatingNotch::Plus)),
+            table
+                .get_factor(CreditRating::AAA)
+                .expect("AAA should have a Moody's WARF factor"),
+            1.0
+        );
+        assert_eq!(
+            table
+                .get_factor(CreditRating::AA.with_notch(RatingNotch::Plus))
+                .expect("AA+ should have a Moody's WARF factor"),
             10.0
         );
-        assert_eq!(table.get_factor(CreditRating::A), 120.0);
         assert_eq!(
-            table.get_factor(CreditRating::B.with_notch(RatingNotch::Minus)),
+            table
+                .get_factor(CreditRating::A)
+                .expect("A should have a Moody's WARF factor"),
+            120.0
+        );
+        assert_eq!(
+            table
+                .get_factor(CreditRating::B.with_notch(RatingNotch::Minus))
+                .expect("B- should have a Moody's WARF factor"),
             3490.0
         );
         assert_eq!(
-            table.get_factor(CreditRating::CCC.with_notch(RatingNotch::Flat)),
+            table
+                .get_factor(CreditRating::CCC.with_notch(RatingNotch::Flat))
+                .expect("CCC should have a Moody's WARF factor"),
             6500.0
         );
     }
@@ -813,11 +843,16 @@ mod tests {
     fn test_rating_factor_table_notch_fallback() {
         let table = RatingFactorTable::moodys_standard();
         let synthetic = NotchedRating::new(CreditRating::NR, RatingNotch::Plus);
-        assert_eq!(table.get_factor(synthetic), 3650.0);
+        assert_eq!(
+            table
+                .get_factor(synthetic)
+                .expect("NR+ should fall back to the NR Moody's WARF factor"),
+            3650.0
+        );
     }
 
     #[test]
-    fn test_rating_factor_table_default_when_missing() {
+    fn test_rating_factor_table_errors_when_missing() {
         let table = RatingFactorTable {
             factors: HashMap::default(),
             agency: "Test".to_string(),
@@ -825,7 +860,8 @@ mod tests {
             default_factor: 42.0,
         };
 
-        assert_eq!(table.get_factor(CreditRating::AA), 42.0);
+        assert!(table.get_factor(CreditRating::AA).is_err());
+        assert_eq!(table.get_factor_or_default(CreditRating::AA), 42.0);
     }
 
     #[test]
@@ -834,20 +870,32 @@ mod tests {
 
         // Verify convenience function matches table
         assert_eq!(
-            moodys_warf_factor(CreditRating::AAA),
-            table.get_factor(CreditRating::AAA)
+            moodys_warf_factor(CreditRating::AAA)
+                .expect("AAA should resolve via convenience WARF lookup"),
+            table
+                .get_factor(CreditRating::AAA)
+                .expect("AAA should resolve via table WARF lookup")
         );
         assert_eq!(
-            moodys_warf_factor(CreditRating::AA.with_notch(RatingNotch::Minus)),
-            table.get_factor(CreditRating::AA.with_notch(RatingNotch::Minus))
+            moodys_warf_factor(CreditRating::AA.with_notch(RatingNotch::Minus))
+                .expect("AA- should resolve via convenience WARF lookup"),
+            table
+                .get_factor(CreditRating::AA.with_notch(RatingNotch::Minus))
+                .expect("AA- should resolve via table WARF lookup")
         );
         assert_eq!(
-            moodys_warf_factor(CreditRating::BBB),
-            table.get_factor(CreditRating::BBB)
+            moodys_warf_factor(CreditRating::BBB)
+                .expect("BBB should resolve via convenience WARF lookup"),
+            table
+                .get_factor(CreditRating::BBB)
+                .expect("BBB should resolve via table WARF lookup")
         );
         assert_eq!(
-            moodys_warf_factor(CreditRating::B.with_notch(RatingNotch::Plus)),
-            table.get_factor(CreditRating::B.with_notch(RatingNotch::Plus))
+            moodys_warf_factor(CreditRating::B.with_notch(RatingNotch::Plus))
+                .expect("B+ should resolve via convenience WARF lookup"),
+            table
+                .get_factor(CreditRating::B.with_notch(RatingNotch::Plus))
+                .expect("B+ should resolve via table WARF lookup")
         );
     }
 

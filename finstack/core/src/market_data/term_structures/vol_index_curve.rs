@@ -174,6 +174,7 @@ impl VolatilityIndexCurve {
         VolatilityIndexCurveBuilder {
             id: id.into(),
             base,
+            base_is_set: false,
             day_count: DayCount::Act365F,
             spot_level: None,
             points: Vec::new(),
@@ -449,6 +450,7 @@ impl VolatilityIndexCurve {
 pub struct VolatilityIndexCurveBuilder {
     id: CurveId,
     base: Date,
+    base_is_set: bool,
     day_count: DayCount,
     spot_level: Option<f64>,
     points: Vec<(f64, f64)>,
@@ -460,6 +462,7 @@ impl VolatilityIndexCurveBuilder {
     /// Set the curve's valuation **base date**.
     pub fn base_date(mut self, d: Date) -> Self {
         self.base = d;
+        self.base_is_set = true;
         self
     }
 
@@ -500,6 +503,9 @@ impl VolatilityIndexCurveBuilder {
 
     /// Validate input and build the [`VolatilityIndexCurve`].
     pub fn build(self) -> crate::Result<VolatilityIndexCurve> {
+        if !self.base_is_set {
+            return Err(InputError::Invalid.into());
+        }
         if self.points.len() < 2 {
             return Err(InputError::TooFewPoints.into());
         }
@@ -517,9 +523,12 @@ impl VolatilityIndexCurveBuilder {
             }
         }
 
-        // Infer spot level from first point if not explicitly set
-        // Uses first knot's level as spot approximation
-        let spot_level = self.spot_level.unwrap_or(lvec[0]);
+        // Infer spot level only when the first knot is explicitly anchored at t=0.
+        let spot_level = match self.spot_level {
+            Some(spot) => spot,
+            None if kvec.first().is_some_and(|t| t.abs() <= 1e-14) => lvec[0],
+            None => return Err(InputError::Invalid.into()),
+        };
 
         if spot_level < 0.0 {
             return Err(crate::Error::Validation(format!(
@@ -571,6 +580,9 @@ mod tests {
 
     fn sample_vix_curve() -> VolatilityIndexCurve {
         VolatilityIndexCurve::builder("VIX")
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
+            )
             .knots([(0.0, 18.5), (0.25, 20.0), (0.5, 21.5), (1.0, 22.0)])
             .spot_level(18.5)
             .build()
@@ -592,6 +604,26 @@ mod tests {
         let curve = sample_vix_curve();
         assert!((curve.forward_level(0.0) - 18.5).abs() < 1e-10);
         assert!((curve.spot_level() - 18.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn builder_requires_explicit_base_date() {
+        let result = VolatilityIndexCurve::builder("VIX")
+            .spot_level(18.5)
+            .knots([(0.0, 18.5), (0.5, 21.0)])
+            .build();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn builder_rejects_missing_spot_when_first_knot_is_not_zero() {
+        let result = VolatilityIndexCurve::builder("VIX")
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
+            )
+            .knots([(0.25, 20.0), (0.5, 21.5)])
+            .build();
+        assert!(result.is_err());
     }
 
     #[test]

@@ -14,6 +14,9 @@ use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::InterestRateSwap;
 use time::Month;
 
+// Overnight compounded fixtures need a positive projection-curve tenor.
+const OVERNIGHT_FORWARD_TENOR: f64 = 1.0 / 360.0;
+
 #[test]
 fn test_compounding_lookback_sensitivity() {
     let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -33,8 +36,9 @@ fn test_compounding_lookback_sensitivity() {
         .unwrap();
 
     // Increasing forward curve: starts at 5%, ends at 10%
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(base)
+        .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (1.0, 0.10)])
         .interp(InterpStyle::Linear)
         .build()
@@ -131,8 +135,9 @@ fn test_payment_delay_sensitivity() {
         .build()
         .unwrap();
 
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(base)
+        .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (1.0, 0.05)])
         .interp(InterpStyle::Linear)
         .build()
@@ -206,8 +211,9 @@ fn test_seasoned_compounded_swap_requires_fixings() {
         .build()
         .unwrap();
 
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(as_of)
+        .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (1.0, 0.05)])
         .interp(InterpStyle::Linear)
         .build()
@@ -282,8 +288,9 @@ fn test_seasoned_compounded_swap_with_fixings_prices() {
         .build()
         .unwrap();
 
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(as_of)
+        .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (1.0, 0.05)])
         .interp(InterpStyle::Linear)
         .build()
@@ -371,8 +378,9 @@ fn test_compounded_swap_with_spread_near_zero_rates() {
         .unwrap();
 
     // Near-zero forward curve
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(base)
+        .day_count(DayCount::Act360)
         .knots([(0.0, 0.001), (1.0, 0.001)]) // 0.1% flat
         .interp(InterpStyle::Linear)
         .build()
@@ -463,8 +471,9 @@ fn test_compounded_swap_with_spread_negative_rates() {
         .unwrap();
 
     // Negative forward curve
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(base)
+        .day_count(DayCount::Act360)
         .knots([(0.0, -0.005), (1.0, -0.005)]) // -0.5% flat
         .interp(InterpStyle::Linear)
         .build()
@@ -556,8 +565,9 @@ fn test_observation_shift_before_curve_base_date() {
         .build()
         .unwrap();
 
-    let fwd = ForwardCurve::builder("FWD", 0.0)
+    let fwd = ForwardCurve::builder("FWD", OVERNIGHT_FORWARD_TENOR)
         .base_date(base)
+        .day_count(DayCount::Act360)
         .knots([(0.0, 0.05), (1.0, 0.05)])
         .interp(InterpStyle::Linear)
         .build()

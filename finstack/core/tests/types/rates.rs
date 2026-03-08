@@ -1,6 +1,7 @@
 //! Additional tests for rate types and conversions
 
 use finstack_core::types::{Bps, Percentage, Rate};
+use std::panic::catch_unwind;
 
 #[test]
 fn rate_conversions_roundtrip() {
@@ -242,6 +243,17 @@ fn cross_type_conversions() {
     assert_eq!(pct.as_percent(), 3.5);
     let bps_back: Bps = pct.into();
     assert_eq!(bps.as_bps(), bps_back.as_bps());
+}
+
+#[test]
+fn non_finite_rate_constructors_panic() {
+    assert!(catch_unwind(|| Rate::from_decimal(f64::NAN)).is_err());
+    assert!(catch_unwind(|| Rate::from_percent(f64::INFINITY)).is_err());
+    assert!(catch_unwind(|| Percentage::new(f64::NEG_INFINITY)).is_err());
+    assert!(catch_unwind(|| {
+        let _: Rate = f64::NAN.into();
+    })
+    .is_err());
 }
 
 #[test]

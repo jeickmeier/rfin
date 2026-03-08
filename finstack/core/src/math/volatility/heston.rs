@@ -173,11 +173,24 @@ impl HestonParams {
         is_call: bool,
     ) -> f64 {
         if t <= 0.0 {
+            if !spot.is_finite() || !strike.is_finite() {
+                return f64::NAN;
+            }
             return if is_call {
                 (spot - strike).max(0.0)
             } else {
                 (strike - spot).max(0.0)
             };
+        }
+        if !spot.is_finite()
+            || !strike.is_finite()
+            || !r.is_finite()
+            || !q.is_finite()
+            || !t.is_finite()
+            || spot <= 0.0
+            || strike <= 0.0
+        {
+            return f64::NAN;
         }
 
         // Degenerate case: very small vol-of-vol → use Black-Scholes
@@ -187,6 +200,9 @@ impl HestonParams {
 
         let p1 = self.compute_pj(1, spot, strike, r, q, t);
         let p2 = self.compute_pj(2, spot, strike, r, q, t);
+        if !p1.is_finite() || !p2.is_finite() {
+            return f64::NAN;
+        }
 
         let call = (spot * (-q * t).exp() * p1 - strike * (-r * t).exp() * p2).max(0.0);
 
@@ -240,7 +256,11 @@ impl HestonParams {
             16,
             8,
         )
-        .unwrap_or(0.0);
+        .unwrap_or(f64::NAN);
+
+        if !integral.is_finite() {
+            return f64::NAN;
+        }
 
         (0.5 + integral / PI).clamp(0.0, 1.0)
     }
@@ -680,6 +700,13 @@ mod tests {
 
         let itm_put = p.price_european(100.0, 110.0, 0.05, 0.0, 0.0, false);
         assert!((itm_put - 10.0).abs() < 1e-10, "Expired ITM put");
+    }
+
+    #[test]
+    fn invalid_inputs_return_nan() {
+        let p = HestonParams::new(0.04, 2.0, 0.04, 0.3, -0.5).expect("valid");
+        let price = p.price_european(100.0, 0.0, 0.05, 0.0, 1.0, true);
+        assert!(price.is_nan());
     }
 
     #[test]

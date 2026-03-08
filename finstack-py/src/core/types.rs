@@ -163,22 +163,28 @@ impl PyRate {
     /// ----------
     /// decimal : float
     ///     Rate as a decimal value (e.g. 0.05 for 5%).
-    fn ctor(decimal: f64) -> Self {
-        Self::new(Rate::from_decimal(decimal))
+    fn ctor(decimal: f64) -> PyResult<Self> {
+        Rate::try_from_decimal(decimal)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[staticmethod]
     #[pyo3(text_signature = "(decimal)")]
     /// Create a rate from a decimal value (0.05 = 5%).
-    fn from_decimal(decimal: f64) -> Self {
-        Self::new(Rate::from_decimal(decimal))
+    fn from_decimal(decimal: f64) -> PyResult<Self> {
+        Rate::try_from_decimal(decimal)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[staticmethod]
     #[pyo3(text_signature = "(percent)")]
     /// Create a rate from a percentage value (5.0 = 5%).
-    fn from_percent(percent: f64) -> Self {
-        Self::new(Rate::from_percent(percent))
+    fn from_percent(percent: f64) -> PyResult<Self> {
+        Rate::try_from_decimal(percent / 100.0)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[staticmethod]
@@ -453,8 +459,10 @@ impl PyPercentage {
 impl PyPercentage {
     #[new]
     #[pyo3(text_signature = "(percent)")]
-    fn ctor(percent: f64) -> Self {
-        Self::new(finstack_core::types::Percentage::new(percent))
+    fn ctor(percent: f64) -> PyResult<Self> {
+        finstack_core::types::Percentage::try_new(percent)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     #[pyo3(text_signature = "(self)")]
@@ -927,7 +935,7 @@ impl PyRatingFactorTable {
     #[pyo3(text_signature = "(self, rating)")]
     fn get_factor(&self, rating: Bound<'_, PyAny>) -> PyResult<f64> {
         let rating = extract_notched_rating(&rating)?;
-        Ok(self.inner.get_factor(rating))
+        self.inner.get_factor(rating).map_err(core_to_py)
     }
 
     #[getter]
@@ -957,7 +965,7 @@ impl PyRatingFactorTable {
 #[pyfunction(name = "moodys_warf_factor")]
 fn moodys_warf_factor_py(rating: Bound<'_, PyAny>) -> PyResult<f64> {
     let rating = extract_notched_rating(&rating)?;
-    Ok(moodys_warf_factor(rating))
+    moodys_warf_factor(rating).map_err(core_to_py)
 }
 
 fn extract_notched_rating(value: &Bound<'_, PyAny>) -> PyResult<NotchedRating> {

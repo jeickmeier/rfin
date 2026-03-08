@@ -56,8 +56,8 @@ impl Performance {
     /// * `prices` - Price matrix: `prices[i]` is the full price series for
     ///   ticker `i`.
     /// * `ticker_names` - Names corresponding to each column of `prices`.
-    /// * `benchmark_ticker` - Name of the benchmark ticker. Falls back to
-    ///   column 0 if `None` or not found.
+    /// * `benchmark_ticker` - Name of the benchmark ticker. Uses column 0 if
+    ///   `None`; returns an error if a non-`None` ticker name is not found.
     /// * `freq` - Observation frequency, used to derive the annualization factor.
     /// * `use_log_returns` - If `true`, uses log returns (`ln(p[t]/p[t-1])`);
     ///   if `false`, uses simple returns (`p[t]/p[t-1] - 1`).
@@ -112,7 +112,10 @@ impl Performance {
         let expected_returns_len = dates.len().saturating_sub(1);
 
         let benchmark_idx = match benchmark_ticker {
-            Some(name) => ticker_names.iter().position(|t| t == name).unwrap_or(0),
+            Some(name) => ticker_names
+                .iter()
+                .position(|t| t == name)
+                .ok_or(crate::error::InputError::Invalid)?,
             None => 0,
         };
 
@@ -191,7 +194,7 @@ impl Performance {
     ///
     /// # Returns
     ///
-    /// `Ok(())` on success, or an [`InputError::Invalid`] if `ticker` is
+    /// `Ok(())` on success, or an [`crate::error::InputError::Invalid`] if `ticker` is
     /// not found among the loaded tickers.
     pub fn reset_bench_ticker(&mut self, ticker: &str) -> crate::Result<()> {
         let idx = self
@@ -1197,6 +1200,25 @@ mod tests {
         assert!(
             result.is_err(),
             "ticker names must match the price matrix width"
+        );
+    }
+
+    #[test]
+    fn performance_rejects_unknown_benchmark_ticker() {
+        let dates = make_dates(5);
+        let p1 = make_prices(5);
+        let p2 = make_prices(5);
+        let result = Performance::new(
+            dates,
+            vec![p1, p2],
+            vec!["A".into(), "B".into()],
+            Some("MISSING"),
+            PeriodKind::Daily,
+            false,
+        );
+        assert!(
+            result.is_err(),
+            "unknown benchmark tickers should be rejected instead of silently falling back"
         );
     }
 }

@@ -190,6 +190,27 @@ impl InflationSwap {
         InflationLag::None
     }
 
+    fn cpi_value_at_lagged_date(
+        &self,
+        curves: &MarketContext,
+        inflation_curve: &finstack_core::market_data::term_structures::InflationCurve,
+        discount_base: Date,
+        unlagged_date: Date,
+        lagged_date: Date,
+    ) -> finstack_core::Result<f64> {
+        // Once the lagged fixing date is on or before the valuation date, prefer the
+        // realized index history. Otherwise fall back to the curve for projected CPI.
+        if lagged_date <= discount_base {
+            if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
+                if let Ok(value) = index.value_on(unlagged_date) {
+                    return Ok(value);
+                }
+            }
+        }
+
+        Self::curve_cpi_value(inflation_curve, discount_base, lagged_date)
+    }
+
     /// Calculate the projected index ratio I(T_mat - Lag) / I(T_start - Lag).
     ///
     /// When using an InflationIndex, the index applies its own lag internally via `value_on()`,
@@ -206,33 +227,34 @@ impl InflationSwap {
         curves: &MarketContext,
         discount_base: Date,
     ) -> finstack_core::Result<f64> {
-        let inflation_index = curves
-            .get_inflation_index(self.inflation_index_id.as_str())
-            .ok();
         let inflation_curve = curves.get_inflation_curve(self.inflation_index_id.as_str())?;
+        let default_lag = self.effective_lag(curves);
+        let lagged_start = self.apply_lag(self.start_date, default_lag);
+        let lagged_maturity = self.apply_lag(self.maturity, default_lag);
 
         let i_start = if let Some(base) = self.base_cpi {
             base
-        } else if let Some(index) = inflation_index {
-            // InflationIndex.value_on() applies its own lag internally
-            index.value_on(self.start_date)?
         } else {
-            // Fall back to curve-based lookup - we must apply lag ourselves
-            let default_lag = self.effective_lag(curves);
-            let lagged_start = self.apply_lag(self.start_date, default_lag);
-            Self::curve_cpi_value(inflation_curve.as_ref(), discount_base, lagged_start)?
+            self.cpi_value_at_lagged_date(
+                curves,
+                inflation_curve.as_ref(),
+                discount_base,
+                self.start_date,
+                lagged_start,
+            )?
         };
 
         if i_start <= 0.0 {
             return Err(finstack_core::InputError::NonPositiveValue.into());
         }
 
-        // For maturity projection, use curve-based lookup with lag applied
-        // (The index may not have future projections, so we always use the curve for maturity)
-        let default_lag = self.effective_lag(curves);
-        let lagged_maturity = self.apply_lag(self.maturity, default_lag);
-        let i_maturity_projected =
-            Self::curve_cpi_value(inflation_curve.as_ref(), discount_base, lagged_maturity)?;
+        let i_maturity_projected = self.cpi_value_at_lagged_date(
+            curves,
+            inflation_curve.as_ref(),
+            discount_base,
+            self.maturity,
+            lagged_maturity,
+        )?;
 
         Ok(i_maturity_projected / i_start)
     }

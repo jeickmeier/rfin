@@ -95,6 +95,7 @@ impl MarketContext {
 
                     ctx.curves
                         .insert(surface_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+                    ctx.rebind_all_credit_indices();
                 }
             }
         }
@@ -122,6 +123,7 @@ impl MarketContext {
             if let Some(storage) = self.curves.get(cid).cloned() {
                 let bumped_storage = storage.apply_bump_preserving_id(&curve_id, bump_spec)?;
                 self.curves.insert(curve_id.clone(), bumped_storage);
+                self.rebind_all_credit_indices();
                 continue;
             }
 

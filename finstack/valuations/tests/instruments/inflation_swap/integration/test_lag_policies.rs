@@ -17,7 +17,7 @@ fn test_lag_override_vs_index_lag() {
 
     // Index with 3M lag
     let disc = flat_discount("USD-OIS", as_of, 0.04).unwrap();
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, 0.02).unwrap();
+    let infl_curve = flat_inflation_curve("US-CPI-U", as_of, 300.0, 0.02).unwrap();
     let index = simple_index(
         "US-CPI-U",
         as_of,
@@ -81,7 +81,7 @@ fn test_different_lag_durations() {
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let disc = flat_discount("USD-OIS", as_of, 0.04).unwrap();
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, 0.03).unwrap();
+    let infl_curve = flat_inflation_curve("US-CPI-U", as_of, 300.0, 0.03).unwrap();
     let index = simple_index("US-CPI-U", as_of, 300.0, Currency::USD, InflationLag::None);
 
     let ctx = MarketContext::new()
@@ -129,7 +129,7 @@ fn test_lag_in_days_vs_months() {
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let disc = flat_discount("USD-OIS", as_of, 0.04).unwrap();
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, 0.02).unwrap();
+    let infl_curve = flat_inflation_curve("US-CPI-U", as_of, 300.0, 0.02).unwrap();
     let index = simple_index("US-CPI-U", as_of, 300.0, Currency::USD, InflationLag::None);
 
     let ctx = MarketContext::new()
@@ -188,7 +188,7 @@ fn test_no_index_fallback_to_curve() {
     let maturity = Date::from_calendar_date(2030, Month::January, 1).unwrap();
 
     let disc = flat_discount("USD-OIS", as_of, 0.04).unwrap();
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, 0.02).unwrap();
+    let infl_curve = flat_inflation_curve("US-CPI-U", as_of, 300.0, 0.02).unwrap();
 
     // Context without inflation index
     let ctx = MarketContext::new().insert(disc).insert(infl_curve);

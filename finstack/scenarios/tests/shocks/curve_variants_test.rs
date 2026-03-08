@@ -108,6 +108,7 @@ fn test_inflation_curve_parallel_shock() {
 
     // Create inflation curve
     let curve = InflationCurve::builder("US_CPI")
+        .base_date(base_date)
         .base_cpi(300.0)
         .knots(vec![
             (0.0, 300.0),
@@ -267,6 +268,7 @@ fn test_inflation_curve_node_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     let curve = InflationCurve::builder("US_CPI")
+        .base_date(base_date)
         .base_cpi(300.0)
         .knots(vec![(0.0, 300.0), (1.0, 306.0), (5.0, 330.0)])
         .build()
@@ -376,6 +378,7 @@ fn test_all_curve_types_in_one_scenario() {
         .unwrap();
 
     let inflation = InflationCurve::builder("US_CPI")
+        .base_date(base_date)
         .base_cpi(300.0)
         .knots(vec![(0.0, 300.0), (1.0, 306.0)])
         .build()

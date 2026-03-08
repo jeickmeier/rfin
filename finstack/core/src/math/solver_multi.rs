@@ -82,6 +82,11 @@ pub trait AnalyticalDerivatives {
     fn has_jacobian(&self) -> bool {
         false
     }
+
+    /// Number of residual equations for Jacobian-based system solves, if known.
+    fn residual_count(&self) -> Option<usize> {
+        None
+    }
 }
 
 /// Termination reason for the Levenberg-Marquardt solver.
@@ -695,16 +700,19 @@ impl LevenbergMarquardtSolver {
         Res: Fn(&[f64], &mut [f64]),
         D: AnalyticalDerivatives,
     {
-        // Probe residual dimension
         if initial.is_empty() {
             return Err(InputError::Invalid.into());
         }
-        let mut test_residuals = vec![f64::MAX; initial.len() * 4];
-        residuals(initial, &mut test_residuals);
-        let n_residuals = test_residuals
-            .iter()
-            .position(|&r| r == f64::MAX)
-            .unwrap_or(test_residuals.len());
+        let n_residuals = if let Some(count) = derivatives.residual_count() {
+            count
+        } else {
+            let mut test_residuals = vec![f64::MAX; initial.len() * 4];
+            residuals(initial, &mut test_residuals);
+            test_residuals
+                .iter()
+                .position(|&r| r == f64::MAX)
+                .unwrap_or(test_residuals.len())
+        };
 
         let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<Vec<f64>> {
             if derivatives.has_jacobian() {
@@ -1137,5 +1145,45 @@ mod tests {
         // Both should be close to [2.0, 3.0]
         assert!((result1[0] - 2.0).abs() < 1e-8);
         assert!((result1[1] - 3.0).abs() < 1e-8);
+    }
+
+    #[test]
+    fn test_jacobian_system_uses_explicit_residual_count() {
+        struct TallJacobian;
+
+        impl AnalyticalDerivatives for TallJacobian {
+            fn gradient(&self, _params: &[f64], _gradient: &mut [f64]) {}
+
+            fn jacobian(&self, _params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
+                for row in jacobian.iter_mut() {
+                    row[0] = 1.0;
+                }
+                Some(())
+            }
+
+            fn has_jacobian(&self) -> bool {
+                true
+            }
+
+            fn residual_count(&self) -> Option<usize> {
+                Some(5)
+            }
+        }
+
+        let solver = LevenbergMarquardtSolver::new()
+            .with_tolerance(1e-8)
+            .with_max_iterations(50);
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            for (i, out) in resid.iter_mut().enumerate() {
+                *out = params[0] - (i as f64 + 1.0);
+            }
+        };
+        let initial = vec![0.0];
+
+        let solution = solver
+            .solve_system_with_jacobian_stats(residuals, &TallJacobian, &initial)
+            .expect("explicit residual count should avoid probe truncation");
+
+        assert_eq!(solution.params.len(), 1);
     }
 }

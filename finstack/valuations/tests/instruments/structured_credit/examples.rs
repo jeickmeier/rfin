@@ -195,6 +195,8 @@ mod tests {
             let rating_factor = asset
                 .credit_quality
                 .map(moodys_warf_factor)
+                .transpose()
+                .expect("rating factor lookup should succeed")
                 .unwrap_or(3650.0);
 
             weighted_sum += balance * rating_factor;
@@ -213,10 +215,10 @@ mod tests {
         assert!((warf - 1517.1).abs() < 0.1);
 
         // Verify individual rating factors
-        assert_eq!(moodys_warf_factor(CreditRating::AAA), 1.0);
-        assert_eq!(moodys_warf_factor(CreditRating::A), 120.0);
-        assert_eq!(moodys_warf_factor(CreditRating::BB), 1350.0);
-        assert_eq!(moodys_warf_factor(CreditRating::B), 2720.0);
+        assert_eq!(moodys_warf_factor(CreditRating::AAA).unwrap(), 1.0);
+        assert_eq!(moodys_warf_factor(CreditRating::A).unwrap(), 120.0);
+        assert_eq!(moodys_warf_factor(CreditRating::BB).unwrap(), 1350.0);
+        assert_eq!(moodys_warf_factor(CreditRating::B).unwrap(), 2720.0);
     }
 
     #[test]
@@ -375,6 +377,8 @@ mod tests {
             let factor = asset
                 .credit_quality
                 .map(moodys_warf_factor)
+                .transpose()
+                .expect("rating factor lookup should succeed")
                 .unwrap_or(3650.0);
             warf_sum += bal * factor;
             total_bal += bal;

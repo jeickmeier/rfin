@@ -21,11 +21,16 @@ pub enum CachedResult {
 }
 
 impl CachedResult {
+    /// Borrow the cached scalar payload as a slice.
+    pub fn as_scalar_slice(&self) -> &[f64] {
+        match self {
+            CachedResult::Scalar(shared) => shared.as_ref(),
+        }
+    }
+
     /// Get as scalar vector.
     pub fn as_scalar(&self) -> crate::Result<Vec<f64>> {
-        match self {
-            CachedResult::Scalar(shared) => Ok(shared.as_ref().to_vec()),
-        }
+        Ok(self.as_scalar_slice().to_vec())
     }
 
     /// Length of the cached payload.

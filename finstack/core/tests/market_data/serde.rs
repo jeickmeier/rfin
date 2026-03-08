@@ -347,6 +347,7 @@ fn curve_state_and_storage_roundtrip_all_variants() {
         .unwrap();
     let inf = InflationCurve::builder("INF")
         .base_cpi(100.0)
+        .base_date(d)
         .knots([(0.0, 100.0), (1.0, 101.0)])
         .build()
         .unwrap();
@@ -411,6 +412,7 @@ fn market_context_state_roundtrip_hits_more_state_serde_lines() {
         .unwrap();
     let inf = InflationCurve::builder("US-CPI-CURVE")
         .base_cpi(100.0)
+        .base_date(d)
         .knots([(0.0, 100.0), (1.0, 101.0)])
         .build()
         .unwrap();

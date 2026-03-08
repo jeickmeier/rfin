@@ -22,7 +22,8 @@ impl crate::metrics::MetricCalculator for CloWarfCalculator {
             let rating_factor = asset
                 .credit_quality
                 .map(moodys_warf_factor)
-                .unwrap_or(3650.0); // Default to B-/CCC+ equivalent
+                .transpose()?
+                .unwrap_or(3650.0); // Default to B-/CCC+ equivalent when rating is missing
 
             weighted_sum += balance * rating_factor;
             total_balance += balance;

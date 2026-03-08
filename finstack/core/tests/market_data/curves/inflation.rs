@@ -24,6 +24,7 @@ fn _test_date() -> Date {
 fn clone_is_panic_free_and_equivalent() {
     let original = InflationCurve::builder("US-CPI")
         .base_cpi(300.0)
+        .base_date(_test_date())
         .knots([
             (0.0, 300.0),
             (1.0, 306.0),
@@ -70,6 +71,7 @@ fn clone_works_for_all_interp_styles() {
     for style in interp_styles {
         let curve = InflationCurve::builder("TEST-CPI")
             .base_cpi(100.0)
+            .base_date(_test_date())
             .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
             .interp(style)
             .build()
@@ -102,6 +104,7 @@ fn clone_works_for_all_interp_styles() {
 fn clone_works_with_extrapolation() {
     let curve = InflationCurve::builder("TEST-CPI")
         .base_cpi(100.0)
+        .base_date(_test_date())
         .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
         .build()
         .unwrap();
@@ -123,6 +126,18 @@ fn clone_works_with_extrapolation() {
     }
 }
 
+#[test]
+fn builder_requires_explicit_base_date() {
+    let result = InflationCurve::builder("US-CPI")
+        .base_cpi(100.0)
+        .knots([(0.0, 100.0), (1.0, 102.0)])
+        .build();
+    assert!(
+        result.is_err(),
+        "inflation curve should require an explicit base date"
+    );
+}
+
 // =============================================================================
 // Serialization Tests
 // =============================================================================
@@ -134,6 +149,7 @@ mod serde_tests {
     fn roundtrip_with_all_fields() {
         let original = InflationCurve::builder("US-CPI")
             .base_cpi(300.0)
+            .base_date(_test_date())
             .knots([
                 (0.0, 300.0),
                 (1.0, 306.0),
@@ -194,6 +210,7 @@ mod serde_tests {
         for style in interp_styles {
             let original = InflationCurve::builder("EUR-HICP")
                 .base_cpi(100.0)
+                .base_date(_test_date())
                 .knots([(0.0, 100.0), (1.0, 102.0), (3.0, 106.5), (5.0, 111.0)])
                 .interp(style)
                 .build()

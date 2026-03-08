@@ -349,7 +349,7 @@ impl TryFrom<MarketContextState> for MarketContext {
 
         // Reconstruct inflation indices
         for idx in state.inflation_indices {
-            let id = CurveId::from(idx.id.clone());
+            let id = MarketContext::inflation_index_key_for_insert(idx.id.clone(), &idx);
             ctx.inflation_indices.insert(id, Arc::new(idx));
         }
 
@@ -396,6 +396,7 @@ impl TryFrom<MarketContextState> for MarketContext {
             ctx.credit_indices
                 .insert(CurveId::from(credit_state.id), Arc::new(data));
         }
+        ctx.rebind_all_credit_indices();
 
         // Reconstruct FX delta vol surfaces
         for surface in state.fx_delta_vol_surfaces {

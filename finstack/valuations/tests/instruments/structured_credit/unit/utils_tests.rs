@@ -22,7 +22,7 @@ use time::Month;
 #[test]
 fn test_moodys_warf_factor_aaa() {
     // Act
-    let factor = moodys_warf_factor(CreditRating::AAA);
+    let factor = moodys_warf_factor(CreditRating::AAA).unwrap();
 
     // Assert: AAA should be 1 (best rating)
     assert_eq!(factor, 1.0);
@@ -31,7 +31,7 @@ fn test_moodys_warf_factor_aaa() {
 #[test]
 fn test_moodys_warf_factor_a() {
     // Act
-    let factor = moodys_warf_factor(CreditRating::A);
+    let factor = moodys_warf_factor(CreditRating::A).unwrap();
 
     // Assert: A (flat notch / A2) should be 120
     assert_eq!(factor, 120.0);
@@ -40,7 +40,7 @@ fn test_moodys_warf_factor_a() {
 #[test]
 fn test_moodys_warf_factor_bb() {
     // Act
-    let factor = moodys_warf_factor(CreditRating::BB);
+    let factor = moodys_warf_factor(CreditRating::BB).unwrap();
 
     // Assert: BB should be 1350
     assert_eq!(factor, 1350.0);
@@ -49,7 +49,7 @@ fn test_moodys_warf_factor_bb() {
 #[test]
 fn test_moodys_warf_factor_b() {
     // Act
-    let factor = moodys_warf_factor(CreditRating::B);
+    let factor = moodys_warf_factor(CreditRating::B).unwrap();
 
     // Assert: B should be 2720
     assert_eq!(factor, 2720.0);
@@ -58,7 +58,7 @@ fn test_moodys_warf_factor_b() {
 #[test]
 fn test_moodys_warf_factor_ccc() {
     // Act
-    let factor = moodys_warf_factor(CreditRating::CCC);
+    let factor = moodys_warf_factor(CreditRating::CCC).unwrap();
 
     // Assert: CCC should be 6500
     assert_eq!(factor, 6500.0);
@@ -67,7 +67,7 @@ fn test_moodys_warf_factor_ccc() {
 #[test]
 fn test_moodys_warf_factor_nr() {
     // Act
-    let factor = moodys_warf_factor(CreditRating::NR);
+    let factor = moodys_warf_factor(CreditRating::NR).unwrap();
 
     // Assert: Not rated should be 3650 (B-/CCC+ equivalent)
     assert_eq!(factor, 3650.0);
@@ -81,10 +81,12 @@ fn test_rating_factor_table_creation() {
     // Assert
     assert_eq!(table.agency(), "Moody's");
     assert_eq!(table.methodology(), "IDEALIZED DEFAULT RATES");
-    assert_eq!(table.get_factor(CreditRating::AAA), 1.0);
-    assert_eq!(table.get_factor(CreditRating::BB), 1350.0);
+    assert_eq!(table.get_factor(CreditRating::AAA).unwrap(), 1.0);
+    assert_eq!(table.get_factor(CreditRating::BB).unwrap(), 1350.0);
     assert_eq!(
-        table.get_factor(CreditRating::AA.with_notch(RatingNotch::Plus)),
+        table
+            .get_factor(CreditRating::AA.with_notch(RatingNotch::Plus))
+            .unwrap(),
         10.0
     );
 }
@@ -104,8 +106,8 @@ fn test_rating_factor_monotonicity() {
 
     // Act & Assert: Factors should increase with worse ratings
     for i in 1..ratings.len() {
-        let prev_factor = moodys_warf_factor(ratings[i - 1].0);
-        let curr_factor = moodys_warf_factor(ratings[i].0);
+        let prev_factor = moodys_warf_factor(ratings[i - 1].0).unwrap();
+        let curr_factor = moodys_warf_factor(ratings[i].0).unwrap();
         assert!(
             curr_factor > prev_factor,
             "Rating factors not monotonic: {:?} ({}), {:?} ({})",
@@ -120,15 +122,15 @@ fn test_rating_factor_monotonicity() {
 #[test]
 fn test_moodys_warf_factor_notches() {
     assert_eq!(
-        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Plus)),
+        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Plus)).unwrap(),
         940.0
     );
     assert_eq!(
-        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Minus)),
+        moodys_warf_factor(CreditRating::BB.with_notch(RatingNotch::Minus)).unwrap(),
         1760.0
     );
     assert_eq!(
-        moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Flat)),
+        moodys_warf_factor(CreditRating::BBB.with_notch(RatingNotch::Flat)).unwrap(),
         360.0
     );
 }

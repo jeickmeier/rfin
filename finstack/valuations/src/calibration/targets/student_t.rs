@@ -183,11 +183,16 @@ impl StudentTTarget {
         )?;
         let credit_index = context.get_credit_index(&index_id)?.as_ref().clone();
         let rebound_credit_index = CreditIndexData {
-            base_correlation_curve: std::sync::Arc::new(flat_base_correlation),
+            base_correlation_curve: std::sync::Arc::new(flat_base_correlation.clone()),
             ..credit_index
         };
+        // Keep the context-level base correlation curve in sync with the overridden
+        // credit-index copy. `insert_credit_index()` triggers market-context rebinding,
+        // which would otherwise snap the index back to any same-id curve already stored
+        // on the context and silently discard the requested flat-correlation override.
         let pricing_context = context
             .clone()
+            .insert(flat_base_correlation)
             .insert_credit_index(&index_id, rebound_credit_index);
 
         let discount_curve_id = Self::resolve_discount_curve_id(params, &pricing_context)?;

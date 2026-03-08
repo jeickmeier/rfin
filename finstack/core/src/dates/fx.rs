@@ -115,8 +115,12 @@ pub fn adjust_joint_calendar(
 /// Add N business days on a joint calendar.
 ///
 /// A day is counted as a business day only if it is a business day on **both**
-/// the base and quote calendars. This is the market-standard FX settlement
-/// convention.
+/// the base and quote calendars.
+///
+/// This helper implements the two-calendar joint-business-day rule only.
+/// Some market pairs use additional settlement calendars (for example USD)
+/// beyond the two named currencies; callers must model those explicitly when
+/// that convention matters.
 ///
 /// # Arguments
 ///
@@ -197,8 +201,11 @@ pub fn add_joint_business_days(
 
 /// Roll a trade date to spot using joint business day counting.
 ///
-/// This is the market-standard FX settlement convention: spot is T+N **joint business days**,
-/// where a day is business only if it is business for both currencies' calendars.
+/// This helper rolls spot using the same two-calendar joint-business-day rule as
+/// [`add_joint_business_days`].
+///
+/// Some market pairs use additional settlement calendars beyond the two named
+/// currencies; callers must model those explicitly when that convention matters.
 ///
 /// # Arguments
 ///

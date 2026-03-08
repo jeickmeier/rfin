@@ -31,6 +31,7 @@ impl MarketContext {
         let curve: CurveStorage = curve.into();
         let id = curve.id().to_owned();
         self.curves.insert(id, curve);
+        self.rebind_all_credit_indices();
         self
     }
 
@@ -189,8 +190,9 @@ impl MarketContext {
         id: impl AsRef<str>,
         index: impl Into<Arc<InflationIndex>>,
     ) -> Self {
-        self.inflation_indices
-            .insert(CurveId::from(id.as_ref()), index.into());
+        let index = index.into();
+        let key = Self::inflation_index_key_for_insert(id, index.as_ref());
+        self.inflation_indices.insert(key, index);
         self
     }
 
@@ -228,8 +230,9 @@ impl MarketContext {
     /// assert!(ctx.get_credit_index("CDX-IG").is_ok());
     /// ```
     pub fn insert_credit_index(mut self, id: impl AsRef<str>, data: CreditIndexData) -> Self {
-        self.credit_indices
-            .insert(CurveId::from(id.as_ref()), Arc::new(data));
+        let key = CurveId::from(id.as_ref());
+        self.credit_indices.insert(key, Arc::new(data));
+        self.rebind_all_credit_indices();
         self
     }
 

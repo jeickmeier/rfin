@@ -109,8 +109,8 @@ pub mod expr;
 /// Provides unified loading, comparison, and assertion utilities for golden tests
 /// across all finstack crates. See [`golden`] module documentation for details.
 ///
-/// Enabled by the `golden` cargo feature (on by default). Disable with
-/// `default-features = false` for production builds that don't need test infra.
+/// Enabled by the `golden` cargo feature. Opt in explicitly for builds that
+/// need golden-test infrastructure.
 #[cfg(feature = "golden")]
 pub mod golden;
 /// Market data term‐structure framework (former `curves` module)

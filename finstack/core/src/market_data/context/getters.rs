@@ -345,11 +345,18 @@ impl MarketContext {
             return false;
         };
 
+        let curve_id = new_curve.id().to_owned();
+        self.curves.insert(
+            curve_id,
+            CurveStorage::BaseCorrelation(Arc::clone(&new_curve)),
+        );
+
         let mut updated_index = (**existing_index).clone();
         updated_index.base_correlation_curve = new_curve;
 
         // Update the context
         self.credit_indices.insert(cid, Arc::new(updated_index));
+        self.rebind_all_credit_indices();
         true
     }
 }

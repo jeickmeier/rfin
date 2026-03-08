@@ -231,7 +231,7 @@ fn test_warf_golden_moody_standard() {
     ];
 
     for (rating, notch, expected_factor, label) in test_cases {
-        let actual_factor = moodys_warf_factor(rating.with_notch(notch));
+        let actual_factor = moodys_warf_factor(rating.with_notch(notch)).unwrap();
 
         assert_eq!(
             actual_factor, expected_factor,
@@ -263,9 +263,9 @@ fn test_warf_golden_pool_calculation() {
     );
 
     // Verify using our rating factors
-    let calculated_warf = 0.20 * moodys_warf_factor(CreditRating::BB)
-        + 0.60 * moodys_warf_factor(CreditRating::B)
-        + 0.20 * moodys_warf_factor(CreditRating::CCC);
+    let calculated_warf = 0.20 * moodys_warf_factor(CreditRating::BB).unwrap()
+        + 0.60 * moodys_warf_factor(CreditRating::B).unwrap()
+        + 0.20 * moodys_warf_factor(CreditRating::CCC).unwrap();
 
     assert!(
         (calculated_warf - expected_warf).abs() < METRIC_TOLERANCE,

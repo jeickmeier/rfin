@@ -49,6 +49,10 @@
 //! use time::Month;
 //!
 //! let observations = vec![
+//!     (Date::from_calendar_date(2023, Month::September, 30).expect("Valid date"), 296.8),
+//!     (Date::from_calendar_date(2023, Month::October, 31).expect("Valid date"), 297.4),
+//!     (Date::from_calendar_date(2023, Month::November, 30).expect("Valid date"), 298.1),
+//!     (Date::from_calendar_date(2023, Month::December, 31).expect("Valid date"), 299.0),
 //!     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 300.0),
 //!     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 302.0),
 //! ];
@@ -216,6 +220,10 @@ pub enum InflationLag {
 ///
 /// // US CPI-U observations
 /// let observations = vec![
+///     (Date::from_calendar_date(2023, Month::September, 30).expect("Valid date"), 296.8),
+///     (Date::from_calendar_date(2023, Month::October, 31).expect("Valid date"), 297.4),
+///     (Date::from_calendar_date(2023, Month::November, 30).expect("Valid date"), 298.1),
+///     (Date::from_calendar_date(2023, Month::December, 31).expect("Valid date"), 299.0),
 ///     (Date::from_calendar_date(2024, Month::January, 31).expect("Valid date"), 300.5),
 ///     (Date::from_calendar_date(2024, Month::February, 29).expect("Valid date"), 302.1),
 ///     (Date::from_calendar_date(2024, Month::March, 31).expect("Valid date"), 303.8),

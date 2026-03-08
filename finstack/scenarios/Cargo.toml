@@ -8,7 +8,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-finstack-core = { path = "../core" }
+finstack-core = { path = "../core", features = ["golden"] }
 finstack-statements = { path = "../statements" }
 finstack-valuations = { path = "../valuations" }
 indexmap = { workspace = true, features = ["serde"] }

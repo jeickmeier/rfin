@@ -7,6 +7,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::dividends::{DividendKind, DividendSchedule};
+use finstack_core::market_data::scalars::{InflationIndex, ScalarTimeSeries};
 use finstack_core::money::Money;
 use time::Month;
 
@@ -45,4 +46,32 @@ fn dividend_schedule_builds_and_filters() {
 fn dividend_schedule_validate_rejects_negative_cash() {
     let schedule = DividendSchedule::new("NEG").add_cash(jan(5), Money::new(-1.0, Currency::USD));
     assert!(schedule.validate().is_err());
+}
+
+#[test]
+fn scalar_time_series_rejects_pre_history_lookups() {
+    let series =
+        ScalarTimeSeries::new("TEST-SERIES", vec![(jan(10), 10.0), (jan(20), 20.0)], None).unwrap();
+
+    let result = series.value_on(jan(5));
+    assert!(
+        result.is_err(),
+        "queries before the first observation should error instead of leaking the first value"
+    );
+}
+
+#[test]
+fn inflation_index_rejects_pre_history_lookups() {
+    let index = InflationIndex::new(
+        "US-CPI",
+        vec![(jan(10), 100.0), (jan(20), 101.0)],
+        Currency::USD,
+    )
+    .unwrap();
+
+    let result = index.value_on(jan(5));
+    assert!(
+        result.is_err(),
+        "inflation index lookups before history starts should error"
+    );
 }

@@ -74,8 +74,9 @@ fn test_npv_returns_correct_currency() {
 #[test]
 fn test_npv_increases_with_inflation() {
     // Arrange
-    let ilb = sample_tips();
+    let mut ilb = sample_tips();
     let as_of = d(2025, 1, 2);
+    ilb.issue_date = as_of;
 
     // Context with low inflation
     let ctx_low = {
@@ -87,6 +88,7 @@ fn test_npv_increases_with_inflation() {
 
         let curve =
             finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI-U")
+                .base_date(as_of)
                 .base_cpi(300.0)
                 .knots([
                     (0.0, 300.0),
@@ -110,6 +112,7 @@ fn test_npv_increases_with_inflation() {
 
         let curve =
             finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI-U")
+                .base_date(as_of)
                 .base_cpi(300.0)
                 .knots([
                     (0.0, 300.0),
@@ -134,12 +137,14 @@ fn test_npv_increases_with_inflation() {
 #[test]
 fn test_npv_decreases_with_higher_discount_rate() {
     // Arrange
-    let ilb = sample_tips();
+    let mut ilb = sample_tips();
     let as_of = d(2025, 1, 2);
+    ilb.issue_date = as_of;
 
     // Same inflation, different discount curves
     let inflation_curve =
         finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI-U")
+            .base_date(as_of)
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (5.0, 315.0)])
             .build()
@@ -166,6 +171,7 @@ fn test_npv_decreases_with_higher_discount_rate() {
     // Rebuild inflation curve for second context
     let inflation_curve2 =
         finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI-U")
+            .base_date(as_of)
             .base_cpi(300.0)
             .knots([(0.0, 300.0), (5.0, 315.0)])
             .build()
@@ -224,6 +230,8 @@ fn test_npv_with_deflation_protection() {
     ilb.deflation_protection =
         finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::AllPayments;
     ilb.base_index = 300.0;
+    ilb.issue_date = d(2025, 1, 2);
+    ilb.maturity = d(2026, 1, 2);
 
     let as_of = d(2025, 1, 2);
 

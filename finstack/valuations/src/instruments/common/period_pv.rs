@@ -175,7 +175,16 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;
 
-        schedule.pv_by_period_with_ctx(periods, disc_arc.as_ref(), base, dc, DayCountCtx::default())
+        // Keep periodized discounting aligned with the canonical schedule NPV path,
+        // which uses the discount curve's own day-count basis.
+        let curve_dc = disc_arc.day_count();
+        schedule.pv_by_period_with_ctx(
+            periods,
+            disc_arc.as_ref(),
+            base,
+            curve_dc,
+            DayCountCtx::default(),
+        )
     }
 
     /// Compute present values aggregated by period with optional credit adjustment.

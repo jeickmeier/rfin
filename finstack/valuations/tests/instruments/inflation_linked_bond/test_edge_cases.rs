@@ -204,6 +204,8 @@ fn test_extreme_deflation() {
     ilb.base_index = 300.0;
     ilb.deflation_protection =
         finstack_valuations::instruments::fixed_income::inflation_linked_bond::DeflationProtection::None;
+    ilb.issue_date = d(2025, 1, 2);
+    ilb.maturity = d(2026, 1, 2);
 
     let (mut ctx, _) = market_context_with_index();
 
@@ -233,6 +235,8 @@ fn test_extreme_inflation() {
     // Arrange
     let mut ilb = sample_tips();
     ilb.base_index = 100.0;
+    ilb.issue_date = d(2025, 1, 2);
+    ilb.maturity = d(2026, 1, 2);
 
     let (mut ctx, _) = market_context_with_index();
 

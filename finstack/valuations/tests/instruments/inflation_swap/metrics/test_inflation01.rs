@@ -2,7 +2,7 @@
 
 use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::InflationCurve;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use rust_decimal::Decimal;
 
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
@@ -40,20 +40,12 @@ fn test_inflation01_finite_difference_validation() {
     // Compute finite difference inflation01
     let pv0 = swap.value(&ctx, as_of).unwrap().amount();
 
-    // Bump inflation curve by 1bp (multiply CPI levels by 1.0001)
-    let infl_base = ctx.get_inflation_curve("US-CPI-U").unwrap();
-    let mut bumped_knots: Vec<(f64, f64)> = Vec::new();
-    for (&t, &cpi) in infl_base.knots().iter().zip(infl_base.cpi_levels().iter()) {
-        bumped_knots.push((t, cpi * 1.0001));
-    }
-
-    let bumped_infl = InflationCurve::builder("US-CPI-U")
-        .base_cpi(infl_base.base_cpi())
-        .knots(bumped_knots)
-        .build()
+    let ctx_bumped = ctx
+        .bump([MarketBump::Curve {
+            id: "US-CPI-U".into(),
+            spec: BumpSpec::parallel_bp(1.0),
+        }])
         .unwrap();
-
-    let ctx_bumped = ctx.clone().insert(bumped_infl);
     let pv1 = swap.value(&ctx_bumped, as_of).unwrap().amount();
 
     let infl01_fd = pv1 - pv0;

@@ -40,6 +40,15 @@ fn builder_rejects_non_positive_discount_factor() {
 }
 
 #[test]
+fn builder_requires_explicit_base_date() {
+    let err = DiscountCurve::builder("MISSING-BASE")
+        .knots([(0.0, 1.0), (1.0, 0.98)])
+        .build()
+        .expect_err("discount curve should require an explicit base date");
+    assert!(matches!(err, finstack_core::Error::Input(_)));
+}
+
+#[test]
 fn monotonic_df_accepted() {
     let result = DiscountCurve::builder("VALID-MONOTONIC")
         .base_date(sample_base_date())

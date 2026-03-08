@@ -209,16 +209,16 @@ impl CompiledExpr {
                 // Cache lookup
                 if let Some(ref cache) = eval_cache {
                     if let Some(cached) = cache.get(node.id, len) {
-                        if let Ok(scalar_result) = cached.as_scalar() {
-                            // Copy cached result into arena
-                            debug_assert_eq!(scalar_result.len(), len);
-                            let start = cursor;
-                            let end = cursor + len;
-                            arena[start..end].copy_from_slice(&scalar_result[..len]);
-                            offsets.insert(node.id, (start, end));
-                            cursor = end;
-                            continue;
-                        }
+                        let scalar_result = cached.as_scalar_slice();
+                        // Copy cached result into arena without materializing an
+                        // intermediate Vec on every cache hit.
+                        debug_assert_eq!(scalar_result.len(), len);
+                        let start = cursor;
+                        let end = cursor + len;
+                        arena[start..end].copy_from_slice(&scalar_result[..len]);
+                        offsets.insert(node.id, (start, end));
+                        cursor = end;
+                        continue;
                     }
                 }
 

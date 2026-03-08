@@ -361,9 +361,11 @@ fn test_forward_curve_bounds_rejects_excessive_rate() {
 fn test_inflation_curve_hyperinflation_rejected() {
     use finstack_core::market_data::term_structures::InflationCurve;
 
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
     let config = ValidationConfig::default();
 
     let curve = InflationCurve::builder("TEST-INFL-HYPER")
+        .base_date(base_date)
         .base_cpi(100.0)
         .knots(vec![(1.0, 200.0), (2.0, 300.0)])
         .build()

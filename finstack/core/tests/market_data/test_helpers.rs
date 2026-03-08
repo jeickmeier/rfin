@@ -65,6 +65,7 @@ pub(crate) fn sample_hazard_curve(id: &str) -> HazardCurve {
 pub(crate) fn sample_inflation_curve(id: &str) -> InflationCurve {
     InflationCurve::builder(id)
         .base_cpi(100.0)
+        .base_date(sample_base_date())
         .knots([(0.0, 100.0), (1.0, 102.0), (2.0, 104.0)])
         .build()
         .unwrap()

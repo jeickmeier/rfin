@@ -177,6 +177,15 @@ impl Default for FxPolicyMeta {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct Pair(Currency, Currency);
 
+/// Query-sensitive cache key for provider-observed FX rates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+struct QueryKey {
+    from: Currency,
+    to: Currency,
+    on: Date,
+    policy: FxConversionPolicy,
+}
+
 /// Configuration for [`FxMatrix`] behaviour.
 ///
 /// Controls triangulation and caching.
@@ -328,8 +337,10 @@ pub trait FxProvider: Send + Sync {
 /// recreate the matrix with [`FxMatrix::with_config`] and [`FxMatrix::load_from_state`].
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
-    /// Explicit quotes inserted or observed from provider
+    /// Explicit quotes inserted by callers or restored from serialized state.
     quotes: Mutex<LruCache<Pair, FxRate>>,
+    /// Query-sensitive quotes observed from providers or triangulation.
+    observed_quotes: Mutex<LruCache<QueryKey, FxRate>>,
     config: FxConfig,
 }
 
@@ -417,9 +428,11 @@ impl FxMatrix {
         );
         let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or(NonZeroUsize::MIN);
         let quotes = LruCache::new(capacity);
+        let observed_quotes = LruCache::new(capacity);
         Self {
             provider,
             quotes: Mutex::new(quotes),
+            observed_quotes: Mutex::new(observed_quotes),
             config,
         }
     }
@@ -483,8 +496,11 @@ impl FxMatrix {
             });
         }
 
-        // Check cache first (both directions)
+        // Check cache first. Explicit quotes are pair-global, while provider-observed
+        // quotes are scoped by date/policy to avoid cross-query contamination.
         let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
+        let (observed_direct_opt, observed_reciprocal_opt) =
+            self.read_observed_pair_bidir(from, to, on, policy);
 
         if let Some(rate) = direct_opt {
             let rate = validate_fx_rate(from, to, rate)?;
@@ -499,12 +515,25 @@ impl FxMatrix {
                 triangulated: false,
             });
         }
+        if let Some(rate) = observed_direct_opt {
+            let rate = validate_fx_rate(from, to, rate)?;
+            return Ok(FxRateResult {
+                rate,
+                triangulated: false,
+            });
+        }
+        if let Some(r_rev) = observed_reciprocal_opt {
+            return Ok(FxRateResult {
+                rate: reciprocal_rate_or_err(r_rev, to, from)?,
+                triangulated: false,
+            });
+        }
 
         // Try provider first
         match self.provider.rate(from, to, on, policy) {
             Ok(rate) => {
                 let rate = validate_fx_rate(from, to, rate)?;
-                self.insert_quote(from, to, rate);
+                self.insert_observed_quote(from, to, on, policy, rate);
                 Ok(FxRateResult {
                     rate,
                     triangulated: false,
@@ -608,6 +637,7 @@ impl FxMatrix {
     /// ```
     pub fn clear_cache(&self) {
         self.quotes.lock().clear();
+        self.observed_quotes.lock().clear();
     }
 
     /// Return cached quote count for quick diagnostics.
@@ -629,7 +659,8 @@ impl FxMatrix {
     /// ```
     pub fn cache_stats(&self) -> usize {
         let quotes = self.quotes.lock();
-        quotes.len()
+        let observed_quotes = self.observed_quotes.lock();
+        quotes.len() + observed_quotes.len()
     }
 
     /// Extract serializable state from the matrix.
@@ -738,13 +769,15 @@ impl FxMatrix {
             let src = self.quotes.lock();
             let mut dst = bumped.quotes.lock();
             for (pair, rate) in src.iter() {
+                if (pair.0 == from && pair.1 == to) || (pair.0 == to && pair.1 == from) {
+                    continue;
+                }
                 dst.put(*pair, *rate);
             }
         }
-        // IMPORTANT: ensure the bumped pair is not shadowed by copied cached quotes.
-        // `FxMatrix::rate` consults the quote cache before consulting the provider.
-        // Without overwriting the bumped pair here, callers that queried the original
-        // matrix first would keep seeing the stale cached quote instead of the bumped quote.
+        // Do not carry over provider-observed quotes. They may be date/policy-sensitive
+        // or derived crosses that depend transitively on the bumped leg.
+        // IMPORTANT: ensure the bumped pair is not shadowed by copied explicit quotes.
         bumped.set_quote(from, to, bumped_rate);
 
         Ok(bumped)
@@ -794,8 +827,7 @@ impl FxMatrix {
 
         let rate = a * b;
         let rate = validate_fx_rate(from, to, rate)?;
-        // Cache derived cross to avoid repeated recomputation
-        self.insert_quote(from, to, rate);
+        self.insert_observed_quote(from, to, on, policy, rate);
         Ok(rate)
     }
 
@@ -811,6 +843,32 @@ impl FxMatrix {
         quotes.put(Pair(from, to), rate);
     }
 
+    /// Insert a query-sensitive provider-observed quote.
+    fn insert_observed_quote(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+        rate: FxRate,
+    ) {
+        let checked = validate_fx_rate(from, to, rate);
+        assert!(
+            checked.is_ok(),
+            "FxMatrix observed quote must be finite, positive (got {from}->{to}={rate})"
+        );
+        let mut quotes = self.observed_quotes.lock();
+        quotes.put(
+            QueryKey {
+                from,
+                to,
+                on,
+                policy,
+            },
+            rate,
+        );
+    }
+
     /// Get rate preferring explicit quotes, then provider, then reciprocal.
     fn get_or_fetch(
         &self,
@@ -824,24 +882,32 @@ impl FxMatrix {
         }
         // Read both direct and reciprocal under a single lock, then drop before any further work
         let (direct_opt, reciprocal_opt) = self.read_cached_pair_bidir(from, to);
+        let (observed_direct_opt, observed_reciprocal_opt) =
+            self.read_observed_pair_bidir(from, to, on, policy);
         // 1) Explicit quote wins
         if let Some(r) = direct_opt {
+            return validate_fx_rate(from, to, r);
+        }
+        if let Some(r) = observed_direct_opt {
             return validate_fx_rate(from, to, r);
         }
         // 2) Try provider for direct
         if let Ok(r) = self.provider.rate(from, to, on, policy) {
             let r = validate_fx_rate(from, to, r)?;
-            self.insert_quote(from, to, r);
+            self.insert_observed_quote(from, to, on, policy, r);
             return Ok(r);
         }
         // 3) Reciprocal fallback if available
         if let Some(r_rev) = reciprocal_opt {
             return reciprocal_rate_or_err(r_rev, to, from);
         }
+        if let Some(r_rev) = observed_reciprocal_opt {
+            return reciprocal_rate_or_err(r_rev, to, from);
+        }
         // 4) As last resort, propagate provider error
         let r = self.provider.rate(from, to, on, policy)?;
         let r = validate_fx_rate(from, to, r)?;
-        self.insert_quote(from, to, r);
+        self.insert_observed_quote(from, to, on, policy, r);
         Ok(r)
     }
 
@@ -861,6 +927,48 @@ impl FxMatrix {
                 Some(r)
             } else {
                 // Purge invalid cached value.
+                let _ = quotes.pop(&direct_key);
+                None
+            }
+        });
+        let rev = quotes.get(&rev_key).copied().and_then(|r| {
+            if r.is_finite() && r > 0.0 {
+                Some(r)
+            } else {
+                let _ = quotes.pop(&rev_key);
+                None
+            }
+        });
+        (direct, rev)
+    }
+
+    /// Read provider-observed cached quotes scoped to a specific date/policy query.
+    #[inline]
+    fn read_observed_pair_bidir(
+        &self,
+        from: Currency,
+        to: Currency,
+        on: Date,
+        policy: FxConversionPolicy,
+    ) -> (Option<FxRate>, Option<FxRate>) {
+        let mut quotes = self.observed_quotes.lock();
+        let direct_key = QueryKey {
+            from,
+            to,
+            on,
+            policy,
+        };
+        let rev_key = QueryKey {
+            from: to,
+            to: from,
+            on,
+            policy,
+        };
+
+        let direct = quotes.get(&direct_key).copied().and_then(|r| {
+            if r.is_finite() && r > 0.0 {
+                Some(r)
+            } else {
                 let _ = quotes.pop(&direct_key);
                 None
             }

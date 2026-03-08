@@ -2,7 +2,7 @@
 
 use crate::inflation_swap::fixtures::*;
 use finstack_core::dates::{Date, DayCount};
-use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use rust_decimal::Decimal;
 
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwapBuilder, PayReceive};
@@ -37,30 +37,22 @@ fn test_ir01_finite_difference_validation() {
         .unwrap();
     let dv01_analytic = *result.measures.get("dv01").unwrap();
 
-    // Compute finite difference DV01
-    let pv0 = swap.value(&ctx, as_of).unwrap().amount();
-
-    // Bump discount curve by 1bp
-    let disc_base = ctx.get_discount("USD-OIS").unwrap();
-    let base_date = disc_base.base_date();
-
-    let mut bumped_points: Vec<(f64, f64)> = Vec::new();
-    for &t in disc_base.knots() {
-        let df = disc_base.df(t);
-        let df_b = df * (-0.0001 * t).exp(); // bump rates by 1bp
-        bumped_points.push((t, df_b));
-    }
-
-    let bumped_disc = DiscountCurve::builder("USD-OIS")
-        .base_date(base_date)
-        .knots(bumped_points)
-        .build()
+    let ctx_up = ctx
+        .bump([MarketBump::Curve {
+            id: "USD-OIS".into(),
+            spec: BumpSpec::parallel_bp(1.0),
+        }])
         .unwrap();
+    let ctx_down = ctx
+        .bump([MarketBump::Curve {
+            id: "USD-OIS".into(),
+            spec: BumpSpec::parallel_bp(-1.0),
+        }])
+        .unwrap();
+    let pv_up = swap.value(&ctx_up, as_of).unwrap().amount();
+    let pv_down = swap.value(&ctx_down, as_of).unwrap().amount();
 
-    let ctx_bumped = ctx.clone().insert(bumped_disc);
-    let pv1 = swap.value(&ctx_bumped, as_of).unwrap().amount();
-
-    let dv01_fd = pv1 - pv0;
+    let dv01_fd = (pv_up - pv_down) / 2.0;
 
     // Check sign consistency
     assert_eq!(

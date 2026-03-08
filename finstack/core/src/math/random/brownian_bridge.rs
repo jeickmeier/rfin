@@ -126,6 +126,7 @@ impl BrownianBridge {
         );
 
         // Initialize
+        w_out.fill(f64::NAN);
         w_out[0] = 0.0;
 
         // Terminal point (standard Brownian motion)
@@ -220,6 +221,21 @@ mod tests {
         // Terminal point should use first shock
         let expected_terminal = z[0] * (4.0 * dt).sqrt();
         assert!((w[4] - expected_terminal).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_brownian_bridge_zero_initialized_buffer_matches_nan_initialized_buffer() {
+        let bridge = BrownianBridge::new(4);
+        let z = vec![1.0, 0.5, -0.5, 0.0];
+        let dt = 0.25;
+
+        let mut nan_buffer = vec![f64::NAN; 5];
+        bridge.construct_path(&z, &mut nan_buffer, dt);
+
+        let mut zero_buffer = vec![0.0; 5];
+        bridge.construct_path(&z, &mut zero_buffer, dt);
+
+        assert_eq!(zero_buffer, nan_buffer);
     }
 
     #[test]

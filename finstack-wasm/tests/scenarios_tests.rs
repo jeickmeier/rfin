@@ -17,7 +17,7 @@ fn test_curve_kind_enum() {
     use finstack_wasm::ScenarioCurveKind;
 
     let discount = ScenarioCurveKind::DISCOUNT();
-    let forecast = ScenarioCurveKind::FORECAST();
+    let forecast = ScenarioCurveKind::FORWARD();
 
     // Test that we can create the enums
     assert_ne!(discount.to_string_js(), forecast.to_string_js());

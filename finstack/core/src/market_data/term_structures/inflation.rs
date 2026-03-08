@@ -232,6 +232,7 @@ impl InflationCurve {
             id: id.into(),
             base_cpi: 100.0,
             base_date,
+            base_date_set: false,
             day_count: DayCount::Act365F,
             indexation_lag_months: DEFAULT_INDEXATION_LAG_MONTHS,
             points: Vec::new(),
@@ -509,6 +510,7 @@ pub struct InflationCurveBuilder {
     id: CurveId,
     base_cpi: f64,
     base_date: Date,
+    base_date_set: bool,
     day_count: DayCount,
     indexation_lag_months: u32,
     points: Vec<(f64, f64)>, // (t, cpi)
@@ -525,6 +527,7 @@ impl InflationCurveBuilder {
     /// Override the default **base date** (valuation date).
     pub fn base_date(mut self, d: Date) -> Self {
         self.base_date = d;
+        self.base_date_set = true;
         self
     }
 
@@ -559,6 +562,9 @@ impl InflationCurveBuilder {
 
     /// Validate input and build the [`InflationCurve`].
     pub fn build(self) -> crate::Result<InflationCurve> {
+        if !self.base_date_set {
+            return Err(InputError::Invalid.into());
+        }
         if self.points.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }

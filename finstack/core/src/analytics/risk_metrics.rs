@@ -680,19 +680,23 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
     if returns.is_empty() {
         return 0.0;
     }
-    let n = returns.len();
     let p = 1.0 - confidence;
     let mut data: Vec<f64> = returns.to_vec();
     let var_threshold = quantile(&mut data, p);
-    // After quantile(), select_nth_unstable guarantees data[0..=lo] contains
-    // all elements ≤ var_threshold — compute ES directly from the partitioned
-    // tail without a second pass over returns or a second Vec allocation.
-    let lo = ((n - 1) as f64 * p).floor() as usize;
-    let tail = &data[..=lo];
-    let es = if tail.is_empty() {
+    // Include every observation at or below the realized VaR threshold, including
+    // ties that may have landed to the right of the partition boundary.
+    let mut tail_sum = 0.0;
+    let mut tail_count = 0usize;
+    for &value in &data {
+        if value <= var_threshold {
+            tail_sum += value;
+            tail_count += 1;
+        }
+    }
+    let es = if tail_count == 0 {
         var_threshold
     } else {
-        tail.iter().sum::<f64>() / tail.len() as f64
+        tail_sum / tail_count as f64
     };
     // Historical ES is a non-parametric statistic: sqrt-time scaling is not
     // valid for empirical tail means (only for parametric methods). The
@@ -1682,6 +1686,17 @@ mod tests {
         let var = value_at_risk(&data, 0.95, None);
         let es = expected_shortfall(&data, 0.95, None);
         assert!(es <= var);
+    }
+
+    #[test]
+    fn expected_shortfall_includes_all_values_at_var_threshold() {
+        let data = [-3.0, -1.0, -1.0, 10.0];
+        let es = expected_shortfall(&data, 0.5, None);
+        let expected = (-3.0 - 1.0 - 1.0) / 3.0;
+        assert!(
+            (es - expected).abs() < 1e-12,
+            "ES should include all observations at the VaR threshold"
+        );
     }
 
     #[test]

@@ -188,6 +188,7 @@ impl ForwardCurve {
         ForwardCurveBuilder {
             id,
             base,
+            base_is_set: false,
             reset_lag: defaults.reset_lag_business_days,
             day_count: defaults.day_count,
             tenor: tenor_years,
@@ -624,6 +625,7 @@ impl ForwardCurve {
 pub struct ForwardCurveBuilder {
     id: CurveId,
     base: Date,
+    base_is_set: bool,
     reset_lag: i32,
     day_count: DayCount,
     tenor: f64,
@@ -637,6 +639,7 @@ impl ForwardCurveBuilder {
     /// Set the curve’s valuation **base date**.
     pub fn base_date(mut self, d: Date) -> Self {
         self.base = d;
+        self.base_is_set = true;
         self
     }
     /// Override the **reset lag** (fixing → spot) in business days.
@@ -682,6 +685,12 @@ impl ForwardCurveBuilder {
 
     /// Validate input and build the [`ForwardCurve`].
     pub fn build(self) -> crate::Result<ForwardCurve> {
+        if !self.base_is_set {
+            return Err(InputError::Invalid.into());
+        }
+        if !self.tenor.is_finite() || self.tenor <= 0.0 {
+            return Err(InputError::Invalid.into());
+        }
         if self.reset_lag < 0 {
             return Err(crate::Error::Validation(format!(
                 "ForwardCurve reset_lag must be non-negative business days; got {}",
@@ -754,6 +763,9 @@ mod tests {
 
     fn sample_forward() -> ForwardCurve {
         ForwardCurve::builder("USD-LIB3M", 0.25)
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
+            )
             .knots([(0.0, 0.03), (1.0, 0.04)])
             .build()
             .expect("ForwardCurve builder should succeed with valid test data")

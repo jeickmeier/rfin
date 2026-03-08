@@ -101,3 +101,111 @@ fn closure_check_matrix() {
     let lhs = usd_gbp.rate * gbp_eur.rate;
     assert!((lhs - usd_eur.rate).abs() < 1e-12);
 }
+
+#[test]
+fn fx_matrix_cache_distinguishes_query_date_and_policy() {
+    struct DatePolicyFx;
+
+    impl FxProvider for DatePolicyFx {
+        fn rate(
+            &self,
+            from: Currency,
+            to: Currency,
+            on: Date,
+            policy: FxConversionPolicy,
+        ) -> finstack_core::Result<FxRate> {
+            assert_eq!(from, Currency::EUR);
+            assert_eq!(to, Currency::USD);
+
+            let jan_1 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+            let jan_2 = Date::from_calendar_date(2025, time::Month::January, 2).unwrap();
+
+            match (on, policy) {
+                (d, FxConversionPolicy::CashflowDate) if d == jan_1 => Ok(1.10),
+                (d, FxConversionPolicy::CashflowDate) if d == jan_2 => Ok(1.20),
+                (d, FxConversionPolicy::PeriodAverage) if d == jan_1 => Ok(1.15),
+                (d, FxConversionPolicy::PeriodAverage) if d == jan_2 => Ok(1.25),
+                _ => Err(finstack_core::InputError::NotFound {
+                    id: format!("FX:{from}->{to}@{on:?}/{policy:?}"),
+                }
+                .into()),
+            }
+        }
+    }
+
+    let matrix = FxMatrix::with_config(
+        Arc::new(DatePolicyFx),
+        FxConfig {
+            enable_triangulation: false,
+            ..Default::default()
+        },
+    );
+    let jan_1 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let jan_2 = Date::from_calendar_date(2025, time::Month::January, 2).unwrap();
+
+    let cashflow_jan_1 = matrix
+        .rate(FxQuery::new(Currency::EUR, Currency::USD, jan_1))
+        .unwrap();
+    let cashflow_jan_2 = matrix
+        .rate(FxQuery::new(Currency::EUR, Currency::USD, jan_2))
+        .unwrap();
+    let avg_jan_1 = matrix
+        .rate(FxQuery::with_policy(
+            Currency::EUR,
+            Currency::USD,
+            jan_1,
+            FxConversionPolicy::PeriodAverage,
+        ))
+        .unwrap();
+
+    assert!((cashflow_jan_1.rate - 1.10).abs() < 1e-12);
+    assert!((cashflow_jan_2.rate - 1.20).abs() < 1e-12);
+    assert!((avg_jan_1.rate - 1.15).abs() < 1e-12);
+}
+
+#[test]
+fn with_bumped_rate_invalidates_cached_crosses() {
+    struct PivotFx;
+    impl FxProvider for PivotFx {
+        fn rate(
+            &self,
+            from: Currency,
+            to: Currency,
+            _on: Date,
+            _policy: FxConversionPolicy,
+        ) -> finstack_core::Result<FxRate> {
+            match (from, to) {
+                (Currency::GBP, Currency::USD) => Ok(1.25),
+                (Currency::USD, Currency::EUR) => Ok(0.90),
+                _ => Err(finstack_core::InputError::NotFound {
+                    id: format!("FX:{from}->{to}"),
+                }
+                .into()),
+            }
+        }
+    }
+
+    let matrix = FxMatrix::with_config(
+        Arc::new(PivotFx),
+        FxConfig {
+            enable_triangulation: true,
+            pivot_currency: Currency::USD,
+            ..Default::default()
+        },
+    );
+    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+
+    let original_cross = matrix
+        .rate(FxQuery::new(Currency::GBP, Currency::EUR, as_of))
+        .unwrap()
+        .rate;
+    let bumped = matrix
+        .with_bumped_rate(Currency::USD, Currency::EUR, 0.10, as_of)
+        .unwrap();
+    let bumped_cross = bumped
+        .rate(FxQuery::new(Currency::GBP, Currency::EUR, as_of))
+        .unwrap()
+        .rate;
+
+    assert!(bumped_cross > original_cross);
+}

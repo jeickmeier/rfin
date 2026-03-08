@@ -899,6 +899,7 @@ impl DiscountCurve {
         DiscountCurveBuilder {
             id,
             base,
+            base_is_set: false,
             day_count,
             points: Vec::new(),
             style: InterpStyle::MonotoneConvex,
@@ -1039,6 +1040,7 @@ impl DiscountCurve {
 pub struct DiscountCurveBuilder {
     id: CurveId,
     base: Date,
+    base_is_set: bool,
     day_count: DayCount,
     points: Vec<(f64, f64)>, // (t, df)
     style: InterpStyle,
@@ -1052,6 +1054,7 @@ impl DiscountCurveBuilder {
     /// Override the default **base date** (valuation date).
     pub fn base_date(mut self, d: Date) -> Self {
         self.base = d;
+        self.base_is_set = true;
         self
     }
     /// Choose the day-count basis for discount time mapping.
@@ -1291,6 +1294,9 @@ impl DiscountCurveBuilder {
     /// If the first knot time is `> 0.0`, automatically prepends `(0.0, 1.0)` to
     /// ensure the round-trip invariant `DF(0) = 1.0` (ISDA/QuantLib standard).
     pub fn build(mut self) -> crate::Result<DiscountCurve> {
+        if !self.base_is_set {
+            return Err(crate::error::InputError::Invalid.into());
+        }
         // Auto-enforce DF(0) = 1.0: if no knot at t=0, prepend one.
         // This matches QuantLib/Bloomberg convention where DF(0) = 1.0 always.
         if !self.points.is_empty() {
@@ -1497,6 +1503,9 @@ mod tests {
         // Previously this rejected unsorted knots; now the builder sorts and
         // auto-prepends (0, 1.0) so the curve builds successfully.
         let res = DiscountCurve::builder("USD")
+            .base_date(
+                Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date"),
+            )
             .knots([(1.0, 0.99), (0.5, 0.995)])
             .build();
         assert!(

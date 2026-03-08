@@ -137,6 +137,29 @@ fn clone_works_for_all_extrapolation_policies() {
     }
 }
 
+#[test]
+fn builder_requires_explicit_base_date() {
+    let result = ForwardCurve::builder("USD-SOFR3M", 0.25)
+        .knots([(0.0, 0.03), (1.0, 0.04)])
+        .build();
+    assert!(
+        result.is_err(),
+        "forward curve should require an explicit base date"
+    );
+}
+
+#[test]
+fn builder_rejects_non_positive_tenor() {
+    let result = ForwardCurve::builder("USD-SOFR0", 0.0)
+        .base_date(test_date())
+        .knots([(0.0, 0.03), (1.0, 0.04)])
+        .build();
+    assert!(
+        result.is_err(),
+        "forward curve tenor must be strictly positive"
+    );
+}
+
 // =============================================================================
 // Serialization Tests
 // =============================================================================

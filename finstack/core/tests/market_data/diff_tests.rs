@@ -468,6 +468,7 @@ fn test_hazard_curve_dynamic_sampling() {
 fn test_inflation_curve_shift() {
     let curve_t0 = InflationCurve::builder("CPI-USD")
         .base_cpi(100.0)
+        .base_date(sample_date())
         .knots([(0.0, 100.0), (1.0, 102.0), (5.0, 110.0), (10.0, 120.0)])
         .build()
         .expect("Should build curve");
@@ -475,6 +476,7 @@ fn test_inflation_curve_shift() {
     // 2% higher CPI at all tenors
     let curve_t1 = InflationCurve::builder("CPI-USD")
         .base_cpi(100.0)
+        .base_date(sample_date())
         .knots([(0.0, 100.0), (1.0, 104.04), (5.0, 112.2), (10.0, 122.4)])
         .build()
         .expect("Should build curve");

@@ -13,8 +13,8 @@
 //! - Hull - *Options, Futures, and Other Derivatives* (10th ed), Chapter 4
 //! - Microsoft Excel XIRR function specification
 
-use finstack_core::cashflow::InternalRateOfReturn;
-use finstack_core::dates::{Date, DayCount, DayCountCtx};
+use finstack_core::cashflow::{xirr_with_daycount_ctx, InternalRateOfReturn};
+use finstack_core::dates::{Date, DayCount, DayCountCtx, Tenor};
 use finstack_core::Error;
 use time::Month;
 
@@ -677,6 +677,21 @@ fn xirr_handles_distant_horizon() {
         "NPV at IRR should be ~0, got {}",
         npv_at_irr
     );
+}
+
+#[test]
+fn xirr_supports_contextual_day_counts_via_explicit_ctx() {
+    let flows = vec![(d(2025, 1, 1), -1000.0), (d(2026, 1, 1), 1100.0)];
+    let ctx = DayCountCtx {
+        frequency: Some(Tenor::annual()),
+        calendar: None,
+        bus_basis: None,
+    };
+
+    let result = xirr_with_daycount_ctx(&flows, DayCount::ActActIsma, ctx, None)
+        .expect("contextual day-count XIRR should succeed");
+
+    assert!((result - 0.10).abs() < XIRR_TOLERANCE);
 }
 
 // =============================================================================

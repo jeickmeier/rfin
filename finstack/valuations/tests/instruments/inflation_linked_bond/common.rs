@@ -1,7 +1,7 @@
 //! Common test utilities and fixtures for ILB tests
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::DiscountCurve;
@@ -18,6 +18,21 @@ use time::Month;
 /// Shorthand for date creation
 pub fn d(y: i32, m: u8, day: u8) -> Date {
     Date::from_calendar_date(y, Month::try_from(m).unwrap(), day).unwrap()
+}
+
+fn monthly_observations(
+    start: Date,
+    months: usize,
+    start_value: f64,
+    monthly_rate: f64,
+) -> Vec<(Date, f64)> {
+    (0..months)
+        .map(|i| {
+            let date = start.add_months(i as i32);
+            let value = start_value * (1.0 + monthly_rate).powi(i as i32);
+            (date, value)
+        })
+        .collect()
 }
 
 /// Create a standard TIPS bond for testing
@@ -89,13 +104,9 @@ pub fn market_context_with_index() -> (MarketContext, InflationIndex) {
         .build()
         .unwrap();
 
-    let observations = vec![
-        (d(2024, 11, 1), 299.0),
-        (d(2024, 12, 1), 300.0),
-        (d(2025, 1, 1), 301.0),
-        (d(2025, 2, 1), 302.0),
-        (d(2025, 3, 1), 303.0),
-    ];
+    // Cover the bond's full lagged history so schedule generation can look up
+    // early coupon fixings instead of failing on missing 2020-era observations.
+    let observations = monthly_observations(d(2019, 10, 1), 364, 250.0, 0.002);
     let index = InflationIndex::new("US-CPI-U", observations, Currency::USD)
         .unwrap()
         .with_interpolation(InflationInterpolation::Linear);
@@ -172,12 +183,7 @@ pub fn uk_market_context() -> (MarketContext, InflationIndex) {
         .build()
         .unwrap();
 
-    let observations = vec![
-        (d(2024, 11, 1), 319.0),
-        (d(2024, 12, 1), 320.0),
-        (d(2025, 1, 1), 321.0),
-        (d(2025, 2, 1), 322.0),
-    ];
+    let observations = monthly_observations(d(2019, 7, 1), 260, 280.0, 0.0025);
     let index = InflationIndex::new("UK-RPI", observations, Currency::GBP)
         .unwrap()
         .with_interpolation(InflationInterpolation::Step);

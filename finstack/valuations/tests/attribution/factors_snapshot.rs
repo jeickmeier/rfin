@@ -37,6 +37,7 @@ fn create_test_hazard_curve(id: &str, base_date: Date) -> HazardCurve {
 
 fn create_test_inflation_curve(id: &str, _base_date: Date) -> InflationCurve {
     InflationCurve::builder(id)
+        .base_date(_base_date)
         .base_cpi(100.0)
         .knots(vec![(0.0, 100.0), (1.0, 102.0), (5.0, 110.0)])
         .build()

@@ -304,6 +304,157 @@ fn market_context_bumps_surfaces_and_scalars() {
 }
 
 #[test]
+fn market_context_roll_forward_keeps_credit_index_curves_consistent() {
+    let hazard = sample_hazard_curve("CDX");
+    let base_corr = sample_base_correlation_curve("CDX-BC");
+    let credit_index = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.4)
+        .index_credit_curve(Arc::new(hazard.clone()))
+        .base_correlation_curve(Arc::new(base_corr.clone()))
+        .build()
+        .unwrap();
+
+    let rolled = MarketContext::new()
+        .insert(hazard)
+        .insert(base_corr)
+        .insert_credit_index("CDX-IG", credit_index)
+        .roll_forward(30)
+        .unwrap();
+
+    let direct_hazard = rolled.get_hazard("CDX").unwrap();
+    let bundled_credit_index = rolled.get_credit_index("CDX-IG").unwrap();
+
+    assert_eq!(
+        bundled_credit_index.index_credit_curve.base_date(),
+        direct_hazard.base_date(),
+        "credit index bundle should stay aligned with rolled hazard curve"
+    );
+}
+
+#[test]
+fn update_base_correlation_curve_keeps_direct_lookup_in_sync() {
+    let original_curve = sample_base_correlation_curve("CDX-BC");
+    let hazard = sample_hazard_curve("CDX");
+    let credit_index = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.4)
+        .index_credit_curve(Arc::new(hazard.clone()))
+        .base_correlation_curve(Arc::new(original_curve.clone()))
+        .build()
+        .unwrap();
+
+    let mut ctx = MarketContext::new()
+        .insert(hazard)
+        .insert(original_curve)
+        .insert_credit_index("CDX-IG", credit_index);
+
+    let updated_curve = Arc::new(
+        finstack_core::market_data::term_structures::BaseCorrelationCurve::builder("CDX-BC")
+            .knots([(3.0, 0.30), (7.0, 0.45), (10.0, 0.60)])
+            .build()
+            .unwrap(),
+    );
+
+    assert!(ctx.update_base_correlation_curve("CDX-IG", Arc::clone(&updated_curve)));
+    let direct_curve = ctx.get_base_correlation("CDX-BC").unwrap();
+    assert!((direct_curve.correlation(7.0) - 0.45).abs() < 1e-12);
+}
+
+#[test]
+fn generic_curve_replace_rebinds_credit_index_dependencies() {
+    let original_hazard = sample_hazard_curve("CDX");
+    let base_corr = sample_base_correlation_curve("CDX-BC");
+    let credit_index = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.4)
+        .index_credit_curve(Arc::new(original_hazard.clone()))
+        .base_correlation_curve(Arc::new(base_corr.clone()))
+        .build()
+        .unwrap();
+
+    let replacement_hazard =
+        finstack_core::market_data::term_structures::HazardCurve::builder("CDX")
+            .base_date(sample_base_date() + time::Duration::days(30))
+            .knots([(1.0, 0.02), (3.0, 0.025), (5.0, 0.03)])
+            .build()
+            .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert(original_hazard)
+        .insert(base_corr)
+        .insert_credit_index("CDX-IG", credit_index)
+        .insert(replacement_hazard);
+
+    let direct_hazard = ctx.get_hazard("CDX").unwrap();
+    let bundled_credit_index = ctx.get_credit_index("CDX-IG").unwrap();
+    assert_eq!(
+        bundled_credit_index.index_credit_curve.base_date(),
+        direct_hazard.base_date()
+    );
+}
+
+#[test]
+fn insert_inflation_index_rejects_mismatched_storage_key() {
+    let index = InflationIndex::new(
+        "US-CPI",
+        vec![
+            (
+                Date::from_calendar_date(2024, Month::January, 31).unwrap(),
+                100.0,
+            ),
+            (
+                Date::from_calendar_date(2024, Month::February, 29).unwrap(),
+                101.0,
+            ),
+        ],
+        Currency::USD,
+    )
+    .unwrap();
+
+    let result = std::panic::catch_unwind(|| {
+        let _ = MarketContext::new().insert_inflation_index("ALIAS", index);
+    });
+    assert!(
+        result.is_err(),
+        "mismatched inflation index keys should be rejected when inserted"
+    );
+}
+
+#[test]
+fn inflation_key_rate_bump_preserves_curve_metadata() {
+    let curve = finstack_core::market_data::term_structures::InflationCurve::builder("US-CPI")
+        .base_cpi(100.0)
+        .base_date(sample_base_date())
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .indexation_lag_months(6)
+        .interp(finstack_core::math::interp::InterpStyle::Linear)
+        .knots([(0.0, 100.0), (1.0, 102.0), (2.0, 104.0)])
+        .build()
+        .unwrap();
+
+    let bumped = MarketContext::new()
+        .insert(curve)
+        .bump([MarketBump::Curve {
+            id: CurveId::from("US-CPI"),
+            spec: BumpSpec::triangular_key_rate_bp(0.0, 1.0, 2.0, 25.0),
+        }])
+        .unwrap();
+
+    let bumped_curve = bumped.get_inflation_curve("US-CPI").unwrap();
+    assert_eq!(bumped_curve.base_date(), sample_base_date());
+    assert_eq!(
+        bumped_curve.day_count(),
+        finstack_core::dates::DayCount::Act360
+    );
+    assert_eq!(bumped_curve.indexation_lag_months(), 6);
+    assert_eq!(
+        bumped_curve.interp_style(),
+        finstack_core::math::interp::InterpStyle::Linear
+    );
+}
+
+#[test]
 fn market_context_handles_additional_introspection() {
     let mut ctx = MarketContext::new();
     assert!(ctx.is_empty());

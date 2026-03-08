@@ -162,4 +162,50 @@ impl MarketContext {
     pub fn series_snapshot(&self) -> HashMap<CurveId, ScalarTimeSeries> {
         self.series.clone()
     }
+
+    #[inline]
+    pub(crate) fn inflation_index_key_for_insert(
+        id: impl AsRef<str>,
+        index: &InflationIndex,
+    ) -> CurveId {
+        let key = CurveId::from(id.as_ref());
+        assert!(
+            key.as_str() == index.id,
+            "MarketContext::insert_inflation_index key '{}' must match InflationIndex.id '{}'",
+            key.as_str(),
+            index.id
+        );
+        key
+    }
+
+    pub(crate) fn rebind_credit_index_data(&self, data: &CreditIndexData) -> CreditIndexData {
+        let mut rebuilt = data.clone();
+
+        if let Ok(curve) = self.get_hazard(rebuilt.index_credit_curve.id().as_str()) {
+            rebuilt.index_credit_curve = curve;
+        }
+        if let Ok(curve) = self.get_base_correlation(rebuilt.base_correlation_curve.id().as_str()) {
+            rebuilt.base_correlation_curve = curve;
+        }
+        if let Some(issuer_curves) = rebuilt.issuer_credit_curves.as_mut() {
+            for curve in issuer_curves.values_mut() {
+                if let Ok(rebound_curve) = self.get_hazard(curve.id().as_str()) {
+                    *curve = rebound_curve;
+                }
+            }
+        }
+
+        rebuilt
+    }
+
+    pub(crate) fn rebind_all_credit_indices(&mut self) {
+        let mut rebuilt = HashMap::default();
+        rebuilt.reserve(self.credit_indices.len());
+
+        for (id, data) in &self.credit_indices {
+            rebuilt.insert(id.clone(), Arc::new(self.rebind_credit_index_data(data)));
+        }
+
+        self.credit_indices = rebuilt;
+    }
 }

@@ -1,7 +1,7 @@
 //! Shared test fixtures and helpers for inflation swap tests.
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::{Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
@@ -48,6 +48,7 @@ pub fn flat_discount(id: &str, base: Date, rate: f64) -> finstack_core::Result<D
 /// Build a flat inflation curve with constant CPI growth rate
 pub fn flat_inflation_curve(
     id: &str,
+    base: Date,
     base_cpi: f64,
     annual_inflation_rate: f64,
 ) -> finstack_core::Result<InflationCurve> {
@@ -66,13 +67,14 @@ pub fn flat_inflation_curve(
         .collect();
 
     InflationCurve::builder(id)
+        .base_date(base)
         .base_cpi(base_cpi.max(1e-10)) // Also ensure base_cpi is positive
         .knots(knots)
         .build()
 }
 
 /// Build a realistic inflation curve with term structure
-pub fn realistic_inflation_curve(id: &str, base_cpi: f64) -> InflationCurve {
+pub fn realistic_inflation_curve(id: &str, base: Date, base_cpi: f64) -> InflationCurve {
     // Realistic forward inflation: front-end 2.5%, mid 2.0%, long 1.8%
     let knots = vec![
         (0.0, base_cpi),
@@ -85,6 +87,7 @@ pub fn realistic_inflation_curve(id: &str, base_cpi: f64) -> InflationCurve {
         (30.0, base_cpi * 1.703),   // ~1.8% avg to 30Y
     ];
     InflationCurve::builder(id)
+        .base_date(base)
         .base_cpi(base_cpi)
         .knots(knots)
         .build()
@@ -99,15 +102,17 @@ pub fn simple_index(
     ccy: Currency,
     lag: InflationLag,
 ) -> InflationIndex {
-    let observations = vec![
-        (base - time::Duration::days(180), base_cpi * 0.99),
-        (base - time::Duration::days(150), base_cpi * 0.992),
-        (base - time::Duration::days(120), base_cpi * 0.994),
-        (base - time::Duration::days(90), base_cpi * 0.996),
-        (base - time::Duration::days(60), base_cpi * 0.998),
-        (base - time::Duration::days(30), base_cpi * 0.999),
-        (base, base_cpi),
-    ];
+    // Provide two years of monthly history so lagged seasoned swaps can use
+    // realized fixings rather than falling back to projected curve values.
+    let monthly_growth = 1.002_f64;
+    let observations = (0..=24)
+        .rev()
+        .map(|months_back| {
+            let date = base.add_months(-months_back);
+            let value = base_cpi / monthly_growth.powf(months_back as f64);
+            (date, value)
+        })
+        .collect();
     InflationIndex::new(id, observations, ccy)
         .unwrap()
         .with_interpolation(InflationInterpolation::Linear)
@@ -118,12 +123,13 @@ pub fn simple_index(
 pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> MarketContext {
     let disc = flat_discount("USD-OIS", as_of, discount_rate)
         .unwrap_or_else(|_| panic!("Failed to build discount curve with rate {}", discount_rate));
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, inflation_rate).unwrap_or_else(|_| {
-        panic!(
-            "Failed to build inflation curve with rate {}",
-            inflation_rate
-        )
-    });
+    let infl_curve =
+        flat_inflation_curve("US-CPI-U", as_of, 300.0, inflation_rate).unwrap_or_else(|_| {
+            panic!(
+                "Failed to build inflation curve with rate {}",
+                inflation_rate
+            )
+        });
     let index = simple_index(
         "US-CPI-U",
         as_of,
@@ -141,7 +147,7 @@ pub fn standard_market(as_of: Date, inflation_rate: f64, discount_rate: f64) -> 
 /// Build a market with realistic curves
 pub fn realistic_market(as_of: Date) -> MarketContext {
     let disc = flat_discount("USD-OIS", as_of, 0.045).unwrap(); // 4.5% nominal rate
-    let infl_curve = realistic_inflation_curve("US-CPI-U", 300.0);
+    let infl_curve = realistic_inflation_curve("US-CPI-U", as_of, 300.0);
     let index = simple_index(
         "US-CPI-U",
         as_of,

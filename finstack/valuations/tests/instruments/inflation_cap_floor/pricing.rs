@@ -27,7 +27,7 @@ fn test_caplet_intrinsic_after_fixing() {
 
     let notional = Money::new(1_000_000.0, Currency::USD);
     let disc = flat_discount("USD-OIS", as_of, 0.02).unwrap();
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, 0.02).unwrap();
+    let infl_curve = flat_inflation_curve("US-CPI-U", as_of, 300.0, 0.02).unwrap();
     let index = simple_index(
         "US-CPI-U",
         as_of,
@@ -95,7 +95,7 @@ fn test_floor_value_with_negative_forward_normal_model() {
 
     let notional = Money::new(5_000_000.0, Currency::USD);
     let disc = flat_discount("USD-OIS", as_of, 0.01).unwrap();
-    let infl_curve = flat_inflation_curve("US-CPI-U", 300.0, -0.01).unwrap();
+    let infl_curve = flat_inflation_curve("US-CPI-U", as_of, 300.0, -0.01).unwrap();
     let vol_surface = flat_vol_surface("US-CPI-VOL", &[1.0], &[0.0], 0.01);
 
     let ctx = MarketContext::new()

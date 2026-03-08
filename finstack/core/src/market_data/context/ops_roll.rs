@@ -70,7 +70,7 @@ impl MarketContext {
             prices: self.prices.clone(),
             series: self.series.clone(),
             inflation_indices: self.inflation_indices.clone(),
-            credit_indices: self.credit_indices.clone(),
+            credit_indices: HashMap::default(),
             dividends: self.dividends.clone(),
             fx_delta_vol_surfaces: self.fx_delta_vol_surfaces.clone(),
             collateral: self.collateral.clone(),
@@ -111,6 +111,13 @@ impl MarketContext {
             };
             new_ctx.curves.insert(id.clone(), rolled_storage);
         }
+
+        for (id, credit_index) in &self.credit_indices {
+            new_ctx
+                .credit_indices
+                .insert(id.clone(), Arc::clone(credit_index));
+        }
+        new_ctx.rebind_all_credit_indices();
 
         Ok(new_ctx)
     }

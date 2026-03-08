@@ -377,7 +377,13 @@ impl ScalarTimeSeries {
                 Ok(idx) => value_vec[idx],
                 Err(idx) => {
                     if idx == 0 {
-                        value_vec[0] // Use first value for dates before series
+                        return Err(crate::Error::Input(InputError::NotFound {
+                            id: format!(
+                                "series '{}': no observation on or before {}",
+                                self.id.as_str(),
+                                from_days(query_day),
+                            ),
+                        }));
                     } else {
                         value_vec[idx - 1] // Last observation carried forward
                     }
@@ -403,7 +409,13 @@ impl ScalarTimeSeries {
                 Ok(idx) => value_vec[idx],
                 Err(idx) => {
                     if idx == 0 {
-                        value_vec[0] // Use first value for dates before series
+                        return Err(crate::Error::Input(InputError::NotFound {
+                            id: format!(
+                                "series '{}': no observation on or before {}",
+                                self.id.as_str(),
+                                from_days(query_day),
+                            ),
+                        }));
                     } else if idx >= date_vec.len() {
                         *value_vec.last().ok_or(InputError::TooFewPoints)? // Use last value for dates after series
                     } else {
