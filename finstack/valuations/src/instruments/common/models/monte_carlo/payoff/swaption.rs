@@ -171,58 +171,6 @@ impl BermudanSwaptionPayoff {
         }
     }
 
-    /// Compute an approximate swap value from the current short rate and schedule.
-    ///
-    /// This helper does **not** have enough model context to reproduce the full
-    /// Hull-White pricing path used by `SwaptionLsmcPricer`. It therefore uses a
-    /// flat-rate proxy built from the current short rate and the swap schedule:
-    ///
-    /// - `P(t, T) ≈ exp(-r_t × (T - t))`
-    /// - `S(t) = [P(t, T0) - P(t, TN)] / A(t)`
-    /// - `swap_value = (S(t) - K) × A(t)` for payer, negated for receiver
-    ///
-    /// The Monte Carlo pricer itself uses `ForwardSwapRate::compute` and
-    /// `HullWhiteBondPrice::bond_price`, which are the preferred path.
-    #[deprecated(
-        note = "Use SwaptionLsmcPricer with ForwardSwapRate/HullWhiteBondPrice for model-consistent swap valuation"
-    )]
-    pub fn compute_swap_value_from_rate(&self, short_rate: f64, t: f64) -> f64 {
-        if t >= self.swap_schedule.end_date {
-            return 0.0;
-        }
-
-        let discount_from_t = |payment_time: f64| -> f64 {
-            if payment_time <= t {
-                1.0
-            } else {
-                (-short_rate * (payment_time - t)).exp()
-            }
-        };
-
-        let p_start = if t <= self.swap_schedule.start_date {
-            discount_from_t(self.swap_schedule.start_date)
-        } else {
-            1.0
-        };
-        let p_end = discount_from_t(self.swap_schedule.end_date);
-
-        let mut annuity = 0.0;
-        for (i, &payment_time) in self.swap_schedule.payment_dates.iter().enumerate() {
-            if payment_time > t {
-                annuity += self.swap_schedule.accrual_fractions[i] * discount_from_t(payment_time);
-            }
-        }
-        if annuity <= 1e-12 {
-            return 0.0;
-        }
-
-        let swap_rate = (p_start - p_end) / annuity;
-        match self.option_type {
-            SwaptionType::Payer => (swap_rate - self.strike) * annuity,
-            SwaptionType::Receiver => (self.strike - swap_rate) * annuity,
-        }
-    }
-
     /// Set swap value (called by pricer after computing from HW bond prices).
     pub fn set_swap_value(&mut self, value: f64) {
         self.current_swap_value = value;
@@ -296,27 +244,6 @@ mod tests {
         assert_eq!(schedule.start_date, 1.0);
         assert_eq!(schedule.end_date, 2.0);
         assert_eq!(schedule.payment_dates.len(), 5);
-    }
-
-    #[test]
-    fn test_compute_swap_value_from_rate_uses_schedule_proxy() {
-        let payoff = BermudanSwaptionPayoff::new(
-            vec![0.5, 1.0],
-            SwapSchedule::new(1.0, 2.0, vec![1.25, 1.5, 1.75, 2.0], vec![0.25; 4]),
-            0.03,
-            SwaptionType::Payer,
-            1.0,
-            Currency::USD,
-        );
-
-        #[allow(deprecated)]
-        let value = payoff.compute_swap_value_from_rate(0.05, 0.5);
-
-        assert!(value.is_finite());
-        assert!(
-            value > 0.0,
-            "payer proxy value should be positive, got {value}"
-        );
     }
 
     #[test]

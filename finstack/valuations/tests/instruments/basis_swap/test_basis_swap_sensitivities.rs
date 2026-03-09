@@ -495,8 +495,8 @@ fn test_bucketed_dv01_per_curve() {
     );
 
     assert!(
-        res.measures.contains_key("bucketed_dv01::1y"),
-        "Primary discount curve bucketed series should be present under standard key"
+        res.measures.contains_key("bucketed_dv01::USD-OIS::1y"),
+        "Discount curve bucketed series should be present under curve-qualified key"
     );
 
     let mut disc_buckets = 0;

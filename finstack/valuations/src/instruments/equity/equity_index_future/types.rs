@@ -424,20 +424,6 @@ impl EquityIndexFuture {
     }
 }
 
-impl EquityIndexFutureBuilder {
-    /// Backward-compatible alias for `div_yield_id`.
-    #[deprecated(note = "use div_yield_id instead")]
-    pub fn dividend_yield_id(self, id: impl Into<CurveId>) -> Self {
-        self.div_yield_id(id.into())
-    }
-
-    /// Backward-compatible alias for `div_yield_id_opt`.
-    #[deprecated(note = "use div_yield_id_opt instead")]
-    pub fn dividend_yield_id_opt(self, id: Option<CurveId>) -> Self {
-        self.div_yield_id_opt(id)
-    }
-}
-
 // =============================================================================
 // Trait Implementations
 // =============================================================================

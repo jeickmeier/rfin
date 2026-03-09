@@ -713,43 +713,6 @@ impl EvolutionParams {
             prob_middle: Some(p_m),
         }
     }
-
-    /// Create evolution parameters for interest rate factor (Vasicek-style).
-    ///
-    /// # Deprecated
-    ///
-    /// This method uses an incorrect Vasicek drift (`kappa * theta * dt`) that
-    /// ignores the current rate level. The correct Vasicek drift is
-    /// `kappa * (theta - r(t)) * dt`, which requires level-dependent probabilities.
-    /// The fixed `p=0.5` probabilities also fail to account for drift.
-    ///
-    /// Use [`HullWhiteTree`](super::hull_white_tree::HullWhiteTree) or
-    /// [`ShortRateTree`](super::short_rate_tree::ShortRateTree) for calibrated
-    /// short-rate tree models that correctly handle mean reversion.
-    #[deprecated(
-        since = "0.5.0",
-        note = "Incorrect Vasicek drift. Use HullWhiteTree or ShortRateTree instead."
-    )]
-    pub fn interest_rate(
-        mean_reversion: f64,
-        long_term_rate: f64,
-        volatility: f64,
-        dt: f64,
-    ) -> Self {
-        let drift = mean_reversion * long_term_rate * dt;
-        let vol_factor = volatility * dt.sqrt();
-
-        Self {
-            volatility,
-            drift,
-            up_factor: 1.0 + vol_factor,
-            down_factor: 1.0 - vol_factor,
-            middle_factor: Some(1.0),
-            prob_up: 0.5,
-            prob_down: 0.5,
-            prob_middle: Some(0.0),
-        }
-    }
 }
 
 /// Barrier option configuration for discrete monitoring.

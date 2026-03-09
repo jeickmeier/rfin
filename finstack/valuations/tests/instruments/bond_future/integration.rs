@@ -879,10 +879,10 @@ fn test_bond_future_dv01_calculation() {
         dv01
     );
 
-    // Extract bucketed DV01
+    // Extract bucketed DV01 (now stored under curve-qualified key)
     let bucketed_dv01 = context
-        .get_series(&MetricId::BucketedDv01)
-        .expect("Bucketed DV01 should be computed");
+        .get_series(&MetricId::custom("bucketed_dv01::USD-TREASURY"))
+        .expect("Bucketed DV01 should be computed under curve-qualified key");
 
     println!("\nBucketed DV01:");
     for (tenor, value) in bucketed_dv01 {

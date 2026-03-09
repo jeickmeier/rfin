@@ -236,87 +236,6 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
 use finstack_core::Result;
 
-/// Parse a period string to an **approximate** number of calendar days.
-///
-/// # Deprecation Notice
-///
-/// **This function uses fixed approximations (30 days/month, 365 days/year) and should
-/// be used with caution.** For accurate date arithmetic, use `calculate_theta_date`
-/// which performs proper calendar-aware month and year rolling with end-of-month handling.
-///
-/// This function is primarily retained for backward compatibility and for cases where
-/// an approximate day count is acceptable (e.g., rough time-to-maturity estimates).
-///
-/// # Approximations Used
-///
-/// | Period | Approximation |
-/// |--------|---------------|
-/// | "D"    | Exact (1 day) |
-/// | "W"    | Exact (7 days)|
-/// | "M"    | **30 days** (not calendar-aware) |
-/// | "Y"    | **365 days** (ignores leap years) |
-///
-/// # Supported formats
-/// - "1D", "2D", etc. -> days
-/// - "1W", "2W", etc. -> weeks (7 days each)
-/// - "1M", "2M", etc. -> months (30 days each, approximate)
-/// - "3M", "6M", etc. -> months (30 days each, approximate)
-/// - "1Y", "2Y", etc. -> years (365 days each, approximate)
-///
-/// # Examples
-/// ```rust,ignore
-/// use finstack_valuations::metrics::sensitivities::theta::parse_period_days;
-/// assert_eq!(parse_period_days("1D").expect("should succeed"), 1);
-/// assert_eq!(parse_period_days("1W").expect("should succeed"), 7);
-/// assert_eq!(parse_period_days("1M").expect("should succeed"), 30);  // Approximate!
-/// assert_eq!(parse_period_days("3M").expect("should succeed"), 90);  // Approximate!
-/// assert_eq!(parse_period_days("1Y").expect("should succeed"), 365); // Approximate!
-/// ```
-///
-/// # See Also
-///
-/// - `calculate_theta_date`: Calendar-aware date rolling (recommended for theta calculations)
-#[deprecated(
-    since = "0.9.0",
-    note = "Uses fixed 30-day months and 365-day years. Prefer `calculate_theta_date` for calendar-aware date rolling."
-)]
-pub fn parse_period_days(period: &str) -> Result<i64> {
-    let period = period.trim().to_uppercase();
-
-    if period.is_empty() {
-        return Err(finstack_core::Error::from(
-            finstack_core::InputError::Invalid,
-        ));
-    }
-
-    // Extract number and unit
-    let (num_str, unit) = if let Some(pos) = period.find(|c: char| c.is_alphabetic()) {
-        (&period[..pos], &period[pos..])
-    } else {
-        return Err(finstack_core::Error::from(
-            finstack_core::InputError::Invalid,
-        ));
-    };
-
-    let num: i64 = num_str
-        .parse()
-        .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
-
-    let days = match unit {
-        "D" => num,
-        "W" => num * 7,
-        "M" => num * 30,
-        "Y" => num * 365,
-        _ => {
-            return Err(finstack_core::Error::from(
-                finstack_core::InputError::Invalid,
-            ))
-        }
-    };
-
-    Ok(days)
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ThetaPeriod {
     Days(i64),
@@ -345,11 +264,8 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
         .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
     match unit {
-        "D" | "W" => {
-            #[allow(deprecated)]
-            let days = parse_period_days(&period)?;
-            Ok(ThetaPeriod::Days(days))
-        }
+        "D" => Ok(ThetaPeriod::Days(num_i64)),
+        "W" => Ok(ThetaPeriod::Days(num_i64 * 7)),
         "M" => Ok(ThetaPeriod::Months(i32::try_from(num_i64).map_err(
             |_| finstack_core::Error::from(finstack_core::InputError::Invalid),
         )?)),
@@ -628,7 +544,7 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
 // ================================================================================================
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, deprecated)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use time::macros::date;
@@ -636,64 +552,6 @@ mod tests {
 
     fn test_date() -> Date {
         date!(2025 - 01 - 01)
-    }
-
-    // -------------------------------------------------------------------------
-    // Period parsing
-    // -------------------------------------------------------------------------
-
-    #[test]
-    fn parse_period_days_standard() {
-        assert_eq!(parse_period_days("1D").expect("parse 1D"), 1);
-        assert_eq!(parse_period_days("7D").expect("parse 7D"), 7);
-        assert_eq!(parse_period_days("30D").expect("parse 30D"), 30);
-    }
-
-    #[test]
-    fn parse_period_days_weeks() {
-        assert_eq!(parse_period_days("1W").expect("parse 1W"), 7);
-        assert_eq!(parse_period_days("2W").expect("parse 2W"), 14);
-        assert_eq!(parse_period_days("4W").expect("parse 4W"), 28);
-    }
-
-    #[test]
-    fn parse_period_days_months() {
-        assert_eq!(parse_period_days("1M").expect("parse 1M"), 30);
-        assert_eq!(parse_period_days("3M").expect("parse 3M"), 90);
-        assert_eq!(parse_period_days("6M").expect("parse 6M"), 180);
-        assert_eq!(parse_period_days("12M").expect("parse 12M"), 360);
-    }
-
-    #[test]
-    fn parse_period_days_years() {
-        assert_eq!(parse_period_days("1Y").expect("parse 1Y"), 365);
-        assert_eq!(parse_period_days("2Y").expect("parse 2Y"), 730);
-        assert_eq!(parse_period_days("5Y").expect("parse 5Y"), 1825);
-    }
-
-    #[test]
-    fn parse_period_days_lowercase_and_whitespace() {
-        assert_eq!(parse_period_days("1d").expect("parse 1d"), 1);
-        assert_eq!(parse_period_days(" 1W ").expect("parse 1W"), 7);
-        assert_eq!(parse_period_days(" 3m ").expect("parse 3M"), 90);
-        assert_eq!(parse_period_days("  1y  ").expect("parse 1Y"), 365);
-    }
-
-    #[test]
-    fn parse_period_days_invalid_format_errors() {
-        assert!(parse_period_days("").is_err());
-        assert!(parse_period_days("1X").is_err());
-        assert!(parse_period_days("XYZ").is_err());
-        assert!(parse_period_days("D").is_err());
-        assert!(parse_period_days("1").is_err());
-        assert!(parse_period_days("abc").is_err());
-    }
-
-    #[test]
-    fn parse_period_days_edge_cases() {
-        assert_eq!(parse_period_days("0D").expect("parse 0D"), 0);
-        assert_eq!(parse_period_days("100D").expect("parse 100D"), 100);
-        assert_eq!(parse_period_days("10Y").expect("parse 10Y"), 3650);
     }
 
     // -------------------------------------------------------------------------

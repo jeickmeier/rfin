@@ -4,9 +4,7 @@ use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
-};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
@@ -151,43 +149,15 @@ impl InflationSwap {
     /// compatibility while catching unexpected variants in development.
     pub(crate) fn apply_lag(&self, date: Date, default_lag: InflationLag) -> Date {
         let lag_policy = self.lag_override.unwrap_or(default_lag);
-        match lag_policy {
-            InflationLag::None => date,
-            InflationLag::Months(m) => date.add_months(-(m as i32)),
-            InflationLag::Days(d) => date - time::Duration::days(d as i64),
-            // InflationLag is #[non_exhaustive], so we must handle unknown variants.
-            // Debug assert to catch new variants during development.
-            #[allow(unreachable_patterns)]
-            unknown => {
-                debug_assert!(
-                    false,
-                    "Unhandled InflationLag variant: {:?}. Falling back to no lag.",
-                    unknown
-                );
-                date
-            }
-        }
+        crate::instruments::common_impl::helpers::apply_inflation_lag(date, lag_policy)
     }
 
-    /// Get the effective lag policy, using index lag as default if available.
-    ///
-    /// Priority order:
-    /// 1. Instrument's `lag_override` if set
-    /// 2. Index's lag if an InflationIndex is in the market context
-    /// 3. `InflationLag::None` as fallback (no lag applied)
-    ///
-    /// Note: For production use, either set `lag_override` explicitly or ensure
-    /// an InflationIndex with the correct lag is in the market context.
     fn effective_lag(&self, curves: &MarketContext) -> InflationLag {
-        if let Some(lag) = self.lag_override {
-            return lag;
-        }
-        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
-            return index.lag();
-        }
-        // Default to no lag when no index is available
-        // This ensures consistency with curve-only contexts (e.g., calibration)
-        InflationLag::None
+        crate::instruments::common_impl::helpers::resolve_inflation_lag(
+            self.lag_override,
+            self.inflation_index_id.as_str(),
+            curves,
+        )
     }
 
     fn cpi_value_at_lagged_date(
@@ -569,37 +539,15 @@ impl YoYInflationSwap {
     }
 
     fn effective_lag(&self, curves: &MarketContext) -> InflationLag {
-        if let Some(lag) = self.lag_override {
-            return lag;
-        }
-        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
-            return index.lag();
-        }
-        InflationLag::None
+        crate::instruments::common_impl::helpers::resolve_inflation_lag(
+            self.lag_override,
+            self.inflation_index_id.as_str(),
+            curves,
+        )
     }
 
-    /// Apply lag to a date.
-    ///
-    /// # Note
-    ///
-    /// The `InflationLag` enum is `#[non_exhaustive]`, so unknown variants
-    /// fall back to no lag with a debug assertion.
     fn apply_lag(date: Date, lag: InflationLag) -> Date {
-        match lag {
-            InflationLag::None => date,
-            InflationLag::Months(m) => date.add_months(-(m as i32)),
-            InflationLag::Days(d) => date - time::Duration::days(d as i64),
-            // InflationLag is #[non_exhaustive], so we must handle unknown variants.
-            #[allow(unreachable_patterns)]
-            unknown => {
-                debug_assert!(
-                    false,
-                    "Unhandled InflationLag variant: {:?}. Falling back to no lag.",
-                    unknown
-                );
-                date
-            }
-        }
+        crate::instruments::common_impl::helpers::apply_inflation_lag(date, lag)
     }
 
     /// Compute signed year fraction for inflation curve lookups.

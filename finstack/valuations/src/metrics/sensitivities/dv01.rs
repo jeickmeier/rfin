@@ -46,34 +46,6 @@ use finstack_core::types::CurveId;
 use std::marker::PhantomData;
 
 // =============================================================================
-// Standard Buckets
-// =============================================================================
-
-/// Standard IR key-rate buckets in years.
-///
-/// Returns the industry-standard interest rate sensitivity buckets used for
-/// key-rate DV01 calculations. These buckets cover the full maturity spectrum
-/// from 3 months to 30 years, matching standard market conventions.
-///
-/// # Returns
-///
-/// Vector of bucket maturities in years: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// // This function is internal - use MetricId::BucketedDv01 for public API
-/// use finstack_valuations::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
-///
-/// let buckets = standard_ir_dv01_buckets();
-/// assert_eq!(buckets.len(), 11);
-/// assert_eq!(buckets[0], 0.25); // 3 months
-/// ```
-pub fn standard_ir_dv01_buckets() -> Vec<f64> {
-    sens_config::STANDARD_BUCKETS_YEARS.to_vec()
-}
-
-// =============================================================================
 // Configuration Types
 // =============================================================================
 
@@ -115,7 +87,7 @@ impl Default for Dv01CalculatorConfig {
     fn default() -> Self {
         Self {
             mode: Dv01ComputationMode::KeyRateTriangular,
-            buckets: standard_ir_dv01_buckets(),
+            buckets: sens_config::STANDARD_BUCKETS_YEARS.to_vec(),
             series_id: MetricId::BucketedDv01,
         }
     }
@@ -378,26 +350,13 @@ where
         let base = self.config.series_id.as_str();
         let mut total_dv01 = 0.0;
 
-        for (i, (curve_id, _kind)) in curves.iter().enumerate() {
-            let metric_id = if i == 0 {
-                self.config.series_id.clone()
-            } else {
-                MetricId::custom(format!("{}::{}", base, curve_id.as_str()))
-            };
+        for (curve_id, _kind) in curves.iter() {
+            let curve_metric_id = MetricId::custom(format!("{}::{}", base, curve_id.as_str()));
 
             let curve_total =
-                self.compute_triangular_for_curve(context, curve_id, metric_id.clone(), bump_bp)?;
+                self.compute_triangular_for_curve(context, curve_id, curve_metric_id, bump_bp)?;
 
             total_dv01 += curve_total;
-
-            // Always emit curve-specific keys, even for single-curve instruments
-            if i == 0 {
-                let curve_specific_id =
-                    MetricId::custom(format!("{}::{}", base, curve_id.as_str()));
-                if let Some(series) = context.get_series(&metric_id) {
-                    context.store_bucketed_series(curve_specific_id, series.to_vec());
-                }
-            }
         }
 
         Ok(total_dv01)

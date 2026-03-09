@@ -426,10 +426,10 @@ fn test_bucketed_dv01_per_curve() {
         "Standard BucketedDv01 scalar should be present for BC"
     );
 
-    // Verify per-bucket keys exist for primary discount curve (BC)
+    // Verify per-bucket keys exist for domestic discount curve (now always curve-qualified)
     assert!(
-        result.measures.contains_key("bucketed_dv01::1y"),
-        "Primary discount curve bucketed series should be present under standard key"
+        result.measures.contains_key("bucketed_dv01::USD-OIS::1y"),
+        "Domestic discount curve bucketed series should be present under curve-qualified key"
     );
 
     // Count per-curve series buckets (domestic USD and foreign EUR)

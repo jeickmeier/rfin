@@ -695,3 +695,52 @@ pub fn collect_black_scholes_inputs(
 
     Ok((inputs.spot, r_eff, inputs.q, inputs.sigma, inputs.t))
 }
+
+// =============================================================================
+// Inflation Lag Helpers
+// =============================================================================
+
+use finstack_core::dates::DateExt;
+use finstack_core::market_data::scalars::InflationLag;
+
+/// Apply an inflation lag to a date.
+///
+/// - `Months(m)` subtracts m calendar months
+/// - `Days(d)` subtracts d calendar days
+/// - `None` returns the date unchanged
+///
+/// Unknown variants (the enum is `#[non_exhaustive]`) fall back to no lag.
+pub(crate) fn apply_inflation_lag(date: Date, lag: InflationLag) -> Date {
+    match lag {
+        InflationLag::None => date,
+        InflationLag::Months(m) => date.add_months(-(m as i32)),
+        InflationLag::Days(d) => date - time::Duration::days(d as i64),
+        #[allow(unreachable_patterns)]
+        _unknown => {
+            debug_assert!(
+                false,
+                "Unhandled InflationLag variant: {:?}. Falling back to no lag.",
+                _unknown
+            );
+            date
+        }
+    }
+}
+
+/// Resolve the effective lag for an inflation instrument.
+///
+/// Priority: (1) explicit `lag_override`, (2) index lag from market context,
+/// (3) `InflationLag::None`.
+pub(crate) fn resolve_inflation_lag(
+    lag_override: Option<InflationLag>,
+    index_id: &str,
+    curves: &MarketContext,
+) -> InflationLag {
+    if let Some(lag) = lag_override {
+        return lag;
+    }
+    if let Ok(index) = curves.get_inflation_index(index_id) {
+        return index.lag();
+    }
+    InflationLag::None
+}

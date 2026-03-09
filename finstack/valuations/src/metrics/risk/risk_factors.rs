@@ -5,7 +5,7 @@
 //! market data dependencies.
 
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
-use crate::metrics::sensitivities::dv01::standard_ir_dv01_buckets;
+use crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::CurveId;
 use finstack_core::HashSet;
@@ -93,7 +93,7 @@ impl RiskFactorType {
 /// Extract risk factors from an instrument's market data dependencies.
 ///
 /// This function inspects the instrument's curve dependencies and extracts
-/// risk factors at standard tenor buckets (see `standard_ir_dv01_buckets()`).
+/// risk factors at standard tenor buckets (see `STANDARD_BUCKETS_YEARS.to_vec()`).
 /// The risk factors can then be used
 /// to apply historical market shifts for VaR calculation.
 ///
@@ -136,7 +136,7 @@ where
     let deps = instrument.curve_dependencies()?;
 
     // Standard tenors for IR/credit curve factors
-    let standard_tenors = standard_ir_dv01_buckets();
+    let standard_tenors = STANDARD_BUCKETS_YEARS.to_vec();
 
     extract_curve_factors(
         &mut factors,
@@ -374,7 +374,7 @@ mod tests {
         );
 
         // Verify we're using standard tenors
-        let standard_tenors = standard_ir_dv01_buckets();
+        let standard_tenors = STANDARD_BUCKETS_YEARS.to_vec();
         for (_, tenor) in &discount_factors {
             assert!(
                 standard_tenors.contains(tenor),

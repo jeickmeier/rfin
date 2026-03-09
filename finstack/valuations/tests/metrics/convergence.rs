@@ -305,7 +305,8 @@ fn test_bucketed_dv01_sums_to_parallel() {
         .unwrap();
 
     let total_dv01 = *results.get(&MetricId::Dv01).unwrap();
-    let bucketed_series = context.computed_series.get(&MetricId::BucketedDv01);
+    let curve_key = MetricId::custom("bucketed_dv01::USD-OIS");
+    let bucketed_series = context.computed_series.get(&curve_key);
 
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
@@ -447,8 +448,9 @@ fn test_bucketed_cs01_sums_to_total_strict() {
 
     let total_cs01 = *results.get(&MetricId::Cs01).unwrap();
 
-    // Get bucketed CS01 series
-    let bucketed_series = context.computed_series.get(&MetricId::BucketedCs01);
+    // Get bucketed CS01 series (now stored under curve-specific key)
+    let curve_key = MetricId::custom("bucketed_cs01::HAZARD");
+    let bucketed_series = context.computed_series.get(&curve_key);
 
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();
@@ -540,8 +542,9 @@ fn test_bucketed_cs01_sums_to_total_limited_curve_support() {
 
     let total_cs01 = *results.get(&MetricId::Cs01).unwrap();
 
-    // Get bucketed CS01 series
-    let bucketed_series = context.computed_series.get(&MetricId::BucketedCs01);
+    // Get bucketed CS01 series (stored under curve-specific key)
+    let curve_key = MetricId::custom("bucketed_cs01::HZD-LIMITED");
+    let bucketed_series = context.computed_series.get(&curve_key);
 
     if let Some(series) = bucketed_series {
         let sum_bucketed: f64 = series.iter().map(|(_, v)| v).sum();

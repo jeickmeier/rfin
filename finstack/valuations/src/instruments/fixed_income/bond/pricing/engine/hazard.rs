@@ -316,9 +316,8 @@ mod tests {
     use crate::instruments::common_impl::traits::Attributes;
     use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fixed_income::bond::CashflowSpec;
-    use crate::metrics::{
-        standard_credit_cs01_buckets, standard_registry, MetricContext, MetricId,
-    };
+    use crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
+    use crate::metrics::{standard_registry, MetricContext, MetricId};
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, Tenor};
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -513,7 +512,7 @@ mod tests {
         // may currently be zero when `Bond::value` does not depend on hazard, but
         // the series should still be present and match the standard bucket grid.
         if let Some(series) = ctx.get_series(&MetricId::BucketedCs01) {
-            let buckets = standard_credit_cs01_buckets();
+            let buckets = STANDARD_BUCKETS_YEARS;
             assert_eq!(
                 series.len(),
                 buckets.len(),

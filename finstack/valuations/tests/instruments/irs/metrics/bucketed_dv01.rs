@@ -207,14 +207,11 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
         .unwrap();
 
-    // Aggregate bucketed dv01 from tenor-level keys "bucketed_dv01::<tenor>"
-    // (exclude curve-specific keys like "bucketed_dv01::USD-OIS::<tenor>")
-    let prefix = "bucketed_dv01::";
     let mut sum_bucketed = 0.0;
     println!("All measures:");
     for (k, v) in &result.measures {
         println!("  {}: {:.2}", k, v);
-        if k.as_str().starts_with(prefix) && !k.as_str()[prefix.len()..].contains("::") {
+        if k.as_str().starts_with("bucketed_dv01::") {
             sum_bucketed += *v;
         }
     }
@@ -259,10 +256,10 @@ fn test_bucketed_dv01_per_curve() {
         "Standard BucketedDv01 scalar should be present for BC"
     );
 
-    // Verify per-bucket keys exist for primary discount curve (BC)
+    // Verify per-bucket keys exist for discount curve (now always curve-qualified)
     assert!(
-        result.measures.contains_key("bucketed_dv01::1y"),
-        "Primary discount curve bucketed series should be present under standard key"
+        result.measures.contains_key("bucketed_dv01::USD_OIS::1y"),
+        "Discount curve bucketed series should be present under curve-qualified key"
     );
 
     // Verify per-curve series exist

@@ -703,23 +703,6 @@ impl StructuredCredit {
         solver.solve(price_fn, 0.01)
     }
 
-    /// Deprecated: use [`calculate_z_spread`](Self::calculate_z_spread) instead.
-    ///
-    /// This method computes a Z-spread (deterministic cashflows), not a true OAS.
-    /// It is retained for backward compatibility.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Renamed to `calculate_z_spread` — this method uses deterministic cashflows and is not a true OAS"
-    )]
-    pub fn calculate_oas(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        market_price: f64,
-    ) -> finstack_core::Result<f64> {
-        self.calculate_z_spread(context, as_of, market_price)
-    }
-
     fn prepayment_rate_override(&self, _pay_date: Date, seasoning: u32) -> Option<f64> {
         if let Some(abs_speed) = self.behavior_overrides.abs_speed {
             return Some(abs_speed);

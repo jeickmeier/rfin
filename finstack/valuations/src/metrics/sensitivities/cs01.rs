@@ -17,41 +17,23 @@ use crate::calibration::bumps::BumpRequest;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use std::sync::Arc;
 
 /// Minimum bump size threshold (in basis points) to avoid division by near-zero.
-///
-/// If the requested bump is smaller than this threshold, CS01 returns 0.0 rather
-/// than producing numerically unstable results from dividing by a tiny number.
 const MIN_BUMP_BP_THRESHOLD: f64 = 1e-10;
 
-/// Standard credit key-rate buckets in years used for CS01.
+/// Central-difference sensitivity: `(pv_up - pv_down) / (2 * bump_bp)`.
 ///
-/// Returns the industry-standard credit spread sensitivity buckets used for
-/// key-rate CS01 calculations. These buckets cover the full maturity spectrum
-/// from 3 months to 30 years.
-///
-/// # Returns
-///
-/// Vector of bucket maturities in years: [0.25, 0.5, 1, 2, 3, 5, 7, 10, 15, 20, 30]
-///
-/// # Examples
-///
-/// ```rust,ignore
-/// // This function is internal - use MetricId::Cs01 for public API
-/// use finstack_valuations::metrics::sensitivities::cs01::standard_credit_cs01_buckets;
-///
-/// let buckets = standard_credit_cs01_buckets();
-/// assert_eq!(buckets.len(), 11);
-/// ```
-#[cfg(test)]
-pub fn standard_credit_cs01_buckets() -> Vec<f64> {
-    sens_config::STANDARD_BUCKETS_YEARS.to_vec()
+/// Returns 0.0 when `bump_bp` is below [`MIN_BUMP_BP_THRESHOLD`] to avoid
+/// numerically unstable division.
+#[inline]
+fn sensitivity_central_diff(pv_up: f64, pv_down: f64, bump_bp: f64) -> f64 {
+    if bump_bp.abs() <= MIN_BUMP_BP_THRESHOLD {
+        return 0.0;
+    }
+    (pv_up - pv_down) / (2.0 * bump_bp)
 }
-
-// Internal helper removed. Using crate::calibration::bumps::hazard::bump_hazard_spreads directly.
 
 /// Compute parallel CS01 by bumping par spreads and re-calibrating.
 ///
@@ -154,42 +136,11 @@ where
     let temp_ctx_down = base_ctx.clone().insert(bumped_hazard_down);
     let pv_bumped_down = revalue_raw(&temp_ctx_down)?;
 
-    let cs01 = if bump_bp.abs() > MIN_BUMP_BP_THRESHOLD {
-        (pv_bumped_up - pv_bumped_down) / (2.0 * bump_bp)
-    } else {
-        0.0
-    };
-
-    Ok(cs01)
-}
-
-/// Compute parallel CS01 by bumping par spreads and re-calibrating.
-///
-/// This is a convenience wrapper that accepts Money-returning closures.
-/// For maximum precision in sensitivity calculations, prefer
-/// [`compute_parallel_cs01_with_context_raw`].
-///
-/// # Arguments
-///
-/// * `context` - Metric context containing instrument and market data
-/// * `hazard_id` - ID of the hazard curve to bump
-/// * `discount_id` - ID of the discount curve used for calibration (optional)
-/// * `bump_bp` - Bump size in basis points (typically 1.0 for CS01)
-/// * `revalue_with_context` - Closure that reprices the instrument with a bumped context
-#[allow(dead_code)] // Public API for external callers using Money closures
-pub fn compute_parallel_cs01_with_context<RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    discount_id: Option<&CurveId>,
-    bump_bp: f64,
-    mut revalue_with_context: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
-{
-    compute_parallel_cs01_with_context_raw(context, hazard_id, discount_id, bump_bp, |ctx| {
-        Ok(revalue_with_context(ctx)?.amount())
-    })
+    Ok(sensitivity_central_diff(
+        pv_bumped_up,
+        pv_bumped_down,
+        bump_bp,
+    ))
 }
 
 /// Compute key-rate CS01 series by bumping par spreads at specific tenors.
@@ -206,6 +157,7 @@ pub fn compute_key_rate_cs01_series_with_context_raw<I, RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
     discount_id: Option<&CurveId>,
+    series_id: MetricId,
     bucket_times_years: I,
     bump_bp: f64,
     mut revalue_raw: RevalFn,
@@ -284,44 +236,13 @@ where
         let temp_ctx_down = base_ctx.clone().insert(bumped_hazard_down);
         let pv_bumped_down = revalue_raw(&temp_ctx_down)?;
 
-        let cs01 = if bump_bp.abs() > MIN_BUMP_BP_THRESHOLD {
-            (pv_bumped_up - pv_bumped_down) / (2.0 * bump_bp)
-        } else {
-            0.0
-        };
+        let cs01 = sensitivity_central_diff(pv_bumped_up, pv_bumped_down, bump_bp);
         series.push((label, cs01));
         total += cs01;
     }
 
-    context.store_bucketed_series(MetricId::BucketedCs01, series);
+    context.store_bucketed_series(series_id, series);
     Ok(total)
-}
-
-/// Compute key-rate CS01 series by bumping par spreads at specific tenors.
-///
-/// This is a convenience wrapper that accepts Money-returning closures.
-/// For maximum precision, prefer [`compute_key_rate_cs01_series_with_context_raw`].
-#[allow(dead_code)] // Public API for external callers using Money closures
-pub fn compute_key_rate_cs01_series_with_context<I, RevalFn>(
-    context: &mut MetricContext,
-    hazard_id: &CurveId,
-    discount_id: Option<&CurveId>,
-    bucket_times_years: I,
-    bump_bp: f64,
-    mut revalue_with_context: RevalFn,
-) -> finstack_core::Result<f64>
-where
-    I: IntoIterator<Item = f64>,
-    RevalFn: FnMut(&MarketContext) -> finstack_core::Result<Money>,
-{
-    compute_key_rate_cs01_series_with_context_raw(
-        context,
-        hazard_id,
-        discount_id,
-        bucket_times_years,
-        bump_bp,
-        |ctx| Ok(revalue_with_context(ctx)?.amount()),
-    )
 }
 
 // ===== Generic Calculators =====
@@ -329,6 +250,24 @@ where
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::metrics::MetricCalculator;
 use std::marker::PhantomData;
+
+/// Resolve the primary credit (hazard) and discount curve IDs from an instrument's
+/// declared curve dependencies. Returns an error when no credit curve is declared.
+fn resolve_cs01_curves<I: Instrument + CurveDependencies>(
+    instrument: &I,
+    metric_name: &str,
+) -> finstack_core::Result<(CurveId, Option<CurveId>)> {
+    let curves = instrument.curve_dependencies()?;
+    let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Instrument {} has no credit curve dependencies for {} calculation",
+            instrument.id(),
+            metric_name
+        ))
+    })?;
+    let discount_id = curves.discount_curves.first().cloned();
+    Ok((hazard_id, discount_id))
+}
 
 /// Generic BucketedCs01 calculator that works for any instrument implementing
 /// the required traits.
@@ -357,14 +296,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let curves = instrument.curve_dependencies()?;
-        let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "Instrument {} has no credit curve dependencies for CS01 calculation",
-                instrument.id()
-            ))
-        })?;
-        let discount_id = curves.discount_curves.first().cloned();
+        let (hazard_id, discount_id) = resolve_cs01_curves(instrument, "CS01")?;
 
         let bump_bp = sens_config::from_context_or_default(
             context.config(),
@@ -375,7 +307,6 @@ where
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
-        // Use value_raw for maximum precision in sensitivity calculations
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
             inst_arc.value_raw(temp_ctx, as_of)
         };
@@ -411,14 +342,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let curves = instrument.curve_dependencies()?;
-        let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "Instrument {} has no credit curve dependencies for CS01 calculation",
-                instrument.id()
-            ))
-        })?;
-        let discount_id = curves.discount_curves.first().cloned();
+        let (hazard_id, discount_id) = resolve_cs01_curves(instrument, "CS01")?;
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
@@ -427,7 +351,6 @@ where
         let buckets = defaults.cs01_buckets_years;
         let bump_bp = defaults.credit_spread_bump_bp;
 
-        // Use value_raw for maximum precision in sensitivity calculations
         let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
@@ -435,19 +358,17 @@ where
             inst_arc.value_raw(temp_ctx, as_of)
         };
 
+        let series_id = MetricId::custom(format!("bucketed_cs01::{}", hazard_id.as_str()));
+
         let total = compute_key_rate_cs01_series_with_context_raw(
             context,
             &hazard_id,
             discount_id.as_ref(),
+            series_id,
             buckets,
             bump_bp,
             reval,
         )?;
-
-        if let Some(series) = context.get_series(&MetricId::BucketedCs01) {
-            let curve_id = MetricId::custom(format!("bucketed_cs01::{}", hazard_id.as_str()));
-            context.store_bucketed_series(curve_id, series.to_vec());
-        }
 
         Ok(total)
     }
@@ -477,13 +398,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let curves = instrument.curve_dependencies()?;
-        let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "Instrument {} has no credit curve dependencies for CS01Hazard calculation",
-                instrument.id()
-            ))
-        })?;
+        let (hazard_id, _discount_id) = resolve_cs01_curves(instrument, "CS01Hazard")?;
 
         let bump_bp = sens_config::from_context_or_default(
             context.config(),
@@ -504,11 +419,7 @@ where
         let pv_up = inst_arc.value_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
         let pv_down = inst_arc.value_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
 
-        let cs01 = if bump_bp.abs() > MIN_BUMP_BP_THRESHOLD {
-            (pv_up - pv_down) / (2.0 * bump_bp)
-        } else {
-            0.0
-        };
+        let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
 
         context.computed.insert(
             MetricId::custom(format!("cs01_hazard::{}", hazard_id.as_str())),
@@ -542,13 +453,7 @@ where
 {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let instrument: &I = context.instrument_as()?;
-        let curves = instrument.curve_dependencies()?;
-        let hazard_id = curves.credit_curves.first().cloned().ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "Instrument {} has no credit curve dependencies for BucketedCs01Hazard calculation",
-                instrument.id()
-            ))
-        })?;
+        let (hazard_id, _discount_id) = resolve_cs01_curves(instrument, "BucketedCs01Hazard")?;
 
         let defaults = sens_config::from_context_or_default(
             context.config(),
@@ -578,22 +483,13 @@ where
             let pv_up = inst_arc.value_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
             let pv_down = inst_arc.value_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
 
-            let cs01 = if bump_bp.abs() > MIN_BUMP_BP_THRESHOLD {
-                (pv_up - pv_down) / (2.0 * bump_bp)
-            } else {
-                0.0
-            };
+            let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
             series.push((label, cs01));
             total += cs01;
         }
 
-        context.store_bucketed_series(MetricId::BucketedCs01Hazard, series);
-
-        if let Some(series) = context.get_series(&MetricId::BucketedCs01Hazard) {
-            let curve_id =
-                MetricId::custom(format!("bucketed_cs01_hazard::{}", hazard_id.as_str()));
-            context.store_bucketed_series(curve_id, series.to_vec());
-        }
+        let series_id = MetricId::custom(format!("bucketed_cs01_hazard::{}", hazard_id.as_str()));
+        context.store_bucketed_series(series_id, series);
 
         Ok(total)
     }

@@ -371,8 +371,10 @@ impl ConfigurableThetaCalculator {
 
 impl MetricCalculator for ConfigurableThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let days = parse_period_days(&self.period)?;
-        let forward_date = context.as_of + Duration::days(days);
+        use finstack_valuations::metrics::sensitivities::theta::calculate_theta_date;
+
+        let expiry = context.instrument.expiry();
+        let forward_date = calculate_theta_date(context.as_of, &self.period, expiry)?;
 
         // Price at forward date
         let forward_pv = context.instrument.value(&context.curves, forward_date)?;

@@ -37,16 +37,13 @@ use crate::instruments::common_impl::validation;
 use crate::instruments::rates::cap_floor::pricing::black as black_ir;
 use crate::instruments::PricingOverrides;
 use crate::pricer::ModelKey;
-use finstack_core::dates::{
-    BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, StubKind, Tenor,
-};
+use finstack_core::dates::{BusinessDayConvention, Date, DayCount, DayCountCtx, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, Rate};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
-use time::Duration;
 
 /// Inflation option type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -186,36 +183,18 @@ impl InflationCapFloor {
     const MIN_REASONABLE_CPI: f64 = 50.0;
 
     fn effective_lag(&self, curves: &MarketContext) -> InflationLag {
-        if let Some(lag) = self.lag_override {
-            return lag;
-        }
-        if let Ok(index) = curves.get_inflation_index(self.inflation_index_id.as_str()) {
-            return index.lag();
-        }
-        InflationLag::None
+        crate::instruments::common_impl::helpers::resolve_inflation_lag(
+            self.lag_override,
+            self.inflation_index_id.as_str(),
+            curves,
+        )
     }
 
-    fn apply_lag(date: Date, lag: InflationLag) -> Date {
-        match lag {
-            InflationLag::None => date,
-            InflationLag::Months(m) => date.add_months(-(m as i32)),
-            InflationLag::Days(d) => date - Duration::days(d as i64),
-            other => {
-                tracing::warn!(
-                    lag = ?other,
-                    "Unknown InflationLag variant; treating as no lag"
-                );
-                date
-            }
-        }
-    }
-
-    /// Compute the lag-adjusted fixing date for a given observation date.
-    ///
-    /// This is the single source of truth for lag application, used both
-    /// for CPI lookups and volatility time-to-fixing calculations.
     fn lagged_fixing_date(&self, curves: &MarketContext, date: Date) -> Date {
-        Self::apply_lag(date, self.effective_lag(curves))
+        crate::instruments::common_impl::helpers::apply_inflation_lag(
+            date,
+            self.effective_lag(curves),
+        )
     }
 
     fn signed_year_fraction(start: Date, end: Date) -> f64 {

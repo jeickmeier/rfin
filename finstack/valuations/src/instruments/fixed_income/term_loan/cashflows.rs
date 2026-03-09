@@ -10,7 +10,6 @@ use crate::cashflow::builder::{
     CashFlowBuilder, FloatCouponParams, PrincipalEvent, ScheduleParams,
 };
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::cashflow::traits::DatedFlows;
 use crate::instruments::fixed_income::term_loan::types::TermLoan;
 use finstack_core::cashflow::InternalRateOfReturn;
 use finstack_core::dates::Date;
@@ -637,22 +636,6 @@ fn cumulative_drawn_at(ddtl: &super::spec::DdtlSpec, draw_stop: Option<Date>, da
         }
     }
     total
-}
-
-/// Convenience: build simple dated flows (no CFKind) from full schedule.
-///
-/// **Deprecated**: This function returns ALL flows (including PIK and funding legs)
-/// without holder-view filtering.  Use the `CashflowProvider::build_dated_flows()`
-/// trait method on `TermLoan` instead for correctly filtered holder-view flows.
-#[deprecated(
-    note = "Use CashflowProvider::build_dated_flows() trait method instead for holder-view flows"
-)]
-pub fn build_dated_flows(schedule: &CashFlowSchedule) -> DatedFlows {
-    schedule
-        .flows
-        .iter()
-        .map(|cf| (cf.date, cf.amount))
-        .collect()
 }
 
 /// Period-level EIR amortization outputs for reporting.

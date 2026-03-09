@@ -16,7 +16,7 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::ONE_BASIS_POINT;
-use crate::instruments::common_impl::traits::CurveDependencies;
+use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::DayCountCtx;
@@ -26,6 +26,7 @@ use finstack_core::math::summation::NeumaierAccumulator;
 ///
 /// Delegates to [`GenericParallelCs01`] when the bond references a credit
 /// curve; otherwise computes CS01 by bumping the z-spread by 1 bp.
+/// The result is keyed by credit curve ID or instrument ID.
 pub struct BondCs01Calculator;
 
 impl MetricCalculator for BondCs01Calculator {
@@ -36,6 +37,8 @@ impl MetricCalculator for BondCs01Calculator {
         if !curves.credit_curves.is_empty() {
             return crate::metrics::GenericParallelCs01::<Bond>::default().calculate(context);
         }
+
+        let inst_id = bond.id();
 
         let base_spread = context
             .computed
@@ -73,7 +76,7 @@ impl MetricCalculator for BondCs01Calculator {
 
         context
             .computed
-            .insert(MetricId::custom("cs01::z_spread"), cs01);
+            .insert(MetricId::custom(format!("cs01::{}", inst_id)), cs01);
 
         Ok(cs01)
     }
@@ -86,8 +89,7 @@ impl MetricCalculator for BondCs01Calculator {
 /// Bond bucketed CS01 with z-spread fallback.
 ///
 /// Delegates to [`GenericBucketedCs01`] when the bond references a credit
-/// curve; otherwise returns the parallel z-spread CS01 as a single bucket
-/// (a flat spread has no term structure to bucket).
+/// curve; otherwise returns the parallel z-spread CS01 keyed by instrument ID.
 pub struct BondBucketedCs01Calculator;
 
 impl MetricCalculator for BondBucketedCs01Calculator {

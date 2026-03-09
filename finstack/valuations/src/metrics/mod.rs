@@ -192,7 +192,7 @@
 // calculators module removed - GenericPv was the only calculator and has been removed
 mod core;
 pub mod risk;
-mod sensitivities;
+pub(crate) mod sensitivities;
 mod shared;
 
 // Core surface (supported)
@@ -233,10 +233,6 @@ pub(crate) use sensitivities::theta::{
 pub(crate) use sensitivities::vega::KeyRateVega;
 pub(crate) use shared::df_end::GenericDfEndCalculator;
 pub(crate) use shared::df_start::GenericDfStartCalculator;
-
-// Only used in unit tests (e.g. hazard engine sanity checks).
-#[cfg(test)]
-pub(crate) use sensitivities::cs01::standard_credit_cs01_buckets;
 
 // -----------------------------------------------------------------------------
 // Macros

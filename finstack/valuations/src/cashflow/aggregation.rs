@@ -15,42 +15,10 @@
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::Money;
 
 use indexmap::IndexMap;
-
-// =============================================================================
-// Kahan Compensated Summation
-// =============================================================================
-
-/// Kahan compensated summation accumulator.
-///
-/// Reduces floating-point accumulation error from O(N*eps) to O(eps)
-/// when summing many f64 values. Critical for PV aggregation over
-/// large portfolios where naive summation produces observable drift.
-///
-/// # Reference
-///
-/// Kahan, W. (1965). "Pracniques: Further Remarks on Reducing Truncation Errors."
-/// Communications of the ACM, 8(1), 40.
-#[derive(Default, Clone, Copy)]
-struct KahanAccumulator {
-    sum: f64,
-    compensation: f64,
-}
-
-impl KahanAccumulator {
-    fn add(&mut self, value: f64) {
-        let y = value - self.compensation;
-        let t = self.sum + y;
-        self.compensation = (t - self.sum) - y;
-        self.sum = t;
-    }
-
-    fn total(&self) -> f64 {
-        self.sum + self.compensation
-    }
-}
 
 // =============================================================================
 // Generic Flow Iterator
@@ -138,7 +106,7 @@ fn aggregate_by_period_sorted(
             continue;
         }
 
-        let mut per_ccy: IndexMap<Currency, KahanAccumulator> = IndexMap::new();
+        let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
         for &(_d, m) in flows_in_period {
             let ccy = m.currency();
             per_ccy.entry(ccy).or_default().add(m.amount());
@@ -190,7 +158,7 @@ pub fn aggregate_cashflows_precise_checked(
     flows: &[crate::cashflow::DatedFlow],
     target: Currency,
 ) -> finstack_core::Result<Money> {
-    let mut acc = KahanAccumulator::default();
+    let mut acc = NeumaierAccumulator::default();
     for &(_d, m) in flows {
         if m.currency() != target {
             return Err(finstack_core::Error::CurrencyMismatch {
@@ -227,7 +195,7 @@ where
             continue;
         }
 
-        let mut per_ccy: IndexMap<Currency, KahanAccumulator> = IndexMap::new();
+        let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
         for flow in flows_in_period {
             let (_t, df, sp) = time_discount_survival(flow.flow_date(), disc, hazard, date_ctx)?;
             let pv = value_fn(flow, df, sp);
@@ -441,59 +409,56 @@ fn pv_by_period_with_optional_hazard(
 }
 
 #[cfg(test)]
-mod kahan_tests {
+mod compensated_sum_tests {
     use super::*;
 
     #[test]
-    fn test_kahan_accumulator_preserves_small_addend() {
-        let mut acc = KahanAccumulator::default();
+    fn preserves_small_addend() {
+        let mut acc = NeumaierAccumulator::default();
         acc.add(1.0);
         acc.add(1e-16);
         acc.add(-1.0);
-        // Naive: 1.0 + 1e-16 - 1.0 = 0.0 (lost the 1e-16)
-        // Kahan: should preserve the small addend (within f64 representation limits)
         let result = acc.total();
         assert!(
             result > 0.0,
-            "Kahan should preserve small addend (non-zero): got {}",
+            "Neumaier should preserve small addend (non-zero): got {}",
             result
         );
         assert!(
             (result - 1e-16).abs() < 1e-16,
-            "Kahan should preserve small addend close to 1e-16: got {}",
+            "Neumaier should preserve small addend close to 1e-16: got {}",
             result
         );
     }
 
     #[test]
-    fn test_kahan_accumulator_large_sum() {
-        let mut acc = KahanAccumulator::default();
+    fn large_sum_accuracy() {
+        let mut acc = NeumaierAccumulator::default();
         for _ in 0..10_000 {
             acc.add(0.1);
         }
         let result = acc.total();
         assert!(
             (result - 1000.0).abs() < 1e-10,
-            "Kahan sum of 10k x 0.1 should be ~1000.0, got {}",
+            "Neumaier sum of 10k x 0.1 should be ~1000.0, got {}",
             result
         );
     }
 
     #[test]
-    fn test_kahan_vs_naive_drift() {
-        // Demonstrate that naive sum drifts more than Kahan
+    fn beats_naive_drift() {
         let mut naive = 0.0_f64;
-        let mut kahan = KahanAccumulator::default();
+        let mut acc = NeumaierAccumulator::default();
         for _ in 0..100_000 {
             naive += 0.1;
-            kahan.add(0.1);
+            acc.add(0.1);
         }
         let naive_error = (naive - 10_000.0).abs();
-        let kahan_error = (kahan.total() - 10_000.0).abs();
+        let neumaier_error = (acc.total() - 10_000.0).abs();
         assert!(
-            kahan_error < naive_error,
-            "Kahan error ({}) should be less than naive error ({})",
-            kahan_error,
+            neumaier_error < naive_error,
+            "Neumaier error ({}) should be less than naive error ({})",
+            neumaier_error,
             naive_error
         );
     }
