@@ -374,11 +374,27 @@ where
         5.0,   // 500%
     ];
 
+    // Phase 0: Attempt direct Brent bracketing from NPV sign at r=0.
+    // NPV(0) = sum of raw amounts; use its sign to narrow the search bracket
+    // before trying blind seeds.
+    let npv_at_zero = npv(0.0);
+    if npv_at_zero.is_finite() && npv_at_zero.abs() > DEFAULT_TOLERANCE {
+        let brent_direct = BrentSolver::new()
+            .tolerance(DEFAULT_TOLERANCE)
+            .max_iterations(DEFAULT_MAX_ITERATIONS)
+            .bracket_hint(crate::math::solver::BracketHint::Xirr)
+            .bracket_bounds(-0.99, 10.0);
+        let direct_seed = if npv_at_zero > 0.0 { 0.1 } else { -0.1 };
+        if let Ok(root) = brent_direct.solve(npv, direct_seed) {
+            if root > MIN_VALID_RATE {
+                return Ok(root);
+            }
+        }
+    }
+
     // Phase 1: Try Newton-Raphson (fast, quadratic convergence) with all seeds
     for &g in seeds {
         if let Ok(root) = newton.solve_with_derivative(npv, npv_derivative, g) {
-            // Reject rates at or below MIN_VALID_RATE (-99.9%)
-            // Such extreme rates are economically implausible and numerically unstable
             if root > MIN_VALID_RATE && npv(root).abs() < DEFAULT_TOLERANCE * 100.0 {
                 return Ok(root);
             }
@@ -386,7 +402,6 @@ where
     }
 
     // Phase 2: Fall back to Brent's method (robust, guaranteed convergence given bracket)
-    // Use XIRR bracket hint with wide bounds for the initial bracket search
     let brent = BrentSolver::new()
         .tolerance(DEFAULT_TOLERANCE)
         .max_iterations(DEFAULT_MAX_ITERATIONS)

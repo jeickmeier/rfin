@@ -91,21 +91,13 @@ impl QuantoCallPayoff {
 
 impl Payoff for QuantoCallPayoff {
     fn on_event(&mut self, state: &mut PathState) {
-        // Track equity spot and FX rate at maturity
-        if let Some(&equity) = state.vars.get(state_keys::SPOT) {
+        if let Some(equity) = state.spot() {
             self.terminal_equity = equity;
         }
 
-        // FX rate is stored using state_keys::FX_RATE for multi-asset processes
-        // Check for FX rate key
-        if let Some(&fx_rate) = state.vars.get(state_keys::FX_RATE) {
-            self.terminal_fx = fx_rate;
-        } else if let Some(&fx_rate) = state.vars.get("fx_rate") {
+        if let Some(fx_rate) = state.get(state_keys::FX_RATE) {
             self.terminal_fx = fx_rate;
         } else {
-            // Default: assume FX rate of 1.0 if not found
-            // In practice, this should be set by the process/discretization
-            // For multi-asset processes, the pricer/engine should set FX_RATE
             self.terminal_fx = 1.0;
         }
     }
@@ -171,13 +163,11 @@ impl QuantoPutPayoff {
 
 impl Payoff for QuantoPutPayoff {
     fn on_event(&mut self, state: &mut PathState) {
-        if let Some(&equity) = state.vars.get(state_keys::SPOT) {
+        if let Some(equity) = state.spot() {
             self.terminal_equity = equity;
         }
 
-        if let Some(&fx_rate) = state.vars.get(state_keys::FX_RATE) {
-            self.terminal_fx = fx_rate;
-        } else if let Some(&fx_rate) = state.vars.get("fx_rate") {
+        if let Some(fx_rate) = state.get(state_keys::FX_RATE) {
             self.terminal_fx = fx_rate;
         } else {
             self.terminal_fx = 1.0;

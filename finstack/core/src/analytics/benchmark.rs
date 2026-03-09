@@ -444,17 +444,44 @@ pub fn rolling_greeks(
             betas: vec![],
         };
     }
-    let mut out_dates = Vec::with_capacity(n - window + 1);
-    let mut alphas = Vec::with_capacity(n - window + 1);
-    let mut betas = Vec::with_capacity(n - window + 1);
+    let count = n - window + 1;
+    let mut out_dates = Vec::with_capacity(count);
+    let mut alphas = Vec::with_capacity(count);
+    let mut betas = Vec::with_capacity(count);
+
+    // Incremental O(n) sliding-window OLS via running sums.
+    let w = window as f64;
+    let (mut sr, mut sb, mut srb, mut sb2) = (0.0, 0.0, 0.0, 0.0);
+
+    for i in 0..window {
+        sr += returns[i];
+        sb += benchmark[i];
+        srb += returns[i] * benchmark[i];
+        sb2 += benchmark[i] * benchmark[i];
+    }
 
     for i in window..=n {
-        let r_slice = &returns[i - window..i];
-        let b_slice = &benchmark[i - window..i];
-        let g = greeks(r_slice, b_slice, ann_factor);
+        let denom = w * sb2 - sb * sb;
+        let beta = if denom.abs() < 1e-30 {
+            0.0
+        } else {
+            (w * srb - sb * sr) / denom
+        };
+        let alpha = (sr / w - beta * sb / w) * ann_factor;
         out_dates.push(dates[i - 1]);
-        alphas.push(g.alpha);
-        betas.push(g.beta);
+        alphas.push(alpha);
+        betas.push(beta);
+
+        if i < n {
+            let old_r = returns[i - window];
+            let old_b = benchmark[i - window];
+            let new_r = returns[i];
+            let new_b = benchmark[i];
+            sr += new_r - old_r;
+            sb += new_b - old_b;
+            srb += new_r * new_b - old_r * old_b;
+            sb2 += new_b * new_b - old_b * old_b;
+        }
     }
 
     RollingGreeks {

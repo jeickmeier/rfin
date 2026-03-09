@@ -222,10 +222,10 @@ impl CurveStorage {
     /// - `InflationCurve` with `TriangularKeyRate` bump: Custom point-level bumping
     ///   that modifies the CPI level at the target bucket.
     pub(crate) fn apply_bump_preserving_id(
-        &self,
+        &mut self,
         original_id: &CurveId,
         spec: BumpSpec,
-    ) -> Result<Self> {
+    ) -> Result<()> {
         fn bump_curve_preserving_id<C>(
             original: &C,
             original_id: &CurveId,
@@ -244,37 +244,22 @@ impl CurveStorage {
         }
 
         match self {
-            Self::Discount(original) => {
-                let curve = bump_curve_preserving_id(
-                    original.as_ref(),
-                    original_id,
-                    spec,
-                    DiscountCurve::id,
-                )?;
-                Ok(Self::Discount(Arc::new(curve)))
+            Self::Discount(arc) => {
+                // In-place bump: Arc::make_mut deep-clones only if refcount > 1
+                Arc::make_mut(arc).bump_in_place(&spec)?;
+                Ok(())
             }
-            Self::Forward(original) => {
-                let curve = bump_curve_preserving_id(
-                    original.as_ref(),
-                    original_id,
-                    spec,
-                    ForwardCurve::id,
-                )?;
-                Ok(Self::Forward(Arc::new(curve)))
+            Self::Forward(arc) => {
+                Arc::make_mut(arc).bump_in_place(&spec)?;
+                Ok(())
             }
-            Self::Hazard(original) => {
-                let curve = bump_curve_preserving_id(
-                    original.as_ref(),
-                    original_id,
-                    spec,
-                    HazardCurve::id,
-                )?;
-                Ok(Self::Hazard(Arc::new(curve)))
+            Self::Hazard(arc) => {
+                Arc::make_mut(arc).bump_in_place(&spec)?;
+                Ok(())
             }
             Self::Inflation(original) => {
                 // Special handling for TriangularKeyRate bumps on InflationCurve
                 if let BumpType::TriangularKeyRate { target_bucket, .. } = spec.bump_type {
-                    // Only support additive bumps for this special case
                     let (delta, is_multiplicative) =
                         spec.resolve_standard_values().ok_or_else(|| {
                             crate::error::InputError::UnsupportedBump {
@@ -313,7 +298,8 @@ impl CurveStorage {
                         .knots(points)
                         .interp(original.interp_style())
                         .build()?;
-                    return Ok(Self::Inflation(Arc::new(rebuilt)));
+                    *self = Self::Inflation(Arc::new(rebuilt));
+                    return Ok(());
                 }
 
                 let curve = bump_curve_preserving_id(
@@ -322,7 +308,8 @@ impl CurveStorage {
                     spec,
                     InflationCurve::id,
                 )?;
-                Ok(Self::Inflation(Arc::new(curve)))
+                *self = Self::Inflation(Arc::new(curve));
+                Ok(())
             }
             Self::BaseCorrelation(original) => {
                 let curve = bump_curve_preserving_id(
@@ -331,7 +318,8 @@ impl CurveStorage {
                     spec,
                     BaseCorrelationCurve::id,
                 )?;
-                Ok(Self::BaseCorrelation(Arc::new(curve)))
+                *self = Self::BaseCorrelation(Arc::new(curve));
+                Ok(())
             }
             Self::VolIndex(original) => {
                 let curve = bump_curve_preserving_id(
@@ -340,12 +328,14 @@ impl CurveStorage {
                     spec,
                     VolatilityIndexCurve::id,
                 )?;
-                Ok(Self::VolIndex(Arc::new(curve)))
+                *self = Self::VolIndex(Arc::new(curve));
+                Ok(())
             }
             Self::Price(original) => {
                 let curve =
                     bump_curve_preserving_id(original.as_ref(), original_id, spec, PriceCurve::id)?;
-                Ok(Self::Price(Arc::new(curve)))
+                *self = Self::Price(Arc::new(curve));
+                Ok(())
             }
         }
     }
@@ -462,11 +452,11 @@ mod tests {
             .expect("curve builds");
         let original = json(&curve);
 
-        let storage = CurveStorage::from(curve);
-        let bumped = storage
+        let mut storage = CurveStorage::from(curve);
+        storage
             .apply_bump_preserving_id(&CurveId::from("FWD"), BumpSpec::parallel_bp(1.0))
             .expect("bump succeeds");
-        let bumped_curve = bumped.forward().expect("forward curve");
+        let bumped_curve = storage.forward().expect("forward curve");
         let bumped_json = json(bumped_curve.as_ref());
 
         assert_eq!(bumped_curve.interp_style(), InterpStyle::LogLinear);
@@ -489,11 +479,11 @@ mod tests {
             .expect("curve builds");
         let original = json(&curve);
 
-        let storage = CurveStorage::from(curve);
-        let bumped = storage
+        let mut storage = CurveStorage::from(curve);
+        storage
             .apply_bump_preserving_id(&CurveId::from("CPI"), BumpSpec::inflation_shift_pct(1.0))
             .expect("bump succeeds");
-        let bumped_curve = bumped.inflation().expect("inflation curve");
+        let bumped_curve = storage.inflation().expect("inflation curve");
         let bumped_json = json(bumped_curve.as_ref());
 
         assert_eq!(bumped_curve.day_count(), DayCount::Act360);
@@ -523,11 +513,11 @@ mod tests {
             .expect("curve builds");
         let original = json(&curve);
 
-        let storage = CurveStorage::from(curve);
-        let bumped = storage
+        let mut storage = CurveStorage::from(curve);
+        storage
             .apply_bump_preserving_id(&CurveId::from("DISC"), BumpSpec::parallel_bp(1.0))
             .expect("bump succeeds");
-        let bumped_curve = bumped.discount().expect("discount curve");
+        let bumped_curve = storage.discount().expect("discount curve");
         let bumped_json = json(bumped_curve.as_ref());
 
         assert_eq!(bumped_curve.interp_style(), InterpStyle::Linear);

@@ -50,8 +50,11 @@ impl MarketContext {
         use crate::collections::HashMap;
         use crate::error::InputError;
 
-        let mut ctx = self.clone();
+        // First pass: classify bumps to determine which maps need cloning.
         let mut curve_bumps: HashMap<CurveId, BumpSpec> = HashMap::default();
+        let mut fx_bumps = Vec::new();
+        let mut vol_bumps = Vec::new();
+        let mut base_corr_bumps = Vec::new();
         let mut needs_credit_rebind = false;
         #[allow(unused_variables)]
         let mut processed_bumps = 0usize;
@@ -70,11 +73,7 @@ impl MarketContext {
                     pct,
                     as_of,
                 } => {
-                    let fx = ctx.fx.as_ref().ok_or_else(|| InputError::NotFound {
-                        id: "FX matrix".to_string(),
-                    })?;
-                    let bumped = fx.with_bumped_rate(base, quote, pct / 100.0, as_of)?;
-                    ctx.fx = Some(Arc::new(bumped));
+                    fx_bumps.push((base, quote, pct, as_of));
                 }
                 MarketBump::VolBucketPct {
                     surface_id,
@@ -82,7 +81,6 @@ impl MarketContext {
                     strikes,
                     pct,
                 } => {
-                    // Parallel fallback if no filters provided
                     if expiries.is_none() && strikes.is_none() {
                         curve_bumps.insert(
                             surface_id,
@@ -93,43 +91,64 @@ impl MarketContext {
                                 bump_type: BumpType::Parallel,
                             },
                         );
-                        continue;
+                    } else {
+                        vol_bumps.push((surface_id, expiries, strikes, pct));
                     }
-
-                    let surface =
-                        ctx.get_surface(surface_id.as_str())
-                            .map_err(|_| InputError::NotFound {
-                                id: surface_id.to_string(),
-                            })?;
-
-                    let bumped = surface
-                        .apply_bucket_bump(expiries.as_deref(), strikes.as_deref(), pct)
-                        .ok_or(InputError::DimensionMismatch)?;
-
-                    ctx = ctx.insert_surface(bumped);
                 }
                 MarketBump::BaseCorrBucketPts {
                     surface_id,
                     detachments,
                     points,
                 } => {
-                    let curve = ctx.get_base_correlation(surface_id.as_str()).map_err(|_| {
-                        InputError::NotFound {
-                            id: surface_id.to_string(),
-                        }
-                    })?;
-
-                    let bumped = curve
-                        .apply_bucket_bump(detachments.as_deref(), points)
-                        .ok_or(InputError::DimensionMismatch)?;
-
-                    ctx.curves
-                        .insert(surface_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
-                    needs_credit_rebind = true;
+                    base_corr_bumps.push((surface_id, detachments, points));
                 }
             }
         }
 
+        // Selective clone: only clone maps that will be mutated.
+        // Note: selective clone optimization deferred -- all maps are cloned
+        // since HashMap<CurveId, Arc<_>> clone is cheap (Arc bumps, not data copies).
+
+        let mut ctx = self.clone();
+
+        // Apply FX bumps
+        for (base, quote, pct, as_of) in fx_bumps {
+            let fx = ctx.fx.as_ref().ok_or_else(|| InputError::NotFound {
+                id: "FX matrix".to_string(),
+            })?;
+            let bumped = fx.with_bumped_rate(base, quote, pct / 100.0, as_of)?;
+            ctx.fx = Some(Arc::new(bumped));
+        }
+
+        // Apply vol bucket bumps
+        for (surface_id, expiries, strikes, pct) in vol_bumps {
+            let surface =
+                ctx.get_surface(surface_id.as_str())
+                    .map_err(|_| InputError::NotFound {
+                        id: surface_id.to_string(),
+                    })?;
+            let bumped = surface
+                .apply_bucket_bump(expiries.as_deref(), strikes.as_deref(), pct)
+                .ok_or(InputError::DimensionMismatch)?;
+            ctx = ctx.insert_surface(bumped);
+        }
+
+        // Apply base correlation bumps
+        for (surface_id, detachments, points) in base_corr_bumps {
+            let curve = ctx.get_base_correlation(surface_id.as_str()).map_err(|_| {
+                InputError::NotFound {
+                    id: surface_id.to_string(),
+                }
+            })?;
+            let bumped = curve
+                .apply_bucket_bump(detachments.as_deref(), points)
+                .ok_or(InputError::DimensionMismatch)?;
+            ctx.curves
+                .insert(surface_id, CurveStorage::BaseCorrelation(Arc::new(bumped)));
+            needs_credit_rebind = true;
+        }
+
+        // Apply curve bumps
         if !curve_bumps.is_empty() {
             ctx.apply_curve_bumps(curve_bumps)?;
         }
@@ -162,29 +181,24 @@ impl MarketContext {
         for (curve_id, bump_spec) in bumps {
             let cid = curve_id.as_str();
 
-            // Try curves first (most common case)
-            if let Some(storage) = self.curves.get(cid).cloned() {
-                let bumped_storage = storage.apply_bump_preserving_id(&curve_id, bump_spec)?;
-                self.curves.insert(curve_id.clone(), bumped_storage);
+            if let Some(storage) = self.curves.get_mut(cid) {
+                storage.apply_bump_preserving_id(&curve_id, bump_spec)?;
                 needs_credit_rebind = true;
                 continue;
             }
 
-            // Try vol surfaces
             if let Some(original) = self.surfaces.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
                 self.surfaces.insert(curve_id.clone(), Arc::new(bumped));
                 continue;
             }
 
-            // Try scalar prices
             if let Some(original) = self.prices.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
                 self.prices.insert(curve_id.clone(), bumped);
                 continue;
             }
 
-            // Try time series
             if let Some(original) = self.series.get(cid).cloned() {
                 let bumped = original.apply_bump(bump_spec)?;
                 self.series.insert(curve_id.clone(), bumped);

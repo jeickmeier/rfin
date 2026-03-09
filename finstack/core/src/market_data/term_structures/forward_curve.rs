@@ -362,6 +362,10 @@ impl ForwardCurve {
         }
 
         const EPS: f64 = 1e-12;
+        let is_linear = matches!(
+            self.interp.style(),
+            crate::math::interp::InterpStyle::Linear
+        );
         let mut df = 1.0_f64;
         let mut cur = 0.0_f64;
 
@@ -371,7 +375,11 @@ impl ForwardCurve {
             if dt <= 0.0 {
                 break;
             }
-            let avg = self.rate_period(cur, nxt);
+            let avg = if is_linear {
+                (self.rate(cur) + self.rate(nxt)) * 0.5
+            } else {
+                self.rate_period(cur, nxt)
+            };
             let denom = 1.0 + avg * dt;
             if !denom.is_finite() || denom <= 0.0 {
                 return Err(crate::Error::Validation(format!(
@@ -512,6 +520,68 @@ impl ForwardCurve {
             .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
             .build()
+    }
+
+    /// Rebuild only the interpolator from the current knots and forward rates.
+    fn rebuild_interp(&mut self) -> crate::Result<()> {
+        self.interp = super::common::build_interp_allow_any_values(
+            self.interp.style(),
+            self.knots.clone(),
+            self.forwards.clone(),
+            self.interp.extrapolation(),
+        )?;
+        Ok(())
+    }
+
+    /// Apply a bump specification in-place, mutating values and rebuilding the interpolator.
+    pub(crate) fn bump_in_place(
+        &mut self,
+        spec: &crate::market_data::bumps::BumpSpec,
+    ) -> crate::Result<()> {
+        use crate::market_data::bumps::BumpType;
+
+        let (val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            crate::error::InputError::UnsupportedBump {
+                reason: format!(
+                    "ForwardCurve bump requires Additive or Multiplicative values, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
+            }
+        })?;
+
+        match spec.bump_type {
+            BumpType::Parallel => {
+                if is_multiplicative {
+                    for fwd in self.forwards.iter_mut() {
+                        *fwd *= val;
+                    }
+                } else {
+                    for fwd in self.forwards.iter_mut() {
+                        *fwd += val;
+                    }
+                }
+            }
+            BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            } => {
+                for (fwd, &t) in self.forwards.iter_mut().zip(self.knots.iter()) {
+                    let weight = super::common::triangular_weight(
+                        t,
+                        prev_bucket,
+                        target_bucket,
+                        next_bucket,
+                    );
+                    if is_multiplicative {
+                        *fwd *= 1.0 + (val - 1.0) * weight;
+                    } else {
+                        *fwd += val * weight;
+                    }
+                }
+            }
+        }
+        self.rebuild_interp()
     }
 
     /// Create a new curve with a parallel rate bump applied in basis points (fallible).

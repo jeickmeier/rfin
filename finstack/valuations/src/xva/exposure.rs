@@ -330,11 +330,13 @@ where
     let mut pathwise_mtms = vec![Vec::with_capacity(stochastic_config.num_paths); time_count];
     let base_rng = PhiloxRng::new(stochastic_config.seed);
 
+    let mut state_vector = vec![0.0; process.dim()];
+    let mut shocks = vec![0.0; process.num_factors()];
+    let mut work = vec![0.0; discretization.work_size(process)];
+
     for path_idx in 0..stochastic_config.num_paths {
         let mut rng = base_rng.split((path_idx + 1) as u64);
-        let mut state_vector = initial_state.to_vec();
-        let mut shocks = vec![0.0; process.num_factors()];
-        let mut work = vec![0.0; discretization.work_size(process)];
+        state_vector.copy_from_slice(initial_state);
         let mut prev_t = 0.0;
 
         for (step_idx, &t) in xva_config.time_grid.iter().enumerate() {

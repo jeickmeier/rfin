@@ -309,10 +309,7 @@ impl SobolRng {
             self.dimension
         );
         for chunk in out.chunks_mut(self.dimension) {
-            let point = self.next_point();
-            for (i, &val) in point.iter().enumerate().take(chunk.len()) {
-                chunk[i] = val;
-            }
+            self.fill_point(chunk);
         }
     }
 

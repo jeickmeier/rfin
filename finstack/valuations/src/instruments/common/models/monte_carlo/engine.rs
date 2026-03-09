@@ -546,6 +546,8 @@ impl McEngine {
         let mut state = vec![0.0; dim];
         let mut z = vec![0.0; num_factors];
         let mut work = vec![0.0; work_size];
+        let mut state_a = vec![0.0; dim];
+        let mut z_anti = vec![0.0; num_factors];
 
         // Single clone reused across all paths (reset between iterations)
         let mut payoff_local = payoff.clone();
@@ -563,6 +565,11 @@ impl McEngine {
                     disc,
                     initial_state,
                     &mut payoff_local,
+                    &mut state,
+                    &mut state_a,
+                    &mut z,
+                    &mut z_anti,
+                    &mut work,
                     currency,
                 )?
             } else {
@@ -647,15 +654,16 @@ impl McEngine {
                 let mut state = vec![0.0; dim];
                 let mut z = vec![0.0; num_factors];
                 let mut work = vec![0.0; work_size];
+                let mut state_a = vec![0.0; dim];
+                let mut z_anti = vec![0.0; num_factors];
+                let mut payoff_clone = payoff.clone();
 
                 for path_id in range.clone() {
                     let mut path_rng = rng.split(path_id as u64);
 
-                    // Clone payoff for this path
-                    let mut payoff_clone = payoff.clone();
+                    payoff_clone.reset();
                     payoff_clone.on_path_start(&mut path_rng);
 
-                    // Use ? operator to propagate errors instead of panicking
                     let payoff_value = if self.config.antithetic {
                         self.simulate_antithetic_pair(
                             &mut path_rng,
@@ -663,6 +671,11 @@ impl McEngine {
                             disc,
                             initial_state,
                             &mut payoff_clone,
+                            &mut state,
+                            &mut state_a,
+                            &mut z,
+                            &mut z_anti,
+                            &mut work,
                             currency,
                         )?
                     } else {
@@ -764,6 +777,8 @@ impl McEngine {
         let mut state = vec![0.0; dim];
         let mut z = vec![0.0; num_factors];
         let mut work = vec![0.0; work_size];
+        let mut state_a = vec![0.0; dim];
+        let mut z_anti = vec![0.0; num_factors];
 
         // Path capture setup
         let capture_enabled = self.config.path_capture.enabled;
@@ -821,6 +836,11 @@ impl McEngine {
                         disc,
                         initial_state,
                         &mut payoff_local,
+                        &mut state,
+                        &mut state_a,
+                        &mut z,
+                        &mut z_anti,
+                        &mut work,
                         currency,
                     )?
                 } else {
@@ -960,15 +980,18 @@ impl McEngine {
                 let mut state = vec![0.0; dim];
                 let mut z = vec![0.0; num_factors];
                 let mut work = vec![0.0; work_size];
+                let mut state_a = vec![0.0; dim];
+                let mut z_anti = vec![0.0; num_factors];
                 let mut chunk_paths = if capture_enabled {
                     Vec::with_capacity(range.len() / 10 + 1)
                 } else {
                     Vec::new()
                 };
+                let mut payoff_clone = payoff.clone();
 
                 for path_id in range.clone() {
                     let mut path_rng = rng.split(path_id as u64);
-                    let mut payoff_clone = payoff.clone();
+                    payoff_clone.reset();
                     payoff_clone.on_path_start(&mut path_rng);
 
                     let should_capture = capture_enabled
@@ -999,6 +1022,11 @@ impl McEngine {
                                 disc,
                                 initial_state,
                                 &mut payoff_clone,
+                                &mut state,
+                                &mut state_a,
+                                &mut z,
+                                &mut z_anti,
+                                &mut work,
                                 currency,
                             )?
                         } else {
@@ -1319,6 +1347,11 @@ impl McEngine {
         disc: &D,
         initial_state: &[f64],
         payoff: &mut F,
+        state_p: &mut [f64],
+        state_a: &mut [f64],
+        z: &mut [f64],
+        z_anti: &mut [f64],
+        work: &mut [f64],
         currency: Currency,
     ) -> Result<f64>
     where
@@ -1328,55 +1361,47 @@ impl McEngine {
         F: Payoff,
     {
         // Primary path state and payoff
-        let mut state_p = vec![0.0; process.dim()];
         state_p.copy_from_slice(initial_state);
         let mut payoff_p = payoff.clone();
         payoff_p.reset();
         let mut path_state_p = PathState::new(0, 0.0);
-        process.populate_path_state(&state_p, &mut path_state_p);
+        process.populate_path_state(state_p, &mut path_state_p);
         let u_init = rng.next_u01();
         path_state_p.set_uniform_random(u_init);
         payoff_p.on_event(&mut path_state_p);
 
         // Antithetic path state and payoff
-        let mut state_a = vec![0.0; process.dim()];
         state_a.copy_from_slice(initial_state);
         let mut payoff_a = payoff.clone();
         payoff_a.reset();
         let mut path_state_a = PathState::new(0, 0.0);
-        process.populate_path_state(&state_a, &mut path_state_a);
-        // Use 1-u for antithetic path to preserve negative correlation in barrier sampling
+        process.populate_path_state(state_a, &mut path_state_a);
         path_state_a.set_uniform_random(1.0 - u_init);
         payoff_a.on_event(&mut path_state_a);
-
-        // Shared buffers
-        let mut z = vec![0.0; process.num_factors()];
-        let mut z_anti = vec![0.0; process.num_factors()];
-        let mut work = vec![0.0; disc.work_size(process)];
 
         for step in 0..self.config.time_grid.num_steps() {
             let t = self.config.time_grid.time(step);
             let dt = self.config.time_grid.dt(step);
 
-            rng.fill_std_normals(&mut z);
+            rng.fill_std_normals(z);
             for i in 0..z.len() {
                 z_anti[i] = -z[i];
             }
 
-            disc.step(process, t, dt, &mut state_p, &z, &mut work);
-            disc.step(process, t, dt, &mut state_a, &z_anti, &mut work);
+            disc.step(process, t, dt, state_p, z, work);
+            disc.step(process, t, dt, state_a, z_anti, work);
 
             let u_step = rng.next_u01();
 
             path_state_p.step = step + 1;
             path_state_p.time = t + dt;
-            process.populate_path_state(&state_p, &mut path_state_p);
+            process.populate_path_state(state_p, &mut path_state_p);
             path_state_p.set_uniform_random(u_step);
             payoff_p.on_event(&mut path_state_p);
 
             path_state_a.step = step + 1;
             path_state_a.time = t + dt;
-            process.populate_path_state(&state_a, &mut path_state_a);
+            process.populate_path_state(state_a, &mut path_state_a);
             path_state_a.set_uniform_random(1.0 - u_step);
             payoff_a.on_event(&mut path_state_a);
         }

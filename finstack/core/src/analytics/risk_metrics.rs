@@ -627,11 +627,21 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
         return 0.0;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    let var = quantile(&mut data, 1.0 - confidence);
-    // Historical VaR is a non-parametric statistic: sqrt-time scaling is not
-    // valid for empirical quantiles (only for parametric methods like
-    // parametric_var / cornish_fisher_var). The ann_factor parameter exists
-    // for API consistency across the VaR function family.
+    value_at_risk_with_scratch(&mut data, confidence, ann_factor)
+}
+
+/// Historical VaR using a caller-provided scratch buffer (avoids allocation).
+///
+/// The contents of `scratch` will be partially reordered by `quantile`.
+pub fn value_at_risk_with_scratch(
+    scratch: &mut [f64],
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> f64 {
+    if scratch.is_empty() {
+        return 0.0;
+    }
+    let var = quantile(scratch, 1.0 - confidence);
     let _ = ann_factor;
     var
 }
@@ -680,14 +690,26 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
     if returns.is_empty() {
         return 0.0;
     }
-    let p = 1.0 - confidence;
     let mut data: Vec<f64> = returns.to_vec();
-    let var_threshold = quantile(&mut data, p);
-    // Include every observation at or below the realized VaR threshold, including
-    // ties that may have landed to the right of the partition boundary.
+    expected_shortfall_with_scratch(&mut data, confidence, ann_factor)
+}
+
+/// Expected Shortfall using a caller-provided scratch buffer (avoids allocation).
+///
+/// The contents of `scratch` will be partially reordered by `quantile`.
+pub fn expected_shortfall_with_scratch(
+    scratch: &mut [f64],
+    confidence: f64,
+    ann_factor: Option<f64>,
+) -> f64 {
+    if scratch.is_empty() {
+        return 0.0;
+    }
+    let p = 1.0 - confidence;
+    let var_threshold = quantile(scratch, p);
     let mut tail_sum = 0.0;
     let mut tail_count = 0usize;
-    for &value in &data {
+    for &value in scratch.iter() {
         if value <= var_threshold {
             tail_sum += value;
             tail_count += 1;
@@ -698,9 +720,6 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
     } else {
         tail_sum / tail_count as f64
     };
-    // Historical ES is a non-parametric statistic: sqrt-time scaling is not
-    // valid for empirical tail means (only for parametric methods). The
-    // ann_factor parameter exists for API consistency across the risk metrics.
     let _ = ann_factor;
     es
 }
@@ -743,8 +762,16 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
         return 0.0;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    let upper = quantile(&mut data, confidence).abs();
-    let lower = quantile(&mut data, 1.0 - confidence).abs();
+    tail_ratio_with_scratch(&mut data, confidence)
+}
+
+/// Tail ratio using a caller-provided scratch buffer (avoids allocation).
+pub fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
+    if scratch.is_empty() {
+        return 0.0;
+    }
+    let upper = quantile(scratch, confidence).abs();
+    let lower = quantile(scratch, 1.0 - confidence).abs();
     if lower == 0.0 {
         return 0.0;
     }
@@ -781,9 +808,23 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
         return 0.0;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    let threshold = quantile(&mut data, confidence);
-    let count = returns.iter().filter(|&&r| r > threshold).count();
-    count as f64 / returns.len() as f64
+    outlier_win_ratio_with_scratch(returns, &mut data, confidence)
+}
+
+/// Outlier win ratio using a caller-provided scratch buffer (avoids allocation).
+///
+/// `original` must contain the un-reordered return data for counting.
+pub fn outlier_win_ratio_with_scratch(
+    original: &[f64],
+    scratch: &mut [f64],
+    confidence: f64,
+) -> f64 {
+    if scratch.is_empty() {
+        return 0.0;
+    }
+    let threshold = quantile(scratch, confidence);
+    let count = original.iter().filter(|&&r| r > threshold).count();
+    count as f64 / original.len() as f64
 }
 
 /// Fraction of returns below the lower quantile threshold (outlier losses).
@@ -817,9 +858,23 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
         return 0.0;
     }
     let mut data: Vec<f64> = returns.to_vec();
-    let threshold = quantile(&mut data, 1.0 - confidence);
-    let count = returns.iter().filter(|&&r| r < threshold).count();
-    count as f64 / returns.len() as f64
+    outlier_loss_ratio_with_scratch(returns, &mut data, confidence)
+}
+
+/// Outlier loss ratio using a caller-provided scratch buffer (avoids allocation).
+///
+/// `original` must contain the un-reordered return data for counting.
+pub fn outlier_loss_ratio_with_scratch(
+    original: &[f64],
+    scratch: &mut [f64],
+    confidence: f64,
+) -> f64 {
+    if scratch.is_empty() {
+        return 0.0;
+    }
+    let threshold = quantile(scratch, 1.0 - confidence);
+    let count = original.iter().filter(|&&r| r < threshold).count();
+    count as f64 / original.len() as f64
 }
 
 /// Output of a rolling Sharpe ratio computation.
@@ -1261,11 +1316,8 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
     if returns.is_empty() {
         return 0.0;
     }
-    let m = mean(returns);
-    let vol = variance(returns).sqrt();
+    let (m, vol, s, k) = moments4(returns);
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);
-    let s = skewness(returns);
-    let k = kurtosis(returns);
     let z2 = z * z;
     let z3 = z2 * z;
     let z_cf =
@@ -1274,6 +1326,61 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
         Some(af) => m * af + z_cf * vol * af.sqrt(),
         None => m + z_cf * vol,
     }
+}
+
+/// Compute mean, standard deviation, skewness (G₁), and excess kurtosis (G₂) in a single pass.
+///
+/// Uses a one-pass algorithm accumulating central moments (Pebay 2008, Terriberry 2007).
+/// Returns `(mean, std_dev, skewness, excess_kurtosis)` matching the bias-corrected
+/// formulas used by `skewness()` and `kurtosis()`.
+fn moments4(returns: &[f64]) -> (f64, f64, f64, f64) {
+    let n = returns.len();
+    if n == 0 {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    let nf = n as f64;
+
+    let mut m1 = 0.0_f64;
+    let mut m2 = 0.0_f64;
+    let mut m3 = 0.0_f64;
+    let mut m4 = 0.0_f64;
+    let mut k = 0.0_f64;
+
+    for &r in returns {
+        k += 1.0;
+        let d = r - m1;
+        let d_over_k = d / k;
+        let d_over_k2 = d_over_k * d_over_k;
+        let term1 = d * d_over_k * (k - 1.0);
+        m4 += term1 * d_over_k2 * (k * k - 3.0 * k + 3.0) + 6.0 * d_over_k2 * m2
+            - 4.0 * d_over_k * m3;
+        m3 += term1 * d_over_k * (k - 2.0) - 3.0 * d_over_k * m2;
+        m2 += term1;
+        m1 += d_over_k;
+    }
+
+    let sample_var = if n < 2 { 0.0 } else { m2 / (nf - 1.0) };
+    let vol = sample_var.sqrt();
+
+    let skew = if n < 3 || sample_var == 0.0 {
+        0.0
+    } else {
+        let s3 = vol * vol * vol;
+        let adj = nf / ((nf - 1.0) * (nf - 2.0));
+        adj * (m3 / s3)
+    };
+
+    let kurt = if n < 4 || sample_var == 0.0 {
+        0.0
+    } else {
+        let s4 = sample_var * sample_var;
+        let sum_z4 = m4 / s4;
+        let a = (nf * (nf + 1.0)) / ((nf - 1.0) * (nf - 2.0) * (nf - 3.0));
+        let b = (3.0 * (nf - 1.0) * (nf - 1.0)) / ((nf - 2.0) * (nf - 3.0));
+        a * sum_z4 - b
+    };
+
+    (m1, vol, skew, kurt)
 }
 
 /// Output of a rolling Sortino ratio computation.

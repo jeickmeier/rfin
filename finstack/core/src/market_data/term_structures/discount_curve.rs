@@ -646,6 +646,71 @@ impl DiscountCurve {
         super::common::year_fraction_to(self.base, date, self.day_count)
     }
 
+    /// Rebuild only the interpolator from the current knots and discount factors.
+    ///
+    /// Skips sort/validation -- caller must ensure data invariants hold.
+    fn rebuild_interp(&mut self) -> crate::Result<()> {
+        self.interp = super::common::build_interp_input_error(
+            self.style,
+            self.knots.clone(),
+            self.dfs.clone(),
+            self.extrapolation,
+            true,
+        )?;
+        Ok(())
+    }
+
+    /// Apply a bump specification in-place, mutating values and rebuilding the interpolator.
+    ///
+    /// This avoids allocating intermediate `Vec<(f64, f64)>`, skips ID generation,
+    /// and skips sort/validation (bumps preserve knot ordering).
+    pub(crate) fn bump_in_place(
+        &mut self,
+        spec: &crate::market_data::bumps::BumpSpec,
+    ) -> crate::Result<()> {
+        use crate::market_data::bumps::BumpType;
+
+        let (val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            crate::error::InputError::UnsupportedBump {
+                reason: format!(
+                    "DiscountCurve only supports Additive/{{RateBp,Percent,Fraction}} bumps, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
+            }
+        })?;
+        if is_multiplicative {
+            return Err(crate::error::InputError::UnsupportedBump {
+                reason: "DiscountCurve does not support Multiplicative bumps".to_string(),
+            }
+            .into());
+        }
+        let bump_rate = val;
+
+        match spec.bump_type {
+            BumpType::Parallel => {
+                for (df, &t) in self.dfs.iter_mut().zip(self.knots.iter()) {
+                    *df *= (-bump_rate * t).exp();
+                }
+            }
+            BumpType::TriangularKeyRate {
+                prev_bucket,
+                target_bucket,
+                next_bucket,
+            } => {
+                for (df, &t) in self.dfs.iter_mut().zip(self.knots.iter()) {
+                    let weight = super::common::triangular_weight(
+                        t,
+                        prev_bucket,
+                        target_bucket,
+                        next_bucket,
+                    );
+                    *df *= (-bump_rate * weight * t).exp();
+                }
+            }
+        }
+        self.rebuild_interp()
+    }
+
     /// Create a new curve with a parallel rate bump applied in basis points (fallible).
     ///
     /// Uses df_bumped(t) = df_original(t) * exp(-bump * t), where bump = bp / 10_000.

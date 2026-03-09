@@ -65,10 +65,7 @@ pub trait RandomStream: Send + Sync {
     }
 }
 
-/// Map of state variables for a path node.
-///
-/// Uses static string keys for zero-cost abstraction.
-/// Common keys are defined in `state_keys` module.
+/// Map of state variables for a path node (used only for dynamic/non-standard keys).
 pub type StateVariables = HashMap<&'static str, f64>;
 
 /// Standard state variable keys.
@@ -95,23 +92,71 @@ pub mod state_keys {
     pub const MTM_PNL: &str = "mtm_pnl";
 }
 
+/// Indexed state variable key for O(1) array access in the MC inner loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
+pub enum StateKey {
+    /// Spot price (equity/FX)
+    Spot = 0,
+    /// Stochastic variance (Heston, etc.)
+    Variance = 1,
+    /// Short rate (Hull-White, etc.)
+    ShortRate = 2,
+    /// Time in years from valuation
+    Time = 3,
+    /// Step index
+    Step = 4,
+    /// FX rate (multi-asset/quanto)
+    FxRate = 5,
+    /// Equity spot (multi-asset, when Spot refers to FX)
+    EquitySpot = 6,
+    /// Current NPV of remaining cashflows
+    NpvCurrent = 7,
+    /// NPV from previous timestep
+    NpvPrevious = 8,
+    /// Mark-to-market P&L
+    MtmPnl = 9,
+    /// Credit spread
+    CreditSpread = 10,
+}
+
+const STATE_ARRAY_LEN: usize = 11;
+
+/// Resolve a string key to its fixed-slot `StateKey`, if it matches a known key.
+fn resolve_key(key: &str) -> Option<StateKey> {
+    match key {
+        "spot" => Some(StateKey::Spot),
+        "variance" => Some(StateKey::Variance),
+        "short_rate" => Some(StateKey::ShortRate),
+        "time" => Some(StateKey::Time),
+        "step" => Some(StateKey::Step),
+        "fx_rate" => Some(StateKey::FxRate),
+        "equity_spot" => Some(StateKey::EquitySpot),
+        "npv_current" => Some(StateKey::NpvCurrent),
+        "npv_previous" => Some(StateKey::NpvPrevious),
+        "mtm_pnl" => Some(StateKey::MtmPnl),
+        "credit_spread" => Some(StateKey::CreditSpread),
+        _ => None,
+    }
+}
+
 /// State information for a point along a Monte Carlo path.
 ///
-/// This struct captures all relevant state variables at a specific time step,
-/// analogous to `NodeState` in the tree framework but for MC paths.
+/// Uses a fixed-size array for known state keys (O(1) access) with a HashMap
+/// fallback for dynamic keys (basket "spot_0", "spot_1", etc.).
 #[derive(Debug, Clone)]
 pub struct PathState {
     /// Time step index (0 = initial, N = final)
     pub step: usize,
     /// Time in years from valuation date
     pub time: f64,
-    /// State variables (spot, variance, rate, etc.)
-    pub vars: StateVariables,
-    /// Typed cashflows generated at this timestep (time, amount, type) tuples
-    /// Payoffs can add cashflows here which will be transferred to PathPoint during capture
+    /// Fixed-slot storage for known state keys (indexed by `StateKey`)
+    fixed: [f64; STATE_ARRAY_LEN],
+    /// Bitmask tracking which fixed slots contain valid values
+    fixed_set: u16,
+    /// Fallback for dynamic keys not in the fixed array (e.g., basket spot keys)
+    dynamic: HashMap<&'static str, f64>,
     cashflows: Vec<(f64, f64, CashflowType)>,
-    /// Uniform random value in [0, 1) for use by payoffs (e.g., barrier bridge sampling).
-    /// Set by the MC engine before each on_event call to ensure independent randomness.
     uniform_random: f64,
 }
 
@@ -121,7 +166,9 @@ impl PathState {
         Self {
             step,
             time,
-            vars: StateVariables::default(),
+            fixed: [0.0; STATE_ARRAY_LEN],
+            fixed_set: 0,
+            dynamic: HashMap::default(),
             cashflows: Vec::new(),
             uniform_random: 0.0,
         }
@@ -129,83 +176,116 @@ impl PathState {
 
     /// Create a path state with initial variables.
     pub fn with_vars(step: usize, time: f64, vars: StateVariables) -> Self {
-        Self {
-            step,
-            time,
-            vars,
-            cashflows: Vec::new(),
-            uniform_random: 0.0,
+        let mut ps = Self::new(step, time);
+        for (key, value) in vars {
+            ps.set(key, value);
+        }
+        ps
+    }
+
+    /// Set a state variable by indexed key (fast path, no hashing).
+    #[inline]
+    pub fn set_key(&mut self, key: StateKey, value: f64) {
+        let idx = key as usize;
+        self.fixed[idx] = value;
+        self.fixed_set |= 1 << idx;
+    }
+
+    /// Get a state variable by indexed key (fast path, no hashing).
+    #[inline]
+    pub fn get_key(&self, key: StateKey) -> Option<f64> {
+        let idx = key as usize;
+        if self.fixed_set & (1 << idx) != 0 {
+            Some(self.fixed[idx])
+        } else {
+            None
         }
     }
 
     /// Set the uniform random value for this timestep.
-    ///
-    /// This should be called by the MC engine before each `on_event` call
-    /// to provide independent randomness for payoffs that need it
-    /// (e.g., barrier options using Brownian bridge correction).
     pub fn set_uniform_random(&mut self, u: f64) {
         self.uniform_random = u;
     }
 
     /// Get the uniform random value for this timestep.
-    ///
-    /// Returns a value in [0, 1) that is independent for each timestep.
-    /// Used by payoffs for barrier bridge sampling and other applications.
     pub fn uniform_random(&self) -> f64 {
         self.uniform_random
     }
 
-    /// Get a state variable by key.
+    /// Get a state variable by string key.
+    /// Routes known keys to the fixed array; unknown keys to the dynamic HashMap.
     pub fn get(&self, key: &str) -> Option<f64> {
-        self.vars.get(key).copied()
+        if let Some(sk) = resolve_key(key) {
+            self.get_key(sk)
+        } else {
+            self.dynamic.get(key).copied()
+        }
     }
 
     /// Get a state variable with a default value.
     pub fn get_or(&self, key: &str, default: f64) -> f64 {
-        self.vars.get(key).copied().unwrap_or(default)
+        self.get(key).unwrap_or(default)
     }
 
-    /// Set a state variable.
+    /// Set a state variable by string key.
+    /// Routes known keys to the fixed array; unknown keys to the dynamic HashMap.
     pub fn set(&mut self, key: &'static str, value: f64) {
-        self.vars.insert(key, value);
+        if let Some(sk) = resolve_key(key) {
+            self.set_key(sk, value);
+        } else {
+            self.dynamic.insert(key, value);
+        }
+    }
+
+    /// Backward-compatible access to all state variables as a HashMap.
+    /// Merges fixed-slot values with dynamic values. This allocates --
+    /// prefer `get`/`get_key` on hot paths.
+    pub fn vars(&self) -> StateVariables {
+        let mut map = self.dynamic.clone();
+        let key_names: [&'static str; STATE_ARRAY_LEN] = [
+            state_keys::SPOT,
+            state_keys::VARIANCE,
+            state_keys::SHORT_RATE,
+            state_keys::TIME,
+            state_keys::STEP,
+            state_keys::FX_RATE,
+            state_keys::EQUITY_SPOT,
+            state_keys::NPV_CURRENT,
+            state_keys::NPV_PREVIOUS,
+            state_keys::MTM_PNL,
+            "credit_spread",
+        ];
+        for i in 0..STATE_ARRAY_LEN {
+            if self.fixed_set & (1 << i) != 0 {
+                map.insert(key_names[i], self.fixed[i]);
+            }
+        }
+        map
     }
 
     /// Get spot price (convenience method).
+    #[inline]
     pub fn spot(&self) -> Option<f64> {
-        self.get(state_keys::SPOT)
+        self.get_key(StateKey::Spot)
     }
 
     /// Get variance (convenience method).
+    #[inline]
     pub fn variance(&self) -> Option<f64> {
-        self.get(state_keys::VARIANCE)
+        self.get_key(StateKey::Variance)
     }
 
     /// Add a cashflow to this state.
-    ///
-    /// Payoffs can use this method to record cashflows generated at this timestep.
-    /// During path capture, these cashflows are transferred to the PathPoint.
-    ///
-    /// # Arguments
-    /// * `time` - Time in years when the cashflow occurs
-    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
     pub fn add_cashflow(&mut self, time: f64, amount: f64) {
         self.cashflows.push((time, amount, CashflowType::Other));
     }
 
     /// Add a typed cashflow to this state.
-    ///
-    /// # Arguments
-    /// * `time` - Time in years when the cashflow occurs
-    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
-    /// * `cf_type` - Type of cashflow
     pub fn add_typed_cashflow(&mut self, time: f64, amount: f64, cf_type: CashflowType) {
         self.cashflows.push((time, amount, cf_type));
     }
 
     /// Take all cashflows from this state, leaving it empty.
-    ///
-    /// This is used by the monte carlo engine to transfer cashflows to PathPoint.
-    /// After calling this method, the cashflows vector will be empty.
     pub fn take_cashflows(&mut self) -> Vec<(f64, f64, CashflowType)> {
         std::mem::take(&mut self.cashflows)
     }
@@ -366,7 +446,7 @@ mod tests {
         let state = PathState::new(5, 0.5);
         assert_eq!(state.step, 5);
         assert_eq!(state.time, 0.5);
-        assert!(state.vars.is_empty());
+        assert!(state.vars().is_empty());
     }
 
     #[test]

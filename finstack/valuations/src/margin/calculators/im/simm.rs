@@ -74,14 +74,6 @@ impl SimmParams {
             .unwrap_or(1.0)
     }
 
-    fn ir_tenor_correlation(&self, tenor_a: &str, tenor_b: &str) -> f64 {
-        if tenor_a == tenor_b {
-            return 1.0;
-        }
-        let key = ordered_tenor_pair(tenor_a, tenor_b);
-        self.ir_tenor_correlations.get(&key).copied().unwrap_or(0.5)
-    }
-
     fn commodity_bucket_weight(&self, bucket: &str) -> f64 {
         let key = bucket_id_from_label(bucket)
             .map(|id| id.to_string())
@@ -129,48 +121,63 @@ fn ordered_tenor_pair(a: &str, b: &str) -> (String, String) {
     }
 }
 
+/// Pre-computed flat correlation matrix for IR tenor lookups.
+/// Avoids per-lookup String allocations in the O(n^2) delta/vega loops.
+#[derive(Debug, Clone)]
+struct IrTenorCorrelationMatrix {
+    tenor_to_idx: HashMap<String, usize>,
+    matrix: Vec<f64>,
+    n: usize,
+}
+
+impl IrTenorCorrelationMatrix {
+    fn build(params: &SimmParams) -> Self {
+        let tenors: Vec<String> = params.ir_delta_weights.keys().cloned().collect();
+        let n = tenors.len();
+        let mut tenor_to_idx = HashMap::default();
+        for (i, t) in tenors.iter().enumerate() {
+            tenor_to_idx.insert(t.clone(), i);
+        }
+
+        let mut matrix = vec![1.0; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                if i != j {
+                    let key = ordered_tenor_pair(&tenors[i], &tenors[j]);
+                    let rho = params
+                        .ir_tenor_correlations
+                        .get(&key)
+                        .copied()
+                        .unwrap_or(0.5);
+                    matrix[i * n + j] = rho;
+                }
+            }
+        }
+
+        Self {
+            tenor_to_idx,
+            matrix,
+            n,
+        }
+    }
+
+    fn correlation(&self, idx_a: usize, idx_b: usize) -> f64 {
+        if idx_a == idx_b {
+            return 1.0;
+        }
+        self.matrix[idx_a * self.n + idx_b]
+    }
+}
+
 /// ISDA SIMM calculator.
 ///
 /// Calculates initial margin using the ISDA Standard Initial Margin Model.
 /// This is the industry standard methodology for bilateral OTC derivatives.
-///
-/// # Usage
-///
-/// The calculator uses SIMM sensitivities (DV01, CS01, delta, vega, etc.) to compute
-/// risk-weighted margin amounts across all SIMM risk classes.
-///
-/// The public [`ImCalculator`] entry point requires the provided instrument to expose
-/// [`crate::margin::traits::Marginable`] via [`Instrument::as_marginable`]. Instruments
-/// that do not provide SIMM sensitivities are rejected rather than being silently
-/// approximated with partial risk.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use finstack_valuations::instruments::Instrument;
-/// use finstack_valuations::margin::{ImCalculator, SimmCalculator};
-/// use finstack_core::dates::Date;
-/// use finstack_core::market_data::context::MarketContext;
-/// use time::macros::date;
-///
-/// # fn main() -> finstack_core::Result<()> {
-/// let calc = SimmCalculator::default();
-/// # let swap: &dyn Instrument = todo!("provide a swap instrument");
-/// # let context = MarketContext::new();
-/// # let as_of: Date = date!(2025-01-01);
-/// let im = calc.calculate(swap, &context, as_of)?;
-///
-/// println!("SIMM IM: {}", im.amount);
-/// for (risk_class, amount) in &im.breakdown {
-///     println!("  {}: {}", risk_class, amount);
-/// }
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Debug, Clone)]
 pub struct SimmCalculator {
     /// SIMM parameters (risk weights, correlations, thresholds)
     pub params: SimmParams,
+    ir_corr_matrix: IrTenorCorrelationMatrix,
 }
 
 impl Default for SimmCalculator {
@@ -189,7 +196,11 @@ impl SimmCalculator {
     pub fn new(version: SimmVersion) -> Result<Self> {
         let registry = embedded_registry()?;
         let params = resolve_simm_params(version, registry)?.clone();
-        Ok(Self { params })
+        let ir_corr_matrix = IrTenorCorrelationMatrix::build(&params);
+        Ok(Self {
+            params,
+            ir_corr_matrix,
+        })
     }
 
     /// Create a new SIMM calculator resolved from a `FinstackConfig`.
@@ -199,7 +210,11 @@ impl SimmCalculator {
     ) -> finstack_core::Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
         let params = resolve_simm_params(version, &registry)?.clone();
-        Ok(Self { params })
+        let ir_corr_matrix = IrTenorCorrelationMatrix::build(&params);
+        Ok(Self {
+            params,
+            ir_corr_matrix,
+        })
     }
 
     /// SIMM version.
@@ -230,20 +245,19 @@ impl SimmCalculator {
     ///
     /// * `dv01_by_tenor` - Map of tenor bucket to DV01 sensitivity
     pub fn calculate_ir_delta(&self, dv01_by_tenor: &HashMap<String, f64>) -> f64 {
-        let weighted: HashMap<&str, f64> = dv01_by_tenor
+        let weighted: Vec<(usize, f64)> = dv01_by_tenor
             .iter()
             .filter_map(|(tenor, dv01)| {
-                self.params
-                    .ir_delta_weights
-                    .get(tenor)
-                    .map(|&weight| (tenor.as_str(), dv01 * weight))
+                let weight = self.params.ir_delta_weights.get(tenor)?;
+                let idx = self.ir_corr_matrix.tenor_to_idx.get(tenor)?;
+                Some((*idx, dv01 * weight))
             })
             .collect();
 
         let mut sum = 0.0;
-        for (tenor_i, ws_i) in &weighted {
-            for (tenor_j, ws_j) in &weighted {
-                let rho = self.params.ir_tenor_correlation(tenor_i, tenor_j);
+        for &(idx_i, ws_i) in &weighted {
+            for &(idx_j, ws_j) in &weighted {
+                let rho = self.ir_corr_matrix.correlation(idx_i, idx_j);
                 sum += rho * ws_i * ws_j;
             }
         }
@@ -301,11 +315,19 @@ impl SimmCalculator {
     /// Calculate IR vega margin from vega sensitivities.
     pub fn calculate_ir_vega(&self, vega_by_tenor: &HashMap<String, f64>) -> f64 {
         let weight = self.params.ir_vega_weight;
+        let indexed: Vec<(usize, f64)> = vega_by_tenor
+            .iter()
+            .filter_map(|(tenor, vega)| {
+                let idx = self.ir_corr_matrix.tenor_to_idx.get(tenor.as_str())?;
+                Some((*idx, *vega * weight))
+            })
+            .collect();
+
         let mut sum = 0.0;
-        for (tenor_i, vega_i) in vega_by_tenor {
-            for (tenor_j, vega_j) in vega_by_tenor {
-                let rho = self.params.ir_tenor_correlation(tenor_i, tenor_j);
-                sum += rho * (vega_i * weight) * (vega_j * weight);
+        for &(idx_i, wv_i) in &indexed {
+            for &(idx_j, wv_j) in &indexed {
+                let rho = self.ir_corr_matrix.correlation(idx_i, idx_j);
+                sum += rho * wv_i * wv_j;
             }
         }
         sum.max(0.0).sqrt()

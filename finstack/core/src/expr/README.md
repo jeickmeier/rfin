@@ -279,7 +279,7 @@ This section describes how to add **new functions** or **new contexts** safely.
    - If the function is *statements‑only*, document that clearly and ensure the core evaluator never tries to execute it.
 
 2. **Implement scalar evaluation in `eval.rs`**
-   - Add a helper like `fn eval_my_func(&self, arg_results: &[Vec<f64>]) -> Vec<f64>` or an `_into` variant that writes into a buffer.
+   - Add a helper like `fn eval_my_func(&self, arg_results: &[&[f64]]) -> Vec<f64>` or an `_into` variant that writes into a buffer.
    - Update `eval_function_core` to dispatch your new `Function` variant.
    - Prefer writing into an existing output slice when possible (see `eval_rolling_*_into`, `eval_std_into`, etc.) to minimise allocations:
      - Reuse `ScratchArena` buffers (`tmp`, `window`) for sort‑heavy or windowed logic.

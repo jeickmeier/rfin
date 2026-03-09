@@ -29,10 +29,7 @@ impl CompiledExpr {
     }
 
     #[inline]
-    pub(super) fn window_arg(
-        arg_results: &[Vec<f64>],
-        default: Option<usize>,
-    ) -> Result<usize, ()> {
+    pub(super) fn window_arg(arg_results: &[&[f64]], default: Option<usize>) -> Result<usize, ()> {
         if let Some(raw) = arg_results.get(1).and_then(|v| v.first()).copied() {
             Self::validate_window(raw).ok_or(())
         } else {
@@ -43,27 +40,6 @@ impl CompiledExpr {
     #[inline]
     pub(super) fn nan_output(len: usize) -> Vec<f64> {
         vec![f64::NAN; len]
-    }
-
-    #[inline]
-    pub(super) fn rolling_with(
-        &self,
-        arg_results: &[Vec<f64>],
-        default_win: Option<usize>,
-        mut op: impl FnMut(&[f64]) -> f64,
-    ) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, default_win) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut op);
-        out
     }
 
     #[inline]
@@ -90,7 +66,7 @@ impl CompiledExpr {
 
     // --- Per-function evaluators ---
 
-    pub(super) fn eval_lag(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_lag(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.is_empty() {
             return Vec::with_capacity(len);
@@ -105,7 +81,7 @@ impl CompiledExpr {
             .collect()
     }
 
-    pub(super) fn eval_lead(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_lead(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.is_empty() {
             return Vec::with_capacity(len);
@@ -120,7 +96,7 @@ impl CompiledExpr {
             .collect()
     }
 
-    pub(super) fn eval_diff(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_diff(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
@@ -140,7 +116,7 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_pct_change(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_pct_change(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
@@ -160,11 +136,11 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_cum_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_cum_sum(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let base = &arg_results[0];
+            let base = arg_results[0];
             let mut acc = 0.0;
             for &v in base {
                 acc += v;
@@ -174,11 +150,11 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_cum_prod(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_cum_prod(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let base = &arg_results[0];
+            let base = arg_results[0];
             let mut acc = 1.0;
             for &v in base {
                 acc *= v;
@@ -188,11 +164,11 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_cum_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_cum_min(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let base = &arg_results[0];
+            let base = arg_results[0];
             let mut cur = f64::INFINITY;
             for &v in base {
                 cur = if cur < v { cur } else { v };
@@ -202,11 +178,11 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_cum_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_cum_max(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out = Vec::with_capacity(len);
         if !arg_results.is_empty() {
-            let base = &arg_results[0];
+            let base = arg_results[0];
             let mut cur = f64::NEG_INFINITY;
             for &v in base {
                 cur = if cur > v { cur } else { v };
@@ -216,17 +192,75 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_rolling_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| {
-            w.iter().copied().sum::<f64>() / w.len() as f64
-        })
+    pub(super) fn eval_rolling_mean(&self, arg_results: &[&[f64]]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        if arg_results.is_empty() || len == 0 {
+            return Vec::with_capacity(len);
+        }
+        let base = &arg_results[0];
+        let win = match Self::window_arg(arg_results, None) {
+            Ok(win) => win,
+            Err(_) => return Self::nan_output(len),
+        };
+        let mut out = vec![0.0; len];
+        if base.iter().any(|v| v.is_nan()) {
+            Self::rolling_apply_into(base, win, &mut out, &mut |w| {
+                w.iter().copied().sum::<f64>() / w.len() as f64
+            });
+        } else {
+            Self::rolling_sum_incremental(base, win, &mut out);
+            let w = win as f64;
+            for v in out.iter_mut() {
+                if !v.is_nan() {
+                    *v /= w;
+                }
+            }
+        }
+        out
     }
 
-    pub(super) fn eval_rolling_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| w.iter().copied().sum())
+    pub(super) fn eval_rolling_sum(&self, arg_results: &[&[f64]]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        if arg_results.is_empty() || len == 0 {
+            return Vec::with_capacity(len);
+        }
+        let base = &arg_results[0];
+        let win = match Self::window_arg(arg_results, None) {
+            Ok(win) => win,
+            Err(_) => return Self::nan_output(len),
+        };
+        let mut out = vec![0.0; len];
+        if base.iter().any(|v| v.is_nan()) {
+            Self::rolling_apply_into(base, win, &mut out, &mut |w| w.iter().copied().sum());
+        } else {
+            Self::rolling_sum_incremental(base, win, &mut out);
+        }
+        out
     }
 
-    pub(super) fn eval_ewm_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    /// O(n) incremental rolling sum (shared by rolling_sum and rolling_mean).
+    /// Requires NaN-free input; caller must check.
+    fn rolling_sum_incremental(base: &[f64], win: usize, out: &mut [f64]) {
+        let len = base.len();
+        if win == 0 {
+            out.fill(f64::NAN);
+            return;
+        }
+        let mut sum = 0.0_f64;
+        for i in 0..len {
+            sum += base[i];
+            if i >= win {
+                sum -= base[i - win];
+            }
+            if i + 1 >= win {
+                out[i] = sum;
+            } else {
+                out[i] = f64::NAN;
+            }
+        }
+    }
+
+    pub(super) fn eval_ewm_mean(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let mut out = vec![0.0; len];
@@ -236,7 +270,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    fn eval_ewm_mean_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
+    fn eval_ewm_mean_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         let len = out.len();
         if len == 0 {
             return;
@@ -270,7 +304,7 @@ impl CompiledExpr {
         }
     }
 
-    pub(super) fn eval_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_std(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if !arg_results.is_empty() {
             let mut out = vec![0.0; len];
@@ -280,7 +314,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    fn eval_std_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
+    fn eval_std_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         let len = out.len();
         let data = &arg_results[0];
         if data.len() > 1 {
@@ -304,7 +338,7 @@ impl CompiledExpr {
         }
     }
 
-    pub(super) fn eval_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_var(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if !arg_results.is_empty() {
             let mut out = vec![0.0; len];
@@ -314,7 +348,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    fn eval_var_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
+    fn eval_var_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         let len = out.len();
         let data = &arg_results[0];
         if data.len() > 1 {
@@ -337,7 +371,7 @@ impl CompiledExpr {
         }
     }
 
-    pub(super) fn eval_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_median(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if !arg_results.is_empty() {
             let mut out = vec![0.0; len];
@@ -347,7 +381,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    fn eval_median_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
+    fn eval_median_into(&self, arg_results: &[&[f64]], out: &mut [f64]) {
         let len = out.len();
         let data = &arg_results[0];
         if !data.is_empty() {
@@ -375,35 +409,96 @@ impl CompiledExpr {
         }
     }
 
-    pub(super) fn eval_rolling_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| {
-            let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
-            let var = w
-                .iter()
-                .map(|v| {
-                    let dv = *v - m;
-                    dv * dv
-                })
-                .sum::<f64>()
-                / (w.len() as f64);
-            var.sqrt()
-        })
+    pub(super) fn eval_rolling_std(&self, arg_results: &[&[f64]]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        if arg_results.is_empty() || len == 0 {
+            return Vec::with_capacity(len);
+        }
+        let base = &arg_results[0];
+        let win = match Self::window_arg(arg_results, None) {
+            Ok(win) => win,
+            Err(_) => return Self::nan_output(len),
+        };
+        let mut out = vec![0.0; len];
+        if base.iter().any(|v| v.is_nan()) {
+            Self::rolling_apply_into(base, win, &mut out, &mut |w| {
+                let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
+                let var = w
+                    .iter()
+                    .map(|v| {
+                        let dv = *v - m;
+                        dv * dv
+                    })
+                    .sum::<f64>()
+                    / (w.len() as f64);
+                var.sqrt()
+            });
+        } else {
+            Self::rolling_var_incremental(base, win, &mut out);
+            for v in out.iter_mut() {
+                if !v.is_nan() {
+                    *v = v.sqrt();
+                }
+            }
+        }
+        out
     }
 
-    pub(super) fn eval_rolling_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| {
-            let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
-            w.iter()
-                .map(|v| {
-                    let dv = *v - m;
-                    dv * dv
-                })
-                .sum::<f64>()
-                / (w.len() as f64)
-        })
+    pub(super) fn eval_rolling_var(&self, arg_results: &[&[f64]]) -> Vec<f64> {
+        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
+        if arg_results.is_empty() || len == 0 {
+            return Vec::with_capacity(len);
+        }
+        let base = &arg_results[0];
+        let win = match Self::window_arg(arg_results, None) {
+            Ok(win) => win,
+            Err(_) => return Self::nan_output(len),
+        };
+        let mut out = vec![0.0; len];
+        if base.iter().any(|v| v.is_nan()) {
+            Self::rolling_apply_into(base, win, &mut out, &mut |w| {
+                let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
+                w.iter()
+                    .map(|v| {
+                        let dv = *v - m;
+                        dv * dv
+                    })
+                    .sum::<f64>()
+                    / (w.len() as f64)
+            });
+        } else {
+            Self::rolling_var_incremental(base, win, &mut out);
+        }
+        out
     }
 
-    pub(super) fn eval_rolling_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    /// O(n) incremental rolling population variance via running sum and sum-of-squares.
+    /// Requires NaN-free input; caller must check.
+    fn rolling_var_incremental(base: &[f64], win: usize, out: &mut [f64]) {
+        let len = base.len();
+        if win == 0 {
+            out.fill(f64::NAN);
+            return;
+        }
+        let w = win as f64;
+        let (mut s, mut s2) = (0.0_f64, 0.0_f64);
+        for i in 0..len {
+            s += base[i];
+            s2 += base[i] * base[i];
+            if i >= win {
+                s -= base[i - win];
+                s2 -= base[i - win] * base[i - win];
+            }
+            if i + 1 >= win {
+                let mean = s / w;
+                out[i] = (s2 / w - mean * mean).max(0.0);
+            } else {
+                out[i] = f64::NAN;
+            }
+        }
+    }
+
+    pub(super) fn eval_rolling_median(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.is_empty() || len == 0 {
             return Vec::with_capacity(len);
@@ -439,7 +534,7 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_shift(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_shift(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
@@ -458,7 +553,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    pub(super) fn eval_abs(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_abs(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         if let Some(base) = arg_results.first() {
             base.iter().map(|v| v.abs()).collect()
         } else {
@@ -466,7 +561,7 @@ impl CompiledExpr {
         }
     }
 
-    pub(super) fn eval_sign(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_sign(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         if let Some(base) = arg_results.first() {
             base.iter()
                 .map(|v| {
@@ -486,7 +581,7 @@ impl CompiledExpr {
         }
     }
 
-    pub(super) fn eval_rank(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_rank(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if !arg_results.is_empty() {
             let base = &arg_results[0];
@@ -515,7 +610,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    pub(super) fn eval_quantile(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_quantile(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
@@ -549,7 +644,7 @@ impl CompiledExpr {
         Vec::with_capacity(len)
     }
 
-    pub(super) fn eval_rolling_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_rolling_min(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.is_empty() || len == 0 {
             return Vec::with_capacity(len);
@@ -570,7 +665,7 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_rolling_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_rolling_max(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.is_empty() || len == 0 {
             return Vec::with_capacity(len);
@@ -591,7 +686,7 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_rolling_count(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_rolling_count(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.is_empty() || len == 0 {
             return Vec::with_capacity(len);
@@ -608,7 +703,7 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_ewm_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_ewm_std(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out: Vec<f64> = Vec::with_capacity(len);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
@@ -648,7 +743,7 @@ impl CompiledExpr {
         out
     }
 
-    pub(super) fn eval_ewm_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
+    pub(super) fn eval_ewm_var(&self, arg_results: &[&[f64]]) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out: Vec<f64> = Vec::with_capacity(len);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
@@ -693,7 +788,7 @@ impl CompiledExpr {
     pub(super) fn eval_function_core<C: ExpressionContext>(
         &self,
         fun: Function,
-        arg_results: &[Vec<f64>],
+        arg_results: &[&[f64]],
         _ctx: &C,
         _cols: &[&[f64]],
     ) -> crate::Result<Vec<f64>> {

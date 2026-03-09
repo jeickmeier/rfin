@@ -184,9 +184,7 @@ impl Payoff for CmsPayoff {
             if (state.time - target_time).abs() < 1e-6 || state.time >= target_time {
                 // Get short rate from state
                 let short_rate = state
-                    .vars
                     .get(crate::instruments::common_impl::models::monte_carlo::traits::state_keys::SHORT_RATE)
-                    .copied()
                     .unwrap_or(0.0);
 
                 // Compute CMS swap rate from short rate

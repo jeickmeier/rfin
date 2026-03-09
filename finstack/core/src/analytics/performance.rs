@@ -951,12 +951,22 @@ impl Performance {
     pub fn correlation_matrix(&self) -> Vec<Vec<f64>> {
         let n = self.ticker_names.len();
         let mut matrix = vec![vec![0.0; n]; n];
-        for (i, row) in matrix.iter_mut().enumerate().take(n) {
+
+        let variances: Vec<f64> = (0..n)
+            .map(|i| crate::math::stats::variance(self.active_returns(i)))
+            .collect();
+
+        for i in 0..n {
+            matrix[i][i] = 1.0;
             let ri = self.active_returns(i);
-            for (j, cell) in row.iter_mut().enumerate().take(n) {
+            for j in (i + 1)..n {
                 let rj = self.active_returns(j);
                 let len = ri.len().min(rj.len());
-                *cell = crate::math::stats::correlation(&ri[..len], &rj[..len]);
+                let cov = crate::math::stats::covariance(&ri[..len], &rj[..len]);
+                let denom = variances[i].sqrt() * variances[j].sqrt();
+                let corr = if denom == 0.0 { 0.0 } else { cov / denom };
+                matrix[i][j] = corr;
+                matrix[j][i] = corr;
             }
         }
         matrix

@@ -285,14 +285,11 @@ impl HazardCurve {
             return self.lambdas[0];
         }
 
-        for (i, &k) in self.knots.iter().enumerate() {
-            if t <= k {
-                return self.lambdas[i];
-            }
-        }
-
-        // Extrapolate with last lambda
-        self.lambdas[self.lambdas.len() - 1]
+        let idx = self
+            .knots
+            .partition_point(|&k| k < t)
+            .min(self.lambdas.len() - 1);
+        self.lambdas[idx]
     }
 
     /// Survival probability on a specific calendar date using the curve's day-count.
@@ -432,6 +429,74 @@ impl HazardCurve {
             .currency_opt(self.currency)
             .knots(self.knot_points())
             .par_spreads(self.par_spread_points())
+    }
+
+    /// Recompute the survival-probability interpolator from current knots/lambdas.
+    fn rebuild_interp(&mut self) -> crate::Result<()> {
+        use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
+
+        let mut interp_knots = Vec::with_capacity(self.knots.len() + 1);
+        let mut interp_sp = Vec::with_capacity(self.knots.len() + 1);
+        interp_knots.push(0.0);
+        interp_sp.push(1.0);
+
+        let mut accum = 0.0;
+        let mut prev_t = 0.0;
+        for (&t, &lambda) in self.knots.iter().zip(self.lambdas.iter()) {
+            if t <= 1e-9 {
+                prev_t = t;
+                continue;
+            }
+            accum += lambda * (t - prev_t);
+            interp_knots.push(t);
+            interp_sp.push((-accum).exp());
+            prev_t = t;
+        }
+
+        self.interp = super::common::build_interp(
+            InterpStyle::LogLinear,
+            interp_knots.into_boxed_slice(),
+            interp_sp.into_boxed_slice(),
+            ExtrapolationPolicy::FlatForward,
+        )?;
+        Ok(())
+    }
+
+    /// Apply a bump specification in-place, mutating lambda values and rebuilding the interpolator.
+    pub(crate) fn bump_in_place(
+        &mut self,
+        spec: &crate::market_data::bumps::BumpSpec,
+    ) -> crate::Result<()> {
+        use crate::market_data::bumps::BumpType;
+
+        if !matches!(spec.bump_type, BumpType::Parallel) {
+            return Err(crate::error::InputError::UnsupportedBump {
+                reason: "HazardCurve only supports Parallel bumps, not key-rate bumps".to_string(),
+            }
+            .into());
+        }
+
+        let recovery = self.recovery_rate;
+        let (spread, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
+            crate::error::InputError::UnsupportedBump {
+                reason: format!(
+                    "HazardCurve only supports Additive bumps, got {:?}/{:?}",
+                    spec.mode, spec.units
+                ),
+            }
+        })?;
+        if is_multiplicative {
+            return Err(crate::error::InputError::UnsupportedBump {
+                reason: "HazardCurve does not support Multiplicative bumps".to_string(),
+            }
+            .into());
+        }
+
+        let shift = spread / (1.0 - recovery);
+        for lambda in self.lambdas.iter_mut() {
+            *lambda = (*lambda + shift).max(0.0);
+        }
+        self.rebuild_interp()
     }
 
     /// Create a new curve with hazard rates shifted by a constant amount.

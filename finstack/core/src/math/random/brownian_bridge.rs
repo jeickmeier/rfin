@@ -24,6 +24,8 @@
 //!
 //! Reference: Moskowitz & Caflisch (1996) - "Smoothness and dimension reduction in QMC"
 
+use std::collections::BTreeSet;
+
 /// Brownian bridge construction order.
 ///
 /// Generates the sequence of time indices to sample in bridge order.
@@ -132,11 +134,16 @@ impl BrownianBridge {
         // Terminal point (standard Brownian motion)
         w_out[num_steps] = z[0] * (num_steps as f64 * dt).sqrt();
 
+        // O(log n) bracket lookups via BTreeSet of populated indices
+        let mut populated = BTreeSet::new();
+        populated.insert(0);
+        populated.insert(num_steps);
+
         // Fill in using bridge construction
         // z[0] is used for terminal, z[1..] for construction_order
         for (i, &idx) in self.construction_order.iter().enumerate() {
-            // Find left and right bracketing points
-            let (left, right) = self.find_brackets(idx, w_out);
+            // Find left and right bracketing points (O(log n) lookup)
+            let (left, right) = self.find_brackets(idx, &populated, num_steps);
 
             // Conditional mean: linear interpolation
             let left_time = left as f64 * dt;
@@ -151,28 +158,25 @@ impl BrownianBridge {
 
             // Generate point using z[i+1] (since z[0] is for terminal)
             w_out[idx] = conditional_mean + conditional_std * z[i + 1];
+            populated.insert(idx);
         }
     }
 
     /// Find left and right bracketing points for bridge construction.
-    fn find_brackets(&self, idx: usize, w: &[f64]) -> (usize, usize) {
-        // Find the closest populated points to the left and right
-        let mut left = 0;
-        for i in (0..idx).rev() {
-            if w[i].is_finite() {
-                left = i;
-                break;
-            }
-        }
-
-        let mut right = w.len() - 1;
-        for (i, &val) in w.iter().enumerate().skip(idx + 1) {
-            if val.is_finite() {
-                right = i;
-                break;
-            }
-        }
-
+    ///
+    /// Uses BTreeSet for O(log n) lookups instead of O(n) linear scan.
+    fn find_brackets(
+        &self,
+        idx: usize,
+        populated: &BTreeSet<usize>,
+        max_idx: usize,
+    ) -> (usize, usize) {
+        let left = populated.range(..idx).next_back().copied().unwrap_or(0);
+        let right = populated
+            .range(idx + 1..)
+            .next()
+            .copied()
+            .unwrap_or(max_idx);
         (left, right)
     }
 }

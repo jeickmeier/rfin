@@ -552,11 +552,7 @@ impl CompiledExpr {
         _cols: &[&[f64]],
         out: &mut [f64],
     ) -> crate::Result<()> {
-        // Convert slices to Vec for existing function implementations.
-        // Note: This copy is acceptable for current use cases. Future optimization
-        // could make eval_function_core work directly with slices.
-        let arg_results: Vec<Vec<f64>> = arg_slices.iter().map(|&s| s.to_vec()).collect();
-        let result = self.eval_function_core(fun, &arg_results, _ctx, _cols)?;
+        let result = self.eval_function_core(fun, arg_slices, _ctx, _cols)?;
         let copy_len = out.len().min(result.len());
         out[..copy_len].copy_from_slice(&result[..copy_len]);
         Ok(())

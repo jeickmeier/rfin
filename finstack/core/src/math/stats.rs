@@ -102,9 +102,26 @@ pub fn population_variance(xs: &[f64]) -> f64 {
     m2 / n as f64
 }
 
-/// Return (mean, variance) pair.
+/// Return (mean, variance) pair in a single Welford pass.
 pub fn mean_var(xs: &[f64]) -> (f64, f64) {
-    (mean(xs), variance(xs))
+    if xs.is_empty() {
+        return (0.0, 0.0);
+    }
+    let mut m = 0.0_f64;
+    let mut m2 = 0.0_f64;
+    let mut k = 0.0_f64;
+    for &x in xs {
+        k += 1.0;
+        let d = x - m;
+        m += d / k;
+        m2 += d * (x - m);
+    }
+    let var = if xs.len() < 2 {
+        0.0
+    } else {
+        m2 / (xs.len() - 1) as f64
+    };
+    (m, var)
 }
 
 /// Sample covariance (unbiased, n-1 denominator) between two equal-length slices.
@@ -134,15 +151,17 @@ pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
     co_moment / (n - 1) as f64
 }
 
-/// Pearson correlation.
+/// Pearson correlation in a single Welford pass via `OnlineCovariance`.
 pub fn correlation(x: &[f64], y: &[f64]) -> f64 {
-    let cov = covariance(x, y);
-    let vx = variance(x);
-    let vy = variance(y);
-    if vx == 0.0 || vy == 0.0 {
+    let n = x.len().min(y.len());
+    if n < 2 {
         return 0.0;
     }
-    cov / (vx.sqrt() * vy.sqrt())
+    let mut oc = OnlineCovariance::new();
+    for i in 0..n {
+        oc.update(x[i], y[i]);
+    }
+    oc.correlation()
 }
 
 /// Moment matching: adjust samples to have exact mean and variance.
