@@ -22,8 +22,8 @@ fn test_fx_equity_curve_combo() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
     // Setup FX
-    let fx_provider = Arc::new(SimpleFxProvider::new());
-    fx_provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+    let fx_provider =
+        Arc::new(SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 1.1));
     let fx_matrix = FxMatrix::new(fx_provider);
 
     // Setup curve

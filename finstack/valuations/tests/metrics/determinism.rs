@@ -314,6 +314,7 @@ mod tests {
             observed_max: None,
             pricing_overrides: Default::default(),
             attributes: Default::default(),
+            use_gobet_miri: false,
         };
 
         let market = create_mc_market(as_of, 100.0, 0.25, 0.05);

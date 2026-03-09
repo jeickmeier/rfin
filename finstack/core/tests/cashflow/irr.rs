@@ -464,44 +464,22 @@ fn irr_handles_99_percent_loss() {
 // =============================================================================
 
 #[test]
-fn irr_multiple_sign_changes_finds_a_root() {
+fn irr_multiple_sign_changes_is_rejected_as_ambiguous() {
     // Non-conventional cashflow pattern with multiple sign changes
     // These can have multiple mathematical IRR solutions
     // Pattern: -100, +320, -320, +100 (mining project style)
-    let amounts = vec![-100.0, 320.0, -320.0, 100.0];
+    let amounts = [-100.0, 320.0, -320.0, 100.0];
     let result = amounts.irr(None);
-
-    match result {
-        Ok(irr) => {
-            // Any valid root is acceptable for non-conventional patterns
-            let npv_at_irr = compute_periodic_npv(&amounts, irr);
-            assert!(
-                npv_at_irr.abs() < 1e-3,
-                "NPV at IRR should be ~0, got {}",
-                npv_at_irr
-            );
-        }
-        Err(_) => {
-            // May fail to converge for complex patterns - acceptable
-        }
-    }
+    assert!(result.is_err());
 }
 
 #[test]
-fn irr_two_sign_changes_pattern() {
+fn irr_two_sign_changes_pattern_is_rejected_as_ambiguous() {
     // Simpler two-sign-change pattern: invest, profit, reinvest
     // -100, +200, -50
-    let amounts = vec![-100.0, 200.0, -50.0];
+    let amounts = [-100.0, 200.0, -50.0];
     let result = amounts.irr(None);
-
-    if let Ok(irr) = result {
-        let npv_at_irr = compute_periodic_npv(&amounts, irr);
-        assert!(
-            npv_at_irr.abs() < 1e-6,
-            "NPV at IRR should be ~0, got {}",
-            npv_at_irr
-        );
-    }
+    assert!(result.is_err());
 }
 
 // =============================================================================
@@ -740,4 +718,14 @@ fn xirr_rejects_all_same_sign() {
     let flows = [(d(2025, 1, 1), 100_000.0), (d(2026, 1, 1), 200_000.0)];
     let result = flows.irr(None);
     assert!(result.is_err(), "All same sign flows should error");
+}
+
+#[test]
+fn irr_rejects_ambiguous_multi_root_cashflows() {
+    let amounts = [-100.0, 320.0, -320.0, 100.0];
+    let result = amounts.irr(None);
+    assert!(
+        result.is_err(),
+        "non-conventional cashflows with multiple sign changes should be rejected explicitly"
+    );
 }

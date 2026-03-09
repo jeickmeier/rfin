@@ -1,3 +1,9 @@
+//! Introspection and summary statistics for [`MarketContext`](super::MarketContext).
+//!
+//! This submodule exposes lightweight queries over stored market data, such as
+//! counts, grouped identifiers, and other read-only diagnostics intended for
+//! validation, debugging, and tests.
+
 use std::collections::BTreeMap;
 use std::sync::Arc;
 

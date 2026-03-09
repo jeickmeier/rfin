@@ -54,7 +54,9 @@ fn simple_fx_provider_identity_rates() {
 fn simple_fx_provider_set_and_get_direct() {
     let provider = SimpleFxProvider::new();
 
-    provider.set_quote(Currency::EUR, Currency::USD, 1.15);
+    provider
+        .set_quote(Currency::EUR, Currency::USD, 1.15)
+        .expect("valid test quote");
 
     // Direct lookup
     assert_eq!(
@@ -70,7 +72,9 @@ fn simple_fx_provider_set_and_get_direct() {
 fn simple_fx_provider_reciprocal_fallback() {
     let provider = SimpleFxProvider::new();
 
-    provider.set_quote(Currency::GBP, Currency::USD, 1.30);
+    provider
+        .set_quote(Currency::GBP, Currency::USD, 1.30)
+        .expect("valid test quote");
 
     // Direct rate
     let rate_direct = provider
@@ -99,11 +103,13 @@ fn simple_fx_provider_reciprocal_fallback() {
 fn simple_fx_provider_set_quotes_bulk() {
     let provider = SimpleFxProvider::new();
 
-    provider.set_quotes(&[
-        (Currency::EUR, Currency::USD, 1.10),
-        (Currency::GBP, Currency::USD, 1.25),
-        (Currency::JPY, Currency::USD, 0.0091),
-    ]);
+    provider
+        .set_quotes(&[
+            (Currency::EUR, Currency::USD, 1.10),
+            (Currency::GBP, Currency::USD, 1.25),
+            (Currency::JPY, Currency::USD, 0.0091),
+        ])
+        .expect("valid test quotes");
 
     // All should be retrievable
     assert_eq!(
@@ -125,14 +131,18 @@ fn simple_fx_provider_update_existing_quote() {
     let provider = SimpleFxProvider::new();
 
     // Set initial quote
-    provider.set_quote(Currency::EUR, Currency::USD, 1.10);
+    provider
+        .set_quote(Currency::EUR, Currency::USD, 1.10)
+        .expect("valid test quote");
     assert_eq!(
         provider.get_direct(Currency::EUR, Currency::USD),
         Some(1.10)
     );
 
     // Update quote
-    provider.set_quote(Currency::EUR, Currency::USD, 1.15);
+    provider
+        .set_quote(Currency::EUR, Currency::USD, 1.15)
+        .expect("valid test quote");
     assert_eq!(
         provider.get_direct(Currency::EUR, Currency::USD),
         Some(1.15)
@@ -142,7 +152,9 @@ fn simple_fx_provider_update_existing_quote() {
 #[test]
 fn simple_fx_provider_respects_policies() {
     let provider = SimpleFxProvider::new();
-    provider.set_quote(Currency::EUR, Currency::USD, 1.12);
+    provider
+        .set_quote(Currency::EUR, Currency::USD, 1.12)
+        .expect("valid test quote");
 
     // Provider should work with all policy types
     for policy in [
@@ -159,31 +171,11 @@ fn simple_fx_provider_respects_policies() {
 }
 
 #[test]
-fn simple_fx_provider_zero_rate_reciprocal() {
+fn simple_fx_provider_zero_rate_is_rejected() {
     let provider = SimpleFxProvider::new();
 
-    // Set a quote to zero (edge case)
-    provider.set_quote(Currency::EUR, Currency::USD, 0.0);
-
-    // Direct should work
-    let direct = provider
-        .rate(
-            Currency::EUR,
-            Currency::USD,
-            test_date(),
-            FxConversionPolicy::CashflowDate,
-        )
-        .unwrap();
-    assert_eq!(direct, 0.0);
-
-    // Reciprocal should fail (can't divide by zero, falls back to error)
-    let recip = provider.rate(
-        Currency::USD,
-        Currency::EUR,
-        test_date(),
-        FxConversionPolicy::CashflowDate,
-    );
-    assert!(recip.is_err());
+    let result = provider.set_quote(Currency::EUR, Currency::USD, 0.0);
+    assert!(result.is_err());
 }
 
 #[test]
@@ -191,12 +183,14 @@ fn simple_fx_provider_multiple_pairs() {
     let provider = SimpleFxProvider::new();
 
     // Set up multiple currency pairs
-    provider.set_quotes(&[
-        (Currency::USD, Currency::EUR, 0.92),
-        (Currency::USD, Currency::GBP, 0.79),
-        (Currency::USD, Currency::JPY, 110.0),
-        (Currency::EUR, Currency::GBP, 0.86),
-    ]);
+    provider
+        .set_quotes(&[
+            (Currency::USD, Currency::EUR, 0.92),
+            (Currency::USD, Currency::GBP, 0.79),
+            (Currency::USD, Currency::JPY, 110.0),
+            (Currency::EUR, Currency::GBP, 0.86),
+        ])
+        .expect("valid test quotes");
 
     // All direct rates should work
     assert_eq!(
@@ -259,14 +253,18 @@ fn simple_fx_provider_thread_safety() {
     let provider = Arc::new(SimpleFxProvider::new());
 
     // Set initial quote in main thread
-    provider.set_quote(Currency::EUR, Currency::USD, 1.10);
+    provider
+        .set_quote(Currency::EUR, Currency::USD, 1.10)
+        .expect("valid test quote");
 
     // Clone for thread
     let provider_clone = Arc::clone(&provider);
 
     // Update from another thread
     let handle = thread::spawn(move || {
-        provider_clone.set_quote(Currency::GBP, Currency::USD, 1.25);
+        provider_clone
+            .set_quote(Currency::GBP, Currency::USD, 1.25)
+            .expect("valid test quote");
     });
 
     handle.join().unwrap();
@@ -296,7 +294,7 @@ fn simple_fx_provider_many_currencies() {
         (Currency::USD, Currency::AUD, 1.45),
     ];
 
-    provider.set_quotes(&pairs);
+    provider.set_quotes(&pairs).expect("valid test quotes");
 
     // Verify all are stored correctly
     for (from, to, expected) in pairs {
@@ -312,7 +310,9 @@ fn simple_fx_provider_many_currencies() {
 #[test]
 fn simple_fx_provider_very_small_rate() {
     let provider = SimpleFxProvider::new();
-    provider.set_quote(Currency::EUR, Currency::USD, 1e-10);
+    provider
+        .set_quote(Currency::EUR, Currency::USD, 1e-10)
+        .expect("valid test quote");
 
     let direct = provider
         .rate(

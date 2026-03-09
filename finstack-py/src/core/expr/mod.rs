@@ -445,11 +445,10 @@ impl PyCompiledExpr {
         _cls: &Bound<'_, PyType>,
         expr: PyRef<PyExpr>,
         results_meta: PyRef<PyResultsMeta>,
-    ) -> Self {
-        Self::new(CoreCompiledExpr::with_planning(
-            expr.inner.clone(),
-            results_meta.inner.clone(),
-        ))
+    ) -> PyResult<Self> {
+        CoreCompiledExpr::with_planning(expr.inner.clone(), results_meta.inner.clone())
+            .map(Self::new)
+            .map_err(|err| PyValueError::new_err(err.to_string()))
     }
 
     #[pyo3(text_signature = "(self, budget_mb)")]
@@ -486,7 +485,10 @@ impl PyCompiledExpr {
         let slices: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
         let eval_opts = opts.map(|o| o.inner.clone()).unwrap_or_default();
 
-        let result = self.inner.eval(&ctx, &slices, eval_opts);
+        let result = self
+            .inner
+            .eval(&ctx, &slices, eval_opts)
+            .map_err(|err| PyValueError::new_err(err.to_string()))?;
         Ok(PyEvaluationResult::new(result))
     }
 }

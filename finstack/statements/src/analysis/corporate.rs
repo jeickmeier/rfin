@@ -300,10 +300,13 @@ pub(crate) fn evaluate_dcf_from_results_impl(
     }
 
     // Determine net debt
+    let net_debt_period = last_actual_period
+        .map(|period| period.id)
+        .or_else(|| first_forecast_period.map(|period| period.id));
     let net_debt = if let Some(override_val) = context.net_debt_override {
         override_val
     } else {
-        calculate_net_debt_from_model(model, results, last_actual_period.map(|period| period.id))?
+        calculate_net_debt_from_model(model, results, net_debt_period)?
     };
 
     // Determine valuation date. When historical actuals exist, anchor the DCF to the

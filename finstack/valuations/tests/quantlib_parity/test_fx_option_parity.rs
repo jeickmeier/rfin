@@ -100,7 +100,6 @@ fn create_market(as_of: Date) -> MarketContext {
         .expect("vol surface should build");
 
     let fx = FxMatrix::new(Arc::new(StaticFxProvider { rate: SPOT }));
-    fx.set_quote(BASE, QUOTE, SPOT);
 
     MarketContext::new()
         .insert(domestic_disc)

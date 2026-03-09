@@ -20,6 +20,7 @@ use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::term_structures::HazardCurve;
+use finstack_core::money::fx::FxQuery;
 use finstack_core::money::fx::{FxConfig, FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -126,7 +127,9 @@ fn market_context_roundtrip() {
         DividendSchedule::new("AAPL-DIVS").add_cash(test_date(), Money::new(1.0, Currency::USD));
 
     let fx_provider = Arc::new(SimpleFxProvider::new());
-    fx_provider.set_quote(Currency::USD, Currency::EUR, 1.1);
+    fx_provider
+        .set_quote(Currency::USD, Currency::EUR, 1.1)
+        .expect("valid test quote");
     let fx = FxMatrix::with_config(fx_provider, FxConfig::default());
 
     let ctx = MarketContext::new()
@@ -144,6 +147,43 @@ fn market_context_roundtrip() {
     assert!(deserialized.get_surface("VOL").is_ok());
     assert!(deserialized.get_dividend_schedule("AAPL-DIVS").is_ok());
     assert!(deserialized.fx().is_some());
+}
+
+#[test]
+fn market_context_restore_uses_quote_only_fx_snapshot() {
+    let fx_provider = Arc::new(SimpleFxProvider::new());
+    let fx = FxMatrix::with_config(
+        fx_provider,
+        FxConfig {
+            enable_triangulation: true,
+            pivot_currency: Currency::USD,
+            ..Default::default()
+        },
+    );
+    fx.set_quote(Currency::USD, Currency::EUR, 1.10)
+        .expect("valid test quote");
+    fx.set_quote(Currency::USD, Currency::GBP, 0.80)
+        .expect("valid test quote");
+
+    let ctx = MarketContext::new().insert_fx(fx);
+    let restored: MarketContext =
+        serde_json::from_str(&serde_json::to_string(&ctx).unwrap()).unwrap();
+    let restored_fx = restored.fx().expect("restored snapshot should contain FX");
+
+    let direct = restored_fx
+        .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
+        .expect("captured direct quote should restore");
+    assert!((direct.rate - 1.10).abs() < 1e-12);
+
+    let reciprocal = restored_fx
+        .rate(FxQuery::new(Currency::EUR, Currency::USD, test_date()))
+        .expect("reciprocal of captured quote should restore");
+    assert!((reciprocal.rate - (1.0 / 1.10)).abs() < 1e-12);
+
+    let triangulated = restored_fx
+        .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
+        .expect("restored snapshot should triangulate from captured quotes");
+    assert!((triangulated.rate - (1.0 / 1.10) * 0.80).abs() < 1e-12);
 }
 
 #[test]

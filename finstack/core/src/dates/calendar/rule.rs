@@ -478,19 +478,20 @@ fn buddhas_birthday_date(year: i32) -> Option<Date> {
 ///
 /// # Reference
 /// Japan National Astronomical Observatory (国立天文台)
-fn vernal_equinox_jp(year: i32) -> Date {
+fn vernal_equinox_jp(year: i32) -> Option<Date> {
+    if !(1900..=2100).contains(&year) {
+        return None;
+    }
     const VERNAL_EPOCH: i32 = 1980;
     const VERNAL_BASE: f64 = 20.8431;
     const VERNAL_SLOPE: f64 = 0.242194;
 
     let y = (year - VERNAL_EPOCH) as f64;
     let day = (VERNAL_BASE + VERNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
-    // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 31);
-    // March 21 - unwrap_or chain provides defensive fallbacks
     Date::from_calendar_date(year, Month::March, day)
         .or_else(|_| Date::from_calendar_date(year, Month::March, 21))
-        .unwrap_or(time::Date::MIN)
+        .ok()
 }
 
 /// Calculate Autumnal Equinox Day for Japan.
@@ -509,19 +510,20 @@ fn vernal_equinox_jp(year: i32) -> Date {
 ///
 /// # Reference
 /// Japan National Astronomical Observatory (国立天文台)
-fn autumnal_equinox_jp(year: i32) -> Date {
+fn autumnal_equinox_jp(year: i32) -> Option<Date> {
+    if !(1900..=2100).contains(&year) {
+        return None;
+    }
     const AUTUMNAL_EPOCH: i32 = 1980;
     const AUTUMNAL_BASE: f64 = 23.2488;
     const AUTUMNAL_SLOPE: f64 = 0.242194;
 
     let y = (year - AUTUMNAL_EPOCH) as f64;
     let day = (AUTUMNAL_BASE + AUTUMNAL_SLOPE * y - (y / 4.0).floor()).floor() as u8;
-    // Clamp to valid range and use fallback if needed
     let day = day.clamp(1, 30); // September has 30 days
-                                // September 23 - unwrap_or chain provides defensive fallbacks
     Date::from_calendar_date(year, Month::September, day)
         .or_else(|_| Date::from_calendar_date(year, Month::September, 23))
-        .unwrap_or(time::Date::MIN)
+        .ok()
 }
 
 #[inline]
@@ -595,14 +597,10 @@ impl Rule {
                 month,
                 day,
                 observed,
-            } => {
-                // If invalid date, return a date far in the past so it never matches
-                let base = apply_observed(
-                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or(time::Date::MIN),
-                    *observed,
-                );
-                base == date
-            }
+            } => Date::from_calendar_date(date.year(), *month, *day)
+                .ok()
+                .map(|base| apply_observed(base, *observed) == date)
+                .unwrap_or(false),
             Rule::NthWeekday { n, weekday, month } => {
                 let target = crate::dates::calendar::generated::nth_weekday_of_month(
                     date.year(),
@@ -617,13 +615,10 @@ impl Rule {
                 month,
                 day,
                 dir,
-            } => {
-                // If invalid date, return a date far in the past so it never matches
-                let base =
-                    Date::from_calendar_date(date.year(), *month, *day).unwrap_or(time::Date::MIN);
-                let d = shift_to_weekday(base, *weekday, *dir);
-                d == date
-            }
+            } => Date::from_calendar_date(date.year(), *month, *day)
+                .ok()
+                .map(|base| shift_to_weekday(base, *weekday, *dir) == date)
+                .unwrap_or(false),
             Rule::EasterOffset(offset) => {
                 let easter_mon = algo::easter_monday(date.year());
                 let target = easter_mon + Duration::days(*offset as i64);
@@ -653,8 +648,8 @@ impl Rule {
             Rule::BuddhasBirthday => {
                 buddhas_birthday_date(date.year()).map_or(false, |d| d == date)
             }
-            Rule::VernalEquinoxJP => date == vernal_equinox_jp(date.year()),
-            Rule::AutumnalEquinoxJP => date == autumnal_equinox_jp(date.year()),
+            Rule::VernalEquinoxJP => vernal_equinox_jp(date.year()).is_some_and(|d| d == date),
+            Rule::AutumnalEquinoxJP => autumnal_equinox_jp(date.year()).is_some_and(|d| d == date),
         }
     }
 }
@@ -673,13 +668,8 @@ impl Rule {
                 day,
                 observed,
             } => {
-                // If invalid date, use MIN which will be filtered out below
-                let base = apply_observed(
-                    Date::from_calendar_date(year, *month, *day).unwrap_or(time::Date::MIN),
-                    *observed,
-                );
-                // Only push if it's a valid date (not our fallback)
-                if base != time::Date::MIN {
+                if let Ok(base) = Date::from_calendar_date(year, *month, *day) {
+                    let base = apply_observed(base, *observed);
                     out.push(base);
                 }
             }
@@ -695,10 +685,7 @@ impl Rule {
                 day,
                 dir,
             } => {
-                // If invalid date, use MIN which will be filtered out below
-                let base = Date::from_calendar_date(year, *month, *day).unwrap_or(time::Date::MIN);
-                // Only push if it's a valid date (not our fallback)
-                if base != time::Date::MIN {
+                if let Ok(base) = Date::from_calendar_date(year, *month, *day) {
                     out.push(shift_to_weekday(base, *weekday, *dir));
                 }
             }
@@ -721,11 +708,7 @@ impl Rule {
                 }
             }
             Rule::QingMing => {
-                // If invalid date, use MIN which will be filtered out below
-                let d = Date::from_calendar_date(year, Month::April, qing_ming_day(year))
-                    .unwrap_or(time::Date::MIN);
-                // Only push if it's a valid date (not our fallback)
-                if d != time::Date::MIN {
+                if let Ok(d) = Date::from_calendar_date(year, Month::April, qing_ming_day(year)) {
                     out.push(d);
                 }
             }
@@ -734,8 +717,16 @@ impl Rule {
                     out.push(d);
                 }
             }
-            Rule::VernalEquinoxJP => out.push(vernal_equinox_jp(year)),
-            Rule::AutumnalEquinoxJP => out.push(autumnal_equinox_jp(year)),
+            Rule::VernalEquinoxJP => {
+                if let Some(d) = vernal_equinox_jp(year) {
+                    out.push(d);
+                }
+            }
+            Rule::AutumnalEquinoxJP => {
+                if let Some(d) = autumnal_equinox_jp(year) {
+                    out.push(d);
+                }
+            }
         }
     }
 }

@@ -11,11 +11,14 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_core::market_data::context::{BumpSpec, MarketContext};
 use finstack_core::market_data::surfaces::VolSurface;
+use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::market_data::term_structures::HazardCurve;
 use finstack_core::types::CurveId;
 use std::hint::black_box;
+use std::sync::Arc;
 use time::Month;
 
 fn create_base_date() -> Date {
@@ -89,6 +92,13 @@ fn create_vol_surface(id: &str, n_expiries: usize, n_strikes: usize) -> VolSurfa
     builder.build().expect("VolSurface builder should succeed")
 }
 
+fn create_base_correlation_curve(id: &str) -> BaseCorrelationCurve {
+    BaseCorrelationCurve::builder(id)
+        .knots([(3.0, 0.25), (7.0, 0.40), (10.0, 0.55)])
+        .build()
+        .expect("BaseCorrelationCurve builder should succeed")
+}
+
 fn create_populated_context(num_curves: usize, points_per_curve: usize) -> MarketContext {
     let mut ctx = MarketContext::new();
 
@@ -107,6 +117,29 @@ fn create_populated_context(num_curves: usize, points_per_curve: usize) -> Marke
     for i in 0..5 {
         let surface = create_vol_surface(&format!("VOL-{}", i), 10, 10);
         ctx = ctx.insert_surface(surface);
+    }
+
+    ctx
+}
+
+fn create_credit_index_context(count: usize, points_per_curve: usize) -> MarketContext {
+    let mut ctx = MarketContext::new();
+
+    for i in 0..count {
+        let hazard = create_hazard_curve(&format!("CDX-HAZ-{}", i), points_per_curve);
+        let base_corr = create_base_correlation_curve(&format!("CDX-BC-{}", i));
+        let credit_index = CreditIndexData::builder()
+            .num_constituents(125)
+            .recovery_rate(0.4)
+            .index_credit_curve(Arc::new(hazard.clone()))
+            .base_correlation_curve(Arc::new(base_corr.clone()))
+            .build()
+            .expect("CreditIndexData builder should succeed");
+
+        ctx = ctx
+            .insert(hazard)
+            .insert(base_corr)
+            .insert_credit_index(format!("CDX-{}", i), credit_index);
     }
 
     ctx
@@ -297,11 +330,35 @@ fn bench_batch_lookups(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_credit_index_rebinding(c: &mut Criterion) {
+    let mut group = c.benchmark_group("market_context_credit_rebinding");
+    let ctx = create_credit_index_context(20, 20);
+
+    group.bench_function("bump_hazard_curves_with_credit_indices", |b| {
+        let bumps: Vec<MarketBump> = (0..10)
+            .map(|i| MarketBump::Curve {
+                id: CurveId::new(format!("CDX-HAZ-{}", i)),
+                spec: BumpSpec::parallel_bp(10.0),
+            })
+            .collect();
+
+        b.iter(|| {
+            let bumped = black_box(&ctx)
+                .bump(black_box(bumps.clone()))
+                .expect("hazard bumps should succeed");
+            black_box(bumped);
+        })
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_context_curve_lookup,
     bench_context_bump_operations,
     bench_context_clone,
     bench_batch_lookups,
+    bench_credit_index_rebinding,
 );
 criterion_main!(benches);

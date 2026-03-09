@@ -99,6 +99,8 @@ pub(crate) mod common;
 mod credit_index;
 /// Discount factor curves.
 mod discount_curve;
+/// Builder for discount factor curves.
+mod discount_curve_builder;
 /// Flat forward/discount curves.
 mod flat;
 /// Forward‐rate curves.

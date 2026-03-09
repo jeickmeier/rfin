@@ -21,12 +21,12 @@
 //!   "accounts": [
 //!     {
 //!       "node_id": "cash",
-//!       "type": "asset",
+//!       "account_type": "asset",
 //!       "changes": ["cash_inflows", "cash_outflows"]
 //!     },
 //!     {
 //!       "node_id": "debt",
-//!       "type": "liability",
+//!       "account_type": "liability",
 //!       "changes": ["debt_issuance", "debt_repayment"]
 //!     }
 //!   ],
@@ -34,18 +34,20 @@
 //! }
 //! ```
 //!
-//! # Example Usage (Future)
+//! # Example Usage
 //!
 //! ```rust,no_run
 //! use finstack_statements::extensions::{CorkscrewExtension, ExtensionRegistry};
 //! use finstack_statements::extensions::ExtensionContext;
 //!
 //! # fn main() -> finstack_statements::Result<()> {
+//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
+//! let config = serde_json::json!({
+//!   "accounts": [{"node_id": "cash", "account_type": "asset"}]
+//! });
 //! let mut registry = ExtensionRegistry::new();
 //! registry.register(Box::new(CorkscrewExtension::new()))?;
-//!
-//! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
-//! let results = registry.execute_all(&context)?;
+//! let results = registry.execute("corkscrew", &context.with_config(&config))?;
 //! # let _ = results;
 //! # Ok(())
 //! # }

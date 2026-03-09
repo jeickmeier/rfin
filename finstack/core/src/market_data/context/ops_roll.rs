@@ -1,3 +1,9 @@
+//! Time-roll helpers for [`MarketContext`](super::MarketContext).
+//!
+//! These methods advance market-data curves forward in time without applying
+//! carry or theta adjustments, which is useful for roll-down and constant-curve
+//! scenario analysis.
+
 use crate::collections::HashMap;
 use std::sync::Arc;
 
@@ -55,6 +61,24 @@ impl MarketContext {
     /// # }
     /// ```
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
+        let (ctx, _info) = self.roll_forward_observed(days)?;
+        Ok(ctx)
+    }
+
+    /// Like [`roll_forward`](Self::roll_forward), but also returns
+    /// [`ContextMutationInfo`](super::ContextMutationInfo) describing any
+    /// credit indices invalidated by the roll.
+    pub fn roll_forward_observed(
+        &self,
+        days: i64,
+    ) -> crate::Result<(Self, super::ContextMutationInfo)> {
+        #[cfg(feature = "tracing")]
+        tracing::debug!(
+            days,
+            curve_count = self.curves.len(),
+            credit_index_count = self.credit_indices.len(),
+            "rolling MarketContext forward"
+        );
         // NOTE: Non-curve fields (surfaces, fx, credit_indices, etc.) are
         // shallow-cloned and retain references to pre-roll state. This is
         // intentional for performance — callers needing fully consistent
@@ -117,8 +141,13 @@ impl MarketContext {
                 .credit_indices
                 .insert(id.clone(), Arc::clone(credit_index));
         }
-        new_ctx.rebind_all_credit_indices();
+        let invalidated = new_ctx.rebind_all_credit_indices();
 
-        Ok(new_ctx)
+        Ok((
+            new_ctx,
+            super::ContextMutationInfo {
+                invalidated_credit_indices: invalidated,
+            },
+        ))
     }
 }

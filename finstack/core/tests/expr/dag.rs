@@ -79,7 +79,7 @@ fn test_dag_dedup_same_structure() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![rm_a, rm_b], meta);
+    let plan = builder.build_plan(vec![rm_a, rm_b], meta).unwrap();
 
     // Expect nodes: Column(x), Literal(3), RollingMean — deduped shared RollingMean root appears once
     // but roots vector will have two entries pointing to the same node id.
@@ -119,7 +119,7 @@ fn test_dag_simple_expression() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![rolling_mean], meta);
+    let plan = builder.build_plan(vec![rolling_mean], meta).unwrap();
 
     // Should have nodes for: Column("x"), Literal(3.0), RollingMean
     assert_eq!(plan.nodes.len(), 3);
@@ -153,7 +153,9 @@ fn test_dag_shared_subexpressions() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![rolling_mean, rolling_sum], meta);
+    let plan = builder
+        .build_plan(vec![rolling_mean, rolling_sum], meta)
+        .unwrap();
 
     // Should deduplicate shared subexpressions
     // Nodes: Column("x"), Literal(3.0), RollingMean, RollingSum
@@ -200,7 +202,9 @@ fn test_dag_different_function_types() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![rolling_mean, cum_sum], meta);
+    let plan = builder
+        .build_plan(vec![rolling_mean, cum_sum], meta)
+        .unwrap();
 
     // Verify that the expected nodes exist in the plan
     plan.nodes
@@ -238,7 +242,7 @@ fn test_dag_cost_estimation() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![lag, rolling_std], meta);
+    let plan = builder.build_plan(vec![lag, rolling_std], meta).unwrap();
 
     // Find nodes and check costs
     let lag_node = plan
@@ -288,7 +292,7 @@ fn test_dag_cache_strategy() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![expr1, expr2], meta);
+    let plan = builder.build_plan(vec![expr1, expr2], meta).unwrap();
 
     // Cache strategy should recommend caching the expensive shared operation
     let rolling_std_node = plan
@@ -328,7 +332,7 @@ fn test_dag_dependency_chain() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![diff_lag], meta);
+    let plan = builder.build_plan(vec![diff_lag], meta).unwrap();
 
     // Verify topological order: Column should come first, then Lag, then Diff
     let mut found_column = false;
@@ -368,7 +372,7 @@ fn test_dag_empty_plan() {
         timestamp: None,
         version: None,
     };
-    let plan = builder.build_plan(vec![], meta);
+    let plan = builder.build_plan(vec![], meta).unwrap();
 
     assert!(plan.nodes.is_empty());
     assert!(plan.roots.is_empty());

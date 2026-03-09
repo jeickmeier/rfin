@@ -164,6 +164,54 @@ fn fx_matrix_cache_distinguishes_query_date_and_policy() {
 }
 
 #[test]
+fn fx_matrix_try_with_config_rejects_zero_capacity() {
+    let err = FxMatrix::try_with_config(
+        Arc::new(StaticFx { rate: 1.0 }),
+        FxConfig {
+            cache_capacity: 0,
+            ..Default::default()
+        },
+    )
+    .err()
+    .expect("zero-capacity cache should be rejected by the strict constructor");
+
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
+}
+
+#[test]
+fn fx_matrix_set_quote_rejects_invalid_rates_without_mutating_state() {
+    struct MissingFx;
+    impl FxProvider for MissingFx {
+        fn rate(
+            &self,
+            from: Currency,
+            to: Currency,
+            _on: Date,
+            _policy: FxConversionPolicy,
+        ) -> finstack_core::Result<FxRate> {
+            Err(finstack_core::InputError::NotFound {
+                id: format!("FX:{from}->{to}"),
+            }
+            .into())
+        }
+    }
+
+    let matrix = FxMatrix::new(Arc::new(MissingFx));
+
+    let err = matrix
+        .set_quote(Currency::GBP, Currency::USD, 0.0)
+        .expect_err("non-positive FX rate should be rejected");
+    assert!(matches!(err, finstack_core::Error::Input(_)));
+
+    let jan_1 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let lookup = matrix.rate(FxQuery::new(Currency::GBP, Currency::USD, jan_1));
+    assert!(
+        lookup.is_err(),
+        "rejecting an explicit quote should leave the matrix without that quote"
+    );
+}
+
+#[test]
 fn with_bumped_rate_invalidates_cached_crosses() {
     struct PivotFx;
     impl FxProvider for PivotFx {

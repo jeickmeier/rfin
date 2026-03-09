@@ -1,3 +1,9 @@
+//! ATM volatility conversion utilities across quoting conventions.
+//!
+//! The functions in this submodule convert volatility quotes by equating model
+//! prices under normal, lognormal, and shifted-lognormal conventions, with
+//! explicit validation and deterministic solver behavior.
+
 use super::conventions::{validate_forward_for_convention, VolatilityConvention};
 use super::pricing::{bachelier_call, black_call, black_shifted_call};
 use crate::error::InputError;

@@ -1,3 +1,9 @@
+//! Serializable state representations for [`MarketContext`](super::MarketContext).
+//!
+//! This submodule defines the serde-facing snapshot types used to persist and
+//! restore market contexts, including typed curve state, FX state, and scalar
+//! containers.
+
 use std::sync::Arc;
 
 use crate::collections::HashMap;
@@ -11,7 +17,9 @@ use crate::market_data::{
     scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
 };
-use crate::money::fx::{FxMatrix, FxMatrixState, FxProvider, SimpleFxProvider};
+use crate::money::fx::{
+    reciprocal_rate_or_err, FxConversionPolicy, FxMatrix, FxMatrixState, FxProvider,
+};
 
 // -----------------------------------------------------------------------------
 // Serde: CurveState and (De)Serialize impls
@@ -178,6 +186,51 @@ pub struct MarketContextState {
     pub collateral: std::collections::BTreeMap<String, String>,
 }
 
+/// Quote-only FX provider used when restoring persisted market snapshots.
+///
+/// Snapshot restore is intentionally limited to the explicit quotes captured in
+/// [`FxMatrixState`]. This avoids pretending that an arbitrary live provider can
+/// be reconstructed from serialized cache state alone.
+#[derive(Default)]
+struct SnapshotFxProvider {
+    quotes: std::collections::BTreeMap<(crate::currency::Currency, crate::currency::Currency), f64>,
+}
+
+impl SnapshotFxProvider {
+    fn from_state(state: &FxMatrixState) -> Self {
+        let quotes = state
+            .quotes
+            .iter()
+            .map(|(from, to, rate)| ((*from, *to), *rate))
+            .collect();
+        Self { quotes }
+    }
+}
+
+impl FxProvider for SnapshotFxProvider {
+    fn rate(
+        &self,
+        from: crate::currency::Currency,
+        to: crate::currency::Currency,
+        _on: crate::dates::Date,
+        _policy: FxConversionPolicy,
+    ) -> crate::Result<f64> {
+        if from == to {
+            return Ok(1.0);
+        }
+        if let Some(rate) = self.quotes.get(&(from, to)).copied() {
+            return Ok(rate);
+        }
+        if let Some(rate) = self.quotes.get(&(to, from)).copied() {
+            return reciprocal_rate_or_err(rate, to, from);
+        }
+        Err(crate::error::InputError::NotFound {
+            id: format!("FX snapshot:{from}->{to}"),
+        }
+        .into())
+    }
+}
+
 impl From<&MarketContext> for MarketContextState {
     fn from(ctx: &MarketContext) -> Self {
         // Convert all curves (sort deterministically by id for stable snapshots).
@@ -329,11 +382,17 @@ impl TryFrom<MarketContextState> for MarketContext {
             ctx.surfaces.insert(surface.id().clone(), Arc::new(surface));
         }
 
-        // Reconstruct FX matrix if present (using a simple provider to host cached quotes)
+        // Reconstruct FX matrix as a quote-only snapshot. Persisted state does not
+        // encode the original live provider, only the captured explicit quotes.
         if let Some(fx_state) = state.fx {
-            let provider: Arc<dyn FxProvider> = Arc::new(SimpleFxProvider::new());
-            let matrix = FxMatrix::with_config(Arc::clone(&provider), fx_state.config);
-            matrix.load_from_state(&fx_state);
+            #[cfg(feature = "tracing")]
+            tracing::info!(
+                explicit_quote_count = fx_state.quotes.len(),
+                "restoring MarketContext FX as quote-only snapshot"
+            );
+            let provider: Arc<dyn FxProvider> = Arc::new(SnapshotFxProvider::from_state(&fx_state));
+            let matrix = FxMatrix::try_with_config(Arc::clone(&provider), fx_state.config)?;
+            matrix.load_from_state(&fx_state)?;
             ctx.fx = Some(Arc::new(matrix));
         }
 
@@ -396,7 +455,7 @@ impl TryFrom<MarketContextState> for MarketContext {
             ctx.credit_indices
                 .insert(CurveId::from(credit_state.id), Arc::new(data));
         }
-        ctx.rebind_all_credit_indices();
+        let _invalidated = ctx.rebind_all_credit_indices();
 
         // Reconstruct FX delta vol surfaces
         for surface in state.fx_delta_vol_surfaces {

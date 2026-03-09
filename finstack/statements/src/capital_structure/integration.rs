@@ -5,6 +5,7 @@
 
 use crate::capital_structure::types::*;
 use crate::error::Result;
+use crate::evaluator::EvalWarning;
 use crate::types::DebtInstrumentSpec;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, Period, PeriodId};
@@ -50,7 +51,7 @@ pub fn calculate_period_flows(
     opening_balance: Money,
     market_ctx: &MarketContext,
     as_of: Date,
-) -> Result<(CashflowBreakdown, Money)> {
+) -> Result<(CashflowBreakdown, Money, Vec<EvalWarning>)> {
     let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
     let currency = full_schedule.notional.initial.currency();
     if opening_balance.amount() != 0.0 && opening_balance.currency() != currency {
@@ -60,6 +61,7 @@ pub fn calculate_period_flows(
         ));
     }
     let mut breakdown = CashflowBreakdown::with_currency(currency);
+    let mut warnings = Vec::new();
     let snapshot_date = period_snapshot_date(period);
     let outstanding_path = full_schedule.outstanding_by_date()?;
     let scheduled_opening = outstanding_path
@@ -119,6 +121,11 @@ pub fn calculate_period_flows(
                 }
                 CFKind::DefaultedNotional | CFKind::Recovery => {
                     // Credit events are not modeled as part of standard debt service in statements.
+                    warnings.push(EvalWarning::CapitalStructureCashflowIgnored {
+                        period: period.id,
+                        kind: format!("{:?}", cf.kind),
+                        cashflow_date: cf.date.to_string(),
+                    });
                     tracing::warn!(
                         "Ignoring credit-event CFKind={:?} for period flow calc (date={:?})",
                         cf.kind,
@@ -127,6 +134,11 @@ pub fn calculate_period_flows(
                 }
                 _ => {
                     // CFKind is non-exhaustive; ignore unknown variants to avoid misclassification.
+                    warnings.push(EvalWarning::CapitalStructureCashflowIgnored {
+                        period: period.id,
+                        kind: format!("{:?}", cf.kind),
+                        cashflow_date: cf.date.to_string(),
+                    });
                     tracing::warn!(
                         "Unhandled CFKind={:?} for period flow calc (date={:?}); ignoring",
                         cf.kind,
@@ -207,7 +219,7 @@ pub fn calculate_period_flows(
     };
     breakdown.accrued_interest = Money::new(accrued_interest, currency);
 
-    Ok((breakdown, closing_balance))
+    Ok((breakdown, closing_balance, warnings))
 }
 
 /// Aggregate cashflows from instruments by period using valuations infrastructure.
@@ -551,7 +563,7 @@ pub fn aggregate_instrument_cashflows(
 }
 
 /// Convert a money amount into the reporting currency when FX data is available.
-fn convert_to_reporting(
+pub(crate) fn convert_to_reporting(
     money: finstack_core::money::Money,
     on: Date,
     reporting_currency: Option<Currency>,
@@ -796,7 +808,7 @@ mod tests {
         };
 
         let market_ctx = MarketContext::new();
-        let (breakdown, _) = calculate_period_flows(
+        let (breakdown, _, warnings) = calculate_period_flows(
             &instrument,
             &period,
             Money::new(1_000_000.0, Currency::USD),
@@ -805,6 +817,7 @@ mod tests {
         )
         .expect("period flow calculation should succeed");
 
+        assert!(warnings.is_empty());
         assert_eq!(breakdown.interest_expense_cash.amount(), -50_000.0);
     }
 
@@ -847,7 +860,7 @@ mod tests {
         };
 
         let market_ctx = MarketContext::new();
-        let (breakdown, closing_balance) = calculate_period_flows(
+        let (breakdown, closing_balance, warnings) = calculate_period_flows(
             &instrument,
             &period,
             Money::new(0.0, Currency::USD),
@@ -856,6 +869,7 @@ mod tests {
         )
         .expect("period flow calculation should succeed");
 
+        assert!(warnings.is_empty());
         assert_eq!(breakdown.interest_expense_cash.amount(), 0.0);
         assert_eq!(breakdown.principal_payment.amount(), 0.0);
         assert_eq!(breakdown.accrued_interest.amount(), 0.0);
@@ -891,7 +905,7 @@ mod tests {
         };
 
         let market_ctx = MarketContext::new();
-        let (breakdown, closing_balance) = calculate_period_flows(
+        let (breakdown, closing_balance, warnings) = calculate_period_flows(
             &instrument,
             &period,
             Money::new(0.0, Currency::USD),
@@ -900,6 +914,7 @@ mod tests {
         )
         .expect("period flow calculation should succeed");
 
+        assert!(warnings.is_empty());
         assert_eq!(breakdown.interest_expense_cash.amount(), 0.0);
         assert_eq!(breakdown.principal_payment.amount(), 0.0);
         assert_eq!(breakdown.debt_balance.amount(), 100_000.0);

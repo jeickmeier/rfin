@@ -1,3 +1,9 @@
+//! Insert and builder-style mutation APIs for [`MarketContext`](super::MarketContext).
+//!
+//! These methods define the canonical write path for adding curves, surfaces,
+//! scalars, FX state, and dividend schedules to a market context while
+//! preserving its fluent, clone-friendly construction style.
+
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;
@@ -31,7 +37,9 @@ impl MarketContext {
         let curve: CurveStorage = curve.into();
         let id = curve.id().to_owned();
         self.curves.insert(id, curve);
-        self.rebind_all_credit_indices();
+        if !self.credit_indices.is_empty() {
+            let _invalidated = self.rebind_all_credit_indices();
+        }
         self
     }
 
@@ -232,7 +240,6 @@ impl MarketContext {
     pub fn insert_credit_index(mut self, id: impl AsRef<str>, data: CreditIndexData) -> Self {
         let key = CurveId::from(id.as_ref());
         self.credit_indices.insert(key, Arc::new(data));
-        self.rebind_all_credit_indices();
         self
     }
 

@@ -1,3 +1,9 @@
+//! Type-safe getters and lookup helpers for [`MarketContext`](super::MarketContext).
+//!
+//! This submodule centralizes read-side access to typed curves, surfaces, market
+//! scalars, and auxiliary context state while keeping lookup errors and curve-type
+//! mismatches consistent across the public API.
+
 use std::sync::Arc;
 
 use crate::collections::HashMap;
@@ -356,7 +362,7 @@ impl MarketContext {
 
         // Update the context
         self.credit_indices.insert(cid, Arc::new(updated_index));
-        self.rebind_all_credit_indices();
+        let _invalidated = self.rebind_all_credit_indices();
         true
     }
 }

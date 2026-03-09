@@ -18,6 +18,7 @@ use super::{
     dag::{DagBuilder, ExecutionPlan},
 };
 use crate::collections::HashMap;
+use smallvec::SmallVec;
 use std::sync::{Mutex, OnceLock};
 use std::vec::Vec;
 
@@ -47,7 +48,7 @@ use std::vec::Vec;
 ///     plan: None,
 ///     cache_budget_mb: Some(16),
 /// };
-/// let out = expr.eval(&ctx, &cols, opts);
+/// let out = expr.eval(&ctx, &cols, opts).expect("column lookup should succeed");
 /// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```
 #[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
@@ -95,7 +96,7 @@ pub struct CompiledExpr {
     pub cache: Option<CacheManager>,
     /// Small scratch arena to reuse temporary buffers within hot paths.
     #[serde(skip, default = "default_scratch")]
-    scratch: Mutex<ScratchArena>,
+    pub(super) scratch: Mutex<ScratchArena>,
     /// Lazily-built fallback plan, populated on first `eval()` when `plan` is None.
     /// Prevents rebuilding the DAG on every call for expressions created via `new()`.
     #[serde(skip)]
@@ -108,11 +109,11 @@ fn default_scratch() -> Mutex<ScratchArena> {
 
 /// Tiny reusable scratch buffers for hot evaluation paths.
 #[derive(Default, Debug)]
-struct ScratchArena {
+pub(super) struct ScratchArena {
     /// Generic temporary buffer for algorithms (e.g., median, sorts).
-    tmp: Vec<f64>,
+    pub(super) tmp: Vec<f64>,
     /// Window buffer for rolling operations that need a writable copy.
-    window: Vec<f64>,
+    pub(super) window: Vec<f64>,
 }
 
 impl Clone for CompiledExpr {
@@ -141,18 +142,18 @@ impl CompiledExpr {
     }
 
     /// Construct with DAG planning enabled.
-    pub fn with_planning(ast: Expr, meta: crate::config::ResultsMeta) -> Self {
+    pub fn with_planning(ast: Expr, meta: crate::config::ResultsMeta) -> crate::Result<Self> {
         let mut builder = DagBuilder::new();
-        let plan = builder.build_plan(vec![ast.clone()], meta);
+        let plan = builder.build_plan(vec![ast.clone()], meta)?;
         let cache = CacheManager::for_plan(&plan, 100); // 100MB default
 
-        Self {
+        Ok(Self {
             ast,
             plan: Some(plan),
             cache: Some(cache),
             scratch: Mutex::new(ScratchArena::default()),
             lazy_plan: OnceLock::new(),
-        }
+        })
     }
 
     /// Enable caching with the given budget.
@@ -174,19 +175,20 @@ impl CompiledExpr {
         ctx: &C,
         cols: &[&[f64]],
         opts: EvalOpts,
-    ) -> EvaluationResult {
+    ) -> crate::Result<EvaluationResult> {
         // Decide on execution plan preference: opts > self > lazy-cached auto-build
-        let plan_to_use: ExecutionPlan =
-            opts.plan.or_else(|| self.plan.clone()).unwrap_or_else(|| {
-                self.lazy_plan
-                    .get_or_init(|| {
-                        let mut builder = DagBuilder::new();
-                        let meta =
-                            crate::config::results_meta(&crate::config::FinstackConfig::default());
-                        builder.build_plan(vec![self.ast.clone()], meta)
-                    })
-                    .clone()
-            });
+        let plan_to_use: ExecutionPlan = if let Some(plan) = opts.plan.or_else(|| self.plan.clone())
+        {
+            plan
+        } else if let Some(plan) = self.lazy_plan.get() {
+            plan.clone()
+        } else {
+            let mut builder = DagBuilder::new();
+            let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
+            let plan = builder.build_plan(vec![self.ast.clone()], meta)?;
+            let _ = self.lazy_plan.set(plan.clone());
+            plan
+        };
 
         // Decide on cache to use for this evaluation
         let eval_cache: Option<CacheManager> = if let Some(budget) = opts.cache_budget_mb {
@@ -194,6 +196,14 @@ impl CompiledExpr {
         } else {
             self.cache.clone()
         };
+
+        #[cfg(feature = "tracing")]
+        tracing::debug!(
+            row_count = cols.first().map(|c| c.len()).unwrap_or(0),
+            plan_nodes = plan_to_use.nodes.len(),
+            cache_enabled = eval_cache.is_some(),
+            "evaluating compiled expression"
+        );
 
         // Compute values using the chosen strategy
         let values: Vec<f64> = {
@@ -230,7 +240,7 @@ impl CompiledExpr {
                 // Split the arena to avoid borrow conflicts
                 let (arena_deps, arena_out) = arena.split_at_mut(start);
                 let out_slice = &mut arena_out[..len];
-                self.eval_node_into(ctx, cols, node, arena_deps, &offsets, out_slice);
+                self.eval_node_into(ctx, cols, node, arena_deps, &offsets, out_slice)?;
 
                 // Cache store
                 if let Some(ref cache) = eval_cache {
@@ -257,10 +267,10 @@ impl CompiledExpr {
         // Stamp minimal metadata only at IO boundaries; evaluator does not record timings/cache/parallel
         let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
 
-        EvaluationResult {
+        Ok(EvaluationResult {
             values,
             metadata: meta,
-        }
+        })
     }
 
     /// Evaluate a single DAG node directly into a provided output slice (arena-based).
@@ -272,16 +282,20 @@ impl CompiledExpr {
         arena: &[f64],
         offsets: &HashMap<u64, (usize, usize)>,
         out: &mut [f64],
-    ) {
+    ) -> crate::Result<()> {
         match &node.expr.node {
             ExprNode::Column(name) => {
                 let Some(idx) = ctx.resolve_index(name) else {
-                    out.fill(f64::NAN);
-                    return;
+                    return Err(crate::error::InputError::NotFound {
+                        id: format!("expr column:{name}"),
+                    }
+                    .into());
                 };
                 let Some(col_data) = cols.get(idx) else {
-                    out.fill(f64::NAN);
-                    return;
+                    return Err(crate::Error::Validation(format!(
+                        "Expression context resolved column '{name}' to index {idx}, but only {} data columns were provided",
+                        cols.len()
+                    )));
                 };
                 let len = out.len().min(col_data.len());
                 out[..len].copy_from_slice(&col_data[..len]);
@@ -292,7 +306,7 @@ impl CompiledExpr {
             }
             ExprNode::Call(func, _args) => {
                 // Get argument results from dependencies (slices from arena)
-                let arg_slices: Vec<&[f64]> = node
+                let arg_slices: SmallVec<[&[f64]; 4]> = node
                     .dependencies
                     .iter()
                     .filter_map(|&dep_id| {
@@ -300,734 +314,101 @@ impl CompiledExpr {
                     })
                     .collect();
 
-                self.eval_function_into(*func, &arg_slices, ctx, cols, out);
+                if arg_slices.len() != node.dependencies.len() {
+                    return Err(crate::Error::Validation(format!(
+                        "Expression DAG node {} is missing {} dependency results",
+                        node.id,
+                        node.dependencies.len() - arg_slices.len()
+                    )));
+                }
+                self.eval_function_into(*func, &arg_slices, ctx, cols, out)?;
             }
             ExprNode::BinOp { op, .. } => {
                 // Binary operations should have exactly 2 dependencies
-                if node.dependencies.len() >= 2 {
-                    let left = offsets
-                        .get(&node.dependencies[0])
-                        .map(|&(start, end)| &arena[start..end])
-                        .unwrap_or(&[]);
-                    let right = offsets
-                        .get(&node.dependencies[1])
-                        .map(|&(start, end)| &arena[start..end])
-                        .unwrap_or(&[]);
-                    Self::eval_bin_op_into(*op, left, right, out);
+                if node.dependencies.len() < 2 {
+                    return Err(crate::Error::Validation(format!(
+                        "Binary expression node {} is missing operands",
+                        node.id
+                    )));
                 }
+                let left = offsets
+                    .get(&node.dependencies[0])
+                    .map(|&(start, end)| &arena[start..end])
+                    .ok_or_else(|| {
+                        crate::Error::Validation(format!(
+                            "Binary expression node {} is missing its left dependency result",
+                            node.id
+                        ))
+                    })?;
+                let right = offsets
+                    .get(&node.dependencies[1])
+                    .map(|&(start, end)| &arena[start..end])
+                    .ok_or_else(|| {
+                        crate::Error::Validation(format!(
+                            "Binary expression node {} is missing its right dependency result",
+                            node.id
+                        ))
+                    })?;
+                Self::eval_bin_op_into(*op, left, right, out);
             }
             ExprNode::UnaryOp { op, .. } => {
                 // Unary operations should have exactly 1 dependency
-                if !node.dependencies.is_empty() {
-                    let operand = offsets
-                        .get(&node.dependencies[0])
-                        .map(|&(start, end)| &arena[start..end])
-                        .unwrap_or(&[]);
-                    Self::eval_unary_op_into(*op, operand, out);
+                if node.dependencies.is_empty() {
+                    return Err(crate::Error::Validation(format!(
+                        "Unary expression node {} is missing its operand",
+                        node.id
+                    )));
                 }
+                let operand = offsets
+                    .get(&node.dependencies[0])
+                    .map(|&(start, end)| &arena[start..end])
+                    .ok_or_else(|| {
+                        crate::Error::Validation(format!(
+                            "Unary expression node {} is missing its operand result",
+                            node.id
+                        ))
+                    })?;
+                Self::eval_unary_op_into(*op, operand, out);
             }
             ExprNode::IfThenElse { .. } => {
                 // If-then-else should have exactly 3 dependencies
-                if node.dependencies.len() >= 3 {
-                    let condition = offsets
-                        .get(&node.dependencies[0])
-                        .map(|&(start, end)| &arena[start..end])
-                        .unwrap_or(&[]);
-                    let then_vals = offsets
-                        .get(&node.dependencies[1])
-                        .map(|&(start, end)| &arena[start..end])
-                        .unwrap_or(&[]);
-                    let else_vals = offsets
-                        .get(&node.dependencies[2])
-                        .map(|&(start, end)| &arena[start..end])
-                        .unwrap_or(&[]);
-                    Self::eval_if_then_else_into(condition, then_vals, else_vals, out);
+                if node.dependencies.len() < 3 {
+                    return Err(crate::Error::Validation(format!(
+                        "If-then-else expression node {} is missing one or more branch dependencies",
+                        node.id
+                    )));
                 }
+                let condition = offsets
+                    .get(&node.dependencies[0])
+                    .map(|&(start, end)| &arena[start..end])
+                    .ok_or_else(|| {
+                        crate::Error::Validation(format!(
+                            "If-then-else node {} is missing its condition result",
+                            node.id
+                        ))
+                    })?;
+                let then_vals = offsets
+                    .get(&node.dependencies[1])
+                    .map(|&(start, end)| &arena[start..end])
+                    .ok_or_else(|| {
+                        crate::Error::Validation(format!(
+                            "If-then-else node {} is missing its then-branch result",
+                            node.id
+                        ))
+                    })?;
+                let else_vals = offsets
+                    .get(&node.dependencies[2])
+                    .map(|&(start, end)| &arena[start..end])
+                    .ok_or_else(|| {
+                        crate::Error::Validation(format!(
+                            "If-then-else node {} is missing its else-branch result",
+                            node.id
+                        ))
+                    })?;
+                Self::eval_if_then_else_into(condition, then_vals, else_vals, out);
             }
         }
-    }
-
-    // --- Scalar evaluators ---
-
-    #[inline]
-    fn validate_window(raw: f64) -> Option<usize> {
-        if !raw.is_finite() {
-            return None;
-        }
-        if raw < 1.0 {
-            return None;
-        }
-        if raw.fract() != 0.0 {
-            return None;
-        }
-        if raw > usize::MAX as f64 {
-            return None;
-        }
-        Some(raw as usize)
-    }
-
-    #[inline]
-    fn window_arg(arg_results: &[Vec<f64>], default: Option<usize>) -> Result<usize, ()> {
-        if let Some(raw) = arg_results.get(1).and_then(|v| v.first()).copied() {
-            Self::validate_window(raw).ok_or(())
-        } else {
-            default.ok_or(())
-        }
-    }
-
-    #[inline]
-    fn nan_output(len: usize) -> Vec<f64> {
-        vec![f64::NAN; len]
-    }
-
-    #[inline]
-    fn rolling_with(
-        &self,
-        arg_results: &[Vec<f64>],
-        default_win: Option<usize>,
-        mut op: impl FnMut(&[f64]) -> f64,
-    ) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, default_win) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut op);
-        out
-    }
-
-    #[inline]
-    fn rolling_apply_into(
-        base: &[f64],
-        win: usize,
-        out: &mut [f64],
-        op: &mut impl FnMut(&[f64]) -> f64,
-    ) {
-        let len = base.len();
-        if win == 0 {
-            out.fill(f64::NAN);
-            return;
-        }
-        debug_assert_eq!(out.len(), len);
-        for i in 0..len {
-            if i + 1 < win {
-                out[i] = f64::NAN;
-            } else {
-                out[i] = op(&base[i + 1 - win..=i]);
-            }
-        }
-    }
-
-    fn eval_lag(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() {
-            return Vec::with_capacity(len);
-        }
-        let n = match Self::window_arg(arg_results, None) {
-            Ok(n) => n,
-            Err(_) => return Self::nan_output(len),
-        };
-        let base = &arg_results[0];
-        (0..len)
-            .map(|i| if i < n { f64::NAN } else { base[i - n] })
-            .collect()
-    }
-
-    fn eval_lead(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() {
-            return Vec::with_capacity(len);
-        }
-        let n = match Self::window_arg(arg_results, None) {
-            Ok(n) => n,
-            Err(_) => return Self::nan_output(len),
-        };
-        let base = &arg_results[0];
-        (0..len)
-            .map(|i| if i + n >= len { f64::NAN } else { base[i + n] })
-            .collect()
-    }
-
-    fn eval_diff(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let n = match Self::window_arg(arg_results, Some(1)) {
-                Ok(n) => n,
-                Err(_) => return Self::nan_output(len),
-            };
-            out.extend((0..len).map(|i| {
-                if i < n {
-                    f64::NAN
-                } else {
-                    base[i] - base[i - n]
-                }
-            }));
-        }
-        out
-    }
-
-    fn eval_pct_change(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let n = match Self::window_arg(arg_results, Some(1)) {
-                Ok(n) => n,
-                Err(_) => return Self::nan_output(len),
-            };
-            out.extend((0..len).map(|i| {
-                if i < n || base[i - n] == 0.0 {
-                    f64::NAN
-                } else {
-                    (base[i] / base[i - n]) - 1.0
-                }
-            }));
-        }
-        out
-    }
-
-    fn eval_cum_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let mut acc = 0.0;
-            for &v in base {
-                acc += v;
-                out.push(acc);
-            }
-        }
-        out
-    }
-
-    fn eval_cum_prod(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let mut acc = 1.0;
-            for &v in base {
-                acc *= v;
-                out.push(acc);
-            }
-        }
-        out
-    }
-
-    fn eval_cum_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let mut cur = f64::INFINITY;
-            for &v in base {
-                cur = if cur < v { cur } else { v };
-                out.push(cur);
-            }
-        }
-        out
-    }
-
-    fn eval_cum_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out = Vec::with_capacity(len);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let mut cur = f64::NEG_INFINITY;
-            for &v in base {
-                cur = if cur > v { cur } else { v };
-                out.push(cur);
-            }
-        }
-        out
-    }
-
-    fn eval_rolling_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| {
-            w.iter().copied().sum::<f64>() / w.len() as f64
-        })
-    }
-
-    fn eval_rolling_sum(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| w.iter().copied().sum())
-    }
-
-    fn eval_ewm_mean(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let mut out = vec![0.0; len];
-            self.eval_ewm_mean_into(arg_results, &mut out);
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_ewm_mean_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
-        let len = out.len();
-        if len == 0 {
-            return;
-        }
-        let base = &arg_results[0];
-        let alpha = arg_results[1][0];
-        let adjust = if arg_results.len() >= 3 && !arg_results[2].is_empty() {
-            arg_results[2][0] != 0.0
-        } else {
-            true
-        };
-        let mut prev: f64 = 0.0;
-        let mut weighted_sum: f64 = 0.0;
-        let mut wsum: f64 = 0.0;
-        for (i, &x) in base.iter().enumerate() {
-            if i == 0 {
-                prev = x;
-                weighted_sum = x;
-                wsum = 1.0;
-                out[0] = x;
-                continue;
-            }
-            if adjust {
-                weighted_sum = x + (1.0 - alpha) * weighted_sum;
-                wsum = 1.0 + (1.0 - alpha) * wsum;
-                out[i] = weighted_sum / wsum;
-            } else {
-                prev = alpha * x + (1.0 - alpha) * prev;
-                out[i] = prev;
-            }
-        }
-    }
-
-    fn eval_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if !arg_results.is_empty() {
-            let mut out = vec![0.0; len];
-            self.eval_std_into(arg_results, &mut out);
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_std_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
-        let len = out.len();
-        let data = &arg_results[0];
-        if data.len() > 1 {
-            let mean = data.iter().copied().sum::<f64>() / data.len() as f64;
-            let variance = data
-                .iter()
-                .map(|&x| {
-                    let dx = x - mean;
-                    dx * dx
-                })
-                .sum::<f64>()
-                / (data.len() - 1) as f64;
-            let std = variance.sqrt();
-            for v in out.iter_mut().take(len) {
-                *v = std;
-            }
-        } else {
-            for v in out.iter_mut().take(len) {
-                *v = f64::NAN;
-            }
-        }
-    }
-
-    fn eval_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if !arg_results.is_empty() {
-            let mut out = vec![0.0; len];
-            self.eval_var_into(arg_results, &mut out);
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_var_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
-        let len = out.len();
-        let data = &arg_results[0];
-        if data.len() > 1 {
-            let mean = data.iter().copied().sum::<f64>() / data.len() as f64;
-            let variance = data
-                .iter()
-                .map(|&x| {
-                    let dx = x - mean;
-                    dx * dx
-                })
-                .sum::<f64>()
-                / (data.len() - 1) as f64;
-            for v in out.iter_mut().take(len) {
-                *v = variance;
-            }
-        } else {
-            for v in out.iter_mut().take(len) {
-                *v = f64::NAN;
-            }
-        }
-    }
-
-    fn eval_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if !arg_results.is_empty() {
-            let mut out = vec![0.0; len];
-            self.eval_median_into(arg_results, &mut out);
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_median_into(&self, arg_results: &[Vec<f64>], out: &mut [f64]) {
-        let len = out.len();
-        let data = &arg_results[0];
-        if !data.is_empty() {
-            // Handle poisoned mutex by recovering the inner data
-            let mut guard = self
-                .scratch
-                .lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            let tmp = &mut guard.tmp;
-            tmp.truncate(0);
-            tmp.extend_from_slice(data);
-            // Use total order to avoid comparator panics with NaN values.
-            tmp.sort_unstable_by(|a, b| a.total_cmp(b));
-            let n = tmp.len();
-            let median = if n % 2 == 1 {
-                tmp[n / 2]
-            } else {
-                (tmp[n / 2 - 1] + tmp[n / 2]) * (0.5)
-            };
-            for v in out.iter_mut().take(len) {
-                *v = median;
-            }
-        } else {
-            for v in out.iter_mut().take(len) {
-                *v = f64::NAN;
-            }
-        }
-    }
-
-    fn eval_rolling_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| {
-            let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
-            let var = w
-                .iter()
-                .map(|v| {
-                    let dv = *v - m;
-                    dv * dv
-                })
-                .sum::<f64>()
-                / (w.len() as f64);
-            var.sqrt()
-        })
-    }
-
-    fn eval_rolling_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        self.rolling_with(arg_results, None, |w| {
-            let m = w.iter().copied().sum::<f64>() / (w.len() as f64);
-            w.iter()
-                .map(|v| {
-                    let dv = *v - m;
-                    dv * dv
-                })
-                .sum::<f64>()
-                / (w.len() as f64)
-        })
-    }
-
-    fn eval_rolling_median(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        // Use scratch arena to avoid per-window allocations.
-        // Handle poisoned mutex by recovering the inner data
-        let mut guard = self
-            .scratch
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let wbuf = &mut guard.window;
-        for i in 0..len {
-            if i + 1 < win {
-                out[i] = f64::NAN;
-            } else {
-                let start = i + 1 - win;
-                let slice = &base[start..=i];
-                wbuf.truncate(0);
-                wbuf.extend_from_slice(slice);
-                // Use total order to avoid comparator panics with NaN values.
-                wbuf.sort_unstable_by(|a, b| a.total_cmp(b));
-                let k = wbuf.len();
-                out[i] = if k % 2 == 1 {
-                    wbuf[k / 2]
-                } else {
-                    (wbuf[k / 2 - 1] + wbuf[k / 2]) * (0.5)
-                };
-            }
-        }
-        out
-    }
-
-    // Time-based rolling (Dynamic windows) are handled via Polars only.
-
-    fn eval_shift(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let n = arg_results[1][0] as i32;
-            let mut out = vec![0.0; len];
-            for (i, slot) in out.iter_mut().enumerate().take(len) {
-                let shifted_idx = i as i32 - n;
-                *slot = if shifted_idx >= 0 && shifted_idx < len as i32 {
-                    base[shifted_idx as usize]
-                } else {
-                    f64::NAN
-                };
-            }
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_abs(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        if let Some(base) = arg_results.first() {
-            base.iter().map(|v| v.abs()).collect()
-        } else {
-            Vec::new()
-        }
-    }
-
-    fn eval_sign(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        if let Some(base) = arg_results.first() {
-            base.iter()
-                .map(|v| {
-                    if v.is_nan() {
-                        f64::NAN
-                    } else if *v > 0.0 {
-                        1.0
-                    } else if *v < 0.0 {
-                        -1.0
-                    } else {
-                        0.0
-                    }
-                })
-                .collect()
-        } else {
-            Vec::new()
-        }
-    }
-
-    fn eval_rank(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if !arg_results.is_empty() {
-            let base = &arg_results[0];
-            let mut indexed: Vec<(f64, usize)> =
-                base.iter().enumerate().map(|(i, &v)| (v, i)).collect();
-            // Use total order to avoid comparator panics with NaN values.
-            indexed.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
-            let mut out: Vec<f64> = vec![0.0; len];
-            let mut current_rank: f64 = 1.0;
-            let mut last_value: f64 = f64::NAN;
-            for (value, orig_idx) in indexed {
-                if !value.is_nan() {
-                    // Exact comparison is intentional: values come from
-                    // sort_unstable_by(total_cmp) so bit-identical values are adjacent.
-                    #[allow(clippy::float_cmp)]
-                    if value != last_value && !last_value.is_nan() {
-                        current_rank += 1.0;
-                    }
-                    out[orig_idx] = current_rank;
-                    last_value = value;
-                } else {
-                    out[orig_idx] = f64::NAN;
-                }
-            }
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_quantile(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let q = arg_results[1][0].clamp(0.0, 1.0);
-            let mut valid_values: Vec<f64> = base
-                .iter()
-                .filter_map(|&x| if x.is_nan() { None } else { Some(x) })
-                .collect();
-            let mut out = vec![0.0; len];
-            if !valid_values.is_empty() {
-                // Use total order to avoid comparator panics with NaN values.
-                valid_values.sort_unstable_by(|a, b| a.total_cmp(b));
-                let index = q * (valid_values.len() - 1) as f64;
-                let lower = index.floor() as usize;
-                let upper = index.ceil() as usize;
-                let quantile_value = if lower == upper {
-                    valid_values[lower]
-                } else {
-                    let weight = index - lower as f64;
-                    valid_values[lower] * (1.0 - weight) + valid_values[upper] * weight
-                };
-                for v in out.iter_mut().take(len) {
-                    *v = quantile_value;
-                }
-            } else {
-                for v in out.iter_mut().take(len) {
-                    *v = f64::NAN;
-                }
-            }
-            return out;
-        }
-        Vec::with_capacity(len)
-    }
-
-    fn eval_rolling_min(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            w.iter()
-                .copied()
-                .filter(|x| !x.is_nan())
-                .min_by(|a, b| a.total_cmp(b))
-                .unwrap_or(f64::NAN)
-        });
-        out
-    }
-
-    fn eval_rolling_max(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            w.iter()
-                .copied()
-                .filter(|x| !x.is_nan())
-                .max_by(|a, b| a.total_cmp(b))
-                .unwrap_or(f64::NAN)
-        });
-        out
-    }
-
-    fn eval_rolling_count(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        if arg_results.is_empty() || len == 0 {
-            return Vec::with_capacity(len);
-        }
-        let base = &arg_results[0];
-        let win = match Self::window_arg(arg_results, None) {
-            Ok(win) => win,
-            Err(_) => return Self::nan_output(len),
-        };
-        let mut out = vec![0.0; len];
-        Self::rolling_apply_into(base, win, &mut out, &mut |w| {
-            w.iter().copied().filter(|x| !x.is_nan()).count() as f64
-        });
-        out
-    }
-
-    fn eval_ewm_std(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out: Vec<f64> = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let alpha = arg_results[1][0].clamp(0.001, 0.999);
-            let adjust = arg_results
-                .get(2)
-                .and_then(|v| v.first())
-                .map(|&x| x > 0.0)
-                .unwrap_or(true);
-
-            let mut ema = base[0];
-            let mut ema_sq = base[0] * base[0];
-            let mut n: f64 = 1.0;
-
-            out.push(0.0);
-
-            for &value in base.iter().skip(1) {
-                if !value.is_nan() {
-                    n += 1.0;
-                    let n_f64 = n;
-                    let alpha_f64 = alpha;
-                    let weight = if adjust {
-                        alpha_f64 / (1.0 - (1.0 - alpha_f64).powf(n_f64))
-                    } else {
-                        alpha_f64
-                    };
-                    ema = ((1.0 - weight) * ema) + (weight * value);
-                    ema_sq = ((1.0 - weight) * ema_sq) + (weight * value * value);
-                    let variance = ema_sq - ema * ema;
-                    out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
-                } else {
-                    out.push(f64::NAN);
-                }
-            }
-        }
-        out
-    }
-
-    fn eval_ewm_var(&self, arg_results: &[Vec<f64>]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out: Vec<f64> = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let alpha = arg_results[1][0].clamp(0.001, 0.999);
-            let adjust = arg_results
-                .get(2)
-                .and_then(|v| v.first())
-                .map(|&x| x > 0.0)
-                .unwrap_or(true);
-
-            let mut ema = base[0];
-            let mut ema_sq = base[0] * base[0];
-            let mut n: f64 = 1.0;
-
-            out.push(0.0);
-
-            for &value in base.iter().skip(1) {
-                if !value.is_nan() {
-                    n += 1.0;
-                    let n_f64 = n;
-                    let alpha_f64 = alpha;
-                    let weight = if adjust {
-                        alpha_f64 / (1.0 - (1.0 - alpha_f64).powf(n_f64))
-                    } else {
-                        alpha_f64
-                    };
-                    ema = ((1.0 - weight) * ema) + (weight * value);
-                    ema_sq = ((1.0 - weight) * ema_sq) + (weight * value * value);
-                    let variance = ema_sq - ema * ema;
-                    out.push(if variance > 0.0 { variance } else { 0.0 });
-                } else {
-                    out.push(f64::NAN);
-                }
-            }
-        }
-        out
+        Ok(())
     }
 
     /// Evaluate a binary operation element-wise into a provided output slice.
@@ -1162,58 +543,6 @@ impl CompiledExpr {
         }
     }
 
-    fn eval_function_core<C: ExpressionContext>(
-        &self,
-        fun: Function,
-        arg_results: &[Vec<f64>],
-        _ctx: &C,
-        _cols: &[&[f64]],
-    ) -> Vec<f64> {
-        match fun {
-            Function::Lag => self.eval_lag(arg_results),
-            Function::Lead => self.eval_lead(arg_results),
-            Function::Diff => self.eval_diff(arg_results),
-            Function::PctChange => self.eval_pct_change(arg_results),
-            Function::CumSum => self.eval_cum_sum(arg_results),
-            Function::CumProd => self.eval_cum_prod(arg_results),
-            Function::CumMin => self.eval_cum_min(arg_results),
-            Function::CumMax => self.eval_cum_max(arg_results),
-            Function::RollingMean => self.eval_rolling_mean(arg_results),
-            Function::RollingSum => self.eval_rolling_sum(arg_results),
-            Function::EwmMean => self.eval_ewm_mean(arg_results),
-            Function::Std => self.eval_std(arg_results),
-            Function::Var => self.eval_var(arg_results),
-            Function::Median => self.eval_median(arg_results),
-            Function::RollingStd => self.eval_rolling_std(arg_results),
-            Function::RollingVar => self.eval_rolling_var(arg_results),
-            Function::RollingMedian => self.eval_rolling_median(arg_results),
-            Function::Shift => self.eval_shift(arg_results),
-            Function::Rank => self.eval_rank(arg_results),
-            Function::Quantile => self.eval_quantile(arg_results),
-            Function::RollingMin => self.eval_rolling_min(arg_results),
-            Function::RollingMax => self.eval_rolling_max(arg_results),
-            Function::RollingCount => self.eval_rolling_count(arg_results),
-            Function::EwmStd => self.eval_ewm_std(arg_results),
-            Function::EwmVar => self.eval_ewm_var(arg_results),
-            Function::Abs => self.eval_abs(arg_results),
-            Function::Sign => self.eval_sign(arg_results),
-            // Custom financial functions (should be evaluated at the statements layer)
-            Function::Sum
-            | Function::Mean
-            | Function::Ttm
-            | Function::Ytd
-            | Function::Qtd
-            | Function::FiscalYtd
-            | Function::Annualize
-            | Function::AnnualizeRate
-            | Function::Coalesce
-            | Function::GrowthRate => {
-                // Safe fallback: return NaN for each row when evaluated in core.
-                vec![f64::NAN; arg_results.first().map(|v| v.len()).unwrap_or(1)]
-            }
-        }
-    }
-
     /// Evaluate a function with given argument results (slices from arena).
     fn eval_function_into<C: ExpressionContext>(
         &self,
@@ -1222,18 +551,24 @@ impl CompiledExpr {
         _ctx: &C,
         _cols: &[&[f64]],
         out: &mut [f64],
-    ) {
+    ) -> crate::Result<()> {
         // Convert slices to Vec for existing function implementations.
         // Note: This copy is acceptable for current use cases. Future optimization
         // could make eval_function_core work directly with slices.
         let arg_results: Vec<Vec<f64>> = arg_slices.iter().map(|&s| s.to_vec()).collect();
-        let result = self.eval_function_core(fun, &arg_results, _ctx, _cols);
+        let result = self.eval_function_core(fun, &arg_results, _ctx, _cols)?;
         let copy_len = out.len().min(result.len());
         out[..copy_len].copy_from_slice(&result[..copy_len]);
+        Ok(())
     }
 }
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+#[allow(
+    clippy::expect_used,
+    clippy::unwrap_used,
+    clippy::panic,
+    clippy::indexing_slicing
+)]
 mod tests {
     use super::*;
     use crate::config::FinstackConfig;
@@ -1256,7 +591,10 @@ mod tests {
         let expr = Expr::if_then_else(condition, then_branch, else_branch);
 
         let compiled = CompiledExpr::new(expr);
-        let result = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = compiled
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result.len(), 4);
         assert!((result[0] + 0.5).abs() < 1e-12);
@@ -1275,7 +613,9 @@ mod tests {
             vec![Expr::column("x"), Expr::literal(2.0)],
         );
         let meta = crate::config::results_meta(&FinstackConfig::default());
-        let compiled = CompiledExpr::with_planning(expr, meta).with_cache(1);
+        let compiled = CompiledExpr::with_planning(expr, meta)
+            .unwrap()
+            .with_cache(1);
 
         let result = compiled
             .eval(
@@ -1286,6 +626,7 @@ mod tests {
                     cache_budget_mb: Some(1),
                 },
             )
+            .unwrap()
             .values;
 
         assert!(result[0].is_nan());
@@ -1300,7 +641,7 @@ mod tests {
         let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
         let expr = Expr::call(Function::Diff, vec![Expr::column("x"), Expr::literal(1.0)]);
         let meta = crate::config::results_meta(&FinstackConfig::default());
-        let compiled = CompiledExpr::with_planning(expr, meta);
+        let compiled = CompiledExpr::with_planning(expr, meta).unwrap();
         let external_plan = compiled.plan.clone();
 
         let result = compiled
@@ -1312,6 +653,7 @@ mod tests {
                     cache_budget_mb: None,
                 },
             )
+            .unwrap()
             .values;
 
         assert!(result[0].is_nan());

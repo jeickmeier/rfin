@@ -168,8 +168,8 @@ pub fn is_imm_date(date: Date) -> bool {
 #[must_use]
 pub fn next_cds_date(date: Date) -> Date {
     next_date_from_months(date, &QUARTERLY_MONTHS, |m, year| {
-        // Day 20 exists in every month - unwrap_or provides defensive fallback
-        Date::from_calendar_date(year, m, 20).unwrap_or(time::Date::MIN)
+        Date::from_calendar_date(year, m, 20)
+            .unwrap_or_else(|_| unreachable!("day 20 is valid for every Gregorian month"))
     })
 }
 

@@ -33,7 +33,10 @@ fn column_evaluation() {
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
     let col_expr = CompiledExpr::new(Expr::column("x"));
-    let result = col_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = col_expr
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
     assert_eq!(result, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
 }
 
@@ -43,7 +46,10 @@ fn literal_evaluation() {
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
     let lit_expr = CompiledExpr::new(Expr::literal(42.0));
-    let result = lit_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = lit_expr
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
     assert_eq!(result, vec![42.0, 42.0, 42.0, 42.0, 42.0]);
 }
 
@@ -54,7 +60,10 @@ fn literal_zero_length() {
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
     let lit_expr = CompiledExpr::new(Expr::literal(5.0));
-    let result = lit_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = lit_expr
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
     assert!(result.is_empty());
 }
 
@@ -72,7 +81,7 @@ fn binop_add() {
         Expr::column("x"),
         Expr::literal(10.0),
     ));
-    let result = add.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = add.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![11.0, 12.0, 13.0, 14.0, 15.0]);
 }
 
@@ -86,7 +95,7 @@ fn binop_sub() {
         Expr::column("y"),
         Expr::column("x"),
     ));
-    let result = sub.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = sub.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![9.0, 18.0, 27.0, 36.0, 45.0]);
 }
 
@@ -100,7 +109,7 @@ fn binop_mul() {
         Expr::column("x"),
         Expr::literal(2.0),
     ));
-    let result = mul.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = mul.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![2.0, 4.0, 6.0, 8.0, 10.0]);
 }
 
@@ -114,7 +123,7 @@ fn binop_div() {
         Expr::column("y"),
         Expr::column("x"),
     ));
-    let result = div.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = div.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![10.0, 10.0, 10.0, 10.0, 10.0]);
 }
 
@@ -129,7 +138,7 @@ fn binop_comparisons() {
         Expr::column("x"),
         Expr::literal(3.0),
     ));
-    let result = gt.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = gt.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![0.0, 0.0, 0.0, 1.0, 1.0]); // 0 = false, 1 = true
 
     // Less than
@@ -138,7 +147,7 @@ fn binop_comparisons() {
         Expr::column("x"),
         Expr::literal(3.0),
     ));
-    let result = lt.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = lt.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![1.0, 1.0, 0.0, 0.0, 0.0]);
 }
 
@@ -158,7 +167,10 @@ fn if_then_else_evaluation() {
     let expr = Expr::if_then_else(cond, then_expr, else_expr);
 
     let compiled = CompiledExpr::new(expr);
-    let out = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
+    let out = compiled
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
 
     // x: [1, 2, 3, 4, 5], y: [10, 20, 30, 40, 50]
     // x > y is always false, so we get y - x
@@ -179,7 +191,10 @@ fn if_then_else_mixed_condition() {
     let expr = Expr::if_then_else(cond, then_expr, else_expr);
 
     let compiled = CompiledExpr::new(expr);
-    let out = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
+    let out = compiled
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
 
     // x > y: [false, true, true, true]
     // Results: [2-1=1, 2-1=1, 3-0=3, 4-(-1)=5]
@@ -196,7 +211,7 @@ fn evaluation_result_metadata() {
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
     let expr = CompiledExpr::new(Expr::column("x"));
-    let result = expr.eval(&ctx, &cols, EvalOpts::default());
+    let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap();
 
     assert_eq!(result.values, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     assert_eq!(format!("{:?}", result.metadata.numeric_mode), "F64");
@@ -220,12 +235,16 @@ fn with_planning_produces_same_result() {
     let without_planning = CompiledExpr::new(expr.clone());
     let result_no_plan = without_planning
         .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
         .values;
 
     // With planning
     let meta = results_meta(&FinstackConfig::default());
-    let with_planning = CompiledExpr::with_planning(expr, meta);
-    let result_with_plan = with_planning.eval(&ctx, &cols, EvalOpts::default()).values;
+    let with_planning = CompiledExpr::with_planning(expr, meta).unwrap();
+    let result_with_plan = with_planning
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
 
     // Should produce identical results
     assert_eq!(result_no_plan.len(), result_with_plan.len());
@@ -250,7 +269,9 @@ fn with_cache_configuration() {
     );
 
     let meta = results_meta(&FinstackConfig::default());
-    let compiled = CompiledExpr::with_planning(expr, meta).with_cache(1);
+    let compiled = CompiledExpr::with_planning(expr, meta)
+        .unwrap()
+        .with_cache(1);
 
     let result = compiled
         .eval(
@@ -261,6 +282,7 @@ fn with_cache_configuration() {
                 cache_budget_mb: Some(1),
             },
         )
+        .unwrap()
         .values;
 
     assert!(result[0].is_nan());
@@ -280,7 +302,7 @@ fn empty_data_column() {
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
     let expr = CompiledExpr::new(Expr::column("empty"));
-    let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert!(result.is_empty());
 }
 
@@ -294,7 +316,7 @@ fn empty_data_function() {
         Function::RollingMean,
         vec![Expr::column("empty"), Expr::literal(2.0)],
     ));
-    let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert!(result.is_empty());
 }
 
@@ -305,7 +327,7 @@ fn single_element_data() {
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
     let expr = CompiledExpr::new(Expr::column("single"));
-    let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
     assert_eq!(result, vec![42.0]);
 }
 
@@ -324,7 +346,10 @@ fn nested_function_calls() {
     let rolling_mean = Expr::call(Function::RollingMean, vec![diff, Expr::literal(2.0)]);
 
     let compiled = CompiledExpr::new(rolling_mean);
-    let result = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = compiled
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
 
     // diff(x, 1) = [NaN, 1, 1, 1, 1]
     // rolling_mean(..., 2) = [NaN, NaN, 1, 1, 1]
@@ -347,9 +372,40 @@ fn binop_with_function_result() {
     let add = Expr::bin_op(BinOp::Add, Expr::column("x"), cumsum);
 
     let compiled = CompiledExpr::new(add);
-    let result = compiled.eval(&ctx, &cols, EvalOpts::default()).values;
+    let result = compiled
+        .eval(&ctx, &cols, EvalOpts::default())
+        .unwrap()
+        .values;
 
     // cumsum(x) = [1, 3, 6, 10, 15]
     // x + cumsum(x) = [2, 5, 9, 14, 20]
     assert_eq!(result, vec![2.0, 5.0, 9.0, 14.0, 20.0]);
+}
+
+#[test]
+fn missing_column_is_an_error() {
+    let ctx = SimpleContext::new(["x"]);
+    let x = vec![1.0, 2.0, 3.0];
+    let cols: Vec<&[f64]> = vec![x.as_slice()];
+
+    let compiled = CompiledExpr::new(Expr::column("missing"));
+    let err = compiled
+        .eval(&ctx, &cols, EvalOpts::default())
+        .expect_err("missing columns should fail closed");
+
+    assert!(matches!(err, finstack_core::Error::Input(_)));
+}
+
+#[test]
+fn unsupported_financial_function_is_an_error() {
+    let ctx = SimpleContext::new(["x"]);
+    let x = vec![1.0, 2.0, 3.0];
+    let cols: Vec<&[f64]> = vec![x.as_slice()];
+
+    let compiled = CompiledExpr::new(Expr::call(Function::GrowthRate, vec![Expr::column("x")]));
+    let err = compiled
+        .eval(&ctx, &cols, EvalOpts::default())
+        .expect_err("core expr evaluation should reject statements-layer functions");
+
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
 }

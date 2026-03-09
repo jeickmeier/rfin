@@ -23,12 +23,21 @@
 
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
+use crate::evaluator::formula_aggregates::evaluate_historical_function;
+use crate::evaluator::formula_helpers::{
+    collect_historical_values_sorted, get_historical_column_value,
+};
 use crate::evaluator::results::EvalWarning;
 use crate::utils::constants::EPSILON;
-use finstack_core::dates::{PeriodId, PeriodKind};
+use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
-use finstack_core::math::{kahan_sum, neumaier_sum};
+use finstack_core::math::kahan_sum;
 use std::collections::BTreeMap;
+
+pub(crate) use crate::evaluator::formula_helpers::{
+    calculate_mean, calculate_median, calculate_std, calculate_variance,
+    collect_all_historical_values, collect_period_range_values, collect_rolling_window_values,
+};
 
 fn annotate_error(err: Error, node_id: Option<&str>) -> Error {
     match (node_id, err) {
@@ -43,7 +52,7 @@ fn annotate_error(err: Error, node_id: Option<&str>) -> Error {
     }
 }
 
-fn eval_error(node_id: Option<&str>, msg: impl Into<String>) -> Error {
+pub(crate) fn eval_error(node_id: Option<&str>, msg: impl Into<String>) -> Error {
     annotate_error(Error::eval(msg), node_id)
 }
 
@@ -66,7 +75,7 @@ fn bool_to_f64(b: bool) -> f64 {
 
 /// Validate that a function has exactly the expected number of arguments.
 #[inline]
-fn require_args(
+pub(crate) fn require_args(
     func_name: &str,
     args: &[Expr],
     expected: usize,
@@ -88,7 +97,7 @@ fn require_args(
 
 /// Validate that a function has at least the minimum number of arguments.
 #[inline]
-fn require_min_args(
+pub(crate) fn require_min_args(
     func_name: &str,
     args: &[Expr],
     min: usize,
@@ -109,7 +118,7 @@ fn require_min_args(
 }
 
 #[inline]
-fn evaluate_non_negative_integer_arg(
+pub(crate) fn evaluate_non_negative_integer_arg(
     func_name: &str,
     expr: &Expr,
     context: &mut EvaluationContext,
@@ -174,76 +183,15 @@ pub(crate) fn evaluate_formula(
     evaluate_expr(expr, context, node_id)
 }
 
-/// Collect historical values sorted chronologically.
-///
-/// Returns a BTreeMap of period → value for all historical periods plus current.
-/// This is a common helper used by rolling window and statistical functions.
-fn collect_historical_values_sorted(
-    node_name: &str,
-    context: &EvaluationContext,
-) -> Result<BTreeMap<PeriodId, f64>> {
-    let mut sorted_periods = BTreeMap::new();
-
-    // Add historical values
-    for (period, values) in &context.historical_results {
-        if let Some(value) = values.get(node_name) {
-            sorted_periods.insert(*period, *value);
-        }
-    }
-
-    // Add current period value if it exists
-    if let Ok(current) = context.get_value(node_name) {
-        sorted_periods.insert(context.period_id, current);
-    }
-
-    Ok(sorted_periods)
-}
-
-/// Collect values for a rolling window in chronological order.
-/// Returns values from oldest to newest within the window.
-fn collect_rolling_window_values(
-    node_name: &str,
-    context: &EvaluationContext,
-    window_size: usize,
-) -> Result<Vec<f64>> {
-    if window_size == 0 {
-        return Ok(Vec::new());
-    }
-
-    let sorted = collect_historical_values_sorted(node_name, context)?;
-
-    // Collect the most recent `window_size` values
-    let mut values: Vec<f64> = sorted
-        .into_values()
-        .rev() // Most recent first
-        .take(window_size)
-        .collect();
-
-    // Reverse to get chronological order (oldest to newest)
-    values.reverse();
-
-    Ok(values)
-}
-
-/// Collect all historical values for a node including current.
-fn collect_all_historical_values(node_name: &str, context: &EvaluationContext) -> Result<Vec<f64>> {
-    let sorted = collect_historical_values_sorted(node_name, context)?;
-    Ok(sorted.into_values().collect())
-}
-
 /// Build a period-specific evaluation context so an expression can be
 /// re-evaluated historically with the correct current/historical split.
 fn build_context_for_period(
     target_period: PeriodId,
     context: &EvaluationContext,
 ) -> Result<EvaluationContext> {
-    let historical_results = context
-        .historical_results
-        .iter()
-        .filter(|(period, _)| **period < target_period)
-        .map(|(period, values)| (*period, values.clone()))
-        .collect();
-
+    // Share the full historical Arc -- the period_id on the new context
+    // determines what is "current". Aggregate functions that walk historical
+    // already filter by period ordering, so passing the full map is safe.
     let current_period_values = if target_period == context.period_id {
         context
             .node_to_column
@@ -262,11 +210,20 @@ fn build_context_for_period(
 
     let mut period_context = EvaluationContext::new(
         target_period,
-        context.node_to_column.clone(),
-        historical_results,
+        std::sync::Arc::clone(&context.node_to_column),
+        std::sync::Arc::clone(&context.historical_results),
     );
+    period_context.historical_capital_structure_cashflows =
+        std::sync::Arc::clone(&context.historical_capital_structure_cashflows);
     period_context.node_value_types = context.node_value_types.clone();
-    period_context.capital_structure_cashflows = context.capital_structure_cashflows.clone();
+    period_context.capital_structure_cashflows = if target_period == context.period_id {
+        context.capital_structure_cashflows.clone()
+    } else {
+        context
+            .historical_capital_structure_cashflows
+            .get(&target_period)
+            .cloned()
+    };
 
     for (node_id, value) in current_period_values {
         period_context.set_value(&node_id, value)?;
@@ -276,7 +233,7 @@ fn build_context_for_period(
 }
 
 /// Collect expression values over all available periods in chronological order.
-fn collect_expression_values_sorted(
+pub(crate) fn collect_expression_values_sorted(
     expr: &Expr,
     context: &EvaluationContext,
     node_id: Option<&str>,
@@ -311,7 +268,7 @@ fn collect_expression_values_sorted(
 }
 
 /// Collect expression values for a rolling window in chronological order.
-fn collect_expression_window_values(
+pub(crate) fn collect_expression_window_values(
     expr: &Expr,
     context: &EvaluationContext,
     window_size: usize,
@@ -328,75 +285,6 @@ fn collect_expression_window_values(
         .collect();
     values.reverse();
     Ok(values)
-}
-
-/// Collect values for a node over a closed period range [start, end].
-///
-/// Periods are compared using their natural ordering. Values are returned in
-/// chronological order (oldest → newest).
-fn collect_period_range_values(
-    node_name: &str,
-    context: &EvaluationContext,
-    start: PeriodId,
-    end: PeriodId,
-) -> Result<Vec<f64>> {
-    let sorted = collect_historical_values_sorted(node_name, context)?;
-    Ok(sorted
-        .into_iter()
-        .filter(|(period, _)| *period >= start && *period <= end)
-        .map(|(_, value)| value)
-        .collect())
-}
-
-/// Calculate mean of values.
-fn calculate_mean(values: &[f64]) -> Result<f64> {
-    if values.is_empty() {
-        return Ok(f64::NAN);
-    }
-    Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
-}
-
-/// Calculate standard deviation of values.
-///
-/// Uses sample standard deviation (sqrt of sample variance) per financial industry standards.
-fn calculate_std(values: &[f64]) -> Result<f64> {
-    if values.len() < 2 {
-        return Ok(f64::NAN); // Undefined for < 2 values with sample variance
-    }
-    let variance = calculate_variance(values)?;
-    Ok(variance.sqrt())
-}
-
-/// Calculate variance of values.
-///
-/// Uses sample variance (Bessel's correction with n-1 denominator) per financial industry standards.
-/// This is the unbiased estimator required by Bloomberg, Excel VAR.S(), pandas.var(ddof=1), etc.
-fn calculate_variance(values: &[f64]) -> Result<f64> {
-    if values.is_empty() {
-        return Ok(f64::NAN);
-    }
-    if values.len() == 1 {
-        return Ok(f64::NAN); // Undefined for single value with sample variance
-    }
-    let mean = calculate_mean(values)?;
-    // Use sample variance (n-1) per market standards (Bessel's correction)
-    let squared_diffs = values.iter().map(|v| (v - mean).powi(2));
-    Ok(kahan_sum(squared_diffs) / (values.len() - 1) as f64)
-}
-
-/// Calculate median of values.
-fn calculate_median(values: &[f64]) -> Result<f64> {
-    if values.is_empty() {
-        return Ok(f64::NAN);
-    }
-    let mut sorted = values.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-    let len = sorted.len();
-    if len.is_multiple_of(2) {
-        Ok((sorted[len / 2 - 1] + sorted[len / 2]) / 2.0)
-    } else {
-        Ok(sorted[len / 2])
-    }
 }
 
 /// Helper to offset a PeriodId by N periods.
@@ -539,7 +427,8 @@ fn evaluate_function(
             let target_period = offset_period(context.period_id, -lag_periods, node_id)?;
 
             if let ExprNode::Column(node_name) = &args[0].node {
-                if let Some(value) = context.get_historical_value(node_name, &target_period) {
+                if let Some(value) = get_historical_column_value(context, node_name, &target_period)
+                {
                     Ok(value)
                 } else {
                     Ok(f64::NAN)
@@ -581,7 +470,8 @@ fn evaluate_function(
                 if current_value.is_nan() {
                     return Ok(f64::NAN);
                 }
-                if let Some(lagged_value) = context.get_historical_value(node_name, &target_period)
+                if let Some(lagged_value) =
+                    get_historical_column_value(context, node_name, &target_period)
                 {
                     Ok(current_value - lagged_value)
                 } else {
@@ -621,8 +511,7 @@ fn evaluate_function(
 
             let (current_value, lagged_value) = if let ExprNode::Column(node_name) = &args[0].node {
                 let current = context.get_value(node_name).unwrap_or(f64::NAN);
-                let lagged = context
-                    .get_historical_value(node_name, &target_period)
+                let lagged = get_historical_column_value(context, node_name, &target_period)
                     .unwrap_or(f64::NAN);
                 (current, lagged)
             } else {
@@ -693,7 +582,9 @@ fn evaluate_function(
                 }
 
                 let target_period = offset_period(context.period_id, -periods, node_id)?;
-                if let Some(start_value) = context.get_historical_value(node_name, &target_period) {
+                if let Some(start_value) =
+                    get_historical_column_value(context, node_name, &target_period)
+                {
                     if start_value.abs() < EPSILON {
                         tracing::warn!(
                             "growth_rate() division by near-zero base value in period {:?}",
@@ -728,7 +619,6 @@ fn evaluate_function(
                 ))
             }
         }
-        // Rolling window functions
         Function::RollingMean
         | Function::RollingSum
         | Function::RollingStd
@@ -736,111 +626,18 @@ fn evaluate_function(
         | Function::RollingMedian
         | Function::RollingMin
         | Function::RollingMax
-        | Function::RollingCount => {
-            require_args(&func.to_string(), args, 2, node_id)?;
-
-            let window =
-                evaluate_non_negative_integer_arg(&func.to_string(), &args[1], context, node_id)?
-                    as usize;
-            if window == 0 {
-                return Err(eval_error(node_id, "Window size must be greater than 0"));
-            }
-
-            // Collect values in chronological order for the rolling window
-            let values = if let ExprNode::Column(node_name) = &args[0].node {
-                collect_rolling_window_values(node_name, context, window)?
-            } else {
-                collect_expression_window_values(&args[0], context, window, node_id)?
-            };
-
-            if values.is_empty() {
-                return Ok(f64::NAN); // Return NaN for insufficient data (market standard)
-            }
-
-            match func {
-                Function::RollingMean => calculate_mean(&values),
-                Function::RollingSum => Ok(neumaier_sum(values.iter().copied())),
-                Function::RollingStd => calculate_std(&values),
-                Function::RollingVar => calculate_variance(&values),
-                Function::RollingMedian => calculate_median(&values),
-                Function::RollingMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
-                Function::RollingMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
-                Function::RollingCount => Ok(values.len() as f64),
-                _ => Err(eval_error(
-                    node_id,
-                    format!("Function {:?} is not a rolling window function", func),
-                )),
-            }
-        }
-
-        // Statistical functions (operate on all historical values)
-        Function::Std | Function::Var | Function::Median => {
-            require_min_args(&func.to_string(), args, 1, node_id)?;
-
-            // Collect all historical values
-            let values = if let ExprNode::Column(node_name) = &args[0].node {
-                collect_all_historical_values(node_name, context)?
-            } else {
-                collect_expression_values_sorted(&args[0], context, node_id)?
-                    .into_values()
-                    .collect()
-            };
-
-            match func {
-                Function::Std => calculate_std(&values),
-                Function::Var => calculate_variance(&values),
-                Function::Median => calculate_median(&values),
-                _ => Err(eval_error(
-                    node_id,
-                    format!("Function {:?} is not a statistical function", func),
-                )),
-            }
-        }
-
-        // Cumulative functions (operate on all historical values)
-        Function::CumSum | Function::CumProd | Function::CumMin | Function::CumMax => {
-            require_min_args(&func.to_string(), args, 1, node_id)?;
-
-            // Collect all historical values
-            let values = if let ExprNode::Column(node_name) = &args[0].node {
-                collect_all_historical_values(node_name, context)?
-            } else {
-                collect_expression_values_sorted(&args[0], context, node_id)?
-                    .into_values()
-                    .collect()
-            };
-
-            if values.is_empty() {
-                return Ok(f64::NAN); // Return NaN for insufficient data (market standard)
-            }
-
-            match func {
-                Function::CumSum => Ok(neumaier_sum(values.iter().copied())),
-                Function::CumProd => {
-                    // Use iterative multiplication with overflow detection.
-                    // For long series with values > 1, naïve product can overflow
-                    // to Inf. We detect non-finite intermediate results early.
-                    let mut product = 1.0_f64;
-                    for &v in &values {
-                        product *= v;
-                        if !product.is_finite() {
-                            tracing::warn!(
-                                "cumprod() overflow detected in period {:?}",
-                                context.period_id
-                            );
-                            return Ok(f64::NAN);
-                        }
-                    }
-                    Ok(product)
-                }
-                Function::CumMin => Ok(values.iter().fold(f64::INFINITY, |a, b| a.min(*b))),
-                Function::CumMax => Ok(values.iter().fold(f64::NEG_INFINITY, |a, b| a.max(*b))),
-                _ => Err(eval_error(
-                    node_id,
-                    format!("Function {:?} is not a cumulative function", func),
-                )),
-            }
-        }
+        | Function::RollingCount
+        | Function::Std
+        | Function::Var
+        | Function::Median
+        | Function::CumSum
+        | Function::CumProd
+        | Function::CumMin
+        | Function::CumMax
+        | Function::Ytd
+        | Function::Qtd
+        | Function::FiscalYtd
+        | Function::Ttm => evaluate_historical_function(func, args, context, node_id),
 
         // Other functions
         Function::Shift => {
@@ -863,7 +660,8 @@ fn evaluate_function(
 
             // If it's a simple column reference, look it up in historical results
             if let ExprNode::Column(node_name) = &args[0].node {
-                if let Some(value) = context.get_historical_value(node_name, &target_period) {
+                if let Some(value) = get_historical_column_value(context, node_name, &target_period)
+                {
                     Ok(value)
                 } else {
                     // No historical value found, return NaN
@@ -1003,7 +801,7 @@ fn evaluate_function(
 
             // Collect historical values in chronological order
             let mut values = Vec::new();
-            for (period_id, period_results) in &context.historical_results {
+            for (period_id, period_results) in context.historical_results.iter() {
                 if let Some(value) = period_results.get(node_name) {
                     values.push((*period_id, *value));
                 }
@@ -1085,155 +883,6 @@ fn evaluate_function(
                 Ok(f64::NAN)
             } else {
                 Ok(kahan_sum(values.iter().copied()) / values.len() as f64)
-            }
-        }
-
-        Function::Ytd => {
-            require_args("ytd", args, 1, node_id)?;
-
-            let current = context.period_id;
-
-            // Determine the first period of the calendar year for the current
-            // frequency. This keeps semantics consistent across quarterly,
-            // monthly, weekly, semi-annual, and annual models.
-            let start_of_year = match context.period_kind {
-                PeriodKind::Daily => PeriodId::day(current.year, 1),
-                PeriodKind::Quarterly => PeriodId::quarter(current.year, 1),
-                PeriodKind::Monthly => PeriodId::month(current.year, 1),
-                PeriodKind::Weekly => PeriodId::week(current.year, 1),
-                PeriodKind::SemiAnnual => PeriodId::half(current.year, 1),
-                PeriodKind::Annual => PeriodId::annual(current.year),
-            };
-
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let values =
-                    collect_period_range_values(node_name, context, start_of_year, current)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
-            } else {
-                Err(eval_error(
-                    node_id,
-                    "ytd() currently supports only simple column references; use an intermediate node for complex expressions",
-                ))
-            }
-        }
-
-        Function::Qtd => {
-            require_args("qtd", args, 1, node_id)?;
-
-            // QTD is defined only for monthly statement models.
-            if context.period_kind != PeriodKind::Monthly {
-                return Err(eval_error(
-                    node_id,
-                    "qtd() is only supported for monthly period models",
-                ));
-            }
-
-            let current = context.period_id;
-            let month = current.index as u32;
-            let quarter_start_month = ((month - 1) / 3) * 3 + 1;
-            let start = PeriodId::month(current.year, quarter_start_month as u8);
-            let end = current;
-
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let values = collect_period_range_values(node_name, context, start, end)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
-            } else {
-                Err(eval_error(
-                    node_id,
-                    "qtd() currently supports only simple column references; use an intermediate node for complex expressions",
-                ))
-            }
-        }
-
-        Function::FiscalYtd => {
-            require_args("fiscal_ytd", args, 2, node_id)?;
-
-            // Fiscal YTD is defined for monthly statement models, using a
-            // configurable fiscal start month (1-12).
-            if context.period_kind != PeriodKind::Monthly {
-                return Err(eval_error(
-                    node_id,
-                    "fiscal_ytd() is only supported for monthly period models",
-                ));
-            }
-
-            let start_month_raw = evaluate_expr(&args[1], context, node_id)?;
-            if !start_month_raw.is_finite()
-                || start_month_raw.fract() != 0.0
-                || !(1.0..=12.0).contains(&start_month_raw)
-            {
-                return Err(eval_error(
-                    node_id,
-                    "fiscal_ytd() fiscal_start_month must be an integer between 1 and 12",
-                ));
-            }
-            let start_month = start_month_raw as u8;
-
-            let current = context.period_id;
-            let current_month = current.index;
-
-            // If the current month is on/after the fiscal start month, the
-            // fiscal year starts in the current calendar year. Otherwise, it
-            // started in the prior calendar year.
-            let fiscal_start_year = if current_month >= start_month as u16 {
-                current.year
-            } else {
-                current.year - 1
-            };
-
-            let start = PeriodId::month(fiscal_start_year, start_month);
-            let end = current;
-
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let values = collect_period_range_values(node_name, context, start, end)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
-            } else {
-                Err(eval_error(
-                    node_id,
-                    "fiscal_ytd() currently supports only simple column references; use an intermediate node for complex expressions",
-                ))
-            }
-        }
-
-        Function::Ttm => {
-            require_args("ttm", args, 1, node_id)?;
-
-            // Trailing Twelve Months (TTM) - Financial Reporting Standard
-            //
-            // TTM computes a rolling sum over a period-appropriate window:
-            // - For quarterly periods: sums current period + prior 3 periods (4 periods total)
-            // - For monthly periods: sums current period + prior 11 periods (12 periods total)
-            // - For annual periods: returns current period value only (1 period total)
-            //
-            // Behavior:
-            // 1. Window size = periods_per_year (4 for quarterly, 12 for monthly, 1 for annual)
-            // 2. Includes current period + (N-1) historical periods in chronological order
-            // 3. Incomplete windows (< N periods available): returns sum of available data
-            // 4. NaN values are excluded from summation (skipped, not propagated)
-            // 5. All-NaN window: returns 0.0
-            //
-            // Example (quarterly):
-            // Period | Revenue | ttm(revenue)
-            // -------|---------|-------------
-            // 2024Q1 |   100   |    100       (only 1 period available)
-            // 2024Q2 |   105   |    205       (2 periods: 100 + 105)
-            // 2024Q3 |   110   |    315       (3 periods: 100 + 105 + 110)
-            // 2024Q4 |   115   |    430       (4 periods: 100 + 105 + 110 + 115)
-            // 2025Q1 |   120   |    450       (4 periods: 105 + 110 + 115 + 120)
-            let window = context.period_kind.periods_per_year() as usize;
-
-            // For column references, get rolling sum over appropriate window
-            if let ExprNode::Column(node_name) = &args[0].node {
-                let values = collect_rolling_window_values(node_name, context, window)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
-            } else {
-                let values = collect_expression_window_values(&args[0], context, window, node_id)?;
-                let filtered: Vec<f64> = values.into_iter().filter(|v| !v.is_nan()).collect();
-                Ok(neumaier_sum(filtered.iter().copied()))
             }
         }
 
@@ -1381,7 +1030,7 @@ fn evaluate_function(
 
             // Collect historical values
             let mut values = Vec::new();
-            for (period_id, period_results) in &context.historical_results {
+            for (period_id, period_results) in context.historical_results.iter() {
                 if let Some(value) = period_results.get(node_name) {
                     values.push((*period_id, *value));
                 }
@@ -1444,7 +1093,10 @@ fn evaluate_function(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
+    use finstack_core::currency::Currency;
     use finstack_core::expr::{Expr, Function};
+    use finstack_core::money::Money;
     use indexmap::IndexMap;
 
     fn build_context_with_history(
@@ -1463,11 +1115,37 @@ mod tests {
             historical.insert(period, values);
         }
 
-        let mut context = EvaluationContext::new(current_period, node_to_column, historical);
+        let mut context = EvaluationContext::new(
+            current_period,
+            std::sync::Arc::new(node_to_column),
+            std::sync::Arc::new(historical),
+        );
         context
             .set_value(node_id, current_value)
             .expect("set node value");
         context
+    }
+
+    fn build_cs_snapshot(
+        period: PeriodId,
+        debt_balance: f64,
+        interest: f64,
+    ) -> CapitalStructureCashflows {
+        let mut snapshot = CapitalStructureCashflows::new();
+        let breakdown = CashflowBreakdown {
+            interest_expense_cash: Money::new(interest, Currency::USD),
+            interest_expense_pik: Money::new(0.0, Currency::USD),
+            principal_payment: Money::new(0.0, Currency::USD),
+            fees: Money::new(0.0, Currency::USD),
+            debt_balance: Money::new(debt_balance, Currency::USD),
+            accrued_interest: Money::new(0.0, Currency::USD),
+        };
+        let mut totals = IndexMap::new();
+        totals.insert(period, breakdown.clone());
+        snapshot.totals = totals.clone();
+        snapshot.totals_by_currency.insert(Currency::USD, totals);
+        snapshot.reporting_currency = Some(Currency::USD);
+        snapshot
     }
 
     #[test]
@@ -1521,7 +1199,11 @@ mod tests {
     #[test]
     fn sum_function_handles_large_cancellations() {
         let period = PeriodId::quarter(2025, 1);
-        let mut context = EvaluationContext::new(period, IndexMap::new(), IndexMap::new());
+        let mut context = EvaluationContext::new(
+            period,
+            std::sync::Arc::new(IndexMap::new()),
+            std::sync::Arc::new(IndexMap::new()),
+        );
         let args = vec![
             Expr::literal(1e16),
             Expr::literal(1.0),
@@ -1573,7 +1255,11 @@ mod tests {
     #[test]
     fn annualize_uses_period_kind_when_periods_missing() {
         let period = PeriodId::month(2025, 3);
-        let mut context = EvaluationContext::new(period, IndexMap::new(), IndexMap::new());
+        let mut context = EvaluationContext::new(
+            period,
+            std::sync::Arc::new(IndexMap::new()),
+            std::sync::Arc::new(IndexMap::new()),
+        );
 
         let default_factor = evaluate_function(
             &Function::Annualize,
@@ -1599,7 +1285,11 @@ mod tests {
     #[test]
     fn abs_and_sign_helpers_cover_edge_cases() {
         let period = PeriodId::quarter(2025, 1);
-        let mut context = EvaluationContext::new(period, IndexMap::new(), IndexMap::new());
+        let mut context = EvaluationContext::new(
+            period,
+            std::sync::Arc::new(IndexMap::new()),
+            std::sync::Arc::new(IndexMap::new()),
+        );
 
         let abs_val = evaluate_function(
             &Function::Abs,
@@ -1645,5 +1335,52 @@ mod tests {
         )
         .expect("sign nan");
         assert!(sign_nan.is_nan());
+    }
+
+    #[test]
+    fn collect_historical_values_sorted_supports_cs_references() {
+        let p1 = PeriodId::quarter(2025, 1);
+        let p2 = PeriodId::quarter(2025, 2);
+        let mut context = EvaluationContext::new(
+            p2,
+            std::sync::Arc::new(IndexMap::new()),
+            std::sync::Arc::new(IndexMap::new()),
+        );
+        let mut hist_cs = IndexMap::new();
+        hist_cs.insert(p1, build_cs_snapshot(p1, 100.0, 5.0));
+        context.historical_capital_structure_cashflows = std::sync::Arc::new(hist_cs);
+        context.capital_structure_cashflows = Some(build_cs_snapshot(p2, 90.0, 4.0));
+
+        let values = collect_historical_values_sorted("__cs__debt_balance__total", &context)
+            .expect("cs history");
+        assert_eq!(values.get(&p1), Some(&100.0));
+        assert_eq!(values.get(&p2), Some(&90.0));
+    }
+
+    #[test]
+    fn lag_supports_cs_references() {
+        let p1 = PeriodId::quarter(2025, 1);
+        let p2 = PeriodId::quarter(2025, 2);
+        let mut context = EvaluationContext::new(
+            p2,
+            std::sync::Arc::new(IndexMap::new()),
+            std::sync::Arc::new(IndexMap::new()),
+        );
+        let mut hist_cs = IndexMap::new();
+        hist_cs.insert(p1, build_cs_snapshot(p1, 100.0, 5.0));
+        context.historical_capital_structure_cashflows = std::sync::Arc::new(hist_cs);
+        context.capital_structure_cashflows = Some(build_cs_snapshot(p2, 90.0, 4.0));
+
+        let value = evaluate_function(
+            &Function::Lag,
+            &[
+                Expr::column("__cs__interest_expense__total"),
+                Expr::literal(1.0),
+            ],
+            &mut context,
+            Some("lag_cs"),
+        )
+        .expect("lag over cs should succeed");
+        assert_eq!(value, 5.0);
     }
 }

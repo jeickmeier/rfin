@@ -54,7 +54,7 @@ fn bench_dag_evaluation(c: &mut Criterion) {
             let compiled = CompiledExpr::new(expr);
             b.iter(|| {
                 let result = compiled.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
-                black_box(result);
+                black_box(result.is_ok());
             })
         });
     }
@@ -77,10 +77,10 @@ fn bench_dag_with_planning(c: &mut Criterion) {
             let meta = finstack_core::config::results_meta(
                 &finstack_core::config::FinstackConfig::default(),
             );
-            let compiled = CompiledExpr::with_planning(expr, meta);
+            let compiled = CompiledExpr::with_planning(expr, meta).unwrap();
             b.iter(|| {
                 let result = compiled.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
-                black_box(result);
+                black_box(result.is_ok());
             })
         });
     }
@@ -103,12 +103,46 @@ fn bench_dag_cache_enabled(c: &mut Criterion) {
             let meta = finstack_core::config::results_meta(
                 &finstack_core::config::FinstackConfig::default(),
             );
-            let compiled = CompiledExpr::with_planning(expr, meta).with_cache(10);
+            let compiled = CompiledExpr::with_planning(expr, meta)
+                .unwrap()
+                .with_cache(10);
             b.iter(|| {
                 let result = compiled.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
-                black_box(result);
+                black_box(result.is_ok());
             })
         });
+    }
+
+    group.finish();
+}
+
+fn bench_dag_row_scaling(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dag_row_scaling");
+    let expr = build_complex_dag(100);
+    let meta =
+        finstack_core::config::results_meta(&finstack_core::config::FinstackConfig::default());
+    let compiled = CompiledExpr::with_planning(expr, meta)
+        .unwrap()
+        .with_cache(10);
+    let ctx = SimpleContext::new(["x", "y"]);
+
+    for rows in [100usize, 1_000, 10_000] {
+        let x: Vec<f64> = (0..rows).map(|i| i as f64).collect();
+        let y: Vec<f64> = (0..rows).map(|i| (i as f64) * 0.5).collect();
+        let cols: Vec<&[f64]> = vec![&x, &y];
+
+        group.bench_with_input(
+            BenchmarkId::new("planned_cached_rows", rows),
+            &rows,
+            |b, _| {
+                b.iter(|| {
+                    let result = compiled
+                        .eval(black_box(&ctx), black_box(&cols), EvalOpts::default())
+                        .unwrap();
+                    black_box(result);
+                })
+            },
+        );
     }
 
     group.finish();
@@ -119,5 +153,6 @@ criterion_group!(
     bench_dag_evaluation,
     bench_dag_with_planning,
     bench_dag_cache_enabled,
+    bench_dag_row_scaling,
 );
 criterion_main!(benches);

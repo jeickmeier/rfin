@@ -10,10 +10,14 @@ use crate::evaluator::results::EvalWarning;
 use crate::types::NodeValueType;
 use finstack_core::dates::{PeriodId, PeriodKind};
 use indexmap::IndexMap;
+use std::sync::Arc;
 
 /// Evaluation context for a single period.
 ///
 /// Tracks node values for the current period and provides access to historical values.
+/// Read-only shared data (`node_to_column`, `historical_results`,
+/// `historical_capital_structure_cashflows`) is wrapped in `Arc` so that per-period
+/// and per-aggregate-function context construction is O(1) instead of O(P×N).
 #[derive(Debug, Clone)]
 pub struct EvaluationContext {
     /// Current period being evaluated
@@ -23,10 +27,14 @@ pub struct EvaluationContext {
     pub period_kind: PeriodKind,
 
     /// Map of node_id → column index for the current period
-    pub node_to_column: IndexMap<String, usize>,
+    pub node_to_column: Arc<IndexMap<String, usize>>,
 
     /// Historical results: period_id → (node_id → value)
-    pub historical_results: IndexMap<PeriodId, IndexMap<String, f64>>,
+    pub historical_results: Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
+
+    /// Historical capital-structure snapshots: period_id → cashflows
+    pub historical_capital_structure_cashflows:
+        Arc<IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>>,
 
     /// Current period results being built.
     /// Uses `Option<f64>` to distinguish between "not yet evaluated" (`None`) and "evaluated to NaN" (`Some(NaN)`).
@@ -56,27 +64,29 @@ impl EvaluationContext {
     /// # use finstack_statements::evaluator::EvaluationContext;
     /// # use finstack_core::dates::PeriodId;
     /// # use indexmap::IndexMap;
+    /// # use std::sync::Arc;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let period = PeriodId::quarter(2025, 1);
     /// let mut columns = IndexMap::new();
     /// columns.insert("revenue".to_string(), 0);
-    /// let ctx = EvaluationContext::new(period, columns, IndexMap::new());
+    /// let ctx = EvaluationContext::new(period, Arc::new(columns), Arc::new(IndexMap::new()));
     /// assert_eq!(ctx.period_id, period);
     /// # Ok(())
     /// # }
     /// ```
     pub fn new(
         period_id: PeriodId,
-        node_to_column: IndexMap<String, usize>,
-        historical_results: IndexMap<PeriodId, IndexMap<String, f64>>,
+        node_to_column: Arc<IndexMap<String, usize>>,
+        historical_results: Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
     ) -> Self {
         let num_nodes = node_to_column.len();
-        let period_kind = period_id.kind(); // Extract period frequency from period_id
+        let period_kind = period_id.kind();
         Self {
             period_id,
             period_kind,
             node_to_column,
             historical_results,
+            historical_capital_structure_cashflows: Arc::new(IndexMap::new()),
             current_values: vec![None; num_nodes],
             node_value_types: IndexMap::new(),
             capital_structure_cashflows: None,
@@ -164,6 +174,66 @@ impl EvaluationContext {
             .and_then(|period_results| period_results.get(node_id).copied())
     }
 
+    fn lookup_cs_value(
+        cashflows: &crate::capital_structure::CapitalStructureCashflows,
+        period_id: &PeriodId,
+        component: &str,
+        instrument_or_total: &str,
+    ) -> Result<f64> {
+        if instrument_or_total == "total" {
+            match component {
+                "interest_expense" => cashflows.get_total_interest(period_id),
+                "interest_expense_cash" => cashflows.get_total_interest_cash(period_id),
+                "interest_expense_pik" => cashflows.get_total_interest_pik(period_id),
+                "principal_payment" => cashflows.get_total_principal(period_id),
+                "debt_balance" => cashflows.get_total_debt_balance(period_id),
+                "fees" => cashflows.get_total_fees(period_id),
+                "accrued_interest" => cashflows.get_total_accrued_interest(period_id),
+                _ => Err(Error::capital_structure(format!(
+                    "Unknown capital structure component: {}. Expected: interest_expense, interest_expense_cash, interest_expense_pik, principal_payment, debt_balance, fees, or accrued_interest",
+                    component
+                ))),
+            }
+        } else {
+            match component {
+                "interest_expense" => cashflows.get_interest(instrument_or_total, period_id),
+                "interest_expense_cash" => {
+                    cashflows.get_interest_cash(instrument_or_total, period_id)
+                }
+                "interest_expense_pik" => cashflows.get_interest_pik(instrument_or_total, period_id),
+                "principal_payment" => cashflows.get_principal(instrument_or_total, period_id),
+                "debt_balance" => cashflows.get_debt_balance(instrument_or_total, period_id),
+                "fees" => cashflows.get_fees(instrument_or_total, period_id),
+                "accrued_interest" => {
+                    cashflows.get_accrued_interest(instrument_or_total, period_id)
+                }
+                _ => Err(Error::capital_structure(format!(
+                    "Unknown capital structure component: {}. Expected: interest_expense, interest_expense_cash, interest_expense_pik, principal_payment, debt_balance, fees, or accrued_interest",
+                    component
+                ))),
+            }
+        }
+    }
+
+    /// Get historical capital-structure value for a specific period.
+    pub fn get_historical_cs_value(
+        &self,
+        component: &str,
+        instrument_or_total: &str,
+        period_id: &PeriodId,
+    ) -> Result<f64> {
+        let cashflows = self
+            .historical_capital_structure_cashflows
+            .get(period_id)
+            .ok_or_else(|| {
+                Error::capital_structure(format!(
+                    "No historical capital structure data for period {}",
+                    period_id
+                ))
+            })?;
+        Self::lookup_cs_value(cashflows, period_id, component, instrument_or_total)
+    }
+
     /// Get capital structure value for the current period.
     ///
     /// # Arguments
@@ -195,36 +265,12 @@ impl EvaluationContext {
             .capital_structure_cashflows
             .as_ref()
             .ok_or_else(|| Error::capital_structure("No capital structure defined in model"))?;
-
-        let value = if instrument_or_total == "total" {
-            // Get total for all instruments
-            match component {
-                "interest_expense" => cs_cashflows.get_total_interest(&self.period_id),
-                "interest_expense_cash" => cs_cashflows.get_total_interest_cash(&self.period_id),
-                "interest_expense_pik" => cs_cashflows.get_total_interest_pik(&self.period_id),
-                "principal_payment" => cs_cashflows.get_total_principal(&self.period_id),
-                "debt_balance" => cs_cashflows.get_total_debt_balance(&self.period_id),
-                _ => return Err(Error::capital_structure(format!(
-                    "Unknown capital structure component: {}. Expected: interest_expense, interest_expense_cash, interest_expense_pik, principal_payment, or debt_balance",
-                    component
-                ))),
-            }
-        } else {
-            // Get value for specific instrument
-            match component {
-                "interest_expense" => cs_cashflows.get_interest(instrument_or_total, &self.period_id),
-                "interest_expense_cash" => cs_cashflows.get_interest_cash(instrument_or_total, &self.period_id),
-                "interest_expense_pik" => cs_cashflows.get_interest_pik(instrument_or_total, &self.period_id),
-                "principal_payment" => cs_cashflows.get_principal(instrument_or_total, &self.period_id),
-                "debt_balance" => cs_cashflows.get_debt_balance(instrument_or_total, &self.period_id),
-                _ => return Err(Error::capital_structure(format!(
-                    "Unknown capital structure component: {}. Expected: interest_expense, interest_expense_cash, interest_expense_pik, principal_payment, or debt_balance",
-                    component
-                ))),
-            }
-        };
-
-        value
+        Self::lookup_cs_value(
+            cs_cashflows,
+            &self.period_id,
+            component,
+            instrument_or_total,
+        )
     }
 
     /// Get all results as a map.
@@ -233,7 +279,7 @@ impl EvaluationContext {
     /// Nodes with None are skipped (should not happen in valid evaluation).
     pub fn into_results(self) -> (IndexMap<String, f64>, Vec<EvalWarning>) {
         let mut results = IndexMap::new();
-        for (node_id, idx) in &self.node_to_column {
+        for (node_id, idx) in self.node_to_column.iter() {
             if let Some(value) = self.current_values[*idx] {
                 results.insert(node_id.clone(), value);
             }
@@ -258,8 +304,11 @@ mod tests {
         node_to_column.insert("revenue".to_string(), 0);
         node_to_column.insert("cogs".to_string(), 1);
 
-        let ctx =
-            EvaluationContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
+        let ctx = EvaluationContext::new(
+            PeriodId::quarter(2025, 1),
+            Arc::new(node_to_column),
+            Arc::new(IndexMap::new()),
+        );
 
         assert_eq!(ctx.current_values.len(), 2);
     }
@@ -269,8 +318,11 @@ mod tests {
         let mut node_to_column = IndexMap::new();
         node_to_column.insert("revenue".to_string(), 0);
 
-        let mut ctx =
-            EvaluationContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
+        let mut ctx = EvaluationContext::new(
+            PeriodId::quarter(2025, 1),
+            Arc::new(node_to_column),
+            Arc::new(IndexMap::new()),
+        );
 
         ctx.set_value("revenue", 100_000.0)
             .expect("test should succeed");
@@ -290,7 +342,11 @@ mod tests {
         q1_results.insert("revenue".to_string(), 100_000.0);
         historical.insert(PeriodId::quarter(2025, 1), q1_results);
 
-        let ctx = EvaluationContext::new(PeriodId::quarter(2025, 2), node_to_column, historical);
+        let ctx = EvaluationContext::new(
+            PeriodId::quarter(2025, 2),
+            Arc::new(node_to_column),
+            Arc::new(historical),
+        );
 
         let value = ctx.get_historical_value("revenue", &PeriodId::quarter(2025, 1));
         assert_eq!(value, Some(100_000.0));

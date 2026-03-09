@@ -258,6 +258,15 @@ impl CapitalStructureCashflows {
         })
     }
 
+    /// Get fees for a specific instrument and period.
+    ///
+    /// # Arguments
+    /// * `instrument_id` - Instrument identifier
+    /// * `period_id` - Period to inspect
+    pub fn get_fees(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
+        self.get_instrument_field(instrument_id, period_id, "fees", |cf| cf.fees.amount())
+    }
+
     /// Get accrued interest for a specific instrument and period.
     ///
     /// # Arguments
@@ -307,6 +316,14 @@ impl CapitalStructureCashflows {
     /// * `period_id` - Period to inspect
     pub fn get_total_debt_balance(&self, period_id: &PeriodId) -> Result<f64> {
         self.reporting_total(period_id, |cf| cf.debt_balance.amount())
+    }
+
+    /// Get total fees across all instruments for a period.
+    ///
+    /// # Arguments
+    /// * `period_id` - Period to inspect
+    pub fn get_total_fees(&self, period_id: &PeriodId) -> Result<f64> {
+        self.reporting_total(period_id, |cf| cf.fees.amount())
     }
 
     /// Get total accrued interest across all instruments for a period.
@@ -479,6 +496,12 @@ pub struct WaterfallSpec {
     #[serde(default = "default_priority_of_payments")]
     pub priority_of_payments: Vec<PaymentPriority>,
 
+    /// Optional formula or node reference for cash available to allocate in the waterfall.
+    ///
+    /// When omitted, the runtime preserves the legacy fully-funded scheduled cashflow behavior.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub available_cash_node: Option<String>,
+
     /// Excess Cash Flow (ECF) sweep specification
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ecf_sweep: Option<EcfSweepSpec>,
@@ -502,6 +525,7 @@ impl Default for WaterfallSpec {
     fn default() -> Self {
         Self {
             priority_of_payments: default_priority_of_payments(),
+            available_cash_node: None,
             ecf_sweep: None,
             pik_toggle: None,
         }

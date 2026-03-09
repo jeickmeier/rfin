@@ -6,9 +6,9 @@ use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::dag::{evaluate_order, DependencyGraph};
 use crate::evaluator::forecast_eval;
 use crate::evaluator::formula::evaluate_formula;
-#[cfg(feature = "parallel")]
-use crate::evaluator::monte_carlo::aggregate_monte_carlo_paths;
-use crate::evaluator::monte_carlo::{MonteCarloAccumulator, MonteCarloConfig, MonteCarloResults};
+use crate::evaluator::monte_carlo::{
+    MonteCarloAccumulator, MonteCarloConfig, MonteCarloResults, PathResult,
+};
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
 use crate::evaluator::results::{EvalWarning, ResultsMeta, StatementResult};
 use crate::evaluator::{capital_structure_runtime, capital_structure_runtime::dependent_closure};
@@ -47,8 +47,8 @@ use std::time::Instant;
 /// ```
 #[derive(Clone)]
 pub struct Evaluator {
-    /// Cached compiled expressions
-    compiled_cache: IndexMap<String, Expr>,
+    /// Cached compiled expressions (Arc-shared across Monte Carlo path clones)
+    compiled_cache: std::sync::Arc<IndexMap<String, Expr>>,
 
     /// Cached forecast results: node_id → (period_id → value)
     forecast_cache: IndexMap<String, IndexMap<PeriodId, f64>>,
@@ -59,7 +59,7 @@ impl Evaluator {
     #[must_use = "creating an evaluator has no effect without calling evaluate()"]
     pub fn new() -> Self {
         Self {
-            compiled_cache: IndexMap::new(),
+            compiled_cache: std::sync::Arc::new(IndexMap::new()),
             forecast_cache: IndexMap::new(),
         }
     }
@@ -141,8 +141,7 @@ impl Evaluator {
         #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
 
-        // Clear caches for new evaluation to avoid stale formula/forecast reuse
-        self.compiled_cache.clear();
+        self.compiled_cache = std::sync::Arc::new(IndexMap::new());
         self.forecast_cache.clear();
 
         // Build dependency graph and check for cycles
@@ -155,12 +154,13 @@ impl Evaluator {
         // Compile all formulas upfront
         self.compile_formulas(model)?;
 
-        // Build node-to-column index
-        let node_to_column: IndexMap<String, usize> = eval_order
-            .iter()
-            .enumerate()
-            .map(|(i, node_id)| (node_id.clone(), i))
-            .collect();
+        let node_to_column: std::sync::Arc<IndexMap<String, usize>> = std::sync::Arc::new(
+            eval_order
+                .iter()
+                .enumerate()
+                .map(|(i, node_id)| (node_id.clone(), i))
+                .collect(),
+        );
 
         let cs_seed_nodes: HashSet<String> = model
             .nodes
@@ -221,6 +221,10 @@ impl Evaluator {
 
         // Evaluate period-by-period
         let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+        let mut historical_cs: IndexMap<
+            PeriodId,
+            crate::capital_structure::CapitalStructureCashflows,
+        > = IndexMap::new();
         let mut all_warnings = Vec::new();
         let mut results = StatementResult::new();
 
@@ -241,6 +245,7 @@ impl Evaluator {
                         &eval_order,
                         &node_to_column,
                         &historical,
+                        &historical_cs,
                         market_ctx,
                         as_of,
                         insts,
@@ -259,6 +264,15 @@ impl Evaluator {
                     for (pid, breakdown) in period_cs.totals {
                         cs_cashflows_accum.totals.insert(pid, breakdown);
                     }
+                    for (currency, period_map) in period_cs.totals_by_currency {
+                        let accum_map = cs_cashflows_accum
+                            .totals_by_currency
+                            .entry(currency)
+                            .or_default();
+                        for (pid, breakdown) in period_map {
+                            accum_map.insert(pid, breakdown);
+                        }
+                    }
                     if cs_cashflows_accum.reporting_currency.is_none() {
                         cs_cashflows_accum.reporting_currency = period_cs.reporting_currency;
                     }
@@ -273,6 +287,7 @@ impl Evaluator {
                         &eval_order,
                         &node_to_column,
                         &historical,
+                        &historical_cs,
                         None,
                     )?
                 };
@@ -290,6 +305,9 @@ impl Evaluator {
 
             // Add to historical context for next period
             historical.insert(period.id, period_results.clone());
+            if has_cs {
+                historical_cs.insert(period.id, cs_cashflows_accum.clone());
+            }
 
             // Advance CS state for next period
             if let Some(ref mut state) = cs_state {
@@ -434,67 +452,80 @@ impl Evaluator {
         dag.detect_cycles()?;
         let eval_order = evaluate_order(&dag)?;
 
-        // Compile formulas once and reset caches for this MC run.
-        self.compiled_cache.clear();
+        self.compiled_cache = std::sync::Arc::new(IndexMap::new());
         self.forecast_cache.clear();
         self.compile_formulas(model)?;
 
-        // Build node-to-column index
-        let node_to_column: IndexMap<String, usize> = eval_order
-            .iter()
-            .enumerate()
-            .map(|(i, node_id)| (node_id.clone(), i))
-            .collect();
+        let node_to_column: std::sync::Arc<IndexMap<String, usize>> = std::sync::Arc::new(
+            eval_order
+                .iter()
+                .enumerate()
+                .map(|(i, node_id)| (node_id.clone(), i))
+                .collect(),
+        );
 
         // Run paths — parallel when the `parallel` feature is enabled.
-        let run_single_path =
-            |path_idx: usize| -> Result<IndexMap<String, IndexMap<PeriodId, f64>>> {
-                let mut path_eval = self.clone();
-                path_eval.forecast_cache.clear();
+        let run_single_path = |path_idx: usize| -> Result<PathResult> {
+            let mut path_eval = self.clone();
+            path_eval.forecast_cache.clear();
 
-                let seed_offset = config.seed.wrapping_add(path_idx as u64);
-                let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+            let seed_offset = config.seed.wrapping_add(path_idx as u64);
+            let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+            let mut all_warnings = Vec::new();
 
-                for period in &model.periods {
-                    let (period_results, _warnings) = path_eval.evaluate_period_mc(
-                        model,
-                        &period.id,
-                        period.is_actual,
-                        &eval_order,
-                        &node_to_column,
-                        &historical,
-                        seed_offset,
-                    )?;
-                    historical.insert(period.id, period_results.clone());
+            for period in &model.periods {
+                let (period_results, warnings) = path_eval.evaluate_period_mc(
+                    model,
+                    &period.id,
+                    period.is_actual,
+                    &eval_order,
+                    &node_to_column,
+                    &historical,
+                    seed_offset,
+                )?;
+                all_warnings.extend(warnings);
+                historical.insert(period.id, period_results.clone());
+            }
+
+            let mut node_map: IndexMap<String, IndexMap<PeriodId, f64>> = IndexMap::new();
+            for (period_id, values) in &historical {
+                for (node_id, value) in values {
+                    node_map
+                        .entry(node_id.clone())
+                        .or_default()
+                        .insert(*period_id, *value);
                 }
-
-                let mut node_map: IndexMap<String, IndexMap<PeriodId, f64>> = IndexMap::new();
-                for (period_id, values) in &historical {
-                    for (node_id, value) in values {
-                        node_map
-                            .entry(node_id.clone())
-                            .or_default()
-                            .insert(*period_id, *value);
-                    }
-                }
-                Ok(node_map)
-            };
+            }
+            Ok((node_map, all_warnings))
+        };
 
         #[cfg(feature = "parallel")]
         {
             use rayon::prelude::*;
-            let all_paths = (0..config.n_paths)
+            let accumulator_seed = MonteCarloAccumulator::new(model, config)?;
+            let accumulator = (0..config.n_paths)
                 .into_par_iter()
-                .map(run_single_path)
-                .collect::<Result<Vec<_>>>()?;
-            aggregate_monte_carlo_paths(model, config, &all_paths)
+                .try_fold(
+                    || accumulator_seed.empty_like(),
+                    |mut acc, path_idx| {
+                        let (path_results, warnings) = run_single_path(path_idx)?;
+                        acc.push_path(path_idx, path_results, warnings)?;
+                        Ok(acc)
+                    },
+                )
+                .try_reduce(
+                    || accumulator_seed.empty_like(),
+                    |left, right| left.merge(right),
+                )?;
+            accumulator.finish()
         }
 
         #[cfg(not(feature = "parallel"))]
         {
             let mut accumulator = MonteCarloAccumulator::new(model, config)?;
             for path_idx in 0..config.n_paths {
-                accumulator.push_path(path_idx, run_single_path(path_idx)?)?;
+                let (path_results, warnings) = run_single_path(path_idx)?;
+                accumulator.push_path(path_idx, path_results, warnings)?;
             }
             accumulator.finish()
         }
@@ -502,22 +533,20 @@ impl Evaluator {
 
     /// Compile all formulas in the model.
     fn compile_formulas(&mut self, model: &FinancialModelSpec) -> Result<()> {
-        // Sequential compilation
+        let cache = std::sync::Arc::make_mut(&mut self.compiled_cache);
         for (node_id, node_spec) in &model.nodes {
-            // Compile formula if present
             if let Some(formula_text) = &node_spec.formula_text {
-                if !self.compiled_cache.contains_key(node_id) {
+                if !cache.contains_key(node_id) {
                     let expr = dsl::parse_and_compile(formula_text)?;
-                    self.compiled_cache.insert(node_id.clone(), expr);
+                    cache.insert(node_id.clone(), expr);
                 }
             }
 
-            // Compile where clause if present
             if let Some(where_text) = &node_spec.where_text {
                 let where_key = format!("__where__{}", node_id);
-                if !self.compiled_cache.contains_key(&where_key) {
+                if !cache.contains_key(&where_key) {
                     let expr = dsl::parse_and_compile(where_text)?;
-                    self.compiled_cache.insert(where_key, expr);
+                    cache.insert(where_key, expr);
                 }
             }
         }
@@ -562,25 +591,35 @@ impl Evaluator {
                 }
             }
 
-            let source = resolve_node_value(node_spec, period_id, is_actual)?;
-
-            let value = match source {
-                NodeValueSource::Value(v) => v,
-                NodeValueSource::Forecast => forecast_eval::evaluate_forecast(
-                    node_spec,
-                    model,
-                    period_id,
-                    context,
-                    &mut self.forecast_cache,
-                    seed_offset,
-                )?,
-                NodeValueSource::Formula(_) => {
-                    let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
-                        Error::eval(format!("No compiled formula for node '{}'", node_id))
-                    })?;
-                    evaluate_formula(expr, context, Some(node_id))?
+            let value = (|| -> Result<f64> {
+                let source = resolve_node_value(node_spec, period_id, is_actual)?;
+                match source {
+                    NodeValueSource::Value(v) => Ok(v),
+                    NodeValueSource::Forecast => forecast_eval::evaluate_forecast(
+                        node_spec,
+                        model,
+                        period_id,
+                        context,
+                        &mut self.forecast_cache,
+                        seed_offset,
+                    ),
+                    NodeValueSource::Formula(_) => {
+                        let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
+                            Error::eval(format!("No compiled formula for node '{}'", node_id))
+                        })?;
+                        evaluate_formula(expr, context, Some(node_id))
+                    }
                 }
-            };
+            })()
+            .map_err(|e| {
+                tracing::error!(
+                    node_id = node_id.as_str(),
+                    period = %period_id,
+                    error = %e,
+                    "node evaluation failed"
+                );
+                e
+            })?;
 
             context.set_value(node_id, value)?;
         }
@@ -596,12 +635,17 @@ impl Evaluator {
         period_id: &PeriodId,
         is_actual: bool,
         eval_order: &[String],
-        node_to_column: &IndexMap<String, usize>,
+        node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
+        historical_cs: &IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
         cs_cashflows: Option<&crate::capital_structure::CapitalStructureCashflows>,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
-        let mut context =
-            EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
+        let mut context = EvaluationContext::new(
+            *period_id,
+            std::sync::Arc::clone(node_to_column),
+            std::sync::Arc::new(historical.clone()),
+        );
+        context.historical_capital_structure_cashflows = std::sync::Arc::new(historical_cs.clone());
 
         if let Some(cs) = cs_cashflows {
             context.capital_structure_cashflows = Some(cs.clone());
@@ -631,12 +675,15 @@ impl Evaluator {
         period_id: &PeriodId,
         is_actual: bool,
         eval_order: &[String],
-        node_to_column: &IndexMap<String, usize>,
+        node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         seed_offset: u64,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
-        let mut context =
-            EvaluationContext::new(*period_id, node_to_column.clone(), historical.clone());
+        let mut context = EvaluationContext::new(
+            *period_id,
+            std::sync::Arc::clone(node_to_column),
+            std::sync::Arc::new(historical.clone()),
+        );
 
         self.evaluate_nodes_in_order(
             model,

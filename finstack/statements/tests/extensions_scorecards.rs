@@ -112,6 +112,18 @@ fn test_scorecard_config_validation_invalid_weights() {
 }
 
 #[test]
+fn test_scorecard_config_validation_invalid_scale() {
+    let extension = CreditScorecardExtension::new();
+
+    let invalid_config = serde_json::json!({
+        "rating_scale": "UnknownScale",
+        "metrics": []
+    });
+
+    assert!(extension.validate_config(&invalid_config).is_err());
+}
+
+#[test]
 fn test_scorecard_metric() {
     let metric = ScorecardMetric {
         name: "debt_to_ebitda".into(),
@@ -142,4 +154,71 @@ fn test_scorecard_config_with_thresholds() {
 
     assert_eq!(metric.thresholds.len(), 3);
     assert_eq!(metric.thresholds.get("AAA"), Some(&(0.0, 1.0)));
+}
+
+#[test]
+fn test_scorecard_ttm_formula_uses_full_history() {
+    use finstack_core::dates::PeriodId;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::evaluator::Evaluator;
+    use finstack_statements::types::AmountOrScalar;
+
+    let model = ModelBuilder::new("scorecard-ttm")
+        .periods("2025Q1..Q4", None)
+        .expect("valid periods")
+        .value(
+            "ebitda",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(110.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(120.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(130.0)),
+            ],
+        )
+        .value(
+            "total_debt",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1000.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1000.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(1000.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(1000.0)),
+            ],
+        )
+        .build()
+        .expect("valid model");
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator
+        .evaluate(&model)
+        .expect("evaluation should succeed");
+
+    let context = ExtensionContext::new(&model, &results);
+    let config = ScorecardConfig {
+        rating_scale: "S&P".into(),
+        metrics: vec![ScorecardMetric {
+            name: "leverage".into(),
+            formula: "total_debt / ttm(ebitda)".into(),
+            weight: 1.0,
+            thresholds: indexmap::IndexMap::new(),
+            description: None,
+        }],
+        min_rating: None,
+    };
+    let mut extension = CreditScorecardExtension::with_config(config);
+    let result = extension
+        .execute(&context)
+        .expect("scorecard should succeed");
+
+    let score_data = result.data.get("total_score").expect("total_score");
+    let leverage_data = result.data.get("metric_scores").expect("metric_scores");
+    let leverage_value = leverage_data[0]["value"].as_f64().expect("leverage value");
+
+    // ttm(ebitda) = 100 + 110 + 120 + 130 = 460
+    // leverage = 1000 / 460 ≈ 2.174
+    assert!(
+        (leverage_value - 1000.0 / 460.0).abs() < 0.01,
+        "leverage should be ~2.174, got {}",
+        leverage_value
+    );
+    let _ = score_data;
 }

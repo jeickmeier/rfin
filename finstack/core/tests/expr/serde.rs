@@ -267,7 +267,7 @@ fn test_compiled_expr_serde() {
         vec![Expr::column("values"), Expr::literal(5.0)],
     );
 
-    let compiled = CompiledExpr::with_planning(expr.clone(), meta);
+    let compiled = CompiledExpr::with_planning(expr.clone(), meta).unwrap();
 
     let json = serde_json::to_string(&compiled).expect("Failed to serialize CompiledExpr");
     let deserialized: CompiledExpr =

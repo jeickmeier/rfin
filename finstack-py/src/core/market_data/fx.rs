@@ -416,9 +416,11 @@ impl PyFxMatrix {
             )));
         }
         self.provider
-            .set_quote(from_currency.inner, to_currency.inner, rate);
+            .set_quote(from_currency.inner, to_currency.inner, rate)
+            .map_err(core_to_py)?;
         self.inner
-            .set_quote(from_currency.inner, to_currency.inner, rate);
+            .set_quote(from_currency.inner, to_currency.inner, rate)
+            .map_err(core_to_py)?;
         Ok(())
     }
 
@@ -444,9 +446,9 @@ impl PyFxMatrix {
             }
             converted.push((from.inner, to.inner, *rate));
         }
-        self.provider.set_quotes(&converted);
+        self.provider.set_quotes(&converted).map_err(core_to_py)?;
         for (from, to, rate) in converted {
-            self.inner.set_quote(from, to, rate);
+            self.inner.set_quote(from, to, rate).map_err(core_to_py)?;
         }
         Ok(())
     }

@@ -48,7 +48,9 @@ mod tests {
         )
         .with_id(42);
 
-        let plan = builder.build_plan(vec![a, b], meta());
+        let plan = builder
+            .build_plan(vec![a, b], meta())
+            .expect("valid expressions should build a DAG plan");
         assert_eq!(plan.nodes.len(), 3, "column, literal, rolling mean");
         assert_eq!(plan.roots.len(), 2);
         assert_eq!(plan.roots[0], plan.roots[1]);
@@ -62,7 +64,9 @@ mod tests {
         let sum = Expr::call(Function::RollingSum, vec![col.clone(), lit.clone()]);
         let mean = Expr::call(Function::RollingMean, vec![col, lit]);
 
-        let plan = builder.build_plan(vec![sum, mean], meta());
+        let plan = builder
+            .build_plan(vec![sum, mean], meta())
+            .expect("valid expressions should build a DAG plan");
         assert_eq!(plan.nodes.len(), 4);
 
         // Ensure dependencies come before dependents in node order.
@@ -130,7 +134,7 @@ impl DagBuilder {
         &mut self,
         exprs: Vec<Expr>,
         meta: crate::config::ResultsMeta,
-    ) -> ExecutionPlan {
+    ) -> crate::Result<ExecutionPlan> {
         // Clear state
         self.expr_cache.clear();
         self.nodes.clear();
@@ -147,17 +151,17 @@ impl DagBuilder {
         self.calculate_ref_counts(&root_ids);
 
         // Build topological order (dependencies first)
-        let ordered_nodes = self.topological_sort(&root_ids);
+        let ordered_nodes = self.topological_sort(&root_ids)?;
 
         // Generate cache strategy
         let cache_strategy = self.generate_cache_strategy(&ordered_nodes);
 
-        ExecutionPlan {
+        Ok(ExecutionPlan {
             nodes: ordered_nodes,
             roots: root_ids,
             meta,
             cache_strategy,
-        }
+        })
     }
 
     /// Process an expression tree, deduplicating shared sub-expressions.
@@ -297,7 +301,7 @@ impl DagBuilder {
     }
 
     /// Build topological ordering of nodes.
-    fn topological_sort(&self, root_ids: &[u64]) -> Vec<DagNode> {
+    fn topological_sort(&self, root_ids: &[u64]) -> crate::Result<Vec<DagNode>> {
         let mut visited = HashSet::default();
         let mut result = Vec::new();
         let mut visiting = HashSet::default();
@@ -308,33 +312,32 @@ impl DagBuilder {
             visited: &mut HashSet<u64>,
             visiting: &mut HashSet<u64>,
             result: &mut Vec<DagNode>,
-        ) {
+        ) -> crate::Result<()> {
             if visited.contains(&node_id) {
-                return;
+                return Ok(());
             }
             if visiting.contains(&node_id) {
-                // Cycle detected - shouldn't happen in expression DAGs
-                // Debug builds panic to catch programming errors early
-                debug_assert!(
-                    false,
-                    "Cycle detected in expression DAG at node {}",
-                    node_id
-                );
-                // Release builds: silently skip the cycle (safe but may produce incomplete results)
-                return;
+                return Err(crate::Error::circular_dependency(vec![format!(
+                    "expr_node_{node_id}"
+                )]));
             }
 
             visiting.insert(node_id);
 
             if let Some(node) = nodes.get(&node_id) {
                 for &dep_id in &node.dependencies {
-                    visit(dep_id, nodes, visited, visiting, result);
+                    visit(dep_id, nodes, visited, visiting, result)?;
                 }
                 result.push(node.clone());
+            } else {
+                return Err(crate::Error::Validation(format!(
+                    "Execution plan references missing DAG node {node_id}"
+                )));
             }
 
             visiting.remove(&node_id);
             visited.insert(node_id);
+            Ok(())
         }
 
         for &root_id in root_ids {
@@ -344,10 +347,10 @@ impl DagBuilder {
                 &mut visited,
                 &mut visiting,
                 &mut result,
-            );
+            )?;
         }
 
-        result
+        Ok(result)
     }
 
     /// Generate cache strategy based on node characteristics.

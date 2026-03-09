@@ -29,7 +29,7 @@ fn bench_rolling_median(c: &mut Criterion) {
                     b.iter(|| {
                         let result =
                             expr.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
-                        black_box(result);
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -60,7 +60,7 @@ fn bench_rolling_mean(c: &mut Criterion) {
                     b.iter(|| {
                         let result =
                             expr.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
-                        black_box(result);
+                        let _ = black_box(result);
                     })
                 },
             );
@@ -89,7 +89,7 @@ fn bench_rolling_std(c: &mut Criterion) {
 
                 b.iter(|| {
                     let result = expr.eval(black_box(&ctx), black_box(&cols), EvalOpts::default());
-                    black_box(result);
+                    let _ = black_box(result);
                 })
             },
         );

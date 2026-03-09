@@ -39,7 +39,6 @@ fn build_discount_quotes(_base_date: Date) -> Vec<MarketQuote> {
 }
 
 #[cfg(feature = "slow")]
-#[cfg(feature = "slow")]
 fn build_credit_quotes() -> Vec<MarketQuote> {
     use finstack_valuations::market::conventions::ids::{CdsConventionKey, CdsDocClause};
     use finstack_valuations::market::quotes::cds::CdsQuote;

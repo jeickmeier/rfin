@@ -37,7 +37,7 @@
 //! let context = SimpleContext::new(["x"]);
 //! let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 //! let cols = [data.as_slice()];
-//! let result = compiled.eval(&context, &cols, EvalOpts::default());
+//! let result = compiled.eval(&context, &cols, EvalOpts::default()).unwrap();
 //! ```
 //!
 //! # Execution Strategy
@@ -53,6 +53,7 @@ pub(crate) mod cache;
 mod context;
 mod dag;
 mod eval;
+mod eval_functions;
 
 // Public API - simplified surface for end users
 pub use ast::{BinOp, EvaluationResult, Expr, ExprNode, Function, UnaryOp};

@@ -52,18 +52,25 @@
 //! }
 //! ```
 //!
-//! # Example Usage (Future)
+//! # Example Usage
 //!
 //! ```rust,no_run
 //! use finstack_statements::extensions::{CreditScorecardExtension, ExtensionRegistry};
 //! use finstack_statements::extensions::ExtensionContext;
 //!
 //! # fn main() -> finstack_statements::Result<()> {
+//! let config = serde_json::json!({
+//!   "rating_scale": "S&P",
+//!   "metrics": [{
+//!     "name": "debt_to_ebitda",
+//!     "formula": "total_debt / ttm(ebitda)"
+//!   }]
+//! });
 //! let mut registry = ExtensionRegistry::new();
 //! registry.register(Box::new(CreditScorecardExtension::new()))?;
 //!
 //! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
-//! let results = registry.execute_all(&context)?;
+//! let results = registry.execute("credit_scorecard", &context.with_config(&config))?;
 //! # let _ = results;
 //! # Ok(())
 //! # }
@@ -129,8 +136,25 @@ fn get_rating_scale(scale_name: &str) -> &'static RatingScale {
     match scale_name {
         "Moody's" | "MOODYS" | "Moodys" => get_moodys_scale(),
         "Fitch" | "FITCH" => get_sp_scale(), // Fitch uses same notation as S&P
-        _ => get_sp_scale(),                 // Default to S&P
+        "S&P" | "S&P Global" | "SP" | "sp" | "s&p" => get_sp_scale(),
+        _ => get_sp_scale(),
     }
+}
+
+fn is_supported_rating_scale(scale_name: &str) -> bool {
+    matches!(
+        scale_name,
+        "S&P"
+            | "S&P Global"
+            | "SP"
+            | "sp"
+            | "s&p"
+            | "Moody's"
+            | "MOODYS"
+            | "Moodys"
+            | "Fitch"
+            | "FITCH"
+    )
 }
 
 /// Credit scorecard analysis extension for rating and stress testing.
@@ -261,8 +285,7 @@ impl CreditScorecardExtension {
             .last()
             .ok_or_else(|| crate::error::Error::registry("No periods in model"))?;
 
-        // Build a simple evaluation context
-        let node_to_column = context
+        let node_to_column: indexmap::IndexMap<String, usize> = context
             .model
             .nodes
             .keys()
@@ -270,16 +293,37 @@ impl CreditScorecardExtension {
             .map(|(i, k)| (k.clone(), i))
             .collect();
 
+        let mut historical_results = indexmap::IndexMap::new();
+        for period in &context.model.periods {
+            if period.id == last_period.id {
+                continue;
+            }
+            let mut period_values = indexmap::IndexMap::new();
+            for (node_id, node_periods) in &context.results.nodes {
+                if let Some(value) = node_periods.get(&period.id) {
+                    period_values.insert(node_id.clone(), *value);
+                }
+            }
+            if !period_values.is_empty() {
+                historical_results.insert(period.id, period_values);
+            }
+        }
+
         let mut eval_context = crate::evaluator::EvaluationContext::new(
             last_period.id,
-            node_to_column,
-            indexmap::IndexMap::new(),
+            std::sync::Arc::new(node_to_column),
+            std::sync::Arc::new(historical_results),
         );
 
-        // Set node values from results
+        if let Some(ref cs) = context.results.cs_cashflows {
+            eval_context.capital_structure_cashflows = Some(cs.clone());
+        }
+
         for (node_id, node_values) in &context.results.nodes {
             if let Some(value) = node_values.get(&last_period.id) {
-                let _ = eval_context.set_value(node_id, *value);
+                if eval_context.node_to_column.contains_key(node_id.as_str()) {
+                    eval_context.set_value(node_id, *value)?;
+                }
             }
         }
 
@@ -545,6 +589,13 @@ impl Extension for CreditScorecardExtension {
                     e
                 ))
             })?;
+
+        if !is_supported_rating_scale(&scorecard_config.rating_scale) {
+            return Err(crate::error::Error::invalid_input(format!(
+                "Unsupported rating_scale '{}'. Expected one of: S&P, Moody's, Fitch",
+                scorecard_config.rating_scale
+            )));
+        }
 
         // Validate metric weights sum to reasonable values
         let total_weight: f64 = scorecard_config.metrics.iter().map(|m| m.weight).sum();

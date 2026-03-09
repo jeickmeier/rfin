@@ -116,7 +116,11 @@ fn test_context_get_cs_value_interest_total() {
     let node_to_column = IndexMap::new();
     let historical = IndexMap::new();
 
-    let mut context = EvaluationContext::new(period_id, node_to_column, historical);
+    let mut context = EvaluationContext::new(
+        period_id,
+        std::sync::Arc::new(node_to_column),
+        std::sync::Arc::new(historical),
+    );
 
     // Create sample capital structure cashflows
     let mut cs_cashflows = CapitalStructureCashflows::new();
@@ -154,7 +158,11 @@ fn test_context_get_cs_value_principal_instrument() {
     let node_to_column = IndexMap::new();
     let historical = IndexMap::new();
 
-    let mut context = EvaluationContext::new(period_id, node_to_column, historical);
+    let mut context = EvaluationContext::new(
+        period_id,
+        std::sync::Arc::new(node_to_column),
+        std::sync::Arc::new(historical),
+    );
 
     // Create sample capital structure cashflows
     let mut cs_cashflows = CapitalStructureCashflows::new();
@@ -188,7 +196,11 @@ fn test_context_get_cs_value_no_cs_error() {
     let node_to_column = IndexMap::new();
     let historical = IndexMap::new();
 
-    let context = EvaluationContext::new(period_id, node_to_column, historical);
+    let context = EvaluationContext::new(
+        period_id,
+        std::sync::Arc::new(node_to_column),
+        std::sync::Arc::new(historical),
+    );
 
     // No capital structure defined - should error
     let result = context.get_cs_value("interest_expense", "total");
@@ -205,7 +217,11 @@ fn test_context_get_cs_value_invalid_component() {
     let node_to_column = IndexMap::new();
     let historical = IndexMap::new();
 
-    let mut context = EvaluationContext::new(period_id, node_to_column, historical);
+    let mut context = EvaluationContext::new(
+        period_id,
+        std::sync::Arc::new(node_to_column),
+        std::sync::Arc::new(historical),
+    );
     context.capital_structure_cashflows = Some(CapitalStructureCashflows::new());
 
     // Invalid component - should error

@@ -244,6 +244,15 @@ fn test_credit_index_issuer_recovery_rates() {
     // Test issuer-specific recovery rates
     let hazard = Arc::new(sample_hazard_curve("CDX"));
     let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    let mut issuer_curves = HashMap::default();
+    issuer_curves.insert(
+        "IssuerA".to_string(),
+        Arc::new(sample_hazard_curve("IssuerA")),
+    );
+    issuer_curves.insert(
+        "IssuerB".to_string(),
+        Arc::new(sample_hazard_curve("IssuerB")),
+    );
 
     let mut recovery_rates = HashMap::default();
     recovery_rates.insert("IssuerA".to_string(), 0.30);
@@ -254,6 +263,7 @@ fn test_credit_index_issuer_recovery_rates() {
         .recovery_rate(0.40) // Default recovery
         .index_credit_curve(hazard)
         .base_correlation_curve(base_corr)
+        .issuer_curves(issuer_curves)
         .issuer_recovery_rates(recovery_rates)
         .build()
         .expect("issuer recovery rates should work");
@@ -271,6 +281,15 @@ fn test_credit_index_issuer_weights() {
     // Test issuer-specific weights
     let hazard = Arc::new(sample_hazard_curve("CDX"));
     let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    let mut issuer_curves = HashMap::default();
+    issuer_curves.insert(
+        "IssuerA".to_string(),
+        Arc::new(sample_hazard_curve("IssuerA")),
+    );
+    issuer_curves.insert(
+        "IssuerB".to_string(),
+        Arc::new(sample_hazard_curve("IssuerB")),
+    );
 
     let mut weights = HashMap::default();
     weights.insert("IssuerA".to_string(), 0.60);
@@ -281,6 +300,7 @@ fn test_credit_index_issuer_weights() {
         .recovery_rate(0.40)
         .index_credit_curve(hazard)
         .base_correlation_curve(base_corr)
+        .issuer_curves(issuer_curves)
         .issuer_weights(weights)
         .build()
         .expect("issuer weights should work");
@@ -328,4 +348,81 @@ fn test_credit_index_no_issuer_curves() {
 
     assert!(!data.has_issuer_curves());
     assert!(data.issuer_ids().is_empty());
+}
+
+#[test]
+fn test_credit_index_issuer_weights_require_curves() {
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+
+    let mut weights = HashMap::default();
+    weights.insert("IssuerA".to_string(), 1.0);
+
+    let err = CreditIndexData::builder()
+        .num_constituents(1)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .issuer_weights(weights)
+        .build()
+        .expect_err("issuer weights without issuer curves should fail");
+
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
+}
+
+#[test]
+fn test_credit_index_issuer_weights_must_sum_to_one() {
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    let mut issuer_curves = HashMap::default();
+    issuer_curves.insert(
+        "IssuerA".to_string(),
+        Arc::new(sample_hazard_curve("IssuerA")),
+    );
+    issuer_curves.insert(
+        "IssuerB".to_string(),
+        Arc::new(sample_hazard_curve("IssuerB")),
+    );
+
+    let mut weights = HashMap::default();
+    weights.insert("IssuerA".to_string(), 0.70);
+    weights.insert("IssuerB".to_string(), 0.20);
+
+    let err = CreditIndexData::builder()
+        .num_constituents(2)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .issuer_curves(issuer_curves)
+        .issuer_weights(weights)
+        .build()
+        .expect_err("issuer weights must sum to one");
+
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
+}
+
+#[test]
+fn test_credit_index_issuer_recovery_rates_reject_unknown_issuer() {
+    let hazard = Arc::new(sample_hazard_curve("CDX"));
+    let base_corr = Arc::new(sample_base_correlation_curve("CDX-BC"));
+    let mut issuer_curves = HashMap::default();
+    issuer_curves.insert(
+        "IssuerA".to_string(),
+        Arc::new(sample_hazard_curve("IssuerA")),
+    );
+
+    let mut recovery_rates = HashMap::default();
+    recovery_rates.insert("IssuerB".to_string(), 0.30);
+
+    let err = CreditIndexData::builder()
+        .num_constituents(1)
+        .recovery_rate(0.40)
+        .index_credit_curve(hazard)
+        .base_correlation_curve(base_corr)
+        .issuer_curves(issuer_curves)
+        .issuer_recovery_rates(recovery_rates)
+        .build()
+        .expect_err("unknown issuer-specific recovery should fail");
+
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
 }

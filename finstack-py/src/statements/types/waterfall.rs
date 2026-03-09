@@ -236,6 +236,7 @@ impl PyWaterfallSpec {
                 priority_of_payments: priority,
                 ecf_sweep: ecf_sweep.map(|s| s.inner),
                 pik_toggle: pik_toggle.map(|s| s.inner),
+                available_cash_node: None,
             },
         }
     }

@@ -1,8 +1,6 @@
 #![cfg(feature = "slow")]
 //! Integration test for base correlation calibration (v2).
 
-#![cfg(feature = "slow")]
-
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;

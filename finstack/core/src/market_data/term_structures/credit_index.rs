@@ -248,6 +248,14 @@ impl CreditIndexDataBuilder {
             return Err(crate::Error::from(crate::error::InputError::Invalid));
         }
 
+        validate_issuer_curves(&self.issuer_credit_curves, num_constituents)?;
+        validate_issuer_recovery_rates(&self.issuer_credit_curves, &self.issuer_recovery_rates)?;
+        validate_issuer_weights(
+            &self.issuer_credit_curves,
+            &self.issuer_weights,
+            num_constituents,
+        )?;
+
         Ok(CreditIndexData {
             num_constituents,
             recovery_rate,
@@ -258,4 +266,113 @@ impl CreditIndexDataBuilder {
             issuer_weights: self.issuer_weights,
         })
     }
+}
+
+fn validate_issuer_curves(
+    issuer_curves: &Option<HashMap<String, Arc<HazardCurve>>>,
+    num_constituents: u16,
+) -> Result<()> {
+    if let Some(curves) = issuer_curves {
+        if curves.is_empty() {
+            return Err(crate::Error::Validation(
+                "issuer_credit_curves must not be empty when provided".to_string(),
+            ));
+        }
+        if curves.len() > usize::from(num_constituents) {
+            return Err(crate::Error::Validation(format!(
+                "issuer_credit_curves has {} entries, which exceeds num_constituents={num_constituents}",
+                curves.len()
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn validate_issuer_recovery_rates(
+    issuer_curves: &Option<HashMap<String, Arc<HazardCurve>>>,
+    issuer_recovery_rates: &Option<HashMap<String, f64>>,
+) -> Result<()> {
+    let Some(recovery_rates) = issuer_recovery_rates else {
+        return Ok(());
+    };
+    let Some(curves) = issuer_curves else {
+        return Err(crate::Error::Validation(
+            "issuer_recovery_rates requires issuer_credit_curves so issuer IDs are well-defined"
+                .to_string(),
+        ));
+    };
+
+    for (issuer, recovery) in recovery_rates {
+        if !curves.contains_key(issuer) {
+            return Err(crate::Error::Validation(format!(
+                "issuer_recovery_rates contains unknown issuer '{issuer}'"
+            )));
+        }
+        super::common::validate_unit_range(*recovery, &format!("issuer_recovery_rates[{issuer}]"))?;
+    }
+
+    Ok(())
+}
+
+fn validate_issuer_weights(
+    issuer_curves: &Option<HashMap<String, Arc<HazardCurve>>>,
+    issuer_weights: &Option<HashMap<String, f64>>,
+    num_constituents: u16,
+) -> Result<()> {
+    let Some(weights) = issuer_weights else {
+        return Ok(());
+    };
+    let Some(curves) = issuer_curves else {
+        return Err(crate::Error::Validation(
+            "issuer_weights requires issuer_credit_curves so issuer IDs are well-defined"
+                .to_string(),
+        ));
+    };
+
+    if weights.is_empty() {
+        return Err(crate::Error::Validation(
+            "issuer_weights must not be empty when provided".to_string(),
+        ));
+    }
+    if weights.len() != curves.len() {
+        return Err(crate::Error::Validation(format!(
+            "issuer_weights has {} entries but issuer_credit_curves has {}; weights must cover every issuer curve exactly once",
+            weights.len(),
+            curves.len()
+        )));
+    }
+    if weights.len() > usize::from(num_constituents) {
+        return Err(crate::Error::Validation(format!(
+            "issuer_weights has {} entries, which exceeds num_constituents={num_constituents}",
+            weights.len()
+        )));
+    }
+
+    let mut weight_sum = 0.0;
+    for (issuer, weight) in weights {
+        if !curves.contains_key(issuer) {
+            return Err(crate::Error::Validation(format!(
+                "issuer_weights contains unknown issuer '{issuer}'"
+            )));
+        }
+        if !weight.is_finite() {
+            return Err(crate::Error::Validation(format!(
+                "issuer_weights[{issuer}] must be finite, got {weight}"
+            )));
+        }
+        if *weight < 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "issuer_weights[{issuer}] must be non-negative, got {weight}"
+            )));
+        }
+        weight_sum += *weight;
+    }
+
+    if (weight_sum - 1.0).abs() > 1e-9 {
+        return Err(crate::Error::Validation(format!(
+            "issuer_weights must sum to 1.0, got {weight_sum}"
+        )));
+    }
+
+    Ok(())
 }

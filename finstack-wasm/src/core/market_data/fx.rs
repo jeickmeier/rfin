@@ -194,11 +194,16 @@ impl JsFxMatrix {
     }
 
     #[wasm_bindgen(js_name = setQuote)]
-    pub fn set_quote(&self, from: &JsCurrency, to: &JsCurrency, rate: f64) {
+    pub fn set_quote(&self, from: &JsCurrency, to: &JsCurrency, rate: f64) -> Result<(), JsValue> {
         let from_ccy = from.inner();
         let to_ccy = to.inner();
-        self.provider.set_quote(from_ccy, to_ccy, rate);
-        self.inner.set_quote(from_ccy, to_ccy, rate);
+        self.provider
+            .set_quote(from_ccy, to_ccy, rate)
+            .map_err(|e| js_error(e.to_string()))?;
+        self.inner
+            .set_quote(from_ccy, to_ccy, rate)
+            .map_err(|e| js_error(e.to_string()))?;
+        Ok(())
     }
 
     #[wasm_bindgen(js_name = setQuotes)]
@@ -237,9 +242,13 @@ impl JsFxMatrix {
 
             converted.push((base_ccy, quote_ccy, rate));
         }
-        self.provider.set_quotes(&converted);
+        self.provider
+            .set_quotes(&converted)
+            .map_err(|e| js_error(e.to_string()))?;
         for (from, to, rate) in converted {
-            self.inner.set_quote(from, to, rate);
+            self.inner
+                .set_quote(from, to, rate)
+                .map_err(|e| js_error(e.to_string()))?;
         }
         Ok(())
     }

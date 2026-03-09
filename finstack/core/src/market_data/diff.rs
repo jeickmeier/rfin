@@ -116,104 +116,12 @@ impl TenorSamplingMethod {
 // Curve Shift Measurements
 // -----------------------------------------------------------------------------
 
-/// Trait to extract a comparable value from a curve for shift measurement.
-trait CurveShiftMetric {
-    /// Get the value at time `t` to compare (e.g., zero rate, hazard rate).
-    fn value_at(&self, t: f64) -> f64;
-
-    /// Multiplier to convert fractional diffs to basis points or percent.
-    /// - Rates/Spreads: 10,000 (bp)
-    /// - Correlations/Vols: 100 (pct)
-    fn scaling_factor() -> f64;
-
-    /// Get the knots/points of this curve for Dynamic sampling.
-    fn points(&self) -> &[f64];
-}
-
-impl CurveShiftMetric for crate::market_data::term_structures::DiscountCurve {
-    fn value_at(&self, t: f64) -> f64 {
-        self.zero(t)
-    }
-    fn scaling_factor() -> f64 {
-        10_000.0
-    }
-    fn points(&self) -> &[f64] {
-        self.knots()
-    }
-}
-
-impl CurveShiftMetric for crate::market_data::term_structures::HazardCurve {
-    fn value_at(&self, t: f64) -> f64 {
-        self.hazard_rate(t)
-    }
-    fn scaling_factor() -> f64 {
-        10_000.0
-    }
-    fn points(&self) -> &[f64] {
-        // Need to collect keys from knot_points iteration if we can't access knots directly?
-        // HazardCurve has knot_points() iterator, but also an internal `knots`.
-        // The trait needs a slice or iterator? `points()` returns `&[f64]`.
-        // HazardCurve struct has `knots: Box<[f64]>` but no public accessor for it as a slice?
-        // Actually `knot_points()` returns iterator.
-        // Step 22 showed: `pub fn knot_points(&self) -> impl Iterator...`
-        // It does NOT show a `knots()` accessor returning slice.
-        // Wait, I can't return a reference to internal private slice if there is no accessor.
-        // I need to add an accessor to HazardCurve, or change the trait to return Cow or Vec.
-        // The accessor `knots()` is not public in HazardCurve?
-        // Let's check Step 22 again.
-        // `knots: Box<[f64]>` is private.
-        // `knot_points` returns iterator.
-        // I should probably add `knots(&self) -> &[f64]` to HazardCurve or use existing if visible.
-        // Ah, `DiscountCurve` has `pub fn knots(&self) -> &[f64]`.
-        // `HazardCurve` does NOT seem to have it.
-        // I'll assume for now I can't access it cheaply for HazardCurve without change.
-        // But `diff.rs` is in the same module tree? No, `diff.rs` is `market_data/diff.rs`, `HazardCurve` is `market_data/term_structures/hazard_curve.rs`.
-        // `hazard_curve` fields are private.
-        // I should add `knots()` accessor to `HazardCurve` in the next step or right now via multi_replace?
-        // Or I can modify the trait.
-        // For `Dynamic` sampling, we need knots.
-        // I will add `knots()` to HazardCurve in a separate call if needed, or I can use `knot_points().map(|(t,_)| t).collect()` inside the adapter, but `points()` returns `&[f64]`.
-        // I'll change the trait to `fn points<'a>(&'a self) -> std::borrow::Cow<'a, [f64]>` or just `Vec<f64>`?
-        // Or I can make the generic function iterate?
-        // Simpler: Just make `measure_generic` accept `tenors: &[f64]` and let the caller handle sampling method resolution.
-        &[] // Fallback effectively disables Dynamic for HazardCurve without accessor
-    }
-}
-
-impl CurveShiftMetric for crate::market_data::term_structures::InflationCurve {
-    fn value_at(&self, t: f64) -> f64 {
-        let ratio = self.cpi(t) / self.base_cpi();
-        if t == 0.0 {
-            0.0
-        } else {
-            ratio.powf(1.0 / t) - 1.0
-        }
-    }
-    fn scaling_factor() -> f64 {
-        10_000.0
-    }
-    fn points(&self) -> &[f64] {
-        self.knots()
-    }
-}
-
-impl CurveShiftMetric for crate::market_data::term_structures::BaseCorrelationCurve {
-    fn value_at(&self, t: f64) -> f64 {
-        self.correlation(t)
-    }
-    fn scaling_factor() -> f64 {
-        100.0 // Percentage points
-    }
-    fn points(&self) -> &[f64] {
-        self.detachment_points()
-    }
-}
-
-/// Generic internal measurement function.
-fn measure_curve_diff_generic<T: CurveShiftMetric>(
-    curve_t0: &T,
-    curve_t1: &T,
+/// Generic internal measurement helper for curve-like objects.
+fn measure_average_shift(
     sample_points: &[f64],
+    scaling_factor: f64,
+    mut value_t0: impl FnMut(f64) -> f64,
+    mut value_t1: impl FnMut(f64) -> f64,
 ) -> f64 {
     let mut total_shift = 0.0;
     let mut count = 0;
@@ -222,10 +130,10 @@ fn measure_curve_diff_generic<T: CurveShiftMetric>(
         if t <= 0.0 {
             continue;
         }
-        let v0 = curve_t0.value_at(t);
-        let v1 = curve_t1.value_at(t);
+        let v0 = value_t0(t);
+        let v1 = value_t1(t);
 
-        let shift = (v1 - v0) * T::scaling_factor();
+        let shift = (v1 - v0) * scaling_factor;
         total_shift += shift;
         count += 1;
     }
@@ -246,11 +154,12 @@ pub fn measure_discount_curve_shift(
     let curve_t0 = market_t0.get_discount(&curve_id)?;
     let curve_t1 = market_t1.get_discount(&curve_id)?;
 
-    let tenors = method.tenors(Some(curve_t0.points()));
-    Ok(measure_curve_diff_generic(
-        curve_t0.as_ref(),
-        curve_t1.as_ref(),
+    let tenors = method.tenors(Some(curve_t0.knots()));
+    Ok(measure_average_shift(
         tenors,
+        10_000.0,
+        |t| curve_t0.zero(t),
+        |t| curve_t1.zero(t),
     ))
 }
 
@@ -287,28 +196,17 @@ pub fn measure_hazard_curve_shift(
     let curve_t0 = market_t0.get_hazard(&curve_id)?;
     let curve_t1 = market_t1.get_hazard(&curve_id)?;
 
-    // Note: HazardCurve doesn't expose knots slice directly for Dynamic method yet.
-    // If Dynamic is requested, it might fall back to Standard if we pass empty slice,
-    // or we need to access knots.
-    // However, the original implementation accessed knot_points() specifically.
-    // For now we use the generic method.
-    // If strict knot-matching is required (as in original implementation), we might lose precision
-    // if we switch to Standard sampling. The original implementation was:
-    // "Compare lambda at common tenors" (iterating t0 knots and finding match in t1).
-    // This implies Dynamic sampling on t0 knots.
-
-    // To support Dynamic properly without refactoring HazardCurve to expose &amp;[f64],
-    // we would need a temporary extraction.
     let t0_knots: Vec<f64> = curve_t0.knot_points().map(|(t, _)| t).collect();
     let tenors = match method {
-        TenorSamplingMethod::Dynamic => &t0_knots, // Use our extracted knots
-        _ => method.tenors(None),                  // Fallback to Standard
+        TenorSamplingMethod::Dynamic => t0_knots.as_slice(),
+        _ => method.tenors(None),
     };
 
-    Ok(measure_curve_diff_generic(
-        curve_t0.as_ref(),
-        curve_t1.as_ref(),
+    Ok(measure_average_shift(
         tenors,
+        10_000.0,
+        |t| curve_t0.hazard_rate(t),
+        |t| curve_t1.hazard_rate(t),
     ))
 }
 
@@ -330,10 +228,25 @@ pub fn measure_inflation_curve_shift_at(
 ) -> Result<f64> {
     let curve_t0 = market_t0.get_inflation_curve(&curve_id)?;
     let curve_t1 = market_t1.get_inflation_curve(&curve_id)?;
-    Ok(measure_curve_diff_generic(
-        curve_t0.as_ref(),
-        curve_t1.as_ref(),
+    Ok(measure_average_shift(
         tenors,
+        10_000.0,
+        |t| {
+            let ratio = curve_t0.cpi(t) / curve_t0.base_cpi();
+            if t == 0.0 {
+                0.0
+            } else {
+                ratio.powf(1.0 / t) - 1.0
+            }
+        },
+        |t| {
+            let ratio = curve_t1.cpi(t) / curve_t1.base_cpi();
+            if t == 0.0 {
+                0.0
+            } else {
+                ratio.powf(1.0 / t) - 1.0
+            }
+        },
     ))
 }
 
@@ -346,11 +259,11 @@ pub fn measure_correlation_shift(
     let curve_t0 = market_t0.get_base_correlation(&curve_id)?;
     let curve_t1 = market_t1.get_base_correlation(&curve_id)?;
 
-    // Correlation uses its own detachment points
-    Ok(measure_curve_diff_generic(
-        curve_t0.as_ref(),
-        curve_t1.as_ref(),
+    Ok(measure_average_shift(
         curve_t0.detachment_points(),
+        100.0,
+        |t| curve_t0.correlation(t),
+        |t| curve_t1.correlation(t),
     ))
 }
 

@@ -57,6 +57,26 @@ pub use stats::ContextStats;
 // Re-export bump functionality at the same path as before.
 pub use super::bumps::{BumpMode, BumpSpec, BumpUnits};
 
+/// Non-optional observability for market context mutations.
+///
+/// Returned by operations that can invalidate credit indices or change
+/// context state in non-obvious ways. Always populated regardless of
+/// whether the `tracing` feature is enabled.
+#[derive(Clone, Debug, Default)]
+pub struct ContextMutationInfo {
+    /// Credit indices that were invalidated and removed because their
+    /// required curves are no longer present or changed type.
+    pub invalidated_credit_indices: Vec<CurveId>,
+}
+
+impl ContextMutationInfo {
+    /// Returns `true` if any credit indices were invalidated.
+    #[must_use]
+    pub fn has_invalidations(&self) -> bool {
+        !self.invalidated_credit_indices.is_empty()
+    }
+}
+
 pub use state_serde::{
     CreditIndexState, CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION,
 };
@@ -178,34 +198,52 @@ impl MarketContext {
         key
     }
 
-    pub(crate) fn rebind_credit_index_data(&self, data: &CreditIndexData) -> CreditIndexData {
+    pub(crate) fn rebind_credit_index_data(
+        &self,
+        data: &CreditIndexData,
+    ) -> crate::Result<CreditIndexData> {
         let mut rebuilt = data.clone();
 
-        if let Ok(curve) = self.get_hazard(rebuilt.index_credit_curve.id().as_str()) {
-            rebuilt.index_credit_curve = curve;
-        }
-        if let Ok(curve) = self.get_base_correlation(rebuilt.base_correlation_curve.id().as_str()) {
-            rebuilt.base_correlation_curve = curve;
-        }
+        rebuilt.index_credit_curve = self.get_hazard(rebuilt.index_credit_curve.id().as_str())?;
+        rebuilt.base_correlation_curve =
+            self.get_base_correlation(rebuilt.base_correlation_curve.id().as_str())?;
         if let Some(issuer_curves) = rebuilt.issuer_credit_curves.as_mut() {
             for curve in issuer_curves.values_mut() {
-                if let Ok(rebound_curve) = self.get_hazard(curve.id().as_str()) {
-                    *curve = rebound_curve;
+                *curve = self.get_hazard(curve.id().as_str())?;
+            }
+        }
+
+        Ok(rebuilt)
+    }
+
+    /// Rebind all credit indices to current curves.
+    ///
+    /// Returns the IDs of any credit indices that were invalidated (removed)
+    /// because their required curves are no longer present or changed type.
+    /// Callers can inspect this list to detect unexpected state transitions.
+    pub(crate) fn rebind_all_credit_indices(&mut self) -> Vec<CurveId> {
+        let mut rebuilt = HashMap::default();
+        rebuilt.reserve(self.credit_indices.len());
+        let mut invalidated = Vec::new();
+
+        for (id, data) in &self.credit_indices {
+            match self.rebind_credit_index_data(data) {
+                Ok(index) => {
+                    rebuilt.insert(id.clone(), Arc::new(index));
+                }
+                Err(_err) => {
+                    invalidated.push(id.clone());
+                    #[cfg(feature = "tracing")]
+                    tracing::warn!(
+                        credit_index_id = id.as_str(),
+                        error = %_err,
+                        "dropping credit index after failed curve rebinding"
+                    );
                 }
             }
         }
 
-        rebuilt
-    }
-
-    pub(crate) fn rebind_all_credit_indices(&mut self) {
-        let mut rebuilt = HashMap::default();
-        rebuilt.reserve(self.credit_indices.len());
-
-        for (id, data) in &self.credit_indices {
-            rebuilt.insert(id.clone(), Arc::new(self.rebind_credit_index_data(data)));
-        }
-
         self.credit_indices = rebuilt;
+        invalidated
     }
 }

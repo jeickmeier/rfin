@@ -270,6 +270,12 @@ pub fn xirr_with_daycount_ctx(
             "Cashflows must contain at least one positive and one negative value".to_string(),
         ));
     }
+    if has_multiple_sign_changes(sorted_flows.iter().map(|(_, amt)| *amt)) {
+        return Err(crate::Error::Validation(
+            "Cashflows with multiple sign changes can have multiple IRR solutions; the result is ambiguous"
+                .to_string(),
+        ));
+    }
 
     let first_date = sorted_flows[0].0;
 
@@ -311,6 +317,12 @@ where
     // Check for sign change
     if !has_sign_change(data.iter().map(|&(_, amt)| amt)) {
         return Err(InputError::Invalid.into());
+    }
+    if has_multiple_sign_changes(data.iter().map(|&(_, amt)| amt)) {
+        return Err(crate::Error::Validation(
+            "Cashflows with multiple sign changes can have multiple IRR solutions; the result is ambiguous"
+                .to_string(),
+        ));
     }
 
     // Define NPV function: Σ C_t / (1+r)^t using Neumaier compensated summation
@@ -414,6 +426,36 @@ where
             return true;
         }
     }
+    false
+}
+
+pub(crate) fn has_multiple_sign_changes<I>(iter: I) -> bool
+where
+    I: IntoIterator<Item = f64>,
+{
+    let mut prev_sign = 0i8;
+    let mut sign_changes = 0u8;
+
+    for value in iter {
+        let sign = if value > 0.0 {
+            1
+        } else if value < 0.0 {
+            -1
+        } else {
+            0
+        };
+        if sign == 0 {
+            continue;
+        }
+        if prev_sign != 0 && sign != prev_sign {
+            sign_changes += 1;
+            if sign_changes > 1 {
+                return true;
+            }
+        }
+        prev_sign = sign;
+    }
+
     false
 }
 

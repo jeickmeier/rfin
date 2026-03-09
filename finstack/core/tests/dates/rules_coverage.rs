@@ -225,6 +225,20 @@ fn fixed_feb_29_rules() {
 }
 
 #[test]
+fn equinox_rules_out_of_supported_range_do_not_fabricate_dates() {
+    let vernal = Rule::VernalEquinoxJP;
+    let autumnal = Rule::AutumnalEquinoxJP;
+
+    let vernal_out = materialize(&vernal, 1800);
+    let autumnal_out = materialize(&autumnal, 2201);
+
+    assert!(vernal_out.is_empty());
+    assert!(autumnal_out.is_empty());
+    assert!(!vernal.applies(make_date(1800, 3, 20)));
+    assert!(!autumnal.applies(make_date(2201, 9, 23)));
+}
+
+#[test]
 fn weekday_shift_rules() {
     let after = Rule::WeekdayShift {
         weekday: Weekday::Tuesday,

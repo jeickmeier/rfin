@@ -123,16 +123,35 @@ impl Performance {
         let mut all_drawdowns: Vec<Vec<f64>> = Vec::with_capacity(n_tickers);
 
         for price_col in &prices {
-            let mut r = if use_log_returns {
+            let mut raw_returns = if use_log_returns {
                 crate::math::stats::log_returns(price_col)
             } else {
                 let sr = simple_returns(price_col);
                 sr[1..].to_vec()
             };
-            clean_returns(&mut r);
-            if r.len() != expected_returns_len {
+            clean_returns(&mut raw_returns);
+            if raw_returns.len() != expected_returns_len {
                 return Err(crate::error::InputError::Invalid.into());
             }
+
+            // The wider Performance API compounds, annualizes, and draws down returns
+            // as simple returns. Normalize log-return input back to its simple-return
+            // equivalent here so downstream analytics stay mathematically coherent.
+            let r = if use_log_returns {
+                raw_returns
+                    .into_iter()
+                    .map(|value| {
+                        if value.is_finite() {
+                            value.exp() - 1.0
+                        } else {
+                            f64::NAN
+                        }
+                    })
+                    .collect()
+            } else {
+                raw_returns
+            };
+
             let dd = to_drawdown_series(&r);
             all_drawdowns.push(dd);
             all_returns.push(r);
@@ -1047,178 +1066,4 @@ pub struct LookbackReturns {
     pub ytd: Vec<f64>,
     /// Fiscal-year-to-date compounded return per ticker (None if no fiscal config).
     pub fytd: Option<Vec<f64>>,
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used)]
-mod tests {
-    use super::*;
-    use time::Month;
-
-    fn make_dates(n: usize) -> Vec<Date> {
-        (0..n)
-            .map(|i| {
-                Date::from_calendar_date(2025, Month::January, 1).expect("valid")
-                    + time::Duration::days(i as i64)
-            })
-            .collect()
-    }
-
-    fn make_prices(n: usize) -> Vec<f64> {
-        let mut prices = Vec::with_capacity(n);
-        let mut p = 100.0;
-        prices.push(p);
-        for i in 1..n {
-            p *= 1.0 + (i as f64 * 0.001);
-            prices.push(p);
-        }
-        prices
-    }
-
-    #[test]
-    fn performance_construction() {
-        let dates = make_dates(50);
-        let p1 = make_prices(50);
-        let p2: Vec<f64> = p1.iter().map(|&x| x * 0.95).collect();
-        let perf = Performance::new(
-            dates,
-            vec![p1, p2],
-            vec!["A".into(), "B".into()],
-            Some("A"),
-            PeriodKind::Daily,
-            false,
-        )
-        .expect("construction");
-
-        let cagrs = perf.cagr();
-        assert_eq!(cagrs.len(), 2);
-        assert!(cagrs[0] > 0.0);
-    }
-
-    #[test]
-    fn sharpe_sortino_calmar() {
-        let dates = make_dates(100);
-        let p1 = make_prices(100);
-        let perf = Performance::new(
-            dates,
-            vec![p1],
-            vec!["A".into()],
-            None,
-            PeriodKind::Daily,
-            false,
-        )
-        .expect("construction");
-
-        let sharpe = perf.sharpe(0.0);
-        assert_eq!(sharpe.len(), 1);
-
-        let sortino = perf.sortino();
-        assert_eq!(sortino.len(), 1);
-
-        let calmar = perf.calmar();
-        assert_eq!(calmar.len(), 1);
-    }
-
-    #[test]
-    fn benchmark_relative_metrics() {
-        let dates = make_dates(100);
-        let p1 = make_prices(100);
-        let p2: Vec<f64> = p1.iter().map(|&x| x * 1.05).collect();
-        let perf = Performance::new(
-            dates,
-            vec![p1, p2],
-            vec!["bench".into(), "port".into()],
-            Some("bench"),
-            PeriodKind::Daily,
-            false,
-        )
-        .expect("construction");
-
-        let te = perf.tracking_error();
-        assert_eq!(te.len(), 2);
-
-        let ir = perf.information_ratio();
-        assert_eq!(ir.len(), 2);
-
-        let r2 = perf.r_squared();
-        assert_eq!(r2.len(), 2);
-    }
-
-    #[test]
-    fn correlation_matrix_square() {
-        let dates = make_dates(50);
-        let p1 = make_prices(50);
-        let p2: Vec<f64> = p1.iter().map(|&x| x * 0.9).collect();
-        let perf = Performance::new(
-            dates,
-            vec![p1, p2],
-            vec!["A".into(), "B".into()],
-            None,
-            PeriodKind::Daily,
-            false,
-        )
-        .expect("construction");
-
-        let corr = perf.correlation_matrix();
-        assert_eq!(corr.len(), 2);
-        assert_eq!(corr[0].len(), 2);
-        assert!((corr[0][0] - 1.0).abs() < 1e-10);
-    }
-
-    #[test]
-    fn performance_rejects_price_length_mismatch() {
-        let dates = make_dates(5);
-        let p1 = make_prices(5);
-        let p2 = make_prices(4);
-        let result = Performance::new(
-            dates,
-            vec![p1, p2],
-            vec!["A".into(), "B".into()],
-            None,
-            PeriodKind::Daily,
-            false,
-        );
-        assert!(
-            result.is_err(),
-            "mismatched price lengths should be rejected"
-        );
-    }
-
-    #[test]
-    fn performance_rejects_ticker_name_mismatch() {
-        let dates = make_dates(5);
-        let p1 = make_prices(5);
-        let p2 = make_prices(5);
-        let result = Performance::new(
-            dates,
-            vec![p1, p2],
-            vec!["A".into()],
-            None,
-            PeriodKind::Daily,
-            false,
-        );
-        assert!(
-            result.is_err(),
-            "ticker names must match the price matrix width"
-        );
-    }
-
-    #[test]
-    fn performance_rejects_unknown_benchmark_ticker() {
-        let dates = make_dates(5);
-        let p1 = make_prices(5);
-        let p2 = make_prices(5);
-        let result = Performance::new(
-            dates,
-            vec![p1, p2],
-            vec!["A".into(), "B".into()],
-            Some("MISSING"),
-            PeriodKind::Daily,
-            false,
-        );
-        assert!(
-            result.is_err(),
-            "unknown benchmark tickers should be rejected instead of silently falling back"
-        );
-    }
 }

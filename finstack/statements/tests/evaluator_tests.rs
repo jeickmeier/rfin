@@ -16,8 +16,11 @@ fn test_context_set_and_get_value() {
     node_to_column.insert("revenue".to_string(), 0);
     node_to_column.insert("cogs".to_string(), 1);
 
-    let mut ctx =
-        EvaluationContext::new(PeriodId::quarter(2025, 1), node_to_column, IndexMap::new());
+    let mut ctx = EvaluationContext::new(
+        PeriodId::quarter(2025, 1),
+        std::sync::Arc::new(node_to_column),
+        std::sync::Arc::new(IndexMap::new()),
+    );
 
     ctx.set_value("revenue", 100_000.0).unwrap();
     ctx.set_value("cogs", 60_000.0).unwrap();
@@ -31,7 +34,11 @@ fn test_context_unknown_node_error() {
     use finstack_statements::evaluator::EvaluationContext;
     use indexmap::IndexMap;
 
-    let ctx = EvaluationContext::new(PeriodId::quarter(2025, 1), IndexMap::new(), IndexMap::new());
+    let ctx = EvaluationContext::new(
+        PeriodId::quarter(2025, 1),
+        std::sync::Arc::new(IndexMap::new()),
+        std::sync::Arc::new(IndexMap::new()),
+    );
 
     let result = ctx.get_value("unknown");
     assert!(result.is_err());

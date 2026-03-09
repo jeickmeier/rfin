@@ -395,6 +395,33 @@ fn generic_curve_replace_rebinds_credit_index_dependencies() {
 }
 
 #[test]
+fn cross_type_curve_replacement_invalidates_credit_index_dependency() {
+    let original_hazard = sample_hazard_curve("CDX");
+    let replacement_discount = sample_discount_curve("CDX");
+    let base_corr = sample_base_correlation_curve("CDX-BC");
+    let credit_index = CreditIndexData::builder()
+        .num_constituents(125)
+        .recovery_rate(0.4)
+        .index_credit_curve(Arc::new(original_hazard.clone()))
+        .base_correlation_curve(Arc::new(base_corr.clone()))
+        .build()
+        .unwrap();
+
+    let ctx = MarketContext::new()
+        .insert(original_hazard)
+        .insert(base_corr)
+        .insert_credit_index("CDX-IG", credit_index)
+        .insert(replacement_discount);
+
+    assert!(ctx.get_discount("CDX").is_ok());
+    assert!(ctx.get_hazard("CDX").is_err());
+    assert!(
+        ctx.get_credit_index("CDX-IG").is_err(),
+        "credit index should not keep stale hazard references after same-ID cross-type replacement"
+    );
+}
+
+#[test]
 fn insert_inflation_index_rejects_mismatched_storage_key() {
     let index = InflationIndex::new(
         "US-CPI",
@@ -480,12 +507,15 @@ fn market_context_update_and_bump_failures() {
     let hazard = Arc::new(sample_hazard_curve("CDX"));
     let credit_index = CreditIndexData::builder()
         .num_constituents(1)
-        .index_credit_curve(hazard)
+        .index_credit_curve(hazard.clone())
         .base_correlation_curve(base_corr.clone())
         .build()
         .unwrap();
 
-    let mut ctx = MarketContext::new().insert_credit_index("CDX", credit_index);
+    let mut ctx = MarketContext::new()
+        .insert(hazard.as_ref().clone())
+        .insert(base_corr.as_ref().clone())
+        .insert_credit_index("CDX", credit_index);
     let new_curve = Arc::new(sample_base_correlation_curve("CDX-NEW"));
     assert!(ctx.update_base_correlation_curve("CDX", new_curve.clone()));
     assert_eq!(

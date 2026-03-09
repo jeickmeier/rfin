@@ -241,7 +241,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxTouchOpt
                 self.base_currency,
                 self.quote_currency,
                 current_spot * (1.0 + crate::metrics::bump_sizes::SPOT),
-            );
+            )?;
             market.clone().insert_fx(fx_up)
         };
         let dn_fx = {
@@ -250,7 +250,7 @@ impl crate::instruments::common_impl::traits::OptionDeltaProvider for FxTouchOpt
                 self.base_currency,
                 self.quote_currency,
                 current_spot * (1.0 - crate::metrics::bump_sizes::SPOT),
-            );
+            )?;
             market.clone().insert_fx(fx_dn)
         };
 
@@ -303,7 +303,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxTouchOpt
                 self.base_currency,
                 self.quote_currency,
                 current_spot * (1.0 + crate::metrics::bump_sizes::SPOT),
-            );
+            )?;
             market.clone().insert_fx(fx_up)
         };
         let dn_fx = {
@@ -312,7 +312,7 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for FxTouchOpt
                 self.base_currency,
                 self.quote_currency,
                 current_spot * (1.0 - crate::metrics::bump_sizes::SPOT),
-            );
+            )?;
             market.clone().insert_fx(fx_dn)
         };
 

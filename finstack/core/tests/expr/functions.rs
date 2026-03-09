@@ -70,7 +70,10 @@ mod shift_operations {
             Function::Lag,
             vec![Expr::column("x"), Expr::literal(1.0)],
         ));
-        let result = lag_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = lag_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert!(result[0].is_nan()); // First value should be NaN
         assert_eq!(result[1], 1.0); // Second value should be first input
@@ -88,7 +91,10 @@ mod shift_operations {
             Function::Lag,
             vec![Expr::column("values"), Expr::literal(2.0)],
         ));
-        let result = lag_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = lag_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert!(result[0].is_nan());
         assert!(result[1].is_nan());
@@ -105,7 +111,10 @@ mod shift_operations {
             Function::Lead,
             vec![Expr::column("x"), Expr::literal(1.0)],
         ));
-        let result = lead_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = lead_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result[0], 2.0);
         assert_eq!(result[1], 3.0);
@@ -123,7 +132,10 @@ mod shift_operations {
             Function::Lead,
             vec![Expr::column("values"), Expr::literal(2.0)],
         ));
-        let result = lead_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = lead_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert!((result[0] - 3.0).abs() < 1e-10);
         assert!((result[7] - 10.0).abs() < 1e-10);
@@ -142,9 +154,11 @@ mod shift_operations {
 
         let lag_out = CompiledExpr::new(lag_expr)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
         let shift_out = CompiledExpr::new(shift_pos)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         for i in 0..4 {
@@ -170,9 +184,11 @@ mod shift_operations {
 
         let lead_out = CompiledExpr::new(lead_expr)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
         let shift_out = CompiledExpr::new(shift_neg)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         for i in 0..4 {
@@ -193,7 +209,10 @@ mod shift_operations {
             Function::Diff,
             vec![Expr::column("x"), Expr::literal(1.0)],
         ));
-        let result = diff_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = diff_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert!(result[0].is_nan());
         assert_eq!(result[1], 1.0); // 2 - 1 = 1
@@ -211,6 +230,7 @@ mod shift_operations {
         let diff2 = Expr::call(Function::Diff, vec![Expr::column("x"), Expr::literal(2.0)]);
         let result = CompiledExpr::new(diff2)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(result[0].is_nan());
@@ -228,7 +248,10 @@ mod shift_operations {
             Function::PctChange,
             vec![Expr::column("x"), Expr::literal(1.0)],
         ));
-        let result = pct_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = pct_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert!(result[0].is_nan());
         assert_eq!(result[1], 1.0); // (2/1) - 1 = 1
@@ -248,6 +271,7 @@ mod shift_operations {
         );
         let result = CompiledExpr::new(pct2)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(result[0].is_nan());
@@ -270,7 +294,10 @@ mod cumulative_operations {
         let cols = to_slice_refs(&data);
 
         let cumsum_expr = CompiledExpr::new(Expr::call(Function::CumSum, vec![Expr::column("x")]));
-        let result = cumsum_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cumsum_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result, vec![1.0, 3.0, 6.0, 10.0, 15.0]); // 1, 1+2, 1+2+3, etc.
     }
@@ -282,7 +309,10 @@ mod cumulative_operations {
 
         let cumsum_expr =
             CompiledExpr::new(Expr::call(Function::CumSum, vec![Expr::column("values")]));
-        let result = cumsum_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cumsum_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         let expected = [1.0, 3.0, 6.0, 10.0, 15.0, 21.0, 28.0, 36.0, 45.0, 55.0];
         for (a, b) in result.iter().zip(expected.iter()) {
@@ -297,7 +327,10 @@ mod cumulative_operations {
 
         let cumprod_expr =
             CompiledExpr::new(Expr::call(Function::CumProd, vec![Expr::column("x")]));
-        let result = cumprod_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cumprod_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result, vec![1.0, 2.0, 6.0, 24.0, 120.0]); // 1, 1*2, 1*2*3, etc.
     }
@@ -309,7 +342,10 @@ mod cumulative_operations {
 
         let cumprod_expr =
             CompiledExpr::new(Expr::call(Function::CumProd, vec![Expr::column("values")]));
-        let result = cumprod_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cumprod_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         let expected = [
             1.0, 2.0, 6.0, 24.0, 120.0, 720.0, 5040.0, 40320.0, 362880.0, 3628800.0,
@@ -326,7 +362,10 @@ mod cumulative_operations {
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
         let cummin = CompiledExpr::new(Expr::call(Function::CumMin, vec![Expr::column("x")]));
-        let result = cummin.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cummin
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result, vec![3.0, 1.0, 1.0, 1.0]);
     }
@@ -337,7 +376,10 @@ mod cumulative_operations {
         let cols = to_slice_refs(&data);
 
         let cummin_expr = CompiledExpr::new(Expr::call(Function::CumMin, vec![Expr::column("x")]));
-        let result = cummin_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cummin_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Min so far - always 1.0 since series is increasing
         assert_eq!(result, vec![1.0, 1.0, 1.0, 1.0, 1.0]);
@@ -350,7 +392,10 @@ mod cumulative_operations {
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
         let cummax = CompiledExpr::new(Expr::call(Function::CumMax, vec![Expr::column("x")]));
-        let result = cummax.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cummax
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result, vec![3.0, 3.0, 4.0, 4.0]);
     }
@@ -361,7 +406,10 @@ mod cumulative_operations {
         let cols = to_slice_refs(&data);
 
         let cummax_expr = CompiledExpr::new(Expr::call(Function::CumMax, vec![Expr::column("x")]));
-        let result = cummax_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = cummax_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Max so far - follows series since it's increasing
         assert_eq!(result, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
@@ -386,6 +434,7 @@ mod rolling_operations {
         ));
         let result = rolling_mean_expr
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(result[0].is_nan());
@@ -407,6 +456,7 @@ mod rolling_operations {
         );
         let rm = CompiledExpr::new(rmean)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(rm[0].is_nan());
@@ -426,6 +476,7 @@ mod rolling_operations {
         ));
         let result = rolling_sum_expr
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(result[0].is_nan());
@@ -446,6 +497,7 @@ mod rolling_operations {
         ));
         let result = rolling_sum_expr
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         let expected = [
@@ -481,6 +533,7 @@ mod rolling_operations {
         );
         let rst = CompiledExpr::new(rstd)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(rst[0].is_nan());
@@ -501,6 +554,7 @@ mod rolling_operations {
         );
         let rv = CompiledExpr::new(rvar)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(rv[0].is_nan());
@@ -521,6 +575,7 @@ mod rolling_operations {
         );
         let rmd = CompiledExpr::new(rmed)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(rmd[0].is_nan());
@@ -538,7 +593,10 @@ mod rolling_operations {
             Function::RollingMin,
             vec![Expr::column("x"), Expr::literal(2.0)],
         ));
-        let result = rolling_min.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = rolling_min
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert!(result[0].is_nan());
         assert_eq!(result[1], 1.0);
@@ -558,6 +616,7 @@ mod rolling_operations {
         );
         let rmx = CompiledExpr::new(rmax)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(rmx[0].is_nan());
@@ -578,6 +637,7 @@ mod rolling_operations {
         );
         let rc = CompiledExpr::new(rcount)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert!(rc[0].is_nan());
@@ -603,7 +663,10 @@ mod ewm_operations {
             Function::EwmMean,
             vec![Expr::column("x"), Expr::literal(0.5)],
         ));
-        let result = ewm_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = ewm_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // First value should be the input value
         assert_eq!(result[0], 1.0);
@@ -629,7 +692,10 @@ mod ewm_operations {
                 Expr::literal(0.0),
             ], // adjust=false
         ));
-        let result = ewm_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = ewm_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Calculate expected EWM manually (adjust=false)
         let alpha = 0.5;
@@ -658,7 +724,10 @@ mod ewm_operations {
             Function::EwmMean,
             vec![Expr::column("x"), Expr::literal(0.5), Expr::literal(1.0)], // adjust=true
         ));
-        let result = ewm_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = ewm_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         let expected = [1.0, 5.0 / 3.0, 17.0 / 7.0, 49.0 / 15.0, 129.0 / 31.0];
         for (i, (a, b)) in result.iter().zip(expected.iter()).enumerate() {
@@ -684,7 +753,7 @@ mod ewm_operations {
             Expr::column("lhs"),
             Expr::column("rhs"),
         ));
-        let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
         assert_eq!(result[0], 11.0);
         assert_eq!(result[1], 22.0);
@@ -705,7 +774,10 @@ mod ewm_operations {
                 Expr::literal(1.0), // adjust=true
             ],
         ));
-        let result = ewm_std.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = ewm_std
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result.len(), 5);
         assert_eq!(result[0], 0.0); // First value has zero std
@@ -725,7 +797,10 @@ mod ewm_operations {
                 Expr::literal(0.0), // adjust=false
             ],
         ));
-        let result = ewm_var.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = ewm_var
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result.len(), 5);
         assert_eq!(result[0], 0.0);
@@ -751,9 +826,11 @@ mod ewm_operations {
 
         let std_vals = CompiledExpr::new(std_expr)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
         let var_vals = CompiledExpr::new(var_expr)
             .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
             .values;
 
         assert_eq!(std_vals.len(), var_vals.len());
@@ -788,7 +865,10 @@ mod statistical_operations {
         let cols = to_slice_refs(&data);
 
         let std_expr = CompiledExpr::new(Expr::call(Function::Std, vec![Expr::column("x")]));
-        let result = std_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = std_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // All values should be the same (standard deviation of the entire series)
         let expected_std = result[0];
@@ -804,7 +884,10 @@ mod statistical_operations {
         let cols = to_slice_refs(&data);
 
         let std_expr = CompiledExpr::new(Expr::call(Function::Std, vec![Expr::column("values")]));
-        let result = std_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = std_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Sample std of [1..10] = sqrt(82.5/9) ≈ 3.0277
         let expected_std = (82.5_f64 / 9.0).sqrt();
@@ -824,10 +907,16 @@ mod statistical_operations {
         let cols = to_slice_refs(&data);
 
         let var_expr = CompiledExpr::new(Expr::call(Function::Var, vec![Expr::column("x")]));
-        let result = var_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = var_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         let std_expr = CompiledExpr::new(Expr::call(Function::Std, vec![Expr::column("x")]));
-        let std_result = std_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let std_result = std_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Variance should be std^2
         let expected_var = std_result[0] * std_result[0];
@@ -842,7 +931,10 @@ mod statistical_operations {
         let cols = to_slice_refs(&data);
 
         let var_expr = CompiledExpr::new(Expr::call(Function::Var, vec![Expr::column("values")]));
-        let result = var_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = var_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Sample variance of [1..10] = 82.5/9 ≈ 9.1667
         let expected_var = 82.5_f64 / 9.0;
@@ -862,7 +954,10 @@ mod statistical_operations {
         let cols = to_slice_refs(&data);
 
         let median_expr = CompiledExpr::new(Expr::call(Function::Median, vec![Expr::column("x")]));
-        let result = median_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = median_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Median of [1,2,3,4,5] should be 3
         for val in &result {
@@ -877,7 +972,10 @@ mod statistical_operations {
 
         let median_expr =
             CompiledExpr::new(Expr::call(Function::Median, vec![Expr::column("values")]));
-        let result = median_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = median_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Median of [1,2,3,4,5,6,7,8,9,10] = 5.5
         let expected_median = 5.5;
@@ -898,7 +996,7 @@ mod statistical_operations {
         let cols: Vec<&[f64]> = vec![v.as_slice()];
 
         let rank = CompiledExpr::new(Expr::call(Function::Rank, vec![Expr::column("v")]));
-        let result = rank.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = rank.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
         assert_eq!(result, vec![3.0, 1.0, 2.0, 2.0]);
     }
@@ -909,7 +1007,10 @@ mod statistical_operations {
         let cols = to_slice_refs(&data);
 
         let rank_expr = CompiledExpr::new(Expr::call(Function::Rank, vec![Expr::column("x")]));
-        let result = rank_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = rank_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         assert_eq!(result, vec![1.0, 2.0, 3.0, 4.0, 5.0]);
     }
@@ -924,7 +1025,7 @@ mod statistical_operations {
             Function::Quantile,
             vec![Expr::column("v"), Expr::literal(0.5)],
         ));
-        let result = q50.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = q50.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
         // Median of [1, 2, 2, 3] is 2.0
         for val in result {
@@ -941,7 +1042,10 @@ mod statistical_operations {
             Function::Quantile,
             vec![Expr::column("y"), Expr::literal(0.5)],
         ));
-        let result = quantile_expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = quantile_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
 
         // Median of [10,20,30,40,50] = 30
         assert!(result.iter().all(|&v| (v - 30.0).abs() < 1e-12));
@@ -965,7 +1069,7 @@ mod edge_cases {
             Function::RollingMean,
             vec![Expr::column("empty"), Expr::literal(2.0)],
         ));
-        let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
         assert_eq!(result.len(), 0);
     }
 
@@ -976,7 +1080,7 @@ mod edge_cases {
         let cols = to_slice_refs(&data);
 
         let expr = CompiledExpr::new(Expr::call(Function::CumSum, vec![Expr::column("single")]));
-        let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
         assert_eq!(result, vec![42.0]);
     }
 
@@ -987,7 +1091,7 @@ mod edge_cases {
         let cols = to_slice_refs(&data);
 
         let expr = CompiledExpr::new(Expr::call(Function::CumSum, vec![Expr::column("nan_data")]));
-        let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
         // Should handle NaN properly in cumsum
         assert_eq!(result.len(), 5);
@@ -1006,9 +1110,9 @@ mod edge_cases {
             vec![Expr::column("values"), Expr::literal(3.0)],
         ));
 
-        let result1 = expr.eval(&ctx, &cols, EvalOpts::default()).values;
-        let result2 = expr.eval(&ctx, &cols, EvalOpts::default()).values;
-        let result3 = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+        let result1 = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
+        let result2 = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
+        let result3 = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
         assert_eq!(result1.len(), result2.len());
         assert_eq!(result2.len(), result3.len());
@@ -1051,7 +1155,7 @@ mod edge_cases {
 
         for (func, args) in functions_to_test {
             let expr = CompiledExpr::new(Expr::call(func, args));
-            let result = expr.eval(&ctx, &cols, EvalOpts::default()).values;
+            let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
             // Ensure evaluation worked
             assert_eq!(result.len(), data[0].len());

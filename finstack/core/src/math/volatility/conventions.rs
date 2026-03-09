@@ -1,3 +1,9 @@
+//! Volatility quoting conventions and validation helpers.
+//!
+//! This submodule defines the supported quoting regimes for rate and option
+//! volatility inputs and the forward-rate validation rules required before
+//! pricing or convention conversion.
+
 use crate::error::InputError;
 use crate::Result;
 

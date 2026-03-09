@@ -809,8 +809,7 @@ mod tests {
             )),
         ];
 
-        let provider = SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 2.0);
+        let provider = SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 2.0);
         let fx = FxMatrix::new(Arc::new(provider));
 
         let market = MarketContext::new().insert_fx(fx);
@@ -853,8 +852,7 @@ mod tests {
             )),
         ];
 
-        let provider = SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 2.0);
+        let provider = SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 2.0);
         let fx = FxMatrix::new(Arc::new(provider));
 
         let market = MarketContext::new().insert_fx(fx);

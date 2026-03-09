@@ -32,9 +32,9 @@ fn build_discount_curve(id: &str, rate: f64) -> DiscountCurve {
 }
 
 fn build_fx_matrix(base: Currency, quote: Currency, rate: f64) -> FxMatrix {
-    let provider = Arc::new(SimpleFxProvider::new());
-    provider.set_quote(base, quote, rate);
-    FxMatrix::new(provider)
+    FxMatrix::new(Arc::new(
+        SimpleFxProvider::new().with_quote(base, quote, rate),
+    ))
 }
 
 #[test]

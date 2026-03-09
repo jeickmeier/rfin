@@ -114,14 +114,12 @@
 
 #![allow(clippy::needless_lifetimes)]
 
-use smallvec::SmallVec;
-use time::{Date, Duration};
+use time::Date;
 
-use super::{adjust, next_cds_date, next_imm, BusinessDayConvention, HolidayCalendar};
-use crate::dates::date_extensions::DateExt;
-
-/// Small helper alias when we need to pre-buffer (used only for `ShortFront`).
-type Buffer = SmallVec<[Date; 32]>;
+use super::schedule_gen::{
+    enforce_monotonic_and_dedup, generate_imm_dates, is_cds_roll_date, BuilderInternal,
+};
+use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 
 /// Payment or coupon frequency for schedule generation.
 ///
@@ -259,28 +257,6 @@ impl std::str::FromStr for StubKind {
     }
 }
 
-/// Apply End-of-Month (EOM) convention to a date.
-/// Returns the last day of the month for the given date.
-fn apply_eom(date: Date) -> Date {
-    date.end_of_month()
-}
-
-#[inline]
-fn maybe_eom(eom: bool, d: Date) -> Date {
-    if eom {
-        apply_eom(d)
-    } else {
-        d
-    }
-}
-
-#[inline]
-fn push_if_new(buf: &mut Buffer, d: Date) {
-    if buf.last().copied() != Some(d) {
-        buf.push(d)
-    }
-}
-
 /// Warning generated during schedule construction.
 ///
 /// Warnings indicate non-fatal issues that occurred during schedule generation.
@@ -328,6 +304,19 @@ pub enum ScheduleWarning {
         /// The calendar identifier that could not be resolved.
         calendar_id: String,
     },
+}
+
+/// Explicit policy for how schedule construction should respond to recoverable issues.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ScheduleErrorPolicy {
+    /// Strict production mode: propagate all errors.
+    #[default]
+    Strict,
+    /// Allow missing calendar IDs and continue with a warning.
+    MissingCalendarWarning,
+    /// Return an empty schedule with a warning instead of propagating build errors.
+    GracefulEmpty,
 }
 
 impl std::fmt::Display for ScheduleWarning {
@@ -473,52 +462,6 @@ impl IntoIterator for Schedule {
     }
 }
 
-/// Check if a date is a CDS roll date (20th of Mar/Jun/Sep/Dec).
-fn is_cds_roll_date(date: Date) -> bool {
-    crate::dates::imm::is_cds_date(date)
-}
-
-/// Check if a date is a standard IMM date (third Wednesday of Mar/Jun/Sep/Dec).
-fn is_imm_roll_date(date: Date) -> bool {
-    crate::dates::imm::is_imm_date(date)
-}
-
-/// Generate IMM dates (third Wednesday of Mar/Jun/Sep/Dec) within the given range.
-///
-/// Unlike regular schedule generation which adds fixed intervals, this function
-/// computes the actual third Wednesday of each quarterly month to handle the
-/// variable day-of-month correctly.
-fn generate_imm_dates(start: Date, end: Date) -> Vec<Date> {
-    let mut dates = Vec::new();
-
-    // Find the first IMM date on or after start
-    let first_imm = if is_imm_roll_date(start) {
-        start
-    } else {
-        next_imm(start)
-    };
-
-    // If first IMM is already past end, return empty
-    if first_imm > end {
-        return dates;
-    }
-
-    dates.push(first_imm);
-
-    // Keep adding IMM dates until we exceed end
-    let mut current = first_imm;
-    loop {
-        let next = next_imm(current);
-        if next > end {
-            break;
-        }
-        dates.push(next);
-        current = next;
-    }
-
-    dates
-}
-
 /// Fluent builder for constructing date schedules with full configurability.
 ///
 /// Provides a type-safe, fluent API for generating payment/coupon schedules
@@ -645,8 +588,7 @@ pub struct ScheduleBuilder<'a> {
     imm_mode: bool,
     /// CDS IMM mode (20th of Mar/Jun/Sep/Dec) for credit default swaps.
     cds_imm_mode: bool,
-    graceful: bool,
-    allow_missing_calendar: bool,
+    error_policy: ScheduleErrorPolicy,
 }
 
 impl<'a> ScheduleBuilder<'a> {
@@ -687,8 +629,7 @@ impl<'a> ScheduleBuilder<'a> {
             eom: false,
             imm_mode: false,
             cds_imm_mode: false,
-            graceful: false,
-            allow_missing_calendar: false,
+            error_policy: ScheduleErrorPolicy::Strict,
         })
     }
 
@@ -768,6 +709,13 @@ impl<'a> ScheduleBuilder<'a> {
         self
     }
 
+    /// Configure how recoverable schedule-construction errors are handled.
+    #[must_use]
+    pub fn error_policy(mut self, policy: ScheduleErrorPolicy) -> Self {
+        self.error_policy = policy;
+        self
+    }
+
     /// Enable graceful fallback mode.
     ///
     /// When enabled, [`build()`](Self::build) returns an empty schedule with a
@@ -816,7 +764,11 @@ impl<'a> ScheduleBuilder<'a> {
     /// ```
     #[must_use]
     pub fn graceful_fallback(mut self, enabled: bool) -> Self {
-        self.graceful = enabled;
+        if enabled {
+            self.error_policy = ScheduleErrorPolicy::GracefulEmpty;
+        } else if self.error_policy == ScheduleErrorPolicy::GracefulEmpty {
+            self.error_policy = ScheduleErrorPolicy::Strict;
+        }
         self
     }
 
@@ -861,7 +813,11 @@ impl<'a> ScheduleBuilder<'a> {
     /// ```
     #[must_use]
     pub fn allow_missing_calendar(mut self, enabled: bool) -> Self {
-        self.allow_missing_calendar = enabled;
+        if enabled {
+            self.error_policy = ScheduleErrorPolicy::MissingCalendarWarning;
+        } else if self.error_policy == ScheduleErrorPolicy::MissingCalendarWarning {
+            self.error_policy = ScheduleErrorPolicy::Strict;
+        }
         self
     }
 
@@ -918,12 +874,14 @@ impl<'a> ScheduleBuilder<'a> {
     /// - Start date is after end date (and graceful mode is disabled)
     /// - Calendar lookup fails (and neither graceful nor `allow_missing_calendar` is enabled)
     pub fn build(self) -> crate::Result<Schedule> {
-        let graceful = self.graceful;
+        let error_policy = self.error_policy;
         let result = self.build_impl();
 
         match result {
             Ok(schedule) => Ok(schedule),
-            Err(e) if graceful => {
+            Err(e) if error_policy == ScheduleErrorPolicy::GracefulEmpty => {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(error = %e, "schedule build fell back to empty schedule");
                 // Capture the error as a warning instead of propagating
                 Ok(Schedule {
                     dates: Vec::new(),
@@ -952,8 +910,12 @@ impl<'a> ScheduleBuilder<'a> {
                 match calendar_by_id(calendar_id) {
                     Some(cal) => Some(cal),
                     None => {
-                        if self.allow_missing_calendar {
-                            // Silently skip adjustment
+                        if self.error_policy == ScheduleErrorPolicy::MissingCalendarWarning {
+                            #[cfg(feature = "tracing")]
+                            tracing::warn!(
+                                calendar_id,
+                                "schedule build skipped missing calendar due to warning policy"
+                            );
                             warnings.push(ScheduleWarning::MissingCalendarId {
                                 calendar_id: calendar_id.clone(),
                             });
@@ -1060,9 +1022,13 @@ impl ScheduleSpec {
         let mut builder = ScheduleBuilder::new(self.start, self.end)?
             .frequency(self.frequency)
             .stub_rule(self.stub)
-            .end_of_month(self.end_of_month)
-            .graceful_fallback(self.graceful)
-            .allow_missing_calendar(self.allow_missing_calendar);
+            .end_of_month(self.end_of_month);
+
+        builder = match (self.graceful, self.allow_missing_calendar) {
+            (true, _) => builder.error_policy(ScheduleErrorPolicy::GracefulEmpty),
+            (false, true) => builder.error_policy(ScheduleErrorPolicy::MissingCalendarWarning),
+            (false, false) => builder.error_policy(ScheduleErrorPolicy::Strict),
+        };
 
         if let (Some(conv), Some(id)) = (self.business_day_convention, self.calendar_id.as_deref())
         {
@@ -1076,534 +1042,5 @@ impl ScheduleSpec {
         }
 
         builder.build()
-    }
-}
-
-// Internal generator for schedule construction
-#[derive(Clone, Copy)]
-struct BuilderInternal {
-    start: Date,
-    end: Date,
-    freq: Tenor,
-    stub: StubKind,
-    eom: bool,
-}
-
-impl BuilderInternal {
-    fn generate(self) -> crate::Result<Vec<Date>> {
-        match self.stub {
-            StubKind::ShortFront => self.gen_short_front(),
-            StubKind::LongFront => self.gen_long_front(),
-            StubKind::LongBack => self.gen_long_back(),
-            StubKind::None => self.gen_regular(),
-            StubKind::ShortBack => self.gen_short_back(),
-        }
-    }
-
-    fn add_tenor(self, date: Date, count: i32) -> crate::Result<Date> {
-        let tenor = self.freq;
-        // Tenor doesn't support negative count directly in its struct, but we can handle it here
-        // or use `add_to_date` with a multiplier if we want to add multiple periods.
-        // For simple single-step additions scan:
-        if count == 1 {
-            tenor.add_to_date(date, None, BusinessDayConvention::Unadjusted)
-        } else if count == -1 {
-            // Need to reverse the tenor operation
-            Ok(match tenor.unit {
-                crate::dates::TenorUnit::Months => date.add_months(-(tenor.count as i32)),
-                crate::dates::TenorUnit::Years => date.add_months(-(tenor.count as i32) * 12),
-                crate::dates::TenorUnit::Weeks => date - Duration::weeks(tenor.count as i64),
-                crate::dates::TenorUnit::Days => date - Duration::days(tenor.count as i64),
-            })
-        } else {
-            // Should not happen in current logic but safe fallback
-            Ok(date)
-        }
-    }
-
-    fn gen_regular(self) -> crate::Result<Vec<Date>> {
-        let mut buf: Buffer = Buffer::new();
-        let (mut dt, end) = (
-            maybe_eom(self.eom, self.start),
-            maybe_eom(self.eom, self.end),
-        );
-        buf.push(dt);
-        while dt < end {
-            let mut next = self.add_tenor(dt, 1)?;
-            if next > end {
-                next = end;
-            }
-            dt = maybe_eom(self.eom, next);
-            push_if_new(&mut buf, dt);
-        }
-        Ok(buf.into_vec())
-    }
-
-    fn gen_short_back(self) -> crate::Result<Vec<Date>> {
-        // Short back stub is naturally produced by forward generation that truncates the final step.
-        self.gen_regular()
-    }
-
-    fn gen_short_front(self) -> crate::Result<Vec<Date>> {
-        // Build backwards from end, then reverse
-        let mut buf: Buffer = Buffer::new();
-        let mut dt = self.end;
-        let target = self.start;
-        loop {
-            let date_to_add = maybe_eom(self.eom, dt);
-            push_if_new(&mut buf, date_to_add);
-            if dt == target {
-                break;
-            }
-            let prev = self.add_tenor(dt, -1)?;
-            dt = if prev < target { target } else { prev };
-        }
-        buf.as_mut_slice().reverse();
-        Ok(buf.into_vec())
-    }
-
-    fn gen_long_front(self) -> crate::Result<Vec<Date>> {
-        let mut buf: Buffer = Buffer::new();
-        let mut anchors = Vec::new();
-        let mut dt = self.end;
-        anchors.push(dt);
-        while dt > self.start {
-            let prev = self.add_tenor(dt, -1)?;
-            if prev >= self.start {
-                dt = prev;
-                anchors.push(dt);
-            } else {
-                break;
-            }
-        }
-        buf.push(maybe_eom(self.eom, self.start));
-        for &a in anchors.iter().rev() {
-            let d = maybe_eom(self.eom, a);
-            push_if_new(&mut buf, d);
-        }
-        Ok(buf.into_vec())
-    }
-
-    fn gen_long_back(self) -> crate::Result<Vec<Date>> {
-        let mut buf: Buffer = Buffer::new();
-        let mut dt = self.start;
-        buf.push(maybe_eom(self.eom, dt));
-        while dt < self.end {
-            let next = self.add_tenor(dt, 1)?;
-            let next_after = self.add_tenor(next, 1)?;
-            if next_after >= self.end {
-                let end_date = maybe_eom(self.eom, self.end);
-                push_if_new(&mut buf, end_date);
-                break;
-            } else {
-                let d = maybe_eom(self.eom, next);
-                push_if_new(&mut buf, d);
-                dt = next;
-            }
-        }
-        Ok(buf.into_vec())
-    }
-}
-
-/// Enforce strictly increasing, duplicate-free dates while preserving original order.
-/// Drops any consecutive duplicates and any dates that would not increase.
-fn enforce_monotonic_and_dedup(dates: &mut Vec<Date>) {
-    if dates.is_empty() {
-        return;
-    }
-    // In-place deduplication and monotonic filtering
-    let mut write = 0;
-    for read in 1..dates.len() {
-        if dates[read] > dates[write] {
-            write += 1;
-            // Avoid self-assignment if indices match
-            if read != write {
-                dates[write] = dates[read];
-            }
-        }
-    }
-    dates.truncate(write + 1);
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
-mod tests {
-    use super::*;
-    use time::Month;
-
-    fn d(y: i32, m: u8, day: u8) -> Date {
-        Date::from_calendar_date(y, Month::try_from(m).expect("Valid month (1-12)"), day)
-            .expect("Valid test date")
-    }
-
-    #[test]
-    fn test_invalid_range_returns_error_at_new() {
-        // Invalid: end before start
-        let start = d(2025, 12, 31);
-        let end = d(2025, 1, 1);
-
-        // new() now validates dates and returns error immediately
-        let result = ScheduleBuilder::new(start, end);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_graceful_fallback_for_calendar_errors() {
-        // Valid dates, but invalid calendar
-        let start = d(2025, 1, 15);
-        let end = d(2025, 3, 15);
-
-        // Graceful mode captures calendar lookup errors
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
-            .graceful_fallback(true)
-            .build()
-            .expect("Schedule builder should succeed with graceful_fallback");
-
-        // Should return empty schedule with warning
-        assert_eq!(schedule.dates.len(), 0);
-        assert!(
-            schedule.has_warnings(),
-            "Graceful fallback should set warning flag"
-        );
-        assert!(
-            schedule.used_graceful_fallback(),
-            "Should indicate graceful fallback was used"
-        );
-    }
-
-    #[test]
-    fn test_graceful_fallback_warning_is_displayable() {
-        let warning = ScheduleWarning::GracefulFallback {
-            error_message: "Invalid date range".to_string(),
-        };
-        let display = format!("{warning}");
-        assert!(display.contains("graceful fallback"));
-        assert!(display.contains("Invalid date range"));
-    }
-
-    #[test]
-    fn test_valid_schedule_has_no_warnings() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 4, 15);
-
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .build()
-            .expect("Valid schedule should succeed");
-
-        assert!(
-            !schedule.has_warnings(),
-            "Valid schedule should have no warnings"
-        );
-        assert!(
-            !schedule.used_graceful_fallback(),
-            "Valid schedule should not indicate fallback"
-        );
-        assert!(schedule.warnings.is_empty());
-    }
-
-    #[test]
-    fn test_adjust_with_id_valid_calendar() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 3, 15);
-
-        // Use a known calendar (target2)
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .adjust_with_id(BusinessDayConvention::Following, "target2")
-            .build()
-            .expect("Schedule builder should succeed with valid test data");
-
-        // Should have generated a schedule
-        assert!(schedule.dates.len() >= 2);
-    }
-
-    #[test]
-    fn test_adjust_with_id_invalid_calendar_strict_mode() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 3, 15);
-
-        // Invalid calendar with strict mode (default) should error
-        let result = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
-            .build();
-
-        // Should fail with CalendarNotFound error
-        assert!(result.is_err());
-        let err_msg = format!("{}", result.expect_err("Expected CalendarNotFound error"));
-        assert!(err_msg.contains("Calendar not found"));
-        assert!(err_msg.contains("INVALID_CALENDAR"));
-    }
-
-    #[test]
-    fn test_adjust_with_id_invalid_calendar_with_suggestions() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 3, 15);
-
-        // Calendar ID with typo should suggest similar calendars
-        let result = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .adjust_with_id(BusinessDayConvention::Following, "targt2") // typo in target2
-            .build();
-
-        // Should fail with CalendarNotFound error and include suggestion
-        assert!(result.is_err());
-        let err_msg = format!("{}", result.expect_err("Expected CalendarNotFound error"));
-        assert!(err_msg.contains("Calendar not found"));
-        assert!(err_msg.contains("Did you mean"));
-        assert!(err_msg.contains("target2"));
-    }
-
-    #[test]
-    fn test_adjust_with_id_invalid_calendar_allow_missing() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 3, 15);
-
-        // Invalid calendar with allow_missing_calendar enabled
-        // Should succeed and return schedule without adjustment
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .allow_missing_calendar(true)
-            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
-            .build()
-            .expect("Schedule builder should succeed with allow_missing_calendar");
-
-        // Should generate schedule (unadjusted)
-        assert!(schedule.dates.len() >= 2);
-
-        // allow_missing_calendar does NOT use graceful_fallback, but it does record a warning
-        // so callers can detect that adjustment was skipped.
-        assert!(
-            schedule.has_warnings(),
-            "should record MissingCalendarId warning"
-        );
-        assert!(!schedule.used_graceful_fallback());
-        assert!(matches!(
-            schedule.warnings.as_slice(),
-            [ScheduleWarning::MissingCalendarId { calendar_id }] if calendar_id == "INVALID_CALENDAR"
-        ));
-    }
-
-    #[test]
-    fn test_adjust_with_id_invalid_calendar_graceful_mode() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 3, 15);
-
-        // Invalid calendar with graceful mode (returns empty schedule with warning)
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .adjust_with_id(BusinessDayConvention::Following, "INVALID_CALENDAR")
-            .graceful_fallback(true)
-            .build()
-            .expect("Schedule builder should succeed with graceful_fallback");
-
-        // Should return empty schedule due to graceful fallback on error
-        assert_eq!(schedule.dates.len(), 0);
-
-        // CRITICAL: Warning must be present so callers know the calendar lookup failed
-        assert!(
-            schedule.has_warnings(),
-            "Invalid calendar with graceful fallback should produce warning"
-        );
-        assert!(schedule.used_graceful_fallback());
-
-        // Warning should mention the calendar error
-        match &schedule.warnings[0] {
-            ScheduleWarning::GracefulFallback { error_message } => {
-                assert!(
-                    error_message.contains("Calendar not found")
-                        || error_message.contains("INVALID_CALENDAR"),
-                    "Warning should describe calendar error: {error_message}"
-                );
-            }
-            ScheduleWarning::MissingCalendarId { .. } => {
-                panic!("Expected GracefulFallback warning, got MissingCalendarId")
-            }
-        }
-    }
-
-    #[test]
-    fn test_graceful_mode_with_valid_inputs_has_no_warnings() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 4, 15);
-
-        // Valid inputs with graceful mode should work normally without warnings
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .graceful_fallback(true)
-            .build()
-            .expect("Schedule builder should succeed with valid test data");
-
-        assert_eq!(schedule.dates.len(), 4);
-        assert_eq!(schedule.dates[0], start);
-        assert_eq!(schedule.dates[3], end);
-
-        // Valid inputs should NOT produce warnings even with graceful mode enabled
-        assert!(
-            !schedule.has_warnings(),
-            "Valid schedule with graceful mode should have no warnings"
-        );
-        assert!(!schedule.used_graceful_fallback());
-    }
-
-    #[test]
-    fn test_adjust_with_id_combined_with_other_options() {
-        let start = d(2025, 1, 31);
-        let end = d(2025, 4, 30);
-
-        // Combine adjust_with_id with end_of_month
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .end_of_month(true)
-            .adjust_with_id(BusinessDayConvention::Following, "target2")
-            .build()
-            .expect("Schedule builder should succeed with valid test data");
-
-        // Should generate a valid schedule
-        assert!(schedule.dates.len() >= 2);
-    }
-
-    #[test]
-    fn stub_short_back_truncates_last_period() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 5, 20);
-
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .stub_rule(StubKind::ShortBack)
-            .build()
-            .expect("Schedule builder should succeed with ShortBack");
-
-        assert_eq!(
-            schedule.dates,
-            vec![
-                d(2025, 1, 15),
-                d(2025, 2, 15),
-                d(2025, 3, 15),
-                d(2025, 4, 15),
-                d(2025, 5, 15),
-                end
-            ]
-        );
-    }
-
-    #[test]
-    fn stub_long_back_merges_final_two_periods() {
-        let start = d(2025, 1, 15);
-        let end = d(2025, 5, 20);
-
-        let schedule = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .stub_rule(StubKind::LongBack)
-            .build()
-            .expect("Schedule builder should succeed with LongBack");
-
-        assert_eq!(
-            schedule.dates,
-            vec![
-                d(2025, 1, 15),
-                d(2025, 2, 15),
-                d(2025, 3, 15),
-                d(2025, 4, 15),
-                end
-            ]
-        );
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
-mod serde_tests {
-    use super::*;
-    use time::Month;
-
-    #[test]
-    fn test_tenor_serde_roundtrip() {
-        use serde_json;
-
-        // Test different Tenor variants
-        let tenors = vec![
-            Tenor::annual(),
-            Tenor::semi_annual(),
-            Tenor::quarterly(),
-            Tenor::monthly(),
-            Tenor::biweekly(),
-            Tenor::weekly(),
-            Tenor::daily(),
-        ];
-
-        for tenor in tenors {
-            let json =
-                serde_json::to_string(&tenor).expect("JSON serialization should succeed in test");
-            let deserialized: Tenor =
-                serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
-            // Tenor doesn't strictly derive PartialEq but it should. If not, compare fields.
-            // Wait, Tenor doesn't derive PartialEq? Let's check or assume it does or use custom assertion.
-            // Just checked tenor.rs, it might not derive PartialEq.
-            // Assuming it does for now, or I'll fix it if it errors.
-            // Actually I should verify if Tenor derives PartialEq. It typically does.
-            assert_eq!(tenor.count, deserialized.count);
-            assert_eq!(tenor.unit, deserialized.unit);
-        }
-    }
-
-    #[test]
-    fn test_stub_kind_serde_roundtrip() {
-        use serde_json;
-
-        // Test all StubKind variants
-        let stub_kinds = vec![
-            StubKind::None,
-            StubKind::ShortFront,
-            StubKind::ShortBack,
-            StubKind::LongFront,
-            StubKind::LongBack,
-        ];
-
-        for stub in stub_kinds {
-            let json =
-                serde_json::to_string(&stub).expect("JSON serialization should succeed in test");
-            let deserialized: StubKind =
-                serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
-            assert_eq!(stub, deserialized);
-        }
-    }
-
-    #[test]
-    fn test_schedule_serde_roundtrip() {
-        use serde_json;
-
-        // Create a schedule
-        let start = Date::from_calendar_date(2025, Month::January, 15).expect("Valid test date");
-        let end = Date::from_calendar_date(2025, Month::April, 15).expect("Valid test date");
-        let sched = ScheduleBuilder::new(start, end)
-            .expect("Valid dates")
-            .frequency(Tenor::monthly())
-            .build()
-            .expect("Schedule builder should succeed with valid test data");
-
-        let json =
-            serde_json::to_string(&sched).expect("JSON serialization should succeed in test");
-        let deserialized: Schedule =
-            serde_json::from_str(&json).expect("JSON deserialization should succeed in test");
-
-        assert_eq!(sched.dates.len(), deserialized.dates.len());
-        for (original, deserialized) in sched.dates.iter().zip(deserialized.dates.iter()) {
-            assert_eq!(original, deserialized);
-        }
     }
 }

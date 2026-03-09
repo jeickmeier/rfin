@@ -1,9 +1,13 @@
 //! Monte Carlo evaluation types and aggregation utilities.
 
 use crate::error::{Error, Result};
+use crate::evaluator::results::EvalWarning;
 use crate::types::FinancialModelSpec;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
+
+/// Results for a single Monte Carlo path: per-node per-period values and any warnings emitted.
+pub(crate) type PathResult = (IndexMap<String, IndexMap<PeriodId, f64>>, Vec<EvalWarning>);
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::HashSet;
@@ -58,6 +62,9 @@ pub struct MonteCarloResults {
     pub percentiles: Vec<f64>,
     /// Forecast (non-actual) periods included in the simulation.
     pub forecast_periods: Vec<PeriodId>,
+    /// Warnings encountered while evaluating Monte Carlo paths.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<EvalWarning>,
     /// Internal storage of path-level values.
     #[serde(skip)]
     pub(crate) path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>>,
@@ -145,6 +152,7 @@ pub(crate) struct MonteCarloAccumulator {
     forecast_periods: Vec<PeriodId>,
     forecast_set: HashSet<PeriodId>,
     path_values: IndexMap<String, IndexMap<PeriodId, Vec<f64>>>,
+    warnings: Vec<EvalWarning>,
     #[cfg(feature = "dataframes")]
     path_ids: Vec<u32>,
     #[cfg(feature = "dataframes")]
@@ -178,6 +186,7 @@ impl MonteCarloAccumulator {
             forecast_set: forecast_periods.iter().copied().collect(),
             forecast_periods,
             path_values: IndexMap::new(),
+            warnings: Vec::new(),
             #[cfg(feature = "dataframes")]
             path_ids: Vec::new(),
             #[cfg(feature = "dataframes")]
@@ -193,8 +202,10 @@ impl MonteCarloAccumulator {
         &mut self,
         #[cfg_attr(not(feature = "dataframes"), allow(unused_variables))] path_idx: usize,
         path_results: IndexMap<String, IndexMap<PeriodId, f64>>,
+        warnings: Vec<EvalWarning>,
     ) -> Result<()> {
         self.observed_paths += 1;
+        self.warnings.extend(warnings);
 
         for (metric, period_map) in path_results {
             let metric_entry = self.path_values.entry(metric.clone()).or_default();
@@ -295,23 +306,77 @@ impl MonteCarloAccumulator {
             n_paths: self.observed_paths,
             percentiles: self.percentiles,
             forecast_periods: self.forecast_periods,
+            warnings: self.warnings,
             path_values: self.path_values,
             #[cfg(feature = "dataframes")]
             path_data,
         })
     }
+
+    #[cfg_attr(not(feature = "parallel"), allow(dead_code))]
+    pub(crate) fn merge(mut self, other: Self) -> Result<Self> {
+        if self.expected_paths != other.expected_paths
+            || self.percentiles != other.percentiles
+            || self.forecast_periods != other.forecast_periods
+        {
+            return Err(Error::eval(
+                "Monte Carlo accumulator merge mismatch across parallel partitions",
+            ));
+        }
+
+        self.observed_paths += other.observed_paths;
+        self.warnings.extend(other.warnings);
+
+        for (metric, period_map) in other.path_values {
+            let target_metric = self.path_values.entry(metric).or_default();
+            for (period_id, values) in period_map {
+                target_metric.entry(period_id).or_default().extend(values);
+            }
+        }
+
+        #[cfg(feature = "dataframes")]
+        {
+            self.path_ids.extend(other.path_ids);
+            self.periods.extend(other.periods);
+            self.metrics.extend(other.metrics);
+            self.values.extend(other.values);
+        }
+
+        Ok(self)
+    }
+
+    #[cfg_attr(not(feature = "parallel"), allow(dead_code))]
+    pub(crate) fn empty_like(&self) -> Self {
+        Self {
+            expected_paths: self.expected_paths,
+            observed_paths: 0,
+            percentiles: self.percentiles.clone(),
+            forecast_periods: self.forecast_periods.clone(),
+            forecast_set: self.forecast_set.clone(),
+            path_values: IndexMap::new(),
+            warnings: Vec::new(),
+            #[cfg(feature = "dataframes")]
+            path_ids: Vec::new(),
+            #[cfg(feature = "dataframes")]
+            periods: Vec::new(),
+            #[cfg(feature = "dataframes")]
+            metrics: Vec::new(),
+            #[cfg(feature = "dataframes")]
+            values: Vec::new(),
+        }
+    }
 }
 
 /// Aggregate path-level results into [`MonteCarloResults`].
-#[cfg_attr(not(any(test, feature = "parallel")), allow(dead_code))]
+#[cfg(any(test, feature = "parallel"))]
 pub(crate) fn aggregate_monte_carlo_paths(
     model: &FinancialModelSpec,
     config: &MonteCarloConfig,
-    all_paths: &[IndexMap<String, IndexMap<PeriodId, f64>>],
+    all_paths: &[PathResult],
 ) -> Result<MonteCarloResults> {
     let mut accumulator = MonteCarloAccumulator::new(model, config)?;
-    for (path_idx, path_results) in all_paths.iter().cloned().enumerate() {
-        accumulator.push_path(path_idx, path_results)?;
+    for (path_idx, (path_results, warnings)) in all_paths.iter().cloned().enumerate() {
+        accumulator.push_path(path_idx, path_results, warnings)?;
     }
     accumulator.finish()
 }
@@ -319,8 +384,11 @@ pub(crate) fn aggregate_monte_carlo_paths(
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
-    use super::{aggregate_monte_carlo_paths, normalize_percentiles, MonteCarloConfig};
+    use super::{
+        aggregate_monte_carlo_paths, normalize_percentiles, MonteCarloAccumulator, MonteCarloConfig,
+    };
     use crate::builder::ModelBuilder;
+    use crate::evaluator::EvalWarning;
     use crate::types::AmountOrScalar;
     use finstack_core::dates::PeriodId;
     use indexmap::IndexMap;
@@ -349,7 +417,39 @@ mod tests {
             [(period, f64::NAN)].into_iter().collect(),
         );
 
-        let err = aggregate_monte_carlo_paths(&model, &config, &[path]).expect_err("NaN must fail");
+        let err = aggregate_monte_carlo_paths(&model, &config, &[(path, Vec::new())])
+            .expect_err("NaN must fail");
         assert!(err.to_string().contains("non-finite"));
+    }
+
+    #[test]
+    fn accumulator_preserves_warnings_for_valid_paths() {
+        let period = PeriodId::quarter(2025, 1);
+        let model = ModelBuilder::new("mc-agg")
+            .periods("2025Q1..Q1", None)
+            .expect("valid periods")
+            .value("revenue", &[(period, AmountOrScalar::scalar(100.0))])
+            .build()
+            .expect("valid model");
+        let config = MonteCarloConfig::new(1, 7);
+        let mut accumulator = MonteCarloAccumulator::new(&model, &config).expect("accumulator");
+
+        let mut path = IndexMap::new();
+        path.insert(
+            "revenue".to_string(),
+            [(period, 100.0)].into_iter().collect(),
+        );
+        accumulator
+            .push_path(
+                0,
+                path,
+                vec![EvalWarning::DivisionByZero {
+                    node_id: "revenue".into(),
+                    period,
+                }],
+            )
+            .expect("path should be accepted");
+        let results = accumulator.finish().expect("results should finish");
+        assert_eq!(results.warnings.len(), 1);
     }
 }

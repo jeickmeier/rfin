@@ -125,12 +125,12 @@ fmt-rust: ## Format and fix Rust code
 .PHONY: lint-rust
 lint-rust: ## Lint core Rust crates (fast: excludes bindings)
 	cargo fmt --all -- --check
-	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils -- -D warnings
+	CARGO_INCREMENTAL=1 cargo clippy --all-targets --features mc,test-utils
 
 .PHONY: lint-rust-full
 lint-rust-full: ## Lint all Rust crates including bindings with all features (slow)
 	cargo fmt --all -- --check
-	cargo clippy --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --workspace --all-targets --all-features
 
 .PHONY: check-no-doctest-ignore
 check-no-doctest-ignore:

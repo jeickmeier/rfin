@@ -2,13 +2,35 @@
 #![allow(clippy::expect_used)]
 
 use finstack_core::currency::Currency;
-use finstack_core::dates::PeriodId;
+use finstack_core::dates::{Date, DayCount, PeriodId};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_statements::analysis::orchestrator::CorporateAnalysisBuilder;
 use finstack_statements::builder::ModelBuilder;
+use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::AmountOrScalar;
 use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+
+fn flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
+    let mut builder = DiscountCurve::builder(curve_id)
+        .base_date(base_date)
+        .day_count(DayCount::Act360)
+        .knots([
+            (0.0, 1.0),
+            (1.0, (-rate).exp()),
+            (5.0, (-rate * 5.0).exp()),
+            (10.0, (-rate * 10.0).exp()),
+            (30.0, (-rate * 30.0).exp()),
+        ]);
+
+    if rate.abs() < 1e-10 || rate < 0.0 {
+        builder = builder.interp(InterpStyle::Linear).allow_non_monotonic();
+    }
+
+    builder.build().expect("valid flat discount curve")
+}
 
 #[test]
 fn test_full_lbo_analysis() {
@@ -136,4 +158,58 @@ fn test_statement_only_no_equity_no_credit() {
         .statement
         .get("revenue", &PeriodId::quarter(2025, 1))
         .is_some());
+}
+
+#[test]
+fn test_mixed_currency_capital_structure_does_not_panic_in_dynamic_evaluator() {
+    let as_of = time::macros::date!(2025 - 01 - 01);
+    let model = ModelBuilder::new("mixed-currency")
+        .periods("2025Q1..Q2", None)
+        .expect("valid periods")
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(1_000_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(1_100_000.0),
+                ),
+            ],
+        )
+        .add_bond(
+            "USD-BOND",
+            Money::new(10_000_000.0, Currency::USD),
+            0.05,
+            as_of,
+            time::macros::date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("usd bond")
+        .add_bond(
+            "EUR-BOND",
+            Money::new(8_000_000.0, Currency::EUR),
+            0.04,
+            as_of,
+            time::macros::date!(2030 - 01 - 01),
+            "EUR-OIS",
+        )
+        .expect("eur bond")
+        .with_meta("currency", serde_json::json!("USD"))
+        .build()
+        .expect("valid model");
+
+    let market = MarketContext::new()
+        .insert(flat_discount_curve(0.05, as_of, "USD-OIS"))
+        .insert(flat_discount_curve(0.03, as_of, "EUR-OIS"));
+    let mut evaluator = Evaluator::new();
+    let results = evaluator
+        .evaluate_with_market_context(&model, Some(&market), Some(as_of))
+        .expect("evaluation should succeed");
+
+    let cs = results.cs_cashflows.expect("capital structure cashflows");
+    assert_eq!(cs.totals_by_currency.len(), 2);
+    assert!(cs.get_total_interest(&PeriodId::quarter(2025, 1)).is_err());
 }

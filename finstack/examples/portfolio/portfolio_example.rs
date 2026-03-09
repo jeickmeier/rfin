@@ -868,7 +868,8 @@ fn build_sample_portfolio(as_of: Date) -> finstack_portfolio::Result<Portfolio> 
         0.05,                                    // 5% strike rate
         finstack_core::dates::Tenor::quarterly(),
         DayCount::Act360,
-    );
+    )
+    .expect("valid cap params");
 
     let interest_rate_cap = InterestRateOption::new(
         "IR_CAP_5Y",

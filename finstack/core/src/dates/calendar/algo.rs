@@ -83,9 +83,10 @@ pub(crate) fn easter_monday(year: i32) -> Date {
     } else {
         Month::April
     };
-    // Easter algorithm always produces valid March 22-April 25 dates
-    // unwrap_or provides defensive fallback for infallible operation
-    let easter_sunday = Date::from_calendar_date(year, month, day as u8).unwrap_or(time::Date::MIN);
+    // Easter algorithm always produces valid March 22-April 25 dates.
+    let easter_sunday = Date::from_calendar_date(year, month, day as u8).unwrap_or_else(|_| {
+        unreachable!("Anonymous Gregorian algorithm produces valid March/April dates")
+    });
     easter_sunday + Duration::days(1) // Easter Monday = Sunday + 1
 }
 

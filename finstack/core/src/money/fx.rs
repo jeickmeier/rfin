@@ -385,7 +385,14 @@ impl FxMatrix {
     /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
     pub fn new(provider: Arc<dyn FxProvider>) -> Self {
-        Self::with_config(provider, FxConfig::default())
+        let capacity = NonZeroUsize::new(FxConfig::default().cache_capacity)
+            .unwrap_or_else(|| unreachable!("default FxConfig.cache_capacity is non-zero"));
+        Self {
+            provider,
+            quotes: Mutex::new(LruCache::new(capacity)),
+            observed_quotes: Mutex::new(LruCache::new(capacity)),
+            config: FxConfig::default(),
+        }
     }
 
     /// Create a new [`FxMatrix`] with custom configuration.
@@ -417,24 +424,34 @@ impl FxMatrix {
     ///
     /// let mut cfg = FxConfig::default();
     /// cfg.cache_capacity = 128;
-    /// let matrix = FxMatrix::with_config(Arc::new(StaticFx), cfg);
+    /// let matrix = FxMatrix::try_with_config(Arc::new(StaticFx), cfg)
+    ///     .expect("valid FX config");
     /// assert_eq!(matrix.cache_stats(), 0);
     /// ```
     pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
-        // Do not silently mask invalid configuration (0-capacity).
-        assert!(
-            config.cache_capacity > 0,
-            "FxConfig.cache_capacity must be > 0 (got 0); use a small positive value instead"
-        );
-        let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or(NonZeroUsize::MIN);
+        let sanitized = FxConfig {
+            cache_capacity: config.cache_capacity.max(1),
+            ..config
+        };
+        let capacity = NonZeroUsize::new(sanitized.cache_capacity).unwrap_or(NonZeroUsize::MIN);
         let quotes = LruCache::new(capacity);
         let observed_quotes = LruCache::new(capacity);
         Self {
             provider,
             quotes: Mutex::new(quotes),
             observed_quotes: Mutex::new(observed_quotes),
-            config,
+            config: sanitized,
         }
+    }
+
+    /// Create a new [`FxMatrix`] with custom configuration, failing closed on invalid inputs.
+    pub fn try_with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> crate::Result<Self> {
+        if config.cache_capacity == 0 {
+            return Err(crate::Error::Validation(
+                "FxConfig.cache_capacity must be > 0".to_string(),
+            ));
+        }
+        Ok(Self::with_config(provider, config))
     }
 
     /// Access the underlying FX provider reference.
@@ -583,7 +600,8 @@ impl FxMatrix {
     /// }
     ///
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
-    /// matrix.set_quote(Currency::GBP, Currency::USD, 1.3);
+    /// matrix.set_quote(Currency::GBP, Currency::USD, 1.3)
+    ///     .expect("finite, positive explicit quote");
     /// let res = matrix.rate(FxQuery::new(
     ///     Currency::GBP,
     ///     Currency::USD,
@@ -591,31 +609,23 @@ impl FxMatrix {
     /// )).expect("FX rate lookup should succeed");
     /// assert_eq!(res.rate, 1.3);
     /// ```
-    pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) {
-        // `set_quote` is an infallible API; treat invalid rates as programmer bugs.
-        let checked = validate_fx_rate(from, to, rate);
-        assert!(
-            checked.is_ok(),
-            "FxMatrix::set_quote requires finite, positive rate (got {from}->{to}={rate})"
-        );
+    pub fn set_quote(&self, from: Currency, to: Currency, rate: FxRate) -> crate::Result<()> {
+        let rate = validate_fx_rate(from, to, rate)?;
         self.insert_quote(from, to, rate);
+        Ok(())
     }
 
     /// Seed multiple quotes at once.
     ///
     /// # Parameters
     /// - `quotes`: slice of `(from, to, rate)` tuples
-    pub fn set_quotes(&self, quotes: &[(Currency, Currency, FxRate)]) {
+    pub fn set_quotes(&self, quotes: &[(Currency, Currency, FxRate)]) -> crate::Result<()> {
         let mut map = self.quotes.lock();
         for &(from, to, rate) in quotes {
-            // Keep state clean: invalid quotes are always a bug at insertion time.
-            let checked = validate_fx_rate(from, to, rate);
-            assert!(
-                checked.is_ok(),
-                "FxMatrix::set_quotes requires finite, positive rates (got {from}->{to}={rate})"
-            );
+            validate_fx_rate(from, to, rate)?;
             map.put(Pair(from, to), rate);
         }
+        Ok(())
     }
 
     /// Clear all stored quotes.
@@ -715,10 +725,10 @@ impl FxMatrix {
     /// # }
     /// let matrix = FxMatrix::new(Arc::new(StaticFx));
     /// let state = FxMatrixState { config: matrix.get_serializable_state().config, quotes: vec![] };
-    /// matrix.load_from_state(&state);
+    /// matrix.load_from_state(&state).expect("valid snapshot state");
     /// ```
-    pub fn load_from_state(&self, state: &FxMatrixState) {
-        self.set_quotes(&state.quotes);
+    pub fn load_from_state(&self, state: &FxMatrixState) -> crate::Result<()> {
+        self.set_quotes(&state.quotes)
     }
 
     /// Create a new FX matrix with a bumped rate for a specific currency pair.
@@ -764,7 +774,7 @@ impl FxMatrix {
 
         // Create new FX matrix with same config and carry over cached quotes so lookups that
         // rely on seeded values keep working after the bump.
-        let bumped = Self::with_config(bumped_provider, self.config);
+        let bumped = Self::try_with_config(bumped_provider, self.config)?;
         {
             let src = self.quotes.lock();
             let mut dst = bumped.quotes.lock();
@@ -778,7 +788,7 @@ impl FxMatrix {
         // Do not carry over provider-observed quotes. They may be date/policy-sensitive
         // or derived crosses that depend transitively on the bumped leg.
         // IMPORTANT: ensure the bumped pair is not shadowed by copied explicit quotes.
-        bumped.set_quote(from, to, bumped_rate);
+        bumped.set_quote(from, to, bumped_rate)?;
 
         Ok(bumped)
     }
@@ -982,398 +992,5 @@ impl FxMatrix {
             }
         });
         (direct, rev)
-    }
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
-mod tests {
-    use super::*;
-    use crate::collections::HashMap;
-    use crate::currency::Currency;
-    // no duration needed in tests now
-
-    // Mock FX provider for testing
-    struct MockFxProvider {
-        rates: HashMap<(Currency, Currency), f64>,
-    }
-
-    impl MockFxProvider {
-        fn new() -> Self {
-            let mut rates = HashMap::default();
-
-            // Add some mock rates with USD as pivot
-            rates.insert((Currency::USD, Currency::EUR), 0.85);
-            rates.insert((Currency::EUR, Currency::USD), 1.18);
-            rates.insert((Currency::USD, Currency::GBP), 0.75);
-            rates.insert((Currency::GBP, Currency::USD), 1.33);
-            rates.insert((Currency::USD, Currency::JPY), 110.0);
-            rates.insert((Currency::JPY, Currency::USD), 0.0091);
-            rates.insert((Currency::USD, Currency::CAD), 1.25);
-            rates.insert((Currency::CAD, Currency::USD), 0.80);
-
-            // Intentionally omit direct cross-rates to test triangulation
-            // EUR/GBP, EUR/JPY, GBP/JPY will be triangulated via USD
-
-            Self { rates }
-        }
-
-        fn new_incomplete() -> Self {
-            let mut rates = HashMap::default();
-
-            // Only USD pivot rates - no cross-rates available
-            rates.insert((Currency::USD, Currency::EUR), 0.85);
-            rates.insert((Currency::EUR, Currency::USD), 1.18);
-            rates.insert((Currency::USD, Currency::GBP), 0.75);
-            rates.insert((Currency::GBP, Currency::USD), 1.33);
-
-            Self { rates }
-        }
-    }
-
-    impl FxProvider for MockFxProvider {
-        fn rate(
-            &self,
-            from: Currency,
-            to: Currency,
-            _on: Date,
-            _policy: FxConversionPolicy,
-        ) -> crate::Result<FxRate> {
-            if let Some(&rate) = self.rates.get(&(from, to)) {
-                return Ok(rate);
-            }
-            Err(crate::Error::Internal)
-        }
-    }
-
-    fn test_date() -> Date {
-        use time::Month;
-        Date::from_calendar_date(2023, Month::December, 15).expect("Valid test date")
-    }
-
-    #[test]
-    fn fx_cache_basic_functionality() {
-        let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(Arc::new(provider));
-
-        // Test basic rate retrieval
-        let rate = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-
-        let expected = 0.85;
-
-        assert_eq!(rate, expected);
-
-        // Test stats reflect quotes
-        let quotes = matrix.cache_stats();
-        assert!(quotes >= 1);
-    }
-
-    #[test]
-    fn fx_cache_identity_rates() {
-        let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(Arc::new(provider));
-
-        let rate = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::USD, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-
-        let expected = 1.0;
-
-        assert_eq!(rate, expected);
-    }
-
-    #[test]
-    fn fx_basic_rate_lookup() {
-        let provider = MockFxProvider::new();
-        let config = FxConfig {
-            enable_triangulation: true, // Enable for this test
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        let result = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .expect("FX rate query should succeed in test");
-
-        // Should get a direct rate
-        assert!(result.rate > 0.0);
-        assert!(!result.triangulated);
-    }
-
-    #[test]
-    fn fx_clear_implied_matrix() {
-        let provider = MockFxProvider::new();
-        let config = FxConfig::default();
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // Get rate to populate cache
-        let _rate1 = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .expect("FX rate query should succeed in test");
-
-        // Clear cache (all entries removed conservatively)
-        matrix.clear_cache();
-
-        let remaining = matrix.cache_stats();
-        assert_eq!(remaining, 0); // Cache cleared
-    }
-
-    #[test]
-    fn fx_cache_clear() {
-        let provider = MockFxProvider::new();
-        let matrix = FxMatrix::new(Arc::new(provider));
-
-        // Populate cache
-        let _rate = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .expect("FX rate query should succeed in test");
-
-        let quotes = matrix.cache_stats();
-        assert!(quotes >= 1);
-
-        // Clear cache
-        matrix.clear_cache();
-
-        let quotes = matrix.cache_stats();
-        assert_eq!(quotes, 0);
-    }
-
-    #[test]
-    fn fx_policy_meta_creation() {
-        let policy = FxPolicyMeta {
-            strategy: FxConversionPolicy::PeriodAverage,
-            target_ccy: Some(Currency::USD),
-            notes: "Test policy".to_string(),
-        };
-
-        assert_eq!(policy.strategy, FxConversionPolicy::PeriodAverage);
-        assert_eq!(policy.target_ccy, Some(Currency::USD));
-        assert_eq!(policy.notes, "Test policy");
-
-        // Test default
-        let default_policy = FxPolicyMeta::default();
-        assert_eq!(default_policy.strategy, FxConversionPolicy::CashflowDate);
-        assert_eq!(default_policy.target_ccy, None);
-        assert_eq!(default_policy.notes, String::new());
-    }
-
-    #[test]
-    fn fx_triangulation_success() {
-        let provider = MockFxProvider::new_incomplete(); // Only has USD pivot rates
-        let config = FxConfig {
-            pivot_currency: Currency::USD,
-            enable_triangulation: true,
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // Test EUR→GBP triangulation via USD: EUR→USD × USD→GBP
-        let rate = matrix
-            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-
-        // Expected: 1.18 * 0.75 = 0.885
-        let expected = 1.18 * 0.75;
-
-        assert!((rate - expected).abs() < 0.001);
-    }
-
-    #[test]
-    fn fx_triangulation_disabled() {
-        let provider = MockFxProvider::new_incomplete(); // Only has USD pivot rates
-        let config = FxConfig {
-            pivot_currency: Currency::USD,
-            enable_triangulation: false, // Disabled
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // Should fail when triangulation is disabled
-        let result = matrix.rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()));
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn fx_triangulation_caching() {
-        let provider = MockFxProvider::new_incomplete();
-        let config = FxConfig {
-            pivot_currency: Currency::USD,
-            enable_triangulation: true,
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // First call should triangulate and cache
-        let rate1 = matrix
-            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-
-        // Second call should hit cache
-        let rate2 = matrix
-            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-
-        assert_eq!(rate1, rate2);
-
-        // Stats indicate stored quotes only
-        let quotes = matrix.cache_stats();
-        assert!(quotes >= 1);
-    }
-
-    #[test]
-    fn fx_triangulation_pivot_identity() {
-        let provider = MockFxProvider::new();
-        let config = FxConfig {
-            pivot_currency: Currency::USD,
-            enable_triangulation: true,
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // USD→EUR should use direct rate, not triangulation
-        let rate = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-
-        // Should get the direct rate
-        let expected = 0.85;
-
-        assert_eq!(rate, expected);
-    }
-
-    #[test]
-    fn fx_triangulation_missing_pivot_rates() {
-        // Create provider with no USD rates at all
-        let provider = MockFxProvider {
-            rates: {
-                let mut rates = HashMap::default();
-                rates.insert((Currency::EUR, Currency::GBP), 0.88);
-                rates.insert((Currency::GBP, Currency::EUR), 1.14);
-                rates
-            },
-        };
-
-        let config = FxConfig {
-            pivot_currency: Currency::USD,
-            enable_triangulation: true,
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // Should fail when pivot rates are missing
-        let result = matrix.rate(FxQuery::new(Currency::JPY, Currency::CAD, test_date()));
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn fx_rate_with_metadata() {
-        let provider = MockFxProvider::new_incomplete();
-        let config = FxConfig {
-            pivot_currency: Currency::USD,
-            enable_triangulation: true,
-            ..Default::default()
-        };
-        let matrix = FxMatrix::with_config(Arc::new(provider), config);
-
-        // Test direct rate
-        let result = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::EUR, test_date()))
-            .expect("FX rate query should succeed in test");
-
-        assert!(!result.triangulated);
-
-        let expected = 0.85;
-
-        assert_eq!(result.rate, expected);
-
-        // Test triangulated rate
-        let result = matrix
-            .rate(FxQuery::new(Currency::EUR, Currency::GBP, test_date()))
-            .expect("FX rate query should succeed in test");
-
-        assert!(result.triangulated);
-
-        // Expected: 1.18 * 0.75 = 0.885
-        let expected = 1.18 * 0.75;
-
-        assert!((result.rate - expected).abs() < 0.001);
-
-        // Test identity rate
-        let result = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::USD, test_date()))
-            .expect("FX rate query should succeed in test");
-
-        assert!(!result.triangulated);
-
-        assert_eq!(result.rate, 1.0);
-    }
-
-    #[test]
-    fn fx_seed_quotes_directly() {
-        let provider = MockFxProvider::new_incomplete();
-        let matrix = FxMatrix::new(Arc::new(provider));
-
-        // Seed a direct quote and verify retrieval
-        matrix.set_quote(Currency::USD, Currency::CHF, 0.90);
-        let usd_chf = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-        assert_eq!(usd_chf, 0.90);
-
-        // Opposite direction should use reciprocal on demand
-        let chf_usd = matrix
-            .rate(FxQuery::new(Currency::CHF, Currency::USD, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-        assert!((chf_usd - (1.0 / 0.90)).abs() < 1e-12);
-
-        // Bulk seed: add a couple more pairs
-        matrix.set_quotes(&[
-            (Currency::EUR, Currency::CHF, 0.95),
-            (Currency::GBP, Currency::CHF, 1.10),
-        ]);
-
-        let eur_chf = matrix
-            .rate(FxQuery::new(Currency::EUR, Currency::CHF, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-        assert_eq!(eur_chf, 0.95);
-    }
-
-    #[test]
-    fn fx_bumped_matrix_preserves_seeded_quotes() {
-        // Provider has no CHF quotes; we seed them manually.
-        let provider = MockFxProvider::new_incomplete();
-        let matrix = FxMatrix::new(Arc::new(provider));
-        matrix.set_quote(Currency::USD, Currency::CHF, 0.90);
-
-        // Ensure the seeded quote is available.
-        let usd_chf = matrix
-            .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-        assert_eq!(usd_chf, 0.90);
-
-        // Bump EUR/USD; CHF quote should still be present in the bumped matrix.
-        let bumped = matrix
-            .with_bumped_rate(Currency::EUR, Currency::USD, 0.01, test_date())
-            .expect("Bumped matrix construction should succeed in test");
-
-        let usd_chf_bumped = bumped
-            .rate(FxQuery::new(Currency::USD, Currency::CHF, test_date()))
-            .expect("FX rate query should succeed in test")
-            .rate;
-        assert_eq!(usd_chf_bumped, 0.90);
     }
 }

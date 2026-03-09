@@ -73,10 +73,12 @@ fn create_base_market() -> MarketContext {
         .unwrap();
 
     // FX matrix
-    let fx_provider = Arc::new(SimpleFxProvider::new());
-    fx_provider.set_quote(Currency::EUR, Currency::USD, 1.10);
-    fx_provider.set_quote(Currency::GBP, Currency::USD, 1.25);
-    fx_provider.set_quote(Currency::JPY, Currency::USD, 0.0067);
+    let fx_provider = Arc::new(
+        SimpleFxProvider::new()
+            .with_quote(Currency::EUR, Currency::USD, 1.10)
+            .with_quote(Currency::GBP, Currency::USD, 1.25)
+            .with_quote(Currency::JPY, Currency::USD, 0.0067),
+    );
     let fx_matrix = FxMatrix::new(fx_provider);
 
     // Vol surface

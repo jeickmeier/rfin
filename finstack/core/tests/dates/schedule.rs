@@ -1,7 +1,9 @@
 //! Tests for schedule iterator functionality.
 
 use super::common::{make_date, TestCal};
-use finstack_core::dates::{BusinessDayConvention, ScheduleBuilder, StubKind, Tenor};
+use finstack_core::dates::{
+    BusinessDayConvention, ScheduleBuilder, ScheduleErrorPolicy, StubKind, Tenor,
+};
 
 #[test]
 fn test_basic_schedule() {
@@ -489,4 +491,22 @@ fn test_imm_vs_cds_imm_difference() {
     assert_eq!(cds_dates[0], make_date(2025, 3, 20));
     assert_eq!(imm_dates[1], make_date(2025, 6, 18));
     assert_eq!(cds_dates[1], make_date(2025, 6, 20));
+}
+
+#[test]
+fn test_schedule_error_policy_missing_calendar_warning() {
+    let start = make_date(2025, 1, 15);
+    let end = make_date(2025, 3, 15);
+
+    let schedule = ScheduleBuilder::new(start, end)
+        .unwrap()
+        .frequency(Tenor::monthly())
+        .error_policy(ScheduleErrorPolicy::MissingCalendarWarning)
+        .adjust_with_id(BusinessDayConvention::Following, "unknown_calendar")
+        .build()
+        .expect("warning policy should preserve schedule generation");
+
+    assert!(!schedule.dates.is_empty());
+    assert!(schedule.has_warnings());
+    assert!(!schedule.used_graceful_fallback());
 }

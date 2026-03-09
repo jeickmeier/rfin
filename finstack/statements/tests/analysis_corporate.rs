@@ -337,3 +337,73 @@ fn test_dcf_uses_forecast_boundary_for_valuation_date_and_auto_net_debt() {
         "auto net debt should come from the last actual balance sheet, not the terminal forecast period"
     );
 }
+
+#[test]
+fn test_dcf_forecast_only_uses_first_forecast_boundary_for_net_debt() {
+    let model = ModelBuilder::new("forecast-only-dcf")
+        .periods("2025Q1..Q4", None)
+        .expect("valid periods")
+        .value(
+            "ufcf",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 3),
+                    AmountOrScalar::scalar(120_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 4),
+                    AmountOrScalar::scalar(130_000.0),
+                ),
+            ],
+        )
+        .value(
+            "total_debt",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(75.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(40.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(10.0)),
+            ],
+        )
+        .value(
+            "cash",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 3), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 4), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .with_meta("currency", serde_json::json!("USD"))
+        .build()
+        .expect("valid model");
+
+    let result = evaluate_dcf(
+        &model,
+        0.10,
+        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+        "ufcf",
+        None,
+    )
+    .expect("DCF evaluation should succeed");
+
+    let dcf = result
+        .dcf_instrument
+        .as_ref()
+        .expect("dcf instrument should be returned");
+    let first_forecast = model.periods.first().expect("forecast period should exist");
+
+    assert_eq!(dcf.valuation_date, first_forecast.start);
+    assert!(
+        (result.net_debt.amount() - 100.0).abs() < 1e-9,
+        "forecast-only auto net debt should come from the valuation boundary, not the terminal period"
+    );
+}

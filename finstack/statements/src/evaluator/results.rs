@@ -80,7 +80,10 @@ pub struct ResultsMeta {
     #[serde(default)]
     pub numeric_mode: NumericMode,
 
-    /// Rounding context (if applicable)
+    /// Rounding context (if applicable).
+    ///
+    /// This is reserved for future evaluator-level rounding configuration and
+    /// is currently `None` for all statement evaluations.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rounding_context: Option<finstack_core::config::RoundingContext>,
 
@@ -259,5 +262,14 @@ pub enum EvalWarning {
         period: PeriodId,
         /// The actual non-finite value (NaN, Inf, or -Inf).
         value: f64,
+    },
+    /// Capital-structure cashflow classification was ignored during statement extraction.
+    CapitalStructureCashflowIgnored {
+        /// Period in which the ignored cashflow was encountered.
+        period: PeriodId,
+        /// Ignored cashflow kind.
+        kind: String,
+        /// Original cashflow date as a string for diagnostics.
+        cashflow_date: String,
     },
 }

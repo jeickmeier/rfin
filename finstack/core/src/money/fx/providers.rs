@@ -27,7 +27,7 @@ use std::sync::Arc;
 /// use time::Month;
 ///
 /// let provider = SimpleFxProvider::new();
-/// provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+/// provider.set_quote(Currency::EUR, Currency::USD, 1.1).expect("valid rate");
 ///
 /// let date = Date::from_calendar_date(2024, Month::January, 2).expect("Valid date");
 /// let rate = provider.rate(Currency::EUR, Currency::USD, date, FxConversionPolicy::CashflowDate).expect("FX rate lookup should succeed");
@@ -72,8 +72,41 @@ impl SimpleFxProvider {
     /// let provider = SimpleFxProvider::new();
     /// provider.set_quote(Currency::GBP, Currency::USD, 1.25);
     /// ```
-    pub fn set_quote(&self, from: Currency, to: Currency, rate: f64) {
+    pub fn set_quote(&self, from: Currency, to: Currency, rate: f64) -> crate::Result<()> {
+        let rate = super::validate_fx_rate(from, to, rate)?;
         self.quotes.write().insert((from, to), rate);
+        Ok(())
+    }
+
+    /// Builder-style quote insertion for ergonomic setup.
+    ///
+    /// Equivalent to `set_quote` but takes and returns `self`, allowing chained
+    /// construction before wrapping in `Arc`. Panics if the rate is invalid
+    /// (non-finite, NaN, zero, or negative).
+    ///
+    /// # Panics
+    ///
+    /// Panics if `rate` is not a valid positive finite FX rate.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::fx::SimpleFxProvider;
+    /// use finstack_core::currency::Currency;
+    /// use std::sync::Arc;
+    ///
+    /// let provider = Arc::new(
+    ///     SimpleFxProvider::new()
+    ///         .with_quote(Currency::EUR, Currency::USD, 1.1)
+    ///         .with_quote(Currency::GBP, Currency::USD, 1.25),
+    /// );
+    /// ```
+    #[must_use]
+    #[allow(clippy::panic)]
+    pub fn with_quote(self, from: Currency, to: Currency, rate: f64) -> Self {
+        let rate = super::validate_fx_rate(from, to, rate)
+            .unwrap_or_else(|e| panic!("invalid FX rate {from}->{to} = {rate}: {e}"));
+        self.quotes.write().insert((from, to), rate);
+        self
     }
 
     /// Bulk insert or update FX quotes.
@@ -92,11 +125,13 @@ impl SimpleFxProvider {
     ///     (Currency::GBP, Currency::USD, 1.25),
     /// ]);
     /// ```
-    pub fn set_quotes(&self, quotes: &[(Currency, Currency, f64)]) {
+    pub fn set_quotes(&self, quotes: &[(Currency, Currency, f64)]) -> crate::Result<()> {
         let mut guard = self.quotes.write();
         for &(from, to, rate) in quotes {
+            let rate = super::validate_fx_rate(from, to, rate)?;
             guard.insert((from, to), rate);
         }
+        Ok(())
     }
 
     /// Retrieve a direct quote if available.
@@ -109,7 +144,7 @@ impl SimpleFxProvider {
     /// use finstack_core::currency::Currency;
     ///
     /// let provider = SimpleFxProvider::new();
-    /// provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+    /// provider.set_quote(Currency::EUR, Currency::USD, 1.1).expect("valid rate");
     ///
     /// assert_eq!(provider.get_direct(Currency::EUR, Currency::USD), Some(1.1));
     /// assert_eq!(provider.get_direct(Currency::USD, Currency::EUR), None);
@@ -145,7 +180,7 @@ impl FxProvider for SimpleFxProvider {
     /// use time::Month;
     ///
     /// let provider = SimpleFxProvider::new();
-    /// provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+    /// provider.set_quote(Currency::EUR, Currency::USD, 1.1).expect("valid rate");
     ///
     /// let date = Date::from_calendar_date(2024, Month::January, 2).expect("Valid date");
     /// let rate = provider.rate(Currency::EUR, Currency::USD, date, FxConversionPolicy::CashflowDate).expect("FX rate lookup should succeed");
@@ -263,7 +298,9 @@ mod tests {
     #[test]
     fn simple_provider_direct_quote() {
         let provider = SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.1)
+            .expect("valid test quote");
 
         let rate = provider
             .rate(
@@ -279,7 +316,9 @@ mod tests {
     #[test]
     fn simple_provider_reciprocal() {
         let provider = SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 1.1);
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.1)
+            .expect("valid test quote");
 
         let rate = provider
             .rate(
@@ -323,10 +362,12 @@ mod tests {
     #[test]
     fn simple_provider_bulk_quotes() {
         let provider = SimpleFxProvider::new();
-        provider.set_quotes(&[
-            (Currency::EUR, Currency::USD, 1.1),
-            (Currency::GBP, Currency::USD, 1.25),
-        ]);
+        provider
+            .set_quotes(&[
+                (Currency::EUR, Currency::USD, 1.1),
+                (Currency::GBP, Currency::USD, 1.25),
+            ])
+            .expect("valid test quotes");
 
         let eur_usd = provider
             .rate(
@@ -352,8 +393,12 @@ mod tests {
     #[test]
     fn bumped_provider_overrides_rate() {
         let original = Arc::new(SimpleFxProvider::new());
-        original.set_quote(Currency::EUR, Currency::USD, 1.1);
-        original.set_quote(Currency::GBP, Currency::USD, 1.25);
+        original
+            .set_quote(Currency::EUR, Currency::USD, 1.1)
+            .expect("valid test quote");
+        original
+            .set_quote(Currency::GBP, Currency::USD, 1.25)
+            .expect("valid test quote");
 
         // Create bumped provider that overrides EUR/USD
         let bumped = BumpedFxProvider::new(original.clone(), Currency::EUR, Currency::USD, 1.2);

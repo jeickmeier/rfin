@@ -112,9 +112,11 @@ pub fn build_flat_vol_surface(vol: f64, surface_id: &str) -> VolSurface {
 
 /// Create FX matrix with a given spot rate.
 pub fn create_fx_matrix(eur_usd_rate: f64) -> FxMatrix {
-    let provider = SimpleFxProvider::new();
-    provider.set_quote(BASE, QUOTE, eur_usd_rate);
-    FxMatrix::new(Arc::new(provider))
+    FxMatrix::new(Arc::new(SimpleFxProvider::new().with_quote(
+        BASE,
+        QUOTE,
+        eur_usd_rate,
+    )))
 }
 
 /// Build complete market context from parameters.

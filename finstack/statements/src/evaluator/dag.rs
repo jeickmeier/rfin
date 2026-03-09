@@ -52,23 +52,18 @@ impl DependencyGraph {
             dependents.insert(node_id.clone(), IndexSet::new());
         }
 
-        // Extract dependencies from formulas
+        let all_node_ids: IndexSet<String> = model.nodes.keys().cloned().collect();
+
+        // Extract dependencies from formulas and where clauses
         for (node_id, node_spec) in &model.nodes {
             if let Some(formula) = &node_spec.formula_text {
-                let node_deps =
-                    extract_dependencies(formula, &model.nodes.keys().cloned().collect());
+                let node_deps = extract_dependencies(formula, &all_node_ids)?;
+                add_dependency_edges(node_id, &node_deps, &mut dependencies, &mut dependents);
+            }
 
-                for dep in &node_deps {
-                    // Add to this node's dependencies (node was initialized in previous loop)
-                    if let Some(deps) = dependencies.get_mut(node_id) {
-                        deps.insert(dep.clone());
-                    }
-
-                    // Add this node to the dependent's dependents list (validated by validate_formula_references)
-                    if let Some(dep_set) = dependents.get_mut(dep) {
-                        dep_set.insert(node_id.clone());
-                    }
-                }
+            if let Some(where_clause) = &node_spec.where_text {
+                let node_deps = extract_dependencies(where_clause, &all_node_ids)?;
+                add_dependency_edges(node_id, &node_deps, &mut dependencies, &mut dependents);
             }
         }
 
@@ -208,6 +203,22 @@ impl DependencyGraph {
     }
 }
 
+fn add_dependency_edges(
+    node_id: &str,
+    node_deps: &IndexSet<String>,
+    dependencies: &mut IndexMap<String, IndexSet<String>>,
+    dependents: &mut IndexMap<String, IndexSet<String>>,
+) {
+    for dep in node_deps {
+        if let Some(deps) = dependencies.get_mut(node_id) {
+            deps.insert(dep.clone());
+        }
+        if let Some(dep_set) = dependents.get_mut(dep) {
+            dep_set.insert(node_id.to_string());
+        }
+    }
+}
+
 /// Compute the topological evaluation order.
 ///
 /// Nodes are returned in an order where all dependencies appear before the
@@ -248,13 +259,16 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 /// This specifically uses `extract_direct_dependencies` which parses the AST
 /// and ignores references inside `lag()` and `shift()` calls, allowing for
 /// temporal cycles (like corkscrews) without blocking the DAG.
-fn extract_dependencies(formula: &str, all_node_ids: &IndexSet<String>) -> IndexSet<String> {
-    crate::utils::formula::extract_direct_dependencies(formula)
-        .map(|direct_deps| direct_deps.intersection(all_node_ids).cloned().collect())
-        .unwrap_or_else(|err| {
-            debug_assert!(false, "Formula should have been validated earlier: {err}");
-            IndexSet::new()
-        })
+fn extract_dependencies(
+    formula: &str,
+    all_node_ids: &IndexSet<String>,
+) -> Result<IndexSet<String>> {
+    let direct_deps = crate::utils::formula::extract_direct_dependencies(formula).map_err(|e| {
+        crate::error::Error::build(format!(
+            "Failed to parse formula for dependency extraction: {e}"
+        ))
+    })?;
+    Ok(direct_deps.intersection(all_node_ids).cloned().collect())
 }
 
 /// Suggest similar identifiers for a typo using Levenshtein distance.
@@ -307,7 +321,7 @@ fn levenshtein_distance(s1: &str, s2: &str) -> usize {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, clippy::unwrap_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;
@@ -398,7 +412,7 @@ mod tests {
             .map(|s| s.to_string())
             .collect();
 
-        let deps = extract_dependencies("revenue - cogs", &all_nodes);
+        let deps = extract_dependencies("revenue - cogs", &all_nodes).unwrap();
         assert_eq!(deps.len(), 2);
         assert!(deps.contains("revenue"));
         assert!(deps.contains("cogs"));
@@ -433,5 +447,24 @@ mod tests {
             .position(|n| n == "b")
             .expect("node b should exist");
         assert!(a_pos < b_pos);
+    }
+
+    #[test]
+    fn test_where_clause_adds_dependencies() {
+        let model = ModelBuilder::new("test")
+            .periods("2025Q1..Q2", None)
+            .expect("test should succeed")
+            .value("revenue", &[])
+            .mixed("margin")
+            .formula("1.0")
+            .expect("test should succeed")
+            .build()
+            .where_clause("revenue > 0.0")
+            .build()
+            .expect("test should succeed");
+
+        let graph = DependencyGraph::from_model(&model).expect("test should succeed");
+        assert!(graph.dependencies["margin"].contains("revenue"));
+        assert!(graph.dependents["revenue"].contains("margin"));
     }
 }

@@ -1,3 +1,9 @@
+//! Internal curve storage helpers for [`MarketContext`](super::MarketContext).
+//!
+//! This submodule contains the enum-based storage and reconstruction helpers that
+//! let the public context API handle heterogeneous curve types through a single
+//! internal representation.
+
 use std::sync::Arc;
 
 use crate::market_data::bumps::{BumpSpec, BumpType, Bumpable};

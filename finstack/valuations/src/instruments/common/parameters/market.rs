@@ -3,12 +3,16 @@
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, Percentage, Rate};
+#[cfg(feature = "ts_export")]
+use ts_rs::TS;
 
 use serde::{Deserialize, Serialize};
 
 /// Option type for pricing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "ts_export", derive(TS))]
+#[cfg_attr(feature = "ts_export", ts(export))]
 pub enum OptionType {
     /// Call option
     Call,

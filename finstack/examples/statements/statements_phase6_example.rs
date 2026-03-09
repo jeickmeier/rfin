@@ -185,6 +185,7 @@ fn main() -> Result<()> {
                                 CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                                 _ => 0.0,
                             },
+                            CashflowSpec::StepUp(_) => 0.0,
                         };
                         println!(
                             "   • Bond {}: ${:.0}M @ {:.1}% coupon",
@@ -236,6 +237,7 @@ fn main() -> Result<()> {
                                 CashflowSpec::Fixed(spec) => spec.rate.to_f64().unwrap_or(0.0),
                                 _ => 0.0,
                             },
+                            CashflowSpec::StepUp(_) => 0.0,
                         };
                         println!(
                             "   • Bond {}: ${:.0}M @ {:.1}%, {} to {}",

@@ -464,11 +464,13 @@ impl JsCompiledExpr {
 
     /// Compile with pre-computed planning metadata.
     #[wasm_bindgen(js_name = withPlanning)]
-    pub fn with_planning(expr: &JsExpr, results_meta: &JsResultsMeta) -> JsCompiledExpr {
-        JsCompiledExpr::from_inner(CoreCompiledExpr::with_planning(
-            expr.inner.clone(),
-            results_meta.inner().clone(),
-        ))
+    pub fn with_planning(
+        expr: &JsExpr,
+        results_meta: &JsResultsMeta,
+    ) -> Result<JsCompiledExpr, JsValue> {
+        CoreCompiledExpr::with_planning(expr.inner.clone(), results_meta.inner().clone())
+            .map(JsCompiledExpr::from_inner)
+            .map_err(|err| js_error(err.to_string()))
     }
 
     /// Enable evaluation cache.
@@ -532,7 +534,10 @@ impl JsCompiledExpr {
         let ctx = SimpleContext::new(col_names);
         let slices: Vec<&[f64]> = series.iter().map(|v| v.as_slice()).collect();
         let eval_opts = opts.map(|o| o.inner).unwrap_or_default();
-        let result = self.inner.eval(&ctx, &slices, eval_opts);
+        let result = self
+            .inner
+            .eval(&ctx, &slices, eval_opts)
+            .map_err(|err| js_error(err.to_string()))?;
 
         Ok(JsEvaluationResult::new(result))
     }
