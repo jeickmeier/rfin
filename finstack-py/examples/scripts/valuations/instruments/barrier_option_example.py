@@ -41,7 +41,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(vol_surface)
 
     # Spot and dividend
-    market.insert_price("MSFT", MarketScalar.get_price(Money(450.0, USD)))
+    market.insert_price("MSFT", MarketScalar.price(Money(450.0, USD)))
     market.insert_price("MSFT.DIV", MarketScalar.unitless(0.008))
 
     return market

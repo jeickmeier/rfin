@@ -72,10 +72,11 @@ pub fn register_irs_metrics(registry: &mut crate::metrics::MetricRegistry) {
                 crate::instruments::InterestRateSwap,
             >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
 
-            // Pv01 is an alias for standard DV01 for IRS
+            // PV01 per-curve: bump each rate curve individually, store as pv01::{curve}
             (Pv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,
-            >::new(crate::metrics::Dv01CalculatorConfig::parallel_combined())),
+            >::new(crate::metrics::Dv01CalculatorConfig::parallel_per_curve()
+                .with_series_id(crate::metrics::MetricId::Pv01))),
 
             (BucketedDv01, crate::metrics::UnifiedDv01Calculator::<
                 crate::instruments::InterestRateSwap,

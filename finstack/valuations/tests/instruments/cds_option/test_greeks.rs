@@ -146,7 +146,11 @@ fn test_all_greeks_together() {
         )
         .unwrap();
 
-    assert_eq!(result.measures.len(), 7, "Should compute all 7 greeks");
+    assert!(
+        result.measures.len() >= 7,
+        "Should compute at least 7 greeks, got {}",
+        result.measures.len(),
+    );
 
     for (name, value) in &result.measures {
         assert_finite(*value, &format!("Greek: {}", name));

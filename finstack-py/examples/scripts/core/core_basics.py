@@ -164,7 +164,7 @@ def show_market_data() -> None:
     fx.set_quote(Currency("EUR"), usd, 1.1)
     fx_rate = fx.rate(Currency("EUR"), usd, base, FxConversionPolicy.CASHFLOW_DATE)
 
-    scalar = MarketScalar.get_price(Money(188.25, usd))
+    scalar = MarketScalar.price(Money(188.25, usd))
     series = ScalarTimeSeries(
         "US-CPI",
         [(date(2023, 12, 31), 300.0), (date(2024, 1, 31), 301.5)],

@@ -207,12 +207,14 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
         .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
         .unwrap();
 
-    // Aggregate bucketed dv01 from flattened keys "bucketed_dv01::<label>"
+    // Aggregate bucketed dv01 from tenor-level keys "bucketed_dv01::<tenor>"
+    // (exclude curve-specific keys like "bucketed_dv01::USD-OIS::<tenor>")
+    let prefix = "bucketed_dv01::";
     let mut sum_bucketed = 0.0;
     println!("All measures:");
     for (k, v) in &result.measures {
         println!("  {}: {:.2}", k, v);
-        if k.as_str().starts_with("bucketed_dv01::") {
+        if k.as_str().starts_with(prefix) && !k.as_str()[prefix.len()..].contains("::") {
             sum_bucketed += *v;
         }
     }

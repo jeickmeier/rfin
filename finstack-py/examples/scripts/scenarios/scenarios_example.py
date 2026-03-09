@@ -48,8 +48,8 @@ def main() -> None:
     market.insert(usd_curve)
 
     # Add equity prices
-    market.insert_price("SPY", MarketScalar.get_price(Money(450.0, Currency("USD"))))
-    market.insert_price("QQQ", MarketScalar.get_price(Money(380.0, Currency("USD"))))
+    market.insert_price("SPY", MarketScalar.price(Money(450.0, Currency("USD"))))
+    market.insert_price("QQQ", MarketScalar.price(Money(380.0, Currency("USD"))))
 
     print("  - Created USD discount curve")
     print("  - Added SPY price: $450")
@@ -128,7 +128,7 @@ def main() -> None:
 
     # Reset market for clean test
     market2 = MarketContext()
-    market2.insert_price("SPY", MarketScalar.get_price(Money(450.0, Currency("USD"))))
+    market2.insert_price("SPY", MarketScalar.price(Money(450.0, Currency("USD"))))
 
     ctx2 = ExecutionContext(market2, model, base_date)
     report2 = engine.apply(equity_crash, ctx2)

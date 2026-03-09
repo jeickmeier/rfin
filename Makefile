@@ -52,7 +52,8 @@ help: ## Display this help message
 	@printf "  \033[36mtest-wasm\033[0m           Run WASM package tests\n\n"
 	@printf "Setup & Maintenance:\n"
 	@printf "  \033[36msetup-python\033[0m        Initialize Python environment with uv\n"
-	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings\n"
+	@printf "  \033[36mpython-dev\033[0m          Install Python deps and build bindings (release)\n"
+	@printf "  \033[36mpython-dev-debug\033[0m    Install Python deps and build bindings (debug, fast compile)\n"
 	@printf "  \033[36mclean\033[0m               Remove build artifacts and virtualenvs\n\n"
 	@printf "Documentation:\n"
 	@printf "  \033[36mdoc\033[0m                 Generate Rust documentation\n"
@@ -154,11 +155,18 @@ setup-python: ## Initialize Python environment
 	@printf "Virtual environment created. Now run: source .venv/bin/activate && make python-dev\n"
 
 .PHONY: python-dev
-python-dev: ## Install dependencies and build bindings
+python-dev: ## Install dependencies and build bindings (release mode)
 	@if [ ! -d "$(VENV)" ]; then uv venv; fi
 	@printf "Installing Python dependencies and building extension...\n"
 	@$(call py_run,uv pip install maturin pytest pytest-benchmark ty ruff ipython jupyter)
-	@cd finstack-py && $(call py_run,python -m maturin develop $(if $(MATURIN_PROFILE),--profile $(MATURIN_PROFILE)))
+	@cd finstack-py && $(call py_run,python -m maturin develop --profile $(or $(MATURIN_PROFILE),release))
+
+.PHONY: python-dev-debug
+python-dev-debug: ## Install dependencies and build bindings (debug mode, fast compile)
+	@if [ ! -d "$(VENV)" ]; then uv venv; fi
+	@printf "Installing Python dependencies and building extension (debug)...\n"
+	@$(call py_run,uv pip install maturin pytest pytest-benchmark ty ruff ipython jupyter)
+	@cd finstack-py && $(call py_run,python -m maturin develop)
 
 .PHONY: test-python
 test-python: ## Run Python tests

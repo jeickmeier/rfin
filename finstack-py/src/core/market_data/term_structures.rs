@@ -968,6 +968,8 @@ impl PyHazardCurve {
 /// ----------
 /// id : str
 ///     Identifier for the inflation curve.
+/// base_date : datetime.date
+///     Anchor date corresponding to ``t = 0``.
 /// base_cpi : float
 ///     CPI level anchoring the curve.
 /// knots : list[tuple[float, float]]
@@ -999,13 +1001,15 @@ impl PyInflationCurve {
 impl PyInflationCurve {
     /// Create an inflation curve from `(time, CPI level)` points.
     #[new]
-    #[pyo3(signature = (id, base_cpi, knots, interp=None))]
+    #[pyo3(signature = (id, base_date, base_cpi, knots, interp=None))]
     fn ctor(
         id: &str,
+        base_date: Bound<'_, PyAny>,
         base_cpi: f64,
         knots: Bound<'_, PyAny>,
         interp: Option<Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
+        let base = py_to_date(&base_date)?;
         let knots_vec = extract_float_pairs(&knots)?;
         if knots_vec.is_empty() {
             return Err(PyValueError::new_err("knots must not be empty"));
@@ -1027,6 +1031,7 @@ impl PyInflationCurve {
             }
         };
         let builder = InflationCurve::builder(id)
+            .base_date(base)
             .base_cpi(base_cpi)
             .knots(knots_vec)
             .interp(style);

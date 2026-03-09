@@ -690,6 +690,8 @@ class InflationCurve:
     id : str
         Unique identifier for the curve (e.g., "US-CPI", "EU-HICP").
         Used to retrieve the curve from a :class:`MarketContext`.
+    base_date : datetime.date
+        Anchor date corresponding to ``t = 0``.
     base_cpi : float
         Base CPI level at t=0 (the reference CPI level). This is typically
         the most recent published CPI value (e.g., 300.0 for a CPI index
@@ -700,7 +702,7 @@ class InflationCurve:
         index values (not ratios).
     interp : InterpStyle or str, optional
         Interpolation method between knots. Options: "linear", "monotone_convex",
-        "log_linear", "cubic_spline". Defaults to "linear". Log-linear
+        "log_linear", "cubic_spline". Defaults to "log_linear". Log-linear
         interpolation is often preferred for CPI curves.
 
     Returns
@@ -716,8 +718,9 @@ class InflationCurve:
 
     Examples
     --------
+        >>> from datetime import date
         >>> from finstack.core.market_data.term_structures import InflationCurve
-        >>> curve = InflationCurve("US-CPI", 300.0, [(1.0, 304.5), (2.0, 309.0)])
+        >>> curve = InflationCurve("US-CPI", date(2024, 1, 1), 300.0, [(1.0, 304.5), (2.0, 309.0)])
         >>> print((curve.cpi(1.0), f"{curve.inflation_rate(1.0, 2.0):.4f}"))
         (304.5, '0.0148')
 
@@ -740,6 +743,7 @@ class InflationCurve:
     def __init__(
         self,
         id: str,
+        base_date: date,
         base_cpi: float,
         knots: List[Tuple[float, float]],
         interp: str | InterpStyle | None = None,

@@ -54,7 +54,7 @@ def create_market_data(val_date: date) -> MarketContext:
         )
     )
 
-    market.insert_price("SPY", MarketScalar.get_price(Money(480.0, USD)))
+    market.insert_price("SPY", MarketScalar.price(Money(480.0, USD)))
     market.insert_price("SPY.DIV", MarketScalar.unitless(0.015))
 
     return market

@@ -41,7 +41,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(vol_surface)
 
     # Spot price and dividend yield
-    market.insert_price("AAPL", MarketScalar.get_price(Money(150.0, USD)))
+    market.insert_price("AAPL", MarketScalar.price(Money(150.0, USD)))
     market.insert_price("AAPL.DIV", MarketScalar.unitless(0.01))
 
     return market

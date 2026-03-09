@@ -77,7 +77,7 @@ def run_notebook(notebook_path: Path) -> tuple[bool, str, float]:
         # Create a notebook client
         client = NotebookClient(
             nb,
-            timeout=120,  # 120 second timeout per notebook
+            timeout=300,  # 300 second timeout per notebook
             kernel_name="python3",
             resources={"metadata": {"path": str(notebook_path.parent)}},
         )

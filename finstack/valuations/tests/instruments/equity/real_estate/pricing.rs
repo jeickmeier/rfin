@@ -553,7 +553,7 @@ fn test_levered_real_estate_equity_custom_metrics_compute() {
         .issue_date(as_of)
         .maturity(noi2)
         .rate(RateSpec::Fixed { rate_bp: 600 }) // 6%
-        .frequency(Tenor::quarterly())
+        .frequency(Tenor::annual())
         .day_count(DayCount::Act360)
         .bdc(BusinessDayConvention::ModifiedFollowing)
         .calendar_id_opt(None)

@@ -380,13 +380,20 @@ where
             inst_arc.value_raw(temp_ctx, as_of)
         };
 
-        compute_parallel_cs01_with_context_raw(
+        let cs01 = compute_parallel_cs01_with_context_raw(
             context,
             &hazard_id,
             discount_id.as_ref(),
             bump_bp,
             reval,
-        )
+        )?;
+
+        context.computed.insert(
+            MetricId::custom(format!("cs01::{}", hazard_id.as_str())),
+            cs01,
+        );
+
+        Ok(cs01)
     }
 }
 
@@ -436,6 +443,11 @@ where
             bump_bp,
             reval,
         )?;
+
+        if let Some(series) = context.get_series(&MetricId::BucketedCs01) {
+            let curve_id = MetricId::custom(format!("bucketed_cs01::{}", hazard_id.as_str()));
+            context.store_bucketed_series(curve_id, series.to_vec());
+        }
 
         Ok(total)
     }
@@ -497,6 +509,11 @@ where
         } else {
             0.0
         };
+
+        context.computed.insert(
+            MetricId::custom(format!("cs01_hazard::{}", hazard_id.as_str())),
+            cs01,
+        );
 
         Ok(cs01)
     }
@@ -571,6 +588,13 @@ where
         }
 
         context.store_bucketed_series(MetricId::BucketedCs01Hazard, series);
+
+        if let Some(series) = context.get_series(&MetricId::BucketedCs01Hazard) {
+            let curve_id =
+                MetricId::custom(format!("bucketed_cs01_hazard::{}", hazard_id.as_str()));
+            context.store_bucketed_series(curve_id, series.to_vec());
+        }
+
         Ok(total)
     }
 }

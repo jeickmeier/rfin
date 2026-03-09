@@ -42,7 +42,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(vol_surface)
 
     # Prices
-    market.insert_price("NVDA", MarketScalar.get_price(Money(1200.0, USD)))
+    market.insert_price("NVDA", MarketScalar.price(Money(1200.0, USD)))
     market.insert_price("NVDA.DIV", MarketScalar.unitless(0.002))
 
     return market

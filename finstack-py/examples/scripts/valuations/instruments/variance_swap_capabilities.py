@@ -44,7 +44,7 @@ def build_market(as_of: date) -> MarketContext:
         interpolation=SeriesInterpolation.LINEAR,
     )
     market.insert_series(series)
-    market.insert_price("SPX", MarketScalar.get_price(Money(observations[-1][1], USD)))
+    market.insert_price("SPX", MarketScalar.price(Money(observations[-1][1], USD)))
 
     vol_surface = VolSurface(
         "SPX-VOL",

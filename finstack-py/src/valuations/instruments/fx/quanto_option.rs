@@ -60,6 +60,8 @@ pub struct PyQuantoOptionBuilder {
     fx_rate_id: Option<String>,
     fx_vol_id: Option<CurveId>,
     day_count: DayCount,
+    underlying_quantity: Option<f64>,
+    payoff_fx_rate: Option<f64>,
 }
 
 impl PyQuantoOptionBuilder {
@@ -82,6 +84,8 @@ impl PyQuantoOptionBuilder {
             fx_rate_id: None,
             fx_vol_id: None,
             day_count: DayCount::Act365F,
+            underlying_quantity: None,
+            payoff_fx_rate: None,
         }
     }
 }
@@ -199,6 +203,16 @@ impl PyQuantoOptionBuilder {
         slf
     }
 
+    fn underlying_quantity(mut slf: PyRefMut<'_, Self>, qty: f64) -> PyRefMut<'_, Self> {
+        slf.underlying_quantity = Some(qty);
+        slf
+    }
+
+    fn payoff_fx_rate(mut slf: PyRefMut<'_, Self>, rate: f64) -> PyRefMut<'_, Self> {
+        slf.payoff_fx_rate = Some(rate);
+        slf
+    }
+
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyQuantoOption> {
         let base = slf
             .base_currency
@@ -268,6 +282,12 @@ impl PyQuantoOptionBuilder {
         }
         if let Some(ref fx_vol) = slf.fx_vol_id {
             builder = builder.fx_vol_id(fx_vol.clone());
+        }
+        if let Some(qty) = slf.underlying_quantity {
+            builder = builder.underlying_quantity_opt(Some(qty));
+        }
+        if let Some(rate) = slf.payoff_fx_rate {
+            builder = builder.payoff_fx_rate_opt(Some(rate));
         }
         let option = builder.build().map_err(|e| {
             pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to build QuantoOption: {e}"))

@@ -51,10 +51,10 @@ def build_market(as_of: date) -> MarketContext:
     market.insert(discount_curve)
     market.insert(sofr_curve)
 
-    market.insert_price("ACME-SPOT", MarketScalar.get_price(Money(120.0, USD)))
+    market.insert_price("ACME-SPOT", MarketScalar.price(Money(120.0, USD)))
     market.insert_price("ACME-DIVYIELD", MarketScalar.unitless(0.018))
 
-    market.insert_price("IG-INDEX-LEVEL", MarketScalar.get_price(Money(100.0, USD)))
+    market.insert_price("IG-INDEX-LEVEL", MarketScalar.price(Money(100.0, USD)))
     market.insert_price("IG-INDEX-YIELD", MarketScalar.unitless(0.035))
 
     return market

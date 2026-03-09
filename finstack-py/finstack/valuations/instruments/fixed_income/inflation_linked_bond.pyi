@@ -83,7 +83,7 @@ class InflationLinkedBond:
         ... )
         >>> ctx = MarketContext()
         >>> ctx.insert(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (6.0, 0.92)]))
-        >>> ctx.insert(InflationCurve("US-CPI", 300.0, [(1.0, 304.5), (6.0, 330.0)]))
+        >>> ctx.insert(InflationCurve("US-CPI", date(2024, 1, 1), 300.0, [(1.0, 304.5), (6.0, 330.0)]))
         >>> registry = create_standard_registry()
         >>> pv = registry.price(bond, "discounting", ctx).value
         >>> pv.currency.code

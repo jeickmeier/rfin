@@ -8,8 +8,6 @@ Tests cover:
 - Complex expression patterns
 """
 
-import math
-
 from finstack.core.expr import (
     BinOp,
     CompiledExpr,
@@ -399,10 +397,9 @@ class TestComplexExpressions:
         data = [[0.0, 100.0, 110.0, 121.0]]
 
         # `growth_rate` is a financial helper intended for the statements layer.
-        # The core evaluator returns NaN for custom financial functions.
-        result = compiled.eval(columns, data)
-        assert result.values[0] == 0.0
-        assert all(math.isnan(value) for value in result.values[1:])
+        # The core evaluator raises ValueError for unsupported financial functions.
+        with pytest.raises(ValueError, match="GrowthRate"):
+            compiled.eval(columns, data)
 
     def test_multi_factor_signal(self) -> None:
         """Test multi-factor signal combining multiple indicators."""

@@ -30,6 +30,7 @@ def build_market(as_of: date) -> MarketContext:
 
     inflation_curve = InflationCurve(
         "US-CPI",
+        as_of,
         base_cpi=300.0,
         knots=[
             (0.0, 300.0),

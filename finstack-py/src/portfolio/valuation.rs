@@ -4,7 +4,7 @@ use crate::core::config::PyFinstackConfig;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
-use crate::portfolio::positions::extract_portfolio;
+use crate::portfolio::positions::PyPortfolio;
 use crate::valuations::metrics::ids::PyMetricId;
 use crate::valuations::results::PyValuationResult;
 use finstack_portfolio::valuation::{
@@ -335,7 +335,7 @@ fn py_value_portfolio(
     market_context: &Bound<'_, PyAny>,
     config: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyPortfolioValuation> {
-    let portfolio_inner = extract_portfolio(portfolio)?;
+    let py_portfolio = portfolio.extract::<PyRef<PyPortfolio>>()?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
     let cfg = if let Some(config_obj) = config {
@@ -348,7 +348,7 @@ fn py_value_portfolio(
     };
 
     let valuation =
-        value_portfolio(&portfolio_inner, &market_ctx.inner, &cfg).map_err(portfolio_to_py)?;
+        value_portfolio(&py_portfolio.inner, &market_ctx.inner, &cfg).map_err(portfolio_to_py)?;
 
     Ok(PyPortfolioValuation::new(valuation))
 }
@@ -362,7 +362,7 @@ fn py_value_portfolio_with_options(
     options: &Bound<'_, PyAny>,
     config: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<PyPortfolioValuation> {
-    let portfolio_inner = extract_portfolio(portfolio)?;
+    let py_portfolio = portfolio.extract::<PyRef<PyPortfolio>>()?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
     let opts = options
         .extract::<PyRef<PyPortfolioValuationOptions>>()?
@@ -378,8 +378,9 @@ fn py_value_portfolio_with_options(
         finstack_core::config::FinstackConfig::default()
     };
 
-    let valuation = value_portfolio_with_options(&portfolio_inner, &market_ctx.inner, &cfg, &opts)
-        .map_err(portfolio_to_py)?;
+    let valuation =
+        value_portfolio_with_options(&py_portfolio.inner, &market_ctx.inner, &cfg, &opts)
+            .map_err(portfolio_to_py)?;
 
     Ok(PyPortfolioValuation::new(valuation))
 }

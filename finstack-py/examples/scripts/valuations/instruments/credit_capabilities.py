@@ -118,7 +118,7 @@ def main() -> None:
     index = (
         CDSIndex.builder("CDX-TRAD")
         .index_name("CDX.NA.IG")
-        .get_series(42)
+        .series(42)
         .version(1)
         .notional(Money(25_000_000, USD))
         .fixed_coupon_bp(100.0)
@@ -159,7 +159,7 @@ def main() -> None:
     tranche = (
         CDSTranche.builder("CDX-MEZ-TRANCHE")
         .index_name("CDX.NA.IG")
-        .get_series(42)
+        .series(42)
         .attach_pct(3.0)
         .detach_pct(7.0)
         .notional(Money(10_000_000, USD))

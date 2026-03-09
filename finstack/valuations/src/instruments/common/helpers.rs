@@ -206,7 +206,13 @@ pub(crate) fn build_with_metrics_dyn(
     context.set_pricing_overrides(instrument.scenario_overrides().cloned());
 
     let registry = standard_registry();
-    let metric_measures = registry.compute(metrics, &mut context)?;
+    let instrument_type = instrument.key();
+    let applicable: Vec<MetricId> = metrics
+        .iter()
+        .filter(|m| registry.is_applicable(m, instrument_type))
+        .cloned()
+        .collect();
+    let metric_measures = registry.compute(&applicable, &mut context)?;
 
     // Pre-allocate capacity to avoid reallocations during insertion.
     // Estimate: requested metrics + a few extras from composite keys.

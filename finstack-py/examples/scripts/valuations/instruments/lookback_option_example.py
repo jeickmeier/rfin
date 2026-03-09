@@ -41,7 +41,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(vol_surface)
 
     # Market prices
-    market.insert_price("TSLA", MarketScalar.get_price(Money(300.0, USD)))
+    market.insert_price("TSLA", MarketScalar.price(Money(300.0, USD)))
     market.insert_price("TSLA.DIV", MarketScalar.unitless(0.0))
 
     return market

@@ -95,6 +95,10 @@ pub struct Dv01CalculatorConfig {
     pub mode: Dv01ComputationMode,
     /// Bucket times for key-rate DV01 (in years).
     pub buckets: Vec<f64>,
+    /// MetricId under which to store per-curve or per-bucket series.
+    /// Defaults to `BucketedDv01`. Set to e.g. `Pv01` when using
+    /// `ParallelPerCurve` mode for PV01 so keys read `pv01::USD-OIS`.
+    pub series_id: MetricId,
 }
 
 impl std::fmt::Debug for Dv01CalculatorConfig {
@@ -102,6 +106,7 @@ impl std::fmt::Debug for Dv01CalculatorConfig {
         f.debug_struct("Dv01CalculatorConfig")
             .field("mode", &self.mode)
             .field("buckets", &self.buckets)
+            .field("series_id", &self.series_id)
             .finish()
     }
 }
@@ -111,6 +116,7 @@ impl Default for Dv01CalculatorConfig {
         Self {
             mode: Dv01ComputationMode::KeyRateTriangular,
             buckets: standard_ir_dv01_buckets(),
+            series_id: MetricId::BucketedDv01,
         }
     }
 }
@@ -121,6 +127,7 @@ impl Dv01CalculatorConfig {
         Self {
             mode: Dv01ComputationMode::ParallelCombined,
             buckets: vec![],
+            series_id: MetricId::BucketedDv01,
         }
     }
 
@@ -129,6 +136,7 @@ impl Dv01CalculatorConfig {
         Self {
             mode: Dv01ComputationMode::ParallelPerCurve,
             buckets: vec![],
+            series_id: MetricId::BucketedDv01,
         }
     }
 
@@ -141,6 +149,12 @@ impl Dv01CalculatorConfig {
             mode: Dv01ComputationMode::KeyRateTriangular,
             ..Self::default()
         }
+    }
+
+    /// Override the metric ID used for storing per-curve or per-bucket series.
+    pub fn with_series_id(mut self, id: MetricId) -> Self {
+        self.series_id = id;
+        self
     }
 }
 
@@ -343,7 +357,7 @@ where
             total_dv01 += dv01;
         }
 
-        context.store_bucketed_series(MetricId::BucketedDv01, series);
+        context.store_bucketed_series(self.config.series_id.clone(), series);
         Ok(total_dv01)
     }
 
@@ -361,34 +375,27 @@ where
             return Ok(0.0);
         }
 
+        let base = self.config.series_id.as_str();
         let mut total_dv01 = 0.0;
 
         for (i, (curve_id, _kind)) in curves.iter().enumerate() {
-            let (metric_id, should_compute) = if curves.len() == 1 || i == 0 {
-                (MetricId::BucketedDv01, true)
+            let metric_id = if i == 0 {
+                self.config.series_id.clone()
             } else {
-                (
-                    MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str())),
-                    true,
-                )
+                MetricId::custom(format!("{}::{}", base, curve_id.as_str()))
             };
 
-            if should_compute {
-                let curve_total = self.compute_triangular_for_curve(
-                    context,
-                    curve_id,
-                    metric_id.clone(),
-                    bump_bp,
-                )?;
+            let curve_total =
+                self.compute_triangular_for_curve(context, curve_id, metric_id.clone(), bump_bp)?;
 
-                total_dv01 += curve_total;
+            total_dv01 += curve_total;
 
-                if i == 0 && curves.len() > 1 {
-                    let curve_specific_id =
-                        MetricId::custom(format!("bucketed_dv01::{}", curve_id.as_str()));
-                    if let Some(series) = context.get_series(&metric_id) {
-                        context.store_bucketed_series(curve_specific_id, series.to_vec());
-                    }
+            // Always emit curve-specific keys, even for single-curve instruments
+            if i == 0 {
+                let curve_specific_id =
+                    MetricId::custom(format!("{}::{}", base, curve_id.as_str()));
+                if let Some(series) = context.get_series(&metric_id) {
+                    context.store_bucketed_series(curve_specific_id, series.to_vec());
                 }
             }
         }

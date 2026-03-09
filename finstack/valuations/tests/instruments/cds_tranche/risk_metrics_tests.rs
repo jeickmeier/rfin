@@ -175,26 +175,37 @@ fn test_cs01_preserves_bespoke_index_structure_during_bumps() {
         .with_parallel_bump(-delta_lambda)
         .unwrap();
 
-    let bumped_up = finstack_core::market_data::term_structures::CreditIndexData::builder()
+    let mut builder_up = finstack_core::market_data::term_structures::CreditIndexData::builder()
         .num_constituents(index.num_constituents)
         .recovery_rate(index.recovery_rate)
         .index_credit_curve(std::sync::Arc::new(bumped_curve_up))
-        .base_correlation_curve(std::sync::Arc::clone(&index.base_correlation_curve))
-        .issuer_curves(index.issuer_credit_curves.clone().unwrap_or_default())
-        .issuer_recovery_rates(index.issuer_recovery_rates.clone().unwrap_or_default())
-        .issuer_weights(index.issuer_weights.clone().unwrap_or_default())
-        .build()
-        .unwrap();
-    let bumped_down = finstack_core::market_data::term_structures::CreditIndexData::builder()
+        .base_correlation_curve(std::sync::Arc::clone(&index.base_correlation_curve));
+    if let Some(curves) = index.issuer_credit_curves.clone() {
+        builder_up = builder_up.issuer_curves(curves);
+    }
+    if let Some(rates) = index.issuer_recovery_rates.clone() {
+        builder_up = builder_up.issuer_recovery_rates(rates);
+    }
+    if let Some(weights) = index.issuer_weights.clone() {
+        builder_up = builder_up.issuer_weights(weights);
+    }
+    let bumped_up = builder_up.build().unwrap();
+
+    let mut builder_down = finstack_core::market_data::term_structures::CreditIndexData::builder()
         .num_constituents(index.num_constituents)
         .recovery_rate(index.recovery_rate)
         .index_credit_curve(std::sync::Arc::new(bumped_curve_down))
-        .base_correlation_curve(std::sync::Arc::clone(&index.base_correlation_curve))
-        .issuer_curves(index.issuer_credit_curves.clone().unwrap_or_default())
-        .issuer_recovery_rates(index.issuer_recovery_rates.clone().unwrap_or_default())
-        .issuer_weights(index.issuer_weights.clone().unwrap_or_default())
-        .build()
-        .unwrap();
+        .base_correlation_curve(std::sync::Arc::clone(&index.base_correlation_curve));
+    if let Some(curves) = index.issuer_credit_curves.clone() {
+        builder_down = builder_down.issuer_curves(curves);
+    }
+    if let Some(rates) = index.issuer_recovery_rates.clone() {
+        builder_down = builder_down.issuer_recovery_rates(rates);
+    }
+    if let Some(weights) = index.issuer_weights.clone() {
+        builder_down = builder_down.issuer_weights(weights);
+    }
+    let bumped_down = builder_down.build().unwrap();
 
     let pv_up = pricer
         .price_tranche(

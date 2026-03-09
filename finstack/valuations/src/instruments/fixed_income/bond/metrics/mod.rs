@@ -47,6 +47,8 @@
 pub mod accrued;
 /// Convexity calculator
 pub mod convexity;
+/// CS01 calculators with z-spread fallback for bonds without credit curves
+pub mod cs01;
 /// Macaulay duration calculator
 pub mod duration_macaulay;
 /// Modified duration calculator
@@ -62,6 +64,7 @@ pub mod yield_dv01;
 
 pub use accrued::AccruedInterestCalculator;
 pub use convexity::ConvexityCalculator;
+pub use cs01::{BondBucketedCs01Calculator, BondCs01Calculator};
 pub use duration_macaulay::MacaulayDurationCalculator;
 pub use duration_modified::ModifiedDurationCalculator;
 pub use price_yield_spread::{
@@ -127,12 +130,8 @@ pub fn register_bond_metrics(registry: &mut crate::metrics::MetricRegistry) {
                 crate::instruments::Bond,
             >::new(crate::metrics::Dv01CalculatorConfig::triangular_key_rate())),
 
-            (Cs01, crate::metrics::GenericParallelCs01::<
-                crate::instruments::Bond,
-            >::default()),
-            (BucketedCs01, crate::metrics::GenericBucketedCs01::<
-                crate::instruments::Bond,
-            >::default()),
+            (Cs01, BondCs01Calculator),
+            (BucketedCs01, BondBucketedCs01Calculator),
 
         ]
     };

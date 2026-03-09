@@ -168,13 +168,12 @@ def run_optimization_example() -> None:
         config=config,
     )
 
-    status = result["status"]
-    objective = result["objective_value"]
-    ccc_weight = result["ccc_weight"]
-    optimal_weights = result["optimal_weights"]
+    status = result.status
+    objective = result.objective_value
+    ccc_weight = result.ccc_weight
+    optimal_weights = result.optimal_weights
 
     print("\nOptimization result:")
-    print(f"  Label   : {result.get('label')}")
     print(f"  Status  : {status}")
     print(f"  YTM (objective value): {objective:.6f}")
     print(f"  CCC weight: {ccc_weight:.4f} ({ccc_weight * 100:.2f}%)")

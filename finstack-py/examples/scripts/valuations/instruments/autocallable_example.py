@@ -41,7 +41,7 @@ def create_market_data(val_date: date) -> MarketContext:
     )
     market.insert_surface(vol_surface)
 
-    market.insert_price("SPX", MarketScalar.get_price(Money(5000.0, USD)))
+    market.insert_price("SPX", MarketScalar.price(Money(5000.0, USD)))
     market.insert_price("SPX.DIV", MarketScalar.unitless(0.015))
 
     return market

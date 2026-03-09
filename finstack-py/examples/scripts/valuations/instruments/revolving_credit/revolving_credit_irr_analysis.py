@@ -378,6 +378,20 @@ def analyze_single_scenario(
 
     print(f"Valid IRRs calculated: {len(irr_distribution)}/{mc_result.num_paths}")
 
+    if not irr_distribution:
+        print("  Warning: No valid IRRs could be calculated for this scenario.")
+        return {
+            "irr_distribution": [],
+            "deterministic_irr": det_irr,
+            "utilization_paths": utilization_paths,
+            "credit_spread_paths": credit_spread_paths,
+            "time_points": None,
+            "payment_dates": None,
+            "mean_pv": mc_result.mean,
+            "std_error": mc_result.std_error,
+            "path_irr_pairs": path_irr_pairs,
+        }
+
     # Get time points from first path
     time_points = None
     payment_dates = None
@@ -408,6 +422,15 @@ def plot_single_scenario_analysis(results: dict[str, Any], output_file: Path | N
     # 1. IRR Distribution
     ax1 = fig.add_subplot(gs[0, :])
     irr_dist = np.array(results["irr_distribution"]) * 100  # Convert to percentage
+
+    if len(irr_dist) == 0:
+        ax1.text(0.5, 0.5, "No valid IRRs calculated\n(multiple sign changes in cashflows)",
+                 ha="center", va="center", transform=ax1.transAxes, fontsize=14)
+        ax1.set_title("IRR Distribution — No data available", fontsize=14)
+        plt.tight_layout()
+        plt.savefig(output_file, dpi=150, bbox_inches="tight")
+        print(f"\nSingle scenario analysis saved to {output_file} (no IRR data)")
+        return
 
     # Plot histogram
     _n, _bins, _patches = ax1.hist(
@@ -1363,10 +1386,13 @@ def plot_volatility_grid_comparison(
             box_labels.append(f"U:{util_vol:.0%}\nCS:{cs_vol:.0%}")
             box_colors.append(scenario_colors[scenario])
 
-    bp = ax2.boxplot(box_data, labels=box_labels, patch_artist=True)
-    for patch, color in zip(bp["boxes"], box_colors, strict=False):
-        patch.set_facecolor(color)
-        patch.set_alpha(0.7)
+    bp = ax2.boxplot(box_data, labels=box_labels, patch_artist=True) if box_data else None
+    if bp is None:
+        ax2.text(0.5, 0.5, "No IRR data available", ha="center", va="center", transform=ax2.transAxes)
+    else:
+        for patch, color in zip(bp["boxes"], box_colors, strict=False):
+            patch.set_facecolor(color)
+            patch.set_alpha(0.7)
 
     ax2.set_ylabel("IRR (%)", fontsize=12)
     ax2.set_title("Box Plot Comparison", fontsize=13, fontweight="bold")
@@ -1388,9 +1414,12 @@ def plot_volatility_grid_comparison(
             cs_vols_plot.append(scenario[1] * 100)
 
     # Create scatter plot with color representing credit spread vol
-    scatter = ax3.scatter(util_vols_plot, means, c=cs_vols_plot, s=100, cmap="viridis", edgecolors="black", alpha=0.7)
-    cbar = plt.colorbar(scatter, ax=ax3)
-    cbar.set_label("Credit Spread Vol (%)", fontsize=11)
+    if means:
+        scatter = ax3.scatter(util_vols_plot, means, c=cs_vols_plot, s=100, cmap="viridis", edgecolors="black", alpha=0.7)
+        cbar = plt.colorbar(scatter, ax=ax3)
+        cbar.set_label("Credit Spread Vol (%)", fontsize=11)
+    else:
+        ax3.text(0.5, 0.5, "No IRR data available", ha="center", va="center", transform=ax3.transAxes)
 
     ax3.set_xlabel("Utilization Volatility (%)", fontsize=12)
     ax3.set_ylabel("Mean IRR (%)", fontsize=12)

@@ -40,7 +40,7 @@ def create_market_data(val_date: date) -> MarketContext:
     )
     market.insert_surface(vol_surface)
 
-    market.insert_price("SPY", MarketScalar.get_price(Money(500.0, USD)))
+    market.insert_price("SPY", MarketScalar.price(Money(500.0, USD)))
     market.insert_price("SPY.DIV", MarketScalar.unitless(0.015))
 
     return market
@@ -66,18 +66,19 @@ def example_narrow_range_accrual():
     end_date = date(2025, 3, 31)
     observation_dates = generate_daily_observations(start_date, end_date)[:60]  # ~60 trading days
 
-    range_accrual = RangeAccrual.builder(
-        instrument_id="RANGE_001",
-        ticker="SPY",
-        observation_dates=observation_dates,
-        lower_bound=480.0,  # 4% below spot
-        upper_bound=520.0,  # 4% above spot
-        coupon_rate=0.08,  # 8% annual coupon if in range
-        notional=Money(1000000.0, USD),
-        discount_curve="USD.SOFR",
-        spot_id="SPY",
-        vol_surface="SPY.VOL",
-        div_yield_id="SPY.DIV",
+    range_accrual = (
+        RangeAccrual.builder("RANGE_001")
+        .ticker("SPY")
+        .observation_dates(observation_dates)
+        .lower_bound(480.0)
+        .upper_bound(520.0)
+        .coupon_rate(0.08)
+        .notional(Money(1000000.0, USD))
+        .discount_curve("USD.SOFR")
+        .spot_id("SPY")
+        .vol_surface("SPY.VOL")
+        .div_yield_id("SPY.DIV")
+        .build()
     )
 
     # Price the range accrual
@@ -94,18 +95,19 @@ def example_wide_range_accrual():
     # Weekly observations over 1 year
     observation_dates = [date(2025, 1, 1) + timedelta(days=7 * i) for i in range(52)]
 
-    range_accrual = RangeAccrual.builder(
-        instrument_id="RANGE_002",
-        ticker="SPY",
-        observation_dates=observation_dates,
-        lower_bound=400.0,  # 20% below spot
-        upper_bound=600.0,  # 20% above spot
-        coupon_rate=0.05,  # 5% annual coupon (lower due to wider range)
-        notional=Money(2000000.0, USD),
-        discount_curve="USD.SOFR",
-        spot_id="SPY",
-        vol_surface="SPY.VOL",
-        div_yield_id="SPY.DIV",
+    range_accrual = (
+        RangeAccrual.builder("RANGE_002")
+        .ticker("SPY")
+        .observation_dates(observation_dates)
+        .lower_bound(400.0)
+        .upper_bound(600.0)
+        .coupon_rate(0.05)
+        .notional(Money(2000000.0, USD))
+        .discount_curve("USD.SOFR")
+        .spot_id("SPY")
+        .vol_surface("SPY.VOL")
+        .div_yield_id("SPY.DIV")
+        .build()
     )
 
     # Price the range accrual
@@ -130,18 +132,19 @@ def example_asymmetric_range_accrual():
     ]
 
     # Asymmetric range: more upside room than downside
-    range_accrual = RangeAccrual.builder(
-        instrument_id="RANGE_003",
-        ticker="SPY",
-        observation_dates=observation_dates,
-        lower_bound=475.0,  # 5% downside buffer
-        upper_bound=550.0,  # 10% upside room
-        coupon_rate=0.06,  # 6% annual coupon
-        notional=Money(500000.0, USD),
-        discount_curve="USD.SOFR",
-        spot_id="SPY",
-        vol_surface="SPY.VOL",
-        div_yield_id="SPY.DIV",
+    range_accrual = (
+        RangeAccrual.builder("RANGE_003")
+        .ticker("SPY")
+        .observation_dates(observation_dates)
+        .lower_bound(475.0)
+        .upper_bound(550.0)
+        .coupon_rate(0.06)
+        .notional(Money(500000.0, USD))
+        .discount_curve("USD.SOFR")
+        .spot_id("SPY")
+        .vol_surface("SPY.VOL")
+        .div_yield_id("SPY.DIV")
+        .build()
     )
 
     # Price the range accrual
@@ -158,18 +161,19 @@ def example_high_coupon_tight_range():
     # Daily observations over 1 month
     observation_dates = generate_daily_observations(date(2025, 1, 1), date(2025, 1, 31))[:20]  # ~20 trading days
 
-    range_accrual = RangeAccrual.builder(
-        instrument_id="RANGE_004",
-        ticker="SPY",
-        observation_dates=observation_dates,
-        lower_bound=495.0,  # Very tight: 1% below
-        upper_bound=505.0,  # Very tight: 1% above
-        coupon_rate=0.15,  # 15% annual coupon (very high!)
-        notional=Money(100000.0, USD),
-        discount_curve="USD.SOFR",
-        spot_id="SPY",
-        vol_surface="SPY.VOL",
-        div_yield_id="SPY.DIV",
+    range_accrual = (
+        RangeAccrual.builder("RANGE_004")
+        .ticker("SPY")
+        .observation_dates(observation_dates)
+        .lower_bound(495.0)
+        .upper_bound(505.0)
+        .coupon_rate(0.15)
+        .notional(Money(100000.0, USD))
+        .discount_curve("USD.SOFR")
+        .spot_id("SPY")
+        .vol_surface("SPY.VOL")
+        .div_yield_id("SPY.DIV")
+        .build()
     )
 
     # Price the range accrual

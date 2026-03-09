@@ -14,10 +14,14 @@ use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
 fn sum_bucketed_dv01(result: &finstack_valuations::results::ValuationResult) -> f64 {
+    let prefix = "bucketed_dv01::";
     result
         .measures
         .iter()
-        .filter(|(id, _)| id.as_str().starts_with("bucketed_dv01::"))
+        .filter(|(id, _)| {
+            let s = id.as_str();
+            s.starts_with(prefix) && !s[prefix.len()..].contains("::")
+        })
         .map(|(_, v)| *v)
         .sum()
 }

@@ -61,7 +61,7 @@ def create_market_data(val_date: date) -> MarketContext:
     market.insert_surface(fx_vol_surface)
 
     # Spot and dividend
-    market.insert_price("SAP", MarketScalar.get_price(Money(140.0, EUR)))
+    market.insert_price("SAP", MarketScalar.price(Money(140.0, EUR)))
     market.insert_price("EURUSD", MarketScalar.unitless(1.10))
     market.insert_price("SAP.DIV", MarketScalar.unitless(0.02))
 
@@ -73,23 +73,24 @@ def example_quanto_call_positive_correlation():
     val_date = date(2025, 1, 1)
     # US investor wants exposure to SAP (German stock) without EUR/USD FX risk
     # Payoff in USD = max(S_T - K, 0) * fixed_rate (no FX conversion at maturity)
-    option = QuantoOption.builder(
-        instrument_id="QUANTO_001",
-        ticker="SAP",
-        equity_strike=140.0,  # Strike in EUR
-        option_type="call",
-        expiry=date(2025, 12, 31),
-        notional=Money(10000.0, USD),  # Notional in USD
-        domestic_currency=USD,  # Settlement currency
-        foreign_currency=EUR,  # Underlying currency
-        correlation=0.3,  # Positive correlation between SAP and EUR/USD
-        domestic_discount_curve="USD.SOFR",
-        foreign_discount_curve="EUR.ESTR",
-        spot_id="SAP",
-        vol_surface="SAP.VOL",
-        div_yield_id="SAP.DIV",
-        fx_rate_id="EURUSD",
-        fx_vol_id="EURUSD.VOL",
+    option = (
+        QuantoOption.builder("QUANTO_001")
+        .ticker("SAP")
+        .equity_strike(140.0)
+        .option_type("call")
+        .expiry(date(2025, 12, 31))
+        .notional(Money(10000.0, USD))
+        .base_currency(USD)
+        .quote_currency(EUR)
+        .correlation(0.3)
+        .domestic_discount_curve("USD.SOFR")
+        .foreign_discount_curve("EUR.ESTR")
+        .spot_id("SAP")
+        .vol_surface("SAP.VOL")
+        .div_yield_id("SAP.DIV")
+        .fx_rate_id("EURUSD")
+        .fx_vol_id("EURUSD.VOL")
+        .build()
     )
 
     # Price the quanto option
@@ -108,23 +109,24 @@ def example_quanto_put_negative_correlation():
     """Example: Quanto put with negative equity-FX correlation."""
     val_date = date(2025, 1, 1)
     # Hedging strategy: put on foreign stock with negative FX correlation
-    option = QuantoOption.builder(
-        instrument_id="QUANTO_002",
-        ticker="SAP",
-        equity_strike=150.0,  # Higher strike for put
-        option_type="put",
-        expiry=date(2025, 6, 30),
-        notional=Money(25000.0, USD),
-        domestic_currency=USD,
-        foreign_currency=EUR,
-        correlation=-0.2,  # Negative correlation (SAP falls when EUR strengthens)
-        domestic_discount_curve="USD.SOFR",
-        foreign_discount_curve="EUR.ESTR",
-        spot_id="SAP",
-        vol_surface="SAP.VOL",
-        div_yield_id="SAP.DIV",
-        fx_rate_id="EURUSD",
-        fx_vol_id="EURUSD.VOL",
+    option = (
+        QuantoOption.builder("QUANTO_002")
+        .ticker("SAP")
+        .equity_strike(150.0)
+        .option_type("put")
+        .expiry(date(2025, 6, 30))
+        .notional(Money(25000.0, USD))
+        .base_currency(USD)
+        .quote_currency(EUR)
+        .correlation(-0.2)
+        .domestic_discount_curve("USD.SOFR")
+        .foreign_discount_curve("EUR.ESTR")
+        .spot_id("SAP")
+        .vol_surface("SAP.VOL")
+        .div_yield_id("SAP.DIV")
+        .fx_rate_id("EURUSD")
+        .fx_vol_id("EURUSD.VOL")
+        .build()
     )
 
     # Price the quanto option
@@ -142,23 +144,24 @@ def example_quanto_call_zero_correlation():
     """Example: Quanto call with zero equity-FX correlation."""
     val_date = date(2025, 1, 1)
     # Zero correlation case: equity and FX independent
-    option = QuantoOption.builder(
-        instrument_id="QUANTO_003",
-        ticker="SAP",
-        equity_strike=140.0,
-        option_type="call",
-        expiry=date(2026, 1, 1),
-        notional=Money(50000.0, USD),
-        domestic_currency=USD,
-        foreign_currency=EUR,
-        correlation=0.0,  # Zero correlation
-        domestic_discount_curve="USD.SOFR",
-        foreign_discount_curve="EUR.ESTR",
-        spot_id="SAP",
-        vol_surface="SAP.VOL",
-        div_yield_id="SAP.DIV",
-        fx_rate_id="EURUSD",
-        fx_vol_id="EURUSD.VOL",
+    option = (
+        QuantoOption.builder("QUANTO_003")
+        .ticker("SAP")
+        .equity_strike(140.0)
+        .option_type("call")
+        .expiry(date(2026, 1, 1))
+        .notional(Money(50000.0, USD))
+        .base_currency(USD)
+        .quote_currency(EUR)
+        .correlation(0.0)
+        .domestic_discount_curve("USD.SOFR")
+        .foreign_discount_curve("EUR.ESTR")
+        .spot_id("SAP")
+        .vol_surface("SAP.VOL")
+        .div_yield_id("SAP.DIV")
+        .fx_rate_id("EURUSD")
+        .fx_vol_id("EURUSD.VOL")
+        .build()
     )
 
     # Price the quanto option

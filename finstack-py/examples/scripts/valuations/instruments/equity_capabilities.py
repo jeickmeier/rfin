@@ -31,7 +31,7 @@ def build_equity_market(as_of: date) -> MarketContext:
     )
     market.insert(disc)
 
-    spot_scalar = MarketScalar.get_price(Money(150.0, USD))
+    spot_scalar = MarketScalar.price(Money(150.0, USD))
     market.insert_price("EQUITY-SPOT", spot_scalar)
 
     div_scalar = MarketScalar.unitless(0.015)
