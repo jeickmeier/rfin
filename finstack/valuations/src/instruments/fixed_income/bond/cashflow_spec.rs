@@ -53,6 +53,30 @@ fn rate_index_defaults(index_id: &CurveId) -> Option<RateIndexConventions> {
     registry.require_rate_index(&id).ok().cloned()
 }
 
+/// Parameters for [`CashflowSpec::floating_with_conventions`].
+pub struct FloatingConventionParams {
+    /// Forward curve / rate index identifier (e.g. `"USD-SOFR-3M"`).
+    pub index_id: CurveId,
+    /// Spread over the index in basis points.
+    pub spread_bp: Decimal,
+    /// Index rate multiplier (1.0 = no leverage).
+    pub gearing: Decimal,
+    /// Business days between observation and accrual start.
+    pub reset_lag_days: i32,
+    /// Cash vs PIK coupon split.
+    pub coupon_type: CouponType,
+    /// Payment / reset frequency.
+    pub freq: Tenor,
+    /// Day-count convention for accrual.
+    pub dc: DayCount,
+    /// Business-day convention for date adjustment.
+    pub bdc: BusinessDayConvention,
+    /// Holiday calendar identifier.
+    pub calendar_id: String,
+    /// Stub period treatment.
+    pub stub: StubKind,
+}
+
 /// Thin facade over canonical builder coupon specs for bond cashflows.
 ///
 /// Wraps `FixedCouponSpec` and `FloatingCouponSpec` from the cashflow builder,
@@ -377,6 +401,83 @@ impl CashflowSpec {
             coupon_type: CouponType::Cash,
             freq,
             stub: StubKind::None,
+        })
+    }
+
+    /// Create a fixed-rate specification with full convention control.
+    ///
+    /// Unlike [`fixed()`](Self::fixed) which applies hardcoded defaults, this
+    /// constructor accepts all schedule conventions (BDC, calendar, stub, coupon
+    /// type) so callers can thread through user-provided values while the method
+    /// still fills in implementation-detail defaults (`end_of_month`, `payment_lag_days`).
+    ///
+    /// # Defaults filled in
+    ///
+    /// - `end_of_month`: `false`
+    /// - `payment_lag_days`: `0`
+    pub fn fixed_with_conventions(
+        rate: Decimal,
+        coupon_type: CouponType,
+        freq: Tenor,
+        dc: DayCount,
+        bdc: BusinessDayConvention,
+        calendar_id: String,
+        stub: StubKind,
+    ) -> Self {
+        Self::Fixed(FixedCouponSpec {
+            coupon_type,
+            rate,
+            freq,
+            dc,
+            bdc,
+            calendar_id,
+            stub,
+            end_of_month: false,
+            payment_lag_days: 0,
+        })
+    }
+
+    /// Create a floating-rate specification with full convention control.
+    ///
+    /// Unlike [`floating()`](Self::floating) which applies hardcoded defaults
+    /// and registry look-ups, this constructor accepts all schedule conventions
+    /// and floating-rate knobs (`gearing`, `reset_lag_days`, `coupon_type`, etc.)
+    /// so callers can thread through user-provided values.
+    ///
+    /// # Defaults filled in
+    ///
+    /// - `gearing_includes_spread`: `true`
+    /// - `floor_bp` / `cap_bp` / `all_in_floor_bp` / `index_cap_bp`: `None`
+    /// - `fixing_calendar_id`: `None` (falls back to `calendar_id`)
+    /// - `end_of_month`: `false`
+    /// - `payment_lag_days`: `0`
+    /// - `overnight_compounding`: `None`
+    /// - `fallback`: [`FloatingRateFallback::Error`]
+    pub fn floating_with_conventions(params: FloatingConventionParams) -> Self {
+        Self::Floating(FloatingCouponSpec {
+            rate_spec: FloatingRateSpec {
+                index_id: params.index_id,
+                spread_bp: params.spread_bp,
+                gearing: params.gearing,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                all_in_floor_bp: None,
+                cap_bp: None,
+                index_cap_bp: None,
+                reset_freq: params.freq,
+                reset_lag_days: params.reset_lag_days,
+                dc: params.dc,
+                bdc: params.bdc,
+                calendar_id: params.calendar_id,
+                fixing_calendar_id: None,
+                end_of_month: false,
+                overnight_compounding: None,
+                fallback: Default::default(),
+                payment_lag_days: 0,
+            },
+            coupon_type: params.coupon_type,
+            freq: params.freq,
+            stub: params.stub,
         })
     }
 

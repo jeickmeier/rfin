@@ -118,6 +118,25 @@ from .xva import (
 )
 
 __all__ = [
+    # Submodules
+    "instruments",
+    "common",
+    "constants",
+    "calibration",
+    "pricer",
+    "results",
+    "metrics",
+    "lsmc",
+    "conventions",
+    "margin",
+    "market",
+    "bumps",
+    "schema",
+    "xva",
+    "performance",
+    "risk",
+    "attribution",
+    "cashflow",
     # Common types
     "InstrumentType",
     "ModelKey",
@@ -206,13 +225,4 @@ __all__ = [
     "apply_collateral",
     "compute_exposure_profile",
     "compute_cva",
-    # Risk
-    "risk",
-    # Attribution
-    "attribution",
-    # Cashflow
-    "cashflow",
-    # Instruments (imported from submodule)
-    # Calibration (imported from submodule)
-    # Cashflow (imported from submodule)
 ]

@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! Python bindings for Dollar Roll instruments.
 
 use crate::core::common::args::CurrencyArg;
@@ -249,21 +247,25 @@ impl PyDollarRollBuilder {
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyDollarRoll> {
         slf.ensure_ready()?;
-        let ccy = slf.currency.unwrap();
+        let ccy = slf.currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "DollarRollBuilder internal error: missing currency after validation",
+            )
+        })?;
 
         let mut builder = DollarRoll::builder()
             .id(slf.instrument_id.clone())
-            .agency(slf.agency.unwrap())
-            .coupon(slf.coupon.unwrap())
-            .term(slf.term.unwrap())
-            .notional(Money::new(slf.notional.unwrap(), ccy))
-            .front_settlement_year(slf.front_settlement_year.unwrap())
-            .front_settlement_month(slf.front_settlement_month.unwrap())
-            .back_settlement_year(slf.back_settlement_year.unwrap())
-            .back_settlement_month(slf.back_settlement_month.unwrap())
-            .front_price(slf.front_price.unwrap())
-            .back_price(slf.back_price.unwrap())
-            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().unwrap()))
+            .agency(slf.agency.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing agency after validation"))?)
+            .coupon(slf.coupon.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing coupon after validation"))?)
+            .term(slf.term.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing term after validation"))?)
+            .notional(Money::new(slf.notional.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing notional after validation"))?, ccy))
+            .front_settlement_year(slf.front_settlement_year.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing front_settlement_year after validation"))?)
+            .front_settlement_month(slf.front_settlement_month.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing front_settlement_month after validation"))?)
+            .back_settlement_year(slf.back_settlement_year.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing back_settlement_year after validation"))?)
+            .back_settlement_month(slf.back_settlement_month.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing back_settlement_month after validation"))?)
+            .front_price(slf.front_price.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing front_price after validation"))?)
+            .back_price(slf.back_price.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing back_price after validation"))?)
+            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("DollarRollBuilder internal error: missing discount_curve_id after validation"))?))
             .attributes(Attributes::new());
 
         if let Some(td) = slf.trade_date {

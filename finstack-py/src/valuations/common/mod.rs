@@ -524,8 +524,16 @@ pub(crate) fn pricing_error_to_py(err: PricingError) -> PyErr {
             instrument_type_label(got)
         )),
         PricingError::ModelFailure { message, .. } => PyRuntimeError::new_err(message),
-        _ => PyRuntimeError::new_err("Unknown pricing error"),
+        other => PyRuntimeError::new_err(format!("Pricing error: {other:?}")),
     }
+}
+
+pub(crate) fn f64_to_decimal(value: f64, field: &str) -> PyResult<rust_decimal::Decimal> {
+    rust_decimal::Decimal::from_f64_retain(value).ok_or_else(|| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "{field}: cannot convert {value} to decimal"
+        ))
+    })
 }
 
 /// Convert an optional string to owned String.

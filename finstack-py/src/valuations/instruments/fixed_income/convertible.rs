@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
@@ -833,12 +831,12 @@ impl PyConvertibleBondBuilder {
 
         let bond = ConvertibleBond {
             id: slf.instrument_id.clone(),
-            notional: slf.notional.unwrap(),
-            issue_date: slf.issue.unwrap(),
-            maturity: slf.maturity.unwrap(),
-            discount_curve_id: slf.discount_curve_id.clone().unwrap(),
+            notional: slf.notional.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("ConvertibleBondBuilder internal error: missing notional after validation"))?,
+            issue_date: slf.issue.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("ConvertibleBondBuilder internal error: missing issue date after validation"))?,
+            maturity: slf.maturity.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("ConvertibleBondBuilder internal error: missing maturity after validation"))?,
+            discount_curve_id: slf.discount_curve_id.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("ConvertibleBondBuilder internal error: missing discount curve after validation"))?,
             credit_curve_id: slf.credit_curve_id.clone(),
-            conversion: slf.conversion.clone().unwrap(),
+            conversion: slf.conversion.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("ConvertibleBondBuilder internal error: missing conversion spec after validation"))?,
             underlying_equity_id: slf.underlying_equity_id.clone(),
             call_put,
             soft_call_trigger: slf.soft_call_trigger.clone(),

@@ -153,6 +153,11 @@ impl PyEquityOptionBuilder {
         if self.expiry.is_none() {
             return Err(PyValueError::new_err("expiry() is required."));
         }
+        if self.notional.is_none() {
+            return Err(PyValueError::new_err(
+                "Notional must be provided via notional().",
+            ));
+        }
         if self.discount_curve_id.is_none() {
             return Err(PyValueError::new_err("disc_id() is required."));
         }
@@ -383,10 +388,11 @@ impl PyEquityOptionBuilder {
             .option_type(slf.option_type)
             .exercise_style(slf.exercise_style)
             .expiry(expiry)
-            .notional(
-                slf.notional
-                    .unwrap_or(Money::new(1.0, finstack_core::currency::Currency::USD)),
-            )
+            .notional(slf.notional.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "EquityOptionBuilder internal error: missing notional after validation",
+                )
+            })?)
             .day_count(slf.day_count)
             .settlement(slf.settlement)
             .discount_curve_id(discount)

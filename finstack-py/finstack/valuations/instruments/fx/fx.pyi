@@ -27,7 +27,65 @@ class FxSpotBuilder:
     def __repr__(self) -> str: ...
 
 class FxSpot:
-    """FX spot instrument."""
+    """FX spot transaction for exchanging currencies at the prevailing spot rate.
+
+    FxSpot models a single-dated foreign exchange transaction where one
+    currency is bought and another is sold at the market spot rate.
+    Settlement typically occurs T+2 (T+1 for certain pairs such as
+    USD/CAD, USD/MXN, and USD/TRY).
+
+    The instrument can either carry a fixed ``spot_rate`` or resolve the
+    rate from a :class:`MarketContext` at pricing time.
+
+    Examples
+    --------
+    Build and value an FX spot trade:
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.instruments.fx import FxSpot
+        >>> spot = (
+        ...     FxSpot
+        ...     .builder("FX-SPOT-001")
+        ...     .base_currency("EUR")
+        ...     .quote_currency("USD")
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .spot_rate(1.0850)
+        ...     .settlement(date(2024, 6, 5))
+        ...     .build()
+        ... )
+        >>> spot.pair_name
+        'EURUSD'
+
+    Attributes
+    ----------
+    instrument_id : str
+        Unique trade identifier.
+    base_currency : Currency
+        Currency being bought (left side of the pair).
+    quote_currency : Currency
+        Currency being sold (right side of the pair).
+    notional : Money
+        Notional amount in the base currency.
+    spot_rate : float or None
+        Contracted spot rate; ``None`` when resolved from market data.
+    settlement : date or None
+        Explicit settlement date, if set.
+    settlement_lag_days : int or None
+        Number of business days from trade date to settlement (default T+2).
+    pair_name : str
+        ISO pair string, e.g. ``"EURUSD"``.
+
+    MarketContext Requirements
+    -------------------------
+    - FX spot rate for the currency pair (if ``spot_rate`` is not fixed).
+
+    See Also
+    --------
+    :class:`FxSwap` : FX swap (near + far legs).
+    :class:`FxOption` : FX vanilla option (Garman-Kohlhagen).
+    """
 
     @classmethod
     def builder(cls, instrument_id: str) -> FxSpotBuilder: ...
@@ -80,7 +138,80 @@ class FxOptionBuilder:
     def __repr__(self) -> str: ...
 
 class FxOption:
-    """FX option (Garman-Kohlhagen) instrument."""
+    """Vanilla FX option priced with the Garman-Kohlhagen model.
+
+    FxOption represents a European or American option on a foreign
+    exchange rate.  Pricing follows the Garman-Kohlhagen extension of
+    Black-Scholes, treating the foreign interest rate as a continuous
+    dividend yield.
+
+    Examples
+    --------
+    Build a EUR/USD call option:
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.instruments.fx import FxOption
+        >>> option = (
+        ...     FxOption
+        ...     .builder("FX-OPT-001")
+        ...     .base_currency("EUR")
+        ...     .quote_currency("USD")
+        ...     .notional(Money(1_000_000, Currency("EUR")))
+        ...     .strike(1.10)
+        ...     .expiry(date(2024, 12, 20))
+        ...     .option_type("call")
+        ...     .domestic_discount_curve("USD")
+        ...     .foreign_discount_curve("EUR")
+        ...     .vol_surface("EURUSD-VOL")
+        ...     .build()
+        ... )
+
+    Attributes
+    ----------
+    instrument_id : str
+        Unique trade identifier.
+    base_currency : Currency
+        Foreign (base) currency of the pair.
+    quote_currency : Currency
+        Domestic (quote) currency of the pair.
+    notional : Money
+        Notional in the base currency.
+    strike : float
+        Option strike expressed in quote-per-base terms.
+    expiry : date
+        Expiration date of the option.
+    option_type : str
+        ``"call"`` or ``"put"``.
+    exercise_style : str
+        ``"european"`` or ``"american"``.
+    settlement : str
+        Settlement convention (e.g., ``"physical"``, ``"cash"``).
+    domestic_discount_curve : str
+        Curve id for the domestic (quote-currency) discount curve.
+    foreign_discount_curve : str
+        Curve id for the foreign (base-currency) discount curve.
+    vol_surface : str
+        Volatility surface id in MarketContext.
+
+    MarketContext Requirements
+    -------------------------
+    - Domestic discount curve (quote currency).
+    - Foreign discount curve (base currency).
+    - FX volatility surface for the pair.
+    - FX spot rate (for delta-strike conversion and forward calculation).
+
+    See Also
+    --------
+    :class:`FxSpot` : FX spot transaction.
+    :class:`FxSwap` : FX swap (near + far legs).
+
+    Sources
+    -------
+    - Garman & Kohlhagen (1983): see ``docs/REFERENCES.md#garmanKohlhagen1983``.
+    - Clark (2011) *Foreign Exchange Option Pricing*: see ``docs/REFERENCES.md#clarkFxOptions2011``.
+    """
 
     @classmethod
     def builder(cls, instrument_id: str) -> FxOptionBuilder: ...
@@ -145,7 +276,72 @@ class FxSwapBuilder:
     def __repr__(self) -> str: ...
 
 class FxSwap:
-    """FX swap instrument."""
+    """FX swap consisting of a near-leg and a far-leg currency exchange.
+
+    An FX swap is a simultaneous purchase and sale of identical amounts
+    of one currency for another with two different value dates.  The near
+    leg is typically spot while the far leg is a forward date.  The
+    difference between the two exchange rates (the swap points) reflects
+    the interest-rate differential between the two currencies.
+
+    FX swaps are the most traded instrument in the global FX market and
+    are widely used for funding, hedging, and rolling forward positions.
+
+    Examples
+    --------
+    Build a 3-month EUR/USD FX swap:
+
+        >>> from datetime import date
+        >>> from finstack.core.currency import Currency
+        >>> from finstack.core.money import Money
+        >>> from finstack.valuations.instruments.fx import FxSwap
+        >>> swap = (
+        ...     FxSwap
+        ...     .builder("FX-SWAP-001")
+        ...     .base_currency("EUR")
+        ...     .quote_currency("USD")
+        ...     .notional(Money(5_000_000, Currency("EUR")))
+        ...     .near_date(date(2024, 6, 5))
+        ...     .far_date(date(2024, 9, 5))
+        ...     .domestic_discount_curve("USD")
+        ...     .foreign_discount_curve("EUR")
+        ...     .build()
+        ... )
+
+    Attributes
+    ----------
+    instrument_id : str
+        Unique trade identifier.
+    base_currency : Currency
+        Foreign (base) currency of the pair.
+    quote_currency : Currency
+        Domestic (quote) currency of the pair.
+    base_notional : Money
+        Notional amount in the base currency.
+    near_date : date
+        Settlement date of the near (spot) leg.
+    far_date : date
+        Settlement date of the far (forward) leg.
+    near_rate : float or None
+        Exchange rate for the near leg; resolved from market data when ``None``.
+    far_rate : float or None
+        Exchange rate for the far leg; resolved from market data when ``None``.
+    domestic_discount_curve : str
+        Curve id for the domestic (quote-currency) discount curve.
+    foreign_discount_curve : str
+        Curve id for the foreign (base-currency) discount curve.
+
+    MarketContext Requirements
+    -------------------------
+    - Domestic discount curve (quote currency).
+    - Foreign discount curve (base currency).
+    - FX spot rate for the pair (when near/far rates are not fixed).
+
+    See Also
+    --------
+    :class:`FxSpot` : FX spot transaction.
+    :class:`FxOption` : FX vanilla option (Garman-Kohlhagen).
+    """
 
     @classmethod
     def builder(cls, instrument_id: str) -> FxSwapBuilder: ...

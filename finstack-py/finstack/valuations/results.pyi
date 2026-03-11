@@ -1,7 +1,7 @@
 """Valuation result envelopes, metadata, and covenant report bindings."""
 
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import Any
 from datetime import date
 from ..core.money import Money
 
@@ -164,7 +164,7 @@ class ResultsMeta:
         ...         .disc_id("USD")
         ...         .build()
         ...     )
-        ...     return registry.price(bond, "discounting", ctx).meta
+        ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1)).meta
         >>> meta = _meta_example()
         >>> meta.numeric_mode in {"f64", "decimal"}
         True
@@ -217,7 +217,7 @@ class ResultsMeta:
         ...
 
     @property
-    def rounding(self) -> Dict[str, Any]:
+    def rounding(self) -> dict[str, Any]:
         """Rounding context snapshot as a dictionary.
 
         Returns the rounding configuration used during calculation, including
@@ -225,14 +225,14 @@ class ResultsMeta:
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
             Dictionary containing:
             - "mode": Rounding mode (e.g., "half_even", "ceil", "floor")
-            - "scales": Dict[str, int] mapping currency codes to decimal places
+            - "scales": dict[str, int] mapping currency codes to decimal places
         """
         ...
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert the metadata to a Python dictionary for downstream serialization.
 
         Serializes the metadata to a dictionary suitable for JSON encoding or
@@ -240,7 +240,7 @@ class ResultsMeta:
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
             Dictionary containing numeric_mode, fx_policy_applied, and rounding
             fields as primitive types.
         """
@@ -284,7 +284,7 @@ class ValuationResult:
         ...     .disc_id("USD")
         ...     .build()
         ... )
-        >>> value = registry.price(bond, "discounting", market_ctx).value
+        >>> value = registry.price(bond, "discounting", market_ctx, date(2024, 1, 1)).value
         >>> (value.currency.code, isinstance(value.amount, float))
         ('USD', True)
 
@@ -310,7 +310,7 @@ class ValuationResult:
         ...     .disc_id("USD")
         ...     .build()
         ... )
-        >>> result = registry.price_with_metrics(bond, "discounting", market_ctx, ["dv01", "ytm"])
+        >>> result = registry.price_with_metrics(bond, "discounting", market_ctx, ["dv01", "ytm"], date(2024, 1, 1))
         >>> sorted(result.measures.keys())
         ['dv01', 'ytm']
 
@@ -337,7 +337,7 @@ class ValuationResult:
         ...         .disc_id("USD")
         ...         .build()
         ...     )
-        ...     return registry.price(bond, "discounting", ctx)
+        ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1))
         >>> meta = _example_result().meta
         >>> meta.numeric_mode in {"f64", "decimal"}
         True
@@ -365,7 +365,7 @@ class ValuationResult:
         ...         .disc_id("USD")
         ...         .build()
         ...     )
-        ...     return registry.price(bond, "discounting", ctx)
+        ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1))
         >>> result = _example_result()
         >>> if result.covenants:
         ...     for name, report in result.covenants.items():
@@ -395,7 +395,7 @@ class ValuationResult:
         ...         .disc_id("USD")
         ...         .build()
         ...     )
-        ...     return registry.price(bond, "discounting", ctx)
+        ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1))
         >>> data = _example_result().to_dict()
         >>> import json
         >>> json_str = json.dumps(data, default=str)
@@ -449,7 +449,7 @@ class ValuationResult:
             ...         .disc_id("USD")
             ...         .build()
             ...     )
-            ...     return registry.price(bond, "discounting", ctx)
+            ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1))
             >>> result = _example_result()
             >>> result.instrument_id
             'BOND-001'
@@ -489,7 +489,7 @@ class ValuationResult:
             ...         .disc_id("USD")
             ...         .build()
             ...     )
-            ...     return registry.price(bond, "discounting", ctx)
+            ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1))
             >>> _example_result().as_of == date(2024, 1, 1)
             True
         """
@@ -531,7 +531,7 @@ class ValuationResult:
             ...         .disc_id("USD")
             ...         .build()
             ...     )
-            ...     return registry.price(bond, "discounting", ctx)
+            ...     return registry.price(bond, "discounting", ctx, date(2024, 1, 1))
             >>> value = _example_result().value
             >>> value.currency.code
             'USD'
@@ -549,7 +549,7 @@ class ValuationResult:
         ...
 
     @property
-    def measures(self) -> Dict[str, float]:
+    def measures(self) -> dict[str, float]:
         """Dictionary of computed risk and return measures.
 
         The measures dictionary contains all requested metrics computed during
@@ -562,7 +562,7 @@ class ValuationResult:
 
         Returns
         -------
-        Dict[str, float]
+        dict[str, float]
             Dictionary of calculated metrics keyed by metric identifier
             (snake_case). Values are floats with units depending on the metric:
             - DV01/CS01: Dollar value (currency units)
@@ -592,7 +592,7 @@ class ValuationResult:
             ...         .disc_id("USD")
             ...         .build()
             ...     )
-            ...     return registry.price_with_metrics(bond, "discounting", ctx, ["dv01", "ytm"])
+            ...     return registry.price_with_metrics(bond, "discounting", ctx, ["dv01", "ytm"], date(2024, 1, 1))
             >>> sorted(_metrics_result().measures.keys())
             ['dv01', 'ytm']
 
@@ -630,7 +630,7 @@ class ValuationResult:
 
         Examples
         --------
-            >>> result = registry.price(bond, "discounting", market_ctx)
+            >>> result = registry.price(bond, "discounting", market_ctx, date(2024, 1, 1))
             >>> print(result.meta.numeric_mode)
             'f64'
             >>> print(result.meta.rounding)
@@ -653,7 +653,7 @@ class ValuationResult:
         ...
 
     @property
-    def covenants(self) -> Dict[str, CovenantReport] | None:
+    def covenants(self) -> dict[str, CovenantReport] | None:
         """Covenant reports (if any) keyed by covenant identifier.
 
         Covenants are optional checks performed during valuation (e.g., LTV ratios,
@@ -662,13 +662,13 @@ class ValuationResult:
 
         Returns
         -------
-        Dict[str, CovenantReport] or None
+        dict[str, CovenantReport] or None
             Dictionary of covenant evaluations when available, keyed by covenant
             identifier (e.g., "ltv", "dscr"). None if no covenants were evaluated.
 
         Examples
         --------
-            >>> result = registry.price(loan, "credit", market_ctx)
+            >>> result = registry.price(loan, "credit", market_ctx, date(2024, 1, 1))
             >>> if result.covenants:
             ...     ltv_report = result.covenants.get("ltv")
             ...     if ltv_report:
@@ -708,7 +708,7 @@ class ValuationResult:
 
         Examples
         --------
-            >>> result = registry.price(loan, "credit", market_ctx)
+            >>> result = registry.price(loan, "credit", market_ctx, date(2024, 1, 1))
             >>> if result.all_covenants_passed():
             ...     print("All covenants passed")
             ... else:
@@ -723,7 +723,7 @@ class ValuationResult:
         """
         ...
 
-    def failed_covenants(self) -> List[str]:
+    def failed_covenants(self) -> list[str]:
         """List of covenant identifiers that failed (empty when all pass).
 
         Returns a list of covenant identifiers where the covenant check failed
@@ -732,13 +732,13 @@ class ValuationResult:
 
         Returns
         -------
-        List[str]
+        list[str]
             List of covenant identifiers that evaluated to False. Empty list
             if all passed or if covenants is None.
 
         Examples
         --------
-            >>> result = registry.price(loan, "credit", market_ctx)
+            >>> result = registry.price(loan, "credit", market_ctx, date(2024, 1, 1))
             >>> failures = result.failed_covenants()
             >>> if failures:
             ...     for name in failures:
@@ -756,7 +756,7 @@ class ValuationResult:
         """
         ...
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to a Python dictionary for JSON/Arrow serialization.
 
         Serializes the entire valuation result to a dictionary suitable for
@@ -766,7 +766,7 @@ class ValuationResult:
 
         Returns
         -------
-        Dict[str, Any]
+        dict[str, Any]
             Serializable dictionary containing:
             - instrument_id: str
             - as_of: str (ISO date format)
@@ -777,7 +777,7 @@ class ValuationResult:
 
         Examples
         --------
-            >>> result = registry.price(bond, "discounting", market_ctx)
+            >>> result = registry.price(bond, "discounting", market_ctx, date(2024, 1, 1))
             >>> data = result.to_dict()
             >>> # Serialize to JSON
             >>> import json

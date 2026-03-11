@@ -239,11 +239,38 @@ pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
         }
     });
 
+    // Resolve the maturity field identifier for issue-date fallback generation.
+    let maturity_field_ident = if required_fields.iter().any(|(id, _)| id == "maturity")
+        || optional_fields.iter().any(|(id, _)| id == "maturity")
+    {
+        Some(format_ident!("maturity"))
+    } else if required_fields.iter().any(|(id, _)| id == "maturity_date")
+        || optional_fields.iter().any(|(id, _)| id == "maturity_date")
+    {
+        Some(format_ident!("maturity_date"))
+    } else {
+        None
+    };
+
     // Build expression: required fields unwrap, optional fields carry through (unwrap_or(None)) and initialize attributes if present
     let assign_req = required_fields.iter().map(|(id, _)| {
         if let Some(expr) = defaults.get(id) {
             let expr_clone = expr.clone();
             quote! { #id: self.#id.unwrap_or(#expr_clone) }
+        } else if issue_field_ident.as_ref() == Some(id) {
+            if let Some(ref mat_ident) = maturity_field_ident {
+                quote! {
+                    #id: match self.#id {
+                        ::core::option::Option::Some(d) => d,
+                        ::core::option::Option::None => {
+                            let mat = self.#mat_ident.ok_or(finstack_core::InputError::Invalid)?;
+                            mat.checked_sub(::time::Duration::days(365)).unwrap_or(mat)
+                        }
+                    }
+                }
+            } else {
+                quote! { #id: self.#id.ok_or(finstack_core::InputError::Invalid)? }
+            }
         } else {
             quote! { #id: self.#id.ok_or(finstack_core::InputError::Invalid)? }
         }

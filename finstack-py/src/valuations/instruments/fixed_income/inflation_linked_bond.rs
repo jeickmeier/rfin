@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
@@ -249,11 +247,11 @@ impl PyInflationLinkedBondBuilder {
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyInflationLinkedBond> {
         slf.ensure_ready()?;
         let params = InflationLinkedBondParams::new(
-            slf.notional.unwrap(),
-            slf.real_coupon.unwrap(),
-            slf.issue.unwrap(),
-            slf.maturity.unwrap(),
-            slf.base_index.unwrap(),
+            slf.notional.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing notional after validation"))?,
+            slf.real_coupon.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing real_coupon after validation"))?,
+            slf.issue.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing issue after validation"))?,
+            slf.maturity.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing maturity after validation"))?,
+            slf.base_index.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing base_index after validation"))?,
             slf.frequency,
             slf.day_count,
         );
@@ -274,8 +272,8 @@ impl PyInflationLinkedBondBuilder {
         builder = builder.bdc(BusinessDayConvention::Following);
         builder = builder.stub(StubKind::None);
         builder = builder.calendar_id_opt(slf.calendar.clone().map(Into::into));
-        builder = builder.discount_curve_id(slf.discount_curve.clone().unwrap());
-        builder = builder.inflation_index_id(slf.inflation_curve.clone().unwrap());
+        builder = builder.discount_curve_id(slf.discount_curve.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing discount_curve after validation"))?);
+        builder = builder.inflation_index_id(slf.inflation_curve.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing inflation_curve after validation"))?);
         builder = builder.attributes(Default::default());
 
         let mut bond = builder.build().map_err(core_to_py)?;

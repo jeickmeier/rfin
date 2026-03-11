@@ -1,6 +1,6 @@
 //! Python bindings for portfolio valuation.
 
-use crate::core::config::PyFinstackConfig;
+use crate::core::config::extract_config_or_default;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
@@ -218,9 +218,8 @@ impl PyPortfolioValuation {
     /// Examples:
     ///     >>> entity_value = valuation.get_entity_value("ENTITY_A")
     fn get_entity_value(&self, entity_id: &str) -> Option<PyMoney> {
-        let entity_id_string = entity_id.to_string();
         self.inner
-            .get_entity_value(&entity_id_string)
+            .get_entity_value(entity_id)
             .map(|m| PyMoney::new(*m))
     }
 
@@ -337,15 +336,7 @@ fn py_value_portfolio(
 ) -> PyResult<PyPortfolioValuation> {
     let py_portfolio = portfolio.extract::<PyRef<PyPortfolio>>()?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
-
-    let cfg = if let Some(config_obj) = config {
-        config_obj
-            .extract::<PyRef<PyFinstackConfig>>()?
-            .inner
-            .clone()
-    } else {
-        finstack_core::config::FinstackConfig::default()
-    };
+    let cfg = extract_config_or_default(config)?;
 
     let valuation =
         value_portfolio(&py_portfolio.inner, &market_ctx.inner, &cfg).map_err(portfolio_to_py)?;
@@ -368,15 +359,7 @@ fn py_value_portfolio_with_options(
         .extract::<PyRef<PyPortfolioValuationOptions>>()?
         .inner
         .clone();
-
-    let cfg = if let Some(config_obj) = config {
-        config_obj
-            .extract::<PyRef<PyFinstackConfig>>()?
-            .inner
-            .clone()
-    } else {
-        finstack_core::config::FinstackConfig::default()
-    };
+    let cfg = extract_config_or_default(config)?;
 
     let valuation =
         value_portfolio_with_options(&py_portfolio.inner, &market_ctx.inner, &cfg, &opts)

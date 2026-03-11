@@ -1,7 +1,6 @@
 """Interest rate swap instrument."""
 
 from __future__ import annotations
-from typing import overload
 from datetime import date
 from ....core.money import Money
 from ....core.currency import Currency
@@ -107,7 +106,7 @@ class InterestRateSwap:
         >>> ctx.insert(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
         >>> ctx.insert(ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (5.0, 0.032)], base_date=date(2024, 1, 1)))
         >>> registry = create_standard_registry()
-        >>> pv = registry.price(swap, "discounting", ctx).value
+        >>> pv = registry.price(swap, "discounting", ctx, date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'
 

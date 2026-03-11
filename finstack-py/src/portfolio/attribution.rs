@@ -1,6 +1,6 @@
 //! Python bindings for portfolio-level P&L attribution.
 
-use crate::core::config::PyFinstackConfig;
+use crate::core::config::extract_config_or_default;
 use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
@@ -219,11 +219,7 @@ fn py_attribute_portfolio_pnl(
         .inner
         .clone();
 
-    let cfg = if let Some(cfg_obj) = config {
-        cfg_obj.extract::<PyRef<PyFinstackConfig>>()?.inner.clone()
-    } else {
-        finstack_core::config::FinstackConfig::default()
-    };
+    let cfg = extract_config_or_default(config)?;
 
     let attribution = attribute_portfolio_pnl(
         &portfolio_inner,

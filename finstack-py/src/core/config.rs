@@ -813,3 +813,14 @@ fn py_rounding_context_from(cfg: PyRef<PyFinstackConfig>) -> PyRoundingContext {
 fn py_results_meta(cfg: PyRef<PyFinstackConfig>) -> PyResultsMeta {
     PyResultsMeta::new(results_meta(&cfg.inner))
 }
+
+/// Extract a `FinstackConfig` from an optional Python argument, falling back to
+/// `FinstackConfig::default()` when `None` is supplied.
+pub(crate) fn extract_config_or_default(
+    config: Option<&Bound<'_, pyo3::types::PyAny>>,
+) -> PyResult<FinstackConfig> {
+    match config {
+        Some(obj) => Ok(obj.extract::<PyRef<PyFinstackConfig>>()?.inner.clone()),
+        None => Ok(FinstackConfig::default()),
+    }
+}

@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! Rust source: `finstack/valuations/src/instruments/equity/equity_trs/`
 //! Shared TRS types (TrsSide, FinancingLegSpec, etc.) live here; the
 //! FI index TRS binding has been moved to `fixed_income/fi_trs.rs`.
@@ -454,11 +452,11 @@ impl PyEquityTotalReturnSwapBuilder {
         slf.ensure_ready()?;
         let inner = EquityTotalReturnSwap {
             id: slf.instrument_id.clone(),
-            notional: slf.notional.unwrap(),
-            underlying: slf.underlying.clone().unwrap(),
-            financing: slf.financing.clone().unwrap(),
-            schedule: slf.schedule.clone().unwrap(),
-            side: slf.side.unwrap(),
+            notional: slf.notional.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("EquityTotalReturnSwapBuilder internal error: missing notional after validation"))?,
+            underlying: slf.underlying.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("EquityTotalReturnSwapBuilder internal error: missing underlying after validation"))?,
+            financing: slf.financing.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("EquityTotalReturnSwapBuilder internal error: missing financing after validation"))?,
+            schedule: slf.schedule.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("EquityTotalReturnSwapBuilder internal error: missing schedule after validation"))?,
+            side: slf.side.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("EquityTotalReturnSwapBuilder internal error: missing side after validation"))?,
             initial_level: slf.initial_level,
             dividend_tax_rate: slf.dividend_tax_rate,
             discrete_dividends: slf.discrete_dividends.clone(),

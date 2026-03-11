@@ -276,19 +276,25 @@ impl PyFloatingRateSpec {
         reset_lag_days: Option<i32>,
         fixing_calendar_id: Option<String>,
         overnight_compounding: Option<PyOvernightCompoundingMethod>,
-    ) -> Self {
-        use rust_decimal::Decimal;
+    ) -> PyResult<Self> {
+        use crate::valuations::common::f64_to_decimal;
         let calendar_id = schedule.inner.calendar_id.clone();
-        Self {
+        Ok(Self {
             inner: FloatingRateSpec {
                 index_id: finstack_core::types::CurveId::new(index_id),
-                spread_bp: Decimal::from_f64_retain(spread_bp).unwrap_or_default(),
-                gearing: Decimal::from_f64_retain(gearing.unwrap_or(1.0)).unwrap_or(Decimal::ONE),
+                spread_bp: f64_to_decimal(spread_bp, "spread_bp")?,
+                gearing: f64_to_decimal(gearing.unwrap_or(1.0), "gearing")?,
                 gearing_includes_spread: gearing_includes_spread.unwrap_or(true),
-                floor_bp: floor_bp.and_then(Decimal::from_f64_retain),
-                all_in_floor_bp: all_in_floor_bp.and_then(Decimal::from_f64_retain),
-                cap_bp: cap_bp.and_then(Decimal::from_f64_retain),
-                index_cap_bp: index_cap_bp.and_then(Decimal::from_f64_retain),
+                floor_bp: floor_bp
+                    .map(|v| f64_to_decimal(v, "floor_bp"))
+                    .transpose()?,
+                all_in_floor_bp: all_in_floor_bp
+                    .map(|v| f64_to_decimal(v, "all_in_floor_bp"))
+                    .transpose()?,
+                cap_bp: cap_bp.map(|v| f64_to_decimal(v, "cap_bp")).transpose()?,
+                index_cap_bp: index_cap_bp
+                    .map(|v| f64_to_decimal(v, "index_cap_bp"))
+                    .transpose()?,
                 reset_freq: schedule.inner.freq,
                 reset_lag_days: reset_lag_days.unwrap_or(2),
                 dc: schedule.inner.dc,
@@ -300,7 +306,7 @@ impl PyFloatingRateSpec {
                 fallback: Default::default(),
                 payment_lag_days: schedule.inner.payment_lag_days,
             },
-        }
+        })
     }
 
     #[getter]

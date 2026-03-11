@@ -1,6 +1,6 @@
 //! Python bindings for portfolio margin aggregation.
 
-use crate::core::currency::PyCurrency;
+use crate::core::currency::{extract_currency, PyCurrency};
 use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
@@ -12,7 +12,6 @@ use finstack_portfolio::margin::{
     PortfolioMarginResult,
 };
 use finstack_valuations::margin::{ImMethodology, NettingSetId};
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
@@ -472,18 +471,6 @@ impl PyPortfolioMarginResultIterator {
     }
 }
 
-fn parse_currency(ccy: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
-    if let Ok(py_ccy) = ccy.extract::<PyRef<PyCurrency>>() {
-        Ok(py_ccy.inner)
-    } else if let Ok(s) = ccy.extract::<String>() {
-        s.parse().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Invalid currency: {}", e))
-        })
-    } else {
-        Err(PyTypeError::new_err("Expected Currency or string"))
-    }
-}
-
 /// Aggregates margin requirements across a portfolio.
 #[pyclass(module = "finstack.portfolio", name = "PortfolioMarginAggregator")]
 pub struct PyPortfolioMarginAggregator {
@@ -494,7 +481,7 @@ pub struct PyPortfolioMarginAggregator {
 impl PyPortfolioMarginAggregator {
     #[new]
     fn new_py(base_ccy: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let currency = parse_currency(base_ccy)?;
+        let currency = extract_currency(base_ccy)?;
         Ok(Self {
             inner: PortfolioMarginAggregator::new(currency),
         })
@@ -545,6 +532,7 @@ pub(crate) fn register<'py>(
     parent.add_class::<PyNettingSetMargin>()?;
     parent.add_class::<PyPortfolioMarginResult>()?;
     parent.add_class::<PyPortfolioMarginAggregator>()?;
+    // Iterators are registered for runtime use but excluded from __all__
     parent.add_class::<PyNettingSetManagerIterator>()?;
     parent.add_class::<PyPortfolioMarginResultIterator>()?;
 

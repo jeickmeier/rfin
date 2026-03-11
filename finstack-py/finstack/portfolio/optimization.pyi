@@ -60,6 +60,8 @@ class WeightingScheme:
     UNIT_SCALING: WeightingScheme
 
     def __repr__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class MissingMetricPolicy:
     """Policy for handling positions that lack a required metric.
@@ -84,6 +86,8 @@ class MissingMetricPolicy:
     STRICT: MissingMetricPolicy
 
     def __repr__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class Inequality:
     """Inequality / equality operator used in constraints.
@@ -108,6 +112,8 @@ class Inequality:
     EQ: Inequality
 
     def __repr__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class OptimizationStatus:
     """Status of a completed optimization run.
@@ -166,6 +172,7 @@ class OptimizationStatus:
         ...
 
     def __repr__(self) -> str: ...
+    def __hash__(self) -> int: ...
     def __eq__(self, other: object) -> bool: ...
 
 class TradeDirection:
@@ -191,6 +198,8 @@ class TradeDirection:
     HOLD: TradeDirection
 
     def __repr__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 
 class TradeType:
     """Whether a trade targets an existing or new position.
@@ -215,6 +224,8 @@ class TradeType:
     CLOSE_OUT: TradeType
 
     def __repr__(self) -> str: ...
+    def __hash__(self) -> int: ...
+    def __eq__(self, other: object) -> bool: ...
 
 # ---------------------------------------------------------------------------
 # Per-Position Metrics
@@ -993,7 +1004,7 @@ class CandidatePosition:
     Examples
     --------
     >>> from finstack.portfolio.optimization import CandidatePosition
-    >>> candidate = CandidatePosition.new("bond_1", "fund_1", instrument, "FaceValue")
+    >>> candidate = CandidatePosition.new("bond_1", "fund_1", instrument, PositionUnit.FACE_VALUE)
     >>> candidate = candidate.with_tag("rating", "BBB")
     >>> candidate = candidate.with_max_weight(0.05)
     """
@@ -1003,7 +1014,7 @@ class CandidatePosition:
         id: str,
         entity_id: str,
         instrument: Any,
-        unit: str | PositionUnit,
+        unit: PositionUnit,
     ) -> CandidatePosition:
         """Create a candidate position.
 
@@ -1015,9 +1026,8 @@ class CandidatePosition:
             Owning entity identifier.
         instrument : Any
             Instrument object (Bond, Equity, etc.).
-        unit : str or PositionUnit
-            Position unit type (``"Units"``, ``"Notional"``, ``"FaceValue"``,
-            ``"Percentage"``).
+        unit : PositionUnit
+            Position unit type.
 
         Returns
         -------

@@ -765,13 +765,14 @@ pub struct PyFeeTier {
 impl PyFeeTier {
     #[new]
     #[pyo3(text_signature = "(threshold, bps)")]
-    fn new_py(threshold: f64, bps: f64) -> Self {
-        Self {
+    fn new_py(threshold: f64, bps: f64) -> PyResult<Self> {
+        use crate::valuations::common::f64_to_decimal;
+        Ok(Self {
             inner: FeeTier {
-                threshold: Decimal::from_f64_retain(threshold).unwrap_or_default(),
-                bps: Decimal::from_f64_retain(bps).unwrap_or_default(),
+                threshold: f64_to_decimal(threshold, "threshold")?,
+                bps: f64_to_decimal(bps, "bps")?,
             },
-        }
+        })
     }
 
     #[getter]
@@ -835,7 +836,7 @@ impl PyBaseRateSpec {
         let dc = parse_day_count_str(day_count)?;
         let spec = FloatingRateSpec {
             index_id: CurveId::new(index_id),
-            spread_bp: Decimal::from_f64_retain(spread_bp).unwrap_or_default(),
+            spread_bp: crate::valuations::common::f64_to_decimal(spread_bp, "spread_bp")?,
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
             floor_bp: None,
@@ -1399,8 +1400,19 @@ impl PyRevolvingCreditBuilder {
     fn build(&self) -> PyResult<PyRevolvingCredit> {
         self.ensure_ready()?;
 
-        let ccy = self.pending_currency.unwrap();
-        let commitment = Money::new(self.pending_commitment_amount.unwrap(), ccy);
+        let ccy = self.pending_currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "RevolvingCreditBuilder internal error: missing currency after validation",
+            )
+        })?;
+        let commitment = Money::new(
+            self.pending_commitment_amount.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "RevolvingCreditBuilder internal error: missing commitment amount after validation",
+                )
+            })?,
+            ccy,
+        );
         let drawn = Money::new(self.pending_drawn_amount.unwrap_or(0.0), ccy);
 
         let base_rate = self
@@ -1419,14 +1431,26 @@ impl PyRevolvingCreditBuilder {
             .id(self.instrument_id.clone())
             .commitment_amount(commitment)
             .drawn_amount(drawn)
-            .commitment_date(self.commitment_date.unwrap())
-            .maturity(self.maturity.unwrap())
+            .commitment_date(self.commitment_date.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "RevolvingCreditBuilder internal error: missing commitment date after validation",
+                )
+            })?)
+            .maturity(self.maturity.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "RevolvingCreditBuilder internal error: missing maturity after validation",
+                )
+            })?)
             .base_rate_spec(base_rate)
             .day_count(self.day_count)
             .frequency(self.frequency)
             .fees(fees)
             .draw_repay_spec(draw_repay)
-            .discount_curve_id(self.discount_curve_id.clone().unwrap())
+            .discount_curve_id(self.discount_curve_id.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "RevolvingCreditBuilder internal error: missing discount curve after validation",
+                )
+            })?)
             .credit_curve_id_opt(self.credit_curve_id.clone())
             .recovery_rate(self.recovery_rate)
             .stub(self.stub)

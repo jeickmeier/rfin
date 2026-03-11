@@ -63,6 +63,7 @@ class EquityOption:
         ...     .builder("SPX-CALL-4500")
         ...     .ticker("SPX")
         ...     .strike(4500.0)
+        ...     .notional(Money(100.0, Currency("USD")))
         ...     .expiry(date(2024, 12, 20))
         ...     .option_type("call")
         ...     .exercise_style("european")

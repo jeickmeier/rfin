@@ -102,7 +102,7 @@ class Deposit:
         ...     .quote_rate(0.035)
         ...     .build()
         ... )
-        >>> pv = registry.price(deposit, "discounting", ctx).value
+        >>> pv = registry.price(deposit, "discounting", ctx, date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'
 

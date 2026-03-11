@@ -11,6 +11,13 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 
+fn json_eq<T: serde::Serialize>(a: &T, b: &T) -> bool {
+    match (serde_json::to_value(a), serde_json::to_value(b)) {
+        (Ok(va), Ok(vb)) => va == vb,
+        _ => false,
+    }
+}
+
 /// Compounding convention for rate conversions.
 #[pyclass(
     module = "finstack.scenarios",
@@ -258,10 +265,8 @@ impl PyRateBindingSpec {
     /// dict
     ///     JSON-serializable dictionary.
     fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let json_str = serde_json::to_string(&self.inner)
+        let json_value = serde_json::to_value(&self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {}", e)))?;
         pythonize::pythonize(py, &json_value)
             .map(|bound| bound.into())
             .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {}", e)))
@@ -286,6 +291,14 @@ impl PyRateBindingSpec {
         let inner: RateBindingSpec = serde_json::from_value(json_value)
             .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
         Ok(Self::from_inner(inner))
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => json_eq(&self.inner, &other.inner),
+            CompareOp::Ne => !json_eq(&self.inner, &other.inner),
+            _ => false,
+        }
     }
 
     fn __repr__(&self) -> String {
@@ -833,10 +846,8 @@ impl PyOperationSpec {
     /// dict
     ///     JSON-serializable dictionary.
     fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let json_str = serde_json::to_string(&self.inner)
+        let json_value = serde_json::to_value(&self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {}", e)))?;
         pythonize::pythonize(py, &json_value)
             .map(|bound| bound.into())
             .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {}", e)))
@@ -861,6 +872,14 @@ impl PyOperationSpec {
         let inner: OperationSpec = serde_json::from_value(json_value)
             .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
         Ok(Self::new(inner))
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => json_eq(&self.inner, &other.inner),
+            CompareOp::Ne => !json_eq(&self.inner, &other.inner),
+            _ => false,
+        }
     }
 
     fn __repr__(&self) -> String {
@@ -1025,10 +1044,8 @@ impl PyScenarioSpec {
     /// dict
     ///     JSON-serializable dictionary.
     fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let json_str = serde_json::to_string(&self.inner)
+        let json_value = serde_json::to_value(&self.inner)
             .map_err(|e| PyValueError::new_err(format!("Failed to serialize: {}", e)))?;
-        let json_value: serde_json::Value = serde_json::from_str(&json_str)
-            .map_err(|e| PyValueError::new_err(format!("Failed to parse JSON: {}", e)))?;
         pythonize::pythonize(py, &json_value)
             .map(|bound| bound.into())
             .map_err(|e| PyValueError::new_err(format!("Failed to convert to Python: {}", e)))
@@ -1084,6 +1101,14 @@ impl PyScenarioSpec {
         let inner: ScenarioSpec = serde_json::from_str(json_str)
             .map_err(|e| PyValueError::new_err(format!("Failed to deserialize: {}", e)))?;
         Ok(Self::from_inner(inner))
+    }
+
+    fn __richcmp__(&self, other: &Self, op: CompareOp) -> bool {
+        match op {
+            CompareOp::Eq => json_eq(&self.inner, &other.inner),
+            CompareOp::Ne => !json_eq(&self.inner, &other.inner),
+            _ => false,
+        }
     }
 
     fn __repr__(&self) -> String {

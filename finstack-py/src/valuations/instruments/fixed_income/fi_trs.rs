@@ -156,11 +156,31 @@ impl PyFiIndexTotalReturnSwapBuilder {
         slf.ensure_ready()?;
         let inner = FIIndexTotalReturnSwap {
             id: slf.instrument_id.clone(),
-            notional: slf.notional.unwrap(),
-            underlying: slf.underlying.clone().unwrap(),
-            financing: slf.financing.clone().unwrap(),
-            schedule: slf.schedule.clone().unwrap(),
-            side: slf.side.unwrap(),
+            notional: slf.notional.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FiIndexTotalReturnSwapBuilder internal error: missing notional after validation",
+                )
+            })?,
+            underlying: slf.underlying.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FiIndexTotalReturnSwapBuilder internal error: missing underlying after validation",
+                )
+            })?,
+            financing: slf.financing.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FiIndexTotalReturnSwapBuilder internal error: missing financing after validation",
+                )
+            })?,
+            schedule: slf.schedule.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FiIndexTotalReturnSwapBuilder internal error: missing schedule after validation",
+                )
+            })?,
+            side: slf.side.ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FiIndexTotalReturnSwapBuilder internal error: missing side after validation",
+                )
+            })?,
             initial_level: slf.initial_level,
             pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
             attributes: Attributes::new(),

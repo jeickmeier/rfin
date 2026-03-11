@@ -357,8 +357,7 @@ impl PyInterestRateSwapBuilder {
             PyValueError::new_err("Maturity date must be provided via maturity().")
         })?;
         if self.start.is_none() {
-            let fallback = end.checked_sub(time::Duration::days(365)).unwrap_or(end);
-            self.start = Some(fallback);
+            self.start = Some(InterestRateSwap::default_start_date(end));
         }
         if self.discount_curve.is_none() {
             return Err(PyValueError::new_err(

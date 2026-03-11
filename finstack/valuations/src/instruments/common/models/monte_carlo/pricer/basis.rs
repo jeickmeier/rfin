@@ -26,10 +26,18 @@ pub struct PolynomialBasis {
 }
 
 impl PolynomialBasis {
-    /// Create polynomial basis of given degree (must be > 0).
+    /// Create polynomial basis of given degree (panics if `degree == 0`).
     pub fn new(degree: usize) -> Self {
         assert!(degree > 0, "Degree must be positive");
         Self { degree }
+    }
+
+    /// Create a validated polynomial basis, returning an error if `degree == 0`.
+    pub fn try_new(degree: usize) -> Result<Self, String> {
+        if degree == 0 {
+            return Err("degree must be positive".to_string());
+        }
+        Ok(Self { degree })
     }
 }
 
@@ -62,13 +70,25 @@ pub struct LaguerreBasis {
 }
 
 impl LaguerreBasis {
-    /// Create Laguerre basis of given degree with strike normalization.
+    /// Create Laguerre basis of given degree with strike normalization
+    /// (panics on invalid inputs).
     ///
     /// `degree` must be in [1, 4] and `strike` must be positive.
     pub fn new(degree: usize, strike: f64) -> Self {
         assert!(degree > 0 && degree <= 4, "Degree must be 1-4");
         assert!(strike > 0.0, "Strike must be positive");
         Self { degree, strike }
+    }
+
+    /// Create a validated Laguerre basis, returning an error on invalid inputs.
+    pub fn try_new(degree: usize, strike: f64) -> Result<Self, String> {
+        if degree == 0 || degree > 4 {
+            return Err("degree must be 1-4".to_string());
+        }
+        if strike <= 0.0 {
+            return Err("strike must be positive".to_string());
+        }
+        Ok(Self { degree, strike })
     }
 
     /// Strike price used for normalization.

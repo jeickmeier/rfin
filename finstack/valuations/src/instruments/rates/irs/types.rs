@@ -182,6 +182,14 @@ pub struct ConventionSwapParams<'a> {
 }
 
 impl InterestRateSwap {
+    /// Default start date when the user omits it: `end − 365 calendar days`.
+    ///
+    /// Shared across all frontend bindings (Python, WASM) so that the
+    /// defaulting logic lives in core rather than being duplicated.
+    pub fn default_start_date(end: Date) -> Date {
+        end.checked_sub(time::Duration::days(365)).unwrap_or(end)
+    }
+
     /// Create an IRS from market conventions resolved via `ConventionRegistry`.
     ///
     /// This is the preferred way to construct standard swaps. Conventions
@@ -705,5 +713,16 @@ mod tests {
             swap.validate().is_err(),
             "large negative payment delay must be rejected"
         );
+    }
+
+    #[test]
+    fn default_start_date_subtracts_365_days() {
+        let end = Date::from_calendar_date(2030, time::Month::June, 15).expect("valid");
+        let start = InterestRateSwap::default_start_date(end);
+        let expected = end
+            .checked_sub(time::Duration::days(365))
+            .expect("subtraction should succeed");
+        assert_eq!(start, expected);
+        assert!(start < end);
     }
 }

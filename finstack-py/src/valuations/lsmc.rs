@@ -44,12 +44,9 @@ pub struct PyAmericanPut {
 impl PyAmericanPut {
     #[new]
     fn new(strike: f64) -> PyResult<Self> {
-        if strike <= 0.0 {
-            return Err(PyValueError::new_err("strike must be positive"));
-        }
-        Ok(Self {
-            inner: AmericanPut { strike },
-        })
+        AmericanPut::new(strike)
+            .map(|inner| Self { inner })
+            .map_err(|e| PyValueError::new_err(e))
     }
 
     #[getter]
@@ -86,12 +83,9 @@ pub struct PyAmericanCall {
 impl PyAmericanCall {
     #[new]
     fn new(strike: f64) -> PyResult<Self> {
-        if strike <= 0.0 {
-            return Err(PyValueError::new_err("strike must be positive"));
-        }
-        Ok(Self {
-            inner: AmericanCall { strike },
-        })
+        AmericanCall::new(strike)
+            .map(|inner| Self { inner })
+            .map_err(|e| PyValueError::new_err(e))
     }
 
     #[getter]
@@ -135,10 +129,9 @@ pub struct PyPolynomialBasis {
 impl PyPolynomialBasis {
     #[new]
     fn new(degree: usize) -> PyResult<Self> {
-        if degree == 0 {
-            return Err(PyValueError::new_err("degree must be positive"));
-        }
-        Ok(Self { degree_: degree })
+        PolynomialBasis::try_new(degree)
+            .map(|_| Self { degree_: degree })
+            .map_err(|e| PyValueError::new_err(e))
     }
 
     #[getter]
@@ -187,16 +180,12 @@ pub struct PyLaguerreBasis {
 impl PyLaguerreBasis {
     #[new]
     fn new(degree: usize, strike: f64) -> PyResult<Self> {
-        if degree == 0 || degree > 4 {
-            return Err(PyValueError::new_err("degree must be 1-4"));
-        }
-        if strike <= 0.0 {
-            return Err(PyValueError::new_err("strike must be positive"));
-        }
-        Ok(Self {
-            degree_: degree,
-            strike_: strike,
-        })
+        LaguerreBasis::try_new(degree, strike)
+            .map(|_| Self {
+                degree_: degree,
+                strike_: strike,
+            })
+            .map_err(|e| PyValueError::new_err(e))
     }
 
     #[getter]
@@ -255,17 +244,11 @@ impl PyLsmcConfig {
     #[new]
     #[pyo3(signature = (num_paths, exercise_dates, seed=42))]
     fn new(num_paths: usize, exercise_dates: Vec<usize>, seed: u64) -> PyResult<Self> {
-        if num_paths == 0 {
-            return Err(PyValueError::new_err("num_paths must be positive"));
-        }
-        if exercise_dates.is_empty() {
-            return Err(PyValueError::new_err(
-                "exercise_dates must have at least one element",
-            ));
-        }
-        Ok(Self {
-            inner: LsmcConfig::new(num_paths, exercise_dates).with_seed(seed),
-        })
+        LsmcConfig::try_new(num_paths, exercise_dates)
+            .map(|config| Self {
+                inner: config.with_seed(seed),
+            })
+            .map_err(|e| PyValueError::new_err(e))
     }
 
     #[getter]

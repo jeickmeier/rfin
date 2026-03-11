@@ -115,7 +115,7 @@ mod types;
 
 // Re-export cashflow accrual types for convenience
 pub use crate::cashflow::accrual::AccrualMethod;
-pub use cashflow_spec::CashflowSpec;
+pub use cashflow_spec::{CashflowSpec, FloatingConventionParams};
 #[doc(hidden)]
 pub use metrics::price_yield_spread::asw::{
     asw_market_with_forward, asw_market_with_forward_config, asw_par_with_forward,
@@ -681,5 +681,51 @@ mod tests {
             par.pricing_overrides.market_quotes.quoted_clean_price,
             Some(100.0)
         );
+    }
+
+    #[test]
+    fn test_bond_builder_defaults_issue_date_from_maturity() {
+        let maturity = date!(2030 - 06 - 15);
+        let bond = Bond::builder()
+            .id("NO_ISSUE".into())
+            .notional(Money::new(1000.0, Currency::USD))
+            .maturity(maturity)
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Tenor::semi_annual(),
+                DayCount::Act365F,
+            ))
+            .discount_curve_id("USD-OIS".into())
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("should succeed with defaulted issue_date");
+
+        let expected_issue = maturity
+            .checked_sub(time::Duration::days(365))
+            .expect("subtraction should succeed");
+        assert_eq!(bond.issue_date, expected_issue);
+        assert!(bond.issue_date < bond.maturity);
+    }
+
+    #[test]
+    fn test_bond_builder_explicit_issue_date_takes_precedence() {
+        let bond = Bond::builder()
+            .id("EXPLICIT_ISSUE".into())
+            .notional(Money::new(1000.0, Currency::USD))
+            .issue_date(date!(2024 - 03 - 01))
+            .maturity(date!(2030 - 06 - 15))
+            .cashflow_spec(CashflowSpec::fixed(
+                0.05,
+                Tenor::semi_annual(),
+                DayCount::Act365F,
+            ))
+            .discount_curve_id("USD-OIS".into())
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("should succeed");
+
+        assert_eq!(bond.issue_date, date!(2024 - 03 - 01));
     }
 }

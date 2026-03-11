@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! Python bindings for Agency CMO instruments.
 
 use crate::core::common::args::CurrencyArg;
@@ -531,12 +529,12 @@ impl PyAgencyCmoBuilder {
 
         let mut builder = AgencyCmo::builder()
             .id(slf.instrument_id.clone())
-            .deal_name(slf.deal_name.clone().unwrap().into())
-            .agency(slf.agency.unwrap())
-            .issue_date(slf.issue_date.unwrap())
-            .waterfall(slf.waterfall.clone().unwrap())
-            .reference_tranche_id(slf.reference_tranche_id.clone().unwrap())
-            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().unwrap()))
+            .deal_name(slf.deal_name.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing deal_name after validation"))?.into())
+            .agency(slf.agency.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing agency after validation"))?)
+            .issue_date(slf.issue_date.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing issue_date after validation"))?)
+            .waterfall(slf.waterfall.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing waterfall after validation"))?)
+            .reference_tranche_id(slf.reference_tranche_id.clone().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing reference_tranche_id after validation"))?)
+            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyCmoBuilder internal error: missing discount_curve_id after validation"))?))
             .attributes(Attributes::new());
 
         if let Some(wac) = slf.collateral_wac {

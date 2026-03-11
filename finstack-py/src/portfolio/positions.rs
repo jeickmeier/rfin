@@ -102,8 +102,7 @@ impl PyPortfolio {
     ///     >>> len(positions)
     ///     1
     fn positions_for_entity(&self, entity_id: &str, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let entity_id_string = entity_id.to_string();
-        let positions = self.inner.positions_for_entity(&entity_id_string);
+        let positions = self.inner.positions_for_entity(entity_id);
         let py_positions: Vec<PyPosition> = positions
             .into_iter()
             .map(|p| PyPosition::new(p.clone()))
@@ -418,12 +417,9 @@ pub(crate) fn register<'py>(
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
     parent.add_class::<PyPortfolio>()?;
+    // Iterator is registered for runtime use but excluded from __all__
     parent.add_class::<PyPositionIterator>()?;
     parent.add_class::<PyPortfolioSpec>()?;
 
-    Ok(vec![
-        "Portfolio".to_string(),
-        "PositionIterator".to_string(),
-        "PortfolioSpec".to_string(),
-    ])
+    Ok(vec!["Portfolio".to_string(), "PortfolioSpec".to_string()])
 }

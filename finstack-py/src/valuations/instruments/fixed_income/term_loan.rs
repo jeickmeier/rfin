@@ -277,7 +277,7 @@ impl PyRateSpec {
                     f.index_id, f.spread_bp
                 )
             }
-            _ => "RateSpec(...)".to_string(),
+            other => format!("RateSpec({:?})", other),
         }
     }
 }
@@ -367,7 +367,7 @@ impl PyTermLoanAmortizationSpec {
             TermLoanAmortizationSpec::Custom(items) => {
                 format!("TermLoanAmortizationSpec.custom(len={})", items.len())
             }
-            _ => "TermLoanAmortizationSpec(...)".to_string(),
+            other => format!("TermLoanAmortizationSpec({:?})", other),
         }
     }
 }
@@ -531,7 +531,7 @@ impl PyCommitmentFeeBase {
             CommitmentFeeBase::CommitmentMinusOutstanding => {
                 "CommitmentFeeBase.COMMITMENT_MINUS_OUTSTANDING".to_string()
             }
-            _ => "CommitmentFeeBase(...)".to_string(),
+            other => format!("CommitmentFeeBase({:?})", other),
         }
     }
 }
@@ -895,7 +895,7 @@ impl PyOidPolicy {
             OidPolicy::WithheldAmount(m) => format!("OidPolicy.withheld_amount({m})"),
             OidPolicy::SeparatePct(bp) => format!("OidPolicy.separate_pct({bp})"),
             OidPolicy::SeparateAmount(m) => format!("OidPolicy.separate_amount({m})"),
-            _ => "OidPolicy(...)".to_string(),
+            other => format!("OidPolicy({:?})", other),
         }
     }
 }
@@ -938,7 +938,7 @@ impl PyLoanCallType {
             LoanCallType::MakeWhole { treasury_spread_bp } => {
                 format!("LoanCallType.make_whole({treasury_spread_bp})")
             }
-            _ => "LoanCallType(...)".to_string(),
+            other => format!("LoanCallType({:?})", other),
         }
     }
 }

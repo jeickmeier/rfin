@@ -19,16 +19,8 @@ Examples:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    # Use public import paths for best IDE support.
-    from finstack import Currency
-    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
-else:
-    # Runtime: these imports are expected to succeed when the package is installed.
-    from finstack import Currency
-    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
+from finstack import Currency
+from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
 
 
 class ScenarioBuilder:
@@ -286,7 +278,7 @@ class ScenarioBuilder:
         return self
 
     # Statement operations
-    def adjust_forecast(self, metric: str, pct_adjust: float, period: str | None = None) -> ScenarioBuilder:
+    def adjust_forecast(self, metric: str, pct_adjust: float) -> ScenarioBuilder:
         """Add a statement forecast adjustment.
 
         Parameters
@@ -295,20 +287,16 @@ class ScenarioBuilder:
             Metric name to adjust.
         pct_adjust : float
             Adjustment as percentage.
-        period : str, optional
-            Specific period (e.g., "2024Q1"). If None, adjusts all periods.
 
         Returns:
         -------
         ScenarioBuilder
             Self for method chaining.
         """
-        _ = period
-        # Period-level targeting not currently supported in the bindings; apply globally
         self._operations.append(OperationSpec.stmt_forecast_percent(metric, pct_adjust))
         return self
 
-    def set_forecast(self, metric: str, value: float, period: str | None = None) -> ScenarioBuilder:
+    def set_forecast(self, metric: str, value: float) -> ScenarioBuilder:
         """Set a statement forecast value.
 
         Parameters
@@ -317,16 +305,12 @@ class ScenarioBuilder:
             Metric name to set.
         value : float
             New value.
-        period : str, optional
-            Specific period. If None, sets all periods.
 
         Returns:
         -------
         ScenarioBuilder
             Self for method chaining.
         """
-        _ = period
-        # Period-level targeting not currently supported in the bindings; apply globally
         self._operations.append(OperationSpec.stmt_forecast_assign(metric, value))
         return self
 

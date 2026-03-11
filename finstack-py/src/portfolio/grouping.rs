@@ -80,9 +80,8 @@ fn py_aggregate_by_attribute(
     valuation: &Bound<'_, PyAny>,
     portfolio: &Bound<'_, PyAny>,
     attribute_key: &str,
-    _py: Python<'_>,
+    py: Python<'_>,
 ) -> PyResult<Py<PyAny>> {
-    let py = _py;
     let valuation_inner = extract_portfolio_valuation(valuation)?;
     let portfolio_inner = extract_portfolio(portfolio)?;
 

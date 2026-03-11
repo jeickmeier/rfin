@@ -19,7 +19,10 @@ class ExecutionContext:
     Notes
     -----
     - Instruments should be constructed from ``finstack.valuations.instruments``;
-      they are converted to Rust trait objects and mutated in-place.
+      they are cloned into Rust on construction. Rust-side mutations
+      (e.g., spread shocks) are applied to the internal copies and
+      **will not** be reflected in the original Python instrument objects.
+      Re-read repriced values from the valuation results.
     - ``calendar`` enables business-day aware tenor alignment for curve shocks.
     - ``as_of`` may advance when ``time_roll_forward`` operations are applied.
 

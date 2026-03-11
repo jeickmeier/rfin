@@ -355,11 +355,45 @@ impl PyAssetType {
         self.inner == other.inner
     }
 
-    fn __hash__(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        format!("{:?}", self.inner).hash(&mut h);
-        h.finish()
+    fn discriminant(&self) -> isize {
+        match &self.inner {
+            AssetType::FirstLienLoan { .. } => 0,
+            AssetType::SecondLienLoan { .. } => 1,
+            AssetType::RevolverLoan { .. } => 2,
+            AssetType::BridgeLoan { .. } => 3,
+            AssetType::MezzanineLoan { .. } => 4,
+            AssetType::HighYieldBond { .. } => 5,
+            AssetType::InvestmentGradeBond { .. } => 6,
+            AssetType::DistressedBond { .. } => 7,
+            AssetType::EmergingMarketsBond { .. } => 8,
+            AssetType::SingleFamilyMortgage { .. } => 9,
+            AssetType::MultifamilyMortgage { .. } => 10,
+            AssetType::CommercialMortgage { .. } => 11,
+            AssetType::IndustrialMortgage { .. } => 12,
+            AssetType::RetailMortgage { .. } => 13,
+            AssetType::OfficeMortgage { .. } => 14,
+            AssetType::HotelMortgage { .. } => 15,
+            AssetType::OtherMortgage { .. } => 16,
+            AssetType::NewAutoLoan { .. } => 17,
+            AssetType::UsedAutoLoan { .. } => 18,
+            AssetType::LeaseAutoLoan { .. } => 19,
+            AssetType::FleetAutoLoan { .. } => 20,
+            AssetType::PrimeCreditCard => 21,
+            AssetType::SubPrimeCreditCard => 22,
+            AssetType::SuperPrimeCreditCard => 23,
+            AssetType::CommercialCreditCard => 24,
+            AssetType::FederalStudentLoan => 25,
+            AssetType::PrivateStudentLoan => 26,
+            AssetType::FFELPStudentLoan => 27,
+            AssetType::ConsolidationStudentLoan => 28,
+            AssetType::Equipment { .. } => 29,
+            AssetType::Generic { .. } => 30,
+            _ => -1,
+        }
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
     }
 }
 
@@ -448,11 +482,17 @@ impl PyPaymentMode {
         self.inner == other.inner
     }
 
-    fn __hash__(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        format!("{:?}", self.inner).hash(&mut h);
-        h.finish()
+    fn discriminant(&self) -> isize {
+        match &self.inner {
+            PaymentMode::ProRata => 0,
+            PaymentMode::Sequential { .. } => 1,
+            PaymentMode::Hybrid { .. } => 2,
+            _ => -1,
+        }
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
     }
 }
 
@@ -558,11 +598,20 @@ impl PyTriggerConsequence {
         self.inner == other.inner
     }
 
-    fn __hash__(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        format!("{:?}", self.inner).hash(&mut h);
-        h.finish()
+    fn discriminant(&self) -> isize {
+        match &self.inner {
+            TriggerConsequence::DivertCashFlow => 0,
+            TriggerConsequence::TrapExcessSpread => 1,
+            TriggerConsequence::AccelerateAmortization => 2,
+            TriggerConsequence::StopReinvestment => 3,
+            TriggerConsequence::ReduceManagerFee => 4,
+            TriggerConsequence::Custom(_) => 5,
+            _ => -1,
+        }
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
     }
 }
 
@@ -598,7 +647,7 @@ impl From<TrancheBehaviorType> for PyTrancheBehaviorType {
     fn from(value: TrancheBehaviorType) -> Self {
         match value {
             TrancheBehaviorType::Standard => PyTrancheBehaviorType::Standard,
-            _ => unreachable!("unknown TrancheBehaviorType variant"),
+            _ => PyTrancheBehaviorType::Standard,
         }
     }
 }
@@ -696,15 +745,23 @@ impl PyTrancheCoupon {
             (TrancheCoupon::Fixed { rate: a }, TrancheCoupon::Fixed { rate: b }) => {
                 (a - b).abs() < f64::EPSILON
             }
-            _ => format!("{:?}", self.inner) == format!("{:?}", other.inner),
+            (TrancheCoupon::Floating(a), TrancheCoupon::Floating(b)) => {
+                format!("{a:?}") == format!("{b:?}")
+            }
+            _ => false,
         }
     }
 
-    fn __hash__(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        format!("{:?}", self.inner).hash(&mut h);
-        h.finish()
+    fn discriminant(&self) -> isize {
+        match &self.inner {
+            TrancheCoupon::Fixed { .. } => 0,
+            TrancheCoupon::Floating(_) => 1,
+            _ => -1,
+        }
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
     }
 }
 
@@ -850,7 +907,7 @@ impl From<ManagementFeeType> for PyManagementFeeType {
             ManagementFeeType::Senior => PyManagementFeeType::Senior,
             ManagementFeeType::Subordinated => PyManagementFeeType::Subordinated,
             ManagementFeeType::Incentive => PyManagementFeeType::Incentive,
-            _ => unreachable!("unknown ManagementFeeType variant"),
+            _ => PyManagementFeeType::Senior,
         }
     }
 }
@@ -902,7 +959,7 @@ impl From<CoverageTestType> for PyCoverageTestType {
         match value {
             CoverageTestType::OC => PyCoverageTestType::OC,
             CoverageTestType::IC => PyCoverageTestType::IC,
-            _ => unreachable!("unknown CoverageTestType variant"),
+            _ => PyCoverageTestType::OC,
         }
     }
 }
@@ -956,7 +1013,7 @@ impl From<RoundingConvention> for PyRoundingConvention {
             RoundingConvention::Nearest => PyRoundingConvention::Nearest,
             RoundingConvention::Floor => PyRoundingConvention::Floor,
             RoundingConvention::Ceiling => PyRoundingConvention::Ceiling,
-            _ => unreachable!("unknown RoundingConvention variant"),
+            _ => PyRoundingConvention::Nearest,
         }
     }
 }
@@ -1050,11 +1107,17 @@ impl PyDiversionCondition {
         self.inner == other.inner
     }
 
-    fn __hash__(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        format!("{:?}", self.inner).hash(&mut h);
-        h.finish()
+    fn discriminant(&self) -> isize {
+        match &self.inner {
+            DiversionCondition::CoverageTestFailed { .. } => 0,
+            DiversionCondition::CustomExpression { .. } => 1,
+            DiversionCondition::Always => 2,
+            _ => -1,
+        }
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
     }
 }
 
@@ -1229,16 +1292,80 @@ impl PyPaymentCalculation {
     }
 
     fn __eq__(&self, other: &Self) -> bool {
-        serde_json::to_string(&self.inner).ok() == serde_json::to_string(&other.inner).ok()
+        match (&self.inner, &other.inner) {
+            (
+                PaymentCalculation::FixedAmount {
+                    amount: a,
+                    rounding: ra,
+                },
+                PaymentCalculation::FixedAmount {
+                    amount: b,
+                    rounding: rb,
+                },
+            ) => a == b && ra == rb,
+            (
+                PaymentCalculation::PercentageOfCollateral {
+                    rate: r1,
+                    annualized: a1,
+                    day_count: dc1,
+                    rounding: rd1,
+                },
+                PaymentCalculation::PercentageOfCollateral {
+                    rate: r2,
+                    annualized: a2,
+                    day_count: dc2,
+                    rounding: rd2,
+                },
+            ) => (r1 - r2).abs() < f64::EPSILON && a1 == a2 && dc1 == dc2 && rd1 == rd2,
+            (
+                PaymentCalculation::TrancheInterest {
+                    tranche_id: t1,
+                    rounding: r1,
+                },
+                PaymentCalculation::TrancheInterest {
+                    tranche_id: t2,
+                    rounding: r2,
+                },
+            ) => t1 == t2 && r1 == r2,
+            (
+                PaymentCalculation::TranchePrincipal {
+                    tranche_id: t1,
+                    target_balance: tb1,
+                    rounding: r1,
+                },
+                PaymentCalculation::TranchePrincipal {
+                    tranche_id: t2,
+                    target_balance: tb2,
+                    rounding: r2,
+                },
+            ) => t1 == t2 && tb1 == tb2 && r1 == r2,
+            (PaymentCalculation::ResidualCash, PaymentCalculation::ResidualCash) => true,
+            (
+                PaymentCalculation::ReserveReplenishment {
+                    target_balance: tb1,
+                },
+                PaymentCalculation::ReserveReplenishment {
+                    target_balance: tb2,
+                },
+            ) => tb1 == tb2,
+            _ => false,
+        }
     }
 
-    fn __hash__(&self) -> u64 {
-        use std::hash::{Hash, Hasher};
-        let mut h = std::collections::hash_map::DefaultHasher::new();
-        serde_json::to_string(&self.inner)
-            .unwrap_or_default()
-            .hash(&mut h);
-        h.finish()
+    fn discriminant(&self) -> isize {
+        match &self.inner {
+            PaymentCalculation::FixedAmount { .. } => 0,
+            PaymentCalculation::PercentageOfCollateral { .. } => 1,
+            PaymentCalculation::TrancheInterest { .. } => 2,
+            PaymentCalculation::TranchePrincipal { .. } => 3,
+            PaymentCalculation::ResidualCash => 4,
+            PaymentCalculation::ReserveReplenishment { .. } => 5,
+            _ => -1,
+        }
+    }
+
+    fn __hash__(&self) -> isize {
+        self.discriminant()
     }
 }
 

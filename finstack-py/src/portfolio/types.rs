@@ -91,34 +91,8 @@ impl PyEntity {
     #[pyo3(text_signature = "($self, tags)")]
     /// Add multiple tags to the entity.
     fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(dict) = tags.cast::<PyDict>() {
-            let mut collected = Vec::with_capacity(dict.len());
-            for (k, v) in dict {
-                collected.push((k.extract::<String>()?, v.extract::<String>()?));
-            }
-            return Ok(Self::new(self.inner.clone().with_tags(collected)));
-        }
-
-        if let Ok(list) = tags.cast::<PyList>() {
-            let mut collected = Vec::with_capacity(list.len());
-            for item in list.iter() {
-                let tuple = item.cast::<PyTuple>()?;
-                if tuple.len() != 2 {
-                    return Err(PyTypeError::new_err(
-                        "Expected sequence of (key, value) pairs",
-                    ));
-                }
-                collected.push((
-                    tuple.get_item(0)?.extract::<String>()?,
-                    tuple.get_item(1)?.extract::<String>()?,
-                ));
-            }
-            return Ok(Self::new(self.inner.clone().with_tags(collected)));
-        }
-
-        Err(PyTypeError::new_err(
-            "Expected mapping or list of (key, value) pairs",
-        ))
+        let collected = extract_string_pairs(tags)?;
+        Ok(Self::new(self.inner.clone().with_tags(collected)))
     }
 
     #[staticmethod]
@@ -387,34 +361,8 @@ impl PyPosition {
     #[pyo3(text_signature = "($self, tags)")]
     /// Add multiple tags to the position.
     fn with_tags(&self, tags: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(dict) = tags.cast::<PyDict>() {
-            let mut collected = Vec::with_capacity(dict.len());
-            for (k, v) in dict {
-                collected.push((k.extract::<String>()?, v.extract::<String>()?));
-            }
-            return Ok(Self::new(self.inner.clone().with_tags(collected)));
-        }
-
-        if let Ok(list) = tags.cast::<PyList>() {
-            let mut collected = Vec::with_capacity(list.len());
-            for item in list.iter() {
-                let tuple = item.cast::<PyTuple>()?;
-                if tuple.len() != 2 {
-                    return Err(PyTypeError::new_err(
-                        "Expected sequence of (key, value) pairs",
-                    ));
-                }
-                collected.push((
-                    tuple.get_item(0)?.extract::<String>()?,
-                    tuple.get_item(1)?.extract::<String>()?,
-                ));
-            }
-            return Ok(Self::new(self.inner.clone().with_tags(collected)));
-        }
-
-        Err(PyTypeError::new_err(
-            "Expected mapping or list of (key, value) pairs",
-        ))
+        let collected = extract_string_pairs(tags)?;
+        Ok(Self::new(self.inner.clone().with_tags(collected)))
     }
 
     #[pyo3(text_signature = "($self, key, value)")]
@@ -600,6 +548,38 @@ impl PyPositionSpec {
             self.inner.position_id, self.inner.entity_id, self.inner.instrument_id
         )
     }
+}
+
+/// Extract string key-value pairs from a dict or list of (key, value) tuples.
+pub(crate) fn extract_string_pairs(tags: &Bound<'_, PyAny>) -> PyResult<Vec<(String, String)>> {
+    if let Ok(dict) = tags.cast::<PyDict>() {
+        let mut collected = Vec::with_capacity(dict.len());
+        for (k, v) in dict {
+            collected.push((k.extract::<String>()?, v.extract::<String>()?));
+        }
+        return Ok(collected);
+    }
+
+    if let Ok(list) = tags.cast::<PyList>() {
+        let mut collected = Vec::with_capacity(list.len());
+        for item in list.iter() {
+            let tuple = item.cast::<PyTuple>()?;
+            if tuple.len() != 2 {
+                return Err(PyTypeError::new_err(
+                    "Expected sequence of (key, value) pairs",
+                ));
+            }
+            collected.push((
+                tuple.get_item(0)?.extract::<String>()?,
+                tuple.get_item(1)?.extract::<String>()?,
+            ));
+        }
+        return Ok(collected);
+    }
+
+    Err(PyTypeError::new_err(
+        "Expected mapping or list of (key, value) pairs",
+    ))
 }
 
 /// Extract an Entity from Python object.

@@ -94,7 +94,7 @@ class ForwardRateAgreement:
         >>> ctx.insert(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.97)]))
         >>> ctx.insert(ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (1.0, 0.031)], base_date=date(2024, 1, 1)))
         >>> registry = create_standard_registry()
-        >>> pv = registry.price(fra, "discounting", ctx).value
+        >>> pv = registry.price(fra, "discounting", ctx, date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'
 

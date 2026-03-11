@@ -3,11 +3,11 @@
 //! This module provides comprehensive bindings for the Rust optimization framework,
 //! including constraint types, objectives, trade universe, and optimization problems.
 
-use crate::core::config::PyFinstackConfig;
-use crate::core::config::PyResultsMeta;
+use crate::core::config::{extract_config_or_default, PyResultsMeta};
 use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
+use crate::portfolio::types::PyPositionUnit;
 use crate::valuations::instruments::extract_instrument;
 use crate::valuations::metrics::ids::PyMetricId;
 use finstack_portfolio::optimization::{
@@ -17,11 +17,17 @@ use finstack_portfolio::optimization::{
     PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec,
     TradeType, TradeUniverse, WeightingScheme,
 };
-use finstack_portfolio::position::PositionUnit;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
+
+fn hash_discriminant<T>(value: &T) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    std::mem::discriminant(value).hash(&mut hasher);
+    hasher.finish()
+}
 
 /// Optimize a bond portfolio to maximize value‑weighted YTM with a CCC exposure limit.
 ///
@@ -49,15 +55,7 @@ fn py_optimize_max_yield_with_ccc_limit(
 ) -> PyResult<PyMaxYieldWithCccLimitResult> {
     let portfolio_inner = extract_portfolio(portfolio)?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
-
-    let cfg = if let Some(config_obj) = config {
-        config_obj
-            .extract::<PyRef<PyFinstackConfig>>()?
-            .inner
-            .clone()
-    } else {
-        finstack_core::config::FinstackConfig::default()
-    };
+    let cfg = extract_config_or_default(config)?;
 
     let result = optimize_max_yield_with_ccc_limit(
         &portfolio_inner,
@@ -124,6 +122,14 @@ impl PyWeightingScheme {
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }
+
+    fn __hash__(&self) -> u64 {
+        hash_discriminant(&self.inner)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
+    }
 }
 
 /// Policy for handling positions missing required metrics.
@@ -164,6 +170,14 @@ impl PyMissingMetricPolicy {
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }
+
+    fn __hash__(&self) -> u64 {
+        hash_discriminant(&self.inner)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
+    }
 }
 
 /// Inequality/equality operator for constraints.
@@ -203,6 +217,14 @@ impl PyInequality {
 
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
+    }
+
+    fn __hash__(&self) -> u64 {
+        hash_discriminant(&self.inner)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
     }
 }
 
@@ -277,7 +299,11 @@ impl PyOptimizationStatus {
     }
 
     fn __eq__(&self, other: &Self) -> bool {
-        format!("{:?}", self.inner) == format!("{:?}", other.inner)
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
+    }
+
+    fn __hash__(&self) -> u64 {
+        hash_discriminant(&self.inner)
     }
 }
 
@@ -312,6 +338,14 @@ impl PyTradeDirection {
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }
+
+    fn __hash__(&self) -> u64 {
+        hash_discriminant(&self.inner)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
+    }
 }
 
 /// Whether a trade is for an existing position or a new candidate.
@@ -344,6 +378,14 @@ impl PyTradeType {
 
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
+    }
+
+    fn __hash__(&self) -> u64 {
+        hash_discriminant(&self.inner)
+    }
+
+    fn __eq__(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
     }
 }
 
@@ -1021,32 +1063,11 @@ impl PyCandidatePosition {
         id: String,
         entity_id: String,
         instrument: &Bound<'_, PyAny>,
-        unit: &Bound<'_, PyAny>,
+        unit: PyPositionUnit,
     ) -> PyResult<Self> {
-        // Extract instrument and convert Box to Arc
         let instrument_handle = extract_instrument(instrument)?;
-        let instrument_arc = instrument_handle.instrument;
-
-        // Extract PositionUnit
-        let unit_inner = if let Ok(units) = unit.extract::<String>() {
-            match units.as_str() {
-                "Units" => PositionUnit::Units,
-                "Notional" => PositionUnit::Notional(None),
-                "FaceValue" => PositionUnit::FaceValue,
-                "Percentage" => PositionUnit::Percentage,
-                _ => {
-                    return Err(PyValueError::new_err(format!(
-                        "Invalid PositionUnit: {}",
-                        units
-                    )))
-                }
-            }
-        } else {
-            return Err(PyValueError::new_err("Expected PositionUnit string"));
-        };
-
         Ok(Self {
-            inner: CandidatePosition::new(id, entity_id, instrument_arc, unit_inner),
+            inner: CandidatePosition::new(id, entity_id, instrument_handle.instrument, unit.inner),
         })
     }
 
@@ -1276,15 +1297,7 @@ impl PyPortfolioOptimizationProblem {
         config: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyOptimizationResult> {
         let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
-
-        let cfg = if let Some(config_obj) = config {
-            config_obj
-                .extract::<PyRef<PyFinstackConfig>>()?
-                .inner
-                .clone()
-        } else {
-            finstack_core::config::FinstackConfig::default()
-        };
+        let cfg = extract_config_or_default(config)?;
 
         let optimizer = DefaultLpOptimizer::default();
         let result = optimizer
@@ -1419,14 +1432,7 @@ impl PyDefaultLpOptimizer {
         config: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyOptimizationResult> {
         let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
-        let cfg = if let Some(config_obj) = config {
-            config_obj
-                .extract::<PyRef<PyFinstackConfig>>()?
-                .inner
-                .clone()
-        } else {
-            finstack_core::config::FinstackConfig::default()
-        };
+        let cfg = extract_config_or_default(config)?;
 
         let result = self
             .inner

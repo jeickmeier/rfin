@@ -51,18 +51,9 @@ Examples:
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
 
 from finstack import Currency
-
-if TYPE_CHECKING:
-    from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
-else:
-    # Runtime: prefer compiled extension, fall back to hybrid module.
-    try:
-        from finstack.finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
-    except ImportError:  # pragma: no cover - alternate layouts
-        from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
+from finstack.scenarios import CurveKind, OperationSpec, ScenarioSpec, VolSurfaceKind
 
 
 class DSLParseError(Exception):
@@ -156,6 +147,7 @@ class DSLParser:
     def _parse_line(self, line: str) -> OperationSpec | None:
         """Parse a single line into an operation."""
         tokens = line.lower().split()
+        original_tokens = line.split()
         if not tokens:
             return None
 
@@ -166,9 +158,9 @@ class DSLParser:
         elif command == "roll":
             return self._parse_roll(line, tokens[1:])
         elif command == "adjust":
-            return self._parse_adjust(line, tokens[1:])
+            return self._parse_adjust(line, tokens[1:], original_tokens[1:])
         elif command == "set":
-            return self._parse_set(line, tokens[1:])
+            return self._parse_set(line, tokens[1:], original_tokens[1:])
         else:
             raise DSLParseError(f"Unknown operation: {command}")
 
@@ -297,12 +289,12 @@ class DSLParser:
 
         return OperationSpec.time_roll_forward(tenor_str, True, None)
 
-    def _parse_adjust(self, original_line: str, tokens: list[str]) -> OperationSpec | None:
+    def _parse_adjust(self, original_line: str, tokens: list[str], original_tokens: list[str]) -> OperationSpec | None:
         """Parse a statement adjustment operation."""
         if len(tokens) < 2:
             raise DSLParseError(f"Invalid adjust syntax: expected metric and value in '{original_line}'")
 
-        metric = tokens[0]
+        metric = original_tokens[0]
         value_str = " ".join(tokens[1:])
 
         # Parse percentage
@@ -313,12 +305,12 @@ class DSLParser:
 
         raise DSLParseError(f"Invalid adjust syntax: could not parse percentage in '{original_line}'")
 
-    def _parse_set(self, original_line: str, tokens: list[str]) -> OperationSpec | None:
+    def _parse_set(self, original_line: str, tokens: list[str], original_tokens: list[str]) -> OperationSpec | None:
         """Parse a statement set operation."""
         if len(tokens) < 2:
             raise DSLParseError(f"Invalid set syntax: expected metric and value in '{original_line}'")
 
-        metric = tokens[0]
+        metric = original_tokens[0]
         value_str = " ".join(tokens[1:])
 
         # Parse number

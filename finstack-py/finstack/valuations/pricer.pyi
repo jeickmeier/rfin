@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import datetime as dt
-from typing import Any, List, Tuple
+from typing import Any
 from .common import ModelKey, PricerKey
 from .results import ValuationResult
 from ..core.market_data.context import MarketContext
@@ -42,7 +42,7 @@ class PricerRegistry:
         >>> ctx = MarketContext()
         >>> curve = DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.97)])
         >>> ctx.insert(curve)
-        >>> result = registry.price(bond, "discounting", ctx)
+        >>> result = registry.price(bond, "discounting", ctx, date(2024, 1, 1))
         >>> result.value.currency.code
         'USD'
 
@@ -67,7 +67,7 @@ class PricerRegistry:
         instrument: Any,
         model: Any,
         market: MarketContext,
-        as_of: dt.date | None = None,
+        as_of: dt.date,
     ) -> ValuationResult:
         """Price an instrument using the specified model and market data.
 
@@ -131,28 +131,37 @@ class PricerRegistry:
         instrument: Any,
         model: Any,
         market: MarketContext,
-        as_of: dt.date | None = None,
+        as_of: dt.date,
     ) -> ValuationResult:
         """Backward-compatible alias for :meth:`price`."""
         ...
 
     def price_batch(
         self,
-        instruments: List[Any],
+        instruments: list[Any],
         model: Any,
         market: MarketContext,
-        as_of: dt.date | None = None,
-    ) -> List[ValuationResult]:
+        as_of: dt.date,
+    ) -> list[ValuationResult]:
         """Price a batch of instruments in parallel.
 
-        Args:
-            instruments: List of instruments to price.
-            model: Pricing model key or name.
-            market: Market context.
-            as_of: Optional valuation date.
+        Parameters
+        ----------
+        instruments : list[Any]
+            List of instruments to price. All instruments must be
+            compatible with the specified model.
+        model : str
+            Pricing model key or name (e.g., "discounting", "credit").
+        market : MarketContext
+            Market data container with all required curves for every
+            instrument in the batch.
+        as_of : dt.date
+            Valuation date for the pricing run.
 
-        Returns:
-            list[ValuationResult]: List of results in the same order as instruments.
+        Returns
+        -------
+        list[ValuationResult]
+            List of results in the same order as *instruments*.
         """
         ...
 
@@ -161,8 +170,8 @@ class PricerRegistry:
         instrument: Any,
         model: Any,
         market: MarketContext,
-        metrics: List[Any],
-        as_of: dt.date | None = None,
+        metrics: list[Any],
+        as_of: dt.date,
     ) -> ValuationResult:
         """Price an instrument and compute the requested risk and return metrics.
 
@@ -180,7 +189,7 @@ class PricerRegistry:
             Pricing model identifier (e.g., "discounting", "credit", "black_scholes").
         market : MarketContext
             Market data container with all required curves, surfaces, and FX rates.
-        metrics : List[Any]
+        metrics : list[Any]
             List of metric identifiers to compute. Can be:
             - MetricId instances: MetricId.from_name("dv01")
             - Strings: "dv01", "cs01", "ytm", "z_spread"
@@ -238,7 +247,7 @@ class PricerRegistry:
         forward_curve: str,
         float_margin_bp: float,
         dirty_price_ccy: float | None = None,
-    ) -> Tuple[float, float]:
+    ) -> tuple[float, float]:
         """Compute par and market asset swap spreads using a forward curve.
 
         Calculates both par ASW spread (at par price) and market ASW spread
@@ -269,7 +278,7 @@ class PricerRegistry:
 
         Returns
         -------
-        Tuple[float, float]
+        tuple[float, float]
             Tuple of (par_asw_spread_bp, market_asw_spread_bp) in basis points.
 
         Raises
@@ -378,9 +387,9 @@ def create_standard_registry() -> PricerRegistry:
         >>> from finstack.valuations.instruments import Bond
         >>> registry = create_standard_registry()
         >>> # Price any standard instrument
-        >>> result = registry.price(bond, "discounting", market_ctx)
-        >>> result = registry.price(swap, "discounting", market_ctx)
-        >>> result = registry.price(option, "black_scholes", market_ctx)
+        >>> result = registry.price(bond, "discounting", market_ctx, as_of)
+        >>> result = registry.price(swap, "discounting", market_ctx, as_of)
+        >>> result = registry.price(option, "black_scholes", market_ctx, as_of)
 
     Clone for parallel pricing:
 

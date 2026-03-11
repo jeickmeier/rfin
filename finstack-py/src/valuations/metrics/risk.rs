@@ -50,11 +50,11 @@ impl PyVarMethod {
         inner: VarMethod::TaylorApproximation,
     };
 
-    fn __repr__(&self) -> &str {
+    fn __repr__(&self) -> String {
         match self.inner {
-            VarMethod::FullRevaluation => "VarMethod.FULL_REVALUATION",
-            VarMethod::TaylorApproximation => "VarMethod.TAYLOR_APPROXIMATION",
-            _ => unreachable!("unknown VarMethod variant"),
+            VarMethod::FullRevaluation => "VarMethod.FULL_REVALUATION".to_string(),
+            VarMethod::TaylorApproximation => "VarMethod.TAYLOR_APPROXIMATION".to_string(),
+            other => format!("VarMethod({:?})", other),
         }
     }
 }
@@ -402,12 +402,14 @@ impl PyMarketHistory {
 #[pyfunction(name = "calculate_var")]
 #[pyo3(signature = (instruments, market, history, as_of, config))]
 fn py_calculate_var(
+    py: Python<'_>,
     instruments: Bound<'_, PyAny>,
     market: &PyMarketContext,
     history: &PyMarketHistory,
     as_of: (i32, u8, u8),
     config: &PyVarConfig,
 ) -> PyResult<PyVarResult> {
+    // Extract all Python data while holding the GIL
     let as_of_date = Date::from_calendar_date(
         as_of.0,
         time::Month::try_from(as_of.1).map_err(|_| PyValueError::new_err("Invalid month"))?,
@@ -434,19 +436,29 @@ fn py_calculate_var(
         ));
     }
 
-    let inst_refs: Vec<&dyn Instrument> = handles
-        .iter()
-        .map(|handle| handle.instrument.as_ref() as &dyn Instrument)
-        .collect();
+    let instruments_arcs: Vec<Arc<dyn Instrument>> =
+        handles.into_iter().map(|h| h.instrument).collect();
+    // MarketContext internals are Arc-shared; clone is O(num_curves) Arc bumps, not deep copies.
+    let market_data = market.inner.clone();
+    let history_data = history.inner.clone();
+    let config_data = config.inner.clone();
 
-    let result = calculate_var(
-        &inst_refs,
-        &market.inner,
-        &history.inner,
-        as_of_date,
-        &config.inner,
-    )
-    .map_err(|e| PyValueError::new_err(format!("VaR calculation failed: {}", e)))?;
+    // Release GIL for the N-instrument × M-scenario computation
+    let result = py
+        .detach(|| {
+            let inst_refs: Vec<&dyn Instrument> = instruments_arcs
+                .iter()
+                .map(|arc| arc.as_ref() as &dyn Instrument)
+                .collect();
+            calculate_var(
+                &inst_refs,
+                &market_data,
+                &history_data,
+                as_of_date,
+                &config_data,
+            )
+        })
+        .map_err(|e| PyValueError::new_err(format!("VaR calculation failed: {}", e)))?;
 
     Ok(PyVarResult { inner: result })
 }
@@ -472,6 +484,8 @@ fn bucketed_metric(
         .value(&market.inner, as_of_date)
         .map_err(|e| PyValueError::new_err(format!("Pricing failed: {}", e)))?;
 
+    // MarketContext::clone() is shallow -- only bumps Arc refcounts on internal
+    // curve/surface data. Wrapping in Arc is required by MetricContext's API.
     let mut context = MetricContext::new(
         inst.clone(),
         Arc::new(market.inner.clone()),

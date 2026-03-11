@@ -33,7 +33,7 @@ use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention;
 use finstack_valuations::instruments::fixed_income::bond::MakeWholeSpec;
 use finstack_valuations::instruments::fixed_income::bond::{
-    CallPut, CallPutSchedule, CashflowSpec,
+    CallPut, CallPutSchedule, CashflowSpec, FloatingConventionParams,
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
@@ -44,9 +44,7 @@ use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
-use finstack_valuations::cashflow::builder::specs::{
-    CouponType, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec,
-};
+use finstack_valuations::cashflow::builder::specs::CouponType;
 
 /// Bond settlement and ex-coupon conventions.
 #[pyclass(
@@ -403,56 +401,42 @@ impl PyBondBuilder {
         }
     }
 
-    fn make_cashflow_spec(&self) -> CashflowSpec {
+    fn make_cashflow_spec(&self) -> PyResult<CashflowSpec> {
+        use crate::valuations::common::f64_to_decimal;
         let calendar_id = self
             .calendar_id
             .clone()
             .unwrap_or_else(|| "weekends_only".to_string());
         if let Some(fwd) = &self.forward_curve {
-            CashflowSpec::Floating(FloatingCouponSpec {
-                rate_spec: FloatingRateSpec {
+            Ok(CashflowSpec::floating_with_conventions(
+                FloatingConventionParams {
                     index_id: fwd.clone(),
-                    spread_bp: rust_decimal::Decimal::from_f64_retain(self.float_margin_bp)
-                        .unwrap_or_default(),
-                    gearing: rust_decimal::Decimal::from_f64_retain(self.float_gearing)
-                        .unwrap_or(rust_decimal::Decimal::ONE),
-                    gearing_includes_spread: true,
-                    floor_bp: None,
-                    all_in_floor_bp: None,
-                    cap_bp: None,
-                    index_cap_bp: None,
-                    reset_freq: self.frequency,
+                    spread_bp: f64_to_decimal(self.float_margin_bp, "float_margin_bp")?,
+                    gearing: f64_to_decimal(self.float_gearing, "float_gearing")?,
                     reset_lag_days: self.float_reset_lag_days,
+                    coupon_type: self.coupon_type.clone(),
+                    freq: self.frequency,
                     dc: self.day_count,
                     bdc: self.bdc,
-                    calendar_id: calendar_id.clone(),
-                    fixing_calendar_id: Some(calendar_id),
-                    end_of_month: false,
-                    overnight_compounding: None,
-                    fallback: Default::default(),
-                    payment_lag_days: 0,
+                    calendar_id,
+                    stub: self.stub,
                 },
-                coupon_type: self.coupon_type.clone(),
-                freq: self.frequency,
-                stub: self.stub,
-            })
+            ))
         } else {
-            let base = CashflowSpec::Fixed(FixedCouponSpec {
-                coupon_type: self.coupon_type.clone(),
-                rate: rust_decimal::Decimal::from_f64_retain(self.coupon_rate).unwrap_or_default(),
-                freq: self.frequency,
-                dc: self.day_count,
-                bdc: self.bdc,
+            let base = CashflowSpec::fixed_with_conventions(
+                f64_to_decimal(self.coupon_rate, "coupon_rate")?,
+                self.coupon_type.clone(),
+                self.frequency,
+                self.day_count,
+                self.bdc,
                 calendar_id,
-                stub: self.stub,
-                end_of_month: false,
-                payment_lag_days: 0,
-            });
-            if let Some(amort) = &self.amortization {
+                self.stub,
+            );
+            Ok(if let Some(amort) = &self.amortization {
                 CashflowSpec::amortizing(base, amort.clone())
             } else {
                 base
-            }
+            })
         }
     }
 
@@ -470,15 +454,12 @@ impl PyBondBuilder {
                 "Both notional() and currency() must be provided before build().",
             ));
         }
-        let maturity = self.maturity.ok_or_else(|| {
-            PyValueError::new_err("Maturity date must be provided via maturity().")
-        })?;
-        if self.issue.is_none() {
-            let fallback = maturity
-                .checked_sub(time::Duration::days(365))
-                .unwrap_or(maturity);
-            self.issue = Some(fallback);
+        if self.maturity.is_none() {
+            return Err(PyValueError::new_err(
+                "Maturity date must be provided via maturity().",
+            ));
         }
+        // issue_date fallback (maturity − 365d) is handled by the core BondBuilder.
         if self.discount_curve.is_none() {
             return Err(PyValueError::new_err(
                 "Discount curve must be provided via disc_id().",
@@ -758,35 +739,22 @@ impl PyBondBuilder {
             }
 
             if let Some(fwd) = slf.forward_curve.clone() {
+                use crate::valuations::common::f64_to_decimal;
                 let freq = bond.cashflow_spec.frequency();
                 let dc = bond.cashflow_spec.day_count();
-                bond.cashflow_spec = CashflowSpec::Floating(FloatingCouponSpec {
-                    rate_spec: FloatingRateSpec {
+                bond.cashflow_spec =
+                    CashflowSpec::floating_with_conventions(FloatingConventionParams {
                         index_id: fwd,
-                        spread_bp: rust_decimal::Decimal::from_f64_retain(slf.float_margin_bp)
-                            .unwrap_or_default(),
-                        gearing: rust_decimal::Decimal::from_f64_retain(slf.float_gearing)
-                            .unwrap_or(rust_decimal::Decimal::ONE),
-                        gearing_includes_spread: true,
-                        floor_bp: None,
-                        all_in_floor_bp: None,
-                        cap_bp: None,
-                        index_cap_bp: None,
-                        reset_freq: freq,
+                        spread_bp: f64_to_decimal(slf.float_margin_bp, "float_margin_bp")?,
+                        gearing: f64_to_decimal(slf.float_gearing, "float_gearing")?,
                         reset_lag_days: slf.float_reset_lag_days,
+                        coupon_type: CouponType::Cash,
+                        freq,
                         dc,
-                        bdc: finstack_core::dates::BusinessDayConvention::Following,
+                        bdc: BusinessDayConvention::Following,
                         calendar_id: "weekends_only".to_string(),
-                        fixing_calendar_id: None,
-                        end_of_month: false,
-                        overnight_compounding: None,
-                        fallback: Default::default(),
-                        payment_lag_days: 0,
-                    },
-                    coupon_type: CouponType::Cash,
-                    freq,
-                    stub: finstack_core::dates::StubKind::None,
-                });
+                        stub: StubKind::None,
+                    });
             }
 
             return Ok(PyBond::new(bond));
@@ -795,11 +763,6 @@ impl PyBondBuilder {
         let money = slf.notional_money().ok_or_else(|| {
             pyo3::exceptions::PyRuntimeError::new_err(
                 "BondBuilder internal error: missing notional after validation",
-            )
-        })?;
-        let issue = slf.issue.ok_or_else(|| {
-            pyo3::exceptions::PyRuntimeError::new_err(
-                "BondBuilder internal error: missing issue date after validation",
             )
         })?;
         let maturity = slf.maturity.ok_or_else(|| {
@@ -824,13 +787,16 @@ impl PyBondBuilder {
         let mut builder = Bond::builder()
             .id(slf.instrument_id.clone())
             .notional(money)
-            .issue_date(issue)
             .maturity(maturity)
             .discount_curve_id(discount)
-            .cashflow_spec(slf.make_cashflow_spec())
+            .cashflow_spec(slf.make_cashflow_spec()?)
             .pricing_overrides(overrides)
             .attributes(Attributes::new())
             .settlement_convention_opt(slf.settlement_convention.clone());
+
+        if let Some(issue) = slf.issue {
+            builder = builder.issue_date(issue);
+        }
 
         if let Some(credit) = slf.credit_curve.clone() {
             builder = builder.credit_curve_id_opt(Some(credit));

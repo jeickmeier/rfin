@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg};
 use crate::core::currency::PyCurrency;
 use crate::core::dates::daycount::PyDayCount;
@@ -683,9 +681,23 @@ impl PyFxOptionBuilder {
         builder = builder.day_count(slf.day_count);
         builder = builder.notional(notional);
         builder = builder.settlement(slf.settlement);
-        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap());
-        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap());
-        builder = builder.vol_surface_id(slf.vol_surface.clone().unwrap());
+        builder =
+            builder.domestic_discount_curve_id(slf.domestic_curve.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FxOptionBuilder internal error: missing domestic curve after validation",
+                )
+            })?);
+        builder =
+            builder.foreign_discount_curve_id(slf.foreign_curve.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FxOptionBuilder internal error: missing foreign curve after validation",
+                )
+            })?);
+        builder = builder.vol_surface_id(slf.vol_surface.clone().ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "FxOptionBuilder internal error: missing vol surface after validation",
+            )
+        })?);
         builder = builder
             .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default());
         builder = builder.attributes(finstack_valuations::instruments::Attributes::new());
@@ -1185,8 +1197,18 @@ impl PyFxSwapBuilder {
         builder = builder.near_date(near);
         builder = builder.far_date(far);
         builder = builder.base_notional(base_notional);
-        builder = builder.domestic_discount_curve_id(slf.domestic_curve.clone().unwrap());
-        builder = builder.foreign_discount_curve_id(slf.foreign_curve.clone().unwrap());
+        builder =
+            builder.domestic_discount_curve_id(slf.domestic_curve.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FxSwapBuilder internal error: missing domestic curve after validation",
+                )
+            })?);
+        builder =
+            builder.foreign_discount_curve_id(slf.foreign_curve.clone().ok_or_else(|| {
+                pyo3::exceptions::PyRuntimeError::new_err(
+                    "FxSwapBuilder internal error: missing foreign curve after validation",
+                )
+            })?);
         if let Some(rate) = slf.near_rate {
             builder = builder.near_rate(rate);
         }

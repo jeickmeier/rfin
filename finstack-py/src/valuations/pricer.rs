@@ -17,16 +17,6 @@ use pyo3::Bound;
 use rayon::prelude::*;
 use std::sync::Arc;
 
-/// Default pricing date used when no explicit `as_of` parameter is provided.
-///
-/// This is a placeholder value that ensures deterministic pricing when the caller
-/// doesn't specify a valuation date. In production use, callers should provide
-/// an explicit `as_of` date that matches their market data.
-fn default_pricing_date() -> PyResult<finstack_core::dates::Date> {
-    finstack_core::dates::create_date(2024, time::Month::January, 1)
-        .map_err(|e| PyValueError::new_err(e.to_string()))
-}
-
 /// Registry dispatching (instrument, model) pairs to pricing engines.
 ///
 /// Examples:
@@ -69,14 +59,14 @@ impl PyPricerRegistry {
         Self::new(PricerRegistry::new())
     }
 
-    #[pyo3(signature = (instrument, model, market, as_of=None), text_signature = "(self, instrument, model, market, as_of=None)")]
+    #[pyo3(signature = (instrument, model, market, as_of), text_signature = "(self, instrument, model, market, as_of)")]
     /// Price an instrument given a model key and market data.
     ///
     /// Args:
     ///     instrument: Instrument instance created from ``finstack.valuations.instruments``.
     ///     model: Pricing model key or its snake-case label.
     ///     market: Market context supplying curves, spreads, and FX data.
-    ///     as_of: Optional valuation date (datetime.date). If not provided, uses 2024-01-01 as default.
+    ///     as_of: Valuation date (datetime.date).
     ///
     /// Returns:
     ///     ValuationResult: Envelope containing PV, measures, and metadata.
@@ -86,32 +76,23 @@ impl PyPricerRegistry {
     ///     RuntimeError: If pricing fails in the underlying engine.
     ///
     /// Examples:
-    ///     >>> registry = create_standard_registry()
-    ///     >>> result = registry.get_price(bond, "discounting", market)
-    ///     >>> result.present_value.amount
-    ///     123.45
-    ///     >>> # With explicit as_of date
     ///     >>> from datetime import date
-    ///     >>> result = registry.get_price(bond, "discounting", market, as_of=date(2024, 6, 15))
+    ///     >>> registry = create_standard_registry()
+    ///     >>> result = registry.price(bond, "discounting", market, date(2024, 6, 15))
     fn price(
         &self,
         py: Python<'_>,
         instrument: Bound<'_, PyAny>,
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
-        as_of: Option<Bound<'_, PyAny>>,
+        as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyValuationResult> {
         let InstrumentHandle {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
+        let as_of_date = py_to_date(&as_of)?;
 
-        let as_of_date = match as_of {
-            Some(date) => py_to_date(&date)?,
-            None => default_pricing_date()?,
-        };
-
-        // Release GIL for compute-heavy Rust pricing operation
         py.detach(|| {
             self.inner
                 .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date, None)
@@ -120,7 +101,7 @@ impl PyPricerRegistry {
         })
     }
 
-    #[pyo3(signature = (instrument, model, market, as_of=None), text_signature = "(self, instrument, model, market, as_of=None)")]
+    #[pyo3(signature = (instrument, model, market, as_of), text_signature = "(self, instrument, model, market, as_of)")]
     /// Backward-compatible alias for :meth:`price`.
     ///
     /// Older examples and tests still call ``get_price(...)``. Keep this alias so
@@ -132,19 +113,19 @@ impl PyPricerRegistry {
         instrument: Bound<'_, PyAny>,
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
-        as_of: Option<Bound<'_, PyAny>>,
+        as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyValuationResult> {
         self.price(py, instrument, model, market, as_of)
     }
 
-    #[pyo3(signature = (instruments, model, market, as_of=None), text_signature = "(self, instruments, model, market, as_of=None)")]
+    #[pyo3(signature = (instruments, model, market, as_of), text_signature = "(self, instruments, model, market, as_of)")]
     /// Price a batch of instruments in parallel.
     ///
     /// Args:
     ///     instruments: List of instruments to price.
     ///     model: Pricing model key or name.
     ///     market: Market context.
-    ///     as_of: Optional valuation date.
+    ///     as_of: Valuation date (datetime.date).
     ///
     /// Returns:
     ///     list[ValuationResult]: List of results in the same order as instruments.
@@ -154,14 +135,10 @@ impl PyPricerRegistry {
         instruments: Vec<Bound<'_, PyAny>>,
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
-        as_of: Option<Bound<'_, PyAny>>,
+        as_of: Bound<'_, PyAny>,
     ) -> PyResult<Vec<PyValuationResult>> {
         let ModelKeyArg(model_key) = model.extract()?;
-
-        let as_of_date = match as_of {
-            Some(date) => py_to_date(&date)?,
-            None => default_pricing_date()?,
-        };
+        let as_of_date = py_to_date(&as_of)?;
 
         // Extract all instruments to Rust types (InstrumentHandle)
         // This must be done while holding GIL
@@ -193,7 +170,7 @@ impl PyPricerRegistry {
         }
     }
 
-    #[pyo3(signature = (instrument, model, market, metrics, as_of=None), text_signature = "(self, instrument, model, market, metrics, as_of=None)")]
+    #[pyo3(signature = (instrument, model, market, metrics, as_of), text_signature = "(self, instrument, model, market, metrics, as_of)")]
     /// Price an instrument and compute the requested metrics.
     ///
     /// Args:
@@ -201,7 +178,7 @@ impl PyPricerRegistry {
     ///     model: Pricing model key or name.
     ///     market: Market context with the necessary curve data.
     ///     metrics: Iterable of metric identifiers or names to evaluate.
-    ///     as_of: Optional valuation date (datetime.date). If not provided, uses 2024-01-01 as default.
+    ///     as_of: Valuation date (datetime.date).
     ///
     /// Returns:
     ///     ValuationResult: Pricing result enriched with computed metrics.
@@ -211,8 +188,9 @@ impl PyPricerRegistry {
     ///     RuntimeError: If pricing or metric calculation fails.
     ///
     /// Examples:
+    ///     >>> from datetime import date
     ///     >>> registry = create_standard_registry()
-    ///     >>> result = registry.price_with_metrics(bond, "discounting", market, ["dv01"])
+    ///     >>> result = registry.price_with_metrics(bond, "discounting", market, ["dv01"], date(2024, 6, 15))
     ///     >>> result.metrics["dv01"].value
     ///     -415.2
     fn price_with_metrics(
@@ -222,7 +200,7 @@ impl PyPricerRegistry {
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
         metrics: Vec<Bound<'_, PyAny>>,
-        as_of: Option<Bound<'_, PyAny>>,
+        as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyValuationResult> {
         let InstrumentHandle {
             instrument: inst, ..
@@ -235,10 +213,7 @@ impl PyPricerRegistry {
             metric_ids.push(id);
         }
 
-        let as_of_date = match as_of {
-            Some(date) => py_to_date(&date)?,
-            None => default_pricing_date()?,
-        };
+        let as_of_date = py_to_date(&as_of)?;
 
         py.detach(|| {
             self.inner

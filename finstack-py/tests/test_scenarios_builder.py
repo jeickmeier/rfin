@@ -169,19 +169,9 @@ class TestBuilderStatementOperations:
         spec = ScenarioBuilder("test").adjust_forecast("revenue", 10).build()
         assert len(spec.operations) == 1
 
-    def test_adjust_forecast_with_period(self) -> None:
-        """Test forecast adjustment for specific period."""
-        spec = ScenarioBuilder("test").adjust_forecast("revenue", 10, "2024Q1").build()
-        assert len(spec.operations) == 1
-
     def test_set_forecast(self) -> None:
         """Test forecast assignment."""
         spec = ScenarioBuilder("test").set_forecast("revenue", 1000000).build()
-        assert len(spec.operations) == 1
-
-    def test_set_forecast_with_period(self) -> None:
-        """Test forecast assignment for specific period."""
-        spec = ScenarioBuilder("test").set_forecast("revenue", 1000000, "2024Q1").build()
         assert len(spec.operations) == 1
 
     def test_multiple_statement_operations(self) -> None:

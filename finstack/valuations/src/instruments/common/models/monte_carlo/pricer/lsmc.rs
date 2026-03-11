@@ -33,6 +33,16 @@ pub struct AmericanPut {
     pub strike: f64,
 }
 
+impl AmericanPut {
+    /// Create a validated American put with a positive strike.
+    pub fn new(strike: f64) -> std::result::Result<Self, String> {
+        if strike <= 0.0 {
+            return Err("strike must be positive".to_string());
+        }
+        Ok(Self { strike })
+    }
+}
+
 impl ImmediateExercise for AmericanPut {
     fn exercise_value(&self, spot: f64) -> f64 {
         (self.strike - spot).max(0.0)
@@ -44,6 +54,16 @@ impl ImmediateExercise for AmericanPut {
 pub struct AmericanCall {
     /// Strike price for American call option
     pub strike: f64,
+}
+
+impl AmericanCall {
+    /// Create a validated American call with a positive strike.
+    pub fn new(strike: f64) -> std::result::Result<Self, String> {
+        if strike <= 0.0 {
+            return Err("strike must be positive".to_string());
+        }
+        Ok(Self { strike })
+    }
 }
 
 impl ImmediateExercise for AmericanCall {
@@ -66,14 +86,28 @@ pub struct LsmcConfig {
 }
 
 impl LsmcConfig {
-    /// Create a new LSMC configuration.
+    /// Create a new LSMC configuration (unchecked).
     pub fn new(num_paths: usize, exercise_dates: Vec<usize>) -> Self {
         Self {
             num_paths,
             seed: 42,
             exercise_dates,
-            use_parallel: false, // LSMC is complex, default to serial
+            use_parallel: false,
         }
+    }
+
+    /// Create a validated LSMC configuration.
+    pub fn try_new(
+        num_paths: usize,
+        exercise_dates: Vec<usize>,
+    ) -> std::result::Result<Self, String> {
+        if num_paths == 0 {
+            return Err("num_paths must be positive".to_string());
+        }
+        if exercise_dates.is_empty() {
+            return Err("exercise_dates must have at least one element".to_string());
+        }
+        Ok(Self::new(num_paths, exercise_dates))
     }
 
     /// Set random seed.

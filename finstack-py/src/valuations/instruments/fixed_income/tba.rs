@@ -1,5 +1,3 @@
-#![allow(clippy::unwrap_used)]
-
 //! Python bindings for Agency TBA instruments.
 
 use crate::core::common::args::CurrencyArg;
@@ -271,18 +269,22 @@ impl PyAgencyTbaBuilder {
 
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyAgencyTba> {
         slf.ensure_ready()?;
-        let ccy = slf.currency.unwrap();
+        let ccy = slf.currency.ok_or_else(|| {
+            pyo3::exceptions::PyRuntimeError::new_err(
+                "AgencyTbaBuilder internal error: missing currency after validation",
+            )
+        })?;
 
         let mut builder = AgencyTba::builder()
             .id(slf.instrument_id.clone())
-            .agency(slf.agency.unwrap())
-            .coupon(slf.coupon.unwrap())
-            .term(slf.term.unwrap())
-            .settlement_year(slf.settlement_year.unwrap())
-            .settlement_month(slf.settlement_month.unwrap())
-            .notional(Money::new(slf.notional.unwrap(), ccy))
-            .trade_price(slf.trade_price.unwrap())
-            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().unwrap()))
+            .agency(slf.agency.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing agency after validation"))?)
+            .coupon(slf.coupon.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing coupon after validation"))?)
+            .term(slf.term.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing term after validation"))?)
+            .settlement_year(slf.settlement_year.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing settlement_year after validation"))?)
+            .settlement_month(slf.settlement_month.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing settlement_month after validation"))?)
+            .notional(Money::new(slf.notional.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing notional after validation"))?, ccy))
+            .trade_price(slf.trade_price.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing trade_price after validation"))?)
+            .discount_curve_id(CurveId::new(slf.discount_curve_id.as_deref().ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("AgencyTbaBuilder internal error: missing discount_curve_id after validation"))?))
             .attributes(Attributes::new());
 
         if let Some(td) = slf.trade_date {

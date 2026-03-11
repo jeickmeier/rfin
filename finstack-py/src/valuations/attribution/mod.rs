@@ -10,7 +10,6 @@ use finstack_valuations::attribution::{
     CreditCurvesAttribution, JsonEnvelope, ModelParamsAttribution, ModelParamsSnapshot,
     PnlAttribution, RatesCurvesAttribution,
 };
-use finstack_valuations::metrics::MetricId;
 use pyo3::prelude::*;
 use pyo3::types::PyString;
 use pythonize::depythonize;
@@ -495,26 +494,7 @@ pub fn attribute_pnl(
         .map_err(map_error)?,
 
         AttributionMethod::MetricsBased => {
-            // Metrics-based requires ValuationResults with risk metrics
-            // Include standard risk metrics for P&L attribution (first and second-order)
-            let metrics = vec![
-                // First-order metrics
-                MetricId::Theta,       // Time decay (carry)
-                MetricId::Dv01,        // Interest rate sensitivity
-                MetricId::Cs01,        // Credit spread sensitivity
-                MetricId::Vega,        // Volatility sensitivity
-                MetricId::Delta,       // Delta for options/equity
-                MetricId::Fx01,        // FX sensitivity
-                MetricId::Inflation01, // Inflation sensitivity
-                // Second-order metrics (for improved accuracy)
-                MetricId::Gamma,              // Spot convexity for options
-                MetricId::Convexity,          // Rate convexity for bonds
-                MetricId::IrConvexity,        // Rate convexity for IRS
-                MetricId::Volga,              // Volatility convexity
-                MetricId::Vanna,              // Cross-gamma (spot-vol)
-                MetricId::CsGamma,            // Credit spread convexity
-                MetricId::InflationConvexity, // Inflation convexity
-            ];
+            let metrics = method_inner.required_metrics();
             let val_t0 = instrument_arc
                 .price_with_metrics(&market_t0.inner, date_t0, &metrics)
                 .map_err(map_error)?;

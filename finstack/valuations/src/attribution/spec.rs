@@ -276,26 +276,10 @@ impl AttributionSpec {
 }
 
 /// Default set of metrics for metrics-based attribution.
+///
+/// Delegates to [`AttributionMethod::required_metrics`] on the `MetricsBased` variant.
 pub fn default_attribution_metrics() -> Vec<MetricId> {
-    vec![
-        // First-order metrics
-        MetricId::Theta,       // Time decay (carry)
-        MetricId::Dv01,        // Interest rate sensitivity
-        MetricId::Cs01,        // Credit spread sensitivity
-        MetricId::Vega,        // Volatility sensitivity
-        MetricId::Delta,       // Delta for options/equity
-        MetricId::Fx01,        // FX sensitivity
-        MetricId::Inflation01, // Inflation sensitivity
-        MetricId::Dividend01,  // Dividend sensitivity
-        // Second-order metrics
-        MetricId::Gamma,              // Spot convexity
-        MetricId::Convexity,          // Rate convexity (bonds)
-        MetricId::IrConvexity,        // Rate convexity (swaps)
-        MetricId::Volga,              // Vol convexity
-        MetricId::Vanna,              // Cross-gamma (spot-vol)
-        MetricId::CsGamma,            // Credit spread convexity
-        MetricId::InflationConvexity, // Inflation convexity
-    ]
+    AttributionMethod::MetricsBased.required_metrics()
 }
 
 /// Complete attribution result with P&L attribution and metadata.

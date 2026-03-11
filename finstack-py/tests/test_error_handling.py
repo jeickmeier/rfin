@@ -233,7 +233,7 @@ class TestPricingErrors:
         with pytest.raises(
             (finstack.PricingError, KeyError, ValueError, finstack.FinstackError), match=r"Unknown model|invalid"
         ):
-            registry.get_price(bond, "INVALID_MODEL_THAT_DOESNT_EXIST", market)
+            registry.get_price(bond, "INVALID_MODEL_THAT_DOESNT_EXIST", market, dt.date(2024, 1, 1))
 
 
 class TestErrorMessageQuality:

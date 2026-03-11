@@ -930,6 +930,43 @@ impl JsonEnvelope for PnlAttribution {
     }
 }
 
+impl AttributionMethod {
+    /// Returns the risk metrics required for this attribution method.
+    ///
+    /// For `MetricsBased`, returns first-order sensitivities (Theta, DV01, CS01,
+    /// Vega, Delta, FX01, Inflation01, Dividend01) plus second-order terms
+    /// (Gamma, Convexity, IrConvexity, Volga, Vanna, CsGamma, InflationConvexity)
+    /// needed by the metrics-based attribution algorithm.
+    ///
+    /// All other methods return an empty vec (they reprice directly rather than
+    /// using pre-computed metrics).
+    pub fn required_metrics(&self) -> Vec<crate::metrics::MetricId> {
+        use crate::metrics::MetricId;
+        match self {
+            AttributionMethod::MetricsBased => vec![
+                // First-order metrics
+                MetricId::Theta,
+                MetricId::Dv01,
+                MetricId::Cs01,
+                MetricId::Vega,
+                MetricId::Delta,
+                MetricId::Fx01,
+                MetricId::Inflation01,
+                MetricId::Dividend01,
+                // Second-order metrics
+                MetricId::Gamma,
+                MetricId::Convexity,
+                MetricId::IrConvexity,
+                MetricId::Volga,
+                MetricId::Vanna,
+                MetricId::CsGamma,
+                MetricId::InflationConvexity,
+            ],
+            _ => vec![],
+        }
+    }
+}
+
 impl std::fmt::Display for AttributionMethod {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

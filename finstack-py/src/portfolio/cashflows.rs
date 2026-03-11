@@ -1,6 +1,6 @@
 //! Python bindings for portfolio cashflow aggregation.
 
-use crate::core::currency::PyCurrency;
+use crate::core::currency::extract_currency;
 use crate::core::dates::periods::PyPeriod;
 use crate::core::dates::utils::date_to_py;
 use crate::core::market_data::context::PyMarketContext;
@@ -110,18 +110,6 @@ impl PyPortfolioCashflowBuckets {
     }
 }
 
-fn parse_currency(ccy: &Bound<'_, PyAny>) -> PyResult<finstack_core::currency::Currency> {
-    if let Ok(py_ccy) = ccy.extract::<PyRef<PyCurrency>>() {
-        Ok(py_ccy.inner)
-    } else if let Ok(s) = ccy.extract::<String>() {
-        s.parse().map_err(|e| {
-            pyo3::exceptions::PyValueError::new_err(format!("Invalid currency: {}", e))
-        })
-    } else {
-        Err(PyTypeError::new_err("Expected Currency or string"))
-    }
-}
-
 fn extract_cashflows(value: &Bound<'_, PyAny>) -> PyResult<PortfolioCashflows> {
     if let Ok(py_cf) = value.extract::<PyRef<PyPortfolioCashflows>>() {
         Ok(py_cf.inner.clone())
@@ -154,7 +142,7 @@ fn py_collapse_cashflows_to_base_by_date(
 ) -> PyResult<Py<PyAny>> {
     let ladder_inner = extract_cashflows(ladder)?;
     let market = market_context.extract::<PyRef<PyMarketContext>>()?;
-    let currency = parse_currency(base_ccy)?;
+    let currency = extract_currency(base_ccy)?;
 
     let collapsed = collapse_cashflows_to_base_by_date(&ladder_inner, &market.inner, currency)
         .map_err(portfolio_to_py)?;
@@ -178,7 +166,7 @@ fn py_cashflows_to_base_by_period(
 ) -> PyResult<PyPortfolioCashflowBuckets> {
     let ladder_inner = extract_cashflows(ladder)?;
     let market = market_context.extract::<PyRef<PyMarketContext>>()?;
-    let currency = parse_currency(base_ccy)?;
+    let currency = extract_currency(base_ccy)?;
 
     let mut rust_periods = Vec::with_capacity(periods.len());
     Python::attach(|py| {

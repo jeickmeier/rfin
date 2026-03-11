@@ -24,6 +24,19 @@ use pyo3::types::{PyAny, PyAnyMethods, PyModule};
 /// statement models, instruments, and rate bindings — together with
 /// the current valuation date.
 ///
+/// .. note::
+///
+///    Market data and statement models are mutated in-place during
+///    ``ScenarioEngine.apply()``, so changes are visible via the
+///    ``market`` and ``model`` properties afterwards. However,
+///    **instrument objects** passed via the ``instruments`` parameter
+///    are cloned into Rust on construction (and on ``instruments``
+///    setter calls). Rust-side mutations (e.g., spread shocks) are
+///    applied to the internal Rust copies and **will not** be
+///    reflected in the original Python instrument objects. Re-read
+///    repriced values from the valuation results rather than from the
+///    instruments list.
+///
 /// Parameters
 /// ----------
 /// market : MarketContext

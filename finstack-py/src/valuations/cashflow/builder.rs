@@ -46,11 +46,12 @@ impl PyCouponType {
     #[classmethod]
     #[pyo3(text_signature = "(cls, cash_pct, pik_pct)")]
     /// Create a split coupon type with percentage weights summing to ~1.0.
-    fn split(_cls: &Bound<'_, PyType>, cash_pct: f64, pik_pct: f64) -> Self {
-        Self::new(val_builder::CouponType::Split {
-            cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
-            pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
-        })
+    fn split(_cls: &Bound<'_, PyType>, cash_pct: f64, pik_pct: f64) -> PyResult<Self> {
+        use crate::valuations::common::f64_to_decimal;
+        Ok(Self::new(val_builder::CouponType::Split {
+            cash_pct: f64_to_decimal(cash_pct, "cash_pct")?,
+            pik_pct: f64_to_decimal(pik_pct, "pik_pct")?,
+        }))
     }
 }
 
@@ -191,13 +192,14 @@ impl PyFixedCouponSpec {
         rate: f64,
         schedule: PyScheduleParams,
         coupon_type: Option<PyCouponType>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        use crate::valuations::common::f64_to_decimal;
+        Ok(Self {
             inner: val_builder::FixedCouponSpec {
                 coupon_type: coupon_type
                     .map(|c| c.inner)
                     .unwrap_or(val_builder::CouponType::Cash),
-                rate: rust_decimal::Decimal::from_f64_retain(rate).unwrap_or_default(),
+                rate: f64_to_decimal(rate, "rate")?,
                 freq: schedule.inner.freq,
                 dc: schedule.inner.dc,
                 bdc: schedule.inner.bdc,
@@ -206,7 +208,7 @@ impl PyFixedCouponSpec {
                 end_of_month: schedule.inner.end_of_month,
                 payment_lag_days: schedule.inner.payment_lag_days,
             },
-        }
+        })
     }
 }
 
@@ -235,13 +237,13 @@ impl PyFloatCouponParams {
         margin_bp: f64,
         gearing: Option<f64>,
         reset_lag_days: Option<i32>,
-    ) -> Self {
-        Self {
+    ) -> PyResult<Self> {
+        use crate::valuations::common::f64_to_decimal;
+        Ok(Self {
             inner: val_builder::FloatCouponParams {
                 index_id: finstack_core::types::CurveId::new(index_id),
-                margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
-                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0))
-                    .unwrap_or(rust_decimal::Decimal::ONE),
+                margin_bp: f64_to_decimal(margin_bp, "margin_bp")?,
+                gearing: f64_to_decimal(gearing.unwrap_or(1.0), "gearing")?,
                 reset_lag_days: reset_lag_days.unwrap_or(2),
                 gearing_includes_spread: true,
                 floor_bp: None,
@@ -252,7 +254,7 @@ impl PyFloatCouponParams {
                 overnight_compounding: None,
                 fallback: val_builder::FloatingRateFallback::SpreadOnly,
             },
-        }
+        })
     }
 }
 
@@ -358,230 +360,211 @@ impl PyCashFlowBuilder {
         }
     }
 
-    #[pyo3(text_signature = "(self, amount, currency, issue, maturity)")]
-    fn principal(
-        &mut self,
+    #[pyo3(text_signature = "($self, amount, currency, issue, maturity)")]
+    fn principal<'py>(
+        mut slf: PyRefMut<'py, Self>,
         amount: f64,
         currency: &crate::core::currency::PyCurrency,
-        issue: Bound<'_, PyAny>,
-        maturity: Bound<'_, PyAny>,
-    ) -> PyResult<Self> {
+        issue: Bound<'py, PyAny>,
+        maturity: Bound<'py, PyAny>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let issue_date = py_to_date(&issue).context("issue")?;
         let maturity_date = py_to_date(&maturity).context("maturity")?;
         let money = Money::new(amount, currency.inner);
-        let _ = self.inner.principal(money, issue_date, maturity_date);
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        let _ = slf.inner.principal(money, issue_date, maturity_date);
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, amortization)")]
-    fn amortization(&mut self, amortization: Option<super::specs::PyAmortizationSpec>) -> Self {
+    #[pyo3(text_signature = "($self, amortization)")]
+    fn amortization(
+        mut slf: PyRefMut<'_, Self>,
+        amortization: Option<super::specs::PyAmortizationSpec>,
+    ) -> PyRefMut<'_, Self> {
         if let Some(spec) = amortization {
-            let _ = self.inner.amortization(spec.inner);
+            let _ = slf.inner.amortization(spec.inner);
         }
-        Self {
-            inner: self.inner.clone(),
-        }
+        slf
     }
 
-    #[pyo3(text_signature = "(self, spec)")]
-    fn fixed_cf(&mut self, spec: &PyFixedCouponSpec) -> Self {
-        let _ = self.inner.fixed_cf(spec.inner.clone());
-        Self {
-            inner: self.inner.clone(),
-        }
+    #[pyo3(text_signature = "($self, spec)")]
+    fn fixed_cf<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        spec: &PyFixedCouponSpec,
+    ) -> PyRefMut<'py, Self> {
+        let _ = slf.inner.fixed_cf(spec.inner.clone());
+        slf
     }
 
-    #[pyo3(text_signature = "(self, spec)")]
-    fn floating_cf(&mut self, spec: PyFloatingCouponSpec) -> Self {
-        let _ = self.inner.floating_cf(spec.inner);
-        Self {
-            inner: self.inner.clone(),
-        }
+    #[pyo3(text_signature = "($self, spec)")]
+    fn floating_cf(mut slf: PyRefMut<'_, Self>, spec: PyFloatingCouponSpec) -> PyRefMut<'_, Self> {
+        let _ = slf.inner.floating_cf(spec.inner);
+        slf
     }
 
-    #[pyo3(text_signature = "(self, steps, schedule, default_split)")]
+    #[pyo3(text_signature = "($self, steps, schedule, default_split)")]
     /// Fixed step-up program with boundaries `steps=[(end_date, rate), ...]`.
-    fn fixed_stepup(
-        &mut self,
-        steps: Vec<(Bound<'_, PyAny>, f64)>,
+    fn fixed_stepup<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        steps: Vec<(Bound<'py, PyAny>, f64)>,
         schedule: &PyScheduleParams,
         default_split: PyCouponType,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let mut rust_steps: Vec<(time::Date, f64)> = Vec::with_capacity(steps.len());
         for (d, r) in steps {
             rust_steps.push((py_to_date(&d).context("steps[].date")?, r));
         }
-        let _ = self
+        let _ = slf
             .inner
             .fixed_stepup(&rust_steps, schedule.inner.clone(), default_split.inner);
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, steps)")]
+    #[pyo3(text_signature = "($self, steps)")]
     /// Payment split program `(end_date, split)` where `split` is CouponType.
-    fn payment_split_program(
-        &mut self,
-        steps: Vec<(Bound<'_, PyAny>, PyCouponType)>,
-    ) -> PyResult<Self> {
+    fn payment_split_program<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        steps: Vec<(Bound<'py, PyAny>, PyCouponType)>,
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let mut rust_steps: Vec<(time::Date, val_builder::CouponType)> =
             Vec::with_capacity(steps.len());
         for (d, split) in steps {
             rust_steps.push((py_to_date(&d).context("steps[].date")?, split.inner));
         }
-        let _ = self.inner.payment_split_program(&rust_steps);
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        let _ = slf.inner.payment_split_program(&rust_steps);
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, spec)")]
+    #[pyo3(text_signature = "($self, spec)")]
     /// Add a fee specification to the schedule.
-    fn fee(&mut self, spec: &PyFeeSpec) -> Self {
-        let _ = self.inner.fee(spec.inner.clone());
-        Self {
-            inner: self.inner.clone(),
-        }
+    fn fee<'py>(mut slf: PyRefMut<'py, Self>, spec: &PyFeeSpec) -> PyRefMut<'py, Self> {
+        let _ = slf.inner.fee(spec.inner.clone());
+        slf
     }
 
-    #[pyo3(text_signature = "(self, events)")]
+    #[pyo3(text_signature = "($self, events)")]
     /// Add custom principal events (draws/repays) to the schedule.
-    fn principal_events(&mut self, events: Vec<PyRef<super::specs::PyPrincipalEvent>>) -> Self {
+    fn principal_events<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        events: Vec<PyRef<'py, super::specs::PyPrincipalEvent>>,
+    ) -> PyRefMut<'py, Self> {
         let rust_events: Vec<val_builder::PrincipalEvent> =
             events.iter().map(|e| e.inner.clone()).collect();
-        let _ = self.inner.principal_events(&rust_events);
-        Self {
-            inner: self.inner.clone(),
-        }
+        let _ = slf.inner.principal_events(&rust_events);
+        slf
     }
 
-    #[pyo3(text_signature = "(self, date, delta, cash, kind)")]
+    #[pyo3(text_signature = "($self, date, delta, cash, kind)")]
     /// Add a single principal event (draw or repay).
-    fn add_principal_event(
-        &mut self,
-        date: Bound<'_, PyAny>,
-        delta: Bound<'_, PyAny>,
-        cash: Bound<'_, PyAny>,
+    fn add_principal_event<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        date: Bound<'py, PyAny>,
+        delta: Bound<'py, PyAny>,
+        cash: Bound<'py, PyAny>,
         kind: &crate::core::cashflow::primitives::PyCFKind,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::money::extract_money;
         let d = py_to_date(&date).context("date")?;
         let delta_money = extract_money(&delta).context("delta")?;
         let cash_money = extract_money(&cash).context("cash")?;
-        let _ = self
+        let _ = slf
             .inner
             .add_principal_event(d, delta_money, Some(cash_money), kind.inner);
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, start, end, rate, schedule, split)")]
+    #[pyo3(text_signature = "($self, start, end, rate, schedule, split)")]
     /// Add a fixed coupon window with explicit start/end dates.
-    fn add_fixed_coupon_window(
-        &mut self,
-        start: Bound<'_, PyAny>,
-        end: Bound<'_, PyAny>,
+    fn add_fixed_coupon_window<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start: Bound<'py, PyAny>,
+        end: Bound<'py, PyAny>,
         rate: f64,
         schedule: &PyScheduleParams,
         split: PyCouponType,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let s = py_to_date(&start).context("start")?;
         let e = py_to_date(&end).context("end")?;
-        let _ = self
+        let _ = slf
             .inner
             .add_fixed_coupon_window(s, e, rate, schedule.inner.clone(), split.inner);
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, start, end, params, schedule, split)")]
+    #[pyo3(text_signature = "($self, start, end, params, schedule, split)")]
     /// Add a floating coupon window with explicit start/end dates.
-    fn add_float_coupon_window(
-        &mut self,
-        start: Bound<'_, PyAny>,
-        end: Bound<'_, PyAny>,
+    fn add_float_coupon_window<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start: Bound<'py, PyAny>,
+        end: Bound<'py, PyAny>,
         params: PyFloatCouponParams,
         schedule: &PyScheduleParams,
         split: PyCouponType,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let s = py_to_date(&start).context("start")?;
         let e = py_to_date(&end).context("end")?;
-        let _ = self.inner.add_float_coupon_window(
+        let _ = slf.inner.add_float_coupon_window(
             s,
             e,
             params.inner,
             schedule.inner.clone(),
             split.inner,
         );
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, start, end, split)")]
+    #[pyo3(text_signature = "($self, start, end, split)")]
     /// Add a payment window (PIK toggle) with explicit start/end dates.
-    fn add_payment_window(
-        &mut self,
-        start: Bound<'_, PyAny>,
-        end: Bound<'_, PyAny>,
+    fn add_payment_window<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        start: Bound<'py, PyAny>,
+        end: Bound<'py, PyAny>,
         split: PyCouponType,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let s = py_to_date(&start).context("start")?;
         let e = py_to_date(&end).context("end")?;
-        let _ = self.inner.add_payment_window(s, e, split.inner);
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        let _ = slf.inner.add_payment_window(s, e, split.inner);
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, steps, base_params, schedule, default_split)")]
+    #[pyo3(text_signature = "($self, steps, base_params, schedule, default_split)")]
     /// Floating margin step-up program with boundaries `steps=[(end_date, margin_bp), ...]`.
-    fn float_margin_stepup(
-        &mut self,
-        steps: Vec<(Bound<'_, PyAny>, f64)>,
+    fn float_margin_stepup<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        steps: Vec<(Bound<'py, PyAny>, f64)>,
         base_params: PyFloatCouponParams,
         schedule: &PyScheduleParams,
         default_split: PyCouponType,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let mut rust_steps: Vec<(time::Date, f64)> = Vec::with_capacity(steps.len());
         for (d, margin) in steps {
             rust_steps.push((py_to_date(&d).context("steps[].date")?, margin));
         }
-        let _ = self.inner.float_margin_stepup(
+        let _ = slf.inner.float_margin_stepup(
             &rust_steps,
             base_params.inner,
             schedule.inner.clone(),
             default_split.inner,
         );
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        Ok(slf)
     }
 
-    #[pyo3(text_signature = "(self, switch, fixed_win, float_win, default_split)")]
+    #[pyo3(text_signature = "($self, switch, fixed_win, float_win, default_split)")]
     /// Fixed-to-float switch at a given date.
-    fn fixed_to_float(
-        &mut self,
-        switch: Bound<'_, PyAny>,
+    fn fixed_to_float<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        switch: Bound<'py, PyAny>,
         fixed_win: &PyFixedWindow,
         float_win: &PyFloatWindow,
         default_split: PyCouponType,
-    ) -> PyResult<Self> {
+    ) -> PyResult<PyRefMut<'py, Self>> {
         let switch_date = py_to_date(&switch).context("switch")?;
-        let _ = self.inner.fixed_to_float(
+        let _ = slf.inner.fixed_to_float(
             switch_date,
             fixed_win.inner.clone(),
             float_win.inner.clone(),
             default_split.inner,
         );
-        Ok(Self {
-            inner: self.inner.clone(),
-        })
+        Ok(slf)
     }
 
     #[pyo3(text_signature = "(self, market=None)")]
@@ -1182,7 +1165,7 @@ impl PyFeeSpec {
         Ok(Self::new(
             finstack_valuations::cashflow::builder::FeeSpec::PeriodicBps {
                 base: base.inner.clone(),
-                bps: rust_decimal::Decimal::from_f64_retain(bps).unwrap_or_default(),
+                bps: crate::valuations::common::f64_to_decimal(bps, "bps")?,
                 freq: schedule.inner.freq,
                 dc: schedule.inner.dc,
                 bdc: schedule.inner.bdc,
@@ -1245,11 +1228,13 @@ impl PyFixedWindow {
     ///
     /// Returns:
     ///     FixedWindow: Window specification
-    fn ctor(rate: f64, schedule: &PyScheduleParams) -> Self {
-        Self::new(finstack_valuations::cashflow::builder::FixedWindow {
-            rate: rust_decimal::Decimal::from_f64_retain(rate).unwrap_or_default(),
-            schedule: schedule.inner.clone(),
-        })
+    fn ctor(rate: f64, schedule: &PyScheduleParams) -> PyResult<Self> {
+        Ok(Self::new(
+            finstack_valuations::cashflow::builder::FixedWindow {
+                rate: crate::valuations::common::f64_to_decimal(rate, "rate")?,
+                schedule: schedule.inner.clone(),
+            },
+        ))
     }
 
     #[getter]

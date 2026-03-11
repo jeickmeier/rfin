@@ -1,6 +1,6 @@
 //! Python bindings for portfolio scenario integration.
 
-use crate::core::config::PyFinstackConfig;
+use crate::core::config::extract_config_or_default;
 use crate::core::market_data::context::PyMarketContext;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
@@ -95,14 +95,7 @@ fn py_apply_and_revalue(
     let scenario_inner = scenario.extract::<PyRef<PyScenarioSpec>>()?.inner.clone();
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
-    let cfg = if let Some(config_obj) = config {
-        config_obj
-            .extract::<PyRef<PyFinstackConfig>>()?
-            .inner
-            .clone()
-    } else {
-        finstack_core::config::FinstackConfig::default()
-    };
+    let cfg = extract_config_or_default(config)?;
 
     let (valuation, report) =
         apply_and_revalue(&portfolio_inner, &scenario_inner, &market_ctx.inner, &cfg)

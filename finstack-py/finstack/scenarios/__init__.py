@@ -1,24 +1,39 @@
 """Scenarios bindings (Rust).
 
-This package is a thin re-export of the Rust extension module.
-No runtime monkeypatching or compatibility shims are applied.
+This package re-exports the Rust extension module types for scenario
+specification, composition, and execution.
 """
 
 from __future__ import annotations
 
-import sys as _sys
-import types as _types
-
 from finstack import finstack as _finstack
 
-_rust_scenarios = _finstack.scenarios
+_rust = _finstack.scenarios
 
-for _name in dir(_rust_scenarios):
-    if _name.startswith("_"):
-        continue
-    _attr = getattr(_rust_scenarios, _name)
-    globals()[_name] = _attr
-    if isinstance(_attr, _types.ModuleType):
-        _sys.modules[f"{__name__}.{_name}"] = _attr
+ApplicationReport = _rust.ApplicationReport
+Compounding = _rust.Compounding
+CurveKind = _rust.CurveKind
+ExecutionContext = _rust.ExecutionContext
+OperationSpec = _rust.OperationSpec
+RateBindingSpec = _rust.RateBindingSpec
+RollForwardReport = _rust.RollForwardReport
+ScenarioEngine = _rust.ScenarioEngine
+ScenarioSpec = _rust.ScenarioSpec
+TenorMatchMode = _rust.TenorMatchMode
+TimeRollMode = _rust.TimeRollMode
+VolSurfaceKind = _rust.VolSurfaceKind
 
-__all__ = [name for name in globals() if not name.startswith("_")]  # pyright: ignore[reportUnsupportedDunderAll]
+__all__ = [
+    "ApplicationReport",
+    "Compounding",
+    "CurveKind",
+    "ExecutionContext",
+    "OperationSpec",
+    "RateBindingSpec",
+    "RollForwardReport",
+    "ScenarioEngine",
+    "ScenarioSpec",
+    "TenorMatchMode",
+    "TimeRollMode",
+    "VolSurfaceKind",
+]
