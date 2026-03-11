@@ -20,7 +20,7 @@ mod variance;
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::analysis::types::SensitivityScenario;
+use finstack_statements::analysis::types::{SensitivityScenario, TornadoEntry as CoreTornadoEntry};
 use finstack_statements::analysis::MonteCarloConfig;
 use finstack_statements::analysis::{
     generate_tornado_entries, ParameterSpec, SensitivityAnalyzer, SensitivityConfig,
@@ -329,18 +329,12 @@ impl PySensitivityResult {
 )]
 #[derive(Clone)]
 pub struct PyTornadoEntry {
-    parameter_id: String,
-    downside_impact: f64,
-    upside_impact: f64,
+    inner: CoreTornadoEntry,
 }
 
 impl PyTornadoEntry {
-    fn new_internal(parameter_id: String, downside: f64, upside: f64) -> Self {
-        Self {
-            parameter_id,
-            downside_impact: downside,
-            upside_impact: upside,
-        }
+    fn from_inner(inner: CoreTornadoEntry) -> Self {
+        Self { inner }
     }
 }
 
@@ -348,33 +342,37 @@ impl PyTornadoEntry {
 impl PyTornadoEntry {
     #[new]
     fn new(parameter_id: String, downside_impact: f64, upside_impact: f64) -> Self {
-        Self::new_internal(parameter_id, downside_impact, upside_impact)
+        Self::from_inner(CoreTornadoEntry {
+            parameter_id,
+            downside: downside_impact,
+            upside: upside_impact,
+        })
     }
 
     #[getter]
     fn parameter_id(&self) -> &str {
-        &self.parameter_id
+        &self.inner.parameter_id
     }
 
     #[getter]
     fn downside_impact(&self) -> f64 {
-        self.downside_impact
+        self.inner.downside
     }
 
     #[getter]
     fn upside_impact(&self) -> f64 {
-        self.upside_impact
+        self.inner.upside
     }
 
     #[getter]
     fn swing(&self) -> f64 {
-        self.upside_impact - self.downside_impact
+        self.inner.swing()
     }
 
     fn __repr__(&self) -> String {
         format!(
             "TornadoEntry(parameter_id='{}', downside={}, upside={})",
-            self.parameter_id, self.downside_impact, self.upside_impact
+            self.inner.parameter_id, self.inner.downside, self.inner.upside
         )
     }
 }
@@ -390,7 +388,7 @@ fn generate_tornado_chart(
     let entries = generate_tornado_entries(&result.inner, node_id, period_hint);
     Ok(entries
         .into_iter()
-        .map(|e| PyTornadoEntry::new_internal(e.parameter_id, e.downside, e.upside))
+        .map(PyTornadoEntry::from_inner)
         .collect())
 }
 

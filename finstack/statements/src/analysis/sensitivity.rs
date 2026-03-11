@@ -284,12 +284,15 @@ fn build_tornado_entry(
     metric_node: &str,
     period_hint: Option<PeriodId>,
 ) -> Option<TornadoEntry> {
+    let parameter_key = scenario_parameter_key(&param.node_id, param.period_id);
     let mut min_record: Option<(f64, f64)> = None;
     let mut max_record: Option<(f64, f64)> = None;
     let mut baseline_metric = None;
 
     for scenario in &result.scenarios {
-        let param_value = scenario.parameter_values.get(&param.node_id)?;
+        let Some(param_value) = scenario.parameter_values.get(&parameter_key) else {
+            continue;
+        };
         let metric_value = extract_metric_value(&scenario.results, metric_node, period_hint)?;
 
         if approx_equal(*param_value, param.base_value) {

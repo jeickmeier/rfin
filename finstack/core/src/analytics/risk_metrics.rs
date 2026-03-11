@@ -421,6 +421,13 @@ pub fn risk_of_ruin(mean_ret: f64, vol: f64) -> f64 {
     (-2.0 * mean_ret / var).exp().min(1.0)
 }
 
+/// Risk of ruin computed directly from a returns series.
+pub fn risk_of_ruin_from_returns(returns: &[f64]) -> f64 {
+    let mean_ret = mean(returns);
+    let vol = variance(returns).sqrt();
+    risk_of_ruin(mean_ret, vol)
+}
+
 /// Fisher-corrected sample skewness (G₁) of a return distribution.
 ///
 /// Measures asymmetry: positive skewness indicates a longer right tail
@@ -1219,6 +1226,14 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
     cagr_val / ulcer
 }
 
+/// Martin ratio computed directly from a returns series.
+pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
+    let cagr_val = cagr_from_periods(returns, ann_factor);
+    let drawdowns = super::drawdown::to_drawdown_series(returns);
+    let ulcer = ulcer_index(&drawdowns);
+    martin_ratio(cagr_val, ulcer)
+}
+
 /// Parametric (Gaussian) Value-at-Risk.
 ///
 /// Assumes normally distributed returns:
@@ -1683,6 +1698,14 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
     total_return / max_dd.abs()
 }
 
+/// Recovery factor computed directly from a returns series.
+pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
+    let total_return = super::returns::comp_total(returns);
+    let drawdowns = super::drawdown::to_drawdown_series(returns);
+    let max_dd = drawdowns.iter().copied().fold(0.0_f64, f64::min);
+    recovery_factor(total_return, max_dd)
+}
+
 /// Sterling ratio: risk-adjusted return using average drawdown.
 ///
 /// ```text
@@ -1716,6 +1739,14 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
         return 0.0;
     }
     (cagr_val - risk_free_rate) / avg_dd.abs()
+}
+
+/// Sterling ratio computed directly from a returns series.
+pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
+    let cagr_val = cagr_from_periods(returns, ann_factor);
+    let drawdowns = super::drawdown::to_drawdown_series(returns);
+    let avg_dd = average_drawdown(&drawdowns);
+    sterling_ratio(cagr_val, avg_dd, risk_free_rate)
 }
 
 /// Burke ratio: return per unit of drawdown-based risk (RMS of drawdowns).
@@ -1825,6 +1856,14 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
     (cagr_val - risk_free_rate) / pain
 }
 
+/// Pain ratio computed directly from a returns series.
+pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
+    let cagr_val = cagr_from_periods(returns, ann_factor);
+    let drawdowns = super::drawdown::to_drawdown_series(returns);
+    let pain = pain_index(&drawdowns);
+    pain_ratio(cagr_val, pain, risk_free_rate)
+}
+
 /// M-squared (Modigliani-Modigliani): risk-adjusted return on the benchmark's scale.
 ///
 /// Leverages or deleverages the portfolio to match the benchmark's volatility,
@@ -1865,6 +1904,19 @@ pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: 
         return risk_free_rate;
     }
     risk_free_rate + (ann_return - risk_free_rate) * (bench_vol / ann_vol)
+}
+
+/// M-squared computed directly from portfolio and benchmark return series.
+pub fn m_squared_from_returns(
+    portfolio: &[f64],
+    benchmark: &[f64],
+    ann_factor: f64,
+    risk_free_rate: f64,
+) -> f64 {
+    let ann_return = mean_return(portfolio, true, ann_factor);
+    let ann_vol = volatility(portfolio, true, ann_factor);
+    let bench_vol = volatility(benchmark, true, ann_factor);
+    m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
 }
 
 /// Modified Sharpe ratio: excess return divided by Cornish-Fisher VaR.
@@ -2595,5 +2647,64 @@ mod tests {
 
         let actual = cornish_fisher_var(&returns, 0.95, Some(ann_factor));
         assert!((actual - expected).abs() < 1e-14, "{actual} vs {expected}");
+    }
+
+    #[test]
+    fn risk_of_ruin_from_returns_matches_composed_formula() {
+        let returns = [0.01, -0.02, 0.015, -0.005, 0.012, 0.008];
+        let ann = 252.0;
+        let mean_ret = mean_return(&returns, false, ann);
+        let vol = volatility(&returns, false, ann);
+        let expected = risk_of_ruin(mean_ret, vol);
+
+        let actual = risk_of_ruin_from_returns(&returns);
+        assert!((actual - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn drawdown_composite_helpers_match_composed_formulas() {
+        let returns = [0.01, -0.02, 0.015, -0.005, 0.012, 0.008];
+        let ann = 252.0;
+        let cagr_val = cagr_from_periods(&returns, ann);
+        let dd = crate::analytics::drawdown::to_drawdown_series(&returns);
+        let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
+        let ulcer = ulcer_index(&dd);
+        let avg_dd = average_drawdown(&dd);
+        let pain = pain_index(&dd);
+
+        assert!(
+            (recovery_factor_from_returns(&returns)
+                - recovery_factor(crate::analytics::returns::comp_total(&returns), max_dd))
+            .abs()
+                < 1e-12
+        );
+        assert!(
+            (martin_ratio_from_returns(&returns, ann) - martin_ratio(cagr_val, ulcer)).abs()
+                < 1e-12
+        );
+        assert!(
+            (sterling_ratio_from_returns(&returns, ann, 0.01)
+                - sterling_ratio(cagr_val, avg_dd, 0.01))
+            .abs()
+                < 1e-12
+        );
+        assert!(
+            (pain_ratio_from_returns(&returns, ann, 0.01) - pain_ratio(cagr_val, pain, 0.01)).abs()
+                < 1e-12
+        );
+    }
+
+    #[test]
+    fn m_squared_from_returns_matches_composed_formula() {
+        let portfolio = [0.01, -0.015, 0.012, 0.008, -0.004, 0.009];
+        let benchmark = [0.008, -0.01, 0.01, 0.006, -0.003, 0.007];
+        let ann = 252.0;
+        let ann_ret = mean_return(&portfolio, true, ann);
+        let ann_vol = volatility(&portfolio, true, ann);
+        let bench_vol = volatility(&benchmark, true, ann);
+        let expected = m_squared(ann_ret, ann_vol, bench_vol, 0.01);
+
+        let actual = m_squared_from_returns(&portfolio, &benchmark, ann, 0.01);
+        assert!((actual - expected).abs() < 1e-12);
     }
 }

@@ -32,6 +32,7 @@ from finstack.statements import (
     StatementResult,
     TableBuilder,
     TornadoEntry,
+    generate_tornado_chart,
     render_tree_ascii,
     render_tree_detailed,
 )
@@ -392,6 +393,64 @@ class TestAnalysisModule:
         assert entry.downside_impact == pytest.approx(-5000.0)
         assert entry.upside_impact == pytest.approx(5000.0)
         assert entry.swing == pytest.approx(10000.0)
+
+    def test_generate_tornado_chart_sorts_by_swing(self) -> None:
+        """Generated tornado entries should be sorted by swing magnitude."""
+        period = PeriodId.quarter(2025, 1)
+        builder = ModelBuilder.new("tornado_test")
+        builder.periods("2025Q1..Q1", None)
+        builder.value("revenue", [(period, AmountOrScalar.scalar(100000.0))])
+        builder.value("opex", [(period, AmountOrScalar.scalar(40000.0))])
+        builder.compute("gross_profit", "revenue - opex")
+        model = builder.build()
+
+        analyzer = SensitivityAnalyzer(model)
+        config = SensitivityConfig(SensitivityMode.DIAGONAL)
+        config.add_parameter(ParameterSpec.with_percentages("revenue", period, 100000.0, [-10.0, 0.0, 10.0]))
+        config.add_parameter(ParameterSpec.with_percentages("opex", period, 40000.0, [-25.0, 0.0, 25.0]))
+        config.add_target_metric("gross_profit")
+
+        result = analyzer.run(config)
+        entries = generate_tornado_chart(result, "gross_profit@2025Q1")
+
+        assert [entry.parameter_id for entry in entries] == ["revenue", "opex"]
+        assert abs(entries[0].swing) == pytest.approx(20000.0)
+        assert abs(entries[1].swing) == pytest.approx(20000.0)
+
+    def test_generate_tornado_chart_uses_requested_period(self) -> None:
+        """Metric period selectors should drive tornado metric extraction."""
+        q1 = PeriodId.quarter(2025, 1)
+        q2 = PeriodId.quarter(2025, 2)
+        builder = ModelBuilder.new("tornado_period_test")
+        builder.periods("2025Q1..Q2", None)
+        builder.value(
+            "revenue",
+            [
+                (q1, AmountOrScalar.scalar(100000.0)),
+                (q2, AmountOrScalar.scalar(200000.0)),
+            ],
+        )
+        builder.value(
+            "opex",
+            [
+                (q1, AmountOrScalar.scalar(40000.0)),
+                (q2, AmountOrScalar.scalar(70000.0)),
+            ],
+        )
+        builder.compute("gross_profit", "revenue - opex")
+        model = builder.build()
+
+        analyzer = SensitivityAnalyzer(model)
+        config = SensitivityConfig(SensitivityMode.DIAGONAL)
+        config.add_parameter(ParameterSpec.with_percentages("revenue", q1, 100000.0, [-10.0, 0.0, 10.0]))
+        config.add_parameter(ParameterSpec.with_percentages("opex", q1, 40000.0, [-25.0, 0.0, 25.0]))
+        config.add_target_metric("gross_profit")
+
+        result = analyzer.run(config)
+        entries = generate_tornado_chart(result, "gross_profit@2025Q2")
+
+        assert [entry.downside_impact for entry in entries] == [0.0, 0.0]
+        assert [entry.upside_impact for entry in entries] == [0.0, 0.0]
 
 
 class TestExplainModule:

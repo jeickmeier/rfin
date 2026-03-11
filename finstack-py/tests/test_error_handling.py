@@ -9,7 +9,8 @@ import datetime as dt
 from finstack.core.currency import Currency
 from finstack.core.dates import BusinessDayConvention, DayCount, adjust, get_calendar
 from finstack.core.market_data import DiscountCurve, FxMatrix, MarketContext, VolSurface
-from finstack.valuations.instruments import Bond
+from finstack.core.money import Money
+from finstack.valuations.instruments import Bond, CDSOption, CDSTranche
 from finstack.valuations.pricer import create_standard_registry
 import pytest
 
@@ -199,6 +200,39 @@ class TestValidationErrors:
                 expiries=[1.0, 2.0],  # 2 expiries
                 strikes=[90.0, 100.0, 110.0],  # 3 strikes
                 grid=[[0.2, 0.21]],  # Only 1 row (should be 2) and 2 cols (should be 3)
+            )
+
+    def test_cds_tranche_invalid_attachment_order_raises_validation_error(self) -> None:
+        """Tranche builder should surface core validation for attachment ordering."""
+        with pytest.raises((finstack.ValidationError, finstack.ParameterError, ValueError), match=r"attach|detach"):
+            (
+                CDSTranche
+                .builder("CDX-IG-0-3")
+                .index_name("CDX.NA.IG")
+                .series(40)
+                .attach_pct(3.0)
+                .detach_pct(3.0)
+                .notional(Money(10_000_000.0, Currency("USD")))
+                .maturity(dt.date(2029, 1, 1))
+                .running_coupon_bp(500.0)
+                .discount_curve("USD-OIS")
+                .credit_index_curve("CDX-IG-40")
+                .build()
+            )
+
+    def test_cds_option_missing_credit_curve_raises_descriptive_error(self) -> None:
+        """CDS option builder should report which required field is missing."""
+        with pytest.raises((finstack.ParameterError, ValueError), match="credit_curve\\(\\) is required"):
+            (
+                CDSOption
+                .builder("CDS-OPT-CORP-A")
+                .money(Money(10_000_000.0, Currency("USD")))
+                .strike(0.015)
+                .expiry(dt.date(2024, 12, 20))
+                .cds_maturity(dt.date(2029, 1, 1))
+                .discount_curve("USD")
+                .vol_surface("CDS-VOL")
+                .build()
             )
 
 

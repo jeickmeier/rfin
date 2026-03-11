@@ -269,20 +269,15 @@ fn expr_outlier_loss_ratio(inputs: &[Series], kwargs: ConfidenceKwargs) -> Polar
 #[polars_expr(output_type=Float64)]
 fn expr_risk_of_ruin(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
-    let ann = parse_ann_factor(&kwargs.freq)?;
-    let m = risk_metrics::mean_return(&data, false, ann);
-    let v = risk_metrics::volatility(&data, false, ann);
-    let result = risk_metrics::risk_of_ruin(m, v);
+    parse_ann_factor(&kwargs.freq)?;
+    let result = risk_metrics::risk_of_ruin_from_returns(&data);
     Ok(Series::new("risk_of_ruin".into(), &[result]))
 }
 
 #[polars_expr(output_type=Float64)]
 fn expr_recovery_factor(inputs: &[Series]) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
-    let total = returns::comp_total(&data);
-    let dd = drawdown::to_drawdown_series(&data);
-    let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
-    let result = risk_metrics::recovery_factor(total, max_dd);
+    let result = risk_metrics::recovery_factor_from_returns(&data);
     Ok(Series::new("recovery_factor".into(), &[result]))
 }
 
@@ -290,10 +285,7 @@ fn expr_recovery_factor(inputs: &[Series]) -> PolarsResult<Series> {
 fn expr_martin_ratio(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
-    let dd = drawdown::to_drawdown_series(&data);
-    let ulcer = risk_metrics::ulcer_index(&dd);
-    let result = risk_metrics::martin_ratio(cagr_val, ulcer);
+    let result = risk_metrics::martin_ratio_from_returns(&data, ann);
     Ok(Series::new("martin_ratio".into(), &[result]))
 }
 
@@ -301,10 +293,7 @@ fn expr_martin_ratio(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<
 fn expr_sterling_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
-    let dd = drawdown::to_drawdown_series(&data);
-    let avg_dd = risk_metrics::average_drawdown(&dd);
-    let result = risk_metrics::sterling_ratio(cagr_val, avg_dd, kwargs.risk_free);
+    let result = risk_metrics::sterling_ratio_from_returns(&data, ann, kwargs.risk_free);
     Ok(Series::new("sterling_ratio".into(), &[result]))
 }
 
@@ -322,10 +311,7 @@ fn expr_burke_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Serie
 fn expr_pain_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
-    let dd = drawdown::to_drawdown_series(&data);
-    let pain = risk_metrics::pain_index(&dd);
-    let result = risk_metrics::pain_ratio(cagr_val, pain, kwargs.risk_free);
+    let result = risk_metrics::pain_ratio_from_returns(&data, ann, kwargs.risk_free);
     Ok(Series::new("pain_ratio".into(), &[result]))
 }
 
@@ -342,10 +328,7 @@ fn expr_m_squared(inputs: &[Series], kwargs: MSquaredKwargs) -> PolarsResult<Ser
     let portfolio = series_to_f64_vec(&inputs[0])?;
     let bench = series_to_f64_vec(&inputs[1])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let ann_ret = risk_metrics::mean_return(&portfolio, true, ann);
-    let ann_vol = risk_metrics::volatility(&portfolio, true, ann);
-    let bench_vol = risk_metrics::volatility(&bench, true, ann);
-    let result = risk_metrics::m_squared(ann_ret, ann_vol, bench_vol, kwargs.risk_free);
+    let result = risk_metrics::m_squared_from_returns(&portfolio, &bench, ann, kwargs.risk_free);
     Ok(Series::new("m_squared".into(), &[result]))
 }
 

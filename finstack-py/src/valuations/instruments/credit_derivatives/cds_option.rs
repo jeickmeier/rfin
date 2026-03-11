@@ -272,7 +272,6 @@ impl PyCDSOptionBuilder {
     }
 
     #[pyo3(text_signature = "($self)")]
-    #[allow(clippy::unwrap_used)]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSOption> {
         slf.ensure_ready()?;
         let notional = slf.notional.ok_or_else(|| {
