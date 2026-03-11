@@ -404,6 +404,10 @@ impl PyEquityOptionBuilder {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
+            .and_then(|opt| {
+                opt.validate()?;
+                Ok(opt)
+            })
             .map(PyEquityOption::new)
             .map_err(core_to_py)
     }

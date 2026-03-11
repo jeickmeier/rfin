@@ -8,7 +8,7 @@ use finstack_statements::adjustments::types::{
 };
 use indexmap::IndexMap;
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
+use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 use std::str::FromStr;
 
@@ -183,13 +183,20 @@ pub fn register<'py>(
     m.add_class::<PyNormalizationResult>()?;
     m.add_class::<PyAppliedAdjustment>()?;
     m.add_class::<PyNormalizationEngine>()?;
-    parent_module.add_submodule(&m)?;
 
-    Ok(vec![
+    let exports = vec![
         "NormalizationConfig",
         "Adjustment",
         "NormalizationResult",
         "AppliedAdjustment",
         "NormalizationEngine",
-    ])
+    ];
+    m.setattr(
+        "__doc__",
+        "EBITDA normalization and metric adjustment utilities.",
+    )?;
+    m.setattr("__all__", PyList::new(py, &exports)?)?;
+    parent_module.add_submodule(&m)?;
+
+    Ok(exports)
 }

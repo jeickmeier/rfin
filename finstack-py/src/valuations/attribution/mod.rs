@@ -11,7 +11,7 @@ use finstack_valuations::attribution::{
     PnlAttribution, RatesCurvesAttribution,
 };
 use pyo3::prelude::*;
-use pyo3::types::PyString;
+use pyo3::types::{PyList, PyString};
 use pythonize::depythonize;
 use serde_json::{self, Value};
 use std::sync::Arc;
@@ -792,7 +792,7 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_function(wrap_pyfunction!(attribute_pnl_from_json, module)?)?;
     module.add_function(wrap_pyfunction!(attribution_result_to_json, module)?)?;
 
-    Ok(vec![
+    let exports = vec![
         "AttributionMethod",
         "AttributionMeta",
         "RatesCurvesAttribution",
@@ -804,5 +804,10 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
         "attribute_portfolio_pnl",
         "attribute_pnl_from_json",
         "attribution_result_to_json",
-    ])
+    ];
+    let py = module.py();
+    module.setattr("__doc__", "P&L attribution for instruments and portfolios.")?;
+    module.setattr("__all__", PyList::new(py, &exports)?)?;
+
+    Ok(exports)
 }

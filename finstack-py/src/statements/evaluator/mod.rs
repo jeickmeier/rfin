@@ -868,15 +868,17 @@ pub(crate) fn register<'py>(
     module.add_class::<PyEvaluatorWithContext>()?;
     module.add_class::<PyDependencyGraph>()?;
 
-    parent.add_submodule(&module)?;
-    parent.setattr("evaluator", &module)?;
-
-    Ok(vec![
+    let exports = vec![
         "ResultsMeta",
         "StatementResult",
         "MonteCarloResults",
         "Evaluator",
         "EvaluatorWithContext",
         "DependencyGraph",
-    ])
+    ];
+    module.setattr("__all__", PyList::new(_py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    parent.setattr("evaluator", &module)?;
+
+    Ok(exports)
 }

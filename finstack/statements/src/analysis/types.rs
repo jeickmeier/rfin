@@ -5,6 +5,24 @@ use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+/// Entry in a tornado chart representing one parameter's impact on a metric.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TornadoEntry {
+    /// Parameter node identifier.
+    pub parameter_id: String,
+    /// Downside impact (metric change when parameter is at its minimum).
+    pub downside: f64,
+    /// Upside impact (metric change when parameter is at its maximum).
+    pub upside: f64,
+}
+
+impl TornadoEntry {
+    /// Total swing magnitude: `upside - downside`.
+    pub fn swing(&self) -> f64 {
+        self.upside - self.downside
+    }
+}
+
 /// Parameter to vary in sensitivity analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ParameterSpec {

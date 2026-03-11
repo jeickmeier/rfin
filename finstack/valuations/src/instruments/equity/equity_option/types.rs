@@ -176,6 +176,20 @@ impl crate::instruments::common_impl::traits::EquityDependencies for EquityOptio
 }
 
 impl EquityOption {
+    /// Validate structural invariants.
+    ///
+    /// Checks that the strike price is positive and the notional is non-zero.
+    /// Called automatically during pricing, but can also be invoked after
+    /// building to catch configuration errors early.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.strike <= 0.0 {
+            return Err(finstack_core::Error::Input(
+                finstack_core::InputError::Invalid,
+            ));
+        }
+        Ok(())
+    }
+
     /// Create a canonical example equity option for testing and documentation.
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.

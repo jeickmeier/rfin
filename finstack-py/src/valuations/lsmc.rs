@@ -5,7 +5,6 @@
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
 use finstack_core::currency::Currency;
-use finstack_core::money::Money;
 use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
     AmericanCall, AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer, PolynomialBasis,
 };
@@ -289,51 +288,43 @@ impl PyLsmcConfig {
 )]
 #[derive(Clone)]
 pub struct PyLsmcResult {
-    mean: Money,
-    stderr: f64,
-    ci_95_lower: Money,
-    ci_95_upper: Money,
-    num_paths: usize,
+    inner: MoneyEstimate,
 }
 
 #[pymethods]
 impl PyLsmcResult {
     #[getter]
     fn mean(&self) -> PyMoney {
-        PyMoney::new(self.mean)
+        PyMoney::new(self.inner.mean)
     }
 
     #[getter]
     fn stderr(&self) -> f64 {
-        self.stderr
+        self.inner.stderr
     }
 
     #[getter]
     fn ci_95(&self) -> (PyMoney, PyMoney) {
         (
-            PyMoney::new(self.ci_95_lower),
-            PyMoney::new(self.ci_95_upper),
+            PyMoney::new(self.inner.ci_95.0),
+            PyMoney::new(self.inner.ci_95.1),
         )
     }
 
     #[getter]
     fn num_paths(&self) -> usize {
-        self.num_paths
+        self.inner.num_paths
     }
 
     /// Relative standard error (stderr / mean).
     fn relative_stderr(&self) -> f64 {
-        if self.mean.amount().abs() < 1e-10 {
-            f64::INFINITY
-        } else {
-            self.stderr.abs() / self.mean.amount().abs()
-        }
+        self.inner.relative_stderr()
     }
 
     fn __repr__(&self) -> String {
         format!(
             "LsmcResult(mean={}, stderr={:.6}, num_paths={})",
-            self.mean, self.stderr, self.num_paths
+            self.inner.mean, self.inner.stderr, self.inner.num_paths
         )
     }
 }
@@ -542,13 +533,7 @@ impl PyLsmcPricer {
         )
         .map_err(core_to_py)?;
 
-        Ok(PyLsmcResult {
-            mean: result.mean,
-            stderr: result.stderr,
-            ci_95_lower: result.ci_95.0,
-            ci_95_upper: result.ci_95.1,
-            num_paths: result.num_paths,
-        })
+        Ok(PyLsmcResult { inner: result })
     }
 
     fn __repr__(&self) -> String {

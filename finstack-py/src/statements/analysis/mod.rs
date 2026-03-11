@@ -23,12 +23,12 @@ use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::types::SensitivityScenario;
 use finstack_statements::analysis::MonteCarloConfig;
 use finstack_statements::analysis::{
-    ParameterSpec, SensitivityAnalyzer, SensitivityConfig, SensitivityMode, SensitivityResult,
+    generate_tornado_entries, ParameterSpec, SensitivityAnalyzer, SensitivityConfig,
+    SensitivityMode, SensitivityResult,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyModule};
 use pyo3::{wrap_pyfunction, Bound};
-use std::cmp::Ordering;
 use std::str::FromStr;
 
 /// Parameter specification for sensitivity analysis.
@@ -387,22 +387,11 @@ fn generate_tornado_chart(
     metric: &str,
 ) -> PyResult<Vec<PyTornadoEntry>> {
     let (node_id, period_hint) = parse_metric_target(metric)?;
-    let mut entries = Vec::new();
-
-    for param in &result.inner.config.parameters {
-        if let Some(entry) = build_tornado_entry(&result.inner, param, node_id, period_hint) {
-            entries.push(entry);
-        }
-    }
-
-    entries.sort_by(|a, b| {
-        b.swing()
-            .abs()
-            .partial_cmp(&a.swing().abs())
-            .unwrap_or(Ordering::Equal)
-    });
-
-    Ok(entries)
+    let entries = generate_tornado_entries(&result.inner, node_id, period_hint);
+    Ok(entries
+        .into_iter()
+        .map(|e| PyTornadoEntry::new_internal(e.parameter_id, e.downside, e.upside))
+        .collect())
 }
 
 /// Sensitivity analyzer for financial models.
@@ -638,79 +627,9 @@ pub(crate) fn register<'py>(
     all_exports.extend(covenants_exports);
     all_exports.extend(orchestrator_exports);
 
+    module.setattr("__all__", pyo3::types::PyList::new(py, &all_exports)?)?;
+
     Ok(all_exports)
-}
-
-fn build_tornado_entry(
-    result: &SensitivityResult,
-    param: &ParameterSpec,
-    metric_node: &str,
-    period_hint: Option<finstack_core::dates::PeriodId>,
-) -> Option<PyTornadoEntry> {
-    let mut min_record: Option<(f64, f64)> = None;
-    let mut max_record: Option<(f64, f64)> = None;
-    let mut baseline_metric = None;
-
-    for scenario in &result.scenarios {
-        let param_value = scenario.parameter_values.get(&param.node_id)?;
-        let metric_value = extract_metric_value(&scenario.results, metric_node, period_hint)?;
-
-        if approx_equal(*param_value, param.base_value) {
-            baseline_metric = Some(metric_value);
-        }
-
-        match &mut min_record {
-            Some((current_value, current_metric)) => {
-                if *param_value < *current_value {
-                    *current_value = *param_value;
-                    *current_metric = metric_value;
-                }
-            }
-            None => {
-                min_record = Some((*param_value, metric_value));
-            }
-        }
-
-        match &mut max_record {
-            Some((current_value, current_metric)) => {
-                if *param_value > *current_value {
-                    *current_value = *param_value;
-                    *current_metric = metric_value;
-                }
-            }
-            None => {
-                max_record = Some((*param_value, metric_value));
-            }
-        }
-    }
-
-    let base = baseline_metric
-        .or_else(|| min_record.map(|(_, value)| value))
-        .or_else(|| max_record.map(|(_, value)| value))?;
-
-    let downside = min_record.map(|(_, value)| value - base).unwrap_or(0.0);
-    let upside = max_record.map(|(_, value)| value - base).unwrap_or(0.0);
-
-    Some(PyTornadoEntry::new_internal(
-        param.node_id.clone(),
-        downside,
-        upside,
-    ))
-}
-
-fn extract_metric_value(
-    results: &finstack_statements::evaluator::StatementResult,
-    node_id: &str,
-    period_hint: Option<finstack_core::dates::PeriodId>,
-) -> Option<f64> {
-    if let Some(period) = period_hint {
-        results.get(node_id, &period)
-    } else {
-        results
-            .nodes
-            .get(node_id)
-            .and_then(|periods| periods.values().next().copied())
-    }
 }
 
 fn parse_metric_target(metric: &str) -> PyResult<(&str, Option<finstack_core::dates::PeriodId>)> {
@@ -725,9 +644,4 @@ fn parse_metric_target(metric: &str) -> PyResult<(&str, Option<finstack_core::da
     } else {
         Ok((metric.trim(), None))
     }
-}
-
-fn approx_equal(lhs: f64, rhs: f64) -> bool {
-    let scale = lhs.abs().max(rhs.abs()).max(1.0);
-    (lhs - rhs).abs() <= 1e-9 * scale
 }

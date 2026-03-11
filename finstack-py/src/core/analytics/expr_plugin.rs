@@ -303,11 +303,7 @@ fn expr_sterling_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Se
     let ann = parse_ann_factor(&kwargs.freq)?;
     let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
     let dd = drawdown::to_drawdown_series(&data);
-    let avg_dd = if dd.is_empty() {
-        0.0
-    } else {
-        dd.iter().copied().sum::<f64>() / dd.len() as f64
-    };
+    let avg_dd = risk_metrics::average_drawdown(&dd);
     let result = risk_metrics::sterling_ratio(cagr_val, avg_dd, kwargs.risk_free);
     Ok(Series::new("sterling_ratio".into(), &[result]))
 }
@@ -457,22 +453,12 @@ fn expr_batting_average(inputs: &[Series]) -> PolarsResult<Series> {
 fn expr_rolling_sharpe(inputs: &[Series], kwargs: WindowFreqKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let n = data.len();
-    if n < kwargs.window || kwargs.window == 0 {
+    let values = risk_metrics::rolling_sharpe_values(&data, kwargs.window, ann, kwargs.risk_free);
+    if values.is_empty() {
         return Ok(Series::new_empty(
             "rolling_sharpe".into(),
             &DataType::Float64,
         ));
-    }
-    let mut values = Vec::with_capacity(n);
-    for _ in 0..kwargs.window.saturating_sub(1) {
-        values.push(f64::NAN);
-    }
-    for i in kwargs.window..=n {
-        let slice = &data[i - kwargs.window..i];
-        let m = risk_metrics::mean_return(slice, true, ann);
-        let v = risk_metrics::volatility(slice, true, ann);
-        values.push(risk_metrics::sharpe(m, v, kwargs.risk_free));
     }
     Ok(Series::new("rolling_sharpe".into(), values.as_slice()))
 }
@@ -481,20 +467,12 @@ fn expr_rolling_sharpe(inputs: &[Series], kwargs: WindowFreqKwargs) -> PolarsRes
 fn expr_rolling_sortino(inputs: &[Series], kwargs: WindowFreqOnlyKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let n = data.len();
-    if n < kwargs.window || kwargs.window == 0 {
+    let values = risk_metrics::rolling_sortino_values(&data, kwargs.window, ann);
+    if values.is_empty() {
         return Ok(Series::new_empty(
             "rolling_sortino".into(),
             &DataType::Float64,
         ));
-    }
-    let mut values = Vec::with_capacity(n);
-    for _ in 0..kwargs.window.saturating_sub(1) {
-        values.push(f64::NAN);
-    }
-    for i in kwargs.window..=n {
-        let slice = &data[i - kwargs.window..i];
-        values.push(risk_metrics::sortino(slice, true, ann));
     }
     Ok(Series::new("rolling_sortino".into(), values.as_slice()))
 }
@@ -506,20 +484,12 @@ fn expr_rolling_volatility(
 ) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let n = data.len();
-    if n < kwargs.window || kwargs.window == 0 {
+    let values = risk_metrics::rolling_volatility_values(&data, kwargs.window, ann);
+    if values.is_empty() {
         return Ok(Series::new_empty(
             "rolling_volatility".into(),
             &DataType::Float64,
         ));
-    }
-    let mut values = Vec::with_capacity(n);
-    for _ in 0..kwargs.window.saturating_sub(1) {
-        values.push(f64::NAN);
-    }
-    for i in kwargs.window..=n {
-        let slice = &data[i - kwargs.window..i];
-        values.push(risk_metrics::volatility(slice, true, ann));
     }
     Ok(Series::new("rolling_volatility".into(), values.as_slice()))
 }

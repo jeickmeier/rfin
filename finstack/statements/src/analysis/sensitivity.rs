@@ -1,9 +1,13 @@
 //! Sensitivity analysis engine.
 
-use super::types::{SensitivityConfig, SensitivityMode, SensitivityResult, SensitivityScenario};
+use super::types::{
+    ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult, SensitivityScenario,
+    TornadoEntry,
+};
 use crate::error::{Error, Result};
-use crate::evaluator::Evaluator;
+use crate::evaluator::{Evaluator, StatementResult};
 use crate::types::{AmountOrScalar, FinancialModelSpec};
+use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
 /// Sensitivity analyzer for financial models.
@@ -235,6 +239,120 @@ fn max_target_impact(
                 })
         })
         .fold(0.0, f64::max)
+}
+
+// ── Tornado chart generation ──
+
+/// Generate tornado chart entries for a specific metric from sensitivity results.
+///
+/// Each entry represents one parameter's downside and upside impact on the
+/// target metric relative to its baseline value. Entries are sorted by
+/// descending absolute swing magnitude.
+///
+/// # Arguments
+///
+/// * `result`      - Completed sensitivity analysis result.
+/// * `metric_node` - Node identifier for the metric to inspect.
+/// * `period_hint` - Optional period to look up; if `None`, uses the first
+///   available period for the node.
+pub fn generate_tornado_entries(
+    result: &SensitivityResult,
+    metric_node: &str,
+    period_hint: Option<PeriodId>,
+) -> Vec<TornadoEntry> {
+    let mut entries = Vec::new();
+
+    for param in &result.config.parameters {
+        if let Some(entry) = build_tornado_entry(result, param, metric_node, period_hint) {
+            entries.push(entry);
+        }
+    }
+
+    entries.sort_by(|a, b| {
+        b.swing()
+            .abs()
+            .partial_cmp(&a.swing().abs())
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    entries
+}
+
+fn build_tornado_entry(
+    result: &SensitivityResult,
+    param: &ParameterSpec,
+    metric_node: &str,
+    period_hint: Option<PeriodId>,
+) -> Option<TornadoEntry> {
+    let mut min_record: Option<(f64, f64)> = None;
+    let mut max_record: Option<(f64, f64)> = None;
+    let mut baseline_metric = None;
+
+    for scenario in &result.scenarios {
+        let param_value = scenario.parameter_values.get(&param.node_id)?;
+        let metric_value = extract_metric_value(&scenario.results, metric_node, period_hint)?;
+
+        if approx_equal(*param_value, param.base_value) {
+            baseline_metric = Some(metric_value);
+        }
+
+        match &mut min_record {
+            Some((current_value, current_metric)) => {
+                if *param_value < *current_value {
+                    *current_value = *param_value;
+                    *current_metric = metric_value;
+                }
+            }
+            None => {
+                min_record = Some((*param_value, metric_value));
+            }
+        }
+
+        match &mut max_record {
+            Some((current_value, current_metric)) => {
+                if *param_value > *current_value {
+                    *current_value = *param_value;
+                    *current_metric = metric_value;
+                }
+            }
+            None => {
+                max_record = Some((*param_value, metric_value));
+            }
+        }
+    }
+
+    let base = baseline_metric
+        .or_else(|| min_record.map(|(_, value)| value))
+        .or_else(|| max_record.map(|(_, value)| value))?;
+
+    let downside = min_record.map(|(_, value)| value - base).unwrap_or(0.0);
+    let upside = max_record.map(|(_, value)| value - base).unwrap_or(0.0);
+
+    Some(TornadoEntry {
+        parameter_id: param.node_id.clone(),
+        downside,
+        upside,
+    })
+}
+
+fn extract_metric_value(
+    results: &StatementResult,
+    node_id: &str,
+    period_hint: Option<PeriodId>,
+) -> Option<f64> {
+    if let Some(period) = period_hint {
+        results.get(node_id, &period)
+    } else {
+        results
+            .nodes
+            .get(node_id)
+            .and_then(|periods| periods.values().next().copied())
+    }
+}
+
+fn approx_equal(lhs: f64, rhs: f64) -> bool {
+    let scale = lhs.abs().max(rhs.abs()).max(1.0);
+    (lhs - rhs).abs() <= 1e-9 * scale
 }
 
 #[cfg(test)]

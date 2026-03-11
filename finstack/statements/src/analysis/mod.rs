@@ -41,8 +41,10 @@ pub use monte_carlo::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
 pub use orchestrator::{CorporateAnalysis, CorporateAnalysisBuilder, CreditInstrumentAnalysis};
 pub use reports::{Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder};
 pub use scenario_set::{ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet};
-pub use sensitivity::SensitivityAnalyzer;
-pub use types::{ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult};
+pub use sensitivity::{generate_tornado_entries, SensitivityAnalyzer};
+pub use types::{
+    ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult, TornadoEntry,
+};
 pub use variance::{
     BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
 };

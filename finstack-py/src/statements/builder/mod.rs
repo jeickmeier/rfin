@@ -1258,8 +1258,10 @@ pub(crate) fn register<'py>(
     module.add_class::<PyModelBuilder>()?;
     module.add_class::<PyMixedNodeBuilder>()?;
 
+    let exports = vec!["ModelBuilder", "MixedNodeBuilder"];
+    module.setattr("__all__", PyList::new(_py, &exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("builder", &module)?;
 
-    Ok(vec!["ModelBuilder", "MixedNodeBuilder"])
+    Ok(exports)
 }

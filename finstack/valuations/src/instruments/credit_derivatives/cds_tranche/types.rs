@@ -102,6 +102,33 @@ pub struct CDSTranche {
 }
 
 impl CDSTranche {
+    /// Validate structural invariants of the tranche.
+    ///
+    /// Checks that attachment/detachment points are ordered and in range,
+    /// and that notional is positive. Can be called after builder construction
+    /// to catch configuration errors early.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        if self.attach_pct >= self.detach_pct {
+            return Err(finstack_core::Error::Validation(format!(
+                "attach_pct ({}) must be less than detach_pct ({})",
+                self.attach_pct, self.detach_pct
+            )));
+        }
+        if self.attach_pct < 0.0 || self.detach_pct > 100.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "attach_pct ({}) and detach_pct ({}) must be in [0, 100]",
+                self.attach_pct, self.detach_pct
+            )));
+        }
+        if self.notional.amount() <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Tranche notional must be positive, got {}",
+                self.notional.amount()
+            )));
+        }
+        Ok(())
+    }
+
     /// Create a canonical example CDS tranche (CDX.NA.IG 0-3% equity tranche).
     #[allow(clippy::expect_used)] // Example uses hardcoded valid values
     pub fn example() -> Self {

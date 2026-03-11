@@ -11,7 +11,7 @@ use finstack_statements::extensions::{
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyModule, PyType};
+use pyo3::types::{PyAny, PyDict, PyList, PyModule, PyType};
 use pyo3::{Bound, IntoPyObjectExt};
 
 pub use builtins::{
@@ -377,10 +377,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyCorkscrewExtension>()?;
     module.add_class::<PyCreditScorecardExtension>()?;
 
-    parent.add_submodule(&module)?;
-    parent.setattr("extensions", &module)?;
-
-    Ok(vec![
+    let exports = vec![
         "ExtensionMetadata",
         "ExtensionStatus",
         "ExtensionResult",
@@ -393,5 +390,10 @@ pub(crate) fn register<'py>(
         "ScorecardConfig",
         "CorkscrewExtension",
         "CreditScorecardExtension",
-    ])
+    ];
+    module.setattr("__all__", PyList::new(_py, &exports)?)?;
+    parent.add_submodule(&module)?;
+    parent.setattr("extensions", &module)?;
+
+    Ok(exports)
 }

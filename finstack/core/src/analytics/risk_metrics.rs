@@ -1484,6 +1484,174 @@ pub fn rolling_sortino(
     }
 }
 
+// ── Batch 2b: Date-less rolling variants (NaN-padded) ──
+
+/// Rolling Sharpe ratio without dates, returning NaN-padded output.
+///
+/// The first `window - 1` values are `NaN`, followed by the Sharpe ratio
+/// for each completed window. Uses the same O(n) sliding-window approach
+/// as [`rolling_sharpe`].
+///
+/// # Arguments
+///
+/// * `returns`        - Slice of period simple returns.
+/// * `window`         - Look-back window length in periods.
+/// * `ann_factor`     - Number of periods per year for annualization.
+/// * `risk_free_rate` - Annualized risk-free rate to subtract from return.
+pub fn rolling_sharpe_values(
+    returns: &[f64],
+    window: usize,
+    ann_factor: f64,
+    risk_free_rate: f64,
+) -> Vec<f64> {
+    let n = returns.len();
+    if n < window || window == 0 {
+        return vec![];
+    }
+    let w = window as f64;
+    let mut out = Vec::with_capacity(n);
+    out.resize(window - 1, f64::NAN);
+
+    let mut sum = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        sum_sq += r * r;
+    }
+    let emit = |sum: f64, sum_sq: f64| -> f64 {
+        let ann_mean = (sum / w) * ann_factor;
+        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+        let ann_vol = var.sqrt() * ann_factor.sqrt();
+        sharpe(ann_mean, ann_vol, risk_free_rate)
+    };
+    out.push(emit(sum, sum_sq));
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        sum_sq += add * add - rem * rem;
+        out.push(emit(sum, sum_sq));
+    }
+    out
+}
+
+/// Rolling annualized volatility without dates, returning NaN-padded output.
+///
+/// The first `window - 1` values are `NaN`, followed by the annualized
+/// volatility for each completed window.
+///
+/// # Arguments
+///
+/// * `returns`    - Slice of period simple returns.
+/// * `window`     - Look-back window length in periods.
+/// * `ann_factor` - Number of periods per year for annualization.
+pub fn rolling_volatility_values(returns: &[f64], window: usize, ann_factor: f64) -> Vec<f64> {
+    let n = returns.len();
+    if n < window || window == 0 {
+        return vec![];
+    }
+    let w = window as f64;
+    let mut out = Vec::with_capacity(n);
+    out.resize(window - 1, f64::NAN);
+
+    let mut sum = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        sum_sq += r * r;
+    }
+    let emit = |sum: f64, sum_sq: f64| -> f64 {
+        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+        var.sqrt() * ann_factor.sqrt()
+    };
+    out.push(emit(sum, sum_sq));
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        sum_sq += add * add - rem * rem;
+        out.push(emit(sum, sum_sq));
+    }
+    out
+}
+
+/// Rolling Sortino ratio without dates, returning NaN-padded output.
+///
+/// The first `window - 1` values are `NaN`, followed by the Sortino ratio
+/// for each completed window.
+///
+/// # Arguments
+///
+/// * `returns`    - Slice of period simple returns.
+/// * `window`     - Look-back window length in periods.
+/// * `ann_factor` - Number of periods per year for annualization.
+pub fn rolling_sortino_values(returns: &[f64], window: usize, ann_factor: f64) -> Vec<f64> {
+    let n = returns.len();
+    if n < window || window == 0 {
+        return vec![];
+    }
+    let w = window as f64;
+    let mut out = Vec::with_capacity(n);
+    out.resize(window - 1, f64::NAN);
+
+    let mut sum = 0.0_f64;
+    let mut sum_ds = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        if r < 0.0 {
+            sum_ds += r * r;
+        }
+    }
+    let emit = |sum: f64, sum_ds: f64| -> f64 {
+        let m = sum / w;
+        let dd = (sum_ds / w).sqrt();
+        if dd == 0.0 {
+            if m > 0.0 {
+                f64::INFINITY
+            } else if m < 0.0 {
+                f64::NEG_INFINITY
+            } else {
+                0.0
+            }
+        } else {
+            (m * ann_factor) / (dd * ann_factor.sqrt())
+        }
+    };
+    out.push(emit(sum, sum_ds));
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        if add < 0.0 {
+            sum_ds += add * add;
+        }
+        if rem < 0.0 {
+            sum_ds -= rem * rem;
+        }
+        sum_ds = sum_ds.max(0.0);
+        out.push(emit(sum, sum_ds));
+    }
+    out
+}
+
+/// Average drawdown depth across all periods.
+///
+/// Returns the arithmetic mean of the drawdown series. Since drawdown
+/// values are non-positive, the result is typically negative or zero.
+/// Returns `0.0` for an empty slice.
+///
+/// # Arguments
+///
+/// * `drawdowns` - Slice of per-period drawdown depths (from
+///   [`to_drawdown_series`](super::drawdown::to_drawdown_series)).
+pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
+    if drawdowns.is_empty() {
+        0.0
+    } else {
+        drawdowns.iter().copied().sum::<f64>() / drawdowns.len() as f64
+    }
+}
+
 // ── Batch 3: Drawdown-family ratios ──
 
 /// Recovery factor: total return / |max drawdown|.

@@ -297,9 +297,23 @@ impl PyCDSOptionBuilder {
                 "CDSOptionBuilder internal error: missing cds_maturity after validation",
             )
         })?;
-        let discount = slf.discount_curve.clone().unwrap();
-        let credit = slf.credit_curve.clone().unwrap();
-        let vol_surface = slf.vol_surface.clone().unwrap();
+        let missing = |field: &str| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "CDSOptionBuilder internal error: missing {field} after validation"
+            ))
+        };
+        let discount = slf
+            .discount_curve
+            .clone()
+            .ok_or_else(|| missing("discount_curve"))?;
+        let credit = slf
+            .credit_curve
+            .clone()
+            .ok_or_else(|| missing("credit_curve"))?;
+        let vol_surface = slf
+            .vol_surface
+            .clone()
+            .ok_or_else(|| missing("vol_surface"))?;
 
         let mut option_params =
             CDSOptionParams::new(strike, expiry, cds_maturity, notional, slf.option_type)

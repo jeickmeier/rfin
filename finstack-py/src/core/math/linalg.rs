@@ -109,9 +109,8 @@ pub fn apply_correlation_py(cholesky: Vec<Vec<f64>>, independent: Vec<f64>) -> P
     }
 
     let mut correlated = vec![0.0; n];
-    // Dimension check already performed above, so this cannot fail.
     core_apply_correlation(&chol_flat, &independent, &mut correlated)
-        .expect("apply_correlation: dimensions pre-validated");
+        .map_err(|e| PyValueError::new_err(format!("Correlation application failed: {e}")))?;
     Ok(correlated)
 }
 

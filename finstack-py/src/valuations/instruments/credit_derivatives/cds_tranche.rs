@@ -212,16 +212,11 @@ impl PyCDSTrancheBuilder {
         if self.series.is_none() {
             return Err(PyValueError::new_err("series() is required."));
         }
-        let attach = self
-            .attach_pct
-            .ok_or_else(|| PyValueError::new_err("attach_pct() is required."))?;
-        let detach = self
-            .detach_pct
-            .ok_or_else(|| PyValueError::new_err("detach_pct() is required."))?;
-        if attach < 0.0 || detach <= attach {
-            return Err(PyValueError::new_err(
-                "detach_pct must be greater than attach_pct and both non-negative",
-            ));
+        if self.attach_pct.is_none() {
+            return Err(PyValueError::new_err("attach_pct() is required."));
+        }
+        if self.detach_pct.is_none() {
+            return Err(PyValueError::new_err("detach_pct() is required."));
         }
         if self.notional.is_none() {
             return Err(PyValueError::new_err("notional() is required."));
@@ -371,19 +366,28 @@ impl PyCDSTrancheBuilder {
     }
 
     #[pyo3(text_signature = "($self)")]
-    #[allow(clippy::unwrap_used)]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSTranche> {
         slf.ensure_ready()?;
 
+        let missing =
+            |field: &str| PyValueError::new_err(format!("{field} is required but was not set"));
+
         let mut builder = CDSTranche::builder();
         builder = builder.id(slf.instrument_id.clone());
-        builder = builder.index_name(slf.index_name.clone().unwrap());
-        builder = builder.series(slf.series.unwrap());
-        builder = builder.attach_pct(slf.attach_pct.unwrap());
-        builder = builder.detach_pct(slf.detach_pct.unwrap());
-        builder = builder.notional(slf.notional.unwrap());
-        builder = builder.maturity(slf.maturity.unwrap());
-        builder = builder.running_coupon_bp(slf.running_coupon_bp.unwrap());
+        builder = builder.index_name(
+            slf.index_name
+                .clone()
+                .ok_or_else(|| missing("index_name"))?,
+        );
+        builder = builder.series(slf.series.ok_or_else(|| missing("series"))?);
+        builder = builder.attach_pct(slf.attach_pct.ok_or_else(|| missing("attach_pct"))?);
+        builder = builder.detach_pct(slf.detach_pct.ok_or_else(|| missing("detach_pct"))?);
+        builder = builder.notional(slf.notional.ok_or_else(|| missing("notional"))?);
+        builder = builder.maturity(slf.maturity.ok_or_else(|| missing("maturity"))?);
+        builder = builder.running_coupon_bp(
+            slf.running_coupon_bp
+                .ok_or_else(|| missing("running_coupon_bp"))?,
+        );
         builder = builder.frequency(
             frequency_from_payments_per_year(Some(slf.payments_per_year))
                 .map_err(|e| PyValueError::new_err(format!("Invalid payments_per_year: {e}")))?,
@@ -391,8 +395,16 @@ impl PyCDSTrancheBuilder {
         builder = builder.day_count(slf.day_count);
         builder = builder.bdc(slf.business_day_convention);
         builder = builder.calendar_id_opt(to_optional_string(slf.calendar.as_deref()));
-        builder = builder.discount_curve_id(slf.discount_curve_id.clone().unwrap());
-        builder = builder.credit_index_id(slf.credit_index_id.clone().unwrap());
+        builder = builder.discount_curve_id(
+            slf.discount_curve_id
+                .clone()
+                .ok_or_else(|| missing("discount_curve"))?,
+        );
+        builder = builder.credit_index_id(
+            slf.credit_index_id
+                .clone()
+                .ok_or_else(|| missing("credit_index_curve"))?,
+        );
         builder = builder.side(slf.side);
         builder = builder.effective_date_opt(slf.effective_date);
         builder = builder.attributes(Default::default());
@@ -400,6 +412,7 @@ impl PyCDSTrancheBuilder {
         builder = builder.accumulated_loss(0.0);
 
         let tranche = builder.build().map_err(core_to_py)?;
+        tranche.validate().map_err(core_to_py)?;
         Ok(PyCDSTranche::new(tranche))
     }
 

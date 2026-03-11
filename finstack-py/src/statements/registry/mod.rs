@@ -7,7 +7,7 @@ pub use schema::{PyMetricDefinition, PyMetricRegistry};
 use crate::statements::error::stmt_to_py;
 use finstack_statements::registry::Registry;
 use pyo3::prelude::*;
-use pyo3::types::{PyModule, PyType};
+use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
 
 /// Dynamic metric registry.
@@ -164,13 +164,10 @@ pub(crate) fn register<'py>(
     schema::register(_py, &module)?;
     module.add_class::<PyRegistry>()?;
 
+    let exports = vec!["Registry", "MetricDefinition", "MetricRegistry", "UnitType"];
+    module.setattr("__all__", PyList::new(_py, &exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("registry", &module)?;
 
-    Ok(vec![
-        "Registry",
-        "MetricDefinition",
-        "MetricRegistry",
-        "UnitType",
-    ])
+    Ok(exports)
 }
