@@ -1172,12 +1172,6 @@ impl PyMixedNodeBuilder {
     /// MixedNodeBuilder
     ///     Builder instance for chaining
     fn formula(&mut self, formula: String) -> PyResult<()> {
-        // Validate formula by calling Rust validation
-        if formula.trim().is_empty() {
-            return Err(PyValueError::new_err("Formula cannot be empty"));
-        }
-        finstack_statements::dsl::parse_and_compile(&formula).map_err(stmt_to_py)?;
-
         self.formula = Some(formula);
         Ok(())
     }

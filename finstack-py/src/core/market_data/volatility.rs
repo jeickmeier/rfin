@@ -7,8 +7,9 @@
 use finstack_core::math::volatility::{
     bachelier_call, bachelier_delta_call, bachelier_delta_put, bachelier_gamma, bachelier_put,
     bachelier_vega, black_call, black_delta_call, black_delta_put, black_gamma, black_put,
-    black_shifted_call, black_shifted_put, black_shifted_vega, black_vega, convert_atm_volatility,
-    implied_vol_bachelier, implied_vol_black, VolatilityConvention,
+    black_shifted_call, black_shifted_put, black_shifted_vega, black_vega,
+    brenner_subrahmanyam_approx, convert_atm_volatility, implied_vol_bachelier, implied_vol_black,
+    implied_vol_initial_guess, manaster_koehler_approx, VolatilityConvention,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -617,6 +618,33 @@ pub fn py_implied_vol_bachelier(
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
+/// Brenner-Subrahmanyam ATM approximation for Black implied volatility.
+#[pyfunction(
+    name = "brenner_subrahmanyam_approx",
+    text_signature = "(forward, strike, option_price, t)"
+)]
+pub fn py_brenner_subrahmanyam_approx(forward: f64, strike: f64, option_price: f64, t: f64) -> f64 {
+    brenner_subrahmanyam_approx(forward, strike, option_price, t)
+}
+
+/// Manaster-Koehler approximation for Black implied volatility.
+#[pyfunction(
+    name = "manaster_koehler_approx",
+    text_signature = "(forward, strike, t)"
+)]
+pub fn py_manaster_koehler_approx(forward: f64, strike: f64, t: f64) -> f64 {
+    manaster_koehler_approx(forward, strike, t)
+}
+
+/// Combined initial guess for implied volatility solvers.
+#[pyfunction(
+    name = "implied_vol_initial_guess",
+    text_signature = "(forward, strike, option_price, t)"
+)]
+pub fn py_implied_vol_initial_guess(forward: f64, strike: f64, option_price: f64, t: f64) -> f64 {
+    implied_vol_initial_guess(forward, strike, option_price, t)
+}
+
 /// Convert ATM volatility between conventions by equating option prices.
 ///
 /// This function performs ATM (at-the-money, strike = forward) volatility conversion.
@@ -755,6 +783,9 @@ pub(crate) fn register<'py>(
     // Implied volatility solvers
     module.add_function(wrap_pyfunction!(py_implied_vol_black, &module)?)?;
     module.add_function(wrap_pyfunction!(py_implied_vol_bachelier, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_brenner_subrahmanyam_approx, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_manaster_koehler_approx, &module)?)?;
+    module.add_function(wrap_pyfunction!(py_implied_vol_initial_guess, &module)?)?;
 
     // Volatility convention conversion
     module.add_function(wrap_pyfunction!(py_convert_atm_volatility, &module)?)?;
@@ -787,6 +818,9 @@ pub(crate) fn register<'py>(
         // Implied vol solvers
         "implied_vol_black",
         "implied_vol_bachelier",
+        "brenner_subrahmanyam_approx",
+        "manaster_koehler_approx",
+        "implied_vol_initial_guess",
         // Conversion
         "convert_atm_volatility",
         "convert_volatility",

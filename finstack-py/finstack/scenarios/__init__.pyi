@@ -15,6 +15,8 @@ Highlights
 """
 
 from __future__ import annotations
+from finstack.valuations.common import InstrumentType
+from .error import Error, Result
 from .enums import CurveKind, VolSurfaceKind, TenorMatchMode
 from .spec import Compounding, OperationSpec, RateBindingSpec, ScenarioSpec, TimeRollMode
 from .reports import ApplicationReport, RollForwardReport
@@ -26,11 +28,14 @@ __all__ = [
     "TenorMatchMode",
     "Compounding",
     "RateBindingSpec",
+    "Error",
+    "Result",
     "OperationSpec",
     "ScenarioSpec",
     "ApplicationReport",
     "RollForwardReport",
     "TimeRollMode",
+    "InstrumentType",
     "ExecutionContext",
     "ScenarioEngine",
 ]

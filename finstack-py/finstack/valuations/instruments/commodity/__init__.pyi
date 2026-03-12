@@ -13,9 +13,17 @@ from .commodity_option import (
     CommodityOption as CommodityOption,
     CommodityOptionBuilder as CommodityOptionBuilder,
 )
+from .commodity_spread_option import (
+    CommoditySpreadOption as CommoditySpreadOption,
+    CommoditySpreadOptionBuilder as CommoditySpreadOptionBuilder,
+)
 from .commodity_swap import (
     CommoditySwap as CommoditySwap,
     CommoditySwapBuilder as CommoditySwapBuilder,
+)
+from .commodity_swaption import (
+    CommoditySwaption as CommoditySwaption,
+    CommoditySwaptionBuilder as CommoditySwaptionBuilder,
 )
 
 __all__ = [
@@ -25,6 +33,10 @@ __all__ = [
     "CommodityForwardBuilder",
     "CommodityOption",
     "CommodityOptionBuilder",
+    "CommoditySpreadOption",
+    "CommoditySpreadOptionBuilder",
     "CommoditySwap",
     "CommoditySwapBuilder",
+    "CommoditySwaption",
+    "CommoditySwaptionBuilder",
 ]

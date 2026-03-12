@@ -18,13 +18,16 @@ mod rates;
 use commodity::commodity_asian_option::PyCommodityAsianOption;
 use commodity::commodity_forward::PyCommodityForward;
 use commodity::commodity_option::PyCommodityOption;
+use commodity::commodity_spread_option::PyCommoditySpreadOption;
 use commodity::commodity_swap::PyCommoditySwap;
+use commodity::commodity_swaption::PyCommoditySwaption;
 use credit_derivatives::cds::PyCreditDefaultSwap;
 use credit_derivatives::cds_index::PyCdsIndex;
 use credit_derivatives::cds_option::PyCDSOption;
 use credit_derivatives::cds_tranche::PyCDSTranche;
 use equity::autocallable::PyAutocallable;
 use equity::cliquet_option::PyCliquetOption;
+use equity::dcf::PyDiscountedCashFlow;
 use equity::equity::PyEquity;
 use equity::equity_index_future::PyEquityIndexFuture;
 use equity::equity_option::PyEquityOption;
@@ -62,11 +65,13 @@ use fx::quanto_option::PyQuantoOption;
 use rates::basis_swap::PyBasisSwap;
 use rates::cap_floor::PyInterestRateOption;
 use rates::cms_option::PyCmsOption;
+use rates::cms_swap::PyCmsSwap;
 use rates::deposit::PyDeposit;
 use rates::fra::PyForwardRateAgreement;
 use rates::inflation_cap_floor::PyInflationCapFloor;
 use rates::inflation_swap::PyInflationSwap;
 use rates::ir_future::PyInterestRateFuture;
+use rates::ir_future_option::PyIrFutureOption;
 use rates::irs::PyInterestRateSwap;
 use rates::range_accrual::PyRangeAccrual;
 use rates::repo::PyRepo;
@@ -117,6 +122,7 @@ pub(crate) fn instrument_to_py(py: Python<'_>, inst: &Arc<dyn Instrument>) -> Py
     try_downcast_to_py!(inst, py, ForwardRateAgreement, PyForwardRateAgreement);
     try_downcast_to_py!(inst, py, InterestRateOption, PyInterestRateOption);
     try_downcast_to_py!(inst, py, InterestRateFuture, PyInterestRateFuture);
+    try_downcast_to_py!(inst, py, IrFutureOption, PyIrFutureOption);
     try_downcast_to_py!(inst, py, InterestRateSwap, PyInterestRateSwap);
     try_downcast_to_py!(inst, py, Swaption, PySwaption);
     try_downcast_to_py!(inst, py, BermudanSwaption, PyBermudanSwaption);
@@ -125,6 +131,7 @@ pub(crate) fn instrument_to_py(py: Python<'_>, inst: &Arc<dyn Instrument>) -> Py
     try_downcast_to_py!(inst, py, InflationCapFloor, PyInflationCapFloor);
     try_downcast_to_py!(inst, py, XccySwap, PyCrossCurrencySwap);
     try_downcast_to_py!(inst, py, CmsOption, PyCmsOption);
+    try_downcast_to_py!(inst, py, CmsSwap, PyCmsSwap);
     try_downcast_to_py!(inst, py, RangeAccrual, PyRangeAccrual);
 
     // FX
@@ -148,6 +155,7 @@ pub(crate) fn instrument_to_py(py: Python<'_>, inst: &Arc<dyn Instrument>) -> Py
     try_downcast_to_py!(inst, py, PrivateMarketsFund, PyPrivateMarketsFund);
     try_downcast_to_py!(inst, py, RealEstateAsset, PyRealEstateAsset);
     try_downcast_to_py!(inst, py, LeveredRealEstateEquity, PyLeveredRealEstateEquity);
+    try_downcast_to_py!(inst, py, DiscountedCashFlow, PyDiscountedCashFlow);
     try_downcast_to_py!(inst, py, Autocallable, PyAutocallable);
     try_downcast_to_py!(inst, py, CliquetOption, PyCliquetOption);
     try_downcast_to_py!(inst, py, VolatilityIndexFuture, PyVolatilityIndexFuture);
@@ -162,7 +170,9 @@ pub(crate) fn instrument_to_py(py: Python<'_>, inst: &Arc<dyn Instrument>) -> Py
     // Commodity
     try_downcast_to_py!(inst, py, CommodityForward, PyCommodityForward);
     try_downcast_to_py!(inst, py, CommodityOption, PyCommodityOption);
+    try_downcast_to_py!(inst, py, CommoditySpreadOption, PyCommoditySpreadOption);
     try_downcast_to_py!(inst, py, CommoditySwap, PyCommoditySwap);
+    try_downcast_to_py!(inst, py, CommoditySwaption, PyCommoditySwaption);
     try_downcast_to_py!(inst, py, CommodityAsianOption, PyCommodityAsianOption);
 
     // Credit derivatives
@@ -224,6 +234,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
         PyInterestRateFuture,
         InstrumentType::InterestRateFuture
     );
+    try_extract_arc!(value, PyIrFutureOption, InstrumentType::IrFutureOption);
     try_extract_arc!(value, PyInterestRateSwap, InstrumentType::IRS);
     try_extract_arc!(value, PyFxSpot, InstrumentType::FxSpot);
     try_extract_arc!(value, PyFxOption, InstrumentType::FxOption);
@@ -257,7 +268,17 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     try_extract_arc!(value, PyCDSTranche, InstrumentType::CDSTranche);
     try_extract_arc!(value, PyCommodityForward, InstrumentType::CommodityForward);
     try_extract_arc!(value, PyCommodityOption, InstrumentType::CommodityOption);
+    try_extract_arc!(
+        value,
+        PyCommoditySpreadOption,
+        InstrumentType::CommoditySpreadOption
+    );
     try_extract_arc!(value, PyCommoditySwap, InstrumentType::CommoditySwap);
+    try_extract_arc!(
+        value,
+        PyCommoditySwaption,
+        InstrumentType::CommoditySwaption
+    );
     try_extract_arc!(
         value,
         PyCommodityAsianOption,
@@ -276,6 +297,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
         InstrumentType::InflationCapFloor
     );
     try_extract_arc!(value, PyCrossCurrencySwap, InstrumentType::XccySwap);
+    try_extract_arc!(value, PyCmsSwap, InstrumentType::CmsSwap);
     try_extract_arc!(value, PyStructuredCredit, InstrumentType::StructuredCredit);
     try_extract_arc!(
         value,
@@ -288,6 +310,7 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
         PyLeveredRealEstateEquity,
         InstrumentType::LeveredRealEstateEquity
     );
+    try_extract_arc!(value, PyDiscountedCashFlow, InstrumentType::DCF);
     try_extract_arc!(value, PyBasket, InstrumentType::Basket);
     try_extract_arc!(value, PyAsianOption, InstrumentType::AsianOption);
     try_extract_arc!(value, PyAutocallable, InstrumentType::Autocallable);

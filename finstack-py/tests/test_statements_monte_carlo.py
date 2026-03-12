@@ -8,6 +8,8 @@ from finstack.statements.evaluator import Evaluator, MonteCarloResults
 from finstack.statements.types import AmountOrScalar, FinancialModelSpec, ForecastSpec
 import pytest
 
+from finstack.statements import PercentileSeries
+
 
 def build_simple_normal_model() -> FinancialModelSpec:
     """Build a simple model with normal forecast for testing."""
@@ -70,3 +72,18 @@ def test_evaluate_monte_carlo_deterministic() -> None:
     assert codes1.keys() == codes2.keys()
     for code, value in codes1.items():
         assert value == pytest.approx(codes2[code])
+
+
+def test_percentile_series_runtime_surface() -> None:
+    """Monte Carlo results should expose typed percentile series objects."""
+    model = build_simple_normal_model()
+    evaluator = Evaluator.new()
+
+    mc = evaluator.evaluate_monte_carlo(model, n_paths=16, seed=11, percentiles=[0.05, 0.5, 0.95])
+
+    revenue = mc.percentile_results["revenue"]
+    assert isinstance(revenue, PercentileSeries)
+    assert revenue.metric == "revenue"
+    assert len(revenue.values) > 0
+    first_period_pairs = next(iter(revenue.values.values()))
+    assert first_period_pairs[0][0] == pytest.approx(0.05)

@@ -4,6 +4,7 @@ Tests scenario spec, engine, DSL, and operation execution.
 """
 
 from datetime import date
+import importlib.util
 
 from finstack.core.currency import Currency
 from finstack.core.market_data import DiscountCurve, MarketContext
@@ -11,8 +12,10 @@ import pytest
 
 from finstack.scenarios import (
     CurveKind,
+    Error,
     ExecutionContext,
     OperationSpec,
+    Result,
     ScenarioEngine,
     ScenarioSpec,
     TenorMatchMode,
@@ -63,6 +66,44 @@ class TestScenarioSpecParity:
         )
 
         assert spec.priority == 1
+
+
+class TestNoPythonOnlyScenarioHelpers:
+    """Python should not expose scenario DSL/builder layers absent from Rust."""
+
+    def test_builder_module_removed(self) -> None:
+        """The Python-only builder helper module should not exist."""
+        assert importlib.util.find_spec("finstack.scenarios.builder") is None
+
+    def test_dsl_module_removed(self) -> None:
+        """The Python-only DSL helper module should not exist."""
+        assert importlib.util.find_spec("finstack.scenarios.dsl") is None
+
+
+class TestScenarioModuleShapeParity:
+    """Runtime package shape should match the advertised scenarios layout."""
+
+    def test_root_exports_instrument_type(self) -> None:
+        """InstrumentType should be available from finstack.scenarios."""
+        from finstack import scenarios
+
+        assert hasattr(scenarios, "InstrumentType")
+
+    def test_runtime_submodules_import(self) -> None:
+        """The documented scenarios submodules should be importable."""
+        for name in [
+            "finstack.scenarios.engine",
+            "finstack.scenarios.spec",
+            "finstack.scenarios.reports",
+            "finstack.scenarios.enums",
+            "finstack.scenarios.error",
+        ]:
+            assert importlib.util.find_spec(name) is not None, f"missing runtime submodule {name}"
+
+    def test_error_and_result_exports(self) -> None:
+        """Scenarios should expose the crate-level Error and Result names."""
+        assert Error is not None
+        assert Result is not None
 
 
 class TestOperationSpecParity:
@@ -235,6 +276,24 @@ class TestScenarioEngineParity:
         # Composed scenario should have operations from both
         assert len(composed.operations) == 2
 
+    def test_missing_curve_raises_scenarios_error(self) -> None:
+        """Scenario application errors should use the shared scenario Error surface."""
+        from finstack.statements.builder import ModelBuilder
+
+        market = MarketContext()
+        spec = ScenarioSpec(
+            "missing_curve",
+            [OperationSpec.curve_parallel_bp(CurveKind.Discount, "MISSING-CURVE", 25.0)],
+        )
+
+        builder = ModelBuilder.new("m")
+        builder.periods("2024Q1..Q1", None)
+        model = builder.build()
+        ctx = ExecutionContext(market, model, date(2024, 1, 1))
+
+        with pytest.raises(Error):
+            ScenarioEngine().apply(spec, ctx)
+
 
 class TestCurveKindParity:
     """Test curve kind enum matches Rust."""
@@ -264,100 +323,6 @@ class TestTenorMatchModeParity:
         """Test tenor match mode enum values."""
         assert TenorMatchMode.Exact is not None
         assert TenorMatchMode.Interpolate is not None
-
-
-class TestDSLParity:
-    """Test DSL parser matches expected behavior."""
-
-    def test_dsl_parse_curve_shift(self) -> None:
-        """Test DSL parsing of curve shift."""
-        from finstack.scenarios.dsl import from_dsl
-
-        dsl_text = """
-        shift USD.OIS +50bp
-        """
-
-        spec = from_dsl(dsl_text)
-
-        assert spec is not None
-        assert len(spec.operations) == 1
-
-    def test_dsl_parse_multiple_operations(self) -> None:
-        """Test DSL parsing multiple operations."""
-        from finstack.scenarios.dsl import from_dsl
-
-        dsl_text = """
-        shift USD.OIS +50bp
-        shift equities -10%
-        shift fx USD/EUR +3%
-        """
-
-        spec = from_dsl(dsl_text)
-
-        assert spec is not None
-        assert len(spec.operations) == 3
-
-    def test_dsl_parse_with_comments(self) -> None:
-        """Test DSL parsing with comments."""
-        from finstack.scenarios.dsl import from_dsl
-
-        dsl_text = """
-        # Rate shock
-        shift USD.OIS +50bp
-
-        # Equity crash
-        shift equities -10%
-        """
-
-        spec = from_dsl(dsl_text)
-
-        assert spec is not None
-        assert len(spec.operations) == 2
-
-    def test_dsl_parse_roll_forward(self) -> None:
-        """Test DSL parsing time roll forward."""
-        from finstack.scenarios.dsl import from_dsl
-
-        dsl_text = """
-        roll forward 1m
-        """
-
-        spec = from_dsl(dsl_text)
-
-        assert spec is not None
-        assert len(spec.operations) == 1
-
-
-class TestScenarioBuilderParity:
-    """Test scenario builder API matches expected behavior."""
-
-    def test_builder_basic(self) -> None:
-        """Test basic scenario builder."""
-        from finstack.scenarios.builder import scenario
-
-        spec = scenario("test").name("Test Scenario").shift_discount_curve("USD-OIS", 50).build()
-
-        assert spec.id == "test"
-        assert spec.name == "Test Scenario"
-        assert len(spec.operations) == 1
-
-    def test_builder_multiple_operations(self) -> None:
-        """Test builder with multiple operations."""
-        from finstack.scenarios.builder import scenario
-
-        spec = (
-            scenario("multi").shift_discount_curve("USD-OIS", 50).shift_equities(-10).shift_fx("USD", "EUR", 3).build()
-        )
-
-        assert len(spec.operations) == 3
-
-    def test_builder_with_priority(self) -> None:
-        """Test builder with priority."""
-        from finstack.scenarios.builder import scenario
-
-        spec = scenario("priority_test").priority(5).shift_discount_curve("USD-OIS", 25).build()
-
-        assert spec.priority == 5
 
 
 class TestEdgeCases:
@@ -556,13 +521,13 @@ class TestValidateParity:
     def test_scenario_spec_validate_empty_id(self) -> None:
         """Test validate() raises on empty scenario ID."""
         spec = ScenarioSpec("", [])
-        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+        with pytest.raises(Error, match=r"[Ee]mpty"):
             spec.validate()
 
     def test_scenario_spec_validate_whitespace_id(self) -> None:
         """Test validate() raises on whitespace-only scenario ID."""
         spec = ScenarioSpec("   ", [])
-        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+        with pytest.raises(Error, match=r"[Ee]mpty"):
             spec.validate()
 
     def test_operation_spec_validate_valid(self) -> None:
@@ -574,19 +539,19 @@ class TestValidateParity:
     def test_operation_spec_validate_nan(self) -> None:
         """Test validate() raises on NaN value."""
         op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", float("nan"))
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(Error, match="finite"):
             op.validate()
 
     def test_operation_spec_validate_empty_curve_id(self) -> None:
         """Test validate() raises on empty curve ID."""
         op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "", 50.0)
-        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+        with pytest.raises(Error, match=r"[Ee]mpty"):
             op.validate()
 
     def test_operation_spec_validate_pct_floor(self) -> None:
         """Test validate() raises on percentage <= -100%."""
         op = OperationSpec.equity_price_pct(["SPY"], -100.0)
-        with pytest.raises(ValueError, match="-100"):
+        with pytest.raises(Error, match="-100"):
             op.validate()
 
     def test_scenario_spec_validate_duplicate_time_roll(self) -> None:
@@ -598,7 +563,7 @@ class TestValidateParity:
                 OperationSpec.time_roll_forward("3M", True, None),
             ],
         )
-        with pytest.raises(ValueError, match="TimeRollForward"):
+        with pytest.raises(Error, match="TimeRollForward"):
             spec.validate()
 
 

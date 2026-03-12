@@ -13,11 +13,200 @@ use finstack_valuations::instruments::fx::fx_touch_option::{
     BarrierDirection, FxTouchOption, PayoutTiming, TouchType,
 };
 use finstack_valuations::prelude::Instrument;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRefMut};
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::sync::Arc;
+
+fn parse_touch_type(value: &Bound<'_, PyAny>) -> PyResult<TouchType> {
+    if let Ok(typed) = value.extract::<PyRef<'_, PyTouchType>>() {
+        return Ok(typed.inner);
+    }
+    if let Ok(label) = value.extract::<&str>() {
+        return match normalize_label(label).as_str() {
+            "one_touch" | "onetouch" => Ok(TouchType::OneTouch),
+            "no_touch" | "notouch" => Ok(TouchType::NoTouch),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown touch type: {other}"
+            ))),
+        };
+    }
+    Err(PyTypeError::new_err(
+        "touch_type() expects TouchType or str",
+    ))
+}
+
+fn parse_barrier_direction(value: &Bound<'_, PyAny>) -> PyResult<BarrierDirection> {
+    if let Ok(typed) = value.extract::<PyRef<'_, PyBarrierDirection>>() {
+        return Ok(typed.inner);
+    }
+    if let Ok(label) = value.extract::<&str>() {
+        return match normalize_label(label).as_str() {
+            "up" => Ok(BarrierDirection::Up),
+            "down" => Ok(BarrierDirection::Down),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown barrier direction: {other}"
+            ))),
+        };
+    }
+    Err(PyTypeError::new_err(
+        "barrier_direction() expects BarrierDirection or str",
+    ))
+}
+
+fn parse_payout_timing(value: &Bound<'_, PyAny>) -> PyResult<PayoutTiming> {
+    if let Ok(typed) = value.extract::<PyRef<'_, PyPayoutTiming>>() {
+        return Ok(typed.inner);
+    }
+    if let Ok(label) = value.extract::<&str>() {
+        return match normalize_label(label).as_str() {
+            "at_hit" | "athit" => Ok(PayoutTiming::AtHit),
+            "at_expiry" | "atexpiry" => Ok(PayoutTiming::AtExpiry),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown payout timing: {other}"
+            ))),
+        };
+    }
+    Err(PyTypeError::new_err(
+        "payout_timing() expects PayoutTiming or str",
+    ))
+}
+
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "TouchType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyTouchType {
+    pub(crate) inner: TouchType,
+}
+
+impl PyTouchType {
+    pub(crate) const fn new(inner: TouchType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyTouchType {
+    #[classattr]
+    const ONE_TOUCH: Self = Self::new(TouchType::OneTouch);
+    #[classattr]
+    const NO_TOUCH: Self = Self::new(TouchType::NoTouch);
+
+    #[classmethod]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match normalize_label(name).as_str() {
+            "one_touch" | "onetouch" => Ok(Self::ONE_TOUCH),
+            "no_touch" | "notouch" => Ok(Self::NO_TOUCH),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown touch type: {other}"
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            TouchType::OneTouch => "one_touch",
+            TouchType::NoTouch => "no_touch",
+            _ => "unknown",
+        }
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "BarrierDirection",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyBarrierDirection {
+    pub(crate) inner: BarrierDirection,
+}
+
+impl PyBarrierDirection {
+    pub(crate) const fn new(inner: BarrierDirection) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyBarrierDirection {
+    #[classattr]
+    const UP: Self = Self::new(BarrierDirection::Up);
+    #[classattr]
+    const DOWN: Self = Self::new(BarrierDirection::Down);
+
+    #[classmethod]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match normalize_label(name).as_str() {
+            "up" => Ok(Self::UP),
+            "down" => Ok(Self::DOWN),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown barrier direction: {other}"
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            BarrierDirection::Up => "up",
+            BarrierDirection::Down => "down",
+            _ => "unknown",
+        }
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "PayoutTiming",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyPayoutTiming {
+    pub(crate) inner: PayoutTiming,
+}
+
+impl PyPayoutTiming {
+    pub(crate) const fn new(inner: PayoutTiming) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyPayoutTiming {
+    #[classattr]
+    const AT_HIT: Self = Self::new(PayoutTiming::AtHit);
+    #[classattr]
+    const AT_EXPIRY: Self = Self::new(PayoutTiming::AtExpiry);
+
+    #[classmethod]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match normalize_label(name).as_str() {
+            "at_hit" | "athit" => Ok(Self::AT_HIT),
+            "at_expiry" | "atexpiry" => Ok(Self::AT_EXPIRY),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown payout timing: {other}"
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            PayoutTiming::AtHit => "at_hit",
+            PayoutTiming::AtExpiry => "at_expiry",
+            _ => "unknown",
+        }
+    }
+}
 
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -106,33 +295,17 @@ impl PyFxTouchOptionBuilder {
 
     fn touch_type<'py>(
         mut slf: PyRefMut<'py, Self>,
-        touch_type: &str,
+        touch_type: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.touch_type = Some(match normalize_label(touch_type).as_str() {
-            "one_touch" | "onetouch" => TouchType::OneTouch,
-            "no_touch" | "notouch" => TouchType::NoTouch,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown touch type: {other}"
-                )))
-            }
-        });
+        slf.touch_type = Some(parse_touch_type(&touch_type)?);
         Ok(slf)
     }
 
     fn barrier_direction<'py>(
         mut slf: PyRefMut<'py, Self>,
-        direction: &str,
+        direction: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.barrier_direction = Some(match normalize_label(direction).as_str() {
-            "up" => BarrierDirection::Up,
-            "down" => BarrierDirection::Down,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown barrier direction: {other}"
-                )))
-            }
-        });
+        slf.barrier_direction = Some(parse_barrier_direction(&direction)?);
         Ok(slf)
     }
 
@@ -146,17 +319,9 @@ impl PyFxTouchOptionBuilder {
 
     fn payout_timing<'py>(
         mut slf: PyRefMut<'py, Self>,
-        timing: &str,
+        timing: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.payout_timing = match normalize_label(timing).as_str() {
-            "at_hit" | "athit" => PayoutTiming::AtHit,
-            "at_expiry" | "atexpiry" => PayoutTiming::AtExpiry,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown payout timing: {other}"
-                )))
-            }
-        };
+        slf.payout_timing = parse_payout_timing(&timing)?;
         Ok(slf)
     }
 
@@ -292,21 +457,13 @@ impl PyFxTouchOption {
     }
 
     #[getter]
-    fn touch_type(&self) -> &'static str {
-        match self.inner.touch_type {
-            TouchType::OneTouch => "one_touch",
-            TouchType::NoTouch => "no_touch",
-            _ => "unknown",
-        }
+    fn touch_type(&self) -> PyTouchType {
+        PyTouchType::new(self.inner.touch_type)
     }
 
     #[getter]
-    fn barrier_direction(&self) -> &'static str {
-        match self.inner.barrier_direction {
-            BarrierDirection::Up => "up",
-            BarrierDirection::Down => "down",
-            _ => "unknown",
-        }
+    fn barrier_direction(&self) -> PyBarrierDirection {
+        PyBarrierDirection::new(self.inner.barrier_direction)
     }
 
     #[getter]
@@ -315,12 +472,8 @@ impl PyFxTouchOption {
     }
 
     #[getter]
-    fn payout_timing(&self) -> &'static str {
-        match self.inner.payout_timing {
-            PayoutTiming::AtHit => "at_hit",
-            PayoutTiming::AtExpiry => "at_expiry",
-            _ => "unknown",
-        }
+    fn payout_timing(&self) -> PyPayoutTiming {
+        PyPayoutTiming::new(self.inner.payout_timing)
     }
 
     #[getter]
@@ -385,7 +538,16 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    parent.add_class::<PyTouchType>()?;
+    parent.add_class::<PyBarrierDirection>()?;
+    parent.add_class::<PyPayoutTiming>()?;
     parent.add_class::<PyFxTouchOption>()?;
     parent.add_class::<PyFxTouchOptionBuilder>()?;
-    Ok(vec!["FxTouchOption", "FxTouchOptionBuilder"])
+    Ok(vec![
+        "TouchType",
+        "BarrierDirection",
+        "PayoutTiming",
+        "FxTouchOption",
+        "FxTouchOptionBuilder",
+    ])
 }

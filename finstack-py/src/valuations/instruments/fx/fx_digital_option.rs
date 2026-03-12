@@ -12,11 +12,83 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_digital_option::{DigitalPayoutType, FxDigitalOption};
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::prelude::Instrument;
-use pyo3::exceptions::PyValueError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRefMut};
+use pyo3::{Bound, Py, PyRef, PyRefMut};
 use std::sync::Arc;
+
+fn parse_payout_type(value: &Bound<'_, PyAny>) -> PyResult<DigitalPayoutType> {
+    if let Ok(typed) = value.extract::<PyRef<'_, PyDigitalPayoutType>>() {
+        return Ok(typed.inner);
+    }
+    if let Ok(label) = value.extract::<&str>() {
+        return match normalize_label(label).as_str() {
+            "cash_or_nothing" | "cashornothing" => Ok(DigitalPayoutType::CashOrNothing),
+            "asset_or_nothing" | "assetornothing" => Ok(DigitalPayoutType::AssetOrNothing),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown payout type: {other}"
+            ))),
+        };
+    }
+    Err(PyTypeError::new_err(
+        "payout_type() expects DigitalPayoutType or str",
+    ))
+}
+
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "DigitalPayoutType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyDigitalPayoutType {
+    pub(crate) inner: DigitalPayoutType,
+}
+
+impl PyDigitalPayoutType {
+    pub(crate) const fn new(inner: DigitalPayoutType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyDigitalPayoutType {
+    #[classattr]
+    const CASH_OR_NOTHING: Self = Self::new(DigitalPayoutType::CashOrNothing);
+    #[classattr]
+    const ASSET_OR_NOTHING: Self = Self::new(DigitalPayoutType::AssetOrNothing);
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        match normalize_label(name).as_str() {
+            "cash_or_nothing" | "cashornothing" => Ok(Self::CASH_OR_NOTHING),
+            "asset_or_nothing" | "assetornothing" => Ok(Self::ASSET_OR_NOTHING),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown payout type: {other}"
+            ))),
+        }
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match self.inner {
+            DigitalPayoutType::CashOrNothing => "cash_or_nothing",
+            DigitalPayoutType::AssetOrNothing => "asset_or_nothing",
+            _ => "unknown",
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        format!("DigitalPayoutType('{}')", self.name())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
 
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -121,17 +193,9 @@ impl PyFxDigitalOptionBuilder {
 
     fn payout_type<'py>(
         mut slf: PyRefMut<'py, Self>,
-        payout_type: &str,
+        payout_type: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.payout_type = Some(match normalize_label(payout_type).as_str() {
-            "cash_or_nothing" | "cashornothing" => DigitalPayoutType::CashOrNothing,
-            "asset_or_nothing" | "assetornothing" => DigitalPayoutType::AssetOrNothing,
-            other => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown payout type: {other}"
-                )))
-            }
-        });
+        slf.payout_type = Some(parse_payout_type(&payout_type)?);
         Ok(slf)
     }
 
@@ -291,12 +355,8 @@ impl PyFxDigitalOption {
     }
 
     #[getter]
-    fn payout_type(&self) -> &'static str {
-        match self.inner.payout_type {
-            DigitalPayoutType::CashOrNothing => "cash_or_nothing",
-            DigitalPayoutType::AssetOrNothing => "asset_or_nothing",
-            _ => "unknown",
-        }
+    fn payout_type(&self) -> PyDigitalPayoutType {
+        PyDigitalPayoutType::new(self.inner.payout_type)
     }
 
     #[getter]
@@ -370,7 +430,12 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    parent.add_class::<PyDigitalPayoutType>()?;
     parent.add_class::<PyFxDigitalOption>()?;
     parent.add_class::<PyFxDigitalOptionBuilder>()?;
-    Ok(vec!["FxDigitalOption", "FxDigitalOptionBuilder"])
+    Ok(vec![
+        "DigitalPayoutType",
+        "FxDigitalOption",
+        "FxDigitalOptionBuilder",
+    ])
 }

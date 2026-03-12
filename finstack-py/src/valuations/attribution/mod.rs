@@ -1,17 +1,32 @@
 //! Python bindings for P&L attribution.
 
+use crate::core::currency::extract_currency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
+use crate::core::market_data::context::PyMarketContext;
+use crate::core::market_data::scalars::{PyMarketScalar, PyScalarTimeSeries};
+use crate::core::market_data::surfaces::PyVolSurface;
+use crate::core::market_data::term_structures::{
+    PyBaseCorrelationCurve, PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
+};
 use crate::errors::map_error;
 use finstack_core::config::FinstackConfig;
+use finstack_core::currency::Currency;
+use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_valuations::attribution::{
-    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_compat,
-    attribute_pnl_waterfall, AttributionFactor, AttributionMeta, AttributionMethod,
-    CreditCurvesAttribution, JsonEnvelope, ModelParamsAttribution, ModelParamsSnapshot,
-    PnlAttribution, RatesCurvesAttribution,
+    attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor,
+    attribute_pnl_taylor_compat, attribute_pnl_waterfall, compute_pnl, compute_pnl_with_fx,
+    convert_currency, default_waterfall_order, reprice_instrument, AttributionFactor,
+    AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
+    CreditCurvesAttribution, CurveRestoreFlags, FxAttribution, InflationCurvesAttribution,
+    JsonEnvelope, MarketSnapshot, ModelParamsAttribution, ModelParamsSnapshot, PnlAttribution,
+    RatesCurvesAttribution, ScalarsAttribution, ScalarsSnapshot, TaylorAttributionConfig,
+    TaylorAttributionResult, TaylorFactorResult, VolAttribution, VolatilitySnapshot,
 };
+use indexmap::IndexMap;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyString};
+use pyo3::types::{PyList, PyString, PyType};
 use pythonize::depythonize;
 use serde_json::{self, Value};
 use std::sync::Arc;
@@ -53,6 +68,158 @@ fn parse_model_params_snapshot(
     }
 }
 
+fn factor_to_label(factor: &AttributionFactor) -> &'static str {
+    match factor {
+        AttributionFactor::Carry => "carry",
+        AttributionFactor::RatesCurves => "rates_curves",
+        AttributionFactor::CreditCurves => "credit_curves",
+        AttributionFactor::InflationCurves => "inflation_curves",
+        AttributionFactor::Correlations => "correlations",
+        AttributionFactor::Fx => "fx",
+        AttributionFactor::Volatility => "volatility",
+        AttributionFactor::ModelParameters => "model_parameters",
+        AttributionFactor::MarketScalars => "market_scalars",
+    }
+}
+
+fn money_map_from_python(
+    values: HashMap<String, crate::core::money::PyMoney>,
+) -> IndexMap<CurveId, Money> {
+    values
+        .into_iter()
+        .map(|(key, value)| (CurveId::new(key), value.inner))
+        .collect()
+}
+
+fn money_map_to_python(
+    values: &IndexMap<CurveId, Money>,
+) -> HashMap<String, crate::core::money::PyMoney> {
+    values
+        .iter()
+        .map(|(key, value)| {
+            (
+                key.to_string(),
+                crate::core::money::PyMoney { inner: *value },
+            )
+        })
+        .collect()
+}
+
+fn money_pair_map_to_python(
+    values: &IndexMap<(CurveId, String), Money>,
+) -> HashMap<(String, String), crate::core::money::PyMoney> {
+    values
+        .iter()
+        .map(|((curve_id, tenor), value)| {
+            (
+                (curve_id.to_string(), tenor.clone()),
+                crate::core::money::PyMoney { inner: *value },
+            )
+        })
+        .collect()
+}
+
+fn money_pair_map_from_python(
+    values: HashMap<(String, String), crate::core::money::PyMoney>,
+) -> IndexMap<(CurveId, String), Money> {
+    values
+        .into_iter()
+        .map(|((curve_id, tenor), value)| ((CurveId::new(curve_id), tenor), value.inner))
+        .collect()
+}
+
+fn fx_pair_map_from_python(
+    values: HashMap<(String, String), crate::core::money::PyMoney>,
+) -> PyResult<IndexMap<(Currency, Currency), Money>> {
+    values
+        .into_iter()
+        .map(|((from, to), value)| {
+            Ok((
+                (
+                    Currency::try_from(from.as_str()).map_err(|_| {
+                        pyo3::exceptions::PyValueError::new_err(format!(
+                            "Unknown currency code in FX attribution: {from}"
+                        ))
+                    })?,
+                    Currency::try_from(to.as_str()).map_err(|_| {
+                        pyo3::exceptions::PyValueError::new_err(format!(
+                            "Unknown currency code in FX attribution: {to}"
+                        ))
+                    })?,
+                ),
+                value.inner,
+            ))
+        })
+        .collect()
+}
+
+fn fx_pair_map_to_python(
+    values: &IndexMap<(Currency, Currency), Money>,
+) -> HashMap<(String, String), crate::core::money::PyMoney> {
+    values
+        .iter()
+        .map(|((from, to), value)| {
+            (
+                (from.to_string(), to.to_string()),
+                crate::core::money::PyMoney { inner: *value },
+            )
+        })
+        .collect()
+}
+
+fn wrap_discount_curves(
+    values: &HashMap<CurveId, Arc<finstack_core::market_data::term_structures::DiscountCurve>>,
+) -> HashMap<String, PyDiscountCurve> {
+    values
+        .iter()
+        .map(|(key, curve)| (key.to_string(), PyDiscountCurve::new_arc(curve.clone())))
+        .collect()
+}
+
+fn wrap_forward_curves(
+    values: &HashMap<CurveId, Arc<finstack_core::market_data::term_structures::ForwardCurve>>,
+) -> HashMap<String, PyForwardCurve> {
+    values
+        .iter()
+        .map(|(key, curve)| (key.to_string(), PyForwardCurve::new_arc(curve.clone())))
+        .collect()
+}
+
+fn wrap_hazard_curves(
+    values: &HashMap<CurveId, Arc<finstack_core::market_data::term_structures::HazardCurve>>,
+) -> HashMap<String, PyHazardCurve> {
+    values
+        .iter()
+        .map(|(key, curve)| (key.to_string(), PyHazardCurve::new_arc(curve.clone())))
+        .collect()
+}
+
+fn wrap_inflation_curves(
+    values: &HashMap<CurveId, Arc<finstack_core::market_data::term_structures::InflationCurve>>,
+) -> HashMap<String, PyInflationCurve> {
+    values
+        .iter()
+        .map(|(key, curve)| (key.to_string(), PyInflationCurve::new_arc(curve.clone())))
+        .collect()
+}
+
+fn wrap_base_correlation_curves(
+    values: &HashMap<
+        CurveId,
+        Arc<finstack_core::market_data::term_structures::BaseCorrelationCurve>,
+    >,
+) -> HashMap<String, PyBaseCorrelationCurve> {
+    values
+        .iter()
+        .map(|(key, curve)| {
+            (
+                key.to_string(),
+                PyBaseCorrelationCurve::new_arc(curve.clone()),
+            )
+        })
+        .collect()
+}
+
 #[pymethods]
 impl PyAttributionMethod {
     #[staticmethod]
@@ -92,6 +259,16 @@ impl PyAttributionMethod {
     fn metrics_based() -> Self {
         Self {
             inner: AttributionMethod::MetricsBased,
+        }
+    }
+
+    #[staticmethod]
+    #[pyo3(signature = (config=None))]
+    fn taylor(config: Option<&PyTaylorAttributionConfig>) -> Self {
+        Self {
+            inner: AttributionMethod::Taylor(
+                config.map(|value| value.inner.clone()).unwrap_or_default(),
+            ),
         }
     }
 
@@ -179,6 +356,19 @@ impl PyRatesCurvesAttribution {
             .collect()
     }
 
+    fn by_tenor_to_dict(&self) -> HashMap<(String, String), crate::core::money::PyMoney> {
+        self.inner
+            .by_tenor
+            .iter()
+            .map(|((curve_id, tenor), pnl)| {
+                (
+                    (curve_id.to_string(), tenor.clone()),
+                    crate::core::money::PyMoney { inner: *pnl },
+                )
+            })
+            .collect()
+    }
+
     #[getter]
     fn discount_total(&self) -> crate::core::money::PyMoney {
         crate::core::money::PyMoney {
@@ -208,6 +398,19 @@ impl PyCreditCurvesAttribution {
             .by_curve
             .iter()
             .map(|(k, v)| (k.to_string(), crate::core::money::PyMoney { inner: *v }))
+            .collect()
+    }
+
+    fn by_tenor_to_dict(&self) -> HashMap<(String, String), crate::core::money::PyMoney> {
+        self.inner
+            .by_tenor
+            .iter()
+            .map(|((curve_id, tenor), pnl)| {
+                (
+                    (curve_id.to_string(), tenor.clone()),
+                    crate::core::money::PyMoney { inner: *pnl },
+                )
+            })
             .collect()
     }
 }
@@ -247,6 +450,576 @@ impl PyModelParamsAttribution {
         self.inner
             .conversion_ratio
             .map(|m| crate::core::money::PyMoney { inner: m })
+    }
+}
+
+/// Python wrapper for CarryDetail.
+#[pyclass(name = "CarryDetail", from_py_object)]
+#[derive(Clone)]
+pub struct PyCarryDetail {
+    pub(crate) inner: CarryDetail,
+}
+
+#[pymethods]
+impl PyCarryDetail {
+    #[new]
+    #[pyo3(signature = (total, *, theta=None, roll_down=None))]
+    fn new(
+        total: crate::core::money::PyMoney,
+        theta: Option<crate::core::money::PyMoney>,
+        roll_down: Option<crate::core::money::PyMoney>,
+    ) -> Self {
+        Self {
+            inner: CarryDetail {
+                total: total.inner,
+                theta: theta.map(|value| value.inner),
+                roll_down: roll_down.map(|value| value.inner),
+            },
+        }
+    }
+
+    #[getter]
+    fn total(&self) -> crate::core::money::PyMoney {
+        crate::core::money::PyMoney {
+            inner: self.inner.total,
+        }
+    }
+
+    #[getter]
+    fn theta(&self) -> Option<crate::core::money::PyMoney> {
+        self.inner
+            .theta
+            .map(|value| crate::core::money::PyMoney { inner: value })
+    }
+
+    #[getter]
+    fn roll_down(&self) -> Option<crate::core::money::PyMoney> {
+        self.inner
+            .roll_down
+            .map(|value| crate::core::money::PyMoney { inner: value })
+    }
+}
+
+/// Python wrapper for InflationCurvesAttribution.
+#[pyclass(name = "InflationCurvesAttribution", from_py_object)]
+#[derive(Clone)]
+pub struct PyInflationCurvesAttribution {
+    pub(crate) inner: InflationCurvesAttribution,
+}
+
+#[pymethods]
+impl PyInflationCurvesAttribution {
+    #[new]
+    #[pyo3(signature = (by_curve, *, by_tenor=None))]
+    fn new(
+        by_curve: HashMap<String, crate::core::money::PyMoney>,
+        by_tenor: Option<HashMap<(String, String), crate::core::money::PyMoney>>,
+    ) -> Self {
+        Self {
+            inner: InflationCurvesAttribution {
+                by_curve: money_map_from_python(by_curve),
+                by_tenor: by_tenor.map(money_pair_map_from_python),
+            },
+        }
+    }
+
+    fn by_curve_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.by_curve)
+    }
+
+    fn by_tenor_to_dict(&self) -> Option<HashMap<(String, String), crate::core::money::PyMoney>> {
+        self.inner.by_tenor.as_ref().map(money_pair_map_to_python)
+    }
+}
+
+/// Python wrapper for CorrelationsAttribution.
+#[pyclass(name = "CorrelationsAttribution", from_py_object)]
+#[derive(Clone)]
+pub struct PyCorrelationsAttribution {
+    pub(crate) inner: CorrelationsAttribution,
+}
+
+#[pymethods]
+impl PyCorrelationsAttribution {
+    #[new]
+    fn new(by_curve: HashMap<String, crate::core::money::PyMoney>) -> Self {
+        Self {
+            inner: CorrelationsAttribution {
+                by_curve: money_map_from_python(by_curve),
+            },
+        }
+    }
+
+    fn by_curve_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.by_curve)
+    }
+}
+
+/// Python wrapper for FxAttribution.
+#[pyclass(name = "FxAttribution", from_py_object)]
+#[derive(Clone)]
+pub struct PyFxAttribution {
+    pub(crate) inner: FxAttribution,
+}
+
+#[pymethods]
+impl PyFxAttribution {
+    #[new]
+    fn new(by_pair: HashMap<(String, String), crate::core::money::PyMoney>) -> PyResult<Self> {
+        Ok(Self {
+            inner: FxAttribution {
+                by_pair: fx_pair_map_from_python(by_pair)?,
+            },
+        })
+    }
+
+    fn by_pair_to_dict(&self) -> HashMap<(String, String), crate::core::money::PyMoney> {
+        fx_pair_map_to_python(&self.inner.by_pair)
+    }
+}
+
+/// Python wrapper for VolAttribution.
+#[pyclass(name = "VolAttribution", from_py_object)]
+#[derive(Clone)]
+pub struct PyVolAttribution {
+    pub(crate) inner: VolAttribution,
+}
+
+#[pymethods]
+impl PyVolAttribution {
+    #[new]
+    fn new(by_surface: HashMap<String, crate::core::money::PyMoney>) -> Self {
+        Self {
+            inner: VolAttribution {
+                by_surface: money_map_from_python(by_surface),
+            },
+        }
+    }
+
+    fn by_surface_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.by_surface)
+    }
+}
+
+/// Python wrapper for ScalarsAttribution.
+#[pyclass(name = "ScalarsAttribution", from_py_object)]
+#[derive(Clone)]
+pub struct PyScalarsAttribution {
+    pub(crate) inner: ScalarsAttribution,
+}
+
+#[pymethods]
+impl PyScalarsAttribution {
+    #[new]
+    #[pyo3(signature = (*, dividends=None, inflation=None, equity_prices=None, commodity_prices=None))]
+    fn new(
+        dividends: Option<HashMap<String, crate::core::money::PyMoney>>,
+        inflation: Option<HashMap<String, crate::core::money::PyMoney>>,
+        equity_prices: Option<HashMap<String, crate::core::money::PyMoney>>,
+        commodity_prices: Option<HashMap<String, crate::core::money::PyMoney>>,
+    ) -> Self {
+        Self {
+            inner: ScalarsAttribution {
+                dividends: dividends.map(money_map_from_python).unwrap_or_default(),
+                inflation: inflation.map(money_map_from_python).unwrap_or_default(),
+                equity_prices: equity_prices.map(money_map_from_python).unwrap_or_default(),
+                commodity_prices: commodity_prices
+                    .map(money_map_from_python)
+                    .unwrap_or_default(),
+            },
+        }
+    }
+
+    fn dividends_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.dividends)
+    }
+
+    fn inflation_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.inflation)
+    }
+
+    fn equity_prices_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.equity_prices)
+    }
+
+    fn commodity_prices_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        money_map_to_python(&self.inner.commodity_prices)
+    }
+}
+
+/// Python wrapper for TaylorAttributionConfig.
+#[pyclass(name = "TaylorAttributionConfig", from_py_object)]
+#[derive(Clone)]
+pub struct PyTaylorAttributionConfig {
+    pub(crate) inner: TaylorAttributionConfig,
+}
+
+#[pymethods]
+impl PyTaylorAttributionConfig {
+    #[new]
+    #[pyo3(signature = (*, include_gamma=false, rate_bump_bp=1.0, credit_bump_bp=1.0, vol_bump=0.01))]
+    fn new(include_gamma: bool, rate_bump_bp: f64, credit_bump_bp: f64, vol_bump: f64) -> Self {
+        Self {
+            inner: TaylorAttributionConfig {
+                include_gamma,
+                rate_bump_bp,
+                credit_bump_bp,
+                vol_bump,
+            },
+        }
+    }
+
+    #[getter]
+    fn include_gamma(&self) -> bool {
+        self.inner.include_gamma
+    }
+
+    #[getter]
+    fn rate_bump_bp(&self) -> f64 {
+        self.inner.rate_bump_bp
+    }
+
+    #[getter]
+    fn credit_bump_bp(&self) -> f64 {
+        self.inner.credit_bump_bp
+    }
+
+    #[getter]
+    fn vol_bump(&self) -> f64 {
+        self.inner.vol_bump
+    }
+}
+
+/// Python wrapper for TaylorFactorResult.
+#[pyclass(name = "TaylorFactorResult", from_py_object)]
+#[derive(Clone)]
+pub struct PyTaylorFactorResult {
+    pub(crate) inner: TaylorFactorResult,
+}
+
+#[pymethods]
+impl PyTaylorFactorResult {
+    #[new]
+    #[pyo3(signature = (factor_name, sensitivity, market_move, explained_pnl, *, gamma_pnl=None))]
+    fn new(
+        factor_name: String,
+        sensitivity: f64,
+        market_move: f64,
+        explained_pnl: f64,
+        gamma_pnl: Option<f64>,
+    ) -> Self {
+        Self {
+            inner: TaylorFactorResult {
+                factor_name,
+                sensitivity,
+                market_move,
+                explained_pnl,
+                gamma_pnl,
+            },
+        }
+    }
+
+    #[getter]
+    fn factor_name(&self) -> &str {
+        &self.inner.factor_name
+    }
+
+    #[getter]
+    fn sensitivity(&self) -> f64 {
+        self.inner.sensitivity
+    }
+
+    #[getter]
+    fn market_move(&self) -> f64 {
+        self.inner.market_move
+    }
+
+    #[getter]
+    fn explained_pnl(&self) -> f64 {
+        self.inner.explained_pnl
+    }
+
+    #[getter]
+    fn gamma_pnl(&self) -> Option<f64> {
+        self.inner.gamma_pnl
+    }
+}
+
+/// Python wrapper for TaylorAttributionResult.
+#[pyclass(name = "TaylorAttributionResult", from_py_object)]
+#[derive(Clone)]
+pub struct PyTaylorAttributionResult {
+    pub(crate) inner: TaylorAttributionResult,
+}
+
+#[pymethods]
+impl PyTaylorAttributionResult {
+    #[new]
+    #[pyo3(signature = (actual_pnl, total_explained, unexplained, unexplained_pct, factors, num_repricings, pv_t0, pv_t1))]
+    fn new(
+        actual_pnl: f64,
+        total_explained: f64,
+        unexplained: f64,
+        unexplained_pct: f64,
+        factors: Vec<PyTaylorFactorResult>,
+        num_repricings: usize,
+        pv_t0: crate::core::money::PyMoney,
+        pv_t1: crate::core::money::PyMoney,
+    ) -> Self {
+        Self {
+            inner: TaylorAttributionResult {
+                actual_pnl,
+                total_explained,
+                unexplained,
+                unexplained_pct,
+                factors: factors.into_iter().map(|value| value.inner).collect(),
+                num_repricings,
+                pv_t0: pv_t0.inner,
+                pv_t1: pv_t1.inner,
+            },
+        }
+    }
+
+    #[getter]
+    fn actual_pnl(&self) -> f64 {
+        self.inner.actual_pnl
+    }
+
+    #[getter]
+    fn total_explained(&self) -> f64 {
+        self.inner.total_explained
+    }
+
+    #[getter]
+    fn unexplained(&self) -> f64 {
+        self.inner.unexplained
+    }
+
+    #[getter]
+    fn unexplained_pct(&self) -> f64 {
+        self.inner.unexplained_pct
+    }
+
+    #[getter]
+    fn factors(&self) -> Vec<PyTaylorFactorResult> {
+        self.inner
+            .factors
+            .iter()
+            .cloned()
+            .map(|inner| PyTaylorFactorResult { inner })
+            .collect()
+    }
+
+    #[getter]
+    fn num_repricings(&self) -> usize {
+        self.inner.num_repricings
+    }
+
+    #[getter]
+    fn pv_t0(&self) -> crate::core::money::PyMoney {
+        crate::core::money::PyMoney {
+            inner: self.inner.pv_t0,
+        }
+    }
+
+    #[getter]
+    fn pv_t1(&self) -> crate::core::money::PyMoney {
+        crate::core::money::PyMoney {
+            inner: self.inner.pv_t1,
+        }
+    }
+}
+
+/// Python wrapper for CurveRestoreFlags.
+#[pyclass(name = "CurveRestoreFlags", frozen, from_py_object)]
+#[derive(Clone, Copy)]
+pub struct PyCurveRestoreFlags {
+    pub(crate) inner: CurveRestoreFlags,
+}
+
+#[pymethods]
+impl PyCurveRestoreFlags {
+    #[classattr]
+    const DISCOUNT: Self = Self {
+        inner: CurveRestoreFlags::DISCOUNT,
+    };
+
+    #[classattr]
+    const FORWARD: Self = Self {
+        inner: CurveRestoreFlags::FORWARD,
+    };
+
+    #[classattr]
+    const HAZARD: Self = Self {
+        inner: CurveRestoreFlags::HAZARD,
+    };
+
+    #[classattr]
+    const INFLATION: Self = Self {
+        inner: CurveRestoreFlags::INFLATION,
+    };
+
+    #[classattr]
+    const CORRELATION: Self = Self {
+        inner: CurveRestoreFlags::CORRELATION,
+    };
+
+    #[classattr]
+    const RATES: Self = Self {
+        inner: CurveRestoreFlags::RATES,
+    };
+
+    #[classattr]
+    const CREDIT: Self = Self {
+        inner: CurveRestoreFlags::CREDIT,
+    };
+
+    #[classmethod]
+    fn all(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: CurveRestoreFlags::all(),
+        }
+    }
+
+    #[classmethod]
+    fn empty(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: CurveRestoreFlags::empty(),
+        }
+    }
+
+    fn contains(&self, other: &PyCurveRestoreFlags) -> bool {
+        self.inner.contains(other.inner)
+    }
+
+    fn __or__(&self, other: &PyCurveRestoreFlags) -> Self {
+        Self {
+            inner: self.inner | other.inner,
+        }
+    }
+
+    fn __and__(&self, other: &PyCurveRestoreFlags) -> Self {
+        Self {
+            inner: self.inner & other.inner,
+        }
+    }
+
+    fn __invert__(&self) -> Self {
+        Self { inner: !self.inner }
+    }
+}
+
+/// Python wrapper for MarketSnapshot.
+#[pyclass(name = "MarketSnapshot", from_py_object)]
+#[derive(Clone, Default)]
+pub struct PyMarketSnapshot {
+    pub(crate) inner: MarketSnapshot,
+}
+
+#[pymethods]
+impl PyMarketSnapshot {
+    #[classmethod]
+    fn extract(
+        _cls: &Bound<'_, PyType>,
+        market: &PyMarketContext,
+        flags: &PyCurveRestoreFlags,
+    ) -> Self {
+        Self {
+            inner: MarketSnapshot::extract(&market.inner, flags.inner),
+        }
+    }
+
+    #[staticmethod]
+    fn restore_market(
+        current_market: &PyMarketContext,
+        snapshot: &PyMarketSnapshot,
+        restore_flags: &PyCurveRestoreFlags,
+    ) -> PyMarketContext {
+        PyMarketContext {
+            inner: MarketSnapshot::restore_market(
+                &current_market.inner,
+                &snapshot.inner,
+                restore_flags.inner,
+            ),
+        }
+    }
+
+    fn discount_curves(&self) -> HashMap<String, PyDiscountCurve> {
+        wrap_discount_curves(&self.inner.discount_curves)
+    }
+
+    fn forward_curves(&self) -> HashMap<String, PyForwardCurve> {
+        wrap_forward_curves(&self.inner.forward_curves)
+    }
+
+    fn hazard_curves(&self) -> HashMap<String, PyHazardCurve> {
+        wrap_hazard_curves(&self.inner.hazard_curves)
+    }
+
+    fn inflation_curves(&self) -> HashMap<String, PyInflationCurve> {
+        wrap_inflation_curves(&self.inner.inflation_curves)
+    }
+
+    fn base_correlation_curves(&self) -> HashMap<String, PyBaseCorrelationCurve> {
+        wrap_base_correlation_curves(&self.inner.base_correlation_curves)
+    }
+}
+
+/// Python wrapper for VolatilitySnapshot.
+#[pyclass(name = "VolatilitySnapshot", from_py_object)]
+#[derive(Clone)]
+pub struct PyVolatilitySnapshot {
+    pub(crate) inner: VolatilitySnapshot,
+}
+
+#[pymethods]
+impl PyVolatilitySnapshot {
+    #[classmethod]
+    fn extract(_cls: &Bound<'_, PyType>, market: &PyMarketContext) -> Self {
+        Self {
+            inner: VolatilitySnapshot::extract(&market.inner),
+        }
+    }
+
+    fn surfaces(&self) -> HashMap<String, PyVolSurface> {
+        self.inner
+            .surfaces
+            .iter()
+            .map(|(key, value)| (key.to_string(), PyVolSurface::new_arc(value.clone())))
+            .collect()
+    }
+}
+
+/// Python wrapper for ScalarsSnapshot.
+#[pyclass(name = "ScalarsSnapshot", from_py_object)]
+#[derive(Clone)]
+pub struct PyScalarsSnapshot {
+    pub(crate) inner: ScalarsSnapshot,
+}
+
+#[pymethods]
+impl PyScalarsSnapshot {
+    #[classmethod]
+    fn extract(_cls: &Bound<'_, PyType>, market: &PyMarketContext) -> Self {
+        Self {
+            inner: ScalarsSnapshot::extract(&market.inner),
+        }
+    }
+
+    fn prices(&self) -> HashMap<String, PyMarketScalar> {
+        self.inner
+            .prices
+            .iter()
+            .map(|(key, value)| (key.to_string(), PyMarketScalar::new(value.clone())))
+            .collect()
+    }
+
+    fn series(&self) -> HashMap<String, PyScalarTimeSeries> {
+        self.inner
+            .series
+            .iter()
+            .map(|(key, value)| (key.to_string(), PyScalarTimeSeries::new_arc(value.clone())))
+            .collect()
     }
 }
 
@@ -366,6 +1139,54 @@ impl PyPnlAttribution {
             .model_params_detail
             .as_ref()
             .map(|d| PyModelParamsAttribution { inner: d.clone() })
+    }
+
+    #[getter]
+    fn carry_detail(&self) -> Option<PyCarryDetail> {
+        self.inner
+            .carry_detail
+            .as_ref()
+            .map(|d| PyCarryDetail { inner: d.clone() })
+    }
+
+    #[getter]
+    fn inflation_detail(&self) -> Option<PyInflationCurvesAttribution> {
+        self.inner
+            .inflation_detail
+            .as_ref()
+            .map(|d| PyInflationCurvesAttribution { inner: d.clone() })
+    }
+
+    #[getter]
+    fn correlations_detail(&self) -> Option<PyCorrelationsAttribution> {
+        self.inner
+            .correlations_detail
+            .as_ref()
+            .map(|d| PyCorrelationsAttribution { inner: d.clone() })
+    }
+
+    #[getter]
+    fn fx_detail(&self) -> Option<PyFxAttribution> {
+        self.inner
+            .fx_detail
+            .as_ref()
+            .map(|d| PyFxAttribution { inner: d.clone() })
+    }
+
+    #[getter]
+    fn vol_detail(&self) -> Option<PyVolAttribution> {
+        self.inner
+            .vol_detail
+            .as_ref()
+            .map(|d| PyVolAttribution { inner: d.clone() })
+    }
+
+    #[getter]
+    fn scalars_detail(&self) -> Option<PyScalarsAttribution> {
+        self.inner
+            .scalars_detail
+            .as_ref()
+            .map(|d| PyScalarsAttribution { inner: d.clone() })
     }
 
     // Export methods
@@ -526,6 +1347,120 @@ pub fn attribute_pnl(
     };
 
     Ok(PyPnlAttribution { inner: attribution })
+}
+
+/// Python function to perform Taylor-based P&L attribution.
+#[pyfunction(name = "attribute_pnl_taylor")]
+#[pyo3(signature = (instrument, market_t0, market_t1, as_of_t0, as_of_t1, config=None))]
+pub fn attribute_pnl_taylor_py(
+    instrument: Bound<'_, PyAny>,
+    market_t0: &PyMarketContext,
+    market_t1: &PyMarketContext,
+    as_of_t0: Bound<'_, PyAny>,
+    as_of_t1: Bound<'_, PyAny>,
+    config: Option<&PyTaylorAttributionConfig>,
+) -> PyResult<PyTaylorAttributionResult> {
+    let date_t0 = py_to_date(&as_of_t0)?;
+    let date_t1 = py_to_date(&as_of_t1)?;
+    let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
+    let result = attribute_pnl_taylor(
+        &instrument_arc,
+        &market_t0.inner,
+        &market_t1.inner,
+        date_t0,
+        date_t1,
+        &config.map(|value| value.inner.clone()).unwrap_or_default(),
+    )
+    .map_err(map_error)?;
+    Ok(PyTaylorAttributionResult { inner: result })
+}
+
+/// Reprice an instrument directly from Python.
+#[pyfunction(name = "reprice_instrument")]
+fn reprice_instrument_py(
+    instrument: Bound<'_, PyAny>,
+    market: &PyMarketContext,
+    as_of: Bound<'_, PyAny>,
+) -> PyResult<crate::core::money::PyMoney> {
+    let date = py_to_date(&as_of)?;
+    let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
+    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
+    let value = reprice_instrument(&instrument_arc, &market.inner, date).map_err(map_error)?;
+    Ok(crate::core::money::PyMoney { inner: value })
+}
+
+/// Convert money into a target currency using a market FX matrix.
+#[pyfunction(name = "convert_currency")]
+fn convert_currency_py(
+    money: &crate::core::money::PyMoney,
+    target_ccy: Bound<'_, PyAny>,
+    market: &PyMarketContext,
+    as_of: Bound<'_, PyAny>,
+) -> PyResult<crate::core::money::PyMoney> {
+    let target_ccy = extract_currency(&target_ccy)?;
+    let date = py_to_date(&as_of)?;
+    let value =
+        convert_currency(money.inner, target_ccy, &market.inner, date).map_err(map_error)?;
+    Ok(crate::core::money::PyMoney { inner: value })
+}
+
+/// Compute P&L in a target currency using T1 FX conversion.
+#[pyfunction(name = "compute_pnl")]
+fn compute_pnl_py(
+    val_t0: &crate::core::money::PyMoney,
+    val_t1: &crate::core::money::PyMoney,
+    target_ccy: Bound<'_, PyAny>,
+    market_t1: &PyMarketContext,
+    as_of_t1: Bound<'_, PyAny>,
+) -> PyResult<crate::core::money::PyMoney> {
+    let target_ccy = extract_currency(&target_ccy)?;
+    let date_t1 = py_to_date(&as_of_t1)?;
+    let pnl = compute_pnl(
+        val_t0.inner,
+        val_t1.inner,
+        target_ccy,
+        &market_t1.inner,
+        date_t1,
+    )
+    .map_err(map_error)?;
+    Ok(crate::core::money::PyMoney { inner: pnl })
+}
+
+/// Compute P&L with date-appropriate FX conversion at T0 and T1.
+#[pyfunction(name = "compute_pnl_with_fx")]
+fn compute_pnl_with_fx_py(
+    val_t0: &crate::core::money::PyMoney,
+    val_t1: &crate::core::money::PyMoney,
+    target_ccy: Bound<'_, PyAny>,
+    market_fx_t0: &PyMarketContext,
+    market_fx_t1: &PyMarketContext,
+    as_of_t0: Bound<'_, PyAny>,
+    as_of_t1: Bound<'_, PyAny>,
+) -> PyResult<crate::core::money::PyMoney> {
+    let target_ccy = extract_currency(&target_ccy)?;
+    let date_t0 = py_to_date(&as_of_t0)?;
+    let date_t1 = py_to_date(&as_of_t1)?;
+    let pnl = compute_pnl_with_fx(
+        val_t0.inner,
+        val_t1.inner,
+        target_ccy,
+        &market_fx_t0.inner,
+        &market_fx_t1.inner,
+        date_t0,
+        date_t1,
+    )
+    .map_err(map_error)?;
+    Ok(crate::core::money::PyMoney { inner: pnl })
+}
+
+/// Default waterfall factor order expressed using Python factor labels.
+#[pyfunction(name = "default_waterfall_order")]
+fn default_waterfall_order_py() -> Vec<String> {
+    default_waterfall_order()
+        .into_iter()
+        .map(|factor| factor_to_label(&factor).to_string())
+        .collect()
 }
 
 /// Python wrapper for PortfolioAttribution.
@@ -785,12 +1720,31 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyRatesCurvesAttribution>()?;
     module.add_class::<PyCreditCurvesAttribution>()?;
     module.add_class::<PyModelParamsAttribution>()?;
+    module.add_class::<PyCarryDetail>()?;
+    module.add_class::<PyInflationCurvesAttribution>()?;
+    module.add_class::<PyCorrelationsAttribution>()?;
+    module.add_class::<PyFxAttribution>()?;
+    module.add_class::<PyVolAttribution>()?;
+    module.add_class::<PyScalarsAttribution>()?;
+    module.add_class::<PyTaylorAttributionConfig>()?;
+    module.add_class::<PyTaylorFactorResult>()?;
+    module.add_class::<PyTaylorAttributionResult>()?;
+    module.add_class::<PyCurveRestoreFlags>()?;
+    module.add_class::<PyMarketSnapshot>()?;
+    module.add_class::<PyVolatilitySnapshot>()?;
+    module.add_class::<PyScalarsSnapshot>()?;
     module.add_class::<PyPnlAttribution>()?;
     module.add_class::<PyPortfolioAttribution>()?;
     module.add_function(wrap_pyfunction!(attribute_pnl, module)?)?;
+    module.add_function(wrap_pyfunction!(attribute_pnl_taylor_py, module)?)?;
     module.add_function(wrap_pyfunction!(attribute_portfolio_pnl, module)?)?;
     module.add_function(wrap_pyfunction!(attribute_pnl_from_json, module)?)?;
     module.add_function(wrap_pyfunction!(attribution_result_to_json, module)?)?;
+    module.add_function(wrap_pyfunction!(reprice_instrument_py, module)?)?;
+    module.add_function(wrap_pyfunction!(convert_currency_py, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_pnl_py, module)?)?;
+    module.add_function(wrap_pyfunction!(compute_pnl_with_fx_py, module)?)?;
+    module.add_function(wrap_pyfunction!(default_waterfall_order_py, module)?)?;
 
     let exports = vec![
         "AttributionMethod",
@@ -798,12 +1752,31 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
         "RatesCurvesAttribution",
         "CreditCurvesAttribution",
         "ModelParamsAttribution",
+        "CarryDetail",
+        "InflationCurvesAttribution",
+        "CorrelationsAttribution",
+        "FxAttribution",
+        "VolAttribution",
+        "ScalarsAttribution",
+        "TaylorAttributionConfig",
+        "TaylorFactorResult",
+        "TaylorAttributionResult",
+        "CurveRestoreFlags",
+        "MarketSnapshot",
+        "VolatilitySnapshot",
+        "ScalarsSnapshot",
         "PnlAttribution",
         "PortfolioAttribution",
         "attribute_pnl",
+        "attribute_pnl_taylor",
         "attribute_portfolio_pnl",
         "attribute_pnl_from_json",
         "attribution_result_to_json",
+        "reprice_instrument",
+        "convert_currency",
+        "compute_pnl",
+        "compute_pnl_with_fx",
+        "default_waterfall_order",
     ];
     let py = module.py();
     module.setattr("__doc__", "P&L attribution for instruments and portfolios.")?;

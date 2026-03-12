@@ -579,6 +579,11 @@ pub(crate) fn register<'py>(
     // Register reports types (table builder, P&L summary, credit assessment)
     let reports_exports = reports::register(py, &module)?;
 
+    if parent.hasattr("PercentileSeries")? {
+        let percentile_series = parent.getattr("PercentileSeries")?;
+        module.setattr("PercentileSeries", percentile_series)?;
+    }
+
     // Register variance analysis types
     let variance_exports = variance::register(py, &module)?;
 
@@ -613,6 +618,7 @@ pub(crate) fn register<'py>(
         "SensitivityAnalyzer",
         "TornadoEntry",
         "MonteCarloConfig",
+        "PercentileSeries",
         "generate_tornado_chart",
     ];
     all_exports.extend(explain_exports);

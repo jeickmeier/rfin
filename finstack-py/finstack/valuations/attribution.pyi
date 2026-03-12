@@ -2,9 +2,18 @@
 
 from __future__ import annotations
 from datetime import date
-from typing import Dict, List, Mapping, Any
+from typing import Dict, List, Mapping, Any, Tuple
 from finstack.core.money import Money
 from finstack.core.market_data.context import MarketContext
+from finstack.core.market_data.scalars import MarketScalar, ScalarTimeSeries
+from finstack.core.market_data.surfaces import VolSurface
+from finstack.core.market_data.term_structures import (
+    BaseCorrelationCurve,
+    DiscountCurve,
+    ForwardCurve,
+    HazardCurve,
+    InflationCurve,
+)
 from finstack.portfolio import Portfolio
 
 class AttributionMethod:
@@ -61,6 +70,11 @@ class AttributionMethod:
         """
         ...
 
+    @staticmethod
+    def taylor(config: TaylorAttributionConfig | None = None) -> AttributionMethod:
+        """Sensitivity-based Taylor expansion attribution."""
+        ...
+
 class AttributionMeta:
     """Attribution metadata."""
 
@@ -95,8 +109,13 @@ class AttributionMeta:
         ...
 
     @property
-    def tolerance(self) -> float:
-        """Tolerance for residual validation."""
+    def tolerance_abs(self) -> float:
+        """Absolute tolerance for residual validation."""
+        ...
+
+    @property
+    def tolerance_pct(self) -> float:
+        """Relative tolerance for residual validation."""
         ...
 
 class RatesCurvesAttribution:
@@ -108,6 +127,10 @@ class RatesCurvesAttribution:
         Returns:
             Dictionary mapping curve ID to P&L amount
         """
+        ...
+
+    def by_tenor_to_dict(self) -> Dict[Tuple[str, str], Money]:
+        """Get P&L by (curve ID, tenor)."""
         ...
 
     @property
@@ -129,6 +152,10 @@ class CreditCurvesAttribution:
         Returns:
             Dictionary mapping curve ID to P&L amount
         """
+        ...
+
+    def by_tenor_to_dict(self) -> Dict[Tuple[str, str], Money]:
+        """Get P&L by (hazard curve ID, tenor)."""
         ...
 
 class ModelParamsAttribution:
@@ -153,6 +180,195 @@ class ModelParamsAttribution:
     def conversion_ratio(self) -> Money | None:
         """Conversion ratio changes P&L (for convertible bonds)."""
         ...
+
+class CarryDetail:
+    """Detailed carry decomposition."""
+
+    def __init__(
+        self,
+        total: Money,
+        *,
+        theta: Money | None = None,
+        roll_down: Money | None = None,
+    ) -> None: ...
+    @property
+    def total(self) -> Money: ...
+    @property
+    def theta(self) -> Money | None: ...
+    @property
+    def roll_down(self) -> Money | None: ...
+
+class InflationCurvesAttribution:
+    """Detailed attribution for inflation curves."""
+
+    def __init__(
+        self,
+        by_curve: Dict[str, Money],
+        *,
+        by_tenor: Dict[Tuple[str, str], Money] | None = None,
+    ) -> None: ...
+    def by_curve_to_dict(self) -> Dict[str, Money]: ...
+    def by_tenor_to_dict(self) -> Dict[Tuple[str, str], Money] | None: ...
+
+class CorrelationsAttribution:
+    """Detailed attribution for correlation curves."""
+
+    def __init__(self, by_curve: Dict[str, Money]) -> None: ...
+    def by_curve_to_dict(self) -> Dict[str, Money]: ...
+
+class FxAttribution:
+    """Detailed attribution for FX rate moves."""
+
+    def __init__(self, by_pair: Dict[Tuple[str, str], Money]) -> None: ...
+    def by_pair_to_dict(self) -> Dict[Tuple[str, str], Money]: ...
+
+class VolAttribution:
+    """Detailed attribution for volatility surface moves."""
+
+    def __init__(self, by_surface: Dict[str, Money]) -> None: ...
+    def by_surface_to_dict(self) -> Dict[str, Money]: ...
+
+class ScalarsAttribution:
+    """Detailed attribution for market scalar moves."""
+
+    def __init__(
+        self,
+        *,
+        dividends: Dict[str, Money] | None = None,
+        inflation: Dict[str, Money] | None = None,
+        equity_prices: Dict[str, Money] | None = None,
+        commodity_prices: Dict[str, Money] | None = None,
+    ) -> None: ...
+    def dividends_to_dict(self) -> Dict[str, Money]: ...
+    def inflation_to_dict(self) -> Dict[str, Money]: ...
+    def equity_prices_to_dict(self) -> Dict[str, Money]: ...
+    def commodity_prices_to_dict(self) -> Dict[str, Money]: ...
+
+class TaylorAttributionConfig:
+    """Configuration for Taylor-based P&L attribution."""
+
+    def __init__(
+        self,
+        *,
+        include_gamma: bool = False,
+        rate_bump_bp: float = 1.0,
+        credit_bump_bp: float = 1.0,
+        vol_bump: float = 0.01,
+    ) -> None: ...
+    @property
+    def include_gamma(self) -> bool: ...
+    @property
+    def rate_bump_bp(self) -> float: ...
+    @property
+    def credit_bump_bp(self) -> float: ...
+    @property
+    def vol_bump(self) -> float: ...
+
+class TaylorFactorResult:
+    """Per-factor Taylor attribution contribution."""
+
+    def __init__(
+        self,
+        factor_name: str,
+        sensitivity: float,
+        market_move: float,
+        explained_pnl: float,
+        *,
+        gamma_pnl: float | None = None,
+    ) -> None: ...
+    @property
+    def factor_name(self) -> str: ...
+    @property
+    def sensitivity(self) -> float: ...
+    @property
+    def market_move(self) -> float: ...
+    @property
+    def explained_pnl(self) -> float: ...
+    @property
+    def gamma_pnl(self) -> float | None: ...
+
+class TaylorAttributionResult:
+    """Complete Taylor attribution result."""
+
+    def __init__(
+        self,
+        actual_pnl: float,
+        total_explained: float,
+        unexplained: float,
+        unexplained_pct: float,
+        factors: List[TaylorFactorResult],
+        num_repricings: int,
+        pv_t0: Money,
+        pv_t1: Money,
+    ) -> None: ...
+    @property
+    def actual_pnl(self) -> float: ...
+    @property
+    def total_explained(self) -> float: ...
+    @property
+    def unexplained(self) -> float: ...
+    @property
+    def unexplained_pct(self) -> float: ...
+    @property
+    def factors(self) -> List[TaylorFactorResult]: ...
+    @property
+    def num_repricings(self) -> int: ...
+    @property
+    def pv_t0(self) -> Money: ...
+    @property
+    def pv_t1(self) -> Money: ...
+
+class CurveRestoreFlags:
+    """Bitflag-like selector for restoring market curve families."""
+
+    DISCOUNT: CurveRestoreFlags
+    FORWARD: CurveRestoreFlags
+    HAZARD: CurveRestoreFlags
+    INFLATION: CurveRestoreFlags
+    CORRELATION: CurveRestoreFlags
+    RATES: CurveRestoreFlags
+    CREDIT: CurveRestoreFlags
+
+    @classmethod
+    def all(cls) -> CurveRestoreFlags: ...
+    @classmethod
+    def empty(cls) -> CurveRestoreFlags: ...
+    def contains(self, other: CurveRestoreFlags) -> bool: ...
+    def __or__(self, other: CurveRestoreFlags) -> CurveRestoreFlags: ...
+    def __and__(self, other: CurveRestoreFlags) -> CurveRestoreFlags: ...
+    def __invert__(self) -> CurveRestoreFlags: ...
+
+class MarketSnapshot:
+    """Snapshot of selected curve families from a market context."""
+
+    @classmethod
+    def extract(cls, market: MarketContext, flags: CurveRestoreFlags) -> MarketSnapshot: ...
+    @staticmethod
+    def restore_market(
+        current_market: MarketContext,
+        snapshot: MarketSnapshot,
+        restore_flags: CurveRestoreFlags,
+    ) -> MarketContext: ...
+    def discount_curves(self) -> Dict[str, DiscountCurve]: ...
+    def forward_curves(self) -> Dict[str, ForwardCurve]: ...
+    def hazard_curves(self) -> Dict[str, HazardCurve]: ...
+    def inflation_curves(self) -> Dict[str, InflationCurve]: ...
+    def base_correlation_curves(self) -> Dict[str, BaseCorrelationCurve]: ...
+
+class VolatilitySnapshot:
+    """Snapshot of volatility surfaces."""
+
+    @classmethod
+    def extract(cls, market: MarketContext) -> VolatilitySnapshot: ...
+    def surfaces(self) -> Dict[str, VolSurface]: ...
+
+class ScalarsSnapshot:
+    """Snapshot of market scalar data."""
+
+    @classmethod
+    def extract(cls, market: MarketContext) -> ScalarsSnapshot: ...
+    def prices(self) -> Dict[str, MarketScalar]: ...
+    def series(self) -> Dict[str, ScalarTimeSeries]: ...
 
 class PnlAttribution:
     """P&L attribution result for a single instrument."""
@@ -232,6 +448,36 @@ class PnlAttribution:
         """Detailed model parameters attribution."""
         ...
 
+    @property
+    def carry_detail(self) -> CarryDetail | None:
+        """Detailed carry attribution."""
+        ...
+
+    @property
+    def inflation_detail(self) -> InflationCurvesAttribution | None:
+        """Detailed inflation curves attribution."""
+        ...
+
+    @property
+    def correlations_detail(self) -> CorrelationsAttribution | None:
+        """Detailed correlations attribution."""
+        ...
+
+    @property
+    def fx_detail(self) -> FxAttribution | None:
+        """Detailed FX attribution."""
+        ...
+
+    @property
+    def vol_detail(self) -> VolAttribution | None:
+        """Detailed volatility attribution."""
+        ...
+
+    @property
+    def scalars_detail(self) -> ScalarsAttribution | None:
+        """Detailed market scalars attribution."""
+        ...
+
     def to_csv(self) -> str:
         """Export attribution as CSV string.
 
@@ -255,14 +501,6 @@ class PnlAttribution:
 
     def rates_detail_to_csv(self) -> str | None:
         """Export rates curves detail as CSV.
-
-        Returns:
-            CSV string with curve-by-curve breakdown, or None if no detail available
-        """
-        ...
-
-    def credit_detail_to_csv(self) -> str | None:
-        """Export credit curves detail as CSV.
 
         Returns:
             CSV string with curve-by-curve breakdown, or None if no detail available
@@ -501,6 +739,42 @@ def attribute_portfolio_pnl(
     """
     ...
 
+def attribute_pnl_taylor(
+    instrument: Any,
+    market_t0: MarketContext,
+    market_t1: MarketContext,
+    as_of_t0: date,
+    as_of_t1: date,
+    config: TaylorAttributionConfig | None = None,
+) -> TaylorAttributionResult: ...
+def reprice_instrument(
+    instrument: Any,
+    market: MarketContext,
+    as_of: date,
+) -> Money: ...
+def convert_currency(
+    money: Money,
+    target_ccy: Any,
+    market: MarketContext,
+    as_of: date,
+) -> Money: ...
+def compute_pnl(
+    val_t0: Money,
+    val_t1: Money,
+    target_ccy: Any,
+    market_t1: MarketContext,
+    as_of_t1: date,
+) -> Money: ...
+def compute_pnl_with_fx(
+    val_t0: Money,
+    val_t1: Money,
+    target_ccy: Any,
+    market_fx_t0: MarketContext,
+    market_fx_t1: MarketContext,
+    as_of_t0: date,
+    as_of_t1: date,
+) -> Money: ...
+def default_waterfall_order() -> List[str]: ...
 def attribute_pnl_from_json(spec_json: str) -> PnlAttribution:
     """Perform P&L attribution from a JSON specification.
 

@@ -1,12 +1,17 @@
-"""DCF valuation helpers."""
+"""Discounted cash flow instrument bindings."""
 
 from __future__ import annotations
-from typing import Dict, Any
-from ....statements.types import FinancialModelSpec
+
+from datetime import date
+
+from ....core.currency import Currency
+from ....core.market_data.context import MarketContext
 from ....core.money import Money
+from ...common import InstrumentType
 
 class TerminalValueSpec:
     """Terminal value specification for DCF analysis."""
+
     @classmethod
     def gordon_growth(cls, growth_rate: float) -> TerminalValueSpec: ...
     @classmethod
@@ -30,123 +35,106 @@ class TerminalValueSpec:
     @property
     def name(self) -> str: ...
 
-def evaluate_dcf(
-    model: FinancialModelSpec,
-    wacc: float = 0.10,
-    terminal_growth: float = 0.02,
-    ufcf_node: str = "ufcf",
-    net_debt_override: float | None = None,
-    *,
-    mid_year_convention: bool = False,
-    terminal_type: str | TerminalValueSpec = "gordon_growth",
-    terminal_metric: float | None = None,
-    terminal_multiple: float | None = None,
-    high_growth_rate: float | None = None,
-    stable_growth_rate: float | None = None,
-    half_life_years: float | None = None,
-    shares_outstanding: float | None = None,
-    dlom: float | None = None,
-    dloc: float | None = None,
-    total_debt: float | None = None,
-    cash: float | None = None,
-    preferred_equity: float | None = None,
-    minority_interest: float | None = None,
-    non_operating_assets: float | None = None,
-) -> Dict[str, Money | float]:
-    """Evaluate a corporate DCF (Discounted Cash Flow) valuation.
+class EquityBridge:
+    def __init__(
+        self,
+        total_debt: float = 0.0,
+        cash: float = 0.0,
+        preferred_equity: float = 0.0,
+        minority_interest: float = 0.0,
+        non_operating_assets: float = 0.0,
+        other_adjustments: list[tuple[str, float]] | None = None,
+    ) -> None: ...
+    @property
+    def total_debt(self) -> float: ...
+    @property
+    def cash(self) -> float: ...
+    @property
+    def preferred_equity(self) -> float: ...
+    @property
+    def minority_interest(self) -> float: ...
+    @property
+    def non_operating_assets(self) -> float: ...
+    @property
+    def other_adjustments(self) -> list[tuple[str, float]]: ...
+    def net_adjustment(self) -> float: ...
 
-    This function performs a DCF valuation using a financial model specification
-    from the statements module. It calculates enterprise value and equity value
-    by discounting free cashflows and applying a terminal value.
+class ValuationDiscounts:
+    def __init__(
+        self,
+        dlom: float | None = None,
+        dloc: float | None = None,
+        other_discount: float | None = None,
+    ) -> None: ...
+    @property
+    def dlom(self) -> float | None: ...
+    @property
+    def dloc(self) -> float | None: ...
+    @property
+    def other_discount(self) -> float | None: ...
+    def apply(self, equity_value: float) -> float: ...
 
-    Parameters
-    ----------
-    model : FinancialModelSpec
-        Financial model specification containing cashflow projections.
-        Must include a node for unlevered free cashflow (UFCF).
-    wacc : float, optional
-        Weighted average cost of capital as a decimal (default: 0.10 for 10%).
-        Used to discount free cashflows.
-    terminal_growth : float, optional
-        Terminal growth rate as a decimal (default: 0.02 for 2%).
-        Used in perpetuity formula for terminal value. Ignored when
-        ``terminal_type`` is ``"exit_multiple"`` or ``"h_model"``.
-    ufcf_node : str, optional
-        Node name in the model for unlevered free cashflow (default: "ufcf").
-    net_debt_override : float, optional
-        Net debt override value. If None, calculated from the model.
-    mid_year_convention : bool, optional
-        Enable mid-year discounting convention (default: False). When True,
-        cash flows are discounted at (t - 0.5) instead of t.
-    terminal_type : str, optional
-        Terminal value method: "gordon_growth" (default), "exit_multiple", or "h_model".
-    terminal_metric : float, optional
-        Terminal metric value (e.g., EBITDA) for exit multiple method.
-        Required when ``terminal_type="exit_multiple"``.
-    terminal_multiple : float, optional
-        Exit multiple (e.g., 10.0 for 10x EBITDA).
-        Required when ``terminal_type="exit_multiple"``.
-    high_growth_rate : float, optional
-        Initial high growth rate for H-model.
-        Required when ``terminal_type="h_model"``.
-    stable_growth_rate : float, optional
-        Stable growth rate for H-model.
-        Required when ``terminal_type="h_model"``.
-    half_life_years : float, optional
-        Half-life of growth fade for H-model.
-        Required when ``terminal_type="h_model"``.
-    shares_outstanding : float, optional
-        Basic shares outstanding for per-share value calculation.
-    dlom : float, optional
-        Discount for Lack of Marketability (0.0-1.0, e.g., 0.25 for 25%).
-    dloc : float, optional
-        Discount for Lack of Control (0.0-1.0, e.g., 0.20 for 20%).
-    total_debt : float, optional
-        Total interest-bearing debt for the equity bridge.
-        When any equity bridge parameter is provided, a structured bridge
-        is used instead of the flat ``net_debt_override``.
-    cash : float, optional
-        Cash and cash equivalents for the equity bridge.
-    preferred_equity : float, optional
-        Preferred stock at liquidation preference for the equity bridge.
-    minority_interest : float, optional
-        Non-controlling (minority) interests for the equity bridge.
-    non_operating_assets : float, optional
-        Non-operating assets (excess cash, investments, etc.) for the equity bridge.
+class DilutionSecurity:
+    def __init__(self, name: str, quantity: float, exercise_price: float) -> None: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def quantity(self) -> float: ...
+    @property
+    def exercise_price(self) -> float: ...
 
-    Returns
-    -------
-    Dict[str, Money | float]
-        Dictionary containing:
-        - "equity_value": Money - Equity value (EV - net debt, after discounts)
-        - "enterprise_value": Money - Total enterprise value
-        - "net_debt": Money - Net debt used
-        - "terminal_value_pv": Money - Terminal value (present value)
-        - "equity_value_per_share": float (optional) - Per-share value if shares_outstanding set
-        - "diluted_shares": float (optional) - Diluted share count if shares_outstanding set
+class DiscountedCashFlowBuilder:
+    def __init__(self, instrument_id: str) -> None: ...
+    def currency(self, currency: str | Currency) -> DiscountedCashFlowBuilder: ...
+    def flows(self, flows: list[tuple[date, float]]) -> DiscountedCashFlowBuilder: ...
+    def wacc(self, wacc: float) -> DiscountedCashFlowBuilder: ...
+    def terminal_value(self, terminal_value: TerminalValueSpec) -> DiscountedCashFlowBuilder: ...
+    def net_debt(self, net_debt: float) -> DiscountedCashFlowBuilder: ...
+    def valuation_date(self, valuation_date: date) -> DiscountedCashFlowBuilder: ...
+    def discount_curve(self, discount_curve_id: str) -> DiscountedCashFlowBuilder: ...
+    def disc_id(self, discount_curve_id: str) -> DiscountedCashFlowBuilder: ...
+    def mid_year_convention(self, enabled: bool) -> DiscountedCashFlowBuilder: ...
+    def equity_bridge(self, equity_bridge: EquityBridge) -> DiscountedCashFlowBuilder: ...
+    def shares_outstanding(self, shares_outstanding: float) -> DiscountedCashFlowBuilder: ...
+    def dilution_securities(self, dilution_securities: list[DilutionSecurity]) -> DiscountedCashFlowBuilder: ...
+    def valuation_discounts(self, valuation_discounts: ValuationDiscounts) -> DiscountedCashFlowBuilder: ...
+    def build(self) -> DiscountedCashFlow: ...
 
-    Raises
-    ------
-    ValueError
-        If model is invalid, if ufcf_node is not found, or if wacc/growth rates
-        are invalid.
-
-    Examples
-    --------
-        >>> from finstack.statements import FinancialModelSpec
-        >>> from finstack.valuations.instruments import evaluate_dcf
-        >>> result = evaluate_dcf(
-        ...     model,
-        ...     wacc=0.12,
-        ...     terminal_growth=0.03,
-        ...     mid_year_convention=True,
-        ...     shares_outstanding=1_000_000.0,
-        ...     dlom=0.25,
-        ... )
-        >>> print(result["equity_value_per_share"])
-
-    Sources
-    -------
-    - Damodaran (DCF valuation): see ``docs/REFERENCES.md#damodaranInvestmentValuation``.
-    """
-    ...
+class DiscountedCashFlow:
+    @classmethod
+    def builder(cls, instrument_id: str) -> DiscountedCashFlowBuilder: ...
+    @property
+    def instrument_id(self) -> str: ...
+    @property
+    def currency(self) -> Currency: ...
+    @property
+    def flows(self) -> list[tuple[date, float]]: ...
+    @property
+    def wacc(self) -> float: ...
+    @property
+    def terminal_value(self) -> TerminalValueSpec: ...
+    @property
+    def net_debt(self) -> float: ...
+    @property
+    def valuation_date(self) -> date: ...
+    @property
+    def discount_curve(self) -> str: ...
+    @property
+    def mid_year_convention(self) -> bool: ...
+    @property
+    def equity_bridge(self) -> EquityBridge | None: ...
+    @property
+    def shares_outstanding(self) -> float | None: ...
+    @property
+    def dilution_securities(self) -> list[DilutionSecurity]: ...
+    @property
+    def valuation_discounts(self) -> ValuationDiscounts | None: ...
+    @property
+    def instrument_type(self) -> InstrumentType: ...
+    def calculate_pv_explicit_flows(self) -> float: ...
+    def calculate_terminal_value(self) -> float: ...
+    def discount_terminal_value(self, terminal_value: float) -> float: ...
+    def effective_net_debt(self) -> float: ...
+    def diluted_shares(self, equity_value: float) -> float | None: ...
+    def equity_value_per_share(self, equity_value: float) -> float | None: ...
+    def value(self, market: MarketContext, as_of: date) -> Money: ...

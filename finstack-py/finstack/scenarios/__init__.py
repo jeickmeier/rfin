@@ -7,6 +7,9 @@ specification, composition, and execution.
 from __future__ import annotations
 
 from finstack import finstack as _finstack
+from finstack.valuations.common import InstrumentType as _InstrumentType
+
+from .error import Error, Result
 
 _rust = _finstack.scenarios
 
@@ -21,15 +24,19 @@ ScenarioEngine = _rust.ScenarioEngine
 ScenarioSpec = _rust.ScenarioSpec
 TenorMatchMode = _rust.TenorMatchMode
 TimeRollMode = _rust.TimeRollMode
+InstrumentType = _InstrumentType
 VolSurfaceKind = _rust.VolSurfaceKind
 
 __all__ = [
     "ApplicationReport",
     "Compounding",
     "CurveKind",
+    "Error",
     "ExecutionContext",
+    "InstrumentType",
     "OperationSpec",
     "RateBindingSpec",
+    "Result",
     "RollForwardReport",
     "ScenarioEngine",
     "ScenarioSpec",

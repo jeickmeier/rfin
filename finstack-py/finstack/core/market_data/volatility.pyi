@@ -534,6 +534,18 @@ def implied_vol_bachelier(price: float, forward: float, strike: float, t: float,
     """
     ...
 
+def brenner_subrahmanyam_approx(forward: float, strike: float, option_price: float, t: float) -> float:
+    """Brenner-Subrahmanyam ATM approximation for Black implied volatility."""
+    ...
+
+def manaster_koehler_approx(forward: float, strike: float, t: float) -> float:
+    """Manaster-Koehler approximation for Black implied volatility."""
+    ...
+
+def implied_vol_initial_guess(forward: float, strike: float, option_price: float, t: float) -> float:
+    """Combined initial guess for implied volatility solvers."""
+    ...
+
 # =============================================================================
 # Volatility Convention Conversion
 # =============================================================================
@@ -638,6 +650,9 @@ __all__ = [
     # Implied vol solvers
     "implied_vol_black",
     "implied_vol_bachelier",
+    "brenner_subrahmanyam_approx",
+    "manaster_koehler_approx",
+    "implied_vol_initial_guess",
     # Conversion
     "convert_atm_volatility",
     "convert_volatility",

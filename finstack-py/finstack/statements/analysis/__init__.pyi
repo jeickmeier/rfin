@@ -10,7 +10,7 @@ This module provides tools for:
 from __future__ import annotations
 from datetime import date
 from typing import Any, Dict, List
-from ..evaluator import StatementResult, DependencyGraph
+from ..evaluator import StatementResult, DependencyGraph, PercentileSeries
 from ..types import FinancialModelSpec, NodeType
 from ..capital_structure import CapitalStructureCashflows
 from ...core.dates.periods import Period, PeriodId
@@ -744,7 +744,22 @@ class TableBuilder:
 
     def __repr__(self) -> str: ...
 
-class PLSummaryReport:
+class Report:
+    """Shared reporting surface implemented by concrete statement report types."""
+
+    def to_string(self) -> str:
+        """Convert report to string format."""
+        ...
+
+    def print(self) -> None:
+        """Print report to stdout."""
+        ...
+
+    def to_markdown(self) -> str:
+        """Convert report to Markdown format."""
+        ...
+
+class PLSummaryReport(Report):
     """P&L summary report."""
 
     def __init__(self, results: StatementResult, line_items: List[str], periods: List[PeriodId]) -> None:
@@ -780,7 +795,7 @@ class PLSummaryReport:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-class CreditAssessmentReport:
+class CreditAssessmentReport(Report):
     """Credit assessment report."""
 
     def __init__(self, results: StatementResult, as_of: PeriodId) -> None:
@@ -815,7 +830,7 @@ class CreditAssessmentReport:
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
-class DebtSummaryReport:
+class DebtSummaryReport(Report):
     """Debt summary report."""
 
     def __init__(self, model: FinancialModelSpec, results: StatementResult, as_of: PeriodId) -> None:
@@ -1353,6 +1368,7 @@ __all__ = [
     # Reports
     "Alignment",
     "TableBuilder",
+    "Report",
     "PLSummaryReport",
     "CreditAssessmentReport",
     "DebtSummaryReport",
@@ -1371,6 +1387,7 @@ __all__ = [
     "ScenarioDiff",
     # Monte Carlo
     "MonteCarloConfig",
+    "PercentileSeries",
     # Backtesting
     "ForecastMetrics",
     "backtest_forecast",

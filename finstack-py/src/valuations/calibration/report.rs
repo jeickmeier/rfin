@@ -1,5 +1,5 @@
 use super::config::PySolverKind;
-use finstack_valuations::calibration::CalibrationReport;
+use finstack_valuations::calibration::{CalibrationDiagnostics, CalibrationReport, QuoteQuality};
 use pyo3::prelude::*;
 use pyo3::types::{IntoPyDict, PyDict, PyModule};
 use pyo3::Bound;
@@ -41,6 +41,202 @@ impl PyCalibrationReport {
             dict.set_item(key, value)?;
         }
         Ok(dict)
+    }
+
+    fn quote_quality_to_dict<'py>(
+        py: Python<'py>,
+        quote: &QuoteQuality,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        dict.set_item("quote_label", &quote.quote_label)?;
+        dict.set_item("target_value", quote.target_value)?;
+        dict.set_item("fitted_value", quote.fitted_value)?;
+        dict.set_item("residual", quote.residual)?;
+        dict.set_item("sensitivity", quote.sensitivity)?;
+        Ok(dict)
+    }
+
+    fn diagnostics_to_dict<'py>(
+        py: Python<'py>,
+        diagnostics: &CalibrationDiagnostics,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let dict = PyDict::new(py);
+        let per_quote: Vec<_> = diagnostics
+            .per_quote
+            .iter()
+            .map(|quote| Self::quote_quality_to_dict(py, quote))
+            .collect::<PyResult<_>>()?;
+        dict.set_item("per_quote", per_quote)?;
+        dict.set_item("condition_number", diagnostics.condition_number)?;
+        dict.set_item("singular_values", diagnostics.singular_values.clone())?;
+        dict.set_item("max_residual", diagnostics.max_residual)?;
+        dict.set_item("rms_residual", diagnostics.rms_residual)?;
+        dict.set_item("r_squared", diagnostics.r_squared)?;
+        Ok(dict)
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "QuoteQuality",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyQuoteQuality {
+    pub(crate) inner: QuoteQuality,
+}
+
+impl PyQuoteQuality {
+    pub(crate) fn new(inner: QuoteQuality) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyQuoteQuality {
+    #[new]
+    fn py_new(
+        quote_label: String,
+        target_value: f64,
+        fitted_value: f64,
+        residual: f64,
+        sensitivity: f64,
+    ) -> Self {
+        Self::new(QuoteQuality {
+            quote_label,
+            target_value,
+            fitted_value,
+            residual,
+            sensitivity,
+        })
+    }
+
+    #[getter]
+    fn quote_label(&self) -> &str {
+        &self.inner.quote_label
+    }
+
+    #[getter]
+    fn target_value(&self) -> f64 {
+        self.inner.target_value
+    }
+
+    #[getter]
+    fn fitted_value(&self) -> f64 {
+        self.inner.fitted_value
+    }
+
+    #[getter]
+    fn residual(&self) -> f64 {
+        self.inner.residual
+    }
+
+    #[getter]
+    fn sensitivity(&self) -> f64 {
+        self.inner.sensitivity
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "QuoteQuality(quote_label='{}', residual={})",
+            self.inner.quote_label, self.inner.residual
+        )
+    }
+}
+
+#[pyclass(
+    module = "finstack.valuations.calibration",
+    name = "CalibrationDiagnostics",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyCalibrationDiagnostics {
+    pub(crate) inner: CalibrationDiagnostics,
+}
+
+impl PyCalibrationDiagnostics {
+    pub(crate) fn new(inner: CalibrationDiagnostics) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCalibrationDiagnostics {
+    #[new]
+    #[pyo3(signature = (
+        per_quote,
+        *,
+        condition_number = None,
+        singular_values = None,
+        max_residual,
+        rms_residual,
+        r_squared = None
+    ))]
+    fn py_new(
+        per_quote: Vec<PyQuoteQuality>,
+        condition_number: Option<f64>,
+        singular_values: Option<Vec<f64>>,
+        max_residual: f64,
+        rms_residual: f64,
+        r_squared: Option<f64>,
+    ) -> Self {
+        Self::new(CalibrationDiagnostics {
+            per_quote: per_quote.into_iter().map(|quote| quote.inner).collect(),
+            condition_number,
+            singular_values,
+            max_residual,
+            rms_residual,
+            r_squared,
+        })
+    }
+
+    #[getter]
+    fn per_quote(&self) -> Vec<PyQuoteQuality> {
+        self.inner
+            .per_quote
+            .iter()
+            .cloned()
+            .map(PyQuoteQuality::new)
+            .collect()
+    }
+
+    #[getter]
+    fn condition_number(&self) -> Option<f64> {
+        self.inner.condition_number
+    }
+
+    #[getter]
+    fn singular_values(&self) -> Option<Vec<f64>> {
+        self.inner.singular_values.clone()
+    }
+
+    #[getter]
+    fn max_residual(&self) -> f64 {
+        self.inner.max_residual
+    }
+
+    #[getter]
+    fn rms_residual(&self) -> f64 {
+        self.inner.rms_residual
+    }
+
+    #[getter]
+    fn r_squared(&self) -> Option<f64> {
+        self.inner.r_squared
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CalibrationDiagnostics(quotes={}, max_residual={})",
+            self.inner.per_quote.len(),
+            self.inner.max_residual
+        )
+    }
+
+    fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        Ok(PyCalibrationReport::diagnostics_to_dict(py, &self.inner)?.into())
     }
 }
 
@@ -126,6 +322,14 @@ impl PyCalibrationReport {
         self.inner.model_version.clone()
     }
 
+    #[getter]
+    fn diagnostics(&self) -> Option<PyCalibrationDiagnostics> {
+        self.inner
+            .diagnostics
+            .clone()
+            .map(PyCalibrationDiagnostics::new)
+    }
+
     fn explain_json(&self) -> PyResult<Option<String>> {
         match &self.inner.explanation {
             Some(trace) => {
@@ -157,6 +361,9 @@ impl PyCalibrationReport {
         };
         dict.set_item("solver_config", solver_name)?;
         dict.set_item("model_version", &self.inner.model_version)?;
+        if let Some(diagnostics) = &self.inner.diagnostics {
+            dict.set_item("diagnostics", Self::diagnostics_to_dict(py, diagnostics)?)?;
+        }
         if let Some(explanation) = self.explanation(py)? {
             dict.set_item("explanation", explanation)?;
         }
@@ -221,6 +428,12 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
+    module.add_class::<PyQuoteQuality>()?;
+    module.add_class::<PyCalibrationDiagnostics>()?;
     module.add_class::<PyCalibrationReport>()?;
-    Ok(vec!["CalibrationReport"])
+    Ok(vec![
+        "QuoteQuality",
+        "CalibrationDiagnostics",
+        "CalibrationReport",
+    ])
 }

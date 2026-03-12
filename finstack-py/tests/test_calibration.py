@@ -80,6 +80,23 @@ def test_calibration_config_builder_and_mutators() -> None:
     assert "CalibrationConfig" in cfg_repr
 
 
+def test_with_solver_kind_resets_to_selected_solver_defaults() -> None:
+    """Switching solver kind should pick the selected solver's native defaults."""
+    brent_cfg = cal.CalibrationConfig(solver_kind=cal.SolverKind.BRENT)
+    newton_cfg = cal.CalibrationConfig(solver_kind=cal.SolverKind.NEWTON)
+
+    switched_to_newton = brent_cfg.with_solver_kind(cal.SolverKind.NEWTON)
+    switched_to_brent = newton_cfg.with_solver_kind(cal.SolverKind.BRENT)
+
+    assert switched_to_newton.solver_kind == cal.SolverKind.NEWTON
+    assert switched_to_newton.tolerance == newton_cfg.tolerance
+    assert switched_to_newton.max_iterations == newton_cfg.max_iterations
+
+    assert switched_to_brent.solver_kind == cal.SolverKind.BRENT
+    assert switched_to_brent.tolerance == brent_cfg.tolerance
+    assert switched_to_brent.max_iterations == brent_cfg.max_iterations
+
+
 def test_quote_constructors_cover_all_variants() -> None:
     """Test that quote constructors cover all quote variants."""
     # Futures (new API: explicit id + optional contract + convexity)

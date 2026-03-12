@@ -4,6 +4,7 @@ Tests entities, positions, valuation, aggregation, and optimization.
 """
 
 from datetime import date
+from pathlib import Path
 
 from finstack.core.currency import EUR, USD
 from finstack.core.dates import DayCount
@@ -193,6 +194,8 @@ class TestPortfolioBuilderParity:
 
     def test_builder_validation(self) -> None:
         """Test portfolio builder validation."""
+        import finstack
+
         builder = PortfolioBuilder("TEST_PORTFOLIO")
         builder.base_ccy("USD")
         builder.as_of(date(2024, 1, 1))
@@ -223,7 +226,7 @@ class TestPortfolioBuilderParity:
         builder.position(position)
 
         # Build should fail validation
-        with pytest.raises(Exception, match=r"[Vv]alid|error|unknown"):
+        with pytest.raises(finstack.ConfigurationError, match="unknown entity"):
             builder.build()
 
 
@@ -890,6 +893,34 @@ class TestOptimizationParity:
         ]:
             assert hasattr(PortfolioOptimizationProblem, attr), f"Missing getter: {attr}"
 
+    def test_constraint_validation_error_is_exported(self) -> None:
+        """ConstraintValidationError should be exposed as a typed validation error."""
+        from finstack.portfolio.optimization import ConstraintValidationError
+
+        import finstack
+
+        assert issubclass(ConstraintValidationError, finstack.ParameterError)
+
+    def test_constraint_factories_raise_constraint_validation_error(self) -> None:
+        """Constraint factories should route through Rust validation constructors."""
+        from finstack.portfolio.optimization import (
+            Constraint,
+            ConstraintValidationError,
+            PositionFilter,
+        )
+
+        with pytest.raises(ConstraintValidationError, match="max_share"):
+            Constraint.tag_exposure_limit(None, "rating", "CCC", -0.1)
+
+        with pytest.raises(ConstraintValidationError, match="min"):
+            Constraint.weight_bounds(None, PositionFilter.all(), 0.2, 0.1)
+
+        with pytest.raises(ConstraintValidationError, match="min_share"):
+            Constraint.tag_exposure_minimum(None, "rating", "IG", 1.1)
+
+        with pytest.raises(ConstraintValidationError, match="max_turnover"):
+            Constraint.max_turnover(None, -0.1)
+
 
 class TestCoreTypesParity:
     """Test core types match Rust API (Stream 4)."""
@@ -1115,6 +1146,16 @@ class TestMarginParity:
         assert margin.position_count == 10
         assert margin.initial_margin.amount == 5_000_000.0
         assert margin.total_margin.amount == 6_000_000.0  # IM + positive VM
+
+
+def test_portfolio_valuation_stub_includes_dataframe_methods() -> None:
+    """The published PortfolioValuation stub should include DataFrame helpers."""
+    stub_path = Path(__file__).resolve().parent.parent.parent / "finstack" / "portfolio" / "valuation.pyi"
+
+    stub_text = stub_path.read_text()
+
+    assert "def to_polars(self) -> Any:" in stub_text
+    assert "def entities_to_polars(self) -> Any:" in stub_text
 
 
 if __name__ == "__main__":

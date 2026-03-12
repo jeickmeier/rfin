@@ -24,6 +24,45 @@ fn parse_repo_type(label: Option<&str>) -> PyResult<RepoType> {
     }
 }
 
+fn parse_collateral_type(
+    value: Option<&Bound<'_, PyAny>>,
+    special_security_id: Option<&str>,
+    special_rate_adjust_bp: Option<f64>,
+) -> PyResult<CollateralType> {
+    let Some(value) = value else {
+        return Ok(CollateralType::General);
+    };
+
+    if value.is_none() {
+        return Ok(CollateralType::General);
+    }
+
+    if let Ok(typed) = value.extract::<PyRef<'_, PyCollateralType>>() {
+        return Ok(typed.inner.clone());
+    }
+
+    if let Ok(label) = value.extract::<&str>() {
+        let normalized = crate::core::common::labels::normalize_label(label);
+        return match normalized.as_str() {
+            "general" | "gc" => Ok(CollateralType::General),
+            "special" => Ok(CollateralType::Special {
+                security_id: special_security_id.map(str::to_string).ok_or_else(|| {
+                    PyValueError::new_err("special_security_id required for special collateral")
+                })?,
+                rate_adjustment_bp: special_rate_adjust_bp,
+            }),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown collateral type: '{}'. Valid: general, special",
+                other
+            ))),
+        };
+    }
+
+    Err(PyTypeError::new_err(
+        "collateral_type expects CollateralType, str, or None",
+    ))
+}
+
 // ============================================================================
 // RepoType wrapper
 // ============================================================================
@@ -87,6 +126,108 @@ impl From<PyRepoType> for RepoType {
 // RepoCollateral wrapper
 // ============================================================================
 
+/// Collateral classification (general or special) for repo collateral.
+#[pyclass(
+    module = "finstack.valuations.instruments",
+    name = "CollateralType",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PyCollateralType {
+    pub(crate) inner: CollateralType,
+}
+
+impl PyCollateralType {
+    pub(crate) fn new(inner: CollateralType) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCollateralType {
+    #[classattr]
+    const GENERAL: Self = Self {
+        inner: CollateralType::General,
+    };
+
+    #[classmethod]
+    #[pyo3(text_signature = "(cls, name)")]
+    fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
+        let normalized = crate::core::common::labels::normalize_label(name);
+        match normalized.as_str() {
+            "general" | "gc" => Ok(Self::new(CollateralType::General)),
+            "special" => Err(PyValueError::new_err(
+                "CollateralType::special() requires a security_id",
+            )),
+            other => Err(PyValueError::new_err(format!(
+                "Unknown collateral type: '{}'. Valid: general, special",
+                other
+            ))),
+        }
+    }
+
+    #[classmethod]
+    #[pyo3(signature = (security_id, rate_adjustment_bp = None))]
+    fn special(
+        _cls: &Bound<'_, PyType>,
+        security_id: &str,
+        rate_adjustment_bp: Option<f64>,
+    ) -> Self {
+        Self::new(CollateralType::Special {
+            security_id: security_id.to_string(),
+            rate_adjustment_bp,
+        })
+    }
+
+    #[getter]
+    fn name(&self) -> &'static str {
+        match &self.inner {
+            CollateralType::General => "general",
+            CollateralType::Special { .. } => "special",
+            _ => "unknown",
+        }
+    }
+
+    #[getter]
+    fn security_id(&self) -> Option<String> {
+        match &self.inner {
+            CollateralType::General => None,
+            CollateralType::Special { security_id, .. } => Some(security_id.clone()),
+            _ => None,
+        }
+    }
+
+    #[getter]
+    fn rate_adjustment_bp(&self) -> Option<f64> {
+        match &self.inner {
+            CollateralType::General => None,
+            CollateralType::Special {
+                rate_adjustment_bp, ..
+            } => *rate_adjustment_bp,
+            _ => None,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            CollateralType::General => "CollateralType('general')".to_string(),
+            CollateralType::Special {
+                security_id,
+                rate_adjustment_bp,
+            } => format!(
+                "CollateralType.special(security_id='{}', rate_adjustment_bp={:?})",
+                security_id, rate_adjustment_bp
+            ),
+            _ => "CollateralType('unknown')".to_string(),
+        }
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.name()
+    }
+}
+
 /// Collateral specification helper mirroring `CollateralSpec`.
 #[pyclass(
     module = "finstack.valuations.instruments",
@@ -108,37 +249,26 @@ impl PyRepoCollateral {
             quantity,
             market_value_id,
             *,
-            collateral_type = "general",
+            collateral_type = None,
             special_security_id = None,
             special_rate_adjust_bp = None
         ),
-        text_signature = "(instrument_id, quantity, market_value_id, *, collateral_type='general', special_security_id=None, special_rate_adjust_bp=None)"
+        text_signature = "(instrument_id, quantity, market_value_id, *, collateral_type=None, special_security_id=None, special_rate_adjust_bp=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn new(
         instrument_id: &str,
         quantity: f64,
         market_value_id: &str,
-        collateral_type: Option<&str>,
+        collateral_type: Option<Bound<'_, PyAny>>,
         special_security_id: Option<&str>,
         special_rate_adjust_bp: Option<f64>,
     ) -> PyResult<Self> {
-        let normalized = collateral_type.map(crate::core::common::labels::normalize_label);
-        let ctype = match normalized.as_deref() {
-            None | Some("general") | Some("gc") => CollateralType::General,
-            Some("special") => CollateralType::Special {
-                security_id: special_security_id.map(|s| s.to_string()).ok_or_else(|| {
-                    PyValueError::new_err("special_security_id required for special collateral")
-                })?,
-                rate_adjustment_bp: special_rate_adjust_bp,
-            },
-            Some(other) => {
-                return Err(PyValueError::new_err(format!(
-                    "Unknown collateral type: '{}'. Valid: general, special",
-                    other
-                )))
-            }
-        };
+        let ctype = parse_collateral_type(
+            collateral_type.as_ref(),
+            special_security_id,
+            special_rate_adjust_bp,
+        )?;
         let spec = CollateralSpec {
             collateral_type: ctype,
             instrument_id: instrument_id.to_string(),
@@ -161,6 +291,11 @@ impl PyRepoCollateral {
     #[getter]
     fn market_value_id(&self) -> &str {
         &self.inner.market_value_id
+    }
+
+    #[getter]
+    fn collateral_type(&self) -> PyCollateralType {
+        PyCollateralType::new(self.inner.collateral_type.clone())
     }
 }
 
@@ -588,8 +723,15 @@ pub(crate) fn register<'py>(
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyRepoType>()?;
+    module.add_class::<PyCollateralType>()?;
     module.add_class::<PyRepoCollateral>()?;
     module.add_class::<PyRepo>()?;
     module.add_class::<PyRepoBuilder>()?;
-    Ok(vec!["RepoType", "RepoCollateral", "Repo", "RepoBuilder"])
+    Ok(vec![
+        "RepoType",
+        "CollateralType",
+        "RepoCollateral",
+        "Repo",
+        "RepoBuilder",
+    ])
 }

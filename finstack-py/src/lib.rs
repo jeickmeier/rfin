@@ -253,6 +253,8 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "CurrencyMismatchError",
             "DateError",
             "ParameterError",
+            "ConstraintValidationError",
+            "CholeskyError",
             "InternalError",
         ],
     )?;
