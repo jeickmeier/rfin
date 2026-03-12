@@ -941,11 +941,12 @@ impl PyCalibrationConfig {
             rate_bounds=None,
             rate_bounds_policy=None,
             explain=None,
+            compute_diagnostics=None,
             discount_curve=None,
             hazard_curve=None,
             inflation_curve=None
         ),
-        text_signature = "(tolerance=None, max_iterations=None, use_parallel=None, verbose=None, solver_kind=None, calibration_method=None, validation_mode=None, validation=None, rate_bounds=None, rate_bounds_policy=None, explain=None, discount_curve=None, hazard_curve=None, inflation_curve=None)"
+        text_signature = "(tolerance=None, max_iterations=None, use_parallel=None, verbose=None, solver_kind=None, calibration_method=None, validation_mode=None, validation=None, rate_bounds=None, rate_bounds_policy=None, explain=None, compute_diagnostics=None, discount_curve=None, hazard_curve=None, inflation_curve=None)"
     )]
     #[allow(clippy::too_many_arguments)]
     fn ctor(
@@ -960,6 +961,7 @@ impl PyCalibrationConfig {
         rate_bounds: Option<PyRef<PyRateBounds>>,
         rate_bounds_policy: Option<PyRef<PyRateBoundsPolicy>>,
         explain: Option<bool>,
+        compute_diagnostics: Option<bool>,
         discount_curve: Option<PyRef<PyDiscountCurveSolveConfig>>,
         hazard_curve: Option<PyRef<PyHazardCurveSolveConfig>>,
         inflation_curve: Option<PyRef<PyInflationCurveSolveConfig>>,
@@ -1001,6 +1003,9 @@ impl PyCalibrationConfig {
         }
         if explain.unwrap_or(false) {
             inner.explain = ExplainOpts::enabled();
+        }
+        if let Some(flag) = compute_diagnostics {
+            inner.compute_diagnostics = flag;
         }
         if let Some(dc) = discount_curve {
             inner.discount_curve = dc.inner.clone();
@@ -1065,6 +1070,11 @@ impl PyCalibrationConfig {
     }
 
     #[getter]
+    fn compute_diagnostics(&self) -> bool {
+        self.inner.compute_diagnostics
+    }
+
+    #[getter]
     fn rate_bounds_policy(&self) -> PyRateBoundsPolicy {
         PyRateBoundsPolicy::new(self.inner.rate_bounds_policy.clone())
     }
@@ -1110,14 +1120,24 @@ impl PyCalibrationConfig {
 
     fn with_solver_kind(&self, kind: PyRef<PySolverKind>) -> Self {
         let mut next = self.inner.clone();
-        // Preserve any explicit numeric overrides currently stored in `next.solver`.
+        let current_default = match next.solver {
+            SolverConfig::Newton { .. } => SolverConfig::newton_default(),
+            SolverConfig::Brent { .. } => SolverConfig::brent_default(),
+        };
+
         let tol = next.solver.tolerance();
         let max_it = next.solver.max_iterations();
-        next.solver = kind
-            .inner
-            .clone()
-            .with_tolerance(tol)
-            .with_max_iterations(max_it);
+        let has_explicit_tolerance = tol != current_default.tolerance();
+        let has_explicit_max_iterations = max_it != current_default.max_iterations();
+
+        next.solver = kind.inner.clone();
+
+        if has_explicit_tolerance {
+            next.solver = next.solver.with_tolerance(tol);
+        }
+        if has_explicit_max_iterations {
+            next.solver = next.solver.with_max_iterations(max_it);
+        }
         Self::new(next)
     }
 
@@ -1148,6 +1168,12 @@ impl PyCalibrationConfig {
     fn with_explain(&self) -> Self {
         let mut next = self.inner.clone();
         next.explain = ExplainOpts::enabled();
+        Self::new(next)
+    }
+
+    fn with_compute_diagnostics(&self, enabled: bool) -> Self {
+        let mut next = self.inner.clone();
+        next.compute_diagnostics = enabled;
         Self::new(next)
     }
 
@@ -1224,6 +1250,7 @@ impl PyCalibrationConfig {
                 self.inner.rate_bounds.min_rate, self.inner.rate_bounds.max_rate
             ),
             format!("explain={}", self.inner.explain.enabled),
+            format!("compute_diagnostics={}", self.inner.compute_diagnostics),
         ];
         Ok(format!("CalibrationConfig({})", parts.join(", ")))
     }

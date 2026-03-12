@@ -5,7 +5,10 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::analysis::{MonteCarloConfig, MonteCarloResults as RsMonteCarloResults};
+use finstack_statements::analysis::{
+    MonteCarloConfig, MonteCarloResults as RsMonteCarloResults,
+    PercentileSeries as RsPercentileSeries,
+};
 use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
@@ -104,6 +107,24 @@ pub struct PyMonteCarloResults {
 
 impl PyMonteCarloResults {
     pub(crate) fn new(inner: RsMonteCarloResults) -> Self {
+        Self { inner }
+    }
+}
+
+/// Per-metric percentile time series.
+#[pyclass(
+    module = "finstack.statements.evaluator",
+    name = "PercentileSeries",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyPercentileSeries {
+    pub(crate) inner: RsPercentileSeries,
+}
+
+impl PyPercentileSeries {
+    pub(crate) fn new(inner: RsPercentileSeries) -> Self {
         Self { inner }
     }
 }
@@ -434,6 +455,22 @@ impl PyStatementResult {
 #[pymethods]
 impl PyMonteCarloResults {
     #[getter]
+    /// Aggregated percentile results by metric.
+    ///
+    /// Returns
+    /// -------
+    /// dict[str, PercentileSeries]
+    ///     Map of metric → percentile series
+    fn percentile_results(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (metric, series) in &self.inner.percentile_results {
+            let py_series = Py::new(py, PyPercentileSeries::new(series.clone()))?;
+            dict.set_item(metric, py_series)?;
+        }
+        Ok(dict.into())
+    }
+
+    #[getter]
     /// Number of Monte Carlo paths simulated.
     ///
     /// Returns
@@ -525,6 +562,47 @@ impl PyMonteCarloResults {
         format!(
             "MonteCarloResults(n_paths={}, percentiles={:?})",
             self.inner.n_paths, self.inner.percentiles
+        )
+    }
+}
+
+#[pymethods]
+impl PyPercentileSeries {
+    #[getter]
+    /// Metric / node identifier.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Metric identifier
+    fn metric(&self) -> String {
+        self.inner.metric.clone()
+    }
+
+    #[getter]
+    /// Period → ordered list of ``(percentile, value)`` pairs.
+    ///
+    /// Returns
+    /// -------
+    /// dict[PeriodId, list[tuple[float, float]]]
+    ///     Percentile pairs keyed by period
+    fn values(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        for (period_id, pairs) in &self.inner.values {
+            let values = PyList::empty(py);
+            for (percentile, value) in pairs {
+                values.append((*percentile, *value))?;
+            }
+            dict.set_item(PyPeriodId::new(*period_id), values)?;
+        }
+        Ok(dict.into())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "PercentileSeries(metric='{}', periods={})",
+            self.inner.metric,
+            self.inner.values.len()
         )
     }
 }
@@ -863,6 +941,7 @@ pub(crate) fn register<'py>(
 
     module.add_class::<PyStatementResultMeta>()?;
     module.add_class::<PyStatementResult>()?;
+    module.add_class::<PyPercentileSeries>()?;
     module.add_class::<PyMonteCarloResults>()?;
     module.add_class::<PyEvaluator>()?;
     module.add_class::<PyEvaluatorWithContext>()?;
@@ -871,6 +950,7 @@ pub(crate) fn register<'py>(
     let exports = vec![
         "ResultsMeta",
         "StatementResult",
+        "PercentileSeries",
         "MonteCarloResults",
         "Evaluator",
         "EvaluatorWithContext",

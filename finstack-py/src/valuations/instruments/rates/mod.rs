@@ -1,11 +1,13 @@
 pub(crate) mod basis_swap;
 pub(crate) mod cap_floor;
 pub(crate) mod cms_option;
+pub(crate) mod cms_swap;
 pub(crate) mod deposit;
 pub(crate) mod fra;
 pub(crate) mod inflation_cap_floor;
 pub(crate) mod inflation_swap;
 pub(crate) mod ir_future;
+pub(crate) mod ir_future_option;
 pub(crate) mod irs;
 pub(crate) mod range_accrual;
 pub(crate) mod repo;
@@ -39,6 +41,9 @@ pub(crate) fn register<'py>(
     let ir_future_exports = ir_future::register(py, module)?;
     exports.extend(ir_future_exports.iter().copied());
 
+    let ir_future_option_exports = ir_future_option::register(py, module)?;
+    exports.extend(ir_future_option_exports.iter().copied());
+
     let swaption_exports = swaption::register(py, module)?;
     exports.extend(swaption_exports.iter().copied());
 
@@ -56,6 +61,9 @@ pub(crate) fn register<'py>(
 
     let cms_option_exports = cms_option::register(py, module)?;
     exports.extend(cms_option_exports.iter().copied());
+
+    let cms_swap_exports = cms_swap::register(py, module)?;
+    exports.extend(cms_swap_exports.iter().copied());
 
     let range_accrual_exports = range_accrual::register(py, module)?;
     exports.extend(range_accrual_exports.iter().copied());

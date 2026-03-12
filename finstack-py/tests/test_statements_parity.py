@@ -1232,5 +1232,28 @@ def test_corporate_analysis_builder_basic() -> None:
     assert len(analysis.credit) == 0  # No capital structure
 
 
+def test_report_import_and_virtual_subclassing() -> None:
+    """Concrete statement report types should satisfy the shared Report surface."""
+    from finstack.statements import PLSummaryReport, Report, analysis
+
+    assert Report is not None
+    assert issubclass(PLSummaryReport, Report)
+    assert "Report" in analysis.__all__
+
+
+def test_mixed_formula_validation_happens_on_build() -> None:
+    """MixedNodeBuilder should defer formula validation to the Rust builder."""
+    from finstack.statements import ModelBuilder
+
+    builder = ModelBuilder.new("mixed_formula_validation")
+    builder.periods("2025Q1..Q2", None)
+
+    mixed = builder.mixed("revenue")
+    mixed.formula("")
+
+    with pytest.raises(Exception, match="Formula cannot be empty"):
+        mixed.build()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

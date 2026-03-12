@@ -4,6 +4,7 @@ from __future__ import annotations
 from .evaluator import (
     ResultsMeta,
     StatementResult,
+    PercentileSeries,
     MonteCarloResults,
     Evaluator,
     EvaluatorWithContext,
@@ -13,6 +14,7 @@ from .evaluator import (
 __all__ = [
     "ResultsMeta",
     "StatementResult",
+    "PercentileSeries",
     "MonteCarloResults",
     "Evaluator",
     "EvaluatorWithContext",

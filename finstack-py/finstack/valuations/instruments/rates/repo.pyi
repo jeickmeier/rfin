@@ -19,6 +19,21 @@ class RepoType:
     @property
     def name(self) -> str: ...
 
+class CollateralType:
+    """Collateral classification for repo collateral."""
+
+    GENERAL: CollateralType
+    @classmethod
+    def from_name(cls, name: str) -> CollateralType: ...
+    @classmethod
+    def special(cls, security_id: str, rate_adjustment_bp: float | None = ...) -> CollateralType: ...
+    @property
+    def name(self) -> str: ...
+    @property
+    def security_id(self) -> str | None: ...
+    @property
+    def rate_adjustment_bp(self) -> float | None: ...
+
 class RepoCollateral:
     """Collateral specification for Repo."""
     def __init__(
@@ -27,7 +42,7 @@ class RepoCollateral:
         quantity: float,
         market_value_id: str,
         *,
-        collateral_type: str = "general",
+        collateral_type: str | CollateralType | None = None,
         special_security_id: str | None = None,
         special_rate_adjust_bp: float | None = None,
     ) -> None: ...
@@ -37,6 +52,8 @@ class RepoCollateral:
     def quantity(self) -> float: ...
     @property
     def market_value_id(self) -> str: ...
+    @property
+    def collateral_type(self) -> CollateralType: ...
 
 class RepoBuilder:
     """Fluent builder returned by :meth:`Repo.builder`."""

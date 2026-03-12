@@ -16,6 +16,10 @@ from .ir_future import (
     InterestRateFuture as InterestRateFuture,
     InterestRateFutureBuilder as InterestRateFutureBuilder,
 )
+from .ir_future_option import (
+    IrFutureOption as IrFutureOption,
+    IrFutureOptionBuilder as IrFutureOptionBuilder,
+)
 from .irs import (
     InterestRateSwap as InterestRateSwap,
     InterestRateSwapBuilder as InterestRateSwapBuilder,
@@ -44,6 +48,7 @@ from .inflation_cap_floor import (
     InflationCapFloorType as InflationCapFloorType,
 )
 from .repo import (
+    CollateralType as CollateralType,
     Repo as Repo,
     RepoBuilder as RepoBuilder,
     RepoCollateral as RepoCollateral,
@@ -56,6 +61,7 @@ from .xccy_swap import (
     NotionalExchange as NotionalExchange,
 )
 from .cms_option import CmsOption as CmsOption
+from .cms_swap import CmsSwap as CmsSwap
 from .range_accrual import (
     RangeAccrual as RangeAccrual,
     RangeAccrualBuilder as RangeAccrualBuilder,
@@ -74,6 +80,8 @@ __all__ = [
     "InterestRateOptionBuilder",
     "InterestRateFuture",
     "InterestRateFutureBuilder",
+    "IrFutureOption",
+    "IrFutureOptionBuilder",
     "InterestRateSwap",
     "InterestRateSwapBuilder",
     "LegSide",
@@ -95,6 +103,7 @@ __all__ = [
     "InflationCapFloor",
     "InflationCapFloorBuilder",
     "InflationCapFloorType",
+    "CollateralType",
     "Repo",
     "RepoBuilder",
     "RepoCollateral",
@@ -102,6 +111,7 @@ __all__ = [
     "CrossCurrencySwap",
     "CrossCurrencySwapBuilder",
     "CmsOption",
+    "CmsSwap",
     "RateOptionType",
     "RangeAccrual",
     "RangeAccrualBuilder",

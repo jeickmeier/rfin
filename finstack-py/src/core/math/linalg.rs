@@ -1,12 +1,45 @@
 use finstack_core::math::linalg::{
     apply_correlation as core_apply_correlation,
     build_correlation_matrix as core_build_correlation_matrix,
-    cholesky_decomposition as core_cholesky, validate_correlation_matrix as core_validate_corr,
+    cholesky_decomposition as core_cholesky, cholesky_solve as core_cholesky_solve,
+    validate_correlation_matrix as core_validate_corr, CholeskyError as CoreCholeskyError,
+    DIAGONAL_TOLERANCE, SINGULAR_THRESHOLD, SYMMETRY_TOLERANCE,
 };
-use pyo3::exceptions::PyValueError;
+use finstack_core::{Error as CoreError, InputError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
+
+fn map_cholesky_error(err: CoreCholeskyError) -> PyErr {
+    crate::errors::CholeskyError::new_err(err.to_string())
+}
+
+fn map_cholesky_solve_error(err: CoreError) -> PyErr {
+    match err {
+        CoreError::Input(InputError::DimensionMismatch) => {
+            crate::errors::CholeskyError::new_err("Cholesky solve dimension mismatch")
+        }
+        CoreError::Input(InputError::Invalid) => crate::errors::CholeskyError::new_err(
+            "Cholesky solve failed: singular or invalid factor",
+        ),
+        other => crate::errors::CholeskyError::new_err(other.to_string()),
+    }
+}
+
+fn flatten_square_matrix(matrix: Vec<Vec<f64>>, name: &str) -> PyResult<(Vec<f64>, usize)> {
+    let n = matrix.len();
+    if n == 0 {
+        return Ok((vec![], 0));
+    }
+
+    if matrix.iter().any(|row| row.len() != n) {
+        return Err(crate::errors::CholeskyError::new_err(format!(
+            "{name} must be a square matrix"
+        )));
+    }
+
+    Ok((matrix.into_iter().flatten().collect(), n))
+}
 
 #[pyfunction(name = "cholesky_decomposition")]
 #[pyo3(text_signature = "(matrix)")]
@@ -14,26 +47,12 @@ use pyo3::Bound;
 ///
 /// Returns lower triangular matrix L such that A = L * L^T.
 pub fn cholesky_decomposition_py(matrix: Vec<Vec<f64>>) -> PyResult<Vec<Vec<f64>>> {
-    // Flatten for core
-    let n = matrix.len();
+    let (flat, n) = flatten_square_matrix(matrix, "Input")?;
     if n == 0 {
         return Ok(vec![]);
     }
-    let flat: Vec<f64> = matrix.into_iter().flatten().collect();
-    if flat.len() != n * n {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "Input must be a square matrix",
-        ));
-    }
 
-    let result_flat = core_cholesky(&flat, n).map_err(|e| match e {
-        finstack_core::math::linalg::CholeskyError::DimensionMismatch { expected, actual } => {
-            pyo3::exceptions::PyValueError::new_err(format!(
-                "Matrix dimension mismatch: expected {expected}x{expected}, got {actual} elements"
-            ))
-        }
-        _ => pyo3::exceptions::PyValueError::new_err(e.to_string()),
-    })?;
+    let result_flat = core_cholesky(&flat, n).map_err(map_cholesky_error)?;
 
     // Re-nest
     let result_nested: Vec<Vec<f64>> = result_flat.chunks(n).map(|chunk| chunk.to_vec()).collect();
@@ -57,15 +76,9 @@ pub fn cholesky_decomposition_py(matrix: Vec<Vec<f64>>) -> PyResult<Vec<Vec<f64>
 /// bool
 ///     ``True`` if the matrix is a valid correlation matrix.
 pub fn validate_correlation_matrix_py(matrix: Vec<Vec<f64>>) -> PyResult<bool> {
-    let n = matrix.len();
+    let (flat, n) = flatten_square_matrix(matrix, "Input")?;
     if n == 0 {
         return Ok(true);
-    }
-    let flat: Vec<f64> = matrix.into_iter().flatten().collect();
-    if flat.len() != n * n {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "Input must be a square matrix",
-        ));
     }
 
     Ok(core_validate_corr(&flat, n).is_ok())
@@ -92,21 +105,33 @@ pub fn apply_correlation_py(cholesky: Vec<Vec<f64>>, independent: Vec<f64>) -> P
         return Ok(vec![]);
     }
 
-    if cholesky.len() != n || cholesky.iter().any(|row| row.len() != n) {
-        return Err(PyValueError::new_err(
+    let (chol_flat, chol_n) = flatten_square_matrix(cholesky, "Cholesky factor")?;
+    if chol_n != n {
+        return Err(crate::errors::CholeskyError::new_err(
             "Cholesky factor must be an n x n square matrix matching shock dimension",
         ));
     }
 
-    let mut chol_flat = Vec::with_capacity(n * n);
-    for row in cholesky {
-        chol_flat.extend_from_slice(&row);
-    }
-
     let mut correlated = vec![0.0; n];
     core_apply_correlation(&chol_flat, &independent, &mut correlated)
-        .map_err(|e| PyValueError::new_err(format!("Correlation application failed: {e}")))?;
+        .map_err(map_cholesky_error)?;
     Ok(correlated)
+}
+
+#[pyfunction(name = "cholesky_solve")]
+#[pyo3(text_signature = "(cholesky, b)")]
+/// Solve ``A x = b`` from a lower-triangular Cholesky factor ``L`` where ``A = L L^T``.
+pub fn cholesky_solve_py(cholesky: Vec<Vec<f64>>, b: Vec<f64>) -> PyResult<Vec<f64>> {
+    let (chol_flat, n) = flatten_square_matrix(cholesky, "Cholesky factor")?;
+    if n != b.len() {
+        return Err(crate::errors::CholeskyError::new_err(
+            "Cholesky solve dimension mismatch",
+        ));
+    }
+
+    let mut x = vec![0.0; n];
+    core_cholesky_solve(&chol_flat, &b, &mut x).map_err(map_cholesky_solve_error)?;
+    Ok(x)
 }
 
 #[pyfunction(name = "build_correlation_matrix")]
@@ -143,13 +168,26 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     let module = PyModule::new(py, "linalg")?;
     module.setattr("__doc__", "Linear algebra utilities (Cholesky, etc.).")?;
+    module.add(
+        "CholeskyError",
+        py.get_type::<crate::errors::CholeskyError>(),
+    )?;
+    module.add("SINGULAR_THRESHOLD", SINGULAR_THRESHOLD)?;
+    module.add("DIAGONAL_TOLERANCE", DIAGONAL_TOLERANCE)?;
+    module.add("SYMMETRY_TOLERANCE", SYMMETRY_TOLERANCE)?;
     module.add_function(wrap_pyfunction!(cholesky_decomposition_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(cholesky_solve_py, &module)?)?;
     module.add_function(wrap_pyfunction!(validate_correlation_matrix_py, &module)?)?;
     module.add_function(wrap_pyfunction!(apply_correlation_py, &module)?)?;
     module.add_function(wrap_pyfunction!(build_correlation_matrix_py, &module)?)?;
 
     let exports = [
+        "CholeskyError",
+        "SINGULAR_THRESHOLD",
+        "DIAGONAL_TOLERANCE",
+        "SYMMETRY_TOLERANCE",
         "cholesky_decomposition",
+        "cholesky_solve",
         "validate_correlation_matrix",
         "apply_correlation",
         "build_correlation_matrix",

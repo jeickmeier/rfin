@@ -138,6 +138,10 @@ from .rates.ir_future import (
     InterestRateFuture as InterestRateFuture,
     InterestRateFutureBuilder as InterestRateFutureBuilder,
 )
+from .rates.ir_future_option import (
+    IrFutureOption as IrFutureOption,
+    IrFutureOptionBuilder as IrFutureOptionBuilder,
+)
 from .rates.irs import (
     FloatingLegCompounding as FloatingLegCompounding,
     InterestRateSwap as InterestRateSwap,
@@ -166,6 +170,7 @@ from .rates.inflation_cap_floor import (
     InflationCapFloorType as InflationCapFloorType,
 )
 from .rates.repo import (
+    CollateralType as CollateralType,
     Repo as Repo,
     RepoBuilder as RepoBuilder,
     RepoCollateral as RepoCollateral,
@@ -178,6 +183,7 @@ from .rates.xccy_swap import (
     NotionalExchange as NotionalExchange,
 )
 from .rates.cms_option import CmsOption as CmsOption
+from .rates.cms_swap import CmsSwap as CmsSwap
 from .rates.range_accrual import (
     BoundsType as BoundsType,
     RangeAccrual as RangeAccrual,
@@ -216,6 +222,7 @@ from .fx.fx_barrier_option import (
     FxBarrierOptionBuilder as FxBarrierOptionBuilder,
 )
 from .fx.fx_digital_option import (
+    DigitalPayoutType as DigitalPayoutType,
     FxDigitalOption as FxDigitalOption,
     FxDigitalOptionBuilder as FxDigitalOptionBuilder,
 )
@@ -224,8 +231,11 @@ from .fx.fx_forward import (
     FxForwardBuilder as FxForwardBuilder,
 )
 from .fx.fx_touch_option import (
+    BarrierDirection as BarrierDirection,
     FxTouchOption as FxTouchOption,
     FxTouchOptionBuilder as FxTouchOptionBuilder,
+    PayoutTiming as PayoutTiming,
+    TouchType as TouchType,
 )
 from .fx.fx_variance_swap import (
     FxVarianceSwap as FxVarianceSwap,
@@ -288,7 +298,14 @@ from .equity.real_estate import (
     RealEstateValuationMethod as RealEstateValuationMethod,
 )
 from .equity.levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
-from .equity.dcf import TerminalValueSpec as TerminalValueSpec
+from .equity.dcf import (
+    DilutionSecurity as DilutionSecurity,
+    DiscountedCashFlow as DiscountedCashFlow,
+    DiscountedCashFlowBuilder as DiscountedCashFlowBuilder,
+    EquityBridge as EquityBridge,
+    TerminalValueSpec as TerminalValueSpec,
+    ValuationDiscounts as ValuationDiscounts,
+)
 
 # Commodity
 from .commodity.commodity_asian_option import (
@@ -303,9 +320,17 @@ from .commodity.commodity_option import (
     CommodityOption as CommodityOption,
     CommodityOptionBuilder as CommodityOptionBuilder,
 )
+from .commodity.commodity_spread_option import (
+    CommoditySpreadOption as CommoditySpreadOption,
+    CommoditySpreadOptionBuilder as CommoditySpreadOptionBuilder,
+)
 from .commodity.commodity_swap import (
     CommoditySwap as CommoditySwap,
     CommoditySwapBuilder as CommoditySwapBuilder,
+)
+from .commodity.commodity_swaption import (
+    CommoditySwaption as CommoditySwaption,
+    CommoditySwaptionBuilder as CommoditySwaptionBuilder,
 )
 
 # Exotics
@@ -402,6 +427,7 @@ __all__ = [
     "BermudanType",
     "BoundsType",
     "CmsOption",
+    "CmsSwap",
     "CrossCurrencySwap",
     "CrossCurrencySwapBuilder",
     "Deposit",
@@ -416,6 +442,8 @@ __all__ = [
     "InflationSwapBuilder",
     "InterestRateFuture",
     "InterestRateFutureBuilder",
+    "IrFutureOption",
+    "IrFutureOptionBuilder",
     "InterestRateOption",
     "InterestRateOptionBuilder",
     "InterestRateSwap",
@@ -427,6 +455,7 @@ __all__ = [
     "RangeAccrual",
     "RangeAccrualBuilder",
     "RateOptionType",
+    "CollateralType",
     "Repo",
     "RepoBuilder",
     "RepoCollateral",
@@ -440,6 +469,8 @@ __all__ = [
     # FX
     "FxBarrierOption",
     "FxBarrierOptionBuilder",
+    "BarrierDirection",
+    "DigitalPayoutType",
     "FxDigitalOption",
     "FxDigitalOptionBuilder",
     "FxForward",
@@ -453,6 +484,8 @@ __all__ = [
     "FxSwapBuilder",
     "FxTouchOption",
     "FxTouchOptionBuilder",
+    "PayoutTiming",
+    "TouchType",
     "FxVarianceDirection",
     "FxVarianceSwap",
     "FxVarianceSwapBuilder",
@@ -472,6 +505,10 @@ __all__ = [
     "EquityOption",
     "EquityOptionGreeks",
     "FuturePosition",
+    "DilutionSecurity",
+    "DiscountedCashFlow",
+    "DiscountedCashFlowBuilder",
+    "EquityBridge",
     "LeveredRealEstateEquity",
     "PrivateMarketsFund",
     "RealEstateAsset",
@@ -493,8 +530,12 @@ __all__ = [
     "CommodityForwardBuilder",
     "CommodityOption",
     "CommodityOptionBuilder",
+    "CommoditySpreadOption",
+    "CommoditySpreadOptionBuilder",
     "CommoditySwap",
     "CommoditySwapBuilder",
+    "CommoditySwaption",
+    "CommoditySwaptionBuilder",
     # Credit Derivatives
     "CDSConvention",
     "CDSIndex",
@@ -550,4 +591,5 @@ __all__ = [
     "TrsSide",
     # DCF Valuation
     "TerminalValueSpec",
+    "ValuationDiscounts",
 ]

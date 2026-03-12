@@ -291,6 +291,11 @@ class MonteCarloResults:
     """
 
     @property
+    def percentile_results(self) -> Dict[str, PercentileSeries]:
+        """Aggregated percentile results by metric."""
+        ...
+
+    @property
     def n_paths(self) -> int:
         """Number of Monte Carlo paths simulated."""
         ...
@@ -331,6 +336,21 @@ class MonteCarloResults:
             float | None: Breach probability in [0.0, 1.0] or ``None``.
         """
         ...
+
+class PercentileSeries:
+    """Per-metric percentile time series."""
+
+    @property
+    def metric(self) -> str:
+        """Metric / node identifier."""
+        ...
+
+    @property
+    def values(self) -> Dict[PeriodId, List[Tuple[float, float]]]:
+        """Period → ordered list of ``(percentile, value)`` pairs."""
+        ...
+
+    def __repr__(self) -> str: ...
 
 class Evaluator:
     """Evaluator for financial statement models.

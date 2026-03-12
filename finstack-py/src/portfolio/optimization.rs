@@ -5,7 +5,7 @@
 
 use crate::core::config::{extract_config_or_default, PyResultsMeta};
 use crate::core::market_data::context::PyMarketContext;
-use crate::portfolio::error::portfolio_to_py;
+use crate::portfolio::error::{constraint_validation_to_py, portfolio_to_py};
 use crate::portfolio::positions::{extract_portfolio, PyPortfolio};
 use crate::portfolio::types::PyPositionUnit;
 use crate::valuations::instruments::extract_instrument;
@@ -704,15 +704,11 @@ impl PyConstraint {
         tag_key: String,
         tag_value: String,
         max_share: f64,
-    ) -> Self {
-        Self {
-            inner: Constraint::TagExposureLimit {
-                label,
-                tag_key,
-                tag_value,
-                max_share,
-            },
-        }
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: Constraint::tag_exposure_limit_with_label(label, tag_key, tag_value, max_share)
+                .map_err(constraint_validation_to_py)?,
+        })
     }
 
     /// Minimum tag exposure, e.g. rating=IG weight >= 0.50.
@@ -723,41 +719,38 @@ impl PyConstraint {
         tag_key: String,
         tag_value: String,
         min_share: f64,
-    ) -> Self {
-        Self {
-            inner: Constraint::TagExposureMinimum {
-                label,
-                tag_key,
-                tag_value,
-                min_share,
-            },
-        }
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: Constraint::tag_exposure_minimum_with_label(
+                label, tag_key, tag_value, min_share,
+            )
+            .map_err(constraint_validation_to_py)?,
+        })
     }
 
     /// Weight bounds for all positions matching the filter.
     #[staticmethod]
     #[pyo3(signature = (label, filter, min, max))]
-    fn weight_bounds(label: Option<String>, filter: PyPositionFilter, min: f64, max: f64) -> Self {
-        Self {
-            inner: Constraint::WeightBounds {
-                label,
-                filter: filter.inner,
-                min,
-                max,
-            },
-        }
+    fn weight_bounds(
+        label: Option<String>,
+        filter: PyPositionFilter,
+        min: f64,
+        max: f64,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            inner: Constraint::weight_bounds_with_label(label, filter.inner, min, max)
+                .map_err(constraint_validation_to_py)?,
+        })
     }
 
     /// Maximum turnover constraint.
     #[staticmethod]
     #[pyo3(signature = (label, max_turnover))]
-    fn max_turnover(label: Option<String>, max_turnover: f64) -> Self {
-        Self {
-            inner: Constraint::MaxTurnover {
-                label,
-                max_turnover,
-            },
-        }
+    fn max_turnover(label: Option<String>, max_turnover: f64) -> PyResult<Self> {
+        Ok(Self {
+            inner: Constraint::max_turnover_with_label(label, max_turnover)
+                .map_err(constraint_validation_to_py)?,
+        })
     }
 
     /// Maximum single position weight change.
@@ -1451,12 +1444,16 @@ impl PyDefaultLpOptimizer {
 
 /// Register optimization helpers.
 pub(crate) fn register<'py>(
-    _py: Python<'py>,
+    py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
     // Register helper function
     let func = wrap_pyfunction!(py_optimize_max_yield_with_ccc_limit, parent)?;
     parent.add_function(func)?;
+    parent.add(
+        "ConstraintValidationError",
+        py.get_type::<crate::errors::ConstraintValidationError>(),
+    )?;
 
     // Register all classes
     parent.add_class::<PyWeightingScheme>()?;
@@ -1490,6 +1487,7 @@ pub(crate) fn register<'py>(
         "MetricExpr".to_string(),
         "Objective".to_string(),
         "PositionFilter".to_string(),
+        "ConstraintValidationError".to_string(),
         "Constraint".to_string(),
         "TradeSpec".to_string(),
         "OptimizationResult".to_string(),

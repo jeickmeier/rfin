@@ -27,7 +27,7 @@ from .quote import (
     RatesQuote,
     VolQuote,
 )
-from .report import CalibrationReport
+from .report import CalibrationDiagnostics, CalibrationReport, QuoteQuality
 from .sabr import SABRCalibrationDerivatives, SABRMarketData, SABRModelParams
 from .validation import (
     ValidationConfig,
@@ -53,6 +53,7 @@ def execute_calibration(
 __all__ = [
     "CALIBRATION_SCHEMA",
     "CalibrationConfig",
+    "CalibrationDiagnostics",
     "CalibrationMethod",
     "CalibrationReport",
     "CreditQuote",
@@ -66,6 +67,7 @@ __all__ = [
     "RateBoundsPolicy",
     "RatesQuote",
     "RatesStepConventions",
+    "QuoteQuality",
     "ResidualWeightingScheme",
     "SABRCalibrationDerivatives",
     "SABRMarketData",

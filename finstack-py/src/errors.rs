@@ -72,6 +72,8 @@ create_exception!(finstack, ValidationError, FinstackError);
 create_exception!(finstack, CurrencyMismatchError, ValidationError);
 create_exception!(finstack, DateError, ValidationError);
 create_exception!(finstack, ParameterError, ValidationError);
+create_exception!(finstack, ConstraintValidationError, ParameterError);
+create_exception!(finstack, CholeskyError, ParameterError);
 
 // Internal errors
 create_exception!(finstack, InternalError, FinstackError);
@@ -108,6 +110,11 @@ pub fn register_exceptions(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> 
     )?;
     m.add("DateError", py.get_type::<DateError>())?;
     m.add("ParameterError", py.get_type::<ParameterError>())?;
+    m.add(
+        "ConstraintValidationError",
+        py.get_type::<ConstraintValidationError>(),
+    )?;
+    m.add("CholeskyError", py.get_type::<CholeskyError>())?;
 
     // Internal errors
     m.add("InternalError", py.get_type::<InternalError>())?;

@@ -54,10 +54,14 @@ class TestExceptionHierarchy:
         assert hasattr(finstack, "CurrencyMismatchError")
         assert hasattr(finstack, "DateError")
         assert hasattr(finstack, "ParameterError")
+        assert hasattr(finstack, "ConstraintValidationError")
+        assert hasattr(finstack, "CholeskyError")
 
         # Check inheritance
         assert issubclass(finstack.ValidationError, finstack.FinstackError)
         assert issubclass(finstack.CurrencyMismatchError, finstack.ValidationError)
+        assert issubclass(finstack.ConstraintValidationError, finstack.ParameterError)
+        assert issubclass(finstack.CholeskyError, finstack.ParameterError)
 
     def test_internal_exception_exists(self) -> None:
         """InternalError should be accessible."""

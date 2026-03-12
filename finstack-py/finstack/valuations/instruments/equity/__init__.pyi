@@ -39,7 +39,14 @@ from .trs import (
 from .private_markets_fund import PrivateMarketsFund as PrivateMarketsFund
 from .real_estate import RealEstateAsset as RealEstateAsset, RealEstateValuationMethod as RealEstateValuationMethod
 from .levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
-from .dcf import TerminalValueSpec as TerminalValueSpec
+from .dcf import (
+    DilutionSecurity as DilutionSecurity,
+    DiscountedCashFlow as DiscountedCashFlow,
+    DiscountedCashFlowBuilder as DiscountedCashFlowBuilder,
+    EquityBridge as EquityBridge,
+    TerminalValueSpec as TerminalValueSpec,
+    ValuationDiscounts as ValuationDiscounts,
+)
 
 __all__ = [
     "Equity",
@@ -62,7 +69,12 @@ __all__ = [
     "VolIndexOptionSpecs",
     "VarianceDirection",
     "RealizedVarianceMethod",
+    "DilutionSecurity",
+    "DiscountedCashFlow",
+    "DiscountedCashFlowBuilder",
+    "EquityBridge",
     "TerminalValueSpec",
+    "ValuationDiscounts",
     "TrsSide",
     "TrsFinancingLegSpec",
     "TrsScheduleSpec",

@@ -27,6 +27,9 @@ from finstack.core.market_data.volatility import (
     black_shifted_vega as black_shifted_vega,
     implied_vol_black as implied_vol_black,
     implied_vol_bachelier as implied_vol_bachelier,
+    brenner_subrahmanyam_approx as brenner_subrahmanyam_approx,
+    manaster_koehler_approx as manaster_koehler_approx,
+    implied_vol_initial_guess as implied_vol_initial_guess,
     convert_atm_volatility as convert_atm_volatility,
     convert_volatility as convert_volatility,
 )
@@ -53,6 +56,9 @@ __all__ = [
     "black_shifted_vega",
     "implied_vol_black",
     "implied_vol_bachelier",
+    "brenner_subrahmanyam_approx",
+    "manaster_koehler_approx",
+    "implied_vol_initial_guess",
     "convert_atm_volatility",
     "convert_volatility",
 ]

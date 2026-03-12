@@ -11,7 +11,7 @@ use crate::errors::core_to_py;
 use crate::valuations::instruments::extract_instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyAny, PyList, PyModule};
 use pyo3::Bound;
 use std::sync::Arc;
 
@@ -292,6 +292,64 @@ impl PyNettingSet {
 }
 
 // ---------------------------------------------------------------------------
+// ExposureDiagnostics
+// ---------------------------------------------------------------------------
+
+/// Diagnostics from exposure simulation capturing data quality metrics.
+#[pyclass(
+    module = "finstack.valuations.xva",
+    name = "ExposureDiagnostics",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyExposureDiagnostics {
+    pub(crate) inner: xva::types::ExposureDiagnostics,
+}
+
+#[pymethods]
+impl PyExposureDiagnostics {
+    #[new]
+    fn new(
+        market_roll_failures: usize,
+        valuation_failures: usize,
+        total_time_points: usize,
+    ) -> Self {
+        Self {
+            inner: xva::types::ExposureDiagnostics {
+                market_roll_failures,
+                valuation_failures,
+                total_time_points,
+            },
+        }
+    }
+
+    #[getter]
+    fn market_roll_failures(&self) -> usize {
+        self.inner.market_roll_failures
+    }
+
+    #[getter]
+    fn valuation_failures(&self) -> usize {
+        self.inner.valuation_failures
+    }
+
+    #[getter]
+    fn total_time_points(&self) -> usize {
+        self.inner.total_time_points
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ExposureDiagnostics(market_roll_failures={}, valuation_failures={}, total_time_points={})",
+            self.inner.market_roll_failures,
+            self.inner.valuation_failures,
+            self.inner.total_time_points
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
 // ExposureProfile
 // ---------------------------------------------------------------------------
 
@@ -337,17 +395,13 @@ impl PyExposureProfile {
 
     /// Simulation quality diagnostics, if any failures occurred.
     ///
-    /// Returns a dict with ``market_roll_failures``, ``valuation_failures``,
-    /// and ``total_time_points``; or ``None`` when every grid point succeeded.
+    /// Returns structured diagnostics when any grid point failed.
     #[getter]
-    fn diagnostics(&self) -> Option<std::collections::HashMap<&'static str, usize>> {
-        self.inner.diagnostics.as_ref().map(|d| {
-            let mut m = std::collections::HashMap::with_capacity(3);
-            m.insert("market_roll_failures", d.market_roll_failures);
-            m.insert("valuation_failures", d.valuation_failures);
-            m.insert("total_time_points", d.total_time_points);
-            m
-        })
+    fn diagnostics(&self) -> Option<PyExposureDiagnostics> {
+        self.inner
+            .diagnostics
+            .as_ref()
+            .map(|d| PyExposureDiagnostics { inner: d.clone() })
     }
 
     fn __repr__(&self) -> String {
@@ -355,6 +409,131 @@ impl PyExposureProfile {
             "ExposureProfile(points={}, max_epe={:.2})",
             self.inner.times.len(),
             self.inner.epe.iter().copied().fold(0.0_f64, f64::max)
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// StochasticExposureConfig
+// ---------------------------------------------------------------------------
+
+/// Configuration for stochastic exposure simulation.
+#[pyclass(
+    module = "finstack.valuations.xva",
+    name = "StochasticExposureConfig",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyStochasticExposureConfig {
+    pub(crate) inner: xva::types::StochasticExposureConfig,
+}
+
+#[pymethods]
+impl PyStochasticExposureConfig {
+    #[new]
+    #[pyo3(signature = (num_paths=10_000, seed=42, pfe_quantile=0.975))]
+    fn new(num_paths: usize, seed: u64, pfe_quantile: f64) -> PyResult<Self> {
+        let inner = xva::types::StochasticExposureConfig {
+            num_paths,
+            seed,
+            pfe_quantile,
+        };
+        inner.validate().map_err(core_to_py)?;
+        Ok(Self { inner })
+    }
+
+    #[getter]
+    fn num_paths(&self) -> usize {
+        self.inner.num_paths
+    }
+
+    #[getter]
+    fn seed(&self) -> u64 {
+        self.inner.seed
+    }
+
+    #[getter]
+    fn pfe_quantile(&self) -> f64 {
+        self.inner.pfe_quantile
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "StochasticExposureConfig(num_paths={}, seed={}, pfe_quantile={})",
+            self.inner.num_paths, self.inner.seed, self.inner.pfe_quantile
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// StochasticExposureProfile
+// ---------------------------------------------------------------------------
+
+/// Stochastic exposure profile with distribution-based PFE.
+#[pyclass(
+    module = "finstack.valuations.xva",
+    name = "StochasticExposureProfile",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyStochasticExposureProfile {
+    pub(crate) inner: xva::types::StochasticExposureProfile,
+}
+
+#[pymethods]
+impl PyStochasticExposureProfile {
+    #[new]
+    fn new(
+        profile: PyExposureProfile,
+        pfe_profile: Vec<f64>,
+        path_count: usize,
+        pfe_quantile: f64,
+    ) -> PyResult<Self> {
+        let inner = xva::types::StochasticExposureProfile {
+            profile: profile.inner,
+            pfe_profile,
+            path_count,
+            pfe_quantile,
+        };
+        inner.validate().map_err(core_to_py)?;
+        Ok(Self { inner })
+    }
+
+    #[getter]
+    fn profile(&self) -> PyExposureProfile {
+        PyExposureProfile {
+            inner: self.inner.profile.clone(),
+        }
+    }
+
+    #[getter]
+    fn pfe_profile(&self) -> Vec<f64> {
+        self.inner.pfe_profile.clone()
+    }
+
+    #[getter]
+    fn path_count(&self) -> usize {
+        self.inner.path_count
+    }
+
+    #[getter]
+    fn pfe_quantile(&self) -> f64 {
+        self.inner.pfe_quantile
+    }
+
+    #[getter]
+    fn max_pfe(&self) -> f64 {
+        self.inner.max_pfe()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "StochasticExposureProfile(points={}, path_count={}, pfe_quantile={})",
+            self.inner.profile.times.len(),
+            self.inner.path_count,
+            self.inner.pfe_quantile
         )
     }
 }
@@ -634,7 +813,10 @@ pub(crate) fn register<'py>(
     module.add_class::<PyXvaConfig>()?;
     module.add_class::<PyCsaTerms>()?;
     module.add_class::<PyNettingSet>()?;
+    module.add_class::<PyExposureDiagnostics>()?;
     module.add_class::<PyExposureProfile>()?;
+    module.add_class::<PyStochasticExposureConfig>()?;
+    module.add_class::<PyStochasticExposureProfile>()?;
     module.add_class::<PyXvaResult>()?;
     module.add_function(wrap_pyfunction!(apply_netting, &module)?)?;
     module.add_function(wrap_pyfunction!(apply_collateral, &module)?)?;
@@ -649,7 +831,10 @@ pub(crate) fn register<'py>(
         "XvaConfig",
         "CsaTerms",
         "NettingSet",
+        "ExposureDiagnostics",
         "ExposureProfile",
+        "StochasticExposureConfig",
+        "StochasticExposureProfile",
         "XvaResult",
         "apply_netting",
         "apply_collateral",

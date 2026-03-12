@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from finstack import ParameterError
 from finstack.portfolio.portfolio import Portfolio
 from finstack.portfolio.types import PositionUnit
 from finstack.core.config import FinstackConfig
@@ -555,6 +556,9 @@ class PositionFilter:
 # ---------------------------------------------------------------------------
 # Constraints
 # ---------------------------------------------------------------------------
+
+class ConstraintValidationError(ParameterError):
+    """Raised when a constraint factory receives invalid parameters."""
 
 class Constraint:
     """Declarative constraint specification for the optimizer.
@@ -1465,6 +1469,7 @@ __all__ = [
     "MetricExpr",
     "Objective",
     "PositionFilter",
+    "ConstraintValidationError",
     "Constraint",
     "TradeSpec",
     "OptimizationResult",

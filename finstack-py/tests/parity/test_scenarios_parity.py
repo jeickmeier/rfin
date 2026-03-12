@@ -1,6 +1,6 @@
 """Comprehensive parity tests for scenarios module.
 
-Tests scenario spec and engine parity with the Rust public API.
+Tests scenario spec, engine, DSL, and operation execution.
 """
 
 from datetime import date
@@ -12,8 +12,10 @@ import pytest
 
 from finstack.scenarios import (
     CurveKind,
+    Error,
     ExecutionContext,
     OperationSpec,
+    Result,
     ScenarioEngine,
     ScenarioSpec,
     TenorMatchMode,
@@ -94,8 +96,14 @@ class TestScenarioModuleShapeParity:
             "finstack.scenarios.spec",
             "finstack.scenarios.reports",
             "finstack.scenarios.enums",
+            "finstack.scenarios.error",
         ]:
             assert importlib.util.find_spec(name) is not None, f"missing runtime submodule {name}"
+
+    def test_error_and_result_exports(self) -> None:
+        """Scenarios should expose the crate-level Error and Result names."""
+        assert Error is not None
+        assert Result is not None
 
 
 class TestOperationSpecParity:
@@ -267,6 +275,24 @@ class TestScenarioEngineParity:
 
         # Composed scenario should have operations from both
         assert len(composed.operations) == 2
+
+    def test_missing_curve_raises_scenarios_error(self) -> None:
+        """Scenario application errors should use the shared scenario Error surface."""
+        from finstack.statements.builder import ModelBuilder
+
+        market = MarketContext()
+        spec = ScenarioSpec(
+            "missing_curve",
+            [OperationSpec.curve_parallel_bp(CurveKind.Discount, "MISSING-CURVE", 25.0)],
+        )
+
+        builder = ModelBuilder.new("m")
+        builder.periods("2024Q1..Q1", None)
+        model = builder.build()
+        ctx = ExecutionContext(market, model, date(2024, 1, 1))
+
+        with pytest.raises(Error):
+            ScenarioEngine().apply(spec, ctx)
 
 
 class TestCurveKindParity:
@@ -495,13 +521,13 @@ class TestValidateParity:
     def test_scenario_spec_validate_empty_id(self) -> None:
         """Test validate() raises on empty scenario ID."""
         spec = ScenarioSpec("", [])
-        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+        with pytest.raises(Error, match=r"[Ee]mpty"):
             spec.validate()
 
     def test_scenario_spec_validate_whitespace_id(self) -> None:
         """Test validate() raises on whitespace-only scenario ID."""
         spec = ScenarioSpec("   ", [])
-        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+        with pytest.raises(Error, match=r"[Ee]mpty"):
             spec.validate()
 
     def test_operation_spec_validate_valid(self) -> None:
@@ -513,19 +539,19 @@ class TestValidateParity:
     def test_operation_spec_validate_nan(self) -> None:
         """Test validate() raises on NaN value."""
         op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", float("nan"))
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(Error, match="finite"):
             op.validate()
 
     def test_operation_spec_validate_empty_curve_id(self) -> None:
         """Test validate() raises on empty curve ID."""
         op = OperationSpec.curve_parallel_bp(CurveKind.Discount, "", 50.0)
-        with pytest.raises(ValueError, match=r"[Ee]mpty"):
+        with pytest.raises(Error, match=r"[Ee]mpty"):
             op.validate()
 
     def test_operation_spec_validate_pct_floor(self) -> None:
         """Test validate() raises on percentage <= -100%."""
         op = OperationSpec.equity_price_pct(["SPY"], -100.0)
-        with pytest.raises(ValueError, match="-100"):
+        with pytest.raises(Error, match="-100"):
             op.validate()
 
     def test_scenario_spec_validate_duplicate_time_roll(self) -> None:
@@ -537,7 +563,7 @@ class TestValidateParity:
                 OperationSpec.time_roll_forward("3M", True, None),
             ],
         )
-        with pytest.raises(ValueError, match="TimeRollForward"):
+        with pytest.raises(Error, match="TimeRollForward"):
             spec.validate()
 
 

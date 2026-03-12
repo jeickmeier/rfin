@@ -561,5 +561,35 @@ class TestEdgeCases:
             fx.set_quote(eur, usd, 0.0)
 
 
+class TestLinalgParity:
+    """Test core linalg bindings match Rust exports."""
+
+    def test_linalg_exports_match_rust_surface(self) -> None:
+        """Linalg module should export the remaining Rust parity surface."""
+        from finstack.core.math import linalg
+
+        assert hasattr(linalg, "CholeskyError")
+        assert hasattr(linalg, "cholesky_solve")
+        assert pytest.approx(1e-10) == linalg.SINGULAR_THRESHOLD
+        assert pytest.approx(1e-6) == linalg.DIAGONAL_TOLERANCE
+        assert pytest.approx(1e-6) == linalg.SYMMETRY_TOLERANCE
+
+    def test_cholesky_solve_solves_spd_system(self) -> None:
+        """cholesky_solve should solve SPD systems from a Cholesky factor."""
+        from finstack.core.math.linalg import cholesky_decomposition, cholesky_solve
+
+        chol = cholesky_decomposition([[4.0, 2.0], [2.0, 3.0]])
+        solution = cholesky_solve(chol, [1.0, 1.0])
+
+        assert solution == pytest.approx([0.125, 0.25])
+
+    def test_cholesky_solve_raises_cholesky_error_for_singular_factor(self) -> None:
+        """cholesky_solve should surface a typed CholeskyError on invalid factors."""
+        from finstack.core.math.linalg import CholeskyError, cholesky_solve
+
+        with pytest.raises(CholeskyError, match=r"singular|invalid"):
+            cholesky_solve([[0.0]], [1.0])
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

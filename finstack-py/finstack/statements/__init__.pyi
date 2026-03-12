@@ -28,7 +28,15 @@ from .types import (
     DebtInstrumentSpec,
 )
 from .builder import ModelBuilder
-from .evaluator import ResultsMeta, StatementResult, MonteCarloResults, Evaluator, EvaluatorWithContext, DependencyGraph
+from .evaluator import (
+    ResultsMeta,
+    StatementResult,
+    PercentileSeries,
+    MonteCarloResults,
+    Evaluator,
+    EvaluatorWithContext,
+    DependencyGraph,
+)
 from .extensions import (
     ExtensionMetadata,
     ExtensionStatus,
@@ -65,6 +73,7 @@ from .analysis import (
     render_tree_detailed,
     # Reports
     Alignment,
+    Report,
     TableBuilder,
     PLSummaryReport,
     CreditAssessmentReport,
@@ -84,6 +93,7 @@ from .analysis import (
     ScenarioDiff,
     # Monte Carlo
     MonteCarloConfig,
+    PercentileSeries,
     # Backtesting
     ForecastMetrics,
     backtest_forecast,
@@ -144,6 +154,7 @@ __all__ = [
     # Evaluator
     "ResultsMeta",
     "StatementResult",
+    "PercentileSeries",
     "MonteCarloResults",
     "Evaluator",
     "EvaluatorWithContext",
@@ -181,6 +192,7 @@ __all__ = [
     "render_tree_detailed",
     # Analysis (Reports)
     "Alignment",
+    "Report",
     "TableBuilder",
     "PLSummaryReport",
     "CreditAssessmentReport",
@@ -200,6 +212,7 @@ __all__ = [
     "ScenarioDiff",
     # Analysis (Monte Carlo)
     "MonteCarloConfig",
+    "PercentileSeries",
     # Analysis (Backtesting)
     "ForecastMetrics",
     "backtest_forecast",
