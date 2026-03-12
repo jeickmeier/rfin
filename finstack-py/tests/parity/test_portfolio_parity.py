@@ -1030,6 +1030,59 @@ class TestSpecParity:
         assert isinstance(json_str, str)
         assert "P1" in json_str
 
+    def test_position_spec_exposes_instrument_spec(self) -> None:
+        """PositionSpec should expose instrument_spec for reconstruction parity."""
+        from datetime import date
+
+        from finstack.core.currency import USD
+        from finstack.valuations.instruments import Bond
+
+        from finstack.portfolio import Position, PositionUnit
+
+        bond = (
+            Bond
+            .builder("BOND-1")
+            .notional(1_000_000.0)
+            .currency(USD)
+            .issue(date(2024, 1, 1))
+            .maturity(date(2029, 1, 1))
+            .coupon_rate(0.05)
+            .frequency("annual")
+            .disc_id("USD-OIS")
+            .build()
+        )
+        pos = Position("P1", "E1", "BOND-1", bond, 100.0, PositionUnit.UNITS)
+        spec = pos.to_spec()
+        assert hasattr(spec, "instrument_spec")
+
+    def test_position_from_spec_roundtrip(self) -> None:
+        """Position should expose a from_spec constructor."""
+        from datetime import date
+
+        from finstack.core.currency import USD
+        from finstack.valuations.instruments import Bond
+
+        from finstack.portfolio import Position, PositionUnit
+
+        bond = (
+            Bond
+            .builder("BOND-1")
+            .notional(1_000_000.0)
+            .currency(USD)
+            .issue(date(2024, 1, 1))
+            .maturity(date(2029, 1, 1))
+            .coupon_rate(0.05)
+            .frequency("annual")
+            .disc_id("USD-OIS")
+            .build()
+        )
+        pos = Position("P1", "E1", "BOND-1", bond, 100.0, PositionUnit.UNITS)
+        spec = pos.to_spec()
+        assert hasattr(Position, "from_spec")
+        if spec.instrument_spec is None:
+            with pytest.raises(ValueError, match="instrument_spec"):
+                Position.from_spec(spec)
+
     def test_portfolio_spec_basic(self) -> None:
         """Portfolio.to_spec() should return a PortfolioSpec."""
         from datetime import date
@@ -1115,6 +1168,13 @@ class TestMarginParity:
         assert margin.position_count == 10
         assert margin.initial_margin.amount == 5_000_000.0
         assert margin.total_margin.amount == 6_000_000.0  # IM + positive VM
+
+    def test_portfolio_margin_result_exposes_fx_aggregation_methods(self) -> None:
+        """PortfolioMarginResult should expose explicit aggregation helpers."""
+        from finstack.portfolio import PortfolioMarginResult
+
+        assert hasattr(PortfolioMarginResult, "add_netting_set")
+        assert hasattr(PortfolioMarginResult, "add_netting_set_with_fx")
 
 
 if __name__ == "__main__":

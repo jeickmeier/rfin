@@ -39,6 +39,7 @@ from .extensions import (
     CreditScorecardExtension,
 )
 from .registry import (
+    AliasRegistry,
     Registry,
     MetricDefinition,
     MetricRegistry,
@@ -156,6 +157,7 @@ __all__ = [
     "CorkscrewExtension",
     "CreditScorecardExtension",
     # Registry
+    "AliasRegistry",
     "Registry",
     "MetricDefinition",
     "MetricRegistry",

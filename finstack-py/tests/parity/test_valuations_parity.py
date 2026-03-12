@@ -38,6 +38,40 @@ class TestBondPricingParity:
         # Bond properties are accessible but might not be directly exposed
         # Focus on pricing parity instead
 
+
+class TestNoPythonOnlyValuationHelpers:
+    """Valuations should not expose Python-only helper entry points."""
+
+    def test_evaluate_dcf_helper_removed(self) -> None:
+        """The Python-only DCF helper should not be exported from instruments."""
+        from finstack.valuations import instruments
+
+        assert not hasattr(instruments, "evaluate_dcf")
+
+
+class TestXvaParity:
+    """XVA bindings should expose the full Rust-backed public surface."""
+
+    def test_xva_module_exports_bilateral_functions(self) -> None:
+        """DVA/FVA/bilateral XVA functions should be importable."""
+        from finstack.valuations.xva import compute_bilateral_xva, compute_dva, compute_fva
+
+        assert compute_dva is not None
+        assert compute_fva is not None
+        assert compute_bilateral_xva is not None
+
+    def test_xva_support_types_import(self) -> None:
+        """Funding and richer XVA config types should be importable."""
+        from finstack.valuations.xva import FundingConfig, NettingSet, XvaConfig, XvaResult
+
+        assert FundingConfig is not None
+        assert hasattr(XvaConfig, "own_recovery_rate")
+        assert hasattr(XvaConfig, "funding")
+        assert hasattr(NettingSet, "reporting_currency")
+        assert hasattr(XvaResult, "dva")
+        assert hasattr(XvaResult, "fva")
+        assert hasattr(XvaResult, "bilateral_cva")
+
     def test_bond_pricing_simple(self) -> None:
         """Test simple bond pricing matches expected NPV."""
         # Create bond

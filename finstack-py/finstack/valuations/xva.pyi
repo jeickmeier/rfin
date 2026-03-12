@@ -6,6 +6,22 @@ from typing import Optional
 
 from ..core.market_data.context import MarketContext
 from ..core.market_data.term_structures import DiscountCurve, HazardCurve
+from ..core.currency import Currency
+
+class FundingConfig:
+    """Funding cost/benefit configuration for FVA calculations."""
+    def __init__(
+        self,
+        funding_spread_bps: float,
+        funding_benefit_bps: float | None = None,
+    ) -> None: ...
+    @property
+    def funding_spread_bps(self) -> float: ...
+    @property
+    def funding_benefit_bps(self) -> float | None: ...
+    @property
+    def effective_benefit_bps(self) -> float: ...
+    def __repr__(self) -> str: ...
 
 class XvaConfig:
     """Configuration for XVA calculations."""
@@ -13,11 +29,17 @@ class XvaConfig:
         self,
         time_grid: list[float] | None = None,
         recovery_rate: float = 0.40,
+        own_recovery_rate: float | None = None,
+        funding: FundingConfig | None = None,
     ) -> None: ...
     @property
     def time_grid(self) -> list[float]: ...
     @property
     def recovery_rate(self) -> float: ...
+    @property
+    def own_recovery_rate(self) -> float | None: ...
+    @property
+    def funding(self) -> FundingConfig | None: ...
     def __repr__(self) -> str: ...
 
 class CsaTerms:
@@ -46,11 +68,14 @@ class NettingSet:
         id: str,
         counterparty_id: str,
         csa: CsaTerms | None = None,
+        reporting_currency: Currency | str | None = None,
     ) -> None: ...
     @property
     def id(self) -> str: ...
     @property
     def counterparty_id(self) -> str: ...
+    @property
+    def reporting_currency(self) -> Currency | None: ...
     def __repr__(self) -> str: ...
 
 class ExposureProfile:
@@ -71,6 +96,12 @@ class XvaResult:
     """Result of XVA calculations."""
     @property
     def cva(self) -> float: ...
+    @property
+    def dva(self) -> float | None: ...
+    @property
+    def fva(self) -> float | None: ...
+    @property
+    def bilateral_cva(self) -> float | None: ...
     @property
     def epe_profile(self) -> list[tuple[float, float]]: ...
     @property
@@ -112,7 +143,38 @@ def compute_cva(
     """Compute unilateral CVA from an exposure profile."""
     ...
 
+def compute_dva(
+    exposure_profile: ExposureProfile,
+    own_hazard_curve: HazardCurve,
+    discount_curve: DiscountCurve,
+    own_recovery_rate: float,
+) -> float:
+    """Compute debit valuation adjustment from the negative exposure profile."""
+    ...
+
+def compute_fva(
+    exposure_profile: ExposureProfile,
+    discount_curve: DiscountCurve,
+    funding_spread_bps: float,
+    funding_benefit_bps: float,
+) -> float:
+    """Compute funding valuation adjustment from the exposure profile."""
+    ...
+
+def compute_bilateral_xva(
+    exposure_profile: ExposureProfile,
+    counterparty_hazard_curve: HazardCurve,
+    own_hazard_curve: HazardCurve,
+    discount_curve: DiscountCurve,
+    counterparty_recovery_rate: float,
+    own_recovery_rate: float,
+    funding: FundingConfig | None = None,
+) -> XvaResult:
+    """Compute bilateral XVA including CVA, DVA, and optional FVA."""
+    ...
+
 __all__ = [
+    "FundingConfig",
     "XvaConfig",
     "CsaTerms",
     "NettingSet",
@@ -122,4 +184,7 @@ __all__ = [
     "apply_collateral",
     "compute_exposure_profile",
     "compute_cva",
+    "compute_dva",
+    "compute_fva",
+    "compute_bilateral_xva",
 ]

@@ -248,6 +248,17 @@ impl PyPortfolioMarginResult {
         self.inner.positions_without_margin
     }
 
+    fn add_netting_set(&mut self, result: &PyNettingSetMargin) -> PyResult<()> {
+        self.inner
+            .add_netting_set(result.inner.clone())
+            .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()))
+    }
+
+    fn add_netting_set_with_fx(&mut self, result: &PyNettingSetMargin, fx_rate: f64) {
+        self.inner
+            .add_netting_set_with_fx(result.inner.clone(), fx_rate);
+    }
+
     fn cleared_bilateral_split(&self) -> (PyMoney, PyMoney) {
         let (cleared, bilateral) = self.inner.cleared_bilateral_split();
         (PyMoney::new(cleared), PyMoney::new(bilateral))

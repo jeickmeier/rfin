@@ -211,6 +211,12 @@ class PortfolioMarginResult:
     def positions_without_margin(self) -> int:
         """Positions not marginable (excluded)."""
         ...
+    def add_netting_set(self, result: NettingSetMargin) -> None:
+        """Add a netting-set result in the base currency."""
+        ...
+    def add_netting_set_with_fx(self, result: NettingSetMargin, fx_rate: float) -> None:
+        """Add a cross-currency netting-set result with explicit FX conversion."""
+        ...
 
     def cleared_bilateral_split(self) -> Tuple[Money, Money]:
         """Return (cleared_total, bilateral_total) margin amounts."""

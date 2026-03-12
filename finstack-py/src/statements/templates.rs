@@ -5,7 +5,6 @@
 //! rent roll projections, and full property operating statements.
 
 use crate::core::dates::periods::PyPeriodId;
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -53,9 +52,6 @@ impl PyLeaseSpec {
         free_rent_periods: u32,
         occupancy: f64,
     ) -> PyResult<Self> {
-        if !(0.0..=1.0).contains(&occupancy) {
-            return Err(PyValueError::new_err("occupancy must be between 0 and 1"));
-        }
         Ok(Self {
             inner: LeaseSpec {
                 node_id,
@@ -99,6 +95,12 @@ impl PyLeaseSpec {
             "LeaseSpec(node_id='{}', start={:?}, base_rent={:.2})",
             self.inner.node_id, self.inner.start, self.inner.base_rent
         )
+    }
+
+    fn validate(&self) -> PyResult<()> {
+        self.inner
+            .validate()
+            .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()))
     }
 }
 
@@ -236,9 +238,6 @@ impl PyRenewalSpec {
         rent_factor: f64,
         free_rent_periods: u32,
     ) -> PyResult<Self> {
-        if !(0.0..=1.0).contains(&probability) {
-            return Err(PyValueError::new_err("probability must be between 0 and 1"));
-        }
         Ok(Self {
             inner: RenewalSpec {
                 downtime_periods,
@@ -278,6 +277,12 @@ impl PyRenewalSpec {
             self.inner.probability,
             self.inner.rent_factor
         )
+    }
+
+    fn validate(&self) -> PyResult<()> {
+        self.inner
+            .validate()
+            .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()))
     }
 }
 
@@ -467,9 +472,6 @@ impl PyLeaseSpecV2 {
         occupancy: f64,
         renewal: Option<PyRenewalSpec>,
     ) -> PyResult<Self> {
-        if !(0.0..=1.0).contains(&occupancy) {
-            return Err(PyValueError::new_err("occupancy must be between 0 and 1"));
-        }
         Ok(Self {
             inner: LeaseSpecV2 {
                 node_id,
@@ -525,6 +527,12 @@ impl PyLeaseSpecV2 {
             "LeaseSpecV2(node_id='{}', start={:?}, base_rent={:.2})",
             self.inner.node_id, self.inner.start, self.inner.base_rent
         )
+    }
+
+    fn validate(&self) -> PyResult<()> {
+        self.inner
+            .validate()
+            .map_err(|err| pyo3::exceptions::PyValueError::new_err(err.to_string()))
     }
 }
 

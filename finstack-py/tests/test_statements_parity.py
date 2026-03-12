@@ -68,6 +68,60 @@ class TestDataFrameExport:
         assert df is not None
         assert len(df) > 0
 
+
+class TestRealEstateTemplateValidationParity:
+    """Lease template validation should come from Rust-backed validation methods."""
+
+    def test_lease_spec_validate(self) -> None:
+        """LeaseSpec should expose Rust-backed validation."""
+        from finstack.statements import LeaseSpec
+
+        lease = LeaseSpec(
+            "lease_1",
+            PeriodId.quarter(2025, 1),
+            1000.0,
+            occupancy=1.0,
+        )
+        lease.validate()
+
+    def test_lease_spec_validate_rejects_invalid_occupancy(self) -> None:
+        """LeaseSpec.validate should reject occupancy outside [0, 1]."""
+        from finstack.statements import LeaseSpec
+
+        lease = LeaseSpec(
+            "lease_1",
+            PeriodId.quarter(2025, 1),
+            1000.0,
+            occupancy=1.5,
+        )
+        with pytest.raises(ValueError, match="occupancy"):
+            lease.validate()
+
+    def test_renewal_spec_validate_rejects_invalid_probability(self) -> None:
+        """RenewalSpec.validate should reject probability outside [0, 1]."""
+        from finstack.statements import RenewalSpec
+
+        renewal = RenewalSpec(
+            downtime_periods=1,
+            term_periods=4,
+            probability=1.5,
+        )
+        with pytest.raises(ValueError, match="probability"):
+            renewal.validate()
+
+    def test_lease_spec_v2_validate_rejects_invalid_occupancy(self) -> None:
+        """LeaseSpecV2.validate should reject occupancy outside [0, 1]."""
+        from finstack.statements import LeaseSpecV2
+
+        lease = LeaseSpecV2(
+            node_id="lease_2",
+            start=PeriodId.quarter(2025, 1),
+            base_rent=1500.0,
+            occupancy=-0.1,
+        )
+        with pytest.raises(ValueError, match="occupancy"):
+            lease.validate()
+
     def test_to_polars_wide(self) -> None:
         """Test wide-format DataFrame export."""
         builder = ModelBuilder.new("test")
@@ -1087,6 +1141,13 @@ class TestDcfCorporateValuation:
         assert evaluate_dcf is not None
         assert evaluate_dcf_with_options is not None
         assert evaluate_dcf_with_market is not None
+
+
+def test_goal_seek_function_import() -> None:
+    """goal_seek should be importable from finstack.statements.analysis."""
+    from finstack.statements.analysis import goal_seek
+
+    assert goal_seek is not None
 
 
 def test_monte_carlo_config() -> None:

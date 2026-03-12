@@ -27,6 +27,33 @@ from . import money
 from . import types
 from . import volatility
 from . import volatility_models
+from .dates.calendar import (
+    adjust as adjust,
+    available_calendar_codes as available_calendar_codes,
+    available_calendars as available_calendars,
+    get_calendar as get_calendar,
+)
+from .dates.imm import (
+    imm_option_expiry as imm_option_expiry,
+    next_cds_date as next_cds_date,
+    next_equity_option_expiry as next_equity_option_expiry,
+    next_imm as next_imm,
+    next_imm_option_expiry as next_imm_option_expiry,
+    third_friday as third_friday,
+    third_wednesday as third_wednesday,
+)
+from .dates.periods import (
+    build_fiscal_periods as build_fiscal_periods,
+    build_periods as build_periods,
+)
+from .dates.utils import (
+    add_months as add_months,
+    date_to_days_since_epoch as date_to_days_since_epoch,
+    days_in_month as days_in_month,
+    days_since_epoch_to_date as days_since_epoch_to_date,
+    is_leap_year as is_leap_year,
+    last_day_of_month as last_day_of_month,
+)
 
 __all__ = [
     "analytics",
@@ -42,4 +69,23 @@ __all__ = [
     "types",
     "volatility",
     "volatility_models",
+    "adjust",
+    "available_calendar_codes",
+    "available_calendars",
+    "get_calendar",
+    "next_imm",
+    "next_cds_date",
+    "next_imm_option_expiry",
+    "imm_option_expiry",
+    "next_equity_option_expiry",
+    "third_friday",
+    "third_wednesday",
+    "build_periods",
+    "build_fiscal_periods",
+    "add_months",
+    "last_day_of_month",
+    "days_in_month",
+    "is_leap_year",
+    "date_to_days_since_epoch",
+    "days_since_epoch_to_date",
 ]

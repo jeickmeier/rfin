@@ -392,6 +392,48 @@ fn generate_tornado_chart(
         .collect())
 }
 
+/// Goal-seek a driver node so a target node reaches the requested value.
+#[pyfunction]
+#[pyo3(
+    signature = (model, target_node, target_period, target_value, driver_node, driver_period=None, update_model=true, bounds=None)
+)]
+fn goal_seek(
+    model: &mut PyFinancialModelSpec,
+    target_node: &str,
+    target_period: &str,
+    target_value: f64,
+    driver_node: &str,
+    driver_period: Option<&str>,
+    update_model: bool,
+    bounds: Option<(f64, f64)>,
+) -> PyResult<f64> {
+    let target_period_id: finstack_core::dates::PeriodId = target_period.parse().map_err(|e| {
+        pyo3::exceptions::PyValueError::new_err(format!(
+            "Invalid target period '{}': {}",
+            target_period, e
+        ))
+    })?;
+    let driver_period_str = driver_period.unwrap_or(target_period);
+    let driver_period_id: finstack_core::dates::PeriodId =
+        driver_period_str.parse().map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Invalid driver period '{}': {}",
+                driver_period_str, e
+            ))
+        })?;
+    finstack_statements::analysis::goal_seek(
+        &mut model.inner,
+        target_node,
+        target_period_id,
+        target_value,
+        driver_node,
+        driver_period_id,
+        update_model,
+        bounds,
+    )
+    .map_err(stmt_to_py)
+}
+
 /// Sensitivity analyzer for financial models.
 #[pyclass(
     module = "finstack.statements.analysis",
@@ -572,6 +614,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyTornadoEntry>()?;
     module.add_class::<PyMonteCarloConfig>()?;
     module.add_function(wrap_pyfunction!(generate_tornado_chart, &module)?)?;
+    module.add_function(wrap_pyfunction!(goal_seek, &module)?)?;
 
     // Register explain types (dependency tracing, formula explanation)
     let explain_exports = explain::register(py, &module)?;
@@ -614,6 +657,7 @@ pub(crate) fn register<'py>(
         "TornadoEntry",
         "MonteCarloConfig",
         "generate_tornado_chart",
+        "goal_seek",
     ];
     all_exports.extend(explain_exports);
     all_exports.extend(reports_exports);

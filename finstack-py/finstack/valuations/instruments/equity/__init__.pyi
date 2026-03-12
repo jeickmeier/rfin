@@ -39,7 +39,7 @@ from .trs import (
 from .private_markets_fund import PrivateMarketsFund as PrivateMarketsFund
 from .real_estate import RealEstateAsset as RealEstateAsset, RealEstateValuationMethod as RealEstateValuationMethod
 from .levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
-from .dcf import evaluate_dcf as evaluate_dcf, TerminalValueSpec as TerminalValueSpec
+from .dcf import TerminalValueSpec as TerminalValueSpec
 
 __all__ = [
     "Equity",
@@ -75,5 +75,4 @@ __all__ = [
     "RealEstateAsset",
     "RealEstateValuationMethod",
     "LeveredRealEstateEquity",
-    "evaluate_dcf",
 ]

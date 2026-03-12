@@ -358,6 +358,10 @@ class Position:
     def to_spec(self) -> "PositionSpec":
         """Convert to a serializable specification."""
         ...
+    @staticmethod
+    def from_spec(spec: "PositionSpec") -> "Position":
+        """Reconstruct a Position from a specification."""
+        ...
 
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
@@ -378,6 +382,10 @@ class PositionSpec:
     @property
     def instrument_id(self) -> str:
         """Instrument identifier."""
+        ...
+    @property
+    def instrument_spec(self) -> Any | None:
+        """Serialized instrument definition when available."""
         ...
 
     @property

@@ -445,6 +445,13 @@ impl PyPosition {
         PyPositionSpec::new(self.inner.to_spec())
     }
 
+    #[staticmethod]
+    fn from_spec(spec: &PyPositionSpec) -> PyResult<Self> {
+        let position = finstack_portfolio::position::Position::from_spec(spec.inner.clone())
+            .map_err(portfolio_to_py)?;
+        Ok(Self::new(position))
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "Position(id='{}', entity='{}', instrument='{}', qty={}, unit={})",
@@ -495,6 +502,21 @@ impl PyPositionSpec {
     #[getter]
     fn instrument_id(&self) -> String {
         self.inner.instrument_id.clone()
+    }
+
+    #[getter]
+    fn instrument_spec(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
+        self.inner
+            .instrument_spec
+            .as_ref()
+            .map(|spec| {
+                pythonize(py, spec)
+                    .map(|bound| bound.unbind())
+                    .map_err(|e| {
+                        PyValueError::new_err(format!("Failed to convert instrument_spec: {}", e))
+                    })
+            })
+            .transpose()
     }
 
     #[getter]

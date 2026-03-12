@@ -7,6 +7,7 @@ specification, composition, and execution.
 from __future__ import annotations
 
 from finstack import finstack as _finstack
+from finstack.valuations.common import InstrumentType
 
 _rust = _finstack.scenarios
 
@@ -28,6 +29,7 @@ __all__ = [
     "Compounding",
     "CurveKind",
     "ExecutionContext",
+    "InstrumentType",
     "OperationSpec",
     "RateBindingSpec",
     "RollForwardReport",

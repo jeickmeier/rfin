@@ -5,7 +5,7 @@ mod schema;
 pub use schema::{PyMetricDefinition, PyMetricRegistry};
 
 use crate::statements::error::stmt_to_py;
-use finstack_statements::registry::Registry;
+use finstack_statements::registry::{AliasRegistry, Registry};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::Bound;
@@ -147,6 +147,62 @@ impl PyRegistry {
     }
 }
 
+/// Alias registry for normalizing user-facing metric names.
+#[pyclass(
+    module = "finstack.statements.registry",
+    name = "AliasRegistry",
+    unsendable
+)]
+pub struct PyAliasRegistry {
+    inner: AliasRegistry,
+}
+
+#[pymethods]
+impl PyAliasRegistry {
+    #[classmethod]
+    fn new(_cls: &Bound<'_, PyType>) -> Self {
+        Self {
+            inner: AliasRegistry::new(),
+        }
+    }
+
+    #[classmethod]
+    #[pyo3(signature = (fuzzy_threshold))]
+    fn with_threshold(_cls: &Bound<'_, PyType>, fuzzy_threshold: f64) -> Self {
+        Self {
+            inner: AliasRegistry::with_threshold(fuzzy_threshold),
+        }
+    }
+
+    fn add_alias(&mut self, alias: &str, canonical: &str) {
+        self.inner.add_alias(alias, canonical);
+    }
+
+    fn add_aliases(&mut self, canonical: &str, aliases: Vec<String>) {
+        self.inner.add_aliases(canonical, aliases);
+    }
+
+    fn normalize(&self, input: &str) -> Option<String> {
+        self.inner.normalize(input)
+    }
+
+    fn load_standard_aliases(&mut self) {
+        self.inner.load_standard_aliases();
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("AliasRegistry(aliases={})", self.inner.len())
+    }
+}
+
 impl PyRegistry {
     /// Get a reference to the inner Registry (for internal use only)
     pub(crate) fn inner(&self) -> &Registry {
@@ -162,9 +218,16 @@ pub(crate) fn register<'py>(
     module.setattr("__doc__", "Dynamic metric registry system.")?;
 
     schema::register(_py, &module)?;
+    module.add_class::<PyAliasRegistry>()?;
     module.add_class::<PyRegistry>()?;
 
-    let exports = vec!["Registry", "MetricDefinition", "MetricRegistry", "UnitType"];
+    let exports = vec![
+        "AliasRegistry",
+        "Registry",
+        "MetricDefinition",
+        "MetricRegistry",
+        "UnitType",
+    ];
     module.setattr("__all__", PyList::new(_py, &exports)?)?;
     parent.add_submodule(&module)?;
     parent.setattr("registry", &module)?;

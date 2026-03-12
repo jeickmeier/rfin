@@ -7,6 +7,7 @@ import tempfile
 from finstack.core.dates.periods import PeriodId
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.registry import (
+    AliasRegistry,
     MetricDefinition,
     MetricRegistry,
     Registry,
@@ -37,6 +38,22 @@ class TestRegistry:
         # Check for specific built-in metrics
         assert registry.has_metric("fin.gross_margin")
         assert registry.has_metric("fin.ebitda")
+
+
+class TestAliasRegistry:
+    """Test alias registry parity."""
+
+    def test_alias_registry_basic_normalization(self) -> None:
+        """AliasRegistry should normalize exact aliases."""
+        registry = AliasRegistry.new()
+        registry.add_alias("rev", "revenue")
+        assert registry.normalize("rev") == "revenue"
+
+    def test_alias_registry_standard_aliases(self) -> None:
+        """AliasRegistry should load standard accounting aliases."""
+        registry = AliasRegistry.new()
+        registry.load_standard_aliases()
+        assert registry.normalize("sales") == "revenue"
 
     def test_get_metric(self) -> None:
         """Test retrieving a specific metric definition."""

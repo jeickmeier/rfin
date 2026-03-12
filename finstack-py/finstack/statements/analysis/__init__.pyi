@@ -1108,6 +1108,19 @@ def evaluate_dcf_with_market(
     """
     ...
 
+def goal_seek(
+    model: FinancialModelSpec,
+    target_node: str,
+    target_period: str,
+    target_value: float,
+    driver_node: str,
+    driver_period: str | None = None,
+    update_model: bool = True,
+    bounds: tuple[float, float] | None = None,
+) -> float:
+    """Goal-seek a driver node so a target node reaches the requested value."""
+    ...
+
 # =============================================================================
 # Covenant Analysis
 # =============================================================================
@@ -1383,6 +1396,7 @@ __all__ = [
     "evaluate_dcf",
     "evaluate_dcf_with_options",
     "evaluate_dcf_with_market",
+    "goal_seek",
     # Covenant Analysis
     "forecast_covenant",
     "forecast_covenants",

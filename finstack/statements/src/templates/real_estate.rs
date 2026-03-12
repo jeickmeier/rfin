@@ -93,6 +93,38 @@ fn default_occupancy() -> f64 {
     1.0
 }
 
+impl LeaseSpec {
+    /// Validate lease inputs that are independent of the model period grid.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the node id is empty, or if numeric fields are non-finite
+    /// or outside their supported ranges.
+    pub fn validate(&self) -> Result<()> {
+        if self.node_id.trim().is_empty() {
+            return Err(Error::build(
+                "LeaseSpec: node_id cannot be empty".to_string(),
+            ));
+        }
+        if !self.base_rent.is_finite() {
+            return Err(Error::build(
+                "LeaseSpec: base_rent must be finite".to_string(),
+            ));
+        }
+        if !self.growth_rate.is_finite() {
+            return Err(Error::build(
+                "LeaseSpec: growth_rate must be finite".to_string(),
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.occupancy) {
+            return Err(Error::build(
+                "LeaseSpec: occupancy must be in [0, 1]".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Add a minimal rent roll by generating lease rent series and summing into a total rent node.
 ///
 /// - Creates one **value** node per lease (`LeaseSpec::node_id`) with an explicit per-period series.
@@ -217,6 +249,34 @@ fn default_rent_factor() -> f64 {
     1.0
 }
 
+impl RenewalSpec {
+    /// Validate renewal inputs that are independent of the model period grid.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if probability or rent factor are non-finite, if
+    /// probability is outside `[0, 1]`, or if the renewal term/rent factor are
+    /// not positive.
+    pub fn validate(&self) -> Result<()> {
+        if self.term_periods == 0 {
+            return Err(Error::build(
+                "RenewalSpec: term_periods must be positive".to_string(),
+            ));
+        }
+        if !self.probability.is_finite() || !(0.0..=1.0).contains(&self.probability) {
+            return Err(Error::build(
+                "RenewalSpec: probability must be in [0, 1]".to_string(),
+            ));
+        }
+        if !self.rent_factor.is_finite() || self.rent_factor <= 0.0 {
+            return Err(Error::build(
+                "RenewalSpec: rent_factor must be positive".to_string(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Convention that determines how `growth_rate` compounds in a lease.
 ///
 /// - `PerPeriod` (default): `growth_rate` is applied every model period.
@@ -274,6 +334,48 @@ pub struct LeaseSpecV2 {
     /// Optional renewal modeling after `end`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub renewal: Option<RenewalSpec>,
+}
+
+impl LeaseSpecV2 {
+    /// Validate lease inputs that are independent of the model period grid.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if numeric fields are non-finite, if occupancy is outside
+    /// `[0, 1]`, if the node id is empty, or if nested renewal data is invalid.
+    pub fn validate(&self) -> Result<()> {
+        if self.node_id.trim().is_empty() {
+            return Err(Error::build(
+                "LeaseSpecV2: node_id cannot be empty".to_string(),
+            ));
+        }
+        if !self.base_rent.is_finite() {
+            return Err(Error::build(
+                "LeaseSpecV2: base_rent must be finite".to_string(),
+            ));
+        }
+        if !self.growth_rate.is_finite() {
+            return Err(Error::build(
+                "LeaseSpecV2: growth_rate must be finite".to_string(),
+            ));
+        }
+        if !(0.0..=1.0).contains(&self.occupancy) {
+            return Err(Error::build(
+                "LeaseSpecV2: occupancy must be in [0, 1]".to_string(),
+            ));
+        }
+        for step in &self.rent_steps {
+            if !step.rent.is_finite() {
+                return Err(Error::build(
+                    "LeaseSpecV2: rent_steps rents must be finite".to_string(),
+                ));
+            }
+        }
+        if let Some(renewal) = &self.renewal {
+            renewal.validate()?;
+        }
+        Ok(())
+    }
 }
 
 /// Standard output node ids for a rent roll.

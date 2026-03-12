@@ -288,7 +288,7 @@ from .equity.real_estate import (
     RealEstateValuationMethod as RealEstateValuationMethod,
 )
 from .equity.levered_real_estate_equity import LeveredRealEstateEquity as LeveredRealEstateEquity
-from .equity.dcf import evaluate_dcf as evaluate_dcf, TerminalValueSpec as TerminalValueSpec
+from .equity.dcf import TerminalValueSpec as TerminalValueSpec
 
 # Commodity
 from .commodity.commodity_asian_option import (
@@ -549,6 +549,5 @@ __all__ = [
     "TrsScheduleSpec",
     "TrsSide",
     # DCF Valuation
-    "evaluate_dcf",
     "TerminalValueSpec",
 ]
