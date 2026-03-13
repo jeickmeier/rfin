@@ -45,6 +45,9 @@ jobs:
           cache: true
           rustflags: ""
 
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@cargo-audit
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
