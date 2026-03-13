@@ -10,6 +10,7 @@ from finstack.core.dates import PeriodId
 from finstack.core.money import Money
 import pytest
 
+import finstack
 from finstack.statements import (
     Alignment,
     AmountOrScalar,
@@ -1103,7 +1104,7 @@ def test_backtest_forecast_mismatched_lengths() -> None:
     """Test error on mismatched array lengths."""
     from finstack.statements.analysis import backtest_forecast
 
-    with pytest.raises(RuntimeError, match="same length"):
+    with pytest.raises(finstack.CalibrationError, match="same length"):
         backtest_forecast([1.0, 2.0], [1.0])
 
 

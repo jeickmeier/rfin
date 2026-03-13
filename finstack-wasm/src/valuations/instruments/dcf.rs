@@ -1,6 +1,6 @@
 use crate::core::money::JsMoney;
 use crate::statements::types::JsFinancialModelSpec;
-use finstack_statements::analysis::corporate::{evaluate_dcf_with_options, DcfOptions};
+use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
 use finstack_valuations::instruments::equity::dcf_equity::{TerminalValueSpec, ValuationDiscounts};
 use js_sys::{Object, Reflect};
 use wasm_bindgen::prelude::*;
@@ -107,13 +107,14 @@ pub fn evaluate_dcf_wasm(
         valuation_discounts,
     };
 
-    let result = evaluate_dcf_with_options(
+    let result = evaluate_dcf_with_market(
         &model.inner,
         wacc,
         terminal_spec,
         &node_id,
         net_debt_override,
         &options,
+        None,
     )
     .map_err(|e| JsValue::from_str(&format!("DCF evaluation failed: {}", e)))?;
 
