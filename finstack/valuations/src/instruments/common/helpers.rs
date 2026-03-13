@@ -205,6 +205,11 @@ pub(crate) fn build_with_metrics_dyn(
     // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.
     context.set_pricing_overrides(instrument.scenario_overrides().cloned());
 
+    // Allow instruments to pre-seed the metric context with cached data (e.g., pre-computed
+    // cashflows) to avoid redundant computation during metric calculation.
+    let market_ref: Arc<MarketContext> = context.curves.clone();
+    instrument.seed_metric_context(&mut context, market_ref.as_ref(), as_of);
+
     let registry = standard_registry();
     let instrument_type = instrument.key();
     let applicable: Vec<MetricId> = metrics

@@ -9,9 +9,7 @@
 //! correlated Brownian motions.
 
 use crate::instruments::common_impl::models::monte_carlo::discretization::exact_hw1f::ExactHullWhite1F;
-use crate::instruments::common_impl::models::monte_carlo::process::correlation::{
-    apply_correlation, cholesky_decomposition,
-};
+use crate::instruments::common_impl::models::monte_carlo::process::correlation::cholesky_correlation;
 use crate::instruments::common_impl::models::monte_carlo::process::revolving_credit::{
     InterestRateSpec, RevolvingCreditProcess,
 };
@@ -25,11 +23,12 @@ use finstack_core::math::linalg::CholeskyError;
 /// - Short rate: ExactHullWhite1F for floating rates
 /// - Credit spread: QeCir for CIR process
 ///
-/// Correlation is handled via Cholesky decomposition when present.
+/// Correlation is handled via pivoted Cholesky decomposition when present.
 #[derive(Debug, Clone)]
 pub struct RevolvingCreditDiscretization {
-    /// Cholesky factor of correlation matrix (if correlation is used)
-    cholesky_factor: Option<Vec<f64>>,
+    /// Pivoted Cholesky factor of correlation matrix (if correlation is used), in
+    /// original variable order [utilization, rate, credit].
+    cholesky_factor: Option<finstack_core::math::linalg::CorrelationFactor>,
     /// Hull-White exact discretization (for floating rates)
     hw_disc: Option<ExactHullWhite1F>,
 }
@@ -44,8 +43,8 @@ impl RevolvingCreditDiscretization {
         let cholesky_factor = if let Some(corr) = correlation {
             // Convert 3x3 array to row-major vector
             let corr_vec: Vec<f64> = corr.iter().flat_map(|row| row.iter().copied()).collect();
-            Some(cholesky_decomposition(&corr_vec, 3).map_err(|e| match e {
-                CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
+            Some(cholesky_correlation(&corr_vec, 3).map_err(|e| match e {
+                CholeskyError::NotPositiveDefinite { .. } => {
                     finstack_core::Error::Input(finstack_core::InputError::Invalid)
                 }
                 CholeskyError::DimensionMismatch { .. } => {
@@ -70,8 +69,6 @@ impl RevolvingCreditDiscretization {
 }
 
 impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
-    // apply_correlation dimensions are guaranteed by construction; expect is unreachable.
-    #[allow(clippy::expect_used)]
     fn step(
         &self,
         process: &RevolvingCreditProcess,
@@ -90,8 +87,7 @@ impl Discretization<RevolvingCreditProcess> for RevolvingCreditDiscretization {
             let z_corr_buf = &mut work[0..3];
             // Dimensions are guaranteed by construction: cholesky_factor is 3×3 and
             // z_corr_buf has length 3 matching the 3-factor process.
-            apply_correlation(chol, z, z_corr_buf)
-                .expect("apply_correlation: dimensions guaranteed by construction");
+            chol.apply(z, z_corr_buf);
             z_corr_buf
         } else {
             // No correlation, use original shocks

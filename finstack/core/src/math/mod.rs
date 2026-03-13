@@ -127,8 +127,8 @@ pub use interp::{
     CubicHermite, ExtrapolationPolicy, InterpFn, LinearDf, LogLinearDf, MonotoneConvex,
 };
 pub use linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition,
-    validate_correlation_matrix, CholeskyError,
+    apply_correlation, build_correlation_matrix, cholesky_correlation, cholesky_decomposition,
+    validate_correlation_matrix, CholeskyError, CorrelationFactor, PIVOT_TOLERANCE_RELATIVE,
 };
 pub use probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
 pub use random::sobol::{SobolRng, MAX_SOBOL_DIMENSION};

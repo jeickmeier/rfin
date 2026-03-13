@@ -55,5 +55,6 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
 
+#[allow(deprecated)]
 pub use pricer::SimpleBasisSwapDiscountingPricer;
 pub use types::{BasisSwap, BasisSwapLeg};

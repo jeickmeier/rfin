@@ -97,7 +97,6 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 use crate::instruments::fixed_income::structured_credit::utils::rates::{cdr_to_mdr, cpr_to_smm};
 use crate::instruments::rates::irs::InterestRateSwap;
 use crate::metrics::{MetricContext, MetricId};
-use crate::results::ValuationResult;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt, DayCount, DayCountCtx, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
@@ -798,48 +797,24 @@ impl Instrument for StructuredCredit {
         flows.npv(disc.as_ref(), as_of, Some(curve_day_count))
     }
 
-    fn price_with_metrics(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
-    ) -> finstack_core::Result<ValuationResult> {
-        let base_value = self.value(context, as_of)?;
-
-        if metrics.is_empty() {
-            return Ok(ValuationResult::stamped(
-                self.id.as_str(),
-                as_of,
-                base_value,
-            ));
-        }
-
-        let flows = self.build_dated_flows(context, as_of)?;
-        let mut metric_context = crate::metrics::MetricContext::new(
-            std::sync::Arc::new(self.clone())
-                as std::sync::Arc<dyn crate::instruments::common_impl::traits::Instrument>,
-            std::sync::Arc::new(context.clone()),
-            as_of,
-            base_value,
-            MetricContext::default_config(),
-        );
-        metric_context.cashflows = Some(flows);
-        metric_context.discount_curve_id = Some(self.discount_curve_id.to_owned());
-        metric_context.notional = self.pool.total_balance().ok();
-
-        let registry = crate::metrics::standard_registry();
-        let computed_metrics = registry.compute(metrics, &mut metric_context)?;
-
-        let mut result = ValuationResult::stamped(self.id.as_str(), as_of, base_value);
-        for (metric_id, value) in computed_metrics {
-            result.measures.insert(metric_id, value);
-        }
-
-        Ok(result)
-    }
-
     fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
         Some(self)
+    }
+
+    fn seed_metric_context(
+        &self,
+        context: &mut crate::metrics::MetricContext,
+        market: &MarketContext,
+        as_of: Date,
+    ) {
+        context.discount_curve_id = Some(self.discount_curve_id.to_owned());
+        context.notional = self.pool.total_balance().ok();
+        // Pre-compute cashflows once here to avoid re-running the waterfall
+        // simulation for each metric. Ignore errors — the metric calculators
+        // will handle missing cashflows gracefully.
+        if let Ok(flows) = self.build_dated_flows(market, as_of) {
+            context.cashflows = Some(flows);
+        }
     }
 
     fn effective_start_date(&self) -> Option<Date> {

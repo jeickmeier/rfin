@@ -28,7 +28,9 @@ pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::InflationLinkedBond,
         ModelKey::Discounting,
-        crate::instruments::fixed_income::inflation_linked_bond::pricer::SimpleInflationLinkedBondDiscountingPricer::default(),
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond,
+        >::discounting(InstrumentType::InflationLinkedBond),
     );
 
     // Revolving Credit

@@ -3,6 +3,8 @@
 //! Comprehensive integration tests for bond future pricing, invoice price calculation,
 //! and error handling using realistic UST 10-year contract parameters.
 
+#![allow(deprecated)]
+
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;

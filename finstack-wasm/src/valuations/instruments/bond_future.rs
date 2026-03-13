@@ -9,6 +9,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, BondFutureSpecs, DeliverableBond, Position,
 };
+use finstack_valuations::instruments::Attributes;
 use wasm_bindgen::prelude::*;
 
 /// Position side for futures contracts.
@@ -302,24 +303,23 @@ impl JsBondFutureBuilder {
             })
             .collect();
 
-        let future = BondFuture::ust_10y(
-            InstrumentId::new(&self.instrument_id),
-            Money::new(notional, ccy),
-            expiry_date,
-            delivery_start,
-            delivery_end,
-            quoted_price,
-            position,
-            basket,
-            InstrumentId::new(ctd_bond_id),
-            CurveId::new(discount_curve_id),
-        )
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let future = BondFuture::builder()
+            .id(InstrumentId::new(&self.instrument_id))
+            .notional(Money::new(notional, ccy))
+            .expiry(expiry_date)
+            .delivery_start(delivery_start)
+            .delivery_end(delivery_end)
+            .quoted_price(quoted_price)
+            .position(position)
+            .contract_specs(specs)
+            .deliverable_basket(basket)
+            .ctd_bond_id(InstrumentId::new(ctd_bond_id))
+            .discount_curve_id(CurveId::new(discount_curve_id))
+            .attributes(Attributes::new())
+            .build_validated()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        let mut result = future;
-        result.contract_specs = specs;
-
-        Ok(JsBondFuture { inner: result })
+        Ok(JsBondFuture { inner: future })
     }
 }
 
@@ -374,25 +374,23 @@ impl JsBondFuture {
             })
             .collect();
 
-        let future = BondFuture::ust_10y(
-            InstrumentId::new(id),
-            Money::new(notional, ccy),
-            expiry_date.inner(),
-            delivery_start.inner(),
-            delivery_end.inner(),
-            quoted_price,
-            position.inner(),
-            basket,
-            InstrumentId::new(ctd_bond_id),
-            CurveId::new(discount_curve_id),
-        )
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let future = BondFuture::builder()
+            .id(InstrumentId::new(id))
+            .notional(Money::new(notional, ccy))
+            .expiry(expiry_date.inner())
+            .delivery_start(delivery_start.inner())
+            .delivery_end(delivery_end.inner())
+            .quoted_price(quoted_price)
+            .position(position.inner())
+            .contract_specs(specs.inner())
+            .deliverable_basket(basket)
+            .ctd_bond_id(InstrumentId::new(ctd_bond_id))
+            .discount_curve_id(CurveId::new(discount_curve_id))
+            .attributes(Attributes::new())
+            .build_validated()
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        // Replace specs if different from UST 10Y
-        let mut result = future;
-        result.contract_specs = specs.inner();
-
-        Ok(JsBondFuture { inner: result })
+        Ok(JsBondFuture { inner: future })
     }
 
     /// Get the instrument ID.

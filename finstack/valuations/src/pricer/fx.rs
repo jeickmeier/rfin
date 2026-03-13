@@ -18,14 +18,18 @@ pub fn register_fx_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::FxSwap,
         ModelKey::Discounting,
-        crate::instruments::fx::fx_swap::pricer::SimpleFxSwapDiscountingPricer::default(),
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::FxSwap,
+        >::discounting(InstrumentType::FxSwap),
     );
 
     // XCCY Swap
     registry.register(
         InstrumentType::XccySwap,
         ModelKey::Discounting,
-        crate::instruments::rates::xccy_swap::pricer::SimpleXccySwapDiscountingPricer::default(),
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::XccySwap,
+        >::discounting(InstrumentType::XccySwap),
     );
 
     // FX Option

@@ -12,7 +12,9 @@ pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::Basket,
         ModelKey::Discounting,
-        crate::instruments::exotics::basket::SimpleBasketDiscountingPricer::default(),
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::exotics::basket::Basket,
+        >::discounting(InstrumentType::Basket),
     );
 
     // Asian Option

@@ -598,53 +598,48 @@ impl BondFuture {
     ///
     /// **Market**: U.S. Treasury 10-Year Note Futures (CBOT)
     ///
-    /// This is a convenience constructor that automatically sets:
-    /// - Contract specifications: [`BondFutureSpecs::ust_10y()`]
-    /// - Attributes: empty [`Attributes::new()`]
+    /// # Deprecated
     ///
-    /// # Arguments
-    ///
-    /// * `id` - Contract identifier (e.g., "TYH5" for March 2025)
-    /// * `notional` - Total notional exposure (contract_size × num_contracts)
-    /// * `expiry` - Last trading day
-    /// * `delivery_start` - First delivery date
-    /// * `delivery_end` - Last delivery date
-    /// * `quoted_price` - Futures price (e.g., 125.50 for 125-16/32)
-    /// * `position` - Long or Short
-    /// * `deliverable_basket` - Eligible bonds with conversion factors
-    /// * `ctd_bond_id` - Cheapest-to-Deliver bond identifier
-    /// * `discount_curve_id` - Discount curve for pricing
-    ///
-    /// # Examples
+    /// Use `BondFuture::builder()` with `contract_specs(BondFutureSpecs::ust_10y())` instead:
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{
+    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
+    /// };
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::types::{InstrumentId, CurveId};
-    /// use finstack_core::dates::Date;
-    /// use time::Month;
+    /// use finstack_valuations::instruments::common_impl::traits::Attributes;
+    /// use time::macros::date;
     ///
-    /// let future = BondFuture::ust_10y(
-    ///     InstrumentId::new("TYH5"),
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     Date::from_calendar_date(2025, Month::March, 20).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 21).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 31).unwrap(),
-    ///     125.50,
-    ///     Position::Long,
-    ///     vec![DeliverableBond {
-    ///         bond_id: InstrumentId::new("US912828XG33"),
+    /// let ctd_id = InstrumentId::new("US912828XG33");
+    /// let future = BondFuture::builder()
+    ///     .id(InstrumentId::new("TYH5"))
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .expiry(date!(2025-03-20))
+    ///     .delivery_start(date!(2025-03-21))
+    ///     .delivery_end(date!(2025-03-31))
+    ///     .quoted_price(125.50)
+    ///     .position(Position::Long)
+    ///     .contract_specs(BondFutureSpecs::ust_10y())
+    ///     .deliverable_basket(vec![DeliverableBond {
+    ///         bond_id: ctd_id.clone(),
     ///         conversion_factor: 0.8234,
-    ///     }],
-    ///     InstrumentId::new("US912828XG33"),
-    ///     CurveId::new("USD-TREASURY"),
-    /// ).unwrap();
+    ///     }])
+    ///     .ctd_bond_id(ctd_id)
+    ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
+    ///     .attributes(Attributes::new())
+    ///     .build_validated()
+    ///     .unwrap();
     /// ```
     ///
     /// # Errors
     ///
     /// Returns an error if validation fails (see `BondFuture::validate`).
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_10y()) instead"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn ust_10y(
         id: InstrumentId,
@@ -658,6 +653,7 @@ impl BondFuture {
         ctd_bond_id: InstrumentId,
         discount_curve_id: CurveId,
     ) -> finstack_core::Result<Self> {
+        #[allow(deprecated)]
         Self::ust_10y_with_ctd_bond(
             id,
             notional,
@@ -677,6 +673,15 @@ impl BondFuture {
     ///
     /// When `ctd_bond` is provided, the future can be priced without relying on any
     /// external instrument registry.
+    ///
+    /// # Deprecated
+    ///
+    /// Use `BondFuture::builder()` with `contract_specs(BondFutureSpecs::ust_10y())` and
+    /// optionally `.ctd_bond(bond)` instead. See [`ust_10y`](Self::ust_10y) for migration guide.
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_10y()) instead"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn ust_10y_with_ctd_bond(
         id: InstrumentId,
@@ -715,52 +720,18 @@ impl BondFuture {
 
     /// Create a UST 5-year futures contract.
     ///
-    /// **Market**: U.S. Treasury 5-Year Note Futures (CBOT)
+    /// # Deprecated
     ///
-    /// This is a convenience constructor that automatically sets:
-    /// - Contract specifications: [`BondFutureSpecs::ust_5y()`]
-    /// - Attributes: empty [`Attributes::new()`]
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - Contract identifier (e.g., "FVH5" for March 2025)
-    /// * `notional` - Total notional exposure (contract_size × num_contracts)
-    /// * `expiry` - Last trading day
-    /// * `delivery_start` - First delivery date
-    /// * `delivery_end` - Last delivery date
-    /// * `quoted_price` - Futures price
-    /// * `position` - Long or Short
-    /// * `deliverable_basket` - Eligible bonds with conversion factors
-    /// * `ctd_bond_id` - Cheapest-to-Deliver bond identifier
-    /// * `discount_curve_id` - Discount curve for pricing
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::types::{CurveId, InstrumentId};
-    /// use time::Month;
-    ///
-    /// let future = BondFuture::ust_5y(
-    ///     InstrumentId::new("FVH5"),
-    ///     Money::new(500_000.0, Currency::USD),
-    ///     Date::from_calendar_date(2025, Month::March, 20).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 21).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 31).unwrap(),
-    ///     118.75,
-    ///     Position::Long,
-    ///     vec![/* deliverable bonds */],
-    ///     InstrumentId::new("US912828XG33"),
-    ///     CurveId::new("USD-TREASURY"),
-    /// ).unwrap();
-    /// ```
+    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::ust_5y())` instead.
+    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
     ///
     /// # Errors
     ///
     /// Returns an error if validation fails (see `BondFuture::validate`).
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_5y()) instead"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn ust_5y(
         id: InstrumentId,
@@ -792,54 +763,20 @@ impl BondFuture {
 
     /// Create a UST 2-year futures contract.
     ///
-    /// **Market**: U.S. Treasury 2-Year Note Futures (CBOT)
-    ///
-    /// This is a convenience constructor that automatically sets:
-    /// - Contract specifications: [`BondFutureSpecs::ust_2y()`]
-    /// - Attributes: empty [`Attributes::new()`]
-    ///
     /// **Note**: 2-year contracts have a larger contract size ($200,000) than 5Y/10Y.
     ///
-    /// # Arguments
+    /// # Deprecated
     ///
-    /// * `id` - Contract identifier (e.g., "TUH5" for March 2025)
-    /// * `notional` - Total notional exposure (contract_size × num_contracts)
-    /// * `expiry` - Last trading day
-    /// * `delivery_start` - First delivery date
-    /// * `delivery_end` - Last delivery date
-    /// * `quoted_price` - Futures price
-    /// * `position` - Long or Short
-    /// * `deliverable_basket` - Eligible bonds with conversion factors
-    /// * `ctd_bond_id` - Cheapest-to-Deliver bond identifier
-    /// * `discount_curve_id` - Discount curve for pricing
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::types::{CurveId, InstrumentId};
-    /// use time::Month;
-    ///
-    /// let future = BondFuture::ust_2y(
-    ///     InstrumentId::new("TUH5"),
-    ///     Money::new(400_000.0, Currency::USD),  // 2 contracts × $200k
-    ///     Date::from_calendar_date(2025, Month::March, 20).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 21).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 31).unwrap(),
-    ///     105.25,
-    ///     Position::Long,
-    ///     vec![/* deliverable bonds */],
-    ///     InstrumentId::new("US912828XG33"),
-    ///     CurveId::new("USD-TREASURY"),
-    /// ).unwrap();
-    /// ```
+    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::ust_2y())` instead.
+    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
     ///
     /// # Errors
     ///
     /// Returns an error if validation fails (see `BondFuture::validate`).
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_2y()) instead"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn ust_2y(
         id: InstrumentId,
@@ -871,52 +808,18 @@ impl BondFuture {
 
     /// Create a German Bund futures contract.
     ///
-    /// **Market**: Euro-Bund Futures (Eurex)
+    /// # Deprecated
     ///
-    /// This is a convenience constructor that automatically sets:
-    /// - Contract specifications: [`BondFutureSpecs::bund()`]
-    /// - Attributes: empty [`Attributes::new()`]
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - Contract identifier (e.g., "FGBLH5" for March 2025)
-    /// * `notional` - Total notional exposure (contract_size × num_contracts)
-    /// * `expiry` - Last trading day
-    /// * `delivery_start` - First delivery date
-    /// * `delivery_end` - Last delivery date
-    /// * `quoted_price` - Futures price (decimal, e.g., 125.50)
-    /// * `position` - Long or Short
-    /// * `deliverable_basket` - Eligible bonds with conversion factors
-    /// * `ctd_bond_id` - Cheapest-to-Deliver bond identifier
-    /// * `discount_curve_id` - Discount curve for pricing
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::types::{CurveId, InstrumentId};
-    /// use time::Month;
-    ///
-    /// let future = BondFuture::bund(
-    ///     InstrumentId::new("FGBLH5"),
-    ///     Money::new(1_000_000.0, Currency::EUR),
-    ///     Date::from_calendar_date(2025, Month::March, 20).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 21).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 31).unwrap(),
-    ///     132.15,
-    ///     Position::Long,
-    ///     vec![/* deliverable bonds */],
-    ///     InstrumentId::new("DE0001102473"),
-    ///     CurveId::new("EUR-BUNDS"),
-    /// ).unwrap();
-    /// ```
+    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::bund())` instead.
+    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
     ///
     /// # Errors
     ///
     /// Returns an error if validation fails (see `BondFuture::validate`).
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::bund()) instead"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn bund(
         id: InstrumentId,
@@ -948,54 +851,20 @@ impl BondFuture {
 
     /// Create a UK Gilt futures contract.
     ///
-    /// **Market**: Long Gilt Futures (ICE Futures Europe/LIFFE)
-    ///
-    /// This is a convenience constructor that automatically sets:
-    /// - Contract specifications: [`BondFutureSpecs::gilt()`]
-    /// - Attributes: empty [`Attributes::new()`]
-    ///
     /// **Note**: Gilts use a 4% standard coupon, different from UST/Bund 6%.
     ///
-    /// # Arguments
+    /// # Deprecated
     ///
-    /// * `id` - Contract identifier (e.g., "H5" for March 2025)
-    /// * `notional` - Total notional exposure (contract_size × num_contracts)
-    /// * `expiry` - Last trading day
-    /// * `delivery_start` - First delivery date
-    /// * `delivery_end` - Last delivery date
-    /// * `quoted_price` - Futures price (decimal, e.g., 115.25)
-    /// * `position` - Long or Short
-    /// * `deliverable_basket` - Eligible bonds with conversion factors
-    /// * `ctd_bond_id` - Cheapest-to-Deliver bond identifier
-    /// * `discount_curve_id` - Discount curve for pricing
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, Position};
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::dates::Date;
-    /// use finstack_core::money::Money;
-    /// use finstack_core::types::{CurveId, InstrumentId};
-    /// use time::Month;
-    ///
-    /// let future = BondFuture::gilt(
-    ///     InstrumentId::new("GILTH5"),
-    ///     Money::new(500_000.0, Currency::GBP),
-    ///     Date::from_calendar_date(2025, Month::March, 20).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 21).unwrap(),
-    ///     Date::from_calendar_date(2025, Month::March, 31).unwrap(),
-    ///     115.25,
-    ///     Position::Long,
-    ///     vec![/* deliverable bonds */],
-    ///     InstrumentId::new("GB00B128DH60"),
-    ///     CurveId::new("GBP-GILTS"),
-    /// ).unwrap();
-    /// ```
+    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::gilt())` instead.
+    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
     ///
     /// # Errors
     ///
     /// Returns an error if validation fails (see `BondFuture::validate`).
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::gilt()) instead"
+    )]
     #[allow(clippy::too_many_arguments)]
     pub fn gilt(
         id: InstrumentId,
@@ -1558,7 +1427,7 @@ impl BondFutureBuilder {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
@@ -2192,7 +2061,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for BondFuture {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod instrument_trait_tests {
     use super::*;
     use finstack_core::currency::Currency;

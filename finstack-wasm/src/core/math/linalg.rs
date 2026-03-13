@@ -1,7 +1,7 @@
 //! Linear algebra utilities for WASM bindings.
 
 use finstack_core::math::linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition,
+    apply_correlation, build_correlation_matrix, cholesky_correlation, cholesky_decomposition,
     validate_correlation_matrix,
 };
 use wasm_bindgen::prelude::*;
@@ -26,6 +26,40 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen(js_name = choleskyDecomposition)]
 pub fn cholesky_decomposition_js(matrix: &[f64], n: usize) -> Result<Vec<f64>, JsValue> {
     cholesky_decomposition(matrix, n).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// Pivoted Cholesky factorisation of a correlation or covariance matrix.
+///
+/// Uses complete diagonal pivoting with relative tolerance, making it robust for
+/// near-singular and positive-semidefinite correlation matrices. The returned factor
+/// is in the **original variable ordering**.
+///
+/// @param {Float64Array} matrix - Symmetric PSD matrix (n×n, row-major)
+/// @param {number} n - Matrix dimension
+/// @returns {{ factor: Float64Array, effectiveRank: number }} Factor in original order plus rank
+/// @throws {Error} If the matrix is indefinite
+///
+/// @example
+/// ```javascript
+/// const corr = new Float64Array([1.0, 0.9999999, 0.9999999, 1.0]);
+/// const { factor, effectiveRank } = choleskyCorrelation(corr, 2);
+/// // effectiveRank may be 1 or 2 depending on numerical precision
+/// ```
+#[wasm_bindgen(js_name = choleskyCorrelation)]
+pub fn cholesky_correlation_js(matrix: &[f64], n: usize) -> Result<JsValue, JsValue> {
+    let factor = cholesky_correlation(matrix, n).map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let result = js_sys::Object::new();
+    let flat: Vec<f64> = factor.factor_matrix().to_vec();
+    let js_array = js_sys::Float64Array::from(flat.as_slice());
+    js_sys::Reflect::set(&result, &JsValue::from_str("factor"), &js_array)
+        .map_err(|e| JsValue::from_str(&format!("reflect set failed: {e:?}")))?;
+    js_sys::Reflect::set(
+        &result,
+        &JsValue::from_str("effectiveRank"),
+        &JsValue::from_f64(factor.effective_rank() as f64),
+    )
+    .map_err(|e| JsValue::from_str(&format!("reflect set failed: {e:?}")))?;
+    Ok(result.into())
 }
 
 /// Apply correlation via Cholesky factor to independent shocks.

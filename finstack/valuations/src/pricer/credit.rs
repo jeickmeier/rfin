@@ -66,6 +66,8 @@ pub fn register_credit_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::StructuredCredit,
         ModelKey::Discounting,
-        crate::instruments::fixed_income::structured_credit::StructuredCreditDiscountingPricer::default(),
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::fixed_income::structured_credit::StructuredCredit,
+        >::discounting(InstrumentType::StructuredCredit),
     );
 }

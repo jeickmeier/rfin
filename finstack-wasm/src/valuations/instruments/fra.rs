@@ -5,7 +5,7 @@ use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
-use finstack_valuations::instruments::legs::PayReceive;
+use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;

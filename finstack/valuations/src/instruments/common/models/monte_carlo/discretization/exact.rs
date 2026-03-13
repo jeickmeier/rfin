@@ -3,7 +3,7 @@
 //! These schemes produce numerically exact transitions (up to floating-point precision)
 //! without discretization error.
 
-use super::super::process::correlation::{apply_correlation, cholesky_decomposition};
+use super::super::process::correlation::cholesky_correlation;
 use super::super::process::gbm::{GbmProcess, MultiGbmProcess};
 use super::super::traits::{Discretization, StochasticProcess};
 use finstack_core::math::linalg::CholeskyError;
@@ -102,19 +102,19 @@ where
 
 /// Exact discretization for multi-factor GBM with correlation.
 ///
-/// Handles correlated Brownian motions by applying Cholesky decomposition
+/// Handles correlated Brownian motions by applying pivoted Cholesky decomposition
 /// to transform independent shocks into correlated ones before applying
 /// the exact GBM formula.
 ///
 /// # Algorithm
 ///
 /// 1. Generate independent shocks Z ~ N(0,1) for each asset
-/// 2. Apply Cholesky factor: Z_corr = L * Z_indep
+/// 2. Apply Cholesky factor: Z_corr = L * Z_indep (in original asset order)
 /// 3. Apply exact GBM formula: S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)
 #[derive(Debug, Clone)]
 pub struct ExactMultiGbmCorrelated {
-    /// Precomputed Cholesky factor of correlation matrix (row-major, lower triangular)
-    cholesky_factor: Vec<f64>,
+    /// Pivoted Cholesky factor of correlation matrix in original asset ordering.
+    cholesky_factor: finstack_core::math::linalg::CorrelationFactor,
     /// Dimension (number of assets)
     dim: usize,
 }
@@ -127,13 +127,13 @@ impl ExactMultiGbmCorrelated {
     /// * `correlation_matrix` - Correlation matrix (n x n, row-major, must be positive semi-definite)
     /// * `dim` - Number of assets
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Returns error if correlation matrix is not positive semi-definite or has wrong size.
+    /// Returns error if correlation matrix is indefinite or has wrong size.
     pub fn new(correlation_matrix: &[f64], dim: usize) -> finstack_core::Result<Self> {
         let cholesky_factor =
-            cholesky_decomposition(correlation_matrix, dim).map_err(|e| match e {
-                CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
+            cholesky_correlation(correlation_matrix, dim).map_err(|e| match e {
+                CholeskyError::NotPositiveDefinite { .. } => {
                     finstack_core::Error::Input(finstack_core::InputError::Invalid)
                 }
                 CholeskyError::DimensionMismatch { .. } => {
@@ -160,8 +160,6 @@ impl ExactMultiGbmCorrelated {
 }
 
 impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
-    // apply_correlation dimensions are guaranteed by construction; expect is unreachable.
-    #[allow(clippy::expect_used)]
     fn step(
         &self,
         process: &MultiGbmProcess,
@@ -182,12 +180,10 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
         process.drift(_t, x, drift_vec);
         process.diffusion(_t, x, diff_vec);
 
-        // Apply Cholesky decomposition to get correlated shocks
-        // z_corr = L * z_indep where L is lower triangular Cholesky factor
+        // Apply Cholesky factor to get correlated shocks in original asset order.
         // Dimensions are guaranteed by construction: cholesky_factor is dim×dim and
         // work_size() allocates 3*dim so z_corr has length dim.
-        apply_correlation(&self.cholesky_factor, z, z_corr)
-            .expect("apply_correlation: dimensions guaranteed by construction");
+        self.cholesky_factor.apply(z, z_corr);
 
         // Apply exact GBM formula for each component using correlated shocks
         // S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)

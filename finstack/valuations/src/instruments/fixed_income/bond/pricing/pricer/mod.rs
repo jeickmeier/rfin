@@ -14,6 +14,7 @@ mod hazard;
 mod merton_mc;
 mod oas;
 
+#[allow(deprecated, unused_imports)]
 pub use discount::SimpleBondDiscountingPricer;
 pub use hazard::SimpleBondHazardPricer;
 #[cfg(feature = "mc")]

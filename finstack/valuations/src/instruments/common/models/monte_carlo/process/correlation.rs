@@ -5,8 +5,8 @@
 
 // Re-export from core/math/linalg
 pub use finstack_core::math::linalg::{
-    apply_correlation, build_correlation_matrix, cholesky_decomposition,
-    validate_correlation_matrix, CholeskyError,
+    apply_correlation, build_correlation_matrix, cholesky_correlation, cholesky_decomposition,
+    validate_correlation_matrix, CholeskyError, CorrelationFactor,
 };
 
 // Tests are now in core/math/linalg - no need to duplicate here

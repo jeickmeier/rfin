@@ -1,6 +1,5 @@
 //! Loader for FX option conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::instruments::{ExerciseStyle, SettlementType};
 use crate::market::conventions::defs::FxOptionConventions;
 use crate::market::conventions::ids::{FxConventionId, FxOptionConventionId};
@@ -30,21 +29,12 @@ impl FxOptionConventionRecord {
 
 pub fn load_registry() -> Result<HashMap<FxOptionConventionId, FxOptionConventions>, Error> {
     let json = include_str!("../../../../data/conventions/fx_option_conventions.json");
-    let file: RegistryFile<FxOptionConventionRecord> = serde_json::from_str(json).map_err(|e| {
-        Error::Validation(format!(
-            "Failed to parse embedded FX option conventions registry JSON: {e}"
-        ))
-    })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(FxOptionConventionId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "FX option",
+        FxOptionConventionId::new,
+        |rec: &FxOptionConventionRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

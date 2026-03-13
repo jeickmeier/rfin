@@ -8,7 +8,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::legs::PayReceive;
+use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;

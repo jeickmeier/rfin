@@ -6,13 +6,20 @@
 //!
 //! # Algorithms
 //!
-//! - **Cholesky decomposition**: Factorize Σ = L L^T for positive definite matrices
+//! - **Cholesky decomposition** (unpivoted): Factorize Σ = L L^T for positive definite
+//!   matrices. Used for solver normal equations via [`cholesky_decomposition`] and
+//!   [`cholesky_solve`].
+//! - **Pivoted Cholesky for correlation matrices**: Numerically robust factorization via
+//!   [`cholesky_correlation`] using relative-tolerance diagonal pivoting. Handles
+//!   near-singular and positive-semidefinite correlation matrices safely. The permutation
+//!   is internalized; the returned [`CorrelationFactor`] applies shocks in original
+//!   variable order.
 //! - **Correlation application**: Transform independent normals to correlated via L
 //! - **Matrix validation**: Check positive-definiteness and correlation properties
 //!
 //! # Use Cases
 //!
-//! - **Monte Carlo**: Generate correlated asset paths
+//! - **Monte Carlo**: Generate correlated asset paths — use [`cholesky_correlation`]
 //! - **Portfolio risk**: Covariance matrix factorization for VaR
 //! - **Factor models**: Decompose returns into systematic factors
 //! - **Copula models**: Correlation structure in credit derivatives
@@ -20,25 +27,26 @@
 //! # Examples
 //!
 //! ```
-//! use finstack_core::math::linalg::{cholesky_decomposition, apply_correlation};
+//! use finstack_core::math::linalg::{cholesky_correlation, apply_correlation};
 //!
 //! // 2x2 correlation matrix: [[1.0, 0.5], [0.5, 1.0]]
 //! let corr = vec![1.0, 0.5, 0.5, 1.0];
-//! let chol = cholesky_decomposition(&corr, 2).expect("Cholesky decomposition should succeed");
+//! let factor = cholesky_correlation(&corr, 2).expect("valid correlation matrix");
 //!
 //! // Transform independent standard normals to correlated
 //! let z = vec![1.0, 0.0]; // Independent N(0,1) shocks
 //! let mut z_corr = vec![0.0; 2];
-//! apply_correlation(&chol, &z, &mut z_corr).expect("dimensions match");
+//! factor.apply(&z, &mut z_corr);
 //! // z_corr now contains correlated shocks with correlation 0.5
 //! ```
 //!
 //! # References
 //!
-//! - **Cholesky Decomposition**:
+//! - **Pivoted Cholesky**:
+//!   - Higham, N. J. (2002). *Accuracy and Stability of Numerical Algorithms* (2nd ed.).
+//!     SIAM. Algorithm 10.2 (Cholesky with complete pivoting).
 //!   - Golub, G. H., & Van Loan, C. F. (2013). *Matrix Computations* (4th ed.).
-//!     Johns Hopkins University Press. Algorithm 4.2.1.
-//!   - Press, W. H., et al. (2007). *Numerical Recipes* (3rd ed.). Section 2.9.
+//!     Johns Hopkins University Press. Algorithm 4.2.5.
 //!
 //! - **Correlation Matrices**:
 //!   - Rebonato, R., & Jäckel, P. (2000). "The Most General Methodology to Create
@@ -53,6 +61,10 @@ use crate::{error, Result};
 use thiserror::Error;
 
 /// Default singular threshold for Cholesky decomposition.
+///
+/// Used only by the generic unpivoted path (`cholesky_decomposition` / `cholesky_solve`).
+/// The correlation-specific path (`cholesky_correlation`) uses a *relative* tolerance
+/// computed from the matrix's own diagonal magnitude.
 pub const SINGULAR_THRESHOLD: f64 = 1e-10;
 
 /// Default tolerance for diagonal elements in correlation matrices.
@@ -60,6 +72,14 @@ pub const DIAGONAL_TOLERANCE: f64 = 1e-6;
 
 /// Default tolerance for symmetry checks in correlation matrices.
 pub const SYMMETRY_TOLERANCE: f64 = 1e-6;
+
+/// Relative pivot tolerance for [`cholesky_correlation`].
+///
+/// A pivot is considered numerically zero when it is below
+/// `PIVOT_TOLERANCE_RELATIVE * max_diagonal`. This makes the threshold
+/// scale-invariant and appropriate for both normalised correlation matrices
+/// (diagonal ≈ 1) and general covariance matrices with large entries.
+pub const PIVOT_TOLERANCE_RELATIVE: f64 = 1e-10;
 
 /// Error type for Cholesky decomposition failures.
 #[derive(Debug, Clone, PartialEq, Error)]
@@ -94,6 +114,284 @@ pub enum CholeskyError {
         actual: usize,
     },
 }
+
+// ─── Pivoted correlation Cholesky ─────────────────────────────────────────────
+
+/// Cholesky factor for a correlation or covariance matrix, computed with complete
+/// diagonal pivoting for numerical robustness.
+///
+/// The factor is stored in the **original variable ordering** — the permutation that
+/// was applied internally during factorisation is inverted before storage so that
+/// callers do not need to think about pivot order. In particular, [`apply`] and
+/// [`factor_matrix`] produce outputs aligned with the input variable indices.
+///
+/// # Near-singular and semidefinite matrices
+///
+/// Factorisation stops when the largest remaining diagonal element drops below
+/// `PIVOT_TOLERANCE_RELATIVE * max_diagonal`. Rows/columns beyond that point are
+/// treated as numerically zero, so rank-deficient correlation matrices (e.g. when
+/// one asset is a perfect linear combination of others) are handled gracefully rather
+/// than rejected outright.
+///
+/// If a diagonal becomes *negative* beyond floating-point noise the matrix is not
+/// positive-semidefinite and [`cholesky_correlation`] returns an error.
+///
+/// # References
+///
+/// - Higham, N. J. (2002). *Accuracy and Stability of Numerical Algorithms* (2nd ed.).
+///   SIAM. Algorithm 10.2 (Cholesky with complete pivoting).
+///
+/// [`apply`]: CorrelationFactor::apply
+/// [`factor_matrix`]: CorrelationFactor::factor_matrix
+#[derive(Debug, Clone)]
+pub struct CorrelationFactor {
+    /// Lower-triangular factor in original variable order (n×n, row-major).
+    ///
+    /// `factor[i * n + j]` is `L[i, j]` (zero for `j > i`) in the original
+    /// variable ordering.
+    factor: Vec<f64>,
+    /// Matrix dimension.
+    n: usize,
+    /// Number of numerically non-zero pivots (effective rank).
+    ///
+    /// For well-conditioned correlation matrices this equals `n`. For
+    /// near-singular matrices it may be smaller.
+    effective_rank: usize,
+}
+
+impl CorrelationFactor {
+    /// Matrix dimension.
+    #[must_use]
+    pub fn n(&self) -> usize {
+        self.n
+    }
+
+    /// Effective numerical rank (number of pivots above relative tolerance).
+    ///
+    /// For a well-conditioned full-rank correlation matrix this equals `n`.
+    /// For a rank-deficient or near-singular matrix it is less than `n`.
+    #[must_use]
+    pub fn effective_rank(&self) -> usize {
+        self.effective_rank
+    }
+
+    /// Whether the matrix is numerically full-rank.
+    #[must_use]
+    pub fn is_full_rank(&self) -> bool {
+        self.effective_rank == self.n
+    }
+
+    /// Lower-triangular Cholesky factor in original variable order (n×n, row-major).
+    ///
+    /// `factor[i * n + j]` holds `L[i, j]`. Upper triangle is zero.
+    #[must_use]
+    pub fn factor_matrix(&self) -> &[f64] {
+        &self.factor
+    }
+
+    /// Apply `L` to independent N(0,1) shocks to produce correlated shocks.
+    ///
+    /// Computes `z_corr = L * z_indep` where `L` is the lower-triangular factor in
+    /// original variable order. Both slices must have length `n`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `independent.len() != n` or `correlated.len() != n`.
+    pub fn apply(&self, independent: &[f64], correlated: &mut [f64]) {
+        assert_eq!(
+            independent.len(),
+            self.n,
+            "independent shocks length must equal factor dimension"
+        );
+        assert_eq!(
+            correlated.len(),
+            self.n,
+            "correlated output length must equal factor dimension"
+        );
+        let n = self.n;
+        for (i, out) in correlated.iter_mut().enumerate() {
+            let mut sum = 0.0;
+            for (j, &z_j) in independent.iter().enumerate().take(i + 1) {
+                sum += self.factor[i * n + j] * z_j;
+            }
+            *out = sum;
+        }
+    }
+
+    /// Construct directly from a pre-validated lower-triangular factor slice.
+    ///
+    /// `factor` must be `n * n` elements; upper triangle is ignored (expected zero).
+    /// `effective_rank` must satisfy `effective_rank <= n`.
+    #[must_use]
+    pub fn from_parts(factor: Vec<f64>, n: usize, effective_rank: usize) -> Self {
+        debug_assert_eq!(factor.len(), n * n);
+        debug_assert!(effective_rank <= n);
+        Self {
+            factor,
+            n,
+            effective_rank,
+        }
+    }
+}
+
+/// Compute the Cholesky factorisation of a correlation or covariance matrix using
+/// complete diagonal pivoting for numerical robustness.
+///
+/// This is the **recommended function for correlation-matrix consumers** (Monte Carlo,
+/// factor models, copulas). For solver normal equations use [`cholesky_decomposition`]
+/// and [`cholesky_solve`] instead.
+///
+/// # Algorithm
+///
+/// At each step the largest remaining diagonal element is selected as the pivot
+/// (Higham's Algorithm 10.2). If it is below
+/// `PIVOT_TOLERANCE_RELATIVE * max(max_diagonal, 1.0)` factorisation stops and the
+/// remaining block is treated as numerically zero (semidefinite truncation). If it is
+/// strictly negative by more than floating-point noise the matrix is indefinite and an
+/// error is returned.
+///
+/// The permutation is inverted before storage so the returned factor is in the
+/// **original variable ordering** of the input matrix.
+///
+/// # Arguments
+///
+/// * `matrix` — Symmetric positive-semidefinite matrix (n×n, row-major)
+/// * `n` — Matrix dimension
+///
+/// # Returns
+///
+/// [`CorrelationFactor`] with the unpermuted lower-triangular factor.
+///
+/// # Errors
+///
+/// - [`CholeskyError::DimensionMismatch`] if `matrix.len() != n * n`
+/// - [`CholeskyError::NotPositiveDefinite`] if a pivot is significantly negative
+///
+/// # Example
+///
+/// ```
+/// use finstack_core::math::linalg::cholesky_correlation;
+///
+/// // Well-conditioned 2×2
+/// let corr = vec![1.0, 0.5, 0.5, 1.0];
+/// let f = cholesky_correlation(&corr, 2).unwrap();
+/// assert!(f.is_full_rank());
+///
+/// // Near-singular (rho ≈ 1): pivoted Cholesky handles it gracefully
+/// let near_singular = vec![1.0, 0.9999999, 0.9999999, 1.0];
+/// let f2 = cholesky_correlation(&near_singular, 2).unwrap();
+/// assert!(f2.effective_rank() <= 2);
+/// ```
+pub fn cholesky_correlation(
+    matrix: &[f64],
+    n: usize,
+) -> std::result::Result<CorrelationFactor, CholeskyError> {
+    if matrix.len() != n * n {
+        return Err(CholeskyError::DimensionMismatch {
+            expected: n,
+            actual: matrix.len(),
+        });
+    }
+    if n == 0 {
+        return Ok(CorrelationFactor::from_parts(vec![], 0, 0));
+    }
+
+    // Maximum diagonal value — used to set relative tolerance.
+    let max_diag = (0..n)
+        .map(|i| matrix[i * n + i])
+        .fold(f64::NEG_INFINITY, f64::max);
+    let tol = PIVOT_TOLERANCE_RELATIVE * max_diag.abs().max(1.0);
+
+    // Work copy of the matrix that we reduce in-place (Schur complement updates).
+    let mut a: Vec<f64> = matrix.to_vec();
+
+    // perm[k] holds the original variable index placed at pivot position k.
+    let mut perm: Vec<usize> = (0..n).collect();
+
+    // Lower-triangular factor in pivoted order (unpermuted before return).
+    let mut l_piv = vec![0.0_f64; n * n];
+
+    let mut effective_rank = 0usize;
+
+    for step in 0..n {
+        // Complete diagonal pivoting: find largest remaining diagonal.
+        let pivot_idx = (step..n)
+            .max_by(|&ai, &bi| a[ai * n + ai].total_cmp(&a[bi * n + bi]))
+            .unwrap_or(step);
+
+        let pivot_val = a[pivot_idx * n + pivot_idx];
+
+        // Significantly negative pivot → matrix is indefinite.
+        if pivot_val < -tol {
+            return Err(CholeskyError::NotPositiveDefinite {
+                diag: pivot_val,
+                row: perm[pivot_idx],
+            });
+        }
+
+        // Pivot below relative tolerance → semidefinite truncation.
+        if pivot_val <= tol {
+            break;
+        }
+
+        effective_rank += 1;
+
+        // Symmetric row/column swap to move the best pivot to position `step`.
+        if pivot_idx != step {
+            perm.swap(step, pivot_idx);
+            for col in 0..n {
+                a.swap(step * n + col, pivot_idx * n + col);
+            }
+            for row in 0..n {
+                a.swap(row * n + step, row * n + pivot_idx);
+            }
+            for col in 0..step {
+                l_piv.swap(step * n + col, pivot_idx * n + col);
+            }
+        }
+
+        // Diagonal entry of L.
+        let l_kk = pivot_val.sqrt();
+        l_piv[step * n + step] = l_kk;
+
+        // Sub-diagonal column of L.
+        for row in (step + 1)..n {
+            l_piv[row * n + step] = a[row * n + step] / l_kk;
+        }
+
+        // Schur complement update (rank-1 downdate of remaining block).
+        for row in (step + 1)..n {
+            let l_row_step = l_piv[row * n + step];
+            for col in (step + 1)..=row {
+                let update = l_row_step * l_piv[col * n + step];
+                a[row * n + col] -= update;
+                a[col * n + row] = a[row * n + col];
+            }
+        }
+    }
+
+    // Unpermute: place L_piv columns/rows back in original variable order.
+    // perm[k] = original variable index placed at pivot position k.
+    //
+    // For the active pivots (k < effective_rank): L_orig[perm[i], perm[j]] = L_piv[i, j].
+    // For the truncated rows (k >= effective_rank): only the j < effective_rank
+    // sub-diagonal entries are non-trivial; the diagonal and entries beyond are zero.
+    let mut l_orig = vec![0.0_f64; n * n];
+    for i in 0..n {
+        let orig_row = perm[i];
+        for j in 0..i.min(effective_rank) {
+            l_orig[orig_row * n + perm[j]] = l_piv[i * n + j];
+        }
+        // Diagonal entry only if within active rank.
+        if i < effective_rank {
+            l_orig[orig_row * n + perm[i]] = l_piv[i * n + i];
+        }
+    }
+
+    Ok(CorrelationFactor::from_parts(l_orig, n, effective_rank))
+}
+
+// ─── Generic (unpivoted) Cholesky — solver path ────────────────────────────────
 
 /// Cholesky decomposition of a correlation/covariance matrix.
 ///
@@ -381,14 +679,17 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
         }
     }
 
-    // Check positive semi-definite via Cholesky
-    match cholesky_decomposition(matrix, n) {
+    // Check positive semi-definite using the pivoted path so that nearly-rank-deficient
+    // but valid correlation matrices are accepted rather than rejected by an absolute
+    // threshold.
+    match cholesky_correlation(matrix, n) {
         Ok(_) => Ok(()),
         Err(CholeskyError::NotPositiveDefinite { .. }) => Err(error::InputError::Invalid.into()),
-        Err(CholeskyError::Singular { .. }) => Err(error::InputError::Invalid.into()),
         Err(CholeskyError::DimensionMismatch { .. }) => {
             Err(error::InputError::DimensionMismatch.into())
         }
+        // cholesky_correlation only produces NotPositiveDefinite and DimensionMismatch.
+        Err(_) => Err(error::InputError::Invalid.into()),
     }
 }
 
@@ -510,5 +811,195 @@ mod tests {
                 _ => panic!("Unexpected error type"),
             }
         }
+    }
+
+    // ── Pivoted Cholesky tests ────────────────────────────────────────────────
+
+    /// Helper: multiply two n×n lower-triangular row-major matrices; returns L * L^T.
+    fn mat_mul_lt(l: &[f64], n: usize) -> Vec<f64> {
+        let mut out = vec![0.0; n * n];
+        for i in 0..n {
+            for j in 0..n {
+                let mut s = 0.0;
+                // L * L^T: sum_k L[i,k] * L[j,k]
+                for k in 0..n {
+                    s += l[i * n + k] * l[j * n + k];
+                }
+                out[i * n + j] = s;
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn pivoted_cholesky_2x2_well_conditioned() {
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let f = cholesky_correlation(&corr, 2).expect("should succeed");
+        assert!(f.is_full_rank());
+        assert_eq!(f.effective_rank(), 2);
+
+        // Reconstruction: L * L^T should recover original matrix.
+        let recon = mat_mul_lt(f.factor_matrix(), 2);
+        for i in 0..4 {
+            assert!(
+                (recon[i] - corr[i]).abs() < 1e-12,
+                "recon[{i}] = {}",
+                recon[i]
+            );
+        }
+    }
+
+    #[test]
+    fn pivoted_cholesky_identity_2x2() {
+        let identity = vec![1.0, 0.0, 0.0, 1.0];
+        let f = cholesky_correlation(&identity, 2).expect("should succeed");
+        assert!(f.is_full_rank());
+        let recon = mat_mul_lt(f.factor_matrix(), 2);
+        for i in 0..4 {
+            assert!((recon[i] - identity[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pivoted_cholesky_identity_3x3() {
+        let n = 3usize;
+        let mut m = vec![0.0; n * n];
+        for i in 0..n {
+            m[i * n + i] = 1.0;
+        }
+        let f = cholesky_correlation(&m, n).expect("identity must succeed");
+        assert_eq!(f.effective_rank(), 3);
+        let recon = mat_mul_lt(f.factor_matrix(), n);
+        for i in 0..n * n {
+            assert!((recon[i] - m[i]).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn pivoted_cholesky_near_singular_accepts() {
+        // Old unpivoted path with absolute 1e-10 threshold would fail on this
+        // because the second diagonal after elimination is ~(1 - 0.9999^2) ≈ 2e-4
+        // but with rho=0.9999999 it approaches 1e-6, below the old threshold.
+        // Pivoted path must accept and return effective_rank <= 2.
+        let rho = 0.9999999_f64;
+        let near_singular = vec![1.0, rho, rho, 1.0];
+        let f = cholesky_correlation(&near_singular, 2).expect("pivoted must not reject near-PSD");
+        // Effective rank may be 1 or 2 depending on exact arithmetic.
+        assert!(f.effective_rank() <= 2);
+        // L * L^T should approximate original (within numerical tolerance for
+        // near-singular matrix).
+        let recon = mat_mul_lt(f.factor_matrix(), 2);
+        // Off-diagonals should be approximately rho.
+        assert!(
+            (recon[1] - rho).abs() < 1e-4,
+            "off-diagonal reconstruction error: {}",
+            recon[1]
+        );
+    }
+
+    #[test]
+    fn pivoted_cholesky_rank_deficient_3x3() {
+        // Perfect linear dependence: third variable = first variable (rho_13 = 1).
+        // This is a valid PSD matrix of rank 2.
+        let corr = vec![1.0, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0, 0.5, 1.0];
+        let f = cholesky_correlation(&corr, 3).expect("rank-deficient PSD must succeed");
+        // Matrix is rank 2 so effective_rank should be 2.
+        assert_eq!(
+            f.effective_rank(),
+            2,
+            "expected rank 2 for perfectly linearly dependent matrix"
+        );
+        // Reconstruction should match original.
+        let recon = mat_mul_lt(f.factor_matrix(), 3);
+        for (i, (&orig, &rec)) in corr.iter().zip(recon.iter()).enumerate() {
+            assert!(
+                (orig - rec).abs() < 1e-10,
+                "reconstruction mismatch at [{},{}]: orig={orig}, recon={rec}",
+                i / 3,
+                i % 3,
+            );
+        }
+    }
+
+    #[test]
+    fn pivoted_cholesky_rejects_indefinite() {
+        // ρ = 1.01 makes the matrix indefinite.
+        let indefinite = vec![1.0, 1.01, 1.01, 1.0];
+        let result = cholesky_correlation(&indefinite, 2);
+        assert!(result.is_err());
+        match result.expect_err("should be indefinite") {
+            CholeskyError::NotPositiveDefinite { .. } => {}
+            e => panic!("expected NotPositiveDefinite, got {e:?}"),
+        }
+    }
+
+    #[test]
+    fn pivoted_cholesky_dimension_mismatch() {
+        let small = vec![1.0, 0.5, 0.5, 1.0];
+        match cholesky_correlation(&small, 3) {
+            Err(CholeskyError::DimensionMismatch { expected, actual }) => {
+                assert_eq!(expected, 3);
+                assert_eq!(actual, 4);
+            }
+            other => panic!("expected DimensionMismatch, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn pivoted_cholesky_apply_shocks_original_order() {
+        // For a 3×3 matrix with a known off-diagonal structure, verify that
+        // shocks are generated in the original variable order regardless of which
+        // pivot was chosen first.
+        let corr = vec![1.0, 0.3, 0.8, 0.3, 1.0, 0.2, 0.8, 0.2, 1.0];
+        let f = cholesky_correlation(&corr, 3).expect("must succeed");
+        assert!(f.is_full_rank());
+
+        // Reconstruction confirms ordering.
+        let recon = mat_mul_lt(f.factor_matrix(), 3);
+        for (i, (&orig, &rec)) in corr.iter().zip(recon.iter()).enumerate() {
+            assert!(
+                (orig - rec).abs() < 1e-12,
+                "ordering violation at [{},{}]: orig={orig} recon={rec}",
+                i / 3,
+                i % 3,
+            );
+        }
+
+        // apply() produces finite shocks of correct length.
+        let z = vec![1.0, 0.0, -1.0];
+        let mut out = vec![0.0; 3];
+        f.apply(&z, &mut out);
+        assert!(out.iter().all(|x| x.is_finite()));
+    }
+
+    #[test]
+    fn pivoted_cholesky_validate_accepts_near_singular() {
+        // Demonstrate that validate_correlation_matrix now accepts matrices that
+        // the old absolute-threshold path would have rejected as singular.
+        // rho = 0.9999 gives second diagonal ≈ 2e-4, well above relative tolerance.
+        let rho = 0.9999_f64;
+        let corr = vec![1.0, rho, rho, 1.0];
+        assert!(
+            validate_correlation_matrix(&corr, 2).is_ok(),
+            "near-singular but valid PSD matrix should pass validation"
+        );
+    }
+
+    /// Regression: unpivoted solver path is unchanged.
+    #[test]
+    fn solver_path_unchanged() {
+        // This exercises cholesky_decomposition + cholesky_solve as used by
+        // solver_multi LM normal equations. Behavior must not change.
+        // Solve [[4, 2], [2, 3]] x = [8, 7] → x = [1.4, 2.2] (approx).
+        let a = vec![4.0_f64, 2.0, 2.0, 3.0];
+        let l = cholesky_decomposition(&a, 2).expect("positive definite");
+        let b = vec![8.0_f64, 7.0];
+        let mut x = vec![0.0; 2];
+        cholesky_solve(&l, &b, &mut x).expect("solve should succeed");
+        // A x = b: check residual A*x - b ≈ 0
+        let res0 = a[0] * x[0] + a[1] * x[1] - b[0];
+        let res1 = a[2] * x[0] + a[3] * x[1] - b[1];
+        assert!(res0.abs() < 1e-12, "residual[0] = {res0}");
+        assert!(res1.abs() < 1e-12, "residual[1] = {res1}");
     }
 }

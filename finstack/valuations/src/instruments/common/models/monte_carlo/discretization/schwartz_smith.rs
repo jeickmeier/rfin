@@ -10,7 +10,7 @@
 //!
 //! With correlation ρ, the shocks Z_X and Z_Y are correlated.
 
-use super::super::process::correlation::cholesky_decomposition;
+use super::super::process::correlation::cholesky_correlation;
 use super::super::process::schwartz_smith::SchwartzSmithProcess;
 use super::super::traits::Discretization;
 use finstack_core::math::linalg::CholeskyError;
@@ -18,11 +18,12 @@ use finstack_core::math::linalg::CholeskyError;
 /// Exact discretization for Schwartz-Smith process.
 ///
 /// Uses analytical solutions for both X (OU) and Y (arithmetic Brownian motion)
-/// with correlation handled via Cholesky decomposition.
+/// with correlation handled via pivoted Cholesky decomposition.
 #[derive(Debug, Clone)]
 pub struct ExactSchwartzSmith {
-    /// Precomputed Cholesky factor for correlation [1, ρ; ρ, 1]
-    cholesky_factor: [f64; 4], // 2x2 matrix stored as [L_00, L_01, L_10, L_11]
+    /// Precomputed Cholesky factor for 2×2 correlation matrix [[1, ρ], [ρ, 1]].
+    /// Stored in original variable order via `CorrelationFactor`.
+    cholesky_factor: finstack_core::math::linalg::CorrelationFactor,
 }
 
 impl ExactSchwartzSmith {
@@ -34,8 +35,8 @@ impl ExactSchwartzSmith {
     pub fn new(rho: f64) -> finstack_core::Result<Self> {
         // Build 2x2 correlation matrix: [[1.0, rho], [rho, 1.0]]
         let corr_matrix = vec![1.0, rho, rho, 1.0];
-        let chol = cholesky_decomposition(&corr_matrix, 2).map_err(|e| match e {
-            CholeskyError::NotPositiveDefinite { .. } | CholeskyError::Singular { .. } => {
+        let chol = cholesky_correlation(&corr_matrix, 2).map_err(|e| match e {
+            CholeskyError::NotPositiveDefinite { .. } => {
                 finstack_core::Error::Input(finstack_core::InputError::Invalid)
             }
             CholeskyError::DimensionMismatch { .. } => {
@@ -44,12 +45,8 @@ impl ExactSchwartzSmith {
             _ => finstack_core::Error::Input(finstack_core::InputError::Invalid),
         })?;
 
-        // Store as array for efficiency
-        let mut chol_array = [0.0; 4];
-        chol_array.copy_from_slice(&chol);
-
         Ok(Self {
-            cholesky_factor: chol_array,
+            cholesky_factor: chol,
         })
     }
 
@@ -75,11 +72,10 @@ impl Discretization<SchwartzSmithProcess> for ExactSchwartzSmith {
         let mu_y = params.mu_y;
         let sigma_y = params.sigma_y;
 
-        // Apply correlation to independent shocks
-        // z_corr = L * z_indep where L is 2x2 Cholesky factor
+        // Apply correlation to independent shocks via CorrelationFactor::apply.
+        // This avoids manual slot indexing and is robust to future pivoting changes.
         let mut z_corr = [0.0; 2];
-        z_corr[0] = self.cholesky_factor[0] * z[0] + self.cholesky_factor[1] * z[1];
-        z_corr[1] = self.cholesky_factor[2] * z[0] + self.cholesky_factor[3] * z[1];
+        self.cholesky_factor.apply(z, &mut z_corr);
 
         // Exact solution for X (OU process)
         // X_{t+Δt} = X_t e^{-κ_X Δt} + σ_X √[(1-e^{-2κ_X Δt})/(2κ_X)] Z_X
@@ -116,7 +112,7 @@ mod tests {
         let _params = SchwartzSmithParams::new(2.0, 0.30, 0.02, 0.15, -0.5);
         let disc = ExactSchwartzSmith::new(-0.5).expect("should succeed");
 
-        assert_eq!(disc.cholesky_factor.len(), 4);
+        assert_eq!(disc.cholesky_factor.factor_matrix().len(), 4);
     }
 
     #[test]

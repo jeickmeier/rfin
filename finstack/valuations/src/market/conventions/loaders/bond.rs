@@ -1,6 +1,5 @@
 //! Loader for bond conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::instruments::BondConvention;
 use crate::market::conventions::defs::BondConventions;
 use crate::market::conventions::ids::BondConventionId;
@@ -28,21 +27,12 @@ impl BondConventionRecord {
 
 pub fn load_registry() -> Result<HashMap<BondConventionId, BondConventions>, Error> {
     let json = include_str!("../../../../data/conventions/bond_conventions.json");
-    let file: RegistryFile<BondConventionRecord> = serde_json::from_str(json).map_err(|e| {
-        Error::Validation(format!(
-            "Failed to parse embedded bond conventions registry JSON: {e}"
-        ))
-    })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(BondConventionId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "bond",
+        BondConventionId::new,
+        |rec: &BondConventionRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

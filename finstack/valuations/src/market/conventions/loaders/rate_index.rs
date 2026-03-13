@@ -1,9 +1,8 @@
 //! Loader for rate index conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::instruments::rates::irs::FloatingLegCompounding;
 use crate::market::conventions::defs::{RateIndexConventions, RateIndexKind};
-use crate::market::conventions::ids::IndexId; // Used for normalization if needed, or string
+use crate::market::conventions::ids::IndexId;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
 use finstack_core::Error;
@@ -155,23 +154,12 @@ impl RateIndexConventionsRecord {
 /// Load the rate index conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> {
     let json = include_str!("../../../../data/conventions/rate_index_conventions.json");
-    let file: RegistryFile<RateIndexConventionsRecord> =
-        serde_json::from_str(json).map_err(|e| {
-            Error::Validation(format!(
-                "Failed to parse embedded rate index conventions registry JSON: {e}"
-            ))
-        })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-
-    // Convert keys to IndexId
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(IndexId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "rate index",
+        IndexId::new,
+        |rec: &RateIndexConventionsRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

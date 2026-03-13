@@ -1,9 +1,10 @@
 use finstack_core::math::linalg::{
     apply_correlation as core_apply_correlation,
     build_correlation_matrix as core_build_correlation_matrix,
-    cholesky_decomposition as core_cholesky, cholesky_solve as core_cholesky_solve,
-    validate_correlation_matrix as core_validate_corr, CholeskyError as CoreCholeskyError,
-    DIAGONAL_TOLERANCE, SINGULAR_THRESHOLD, SYMMETRY_TOLERANCE,
+    cholesky_correlation as core_cholesky_correlation, cholesky_decomposition as core_cholesky,
+    cholesky_solve as core_cholesky_solve, validate_correlation_matrix as core_validate_corr,
+    CholeskyError as CoreCholeskyError, DIAGONAL_TOLERANCE, PIVOT_TOLERANCE_RELATIVE,
+    SINGULAR_THRESHOLD, SYMMETRY_TOLERANCE,
 };
 use finstack_core::{Error as CoreError, InputError};
 use pyo3::prelude::*;
@@ -57,6 +58,46 @@ pub fn cholesky_decomposition_py(matrix: Vec<Vec<f64>>) -> PyResult<Vec<Vec<f64>
     // Re-nest
     let result_nested: Vec<Vec<f64>> = result_flat.chunks(n).map(|chunk| chunk.to_vec()).collect();
     Ok(result_nested)
+}
+
+#[pyfunction(name = "cholesky_correlation")]
+#[pyo3(text_signature = "(matrix)")]
+/// Compute the pivoted Cholesky factorisation of a correlation or covariance matrix.
+///
+/// Uses complete diagonal pivoting (Higham's algorithm) with a relative pivot tolerance,
+/// making it numerically robust for near-singular and positive-semidefinite matrices.
+/// The returned factor is in the **original variable ordering** of the input.
+///
+/// Parameters
+/// ----------
+/// matrix : list[list[float]]
+///     Symmetric positive-semidefinite square matrix.
+///
+/// Returns
+/// -------
+/// tuple[list[list[float]], int]
+///     ``(L, effective_rank)`` where ``L`` is the lower-triangular Cholesky factor in
+///     original variable order and ``effective_rank`` is the number of numerically
+///     non-zero pivots (equals ``n`` for full-rank matrices).
+///
+/// Raises
+/// ------
+/// CholeskyError
+///     If the matrix is indefinite (has a significantly negative pivot).
+pub fn cholesky_correlation_py(matrix: Vec<Vec<f64>>) -> PyResult<(Vec<Vec<f64>>, usize)> {
+    let (flat, n) = flatten_square_matrix(matrix, "Input")?;
+    if n == 0 {
+        return Ok((vec![], 0));
+    }
+
+    let factor = core_cholesky_correlation(&flat, n).map_err(map_cholesky_error)?;
+    let effective_rank = factor.effective_rank();
+    let result_nested: Vec<Vec<f64>> = factor
+        .factor_matrix()
+        .chunks(n)
+        .map(|chunk| chunk.to_vec())
+        .collect();
+    Ok((result_nested, effective_rank))
 }
 
 #[pyfunction(name = "validate_correlation_matrix")]
@@ -175,7 +216,9 @@ pub(crate) fn register<'py>(
     module.add("SINGULAR_THRESHOLD", SINGULAR_THRESHOLD)?;
     module.add("DIAGONAL_TOLERANCE", DIAGONAL_TOLERANCE)?;
     module.add("SYMMETRY_TOLERANCE", SYMMETRY_TOLERANCE)?;
+    module.add("PIVOT_TOLERANCE_RELATIVE", PIVOT_TOLERANCE_RELATIVE)?;
     module.add_function(wrap_pyfunction!(cholesky_decomposition_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(cholesky_correlation_py, &module)?)?;
     module.add_function(wrap_pyfunction!(cholesky_solve_py, &module)?)?;
     module.add_function(wrap_pyfunction!(validate_correlation_matrix_py, &module)?)?;
     module.add_function(wrap_pyfunction!(apply_correlation_py, &module)?)?;
@@ -186,7 +229,9 @@ pub(crate) fn register<'py>(
         "SINGULAR_THRESHOLD",
         "DIAGONAL_TOLERANCE",
         "SYMMETRY_TOLERANCE",
+        "PIVOT_TOLERANCE_RELATIVE",
         "cholesky_decomposition",
+        "cholesky_correlation",
         "cholesky_solve",
         "validate_correlation_matrix",
         "apply_correlation",

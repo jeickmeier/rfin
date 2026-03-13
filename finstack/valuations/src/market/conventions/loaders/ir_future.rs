@@ -1,6 +1,5 @@
 //! Loader for interest rate future conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::IrFutureConventions;
 use crate::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_core::Error;
@@ -64,22 +63,12 @@ impl IrFutureConventionsRecord {
 /// Load the IR futures conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<IrFutureContractId, IrFutureConventions>, Error> {
     let json = include_str!("../../../../data/conventions/ir_future_conventions.json");
-    let file: RegistryFile<IrFutureConventionsRecord> =
-        serde_json::from_str(json).map_err(|e| {
-            Error::Validation(format!(
-                "Failed to parse embedded IR future conventions registry JSON: {e}"
-            ))
-        })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(IrFutureContractId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "IR future",
+        IrFutureContractId::new,
+        |rec: &IrFutureConventionsRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

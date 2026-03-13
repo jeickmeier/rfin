@@ -10,7 +10,7 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
-use finstack_valuations::instruments::legs::PayReceive;
+use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use pyo3::exceptions::PyValueError;

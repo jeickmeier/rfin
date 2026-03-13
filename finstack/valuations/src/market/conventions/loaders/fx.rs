@@ -1,6 +1,5 @@
 //! Loader for FX conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::FxConventions;
 use crate::market::conventions::ids::FxConventionId;
 use finstack_core::currency::Currency;
@@ -46,21 +45,12 @@ impl FxConventionRecord {
 
 pub fn load_registry() -> Result<HashMap<FxConventionId, FxConventions>, Error> {
     let json = include_str!("../../../../data/conventions/fx_conventions.json");
-    let file: RegistryFile<FxConventionRecord> = serde_json::from_str(json).map_err(|e| {
-        Error::Validation(format!(
-            "Failed to parse embedded FX conventions registry JSON: {e}"
-        ))
-    })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(FxConventionId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "FX",
+        FxConventionId::new,
+        |rec: &FxConventionRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

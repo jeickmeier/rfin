@@ -103,6 +103,15 @@ pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
 }
 
 /// Create a pricer registry with a minimal set of rates pricers.
+///
+/// # Deprecated
+///
+/// Build a custom registry using `PricerRegistry::new()` and `register_rates_pricers()` instead.
+/// For all instruments, use `create_standard_registry()`.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `PricerRegistry::new()` + `register_rates_pricers()` or `create_standard_registry()` instead"
+)]
 pub fn create_rates_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_rates_pricers(&mut registry);
@@ -110,6 +119,15 @@ pub fn create_rates_registry() -> PricerRegistry {
 }
 
 /// Create a pricer registry with credit pricers.
+///
+/// # Deprecated
+///
+/// Build a custom registry using `PricerRegistry::new()` and `register_credit_pricers()` instead.
+/// For all instruments, use `create_standard_registry()`.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `PricerRegistry::new()` + `register_credit_pricers()` or `create_standard_registry()` instead"
+)]
 pub fn create_credit_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_credit_pricers(&mut registry);
@@ -117,6 +135,15 @@ pub fn create_credit_registry() -> PricerRegistry {
 }
 
 /// Create a pricer registry with equity pricers.
+///
+/// # Deprecated
+///
+/// Build a custom registry using `PricerRegistry::new()` and `register_equity_pricers()` instead.
+/// For all instruments, use `create_standard_registry()`.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `PricerRegistry::new()` + `register_equity_pricers()` or `create_standard_registry()` instead"
+)]
 pub fn create_equity_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_equity_pricers(&mut registry);
@@ -124,6 +151,15 @@ pub fn create_equity_registry() -> PricerRegistry {
 }
 
 /// Create a pricer registry with FX pricers.
+///
+/// # Deprecated
+///
+/// Build a custom registry using `PricerRegistry::new()` and `register_fx_pricers()` instead.
+/// For all instruments, use `create_standard_registry()`.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `PricerRegistry::new()` + `register_fx_pricers()` or `create_standard_registry()` instead"
+)]
 pub fn create_fx_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_fx_pricers(&mut registry);

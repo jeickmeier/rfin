@@ -10,7 +10,9 @@ pub fn register_inflation_pricers(registry: &mut PricerRegistry) {
     registry.register(
         InstrumentType::InflationSwap,
         ModelKey::Discounting,
-        crate::instruments::rates::inflation_swap::pricer::SimpleInflationSwapDiscountingPricer::default(),
+        crate::instruments::common_impl::GenericInstrumentPricer::<
+            crate::instruments::InflationSwap,
+        >::discounting(InstrumentType::InflationSwap),
     );
 
     // YoY Inflation Swap

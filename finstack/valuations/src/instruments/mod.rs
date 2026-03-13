@@ -279,13 +279,43 @@ pub use common_impl::parameters::trs_common::{TrsScheduleSpec, TrsSide};
 
 /// Market parameter types for backward compatibility with tests.
 ///
-/// This module re-exports commonly used market parameter types.
+/// # Deprecated
+///
+/// Use `finstack_valuations::instruments::common::parameters` instead.
+///
+/// ```rust,ignore
+/// // Before
+/// use finstack_valuations::instruments::market::ExerciseStyle;
+/// // After
+/// use finstack_valuations::instruments::common::parameters::ExerciseStyle;
+/// ```
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `finstack_valuations::instruments::common::parameters` instead"
+)]
 pub mod market {
+    #[allow(deprecated)]
     pub use super::common_impl::parameters::market::{ExerciseStyle, OptionType, SettlementType};
 }
 
 /// Leg parameter types for backward compatibility.
+///
+/// # Deprecated
+///
+/// Use `finstack_valuations::instruments::common::parameters` instead.
+///
+/// ```rust,ignore
+/// // Before
+/// use finstack_valuations::instruments::legs::PayReceive;
+/// // After
+/// use finstack_valuations::instruments::common::parameters::PayReceive;
+/// ```
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `finstack_valuations::instruments::common::parameters` instead"
+)]
 pub mod legs {
+    #[allow(deprecated)]
     pub use super::common_impl::parameters::legs::PayReceive;
 }
 

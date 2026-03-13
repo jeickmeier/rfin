@@ -1,6 +1,5 @@
 //! Loader for swaption conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::SwaptionConventions;
 use crate::market::conventions::ids::SwaptionConventionId;
 use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
@@ -40,20 +39,12 @@ impl SwaptionConventionRecord {
 /// Load the Swaption conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<SwaptionConventionId, SwaptionConventions>, Error> {
     let json = include_str!("../../../../data/conventions/swaption_conventions.json");
-    let file: RegistryFile<SwaptionConventionRecord> = serde_json::from_str(json).map_err(|e| {
-        Error::Validation(format!(
-            "Failed to parse embedded Swaption conventions registry JSON: {e}"
-        ))
-    })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(SwaptionConventionId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "Swaption",
+        SwaptionConventionId::new,
+        |rec: &SwaptionConventionRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

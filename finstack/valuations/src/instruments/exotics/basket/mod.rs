@@ -142,9 +142,19 @@ pub use types::{AssetType, Basket, BasketConstituent, BasketPricingConfig, Const
 
 // Use the generic discounting pricer for registry integration
 pub use crate::instruments::common_impl::GenericInstrumentPricer;
-/// Type alias for basket discounting pricer using generic implementation
+
+/// Type alias for basket discounting pricer using generic implementation.
+///
+/// # Deprecated
+///
+/// Use `GenericInstrumentPricer::<Basket>::discounting(InstrumentType::Basket)` directly.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `GenericInstrumentPricer::<Basket>::discounting(InstrumentType::Basket)` directly"
+)]
 pub type SimpleBasketDiscountingPricer = GenericInstrumentPricer<Basket>;
 
+#[allow(deprecated)]
 impl Default for SimpleBasketDiscountingPricer {
     fn default() -> Self {
         Self::discounting(crate::pricer::InstrumentType::Basket)

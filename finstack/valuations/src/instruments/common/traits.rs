@@ -745,6 +745,30 @@ pub trait Instrument: Send + Sync {
         None
     }
 
+    /// Pre-seed a metric context with instrument-specific cached data.
+    ///
+    /// This hook allows instruments to supply pre-computed values (e.g., cashflows,
+    /// discount curve ID, notional) into a [`MetricContext`](crate::metrics::MetricContext)
+    /// before the metrics pipeline runs, avoiding redundant computation.
+    ///
+    /// The default implementation is a no-op. Instruments with expensive cashflow
+    /// generation (e.g., structured credit waterfall simulation) should override
+    /// this to pre-seed the context.
+    ///
+    /// # Arguments
+    ///
+    /// * `context` - Mutable metric context to seed
+    /// * `market` - Market data context (for computing cashflows if needed)
+    /// * `as_of` - Valuation date
+    fn seed_metric_context(
+        &self,
+        _context: &mut crate::metrics::MetricContext,
+        _market: &MarketContext,
+        _as_of: Date,
+    ) {
+        // Default no-op
+    }
+
     /// Expose this instrument as a [`Marginable`](crate::margin::traits::Marginable) when supported.
     ///
     /// This hook enables the portfolio margin aggregator to obtain margin

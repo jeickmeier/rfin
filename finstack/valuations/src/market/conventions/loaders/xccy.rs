@@ -1,6 +1,5 @@
 //! Loader for cross-currency swap conventions embedded in JSON registries.
 
-use super::json::{build_lookup_map_mapped, normalize_registry_id, RegistryFile};
 use crate::market::conventions::defs::XccyConventions;
 use crate::market::conventions::ids::{IndexId, XccyConventionId};
 use finstack_core::currency::Currency;
@@ -62,21 +61,12 @@ impl XccyConventionRecord {
 /// Load XCCY conventions from the embedded JSON registry.
 pub fn load_registry() -> Result<HashMap<XccyConventionId, XccyConventions>, Error> {
     let json = include_str!("../../../../data/conventions/xccy_conventions.json");
-    let file: RegistryFile<XccyConventionRecord> = serde_json::from_str(json).map_err(|e| {
-        Error::Validation(format!(
-            "Failed to parse embedded XCCY conventions registry JSON: {e}"
-        ))
-    })?;
-
-    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| {
-        rec.clone().into_conventions()
-    })?;
-
-    let mut final_map = HashMap::default();
-    for (k, v) in string_map {
-        final_map.insert(XccyConventionId::new(k), v?);
-    }
-    Ok(final_map)
+    super::json::parse_and_rekey(
+        json,
+        "XCCY",
+        XccyConventionId::new,
+        |rec: &XccyConventionRecord| rec.clone().into_conventions(),
+    )
 }
 
 #[cfg(test)]

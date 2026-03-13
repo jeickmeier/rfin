@@ -63,3 +63,40 @@ where
     }
     Ok(map)
 }
+
+/// Parse a JSON convention registry, convert each record, and re-key using a domain ID wrapper.
+///
+/// This is the canonical helper for all simple convention loaders. It handles:
+/// 1. Deserializing `RegistryFile<R>` from JSON
+/// 2. Converting each `R` record via `map_record` (which may return `Result<V>`)
+/// 3. Re-keying from `String` to a typed domain ID via `make_id`
+///
+/// # Errors
+///
+/// Returns [`Error::Validation`] if JSON parsing fails, if any record conversion fails,
+/// or if duplicate IDs are found after normalization.
+pub fn parse_and_rekey<R, Id, V>(
+    json: &str,
+    registry_name: &str,
+    make_id: impl Fn(String) -> Id,
+    map_record: impl Fn(&R) -> Result<V, Error>,
+) -> Result<HashMap<Id, V>, Error>
+where
+    R: Clone + for<'de> serde::Deserialize<'de>,
+    Id: std::hash::Hash + Eq,
+    V: Clone,
+{
+    let file: RegistryFile<R> = serde_json::from_str(json).map_err(|e| {
+        Error::Validation(format!(
+            "Failed to parse embedded {registry_name} conventions registry JSON: {e}"
+        ))
+    })?;
+
+    let string_map = build_lookup_map_mapped(file, normalize_registry_id, |rec| map_record(rec))?;
+
+    let mut final_map = HashMap::default();
+    for (k, v) in string_map {
+        final_map.insert(make_id(k), v?);
+    }
+    Ok(final_map)
+}

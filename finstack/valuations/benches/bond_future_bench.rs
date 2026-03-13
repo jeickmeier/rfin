@@ -6,6 +6,8 @@
 //! - DV01 calculation (target: <50ms)
 //! - Bucketed DV01 (target: <200ms)
 
+#![allow(deprecated)]
+
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
