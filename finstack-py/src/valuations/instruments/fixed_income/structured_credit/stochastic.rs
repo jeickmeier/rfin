@@ -575,13 +575,6 @@ pub struct PyStochasticPricingResult {
     pub(crate) inner: RustStochasticPricingResult,
 }
 
-impl PyStochasticPricingResult {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: RustStochasticPricingResult) -> Self {
-        Self { inner }
-    }
-}
-
 #[pymethods]
 impl PyStochasticPricingResult {
     #[getter]

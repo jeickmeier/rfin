@@ -361,3 +361,63 @@ fn extract_from_sequence(obj: &Bound<'_, PyAny>) -> PyResult<Option<Vec<(f64, f6
     }
     Ok(None)
 }
+
+// ---------------------------------------------------------------------------
+// Shared interp / extrap parsing helpers
+// ---------------------------------------------------------------------------
+
+/// Parse an optional `interp` argument to an [`InterpStyle`].
+///
+/// Accepts:
+/// - `None` → `default`
+/// - `InterpStyleArg` (via `FromPyObject`)
+/// - `PyInterpStyle` wrapper
+/// - `str` (case-insensitive label, e.g. `"log_linear"`)
+pub(crate) fn parse_interp_style(
+    obj: Option<&Bound<'_, PyAny>>,
+    default: InterpStyle,
+) -> PyResult<InterpStyle> {
+    let Some(obj) = obj else {
+        return Ok(default);
+    };
+    if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
+        return Ok(v);
+    }
+    if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
+        return Ok(py_style.inner);
+    }
+    if let Ok(name) = obj.extract::<&str>() {
+        use crate::core::math::interp::parse_interp;
+        return parse_interp(Some(name), default);
+    }
+    Err(PyTypeError::new_err("interp must be InterpStyle or string"))
+}
+
+/// Parse an optional `extrapolation` argument to an [`ExtrapolationPolicy`].
+///
+/// Accepts:
+/// - `None` → `default`
+/// - `ExtrapolationPolicyArg` (via `FromPyObject`)
+/// - `PyExtrapolationPolicy` wrapper
+/// - `str` (case-insensitive label, e.g. `"flat_forward"`)
+pub(crate) fn parse_extrap_style(
+    obj: Option<&Bound<'_, PyAny>>,
+    default: ExtrapolationPolicy,
+) -> PyResult<ExtrapolationPolicy> {
+    let Some(obj) = obj else {
+        return Ok(default);
+    };
+    if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
+        return Ok(v);
+    }
+    if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
+        return Ok(py_ex.inner);
+    }
+    if let Ok(name) = obj.extract::<&str>() {
+        use crate::core::math::interp::parse_extrapolation;
+        return parse_extrapolation(Some(name));
+    }
+    Err(PyTypeError::new_err(
+        "extrapolation must be ExtrapolationPolicy or string",
+    ))
+}

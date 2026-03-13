@@ -43,11 +43,11 @@ fn py_apply_scenario(
     market_context: &Bound<'_, PyAny>,
 ) -> PyResult<(PyPortfolio, PyMarketContext, PyApplicationReport)> {
     let portfolio_inner = extract_portfolio(portfolio)?;
-    let scenario_inner = scenario.extract::<PyRef<PyScenarioSpec>>()?.inner.clone();
+    let py_scenario = scenario.extract::<PyRef<PyScenarioSpec>>()?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
     let (transformed, stressed_market, report) =
-        apply_scenario(&portfolio_inner, &scenario_inner, &market_ctx.inner)
+        apply_scenario(&portfolio_inner, &py_scenario.inner, &market_ctx.inner)
             .map_err(portfolio_to_py)?;
 
     Ok((
@@ -92,14 +92,18 @@ fn py_apply_and_revalue(
     config: Option<&Bound<'_, PyAny>>,
 ) -> PyResult<(PyPortfolioValuation, PyApplicationReport)> {
     let portfolio_inner = extract_portfolio(portfolio)?;
-    let scenario_inner = scenario.extract::<PyRef<PyScenarioSpec>>()?.inner.clone();
+    let py_scenario = scenario.extract::<PyRef<PyScenarioSpec>>()?;
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
 
     let cfg = extract_config_or_default(config)?;
 
-    let (valuation, report) =
-        apply_and_revalue(&portfolio_inner, &scenario_inner, &market_ctx.inner, &cfg)
-            .map_err(portfolio_to_py)?;
+    let (valuation, report) = apply_and_revalue(
+        &portfolio_inner,
+        &py_scenario.inner,
+        &market_ctx.inner,
+        &cfg,
+    )
+    .map_err(portfolio_to_py)?;
 
     Ok((
         PyPortfolioValuation::new(valuation),

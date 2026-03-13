@@ -128,13 +128,13 @@ pub fn register_exceptions(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> 
 
 /// Map a Rust core error to an appropriate Python exception.
 ///
-/// This function provides a centralized mapping from `finstack_core::Error`
-/// to the custom Python exception hierarchy, with helpful error messages.
+/// This is the underlying implementation. Binding code should use `core_to_py`
+/// which is the stable public alias.
 ///
 /// # Examples
 ///
 /// ```rust,no_run
-/// let result = compute_something().map_err(map_error)?;
+/// let result = compute_something().map_err(core_to_py)?;
 /// ```
 pub fn map_error(err: CoreError) -> PyErr {
     match err {
@@ -296,10 +296,10 @@ pub(crate) fn calendar_not_found(id: &str) -> PyErr {
     PyKeyError::new_err(format!("Calendar not found: {id}"))
 }
 
-/// Legacy mapping for backward compatibility with existing code.
+/// Map a Rust core error to an appropriate Python exception.
 ///
-/// New code should use `map_error` instead.
-#[allow(dead_code)]
+/// This is the canonical binding-layer function for converting `finstack_core::Error`
+/// to a Python exception. Prefer this over `map_error` in binding code.
 pub(crate) fn core_to_py(err: CoreError) -> PyErr {
     map_error(err)
 }

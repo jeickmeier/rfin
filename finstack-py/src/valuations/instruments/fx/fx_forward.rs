@@ -13,7 +13,7 @@ use finstack_valuations::prelude::Instrument;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
-use pyo3::{Bound, Py, PyRef, PyRefMut};
+use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
 
@@ -180,7 +180,8 @@ impl PyFxForwardBuilder {
         ccy: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
-        slf.base_currency = Some(extract_currency(&ccy)?);
+        use crate::errors::PyContext;
+        slf.base_currency = Some(extract_currency(&ccy).context("base_currency")?);
         Ok(slf)
     }
 
@@ -189,7 +190,8 @@ impl PyFxForwardBuilder {
         ccy: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
         use crate::core::currency::extract_currency;
-        slf.quote_currency = Some(extract_currency(&ccy)?);
+        use crate::errors::PyContext;
+        slf.quote_currency = Some(extract_currency(&ccy).context("quote_currency")?);
         Ok(slf)
     }
 
@@ -197,7 +199,8 @@ impl PyFxForwardBuilder {
         mut slf: PyRefMut<'py, Self>,
         date: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.maturity = Some(py_to_date(&date)?);
+        use crate::errors::PyContext;
+        slf.maturity = Some(py_to_date(&date).context("maturity")?);
         Ok(slf)
     }
 
@@ -205,7 +208,8 @@ impl PyFxForwardBuilder {
         mut slf: PyRefMut<'py, Self>,
         notional: Bound<'py, PyAny>,
     ) -> PyResult<PyRefMut<'py, Self>> {
-        slf.notional = Some(extract_money(&notional)?);
+        use crate::errors::PyContext;
+        slf.notional = Some(extract_money(&notional).context("notional")?);
         Ok(slf)
     }
 
@@ -245,7 +249,7 @@ impl PyFxForwardBuilder {
         slf
     }
 
-    fn build(slf: PyRef<'_, Self>) -> PyResult<PyFxForward> {
+    fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyFxForward> {
         let inner = slf.validate_and_build()?;
         Ok(PyFxForward::new(inner))
     }
@@ -269,8 +273,13 @@ impl PyFxForward {
     /// FxForwardBuilder
     ///     Builder instance for fluent configuration
     #[classmethod]
-    fn builder(_cls: &Bound<'_, PyType>, instrument_id: &str) -> PyFxForwardBuilder {
-        PyFxForwardBuilder::new_with_id(InstrumentId::new(instrument_id))
+    fn builder<'py>(
+        cls: &Bound<'py, PyType>,
+        instrument_id: &str,
+    ) -> PyResult<Py<PyFxForwardBuilder>> {
+        let py = cls.py();
+        let builder = PyFxForwardBuilder::new_with_id(InstrumentId::new(instrument_id));
+        Py::new(py, builder)
     }
 
     /// Instrument identifier.
@@ -364,7 +373,8 @@ impl PyFxForward {
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyMoney> {
-        let date = py_to_date(&as_of)?;
+        use crate::errors::PyContext;
+        let date = py_to_date(&as_of).context("as_of")?;
         let value = py
             .detach(|| self.inner.value(&market.inner, date))
             .map_err(core_to_py)?;
@@ -390,7 +400,8 @@ impl PyFxForward {
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<f64> {
-        let date = py_to_date(&as_of)?;
+        use crate::errors::PyContext;
+        let date = py_to_date(&as_of).context("as_of")?;
         py.detach(|| self.inner.market_forward_rate(&market.inner, date))
             .map_err(core_to_py)
     }

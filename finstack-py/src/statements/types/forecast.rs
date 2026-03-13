@@ -86,13 +86,6 @@ pub struct PySeasonalMode {
     pub(crate) inner: SeasonalMode,
 }
 
-impl PySeasonalMode {
-    #[allow(dead_code)]
-    pub(crate) fn new(inner: SeasonalMode) -> Self {
-        Self { inner }
-    }
-}
-
 #[pymethods]
 impl PySeasonalMode {
     #[classattr]

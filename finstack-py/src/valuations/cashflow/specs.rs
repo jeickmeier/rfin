@@ -4,7 +4,6 @@ use finstack_valuations::cashflow::builder::{
     AmortizationSpec, DefaultCurve, DefaultEvent, DefaultModelSpec, FeeTier, FloatingRateSpec,
     Notional, OvernightCompoundingMethod, PrepaymentCurve, PrepaymentModelSpec, RecoveryModelSpec,
 };
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 use rust_decimal::prelude::ToPrimitive;
@@ -111,14 +110,6 @@ impl PyAmortizationSpec {
             }
         }
     }
-}
-
-#[allow(dead_code)]
-pub(crate) fn extract_amortization_spec(value: &Bound<'_, PyAny>) -> PyResult<AmortizationSpec> {
-    if let Ok(spec) = value.extract::<PyRef<PyAmortizationSpec>>() {
-        return Ok(spec.inner.clone());
-    }
-    Err(PyTypeError::new_err("Expected AmortizationSpec"))
 }
 
 // ---------------------------------------------------------------------------

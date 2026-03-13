@@ -736,6 +736,20 @@ impl CreditDefaultSwap {
         }
     }
 
+    /// Override the protection leg recovery rate.
+    #[must_use]
+    pub fn with_recovery_rate(mut self, recovery_rate: f64) -> Self {
+        self.protection.recovery_rate = recovery_rate;
+        self
+    }
+
+    /// Override the protection leg settlement delay (in business days).
+    #[must_use]
+    pub fn with_settlement_delay(mut self, settlement_delay: u16) -> Self {
+        self.protection.settlement_delay = settlement_delay;
+        self
+    }
+
     /// Returns the effective protection start date.
     ///
     /// For a forward-starting CDS, this returns the `protection_effective_date`.

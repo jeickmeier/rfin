@@ -684,10 +684,11 @@ fn construct_swaption(
         Swaption::new_receiver(id, &params, disc, fwd, vol_surface_id)
     };
 
-    swaption.exercise_style = exercise_style;
-    swaption.settlement = settlement_type;
+    swaption = swaption
+        .with_exercise_style(exercise_style)
+        .with_settlement(settlement_type);
     if !payer {
-        swaption.option_type = OptionType::Put;
+        swaption = swaption.with_option_type(OptionType::Put);
     }
 
     if let Some(ff) = fixed_freq {

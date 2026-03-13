@@ -3,7 +3,7 @@
 use pyo3::PyErr;
 
 use crate::errors::{
-    map_error, ConfigurationError, DateError, FinstackError, InternalError, ParameterError,
+    core_to_py, ConfigurationError, DateError, FinstackError, InternalError, ParameterError,
     ValidationError,
 };
 
@@ -28,7 +28,7 @@ pub fn scenario_to_py(err: finstack_scenarios::Error) -> PyErr {
                 operation, target
             ))
         }
-        finstack_scenarios::Error::Core(e) => map_error(e),
+        finstack_scenarios::Error::Core(e) => core_to_py(e),
         finstack_scenarios::Error::Statements(e) => {
             FinstackError::new_err(format!("Statements error: {}", e))
         }

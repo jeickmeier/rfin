@@ -297,13 +297,11 @@ impl PyOptimizationStatus {
     fn __repr__(&self) -> String {
         format!("{:?}", self.inner)
     }
-
-    fn __eq__(&self, other: &Self) -> bool {
-        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
-    }
-
     fn __hash__(&self) -> u64 {
         hash_discriminant(&self.inner)
+    }
+    fn __eq__(&self, other: &Self) -> bool {
+        std::mem::discriminant(&self.inner) == std::mem::discriminant(&other.inner)
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::money::{extract_money, PyMoney};
+use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::credit_derivatives::cds::{
@@ -639,17 +640,16 @@ fn construct_cds(
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
         .build()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        .map_err(core_to_py)?;
 
     if let Some(rr) = recovery_rate {
-        cds.protection.recovery_rate = rr;
+        cds = cds.with_recovery_rate(rr);
     }
     if let Some(delay) = settlement_delay {
-        cds.protection.settlement_delay = delay;
+        cds = cds.with_settlement_delay(delay);
     }
 
-    cds.validate()
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+    cds.validate().map_err(core_to_py)?;
 
     Ok(PyCreditDefaultSwap::new(cds))
 }

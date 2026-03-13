@@ -133,13 +133,6 @@ pub struct PyWaterfallTier {
     inner: RustWaterfallTier,
 }
 
-impl PyWaterfallTier {
-    #[allow(dead_code)]
-    pub(crate) fn inner_ref(&self) -> &RustWaterfallTier {
-        &self.inner
-    }
-}
-
 #[pymethods]
 impl PyWaterfallTier {
     #[new]

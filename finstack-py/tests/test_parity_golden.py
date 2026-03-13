@@ -173,39 +173,41 @@ def test_bond_pricing_treasury() -> None:
     from finstack.core.dates.schedule import Frequency
     from finstack.core.market_data import MarketContext
     from finstack.valuations.instruments import Bond
+    from finstack.valuations.pricer import create_standard_registry
 
-    # Create a simple treasury bond
+    test_case = GOLDEN_VALUES["test_cases"]["bond_pricing_treasury"]
+    inputs = test_case["inputs"]
+    expected = test_case["expected"]
+
     bond = (
         Bond
-        .builder("TREASURY-001")
-        .notional(1_000_000.0)
-        .currency("USD")
-        .issue(date(2024, 1, 1))
-        .maturity(date(2029, 1, 1))
-        .coupon_rate(0.045)
+        .builder(inputs["instrument_id"])
+        .notional(inputs["notional"])
+        .currency(inputs["currency"])
+        .issue(date.fromisoformat(inputs["issue_date"]))
+        .maturity(date.fromisoformat(inputs["maturity_date"]))
+        .coupon_rate(inputs["coupon_rate"])
         .frequency(Frequency.SEMI_ANNUAL)
         .day_count(DayCount.THIRTY_360)
-        .disc_id("USD-OIS")
+        .disc_id(inputs["disc_id"])
         .build()
     )
 
-    # Create simple market context with discount curve
     market = MarketContext()
-    discount_curve = DiscountCurve(
-        "USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)], day_count="act_365f"
+    market.insert(
+        DiscountCurve(
+            inputs["disc_id"],
+            date.fromisoformat(inputs["as_of"]),
+            [tuple(k) for k in inputs["curve_knots"]],
+            day_count=inputs["curve_day_count"],
+        )
     )
-    market.insert(discount_curve)
-
-    # Price the bond
-    from finstack.valuations.pricer import create_standard_registry
 
     registry = create_standard_registry()
-    # Use "discounting" model key like in test_roundtrips.py
-    result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
+    result = registry.get_price(bond, "discounting", market, date.fromisoformat(inputs["as_of"]))
 
-    # Basic validation - bond should have a positive value
-    assert result.value.amount > 0
-    assert result.value.currency.code == "USD"
+    assert result.value.amount == pytest.approx(expected["pv"], abs=expected["tolerance"])
+    assert result.value.currency.code == expected["currency"]
 
 
 def test_irs_valuation() -> None:
@@ -213,51 +215,52 @@ def test_irs_valuation() -> None:
     from finstack.core.dates import DayCount
     from finstack.core.dates.schedule import Frequency
     from finstack.core.market_data import MarketContext
+    from finstack.core.market_data.term_structures import ForwardCurve
     from finstack.valuations.instruments import InterestRateSwap
+    from finstack.valuations.pricer import create_standard_registry
 
-    # Create a simple interest rate swap
+    test_case = GOLDEN_VALUES["test_cases"]["irs_valuation"]
+    inputs = test_case["inputs"]
+    expected = test_case["expected"]
+
     irs = (
         InterestRateSwap
-        .builder("IRS-001")
-        .notional(10_000_000.0)
-        .currency("USD")
-        .maturity(date(2029, 1, 1))
-        .fixed_rate(0.045)
-        .frequency(Frequency.SEMI_ANNUAL)  # Sets both fixed and float frequency
-        .disc_id("USD-OIS")
-        .fwd_id("USD-LIBOR")
+        .builder(inputs["instrument_id"])
+        .notional(inputs["notional"])
+        .currency(inputs["currency"])
+        .maturity(date.fromisoformat(inputs["maturity_date"]))
+        .fixed_rate(inputs["fixed_rate"])
+        .frequency(Frequency.SEMI_ANNUAL)
+        .disc_id(inputs["disc_id"])
+        .fwd_id(inputs["fwd_id"])
         .build()
     )
 
-    # Create simple market context with discount and forward curves
+    as_of = date.fromisoformat(inputs["as_of"])
     market = MarketContext()
-    discount_curve = DiscountCurve(
-        "USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.95), (5.0, 0.75)], day_count="act_365f"
+    market.insert(
+        DiscountCurve(
+            inputs["disc_id"],
+            as_of,
+            [tuple(k) for k in inputs["disc_curve_knots"]],
+            day_count="act_365f",
+        )
     )
-    market.insert(discount_curve)
-
-    # Create a simple forward curve (flat for testing)
-    from finstack.core.market_data.term_structures import ForwardCurve
-
-    # ForwardCurve takes: id, tenor_years, knots (list of (time, rate) tuples), base_date, day_count
-    forward_curve = ForwardCurve(
-        "USD-LIBOR",
-        0.25,  # 3-month tenor
-        [(0.0, 0.04), (1.0, 0.04), (5.0, 0.04)],
-        base_date=date(2024, 1, 1),
-        day_count=DayCount.ACT_360,
+    market.insert(
+        ForwardCurve(
+            inputs["fwd_id"],
+            inputs["fwd_tenor_years"],
+            [tuple(k) for k in inputs["fwd_curve_knots"]],
+            base_date=as_of,
+            day_count=DayCount.ACT_360,
+        )
     )
-    market.insert(forward_curve)
-
-    # Price the swap
-    from finstack.valuations.pricer import create_standard_registry
 
     registry = create_standard_registry()
-    # Use "discounting" model key like in test_roundtrips.py
-    result = registry.get_price(irs, "discounting", market, date(2024, 1, 1))
+    result = registry.get_price(irs, "discounting", market, as_of)
 
-    # Basic validation - swap should have a value (could be positive or negative)
-    assert result.value.currency.code == "USD"
+    assert result.value.amount == pytest.approx(expected["pv"], abs=expected["tolerance"])
+    assert result.value.currency.code == expected["currency"]
 
 
 if __name__ == "__main__":

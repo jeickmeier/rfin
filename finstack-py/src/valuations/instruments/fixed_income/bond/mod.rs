@@ -33,7 +33,7 @@ use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond::BondSettlementConvention;
 use finstack_valuations::instruments::fixed_income::bond::MakeWholeSpec;
 use finstack_valuations::instruments::fixed_income::bond::{
-    CallPut, CallPutSchedule, CashflowSpec, FloatingConventionParams,
+    BondBuilderParams, CallPut, CallPutSchedule, CashflowSpec, FloatingConventionParams,
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::PricingOverrides;
@@ -403,41 +403,20 @@ impl PyBondBuilder {
 
     fn make_cashflow_spec(&self) -> PyResult<CashflowSpec> {
         use crate::valuations::common::f64_to_decimal;
-        let calendar_id = self
-            .calendar_id
-            .clone()
-            .unwrap_or_else(|| "weekends_only".to_string());
-        if let Some(fwd) = &self.forward_curve {
-            Ok(CashflowSpec::floating_with_conventions(
-                FloatingConventionParams {
-                    index_id: fwd.clone(),
-                    spread_bp: f64_to_decimal(self.float_margin_bp, "float_margin_bp")?,
-                    gearing: f64_to_decimal(self.float_gearing, "float_gearing")?,
-                    reset_lag_days: self.float_reset_lag_days,
-                    coupon_type: self.coupon_type.clone(),
-                    freq: self.frequency,
-                    dc: self.day_count,
-                    bdc: self.bdc,
-                    calendar_id,
-                    stub: self.stub,
-                },
-            ))
-        } else {
-            let base = CashflowSpec::fixed_with_conventions(
-                f64_to_decimal(self.coupon_rate, "coupon_rate")?,
-                self.coupon_type.clone(),
-                self.frequency,
-                self.day_count,
-                self.bdc,
-                calendar_id,
-                self.stub,
-            );
-            Ok(if let Some(amort) = &self.amortization {
-                CashflowSpec::amortizing(base, amort.clone())
-            } else {
-                base
-            })
-        }
+        Ok(CashflowSpec::from_bond_builder_params(BondBuilderParams {
+            coupon_rate: f64_to_decimal(self.coupon_rate, "coupon_rate")?,
+            coupon_type: self.coupon_type.clone(),
+            frequency: self.frequency,
+            day_count: self.day_count,
+            bdc: self.bdc,
+            stub: self.stub,
+            calendar_id: self.calendar_id.clone(),
+            forward_curve: self.forward_curve.clone(),
+            float_margin_bp: f64_to_decimal(self.float_margin_bp, "float_margin_bp")?,
+            float_gearing: f64_to_decimal(self.float_gearing, "float_gearing")?,
+            float_reset_lag_days: self.float_reset_lag_days,
+            amortization: self.amortization.clone(),
+        }))
     }
 
     fn ensure_ready(&mut self) -> PyResult<()> {

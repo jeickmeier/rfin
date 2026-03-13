@@ -8,7 +8,7 @@ use crate::core::market_data::surfaces::PyVolSurface;
 use crate::core::market_data::term_structures::{
     PyBaseCorrelationCurve, PyDiscountCurve, PyForwardCurve, PyHazardCurve, PyInflationCurve,
 };
-use crate::errors::map_error;
+use crate::errors::core_to_py;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
@@ -1195,7 +1195,7 @@ impl PyPnlAttribution {
     }
 
     fn to_json(&self) -> PyResult<String> {
-        self.inner.to_json().map_err(map_error)
+        self.inner.to_json().map_err(core_to_py)
     }
 
     fn rates_detail_to_csv(&self) -> Option<String> {
@@ -1262,6 +1262,7 @@ impl PyPnlAttribution {
 #[pyfunction]
 #[pyo3(signature = (instrument, market_t0, market_t1, as_of_t0, as_of_t1, method=None, model_params_t0=None))]
 pub fn attribute_pnl(
+    py: Python<'_>,
     instrument: Bound<'_, PyAny>,
     market_t0: &crate::core::market_data::PyMarketContext,
     market_t1: &crate::core::market_data::PyMarketContext,
@@ -1288,8 +1289,8 @@ pub fn attribute_pnl(
     let model_params_snapshot = parse_model_params_snapshot(model_params_t0)?;
     let model_params_ref = model_params_snapshot.as_ref();
 
-    // Call appropriate Rust function based on method
-    let attribution = match method_inner {
+    // Call appropriate Rust function based on method; release GIL for heavy computation
+    let attribution = py.detach(|| match method_inner {
         AttributionMethod::Parallel => attribute_pnl_parallel(
             &instrument_arc,
             &market_t0.inner,
@@ -1299,7 +1300,7 @@ pub fn attribute_pnl(
             &config,
             model_params_ref,
         )
-        .map_err(map_error)?,
+        .map_err(core_to_py),
 
         AttributionMethod::Waterfall(order) => attribute_pnl_waterfall(
             &instrument_arc,
@@ -1312,17 +1313,17 @@ pub fn attribute_pnl(
             false,
             model_params_ref,
         )
-        .map_err(map_error)?,
+        .map_err(core_to_py),
 
         AttributionMethod::MetricsBased => {
             let metrics = method_inner.required_metrics();
             let val_t0 = instrument_arc
                 .price_with_metrics(&market_t0.inner, date_t0, &metrics)
-                .map_err(map_error)?;
+                .map_err(core_to_py)?;
 
             let val_t1 = instrument_arc
                 .price_with_metrics(&market_t1.inner, date_t1, &metrics)
-                .map_err(map_error)?;
+                .map_err(core_to_py)?;
 
             attribute_pnl_metrics_based(
                 &instrument_arc,
@@ -1333,7 +1334,7 @@ pub fn attribute_pnl(
                 date_t0,
                 date_t1,
             )
-            .map_err(map_error)?
+            .map_err(core_to_py)
         }
         AttributionMethod::Taylor(config_inner) => attribute_pnl_taylor_compat(
             &instrument_arc,
@@ -1343,8 +1344,8 @@ pub fn attribute_pnl(
             date_t1,
             &config_inner,
         )
-        .map_err(map_error)?,
-    };
+        .map_err(core_to_py),
+    })?;
 
     Ok(PyPnlAttribution { inner: attribution })
 }
@@ -1353,6 +1354,7 @@ pub fn attribute_pnl(
 #[pyfunction(name = "attribute_pnl_taylor")]
 #[pyo3(signature = (instrument, market_t0, market_t1, as_of_t0, as_of_t1, config=None))]
 pub fn attribute_pnl_taylor_py(
+    py: Python<'_>,
     instrument: Bound<'_, PyAny>,
     market_t0: &PyMarketContext,
     market_t1: &PyMarketContext,
@@ -1364,15 +1366,18 @@ pub fn attribute_pnl_taylor_py(
     let date_t1 = py_to_date(&as_of_t1)?;
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
-    let result = attribute_pnl_taylor(
-        &instrument_arc,
-        &market_t0.inner,
-        &market_t1.inner,
-        date_t0,
-        date_t1,
-        &config.map(|value| value.inner.clone()).unwrap_or_default(),
-    )
-    .map_err(map_error)?;
+    let taylor_config = config.map(|value| value.inner.clone()).unwrap_or_default();
+    let result = py.detach(|| {
+        attribute_pnl_taylor(
+            &instrument_arc,
+            &market_t0.inner,
+            &market_t1.inner,
+            date_t0,
+            date_t1,
+            &taylor_config,
+        )
+        .map_err(core_to_py)
+    })?;
     Ok(PyTaylorAttributionResult { inner: result })
 }
 
@@ -1386,7 +1391,7 @@ fn reprice_instrument_py(
     let date = py_to_date(&as_of)?;
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
     let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
-    let value = reprice_instrument(&instrument_arc, &market.inner, date).map_err(map_error)?;
+    let value = reprice_instrument(&instrument_arc, &market.inner, date).map_err(core_to_py)?;
     Ok(crate::core::money::PyMoney { inner: value })
 }
 
@@ -1401,7 +1406,7 @@ fn convert_currency_py(
     let target_ccy = extract_currency(&target_ccy)?;
     let date = py_to_date(&as_of)?;
     let value =
-        convert_currency(money.inner, target_ccy, &market.inner, date).map_err(map_error)?;
+        convert_currency(money.inner, target_ccy, &market.inner, date).map_err(core_to_py)?;
     Ok(crate::core::money::PyMoney { inner: value })
 }
 
@@ -1423,7 +1428,7 @@ fn compute_pnl_py(
         &market_t1.inner,
         date_t1,
     )
-    .map_err(map_error)?;
+    .map_err(core_to_py)?;
     Ok(crate::core::money::PyMoney { inner: pnl })
 }
 
@@ -1450,7 +1455,7 @@ fn compute_pnl_with_fx_py(
         date_t0,
         date_t1,
     )
-    .map_err(map_error)?;
+    .map_err(core_to_py)?;
     Ok(crate::core::money::PyMoney { inner: pnl })
 }
 
@@ -1613,6 +1618,7 @@ impl PyPortfolioAttribution {
 #[pyfunction]
 #[pyo3(signature = (portfolio, market_t0, market_t1, as_of_t0, as_of_t1, method=None))]
 pub fn attribute_portfolio_pnl(
+    py: Python<'_>,
     portfolio: &crate::portfolio::positions::PyPortfolio,
     market_t0: &crate::core::market_data::PyMarketContext,
     market_t1: &crate::core::market_data::PyMarketContext,
@@ -1632,17 +1638,19 @@ pub fn attribute_portfolio_pnl(
     // Get config
     let config = FinstackConfig::default();
 
-    // Call Rust function
-    let attribution = finstack_portfolio::attribute_portfolio_pnl(
-        &portfolio.inner,
-        &market_t0.inner,
-        &market_t1.inner,
-        date_t0,
-        date_t1,
-        &config,
-        method_inner,
-    )
-    .map_err(crate::portfolio::error::portfolio_to_py)?;
+    // Call Rust function; release GIL for heavy computation
+    let attribution = py.detach(|| {
+        finstack_portfolio::attribute_portfolio_pnl(
+            &portfolio.inner,
+            &market_t0.inner,
+            &market_t1.inner,
+            date_t0,
+            date_t1,
+            &config,
+            method_inner,
+        )
+        .map_err(crate::portfolio::error::portfolio_to_py)
+    })?;
 
     Ok(PyPortfolioAttribution { inner: attribution })
 }
@@ -1680,10 +1688,10 @@ pub fn attribute_pnl_from_json(spec_json: &str) -> PyResult<PyPnlAttribution> {
     use finstack_valuations::attribution::AttributionEnvelope;
 
     // Parse the JSON envelope
-    let envelope = AttributionEnvelope::from_json(spec_json).map_err(map_error)?;
+    let envelope = AttributionEnvelope::from_json(spec_json).map_err(core_to_py)?;
 
     // Execute the attribution
-    let result_envelope = envelope.execute().map_err(map_error)?;
+    let result_envelope = envelope.execute().map_err(core_to_py)?;
 
     Ok(PyPnlAttribution {
         inner: result_envelope.result.attribution,
@@ -1710,7 +1718,7 @@ pub fn attribution_result_to_json(attribution: &PyPnlAttribution) -> PyResult<St
     };
 
     let envelope = AttributionResultEnvelope::new(result);
-    envelope.to_json().map_err(map_error)
+    envelope.to_json().map_err(core_to_py)
 }
 
 /// Register attribution bindings with Python module.

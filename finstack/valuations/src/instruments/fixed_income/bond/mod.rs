@@ -115,7 +115,7 @@ mod types;
 
 // Re-export cashflow accrual types for convenience
 pub use crate::cashflow::accrual::AccrualMethod;
-pub use cashflow_spec::{CashflowSpec, FloatingConventionParams};
+pub use cashflow_spec::{BondBuilderParams, CashflowSpec, FloatingConventionParams};
 #[doc(hidden)]
 pub use metrics::price_yield_spread::asw::{
     asw_market_with_forward, asw_market_with_forward_config, asw_par_with_forward,

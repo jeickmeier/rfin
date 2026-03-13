@@ -707,6 +707,24 @@ impl Swaption {
         self
     }
 
+    /// Override the exercise style (default: European).
+    pub fn with_exercise_style(mut self, style: SwaptionExercise) -> Self {
+        self.exercise_style = style;
+        self
+    }
+
+    /// Override the settlement type (default: Physical).
+    pub fn with_settlement(mut self, settlement: SwaptionSettlement) -> Self {
+        self.settlement = settlement;
+        self
+    }
+
+    /// Override the option type (Call = payer, Put = receiver).
+    pub fn with_option_type(mut self, option_type: OptionType) -> Self {
+        self.option_type = option_type;
+        self
+    }
+
     /// Set the holiday calendar for schedule generation.
     ///
     /// # Arguments

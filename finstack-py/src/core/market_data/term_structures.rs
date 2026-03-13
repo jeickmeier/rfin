@@ -1,12 +1,9 @@
 use crate::core::common::args::{
-    extract_float_pairs, DayCountArg, ExtrapolationPolicyArg, InterpStyleArg,
+    extract_float_pairs, parse_extrap_style, parse_interp_style, DayCountArg,
 };
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::dates::PyDayCount;
-use crate::core::math::interp::{
-    parse_extrapolation, parse_interp, PyExtrapolationPolicy, PyInterpStyle,
-};
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::npv;
@@ -43,14 +40,6 @@ fn parse_day_count(
             ))
         }
     }
-}
-
-fn parse_interp_enum(value: Option<&str>, default: InterpStyle) -> PyResult<InterpStyle> {
-    parse_interp(value, default)
-}
-
-fn parse_extrap_enum(value: Option<&str>) -> PyResult<ExtrapolationPolicy> {
-    parse_extrapolation(value)
 }
 
 /// Discount curve wrapper supporting multiple interpolation and extrapolation styles.
@@ -139,38 +128,8 @@ impl PyDiscountCurve {
             ));
         }
         let base = py_to_date(&base_date).context("base_date")?;
-        let style = match interp {
-            None => InterpStyle::LogLinear,
-            Some(obj) => {
-                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
-                    v
-                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
-                    py_style.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_interp_enum(Some(name), InterpStyle::LogLinear)?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "interp must be InterpStyle or string",
-                    ));
-                }
-            }
-        };
-        let extra = match extrapolation {
-            None => ExtrapolationPolicy::FlatForward,
-            Some(obj) => {
-                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
-                    v
-                } else if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
-                    py_ex.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_extrap_enum(Some(name))?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "extrapolation must be ExtrapolationPolicy or string",
-                    ));
-                }
-            }
-        };
+        let style = parse_interp_style(interp.as_ref(), InterpStyle::LogLinear)?;
+        let extra = parse_extrap_style(extrapolation.as_ref(), ExtrapolationPolicy::FlatForward)?;
         let mut builder = DiscountCurve::builder(id)
             .base_date(base)
             .knots(knots_vec)
@@ -632,17 +591,7 @@ impl PyForwardCurve {
             builder = builder.day_count(dc);
         }
         if let Some(obj) = interp {
-            let style = if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
-                v
-            } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
-                py_style.inner
-            } else if let Ok(name) = obj.extract::<&str>() {
-                parse_interp_enum(Some(name), InterpStyle::Linear)?
-            } else {
-                return Err(pyo3::exceptions::PyTypeError::new_err(
-                    "interp must be InterpStyle or string",
-                ));
-            };
+            let style = parse_interp_style(Some(&obj), InterpStyle::Linear)?;
             builder = builder.interp(style);
         }
         let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
@@ -956,9 +905,7 @@ impl PyHazardCurve {
     ///     Default probability between ``t1`` and ``t2``.
     #[pyo3(text_signature = "(self, t1, t2)")]
     fn default_prob(&self, t1: f64, t2: f64) -> PyResult<f64> {
-        self.inner
-            .default_prob(t1, t2)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
+        self.inner.default_prob(t1, t2).map_err(core_to_py)
     }
 }
 
@@ -1014,22 +961,7 @@ impl PyInflationCurve {
         if knots_vec.is_empty() {
             return Err(PyValueError::new_err("knots must not be empty"));
         }
-        let style = match interp {
-            None => InterpStyle::LogLinear,
-            Some(obj) => {
-                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
-                    v
-                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
-                    py_style.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_interp_enum(Some(name), InterpStyle::LogLinear)?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "interp must be InterpStyle or string",
-                    ));
-                }
-            }
-        };
+        let style = parse_interp_style(interp.as_ref(), InterpStyle::LogLinear)?;
         let builder = InflationCurve::builder(id)
             .base_date(base)
             .base_cpi(base_cpi)
@@ -1443,38 +1375,8 @@ impl PyVolatilityIndexCurve {
             ));
         }
         let base = py_to_date(&base_date).context("base_date")?;
-        let style = match interp {
-            None => InterpStyle::Linear,
-            Some(obj) => {
-                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
-                    v
-                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
-                    py_style.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_interp_enum(Some(name), InterpStyle::Linear)?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "interp must be InterpStyle or string",
-                    ));
-                }
-            }
-        };
-        let extra = match extrapolation {
-            None => ExtrapolationPolicy::FlatForward,
-            Some(obj) => {
-                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
-                    v
-                } else if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
-                    py_ex.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_extrap_enum(Some(name))?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "extrapolation must be ExtrapolationPolicy or string",
-                    ));
-                }
-            }
-        };
+        let style = parse_interp_style(interp.as_ref(), InterpStyle::Linear)?;
+        let extra = parse_extrap_style(extrapolation.as_ref(), ExtrapolationPolicy::FlatForward)?;
         let mut builder =
             finstack_core::market_data::term_structures::VolatilityIndexCurve::builder(id)
                 .base_date(base)
@@ -1627,38 +1529,8 @@ impl PyPriceCurve {
             ));
         }
         let base = py_to_date(&base_date).context("base_date")?;
-        let style = match interp {
-            None => InterpStyle::Linear,
-            Some(obj) => {
-                if let Ok(InterpStyleArg(v)) = obj.extract::<InterpStyleArg>() {
-                    v
-                } else if let Ok(py_style) = obj.extract::<PyRef<PyInterpStyle>>() {
-                    py_style.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_interp_enum(Some(name), InterpStyle::Linear)?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "interp must be InterpStyle or string",
-                    ));
-                }
-            }
-        };
-        let extra = match extrapolation {
-            None => ExtrapolationPolicy::FlatZero,
-            Some(obj) => {
-                if let Ok(ExtrapolationPolicyArg(v)) = obj.extract::<ExtrapolationPolicyArg>() {
-                    v
-                } else if let Ok(py_ex) = obj.extract::<PyRef<PyExtrapolationPolicy>>() {
-                    py_ex.inner
-                } else if let Ok(name) = obj.extract::<&str>() {
-                    parse_extrap_enum(Some(name))?
-                } else {
-                    return Err(pyo3::exceptions::PyTypeError::new_err(
-                        "extrapolation must be ExtrapolationPolicy or string",
-                    ));
-                }
-            }
-        };
+        let style = parse_interp_style(interp.as_ref(), InterpStyle::Linear)?;
+        let extra = parse_extrap_style(extrapolation.as_ref(), ExtrapolationPolicy::FlatZero)?;
         let mut builder = PriceCurve::builder(id)
             .base_date(base)
             .knots(knots_vec)

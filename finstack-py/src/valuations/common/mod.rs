@@ -583,10 +583,6 @@ pub(crate) fn parse_stub_kind(label: Option<&str>) -> PyResult<finstack_core::da
 pub(crate) fn intern_calendar_id_opt(value: Option<&str>) -> Option<&'static str> {
     value.map(|s| Box::leak(s.to_ascii_lowercase().into_boxed_str()) as &'static str)
 }
-#[allow(dead_code)]
-pub(crate) fn intern_calendar_id(value: &str) -> &'static str {
-    Box::leak(value.to_ascii_lowercase().into_boxed_str())
-}
 
 pub(crate) mod monte_carlo;
 pub(crate) mod parameters;

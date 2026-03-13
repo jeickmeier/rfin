@@ -53,6 +53,37 @@ fn rate_index_defaults(index_id: &CurveId) -> Option<RateIndexConventions> {
     registry.require_rate_index(&id).ok().cloned()
 }
 
+/// Parameters for [`CashflowSpec::from_bond_builder_params`].
+///
+/// Bundles all the flat fields from the Python bond builder so that the
+/// function signature stays within the `too_many_arguments` threshold.
+pub struct BondBuilderParams {
+    /// Fixed coupon rate (used when `forward_curve` is `None`).
+    pub coupon_rate: Decimal,
+    /// Cash vs PIK coupon split.
+    pub coupon_type: CouponType,
+    /// Payment / reset frequency.
+    pub frequency: Tenor,
+    /// Day-count convention for accrual.
+    pub day_count: DayCount,
+    /// Business-day convention for date adjustment.
+    pub bdc: BusinessDayConvention,
+    /// Stub period treatment.
+    pub stub: StubKind,
+    /// Holiday calendar identifier; falls back to `"weekends_only"` when `None`.
+    pub calendar_id: Option<String>,
+    /// Forward curve id; when `Some`, the bond is treated as floating-rate.
+    pub forward_curve: Option<CurveId>,
+    /// Floating-leg margin in basis points (ignored for fixed-rate bonds).
+    pub float_margin_bp: Decimal,
+    /// Floating-leg gearing / multiplier (ignored for fixed-rate bonds).
+    pub float_gearing: Decimal,
+    /// Business-day lag between fixing and accrual start (ignored for fixed-rate bonds).
+    pub float_reset_lag_days: i32,
+    /// Optional amortization schedule; wraps the base spec when `Some`.
+    pub amortization: Option<AmortizationSpec>,
+}
+
 /// Parameters for [`CashflowSpec::floating_with_conventions`].
 pub struct FloatingConventionParams {
     /// Forward curve / rate index identifier (e.g. `"USD-SOFR-3M"`).
@@ -584,6 +615,63 @@ impl CashflowSpec {
         Self::Amortizing {
             base: Box::new(base),
             schedule,
+        }
+    }
+
+    /// Build a `CashflowSpec` from the common builder parameters used by the
+    /// Python-facing bond builder.
+    ///
+    /// This is the canonical place for the "choose fixed vs floating, apply
+    /// optional amortization, apply calendar fallback" logic so that it lives
+    /// in the core crate rather than in the binding layer.
+    ///
+    /// # Calendar fallback
+    ///
+    /// If `params.calendar_id` is `None`, falls back to `"weekends_only"`.
+    pub fn from_bond_builder_params(params: BondBuilderParams) -> Self {
+        let BondBuilderParams {
+            coupon_rate,
+            coupon_type,
+            frequency,
+            day_count,
+            bdc,
+            stub,
+            calendar_id,
+            forward_curve,
+            float_margin_bp,
+            float_gearing,
+            float_reset_lag_days,
+            amortization,
+        } = params;
+        let calendar = calendar_id.unwrap_or_else(|| "weekends_only".to_string());
+        let spec = if let Some(fwd) = forward_curve {
+            Self::floating_with_conventions(FloatingConventionParams {
+                index_id: fwd,
+                spread_bp: float_margin_bp,
+                gearing: float_gearing,
+                reset_lag_days: float_reset_lag_days,
+                coupon_type,
+                freq: frequency,
+                dc: day_count,
+                bdc,
+                calendar_id: calendar,
+                stub,
+            })
+        } else {
+            Self::fixed_with_conventions(
+                coupon_rate,
+                coupon_type,
+                frequency,
+                day_count,
+                bdc,
+                calendar,
+                stub,
+            )
+        };
+        if let Some(amort) = amortization {
+            Self::amortizing(spec, amort)
+        } else {
+            spec
         }
     }
 
