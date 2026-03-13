@@ -19,7 +19,7 @@
           },
           "premium": {
             "bdc": "following",
-            "calendar_id": null,
+            "calendar_id": "nyse",
             "dc": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-03-20",
@@ -72,7 +72,7 @@
           },
           "premium": {
             "bdc": "following",
-            "calendar_id": null,
+            "calendar_id": "nyse",
             "dc": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-03-20",

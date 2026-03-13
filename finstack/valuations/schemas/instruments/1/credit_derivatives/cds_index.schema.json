@@ -24,14 +24,14 @@
           },
           "premium": {
             "bdc": "following",
-            "calendar_id": null,
+            "calendar_id": "nyse",
             "dc": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-12-20",
             "freq": {
               "Months": 3
             },
-            "spread_bp": 60.0,
+            "spread_bp": 100.0,
             "start": "2024-03-20",
             "stub": "ShortFront"
           },
@@ -81,14 +81,14 @@
           },
           "premium": {
             "bdc": "following",
-            "calendar_id": null,
+            "calendar_id": "nyse",
             "dc": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-12-20",
             "freq": {
               "Months": 3
             },
-            "spread_bp": 60.0,
+            "spread_bp": 100.0,
             "start": "2024-03-20",
             "stub": "ShortFront"
           },

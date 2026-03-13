@@ -12,6 +12,7 @@
 //! - Recovery rate must be in (0, 1)
 //! - Index factor must be in (0, 1] when specified
 //! - Implied volatility override must be in (0, 5] when specified
+//! - Only European, cash-settled CDS options are supported
 //!
 //! # Volatility Convention
 //!
@@ -42,6 +43,11 @@ pub const MIN_IMPLIED_VOL: f64 = 0.0;
 pub const MAX_IMPLIED_VOL: f64 = 5.0;
 
 /// Credit option instrument (option on CDS spread)
+///
+/// Currently the public pricing surface supports only European, cash-settled
+/// CDS options. Other exercise and settlement styles are rejected at pricing
+/// time so deserialized instruments cannot silently fall through to the
+/// Black-on-spreads engine.
 #[derive(
     Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize, serde::Deserialize,
 )]
@@ -102,6 +108,24 @@ pub struct CDSOption {
 }
 
 impl CDSOption {
+    pub(crate) fn validate_supported_configuration(&self) -> finstack_core::Result<()> {
+        if self.exercise_style != ExerciseStyle::European {
+            return Err(finstack_core::Error::Validation(format!(
+                "CDS options currently support only European exercise; got {:?}",
+                self.exercise_style
+            )));
+        }
+
+        if self.settlement != SettlementType::Cash {
+            return Err(finstack_core::Error::Validation(format!(
+                "CDS options currently support only cash settlement; got {:?}",
+                self.settlement
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Validate the CDSOption parameters.
     fn validate(&self) -> finstack_core::Result<()> {
         // Strike validation
@@ -289,6 +313,7 @@ impl CDSOption {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<Option<CDSOptionPricingInputs>> {
+        self.validate_supported_configuration()?;
         let ctx = DayCountCtx::default();
 
         // Time to expiry

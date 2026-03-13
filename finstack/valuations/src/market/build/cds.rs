@@ -121,6 +121,7 @@ use rust_decimal::Decimal;
 /// - [`BuildCtx`](crate::market::BuildCtx) for build context configuration
 pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
     tracing::debug!(quote_id = %quote.id(), "building CDS instrument");
+    quote.validate_market_conventions()?;
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {
         Error::Input(InputError::NotFound {
@@ -128,38 +129,32 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         })
     };
 
-    // Extract common fields
-    let (id, convention_key, _entity, pillar, spread_bp, recovery_rate, upfront) = match quote {
+    // Normalize both quote styles onto a shared running-coupon path before building.
+    let spread_bp = quote.quoted_running_spread_bp();
+
+    // Extract the remaining fields.
+    let (id, convention_key, _entity, pillar, recovery_rate, upfront) = match quote {
         CdsQuote::CdsParSpread {
             id,
             entity,
             convention,
             pillar,
-            spread_bp,
             recovery_rate,
-        } => (
-            id,
-            convention,
-            entity,
-            pillar,
-            *spread_bp,
-            *recovery_rate,
-            None,
-        ),
+            ..
+        } => (id, convention, entity, pillar, *recovery_rate, None),
         CdsQuote::CdsUpfront {
             id,
             entity,
             convention,
             pillar,
-            running_spread_bp,
             upfront_pct,
             recovery_rate,
+            ..
         } => (
             id,
             convention,
             entity,
             pillar,
-            *running_spread_bp,
             *recovery_rate,
             Some(*upfront_pct),
         ),
@@ -220,8 +215,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         )
     });
 
-    // We use Custom convention to avoid enum mismatch, but fully specify legs
-    let convention_enum = CDSConvention::Custom;
+    let convention_enum = CDSConvention::detect_from_currency(convention_key.currency);
 
     let cds = CreditDefaultSwap {
         id: InstrumentId::new(id.as_str()),
@@ -253,7 +247,7 @@ pub fn build_cds_instrument(quote: &CdsQuote, ctx: &BuildCtx) -> Result<Box<dyn 
         },
         pricing_overrides: PricingOverrides::default(),
         upfront: upfront_payment,
-        doc_clause: None,
+        doc_clause: Some(convention_key.doc_clause),
         protection_effective_date: None,
         margin_spec: None,
         attributes: Attributes::new(),

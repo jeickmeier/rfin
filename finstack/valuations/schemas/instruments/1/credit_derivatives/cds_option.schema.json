@@ -2,7 +2,7 @@
   "$id": "https://finstack.dev/schemas/instrument/1/cds_option.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "Option on a CDS spread",
+  "description": "Option on a CDS spread. Current support is limited to European, cash-settled CDS options.",
   "examples": [
     {
       "instrument": {

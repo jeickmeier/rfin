@@ -639,3 +639,36 @@ fn test_settlement_delay_reduces_protection_pv() {
         "Settlement delay should reduce protection PV"
     );
 }
+
+#[test]
+fn test_aod_uses_default_settlement_timing() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc = build_discount_curve(0.05, as_of, "USD_OIS");
+    let hazard = build_hazard_curve(0.30, 0.40, as_of, "CORP");
+    let market = MarketContext::new().insert(disc).insert(hazard);
+
+    let mut cds_no_delay = test_utils::cds_buy_protection(
+        "AOD_NO_DELAY",
+        Money::new(10_000_000.0, Currency::USD),
+        1000.0,
+        as_of,
+        end,
+        "USD_OIS",
+        "CORP",
+    )
+    .expect("CDS construction should succeed");
+    cds_no_delay.protection.settlement_delay = 0;
+
+    let mut cds_with_delay = cds_no_delay.clone();
+    cds_with_delay.protection.settlement_delay = 60;
+
+    let pv_no_delay = metric_value(&cds_no_delay, &market, as_of, MetricId::PremiumLegPv);
+    let pv_with_delay = metric_value(&cds_with_delay, &market, as_of, MetricId::PremiumLegPv);
+
+    assert!(
+        pv_with_delay < pv_no_delay,
+        "Premium leg PV should fall when default settlement is delayed; no_delay={pv_no_delay}, with_delay={pv_with_delay}"
+    );
+}

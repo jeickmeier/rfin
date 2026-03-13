@@ -10,9 +10,15 @@
 #![allow(clippy::field_reassign_with_default)]
 
 use super::helpers::*;
+use finstack_core::currency::Currency;
 use finstack_core::math::{binomial_probability, log_factorial};
+use finstack_core::money::Money;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranche;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::Cs01BumpUnits;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
+use time::macros::date;
 
 // ==================== Standard Tranche Structure Tests ====================
 
@@ -135,6 +141,50 @@ fn test_standard_recovery_rate() {
         standard_recovery,
         0.01,
         "Standard corporate recovery rate",
+    );
+}
+
+#[test]
+fn test_standard_tranche_derives_contractual_effective_date_for_seasoned_trade() {
+    let pricer = CDSTranchePricer::new();
+    let market = standard_market_context();
+    let as_of = date!(2025 - 02 - 15);
+
+    let params = CDSTrancheParams::mezzanine_tranche(
+        "CDX.NA.IG.42",
+        42,
+        Money::new(10_000_000.0, Currency::USD),
+        date!(2029 - 12 - 20),
+        500.0,
+    );
+
+    let mut explicit = CDSTranche::standard(
+        "CDX-SEASONED-EXPLICIT",
+        &params,
+        "USD-OIS",
+        "CDX.NA.IG.42",
+        TrancheSide::SellProtection,
+    )
+    .expect("standard tranche");
+    explicit.effective_date = Some(date!(2024 - 12 - 20));
+
+    let mut derived = explicit.clone();
+    derived.effective_date = None;
+
+    let explicit_pv = pricer
+        .price_tranche(&explicit, &market, as_of)
+        .expect("explicit tranche price")
+        .amount();
+    let derived_pv = pricer
+        .price_tranche(&derived, &market, as_of)
+        .expect("derived tranche price")
+        .amount();
+
+    assert_absolute_eq(
+        derived_pv,
+        explicit_pv,
+        1e-6,
+        "Standard tranche without explicit effective_date should derive the same contractual schedule",
     );
 }
 

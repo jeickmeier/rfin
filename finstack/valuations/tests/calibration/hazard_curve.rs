@@ -287,6 +287,71 @@ fn hazard_calibration_rejects_negative_spread() {
 }
 
 #[test]
+fn hazard_calibration_rejects_non_standard_upfront_running_coupon() {
+    let base = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+    let currency = Currency::USD;
+
+    let disc = create_test_discount_curve(base);
+    let initial_market = MarketContext::new().insert(disc);
+
+    let quotes = vec![MarketQuote::Cds(CdsQuote::CdsUpfront {
+        id: QuoteId::new("CDS-UPFRONT-250BP"),
+        entity: "NONSTANDARD-UPFRONT".to_string(),
+        pillar: Pillar::Date(Date::from_calendar_date(2028, Month::March, 20).unwrap()),
+        running_spread_bp: 250.0,
+        upfront_pct: 0.02,
+        recovery_rate: 0.40,
+        convention: CdsConventionKey {
+            currency,
+            doc_clause: CdsDocClause::IsdaNa,
+        },
+    })];
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert("credit".to_string(), quotes);
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: Default::default(),
+        steps: vec![CalibrationStep {
+            id: "haz".to_string(),
+            quote_set: "credit".to_string(),
+            params: StepParams::Hazard(HazardCurveParams {
+                curve_id: "NONSTANDARD-UPFRONT-SENIOR".into(),
+                entity: "NONSTANDARD-UPFRONT".to_string(),
+                seniority: Seniority::Senior,
+                currency,
+                base_date: base,
+                discount_curve_id: "TEST-DISC".into(),
+                recovery_rate: 0.40,
+                notional: 1.0,
+                method: CalibrationMethod::Bootstrap,
+                interpolation: Default::default(),
+                par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                doc_clause: None,
+            }),
+        }],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: Some((&initial_market).into()),
+    };
+
+    let err = engine::execute(&envelope)
+        .expect_err("non-standard upfront running coupon should be invalid");
+    assert!(matches!(
+        err,
+        finstack_core::Error::Validation(_)
+            | finstack_core::Error::Input(_)
+            | finstack_core::Error::Calibration { .. }
+    ));
+}
+
+#[test]
 fn hazard_calibration_handles_extreme_high_spread() {
     // Test that very high spreads (>1000bp) are handled correctly.
     // High spreads are valid for distressed credits (e.g., CCC-rated).

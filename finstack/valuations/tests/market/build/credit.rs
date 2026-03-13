@@ -43,8 +43,8 @@ fn test_build_cds_par_spread() {
         assert_eq!(cds.notional.currency(), Currency::USD);
         assert_eq!(cds.premium.spread_bp, Decimal::from(120));
         assert_eq!(cds.protection.recovery_rate, 0.40);
-        // Verify default convention was set to Custom
-        assert_eq!(cds.convention, CDSConvention::Custom);
+        assert_eq!(cds.convention, CDSConvention::IsdaNa);
+        assert_eq!(cds.doc_clause, Some(CdsDocClause::IsdaNa));
         // Verify discount/credit curve ids come from BuildCtx role mappings
         assert_eq!(cds.premium.discount_curve_id.as_str(), "USD-OIS");
         assert_eq!(cds.protection.credit_curve_id.as_str(), "XYZ-CORP-SNR");
@@ -82,6 +82,8 @@ fn test_build_cds_upfront() {
     if let Some(cds) = instrument.as_any().downcast_ref::<CreditDefaultSwap>() {
         assert_eq!(cds.premium.spread_bp, Decimal::from(100)); // Running
         assert!(cds.upfront.is_some());
+        assert_eq!(cds.convention, CDSConvention::IsdaNa);
+        assert_eq!(cds.doc_clause, Some(CdsDocClause::IsdaNa));
         if let Some((_dt, amount)) = cds.upfront {
             assert_eq!(amount.amount(), 20_000.0); // 2% of 1M
         }

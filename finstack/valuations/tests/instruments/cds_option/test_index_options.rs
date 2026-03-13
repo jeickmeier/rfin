@@ -2,6 +2,7 @@
 
 use super::common::*;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::SettlementType;
 use time::macros::date;
 
 #[test]
@@ -155,4 +156,17 @@ fn test_negative_forward_adjustment() {
         adj_pv < base_pv,
         "Negative forward adjustment should decrease call value"
     );
+}
+
+#[test]
+fn test_index_option_physical_settlement_is_rejected() {
+    let as_of = date!(2025 - 01 - 01);
+    let market = standard_market(as_of);
+    let mut option = CDSOptionBuilder::new().with_index(1.0).build(as_of);
+    option.settlement = SettlementType::Physical;
+
+    let err = option
+        .value(&market, as_of)
+        .expect_err("Physical settlement should be rejected for CDS index options");
+    assert!(matches!(err, finstack_core::Error::Validation(_)));
 }

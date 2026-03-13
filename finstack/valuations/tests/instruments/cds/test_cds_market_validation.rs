@@ -14,6 +14,7 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
+use finstack_valuations::instruments::credit_derivatives::cds::CDSConvention;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
@@ -49,6 +50,48 @@ fn build_flat_hazard(
         ])
         .build()
         .unwrap()
+}
+
+#[test]
+fn test_regional_cds_lifecycle_fixtures_na_eu_asia() {
+    let fixtures = [
+        (
+            Currency::USD,
+            CDSConvention::IsdaNa,
+            DayCount::Act360,
+            "nyse",
+            3_u16,
+        ),
+        (
+            Currency::EUR,
+            CDSConvention::IsdaEu,
+            DayCount::Act360,
+            "target2",
+            1_u16,
+        ),
+        (
+            Currency::JPY,
+            CDSConvention::IsdaAs,
+            DayCount::Act365F,
+            "jpto",
+            3_u16,
+        ),
+    ];
+
+    for (
+        currency,
+        expected_convention,
+        expected_day_count,
+        expected_calendar,
+        expected_settlement,
+    ) in fixtures
+    {
+        let detected = CDSConvention::detect_from_currency(currency);
+        assert_eq!(detected, expected_convention);
+        assert_eq!(detected.day_count(), expected_day_count);
+        assert_eq!(detected.default_calendar(), expected_calendar);
+        assert_eq!(detected.settlement_delay(), expected_settlement);
+    }
 }
 
 #[test]
@@ -95,6 +138,91 @@ fn test_par_spread_approximation() {
         "Par spread={:.2} bp should be close to credit triangle {:.2} bp (|diff|<15bp)",
         par_spread,
         expected_triangle_bp
+    );
+}
+
+#[test]
+fn test_step_in_date_overrides_protection_start() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let mut cds = test_utils::cds_buy_protection(
+        "STEP_IN_DATE",
+        Money::new(10_000_000.0, Currency::USD),
+        100.0,
+        as_of,
+        end,
+        "USD_OIS",
+        "CORP_HAZARD",
+    )
+    .expect("CDS construction should succeed");
+
+    let step_in = date!(2024 - 01 - 02);
+    cds.protection_effective_date = Some(step_in);
+
+    assert_eq!(cds.protection_start(), step_in);
+    cds.validate()
+        .expect("explicit step-in date should validate");
+}
+
+#[test]
+fn test_clean_upfront_adjustment_changes_npv_not_leg_pvs() {
+    let as_of = date!(2024 - 01 - 01);
+    let end = date!(2029 - 01 - 01);
+
+    let disc_curve = build_flat_discount(0.05, as_of, "USD_OIS");
+    let hazard_curve = build_flat_hazard(0.015, 0.40, as_of, "CORP_HAZARD");
+    let market = MarketContext::new().insert(disc_curve).insert(hazard_curve);
+
+    let mut cds = test_utils::cds_buy_protection(
+        "CLEAN_DIRTY_UPFRONT",
+        Money::new(10_000_000.0, Currency::USD),
+        100.0,
+        as_of,
+        end,
+        "USD_OIS",
+        "CORP_HAZARD",
+    )
+    .expect("CDS construction should succeed");
+
+    let base = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+        )
+        .expect("base cds metrics");
+    let base_npv = base.value;
+
+    let upfront = Money::new(125_000.0, Currency::USD);
+    cds.pricing_overrides.market_quotes.upfront_payment = Some(upfront);
+
+    let dirty = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+        )
+        .expect("dirty cds metrics");
+
+    assert!(
+        (dirty.measures[MetricId::ProtectionLegPv.as_str()]
+            - base.measures[MetricId::ProtectionLegPv.as_str()])
+        .abs()
+            < 1e-8
+    );
+    assert!(
+        (dirty.measures[MetricId::PremiumLegPv.as_str()]
+            - base.measures[MetricId::PremiumLegPv.as_str()])
+        .abs()
+            < 1e-8
+    );
+    assert!(
+        (dirty.value.amount() - (base_npv.amount() - upfront.amount())).abs() < 1e-8,
+        "Dirty buyer NPV should equal clean NPV minus upfront; clean={}, dirty={}, upfront={}",
+        base_npv.amount(),
+        dirty.value.amount(),
+        upfront.amount()
     );
 }
 

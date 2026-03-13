@@ -2,7 +2,7 @@
 
 use crate::cashflow::builder::ScheduleParams;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
-use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+use finstack_core::dates::{is_cds_date, BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -102,6 +102,22 @@ pub struct CDSTranche {
 }
 
 impl CDSTranche {
+    pub(crate) fn contractual_effective_date(&self, as_of: Date) -> Option<Date> {
+        if let Some(effective_date) = self.effective_date {
+            return Some(effective_date);
+        }
+
+        if !self.standard_imm_dates {
+            return None;
+        }
+
+        let mut current = as_of.min(self.maturity);
+        while !is_cds_date(current) {
+            current -= time::Duration::days(1);
+        }
+        Some(current)
+    }
+
     /// Validate structural invariants of the tranche.
     ///
     /// Checks that attachment/detachment points are ordered and in range,

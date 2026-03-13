@@ -1717,7 +1717,7 @@ impl CDSTranchePricer {
 
             // Accrual period using day count convention
             let period_start = if i == 0 {
-                tranche.effective_date.unwrap_or(as_of)
+                tranche.contractual_effective_date(as_of).unwrap_or(as_of)
             } else {
                 payment_dates[i - 1]
             };
@@ -1744,7 +1744,11 @@ impl CDSTranchePricer {
                     self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction;
                 if aod_adjustment > 0.0 {
                     let df_time = if self.params.mid_period_protection {
-                        let t_start = self.years_from_base(index_data, period_start)?;
+                        let t_start = if i == 0 {
+                            self.years_from_base(index_data, as_of)?
+                        } else {
+                            self.years_from_base(index_data, period_start)?
+                        };
                         (t_start + t) * 0.5
                     } else {
                         t
@@ -1973,7 +1977,7 @@ impl CDSTranchePricer {
     /// Uses the robust date scheduling utilities with proper business day
     /// conventions and calendar support.
     fn generate_payment_schedule(&self, tranche: &CDSTranche, as_of: Date) -> Result<Vec<Date>> {
-        let start_date = tranche.effective_date.unwrap_or(as_of);
+        let start_date = tranche.contractual_effective_date(as_of).unwrap_or(as_of);
 
         let dates = if self.params.use_isda_coupon_dates || tranche.standard_imm_dates {
             let mut out = vec![start_date];
@@ -2011,30 +2015,6 @@ impl CDSTranchePricer {
         let payment_dates: Vec<Date> = dates.into_iter().filter(|&date| date > as_of).collect();
 
         Ok(payment_dates)
-    }
-
-    fn infer_accrual_anchor(&self, tranche: &CDSTranche, as_of: Date) -> Date {
-        if let Some(effective_date) = tranche.effective_date {
-            return effective_date;
-        }
-
-        if self.params.use_isda_coupon_dates || tranche.standard_imm_dates {
-            let mut current = as_of;
-            while !finstack_core::dates::is_cds_date(current) {
-                current -= time::Duration::days(1);
-            }
-            return current;
-        }
-
-        if let Some(months) = tranche.frequency.months() {
-            let mut current = tranche.maturity;
-            while current > as_of {
-                current = current.add_months(-(months as i32));
-            }
-            return current;
-        }
-
-        as_of
     }
 
     /// Calculate upfront amount for the tranche.
@@ -2415,6 +2395,13 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
+        let start_date = tranche.contractual_effective_date(as_of).ok_or_else(|| {
+            Error::Validation(
+                "CDS tranche accrued premium requires an explicit effective_date for non-standard schedules"
+                    .to_string(),
+            )
+        })?;
+
         // Get credit index data for loss calculations
         let index_data = match market_ctx.get_credit_index(&tranche.credit_index_id) {
             Ok(data) => data,
@@ -2422,7 +2409,6 @@ impl CDSTranchePricer {
         };
 
         // Generate the payment schedule
-        let start_date = self.infer_accrual_anchor(tranche, as_of);
         let payment_dates = self.generate_payment_schedule(tranche, start_date)?;
 
         // Find the last payment date on or before as_of
@@ -3709,11 +3695,12 @@ mod tests {
     fn test_accrued_premium_calculation() {
         // Test accrued premium calculation
         let model = CDSTranchePricer::new();
-        let tranche = sample_tranche();
+        let mut tranche = sample_tranche();
         let market_ctx = sample_market_context();
 
         // At inception, accrued should be minimal
         let inception = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        tranche.effective_date = Some(inception);
         let accrued_at_inception =
             model.calculate_accrued_premium(&tranche, &market_ctx, inception);
         assert!(accrued_at_inception.is_ok());

@@ -161,6 +161,22 @@ pub struct CDSIndex {
 }
 
 impl CDSIndex {
+    fn premium_with_standard_defaults(&self) -> PremiumLegSpec {
+        let mut premium = self.premium.clone();
+        if premium.calendar_id.is_none() {
+            premium.calendar_id = Some(self.convention.default_calendar().to_string());
+        }
+        premium
+    }
+
+    fn protection_with_standard_defaults(&self) -> ProtectionLegSpec {
+        let mut protection = self.protection.clone();
+        if protection.settlement_delay == 0 {
+            protection.settlement_delay = self.convention.settlement_delay();
+        }
+        protection
+    }
+
     /// Create a canonical example CDS Index for testing and documentation.
     ///
     /// Returns a CDX.NA.IG series 42 index with standard conventions.
@@ -186,7 +202,7 @@ impl CDSIndex {
                 frequency: freq,
                 stub,
                 bdc,
-                calendar_id: None,
+                calendar_id: Some(convention.default_calendar().to_string()),
                 day_count: dc,
                 spread_bp: Decimal::from(60),
                 discount_curve_id: CurveId::new("USD-OIS"),
@@ -247,7 +263,12 @@ impl CDSIndex {
                 frequency: freq,
                 stub,
                 bdc,
-                calendar_id: None,
+                calendar_id: Some(
+                    construction_params
+                        .convention
+                        .default_calendar()
+                        .to_string(),
+                ),
                 day_count: dc,
                 spread_bp: spread_bp_decimal,
                 discount_curve_id: discount_curve_id.into(),
@@ -288,8 +309,8 @@ impl CDSIndex {
             notional: self.notional,
             side: self.side,
             convention: self.convention,
-            premium: self.premium.clone(),
-            protection: self.protection.clone(),
+            premium: self.premium_with_standard_defaults(),
+            protection: self.protection_with_standard_defaults(),
             pricing_overrides: self.pricing_overrides.clone(),
             upfront: None,
             doc_clause: None,

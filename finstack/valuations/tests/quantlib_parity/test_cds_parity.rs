@@ -118,8 +118,7 @@ fn test_cds_par_spread_consistency() {
         .expect("pricing with metrics should succeed");
 
     if let Some(&par_spread_bp) = result.measures.get(MetricId::ParSpread.as_str()) {
-        // Par spread is already in basis points from the metric calculator.
-        // Allow wider tolerance because the approximation spread ≈ h×(1-R) is first-order
+        // Tolerance: 30bp. The approximation spread ≈ h×(1-R) is first-order
         // and the ISDA schedule conventions affect the exact par spread.
         assert!(
             (par_spread_bp - SPREAD_BP).abs() < 30.0,
@@ -142,7 +141,7 @@ fn test_cds_pv_near_zero_at_par() {
 
     let pv = cds.value(&market, as_of).expect("pricing should succeed");
 
-    // PV should be small relative to notional when at par
+    // Tolerance: PV ratio must stay below 5% of notional when priced near par.
     let pv_ratio = (pv.amount() / NOTIONAL).abs();
     assert!(
         pv_ratio < 0.05,
@@ -172,6 +171,7 @@ fn test_cds_buy_sell_symmetry() {
     let sum = (pv_buy + pv_sell).abs();
     let magnitude = pv_buy.abs().max(pv_sell.abs()).max(1.0);
 
+    // Tolerance: buy/sell symmetry must hold within 2% of the larger leg magnitude.
     assert!(
         sum < magnitude * 0.02,
         "Buy + Sell should cancel. buy_pv = {:.2}, sell_pv = {:.2}, sum = {:.2}",
@@ -207,6 +207,8 @@ fn test_cds_cs01_vs_risky_annuity() {
         let expected_cs01_approx = risky_annuity * NOTIONAL * 0.0001;
 
         if expected_cs01_approx.abs() > 1.0 {
+            // Tolerance band: 0.3x to 3.0x because CS01 uses a finite-difference market bump
+            // while the risky-annuity relationship is only a first-order approximation.
             let ratio = cs01.abs() / expected_cs01_approx.abs();
             assert!(
                 ratio > 0.3 && ratio < 3.0,

@@ -197,6 +197,7 @@ fn validate_hazard_step(
     }
 
     for q in &cds_quotes {
+        q.validate_market_conventions()?;
         match q {
             crate::market::quotes::cds::CdsQuote::CdsParSpread {
                 entity,

@@ -547,6 +547,134 @@ fn hazard_curve_cds_repricing() {
 }
 
 #[test]
+fn hazard_curve_standard_upfront_cds_repricing() {
+    let base_date = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+    let currency = Currency::USD;
+
+    let disc_quotes: Vec<RateQuote> = vec![
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-1M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("1M").unwrap()),
+            rate: 0.045,
+        },
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-6M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("6M").unwrap()),
+            rate: 0.047,
+        },
+    ];
+
+    let cds_quotes: Vec<CdsQuote> = vec![
+        CdsQuote::CdsUpfront {
+            id: QuoteId::new("CDS-UP-3Y"),
+            entity: "REPRICE-UPFRONT".to_string(),
+            pillar: Pillar::Date(Date::from_calendar_date(2028, Month::March, 20).unwrap()),
+            running_spread_bp: 100.0,
+            upfront_pct: 0.015,
+            recovery_rate: 0.40,
+            convention: CdsConventionKey {
+                currency,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+        },
+        CdsQuote::CdsUpfront {
+            id: QuoteId::new("CDS-UP-5Y"),
+            entity: "REPRICE-UPFRONT".to_string(),
+            pillar: Pillar::Date(Date::from_calendar_date(2030, Month::March, 20).unwrap()),
+            running_spread_bp: 500.0,
+            upfront_pct: 0.045,
+            recovery_rate: 0.40,
+            convention: CdsConventionKey {
+                currency,
+                doc_clause: CdsDocClause::IsdaNa,
+            },
+        },
+    ];
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert(
+        "disc".to_string(),
+        disc_quotes
+            .iter()
+            .cloned()
+            .map(MarketQuote::Rates)
+            .collect(),
+    );
+    quote_sets.insert(
+        "cds".to_string(),
+        cds_quotes.iter().cloned().map(MarketQuote::Cds).collect(),
+    );
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: Default::default(),
+        steps: vec![
+            CalibrationStep {
+                id: "disc".to_string(),
+                quote_set: "disc".to_string(),
+                params: StepParams::Discount(DiscountCurveParams {
+                    curve_id: "USD-OIS".into(),
+                    currency,
+                    base_date,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    extrapolation: ExtrapolationPolicy::FlatForward,
+                    pricing_discount_id: None,
+                    pricing_forward_id: None,
+                    conventions: Default::default(),
+                }),
+            },
+            CalibrationStep {
+                id: "haz".to_string(),
+                quote_set: "cds".to_string(),
+                params: StepParams::Hazard(HazardCurveParams {
+                    curve_id: "REPRICE-UPFRONT-SENIOR".into(),
+                    entity: "REPRICE-UPFRONT".to_string(),
+                    seniority: Seniority::Senior,
+                    currency,
+                    base_date,
+                    discount_curve_id: "USD-OIS".into(),
+                    recovery_rate: 0.40,
+                    notional: 1.0,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                    doc_clause: None,
+                }),
+            },
+        ],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: None,
+    };
+
+    let ctx = run_plan(&envelope);
+
+    let mut curve_ids = HashMap::default();
+    curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    curve_ids.insert("credit".to_string(), "REPRICE-UPFRONT-SENIOR".to_string());
+    let build_ctx = BuildCtx::new(base_date, fixtures::STANDARD_NOTIONAL, curve_ids);
+
+    for quote in &cds_quotes {
+        let inst = build_cds_instrument(quote, &build_ctx).expect("build cds instrument");
+        let pv = inst.value(&ctx, base_date).expect("cds valuation");
+        assert!(
+            pv.amount().abs() <= CDS_TOLERANCE_DOLLARS,
+            "standard upfront cds should reprice within ${}. PV=${:.6}",
+            CDS_TOLERANCE_DOLLARS,
+            pv.amount(),
+        );
+    }
+}
+
+#[test]
 fn inflation_curve_swap_repricing() {
     let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let currency = Currency::USD;

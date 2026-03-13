@@ -72,6 +72,7 @@ impl CDSOptionPricer {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<Money> {
+        option.validate_supported_configuration()?;
         // Time to expiry
         let t = option.day_count.year_fraction(
             as_of,
@@ -119,6 +120,7 @@ impl CDSOptionPricer {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
+        option.validate_supported_configuration()?;
         let hazard = curves.get_hazard(&option.credit_curve_id)?;
         let disc = curves.get_discount(&option.discount_curve_id)?;
         self.forward_spread_from_pricer(option, disc.as_ref(), hazard.as_ref(), as_of)
@@ -133,6 +135,7 @@ impl CDSOptionPricer {
         curves: &MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> Result<f64> {
+        option.validate_supported_configuration()?;
         let disc = curves.get_discount(&option.discount_curve_id)?;
         let hazard = curves.get_hazard(&option.credit_curve_id)?;
         self.risky_annuity_from_pricer(option, disc.as_ref(), hazard.as_ref(), curves, as_of)

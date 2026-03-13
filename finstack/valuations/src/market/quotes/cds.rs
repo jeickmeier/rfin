@@ -2,9 +2,18 @@
 
 use super::ids::{Pillar, QuoteId};
 use crate::market::conventions::ids::CdsConventionKey;
+use finstack_core::{Error, Result};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
+
+const STANDARD_UPFRONT_RUNNING_COUPONS_BP: [f64; 2] = [100.0, 500.0];
+
+fn is_standard_upfront_running_coupon_bp(running_spread_bp: f64) -> bool {
+    STANDARD_UPFRONT_RUNNING_COUPONS_BP
+        .iter()
+        .any(|standard| (running_spread_bp - standard).abs() <= 1e-9)
+}
 
 /// Market quote for credit default swap (CDS) instruments.
 ///
@@ -228,5 +237,36 @@ impl CdsQuote {
                 recovery_rate: *recovery_rate,
             },
         }
+    }
+
+    /// Return the quoted running spread in basis points.
+    ///
+    /// Par-spread quotes return the par spread. Upfront quotes return the fixed running coupon.
+    pub fn quoted_running_spread_bp(&self) -> f64 {
+        match self {
+            CdsQuote::CdsParSpread { spread_bp, .. } => *spread_bp,
+            CdsQuote::CdsUpfront {
+                running_spread_bp, ..
+            } => *running_spread_bp,
+        }
+    }
+
+    /// Validate market-standard constraints that depend on the quote style.
+    ///
+    /// ISDA-style upfront quotes are only supported with standard running coupons.
+    pub fn validate_market_conventions(&self) -> Result<()> {
+        if let CdsQuote::CdsUpfront {
+            running_spread_bp, ..
+        } = self
+        {
+            if !is_standard_upfront_running_coupon_bp(*running_spread_bp) {
+                return Err(Error::Validation(format!(
+                    "CDS upfront quotes require a standard running coupon of 100bp or 500bp; got {}bp",
+                    running_spread_bp
+                )));
+            }
+        }
+
+        Ok(())
     }
 }

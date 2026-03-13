@@ -13,8 +13,13 @@
 
 use super::helpers::*;
 use finstack_core::currency::Currency;
+use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::ScheduleParams;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranche;
+use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTrancheParams;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::CDSTranchePricer;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::TrancheSide;
+use time::macros::date;
 
 // ==================== Basic Pricing Tests ====================
 
@@ -85,6 +90,50 @@ fn test_mezzanine_tranche_pricing() {
     assert!(result.is_ok());
     let pv = result.unwrap();
     assert!(pv.amount().is_finite());
+}
+
+#[test]
+fn test_bespoke_seasoned_tranche_requires_effective_date_for_accrued_premium() {
+    let market = standard_market_context();
+    let as_of = date!(2025 - 02 - 01);
+
+    let tranche_params = CDSTrancheParams::new(
+        "CDX.NA.IG.42",
+        42,
+        3.0,
+        7.0,
+        Money::new(10_000_000.0, Currency::USD),
+        date!(2030 - 01 - 01),
+        500.0,
+    );
+    let schedule_params = ScheduleParams::quarterly_act360();
+
+    let mut explicit = CDSTranche::new(
+        "BESPOKE-SEASONED-EXPLICIT",
+        &tranche_params,
+        &schedule_params,
+        "USD-OIS",
+        "CDX.NA.IG.42",
+        TrancheSide::SellProtection,
+    )
+    .expect("bespoke tranche");
+    explicit.effective_date = Some(date!(2024 - 11 - 15));
+
+    let accrued_explicit = explicit
+        .accrued_premium(&market, as_of)
+        .expect("explicit accrued premium");
+    assert!(accrued_explicit > 0.0);
+
+    let mut missing_effective = explicit.clone();
+    missing_effective.effective_date = None;
+
+    let err = missing_effective
+        .accrued_premium(&market, as_of)
+        .expect_err("bespoke seasoned tranche without effective_date should be rejected");
+    assert!(matches!(
+        err,
+        finstack_core::Error::Validation(_) | finstack_core::Error::Input(_)
+    ));
 }
 
 // ==================== Buy vs Sell Protection Tests ====================

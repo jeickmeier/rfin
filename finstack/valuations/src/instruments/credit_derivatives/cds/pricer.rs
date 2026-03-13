@@ -77,19 +77,28 @@
 // Allow dead_code for public API items exposed via Python (finstack-py) and WASM bindings.
 // Key items: CDSPricer, CDSPricerConfig, IntegrationMethod, CDSBootstrapper.
 #![allow(dead_code)]
+use crate::calibration::api::schema::HazardCurveParams;
+use crate::calibration::solver::SolverConfig;
+use crate::calibration::targets::hazard::HazardCurveTarget;
+use crate::calibration::{CalibrationConfig, CalibrationMethod};
 use crate::constants::{
     credit, isda, numerical, time as time_constants, BASIS_POINTS_PER_UNIT, ONE_BASIS_POINT,
 };
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::credit_derivatives::cds::{CdsDocClause, CreditDefaultSwap, PayReceive};
+use crate::market::conventions::ids::CdsConventionKey;
+use crate::market::quotes::cds::CdsQuote;
+use crate::market::quotes::ids::{Pillar, QuoteId};
+use crate::market::quotes::market_quote::MarketQuote;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DateExt;
-use finstack_core::dates::{adjust, next_cds_date, Date, DayCount, HolidayCalendar};
+use finstack_core::dates::{adjust, next_cds_date, Date, DayCount, HolidayCalendar, Tenor};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve, Seniority};
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
@@ -482,7 +491,8 @@ struct AodInputs<'a> {
     spread: f64,
     start_date: Date,
     end_date: Date,
-    payment_date: Date,
+    settlement_delay: u16,
+    calendar: Option<&'a dyn HolidayCalendar>,
     as_of: Date,
     disc: &'a DiscountCurve,
     surv: &'a HazardCurve,
@@ -762,6 +772,11 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let periods = self.coupon_periods(cds, as_of)?;
+        let calendar = cds
+            .premium
+            .calendar_id
+            .as_deref()
+            .and_then(finstack_core::dates::calendar::calendar_by_id);
 
         let mut premium_pv = 0.0;
         let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
@@ -799,7 +814,8 @@ impl CDSPricer {
                     spread,
                     start_date: start_date.max(as_of),
                     end_date,
-                    payment_date,
+                    settlement_delay: cds.protection.settlement_delay,
+                    calendar,
                     as_of,
                     disc,
                     surv,
@@ -835,8 +851,14 @@ impl CDSPricer {
         let sp_end = sp_cond_to(inp.surv, inp.as_of, inp.end_date)?;
         let default_prob = (sp_start - sp_end).max(0.0);
 
-        // Discount to the premium payment date from as_of.
-        let df = df_asof_to(inp.disc, inp.as_of, inp.payment_date)?;
+        let default_date = midpoint_default_date(inp.surv, inp.start_date, inp.end_date)?;
+        let settle_date = settlement_date(
+            default_date,
+            inp.settlement_delay,
+            inp.calendar,
+            self.config.business_days_per_year,
+        )?;
+        let df = df_asof_to(inp.disc, inp.as_of, settle_date)?;
 
         Ok(inp.spread * 0.5 * tau_remaining * default_prob * df)
     }
@@ -1644,14 +1666,16 @@ impl CDSPricer {
         }
 
         let lgd = 1.0 - recovery;
-        let tenor_years = t_end - t_start;
-        let steps_per_period = self.config.effective_steps(tenor_years);
-        let dt = tenor_years / steps_per_period as f64;
+        let boundaries = isda_standard_model_boundaries(t_start, t_end, surv, disc);
         let mut integral = 0.0;
 
-        for i in 0..steps_per_period {
-            let t1 = t_start + i as f64 * dt;
-            let t2 = t1 + dt;
+        for window in boundaries.windows(2) {
+            let t1 = window[0];
+            let t2 = window[1];
+            let dt = t2 - t1;
+            if dt <= numerical::ZERO_TOLERANCE {
+                continue;
+            }
 
             // Conditional survival probabilities
             let sp1 = surv.sp(t1) / sp_asof;
@@ -1862,6 +1886,11 @@ impl CDSPricer {
         let denom = if self.config.par_spread_uses_full_premium {
             // Opt-in: Compute full premium PV per 1bp including AoD
             let periods = self.coupon_periods(cds, as_of)?;
+            let calendar = cds
+                .premium
+                .calendar_id
+                .as_deref()
+                .and_then(finstack_core::dates::calendar::calendar_by_id);
             let mut ann = 0.0;
             for period in periods {
                 let start_date = period.accrual_start;
@@ -1892,7 +1921,8 @@ impl CDSPricer {
                     spread: unit_spread,
                     start_date: start_date.max(as_of),
                     end_date,
-                    payment_date,
+                    settlement_delay: cds.protection.settlement_delay,
+                    calendar,
                     as_of,
                     disc,
                     surv,
@@ -1928,6 +1958,11 @@ impl CDSPricer {
         as_of: Date,
     ) -> Result<f64> {
         let periods = self.coupon_periods(cds, as_of)?;
+        let calendar = cds
+            .premium
+            .calendar_id
+            .as_deref()
+            .and_then(finstack_core::dates::calendar::calendar_by_id);
         let mut per_bp_pv = 0.0;
         for period in periods {
             let start_date = period.accrual_start;
@@ -1956,7 +1991,8 @@ impl CDSPricer {
                     spread: ONE_BASIS_POINT,
                     start_date: start_date.max(as_of),
                     end_date,
-                    payment_date,
+                    settlement_delay: cds.protection.settlement_delay,
+                    calendar,
                     as_of,
                     disc,
                     surv,
@@ -2169,6 +2205,38 @@ fn settlement_date(
     Ok(default_date + Duration::days(delay_days))
 }
 
+#[inline]
+fn midpoint_default_date(surv: &HazardCurve, start_date: Date, end_date: Date) -> Result<Date> {
+    let t_start = haz_t(surv, start_date)?;
+    let t_end = haz_t(surv, end_date)?;
+    Ok(date_from_hazard_time(surv, 0.5 * (t_start + t_end)))
+}
+
+fn isda_standard_model_boundaries(
+    t_start: f64,
+    t_end: f64,
+    surv: &HazardCurve,
+    disc: &DiscountCurve,
+) -> Vec<f64> {
+    let mut boundaries = Vec::with_capacity(surv.len() + disc.knots().len() + 2);
+    boundaries.push(t_start);
+    boundaries.push(t_end);
+    boundaries.extend(
+        surv.knot_points()
+            .map(|(t, _)| t)
+            .filter(|&t| t > t_start && t < t_end),
+    );
+    boundaries.extend(
+        disc.knots()
+            .iter()
+            .copied()
+            .filter(|&t| t > t_start && t < t_end),
+    );
+    boundaries.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    boundaries.dedup_by(|a, b| (*a - *b).abs() <= numerical::ZERO_TOLERANCE);
+    boundaries
+}
+
 /// Compute discount factor from as_of to date using curve's time axis.
 /// This returns df(date) / df(as_of) = exp(-r*(t_date - t_asof))
 #[inline]
@@ -2290,6 +2358,37 @@ impl Default for BootstrapConvention {
     }
 }
 
+impl BootstrapConvention {
+    fn representative_convention_key(&self) -> CdsConventionKey {
+        match self.convention {
+            crate::instruments::credit_derivatives::cds::CDSConvention::IsdaNa => {
+                CdsConventionKey {
+                    currency: Currency::USD,
+                    doc_clause: CdsDocClause::IsdaNa,
+                }
+            }
+            crate::instruments::credit_derivatives::cds::CDSConvention::IsdaEu => {
+                CdsConventionKey {
+                    currency: Currency::EUR,
+                    doc_clause: CdsDocClause::IsdaEu,
+                }
+            }
+            crate::instruments::credit_derivatives::cds::CDSConvention::IsdaAs => {
+                CdsConventionKey {
+                    currency: Currency::JPY,
+                    doc_clause: CdsDocClause::IsdaAs,
+                }
+            }
+            crate::instruments::credit_derivatives::cds::CDSConvention::Custom => {
+                CdsConventionKey {
+                    currency: Currency::USD,
+                    doc_clause: CdsDocClause::Custom,
+                }
+            }
+        }
+    }
+}
+
 /// Bootstrap hazard rates from CDS spreads to a simple hazard curve
 pub struct CDSBootstrapper {
     config: CDSPricerConfig,
@@ -2349,28 +2448,70 @@ impl CDSBootstrapper {
         disc: &DiscountCurve,
         base_date: Date,
     ) -> Result<HazardCurve> {
-        let mut knots = Vec::new();
-        let mut par_spreads = Vec::new();
-        let pricer = CDSPricer::with_config(self.config.clone());
-
-        // Sort spreads by tenor to ensure correct bootstrapping order
         let mut sorted_spreads = cds_spreads.to_vec();
         sorted_spreads.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
 
-        for &(tenor, spread_bps) in &sorted_spreads {
-            let cds = self.create_synthetic_cds(base_date, tenor, spread_bps, recovery_rate)?;
-            let hazard_rate = self
-                .solve_for_hazard_rate(&cds, disc, spread_bps, &pricer, &knots, tenor, base_date)?;
-            knots.push((tenor, hazard_rate));
-            par_spreads.push((tenor, spread_bps));
+        if sorted_spreads.is_empty() {
+            return Err(Error::Input(finstack_core::InputError::TooFewPoints));
         }
 
-        HazardCurve::builder("BOOTSTRAPPED")
-            .base_date(base_date)
-            .knots(knots)
-            .recovery_rate(recovery_rate)
-            .par_spreads(par_spreads)
-            .build()
+        let convention_key = self.convention.representative_convention_key();
+        let entity = "BOOTSTRAPPED".to_string();
+        let quotes: Vec<MarketQuote> = sorted_spreads
+            .iter()
+            .map(|(tenor_years, spread_bp)| {
+                MarketQuote::Cds(CdsQuote::CdsParSpread {
+                    id: QuoteId::new(format!("BOOTSTRAPPED-{tenor_years:.6}")),
+                    entity: entity.clone(),
+                    convention: convention_key.clone(),
+                    pillar: Pillar::Tenor(Tenor::from_years(
+                        *tenor_years,
+                        self.convention.convention.day_count(),
+                    )),
+                    spread_bp: *spread_bp,
+                    recovery_rate,
+                })
+            })
+            .collect();
+
+        let mut config = CalibrationConfig {
+            calibration_method: CalibrationMethod::Bootstrap,
+            solver: SolverConfig::brent_default()
+                .with_tolerance(self.config.bootstrap_tolerance)
+                .with_max_iterations(self.config.bootstrap_max_iterations),
+            ..Default::default()
+        };
+        if sorted_spreads
+            .iter()
+            .any(|(_, spread_bp)| *spread_bp >= 1_000.0)
+        {
+            config.hazard_curve.hazard_hard_max = config.hazard_curve.hazard_hard_max.max(100.0);
+            config.hazard_curve.validation_tolerance =
+                config.hazard_curve.validation_tolerance.max(1e-6);
+            config.validation.max_hazard_rate = config.validation.max_hazard_rate.max(2.0);
+        }
+
+        let params = HazardCurveParams {
+            curve_id: CurveId::from("BOOTSTRAPPED"),
+            entity,
+            seniority: Seniority::Senior,
+            currency: convention_key.currency,
+            base_date,
+            discount_curve_id: disc.id().clone(),
+            recovery_rate,
+            notional: 1_000_000.0,
+            method: CalibrationMethod::Bootstrap,
+            interpolation: Default::default(),
+            par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+            doc_clause: Some(format!("{:?}", convention_key.doc_clause)),
+        };
+
+        let base_context = MarketContext::new().insert(disc.clone());
+        let (context, _) = HazardCurveTarget::solve(&params, &quotes, &base_context, &config)?;
+        Ok(context
+            .get_hazard(params.curve_id.as_str())?
+            .as_ref()
+            .clone())
     }
 
     fn create_synthetic_cds(
@@ -2533,8 +2674,20 @@ impl CDSBootstrapper {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use finstack_core::dates::DateExt;
-    use finstack_core::market_data::term_structures::DiscountCurve;
+    use crate::calibration::api::engine;
+    use crate::calibration::api::schema::{
+        CalibrationEnvelope, CalibrationPlan, CalibrationStep, HazardCurveParams, StepParams,
+    };
+    use crate::calibration::CalibrationMethod;
+    use crate::market::conventions::ids::{CdsConventionKey, CdsDocClause};
+    use crate::market::quotes::cds::CdsQuote;
+    use crate::market::quotes::ids::{Pillar, QuoteId};
+    use crate::market::quotes::market_quote::MarketQuote;
+    use finstack_core::dates::{DateExt, Tenor};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
+    use finstack_core::types::CurveId;
+    use finstack_core::HashMap;
 
     fn create_test_cds(
         id: impl Into<String>,
@@ -2659,6 +2812,174 @@ mod tests {
             .expect("should succeed")
             .amount();
         assert!(pv20 < pv0);
+    }
+
+    #[test]
+    fn test_isda_standard_model_ignores_step_tuning() {
+        let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
+        let cds = create_test_cds("CDS-STEP", as_of, as_of.add_months(120), 100.0, 0.40);
+
+        let disc = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots(vec![
+                (0.0, 1.0),
+                (0.25, 0.995),
+                (0.5, 0.985),
+                (1.0, 0.955),
+                (3.0, 0.860),
+                (7.0, 0.705),
+                (10.0, 0.575),
+            ])
+            .build()
+            .expect("should succeed");
+
+        let credit = HazardCurve::builder("TEST-CREDIT")
+            .base_date(as_of)
+            .recovery_rate(0.40)
+            .knots(vec![
+                (0.25, 0.01),
+                (0.5, 0.08),
+                (1.0, 0.12),
+                (3.0, 0.18),
+                (7.0, 0.22),
+                (10.0, 0.25),
+            ])
+            .build()
+            .expect("should succeed");
+
+        let coarse = CDSPricer::with_config(CDSPricerConfig {
+            integration_method: IntegrationMethod::IsdaStandardModel,
+            steps_per_year: 1,
+            min_steps_per_year: 1,
+            adaptive_steps: false,
+            ..Default::default()
+        });
+        let fine = CDSPricer::with_config(CDSPricerConfig {
+            integration_method: IntegrationMethod::IsdaStandardModel,
+            steps_per_year: 3650,
+            min_steps_per_year: 3650,
+            adaptive_steps: false,
+            ..Default::default()
+        });
+
+        let pv_coarse = coarse
+            .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
+            .expect("coarse pricer should succeed");
+        let pv_fine = fine
+            .pv_protection_leg_raw(&cds, &disc, &credit, as_of)
+            .expect("fine pricer should succeed");
+
+        assert!(
+            (pv_coarse - pv_fine).abs() < 1e-8,
+            "ISDA standard model protection PV should not depend on step tuning; coarse={pv_coarse}, fine={pv_fine}",
+        );
+    }
+
+    #[test]
+    fn test_legacy_bootstrapper_matches_canonical_hazard_target_conventions() {
+        let base = Date::from_calendar_date(2025, time::Month::March, 20).expect("valid date");
+        let currency = Currency::USD;
+        let recovery_rate = 0.40;
+        let cds_spreads = vec![(1.0, 100.0), (3.0, 150.0)];
+
+        let disc = DiscountCurve::builder("TEST-DISC")
+            .base_date(base)
+            .knots(vec![
+                (0.0, 1.0),
+                (1.0, 0.98),
+                (3.0, 0.94),
+                (5.0, 0.88),
+                (10.0, 0.75),
+            ])
+            .build()
+            .expect("discount curve");
+
+        let legacy_curve = CDSBootstrapper::new()
+            .bootstrap_hazard_curve(&cds_spreads, recovery_rate, &disc, base)
+            .expect("legacy bootstrap should succeed");
+
+        let initial_market = MarketContext::new().insert(disc);
+        let quotes = cds_spreads
+            .iter()
+            .map(|(tenor_years, spread_bp)| {
+                MarketQuote::Cds(CdsQuote::CdsParSpread {
+                    id: QuoteId::new(format!("CDS-{tenor_years:.1}Y")),
+                    entity: "BOOTSTRAP-CONSISTENCY".to_string(),
+                    pillar: Pillar::Tenor(Tenor::from_years(
+                        *tenor_years,
+                        legacy_curve.day_count(),
+                    )),
+                    spread_bp: *spread_bp,
+                    recovery_rate,
+                    convention: CdsConventionKey {
+                        currency,
+                        doc_clause: CdsDocClause::IsdaNa,
+                    },
+                })
+            })
+            .collect();
+
+        let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+        quote_sets.insert("credit".to_string(), quotes);
+
+        let hazard_id: CurveId = "BOOTSTRAP-CONSISTENCY-SENIOR".into();
+        let plan = CalibrationPlan {
+            id: "plan".to_string(),
+            description: None,
+            quote_sets,
+            settings: Default::default(),
+            steps: vec![CalibrationStep {
+                id: "haz".to_string(),
+                quote_set: "credit".to_string(),
+                params: StepParams::Hazard(HazardCurveParams {
+                    curve_id: hazard_id.clone(),
+                    entity: "BOOTSTRAP-CONSISTENCY".to_string(),
+                    seniority: Seniority::Senior,
+                    currency,
+                    base_date: base,
+                    discount_curve_id: "TEST-DISC".into(),
+                    recovery_rate,
+                    notional: 1.0,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                    doc_clause: None,
+                }),
+            }],
+        };
+
+        let envelope = CalibrationEnvelope {
+            schema: "finstack.calibration/2".to_string(),
+            plan,
+            initial_market: Some((&initial_market).into()),
+        };
+
+        let result = engine::execute(&envelope).expect("canonical execute");
+        let canonical_ctx =
+            MarketContext::try_from(result.result.final_market).expect("restore context");
+        let canonical_curve = canonical_ctx
+            .get_hazard(hazard_id.as_str())
+            .expect("canonical hazard curve");
+
+        assert_eq!(
+            legacy_curve.day_count(),
+            canonical_curve.day_count(),
+            "legacy bootstrap should use the same day count as canonical hazard calibration"
+        );
+
+        let legacy_knots: Vec<f64> = legacy_curve.knot_points().map(|(t, _)| t).collect();
+        let canonical_knots: Vec<f64> = canonical_curve.knot_points().map(|(t, _)| t).collect();
+        assert_eq!(
+            legacy_knots.len(),
+            canonical_knots.len(),
+            "legacy and canonical curves should have the same number of knots"
+        );
+        for (legacy_t, canonical_t) in legacy_knots.iter().zip(canonical_knots.iter()) {
+            assert!(
+                (legacy_t - canonical_t).abs() <= 1e-12,
+                "legacy bootstrap should use canonical pillar times; legacy={legacy_t}, canonical={canonical_t}"
+            );
+        }
     }
 
     #[test]

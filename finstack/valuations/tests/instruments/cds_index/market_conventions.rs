@@ -10,7 +10,9 @@
 //! - Business day conventions
 
 use super::test_utils::*;
+use finstack_core::currency::Currency;
 use finstack_core::dates::{DayCount, Tenor};
+use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::{CDSConvention, PayReceive};
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
 use finstack_valuations::instruments::credit_derivatives::cds_index::{
@@ -18,6 +20,7 @@ use finstack_valuations::instruments::credit_derivatives::cds_index::{
 };
 use finstack_valuations::instruments::CreditParams;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
 #[test]
@@ -46,6 +49,7 @@ fn test_cdx_na_ig_standard_conventions() {
     assert_eq!(idx.convention, CDSConvention::IsdaNa);
     assert_eq!(idx.premium.frequency, Tenor::quarterly());
     assert_eq!(idx.premium.day_count, DayCount::Act360);
+    assert_eq!(idx.premium.calendar_id.as_deref(), Some("nyse"));
 }
 
 #[test]
@@ -99,6 +103,7 @@ fn test_itraxx_europe_standard_conventions() {
     .expect("valid test parameters");
 
     assert_eq!(idx.convention, CDSConvention::IsdaEu);
+    assert_eq!(idx.premium.calendar_id.as_deref(), Some("target2"));
 }
 
 #[test]
@@ -325,6 +330,55 @@ fn test_settlement_delay_standard() {
 
     // Settlement delay from convention
     assert_eq!(idx.protection.settlement_delay, 3);
+}
+
+#[test]
+fn test_upfront_affects_dirty_npv_not_leg_pvs() {
+    let start = date!(2025 - 03 - 20);
+    let end = date!(2030 - 03 - 20);
+    let as_of = start;
+    let ctx = standard_market_context(as_of);
+
+    let mut idx = standard_single_curve_index("CDX-DIRTY-UPFRONT", start, end, 10_000_000.0);
+    let base_npv = idx.value(&ctx, as_of).expect("base index pricing");
+    let base_metrics = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+        )
+        .expect("base metrics");
+
+    let upfront = Money::new(100_000.0, Currency::USD);
+    idx.pricing_overrides.market_quotes.upfront_payment = Some(upfront);
+
+    let dirty_npv = idx.value(&ctx, as_of).expect("dirty index pricing");
+    let dirty_metrics = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+        )
+        .expect("dirty metrics");
+
+    assert_money_approx_eq(
+        dirty_npv,
+        base_npv.checked_sub(upfront).expect("subtract upfront"),
+        1.0,
+        "Pay-fixed upfront should reduce dirty NPV",
+    );
+    assert!(
+        (dirty_metrics.measures[&MetricId::ProtectionLegPv]
+            - base_metrics.measures[&MetricId::ProtectionLegPv])
+            .abs()
+            < 1e-8
+    );
+    assert!(
+        (dirty_metrics.measures[&MetricId::PremiumLegPv]
+            - base_metrics.measures[&MetricId::PremiumLegPv])
+            .abs()
+            < 1e-8
+    );
 }
 
 #[test]
