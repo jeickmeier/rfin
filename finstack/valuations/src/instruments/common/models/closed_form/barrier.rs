@@ -88,7 +88,10 @@
 //! # Implementation Notes
 //!
 //! - Formulas are numerically stable for typical parameter ranges
-//! - Edge cases handled: zero time, barrier already crossed, extreme strikes
+//! - Public wrappers return finite values for `time <= 0` and `vol <= 0`
+//! - Zero-vol and near-zero-vol touch probability paths fall back to the deterministic limit
+//! - `time <= 0` helper behavior uses the current terminal spot as a convenience convention;
+//!   realized expired barrier state still requires observed path history at the instrument layer
 //! - Rebates paid at expiry are supported via `barrier_rebate_continuous`
 //! - For discrete monitoring in production, apply Broadie-Glasserman-Kou correction
 //!
@@ -194,6 +197,72 @@ pub enum BarrierType {
     DownOut,
 }
 
+#[inline]
+fn vanilla_intrinsic(spot: f64, strike: f64, eta: f64) -> f64 {
+    if eta > 0.0 {
+        (spot - strike).max(0.0)
+    } else {
+        (strike - spot).max(0.0)
+    }
+}
+
+#[inline]
+fn vanilla_option_price(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    eta: f64,
+) -> f64 {
+    if time <= 0.0 {
+        return vanilla_intrinsic(spot, strike, eta);
+    }
+
+    if vol <= 0.0 {
+        let forward = spot * ((rate - div_yield) * time).exp();
+        let discount = (-rate * time).exp();
+        return if eta > 0.0 {
+            (forward - strike).max(0.0) * discount
+        } else {
+            (strike - forward).max(0.0) * discount
+        };
+    }
+
+    let sqrt_t = time.sqrt();
+    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
+    let d2 = d1 - vol * sqrt_t;
+
+    eta * spot * (-div_yield * time).exp() * norm_cdf(eta * d1)
+        - eta * strike * (-rate * time).exp() * norm_cdf(eta * d2)
+}
+
+#[inline]
+fn deterministic_barrier_crossed(
+    spot: f64,
+    barrier: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    is_up: bool,
+) -> bool {
+    if time <= 0.0 {
+        return if is_up {
+            spot >= barrier
+        } else {
+            spot <= barrier
+        };
+    }
+
+    let forward = spot * ((rate - div_yield) * time).exp();
+    if is_up {
+        spot.max(forward) >= barrier
+    } else {
+        spot.min(forward) <= barrier
+    }
+}
+
 /// Deterministic barrier payoff when volatility is zero.
 ///
 /// With zero vol, the asset follows a deterministic drift path:
@@ -210,24 +279,9 @@ fn barrier_helper_zero_vol(
     eta: f64, // 1 for call, -1 for put
     phi: f64, // 1 for up, -1 for down
 ) -> f64 {
-    let forward = spot * ((rate - div_yield) * time).exp();
-    let discount = (-rate * time).exp();
-
-    let intrinsic = if eta > 0.0 {
-        (forward - strike).max(0.0) * discount
-    } else {
-        (strike - forward).max(0.0) * discount
-    };
-
-    // With zero vol, the path is monotonic. The barrier is crossed iff
-    // the deterministic endpoint (or any intermediate point) exceeds/falls below it.
-    // For an up barrier (phi > 0): crossed if max(spot, forward) >= barrier.
-    // For a down barrier (phi < 0): crossed if min(spot, forward) <= barrier.
-    let barrier_crossed = if phi > 0.0 {
-        spot.max(forward) >= barrier
-    } else {
-        spot.min(forward) <= barrier
-    };
+    let intrinsic = vanilla_option_price(spot, strike, time, rate, div_yield, 0.0, eta);
+    let barrier_crossed =
+        deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, phi > 0.0);
 
     // barrier_helper computes the knock-IN value. If the barrier was crossed,
     // the knock-in option activates and pays the vanilla intrinsic; otherwise 0.
@@ -359,13 +413,15 @@ pub fn barrier_touch_probability(
     is_up: bool,
 ) -> f64 {
     if time <= 0.0 {
-        return if is_up {
-            if spot >= barrier {
-                1.0
-            } else {
-                0.0
-            }
-        } else if spot <= barrier {
+        return if deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, is_up) {
+            1.0
+        } else {
+            0.0
+        };
+    }
+
+    if vol <= 0.0 {
+        return if deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, is_up) {
             1.0
         } else {
             0.0
@@ -374,6 +430,18 @@ pub fn barrier_touch_probability(
 
     let sigma_sqrt_t = vol * time.sqrt();
     let nu = rate - div_yield - 0.5 * vol * vol;
+    let log_barrier_ratio = (barrier / spot).ln();
+    let log_power = 2.0 * nu * log_barrier_ratio / (vol * vol);
+
+    if sigma_sqrt_t <= 1e-8 || log_power > 700.0 || !log_power.is_finite() {
+        return if deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, is_up) {
+            1.0
+        } else {
+            0.0
+        };
+    }
+
+    let power_term = log_power.exp();
 
     if is_up {
         if spot >= barrier {
@@ -381,25 +449,34 @@ pub fn barrier_touch_probability(
         }
         // Up barrier (H > S)
         // P(max S > H)
-        let x = (barrier / spot).ln(); // Positive
+        let x = log_barrier_ratio; // Positive
         let d1 = (-x + nu * time) / sigma_sqrt_t;
         let d2 = (-x - nu * time) / sigma_sqrt_t;
-        // (H/S)^(2*nu/sigma^2)
-        let power_term = (barrier / spot).powf(2.0 * nu / (vol * vol));
-
-        norm_cdf(d1) + power_term * norm_cdf(d2)
+        let p = norm_cdf(d1) + power_term * norm_cdf(d2);
+        if p.is_finite() {
+            p.clamp(0.0, 1.0)
+        } else if deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, is_up) {
+            1.0
+        } else {
+            0.0
+        }
     } else {
         if spot <= barrier {
             return 1.0;
         }
         // Down barrier (H < S)
         // P(min S < H)
-        let log_h_s = (barrier / spot).ln(); // Negative
+        let log_h_s = log_barrier_ratio; // Negative
         let d1 = (log_h_s - nu * time) / sigma_sqrt_t;
         let d2 = (log_h_s + nu * time) / sigma_sqrt_t;
-        let power_term = (barrier / spot).powf(2.0 * nu / (vol * vol));
-
-        norm_cdf(d1) + power_term * norm_cdf(d2)
+        let p = norm_cdf(d1) + power_term * norm_cdf(d2);
+        if p.is_finite() {
+            p.clamp(0.0, 1.0)
+        } else if deterministic_barrier_crossed(spot, barrier, time, rate, div_yield, is_up) {
+            1.0
+        } else {
+            0.0
+        }
     }
 }
 
@@ -421,7 +498,11 @@ pub fn barrier_rebate_continuous(
     let is_up = matches!(barrier_type, BarrierType::UpIn | BarrierType::UpOut);
     let p_hit = barrier_touch_probability(spot, barrier, time, rate, div_yield, vol, is_up);
 
-    let df = (-rate * time).exp();
+    let df = if time <= 0.0 {
+        1.0
+    } else {
+        (-rate * time).exp()
+    };
 
     match barrier_type {
         BarrierType::UpIn | BarrierType::DownIn => {
@@ -452,13 +533,7 @@ pub fn up_out_call(
     }
 
     // Up-and-out = Vanilla - Up-and-in
-    let vanilla = {
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        spot * (-div_yield * time).exp() * norm_cdf(d1)
-            - strike * (-rate * time).exp() * norm_cdf(d2)
-    };
+    let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
 
     let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, 1.0);
 
@@ -477,11 +552,7 @@ pub fn up_in_call(
 ) -> f64 {
     if spot >= barrier {
         // Already knocked in, price as vanilla
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        return spot * (-div_yield * time).exp() * norm_cdf(d1)
-            - strike * (-rate * time).exp() * norm_cdf(d2);
+        return vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
     }
 
     barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, 1.0)
@@ -501,13 +572,7 @@ pub fn down_out_call(
         return 0.0; // Already knocked out
     }
 
-    let vanilla = {
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        spot * (-div_yield * time).exp() * norm_cdf(d1)
-            - strike * (-rate * time).exp() * norm_cdf(d2)
-    };
+    let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
 
     let down_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, -1.0);
 
@@ -526,11 +591,7 @@ pub fn down_in_call(
 ) -> f64 {
     if spot <= barrier {
         // Already knocked in, price as vanilla
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        return spot * (-div_yield * time).exp() * norm_cdf(d1)
-            - strike * (-rate * time).exp() * norm_cdf(d2);
+        return vanilla_option_price(spot, strike, time, rate, div_yield, vol, 1.0);
     }
 
     barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, 1.0, -1.0)
@@ -568,11 +629,7 @@ pub fn down_in_put(
 ) -> f64 {
     if spot <= barrier {
         // Already knocked in, price as vanilla put
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        return strike * (-rate * time).exp() * norm_cdf(-d2)
-            - spot * (-div_yield * time).exp() * norm_cdf(-d1);
+        return vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
     }
 
     barrier_helper(
@@ -594,14 +651,7 @@ pub fn down_out_put(
         return 0.0; // Already knocked out
     }
 
-    // Vanilla put
-    let vanilla = {
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        strike * (-rate * time).exp() * norm_cdf(-d2)
-            - spot * (-div_yield * time).exp() * norm_cdf(-d1)
-    };
+    let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
 
     let down_in = barrier_helper(
         spot, strike, barrier, time, rate, div_yield, vol, -1.0, -1.0,
@@ -622,11 +672,7 @@ pub fn up_in_put(
 ) -> f64 {
     if spot >= barrier {
         // Already knocked in, price as vanilla put
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        return strike * (-rate * time).exp() * norm_cdf(-d2)
-            - spot * (-div_yield * time).exp() * norm_cdf(-d1);
+        return vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
     }
 
     barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0)
@@ -646,14 +692,7 @@ pub fn up_out_put(
         return 0.0; // Already knocked out
     }
 
-    // Vanilla put
-    let vanilla = {
-        let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time)
-            / (vol * time.sqrt());
-        let d2 = d1 - vol * time.sqrt();
-        strike * (-rate * time).exp() * norm_cdf(-d2)
-            - spot * (-div_yield * time).exp() * norm_cdf(-d1)
-    };
+    let vanilla = vanilla_option_price(spot, strike, time, rate, div_yield, vol, -1.0);
 
     let up_in = barrier_helper(spot, strike, barrier, time, rate, div_yield, vol, -1.0, 1.0);
 
@@ -1719,5 +1758,150 @@ mod tests {
                 v,
             );
         }
+    }
+
+    #[test]
+    fn test_public_wrappers_remain_finite_at_zero_time_and_zero_vol() {
+        let zero_time_cases = [
+            (
+                "up_out_call",
+                up_out_call(100.0, 100.0, 120.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "up_in_call",
+                up_in_call(100.0, 100.0, 100.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "down_out_call",
+                down_out_call(100.0, 100.0, 80.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "down_in_call",
+                down_in_call(100.0, 100.0, 100.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "up_out_put",
+                up_out_put(100.0, 100.0, 120.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "up_in_put",
+                up_in_put(100.0, 100.0, 100.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "down_out_put",
+                down_out_put(100.0, 100.0, 80.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+            (
+                "down_in_put",
+                down_in_put(100.0, 100.0, 100.0, 0.0, 0.05, 0.02, 0.2),
+            ),
+        ];
+
+        for (name, price) in zero_time_cases {
+            assert!(
+                price.is_finite(),
+                "{name} returned non-finite price at time=0: {price}"
+            );
+        }
+
+        let zero_vol_cases = [
+            (
+                "up_out_call",
+                up_out_call(100.0, 100.0, 120.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "up_in_call",
+                up_in_call(100.0, 100.0, 100.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "down_out_call",
+                down_out_call(100.0, 100.0, 80.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "down_in_call",
+                down_in_call(100.0, 100.0, 100.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "up_out_put",
+                up_out_put(100.0, 100.0, 120.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "up_in_put",
+                up_in_put(100.0, 100.0, 100.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "down_out_put",
+                down_out_put(100.0, 100.0, 80.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+            (
+                "down_in_put",
+                down_in_put(100.0, 100.0, 100.0, 1.0, 0.0, 0.0, 0.0),
+            ),
+        ];
+
+        for (name, price) in zero_vol_cases {
+            assert!(
+                price.is_finite(),
+                "{name} returned non-finite price at vol=0: {price}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_touch_probability_and_rebate_handle_deterministic_and_near_zero_vol_cases() {
+        let hit_up = barrier_touch_probability(100.0, 120.0, 1.0, 0.30, 0.0, 0.0, true);
+        let no_hit_up = barrier_touch_probability(100.0, 120.0, 1.0, 0.0, 0.0, 0.0, true);
+        let hit_down = barrier_touch_probability(100.0, 80.0, 1.0, -0.30, 0.0, 0.0, false);
+
+        assert_eq!(
+            hit_up, 1.0,
+            "zero-vol up barrier should deterministically hit"
+        );
+        assert_eq!(
+            no_hit_up, 0.0,
+            "zero-vol up barrier should deterministically miss"
+        );
+        assert_eq!(
+            hit_down, 1.0,
+            "zero-vol down barrier should deterministically hit"
+        );
+
+        let rebate_no_hit =
+            barrier_rebate_continuous(100.0, 120.0, 5.0, 1.0, 0.0, 0.0, 0.0, BarrierType::UpIn);
+        assert_eq!(
+            rebate_no_hit, 5.0,
+            "knock-in rebate should pay in full when zero-vol path never hits"
+        );
+
+        let near_zero_prob = barrier_touch_probability(100.0, 120.0, 0.1, 0.05, 0.0, 1e-4, true);
+        assert!(
+            near_zero_prob.is_finite() && (0.0..=1.0).contains(&near_zero_prob),
+            "near-zero-vol touch probability must stay bounded, got {near_zero_prob}"
+        );
+    }
+
+    #[test]
+    fn test_rebate_is_not_discounted_after_expiry() {
+        let rate_rebate =
+            barrier_rebate_continuous(130.0, 120.0, 5.0, -0.25, 0.05, 0.0, 0.2, BarrierType::UpOut);
+        let df_rebate = barrier_rebate_continuous_df(
+            130.0,
+            120.0,
+            5.0,
+            -0.25,
+            0.95,
+            0.0,
+            0.2,
+            BarrierType::UpOut,
+        );
+
+        assert_eq!(
+            rate_rebate, 5.0,
+            "expired rebate should settle immediately without negative-time discounting"
+        );
+        assert_eq!(
+            df_rebate, 5.0,
+            "df-first rebate should match the same expired settlement convention"
+        );
     }
 }
