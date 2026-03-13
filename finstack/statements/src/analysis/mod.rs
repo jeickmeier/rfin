@@ -26,6 +26,8 @@ pub mod types;
 pub mod variance;
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
+// Canonical DCF entrypoint. Deprecated wrappers are still exported for compatibility.
+#[allow(deprecated)]
 pub use corporate::{
     evaluate_dcf, evaluate_dcf_with_market, evaluate_dcf_with_options, CorporateValuationResult,
     DcfOptions,

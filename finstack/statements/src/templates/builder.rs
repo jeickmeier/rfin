@@ -70,14 +70,35 @@ pub trait RealEstateExtension {
         ncf_node: &str,
     ) -> Result<ModelBuilder<Ready>>;
 
-    /// Add a minimal rent roll rental revenue series from lease specs.
+    /// Add a minimal rent roll rental revenue series from simple lease specs.
+    ///
+    /// **Deprecated**: Use [`RealEstateExtension::add_rent_roll`] with [`LeaseSpecV2`] instead
+    /// for full PGI/EGI node decomposition.
+    ///
+    /// [`LeaseSpecV2`]: real_estate::LeaseSpecV2
+    #[deprecated(
+        since = "0.5.0",
+        note = "Use `add_rent_roll` with `LeaseSpecV2` instead for full PGI/EGI decomposition"
+    )]
     fn add_rent_roll_rental_revenue(
         self,
         leases: &[real_estate::LeaseSpec],
         total_rent_node: &str,
     ) -> Result<ModelBuilder<Ready>>;
 
-    /// Add a richer rent roll that outputs standard PGI/EGI nodes and per-lease detail nodes.
+    /// Add a full rent roll with PGI/EGI decomposition, concessions, vacancy, and optional renewal.
+    ///
+    /// This is the canonical rent roll entry point. Creates per-lease nodes and aggregated totals.
+    fn add_rent_roll(
+        self,
+        leases: &[real_estate::LeaseSpecV2],
+        nodes: &real_estate::RentRollOutputNodes,
+    ) -> Result<ModelBuilder<Ready>>;
+
+    /// Add a richer rent roll with PGI/EGI decomposition.
+    ///
+    /// **Deprecated**: Use [`RealEstateExtension::add_rent_roll`] instead.
+    #[deprecated(since = "0.5.0", note = "Use `add_rent_roll` instead")]
     fn add_rent_roll_rental_revenue_v2(
         self,
         leases: &[real_estate::LeaseSpecV2],
@@ -124,6 +145,7 @@ impl RealEstateExtension for ModelBuilder<Ready> {
         real_estate::add_ncf_buildup(self, noi_node, capex_nodes, ncf_node)
     }
 
+    #[allow(deprecated)]
     fn add_rent_roll_rental_revenue(
         self,
         leases: &[real_estate::LeaseSpec],
@@ -132,12 +154,21 @@ impl RealEstateExtension for ModelBuilder<Ready> {
         real_estate::add_rent_roll_rental_revenue(self, leases, total_rent_node)
     }
 
+    fn add_rent_roll(
+        self,
+        leases: &[real_estate::LeaseSpecV2],
+        nodes: &real_estate::RentRollOutputNodes,
+    ) -> Result<ModelBuilder<Ready>> {
+        real_estate::add_rent_roll(self, leases, nodes)
+    }
+
+    #[allow(deprecated)]
     fn add_rent_roll_rental_revenue_v2(
         self,
         leases: &[real_estate::LeaseSpecV2],
         nodes: &real_estate::RentRollOutputNodes,
     ) -> Result<ModelBuilder<Ready>> {
-        real_estate::add_rent_roll_rental_revenue_v2(self, leases, nodes)
+        real_estate::add_rent_roll(self, leases, nodes)
     }
 
     fn add_property_operating_statement(

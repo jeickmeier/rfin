@@ -425,18 +425,32 @@ fn apply_free_window(is_free: &mut [bool], start_idx: usize, len: u32) -> Result
 
 /// Add a richer rent roll that outputs standard PGI/EGI nodes and per-lease detail nodes.
 ///
-/// Per lease (base id = `LeaseSpecV2::node_id`), creates **value** nodes:
-/// - `{id}.pgi`: contractual rent before concessions/vacancy
-/// - `{id}.free_rent`: concession amount (rent forgiven)
-/// - `{id}.vacancy_loss`: vacancy loss amount
-/// - `{id}.effective_rent`: effective rent after concessions/vacancy
+/// Canonical entry point for rent roll generation. Preferred over `add_rent_roll_rental_revenue`
+/// (simple v1) and `add_rent_roll_rental_revenue_v2` (deprecated alias).
 ///
-/// Totals (via `RentRollOutputNodes`) are **calculated** nodes:
-/// - `rent_pgi_node = sum({id}.pgi)`
-/// - `free_rent_node = sum({id}.free_rent)`
-/// - `vacancy_loss_node = sum({id}.vacancy_loss)`
-/// - `rent_effective_node = rent_pgi_node - free_rent_node - vacancy_loss_node`
+/// Creates per-lease value nodes (`{id}.pgi`, `{id}.free_rent`, `{id}.vacancy_loss`,
+/// `{id}.effective_rent`) and aggregated totals via `nodes`.
+pub fn add_rent_roll(
+    builder: ModelBuilder<Ready>,
+    leases: &[LeaseSpecV2],
+    nodes: &RentRollOutputNodes,
+) -> Result<ModelBuilder<Ready>> {
+    add_rent_roll_rental_revenue_v2_impl(builder, leases, nodes)
+}
+
+/// Add a richer rent roll that outputs standard PGI/EGI nodes and per-lease detail nodes.
+///
+/// **Deprecated**: Use [`add_rent_roll`] instead.
+#[deprecated(since = "0.5.0", note = "Use `add_rent_roll` instead")]
 pub fn add_rent_roll_rental_revenue_v2(
+    builder: ModelBuilder<Ready>,
+    leases: &[LeaseSpecV2],
+    nodes: &RentRollOutputNodes,
+) -> Result<ModelBuilder<Ready>> {
+    add_rent_roll_rental_revenue_v2_impl(builder, leases, nodes)
+}
+
+fn add_rent_roll_rental_revenue_v2_impl(
     mut builder: ModelBuilder<Ready>,
     leases: &[LeaseSpecV2],
     nodes: &RentRollOutputNodes,
@@ -808,7 +822,7 @@ pub fn add_property_operating_statement(
     management_fee: Option<ManagementFeeSpec>,
     nodes: &PropertyTemplateNodes,
 ) -> Result<ModelBuilder<Ready>> {
-    builder = add_rent_roll_rental_revenue_v2(builder, leases, &nodes.rent_roll)?;
+    builder = add_rent_roll(builder, leases, &nodes.rent_roll)?;
 
     // Other income total (optional).
     let other_income_expr = sum_expr_or_zero(other_income_nodes);

@@ -82,6 +82,7 @@ fn real_estate_noi_and_ncf_templates_compute_expected_values() {
     assert_eq!(ncf[&q2], ((110.0 + 12.0) - (22.0 + 6.0)) - 4.0);
 }
 
+#[allow(deprecated)]
 #[test]
 fn real_estate_rent_roll_template_builds_lease_series_and_total_rent() {
     let leases = vec![
@@ -179,7 +180,7 @@ fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
     let model = ModelBuilder::new("re_rent_roll_v2")
         .periods("2025Q1..Q4", None)
         .expect("periods should parse")
-        .add_rent_roll_rental_revenue_v2(&leases, &nodes)
+        .add_rent_roll(&leases, &nodes)
         .expect("rent roll v2 template")
         .build()
         .expect("build");
@@ -353,7 +354,7 @@ fn real_estate_annual_escalator_bumps_on_lease_anniversary() {
     let model = ModelBuilder::new("re_annual_esc")
         .periods("2025Q1..2026Q4", None)
         .expect("periods should parse")
-        .add_rent_roll_rental_revenue_v2(&leases, &nodes)
+        .add_rent_roll(&leases, &nodes)
         .expect("rent roll v2 template")
         .build()
         .expect("build");
@@ -417,7 +418,7 @@ fn real_estate_annual_escalator_resets_at_rent_step() {
     let model = ModelBuilder::new("re_annual_step_reset")
         .periods("2025Q1..2026Q4", None)
         .expect("periods should parse")
-        .add_rent_roll_rental_revenue_v2(&leases, &nodes)
+        .add_rent_roll(&leases, &nodes)
         .expect("rent roll v2 template")
         .build()
         .expect("build");
@@ -477,7 +478,7 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
     let model = ModelBuilder::new("re_per_period")
         .periods("2025Q1..Q4", None)
         .expect("periods should parse")
-        .add_rent_roll_rental_revenue_v2(&leases, &nodes)
+        .add_rent_roll(&leases, &nodes)
         .expect("rent roll v2 template")
         .build()
         .expect("build");
@@ -494,6 +495,83 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
             (pgi[&PeriodId::quarter(2025, q)] - expected).abs() < 1e-10,
             "Q{q}: expected {expected}, got {}",
             pgi[&PeriodId::quarter(2025, q)]
+        );
+    }
+}
+
+// --- Parity: v1 (LeaseSpec) vs v2 (LeaseSpecV2) produce same simple effective rent ---
+
+#[allow(deprecated)]
+#[test]
+fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
+    use finstack_statements::templates::real_estate::{
+        LeaseSpec, LeaseSpecV2, RentRollOutputNodes,
+    };
+
+    let start = PeriodId::quarter(2025, 1);
+
+    // v1: simple lease spec
+    let v1_lease = LeaseSpec {
+        node_id: "lease1".into(),
+        start,
+        end: None,
+        base_rent: 100.0,
+        growth_rate: 0.05,
+        free_rent_periods: 0,
+        occupancy: 1.0,
+    };
+
+    // v2: rich lease spec with the same economic parameters
+    let v2_lease = LeaseSpecV2 {
+        node_id: "lease1".into(),
+        start,
+        end: None,
+        base_rent: 100.0,
+        growth_rate: 0.05,
+        growth_convention:
+            finstack_statements::templates::real_estate::LeaseGrowthConvention::PerPeriod,
+        rent_steps: vec![],
+        free_rent_periods: 0,
+        free_rent_windows: vec![],
+        occupancy: 1.0,
+        renewal: None,
+    };
+
+    let make_base = || {
+        ModelBuilder::new("parity-rent")
+            .periods("2025Q1..Q4", None)
+            .expect("valid periods")
+    };
+
+    // Build v1 model
+    let model_v1 = make_base()
+        .add_rent_roll_rental_revenue(&[v1_lease], "total_rent")
+        .expect("v1 rent roll")
+        .build()
+        .expect("valid model");
+
+    // Build v2 model
+    let nodes = RentRollOutputNodes::default();
+    let model_v2 = make_base()
+        .add_rent_roll(&[v2_lease], &nodes)
+        .expect("v2 rent roll")
+        .build()
+        .expect("valid model");
+
+    let mut eval = Evaluator::new();
+    let r_v1 = eval.evaluate(&model_v1).expect("v1 eval");
+    let r_v2 = eval.evaluate(&model_v2).expect("v2 eval");
+
+    // The v1 total_rent and v2 rent_effective_node should match for simple leases
+    for q in 1u8..=4 {
+        let period = PeriodId::quarter(2025, q);
+        let v1_val = r_v1.get("total_rent", &period).expect("v1 total_rent");
+        let v2_val = r_v2
+            .get(&nodes.rent_effective_node, &period)
+            .expect("v2 rent_effective");
+        assert!(
+            (v1_val - v2_val).abs() < 1e-9,
+            "Q{q}: v1 total_rent ({v1_val}) must match v2 rent_effective ({v2_val})"
         );
     }
 }

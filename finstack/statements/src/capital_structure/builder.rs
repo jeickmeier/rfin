@@ -30,6 +30,112 @@ fn ensure_capital_structure<State>(builder: &mut ModelBuilder<State>) -> &mut Ca
         })
 }
 
+/// Serialize a bond and push it to the capital structure.
+fn push_bond<State>(
+    builder: &mut ModelBuilder<State>,
+    id_str: String,
+    bond: Bond,
+) -> crate::error::Result<()> {
+    let spec_json = serde_json::to_value(&bond).map_err(|e| {
+        crate::error::Error::build(format!("Failed to serialize bond '{}': {}", id_str, e))
+    })?;
+    ensure_capital_structure(builder)
+        .debt_instruments
+        .push(DebtInstrumentSpec::Bond {
+            id: id_str,
+            spec: spec_json,
+        });
+    Ok(())
+}
+
+/// Serialize a swap and push it to the capital structure.
+fn push_swap<State>(
+    builder: &mut ModelBuilder<State>,
+    id_str: String,
+    swap: finstack_valuations::instruments::InterestRateSwap,
+) -> crate::error::Result<()> {
+    let spec_json = serde_json::to_value(&swap)
+        .map_err(|e| crate::error::Error::build(format!("Failed to serialize swap: {}", e)))?;
+    ensure_capital_structure(builder)
+        .debt_instruments
+        .push(DebtInstrumentSpec::Swap {
+            id: id_str,
+            spec: spec_json,
+        });
+    Ok(())
+}
+
+/// Build an `InterestRateSwap` from leg parameters.
+#[allow(clippy::too_many_arguments)]
+fn build_swap_internal(
+    id_str: &str,
+    notional: Money,
+    fixed_rate: f64,
+    start_date: Date,
+    maturity_date: Date,
+    discount_curve_id: String,
+    forward_curve_id: String,
+    fixed_freq: Tenor,
+    fixed_dc: DayCount,
+    float_freq: Tenor,
+    float_dc: DayCount,
+    bdc: BusinessDayConvention,
+) -> crate::error::Result<InterestRateSwap> {
+    use finstack_valuations::instruments::PayReceive;
+
+    let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
+        crate::error::Error::InvalidInput(format!(
+            "Invalid fixed rate: {} cannot be converted to Decimal.",
+            fixed_rate
+        ))
+    })?;
+
+    let discount_curve_id = CurveId::new(discount_curve_id);
+    let forward_curve_id = CurveId::new(forward_curve_id);
+
+    let fixed = FixedLegSpec {
+        discount_curve_id: discount_curve_id.clone(),
+        rate: rate_decimal,
+        frequency: fixed_freq,
+        day_count: fixed_dc,
+        bdc,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        start: start_date,
+        end: maturity_date,
+        par_method: None,
+        compounding_simple: true,
+        payment_lag_days: 0,
+        end_of_month: false,
+    };
+
+    let float = FloatLegSpec {
+        discount_curve_id,
+        forward_curve_id,
+        spread_bp: Decimal::ZERO,
+        frequency: float_freq,
+        day_count: float_dc,
+        bdc,
+        calendar_id: Some("usny".to_string()),
+        stub: StubKind::None,
+        reset_lag_days: 0,
+        fixing_calendar_id: None,
+        start: start_date,
+        end: maturity_date,
+        compounding: FloatingLegCompounding::Simple,
+        payment_lag_days: 0,
+        end_of_month: false,
+    };
+
+    Ok(InterestRateSwap::builder()
+        .id(InstrumentId::new(id_str))
+        .notional(notional)
+        .side(PayReceive::PayFixed)
+        .fixed(fixed)
+        .float(float)
+        .build()?)
+}
+
 impl<State> ModelBuilder<State> {
     /// Add a bond instrument to the capital structure specification.
     ///
@@ -83,7 +189,6 @@ impl<State> ModelBuilder<State> {
     ) -> Result<Self> {
         let id_str: String = id.into();
 
-        // Create bond using valuations crate
         let bond = Bond::fixed(
             InstrumentId::new(&id_str),
             notional,
@@ -96,19 +201,7 @@ impl<State> ModelBuilder<State> {
             crate::error::Error::build(format!("Failed to create bond '{}': {}", id_str, e))
         })?;
 
-        // Serialize to JSON
-        let spec_json = serde_json::to_value(&bond).map_err(|e| {
-            crate::error::Error::build(format!("Failed to serialize bond '{}': {}", id_str, e))
-        })?;
-
-        // Add to capital structure
-        ensure_capital_structure(&mut self)
-            .debt_instruments
-            .push(DebtInstrumentSpec::Bond {
-                id: id_str,
-                spec: spec_json,
-            });
-
+        push_bond(&mut self, id_str, bond)?;
         Ok(self)
     }
 
@@ -177,17 +270,7 @@ impl<State> ModelBuilder<State> {
             crate::error::Error::build(format!("Failed to create bond '{}': {}", id_str, e))
         })?;
 
-        let spec_json = serde_json::to_value(&bond).map_err(|e| {
-            crate::error::Error::build(format!("Failed to serialize bond '{}': {}", id_str, e))
-        })?;
-
-        ensure_capital_structure(&mut self)
-            .debt_instruments
-            .push(DebtInstrumentSpec::Bond {
-                id: id_str,
-                spec: spec_json,
-            });
-
+        push_bond(&mut self, id_str, bond)?;
         Ok(self)
     }
 
@@ -227,6 +310,43 @@ impl<State> ModelBuilder<State> {
     /// # Ok(())
     /// # }
     /// ```
+    /// Add an interest rate swap to the capital structure.
+    ///
+    /// Uses US market conventions: fixed leg semi-annual 30/360, float leg quarterly ACT/360,
+    /// both Modified Following. For non-USD or non-standard conventions, use
+    /// [`add_swap_with_conventions`](Self::add_swap_with_conventions).
+    ///
+    /// # Arguments
+    /// * `id` - Unique instrument identifier
+    /// * `notional` - Notional amount
+    /// * `fixed_rate` - Fixed rate (e.g., 0.04 for 4%)
+    /// * `start_date` - Swap start date
+    /// * `maturity_date` - Swap maturity date
+    /// * `discount_curve_id` - Discount curve ID
+    /// * `forward_curve_id` - Forward curve ID for floating leg
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// use finstack_statements::builder::ModelBuilder;
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
+    /// let builder = ModelBuilder::new("cs-model")
+    ///     .add_swap(
+    ///         "SWAP-001",
+    ///         Money::new(5_000_000.0, Currency::USD),
+    ///         0.04,
+    ///         date!(2025-01-15),
+    ///         date!(2030-01-15),
+    ///         "USD-OIS",
+    ///         "USD-SOFR-3M",
+    ///     )?;
+    /// # let _ = builder;
+    /// # Ok(())
+    /// # }
+    /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn add_swap(
         mut self,
@@ -239,73 +359,21 @@ impl<State> ModelBuilder<State> {
         forward_curve_id: impl Into<String>,
     ) -> Result<Self> {
         let id_str: String = id.into();
-
-        use finstack_valuations::instruments::PayReceive;
-
-        let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
-            crate::error::Error::InvalidInput(format!(
-                "Invalid fixed rate: {} cannot be converted to Decimal.",
-                fixed_rate
-            ))
-        })?;
-
-        let discount_curve_id = CurveId::new(discount_curve_id.into());
-        let forward_curve_id = CurveId::new(forward_curve_id.into());
-
-        let fixed = FixedLegSpec {
-            discount_curve_id: discount_curve_id.clone(),
-            rate: rate_decimal,
-            frequency: Tenor::semi_annual(),
-            day_count: DayCount::Thirty360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("usny".to_string()),
-            stub: StubKind::None,
-            start: start_date,
-            end: maturity_date,
-            par_method: None,
-            compounding_simple: true,
-            payment_lag_days: 0,
-            end_of_month: false,
-        };
-
-        let float = FloatLegSpec {
-            discount_curve_id,
-            forward_curve_id,
-            spread_bp: Decimal::ZERO,
-            frequency: Tenor::quarterly(),
-            day_count: DayCount::Act360,
-            bdc: BusinessDayConvention::ModifiedFollowing,
-            calendar_id: Some("usny".to_string()),
-            stub: StubKind::None,
-            reset_lag_days: 0,
-            fixing_calendar_id: None,
-            start: start_date,
-            end: maturity_date,
-            compounding: FloatingLegCompounding::Simple,
-            payment_lag_days: 0,
-            end_of_month: false,
-        };
-
-        let swap = InterestRateSwap::builder()
-            .id(InstrumentId::new(&id_str))
-            .notional(notional)
-            .side(PayReceive::PayFixed) // Default to pay-fixed
-            .fixed(fixed)
-            .float(float)
-            .build()?;
-
-        // Serialize to JSON
-        let spec_json = serde_json::to_value(&swap)
-            .map_err(|e| crate::error::Error::build(format!("Failed to serialize swap: {}", e)))?;
-
-        // Add to capital structure
-        ensure_capital_structure(&mut self)
-            .debt_instruments
-            .push(DebtInstrumentSpec::Swap {
-                id: id_str,
-                spec: spec_json,
-            });
-
+        let swap = build_swap_internal(
+            &id_str,
+            notional,
+            fixed_rate,
+            start_date,
+            maturity_date,
+            discount_curve_id.into(),
+            forward_curve_id.into(),
+            Tenor::semi_annual(),
+            DayCount::Thirty360,
+            Tenor::quarterly(),
+            DayCount::Act360,
+            BusinessDayConvention::ModifiedFollowing,
+        )?;
+        push_swap(&mut self, id_str, swap)?;
         Ok(self)
     }
 
@@ -315,7 +383,7 @@ impl<State> ModelBuilder<State> {
     /// parameters for non-USD swaps (e.g., EUR swaps with ACT/360 annual fixed,
     /// GBP swaps with ACT/365F semi-annual fixed).
     ///
-    /// The default `add_swap` uses US conventions:
+    /// The default [`add_swap`](Self::add_swap) uses US conventions:
     /// - Fixed: Semi-annual, 30/360, Modified Following
     /// - Float: Quarterly, ACT/360, Modified Following
     #[allow(clippy::too_many_arguments)]
@@ -335,71 +403,21 @@ impl<State> ModelBuilder<State> {
         bdc: BusinessDayConvention,
     ) -> Result<Self> {
         let id_str: String = id.into();
-
-        use finstack_valuations::instruments::PayReceive;
-
-        let rate_decimal = Decimal::try_from(fixed_rate).map_err(|_| {
-            crate::error::Error::InvalidInput(format!(
-                "Invalid fixed rate: {} cannot be converted to Decimal.",
-                fixed_rate
-            ))
-        })?;
-
-        let discount_curve_id = CurveId::new(discount_curve_id.into());
-        let forward_curve_id = CurveId::new(forward_curve_id.into());
-
-        let fixed = FixedLegSpec {
-            discount_curve_id: discount_curve_id.clone(),
-            rate: rate_decimal,
-            frequency: fixed_freq,
-            day_count: fixed_dc,
+        let swap = build_swap_internal(
+            &id_str,
+            notional,
+            fixed_rate,
+            start_date,
+            maturity_date,
+            discount_curve_id.into(),
+            forward_curve_id.into(),
+            fixed_freq,
+            fixed_dc,
+            float_freq,
+            float_dc,
             bdc,
-            calendar_id: Some("usny".to_string()),
-            stub: StubKind::None,
-            start: start_date,
-            end: maturity_date,
-            par_method: None,
-            compounding_simple: true,
-            payment_lag_days: 0,
-            end_of_month: false,
-        };
-
-        let float = FloatLegSpec {
-            discount_curve_id,
-            forward_curve_id,
-            spread_bp: Decimal::ZERO,
-            frequency: float_freq,
-            day_count: float_dc,
-            bdc,
-            calendar_id: Some("usny".to_string()),
-            stub: StubKind::None,
-            reset_lag_days: 0,
-            fixing_calendar_id: None,
-            start: start_date,
-            end: maturity_date,
-            compounding: FloatingLegCompounding::Simple,
-            payment_lag_days: 0,
-            end_of_month: false,
-        };
-
-        let swap = InterestRateSwap::builder()
-            .id(InstrumentId::new(&id_str))
-            .notional(notional)
-            .side(PayReceive::PayFixed)
-            .fixed(fixed)
-            .float(float)
-            .build()?;
-
-        let spec_json = serde_json::to_value(&swap)
-            .map_err(|e| crate::error::Error::build(format!("Failed to serialize swap: {}", e)))?;
-
-        ensure_capital_structure(&mut self)
-            .debt_instruments
-            .push(DebtInstrumentSpec::Swap {
-                id: id_str,
-                spec: spec_json,
-            });
-
+        )?;
+        push_swap(&mut self, id_str, swap)?;
         Ok(self)
     }
 

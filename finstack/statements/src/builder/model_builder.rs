@@ -533,10 +533,32 @@ impl ModelBuilder<Ready> {
         self
     }
 
+    /// Add all metrics from a loaded registry to the model.
+    ///
+    /// Common internal implementation used by [`with_builtin_metrics`] and [`with_metrics`].
+    ///
+    /// [`with_builtin_metrics`]: ModelBuilder::with_builtin_metrics
+    /// [`with_metrics`]: ModelBuilder::with_metrics
+    fn add_all_metrics_from_registry_internal(
+        mut self,
+        registry: &crate::registry::Registry,
+    ) -> Self {
+        for (qualified_id, stored_metric) in registry.all_metrics() {
+            self.insert_metric_node(
+                qualified_id,
+                stored_metric,
+                stored_metric.definition.formula.clone(),
+            );
+        }
+        self
+    }
+
     /// Load built-in metrics (fin.* namespace) and add them to the model.
     ///
     /// This is a convenience method that loads standard financial metrics
     /// and adds all of them to the model.
+    ///
+    /// For selective loading, prefer [`add_metric`] or [`add_metric_from_registry`].
     ///
     /// # Example
     ///
@@ -555,24 +577,21 @@ impl ModelBuilder<Ready> {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// [`add_metric`]: ModelBuilder::add_metric
+    /// [`add_metric_from_registry`]: ModelBuilder::add_metric_from_registry
     #[must_use = "builder methods must be chained"]
-    pub fn with_builtin_metrics(mut self) -> Result<Self> {
+    pub fn with_builtin_metrics(self) -> Result<Self> {
         let mut registry = crate::registry::Registry::new();
         registry.load_builtins()?;
-
-        // Add all metrics from the registry as calculated nodes
-        for (qualified_id, stored_metric) in registry.all_metrics() {
-            self.insert_metric_node(
-                qualified_id,
-                stored_metric,
-                stored_metric.definition.formula.clone(),
-            );
-        }
-
-        Ok(self)
+        Ok(self.add_all_metrics_from_registry_internal(&registry))
     }
 
     /// Load metrics from a JSON file and add them to the model.
+    ///
+    /// For selective loading, prefer [`add_metric_from_registry`] after loading the file
+    /// yourself via [`Registry::load_from_json`].
+    ///
     /// # Arguments
     /// * `path` - Path to a metrics JSON definition file
     ///
@@ -588,21 +607,14 @@ impl ModelBuilder<Ready> {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// [`add_metric_from_registry`]: ModelBuilder::add_metric_from_registry
+    /// [`Registry::load_from_json`]: crate::registry::Registry::load_from_json
     #[must_use = "builder methods must be chained"]
-    pub fn with_metrics(mut self, path: &str) -> Result<Self> {
+    pub fn with_metrics(self, path: &str) -> Result<Self> {
         let mut registry = crate::registry::Registry::new();
         registry.load_from_json(path)?;
-
-        // Add all metrics from the registry as calculated nodes
-        for (qualified_id, stored_metric) in registry.all_metrics() {
-            self.insert_metric_node(
-                qualified_id,
-                stored_metric,
-                stored_metric.definition.formula.clone(),
-            );
-        }
-
-        Ok(self)
+        Ok(self.add_all_metrics_from_registry_internal(&registry))
     }
 
     /// Add a specific metric from the built-in registry.

@@ -62,39 +62,24 @@ pub(crate) struct DcfEvalContext<'a> {
 
 /// Evaluate a financial model using DCF methodology.
 ///
-/// # Arguments
-///
-/// * `model` - The financial statement model with forecast periods
-/// * `wacc` - Weighted average cost of capital (decimal, e.g., 0.10 for 10%)
-/// * `terminal_value` - Terminal value specification (Gordon Growth or Exit Multiple)
-/// * `ufcf_node` - Node ID containing unlevered free cash flow values (default: "ufcf")
-/// * `net_debt_override` - Optional fixed net debt value; if None, derived from model
-///
-/// # Returns
-///
-/// `CorporateValuationResult` containing equity value, enterprise value, and breakdown
-///
-/// # Example
-///
+/// **Deprecated**: Use [`evaluate_dcf_with_market`] instead:
 /// ```rust,no_run
-/// use finstack_statements::analysis::corporate::evaluate_dcf;
-/// use finstack_statements::types::FinancialModelSpec;
-/// use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
-///
+/// # use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
+/// # use finstack_statements::types::FinancialModelSpec;
+/// # use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let model: FinancialModelSpec = unimplemented!("build or load a FinancialModelSpec with model.meta[\"currency\"] set");
-/// let result = evaluate_dcf(
-///     &model,
-///     0.10,  // 10% WACC
+/// # let model: FinancialModelSpec = unimplemented!();
+/// let result = evaluate_dcf_with_market(
+///     &model, 0.10,
 ///     TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
-///     "ufcf",
-///     None,  // Calculate net debt from model
+///     "ufcf", None, &DcfOptions::default(), None,
 /// )?;
-///
-/// println!("Equity Value: {}", result.equity_value);
-/// # Ok(())
-/// # }
+/// # Ok(()) }
 /// ```
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `evaluate_dcf_with_market` with `DcfOptions::default()` and `market: None` instead"
+)]
 pub fn evaluate_dcf(
     model: &FinancialModelSpec,
     wacc: f64,
@@ -118,8 +103,25 @@ pub fn evaluate_dcf(
 
 /// Evaluate a financial model using DCF methodology with additional options.
 ///
-/// Extends [`evaluate_dcf`] with support for mid-year convention, equity bridge,
-/// shares outstanding, and valuation discounts.
+/// **Deprecated**: Use [`evaluate_dcf_with_market`] instead. This function is equivalent to:
+/// ```rust,no_run
+/// # use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
+/// # use finstack_statements::types::FinancialModelSpec;
+/// # use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # let model: FinancialModelSpec = unimplemented!();
+/// # let options = DcfOptions::default();
+/// let result = evaluate_dcf_with_market(
+///     &model, 0.10,
+///     TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+///     "ufcf", None, &options, None,
+/// )?;
+/// # Ok(()) }
+/// ```
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `evaluate_dcf_with_market` with `market: None` instead"
+)]
 pub fn evaluate_dcf_with_options(
     model: &FinancialModelSpec,
     wacc: f64,
@@ -144,9 +146,12 @@ pub fn evaluate_dcf_with_options(
 
 /// Evaluate a financial model using DCF methodology and return an explanation trace.
 ///
-/// This function returns both the corporate valuation result and a structured
-/// explanation trace capturing UFCF derivation and EV sensitivity to WACC /
-/// terminal multiple.
+/// **Deprecated**: Use [`evaluate_dcf_with_market`] instead. If you need the trace,
+/// call the lower-level implementation directly or use the orchestrator pipeline.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `evaluate_dcf_with_market` instead; trace output will be unified in a future release"
+)]
 pub fn evaluate_dcf_with_trace(
     model: &FinancialModelSpec,
     wacc: f64,
@@ -579,7 +584,7 @@ fn calculate_net_debt_from_model(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, deprecated)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;

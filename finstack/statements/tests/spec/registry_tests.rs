@@ -643,3 +643,180 @@ fn test_deep_dependency_chain() {
     assert_eq!(results.get("chain.level3", &q1).unwrap(), 315.0);
     assert_eq!(results.get("chain.level4", &q1).unwrap(), 157.5);
 }
+
+// --- Parity: with_builtin_metrics vs add_metric_from_registry ---
+
+#[test]
+fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
+    let base_model_fn = || {
+        ModelBuilder::new("base")
+            .periods("2025Q1..Q2", None)
+            .unwrap()
+            .value(
+                "revenue",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                ],
+            )
+            .value(
+                "cogs",
+                &[
+                    (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
+                    (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
+                ],
+            )
+    };
+
+    // Path 1: bulk with_builtin_metrics
+    let model_bulk = base_model_fn()
+        .with_builtin_metrics()
+        .unwrap()
+        .build()
+        .unwrap();
+
+    // Path 2: selective add_metric (convenience shorthand)
+    let model_select = base_model_fn()
+        .add_metric("fin.gross_profit")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    // Both paths produce a fin.gross_profit node
+    assert!(model_bulk.has_node("fin.gross_profit"));
+    assert!(model_select.has_node("fin.gross_profit"));
+
+    // Both evaluate to the same value
+    let mut eval = Evaluator::new();
+    let r_bulk = eval.evaluate(&model_bulk).unwrap();
+    let r_select = eval.evaluate(&model_select).unwrap();
+
+    let q1 = PeriodId::quarter(2025, 1);
+    let bulk_val = r_bulk.get("fin.gross_profit", &q1).unwrap();
+    let select_val = r_select.get("fin.gross_profit", &q1).unwrap();
+
+    assert!(
+        (bulk_val - select_val).abs() < 1e-9,
+        "add_metric and with_builtin_metrics must produce the same gross_profit value: {} vs {}",
+        bulk_val,
+        select_val
+    );
+}
+
+#[test]
+fn parity_add_metric_convenience_matches_add_metric_from_registry() {
+    let base_model_fn = || {
+        ModelBuilder::new("base")
+            .periods("2025Q1..Q2", None)
+            .unwrap()
+            .value(
+                "revenue",
+                &[
+                    (
+                        PeriodId::quarter(2025, 1),
+                        AmountOrScalar::scalar(100_000.0),
+                    ),
+                    (
+                        PeriodId::quarter(2025, 2),
+                        AmountOrScalar::scalar(110_000.0),
+                    ),
+                ],
+            )
+            .value(
+                "cogs",
+                &[
+                    (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(60_000.0)),
+                    (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
+                ],
+            )
+    };
+
+    // Path 1: convenience add_metric (loads builtins internally each call)
+    let model_convenience = base_model_fn()
+        .add_metric("fin.gross_profit")
+        .unwrap()
+        .build()
+        .unwrap();
+
+    // Path 2: explicit registry then add_metric_from_registry
+    let mut registry = Registry::new();
+    registry.load_builtins().unwrap();
+
+    let model_explicit = base_model_fn()
+        .add_metric_from_registry("fin.gross_profit", &registry)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut eval = Evaluator::new();
+    let r_convenience = eval.evaluate(&model_convenience).unwrap();
+    let r_explicit = eval.evaluate(&model_explicit).unwrap();
+
+    let q1 = PeriodId::quarter(2025, 1);
+    let v1 = r_convenience.get("fin.gross_profit", &q1).unwrap();
+    let v2 = r_explicit.get("fin.gross_profit", &q1).unwrap();
+
+    assert!(
+        (v1 - v2).abs() < 1e-9,
+        "add_metric and add_metric_from_registry must produce identical results: {} vs {}",
+        v1,
+        v2
+    );
+}
+
+#[test]
+fn parity_with_builtin_metrics_qualifies_intra_namespace_refs() {
+    // Verify that namespace-qualified refs like fin.gross_profit work in formulas
+    // when loaded via with_builtin_metrics
+    let model = ModelBuilder::new("namespace-qual-test")
+        .periods("2025Q1..Q2", None)
+        .unwrap()
+        .value(
+            "revenue",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(200_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(220_000.0),
+                ),
+            ],
+        )
+        .value(
+            "cogs",
+            &[
+                (
+                    PeriodId::quarter(2025, 1),
+                    AmountOrScalar::scalar(100_000.0),
+                ),
+                (
+                    PeriodId::quarter(2025, 2),
+                    AmountOrScalar::scalar(110_000.0),
+                ),
+            ],
+        )
+        .with_builtin_metrics()
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut eval = Evaluator::new();
+    let results = eval.evaluate(&model).unwrap();
+
+    let q1 = PeriodId::quarter(2025, 1);
+    // fin.gross_margin depends on gross_profit / revenue; both must resolve correctly
+    let margin = results.get("fin.gross_margin", &q1).unwrap();
+    assert!(
+        (margin - 0.5).abs() < 1e-9,
+        "gross_margin = gross_profit/revenue = 100k/200k = 0.5, got {}",
+        margin
+    );
+}
