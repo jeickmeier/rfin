@@ -60,7 +60,7 @@ jobs:
           - { os: windows-x64, runner: windows-latest, target: x64,     python: "3.14", timeout: 60 }
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
@@ -89,10 +89,10 @@ jobs:
       - name: Smoke test wheel
         if: matrix.target != 'aarch64' || runner.os != 'Linux'
         run: |
-          pip install dist/finstack-*.whl
+          python -c "from pathlib import Path; import subprocess, sys; wheels = sorted(Path('dist').glob('finstack-*.whl')); assert len(wheels) == 1, f'Expected exactly one wheel in dist/, found: {wheels}'; subprocess.run([sys.executable, '-m', 'pip', 'install', str(wheels[0])], check=True)"
           python -c "from finstack import Money, Currency; m = Money(100.0, Currency('USD')); print(f'OK: {m}')"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheel-${{ matrix.os }}-py${{ matrix.python }}
           path: dist/*.whl
@@ -109,14 +109,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
       - uses: PyO3/maturin-action@v1
         with:
           command: sdist
           args: --out dist --manifest-path finstack-py/Cargo.toml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: dist/*.tar.gz
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
 
@@ -168,7 +168,7 @@ jobs:
           npm pack --ignore-scripts
           mv finstack-wasm-*.tgz ../dist/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wasm-builds
           path: |
@@ -239,7 +239,7 @@ jobs:
           RELEASE_TAG: ${{ steps.release.outputs.tag }}
           TARGET_SHA: ${{ steps.release.outputs.target }}
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           path: dist
           merge-multiple: true
