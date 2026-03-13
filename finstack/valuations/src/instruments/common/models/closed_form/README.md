@@ -144,6 +144,8 @@ C_do = Vanilla - (H/S)^(2λ) · [reflected vanilla terms]
 
 **Discrete monitoring correction:** Real-world barriers are typically monitored daily. Apply the Broadie-Glasserman-Kou (1997) shift: `H_adj = H · exp(±0.5826 · σ · √Δt)`.
 
+**Edge-case contract:** Public barrier wrappers remain finite for `t <= 0` and `σ <= 0`. Zero-vol and near-zero-vol touch probabilities fall back to the deterministic drift-path limit when the analytical expression becomes ill-conditioned. Low-level helper expiry behavior uses terminal spot as a convenience convention only; true realized expired barrier settlement belongs at the instrument layer via `observed_barrier_breached`.
+
 **References:**
 - Reiner & Rubinstein (1991), *Risk Magazine*
 - Merton (1973), *Bell Journal of Economics*
@@ -271,6 +273,7 @@ Returns `Err` if the target price cannot be bracketed (violates arbitrage bounds
 
 - **t <= 0**: Returns intrinsic value
 - **σ <= 0**: Deterministic forward pricing
+- **Barrier options**: Use barrier-state-dependent expiry conventions and deterministic touch logic; see the barrier section above for the full contract
 - **Deep ITM/OTM**: Prices clamped to non-negative; `BsGreeks::clamped()` for numerical noise
 - **r = q** (lookback): L'Hopital limit form (tolerance 1e-4)
 - **sigma_v ≈ 0** (Heston): Falls back to Black-Scholes
@@ -382,11 +385,11 @@ Every module includes inline `#[cfg(test)]` tests verifying:
 | `vanilla.rs` | 9 |
 | `greeks.rs` | 5 |
 | `asian.rs` | 15 |
-| `barrier.rs` | 10 |
+| `barrier.rs` | 22 |
 | `lookback.rs` | 15 |
 | `quanto.rs` | 5 |
 | `heston.rs` | 12 |
-| **Total** | **71** |
+| **Total** | **83** |
 
 ---
 
