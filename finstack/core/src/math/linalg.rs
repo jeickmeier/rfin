@@ -145,10 +145,11 @@ pub enum CholeskyError {
 /// [`factor_matrix`]: CorrelationFactor::factor_matrix
 #[derive(Debug, Clone)]
 pub struct CorrelationFactor {
-    /// Lower-triangular factor in original variable order (n×n, row-major).
+    /// Factor matrix in original variable order (n×n, row-major).
     ///
-    /// `factor[i * n + j]` is `L[i, j]` (zero for `j > i`) in the original
-    /// variable ordering.
+    /// After pivoted Cholesky and unpermutation, this matrix satisfies
+    /// `factor * factor^T = correlation` in original variable order, but it is
+    /// not guaranteed to remain lower triangular.
     factor: Vec<f64>,
     /// Matrix dimension.
     n: usize,
@@ -181,18 +182,21 @@ impl CorrelationFactor {
         self.effective_rank == self.n
     }
 
-    /// Lower-triangular Cholesky factor in original variable order (n×n, row-major).
+    /// Factor matrix in original variable order (n×n, row-major).
     ///
-    /// `factor[i * n + j]` holds `L[i, j]`. Upper triangle is zero.
+    /// The returned matrix satisfies `factor * factor^T = correlation` in
+    /// original variable order. When pivoting occurs it may contain non-zero
+    /// entries above the diagonal.
     #[must_use]
     pub fn factor_matrix(&self) -> &[f64] {
         &self.factor
     }
 
-    /// Apply `L` to independent N(0,1) shocks to produce correlated shocks.
+    /// Apply the stored factor to independent N(0,1) shocks to produce
+    /// correlated shocks.
     ///
-    /// Computes `z_corr = L * z_indep` where `L` is the lower-triangular factor in
-    /// original variable order. Both slices must have length `n`.
+    /// Computes `z_corr = factor * z_indep` in original variable order. Both
+    /// slices must have length `n`.
     ///
     /// # Panics
     ///
@@ -211,7 +215,7 @@ impl CorrelationFactor {
         let n = self.n;
         for (i, out) in correlated.iter_mut().enumerate() {
             let mut sum = 0.0;
-            for (j, &z_j) in independent.iter().enumerate().take(i + 1) {
+            for (j, &z_j) in independent.iter().enumerate() {
                 sum += self.factor[i * n + j] * z_j;
             }
             *out = sum;
@@ -878,6 +882,19 @@ mod tests {
                 recon[i]
             );
         }
+    }
+
+    #[test]
+    fn pivoted_cholesky_apply_preserves_correlated_shocks_in_original_order() {
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let f = cholesky_correlation(&corr, 2).expect("should succeed");
+        let z = vec![0.0, 1.0];
+        let mut z_corr = vec![0.0; 2];
+
+        f.apply(&z, &mut z_corr);
+
+        assert!((z_corr[0] - 0.5).abs() < 1e-12, "z_corr[0] = {}", z_corr[0]);
+        assert!((z_corr[1] - 1.0).abs() < 1e-12, "z_corr[1] = {}", z_corr[1]);
     }
 
     #[test]

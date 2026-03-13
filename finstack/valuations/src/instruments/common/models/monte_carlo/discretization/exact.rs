@@ -289,7 +289,7 @@ mod tests {
 
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
         assert_eq!(disc.dim, 2);
-        assert_eq!(disc.cholesky_factor.len(), 4);
+        assert_eq!(disc.cholesky_factor.factor_matrix().len(), 4);
 
         // Test from_process convenience method
         let disc_from_process =
@@ -337,15 +337,18 @@ mod tests {
         let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
 
         let mut x = vec![100.0, 200.0];
-        let z = vec![1.0, 0.0]; // +1 std dev shock for first asset
+        // Use a positive common-factor shock. This is robust to pivoted factorization,
+        // which preserves covariance but can rotate the latent factor basis.
+        let z = vec![1.0, 1.0];
         let mut work = vec![0.0; disc.work_size(&multi_gbm)];
 
         disc.step(&multi_gbm, 0.0, 1.0, &mut x, &z, &mut work);
 
-        // With correlation, the second asset should also move (positive correlation)
-        // Both assets should increase due to correlated positive shock
-        assert!(x[0] > 100.0);
-        assert!(x[1] > 200.0); // Positive correlation means second asset also increases
+        // Positive latent shocks should lift both assets above their drift-only levels.
+        let drift_only_1 = 100.0 * 0.01_f64.exp();
+        let drift_only_2 = 200.0 * (-0.025_f64).exp();
+        assert!(x[0] > drift_only_1);
+        assert!(x[1] > drift_only_2);
     }
 
     #[test]

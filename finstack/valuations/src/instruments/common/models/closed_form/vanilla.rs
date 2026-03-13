@@ -182,7 +182,7 @@ pub fn bs_price(
     let exp_q_t = (-q * t).exp();
     let exp_r_t = (-r * t).exp();
 
-    match option_type {
+    let raw_price = match option_type {
         OptionType::Call => spot * exp_q_t * cdf_d1 - strike * exp_r_t * cdf_d2,
         OptionType::Put => {
             // Use symmetry: N(-x) = 1 - N(x)
@@ -190,7 +190,10 @@ pub fn bs_price(
             let cdf_m_d2 = 1.0 - cdf_d2;
             strike * exp_r_t * cdf_m_d2 - spot * exp_q_t * cdf_m_d1
         }
-    }
+    };
+
+    // Numerical cancellation can produce tiny negative values for deep OTM options.
+    raw_price.max(0.0)
 }
 
 /// Black–Scholes / Garman–Kohlhagen Greeks (per unit, per-1% for vega and rhos).
@@ -372,6 +375,20 @@ mod tests {
         assert!(bs_price(90.0, 100.0, 0.05, 0.0, 0.2, 0.0, OptionType::Call).abs() < 1e-10);
         // ITM put at expiration
         assert!((bs_price(90.0, 100.0, 0.05, 0.0, 0.2, 0.0, OptionType::Put) - 10.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_bs_price_put_is_non_negative_for_deep_otm_case() {
+        let price = bs_price(
+            141.855_852_889_058_4,
+            58.709_489_081_432_6,
+            0.0,
+            0.0,
+            0.367_806_872_430_263_44,
+            31.0 / 365.0,
+            OptionType::Put,
+        );
+        assert!(price >= 0.0, "deep OTM put price = {}", price);
     }
 
     #[test]
