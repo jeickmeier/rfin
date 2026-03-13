@@ -178,6 +178,10 @@ pub struct PyVarianceSwapBuilder {
     discount_curve_id: Option<CurveId>,
     observation_frequency: Option<Tenor>,
     realized_method: RealizedVarMethod,
+    open_series_id: Option<String>,
+    high_series_id: Option<String>,
+    low_series_id: Option<String>,
+    close_series_id: Option<String>,
     side: PayReceive,
     day_count: finstack_core::dates::DayCount,
 }
@@ -195,6 +199,10 @@ impl PyVarianceSwapBuilder {
             discount_curve_id: None,
             observation_frequency: None,
             realized_method: RealizedVarMethod::CloseToClose,
+            open_series_id: None,
+            high_series_id: None,
+            low_series_id: None,
+            close_series_id: None,
             side: PayReceive::Receive,
             day_count: finstack_core::dates::DayCount::Act365F,
         }
@@ -345,6 +353,34 @@ impl PyVarianceSwapBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, series_id)")]
+    /// Set the open price series ID (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    fn open_series_id(mut slf: PyRefMut<'_, Self>, series_id: String) -> PyRefMut<'_, Self> {
+        slf.open_series_id = Some(series_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, series_id)")]
+    /// Set the high price series ID (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    fn high_series_id(mut slf: PyRefMut<'_, Self>, series_id: String) -> PyRefMut<'_, Self> {
+        slf.high_series_id = Some(series_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, series_id)")]
+    /// Set the low price series ID (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    fn low_series_id(mut slf: PyRefMut<'_, Self>, series_id: String) -> PyRefMut<'_, Self> {
+        slf.low_series_id = Some(series_id);
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, series_id)")]
+    /// Set the close price series ID. Defaults to ``underlying_id`` when not set.
+    fn close_series_id(mut slf: PyRefMut<'_, Self>, series_id: String) -> PyRefMut<'_, Self> {
+        slf.close_series_id = Some(series_id);
+        slf
+    }
+
     #[pyo3(text_signature = "($self, side)")]
     fn side(mut slf: PyRefMut<'_, Self>, side: Option<PayReceiveArg>) -> PyRefMut<'_, Self> {
         if let Some(s) = side {
@@ -415,6 +451,10 @@ impl PyVarianceSwapBuilder {
             maturity,
             observation_freq,
             realized_var_method: slf.realized_method,
+            open_series_id: slf.open_series_id.clone(),
+            high_series_id: slf.high_series_id.clone(),
+            low_series_id: slf.low_series_id.clone(),
+            close_series_id: slf.close_series_id.clone(),
             side: slf.side,
             discount_curve_id,
             day_count: slf.day_count,
@@ -473,6 +513,26 @@ impl PyVarianceSwap {
     #[getter]
     fn realized_method(&self) -> &'static str {
         method_label(self.inner.realized_var_method)
+    }
+
+    #[getter]
+    fn open_series_id(&self) -> Option<&str> {
+        self.inner.open_series_id.as_deref()
+    }
+
+    #[getter]
+    fn high_series_id(&self) -> Option<&str> {
+        self.inner.high_series_id.as_deref()
+    }
+
+    #[getter]
+    fn low_series_id(&self) -> Option<&str> {
+        self.inner.low_series_id.as_deref()
+    }
+
+    #[getter]
+    fn close_series_id(&self) -> Option<&str> {
+        self.inner.close_series_id.as_deref()
     }
 
     #[getter]

@@ -1,10 +1,15 @@
 //! Tests for variance calculations (realized, forward, expected).
 
 use super::common::*;
-use finstack_core::dates::Tenor;
+use finstack_core::currency::Currency;
+use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::stats::{realized_variance, RealizedVarMethod};
-use finstack_valuations::instruments::equity::variance_swap::PayReceive;
+use finstack_core::money::Money;
+use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::equity::variance_swap::{PayReceive, VarianceSwap};
+use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::Instrument;
 
 // ============================================================================
 // Historical Prices Tests
@@ -123,7 +128,8 @@ fn test_partial_realized_variance_matches_manual_calculation() {
         .filter(|d| **d >= swap.start_date && **d <= as_of)
         .filter_map(|d| prices.iter().find(|(pd, _)| pd == d).map(|(_, p)| *p))
         .collect();
-    let manual = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 252.0);
+    let manual = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 252.0)
+        .expect("CloseToClose should succeed");
 
     // Assert
     assert!((realized - manual).abs() < EPSILON);
@@ -150,7 +156,8 @@ fn test_partial_realized_variance_uses_policy_annualization() {
         .filter(|d| **d >= swap.start_date && **d <= as_of)
         .filter_map(|d| prices.iter().find(|(pd, _)| pd == d).map(|(_, p)| *p))
         .collect();
-    let manual_260 = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 260.0);
+    let manual_260 = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, 260.0)
+        .expect("CloseToClose should succeed");
 
     // The policy override should be applied
     assert!((realized - manual_260).abs() < EPSILON);
@@ -322,4 +329,165 @@ fn test_expected_variance_transitions_smoothly() {
         assert!(weight >= prev_weight, "Weight must increase over time");
         prev_weight = weight;
     }
+}
+
+// ============================================================================
+// OHLC Estimator Routing Tests
+// ============================================================================
+
+/// Build OHLC series named `SPX-OPEN`, `SPX-HIGH`, `SPX-LOW`, and close under
+/// the `UNDERLYING_ID` key.
+fn add_ohlc_series(
+    ctx: MarketContext,
+    swap: &VarianceSwap,
+    base_close: f64,
+    step: f64,
+) -> MarketContext {
+    use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
+
+    let obs_dates = swap.observation_dates();
+    let open_prices: Vec<(Date, f64)> = obs_dates
+        .iter()
+        .enumerate()
+        .map(|(i, &d)| (d, base_close + step * i as f64 - 5.0))
+        .collect();
+    let high_prices: Vec<(Date, f64)> = obs_dates
+        .iter()
+        .enumerate()
+        .map(|(i, &d)| (d, base_close + step * i as f64 + 10.0))
+        .collect();
+    let low_prices: Vec<(Date, f64)> = obs_dates
+        .iter()
+        .enumerate()
+        .map(|(i, &d)| (d, base_close + step * i as f64 - 8.0))
+        .collect();
+    let close_prices: Vec<(Date, f64)> = obs_dates
+        .iter()
+        .enumerate()
+        .map(|(i, &d)| (d, base_close + step * i as f64))
+        .collect();
+
+    let mk_series = |id: &str, data: Vec<(Date, f64)>| {
+        ScalarTimeSeries::new(id, data, None)
+            .unwrap()
+            .with_interpolation(SeriesInterpolation::Step)
+    };
+
+    ctx.insert_series(mk_series("SPX-OPEN", open_prices))
+        .insert_series(mk_series("SPX-HIGH", high_prices))
+        .insert_series(mk_series("SPX-LOW", low_prices))
+        .insert_series(mk_series(UNDERLYING_ID, close_prices))
+}
+
+/// Create a variance swap configured for a specific OHLC estimator.
+fn ohlc_swap(method: RealizedVarMethod) -> VarianceSwap {
+    let (start, end) = default_dates();
+    VarianceSwap::builder()
+        .id(InstrumentId::new(format!("VAR-OHLC-{method:?}")))
+        .underlying_ticker(UNDERLYING_ID.to_string())
+        .notional(Money::new(DEFAULT_NOTIONAL, Currency::USD))
+        .strike_variance(DEFAULT_STRIKE_VAR)
+        .start_date(start)
+        .maturity(end)
+        .observation_freq(Tenor::daily())
+        .realized_var_method(method)
+        .open_series_id("SPX-OPEN".to_string())
+        .high_series_id("SPX-HIGH".to_string())
+        .low_series_id("SPX-LOW".to_string())
+        .side(PayReceive::Receive)
+        .discount_curve_id(CurveId::new(DISC_ID))
+        .day_count(DayCount::Act365F)
+        .attributes(Attributes::new())
+        .build()
+        .unwrap()
+}
+
+#[test]
+fn test_ohlc_partial_realized_variance_differs_from_close_to_close() {
+    let close_swap = sample_swap(PayReceive::Receive);
+    let parkinson_swap = ohlc_swap(RealizedVarMethod::Parkinson);
+
+    let ctx = add_ohlc_series(base_context(), &close_swap, 5_000.0, 3.0);
+    let as_of = date(2025, 2, 1);
+
+    let rv_close = close_swap.partial_realized_variance(&ctx, as_of).unwrap();
+    let rv_park = parkinson_swap
+        .partial_realized_variance(&ctx, as_of)
+        .unwrap();
+
+    assert!(rv_close.is_finite() && rv_close > 0.0);
+    assert!(rv_park.is_finite() && rv_park > 0.0);
+    assert!(
+        (rv_close - rv_park).abs() > 1e-12,
+        "Parkinson ({rv_park}) should differ from CloseToClose ({rv_close})"
+    );
+}
+
+#[test]
+fn test_all_ohlc_estimators_produce_positive_variance() {
+    let as_of = date(2025, 2, 1);
+
+    for method in [
+        RealizedVarMethod::Parkinson,
+        RealizedVarMethod::GarmanKlass,
+        RealizedVarMethod::RogersSatchell,
+        RealizedVarMethod::YangZhang,
+    ] {
+        let swap = ohlc_swap(method);
+        let ctx = add_ohlc_series(base_context(), &swap, 5_000.0, 3.0);
+
+        let rv = swap.partial_realized_variance(&ctx, as_of);
+        assert!(
+            rv.is_ok(),
+            "method {method:?} should succeed with OHLC data: {rv:?}"
+        );
+        let rv = rv.unwrap();
+        assert!(rv.is_finite() && rv >= 0.0, "method {method:?} rv={rv}");
+    }
+}
+
+#[test]
+fn test_ohlc_missing_series_id_returns_error() {
+    let (start, end) = default_dates();
+    let bad_swap = VarianceSwap::builder()
+        .id(InstrumentId::new("VAR-BAD-OHLC"))
+        .underlying_ticker(UNDERLYING_ID.to_string())
+        .notional(Money::new(DEFAULT_NOTIONAL, Currency::USD))
+        .strike_variance(DEFAULT_STRIKE_VAR)
+        .start_date(start)
+        .maturity(end)
+        .observation_freq(Tenor::daily())
+        .realized_var_method(RealizedVarMethod::Parkinson)
+        // Intentionally omit open/high/low series IDs
+        .side(PayReceive::Receive)
+        .discount_curve_id(CurveId::new(DISC_ID))
+        .day_count(DayCount::Act365F)
+        .attributes(Attributes::new())
+        .build()
+        .unwrap();
+
+    let prices = price_series(&bad_swap, 5_000.0, 3.0);
+    let ctx = add_series(base_context(), &prices);
+    let as_of = date(2025, 2, 1);
+
+    let result = bad_swap.partial_realized_variance(&ctx, as_of);
+    assert!(
+        result.is_err(),
+        "Parkinson without OHLC series IDs should return Err"
+    );
+    let msg = result.unwrap_err().to_string();
+    assert!(
+        msg.contains("open_series_id"),
+        "error should mention missing open_series_id: {msg}"
+    );
+}
+
+#[test]
+fn test_ohlc_at_maturity_valuation_succeeds() {
+    let swap = ohlc_swap(RealizedVarMethod::GarmanKlass);
+    let ctx = add_ohlc_series(base_context(), &swap, 5_000.0, 3.0);
+
+    let pv = swap.value(&ctx, swap.maturity);
+    assert!(pv.is_ok(), "at-maturity OHLC valuation failed: {pv:?}");
+    assert!(pv.unwrap().amount().is_finite());
 }

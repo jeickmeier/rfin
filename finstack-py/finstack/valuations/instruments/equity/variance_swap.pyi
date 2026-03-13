@@ -39,6 +39,30 @@ class VarianceSwapBuilder:
     def disc_id(self, curve_id: str) -> VarianceSwapBuilder: ...
     def observation_frequency(self, observation_frequency: Frequency) -> VarianceSwapBuilder: ...
     def realized_method(self, realized_method: RealizedVarianceMethod | None = ...) -> VarianceSwapBuilder: ...
+    def open_series_id(self, series_id: str) -> VarianceSwapBuilder:
+        """Set the open price series ID.
+
+        Required for Parkinson, GarmanKlass, RogersSatchell, and YangZhang estimators.
+        """
+        ...
+    def high_series_id(self, series_id: str) -> VarianceSwapBuilder:
+        """Set the high price series ID.
+
+        Required for Parkinson, GarmanKlass, RogersSatchell, and YangZhang estimators.
+        """
+        ...
+    def low_series_id(self, series_id: str) -> VarianceSwapBuilder:
+        """Set the low price series ID.
+
+        Required for Parkinson, GarmanKlass, RogersSatchell, and YangZhang estimators.
+        """
+        ...
+    def close_series_id(self, series_id: str) -> VarianceSwapBuilder:
+        """Set the close price series ID.
+
+        Defaults to ``underlying_id`` when not set.
+        """
+        ...
     def side(self, side: VarianceDirection | str | None = ...) -> VarianceSwapBuilder: ...
     def day_count(self, day_count: DayCount) -> VarianceSwapBuilder: ...
     def build(self) -> "VarianceSwap": ...
@@ -95,7 +119,11 @@ class VarianceSwap:
     MarketContext Requirements
     -------------------------
     - Discount curve: ``discount_curve`` (required).
-    - Underlying price observations: referenced by ``underlying_id`` (required).
+    - Underlying price observations: referenced by ``underlying_id`` (required for
+      ``CLOSE_TO_CLOSE``).
+    - OHLC series: ``open_series_id``, ``high_series_id``, ``low_series_id``,
+      and ``close_series_id`` (required for Parkinson, GarmanKlass, RogersSatchell,
+      YangZhang estimators).
 
     See Also
     --------
@@ -121,6 +149,22 @@ class VarianceSwap:
     def observation_frequency(self) -> str: ...
     @property
     def realized_method(self) -> str: ...
+    @property
+    def open_series_id(self) -> str | None:
+        """Open price series identifier (required for OHLC-based estimators)."""
+        ...
+    @property
+    def high_series_id(self) -> str | None:
+        """High price series identifier (required for OHLC-based estimators)."""
+        ...
+    @property
+    def low_series_id(self) -> str | None:
+        """Low price series identifier (required for OHLC-based estimators)."""
+        ...
+    @property
+    def close_series_id(self) -> str | None:
+        """Close price series identifier. Defaults to ``underlying_ticker`` when not set."""
+        ...
     @property
     def side(self) -> str: ...
     @property

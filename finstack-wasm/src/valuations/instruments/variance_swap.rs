@@ -82,6 +82,10 @@ pub struct JsVarianceSwapBuilder {
     discount_curve: Option<String>,
     observation_frequency: Option<finstack_core::dates::Tenor>,
     realized_method: Option<String>,
+    open_series_id: Option<String>,
+    high_series_id: Option<String>,
+    low_series_id: Option<String>,
+    close_series_id: Option<String>,
     side: Option<String>,
 }
 
@@ -146,6 +150,30 @@ impl JsVarianceSwapBuilder {
         self
     }
 
+    #[wasm_bindgen(js_name = openSeriesId)]
+    pub fn open_series_id(mut self, series_id: String) -> JsVarianceSwapBuilder {
+        self.open_series_id = Some(series_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = highSeriesId)]
+    pub fn high_series_id(mut self, series_id: String) -> JsVarianceSwapBuilder {
+        self.high_series_id = Some(series_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = lowSeriesId)]
+    pub fn low_series_id(mut self, series_id: String) -> JsVarianceSwapBuilder {
+        self.low_series_id = Some(series_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = closeSeriesId)]
+    pub fn close_series_id(mut self, series_id: String) -> JsVarianceSwapBuilder {
+        self.close_series_id = Some(series_id);
+        self
+    }
+
     #[wasm_bindgen(js_name = side)]
     pub fn side(mut self, side: String) -> JsVarianceSwapBuilder {
         self.side = Some(side);
@@ -199,6 +227,10 @@ impl JsVarianceSwapBuilder {
             maturity,
             observation_freq,
             realized_var_method: method,
+            open_series_id: self.open_series_id,
+            high_series_id: self.high_series_id,
+            low_series_id: self.low_series_id,
+            close_series_id: self.close_series_id,
             side: direction,
             discount_curve_id: curve_id_from_str(discount_curve),
             day_count: DayCount::Act365F,
@@ -289,6 +321,10 @@ impl JsVarianceSwap {
             maturity: maturity.inner(),
             observation_freq: observation_frequency.inner(),
             realized_var_method: method,
+            open_series_id: None,
+            high_series_id: None,
+            low_series_id: None,
+            close_series_id: None,
             side: direction,
             discount_curve_id: curve_id_from_str(discount_curve),
             day_count: DayCount::Act365F,

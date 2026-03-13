@@ -60,7 +60,8 @@ fn test_realized_variance_golden() {
             &case.inputs.close,
             method,
             case.inputs.annualization_factor,
-        );
+        )
+        .expect("realized_variance_ohlc should succeed for certified golden cases");
 
         let assert = GoldenAssert::new(&suite.meta, &case.id);
         assert

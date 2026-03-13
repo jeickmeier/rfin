@@ -350,6 +350,43 @@ mod tests {
         assert!((var - 1.0).abs() < 0.2);
     }
 
+    // ── H4 documentation tests: Box-Muller clamping semantics ──
+    //
+    // The lower bound is f64::MIN_POSITIVE (~2.2e-308) so that deep tails
+    // (up to ~37σ) remain accessible for rare-event simulation.
+    // The reviewer suggested 1e-10 (truncates at ~6.8σ), but this was
+    // intentionally rejected to preserve tail sampling capability.
+    // These tests lock in the current intentional policy.
+    #[test]
+    fn test_box_muller_boundary_u1_zero_is_clamped_to_finite() {
+        // u1 = 0.0 would cause ln(0) = -inf; clamping makes it finite.
+        let (z1, z2) = box_muller_transform(0.0, 0.5);
+        assert!(z1.is_finite(), "z1 must be finite when u1=0, got {z1}");
+        assert!(z2.is_finite(), "z2 must be finite when u1=0, got {z2}");
+    }
+
+    #[test]
+    fn test_box_muller_boundary_u1_near_one_is_clamped_to_finite() {
+        // u1 very close to 1.0 (e.g., exactly 1.0 due to rounding) must stay finite.
+        let (z1, z2) = box_muller_transform(1.0, 0.5);
+        assert!(z1.is_finite(), "z1 must be finite when u1≈1, got {z1}");
+        assert!(z2.is_finite(), "z2 must be finite when u1≈1, got {z2}");
+    }
+
+    #[test]
+    fn test_box_muller_min_positive_clamp_allows_deep_tails() {
+        // With u1 = MIN_POSITIVE the radius is sqrt(-2 ln(2.2e-308)) ≈ 37.7.
+        // The tail is intentionally deep for rare-event simulation.
+        let (z1, _z2) = box_muller_transform(f64::MIN_POSITIVE, 0.0);
+        assert!(z1.is_finite());
+        // Radius ≈ 37.7σ; accepting anything > 30 as evidence the deep tail is reachable.
+        assert!(
+            z1.abs() > 30.0,
+            "Deep tail should be reachable with MIN_POSITIVE lower bound, got |z1|={}",
+            z1.abs()
+        );
+    }
+
     // ========================================================================
     // Pcg64Rng Tests
     // ========================================================================

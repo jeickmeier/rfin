@@ -1,4 +1,5 @@
 use crate::core::common::labels::normalize_label;
+use crate::errors::core_to_py;
 use finstack_core::math::stats::{
     correlation as core_correlation, covariance as core_covariance,
     log_returns as core_log_returns, mean as core_mean, mean_var as core_mean_var,
@@ -215,22 +216,34 @@ pub fn log_returns_py(prices: Vec<f64>) -> PyResult<Vec<f64>> {
 )]
 /// Calculate realized variance from a close price series.
 ///
+/// Only the ``close_to_close`` method is supported here. OHLC-based
+/// estimators (``parkinson``, ``garman_klass``, ``rogers_satchell``,
+/// ``yang_zhang``) require intraday high/low/open data and must be
+/// called via :func:`realized_variance_ohlc`.
+///
 /// Parameters
 /// ----------
 /// prices : list[float]
 ///     Close prices ordered in time.
 /// method : RealizedVarMethod or str, optional
-///     Estimation method (default ``'close_to_close'``).
+///     Estimation method (default ``'close_to_close'``). OHLC-only
+///     methods raise :class:`ValueError`.
 /// annualization_factor : float, optional
 ///     Scaling factor for annualization (default ``252.0``).
+///
+/// Raises
+/// ------
+/// ValueError
+///     If *method* requires OHLC data.
 pub fn realized_variance_py(
     prices: Vec<f64>,
     method: Option<Bound<'_, PyAny>>,
     annualization_factor: Option<f64>,
 ) -> PyResult<f64> {
+    use crate::errors::core_to_py;
     let m = parse_realized_var_method(method)?;
     let af = annualization_factor.unwrap_or(252.0);
-    Ok(core_realized_variance(&prices, m, af))
+    core_realized_variance(&prices, m, af).map_err(core_to_py)
 }
 
 #[pyfunction(
@@ -263,9 +276,7 @@ pub fn realized_variance_ohlc_py(
     }
     let m = parse_realized_var_method(method)?;
     let af = annualization_factor.unwrap_or(252.0);
-    Ok(core_realized_variance_ohlc(
-        &open, &high, &low, &close, m, af,
-    ))
+    core_realized_variance_ohlc(&open, &high, &low, &close, m, af).map_err(core_to_py)
 }
 
 #[pyfunction(name = "population_variance")]

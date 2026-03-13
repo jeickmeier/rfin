@@ -209,6 +209,24 @@ pub enum RealizedVarMethod {
     YangZhang,
 }
 
+impl RealizedVarMethod {
+    /// Returns the canonical string label for this method.
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::CloseToClose => "close_to_close",
+            Self::Parkinson => "parkinson",
+            Self::GarmanKlass => "garman_klass",
+            Self::RogersSatchell => "rogers_satchell",
+            Self::YangZhang => "yang_zhang",
+        }
+    }
+
+    /// Returns `true` if this method requires OHLC data.
+    pub fn requires_ohlc(self) -> bool {
+        !matches!(self, Self::CloseToClose)
+    }
+}
+
 /// Calculate log returns from a price series.
 pub fn log_returns(prices: &[f64]) -> Vec<f64> {
     if prices.len() < 2 {
@@ -250,12 +268,21 @@ pub fn quantile(data: &mut [f64], p: f64) -> f64 {
     v_lo + frac * (v_hi - v_lo)
 }
 
-/// Calculate realized variance from price series.
+/// Calculate realized variance from a close price series.
+///
+/// Only the `CloseToClose` method is supported; OHLC-based estimators
+/// (`Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`) require
+/// intraday high/low/open data and must be called via
+/// [`realized_variance_ohlc`].
 ///
 /// # Arguments
-/// * `prices` - Price series (for CloseToClose method)
-/// * `method` - Method to use for calculation
+/// * `prices` - Close price series ordered in time
+/// * `method` - Must be `CloseToClose`; OHLC-only methods return an error
 /// * `annualization_factor` - Factor to annualize variance (e.g., 252 for daily data)
+///
+/// # Errors
+///
+/// Returns [`Error::Validation`] if `method` requires OHLC data.
 ///
 /// # Returns
 /// Annualized realized variance
@@ -263,37 +290,46 @@ pub fn realized_variance(
     prices: &[f64],
     method: RealizedVarMethod,
     annualization_factor: f64,
-) -> f64 {
+) -> crate::Result<f64> {
     if prices.len() < 2 {
-        return 0.0;
+        return Ok(0.0);
     }
 
     match method {
         RealizedVarMethod::CloseToClose => {
             let returns = log_returns(prices);
-            returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
+            Ok(
+                returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64
+                    * annualization_factor,
+            )
         }
-        // These methods require OHLC data. For a single close-only series, keep the
-        // historical fallback to close-to-close rather than panicking in debug builds.
         RealizedVarMethod::Parkinson
         | RealizedVarMethod::GarmanKlass
         | RealizedVarMethod::RogersSatchell
-        | RealizedVarMethod::YangZhang => {
-            let returns = log_returns(prices);
-            returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * annualization_factor
-        }
+        | RealizedVarMethod::YangZhang => Err(crate::Error::Validation(format!(
+            "Realized variance method '{}' requires OHLC data. \
+             Use realized_variance_ohlc() with open, high, low, and close price series.",
+            method.label()
+        ))),
     }
 }
 
 /// Calculate realized variance from OHLC data using advanced estimators.
 ///
+/// All five methods are supported. For `CloseToClose`, only the `close` slice
+/// is used; the other three legs may be the same slice as `close` or empty.
+///
 /// # Arguments
-/// * `open` - Opening prices
-/// * `high` - High prices
-/// * `low` - Low prices
-/// * `close` - Closing prices
+/// * `open` - Opening prices (required for `GarmanKlass`, `RogersSatchell`, `YangZhang`)
+/// * `high` - High prices (required for `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`)
+/// * `low` - Low prices (required for `Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`)
+/// * `close` - Closing prices (required for all methods)
 /// * `method` - Method to use for calculation
 /// * `annualization_factor` - Factor to annualize variance
+///
+/// # Errors
+///
+/// Returns [`Error::Validation`] if the four slices have different lengths.
 ///
 /// # Returns
 /// Annualized realized variance
@@ -304,10 +340,20 @@ pub fn realized_variance_ohlc(
     close: &[f64],
     method: RealizedVarMethod,
     annualization_factor: f64,
-) -> f64 {
-    let n = open.len();
+) -> crate::Result<f64> {
+    let n = close.len();
+    if open.len() != n || high.len() != n || low.len() != n {
+        return Err(crate::Error::Validation(format!(
+            "realized_variance_ohlc: open ({}), high ({}), low ({}) and close ({}) \
+             series must have the same length",
+            open.len(),
+            high.len(),
+            low.len(),
+            n
+        )));
+    }
     if n < 2 {
-        return 0.0;
+        return Ok(0.0);
     }
 
     match method {
@@ -328,7 +374,7 @@ pub fn realized_variance_ohlc(
                 })
                 .sum();
             let factor = 1.0 / (4.0 * (2.0_f64).ln());
-            (sum / n as f64) * factor * annualization_factor
+            Ok((sum / n as f64) * factor * annualization_factor)
         }
         RealizedVarMethod::GarmanKlass => {
             // Garman-Klass (1980) OHLC estimator
@@ -349,7 +395,7 @@ pub fn realized_variance_ohlc(
                     0.5 * hl.powi(2) - (2.0 * (2.0_f64).ln() - 1.0) * co.powi(2)
                 })
                 .sum();
-            (sum / n as f64) * annualization_factor
+            Ok((sum / n as f64) * annualization_factor)
         }
         RealizedVarMethod::RogersSatchell => {
             // Rogers-Satchell (1991) drift-independent OHLC estimator
@@ -369,12 +415,12 @@ pub fn realized_variance_ohlc(
                     hc * ho + lc * lo
                 })
                 .sum();
-            (sum / n as f64) * annualization_factor
+            Ok((sum / n as f64) * annualization_factor)
         }
         RealizedVarMethod::YangZhang => {
             // Yang-Zhang needs at least 3 OHLC bars (2 overnight returns for variance)
             if n < 3 {
-                return 0.0;
+                return Ok(0.0);
             }
             // Yang-Zhang (2000) estimator: includes overnight jumps and opening gaps
             // Combines overnight variance with Rogers-Satchell intraday variance
@@ -434,7 +480,7 @@ pub fn realized_variance_ohlc(
                 / (open_close_returns.len() - 1) as f64;
             let var_rs = sum_rs / (n - 1) as f64;
 
-            (var_overnight + k * var_open_close + (1.0 - k) * var_rs) * annualization_factor
+            Ok((var_overnight + k * var_open_close + (1.0 - k) * var_rs) * annualization_factor)
         }
     }
 }
@@ -687,12 +733,16 @@ impl OnlineCovariance {
     pub fn correlation(&self) -> f64 {
         let var_x = self.variance_x();
         let var_y = self.variance_y();
+        let denom = (var_x * var_y).sqrt();
 
-        if var_x < 1e-20 || var_y < 1e-20 {
+        // Return 0 only when at least one series is genuinely constant (exact
+        // IEEE zero), rather than using a hard-coded absolute threshold that
+        // misfires for data with a very small natural scale.
+        if denom == 0.0 {
             return 0.0;
         }
 
-        self.covariance() / (var_x * var_y).sqrt()
+        (self.covariance() / denom).clamp(-1.0, 1.0)
     }
 
     /// Optimal beta coefficient for control variate.
@@ -701,7 +751,7 @@ impl OnlineCovariance {
     /// the variance of `X - beta(Y - E[Y])`.
     pub fn optimal_beta(&self) -> f64 {
         let var_y = self.variance_y();
-        if var_y < 1e-20 {
+        if var_y == 0.0 {
             return 0.0;
         }
         self.covariance() / var_y
@@ -878,6 +928,42 @@ mod tests {
         cov.update(3.0, 6.0);
 
         assert!((cov.optimal_beta() - 0.5).abs() < 1e-10);
+    }
+
+    // ── H8 regression: tiny-scale perfectly correlated series ──
+    //
+    // With data at scale 1e-12 the old `var < 1e-20` guard fires incorrectly
+    // because (1e-12)^2 = 1e-24 < 1e-20. The new implementation should detect
+    // the true correlation = 1.0.
+    #[test]
+    fn test_online_covariance_tiny_scale_perfect_correlation() {
+        let scale = 1.0e-12_f64;
+        let mut cov = OnlineCovariance::new();
+        cov.update(1.0 * scale, 2.0 * scale);
+        cov.update(2.0 * scale, 4.0 * scale);
+        cov.update(3.0 * scale, 6.0 * scale);
+        let r = cov.correlation();
+        assert!(
+            (r - 1.0).abs() < 1e-10,
+            "Tiny-scale perfect correlation should be 1.0, got {r}"
+        );
+    }
+
+    // ── H8 regression: genuinely constant series returns 0 ──
+    //
+    // A series where all X values are identical has zero variance; the
+    // correlation is undefined and we return 0 as the safe sentinel.
+    #[test]
+    fn test_online_covariance_constant_series_returns_zero() {
+        let mut cov = OnlineCovariance::new();
+        cov.update(5.0, 1.0);
+        cov.update(5.0, 2.0);
+        cov.update(5.0, 3.0);
+        assert_eq!(
+            cov.correlation(),
+            0.0,
+            "Constant X series must return correlation 0.0"
+        );
     }
 
     // ── quantile tests ──

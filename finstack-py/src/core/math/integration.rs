@@ -202,7 +202,12 @@ pub fn simpson_rule_py(func: Bound<'_, PyAny>, a: f64, b: f64, intervals: usize)
 ///     max_depth (int): Maximum recursion depth controlling refinement.
 ///
 /// Returns:
-///     float: Integral estimate satisfying the tolerance when possible.
+///     float: Integral estimate with error bounded by ``tol``.
+///
+/// Raises:
+///     ValueError: If the tolerance cannot be met within ``max_depth`` recursion
+///         levels (e.g. highly oscillatory or discontinuous integrands). Increase
+///         ``max_depth`` or switch to a non-adaptive rule in such cases.
 pub fn adaptive_simpson_py(
     func: Bound<'_, PyAny>,
     a: f64,

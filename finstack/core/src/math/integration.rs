@@ -331,14 +331,13 @@ impl GaussHermiteQuadrature {
     where
         F2: Fn(f64) -> f64,
     {
-        let mut result = 0.0;
-        let sqrt_2 = std::f64::consts::SQRT_2; // √2
-
+        use crate::math::summation::NeumaierAccumulator;
+        let sqrt_2 = std::f64::consts::SQRT_2;
+        let mut acc = NeumaierAccumulator::new();
         for (i, &z) in self.points.iter().enumerate() {
-            result += self.weights[i] * f(sqrt_2 * z); // Evaluate at √2 * node
+            acc.add(self.weights[i] * f(sqrt_2 * z));
         }
-
-        result / std::f64::consts::PI.sqrt() // 1/√π
+        acc.total() / std::f64::consts::PI.sqrt()
     }
 
     /// Adaptive Gauss-Hermite integration with automatic refinement.
@@ -496,15 +495,27 @@ where
 ///
 /// # Returns
 ///
-/// Approximate integral value with error bounded by `tol` (when possible).
+/// Approximate integral value with error bounded by `tol` when convergence is reached.
+///
+/// # Errors
+///
+/// Returns [`Error::Input`] wrapping `InputError::SolverConvergenceFailed` if the
+/// tolerance cannot be met within `max_depth` recursion levels. The error payload
+/// includes the error estimate, the interval midpoint, and the depth reached. Callers
+/// handling pathological integrands should increase `max_depth` or switch to a
+/// non-adaptive rule such as [`gauss_legendre_integrate`].
 ///
 /// # Algorithm
 ///
 /// Uses recursive bisection with Simpson's rule on each subinterval. At each level:
-/// 1. Compute Simpson's rule on `[a, b]`
-/// 2. Compute Simpson's rule on `[a, mid]` and `[mid, b]`
-/// 3. If error estimate ≤ `tol` or depth ≥ `max_depth`, return the composite estimate
-/// 4. Otherwise, recursively refine each half with `tol/2`
+/// 1. Compute Simpson's rule on `[a, mid]` and `[mid, b]`
+/// 2. Compare the composite estimate against the coarser estimate using Richardson
+///    extrapolation: `error ≈ |total - whole| / 15`
+/// 3. If `error ≤ tol`, accept the composite estimate and return it
+/// 4. If the error budget is not met and `depth == max_depth`, return
+///    [`InputError::SolverConvergenceFailed`](crate::error::InputError) with the
+///    residual, interval, and tolerance in the error message
+/// 5. Otherwise, recursively refine each half with `tol/2`
 ///
 /// # Complexity
 ///
@@ -541,11 +552,6 @@ where
     where
         F2: Fn(f64) -> f64 + Copy,
     {
-        if depth >= max_depth {
-            // At recursion limit, return the current best composite estimate
-            return Ok(whole);
-        }
-
         let c = (a + b) / 2.0;
 
         let fd = f((a + c) / 2.0);
@@ -561,15 +567,28 @@ where
         let error_estimate = (total - whole).abs() / 15.0;
 
         if error_estimate <= tol {
-            Ok(total)
-        } else {
-            let mid_tol = tol / 2.0;
-            let left_result =
-                adaptive_simpson_inner(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
-            let right_result =
-                adaptive_simpson_inner(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
-            Ok(left_result + right_result)
+            return Ok(total);
         }
+
+        if depth >= max_depth {
+            return Err(crate::error::InputError::SolverConvergenceFailed {
+                iterations: depth,
+                residual: error_estimate,
+                last_x: (a + b) / 2.0,
+                reason: format!(
+                    "adaptive_simpson did not meet tolerance {tol:.2e} at max_depth {max_depth} \
+                     (interval [{a:.6e}, {b:.6e}], error estimate {error_estimate:.2e})"
+                ),
+            }
+            .into());
+        }
+
+        let mid_tol = tol / 2.0;
+        let left_result =
+            adaptive_simpson_inner(f, a, c, mid_tol, fa, fc, fd, left, depth + 1, max_depth)?;
+        let right_result =
+            adaptive_simpson_inner(f, c, b, mid_tol, fc, fb, fe, right, depth + 1, max_depth)?;
+        Ok(left_result + right_result)
     }
 
     let c = (a + b) / 2.0;
@@ -741,7 +760,7 @@ where
     }
     let (xs, ws) = gl_nodes_weights(order)?;
     let half = 0.5 * (b - a);
-    let mid = 0.5 * (b + a);
+    let mid = a + half;
     let mut acc = 0.0;
     for i in 0..xs.len() {
         let x = mid + half * xs[i];
@@ -873,7 +892,7 @@ where
         F2: Fn(f64) -> f64 + Copy,
     {
         let i1 = gauss_legendre_integrate(f, a, b, order)?;
-        let mid = 0.5 * (a + b);
+        let mid = a + 0.5 * (b - a);
         let i2_left = gauss_legendre_integrate(f, a, mid, order)?;
         let i2_right = gauss_legendre_integrate(f, mid, b, order)?;
         let i2 = i2_left + i2_right;

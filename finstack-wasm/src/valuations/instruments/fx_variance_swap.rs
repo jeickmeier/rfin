@@ -95,6 +95,11 @@ pub struct JsFxVarianceSwapBuilder {
     domestic_curve_id: Option<String>,
     foreign_curve_id: Option<String>,
     vol_surface_id: Option<String>,
+    open_series_id: Option<String>,
+    high_series_id: Option<String>,
+    low_series_id: Option<String>,
+    close_series_id: Option<String>,
+    realized_method: Option<String>,
 }
 
 #[wasm_bindgen(js_class = FxVarianceSwapBuilder)]
@@ -173,6 +178,36 @@ impl JsFxVarianceSwapBuilder {
         self
     }
 
+    #[wasm_bindgen(js_name = realizedMethod)]
+    pub fn realized_method(mut self, realized_method: &str) -> JsFxVarianceSwapBuilder {
+        self.realized_method = Some(realized_method.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = openSeriesId)]
+    pub fn open_series_id(mut self, series_id: &str) -> JsFxVarianceSwapBuilder {
+        self.open_series_id = Some(series_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = highSeriesId)]
+    pub fn high_series_id(mut self, series_id: &str) -> JsFxVarianceSwapBuilder {
+        self.high_series_id = Some(series_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = lowSeriesId)]
+    pub fn low_series_id(mut self, series_id: &str) -> JsFxVarianceSwapBuilder {
+        self.low_series_id = Some(series_id.to_string());
+        self
+    }
+
+    #[wasm_bindgen(js_name = closeSeriesId)]
+    pub fn close_series_id(mut self, series_id: &str) -> JsFxVarianceSwapBuilder {
+        self.close_series_id = Some(series_id.to_string());
+        self
+    }
+
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsFxVarianceSwap, JsValue> {
         use finstack_core::math::stats::RealizedVarMethod;
@@ -212,7 +247,15 @@ impl JsFxVarianceSwapBuilder {
             .as_deref()
             .ok_or_else(|| JsValue::from_str("FxVarianceSwapBuilder: volSurfaceId is required"))?;
 
-        let swap = FxVarianceSwap::builder()
+        let method = match self.realized_method.as_deref() {
+            Some(m) => {
+                use crate::valuations::common::parse::parse_optional_with_default;
+                parse_optional_with_default(Some(m.to_string()), RealizedVarMethod::CloseToClose)?
+            }
+            None => RealizedVarMethod::CloseToClose,
+        };
+
+        let mut builder = FxVarianceSwap::builder()
             .id(InstrumentId::new(&self.instrument_id))
             .base_currency(base_currency)
             .quote_currency(quote_currency)
@@ -221,13 +264,28 @@ impl JsFxVarianceSwapBuilder {
             .start_date(start_date)
             .maturity(maturity)
             .observation_freq(observation_freq)
-            .realized_var_method(RealizedVarMethod::CloseToClose)
+            .realized_var_method(method)
             .side(side)
             .domestic_discount_curve_id(CurveId::new(domestic_curve_id))
             .foreign_discount_curve_id(CurveId::new(foreign_curve_id))
             .vol_surface_id(CurveId::new(vol_surface_id))
             .day_count(DayCount::Act365F)
-            .attributes(Attributes::new())
+            .attributes(Attributes::new());
+
+        if let Some(id) = self.open_series_id {
+            builder = builder.open_series_id(id);
+        }
+        if let Some(id) = self.high_series_id {
+            builder = builder.high_series_id(id);
+        }
+        if let Some(id) = self.low_series_id {
+            builder = builder.low_series_id(id);
+        }
+        if let Some(id) = self.close_series_id {
+            builder = builder.close_series_id(id);
+        }
+
+        let swap = builder
             .build()
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 

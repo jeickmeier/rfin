@@ -249,6 +249,10 @@ pub struct PyFxVarianceSwapBuilder {
     maturity: Option<time::Date>,
     observation_freq: Option<Tenor>,
     realized_var_method: RealizedVarMethod,
+    open_series_id: Option<String>,
+    high_series_id: Option<String>,
+    low_series_id: Option<String>,
+    close_series_id: Option<String>,
     side: PayReceive,
     domestic_discount_curve_id: Option<CurveId>,
     foreign_discount_curve_id: Option<CurveId>,
@@ -269,6 +273,10 @@ impl PyFxVarianceSwapBuilder {
             maturity: None,
             observation_freq: None,
             realized_var_method: RealizedVarMethod::CloseToClose,
+            open_series_id: None,
+            high_series_id: None,
+            low_series_id: None,
+            close_series_id: None,
             side: PayReceive::Receive,
             domestic_discount_curve_id: None,
             foreign_discount_curve_id: None,
@@ -342,6 +350,10 @@ impl PyFxVarianceSwapBuilder {
             maturity,
             observation_freq,
             realized_var_method: self.realized_var_method,
+            open_series_id: self.open_series_id.clone(),
+            high_series_id: self.high_series_id.clone(),
+            low_series_id: self.low_series_id.clone(),
+            close_series_id: self.close_series_id.clone(),
             side: self.side,
             domestic_discount_curve_id,
             foreign_discount_curve_id,
@@ -432,6 +444,29 @@ impl PyFxVarianceSwapBuilder {
         method: FxRealizedVarMethodArg,
     ) -> PyRefMut<'py, Self> {
         slf.realized_var_method = method.0.inner;
+        slf
+    }
+
+    fn open_series_id<'py>(mut slf: PyRefMut<'py, Self>, series_id: String) -> PyRefMut<'py, Self> {
+        slf.open_series_id = Some(series_id);
+        slf
+    }
+
+    fn high_series_id<'py>(mut slf: PyRefMut<'py, Self>, series_id: String) -> PyRefMut<'py, Self> {
+        slf.high_series_id = Some(series_id);
+        slf
+    }
+
+    fn low_series_id<'py>(mut slf: PyRefMut<'py, Self>, series_id: String) -> PyRefMut<'py, Self> {
+        slf.low_series_id = Some(series_id);
+        slf
+    }
+
+    fn close_series_id<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        series_id: String,
+    ) -> PyRefMut<'py, Self> {
+        slf.close_series_id = Some(series_id);
         slf
     }
 
@@ -583,6 +618,30 @@ impl PyFxVarianceSwap {
     #[getter]
     fn spot_id(&self) -> Option<String> {
         self.inner.spot_id.clone()
+    }
+
+    /// Open price series identifier (required for OHLC-based estimators).
+    #[getter]
+    fn open_series_id(&self) -> Option<String> {
+        self.inner.open_series_id.clone()
+    }
+
+    /// High price series identifier (required for OHLC-based estimators).
+    #[getter]
+    fn high_series_id(&self) -> Option<String> {
+        self.inner.high_series_id.clone()
+    }
+
+    /// Low price series identifier (required for OHLC-based estimators).
+    #[getter]
+    fn low_series_id(&self) -> Option<String> {
+        self.inner.low_series_id.clone()
+    }
+
+    /// Close price series identifier. Defaults to spot_id when not set.
+    #[getter]
+    fn close_series_id(&self) -> Option<String> {
+        self.inner.close_series_id.clone()
     }
 
     /// Domestic discount curve identifier.

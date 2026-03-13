@@ -34,7 +34,8 @@ fn log_returns_and_realized_variance_close_to_close() {
     let returns = log_returns(&prices);
     assert_eq!(returns.len(), prices.len() - 1);
 
-    let rv = realized_variance(&prices, RealizedVarMethod::CloseToClose, 252.0);
+    let rv = realized_variance(&prices, RealizedVarMethod::CloseToClose, 252.0)
+        .expect("CloseToClose should succeed");
     assert!(rv.is_finite() && rv >= 0.0);
     let expected = returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64 * 252.0;
     assert!(
@@ -42,8 +43,25 @@ fn log_returns_and_realized_variance_close_to_close() {
         "close-to-close RV should use squared log returns"
     );
 
-    let rv_alt = realized_variance(&prices, RealizedVarMethod::Parkinson, 252.0);
-    assert!(rv_alt.is_finite());
+    // OHLC-only methods must be rejected on the close-only API
+    for method in [
+        RealizedVarMethod::Parkinson,
+        RealizedVarMethod::GarmanKlass,
+        RealizedVarMethod::RogersSatchell,
+        RealizedVarMethod::YangZhang,
+    ] {
+        let result = realized_variance(&prices, method, 252.0);
+        assert!(
+            result.is_err(),
+            "realized_variance with {} must return Err for close-only input",
+            method.label()
+        );
+        let msg = result.unwrap_err().to_string();
+        assert!(
+            msg.contains("OHLC"),
+            "error message should mention OHLC: {msg}"
+        );
+    }
 }
 
 #[test]
@@ -60,7 +78,8 @@ fn realized_variance_ohlc_estimators_behave() {
         RealizedVarMethod::RogersSatchell,
         RealizedVarMethod::YangZhang,
     ] {
-        let value = realized_variance_ohlc(&open, &high, &low, &close, method, 252.0);
+        let value = realized_variance_ohlc(&open, &high, &low, &close, method, 252.0)
+            .expect("realized_variance_ohlc should succeed for valid OHLC input");
         assert!(value.is_finite() && value >= 0.0);
     }
 }
@@ -102,7 +121,8 @@ fn parkinson_variance_golden() {
         &close,
         RealizedVarMethod::Parkinson,
         252.0,
-    );
+    )
+    .expect("Parkinson should succeed for valid OHLC input");
 
     assert!(
         (result - expected_annual).abs() < 1e-10,
@@ -157,7 +177,8 @@ fn garman_klass_variance_golden() {
         &close,
         RealizedVarMethod::GarmanKlass,
         252.0,
-    );
+    )
+    .expect("GarmanKlass should succeed for valid OHLC input");
 
     assert!(
         (result - expected_annual).abs() < 1e-10,
@@ -183,7 +204,8 @@ fn yang_zhang_includes_open_to_close_component() {
         &close,
         RealizedVarMethod::YangZhang,
         annualization,
-    );
+    )
+    .expect("YangZhang should succeed for valid OHLC input");
 
     let n = open.len();
     let k = 0.34 / (1.34 + (n + 1) as f64 / (n - 1) as f64);

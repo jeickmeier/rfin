@@ -1,5 +1,7 @@
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::variance_swap::VarianceSwap;
+
+type OhlcVecs = (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>);
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,
 };
@@ -28,16 +30,30 @@ pub(crate) fn compute_pv(
     let disc = curves.get_discount(inst.discount_curve_id.as_str())?;
 
     if as_of >= inst.maturity {
-        let prices = get_historical_prices(inst, curves, as_of)?;
-        if prices.is_empty() {
-            return Ok(Money::new(0.0, inst.notional.currency()));
-        }
-
-        let realized_var = realized_variance(
-            &prices,
-            inst.realized_var_method,
-            annualization_factor_with_policy(inst, curves),
-        );
+        let realized_var = if inst.realized_var_method.requires_ohlc() {
+            let (open, high, low, close) = get_historical_ohlc(inst, curves, as_of)?;
+            if close.is_empty() {
+                return Ok(Money::new(0.0, inst.notional.currency()));
+            }
+            finstack_core::math::stats::realized_variance_ohlc(
+                &open,
+                &high,
+                &low,
+                &close,
+                inst.realized_var_method,
+                annualization_factor_with_policy(inst, curves),
+            )?
+        } else {
+            let prices = get_historical_prices(inst, curves, as_of)?;
+            if prices.is_empty() {
+                return Ok(Money::new(0.0, inst.notional.currency()));
+            }
+            realized_variance(
+                &prices,
+                inst.realized_var_method,
+                annualization_factor_with_policy(inst, curves),
+            )?
+        };
         return Ok(inst.payoff(realized_var));
     }
 
@@ -191,7 +207,11 @@ pub(crate) fn get_historical_prices(
     context: &MarketContext,
     as_of: Date,
 ) -> Result<Vec<f64>> {
-    if let Ok(series) = context.get_series(&inst.underlying_ticker) {
+    let close_id = inst
+        .close_series_id
+        .as_deref()
+        .unwrap_or(&inst.underlying_ticker);
+    if let Ok(series) = context.get_series(close_id) {
         let dates: Vec<Date> = observation_dates(inst)
             .into_iter()
             .filter(|&d| d <= as_of)
@@ -211,20 +231,86 @@ pub(crate) fn get_historical_prices(
     }
 }
 
+/// Load aligned OHLC histories from the market context for OHLC-based estimators.
+///
+/// Returns `Err(Validation)` if any required series ID is missing.
+pub(crate) fn get_historical_ohlc(
+    inst: &VarianceSwap,
+    context: &MarketContext,
+    as_of: Date,
+) -> Result<OhlcVecs> {
+    let default_close = inst
+        .close_series_id
+        .as_deref()
+        .unwrap_or(&inst.underlying_ticker);
+
+    let method_label = inst.realized_var_method.label();
+    let inst_id = inst.id.as_str().to_owned();
+
+    let open_id = inst.open_series_id.as_deref().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "VarianceSwap '{inst_id}': 'open_series_id' is required for \
+             realized_var_method={method_label}. Set the corresponding *_series_id field."
+        ))
+    })?;
+    let high_id = inst.high_series_id.as_deref().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "VarianceSwap '{inst_id}': 'high_series_id' is required for \
+             realized_var_method={method_label}. Set the corresponding *_series_id field."
+        ))
+    })?;
+    let low_id = inst.low_series_id.as_deref().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "VarianceSwap '{inst_id}': 'low_series_id' is required for \
+             realized_var_method={method_label}. Set the corresponding *_series_id field."
+        ))
+    })?;
+
+    let dates: Vec<Date> = observation_dates(inst)
+        .into_iter()
+        .filter(|&d| d <= as_of)
+        .collect();
+
+    if dates.len() < 2 {
+        return Ok((vec![], vec![], vec![], vec![]));
+    }
+
+    let open_vals = context.get_series(open_id)?.values_on(&dates)?;
+    let high_vals = context.get_series(high_id)?.values_on(&dates)?;
+    let low_vals = context.get_series(low_id)?.values_on(&dates)?;
+    let close_vals = context.get_series(default_close)?.values_on(&dates)?;
+
+    Ok((open_vals, high_vals, low_vals, close_vals))
+}
+
 pub(crate) fn partial_realized_variance(
     inst: &VarianceSwap,
     context: &MarketContext,
     as_of: Date,
 ) -> Result<f64> {
+    if inst.realized_var_method.requires_ohlc() {
+        let (open, high, low, close) = get_historical_ohlc(inst, context, as_of)?;
+        if close.len() < 2 {
+            return Ok(0.0);
+        }
+        return finstack_core::math::stats::realized_variance_ohlc(
+            &open,
+            &high,
+            &low,
+            &close,
+            inst.realized_var_method,
+            annualization_factor_with_policy(inst, context),
+        );
+    }
     let prices = get_historical_prices(inst, context, as_of)?;
     if prices.len() < 2 {
         return Ok(0.0);
     }
-    Ok(realized_variance(
+    realized_variance(
         &prices,
         inst.realized_var_method,
         annualization_factor_with_policy(inst, context),
-    ))
+    )
 }
 
 pub(crate) fn remaining_forward_variance(

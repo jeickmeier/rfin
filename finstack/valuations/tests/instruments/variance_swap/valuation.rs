@@ -223,7 +223,8 @@ fn test_npv_at_maturity_recovers_realized_payoff() {
         &prices.iter().map(|(_, p)| *p).collect::<Vec<_>>(),
         RealizedVarMethod::CloseToClose,
         252.0,
-    );
+    )
+    .expect("CloseToClose should succeed");
     let expected = swap.payoff(realized);
 
     assert!((pv.amount() - expected.amount()).abs() < LOOSE_EPSILON);
@@ -242,7 +243,8 @@ fn test_npv_at_maturity_no_discounting_applied() {
         &prices.iter().map(|(_, p)| *p).collect::<Vec<_>>(),
         RealizedVarMethod::CloseToClose,
         252.0,
-    );
+    )
+    .expect("CloseToClose should succeed");
     let payoff = swap.payoff(realized);
 
     // Assert - PV should equal undiscounted payoff at maturity
@@ -302,7 +304,8 @@ fn test_npv_after_maturity_uses_final_realized_variance() {
         &prices.iter().map(|(_, p)| *p).collect::<Vec<_>>(),
         RealizedVarMethod::CloseToClose,
         252.0,
-    );
+    )
+    .expect("CloseToClose should succeed");
     let expected = swap.payoff(realized);
 
     assert!((pv.amount() - expected.amount()).abs() < LOOSE_EPSILON);

@@ -69,7 +69,27 @@ def realized_variance(
     prices: list[float],
     method: RealizedVarMethod | str = ...,
     annualization_factor: float = ...,
-) -> float: ...
+) -> float:
+    """Compute annualized realized variance from a close-price series.
+
+    Parameters
+    ----------
+    prices:
+        Closing prices in chronological order.
+    method:
+        Estimator to use. Must be ``CloseToClose``; OHLC-only estimators
+        (``Parkinson``, ``GarmanKlass``, ``RogersSatchell``, ``YangZhang``)
+        raise ``ValueError`` — use :func:`realized_variance_ohlc` instead.
+    annualization_factor:
+        Trading periods per year (default 252).
+
+    Raises
+    ------
+    ValueError
+        If ``method`` requires OHLC data.
+    """
+    ...
+
 def realized_variance_ohlc(
     open: list[float],
     high: list[float],
@@ -77,4 +97,28 @@ def realized_variance_ohlc(
     close: list[float],
     method: RealizedVarMethod | str = ...,
     annualization_factor: float = ...,
-) -> float: ...
+) -> float:
+    """Compute annualized realized variance from an OHLC price series.
+
+    Parameters
+    ----------
+    open:
+        Opening prices in chronological order.
+    high:
+        Daily high prices in chronological order.
+    low:
+        Daily low prices in chronological order.
+    close:
+        Closing prices in chronological order.
+    method:
+        Estimator to use (any :class:`RealizedVarMethod` value).
+    annualization_factor:
+        Trading periods per year (default 252).
+
+    Raises
+    ------
+    ValueError
+        If ``open``, ``high``, ``low``, and ``close`` do not all have the
+        same length.
+    """
+    ...

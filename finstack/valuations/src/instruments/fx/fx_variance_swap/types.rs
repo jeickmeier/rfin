@@ -49,6 +49,25 @@ pub struct FxVarianceSwap {
     #[serde(default)]
     #[builder(default)]
     pub realized_var_method: RealizedVarMethod,
+    /// Series ID for open prices (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    /// Defaults to `spot_id` (or currency-pair string) when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub open_series_id: Option<String>,
+    /// Series ID for high prices (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    /// Defaults to `spot_id` (or currency-pair string) when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub high_series_id: Option<String>,
+    /// Series ID for low prices (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    /// Defaults to `spot_id` (or currency-pair string) when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub low_series_id: Option<String>,
+    /// Series ID for close prices. Defaults to `spot_id` (or currency-pair string) when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub close_series_id: Option<String>,
     /// Pay/receive variance
     pub side: PayReceive,
     /// Domestic currency discount curve ID

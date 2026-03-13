@@ -84,6 +84,25 @@ pub struct VarianceSwap {
     #[serde(default)]
     #[builder(default)]
     pub realized_var_method: RealizedVarMethod,
+    /// Series ID for open prices (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    /// Defaults to `underlying_ticker` when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub open_series_id: Option<String>,
+    /// Series ID for high prices (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    /// Defaults to `underlying_ticker` when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub high_series_id: Option<String>,
+    /// Series ID for low prices (required for Parkinson, GarmanKlass, RogersSatchell, YangZhang).
+    /// Defaults to `underlying_ticker` when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub low_series_id: Option<String>,
+    /// Series ID for close prices. Defaults to `underlying_ticker` when absent.
+    #[serde(default)]
+    #[builder(optional)]
+    pub close_series_id: Option<String>,
     /// Pay/receive variance
     pub side: PayReceive,
     /// Discount curve identifier
@@ -173,7 +192,7 @@ impl VarianceSwap {
             .start_date(date!(2024 - 01 - 01))
             .maturity(date!(2025 - 01 - 01))
             .observation_freq(finstack_core::dates::Tenor::daily())
-            .realized_var_method(RealizedVarMethod::Parkinson)
+            .realized_var_method(RealizedVarMethod::CloseToClose)
             .side(PayReceive::Receive)
             .discount_curve_id(CurveId::new("USD-OIS"))
             .day_count(DayCount::Act365F)

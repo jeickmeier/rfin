@@ -176,7 +176,8 @@ fn test_realized_variance_matches_series_calculation() {
         &used_prices,
         RealizedVarMethod::CloseToClose,
         annualization_factor,
-    );
+    )
+    .expect("CloseToClose should succeed");
 
     assert!((rv - manual).abs() < EPSILON);
 }
@@ -235,7 +236,8 @@ fn test_expected_variance_blends_realized_and_forward_mid_period() {
         .filter_map(|d| prices.iter().find(|(pd, _)| pd == d).map(|(_, p)| *p))
         .collect();
     let annualization = swap.annualization_factor_with_policy(&ctx);
-    let realized = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, annualization);
+    let realized = realized_variance(&used_prices, RealizedVarMethod::CloseToClose, annualization)
+        .expect("CloseToClose should succeed");
     let forward = 0.23_f64.powi(2);
     let w = observation_weight(&swap, as_of);
     let expected = realized * w + forward * (1.0 - w);

@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 605a72981f0adbba2b27173dd70b31b3570582378b581a9350e76dbb3deffb41 # shrinks to spot = 50.0, strike = 141.4882274604004, vol = 0.1, rate = 0.09285993274128063, div_yield = 0.0, time_to_expiry_days = 212
+cc 4cd4ae7018fad727cd28e84113f943e1aedffd0e37324e669ba88eb865a18a40 # shrinks to spot = 141.8558528890584, strike = 58.7094890814326, vol = 0.36780687243026344, rate = 0.0, div_yield = 0.0, time_to_expiry_days = 31

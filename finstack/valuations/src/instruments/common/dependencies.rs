@@ -36,6 +36,8 @@ pub struct MarketDependencies {
     pub vol_surface_ids: Vec<String>,
     /// FX pairs required for pricing (spot matrices).
     pub fx_pairs: Vec<FxPair>,
+    /// Scalar time series identifiers (e.g., OHLC price series for realized variance).
+    pub series_ids: Vec<String>,
 }
 
 impl MarketDependencies {
@@ -120,6 +122,11 @@ impl MarketDependencies {
         push_unique_string(&mut self.vol_surface_ids, id.into());
     }
 
+    /// Add a scalar time series identifier.
+    pub fn add_series_id(&mut self, id: impl Into<String>) {
+        push_unique_string(&mut self.series_ids, id.into());
+    }
+
     /// Add an FX pair dependency.
     pub fn add_fx_pair(&mut self, base: Currency, quote: Currency) {
         push_unique_fx_pair(&mut self.fx_pairs, FxPair::new(base, quote));
@@ -136,6 +143,9 @@ impl MarketDependencies {
         }
         for pair in other.fx_pairs {
             self.add_fx_pair(pair.base, pair.quote);
+        }
+        for id in other.series_ids {
+            self.add_series_id(id);
         }
     }
 
@@ -183,7 +193,27 @@ impl MarketDependencies {
             InstrumentJson::AsianOption(i) => Self::from_curves_and_equity(i),
             InstrumentJson::BarrierOption(i) => Self::from_curves_and_equity(i),
             InstrumentJson::LookbackOption(i) => Self::from_curves_and_equity(i),
-            InstrumentJson::VarianceSwap(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::VarianceSwap(i) => {
+                let mut deps = Self::from_curve_dependencies(i)?;
+                if i.realized_var_method.requires_ohlc() {
+                    for series_id in [
+                        i.open_series_id.as_deref(),
+                        i.high_series_id.as_deref(),
+                        i.low_series_id.as_deref(),
+                        i.close_series_id.as_deref(),
+                    ]
+                    .iter()
+                    .filter_map(|&s| s)
+                    {
+                        deps.add_series_id(series_id);
+                    }
+                } else if let Some(close_id) = i.close_series_id.as_deref() {
+                    deps.add_series_id(close_id);
+                } else {
+                    deps.add_series_id(i.underlying_ticker.as_str());
+                }
+                Ok(deps)
+            }
             InstrumentJson::EquityIndexFuture(i) => Self::from_curves_and_equity(i),
             InstrumentJson::VolatilityIndexFuture(i) => Self::from_curve_dependencies(i),
             InstrumentJson::VolatilityIndexOption(i) => Self::from_curve_dependencies(i),
@@ -243,6 +273,21 @@ impl MarketDependencies {
                 }
                 deps.add_vol_surface_id(i.vol_surface_id.as_str());
                 deps.add_fx_pair(i.base_currency, i.quote_currency);
+                if i.realized_var_method.requires_ohlc() {
+                    for series_id in [
+                        i.open_series_id.as_deref(),
+                        i.high_series_id.as_deref(),
+                        i.low_series_id.as_deref(),
+                        i.close_series_id.as_deref(),
+                    ]
+                    .iter()
+                    .filter_map(|&s| s)
+                    {
+                        deps.add_series_id(series_id);
+                    }
+                } else if let Some(close_id) = i.close_series_id.as_deref() {
+                    deps.add_series_id(close_id);
+                }
                 Ok(deps)
             }
             InstrumentJson::QuantoOption(i) => {

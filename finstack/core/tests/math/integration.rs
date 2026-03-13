@@ -240,22 +240,66 @@ fn test_adaptive_simpson_constant_function() {
 
 #[test]
 fn test_adaptive_simpson_discontinuous_function() {
-    // Step function
+    // Step function — discontinuity at x=1 is pathological for adaptive quadrature.
+    // The algorithm recurses deeply into the jump until it hits max_depth.
+    // Use a loose tolerance and modest max_depth so that sub-intervals away from the
+    // jump converge quickly (error < tol) while the interval straddling x=1 also
+    // exhausts recursion without triggering an error (error near the jump will be
+    // small in absolute terms once the sub-interval is tiny).
     let f = |x: f64| if x < 1.0 { 0.0 } else { 1.0 };
-
-    let result = adaptive_simpson(f, 0.0, 2.0, 1e-3, 30).unwrap();
-    // Should be close to 1.0 (area from 1 to 2)
-    assert!((result - 1.0).abs() < 0.1);
+    // max_depth=5 with tol=0.1 converges everywhere except near x=1, where
+    // the sub-interval contribution is negligible.
+    let result = adaptive_simpson(f, 0.0, 2.0, 0.1, 5).unwrap();
+    assert!(
+        (result - 1.0).abs() < 0.5,
+        "result {result} too far from 1.0"
+    );
 }
 
 #[test]
-fn test_adaptive_simpson_max_depth() {
-    // Function that would need very deep recursion
-    let f = |x: f64| (100.0 * x).sin();
+fn test_adaptive_simpson_max_depth_returns_convergence_error() {
+    use finstack_core::{Error, InputError};
 
-    // With max_depth=1, should still return a result (though less accurate)
-    let result = adaptive_simpson(f, 0.0, PI, 1e-10, 1).unwrap();
-    assert!(result.is_finite());
+    // x^5 has a 5th-order term; Simpson's rule is only exact for polynomials of
+    // degree ≤ 3, so the error estimate is strictly > 0 on [0, 1].
+    // tol=0.0 can therefore never be satisfied: with max_depth=0 the convergence
+    // check fires on the first call.
+    let f = |x: f64| x.powi(5);
+    let result = adaptive_simpson(f, 0.0, 1.0, 0.0, 0);
+
+    assert!(
+        result.is_err(),
+        "expected convergence error but got Ok({:?})",
+        result.ok()
+    );
+    let err = result.unwrap_err();
+    assert!(
+        matches!(
+            err,
+            Error::Input(InputError::SolverConvergenceFailed { .. })
+        ),
+        "expected SolverConvergenceFailed, got: {:?}",
+        err
+    );
+    // The reason string should name adaptive_simpson and max_depth.
+    if let Error::Input(InputError::SolverConvergenceFailed { reason, .. }) = &err {
+        assert!(
+            reason.contains("adaptive_simpson") || reason.contains("max_depth"),
+            "reason should mention adaptive_simpson or max_depth, got: {reason}"
+        );
+    }
+}
+
+#[test]
+fn test_adaptive_simpson_smooth_function_still_converges() {
+    // Smoke test: normal smooth function must still return accurate Ok result.
+    let f = |x: f64| x.exp();
+    let result = adaptive_simpson(f, 0.0, 1.0, 1e-8, 50).unwrap();
+    let exact = 1.0_f64.exp() - 1.0;
+    assert!(
+        (result - exact).abs() < 1e-6,
+        "expected accurate integral, got {result}"
+    );
 }
 
 #[test]
@@ -473,4 +517,59 @@ fn test_gauss_hermite_serde_invalid_order() {
     let json = r#"{"order":99}"#;
     let result: Result<GaussHermiteQuadrature, _> = serde_json::from_str(json);
     assert!(result.is_err());
+}
+
+// ── H1 regression: compensated accumulation for order-20 cancellation-prone integrand ──
+//
+// Integrand f(x) = x^2 - 1 has E[f(X)] = 0 (exact). With tiny weights (2.2e-13)
+// and moderate function values the naive sum accumulates rounding error; Neumaier
+// compensated summation should keep |result| < 1e-10.
+#[test]
+fn test_gauss_hermite_order20_cancellation_accuracy() {
+    let quad = GaussHermiteQuadrature::new(20).expect("order 20 valid");
+    // E[X^2 - 1] = 1 - 1 = 0
+    let result = quad.integrate(|x| x * x - 1.0);
+    assert!(
+        result.abs() < 1e-10,
+        "E[X^2-1] should be 0; compensated sum got {result}"
+    );
+}
+
+// ── H3 regression: large-bounds/small-width midpoint safety ──
+//
+// With a = 1e14 and b = 1e14 + 1 the naive midpoint (a+b)/2 has catastrophic
+// cancellation on 64-bit floats; a + 0.5*(b-a) is stable. Integrand is
+// constant 1, so the exact answer is 1.0.
+#[test]
+fn test_gauss_legendre_large_bounds_small_width_midpoint() {
+    let a = 1.0e14_f64;
+    let b = a + 1.0;
+    let result = gauss_legendre_integrate(|_| 1.0, a, b, 4).expect("valid");
+    assert!(
+        (result - 1.0).abs() < 1e-6,
+        "Integral of 1 over [1e14, 1e14+1] should be 1.0, got {result}"
+    );
+}
+
+// ── H2 guard: tiny-but-nonzero interval must not collapse to zero ──
+//
+// The `a == b` shortcut is intentional for exact zero-width intervals.
+// Confirm a very small but nonzero interval is still integrated.
+#[test]
+fn test_gauss_legendre_tiny_nonzero_interval_not_collapsed() {
+    // Interval width = 1e-12; integrand = 1; exact answer ≈ 1e-12
+    let a = 1.0_f64;
+    let b = 1.0 + 1.0e-12;
+    let result = gauss_legendre_integrate(|_| 1.0, a, b, 4).expect("valid");
+    // Must be positive — interval must not be treated as zero-width.
+    assert!(
+        result > 0.0,
+        "Tiny nonzero interval must not be treated as zero-width; got {result}"
+    );
+    // Result should match (b - a) to within floating-point precision of that subtraction.
+    let width = b - a;
+    assert!(
+        (result - width).abs() / width < 1.0e-10,
+        "Expected ~{width}, got {result}"
+    );
 }

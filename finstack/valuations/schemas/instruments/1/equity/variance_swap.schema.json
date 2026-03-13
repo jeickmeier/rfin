@@ -22,7 +22,39 @@
           "observation_freq": {
             "Days": 1
           },
+          "realized_var_method": "CloseToClose",
+          "side": "Receive",
+          "start_date": "2024-01-01",
+          "strike_variance": 0.04,
+          "underlying_id": "SPX"
+        },
+        "type": "variance_swap"
+      },
+      "schema": "finstack.instrument/1"
+    },
+    {
+      "instrument": {
+        "spec": {
+          "attributes": {
+            "meta": {},
+            "tags": []
+          },
+          "day_count": "Act365F",
+          "discount_curve_id": "USD-OIS",
+          "id": "VARSPX-PARK-1Y",
+          "maturity": "2025-01-01",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "observation_freq": {
+            "Days": 1
+          },
           "realized_var_method": "Parkinson",
+          "open_series_id": "SPX-OPEN",
+          "high_series_id": "SPX-HIGH",
+          "low_series_id": "SPX-LOW",
+          "close_series_id": "SPX-CLOSE",
           "side": "Receive",
           "start_date": "2024-01-01",
           "strike_variance": 0.04,
@@ -53,7 +85,7 @@
           "observation_freq": {
             "Days": 1
           },
-          "realized_var_method": "Parkinson",
+          "realized_var_method": "CloseToClose",
           "side": "Receive",
           "start_date": "2024-01-01",
           "strike_variance": 0.04,

@@ -771,6 +771,37 @@ mod tests {
         assert!(validate_correlation_matrix(&invalid_pd, 2).is_err());
     }
 
+    // ── H6 documentation tests: symmetry tolerance semantics ──
+    //
+    // The reviewer suggested switching to relative tolerance.
+    // This was rejected because correlation entries are naturally bounded in
+    // [-1, 1], making absolute tolerance scale-appropriate for this domain.
+    // A pure relative tolerance would behave erratically near zero correlation.
+    // These tests document the expected boundary behaviour.
+    #[test]
+    fn test_validate_correlation_matrix_symmetry_tolerance_boundary() {
+        // Asymmetry below SYMMETRY_TOLERANCE (1e-6) is accepted.
+        let almost_sym = vec![1.0, 0.5, 0.5 + 5.0e-7, 1.0];
+        assert!(
+            validate_correlation_matrix(&almost_sym, 2).is_ok(),
+            "Near-symmetric matrix below tolerance should be accepted"
+        );
+
+        // Asymmetry just above SYMMETRY_TOLERANCE is rejected.
+        let barely_asym = vec![1.0, 0.5, 0.5 + 2.0e-6, 1.0];
+        assert!(
+            validate_correlation_matrix(&barely_asym, 2).is_err(),
+            "Asymmetry above tolerance should be rejected"
+        );
+
+        // Near-zero correlation: absolute tolerance still applies correctly.
+        let near_zero_sym = vec![1.0, 1.0e-8, 1.0e-8, 1.0];
+        assert!(
+            validate_correlation_matrix(&near_zero_sym, 2).is_ok(),
+            "Near-zero symmetric correlation should be accepted"
+        );
+    }
+
     #[test]
     fn test_cholesky_fails_on_non_pd() {
         // Not positive definite - use a matrix that fails Cholesky properly

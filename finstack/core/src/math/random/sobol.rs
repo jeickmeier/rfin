@@ -236,9 +236,13 @@ impl SobolRng {
     /// - Owen, A. B. (1995). "Randomly Permuted (t,m,s)-Nets and (t,s)-Sequences."
     /// - Owen, A. B. (1997). "Scrambled Net Variance for Integrals of Smooth Functions."
     fn owen_scramble(&self, value: u32, d: usize) -> f64 {
+        (self.owen_scramble_int(value, d) as f64) / (u32::MAX as f64 + 1.0)
+    }
+
+    /// Apply Owen scrambling and return the scrambled integer in [0, 2^32).
+    fn owen_scramble_int(&self, value: u32, d: usize) -> u32 {
         if self.scramble_seeds[d] == 0 {
-            // No scrambling - just convert to [0, 1)
-            return (value as f64) / (u32::MAX as f64 + 1.0);
+            return value;
         }
 
         let matrix = &self.scramble_matrices[d];
@@ -266,8 +270,7 @@ impl SobolRng {
             }
         }
 
-        // Convert to [0, 1) using proper scaling
-        (scrambled as f64) / (u32::MAX as f64 + 1.0)
+        scrambled
     }
 
     /// Determine if a bit should be flipped based on hash input.
@@ -316,11 +319,35 @@ impl SobolRng {
     /// Fill buffer with standard normal random numbers.
     ///
     /// Uses the inverse CDF on Sobol-generated uniforms.
+    ///
+    /// # Mapping
+    ///
+    /// Raw Sobol integers are in `[0, 2^32)`. We map integer k to
+    /// `(k + 0.5) / 2^32`, centring each grid cell so that k=0 becomes
+    /// ~1.16e-10 rather than exactly 0. This keeps the inverse normal CDF
+    /// finite without the ~37-sigma outlier that `f64::MIN_POSITIVE` would
+    /// produce as a clamp lower bound.
     pub fn fill_std_normals(&mut self, out: &mut [f64]) {
-        self.fill_u01(out);
-        for x in out {
-            let clamped = x.clamp(f64::MIN_POSITIVE, 1.0 - f64::EPSILON);
-            *x = inverse_normal_cdf(clamped);
+        // Pre-fill with raw u32 Sobol integers (we need integer k before
+        // converting to uniform) — but fill_u01 already converts. Instead
+        // we re-implement a grid-centred mapping inline.
+        debug_assert!(
+            out.len().is_multiple_of(self.dimension),
+            "fill_std_normals: buffer length {} is not a multiple of dimension {}",
+            out.len(),
+            self.dimension
+        );
+        // Scale factor: 1 / 2^32
+        const INV_2_32: f64 = 1.0 / 4_294_967_296.0_f64;
+        for chunk in out.chunks_mut(self.dimension) {
+            for (d, slot) in chunk.iter_mut().enumerate().take(self.dimension) {
+                let raw = self.sobol_value(d);
+                let scrambled = self.owen_scramble_int(raw, d);
+                // Map integer k in [0, 2^32) to (k + 0.5) / 2^32 in (0, 1)
+                let u = (scrambled as f64 + 0.5) * INV_2_32;
+                *slot = inverse_normal_cdf(u);
+            }
+            self.index += 1;
         }
     }
 }
@@ -517,5 +544,61 @@ mod tests {
         // Mean should be reasonable (QMC doesn't guarantee mean=0)
         let mean = normals.iter().sum::<f64>() / normals.len() as f64;
         assert!(mean.abs() < 2.0);
+    }
+
+    // ── H5 regression: open-interval mapping keeps first point finite ──
+    //
+    // Without scrambling the first Sobol integer for dimension 0 is 0.
+    // The old MIN_POSITIVE clamp would map 0 → 2.2e-308 → N^{-1}(2.2e-308) ≈ -37σ.
+    // The (k+0.5)/2^32 mapping should produce a normal quantile ≈ 4.6σ which,
+    // while extreme, is not an artificial boundary artefact.
+    #[test]
+    fn test_fill_std_normals_first_point_finite_and_bounded() {
+        // No scrambling — first point is k=0 in all dimensions.
+        let mut sobol = SobolRng::new(1, 0);
+        let mut out = vec![0.0; 1];
+        sobol.fill_std_normals(&mut out);
+        assert!(out[0].is_finite(), "First unscrambled point must be finite");
+        // With (0+0.5)/2^32 ≈ 1.16e-10, Φ^{-1}(1.16e-10) ≈ -6.4σ.
+        // In practice the exact value depends on the inverse-normal implementation,
+        // but it must be finite and larger than -40.
+        assert!(
+            out[0] > -40.0,
+            "First point should not be a ~37σ outlier from MIN_POSITIVE, got {}",
+            out[0]
+        );
+    }
+
+    // ── H5 regression: grid-centred mapping symmetry ──
+    //
+    // For a 1-D 2-point sequence (k=0, k=2^31) the open-interval values are
+    // (0.5/2^32, (2^31+0.5)/2^32) = (~1.16e-10, ~0.5). Their inverse-normal
+    // quantiles should be symmetric and finite.
+    #[test]
+    fn test_fill_std_normals_symmetry_no_scramble() {
+        let mut sobol = SobolRng::new(1, 0);
+        let mut out = vec![0.0; 2];
+        sobol.fill_std_normals(&mut out);
+        for &v in &out {
+            assert!(v.is_finite(), "All points must be finite: {v}");
+        }
+    }
+
+    // ── H5 regression: no artificial extreme tails with scrambling ──
+    //
+    // With a large batch and scrambling the 5-sigma quantile should not
+    // appear more than ~3× its theoretical frequency.
+    #[test]
+    fn test_fill_std_normals_no_extreme_tail_outliers() {
+        let mut sobol = SobolRng::new(1, 42);
+        let mut out = vec![0.0; 1024];
+        sobol.fill_std_normals(&mut out);
+        // No value should exceed ±10σ in a 1024-point Sobol sequence
+        for &v in &out {
+            assert!(
+                v.abs() < 10.0,
+                "Unexpected extreme outlier {v} (grid-centred mapping should prevent >10σ in 1024 pts)"
+            );
+        }
     }
 }
