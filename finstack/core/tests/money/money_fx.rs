@@ -76,7 +76,7 @@ fn closure_check_matrix() {
         pivot_currency: Currency::USD,
         ..Default::default()
     };
-    let m = FxMatrix::with_config(Arc::new(Prov), cfg);
+    let m = FxMatrix::try_with_config(Arc::new(Prov), cfg).expect("valid FxConfig");
     let d = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     // Direct quote (not triangulated)
@@ -133,13 +133,14 @@ fn fx_matrix_cache_distinguishes_query_date_and_policy() {
         }
     }
 
-    let matrix = FxMatrix::with_config(
+    let matrix = FxMatrix::try_with_config(
         Arc::new(DatePolicyFx),
         FxConfig {
             enable_triangulation: false,
             ..Default::default()
         },
-    );
+    )
+    .expect("valid FxConfig");
     let jan_1 = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
     let jan_2 = Date::from_calendar_date(2025, time::Month::January, 2).unwrap();
 
@@ -233,14 +234,15 @@ fn with_bumped_rate_invalidates_cached_crosses() {
         }
     }
 
-    let matrix = FxMatrix::with_config(
+    let matrix = FxMatrix::try_with_config(
         Arc::new(PivotFx),
         FxConfig {
             enable_triangulation: true,
             pivot_currency: Currency::USD,
             ..Default::default()
         },
-    );
+    )
+    .expect("valid FxConfig");
     let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
 
     let original_cross = matrix

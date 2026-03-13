@@ -1,6 +1,7 @@
 //! Shared test utilities for FX option tests.
 //!
 //! Provides common fixtures, builders, and assertion helpers to reduce
+#![allow(deprecated)]
 //! duplication across test files.
 
 use finstack_core::currency::Currency;

@@ -57,7 +57,7 @@ impl Pricer for FxForwardDiscountingPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod tests {
     use super::*;
     use crate::pricer::Pricer;

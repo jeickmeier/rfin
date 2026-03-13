@@ -247,6 +247,84 @@ pub(crate) fn roll_knots(knots: &[f64], values: &[f64], dt: f64) -> Vec<(f64, f6
         .collect()
 }
 
+/// Apply an additive parallel bump to a slice of (t, value) knots.
+///
+/// Each value is clamped to zero from below: `max(0, v + bump)`.
+/// Returns the bumped knots as a new `Vec`.
+#[inline]
+pub(crate) fn bump_knots_parallel(knots: &[f64], values: &[f64], bump: f64) -> Vec<(f64, f64)> {
+    knots
+        .iter()
+        .zip(values.iter())
+        .map(|(&t, &v)| (t, (v + bump).max(0.0)))
+        .collect()
+}
+
+/// Apply a multiplicative percentage bump to a slice of (t, value) knots.
+///
+/// Each value is scaled by `1 + pct` and clamped to zero from below.
+#[inline]
+pub(crate) fn bump_knots_percentage(knots: &[f64], values: &[f64], pct: f64) -> Vec<(f64, f64)> {
+    let factor = 1.0 + pct;
+    knots
+        .iter()
+        .zip(values.iter())
+        .map(|(&t, &v)| (t, (v * factor).max(0.0)))
+        .collect()
+}
+
+/// Apply a triangular key-rate bump to a slice of (t, value) knots.
+///
+/// Each knot receives a weight in `[0, 1]` based on its proximity to
+/// `target_bucket`. Spot (t=0) is typically excluded by the caller.
+#[inline]
+pub(crate) fn bump_knots_triangular(
+    knots: &[f64],
+    values: &[f64],
+    prev_bucket: f64,
+    target_bucket: f64,
+    next_bucket: f64,
+    bump: f64,
+) -> Vec<(f64, f64)> {
+    knots
+        .iter()
+        .zip(values.iter())
+        .map(|(&t, &v)| {
+            let w = triangular_weight(t, prev_bucket, target_bucket, next_bucket);
+            (t, (v + bump * w).max(0.0))
+        })
+        .collect()
+}
+
+/// Validate that all values in a knot slice are non-negative.
+///
+/// Returns a descriptive error that includes the tenor and value for quick diagnosis.
+pub(crate) fn validate_non_negative_knots(
+    knots: &[f64],
+    values: &[f64],
+    value_label: &str,
+) -> crate::Result<()> {
+    for (i, (&t, &v)) in knots.iter().zip(values.iter()).enumerate() {
+        if v < 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "{value_label} must be non-negative at t={t:.6}: value={v:.8} (index {i})"
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// Infer the spot value from a knot set when the first knot is at t≈0.
+///
+/// Returns `Some(v)` when the first knot is at t=0 (within 1e-14), otherwise `None`.
+#[inline]
+pub(crate) fn infer_spot_from_knots(knots: &[f64], values: &[f64]) -> Option<f64> {
+    knots
+        .first()
+        .filter(|&&t| t.abs() <= 1e-14)
+        .map(|_| values[0])
+}
+
 /// Validate that a value is within the unit range `[0.0, 1.0]`.
 ///
 /// Returns an error with a descriptive message if the value is out of range.

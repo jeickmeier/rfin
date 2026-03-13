@@ -84,22 +84,28 @@ impl SimpleFxProvider {
     /// construction before wrapping in `Arc`. Panics if the rate is invalid
     /// (non-finite, NaN, zero, or negative).
     ///
+    /// # Deprecated
+    ///
+    /// Use [`set_quote`](SimpleFxProvider::set_quote) instead, which returns a
+    /// `Result` instead of panicking on invalid input:
+    ///
+    /// ```rust
+    /// # use finstack_core::money::fx::SimpleFxProvider;
+    /// # use finstack_core::currency::Currency;
+    /// # use std::sync::Arc;
+    /// let provider = Arc::new(SimpleFxProvider::new());
+    /// provider.set_quote(Currency::EUR, Currency::USD, 1.1).expect("valid rate");
+    /// provider.set_quote(Currency::GBP, Currency::USD, 1.25).expect("valid rate");
+    /// ```
+    ///
     /// # Panics
     ///
     /// Panics if `rate` is not a valid positive finite FX rate.
-    ///
-    /// # Examples
-    /// ```rust
-    /// use finstack_core::money::fx::SimpleFxProvider;
-    /// use finstack_core::currency::Currency;
-    /// use std::sync::Arc;
-    ///
-    /// let provider = Arc::new(
-    ///     SimpleFxProvider::new()
-    ///         .with_quote(Currency::EUR, Currency::USD, 1.1)
-    ///         .with_quote(Currency::GBP, Currency::USD, 1.25),
-    /// );
-    /// ```
+    #[deprecated(
+        since = "0.4.1",
+        note = "Use `set_quote` instead; `with_quote` panics on invalid rates. \
+                Call `set_quote` on the constructed provider after `Arc::new`."
+    )]
     #[must_use]
     #[allow(clippy::panic)]
     pub fn with_quote(self, from: Currency, to: Currency, rate: f64) -> Self {

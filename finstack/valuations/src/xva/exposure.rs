@@ -394,7 +394,7 @@ where
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used)]
+#[allow(clippy::expect_used, deprecated)]
 mod tests {
     use super::*;
     use crate::instruments::Attributes;

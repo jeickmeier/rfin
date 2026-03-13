@@ -475,7 +475,7 @@ impl Pricer for SimpleFxDigitalOptionPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod tests {
     use super::*;
     use crate::instruments::common_impl::traits::Attributes;

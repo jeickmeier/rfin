@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;

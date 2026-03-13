@@ -945,30 +945,17 @@ pub fn rolling_sharpe(
         };
     }
     let w = window as f64;
-    let mut sum = 0.0_f64;
-    let mut sum_sq = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        sum_sq += r * r;
-    }
-    let emit = |sum: f64, sum_sq: f64| -> f64 {
+    let mut values = Vec::with_capacity(n - window + 1);
+    let mut out_dates = Vec::with_capacity(n - window + 1);
+    let mut date_idx = window - 1;
+    rolling_sharpe_kernel(returns, n, window, |sum, sum_sq| {
         let ann_mean = (sum / w) * ann_factor;
         let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
         let ann_vol = var.sqrt() * ann_factor.sqrt();
-        sharpe(ann_mean, ann_vol, risk_free_rate)
-    };
-    let mut values = Vec::with_capacity(n - window + 1);
-    let mut out_dates = Vec::with_capacity(n - window + 1);
-    values.push(emit(sum, sum_sq));
-    out_dates.push(dates[window - 1]);
-    for i in window..n {
-        let add = returns[i];
-        let rem = returns[i - window];
-        sum += add - rem;
-        sum_sq += add * add - rem * rem;
-        values.push(emit(sum, sum_sq));
-        out_dates.push(dates[i]);
-    }
+        values.push(sharpe(ann_mean, ann_vol, risk_free_rate));
+        out_dates.push(dates[date_idx]);
+        date_idx += 1;
+    });
     RollingSharpe {
         values,
         dates: out_dates,
@@ -1029,28 +1016,15 @@ pub fn rolling_volatility(
         };
     }
     let w = window as f64;
-    let mut sum = 0.0_f64;
-    let mut sum_sq = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        sum_sq += r * r;
-    }
-    let emit = |sum: f64, sum_sq: f64| -> f64 {
-        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
-        var.sqrt() * ann_factor.sqrt()
-    };
     let mut values = Vec::with_capacity(n - window + 1);
     let mut out_dates = Vec::with_capacity(n - window + 1);
-    values.push(emit(sum, sum_sq));
-    out_dates.push(dates[window - 1]);
-    for i in window..n {
-        let add = returns[i];
-        let rem = returns[i - window];
-        sum += add - rem;
-        sum_sq += add * add - rem * rem;
-        values.push(emit(sum, sum_sq));
-        out_dates.push(dates[i]);
-    }
+    let mut date_idx = window - 1;
+    rolling_volatility_kernel(returns, n, window, |sum, sum_sq| {
+        let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
+        values.push(var.sqrt() * ann_factor.sqrt());
+        out_dates.push(dates[date_idx]);
+        date_idx += 1;
+    });
     RollingVolatility {
         values,
         dates: out_dates,
@@ -1452,18 +1426,13 @@ pub fn rolling_sortino(
         };
     }
     let w = window as f64;
-    let mut sum = 0.0_f64;
-    let mut sum_ds = 0.0_f64; // Σ min(r, 0)²
-    for &r in &returns[..window] {
-        sum += r;
-        if r < 0.0 {
-            sum_ds += r * r;
-        }
-    }
-    let emit = |sum: f64, sum_ds: f64| -> f64 {
+    let mut values = Vec::with_capacity(n - window + 1);
+    let mut out_dates = Vec::with_capacity(n - window + 1);
+    let mut date_idx = window - 1;
+    rolling_sortino_kernel(returns, n, window, |sum, sum_ds| {
         let m = sum / w;
-        let dd = (sum_ds / w).sqrt(); // downside deviation (period)
-        if dd == 0.0 {
+        let dd = (sum_ds / w).sqrt();
+        values.push(if dd == 0.0 {
             if m > 0.0 {
                 f64::INFINITY
             } else if m < 0.0 {
@@ -1473,12 +1442,88 @@ pub fn rolling_sortino(
             }
         } else {
             (m * ann_factor) / (dd * ann_factor.sqrt())
+        });
+        out_dates.push(dates[date_idx]);
+        date_idx += 1;
+    });
+    RollingSortino {
+        values,
+        dates: out_dates,
+    }
+}
+
+// ── Internal rolling kernels ──
+//
+// Each kernel advances a sliding window over `returns[..n]` and calls
+// `emit` once per completed window.  Both the dated (struct) and undated
+// (NaN-padded Vec) public functions delegate here; they share *identical*
+// arithmetic and differ only in how the output is assembled.
+
+/// Kernel for the Sharpe sliding window.
+///
+/// Maintains `(sum, sum_sq)` accumulators and calls `emit(sum, sum_sq)` for
+/// every completed window starting at index `window-1`.
+fn rolling_sharpe_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit: F)
+where
+    F: FnMut(f64, f64),
+{
+    let mut sum = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        sum_sq += r * r;
+    }
+    emit(sum, sum_sq);
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        sum_sq += add * add - rem * rem;
+        emit(sum, sum_sq);
+    }
+}
+
+/// Kernel for the volatility sliding window.
+///
+/// Maintains `(sum, sum_sq)` accumulators and calls `emit(sum, sum_sq)` for
+/// every completed window.
+fn rolling_volatility_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit: F)
+where
+    F: FnMut(f64, f64),
+{
+    let mut sum = 0.0_f64;
+    let mut sum_sq = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        sum_sq += r * r;
+    }
+    emit(sum, sum_sq);
+    for i in window..n {
+        let add = returns[i];
+        let rem = returns[i - window];
+        sum += add - rem;
+        sum_sq += add * add - rem * rem;
+        emit(sum, sum_sq);
+    }
+}
+
+/// Kernel for the Sortino sliding window.
+///
+/// Maintains `(sum, sum_ds)` where `sum_ds = Σ min(r,0)²` and calls
+/// `emit(sum, sum_ds)` for every completed window.
+fn rolling_sortino_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit: F)
+where
+    F: FnMut(f64, f64),
+{
+    let mut sum = 0.0_f64;
+    let mut sum_ds = 0.0_f64;
+    for &r in &returns[..window] {
+        sum += r;
+        if r < 0.0 {
+            sum_ds += r * r;
         }
-    };
-    let mut values = Vec::with_capacity(n - window + 1);
-    let mut out_dates = Vec::with_capacity(n - window + 1);
-    values.push(emit(sum, sum_ds));
-    out_dates.push(dates[window - 1]);
+    }
+    emit(sum, sum_ds);
     for i in window..n {
         let add = returns[i];
         let rem = returns[i - window];
@@ -1490,12 +1535,7 @@ pub fn rolling_sortino(
             sum_ds -= rem * rem;
         }
         sum_ds = sum_ds.max(0.0); // guard against floating-point underflow
-        values.push(emit(sum, sum_ds));
-        out_dates.push(dates[i]);
-    }
-    RollingSortino {
-        values,
-        dates: out_dates,
+        emit(sum, sum_ds);
     }
 }
 
@@ -1526,27 +1566,12 @@ pub fn rolling_sharpe_values(
     let w = window as f64;
     let mut out = Vec::with_capacity(n);
     out.resize(window - 1, f64::NAN);
-
-    let mut sum = 0.0_f64;
-    let mut sum_sq = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        sum_sq += r * r;
-    }
-    let emit = |sum: f64, sum_sq: f64| -> f64 {
+    rolling_sharpe_kernel(returns, n, window, |sum, sum_sq| {
         let ann_mean = (sum / w) * ann_factor;
         let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
         let ann_vol = var.sqrt() * ann_factor.sqrt();
-        sharpe(ann_mean, ann_vol, risk_free_rate)
-    };
-    out.push(emit(sum, sum_sq));
-    for i in window..n {
-        let add = returns[i];
-        let rem = returns[i - window];
-        sum += add - rem;
-        sum_sq += add * add - rem * rem;
-        out.push(emit(sum, sum_sq));
-    }
+        out.push(sharpe(ann_mean, ann_vol, risk_free_rate));
+    });
     out
 }
 
@@ -1568,25 +1593,10 @@ pub fn rolling_volatility_values(returns: &[f64], window: usize, ann_factor: f64
     let w = window as f64;
     let mut out = Vec::with_capacity(n);
     out.resize(window - 1, f64::NAN);
-
-    let mut sum = 0.0_f64;
-    let mut sum_sq = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        sum_sq += r * r;
-    }
-    let emit = |sum: f64, sum_sq: f64| -> f64 {
+    rolling_volatility_kernel(returns, n, window, |sum, sum_sq| {
         let var = (sum_sq - sum * sum / w).max(0.0) / (w - 1.0);
-        var.sqrt() * ann_factor.sqrt()
-    };
-    out.push(emit(sum, sum_sq));
-    for i in window..n {
-        let add = returns[i];
-        let rem = returns[i - window];
-        sum += add - rem;
-        sum_sq += add * add - rem * rem;
-        out.push(emit(sum, sum_sq));
-    }
+        out.push(var.sqrt() * ann_factor.sqrt());
+    });
     out
 }
 
@@ -1608,19 +1618,10 @@ pub fn rolling_sortino_values(returns: &[f64], window: usize, ann_factor: f64) -
     let w = window as f64;
     let mut out = Vec::with_capacity(n);
     out.resize(window - 1, f64::NAN);
-
-    let mut sum = 0.0_f64;
-    let mut sum_ds = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        if r < 0.0 {
-            sum_ds += r * r;
-        }
-    }
-    let emit = |sum: f64, sum_ds: f64| -> f64 {
+    rolling_sortino_kernel(returns, n, window, |sum, sum_ds| {
         let m = sum / w;
         let dd = (sum_ds / w).sqrt();
-        if dd == 0.0 {
+        out.push(if dd == 0.0 {
             if m > 0.0 {
                 f64::INFINITY
             } else if m < 0.0 {
@@ -1630,22 +1631,8 @@ pub fn rolling_sortino_values(returns: &[f64], window: usize, ann_factor: f64) -
             }
         } else {
             (m * ann_factor) / (dd * ann_factor.sqrt())
-        }
-    };
-    out.push(emit(sum, sum_ds));
-    for i in window..n {
-        let add = returns[i];
-        let rem = returns[i - window];
-        sum += add - rem;
-        if add < 0.0 {
-            sum_ds += add * add;
-        }
-        if rem < 0.0 {
-            sum_ds -= rem * rem;
-        }
-        sum_ds = sum_ds.max(0.0);
-        out.push(emit(sum, sum_ds));
-    }
+        });
+    });
     out
 }
 

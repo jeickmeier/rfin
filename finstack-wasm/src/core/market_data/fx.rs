@@ -161,7 +161,8 @@ pub struct JsFxMatrix {
 
 impl JsFxMatrix {
     fn new_with(provider: Arc<SimpleFxProvider>, config: FxConfig) -> Self {
-        let matrix = FxMatrix::with_config(provider.clone(), config);
+        let matrix = FxMatrix::try_with_config(provider.clone(), config)
+            .unwrap_or_else(|_| FxMatrix::new(provider.clone()));
         Self {
             provider,
             inner: Arc::new(matrix),

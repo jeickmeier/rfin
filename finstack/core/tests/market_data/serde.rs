@@ -130,7 +130,7 @@ fn market_context_roundtrip() {
     fx_provider
         .set_quote(Currency::USD, Currency::EUR, 1.1)
         .expect("valid test quote");
-    let fx = FxMatrix::with_config(fx_provider, FxConfig::default());
+    let fx = FxMatrix::try_with_config(fx_provider, FxConfig::default()).expect("valid FxConfig");
 
     let ctx = MarketContext::new()
         .insert(discount)
@@ -152,14 +152,15 @@ fn market_context_roundtrip() {
 #[test]
 fn market_context_restore_uses_quote_only_fx_snapshot() {
     let fx_provider = Arc::new(SimpleFxProvider::new());
-    let fx = FxMatrix::with_config(
+    let fx = FxMatrix::try_with_config(
         fx_provider,
         FxConfig {
             enable_triangulation: true,
             pivot_currency: Currency::USD,
             ..Default::default()
         },
-    );
+    )
+    .expect("valid FxConfig");
     fx.set_quote(Currency::USD, Currency::EUR, 1.10)
         .expect("valid test quote");
     fx.set_quote(Currency::USD, Currency::GBP, 0.80)

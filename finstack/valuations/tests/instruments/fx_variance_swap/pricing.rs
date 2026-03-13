@@ -1,4 +1,5 @@
 //! Pricing tests for FX variance swaps.
+#![allow(deprecated)]
 
 use crate::finstack_test_utils::{date, flat_discount_with_tenor, flat_vol_surface};
 use finstack_core::currency::Currency;

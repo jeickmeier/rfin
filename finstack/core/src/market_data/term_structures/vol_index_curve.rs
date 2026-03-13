@@ -64,7 +64,11 @@
 //! - Carr, P., & Wu, L. (2006). "A Tale of Two Indices." *Journal of Derivatives*,
 //!   13(3), 13-29.
 
-use super::common::{build_interp_allow_any_values, roll_knots, split_points, triangular_weight};
+use super::common::{
+    build_interp_allow_any_values, bump_knots_parallel, bump_knots_percentage,
+    bump_knots_triangular, infer_spot_from_knots, roll_knots, split_points,
+    validate_non_negative_knots,
+};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -298,13 +302,7 @@ impl VolatilityIndexCurve {
     /// # Returns
     /// A new volatility index curve with all levels shifted.
     pub fn with_parallel_bump(&self, bump: f64) -> crate::Result<Self> {
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.levels.iter())
-            .map(|(&t, &lvl)| (t, (lvl + bump).max(0.0)))
-            .collect();
-
+        let bumped_points = bump_knots_parallel(&self.knots, &self.levels, bump);
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bump * 100.0);
 
         VolatilityIndexCurve::builder(new_id)
@@ -325,20 +323,13 @@ impl VolatilityIndexCurve {
     /// # Returns
     /// A new volatility index curve with all levels scaled.
     pub fn with_percentage_bump(&self, pct: f64) -> crate::Result<Self> {
-        let factor = 1.0 + pct;
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.levels.iter())
-            .map(|(&t, &lvl)| (t, (lvl * factor).max(0.0)))
-            .collect();
-
+        let bumped_points = bump_knots_percentage(&self.knots, &self.levels, pct);
         let new_id = format!("{}+{:.2}%", self.id.as_str(), pct * 100.0);
 
         VolatilityIndexCurve::builder(new_id)
             .base_date(self.base)
             .day_count(self.day_count)
-            .spot_level((self.spot_level * factor).max(0.0))
+            .spot_level((self.spot_level * (1.0 + pct)).max(0.0))
             .knots(bumped_points)
             .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
@@ -366,16 +357,14 @@ impl VolatilityIndexCurve {
             return self.with_parallel_bump(bump);
         }
 
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.levels.iter())
-            .map(|(&knot_t, &level)| {
-                let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
-                (knot_t, (level + bump * weight).max(0.0))
-            })
-            .collect();
-
+        let bumped_points = bump_knots_triangular(
+            &self.knots,
+            &self.levels,
+            prev_bucket,
+            target_bucket,
+            next_bucket,
+            bump,
+        );
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bump * 100.0);
         VolatilityIndexCurve::builder(new_id)
             .base_date(self.base)
@@ -514,20 +503,12 @@ impl VolatilityIndexCurveBuilder {
         crate::math::interp::utils::validate_knots(&kvec)?;
 
         // Validate all levels are non-negative
-        for (i, &lvl) in lvec.iter().enumerate() {
-            if lvl < 0.0 {
-                return Err(crate::Error::Validation(format!(
-                    "Volatility index level must be non-negative at t={:.6}: level={:.8} (index {})",
-                    kvec[i], lvl, i
-                )));
-            }
-        }
+        validate_non_negative_knots(&kvec, &lvec, "Volatility index level")?;
 
         // Infer spot level only when the first knot is explicitly anchored at t=0.
         let spot_level = match self.spot_level {
             Some(spot) => spot,
-            None if kvec.first().is_some_and(|t| t.abs() <= 1e-14) => lvec[0],
-            None => return Err(InputError::Invalid.into()),
+            None => infer_spot_from_knots(&kvec, &lvec).ok_or(InputError::Invalid)?,
         };
 
         if spot_level < 0.0 {

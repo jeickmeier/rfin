@@ -66,7 +66,11 @@
 //! - Schwartz, E. S. (1997). "The Stochastic Behavior of Commodity Prices."
 //!   Journal of Finance, 52(3), 923-973.
 
-use super::common::{build_interp_allow_any_values, roll_knots, split_points, triangular_weight};
+use super::common::{
+    build_interp_allow_any_values, bump_knots_parallel, bump_knots_percentage,
+    bump_knots_triangular, infer_spot_from_knots, roll_knots, split_points,
+    validate_non_negative_knots,
+};
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
     dates::{Date, DayCount, DayCountCtx},
@@ -300,13 +304,7 @@ impl PriceCurve {
     /// # Returns
     /// A new price curve with all prices shifted.
     pub fn with_parallel_bump(&self, bump: f64) -> crate::Result<Self> {
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.prices.iter())
-            .map(|(&t, &price)| (t, (price + bump).max(0.0)))
-            .collect();
-
+        let bumped_points = bump_knots_parallel(&self.knots, &self.prices, bump);
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bump * 100.0);
 
         PriceCurve::builder(new_id)
@@ -327,20 +325,13 @@ impl PriceCurve {
     /// # Returns
     /// A new price curve with all prices scaled.
     pub fn with_percentage_bump(&self, pct: f64) -> crate::Result<Self> {
-        let factor = 1.0 + pct;
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.prices.iter())
-            .map(|(&t, &price)| (t, (price * factor).max(0.0)))
-            .collect();
-
+        let bumped_points = bump_knots_percentage(&self.knots, &self.prices, pct);
         let new_id = format!("{}+{:.2}%", self.id.as_str(), pct * 100.0);
 
         PriceCurve::builder(new_id)
             .base_date(self.base)
             .day_count(self.day_count)
-            .spot_price((self.spot_price * factor).max(0.0))
+            .spot_price((self.spot_price * (1.0 + pct)).max(0.0))
             .knots(bumped_points)
             .interp(self.interp.style())
             .extrapolation(self.interp.extrapolation())
@@ -368,16 +359,14 @@ impl PriceCurve {
             return self.with_parallel_bump(bump);
         }
 
-        let bumped_points: Vec<(f64, f64)> = self
-            .knots
-            .iter()
-            .zip(self.prices.iter())
-            .map(|(&knot_t, &price)| {
-                let weight = triangular_weight(knot_t, prev_bucket, target_bucket, next_bucket);
-                (knot_t, (price + bump * weight).max(0.0))
-            })
-            .collect();
-
+        let bumped_points = bump_knots_triangular(
+            &self.knots,
+            &self.prices,
+            prev_bucket,
+            target_bucket,
+            next_bucket,
+            bump,
+        );
         let new_id = crate::market_data::bumps::id_bump_bp(self.id.as_str(), bump * 100.0);
         PriceCurve::builder(new_id)
             .base_date(self.base)
@@ -516,20 +505,12 @@ impl PriceCurveBuilder {
         crate::math::interp::utils::validate_knots(&kvec)?;
 
         // Validate all prices are non-negative
-        for (i, &price) in pvec.iter().enumerate() {
-            if price < 0.0 {
-                return Err(crate::Error::Validation(format!(
-                    "Forward price must be non-negative at t={:.6}: price={:.8} (index {})",
-                    kvec[i], price, i
-                )));
-            }
-        }
+        validate_non_negative_knots(&kvec, &pvec, "Forward price")?;
 
         // Infer spot price only when the first knot is explicitly anchored at t=0.
         let spot_price = match self.spot_price {
             Some(spot) => spot,
-            None if kvec.first().is_some_and(|t| t.abs() <= 1e-14) => pvec[0],
-            None => return Err(InputError::Invalid.into()),
+            None => infer_spot_from_knots(&kvec, &pvec).ok_or(InputError::Invalid)?,
         };
 
         if spot_price < 0.0 {

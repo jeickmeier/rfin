@@ -67,7 +67,7 @@ impl Pricer for NdfDiscountingPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
+#[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod tests {
     use super::*;
     use crate::instruments::fx::ndf::NdfQuoteConvention;

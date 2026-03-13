@@ -213,7 +213,17 @@ impl ForwardCurve {
     }
 
     /// Reset lag in business days from fixing to spot.
+    ///
+    /// # Deprecated
+    ///
+    /// Use [`reset_lag`](ForwardCurve::reset_lag) instead; both return the same
+    /// value and `reset_lag` is the canonical name.
     #[inline]
+    #[deprecated(
+        since = "0.4.1",
+        note = "Use `reset_lag()` instead; `reset_lag_business_days` is a \
+                redundant alias."
+    )]
     pub fn reset_lag_business_days(&self) -> i32 {
         self.reset_lag
     }
@@ -719,6 +729,16 @@ impl ForwardCurveBuilder {
     }
 
     /// Override the **reset lag** (fixing → spot) in business days.
+    ///
+    /// # Deprecated
+    ///
+    /// Use [`reset_lag`](ForwardCurveBuilder::reset_lag) instead; both set the
+    /// same underlying field and `reset_lag` is the canonical builder method.
+    #[deprecated(
+        since = "0.4.1",
+        note = "Use `reset_lag(lag)` instead; `reset_lag_business_days` is a \
+                redundant alias."
+    )]
     pub fn reset_lag_business_days(self, lag: i32) -> Self {
         self.reset_lag(lag)
     }
@@ -827,7 +847,12 @@ impl TermStructure for ForwardCurve {
 // Tests
 // -----------------------------------------------------------------------------
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
+#[allow(
+    clippy::expect_used,
+    clippy::panic,
+    clippy::indexing_slicing,
+    deprecated
+)]
 mod tests {
     use super::*;
 

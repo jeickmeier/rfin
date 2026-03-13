@@ -393,23 +393,27 @@ pub struct Schedule {
 impl Schedule {
     /// Create a [`ScheduleBuilder`] for constructing a new schedule.
     ///
-    /// This is the preferred entry point; it validates that `start <= end`
-    /// and returns the builder for further configuration.
+    /// # Deprecated
     ///
-    /// # Examples
+    /// Use [`ScheduleBuilder::new`] directly as the canonical entry point:
     ///
     /// ```rust
-    /// use finstack_core::dates::{Schedule, Tenor};
+    /// use finstack_core::dates::{ScheduleBuilder, Tenor};
     /// use time::{Date, Month};
     ///
     /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
     /// let end = Date::from_calendar_date(2025, Month::March, 15)?;
     ///
-    /// let schedule = Schedule::builder(start, end)?
+    /// let schedule = ScheduleBuilder::new(start, end)?
     ///     .frequency(Tenor::monthly())
     ///     .build()?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
+    #[deprecated(
+        since = "0.4.1",
+        note = "Use `ScheduleBuilder::new(start, end)` directly; \
+                `Schedule::builder` is a redundant forwarding alias."
+    )]
     pub fn builder(start: Date, end: Date) -> crate::Result<ScheduleBuilder<'static>> {
         ScheduleBuilder::new(start, end)
     }

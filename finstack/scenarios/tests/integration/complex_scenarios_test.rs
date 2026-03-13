@@ -1,4 +1,5 @@
 //! Tests for complex multi-operation integration scenarios.
+#![allow(deprecated)]
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{build_periods, Date};
