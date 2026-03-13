@@ -67,7 +67,7 @@ def main() -> None:
         .div_yield_id("EQUITY-DIVYIELD")
         .build()
     )
-    registry.get_price(equity, "discounting", market)
+    registry.get_price(equity, "discounting", market, as_of=as_of)
 
     call = (
         EquityOption.builder("ACME-CALL-150")
@@ -88,6 +88,7 @@ def main() -> None:
         "discounting",
         market,
         ["delta", "gamma", "vega"],
+        as_of=as_of,
     )
 
     put = (
@@ -104,7 +105,7 @@ def main() -> None:
         .div_yield_id("EQUITY-DIVYIELD")
         .build()
     )
-    registry.get_price(put, "discounting", market)
+    registry.get_price(put, "discounting", market, as_of=as_of)
 
 
 if __name__ == "__main__":

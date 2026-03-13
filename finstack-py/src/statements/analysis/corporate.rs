@@ -4,9 +4,7 @@ use crate::core::money::PyMoney;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_statements::analysis::corporate::{
-    evaluate_dcf as rs_evaluate_dcf, evaluate_dcf_with_market as rs_evaluate_dcf_with_market,
-    evaluate_dcf_with_options as rs_evaluate_dcf_with_options, CorporateValuationResult,
-    DcfOptions,
+    evaluate_dcf_with_market as rs_evaluate_dcf_with_market, CorporateValuationResult, DcfOptions,
 };
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -146,12 +144,14 @@ fn py_evaluate_dcf(
     ufcf_node: &str,
     net_debt_override: Option<f64>,
 ) -> PyResult<PyCorporateValuationResult> {
-    let result = rs_evaluate_dcf(
+    let result = rs_evaluate_dcf_with_market(
         &model.inner,
         wacc,
         terminal_value.inner.clone(),
         ufcf_node,
         net_debt_override,
+        &DcfOptions::default(),
+        None,
     )
     .map_err(stmt_to_py)?;
     Ok(PyCorporateValuationResult::new(result))
@@ -172,13 +172,14 @@ fn py_evaluate_dcf_with_options(
     options: Option<&PyDcfOptions>,
 ) -> PyResult<PyCorporateValuationResult> {
     let opts = options.map(|o| o.inner.clone()).unwrap_or_default();
-    let result = rs_evaluate_dcf_with_options(
+    let result = rs_evaluate_dcf_with_market(
         &model.inner,
         wacc,
         terminal_value.inner.clone(),
         ufcf_node,
         net_debt_override,
         &opts,
+        None,
     )
     .map_err(stmt_to_py)?;
     Ok(PyCorporateValuationResult::new(result))

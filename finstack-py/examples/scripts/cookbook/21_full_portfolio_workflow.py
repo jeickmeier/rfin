@@ -36,8 +36,7 @@ from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.core.money import Money
 from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, value_portfolio
 from finstack.portfolio import optimize_max_yield_with_ccc_limit
-from finstack.scenarios.builder import scenario
-from finstack.scenarios import ExecutionContext, ScenarioEngine
+from finstack.scenarios import CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec
 from finstack.statements.types import FinancialModelSpec
 from finstack.valuations.instruments import Bond, CreditDefaultSwap
 from finstack.valuations.pricer import create_standard_registry
@@ -104,8 +103,16 @@ def step4_stress_testing(portfolio, market):
     """Step 4: Run stress scenarios."""
     # Define scenarios
     scenarios = {
-        "RATE_UP_100BP": scenario("Rate +100bp").shift_discount_curve("USD-OIS", 100).build(),
-        "CREDIT_WIDEN_200BP": scenario("Credit +200bp").shift_hazard_curve("CORP.A", 200).build(),
+        "RATE_UP_100BP": ScenarioSpec(
+            "rate_up_100bp",
+            [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 100.0)],
+            name="Rate +100bp",
+        ),
+        "CREDIT_WIDEN_200BP": ScenarioSpec(
+            "credit_widen_200bp",
+            [OperationSpec.curve_parallel_bp(CurveKind.ParCDS, "CORP.A", 200.0)],
+            name="Credit +200bp",
+        ),
     }
 
     # Baseline

@@ -85,6 +85,7 @@ def main() -> None:
         "discounting",
         market,
         ["constituent_count", "expense_ratio"],
+        as_of=as_of,
     )
 
 

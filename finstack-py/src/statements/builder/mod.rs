@@ -8,7 +8,9 @@ use crate::statements::types::value::PyAmountOrScalar;
 use crate::statements::types::waterfall::PyWaterfallSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, NeedPeriods, Ready};
-use finstack_statements::templates::{RealEstateExtension, TemplatesExtension, VintageExtension};
+use finstack_statements::templates::{
+    real_estate, RealEstateExtension, TemplatesExtension, VintageExtension,
+};
 use finstack_statements::types::AmountOrScalar;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
@@ -982,8 +984,7 @@ impl PyModelBuilder {
     ) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
         let specs: Vec<_> = leases.into_iter().map(|l| l.inner).collect();
-        let builder = builder
-            .add_rent_roll_rental_revenue(&specs, &total_rent_node)
+        let builder = real_estate::add_rent_roll_rental_revenue(builder, &specs, &total_rent_node)
             .map_err(stmt_to_py)?;
         self.state = BuilderState::Ready(Some(builder));
         Ok(())
@@ -1004,9 +1005,8 @@ impl PyModelBuilder {
     ) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
         let specs: Vec<_> = leases.into_iter().map(|l| l.inner).collect();
-        let builder = builder
-            .add_rent_roll_rental_revenue_v2(&specs, &nodes.inner)
-            .map_err(stmt_to_py)?;
+        let builder =
+            real_estate::add_rent_roll(builder, &specs, &nodes.inner).map_err(stmt_to_py)?;
         self.state = BuilderState::Ready(Some(builder));
         Ok(())
     }

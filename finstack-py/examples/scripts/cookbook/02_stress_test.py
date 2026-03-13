@@ -18,8 +18,7 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.core.money import Money
 from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit, value_portfolio
-from finstack.scenarios.builder import scenario
-from finstack.scenarios import ExecutionContext, ScenarioEngine
+from finstack.scenarios import CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec
 from finstack.statements.types import FinancialModelSpec
 from finstack.valuations.instruments import Bond, CreditDefaultSwap
 
@@ -83,28 +82,30 @@ def define_scenarios():
     scenarios = {}
 
     # 1. Rate shock: +100bp parallel shift
-    scenarios["RATE_UP_100BP"] = (
-        scenario("Rate Shock +100bp")
-        .description("Parallel +100bp shift to all discount curves")
-        .shift_discount_curve("USD-OIS", 100)  # +100bp
-        .build()
+    scenarios["RATE_UP_100BP"] = ScenarioSpec(
+        "rate_up_100bp",
+        [OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 100.0)],
+        name="Rate Shock +100bp",
+        description="Parallel +100bp shift to all discount curves",
     )
 
     # 2. Credit widening: +200bp to credit spreads
-    scenarios["CREDIT_WIDEN_200BP"] = (
-        scenario("Credit Widening +200bp")
-        .description("Parallel +200bp shift to credit curves")
-        .shift_hazard_curve("ACME.5Y", 200)  # +200bp
-        .build()
+    scenarios["CREDIT_WIDEN_200BP"] = ScenarioSpec(
+        "credit_widen_200bp",
+        [OperationSpec.curve_parallel_bp(CurveKind.ParCDS, "ACME.5Y", 200.0)],
+        name="Credit Widening +200bp",
+        description="Parallel +200bp shift to credit curves",
     )
 
     # 3. Combined stress: Rates up + credit wide
-    scenarios["COMBINED_STRESS"] = (
-        scenario("Combined Stress")
-        .description("Multi-factor stress: rates +50bp, credit +100bp")
-        .shift_discount_curve("USD-OIS", 50)
-        .shift_hazard_curve("ACME.5Y", 100)
-        .build()
+    scenarios["COMBINED_STRESS"] = ScenarioSpec(
+        "combined_stress",
+        [
+            OperationSpec.curve_parallel_bp(CurveKind.Discount, "USD-OIS", 50.0),
+            OperationSpec.curve_parallel_bp(CurveKind.ParCDS, "ACME.5Y", 100.0),
+        ],
+        name="Combined Stress",
+        description="Multi-factor stress: rates +50bp, credit +100bp",
     )
 
     return scenarios

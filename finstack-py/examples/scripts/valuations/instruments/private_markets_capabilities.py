@@ -92,6 +92,7 @@ def main() -> None:
         "discounting",
         market,
         ["lp_irr", "tvpi_lp"],
+        as_of=as_of,
     )
 
     ledger = fund.lp_cashflows()

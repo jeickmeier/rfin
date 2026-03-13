@@ -96,6 +96,7 @@ def main() -> None:
         "discounting",
         market,
         ["delta", "gamma", "vega"],
+        as_of=as_of,
     )
 
     convertible.parity(market)
