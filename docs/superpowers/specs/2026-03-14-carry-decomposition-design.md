@@ -26,18 +26,25 @@ New file: `finstack/valuations/src/metrics/sensitivities/carry_decomposition.rs`
 
 ### Algorithm
 
-1. **Collect cashflows** in `(as_of, as_of + horizon]` via `CashflowProvider` → `CouponIncome`
-2. **Reprice at horizon date with flat curve** at instrument's current YTM → PV_flat. `PullToPar = PV_flat - base_PV`
+0. **Zero horizon guard**: If `rolled_date <= as_of`, all components = 0.0 and return early (mirrors `GenericThetaDecomposed` pattern).
+1. **Collect cashflows** in `(as_of, as_of + horizon]` via `CashflowProvider` → `CouponIncome`. Cashflows must be in the instrument's base currency; cross-currency cashflows cause an error (consistent with existing `collect_cashflows_in_period` behavior).
+2. **Reprice at horizon date with flat curve** at instrument's base-valuation YTM (from `MetricId::Ytm` in `context.computed`) → PV_flat. `PullToPar = PV_flat - base_PV`. The flat curve is a zero-coupon discount curve with rate = YTM applied across all tenors, keyed under the instrument's `discount_curve_id`.
 3. **Reprice at horizon date with actual T0 curve** → PV_curved. `total_pv_change = PV_curved - base_PV`
 4. **RollDown = total_pv_change - PullToPar** (residual captures pure curve shape benefit)
-5. **Funding cost**: if `instrument.funding_curve_id()` is `Some`, look up rate and compute `dirty_price x rate x dcf`
+5. **Funding cost**: if `instrument.funding_curve_id()` is `Some`, look up funding curve from `MarketContext`, interpolate the annual rate at the carry horizon tenor, compute `dirty_price x annual_rate x dcf` where dcf uses the instrument's day count convention. If `None` → `FundingCost` = 0.0.
 6. **CarryTotal = CouponIncome + PullToPar + RollDown - FundingCost**
 
 All values stored via `context.computed.insert(MetricId::X, value)`.
 
 ### Dependencies
 
-Depends on `MetricId::Ytm` for constructing the flat curve used in pull-to-par isolation. For instruments without YTM (swaps, options), pull-to-par = 0 and roll-down = total PV change.
+Depends on `MetricId::Ytm` for constructing the flat curve used in pull-to-par isolation. YTM availability is checked via `context.computed.get(&MetricId::Ytm)`:
+- **YTM available** (bonds, fixed-rate instruments): Full decomposition with pull-to-par separated from roll-down.
+- **YTM not available** (swaps, options, instruments where YTM calc fails): `pull_to_par = 0`, `roll_down = total_pv_change`. This is correct — these instruments don't converge to par.
+
+### Relationship to Existing Theta Metrics
+
+`CarryTotal` is a finer-grained decomposition of the same economic quantity as `ThetaCarry + ThetaRollDown`. The key difference: `ThetaRollDown` conflates pull-to-par with curve roll-down, while `CarryTotal` separates them. Both can coexist — requesting `CarryTotal` does not affect `ThetaCarry` results.
 
 ### Lookup Pattern
 
@@ -120,7 +127,7 @@ FundingCost   → CarryComponentLookup(FundingCost)
 | `attribution/waterfall.rs` | Same |
 | `attribution/metrics_based.rs` | Same |
 | `instruments/common/traits.rs` | Add `fn funding_curve_id()` default method |
-| `instruments/rates/bond.rs` | Override `funding_curve_id()` |
+| `instruments/fixed_income/bond/types.rs` | Add `funding_curve_id` field, override `funding_curve_id()` |
 
 ## Testing
 
@@ -133,10 +140,12 @@ FundingCost   → CarryComponentLookup(FundingCost)
 5. Funding cost — bond with funding_curve_id, verify formula
 6. No funding — no funding_curve_id, FundingCost not emitted
 7. Component sum — coupon_income + pull_to_par + roll_down - funding_cost ≈ carry_total
+8. Zero horizon — all components = 0.0 when rolled_date <= as_of
 
 ### Integration tests (tests/attribution/)
 
-8. Bond attribution with carry decomposition — CarryDetail fully populated
-9. Backward compatibility — without carry metrics, old behavior preserved
+9. Bond attribution with carry decomposition — CarryDetail fully populated
+10. Backward compatibility — without carry metrics, old behavior preserved
+11. Scale correctness — after `PnlAttribution::scale(0.5)`, all CarryDetail fields are halved and component sum still equals total
 
 No golden file changes expected.
