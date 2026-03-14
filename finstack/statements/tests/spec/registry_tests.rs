@@ -648,6 +648,13 @@ fn test_deep_dependency_chain() {
 
 #[test]
 fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
+    // Provide enough leaf nodes so with_builtin_metrics() can compute all registry metrics.
+    let zero_periods = |v: f64| {
+        [
+            (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(v)),
+            (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(v)),
+        ]
+    };
     let base_model_fn = || {
         ModelBuilder::new("base")
             .periods("2025Q1..Q2", None)
@@ -672,16 +679,27 @@ fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
                     (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(66_000.0)),
                 ],
             )
+            .value("opex", &zero_periods(0.0))
+            .value("interest_expense", &zero_periods(0.0))
+            .value("tax_expense", &zero_periods(0.0))
+            .value("depreciation", &zero_periods(0.0))
+            .value("amortization", &zero_periods(0.0))
+            .value("principal_payment", &zero_periods(0.0))
+            .value("total_assets", &zero_periods(1.0))
+            .value("total_debt", &zero_periods(0.0))
+            .value("total_equity", &zero_periods(1.0))
+            .value("taxes", &zero_periods(0.0))
+            .value("current_liabilities", &zero_periods(1.0))
     };
 
-    // Path 1: selective add_metric (one specific metric)
+    // Path 1: with_builtin_metrics() — adds all registry metrics at once
     let model_bulk = base_model_fn()
-        .add_metric("fin.gross_profit")
+        .with_builtin_metrics()
         .unwrap()
         .build()
         .unwrap();
 
-    // Path 2: selective add_metric (convenience shorthand — same API)
+    // Path 2: add_metric("fin.gross_profit") — adds just one specific metric
     let model_select = base_model_fn()
         .add_metric("fin.gross_profit")
         .unwrap()
@@ -692,7 +710,7 @@ fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
     assert!(model_bulk.has_node("fin.gross_profit"));
     assert!(model_select.has_node("fin.gross_profit"));
 
-    // Both evaluate to the same value
+    // Both evaluate to the same fin.gross_profit value
     let mut eval = Evaluator::new();
     let r_bulk = eval.evaluate(&model_bulk).unwrap();
     let r_select = eval.evaluate(&model_select).unwrap();
@@ -703,7 +721,7 @@ fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
 
     assert!(
         (bulk_val - select_val).abs() < 1e-9,
-        "add_metric and with_builtin_metrics must produce the same gross_profit value: {} vs {}",
+        "with_builtin_metrics and add_metric must produce the same gross_profit value: {} vs {}",
         bulk_val,
         select_val
     );

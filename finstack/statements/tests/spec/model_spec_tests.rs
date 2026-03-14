@@ -407,7 +407,9 @@ fn test_node_id_borrow_str() {
     // Verify Borrow<str> allows HashMap<NodeId, _>.get(&str)
     let mut map: HashMap<NodeId, i32> = HashMap::new();
     map.insert(NodeId::from("revenue"), 100);
-    // Access via &str using Borrow
+    // HashMap::get accepts any Q where K: Borrow<Q>. Because NodeId implements
+    // Borrow<str> (and Hash/Eq are consistent), passing a &str key works without
+    // an explicit NodeId conversion.
     let key: &str = "revenue";
     assert_eq!(map.get(key), Some(&100));
 }
