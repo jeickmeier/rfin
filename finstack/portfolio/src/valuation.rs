@@ -274,30 +274,24 @@ pub fn value_portfolio(
 pub fn value_portfolio_with_options(
     portfolio: &Portfolio,
     market: &MarketContext,
-    config: &FinstackConfig,
-    options: &PortfolioValuationOptions,
-) -> Result<PortfolioValuation> {
-    // Use parallel execution if feature is enabled
-    #[cfg(feature = "parallel")]
-    {
-        value_portfolio_parallel(portfolio, market, config, options)
-    }
-
-    #[cfg(not(feature = "parallel"))]
-    {
-        value_portfolio_serial(portfolio, market, config, options)
-    }
-}
-
-/// Serial implementation of portfolio valuation.
-#[cfg(not(feature = "parallel"))]
-fn value_portfolio_serial(
-    portfolio: &Portfolio,
-    market: &MarketContext,
     _config: &FinstackConfig,
     options: &PortfolioValuationOptions,
 ) -> Result<PortfolioValuation> {
     let metrics = resolve_metrics(options);
+
+    #[cfg(feature = "parallel")]
+    let position_values_vec: Vec<PositionValue> = {
+        use rayon::prelude::*;
+        portfolio
+            .positions
+            .par_iter()
+            .map(|position| {
+                value_single_position(position, market, portfolio, &metrics, options.strict_risk)
+            })
+            .collect::<Result<Vec<_>>>()?
+    };
+
+    #[cfg(not(feature = "parallel"))]
     let position_values_vec: Vec<PositionValue> = portfolio
         .positions
         .iter()
@@ -305,26 +299,7 @@ fn value_portfolio_serial(
             value_single_position(position, market, portfolio, &metrics, options.strict_risk)
         })
         .collect::<Result<Vec<_>>>()?;
-    assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
-}
 
-/// Parallel implementation of portfolio valuation.
-#[cfg(feature = "parallel")]
-fn value_portfolio_parallel(
-    portfolio: &Portfolio,
-    market: &MarketContext,
-    _config: &FinstackConfig,
-    options: &PortfolioValuationOptions,
-) -> Result<PortfolioValuation> {
-    use rayon::prelude::*;
-    let metrics = resolve_metrics(options);
-    let position_values_vec: Vec<PositionValue> = portfolio
-        .positions
-        .par_iter()
-        .map(|position| {
-            value_single_position(position, market, portfolio, &metrics, options.strict_risk)
-        })
-        .collect::<Result<Vec<_>>>()?;
     assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
 }
 
