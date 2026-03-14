@@ -285,12 +285,12 @@ impl CreditScorecardExtension {
             .last()
             .ok_or_else(|| crate::error::Error::registry("No periods in model"))?;
 
-        let node_to_column: indexmap::IndexMap<String, usize> = context
+        let node_to_column: indexmap::IndexMap<crate::types::NodeId, usize> = context
             .model
             .nodes
             .keys()
             .enumerate()
-            .map(|(i, k)| (k.as_str().to_string(), i))
+            .map(|(i, k)| (k.clone(), i))
             .collect();
 
         let mut historical_results = indexmap::IndexMap::new();

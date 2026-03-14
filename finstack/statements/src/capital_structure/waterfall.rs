@@ -603,7 +603,7 @@ mod tests {
     fn build_context(period: PeriodId, values: &[(&str, f64)]) -> EvaluationContext {
         let mut node_to_column = IndexMap::new();
         for (idx, (name, _)) in values.iter().enumerate() {
-            node_to_column.insert((*name).to_string(), idx);
+            node_to_column.insert(crate::types::NodeId::new(*name), idx);
         }
         let mut ctx = EvaluationContext::new(
             period,

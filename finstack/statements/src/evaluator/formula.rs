@@ -32,6 +32,7 @@ use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
 use finstack_core::math::kahan_sum;
+use indexmap::IndexMap;
 use std::collections::BTreeMap;
 
 pub(crate) use crate::evaluator::formula_helpers::{
@@ -192,12 +193,12 @@ fn build_context_for_period(
     // Share the full historical Arc -- the period_id on the new context
     // determines what is "current". Aggregate functions that walk historical
     // already filter by period ordering, so passing the full map is safe.
-    let current_period_values = if target_period == context.period_id {
+    let current_period_values: IndexMap<String, f64> = if target_period == context.period_id {
         context
             .node_to_column
             .iter()
             .filter_map(|(node_id, idx)| {
-                context.current_values[*idx].map(|value| (node_id.clone(), value))
+                context.current_values[*idx].map(|value| (node_id.as_str().to_string(), value))
             })
             .collect()
     } else {
@@ -1106,7 +1107,7 @@ mod tests {
         current_value: f64,
     ) -> EvaluationContext {
         let mut node_to_column = IndexMap::new();
-        node_to_column.insert(node_id.to_string(), 0);
+        node_to_column.insert(crate::types::NodeId::new(node_id), 0);
 
         let mut historical = IndexMap::new();
         for (period, value) in historical_values {

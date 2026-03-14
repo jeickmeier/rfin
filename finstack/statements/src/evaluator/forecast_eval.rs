@@ -3,7 +3,7 @@
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
 use crate::forecast;
-use crate::types::{FinancialModelSpec, NodeSpec};
+use crate::types::{FinancialModelSpec, NodeId, NodeSpec};
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -23,7 +23,7 @@ pub(crate) fn evaluate_forecast(
     model: &FinancialModelSpec,
     period_id: &PeriodId,
     context: &EvaluationContext,
-    forecast_cache: &mut IndexMap<String, IndexMap<PeriodId, f64>>,
+    forecast_cache: &mut IndexMap<NodeId, IndexMap<PeriodId, f64>>,
     seed_offset: Option<u64>,
 ) -> Result<f64> {
     // Check cache first
@@ -74,10 +74,7 @@ pub(crate) fn evaluate_forecast(
     };
 
     // Cache results
-    forecast_cache.insert(
-        node_spec.node_id.as_str().to_string(),
-        forecast_results.clone(),
-    );
+    forecast_cache.insert(node_spec.node_id.clone(), forecast_results.clone());
 
     // Return value for requested period
     forecast_results.get(period_id).copied().ok_or_else(|| {

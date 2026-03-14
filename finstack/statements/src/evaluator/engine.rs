@@ -51,7 +51,7 @@ pub struct Evaluator {
     compiled_cache: std::sync::Arc<IndexMap<NodeId, Expr>>,
 
     /// Cached forecast results: node_id → (period_id → value)
-    forecast_cache: IndexMap<String, IndexMap<PeriodId, f64>>,
+    forecast_cache: IndexMap<NodeId, IndexMap<PeriodId, f64>>,
 }
 
 impl Evaluator {
@@ -154,11 +154,11 @@ impl Evaluator {
         // Compile all formulas upfront
         self.compile_formulas(model)?;
 
-        let node_to_column: std::sync::Arc<IndexMap<String, usize>> = std::sync::Arc::new(
+        let node_to_column: std::sync::Arc<IndexMap<NodeId, usize>> = std::sync::Arc::new(
             eval_order
                 .iter()
                 .enumerate()
-                .map(|(i, node_id)| (node_id.as_str().to_string(), i))
+                .map(|(i, node_id)| (node_id.clone(), i))
                 .collect(),
         );
 
@@ -462,11 +462,11 @@ impl Evaluator {
         self.forecast_cache.clear();
         self.compile_formulas(model)?;
 
-        let node_to_column: std::sync::Arc<IndexMap<String, usize>> = std::sync::Arc::new(
+        let node_to_column: std::sync::Arc<IndexMap<NodeId, usize>> = std::sync::Arc::new(
             eval_order
                 .iter()
                 .enumerate()
-                .map(|(i, node_id)| (node_id.as_str().to_string(), i))
+                .map(|(i, node_id)| (node_id.clone(), i))
                 .collect(),
         );
 
@@ -641,7 +641,7 @@ impl Evaluator {
         period_id: &PeriodId,
         is_actual: bool,
         eval_order: &[NodeId],
-        node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
+        node_to_column: &std::sync::Arc<IndexMap<NodeId, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         historical_cs: &IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
         cs_cashflows: Option<&crate::capital_structure::CapitalStructureCashflows>,
@@ -681,7 +681,7 @@ impl Evaluator {
         period_id: &PeriodId,
         is_actual: bool,
         eval_order: &[NodeId],
-        node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
+        node_to_column: &std::sync::Arc<IndexMap<NodeId, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         seed_offset: u64,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {

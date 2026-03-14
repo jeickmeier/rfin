@@ -7,7 +7,7 @@
 
 use crate::error::{Error, Result};
 use crate::evaluator::results::EvalWarning;
-use crate::types::NodeValueType;
+use crate::types::{NodeId, NodeValueType};
 use finstack_core::dates::{PeriodId, PeriodKind};
 use indexmap::IndexMap;
 use std::sync::Arc;
@@ -27,7 +27,7 @@ pub struct EvaluationContext {
     pub period_kind: PeriodKind,
 
     /// Map of node_id → column index for the current period
-    pub node_to_column: Arc<IndexMap<String, usize>>,
+    pub node_to_column: Arc<IndexMap<NodeId, usize>>,
 
     /// Historical results: period_id → (node_id → value)
     pub historical_results: Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
@@ -62,13 +62,14 @@ impl EvaluationContext {
     ///
     /// ```rust
     /// # use finstack_statements::evaluator::EvaluationContext;
+    /// # use finstack_statements::types::NodeId;
     /// # use finstack_core::dates::PeriodId;
     /// # use indexmap::IndexMap;
     /// # use std::sync::Arc;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let period = PeriodId::quarter(2025, 1);
     /// let mut columns = IndexMap::new();
-    /// columns.insert("revenue".to_string(), 0);
+    /// columns.insert(NodeId::new("revenue"), 0);
     /// let ctx = EvaluationContext::new(period, Arc::new(columns), Arc::new(IndexMap::new()));
     /// assert_eq!(ctx.period_id, period);
     /// # Ok(())
@@ -76,7 +77,7 @@ impl EvaluationContext {
     /// ```
     pub fn new(
         period_id: PeriodId,
-        node_to_column: Arc<IndexMap<String, usize>>,
+        node_to_column: Arc<IndexMap<NodeId, usize>>,
         historical_results: Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
     ) -> Self {
         let num_nodes = node_to_column.len();
@@ -281,7 +282,7 @@ impl EvaluationContext {
         let mut results = IndexMap::new();
         for (node_id, idx) in self.node_to_column.iter() {
             if let Some(value) = self.current_values[*idx] {
-                results.insert(node_id.clone(), value);
+                results.insert(node_id.as_str().to_string(), value);
             }
         }
         (results, self.warnings)
@@ -297,12 +298,13 @@ impl EvaluationContext {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::types::NodeId;
 
     #[test]
     fn test_context_creation() {
         let mut node_to_column = IndexMap::new();
-        node_to_column.insert("revenue".to_string(), 0);
-        node_to_column.insert("cogs".to_string(), 1);
+        node_to_column.insert(NodeId::new("revenue"), 0);
+        node_to_column.insert(NodeId::new("cogs"), 1);
 
         let ctx = EvaluationContext::new(
             PeriodId::quarter(2025, 1),
@@ -316,7 +318,7 @@ mod tests {
     #[test]
     fn test_set_and_get_value() {
         let mut node_to_column = IndexMap::new();
-        node_to_column.insert("revenue".to_string(), 0);
+        node_to_column.insert(NodeId::new("revenue"), 0);
 
         let mut ctx = EvaluationContext::new(
             PeriodId::quarter(2025, 1),
@@ -335,7 +337,7 @@ mod tests {
     #[test]
     fn test_get_historical_value() {
         let mut node_to_column = IndexMap::new();
-        node_to_column.insert("revenue".to_string(), 0);
+        node_to_column.insert(NodeId::new("revenue"), 0);
 
         let mut historical = IndexMap::new();
         let mut q1_results = IndexMap::new();

@@ -10,11 +10,12 @@ use indexmap::indexmap;
 #[test]
 fn test_context_set_and_get_value() {
     use finstack_statements::evaluator::EvaluationContext;
+    use finstack_statements::types::NodeId;
     use indexmap::IndexMap;
 
     let mut node_to_column = IndexMap::new();
-    node_to_column.insert("revenue".to_string(), 0);
-    node_to_column.insert("cogs".to_string(), 1);
+    node_to_column.insert(NodeId::new("revenue"), 0);
+    node_to_column.insert(NodeId::new("cogs"), 1);
 
     let mut ctx = EvaluationContext::new(
         PeriodId::quarter(2025, 1),

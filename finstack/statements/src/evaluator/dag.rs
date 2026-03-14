@@ -172,20 +172,23 @@ impl DependencyGraph {
 
     /// Find a cycle starting from a given node (DFS).
     fn find_cycle_from(&self, start: &str) -> Option<Vec<String>> {
-        let mut visited = IndexSet::new();
-        let mut path = Vec::new();
+        let mut visited: IndexSet<NodeId> = IndexSet::new();
+        let mut path: Vec<NodeId> = Vec::new();
         self.dfs_cycle(start, &mut visited, &mut path)
     }
 
     fn dfs_cycle(
         &self,
         node: &str,
-        visited: &mut IndexSet<String>,
-        path: &mut Vec<String>,
+        visited: &mut IndexSet<NodeId>,
+        path: &mut Vec<NodeId>,
     ) -> Option<Vec<String>> {
         // If we've seen this node in the current path, we have a cycle
-        if let Some(cycle_start) = path.iter().position(|n| n == node) {
-            let mut cycle = path[cycle_start..].to_vec();
+        if let Some(cycle_start) = path.iter().position(|n| n.as_str() == node) {
+            let mut cycle: Vec<String> = path[cycle_start..]
+                .iter()
+                .map(|n| n.as_str().to_string())
+                .collect();
             cycle.push(node.to_string());
             return Some(cycle);
         }
@@ -195,7 +198,7 @@ impl DependencyGraph {
             return None;
         }
 
-        path.push(node.to_string());
+        path.push(NodeId::new(node));
 
         if let Some(deps) = self.dependencies.get(node) {
             for dep in deps {
@@ -206,7 +209,7 @@ impl DependencyGraph {
         }
 
         path.pop();
-        visited.insert(node.to_string());
+        visited.insert(NodeId::new(node));
         None
     }
 }
