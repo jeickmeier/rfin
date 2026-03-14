@@ -1,12 +1,16 @@
-//! Expression evaluation context for column name resolution.
+//! Column name resolution context for expression evaluation.
 //!
-//! Provides the context interface used by expression evaluators to resolve
-//! column references to array indices at runtime.
+//! Provides [`SimpleContext`], the single concrete context type used by
+//! expression evaluators to resolve column references to array indices.
 
 use crate::collections::HashMap;
 
-/// A simple context that resolves column names to series indices.
-/// Simple name→index context for column resolution.
+/// Column name → index context for expression evaluation.
+///
+/// This is the single concrete context type accepted by [`CompiledExpr::eval`].
+/// Construct it from any ordered iterator of column names; the index of each
+/// name in the iterator becomes its column index in the data arrays passed to
+/// `eval`.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SimpleContext {
     /// Column name to index mapping for O(1) resolution.
@@ -30,19 +34,6 @@ impl SimpleContext {
     }
 }
 
-/// Trait for pluggable expression contexts used by evaluators.
-/// Context trait used by evaluators to resolve column references.
-pub trait ExpressionContext {
-    /// Resolve a column name to its index in an input frame.
-    fn resolve_index(&self, name: &str) -> Option<usize>;
-}
-
-impl ExpressionContext for SimpleContext {
-    fn resolve_index(&self, name: &str) -> Option<usize> {
-        self.index_of(name)
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::indexing_slicing)]
 mod tests {
@@ -54,6 +45,6 @@ mod tests {
         assert_eq!(ctx.index_of("price"), Some(0));
         assert_eq!(ctx.index_of("volume"), Some(1));
         assert_eq!(ctx.index_of("flag"), Some(2));
-        assert_eq!(ctx.resolve_index("missing"), None);
+        assert_eq!(ctx.index_of("missing"), None);
     }
 }

@@ -17,9 +17,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_portfolio::{
-    aggregate_metrics, Entity, PortfolioBuilder, PortfolioOptimizer, Position, PositionUnit,
-};
+use finstack_portfolio::{aggregate_metrics, Entity, PortfolioBuilder, Position, PositionUnit};
 use finstack_portfolio::{
     Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
     PortfolioOptimizationProblem, WeightingScheme,

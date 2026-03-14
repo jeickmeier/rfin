@@ -14,8 +14,8 @@ use finstack_portfolio::optimization::{
     optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
     Inequality, MaxYieldWithCccLimitResult, MetricExpr, MissingMetricPolicy, Objective,
     OptimizationStatus, PerPositionMetric, PortfolioOptimizationProblem,
-    PortfolioOptimizationResult, PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec,
-    TradeType, TradeUniverse, WeightingScheme,
+    PortfolioOptimizationResult, PositionFilter, TradeDirection, TradeSpec, TradeType,
+    TradeUniverse, WeightingScheme,
 };
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};

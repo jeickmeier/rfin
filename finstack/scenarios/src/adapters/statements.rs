@@ -39,6 +39,9 @@ impl ScenarioAdapter for StatementAdapter {
                     value: *value,
                 }]))
             }
+            OperationSpec::RateBinding { binding } => Ok(Some(vec![ScenarioEffect::RateBinding {
+                binding: binding.clone(),
+            }])),
             _ => Ok(None),
         }
     }

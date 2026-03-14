@@ -121,9 +121,8 @@ pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
 pub use optimization::{
     optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
     Inequality, MaxYieldWithCccLimitResult, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult,
-    PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec, TradeType, TradeUniverse,
-    WeightingScheme,
+    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult, PositionFilter,
+    TradeDirection, TradeSpec, TradeType, TradeUniverse, WeightingScheme,
 };
 pub use portfolio::Portfolio;
 pub use portfolio::PortfolioSpec;

@@ -5,7 +5,7 @@
 //! execution engine in `eval.rs`.
 
 use super::ast::Function;
-use super::context::ExpressionContext;
+use super::context::SimpleContext;
 use super::eval::CompiledExpr;
 
 impl CompiledExpr {
@@ -785,11 +785,11 @@ impl CompiledExpr {
 
     // --- Function dispatch ---
 
-    pub(super) fn eval_function_core<C: ExpressionContext>(
+    pub(super) fn eval_function_core(
         &self,
         fun: Function,
         arg_results: &[&[f64]],
-        _ctx: &C,
+        _ctx: &SimpleContext,
         _cols: &[&[f64]],
     ) -> crate::Result<Vec<f64>> {
         match fun {

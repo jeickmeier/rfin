@@ -7,32 +7,11 @@
 //! - Exponentially weighted operations (EwmMean, EwmStd, EwmVar)
 //! - Statistical operations (Std, Var, Median, Rank, Quantile)
 
-use finstack_core::expr::{
-    BinOp, CompiledExpr, EvalOpts, Expr, ExpressionContext, Function, SimpleContext,
-};
-
-/// Simple context for testing.
-struct TestContext {
-    columns: Vec<String>,
-}
-
-impl TestContext {
-    fn new(columns: Vec<&str>) -> Self {
-        Self {
-            columns: columns.into_iter().map(|s| s.to_string()).collect(),
-        }
-    }
-}
-
-impl ExpressionContext for TestContext {
-    fn resolve_index(&self, name: &str) -> Option<usize> {
-        self.columns.iter().position(|c| c == name)
-    }
-}
+use finstack_core::expr::{BinOp, CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
 /// Standard test data: values 1-10 and indices 0-9.
-fn standard_test_data() -> (TestContext, Vec<Vec<f64>>) {
-    let ctx = TestContext::new(vec!["values", "index"]);
+fn standard_test_data() -> (SimpleContext, Vec<Vec<f64>>) {
+    let ctx = SimpleContext::new(["values", "index"]);
     let data = vec![
         vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], // values
         vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],  // index
@@ -743,7 +722,7 @@ mod ewm_operations {
 
     #[test]
     fn binary_op_missing_tail_yields_nan() {
-        let ctx = TestContext::new(vec!["lhs", "rhs"]);
+        let ctx = SimpleContext::new(["lhs", "rhs"]);
         let lhs = vec![1.0, 2.0, 3.0, 4.0];
         let rhs = vec![10.0, 20.0];
         let cols = vec![lhs.as_slice(), rhs.as_slice()];
@@ -1061,7 +1040,7 @@ mod edge_cases {
 
     #[test]
     fn empty_data() {
-        let ctx = TestContext::new(vec!["empty"]);
+        let ctx = SimpleContext::new(["empty"]);
         let data = [vec![]];
         let cols = to_slice_refs(&data);
 
@@ -1075,7 +1054,7 @@ mod edge_cases {
 
     #[test]
     fn single_value() {
-        let ctx = TestContext::new(vec!["single"]);
+        let ctx = SimpleContext::new(["single"]);
         let data = [vec![42.0]];
         let cols = to_slice_refs(&data);
 
@@ -1086,7 +1065,7 @@ mod edge_cases {
 
     #[test]
     fn nan_handling_cumsum() {
-        let ctx = TestContext::new(vec!["nan_data"]);
+        let ctx = SimpleContext::new(["nan_data"]);
         let data = [vec![1.0, f64::NAN, 3.0, f64::NAN, 5.0]];
         let cols = to_slice_refs(&data);
 

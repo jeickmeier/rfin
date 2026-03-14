@@ -16,24 +16,6 @@ use finstack_valuations::metrics::MetricId;
 use good_lp::{constraint, default_solver, variable, Expression, Solution, SolverModel};
 use indexmap::IndexMap;
 
-/// Optimizer interface; allows swapping implementations (LP, QP, etc.).
-pub trait PortfolioOptimizer: Send + Sync {
-    /// Optimize the portfolio for the given problem and market/config context.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error`] when:
-    /// - Portfolio validation fails
-    /// - Required metrics cannot be priced
-    /// - The LP backend fails or returns an invalid solution
-    fn optimize(
-        &self,
-        problem: &PortfolioOptimizationProblem,
-        market: &MarketContext,
-        config: &FinstackConfig,
-    ) -> Result<PortfolioOptimizationResult>;
-}
-
 /// LP‑based optimizer using the `good_lp` crate as backend.
 pub struct DefaultLpOptimizer {
     /// Solver tolerance for optimality.
@@ -239,8 +221,16 @@ impl DefaultLpOptimizer {
     }
 }
 
-impl PortfolioOptimizer for DefaultLpOptimizer {
-    fn optimize(
+impl DefaultLpOptimizer {
+    /// Optimize the portfolio for the given problem and market/config context.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] when:
+    /// - Portfolio validation fails
+    /// - Required metrics cannot be priced
+    /// - The LP backend fails or returns an invalid solution
+    pub fn optimize(
         &self,
         problem: &PortfolioOptimizationProblem,
         market: &MarketContext,

@@ -7,8 +7,7 @@ use finstack_core::money::Money;
 use finstack_portfolio::builder::PortfolioBuilder;
 use finstack_portfolio::optimization::{
     CandidatePosition, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizer, PositionFilter,
-    WeightingScheme,
+    PerPositionMetric, PortfolioOptimizationProblem, PositionFilter, WeightingScheme,
 };
 use finstack_portfolio::position::{Position, PositionUnit};
 use finstack_portfolio::types::Entity;

@@ -314,6 +314,32 @@ pub enum OperationSpec {
         value: f64,
     },
 
+    /// Bind a statement rate node to a market curve for this scenario.
+    ///
+    /// The rate at the specified tenor is extracted from the curve and applied
+    /// to the node, overriding any static value. The binding is also registered
+    /// in the execution context so it persists across subsequent time rolls.
+    ///
+    /// # Example
+    /// ```rust
+    /// use finstack_scenarios::{OperationSpec, RateBindingSpec};
+    /// use finstack_scenarios::spec::Compounding;
+    ///
+    /// let op = OperationSpec::RateBinding {
+    ///     binding: RateBindingSpec {
+    ///         node_id: "InterestExpense".into(),
+    ///         curve_id: "USD-OIS".into(),
+    ///         tenor: "1Y".into(),
+    ///         compounding: Compounding::Annual,
+    ///         day_count: None,
+    ///     },
+    /// };
+    /// ```
+    RateBinding {
+        /// The rate binding specification to apply.
+        binding: RateBindingSpec,
+    },
+
     /// Instrument spread shock by exact attribute match (FI only).
     ///
     /// # Example
@@ -796,6 +822,15 @@ impl OperationSpec {
             OperationSpec::StmtForecastAssign { node_id, value } => {
                 check_id(node_id, "node_id")?;
                 check_finite(*value, "value")?;
+            }
+            OperationSpec::RateBinding { binding } => {
+                check_id(&binding.node_id, "node_id")?;
+                check_id(&binding.curve_id, "curve_id")?;
+                if binding.tenor.trim().is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "RateBinding tenor cannot be empty".into(),
+                    ));
+                }
             }
             OperationSpec::InstrumentSpreadBpByAttr { bp, .. } => {
                 check_finite(*bp, "bp")?;

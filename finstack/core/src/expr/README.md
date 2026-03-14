@@ -8,7 +8,7 @@ etc.) over plain `f64` slices. It is designed to be:
 - **Allocation‑aware**: scratch arenas and an arena‑style executor minimise per‑node `Vec` allocations.
 - **DAG‑optimized**: shared sub‑expressions across many formulas are evaluated once.
 - **Cache‑friendly**: intermediate node results can be cached with an LRU cache and explicit memory budget.
-- **Embedding‑friendly**: no Polars dependency, `ExpressionContext` makes the caller responsible for column resolution.
+- **Embedding‑friendly**: no Polars dependency, `SimpleContext` handles column resolution and can be constructed from any ordered iterator of column names.
 
 Semantics note: when input columns have mismatched lengths, missing tail values
 propagate as `NaN` instead of being silently zero-filled. Adjusted EWM mean also
@@ -19,7 +19,7 @@ At a high level, you:
 
 - **Build an AST** with `Expr`, `ExprNode`, `BinOp`, `UnaryOp`, and `Function`.
 - **Compile** it into a `CompiledExpr` (optionally with a DAG `ExecutionPlan` and cache).
-- **Evaluate** it against a column context (`ExpressionContext`) and a slice of numeric columns.
+- **Evaluate** it against a `SimpleContext` and a slice of numeric columns.
 
 ---
 
@@ -33,7 +33,6 @@ The `mod.rs` re‑exports the small public API:
   - `Function`
   - `EvaluationResult`
 - **Context**
-  - `ExpressionContext` (trait)
   - `SimpleContext`
 - **Evaluator**
   - `CompiledExpr`
@@ -59,7 +58,6 @@ The Polars `Series` API is intentionally **not** exposed here; callers work with
 
 - **`context.rs`**: column resolution
   - `SimpleContext`: name→index map for small, in‑memory frames.
-  - `ExpressionContext`: trait used by evaluators to resolve column names (`fn resolve_index(&self, name: &str) -> Option<usize>`).
 
 - **`dag.rs`**: DAG planning and execution plans
   - `DagNode { id, expr, dependencies, ref_count, cost }`.
@@ -80,7 +78,7 @@ The Polars `Series` API is intentionally **not** exposed here; callers work with
     - `cache: Option<CacheManager>`
     - internal `ScratchArena { tmp: Vec<f64>, window: Vec<f64> }` for allocations.
   - Evaluation entrypoint:
-    `fn eval<C: ExpressionContext>(&self, ctx: &C, cols: &[&[f64]], opts: EvalOpts) -> EvaluationResult`.
+    `fn eval(&self, ctx: &SimpleContext, cols: &[&[f64]], opts: EvalOpts) -> EvaluationResult`.
   - Core responsibilities:
     - Decide execution plan (external `EvalOpts.plan` → internal `self.plan` → auto‑build).
     - Choose a cache (external budget or internal `self.cache`).
@@ -269,7 +267,7 @@ let result = compiled.eval(
 
 ## Extending the Expression Engine
 
-This section describes how to add **new functions** or **new contexts** safely.
+This section describes how to add **new functions** safely.
 
 ### Adding a New Function
 
@@ -300,31 +298,6 @@ This section describes how to add **new functions** or **new contexts** safely.
 
 5. **Update docs**
    - Update this `README.md` and the module docs in `mod.rs` / `ast.rs` to mention the new function and its semantics.
-
-### Adding a New `ExpressionContext`
-
-The default `SimpleContext` is intentionally small. For more complex environments (e.g., a large
-statements model with many frames or partitioned data), you can implement your own context:
-
-```rust
-use finstack_core::expr::ExpressionContext;
-
-struct MyContext {
-    // your own lookup structures
-}
-
-impl ExpressionContext for MyContext {
-    fn resolve_index(&self, name: &str) -> Option<usize> {
-        // map name → index in your input frame representation
-        unimplemented!()
-    }
-}
-```
-
-Guidelines:
-
-- **Resolve only by name**: the evaluator assumes column indices are stable and consistent with the `cols` slice passed at evaluation time.
-- **No side effects**: `resolve_index` should be cheap and side‑effect‑free; it may be called many times.
 
 ### Working with Caching
 

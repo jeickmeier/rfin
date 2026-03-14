@@ -6,7 +6,7 @@
 
 use super::{
     Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
-    PortfolioOptimizationProblem, PortfolioOptimizer,
+    PortfolioOptimizationProblem,
 };
 use crate::error::Result;
 use crate::portfolio::Portfolio;

@@ -1,13 +1,12 @@
-//! Tests for ExpressionContext implementations.
+//! Tests for SimpleContext.
 //!
 //! This module tests SimpleContext:
 //! - Basic column lookup
 //! - Missing columns
 //! - Edge cases (empty, single column, duplicates)
 //! - Special characters and unicode names
-//! - ExpressionContext trait implementation
 
-use finstack_core::expr::{ExpressionContext, SimpleContext};
+use finstack_core::expr::SimpleContext;
 
 #[test]
 fn simple_context_basic_usage() {
@@ -94,14 +93,13 @@ fn simple_context_whitespace_names() {
 }
 
 #[test]
-fn simple_context_resolve_index_trait_method() {
+fn simple_context_resolve_index_method() {
     let ctx = SimpleContext::new(["a", "b", "c"]);
 
-    // Test via trait method
-    assert_eq!(ctx.resolve_index("a"), Some(0));
-    assert_eq!(ctx.resolve_index("b"), Some(1));
-    assert_eq!(ctx.resolve_index("c"), Some(2));
-    assert_eq!(ctx.resolve_index("d"), None);
+    assert_eq!(ctx.index_of("a"), Some(0));
+    assert_eq!(ctx.index_of("b"), Some(1));
+    assert_eq!(ctx.index_of("c"), Some(2));
+    assert_eq!(ctx.index_of("d"), None);
 }
 
 #[test]

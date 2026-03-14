@@ -12,8 +12,7 @@ pub mod fx;
 pub mod instruments;
 pub mod statements;
 pub mod time_roll;
-/// Scenario adapter traits.
-pub mod traits;
+pub(crate) mod traits;
 pub mod vol;
 
 pub use asset_corr::{

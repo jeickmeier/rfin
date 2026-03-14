@@ -57,7 +57,7 @@ mod eval_functions;
 
 // Public API - simplified surface for end users
 pub use ast::{BinOp, EvaluationResult, Expr, ExprNode, Function, UnaryOp};
-pub use context::{ExpressionContext, SimpleContext};
+pub use context::SimpleContext;
 pub use eval::{CompiledExpr, EvalOpts};
 
 /// DAG planning types are considered internal to the expression engine.

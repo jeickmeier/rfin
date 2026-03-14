@@ -14,7 +14,7 @@
 use super::{
     ast::*,
     cache::{CacheManager, CachedResult},
-    context::ExpressionContext,
+    context::SimpleContext,
     dag::{DagBuilder, ExecutionPlan},
 };
 use crate::collections::HashMap;
@@ -170,9 +170,9 @@ impl CompiledExpr {
     ///
     /// Uses scalar implementations for all functions, with optional DAG planning
     /// and caching for complex expressions.
-    pub fn eval<C: ExpressionContext>(
+    pub fn eval(
         &self,
-        ctx: &C,
+        ctx: &SimpleContext,
         cols: &[&[f64]],
         opts: EvalOpts,
     ) -> crate::Result<EvaluationResult> {
@@ -274,9 +274,9 @@ impl CompiledExpr {
     }
 
     /// Evaluate a single DAG node directly into a provided output slice (arena-based).
-    fn eval_node_into<C: ExpressionContext>(
+    fn eval_node_into(
         &self,
-        ctx: &C,
+        ctx: &SimpleContext,
         cols: &[&[f64]],
         node: &super::dag::DagNode,
         arena: &[f64],
@@ -285,7 +285,7 @@ impl CompiledExpr {
     ) -> crate::Result<()> {
         match &node.expr.node {
             ExprNode::Column(name) => {
-                let Some(idx) = ctx.resolve_index(name) else {
+                let Some(idx) = ctx.index_of(name) else {
                     return Err(crate::error::InputError::NotFound {
                         id: format!("expr column:{name}"),
                     }
@@ -544,11 +544,11 @@ impl CompiledExpr {
     }
 
     /// Evaluate a function with given argument results (slices from arena).
-    fn eval_function_into<C: ExpressionContext>(
+    fn eval_function_into(
         &self,
         fun: Function,
         arg_slices: &[&[f64]],
-        _ctx: &C,
+        _ctx: &SimpleContext,
         _cols: &[&[f64]],
         out: &mut [f64],
     ) -> crate::Result<()> {

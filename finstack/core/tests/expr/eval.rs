@@ -10,12 +10,11 @@
 //!
 //! Function-specific behavior tests are in functions.rs.
 
-use super::common::TestExprCtx;
 use finstack_core::config::{results_meta, FinstackConfig};
 use finstack_core::expr::{BinOp, CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
-fn create_test_data() -> (TestExprCtx, Vec<Vec<f64>>) {
-    let ctx = TestExprCtx::new().with_column("x", 0).with_column("y", 1);
+fn create_test_data() -> (SimpleContext, Vec<Vec<f64>>) {
+    let ctx = SimpleContext::new(["x", "y"]);
     let data = vec![
         vec![1.0, 2.0, 3.0, 4.0, 5.0],      // x column
         vec![10.0, 20.0, 30.0, 40.0, 50.0], // y column
@@ -55,7 +54,7 @@ fn literal_evaluation() {
 
 #[test]
 fn literal_zero_length() {
-    let ctx = TestExprCtx::new().with_column("empty", 0);
+    let ctx = SimpleContext::new(["empty"]);
     let empty_data = [Vec::<f64>::new()];
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
@@ -297,7 +296,7 @@ fn with_cache_configuration() {
 
 #[test]
 fn empty_data_column() {
-    let ctx = TestExprCtx::new().with_column("empty", 0);
+    let ctx = SimpleContext::new(["empty"]);
     let empty_data = [Vec::<f64>::new()];
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
@@ -308,7 +307,7 @@ fn empty_data_column() {
 
 #[test]
 fn empty_data_function() {
-    let ctx = TestExprCtx::new().with_column("empty", 0);
+    let ctx = SimpleContext::new(["empty"]);
     let empty_data = [Vec::<f64>::new()];
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
@@ -322,7 +321,7 @@ fn empty_data_function() {
 
 #[test]
 fn single_element_data() {
-    let ctx = TestExprCtx::new().with_column("single", 0);
+    let ctx = SimpleContext::new(["single"]);
     let data = [vec![42.0]];
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 

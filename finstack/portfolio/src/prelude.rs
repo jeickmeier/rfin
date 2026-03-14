@@ -20,9 +20,8 @@ pub use crate::metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
 pub use crate::optimization::{
     optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
     Inequality, MaxYieldWithCccLimitResult, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult,
-    PortfolioOptimizer, PositionFilter, TradeDirection, TradeSpec, TradeType, TradeUniverse,
-    WeightingScheme,
+    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult, PositionFilter,
+    TradeDirection, TradeSpec, TradeType, TradeUniverse, WeightingScheme,
 };
 pub use crate::portfolio::{Portfolio, PortfolioSpec};
 pub use crate::position::{Position, PositionUnit};

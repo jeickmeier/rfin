@@ -16,7 +16,7 @@ mod universe;
 
 pub use constraints::{Constraint, ConstraintValidationError, Inequality};
 pub use helpers::{optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult};
-pub use lp_solver::{DefaultLpOptimizer, PortfolioOptimizer};
+pub use lp_solver::DefaultLpOptimizer;
 pub use problem::PortfolioOptimizationProblem;
 pub use result::{
     OptimizationStatus, PortfolioOptimizationResult, TradeDirection, TradeSpec, TradeType,
