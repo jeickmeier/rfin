@@ -309,27 +309,21 @@ impl PortfolioBuilder {
             self.entities.insert(dummy.id.clone(), dummy);
         }
 
-        let position_index = self
-            .positions
-            .iter()
-            .enumerate()
-            .map(|(i, p)| (p.position_id.clone(), i))
-            .collect();
-        let dependency_index = crate::dependencies::DependencyIndex::build(&self.positions);
-
-        let portfolio = Portfolio {
+        let mut portfolio = Portfolio {
             id: self.id,
             name: self.name,
             base_ccy,
             as_of,
             entities: self.entities,
             positions: self.positions,
-            position_index,
-            dependency_index,
+            position_index: finstack_core::HashMap::default(),
+            dependency_index: crate::dependencies::DependencyIndex::default(),
             books: self.books,
             tags: self.tags,
             meta: self.meta,
         };
+
+        portfolio.rebuild_index();
 
         // Validate the portfolio
         portfolio.validate()?;

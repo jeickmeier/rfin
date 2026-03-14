@@ -294,26 +294,22 @@ impl Portfolio {
             .collect();
 
         let positions = positions?;
-        let position_index = positions
-            .iter()
-            .enumerate()
-            .map(|(i, p)| (p.position_id.clone(), i))
-            .collect();
-        let dependency_index = DependencyIndex::build(&positions);
 
-        let portfolio = Self {
+        let mut portfolio = Self {
             id: spec.id,
             name: spec.name,
             base_ccy: spec.base_ccy,
             as_of: spec.as_of,
             entities: spec.entities,
             positions,
-            position_index,
-            dependency_index,
+            position_index: HashMap::default(),
+            dependency_index: DependencyIndex::default(),
             books: spec.books,
             tags: spec.tags,
             meta: spec.meta,
         };
+
+        portfolio.rebuild_index();
 
         // Validate the reconstructed portfolio
         portfolio.validate()?;
