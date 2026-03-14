@@ -162,7 +162,7 @@ impl Evaluator {
                 .collect(),
         );
 
-        let cs_seed_nodes: HashSet<String> = model
+        let cs_seed_nodes: HashSet<NodeId> = model
             .nodes
             .iter()
             .filter_map(|(node_id, spec)| {
@@ -175,7 +175,7 @@ impl Evaluator {
                         .as_deref()
                         .is_some_and(|text| text.contains("cs."))
                 {
-                    Some(node_id.as_str().to_string())
+                    Some(node_id.clone())
                 } else {
                     None
                 }
@@ -573,7 +573,7 @@ impl Evaluator {
         eval_order: &[NodeId],
         context: &mut EvaluationContext,
         seed_offset: Option<u64>,
-        node_filter: Option<&HashSet<String>>,
+        node_filter: Option<&HashSet<NodeId>>,
     ) -> Result<()> {
         for node_id in eval_order {
             if let Some(filter) = node_filter {

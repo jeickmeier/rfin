@@ -3,7 +3,7 @@
 use super::{EvaluationContext, Evaluator};
 use crate::error::Result;
 use crate::evaluator::{DependencyGraph, EvalWarning};
-use crate::types::FinancialModelSpec;
+use crate::types::{FinancialModelSpec, NodeId};
 use finstack_core::dates::{Date, Period, PeriodId};
 use finstack_core::money::Money;
 use indexmap::IndexMap;
@@ -62,7 +62,7 @@ impl Evaluator {
         as_of: Date,
         instruments: &Instruments,
         cs_state: &mut crate::capital_structure::CapitalStructureState,
-        cs_affected_nodes: &HashSet<String>,
+        cs_affected_nodes: &HashSet<NodeId>,
     ) -> Result<(
         IndexMap<String, f64>,
         Vec<EvalWarning>,
@@ -135,17 +135,16 @@ impl Evaluator {
 
 pub(crate) fn dependent_closure(
     graph: &DependencyGraph,
-    seeds: &HashSet<String>,
-) -> HashSet<String> {
-    let mut visited: HashSet<String> = seeds.iter().cloned().collect();
-    let mut stack: Vec<String> = seeds.iter().cloned().collect();
+    seeds: &HashSet<NodeId>,
+) -> HashSet<NodeId> {
+    let mut visited: HashSet<NodeId> = seeds.iter().cloned().collect();
+    let mut stack: Vec<NodeId> = seeds.iter().cloned().collect();
 
     while let Some(node) = stack.pop() {
         if let Some(dependents) = graph.dependents.get(node.as_str()) {
             for dependent in dependents {
-                let dep_str = dependent.as_str().to_string();
-                if visited.insert(dep_str.clone()) {
-                    stack.push(dep_str);
+                if visited.insert(dependent.clone()) {
+                    stack.push(dependent.clone());
                 }
             }
         }

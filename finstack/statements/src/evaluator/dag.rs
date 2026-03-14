@@ -52,11 +52,7 @@ impl DependencyGraph {
             dependents.insert(node_id.clone(), IndexSet::new());
         }
 
-        let all_node_ids: IndexSet<String> = model
-            .nodes
-            .keys()
-            .map(|id| id.as_str().to_string())
-            .collect();
+        let all_node_ids: IndexSet<NodeId> = model.nodes.keys().cloned().collect();
 
         // Extract dependencies from formulas and where clauses
         for (node_id, node_spec) in &model.nodes {
@@ -81,12 +77,7 @@ impl DependencyGraph {
     ///
     /// This catches typos and unknown references at build time instead of runtime.
     fn validate_formula_references(model: &FinancialModelSpec) -> Result<()> {
-        // Create set of all valid identifiers (all node IDs in the model)
-        let valid_identifiers: IndexSet<String> = model
-            .nodes
-            .keys()
-            .map(|id| id.as_str().to_string())
-            .collect();
+        let valid_identifiers: IndexSet<NodeId> = model.nodes.keys().cloned().collect();
 
         // Check each formula
         for (node_id, node_spec) in &model.nodes {
@@ -102,7 +93,7 @@ impl DependencyGraph {
                     }
 
                     // Check if identifier exists in model nodes
-                    if !valid_identifiers.contains(identifier) {
+                    if !valid_identifiers.contains(identifier.as_str()) {
                         return Err(Error::eval(format!(
                             "Unknown identifier '{}' in formula for node '{}'. \
                              Formula: '{}'. \
@@ -126,7 +117,7 @@ impl DependencyGraph {
                         continue;
                     }
 
-                    if !valid_identifiers.contains(identifier) {
+                    if !valid_identifiers.contains(identifier.as_str()) {
                         return Err(Error::eval(format!(
                             "Unknown identifier '{}' in where clause for node '{}'. \
                              Where clause: '{}'. \
@@ -276,7 +267,7 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<NodeId>> {
 /// temporal cycles (like corkscrews) without blocking the DAG.
 fn extract_dependencies(
     formula: &str,
-    all_node_ids: &IndexSet<String>,
+    all_node_ids: &IndexSet<NodeId>,
 ) -> Result<IndexSet<NodeId>> {
     let direct_deps = crate::utils::formula::extract_direct_dependencies(formula).map_err(|e| {
         crate::error::Error::build(format!(
@@ -284,18 +275,18 @@ fn extract_dependencies(
         ))
     })?;
     Ok(direct_deps
-        .intersection(all_node_ids)
-        .map(|s| NodeId::new(s.as_str()))
+        .into_iter()
+        .filter(|id| all_node_ids.contains(id.as_str()))
         .collect())
 }
 
 /// Suggest similar identifiers for a typo using Levenshtein distance.
 ///
 /// Returns a comma-separated list of up to 3 most similar identifiers.
-fn suggest_similar_identifiers(typo: &str, valid: &IndexSet<String>) -> String {
-    let mut similarities: Vec<(usize, &String)> = valid
+fn suggest_similar_identifiers(typo: &str, valid: &IndexSet<NodeId>) -> String {
+    let mut similarities: Vec<(usize, &NodeId)> = valid
         .iter()
-        .map(|id| (levenshtein_distance(typo, id), id))
+        .map(|id| (levenshtein_distance(typo, id.as_str()), id))
         .collect();
 
     // Sort by distance (closest first)
@@ -425,9 +416,9 @@ mod tests {
 
     #[test]
     fn test_extract_dependencies() {
-        let all_nodes: IndexSet<String> = ["revenue", "cogs", "gross_profit"]
+        let all_nodes: IndexSet<NodeId> = ["revenue", "cogs", "gross_profit"]
             .iter()
-            .map(|s| s.to_string())
+            .map(|s| NodeId::new(*s))
             .collect();
 
         let deps = extract_dependencies("revenue - cogs", &all_nodes).unwrap();

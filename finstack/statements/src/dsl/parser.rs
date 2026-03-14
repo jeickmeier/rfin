@@ -2,6 +2,7 @@
 
 use crate::dsl::ast::{BinOp, StmtExpr, UnaryOp};
 use crate::error::{Error, Result};
+use crate::types::NodeId;
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
@@ -232,10 +233,7 @@ fn identifier(input: &str) -> IResult<&str, StmtExpr> {
         }
     }
 
-    Ok((
-        input,
-        StmtExpr::NodeRef(crate::types::NodeId::from(id_str.as_str())),
-    ))
+    Ok((input, StmtExpr::NodeRef(NodeId::from(id_str.as_str()))))
 }
 
 // Identifier string (alphanumeric + underscore + dot + hyphen for instrument IDs)

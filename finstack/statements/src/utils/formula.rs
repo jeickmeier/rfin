@@ -2,6 +2,7 @@
 
 use crate::dsl::ast::StmtExpr;
 use crate::dsl::parse_formula;
+use crate::types::NodeId;
 use indexmap::IndexSet;
 
 /// Check if a character is a valid identifier boundary.
@@ -96,12 +97,12 @@ pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<S
 ///
 /// # Returns
 ///
-/// Returns a set of identifiers that are direct dependencies in the current period.
-pub fn extract_direct_dependencies(formula: &str) -> crate::error::Result<IndexSet<String>> {
+/// Returns a set of [`NodeId`]s that are direct dependencies in the current period.
+pub fn extract_direct_dependencies(formula: &str) -> crate::error::Result<IndexSet<NodeId>> {
     let ast = parse_formula(formula)?;
-    let mut identifiers = IndexSet::new();
+    let mut identifiers: IndexSet<String> = IndexSet::new();
     collect_identifiers_from_ast(&ast, &mut identifiers, true);
-    Ok(identifiers)
+    Ok(identifiers.into_iter().map(NodeId::from).collect())
 }
 
 /// Recursively collect identifiers from an AST node.
