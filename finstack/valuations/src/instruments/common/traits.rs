@@ -1344,7 +1344,7 @@ impl InstrumentCurvesBuilder {
 }
 
 /// Identifies the type of rate curve for risk calculations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RatesCurveKind {
     /// Discount curve (used for present value discounting).
     Discount,

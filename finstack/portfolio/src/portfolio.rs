@@ -5,6 +5,7 @@
 //! validating structural invariants before valuation takes place.
 
 use crate::book::{Book, BookId};
+use crate::dependencies::DependencyIndex;
 use crate::error::{Error, Result};
 use crate::position::Position;
 use crate::types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
@@ -47,6 +48,13 @@ pub struct Portfolio {
     /// through the builder or `from_spec`.
     #[serde(skip)]
     pub(crate) position_index: HashMap<PositionId, usize>,
+
+    /// Inverted index mapping market factor keys to affected position indices.
+    ///
+    /// Rebuilt together with `position_index` via [`rebuild_index`].
+    /// Enables selective repricing when only a subset of market data changes.
+    #[serde(skip)]
+    pub(crate) dependency_index: DependencyIndex,
 
     /// Optional hierarchical book organization
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -108,15 +116,18 @@ impl Portfolio {
             entities: IndexMap::new(),
             positions: Vec::new(),
             position_index: HashMap::default(),
+            dependency_index: DependencyIndex::default(),
             books: IndexMap::new(),
             tags: IndexMap::new(),
             meta: IndexMap::new(),
         }
     }
 
-    /// Rebuild the internal position-ID → index mapping.
+    /// Rebuild both derived caches: the position-ID lookup and the
+    /// market-factor dependency index.
     ///
-    /// Call this after mutating `positions` directly to keep the O(1) lookup valid.
+    /// Call this after mutating `positions` directly to keep the O(1) lookup
+    /// and the selective-repricing index valid.
     pub fn rebuild_index(&mut self) {
         self.position_index = self
             .positions
@@ -124,6 +135,7 @@ impl Portfolio {
             .enumerate()
             .map(|(i, p)| (p.position_id.clone(), i))
             .collect();
+        self.dependency_index = DependencyIndex::build(&self.positions);
     }
 
     /// Get a position by identifier (O(1) via index).
@@ -160,6 +172,11 @@ impl Portfolio {
             .iter()
             .filter(|p| p.tags.get(key).map(|v| v.as_str()) == Some(value))
             .collect()
+    }
+
+    /// Read-only access to the dependency index for inspection and testing.
+    pub fn dependency_index(&self) -> &DependencyIndex {
+        &self.dependency_index
     }
 
     /// Validate the portfolio structure.
@@ -282,6 +299,7 @@ impl Portfolio {
             .enumerate()
             .map(|(i, p)| (p.position_id.clone(), i))
             .collect();
+        let dependency_index = DependencyIndex::build(&positions);
 
         let portfolio = Self {
             id: spec.id,
@@ -291,6 +309,7 @@ impl Portfolio {
             entities: spec.entities,
             positions,
             position_index,
+            dependency_index,
             books: spec.books,
             tags: spec.tags,
             meta: spec.meta,

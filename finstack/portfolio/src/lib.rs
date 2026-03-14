@@ -97,6 +97,8 @@ pub mod valuation;
 
 /// Cashflow ladder and schedule aggregation utilities.
 pub mod cashflows;
+/// Market-factor dependency index for selective repricing.
+pub mod dependencies;
 
 #[cfg(test)]
 #[allow(clippy::expect_used)]
@@ -111,6 +113,7 @@ pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
 pub use book::{Book, BookId};
 pub use builder::PortfolioBuilder;
 pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
+pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};
 pub use grouping::{aggregate_by_attribute, aggregate_by_book, group_by_attribute};
 pub use margin::{
@@ -129,7 +132,7 @@ pub use portfolio::PortfolioSpec;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResult;
 pub use types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
-pub use valuation::{value_portfolio, PortfolioValuation, PositionValue};
+pub use valuation::{revalue_affected, value_portfolio, PortfolioValuation, PositionValue};
 
 #[cfg(feature = "scenarios")]
 pub use scenarios::{apply_and_revalue, apply_scenario};

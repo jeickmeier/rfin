@@ -315,6 +315,7 @@ impl PortfolioBuilder {
             .enumerate()
             .map(|(i, p)| (p.position_id.clone(), i))
             .collect();
+        let dependency_index = crate::dependencies::DependencyIndex::build(&self.positions);
 
         let portfolio = Portfolio {
             id: self.id,
@@ -324,6 +325,7 @@ impl PortfolioBuilder {
             entities: self.entities,
             positions: self.positions,
             position_index,
+            dependency_index,
             books: self.books,
             tags: self.tags,
             meta: self.meta,

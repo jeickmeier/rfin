@@ -429,6 +429,86 @@ fn value_single_position(
     })
 }
 
+// =============================================================================
+// Selective Repricing
+// =============================================================================
+
+/// Revalue only the positions affected by a set of changed market factor keys.
+///
+/// This function consults the portfolio's [`DependencyIndex`] to determine which
+/// positions depend on the supplied keys, reprices only those positions against
+/// the (updated) market context, and patches the prior valuation with fresh
+/// results.  Unaffected positions retain their prior values.  Positions whose
+/// dependencies could not be resolved are always repriced as a conservative
+/// fallback.
+///
+/// The resulting [`PortfolioValuation`] is fully recomputed (totals, entity
+/// rollups, degraded-risk tracking) and is identical to what
+/// [`value_portfolio_with_options`] would produce if the same updated market
+/// were used for a full revaluation.
+///
+/// # Arguments
+///
+/// * `portfolio` - Portfolio whose positions to selectively reprice.
+/// * `market` - Market data context **after** the factor change has been applied.
+/// * `config` - Runtime configuration forwarded to the pricing engine.
+/// * `options` - Valuation options (strict_risk, metrics, etc.).
+/// * `prior` - Previous full valuation whose unaffected positions are reused.
+/// * `changed` - Market factor keys that moved; only positions depending on
+///   at least one of these keys will be repriced.
+///
+/// # Returns
+///
+/// [`Result`] containing the patched [`PortfolioValuation`].
+///
+/// # Errors
+///
+/// Propagates any pricing or FX conversion errors encountered when revaluing
+/// affected positions (same error semantics as [`value_portfolio_with_options`]).
+pub fn revalue_affected(
+    portfolio: &Portfolio,
+    market: &MarketContext,
+    _config: &FinstackConfig,
+    options: &PortfolioValuationOptions,
+    prior: &PortfolioValuation,
+    changed: &[crate::dependencies::MarketFactorKey],
+) -> Result<PortfolioValuation> {
+    // TODO: parallelise the affected-position loop with rayon (mirrors value_portfolio)
+    let affected_indices = portfolio.dependency_index().affected_positions(changed);
+
+    if affected_indices.is_empty() {
+        return Ok(prior.clone());
+    }
+
+    let metrics = resolve_metrics(options);
+
+    let mut position_values_vec: Vec<PositionValue> = Vec::with_capacity(portfolio.positions.len());
+
+    for (idx, position) in portfolio.positions.iter().enumerate() {
+        if affected_indices.binary_search(&idx).is_ok() {
+            position_values_vec.push(value_single_position(
+                position,
+                market,
+                portfolio,
+                &metrics,
+                options.strict_risk,
+            )?);
+        } else if let Some(pv) = prior.position_values.get(position.position_id.as_str()) {
+            position_values_vec.push(pv.clone());
+        } else {
+            position_values_vec.push(value_single_position(
+                position,
+                market,
+                portfolio,
+                &metrics,
+                options.strict_risk,
+            )?);
+        }
+    }
+
+    assemble_valuation(position_values_vec, portfolio.base_ccy, portfolio.as_of)
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {

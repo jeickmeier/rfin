@@ -138,6 +138,42 @@ let (stressed_valuation, report) =
     apply_and_revalue(&portfolio, &scenario, &market, &config)?;
 ```
 
+## Selective Repricing
+
+When only a subset of market data changes (e.g., a single curve bump), you can reprice only the affected positions instead of the entire portfolio:
+
+```rust
+use finstack_portfolio::dependencies::MarketFactorKey;
+use finstack_portfolio::valuation::{revalue_affected, value_portfolio, PortfolioValuationOptions};
+use finstack_valuations::instruments::common::traits::RatesCurveKind;
+
+// 1. Full valuation against the base market
+let base_val = value_portfolio(&portfolio, &base_market, &config)?;
+
+// 2. Identify changed factors
+let changed = vec![
+    MarketFactorKey::curve("USD-OIS".into(), RatesCurveKind::Discount),
+];
+
+// 3. Selectively reprice against the bumped market
+let bumped_val = revalue_affected(
+    &portfolio,
+    &bumped_market,
+    &config,
+    &PortfolioValuationOptions::default(),
+    &base_val,
+    &changed,
+)?;
+```
+
+The dependency index is built automatically during portfolio construction and maps each market factor (curve, spot, vol surface, FX pair, series) to the positions that depend on it. Only positions whose instruments declared a dependency on one of the changed keys are repriced; all other positions reuse their prior `PositionValue`. Aggregates (totals, entity rollups, degraded-risk tracking) are fully recomputed from the merged position values.
+
+### Current Limits
+
+- **Instrument shocks** (price overrides, spread overrides via scenario attributes) are not representable as `MarketFactorKey` values. Use full `apply_and_revalue` for those.
+- **Instrument mutations** (e.g., changing coupon via scenario) require full repricing.
+- Instruments whose `market_dependencies()` returns an error are excluded from the index; they will always be repriced as a conservative fallback.
+
 ## Attribute-Based Grouping
 
 Group positions and aggregate values by any tag:
