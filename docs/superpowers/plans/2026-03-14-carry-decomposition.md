@@ -52,16 +52,14 @@ Find the `ALL_STANDARD` array (around line 841) and add the five new entries aft
         MetricId::FundingCost,
 ```
 
-- [ ] **Step 3: Add new constants to the from_str match arms**
+- [ ] **Step 3: Verify compilation**
 
-Find the `from_str` implementation and add match arms for the new string keys. Follow the existing pattern used by other MetricId constants.
-
-- [ ] **Step 4: Verify compilation**
+Note: `from_str` uses a `metric_lookup()` hashmap auto-built from `ALL_STANDARD`, so adding to the array in Step 2 automatically enables string parsing. No match arms to update.
 
 Run: `cargo check -p finstack-valuations 2>&1 | head -20`
 Expected: Compiles successfully (new constants are just `const` declarations, no consumers yet).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add finstack/valuations/src/metrics/core/ids.rs
@@ -323,8 +321,62 @@ impl MetricCalculator for CarryDecompositionCalculator {
 
 The helper functions `build_flat_curve_market` and `compute_funding_cost` should be private functions in the same file:
 
-- `build_flat_curve_market`: Constructs a `MarketContext` with a flat discount curve at the given YTM rate, using the instrument's `discount_curve_id` from `market_dependencies()`.
-- `compute_funding_cost`: Checks `instrument.funding_curve_id()`, looks up the rate from the market, computes `base_pv × rate × dcf` where dcf is the day count fraction for the carry horizon.
+**`build_flat_curve_market`** — Constructs a `MarketContext` with a flat discount curve at the given YTM rate:
+
+```rust
+fn build_flat_curve_market(
+    original_market: &finstack_core::market_data::context::MarketContext,
+    instrument: &dyn Instrument,
+    ytm: f64,
+    base_date: finstack_core::dates::Date,
+) -> Result<finstack_core::market_data::context::MarketContext> {
+    let deps = instrument.market_dependencies()?;
+    let discount_curve_id = &deps.curve_dependencies().discount_curves[0];
+
+    // Build flat discount curve: DF(t) = exp(-ytm * t) for standard tenors
+    let mut knots = Vec::new();
+    knots.push((0.0, 1.0));
+    for &tenor in finstack_core::market_data::diff::STANDARD_TENORS {
+        let discount = (-ytm * tenor).exp();
+        knots.push((tenor, discount));
+    }
+
+    let flat_curve = finstack_core::market_data::term_structures::DiscountCurve::builder(
+        discount_curve_id.as_str(),
+    )
+    .base_date(base_date)
+    .knots(knots)
+    .interp(finstack_core::math::interp::InterpStyle::Linear)
+    .build()?;
+
+    // Clone original market, replace the discount curve with the flat one
+    Ok(original_market.clone().insert(flat_curve))
+}
+```
+
+**`compute_funding_cost`** — Checks `instrument.funding_curve_id()`, looks up the rate from the market, computes `base_pv × annual_rate × dcf`:
+
+```rust
+fn compute_funding_cost(
+    context: &MetricContext,
+    rolled_date: finstack_core::dates::Date,
+) -> Result<f64> {
+    let Some(funding_curve_id) = context.instrument.funding_curve_id() else {
+        return Ok(0.0);
+    };
+
+    let funding_curve = context.curves.get_discount_curve(funding_curve_id.as_str())?;
+    let tenor_years = (rolled_date - context.as_of).whole_days() as f64 / 365.0;
+    let df = funding_curve.discount_factor(tenor_years);
+    // Extract annual rate from discount factor: rate = -ln(df) / t
+    let annual_rate = if tenor_years > 0.0 { -df.ln() / tenor_years } else { 0.0 };
+
+    let dirty_price = context.base_value.amount();
+    let dcf = tenor_years; // Simple Act/365 for funding cost
+
+    Ok(dirty_price * annual_rate * dcf)
+}
+```
 
 **Important**: The `collect_cashflows_in_period` function in `theta.rs` is currently private. It needs to be made `pub(crate)` so `carry_decomposition.rs` can use it. Similarly, `calculate_theta_date` is already `pub`.
 
