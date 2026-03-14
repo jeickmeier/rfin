@@ -290,7 +290,7 @@ impl CreditScorecardExtension {
             .nodes
             .keys()
             .enumerate()
-            .map(|(i, k)| (k.clone(), i))
+            .map(|(i, k)| (k.as_str().to_string(), i))
             .collect();
 
         let mut historical_results = indexmap::IndexMap::new();

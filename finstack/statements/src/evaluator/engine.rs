@@ -175,7 +175,7 @@ impl Evaluator {
                         .as_deref()
                         .is_some_and(|text| text.contains("cs."))
                 {
-                    Some(node_id.clone())
+                    Some(node_id.as_str().to_string())
                 } else {
                     None
                 }
@@ -322,15 +322,16 @@ impl Evaluator {
 
         // Infer and populate node value types from model
         for (node_id, node_spec) in &model.nodes {
+            let node_id_str = node_id.as_str();
             // Check if node has explicit value_type
             if let Some(value_type) = &node_spec.value_type {
                 results
                     .node_value_types
-                    .insert(node_id.clone(), *value_type);
+                    .insert(node_id_str.to_string(), *value_type);
 
                 // Populate monetary_nodes if this is a monetary type
                 if let NodeValueType::Monetary { currency } = value_type {
-                    if let Some(period_map) = results.nodes.get(node_id) {
+                    if let Some(period_map) = results.nodes.get(node_id_str) {
                         let mut money_map = IndexMap::new();
                         for (period_id, &f64_value) in period_map {
                             money_map.insert(
@@ -338,19 +339,22 @@ impl Evaluator {
                                 finstack_core::money::Money::new(f64_value, *currency),
                             );
                         }
-                        results.monetary_nodes.insert(node_id.clone(), money_map);
+                        results
+                            .monetary_nodes
+                            .insert(node_id_str.to_string(), money_map);
                     }
                 }
             } else if let Some(values) = &node_spec.values {
                 if let Some(inferred_type) = crate::types::infer_series_value_type(values.values())?
                 {
                     if let NodeValueType::Monetary { currency } = inferred_type {
-                        results
-                            .node_value_types
-                            .insert(node_id.clone(), NodeValueType::Monetary { currency });
+                        results.node_value_types.insert(
+                            node_id_str.to_string(),
+                            NodeValueType::Monetary { currency },
+                        );
 
                         // Populate monetary_nodes from Money values
-                        if let Some(period_map) = results.nodes.get(node_id) {
+                        if let Some(period_map) = results.nodes.get(node_id_str) {
                             let mut money_map = IndexMap::new();
                             for (period_id, &f64_value) in period_map {
                                 money_map.insert(
@@ -358,24 +362,26 @@ impl Evaluator {
                                     finstack_core::money::Money::new(f64_value, currency),
                                 );
                             }
-                            results.monetary_nodes.insert(node_id.clone(), money_map);
+                            results
+                                .monetary_nodes
+                                .insert(node_id_str.to_string(), money_map);
                         }
                     } else {
                         results
                             .node_value_types
-                            .insert(node_id.clone(), NodeValueType::Scalar);
+                            .insert(node_id_str.to_string(), NodeValueType::Scalar);
                     }
                 } else {
                     // No values, default to scalar
                     results
                         .node_value_types
-                        .insert(node_id.clone(), NodeValueType::Scalar);
+                        .insert(node_id_str.to_string(), NodeValueType::Scalar);
                 }
             } else {
                 // No explicit value_type and no values, default to scalar
                 results
                     .node_value_types
-                    .insert(node_id.clone(), NodeValueType::Scalar);
+                    .insert(node_id_str.to_string(), NodeValueType::Scalar);
             }
         }
 
@@ -536,9 +542,9 @@ impl Evaluator {
         let cache = std::sync::Arc::make_mut(&mut self.compiled_cache);
         for (node_id, node_spec) in &model.nodes {
             if let Some(formula_text) = &node_spec.formula_text {
-                if !cache.contains_key(node_id) {
+                if !cache.contains_key(node_id.as_str()) {
                     let expr = dsl::parse_and_compile(formula_text)?;
-                    cache.insert(node_id.clone(), expr);
+                    cache.insert(node_id.as_str().to_string(), expr);
                 }
             }
 

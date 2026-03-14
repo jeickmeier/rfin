@@ -789,7 +789,11 @@ impl ModelBuilder<Ready> {
 
         // Create the model spec
         let mut spec = FinancialModelSpec::new(self.id, self.periods);
-        spec.nodes = self.nodes;
+        spec.nodes = self
+            .nodes
+            .into_iter()
+            .map(|(k, v)| (crate::types::NodeId::from(k), v))
+            .collect();
         spec.meta = self.meta;
         spec.capital_structure = self.capital_structure;
 

@@ -92,5 +92,5 @@ pub use error::{Error, Result};
 pub use evaluator::NumericMode;
 pub use types::{
     AmountOrScalar, CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec, ForecastMethod,
-    ForecastSpec, NodeSpec, NodeType, NodeValueType, SeasonalMode,
+    ForecastSpec, NodeId, NodeSpec, NodeType, NodeValueType, SeasonalMode,
 };

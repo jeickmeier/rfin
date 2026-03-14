@@ -160,6 +160,17 @@ fn test_model_spec_full_serialization() {
     assert!(deserialized.has_node("revenue"));
     assert!(deserialized.has_node("cogs"));
     assert!(deserialized.has_node("gross_profit"));
+
+    // Verify that the nodes map keys serialize as plain JSON strings (not objects)
+    let json = serde_json::to_string_pretty(&deserialized).expect("re-serialize");
+    assert!(json.contains(r#""revenue""#));
+    assert!(json.contains(r#""cogs""#));
+    assert!(json.contains(r#""gross_profit""#));
+    // Ensure no nested {"0": ...} structure (i.e., keys are strings, not structs)
+    let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse JSON");
+    let nodes_obj = &parsed["nodes"];
+    assert!(nodes_obj.is_object(), "nodes should be a JSON object");
+    assert!(nodes_obj["revenue"].is_object(), "revenue node should be an object");
 }
 
 #[test]
@@ -257,6 +268,10 @@ fn test_node_spec_with_currency_serialization() {
     let q1_value = values.get(&PeriodId::quarter(2025, 1)).unwrap();
     assert_eq!(q1_value.value(), 50_000.0);
     assert_eq!(q1_value.currency(), Some(Currency::USD));
+
+    // Verify NodeId serializes as a plain string in the JSON
+    let json = serde_json::to_string_pretty(&deserialized).expect("re-serialize");
+    assert!(json.contains(r#""node_id": "cash""#));
 }
 
 #[test]

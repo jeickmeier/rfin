@@ -1,6 +1,6 @@
 //! Financial model specification types.
 
-use crate::types::NodeSpec;
+use crate::types::{NodeId, NodeSpec};
 use finstack_core::dates::Period;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ pub struct FinancialModelSpec {
     pub periods: Vec<Period>,
 
     /// Map of node_id → NodeSpec
-    pub nodes: IndexMap<String, NodeSpec>,
+    pub nodes: IndexMap<NodeId, NodeSpec>,
 
     /// Capital structure specification (optional)
     #[serde(skip_serializing_if = "Option::is_none")]

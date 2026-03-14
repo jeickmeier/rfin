@@ -343,3 +343,132 @@ fn test_error_constructors() {
     let cs_err = Error::capital_structure("test cs error");
     assert!(cs_err.to_string().contains("cs error"));
 }
+
+// ============================================================================
+// NodeId Tests
+// ============================================================================
+
+#[test]
+fn test_node_id_from_str() {
+    use finstack_statements::types::NodeId;
+
+    let id = NodeId::from("revenue");
+    assert_eq!(id.as_str(), "revenue");
+    assert_eq!(id, "revenue");
+    assert_eq!(id, NodeId::from("revenue"));
+}
+
+#[test]
+fn test_node_id_from_string() {
+    use finstack_statements::types::NodeId;
+
+    let id = NodeId::from("gross_profit".to_string());
+    assert_eq!(id.as_str(), "gross_profit");
+    assert_eq!(id, "gross_profit");
+}
+
+#[test]
+fn test_node_id_display() {
+    use finstack_statements::types::NodeId;
+
+    let id = NodeId::from("cogs");
+    assert_eq!(format!("{}", id), "cogs");
+}
+
+#[test]
+fn test_node_id_eq_str() {
+    use finstack_statements::types::NodeId;
+
+    let id = NodeId::from("ebitda");
+    assert_eq!(id, "ebitda");
+    assert_eq!(id, *"ebitda");
+    assert_ne!(id, "revenue");
+}
+
+#[test]
+fn test_node_id_clone_and_hash() {
+    use finstack_statements::types::NodeId;
+    use std::collections::HashSet;
+
+    let id1 = NodeId::from("revenue");
+    let id2 = id1.clone();
+    assert_eq!(id1, id2);
+
+    let mut set = HashSet::new();
+    set.insert(id1.clone());
+    assert!(set.contains(&id2));
+}
+
+#[test]
+fn test_node_id_borrow_str() {
+    use finstack_statements::types::NodeId;
+    use std::borrow::Borrow;
+    use std::collections::HashMap;
+
+    // Verify Borrow<str> allows HashMap<NodeId, _>.get(&str)
+    let mut map: HashMap<NodeId, i32> = HashMap::new();
+    map.insert(NodeId::from("revenue"), 100);
+    // Access via &str using Borrow
+    let key: &str = "revenue";
+    assert_eq!(map.get(key), Some(&100));
+}
+
+#[test]
+fn test_node_id_serde_roundtrip() {
+    use finstack_statements::types::NodeId;
+
+    let id = NodeId::from("gross_profit");
+    let json = serde_json::to_string(&id).expect("serialize NodeId");
+    // Should serialize as a plain string, not {"0": "..."}
+    assert_eq!(json, r#""gross_profit""#);
+
+    let deserialized: NodeId = serde_json::from_str(&json).expect("deserialize NodeId");
+    assert_eq!(deserialized, "gross_profit");
+}
+
+#[test]
+fn test_node_id_as_map_key_serde() {
+    use finstack_statements::types::NodeId;
+    use indexmap::IndexMap;
+
+    let mut map: IndexMap<NodeId, i32> = IndexMap::new();
+    map.insert(NodeId::from("revenue"), 1);
+    map.insert(NodeId::from("cogs"), 2);
+
+    let json = serde_json::to_string(&map).expect("serialize map");
+    // Keys should be plain strings
+    assert!(json.contains(r#""revenue""#));
+    assert!(json.contains(r#""cogs""#));
+
+    let restored: IndexMap<NodeId, i32> = serde_json::from_str(&json).expect("deserialize map");
+    assert_eq!(restored.get("revenue"), Some(&1));
+    assert_eq!(restored.get("cogs"), Some(&2));
+}
+
+#[test]
+fn test_node_spec_node_id_is_node_id_type() {
+    use finstack_statements::types::{NodeId, NodeSpec, NodeType};
+
+    let spec = NodeSpec::new("revenue", NodeType::Value);
+    // node_id field is now NodeId, not String
+    assert_eq!(spec.node_id, NodeId::from("revenue"));
+    assert_eq!(spec.node_id.as_str(), "revenue");
+}
+
+#[test]
+fn test_financial_model_nodes_keyed_by_node_id() {
+    use finstack_core::dates::build_periods;
+    use finstack_statements::types::{FinancialModelSpec, NodeId, NodeSpec, NodeType};
+
+    let periods = build_periods("2025Q1..2025Q1", None).unwrap().periods;
+    let mut model = FinancialModelSpec::new("test", periods);
+    model.add_node(NodeSpec::new("revenue", NodeType::Value));
+
+    // nodes map is keyed by NodeId
+    let key = NodeId::from("revenue");
+    assert!(model.nodes.contains_key(&key));
+
+    // get_node still works with &str (via Borrow)
+    assert!(model.has_node("revenue"));
+    assert!(model.get_node("revenue").is_some());
+}

@@ -5,6 +5,71 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
+use std::fmt;
+
+/// Type-safe identifier for a node in a financial model.
+///
+/// Wraps a `String` transparently so that it serializes as a plain string
+/// and is interoperable with `&str` via [`Borrow`] and [`AsRef`].
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct NodeId(String);
+
+impl NodeId {
+    /// Create a new `NodeId` from any string-like value.
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    /// Return the inner string slice.
+    #[inline]
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl fmt::Display for NodeId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl From<&str> for NodeId {
+    fn from(s: &str) -> Self {
+        Self(s.to_string())
+    }
+}
+
+impl From<String> for NodeId {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl Borrow<str> for NodeId {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
+impl AsRef<str> for NodeId {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl PartialEq<&str> for NodeId {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<str> for NodeId {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
 
 /// Specification for a single node (metric/line item) in the financial model.
 ///
@@ -16,7 +81,7 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct NodeSpec {
     /// Unique identifier for this node
-    pub node_id: String,
+    pub node_id: NodeId,
 
     /// Human-readable name (optional)
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -60,7 +125,7 @@ impl NodeSpec {
     /// # Arguments
     /// * `node_id` - Unique identifier for the node
     /// * `node_type` - Computation type that defines how the node is evaluated
-    pub fn new(node_id: impl Into<String>, node_type: NodeType) -> Self {
+    pub fn new(node_id: impl Into<NodeId>, node_type: NodeType) -> Self {
         Self {
             node_id: node_id.into(),
             name: None,

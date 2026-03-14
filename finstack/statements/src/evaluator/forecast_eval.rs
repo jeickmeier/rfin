@@ -27,7 +27,7 @@ pub(crate) fn evaluate_forecast(
     seed_offset: Option<u64>,
 ) -> Result<f64> {
     // Check cache first
-    if let Some(cached) = forecast_cache.get(&node_spec.node_id) {
+    if let Some(cached) = forecast_cache.get(node_spec.node_id.as_str()) {
         if let Some(value) = cached.get(period_id) {
             return Ok(*value);
         }
@@ -74,7 +74,10 @@ pub(crate) fn evaluate_forecast(
     };
 
     // Cache results
-    forecast_cache.insert(node_spec.node_id.clone(), forecast_results.clone());
+    forecast_cache.insert(
+        node_spec.node_id.as_str().to_string(),
+        forecast_results.clone(),
+    );
 
     // Return value for requested period
     forecast_results.get(period_id).copied().ok_or_else(|| {
@@ -109,14 +112,17 @@ fn determine_base_value(
         }
 
         // Check historical context
-        if let Some(val) = context.get_historical_value(&node_spec.node_id, &last_actual.id) {
+        if let Some(val) = context.get_historical_value(node_spec.node_id.as_str(), &last_actual.id)
+        {
             return Ok(val);
         }
     }
 
     // Try to find any historical value
     for historical_period in context.historical_results.keys().rev() {
-        if let Some(val) = context.get_historical_value(&node_spec.node_id, historical_period) {
+        if let Some(val) =
+            context.get_historical_value(node_spec.node_id.as_str(), historical_period)
+        {
             return Ok(val);
         }
     }

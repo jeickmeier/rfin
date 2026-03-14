@@ -28,7 +28,7 @@ pub fn add_roll_forward<State>(
     // Formula: lag(end_node, 1)
     // Use coalesce to handle the first period (defaults to 0 if no history)
     let beg_formula = format!("coalesce(lag({}, 1), 0.0)", end_node_id);
-    let beg_node = NodeSpec::new(&beg_node_id, NodeType::Calculated)
+    let beg_node = NodeSpec::new(beg_node_id.as_str(), NodeType::Calculated)
         .with_name(format!("{} (Beginning)", name))
         .with_formula(beg_formula);
 
@@ -47,7 +47,7 @@ pub fn add_roll_forward<State>(
         end_formula.push(')');
     }
 
-    let end_node = NodeSpec::new(&end_node_id, NodeType::Calculated)
+    let end_node = NodeSpec::new(end_node_id.as_str(), NodeType::Calculated)
         .with_name(format!("{} (Ending)", name))
         .with_formula(end_formula);
 

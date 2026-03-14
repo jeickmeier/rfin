@@ -48,22 +48,36 @@ impl DependencyGraph {
 
         // Initialize empty sets for all nodes
         for node_id in model.nodes.keys() {
-            dependencies.insert(node_id.clone(), IndexSet::new());
-            dependents.insert(node_id.clone(), IndexSet::new());
+            dependencies.insert(node_id.as_str().to_string(), IndexSet::new());
+            dependents.insert(node_id.as_str().to_string(), IndexSet::new());
         }
 
-        let all_node_ids: IndexSet<String> = model.nodes.keys().cloned().collect();
+        let all_node_ids: IndexSet<String> = model
+            .nodes
+            .keys()
+            .map(|id| id.as_str().to_string())
+            .collect();
 
         // Extract dependencies from formulas and where clauses
         for (node_id, node_spec) in &model.nodes {
             if let Some(formula) = &node_spec.formula_text {
                 let node_deps = extract_dependencies(formula, &all_node_ids)?;
-                add_dependency_edges(node_id, &node_deps, &mut dependencies, &mut dependents);
+                add_dependency_edges(
+                    node_id.as_str(),
+                    &node_deps,
+                    &mut dependencies,
+                    &mut dependents,
+                );
             }
 
             if let Some(where_clause) = &node_spec.where_text {
                 let node_deps = extract_dependencies(where_clause, &all_node_ids)?;
-                add_dependency_edges(node_id, &node_deps, &mut dependencies, &mut dependents);
+                add_dependency_edges(
+                    node_id.as_str(),
+                    &node_deps,
+                    &mut dependencies,
+                    &mut dependents,
+                );
             }
         }
 
@@ -78,7 +92,11 @@ impl DependencyGraph {
     /// This catches typos and unknown references at build time instead of runtime.
     fn validate_formula_references(model: &FinancialModelSpec) -> Result<()> {
         // Create set of all valid identifiers (all node IDs in the model)
-        let valid_identifiers: IndexSet<String> = model.nodes.keys().cloned().collect();
+        let valid_identifiers: IndexSet<String> = model
+            .nodes
+            .keys()
+            .map(|id| id.as_str().to_string())
+            .collect();
 
         // Check each formula
         for (node_id, node_spec) in &model.nodes {
