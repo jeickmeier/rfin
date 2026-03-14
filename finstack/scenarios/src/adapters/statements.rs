@@ -130,7 +130,7 @@ pub fn update_rate_from_binding(
 
         let zero = curve.zero(tenor_years);
         let converted = convert_continuous_rate(zero, binding.compounding, tenor_years)?;
-        return set_scalar_rate(model, binding.node_id.as_str(), converted);
+        return apply_forecast_assign(model, binding.node_id.as_str(), converted);
     }
 
     if let Ok(curve) = market.get_forward(curve_id) {
@@ -178,28 +178,12 @@ pub fn update_rate_from_binding(
             .map_err(|e| Error::Validation(e.to_string()))?;
         let converted =
             convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?;
-        return set_scalar_rate(model, binding.node_id.as_str(), converted);
+        return apply_forecast_assign(model, binding.node_id.as_str(), converted);
     }
 
     Err(Error::MarketDataNotFound {
         id: curve_id.to_string(),
     })
-}
-
-fn set_scalar_rate(model: &mut FinancialModelSpec, node_id: &str, rate: f64) -> Result<()> {
-    let node = model
-        .get_node_mut(node_id)
-        .ok_or_else(|| Error::NodeNotFound {
-            node_id: node_id.to_string(),
-        })?;
-
-    if let Some(values) = node.values.as_mut() {
-        for val in values.values_mut() {
-            *val = AmountOrScalar::Scalar(rate);
-        }
-    }
-
-    Ok(())
 }
 
 fn convert_continuous_rate(
