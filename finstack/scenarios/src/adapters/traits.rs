@@ -4,11 +4,6 @@ use crate::spec::{OperationSpec, RateBindingSpec};
 use finstack_core::market_data::bumps::MarketBump;
 use finstack_statements::NodeId;
 
-use finstack_core::market_data::term_structures::{
-    DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, VolatilityIndexCurve,
-};
-use std::sync::Arc;
-
 /// Represents the outcome of a scenario operation that can be collected and applied later.
 /// This allows the engine to separate the "decision" phase from the "mutation" phase.
 #[derive(Debug)]
@@ -18,41 +13,8 @@ pub enum ScenarioEffect {
     /// A warning message to be recorded.
     Warning(String),
 
-    /// Update a discount curve in the market.
-    UpdateDiscountCurve {
-        /// The curve identifier.
-        id: String,
-        /// The updated curve instance.
-        curve: Arc<DiscountCurve>,
-    },
-    /// Update a forward curve in the market.
-    UpdateForwardCurve {
-        /// The curve identifier.
-        id: String,
-        /// The updated curve instance.
-        curve: Arc<ForwardCurve>,
-    },
-    /// Update a hazard curve in the market.
-    UpdateHazardCurve {
-        /// The curve identifier.
-        id: String,
-        /// The updated curve instance.
-        curve: Arc<HazardCurve>,
-    },
-    /// Update an inflation curve in the market.
-    UpdateInflationCurve {
-        /// The curve identifier.
-        id: String,
-        /// The updated curve instance.
-        curve: Arc<InflationCurve>,
-    },
-    /// Update a volatility index curve in the market.
-    UpdateVolIndexCurve {
-        /// The curve identifier.
-        id: String,
-        /// The updated curve instance.
-        curve: Arc<VolatilityIndexCurve>,
-    },
+    /// Update a curve in the market (discount, forward, hazard, inflation, or vol-index).
+    UpdateCurve(finstack_core::market_data::context::CurveStorage),
 
     /// Apply a forecast adjustment to the statement model (% change).
     StmtForecastPercent {

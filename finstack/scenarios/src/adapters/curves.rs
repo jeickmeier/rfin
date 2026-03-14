@@ -219,10 +219,9 @@ impl ScenarioAdapter for CurveAdapter {
                             Error::Internal(format!("Failed to bump discount curve: {}", e))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateDiscountCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )]))
                     }
                     CurveKind::Forward => {
                         // Forward curve parallel bump uses direct additive rate shifts.
@@ -270,10 +269,9 @@ impl ScenarioAdapter for CurveAdapter {
                             Error::Internal(format!("Failed to bump hazard curve: {}", e))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateHazardCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )]))
                     }
                     CurveKind::Inflation => {
                         let base_curve =
@@ -301,10 +299,9 @@ impl ScenarioAdapter for CurveAdapter {
                             Error::Internal(format!("Failed to bump inflation curve: {}", e))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateInflationCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )]))
                     }
                     CurveKind::Commodity => {
                         // Commodity curves stored as DiscountCurve (convenience yields/cost-of-carry).
@@ -350,10 +347,9 @@ impl ScenarioAdapter for CurveAdapter {
                             Error::Internal(format!("Failed to bump vol index curve: {}", e))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateVolIndexCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }]))
+                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )]))
                     }
                 }
             }
@@ -405,10 +401,9 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        let mut effects = vec![ScenarioEffect::UpdateDiscountCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }];
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }
@@ -459,10 +454,9 @@ impl ScenarioAdapter for CurveAdapter {
                                 Error::Internal(format!("Failed to rebuild forward curve: {}", e))
                             })?;
 
-                        let mut effects = vec![ScenarioEffect::UpdateForwardCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }];
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }
@@ -499,10 +493,9 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        let mut effects = vec![ScenarioEffect::UpdateHazardCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }];
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }
@@ -560,10 +553,9 @@ impl ScenarioAdapter for CurveAdapter {
                             ))
                         })?;
 
-                        let mut effects = vec![ScenarioEffect::UpdateInflationCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }];
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }
@@ -615,10 +607,9 @@ impl ScenarioAdapter for CurveAdapter {
                                 Error::Internal(format!("Failed to rebuild commodity curve: {}", e))
                             })?;
 
-                        let mut effects = vec![ScenarioEffect::UpdateDiscountCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }];
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }
@@ -672,10 +663,9 @@ impl ScenarioAdapter for CurveAdapter {
                             .build()
                             .map_err(|e| Error::Internal(format!("Failed to rebuild vol index curve: {}", e)))?;
 
-                        let mut effects = vec![ScenarioEffect::UpdateVolIndexCurve {
-                            id: curve_id.clone(),
-                            curve: std::sync::Arc::new(new_curve),
-                        }];
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
+                            finstack_core::market_data::context::CurveStorage::from(new_curve),
+                        )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
                         Ok(Some(effects))
                     }

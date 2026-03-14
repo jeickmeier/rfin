@@ -345,39 +345,8 @@ impl ScenarioEngine {
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::Warning(w) => warnings.push(w),
-                        crate::adapters::traits::ScenarioEffect::UpdateDiscountCurve {
-                            id: _id,
-                            curve,
-                        } => {
-                            *ctx.market = std::mem::take(ctx.market).insert(curve.as_ref().clone());
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::UpdateForwardCurve {
-                            id: _id,
-                            curve,
-                        } => {
-                            *ctx.market = std::mem::take(ctx.market).insert(curve.as_ref().clone());
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::UpdateHazardCurve {
-                            id: _id,
-                            curve,
-                        } => {
-                            *ctx.market = std::mem::take(ctx.market).insert(curve.as_ref().clone());
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::UpdateInflationCurve {
-                            id: _id,
-                            curve,
-                        } => {
-                            *ctx.market = std::mem::take(ctx.market).insert(curve.as_ref().clone());
-                            applied += 1;
-                        }
-                        crate::adapters::traits::ScenarioEffect::UpdateVolIndexCurve {
-                            id: _id,
-                            curve,
-                        } => {
-                            *ctx.market = std::mem::take(ctx.market).insert(curve.as_ref().clone());
+                        crate::adapters::traits::ScenarioEffect::UpdateCurve(storage) => {
+                            *ctx.market = std::mem::take(ctx.market).insert(storage);
                             applied += 1;
                         }
                         crate::adapters::traits::ScenarioEffect::InstrumentPriceShock {
