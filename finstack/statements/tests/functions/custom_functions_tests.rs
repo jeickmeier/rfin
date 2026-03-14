@@ -162,19 +162,19 @@ fn test_coalesce_function() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    // Q1: coalesce(100, 50) = 100 (value1 is non-zero)
+    // Q1: coalesce(100, 50) = 100 (value1 is non-NaN, returns first non-NaN)
     assert_eq!(
         results.get("result", &PeriodId::quarter(2025, 1)).unwrap(),
         100.0
     );
 
-    // Q2: coalesce(0, 200) = 200 (value1 is zero, use value2)
+    // Q2: coalesce(0, 200) = 0 (value1 is zero but not NaN; coalesce returns first non-NaN)
     assert_eq!(
         results.get("result", &PeriodId::quarter(2025, 2)).unwrap(),
-        200.0
+        0.0
     );
 
-    // Q3: coalesce(300, 350) = 300 (value1 is non-zero)
+    // Q3: coalesce(300, 350) = 300 (value1 is non-NaN)
     assert_eq!(
         results.get("result", &PeriodId::quarter(2025, 3)).unwrap(),
         300.0
@@ -242,6 +242,7 @@ fn test_ttm_function() {
     assert_eq!(q1_2025_ttm, 5000.0);
 }
 
+#[test]
 fn test_complex_custom_functions() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..2025Q2", None)

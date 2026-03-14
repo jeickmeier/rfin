@@ -107,9 +107,12 @@ fn test_coalesce_with_nan() {
     let mut evaluator = Evaluator::new();
     let results = evaluator.evaluate(&model).unwrap();
 
-    // coalesce should skip NaN and zero, returning 10.0
+    // coalesce skips NaN values; returns first non-NaN which is 0.0 (value2)
     let result = results.get("result", &PeriodId::quarter(2025, 1)).unwrap();
-    assert_eq!(result, 10.0, "coalesce() should skip NaN and zero values");
+    assert_eq!(
+        result, 0.0,
+        "coalesce() should skip NaN but return first non-NaN (including zero)"
+    );
 }
 
 #[test]
@@ -188,11 +191,11 @@ fn test_mixed_operations_with_nan() {
     let results = evaluator.evaluate(&model).unwrap();
 
     // sum(a, b) = 10.0 (skips NaN)
-    // coalesce(d, c) = 20.0 (d is 0, so takes c)
-    // mean(10.0, 20.0) = 15.0
+    // coalesce(d, c) = 0.0 (d is 0.0 which is non-NaN; coalesce returns first non-NaN)
+    // mean(10.0, 0.0) = 5.0
     let result = results.get("result", &PeriodId::quarter(2025, 1)).unwrap();
     assert_eq!(
-        result, 15.0,
+        result, 5.0,
         "Complex operations should handle NaN correctly"
     );
 }

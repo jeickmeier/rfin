@@ -38,7 +38,8 @@ fn test_results_serialization() {
     println!("Serialized Results:\n{}", json);
 
     // Deserialize back
-    let deserialized: StatementResult = serde_json::from_str(&json).expect("Failed to deserialize StatementResult");
+    let deserialized: StatementResult =
+        serde_json::from_str(&json).expect("Failed to deserialize StatementResult");
 
     // Verify round-trip
     assert_eq!(deserialized.get("revenue", &period), Some(100_000.0));
@@ -72,6 +73,10 @@ fn test_capital_structure_cashflows_serialization() {
             finstack_core::currency::Currency::USD,
         ),
         fees: finstack_core::money::Money::new(500.0, finstack_core::currency::Currency::USD),
+        accrued_interest: finstack_core::money::Money::new(
+            0.0,
+            finstack_core::currency::Currency::USD,
+        ),
     };
 
     let mut period_map = IndexMap::new();
@@ -170,7 +175,10 @@ fn test_model_spec_full_serialization() {
     let parsed: serde_json::Value = serde_json::from_str(&json).expect("parse JSON");
     let nodes_obj = &parsed["nodes"];
     assert!(nodes_obj.is_object(), "nodes should be a JSON object");
-    assert!(nodes_obj["revenue"].is_object(), "revenue node should be an object");
+    assert!(
+        nodes_obj["revenue"].is_object(),
+        "revenue node should be an object"
+    );
 }
 
 #[test]
@@ -336,6 +344,10 @@ fn test_capital_structure_json_roundtrip() {
             finstack_core::currency::Currency::USD,
         ),
         fees: finstack_core::money::Money::new(500.0, finstack_core::currency::Currency::USD),
+        accrued_interest: finstack_core::money::Money::new(
+            0.0,
+            finstack_core::currency::Currency::USD,
+        ),
     };
 
     let json = serde_json::to_string(&breakdown).expect("Failed to serialize");

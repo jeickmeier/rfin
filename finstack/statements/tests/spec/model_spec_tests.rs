@@ -402,7 +402,6 @@ fn test_node_id_clone_and_hash() {
 #[test]
 fn test_node_id_borrow_str() {
     use finstack_statements::types::NodeId;
-    use std::borrow::Borrow;
     use std::collections::HashMap;
 
     // Verify Borrow<str> allows HashMap<NodeId, _>.get(&str)
@@ -471,4 +470,73 @@ fn test_financial_model_nodes_keyed_by_node_id() {
     // get_node still works with &str (via Borrow)
     assert!(model.has_node("revenue"));
     assert!(model.get_node("revenue").is_some());
+}
+
+#[test]
+fn test_node_id_hyphenated_roundtrip() {
+    use finstack_statements::types::NodeId;
+
+    // Hyphenated IDs (e.g. BOND-001, lease-1) must survive a serde round-trip
+    // unchanged and remain comparable to &str.
+    for raw in &["lease-1", "BOND-001", "cost-of-goods", "tranche-A"] {
+        let id = NodeId::from(*raw);
+        let json = serde_json::to_string(&id).expect("serialize");
+        let expected = format!(r#""{raw}""#);
+        assert_eq!(
+            json, expected,
+            "hyphenated id should serialize as plain string"
+        );
+        let deserialized: NodeId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(
+            deserialized, *raw,
+            "hyphenated id should survive serde round-trip"
+        );
+    }
+}
+
+#[test]
+fn test_node_id_dotted_roundtrip() {
+    use finstack_statements::types::NodeId;
+
+    // Dotted IDs (e.g. fin.gross_margin, lease_a.pgi) must survive a serde round-trip
+    // unchanged and compare equal to the equivalent &str.
+    for raw in &["fin.gross_margin", "lease_a.pgi", "seg.revenue.apac"] {
+        let id = NodeId::from(*raw);
+        let json = serde_json::to_string(&id).expect("serialize");
+        let expected = format!(r#""{raw}""#);
+        assert_eq!(json, expected, "dotted id should serialize as plain string");
+        let deserialized: NodeId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(
+            deserialized, *raw,
+            "dotted id should survive serde round-trip"
+        );
+    }
+}
+
+#[test]
+fn test_node_id_hyphenated_builder_accepted() {
+    use finstack_core::dates::PeriodId;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::types::AmountOrScalar;
+
+    // Hyphenated node IDs must be accepted by the builder and remain retrievable
+    // via string lookup after build.
+    let model = ModelBuilder::new("test")
+        .periods("2025Q1..2025Q1", None)
+        .unwrap()
+        .value(
+            "lease-1",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(500.0))],
+        )
+        .build()
+        .expect("hyphenated node id should be valid");
+
+    assert!(
+        model.has_node("lease-1"),
+        "model should contain 'lease-1' node"
+    );
+    let node = model
+        .get_node("lease-1")
+        .expect("node should be retrievable by hyphenated str");
+    assert_eq!(node.node_id.as_str(), "lease-1");
 }

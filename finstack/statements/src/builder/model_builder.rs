@@ -544,11 +544,20 @@ impl ModelBuilder<Ready> {
         registry: &crate::registry::Registry,
     ) -> Self {
         for (qualified_id, stored_metric) in registry.all_metrics() {
-            self.insert_metric_node(
-                qualified_id,
-                stored_metric,
-                stored_metric.definition.formula.clone(),
-            );
+            // Extract namespace from qualified_id (e.g. "fin" from "fin.gross_profit")
+            let namespace = qualified_id.split('.').next().unwrap_or("");
+            // Qualify intra-namespace references so "net_income" → "fin.net_income"
+            let formula = if namespace.is_empty() {
+                stored_metric.definition.formula.clone()
+            } else {
+                self.qualify_metric_references(
+                    &stored_metric.definition.formula,
+                    namespace,
+                    registry,
+                )
+                .unwrap_or_else(|_| stored_metric.definition.formula.clone())
+            };
+            self.insert_metric_node(qualified_id, stored_metric, formula);
         }
         self
     }

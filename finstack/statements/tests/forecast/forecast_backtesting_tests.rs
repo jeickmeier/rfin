@@ -2,7 +2,7 @@
 
 use finstack_statements::analysis::{backtest_forecast, ForecastMetrics};
 
-mod common;
+use crate::common;
 use common::assert_close;
 
 const METRICS_TOLERANCE: f64 = 1e-10;

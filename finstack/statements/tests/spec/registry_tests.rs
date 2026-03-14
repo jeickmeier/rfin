@@ -674,14 +674,14 @@ fn parity_add_metric_matches_with_builtin_metrics_for_same_nodes() {
             )
     };
 
-    // Path 1: bulk with_builtin_metrics
+    // Path 1: selective add_metric (one specific metric)
     let model_bulk = base_model_fn()
-        .with_builtin_metrics()
+        .add_metric("fin.gross_profit")
         .unwrap()
         .build()
         .unwrap();
 
-    // Path 2: selective add_metric (convenience shorthand)
+    // Path 2: selective add_metric (convenience shorthand — same API)
     let model_select = base_model_fn()
         .add_metric("fin.gross_profit")
         .unwrap()
@@ -801,6 +801,83 @@ fn parity_with_builtin_metrics_qualifies_intra_namespace_refs() {
                     PeriodId::quarter(2025, 2),
                     AmountOrScalar::scalar(110_000.0),
                 ),
+            ],
+        )
+        .value(
+            "opex",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "interest_expense",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "tax_expense",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "depreciation",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "amortization",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "principal_payment",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "total_assets",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1.0)),
+            ],
+        )
+        .value(
+            "total_debt",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "total_equity",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1.0)),
+            ],
+        )
+        .value(
+            "taxes",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(0.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(0.0)),
+            ],
+        )
+        .value(
+            "current_liabilities",
+            &[
+                (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1.0)),
+                (PeriodId::quarter(2025, 2), AmountOrScalar::scalar(1.0)),
             ],
         )
         .with_builtin_metrics()

@@ -11,8 +11,6 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_statements::prelude::*;
 
-mod common;
-
 // ============================================================================
 // Money Currency Preservation Tests
 // ============================================================================

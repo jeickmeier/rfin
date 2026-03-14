@@ -6,8 +6,6 @@
 use finstack_statements::types::DebtInstrumentSpec;
 use finstack_statements::CapitalStructureSpec;
 
-mod common;
-
 // ============================================================================
 // TermLoan Variant Tests
 // ============================================================================

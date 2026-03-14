@@ -142,6 +142,10 @@ fn test_context_get_cs_value_interest_total() {
             finstack_core::currency::Currency::USD,
         ),
         fees: finstack_core::money::Money::new(0.0, finstack_core::currency::Currency::USD),
+        accrued_interest: finstack_core::money::Money::new(
+            0.0,
+            finstack_core::currency::Currency::USD,
+        ),
     };
     cs_cashflows.totals.insert(period_id, breakdown);
 
@@ -646,6 +650,10 @@ fn test_capital_structure_cashflows_accessors() {
             finstack_core::currency::Currency::USD,
         ),
         fees: finstack_core::money::Money::new(1_000.0, finstack_core::currency::Currency::USD),
+        accrued_interest: finstack_core::money::Money::new(
+            0.0,
+            finstack_core::currency::Currency::USD,
+        ),
     };
 
     let mut instrument_map = indexmap::IndexMap::new();
