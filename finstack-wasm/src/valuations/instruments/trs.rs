@@ -73,7 +73,12 @@ impl JsFinancingLegSpec {
         day_count: &crate::core::dates::daycount::JsDayCount,
         spread_bp: Option<f64>,
     ) -> JsFinancingLegSpec {
-        // Convert f64 to Decimal; fallback to ZERO if conversion fails (shouldn't happen for valid bp values)
+        if let Some(v) = spread_bp {
+            debug_assert!(
+                v.is_finite(),
+                "JsFinancingLegSpec::new: spread_bp is not finite ({v})"
+            );
+        }
         let spread_decimal = Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO);
         JsFinancingLegSpec {
             inner: FinancingLegSpec::new(

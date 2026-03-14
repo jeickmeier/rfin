@@ -268,7 +268,7 @@ impl InflationLinkedBond {
         Self {
             id: InstrumentId::new("TIPS-10Y"),
             notional: Money::new(1_000_000.0, Currency::USD),
-            real_coupon: Decimal::try_from(0.025).unwrap_or_default(),
+            real_coupon: Decimal::new(25, 3),
             frequency: Tenor::semi_annual(),
             day_count: DayCount::ActActIsma, // US Treasury convention
             issue_date: date!(2024 - 01 - 15),

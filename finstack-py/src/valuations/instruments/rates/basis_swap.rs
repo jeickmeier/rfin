@@ -3,6 +3,7 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
+use crate::valuations::common::opt_f64_to_decimal;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
@@ -13,7 +14,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRef, PyRefMut};
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -138,7 +138,7 @@ impl PyBasisSwapLeg {
                 bdc,
                 calendar_id,
                 stub: stub_kind,
-                spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
+                spread_bp: opt_f64_to_decimal(spread_bp, "spread_bp")?,
                 payment_lag_days: payment_lag_days.unwrap_or(0),
                 reset_lag_days: reset_lag_days.unwrap_or(0),
             },

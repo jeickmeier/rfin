@@ -244,7 +244,7 @@ impl ForwardRateAgreement {
             .fixing_date(date!(2024 - 04 - 01))
             .start_date(date!(2024 - 04 - 03))
             .maturity(date!(2024 - 07 - 03))
-            .fixed_rate(Decimal::try_from(0.045).unwrap_or_default())
+            .fixed_rate(crate::utils::decimal::f64_to_decimal(0.045, "fixed_rate")?)
             .day_count(DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id(CurveId::new("USD-OIS"))
@@ -595,7 +595,7 @@ mod tests {
             .fixing_date(fixing)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(Decimal::try_from(0.05).unwrap_or_default())
+            .fixed_rate(crate::utils::decimal::f64_to_decimal(0.05, "fixed_rate")?)
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())
@@ -647,7 +647,7 @@ mod tests {
             .fixing_date(fixing)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(Decimal::try_from(0.04).unwrap_or_default()) // Different from market rate
+            .fixed_rate(crate::utils::decimal::f64_to_decimal(0.04, "fixed_rate")?) // Different from market rate
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())

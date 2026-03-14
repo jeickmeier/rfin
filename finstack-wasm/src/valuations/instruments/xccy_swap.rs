@@ -7,6 +7,7 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::curve_id_from_str;
+use crate::valuations::common::opt_f64_to_decimal;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
@@ -17,7 +18,6 @@ use finstack_valuations::prelude::Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 /// Notional exchange convention for XCCY swaps.
@@ -252,8 +252,7 @@ impl JsXccySwapLegBuilder {
                 day_count: dc,
                 bdc: bdc_value,
                 stub: stub_value,
-                spread_bp: Decimal::try_from(self.spread_bp.unwrap_or(0.0))
-                    .unwrap_or(Decimal::ZERO),
+                spread_bp: opt_f64_to_decimal(self.spread_bp, "spread_bp")?,
                 payment_lag_days: self.payment_lag_days.unwrap_or(0),
                 calendar_id: self.calendar_id,
                 reset_lag_days: None,
@@ -302,7 +301,7 @@ impl JsXccySwapLeg {
                 day_count: dc,
                 bdc: bdc_value,
                 stub: stub_value,
-                spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
+                spread_bp: opt_f64_to_decimal(spread_bp, "spread_bp")?,
                 payment_lag_days: payment_lag_days.unwrap_or(0),
                 calendar_id,
                 reset_lag_days: None,

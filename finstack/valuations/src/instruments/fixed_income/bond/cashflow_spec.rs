@@ -175,7 +175,10 @@ impl CashflowSpec {
     /// and wrap in `CashflowSpec::Fixed(...)`.
     #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
     pub fn fixed(coupon: f64, freq: Tenor, dc: DayCount) -> Self {
-        // Convert f64 to Decimal for exact representation
+        debug_assert!(
+            coupon.is_finite(),
+            "CashflowSpec::fixed: coupon is not finite ({coupon})"
+        );
         let rate = Decimal::try_from(coupon).unwrap_or(Decimal::ZERO);
         Self::Fixed(FixedCouponSpec {
             coupon_type: CouponType::Cash,
@@ -272,7 +275,7 @@ impl CashflowSpec {
 
     /// Create a floating-rate specification using a typed margin in basis points.
     pub fn floating_bps(index_id: CurveId, margin_bp: Bps, freq: Tenor, dc: DayCount) -> Self {
-        let spread_bp = Decimal::try_from(margin_bp.as_bps() as f64).unwrap_or(Decimal::ZERO);
+        let spread_bp = Decimal::from(margin_bp.as_bps());
         let defaults = rate_index_defaults(&index_id);
         let reset_lag_days = defaults
             .as_ref()
@@ -364,7 +367,10 @@ impl CashflowSpec {
         dc: DayCount,
         reset_lag_days: i32,
     ) -> Self {
-        // Convert f64 to Decimal for exact representation
+        debug_assert!(
+            margin_bp.is_finite(),
+            "CashflowSpec::floating_with_reset_lag: margin_bp is not finite ({margin_bp})"
+        );
         let spread_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
         let calendar_id = rate_index_defaults(&index_id)
             .map(|conv| conv.market_calendar_id)
@@ -404,7 +410,7 @@ impl CashflowSpec {
         dc: DayCount,
         reset_lag_days: i32,
     ) -> Self {
-        let spread_bp = Decimal::try_from(margin_bp.as_bps() as f64).unwrap_or(Decimal::ZERO);
+        let spread_bp = Decimal::from(margin_bp.as_bps());
         let calendar_id = rate_index_defaults(&index_id)
             .map(|conv| conv.market_calendar_id)
             .unwrap_or_else(|| "weekends_only".to_string());
@@ -550,10 +556,20 @@ impl CashflowSpec {
         freq: Tenor,
         dc: DayCount,
     ) -> Self {
+        debug_assert!(
+            initial_rate.is_finite(),
+            "CashflowSpec::step_up: initial_rate is not finite ({initial_rate})"
+        );
         let initial = Decimal::try_from(initial_rate).unwrap_or(Decimal::ZERO);
         let step_schedule: Vec<(finstack_core::dates::Date, Decimal)> = steps
             .into_iter()
-            .map(|(d, r)| (d, Decimal::try_from(r).unwrap_or(Decimal::ZERO)))
+            .map(|(d, r)| {
+                debug_assert!(
+                    r.is_finite(),
+                    "CashflowSpec::step_up: step rate is not finite ({r})"
+                );
+                (d, Decimal::try_from(r).unwrap_or(Decimal::ZERO))
+            })
             .collect();
 
         Self::StepUp(StepUpCouponSpec {

@@ -65,7 +65,7 @@ fn test_book_hierarchy_three_levels() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit 1 should build");
@@ -78,7 +78,7 @@ fn test_book_hierarchy_three_levels() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit 2 should build");
@@ -91,7 +91,7 @@ fn test_book_hierarchy_three_levels() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit 3 should build");
@@ -223,7 +223,7 @@ fn test_book_hierarchy_multiple_root_books() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit should build");
@@ -236,7 +236,7 @@ fn test_book_hierarchy_multiple_root_books() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit should build");
@@ -321,7 +321,7 @@ fn test_position_without_book() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit should build");
@@ -362,7 +362,7 @@ fn test_book_hierarchy_is_order_independent() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit should build");
@@ -416,7 +416,7 @@ fn test_reassigning_position_between_books_removes_stale_membership() {
         .day_count(finstack_core::dates::DayCount::Act360)
         .discount_curve_id("USD".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()
         .expect("deposit should build");

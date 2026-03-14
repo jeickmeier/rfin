@@ -14,7 +14,7 @@ use time::macros::date;
 fn floating_rate_spec(index_id: &str, spread_bp: f64) -> FloatingRateSpec {
     FloatingRateSpec {
         index_id: CurveId::new(index_id),
-        spread_bp: Decimal::try_from(spread_bp).unwrap_or(Decimal::ZERO),
+        spread_bp: Decimal::try_from(spread_bp).expect("valid literal"),
         gearing: Decimal::ONE,
         gearing_includes_spread: true,
         floor_bp: None,
@@ -107,20 +107,20 @@ fn test_builder_with_tiered_fees() {
             commitment_fee_tiers: vec![
                 FeeTier {
                     threshold: Decimal::ZERO,
-                    bps: Decimal::try_from(10.0).unwrap_or(Decimal::ZERO),
+                    bps: Decimal::try_from(10.0).expect("valid literal"),
                 },
                 FeeTier {
-                    threshold: Decimal::try_from(0.5).unwrap_or(Decimal::ZERO),
-                    bps: Decimal::try_from(15.0).unwrap_or(Decimal::ZERO),
+                    threshold: Decimal::try_from(0.5).expect("valid literal"),
+                    bps: Decimal::try_from(15.0).expect("valid literal"),
                 },
                 FeeTier {
-                    threshold: Decimal::try_from(0.75).unwrap_or(Decimal::ZERO),
-                    bps: Decimal::try_from(20.0).unwrap_or(Decimal::ZERO),
+                    threshold: Decimal::try_from(0.75).expect("valid literal"),
+                    bps: Decimal::try_from(20.0).expect("valid literal"),
                 },
             ],
             usage_fee_tiers: vec![FeeTier {
                 threshold: Decimal::ZERO,
-                bps: Decimal::try_from(25.0).unwrap_or(Decimal::ZERO),
+                bps: Decimal::try_from(25.0).expect("valid literal"),
             }],
             facility_fee_bp: 5.0,
         })

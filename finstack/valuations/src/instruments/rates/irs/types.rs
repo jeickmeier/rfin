@@ -222,7 +222,7 @@ impl InterestRateSwap {
             .side(side)
             .fixed(FixedLegSpec {
                 discount_curve_id: CurveId::new(discount_curve_id),
-                rate: Decimal::try_from(fixed_rate).unwrap_or(Decimal::ZERO),
+                rate: crate::utils::decimal::f64_to_decimal(fixed_rate, "fixed_rate")?,
                 frequency: conv.fixed_freq,
                 day_count: conv.fixed_dc,
                 bdc: conv.bdc,
@@ -487,7 +487,7 @@ impl InterestRateSwap {
             .side(PayReceive::PayFixed)
             .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: Decimal::try_from(0.03).unwrap_or(Decimal::ZERO),
+                rate: Decimal::try_from(0.03_f64).expect("valid literal"),
                 frequency: Tenor::semi_annual(),
                 day_count: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,
@@ -558,7 +558,7 @@ impl InterestRateSwap {
             .side(PayReceive::PayFixed)
             .fixed(crate::instruments::common_impl::parameters::FixedLegSpec {
                 discount_curve_id: CurveId::new("USD-OIS"),
-                rate: Decimal::try_from(0.04).unwrap_or(Decimal::ZERO),
+                rate: Decimal::try_from(0.04_f64).expect("valid literal"),
                 frequency: Tenor::semi_annual(),
                 day_count: DayCount::Thirty360,
                 bdc: BusinessDayConvention::ModifiedFollowing,

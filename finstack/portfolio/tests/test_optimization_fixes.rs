@@ -155,7 +155,7 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         .day_count(DayCount::Act365F)
         .discount_curve_id("USD-OIS".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()?;
 
@@ -167,7 +167,7 @@ fn test_notional_weighting() -> Result<(), Box<dyn std::error::Error>> {
         .day_count(DayCount::Act365F)
         .discount_curve_id("USD-OIS".into())
         .quote_rate_opt(Some(
-            rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+            rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
         ))
         .build()?;
 
@@ -255,7 +255,7 @@ fn test_candidate_batching() -> Result<(), Box<dyn std::error::Error>> {
             .day_count(DayCount::Act365F)
             .discount_curve_id("USD-OIS".into())
             .quote_rate_opt(Some(
-                rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+                rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
             ))
             .build()?;
 

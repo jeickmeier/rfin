@@ -3,7 +3,7 @@ use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
@@ -132,7 +132,7 @@ impl JsForwardRateAgreementBuilder {
         let mut builder = ForwardRateAgreement::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
+            .fixed_rate(f64_to_decimal(fixed_rate, "fixed_rate")?)
             .fixing_date(fixing_date)
             .start_date(start_date)
             .maturity(end_date)
@@ -238,7 +238,7 @@ impl JsForwardRateAgreement {
         let mut builder = ForwardRateAgreement::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
+            .fixed_rate(f64_to_decimal(fixed_rate, "fixed_rate")?)
             .fixing_date(fixing_date.inner())
             .start_date(start_date.inner())
             .maturity(end_date.inner())

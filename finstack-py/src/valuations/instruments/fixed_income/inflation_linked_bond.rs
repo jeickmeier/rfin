@@ -254,7 +254,8 @@ impl PyInflationLinkedBondBuilder {
             slf.base_index.ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("InflationLinkedBondBuilder internal error: missing base_index after validation"))?,
             slf.frequency,
             slf.day_count,
-        );
+        )
+        .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
 
         let mut builder = InflationLinkedBond::builder();
         builder = builder.id(slf.instrument_id.clone());

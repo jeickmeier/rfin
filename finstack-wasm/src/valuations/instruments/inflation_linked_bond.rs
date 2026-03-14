@@ -167,7 +167,8 @@ impl JsInflationLinkedBondBuilder {
             base_index,
             freq,
             dc,
-        );
+        )
+        .map_err(|e| js_error(e.to_string()))?;
 
         InflationLinkedBond::builder()
             .id(instrument_id_from_str(&self.instrument_id))
@@ -271,7 +272,8 @@ impl JsInflationLinkedBond {
             base_index,
             freq,
             dc,
-        );
+        )
+        .map_err(|e| js_error(e.to_string()))?;
 
         let builder = InflationLinkedBond::builder()
             .id(instrument_id_from_str(instrument_id))

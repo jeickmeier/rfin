@@ -80,7 +80,15 @@ pub struct FeeTier {
 
 impl FeeTier {
     /// Create a fee tier using typed basis points.
+    ///
+    /// # Panics (debug builds only)
+    ///
+    /// Asserts that `threshold` is finite.
     pub fn from_bps(threshold: f64, bps: Bps) -> Self {
+        debug_assert!(
+            threshold.is_finite(),
+            "FeeTier::from_bps: threshold is not finite ({threshold})"
+        );
         Self {
             threshold: Decimal::try_from(threshold).unwrap_or(Decimal::ZERO),
             bps: Decimal::from(bps.as_bps()),

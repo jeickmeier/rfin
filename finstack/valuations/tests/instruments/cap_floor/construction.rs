@@ -272,3 +272,86 @@ fn test_different_frequencies() {
         assert_eq!(cap.frequency, freq);
     }
 }
+
+#[test]
+fn test_new_caplet_rejects_nan_strike() {
+    let notional = Money::new(1_000_000.0, Currency::USD);
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+    let result = InterestRateOption::new_caplet(
+        "CAPLET-NAN",
+        notional,
+        f64::NAN,
+        start,
+        end,
+        DayCount::Act360,
+        "USD-OIS",
+        "USD-SOFR-3M",
+        "USD_CAP_VOL",
+    );
+    assert!(result.is_err(), "new_caplet should reject NaN strike");
+}
+
+#[test]
+fn test_new_caplet_rejects_infinite_strike() {
+    let notional = Money::new(1_000_000.0, Currency::USD);
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+    let result = InterestRateOption::new_caplet(
+        "CAPLET-INF",
+        notional,
+        f64::INFINITY,
+        start,
+        end,
+        DayCount::Act360,
+        "USD-OIS",
+        "USD-SOFR-3M",
+        "USD_CAP_VOL",
+    );
+    assert!(result.is_err(), "new_caplet should reject infinite strike");
+}
+
+#[test]
+fn test_new_floorlet_rejects_nan_strike() {
+    let notional = Money::new(1_000_000.0, Currency::USD);
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+    let result = InterestRateOption::new_floorlet(
+        "FLOORLET-NAN",
+        notional,
+        f64::NAN,
+        start,
+        end,
+        DayCount::Act360,
+        "USD-OIS",
+        "USD-SOFR-3M",
+        "USD_CAP_VOL",
+    );
+    assert!(result.is_err(), "new_floorlet should reject NaN strike");
+}
+
+#[test]
+fn test_new_caplet_accepts_valid_strike() {
+    let notional = Money::new(1_000_000.0, Currency::USD);
+    let start = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let end = Date::from_calendar_date(2026, Month::January, 1).unwrap();
+
+    let result = InterestRateOption::new_caplet(
+        "CAPLET-OK",
+        notional,
+        0.05,
+        start,
+        end,
+        DayCount::Act360,
+        "USD-OIS",
+        "USD-SOFR-3M",
+        "USD_CAP_VOL",
+    );
+    assert!(
+        result.is_ok(),
+        "new_caplet should accept a valid finite strike"
+    );
+}

@@ -579,7 +579,8 @@ fn test_single_period_cap_matches_caplet_with_resolved_lags() {
         "USD_OIS",
         "USD-SOFR-OIS",
         "USD_CAP_VOL",
-    );
+    )
+    .expect("valid literal strike");
 
     let market = MarketContext::new()
         .insert(build_flat_discount_curve(0.03, as_of, "USD_OIS"))

@@ -278,7 +278,7 @@ fn theta_at_par() {
         "THETA-PAR",
         d(2025, 1, 2),
         d(2026, 1, 2),
-        Decimal::try_from(par_spread).unwrap_or_default(),
+        Decimal::try_from(par_spread).expect("valid literal"),
     );
 
     let res_par = swap_at_par

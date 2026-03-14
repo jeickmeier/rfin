@@ -139,7 +139,7 @@ impl RevolvingCredit {
         let end = date!(2027 - 01 - 01);
         let base_rate = BaseRateSpec::Floating(FloatingRateSpec {
             index_id: CurveId::new("USD-SOFR-3M"),
-            spread_bp: Decimal::try_from(250.0).unwrap_or(Decimal::ZERO),
+            spread_bp: Decimal::from(250),
             gearing: Decimal::ONE,
             gearing_includes_spread: true,
             floor_bp: Some(Decimal::ZERO),
@@ -263,7 +263,25 @@ impl RevolvingCreditFees {
     /// Create fees with flat (non-tiered) commitment and usage fees.
     ///
     /// Convenience constructor for simple fee structures without utilization tiers.
+    ///
+    /// # Panics (debug builds only)
+    ///
+    /// Asserts that all fee inputs are finite. Pass `NaN` or `Inf` in debug
+    /// builds to surface the error early; in release builds non-finite inputs
+    /// produce `Decimal::ZERO` (better than a panic in a long-running process).
     pub fn flat(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
+        debug_assert!(
+            commitment_fee_bp.is_finite(),
+            "RevolvingCreditFees::flat: commitment_fee_bp is not finite ({commitment_fee_bp})"
+        );
+        debug_assert!(
+            usage_fee_bp.is_finite(),
+            "RevolvingCreditFees::flat: usage_fee_bp is not finite ({usage_fee_bp})"
+        );
+        debug_assert!(
+            facility_fee_bp.is_finite(),
+            "RevolvingCreditFees::flat: facility_fee_bp is not finite ({facility_fee_bp})"
+        );
         let make_tier = |bps: f64| -> Vec<FeeTier> {
             if bps > 0.0 {
                 vec![FeeTier {
@@ -309,7 +327,15 @@ impl RevolvingCreditFees {
     /// Returns the fee rate from the highest tier where utilization >= threshold.
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
+    ///
+    /// # Panics (debug builds only)
+    ///
+    /// Asserts that `utilization` is finite.
     pub fn commitment_fee_bps(&self, utilization: f64) -> f64 {
+        debug_assert!(
+            utilization.is_finite(),
+            "commitment_fee_bps: utilization is not finite ({utilization})"
+        );
         let util = Decimal::try_from(utilization).unwrap_or(Decimal::ZERO);
         evaluate_fee_tiers(&self.commitment_fee_tiers, util)
             .to_f64()
@@ -321,7 +347,15 @@ impl RevolvingCreditFees {
     /// Returns the fee rate from the highest tier where utilization >= threshold.
     /// Tiers should be sorted by threshold ascending.
     /// If no tiers match or tiers are empty, returns 0.0.
+    ///
+    /// # Panics (debug builds only)
+    ///
+    /// Asserts that `utilization` is finite.
     pub fn usage_fee_bps(&self, utilization: f64) -> f64 {
+        debug_assert!(
+            utilization.is_finite(),
+            "usage_fee_bps: utilization is not finite ({utilization})"
+        );
         let util = Decimal::try_from(utilization).unwrap_or(Decimal::ZERO);
         evaluate_fee_tiers(&self.usage_fee_tiers, util)
             .to_f64()

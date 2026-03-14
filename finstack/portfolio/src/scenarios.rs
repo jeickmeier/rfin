@@ -157,7 +157,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .quote_rate_opt(Some(
-                rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+                rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
             ))
             .build()
             .expect("test should succeed");
@@ -213,7 +213,7 @@ mod tests {
             .day_count(finstack_core::dates::DayCount::Act360)
             .discount_curve_id("USD".into())
             .quote_rate_opt(Some(
-                rust_decimal::Decimal::try_from(0.045).unwrap_or_default(),
+                rust_decimal::Decimal::try_from(0.045).expect("valid literal"),
             ))
             .build()
             .expect("test should succeed");

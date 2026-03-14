@@ -375,11 +375,10 @@ pub fn generate_cashflows(
                 steps.push((loan.maturity, running));
             }
 
-            let gearing_f64 = spec.gearing.to_f64().unwrap_or(1.0);
             let base_params = FloatCouponParams {
                 index_id: spec.index_id.clone(),
                 margin_bp: Decimal::ZERO,
-                gearing: Decimal::try_from(gearing_f64).unwrap_or(Decimal::ONE),
+                gearing: spec.gearing,
                 reset_lag_days: spec.reset_lag_days,
                 gearing_includes_spread: spec.gearing_includes_spread,
                 floor_bp: spec.floor_bp,

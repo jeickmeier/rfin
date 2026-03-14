@@ -317,6 +317,8 @@ pub mod results;
 /// JSON Schema generation for API contracts.
 pub mod schema;
 pub(crate) mod serde_defaults;
+/// Internal utility helpers.
+pub mod utils;
 
 #[macro_use]
 /// Financial instrument definitions and builders.

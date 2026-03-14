@@ -1034,7 +1034,7 @@ mod tests {
 
         // Create a new swap with the par spread applied
         let primary_leg_at_par = BasisSwapLeg {
-            spread_bp: Decimal::try_from(par_spread_bp).unwrap_or_default(),
+            spread_bp: Decimal::try_from(par_spread_bp).expect("metric result is finite"),
             ..primary_leg
         };
 

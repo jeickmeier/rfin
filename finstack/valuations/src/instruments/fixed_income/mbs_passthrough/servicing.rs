@@ -119,6 +119,11 @@ impl MbsFeeSpec {
 pub fn to_cashflow_fee_spec(mbs_fee: &MbsFeeSpec) -> crate::cashflow::builder::FeeSpec {
     use crate::cashflow::builder::{FeeBase, FeeSpec};
 
+    debug_assert!(
+        mbs_fee.annual_rate_bps.is_finite(),
+        "to_cashflow_fee_spec: annual_rate_bps is not finite ({})",
+        mbs_fee.annual_rate_bps
+    );
     FeeSpec::PeriodicBps {
         base: FeeBase::Drawn,
         // Convert f64 bps to Decimal for exact representation

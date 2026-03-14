@@ -3,6 +3,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::curve_id_from_str;
+use crate::valuations::common::opt_f64_to_decimal;
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
@@ -10,7 +11,6 @@ use finstack_valuations::instruments::rates::basis_swap::{BasisSwap, BasisSwapLe
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen(js_name = BasisSwapLeg)]
@@ -70,7 +70,7 @@ impl JsBasisSwapLeg {
                 bdc,
                 calendar_id,
                 stub: stub_kind,
-                spread_bp: Decimal::try_from(spread_bp.unwrap_or(0.0)).unwrap_or(Decimal::ZERO),
+                spread_bp: opt_f64_to_decimal(spread_bp, "spread_bp")?,
                 payment_lag_days: 0,
                 reset_lag_days: 0,
             },

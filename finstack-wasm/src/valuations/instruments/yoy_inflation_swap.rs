@@ -6,7 +6,7 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{DayCount, Tenor};
 use finstack_valuations::instruments::rates::inflation_swap::{PayReceive, YoYInflationSwap};
@@ -141,7 +141,7 @@ impl JsYoYInflationSwapBuilder {
         YoYInflationSwap::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .notional(notional)
-            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
+            .fixed_rate(f64_to_decimal(fixed_rate, "fixed_rate")?)
             .start_date(start_date)
             .maturity(maturity)
             .frequency(freq)
@@ -183,7 +183,7 @@ impl JsYoYInflationSwap {
         let builder = YoYInflationSwap::builder()
             .id(instrument_id_from_str(instrument_id))
             .notional(notional.inner())
-            .fixed_rate(rust_decimal::Decimal::try_from(fixed_rate).unwrap_or_default())
+            .fixed_rate(f64_to_decimal(fixed_rate, "fixed_rate")?)
             .start_date(start_date.inner())
             .maturity(maturity.inner())
             .frequency(freq)

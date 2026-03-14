@@ -1423,6 +1423,8 @@ impl BermudanSwaption {
     }
 
     /// Create a new Bermudan payer swaption (right to pay fixed).
+    ///
+    /// Returns an error if the strike value is not representable as `Decimal` (e.g., NaN or Inf).
     #[allow(clippy::too_many_arguments)]
     pub fn new_payer(
         id: impl Into<InstrumentId>,
@@ -1434,12 +1436,12 @@ impl BermudanSwaption {
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             id: id.into(),
             option_type: OptionType::Call,
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            strike: crate::utils::decimal::f64_to_decimal(strike, "strike")?,
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1454,10 +1456,12 @@ impl BermudanSwaption {
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::default(),
-        }
+        })
     }
 
     /// Create a new Bermudan receiver swaption (right to receive fixed).
+    ///
+    /// Returns an error if the strike value is not representable as `Decimal` (e.g., NaN or Inf).
     #[allow(clippy::too_many_arguments)]
     pub fn new_receiver(
         id: impl Into<InstrumentId>,
@@ -1469,12 +1473,12 @@ impl BermudanSwaption {
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
-        Self {
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             id: id.into(),
             option_type: OptionType::Put,
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            strike: crate::utils::decimal::f64_to_decimal(strike, "strike")?,
             swap_start,
             swap_end,
             fixed_freq: Tenor::semi_annual(),
@@ -1489,7 +1493,7 @@ impl BermudanSwaption {
             calendar_id: None,
             pricing_overrides: PricingOverrides::default(),
             attributes: Attributes::default(),
-        }
+        })
     }
 
     /// Set fixed leg frequency.

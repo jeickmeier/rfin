@@ -820,7 +820,8 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             base,
             maturity_5y(),
             100.0, // base CPI
-        );
+        )
+        .expect("valid literal coupon");
 
         let ilb = InflationLinkedBond::new_tips(ilb_id.clone(), &bond_params, "USD-OIS", "USD-CPI");
 
@@ -847,7 +848,7 @@ fn create_institutional_portfolio(num_positions: usize) -> finstack_portfolio::P
             .notional(Money::new(10_000_000.0, Currency::USD))
             .start_date(base)
             .maturity(maturity_5y())
-            .fixed_rate(rust_decimal::Decimal::try_from(0.02).unwrap_or_default()) // 2% fixed real rate
+            .fixed_rate(rust_decimal::Decimal::try_from(0.02).expect("valid literal")) // 2% fixed real rate
             .inflation_index_id("USD-CPI".into())
             .discount_curve_id("USD-OIS".into())
             .day_count(DayCount::Act365F)

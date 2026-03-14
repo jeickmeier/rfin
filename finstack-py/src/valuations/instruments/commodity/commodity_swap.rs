@@ -6,7 +6,7 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::PyMoney;
 use crate::errors::PyContext;
-use crate::valuations::common::PyInstrumentType;
+use crate::valuations::common::{f64_to_decimal, PyInstrumentType};
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
@@ -362,7 +362,7 @@ impl PyCommoditySwapBuilder {
                 currency,
             ))
             .quantity(quantity)
-            .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
+            .fixed_price(f64_to_decimal(fixed_price, "fixed_price")?)
             .floating_index_id(floating_index_id)
             .side(if pay_fixed {
                 PayReceive::PayFixed

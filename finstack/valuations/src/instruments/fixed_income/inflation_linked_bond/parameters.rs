@@ -29,6 +29,10 @@ pub struct InflationLinkedBondParams {
 
 impl InflationLinkedBondParams {
     /// Create new inflation-linked bond parameters
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `real_coupon` is not representable as `Decimal` (e.g., NaN or Inf).
     pub fn new(
         notional: Money,
         real_coupon: f64,
@@ -37,26 +41,30 @@ impl InflationLinkedBondParams {
         base_index: f64,
         frequency: Tenor,
         day_count: DayCount,
-    ) -> Self {
-        Self {
+    ) -> finstack_core::Result<Self> {
+        Ok(Self {
             notional,
-            real_coupon: Decimal::try_from(real_coupon).unwrap_or_default(),
+            real_coupon: crate::utils::decimal::f64_to_decimal(real_coupon, "real_coupon")?,
             issue,
             maturity,
             base_index,
             frequency,
             day_count,
-        }
+        })
     }
 
     /// Create US TIPS parameters (semi-annual, Act/Act)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `real_coupon` is not representable as `Decimal` (e.g., NaN or Inf).
     pub fn tips(
         notional: Money,
         real_coupon: f64,
         issue: Date,
         maturity: Date,
         base_index: f64,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         Self::new(
             notional,
             real_coupon,
@@ -69,13 +77,17 @@ impl InflationLinkedBondParams {
     }
 
     /// Create UK linker parameters (semi-annual, Act/Act)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `real_coupon` is not representable as `Decimal` (e.g., NaN or Inf).
     pub fn uk_linker(
         notional: Money,
         real_coupon: f64,
         issue: Date,
         maturity: Date,
         base_index: f64,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         Self::new(
             notional,
             real_coupon,

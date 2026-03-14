@@ -223,8 +223,8 @@ impl CDSOptionParams {
     /// Apply a forward spread adjustment using typed basis points.
     #[must_use]
     pub fn with_forward_spread_adjust_bps(mut self, adjust_bp: Bps) -> Self {
-        let bp_value = adjust_bp.as_bps() as f64;
-        self.forward_spread_adjust = Decimal::try_from(bp_value / 10000.0).unwrap_or(Decimal::ZERO);
+        // Bps is an i32-backed type: direct arithmetic avoids any f64 conversion.
+        self.forward_spread_adjust = Decimal::from(adjust_bp.as_bps()) / Decimal::from(10_000_i32);
         self
     }
 

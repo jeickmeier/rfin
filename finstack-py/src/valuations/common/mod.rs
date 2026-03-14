@@ -536,6 +536,18 @@ pub(crate) fn f64_to_decimal(value: f64, field: &str) -> PyResult<rust_decimal::
     })
 }
 
+/// Convert an `Option<f64>` to [`rust_decimal::Decimal`], using zero for `None`
+/// and raising `ValueError` only when `Some(value)` cannot be converted.
+pub(crate) fn opt_f64_to_decimal(
+    value: Option<f64>,
+    field: &str,
+) -> PyResult<rust_decimal::Decimal> {
+    match value {
+        None => Ok(rust_decimal::Decimal::ZERO),
+        Some(v) => f64_to_decimal(v, field),
+    }
+}
+
 /// Convert an optional string to owned String.
 pub(crate) fn to_optional_string(value: Option<&str>) -> Option<String> {
     value.map(|s| s.to_string())

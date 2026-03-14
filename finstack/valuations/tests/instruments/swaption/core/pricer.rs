@@ -73,7 +73,8 @@ fn test_bermudan_pricer_cached_model_sets_measure() {
         "USD_OIS",
         "USD_OIS",
         "USD-SWPNVOL",
-    );
+    )
+    .expect("valid literal strike");
 
     let market = create_flat_market(as_of, 0.03, 0.2);
     let disc = market.get_discount("USD_OIS").unwrap();
@@ -112,7 +113,8 @@ fn test_bermudan_pricer_expired_returns_zero() {
         "USD_OIS",
         "USD_OIS",
         "USD-SWPNVOL",
-    );
+    )
+    .expect("valid literal strike");
 
     let market = create_flat_market(as_of, 0.03, 0.2);
     let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default());
@@ -142,7 +144,8 @@ fn test_bermudan_tree_pricer_rejects_mixed_curves() {
         "USD_OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",
-    );
+    )
+    .expect("valid literal strike");
 
     let market = create_flat_market(as_of, 0.03, 0.2);
     let pricer = BermudanSwaptionPricer::tree_pricer(HullWhiteParams::default());

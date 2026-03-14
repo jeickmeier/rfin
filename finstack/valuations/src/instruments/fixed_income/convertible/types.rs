@@ -7,7 +7,6 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use rust_decimal::Decimal;
 
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::common_impl::traits::Attributes;
@@ -418,6 +417,8 @@ impl ConvertibleBond {
         use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
         use time::macros::date;
 
+        let coupon_rate = crate::utils::decimal::f64_to_decimal(0.02, "coupon_rate")?;
+
         ConvertibleBond::builder()
             .id(InstrumentId::new("CB-TECH-5Y"))
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -437,7 +438,7 @@ impl ConvertibleBond {
             .call_put_opt(None)
             .fixed_coupon_opt(Some(FixedCouponSpec {
                 coupon_type: CouponType::Cash,
-                rate: Decimal::try_from(0.02).unwrap_or(Decimal::ZERO),
+                rate: coupon_rate,
                 freq: Tenor::semi_annual(),
                 dc: DayCount::Thirty360,
                 bdc: BusinessDayConvention::Following,

@@ -10,7 +10,7 @@ use crate::core::common::args::{BusinessDayConventionArg, CurrencyArg, DayCountA
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
 use crate::errors::PyContext;
-use crate::valuations::common::PyInstrumentType;
+use crate::valuations::common::{f64_to_decimal, PyInstrumentType};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
@@ -22,7 +22,6 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, PyRefMut};
-use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -699,7 +698,7 @@ impl PyCrossCurrencySwapBuilder {
             day_count: slf.leg1_day_count,
             bdc: slf.leg1_bdc,
             stub: slf.leg1_stub,
-            spread_bp: Decimal::try_from(slf.leg1_spread).unwrap_or(Decimal::ZERO),
+            spread_bp: f64_to_decimal(slf.leg1_spread, "leg1_spread")?,
             payment_lag_days: slf.leg1_payment_lag_days,
             calendar_id: slf.leg1_calendar_id.clone(),
             reset_lag_days: None,
@@ -740,7 +739,7 @@ impl PyCrossCurrencySwapBuilder {
             day_count: slf.leg2_day_count,
             bdc: slf.leg2_bdc,
             stub: slf.leg2_stub,
-            spread_bp: Decimal::try_from(slf.leg2_spread).unwrap_or(Decimal::ZERO),
+            spread_bp: f64_to_decimal(slf.leg2_spread, "leg2_spread")?,
             payment_lag_days: slf.leg2_payment_lag_days,
             calendar_id: slf.leg2_calendar_id.clone(),
             reset_lag_days: None,

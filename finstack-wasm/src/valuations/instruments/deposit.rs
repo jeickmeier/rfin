@@ -94,10 +94,11 @@ impl JsDepositBuilder {
             .maturity(maturity)
             .day_count(day_count)
             .discount_curve_id(curve_id_from_str(discount_curve))
-            .quote_rate_opt(
+            .quote_rate_opt({
                 self.quote_rate
-                    .map(|rate| rust_decimal::Decimal::try_from(rate).unwrap_or_default()),
-            )
+                    .map(|rate| crate::valuations::common::f64_to_decimal(rate, "quote_rate"))
+                    .transpose()?
+            })
             .build()
             .map(JsDeposit::from_inner)
             .map_err(|e| js_error(e.to_string()))
@@ -174,7 +175,9 @@ impl JsDeposit {
             .day_count(day_count.inner())
             .discount_curve_id(curve_id_from_str(discount_curve))
             .quote_rate_opt(
-                quote_rate.map(|rate| rust_decimal::Decimal::try_from(rate).unwrap_or_default()),
+                quote_rate
+                    .map(|rate| crate::valuations::common::f64_to_decimal(rate, "quote_rate"))
+                    .transpose()?,
             )
             .build()
             .map(JsDeposit::from_inner)

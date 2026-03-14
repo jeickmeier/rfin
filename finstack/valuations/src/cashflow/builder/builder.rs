@@ -856,7 +856,10 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         split: CouponType,
     ) -> &mut Self {
-        // Convert f64 rate to Decimal for exact representation
+        debug_assert!(
+            rate.is_finite(),
+            "add_fixed_coupon_window: rate is not finite ({rate})"
+        );
         let rate_decimal = Decimal::try_from(rate).unwrap_or(Decimal::ZERO);
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow { start, end },
@@ -1070,6 +1073,10 @@ impl CashFlowBuilder {
         };
         let mut prev = issue;
         for &(end, margin_bp) in steps {
+            debug_assert!(
+                margin_bp.is_finite(),
+                "float_margin_stepup: margin_bp is not finite ({margin_bp})"
+            );
             let mut params = base_params.clone();
             // Convert f64 margin_bp to Decimal
             params.margin_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
@@ -1085,6 +1092,10 @@ impl CashFlowBuilder {
         if prev != maturity {
             let mut params = base_params.clone();
             if let Some(&(_, margin_bp)) = steps.last() {
+                debug_assert!(
+                    margin_bp.is_finite(),
+                    "float_margin_stepup: last margin_bp is not finite ({margin_bp})"
+                );
                 // Convert f64 margin_bp to Decimal
                 params.margin_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
             }

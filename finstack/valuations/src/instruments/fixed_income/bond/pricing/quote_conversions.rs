@@ -20,7 +20,6 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use std::sync::Arc;
 
 /// Convert payment frequency to approximate periods per year.
@@ -845,7 +844,7 @@ pub fn price_from_dm(
         &mut b.cashflow_spec
     {
         // Convert dm (in decimal) to basis points and add to spread_bp (Decimal)
-        let dm_bp = Decimal::try_from(dm * 1e4).unwrap_or(Decimal::ZERO);
+        let dm_bp = crate::utils::decimal::f64_to_decimal(dm * 1e4, "dm")?;
         spec.rate_spec.spread_bp += dm_bp;
     }
     Ok(b.value(curves, as_of)?.amount())

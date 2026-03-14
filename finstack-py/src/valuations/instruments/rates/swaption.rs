@@ -1017,6 +1017,7 @@ fn construct_bermudan(
             forward_curve,
             vol_surface,
         )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?
     } else {
         BermudanSwaption::new_receiver(
             instrument_id,
@@ -1029,6 +1030,7 @@ fn construct_bermudan(
             forward_curve,
             vol_surface,
         )
+        .map_err(|e| PyValueError::new_err(e.to_string()))?
     };
 
     if let Some(ff) = fixed_freq {

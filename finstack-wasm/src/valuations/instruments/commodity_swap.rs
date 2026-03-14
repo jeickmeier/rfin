@@ -3,6 +3,7 @@
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
 use crate::utils::json::{from_js_value, to_js_value};
+use crate::valuations::common::f64_to_decimal;
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -195,7 +196,7 @@ impl JsCommoditySwapBuilder {
                 currency,
             ))
             .quantity(quantity)
-            .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
+            .fixed_price(f64_to_decimal(fixed_price, "fixed_price")?)
             .floating_index_id(CurveId::new(floating_index_id))
             .side(if pay_fixed {
                 PayReceive::PayFixed
@@ -309,7 +310,7 @@ impl JsCommoditySwap {
                 currency.inner(),
             ))
             .quantity(quantity)
-            .fixed_price(rust_decimal::Decimal::try_from(fixed_price).unwrap_or_default())
+            .fixed_price(f64_to_decimal(fixed_price, "fixed_price")?)
             .floating_index_id(CurveId::new(floating_index_id))
             .side(if pay_fixed {
                 PayReceive::PayFixed

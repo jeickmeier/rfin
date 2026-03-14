@@ -83,7 +83,7 @@ fn create_flat_market(base_date: Date, rate: f64) -> MarketContext {
 }
 
 fn dec(value: f64) -> Decimal {
-    Decimal::try_from(value).unwrap_or_default()
+    Decimal::try_from(value).expect("valid literal")
 }
 
 // =============================================================================

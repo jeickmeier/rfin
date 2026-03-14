@@ -6,7 +6,7 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_valuations::instruments::rates::inflation_cap_floor::{
@@ -245,7 +245,7 @@ impl JsInflationCapFloorBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .option_type(option_type)
             .notional(notional)
-            .strike(rust_decimal::Decimal::try_from(strike).unwrap_or_default())
+            .strike(f64_to_decimal(strike, "strike")?)
             .start_date(start_date)
             .maturity(end_date)
             .frequency(freq)
@@ -300,7 +300,7 @@ impl JsInflationCapFloor {
             .id(instrument_id_from_str(instrument_id))
             .option_type(option_type.inner())
             .notional(notional.inner())
-            .strike(rust_decimal::Decimal::try_from(strike).unwrap_or_default())
+            .strike(f64_to_decimal(strike, "strike")?)
             .start_date(start_date.inner())
             .maturity(end_date.inner())
             .frequency(freq)

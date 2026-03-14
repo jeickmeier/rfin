@@ -8,6 +8,7 @@ use crate::core::market_data::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::core_to_py;
 use crate::valuations::cashflow::builder::PyScheduleParams;
+use crate::valuations::common::opt_f64_to_decimal;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::types::InstrumentId;
@@ -22,7 +23,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use rust_decimal::prelude::ToPrimitive;
-use rust_decimal::Decimal;
 use std::fmt;
 use std::sync::Arc;
 
@@ -113,8 +113,7 @@ impl PyFinancingLegSpec {
         use crate::errors::PyContext;
         let disc = parse_curve_id(&discount_curve, "discount curve").context("discount_curve")?;
         let fwd = parse_curve_id(&forward_curve, "forward curve").context("forward_curve")?;
-        let spread_decimal = Decimal::try_from(spread_bp.unwrap_or(0.0))
-            .map_err(|e| PyValueError::new_err(format!("Invalid spread_bp: {e}")))?;
+        let spread_decimal = opt_f64_to_decimal(spread_bp, "spread_bp")?;
         let spec = FinancingLegSpec::new(disc, fwd, spread_decimal, day_count.inner);
         Ok(Self { inner: spec })
     }

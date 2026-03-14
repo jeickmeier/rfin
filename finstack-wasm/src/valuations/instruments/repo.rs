@@ -5,7 +5,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
+use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::rates::repo::{
@@ -136,7 +136,7 @@ impl JsRepoBuilder {
             .id(instrument_id_from_str(&self.instrument_id))
             .cash_amount(cash_amount)
             .collateral(collateral)
-            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).unwrap_or_default())
+            .repo_rate(f64_to_decimal(repo_rate, "repo_rate")?)
             .start_date(start_date)
             .maturity(maturity)
             .haircut(self.haircut.unwrap_or(0.0))
@@ -262,7 +262,7 @@ impl JsRepo {
             .id(instrument_id_from_str(instrument_id))
             .cash_amount(cash_amount.inner())
             .collateral(collateral.inner.clone())
-            .repo_rate(rust_decimal::Decimal::try_from(repo_rate).unwrap_or_default())
+            .repo_rate(f64_to_decimal(repo_rate, "repo_rate")?)
             .start_date(start_date.inner())
             .maturity(maturity.inner())
             .haircut(haircut.unwrap_or(0.0))

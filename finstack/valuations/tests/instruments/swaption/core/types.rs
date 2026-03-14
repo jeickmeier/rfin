@@ -130,7 +130,8 @@ fn test_bermudan_swaption_schedule_and_conversion() {
         "USD-OIS",
         "USD-SOFR-3M",
         "USD-SWPNVOL",
-    );
+    )
+    .expect("valid literal strike");
 
     let (payment_dates, accruals) = swaption.build_swap_schedule(as_of).unwrap();
     assert_eq!(payment_dates.len(), accruals.len());

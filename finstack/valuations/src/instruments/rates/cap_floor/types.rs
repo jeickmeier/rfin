@@ -345,6 +345,8 @@ impl InterestRateOption {
     }
 
     /// Create a single-period caplet instrument.
+    ///
+    /// Returns an error if the strike value is not representable as `Decimal` (e.g., NaN or Inf).
     #[allow(clippy::too_many_arguments)]
     pub fn new_caplet(
         id: impl Into<InstrumentId>,
@@ -356,18 +358,18 @@ impl InterestRateOption {
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let option_params = InterestRateOptionParams {
             rate_option_type: RateOptionType::Caplet,
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            strike: crate::utils::decimal::f64_to_decimal(strike, "strike")?,
             frequency: infer_single_period_frequency(start_date, maturity),
             day_count,
             stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         };
-        Self::new(
+        Ok(Self::new(
             id,
             &option_params,
             start_date,
@@ -375,10 +377,12 @@ impl InterestRateOption {
             discount_curve_id.into(),
             forward_curve_id.into(),
             vol_surface_id,
-        )
+        ))
     }
 
     /// Create a single-period floorlet instrument.
+    ///
+    /// Returns an error if the strike value is not representable as `Decimal` (e.g., NaN or Inf).
     #[allow(clippy::too_many_arguments)]
     pub fn new_floorlet(
         id: impl Into<InstrumentId>,
@@ -390,18 +394,18 @@ impl InterestRateOption {
         discount_curve_id: impl Into<CurveId>,
         forward_curve_id: impl Into<CurveId>,
         vol_surface_id: impl Into<CurveId>,
-    ) -> Self {
+    ) -> finstack_core::Result<Self> {
         let option_params = InterestRateOptionParams {
             rate_option_type: RateOptionType::Floorlet,
             notional,
-            strike: Decimal::try_from(strike).unwrap_or_default(),
+            strike: crate::utils::decimal::f64_to_decimal(strike, "strike")?,
             frequency: infer_single_period_frequency(start_date, maturity),
             day_count,
             stub: StubKind::ShortFront,
             bdc: BusinessDayConvention::ModifiedFollowing,
             calendar_id: None,
         };
-        Self::new(
+        Ok(Self::new(
             id,
             &option_params,
             start_date,
@@ -409,7 +413,7 @@ impl InterestRateOption {
             discount_curve_id.into(),
             forward_curve_id.into(),
             vol_surface_id,
-        )
+        ))
     }
 
     pub(crate) fn pricing_periods(
