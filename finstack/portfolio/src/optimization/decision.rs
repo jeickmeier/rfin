@@ -213,7 +213,7 @@ pub(crate) fn build_decision_space(
             replace_standard_metrics: false,
         };
 
-        Some(crate::valuation::value_portfolio_with_options(
+        Some(crate::valuation::value_portfolio(
             &candidate_portfolio,
             market,
             config,

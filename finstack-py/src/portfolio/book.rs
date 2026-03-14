@@ -79,7 +79,7 @@ impl PyBook {
     ) -> PyResult<Self> {
         let book_id = extract_book_id(id)?;
         let book = match parent_id {
-            Some(parent) => Book::with_parent(book_id, name, extract_book_id(parent)?),
+            Some(parent) => Book::new(book_id, name).with_parent(extract_book_id(parent)?),
             None => Book::new(book_id, name),
         };
         Ok(Self::new(book))

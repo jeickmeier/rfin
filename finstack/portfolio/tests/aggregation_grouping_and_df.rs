@@ -61,7 +61,9 @@ fn grouping_and_multi_attribute_aggregation() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
 
     let groups = group_by_attribute(&portfolio.positions, "rating");
     assert!(groups.contains_key("AAA") && groups.contains_key("AA"));
@@ -111,7 +113,9 @@ fn dataframe_exports_have_expected_columns() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
     let metrics =
         finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 

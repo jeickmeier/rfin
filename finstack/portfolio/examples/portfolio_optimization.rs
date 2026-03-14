@@ -198,7 +198,12 @@ fn main() -> finstack_portfolio::Result<()> {
     // Optionally, compute aggregated metrics at the optimal allocation by
     // revaluing the portfolio with implied quantities.
     let rebalanced = result.to_rebalanced_portfolio()?;
-    let valuation = finstack_portfolio::valuation::value_portfolio(&rebalanced, &market, &config)?;
+    let valuation = finstack_portfolio::valuation::value_portfolio(
+        &rebalanced,
+        &market,
+        &config,
+        &Default::default(),
+    )?;
     let metrics: finstack_portfolio::PortfolioMetrics =
         aggregate_metrics(&valuation, rebalanced.base_ccy, &market, rebalanced.as_of)?;
 

@@ -120,7 +120,9 @@ fn summable_vs_non_summable_metrics() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
     let metrics =
         finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 
@@ -177,7 +179,9 @@ fn summable_metrics_scale_with_quantity_and_short_sign() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
     let metrics =
         finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 

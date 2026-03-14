@@ -208,7 +208,8 @@ mod tests {
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
+        let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+            .expect("test should succeed");
         let df = positions_to_dataframe(&valuation).expect("test should succeed");
 
         assert_eq!(df.height(), 1);
@@ -255,7 +256,8 @@ mod tests {
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
+        let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+            .expect("test should succeed");
         let df = entities_to_dataframe(&valuation).expect("test should succeed");
 
         assert_eq!(df.height(), 1);

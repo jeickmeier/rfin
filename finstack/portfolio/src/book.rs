@@ -134,27 +134,14 @@ impl Book {
         }
     }
 
-    /// Create a new book with a parent.
+    /// Set the parent book, returning self for chaining.
     ///
     /// # Arguments
     ///
-    /// * `id` - Unique book identifier.
-    /// * `name` - Optional human-readable name.
     /// * `parent_id` - Parent book identifier.
-    pub fn with_parent(
-        id: impl Into<BookId>,
-        name: Option<String>,
-        parent_id: impl Into<BookId>,
-    ) -> Self {
-        Self {
-            id: id.into(),
-            name,
-            parent_id: Some(parent_id.into()),
-            position_ids: Vec::new(),
-            child_book_ids: Vec::new(),
-            tags: IndexMap::new(),
-            meta: IndexMap::new(),
-        }
+    pub fn with_parent(mut self, parent_id: impl Into<BookId>) -> Self {
+        self.parent_id = Some(parent_id.into());
+        self
     }
 
     /// Check if this is a root book (no parent).
@@ -252,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_book_creation_with_parent() {
-        let book = Book::with_parent("credit", Some("Credit".to_string()), "americas");
+        let book = Book::new("credit", Some("Credit".to_string())).with_parent("americas");
         assert_eq!(book.id, BookId::new("credit"));
         assert_eq!(book.parent_id, Some(BookId::new("americas")));
         assert!(!book.is_root());

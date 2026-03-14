@@ -129,8 +129,8 @@ fn test_book_hierarchy_three_levels() {
 
     // Create 3-level book hierarchy: Americas > Credit > IG
     let americas = Book::new("americas", Some("Americas".to_string()));
-    let credit = Book::with_parent("credit", Some("Credit".to_string()), "americas");
-    let ig = Book::with_parent("ig", Some("Investment Grade".to_string()), "credit");
+    let credit = Book::new("credit", Some("Credit".to_string())).with_parent("americas");
+    let ig = Book::new("ig", Some("Investment Grade".to_string())).with_parent("credit");
 
     // Build portfolio with books
     let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
@@ -187,8 +187,8 @@ fn test_book_hierarchy_three_levels() {
     // Value the portfolio
     let market = build_test_market();
     let config = FinstackConfig::default();
-    let valuation =
-        value_portfolio(&portfolio, &market, &config).expect("valuation should succeed");
+    let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+        .expect("valuation should succeed");
 
     // Aggregate by book with recursive rollup
     let by_book = aggregate_by_book(&valuation, &portfolio.books, Currency::USD)
@@ -297,8 +297,8 @@ fn test_book_hierarchy_multiple_root_books() {
     // Value and aggregate
     let market = build_test_market();
     let config = FinstackConfig::default();
-    let valuation =
-        value_portfolio(&portfolio, &market, &config).expect("valuation should succeed");
+    let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+        .expect("valuation should succeed");
 
     let by_book = aggregate_by_book(&valuation, &portfolio.books, Currency::USD)
         .expect("aggregation should succeed");
@@ -378,8 +378,8 @@ fn test_book_hierarchy_is_order_independent() {
     .expect("position should build");
 
     let americas = Book::new("americas", Some("Americas".to_string()));
-    let credit = Book::with_parent("credit", Some("Credit".to_string()), "americas");
-    let ig = Book::with_parent("ig", Some("Investment Grade".to_string()), "credit");
+    let credit = Book::new("credit", Some("Credit".to_string())).with_parent("americas");
+    let ig = Book::new("ig", Some("Investment Grade".to_string())).with_parent("credit");
 
     let portfolio = PortfolioBuilder::new("TEST_PORTFOLIO")
         .base_ccy(Currency::USD)

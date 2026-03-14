@@ -192,8 +192,9 @@ fn selective_reprice_matches_full_reprice_when_one_curve_changes() {
     let base_market = two_curve_market();
     let bumped_market = bumped_usd_market();
 
-    let base_val = value_portfolio(&portfolio, &base_market, &config).unwrap();
-    let full_val = value_portfolio(&portfolio, &bumped_market, &config).unwrap();
+    let base_val = value_portfolio(&portfolio, &base_market, &config, &Default::default()).unwrap();
+    let full_val =
+        value_portfolio(&portfolio, &bumped_market, &config, &Default::default()).unwrap();
 
     let selective_val = revalue_affected(
         &portfolio,
@@ -231,7 +232,7 @@ fn selective_reprice_no_changes_returns_prior() {
     let options = PortfolioValuationOptions::default();
 
     let market = two_curve_market();
-    let base_val = value_portfolio(&portfolio, &market, &config).unwrap();
+    let base_val = value_portfolio(&portfolio, &market, &config, &Default::default()).unwrap();
 
     let nonexistent_key = MarketFactorKey::curve("JPY".into(), RatesCurveKind::Discount);
 
@@ -260,7 +261,7 @@ fn selective_reprice_eur_position_unchanged_when_usd_bumped() {
     let base_market = two_curve_market();
     let bumped_market = bumped_usd_market();
 
-    let base_val = value_portfolio(&portfolio, &base_market, &config).unwrap();
+    let base_val = value_portfolio(&portfolio, &base_market, &config, &Default::default()).unwrap();
 
     let selective_val = revalue_affected(
         &portfolio,
@@ -296,8 +297,9 @@ fn entity_totals_consistent_after_selective_reprice() {
     let base_market = two_curve_market();
     let bumped_market = bumped_usd_market();
 
-    let base_val = value_portfolio(&portfolio, &base_market, &config).unwrap();
-    let full_val = value_portfolio(&portfolio, &bumped_market, &config).unwrap();
+    let base_val = value_portfolio(&portfolio, &base_market, &config, &Default::default()).unwrap();
+    let full_val =
+        value_portfolio(&portfolio, &bumped_market, &config, &Default::default()).unwrap();
 
     let selective_val = revalue_affected(
         &portfolio,
@@ -331,7 +333,7 @@ fn base_then_selective_reprice_round_trip() {
     let base_market = two_curve_market();
     let bumped_market = bumped_usd_market();
 
-    let base = value_portfolio(&portfolio, &base_market, &config).unwrap();
+    let base = value_portfolio(&portfolio, &base_market, &config, &Default::default()).unwrap();
     let bumped = revalue_affected(
         &portfolio,
         &bumped_market,

@@ -6,7 +6,7 @@ use crate::core::money::JsMoney;
 use crate::portfolio::positions::JsPortfolio;
 use crate::valuations::results::JsValuationResult;
 use finstack_portfolio::valuation::{
-    value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions, PositionValue,
+    value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };
 use js_sys::Object;
 use std::cell::RefCell;
@@ -343,7 +343,7 @@ pub fn js_value_portfolio(
 
     let market_ctx = market_context.inner();
 
-    finstack_portfolio::value_portfolio(&portfolio.inner, market_ctx, cfg_ref)
+    finstack_portfolio::value_portfolio(&portfolio.inner, market_ctx, cfg_ref, &Default::default())
         .map(JsPortfolioValuation::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }
@@ -364,7 +364,7 @@ pub fn js_value_portfolio_with_options(
 
     let market_ctx = market_context.inner();
 
-    value_portfolio_with_options(&portfolio.inner, market_ctx, cfg_ref, options.inner())
+    value_portfolio(&portfolio.inner, market_ctx, cfg_ref, options.inner())
         .map(JsPortfolioValuation::from_inner)
         .map_err(|e| JsValue::from_str(&e.to_string()))
 }

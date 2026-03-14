@@ -54,7 +54,9 @@ fn apply_and_revalue_succeeds() {
     let config = FinstackConfig::default();
 
     // Get base valuation first
-    let base_valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let base_valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
 
     let scenario = ScenarioSpec {
         id: "s".to_string(),

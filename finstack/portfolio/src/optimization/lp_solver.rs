@@ -264,12 +264,8 @@ impl DefaultLpOptimizer {
             replace_standard_metrics: false,
         };
 
-        let valuation = crate::valuation::value_portfolio_with_options(
-            &problem.portfolio,
-            market,
-            config,
-            &options,
-        )?;
+        let valuation =
+            crate::valuation::value_portfolio(&problem.portfolio, market, config, &options)?;
 
         // Step 2: Build decision space.
         let (decision_items, mut decision_features, current_weights, denominators) =

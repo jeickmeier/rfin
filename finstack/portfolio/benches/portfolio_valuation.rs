@@ -1035,6 +1035,7 @@ fn bench_portfolio_valuation(c: &mut Criterion) {
                         black_box(&portfolio),
                         black_box(&market),
                         black_box(&config),
+                        &Default::default(),
                     )
                 });
             },
@@ -1063,6 +1064,7 @@ fn bench_entity_aggregation(c: &mut Criterion) {
                         black_box(&portfolio),
                         black_box(&market),
                         black_box(&config),
+                        &Default::default(),
                     )
                     .unwrap();
                     // Access entity aggregates
@@ -1092,6 +1094,7 @@ fn bench_multicurrency_aggregation(c: &mut Criterion) {
                 black_box(&portfolio),
                 black_box(&market),
                 black_box(&config),
+                &Default::default(),
             )
         });
     });
@@ -1141,6 +1144,7 @@ fn bench_portfolio_with_metrics(c: &mut Criterion) {
                 black_box(&portfolio),
                 black_box(&market),
                 black_box(&config),
+                &Default::default(),
             )
         });
     });
@@ -1168,6 +1172,7 @@ fn bench_portfolio_scaling(c: &mut Criterion) {
                         black_box(&portfolio),
                         black_box(&market),
                         black_box(&config),
+                        &Default::default(),
                     )
                 });
             },

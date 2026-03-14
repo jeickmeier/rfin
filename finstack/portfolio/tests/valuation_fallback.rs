@@ -87,7 +87,9 @@ fn valuation_falls_back_when_metrics_fail() {
 
     let market = market_with_usd();
     let config = FinstackConfig::default();
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
 
     let pv = valuation.get_position_value("P").unwrap();
     assert_eq!(pv.value_native.currency(), Currency::USD);

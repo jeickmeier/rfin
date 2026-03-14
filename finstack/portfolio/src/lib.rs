@@ -136,8 +136,7 @@ pub use position::{Position, PositionUnit};
 pub use results::PortfolioResult;
 pub use types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
 pub use valuation::{
-    revalue_affected, value_portfolio, value_portfolio_with_options, PortfolioValuation,
-    PortfolioValuationOptions, PositionValue,
+    revalue_affected, value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };
 
 #[cfg(feature = "scenarios")]

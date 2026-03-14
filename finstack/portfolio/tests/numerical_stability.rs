@@ -61,7 +61,9 @@ fn test_compensated_summation_large_portfolio() {
     let market = market_with_usd();
     let config = FinstackConfig::default();
 
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
 
     // With alternating ±1e12, the total should be close to zero
     // Compensated summation should maintain accuracy
@@ -123,7 +125,9 @@ fn test_aggregated_metrics_are_finite() {
     let market = market_with_usd();
     let config = FinstackConfig::default();
 
-    let valuation = finstack_portfolio::value_portfolio(&portfolio, &market, &config).unwrap();
+    let valuation =
+        finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
+            .unwrap();
     let metrics =
         finstack_portfolio::aggregate_metrics(&valuation, Currency::USD, &market, as_of).unwrap();
 

@@ -8,8 +8,7 @@ use crate::portfolio::positions::PyPortfolio;
 use crate::valuations::metrics::ids::PyMetricId;
 use crate::valuations::results::PyValuationResult;
 use finstack_portfolio::valuation::{
-    value_portfolio, value_portfolio_with_options, PortfolioValuation, PortfolioValuationOptions,
-    PositionValue,
+    value_portfolio, PortfolioValuation, PortfolioValuationOptions, PositionValue,
 };
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -338,8 +337,13 @@ fn py_value_portfolio(
     let market_ctx = market_context.extract::<PyRef<PyMarketContext>>()?;
     let cfg = extract_config_or_default(config)?;
 
-    let valuation =
-        value_portfolio(&py_portfolio.inner, &market_ctx.inner, &cfg).map_err(portfolio_to_py)?;
+    let valuation = value_portfolio(
+        &py_portfolio.inner,
+        &market_ctx.inner,
+        &cfg,
+        &Default::default(),
+    )
+    .map_err(portfolio_to_py)?;
 
     Ok(PyPortfolioValuation::new(valuation))
 }
@@ -361,9 +365,8 @@ fn py_value_portfolio_with_options(
         .clone();
     let cfg = extract_config_or_default(config)?;
 
-    let valuation =
-        value_portfolio_with_options(&py_portfolio.inner, &market_ctx.inner, &cfg, &opts)
-            .map_err(portfolio_to_py)?;
+    let valuation = value_portfolio(&py_portfolio.inner, &market_ctx.inner, &cfg, &opts)
+        .map_err(portfolio_to_py)?;
 
     Ok(PyPortfolioValuation::new(valuation))
 }

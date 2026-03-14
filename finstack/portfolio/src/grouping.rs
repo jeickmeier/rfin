@@ -161,7 +161,7 @@ pub fn aggregate_by_multiple_attributes(
 /// use finstack_core::currency::Currency;
 ///
 /// # fn example(portfolio: finstack_portfolio::Portfolio, market: finstack_core::market_data::context::MarketContext, config: finstack_core::config::FinstackConfig) -> finstack_portfolio::Result<()> {
-/// let valuation = value_portfolio(&portfolio, &market, &config)?;
+/// let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())?;
 /// let by_book = aggregate_by_book(
 ///     &valuation,
 ///     &portfolio.books,
@@ -383,7 +383,8 @@ mod tests {
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
+        let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+            .expect("test should succeed");
         let aggregated =
             aggregate_by_attribute(&valuation, &portfolio.positions, "rating", Currency::USD)
                 .expect("test should succeed");

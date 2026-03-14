@@ -122,8 +122,12 @@ pub fn apply_and_revalue(
     let (modified_portfolio, modified_market, report) =
         apply_scenario(portfolio, scenario, market)?;
 
-    let valuation =
-        crate::valuation::value_portfolio(&modified_portfolio, &modified_market, config)?;
+    let valuation = crate::valuation::value_portfolio(
+        &modified_portfolio,
+        &modified_market,
+        config,
+        &Default::default(),
+    )?;
 
     Ok((valuation, report))
 }

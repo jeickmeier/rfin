@@ -221,24 +221,6 @@ pub struct PortfolioValuationOptions {
     pub replace_standard_metrics: bool,
 }
 
-/// Value all positions in a portfolio with full metrics using default options.
-///
-/// This is a convenience wrapper over
-/// [`value_portfolio_with_options`] that uses
-/// [`PortfolioValuationOptions::default`].
-pub fn value_portfolio(
-    portfolio: &Portfolio,
-    market: &MarketContext,
-    config: &FinstackConfig,
-) -> Result<PortfolioValuation> {
-    value_portfolio_with_options(
-        portfolio,
-        market,
-        config,
-        &PortfolioValuationOptions::default(),
-    )
-}
-
 /// Value all positions in a portfolio with full metrics.
 ///
 /// This function:
@@ -271,7 +253,7 @@ pub fn value_portfolio(
 ///
 /// When the `parallel` feature is enabled, position valuations are computed in parallel
 /// using rayon. Results are deterministically reduced to ensure consistency across runs.
-pub fn value_portfolio_with_options(
+pub fn value_portfolio(
     portfolio: &Portfolio,
     market: &MarketContext,
     _config: &FinstackConfig,
@@ -419,7 +401,7 @@ fn value_single_position(
 ///
 /// The resulting [`PortfolioValuation`] is fully recomputed (totals, entity
 /// rollups, degraded-risk tracking) and is identical to what
-/// [`value_portfolio_with_options`] would produce if the same updated market
+/// [`value_portfolio`] would produce if the same updated market
 /// were used for a full revaluation.
 ///
 /// # Arguments
@@ -439,7 +421,7 @@ fn value_single_position(
 /// # Errors
 ///
 /// Propagates any pricing or FX conversion errors encountered when revaluing
-/// affected positions (same error semantics as [`value_portfolio_with_options`]).
+/// affected positions (same error semantics as [`value_portfolio`]).
 pub fn revalue_affected(
     portfolio: &Portfolio,
     market: &MarketContext,
@@ -535,7 +517,8 @@ mod tests {
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
+        let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+            .expect("test should succeed");
 
         assert_eq!(valuation.position_values.len(), 1);
         // Note: With flat curve, deposit PV is small but should be present
@@ -606,7 +589,8 @@ mod tests {
         let market = build_test_market();
         let config = FinstackConfig::default();
 
-        let valuation = value_portfolio(&portfolio, &market, &config).expect("test should succeed");
+        let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())
+            .expect("test should succeed");
 
         assert_eq!(valuation.position_values.len(), 2);
         assert_eq!(valuation.by_entity.len(), 2);
