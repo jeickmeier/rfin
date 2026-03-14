@@ -110,7 +110,7 @@ pub(crate) fn build_decision_space(
             .position_values
             .get(&position.position_id)
             .ok_or_else(|| {
-                Error::index_error(format!(
+                Error::invalid_input(format!(
                     "missing valuation for position '{}'",
                     position.position_id
                 ))

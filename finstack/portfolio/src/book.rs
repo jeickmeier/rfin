@@ -219,16 +219,6 @@ impl Book {
     pub fn remove_child(&mut self, child_id: &BookId) {
         self.child_book_ids.retain(|id| id != child_id);
     }
-
-    /// Get all positions in this book (non-recursive).
-    pub fn positions(&self) -> &[PositionId] {
-        &self.position_ids
-    }
-
-    /// Get all child books (non-recursive).
-    pub fn children(&self) -> &[BookId] {
-        &self.child_book_ids
-    }
 }
 
 #[cfg(test)]
@@ -256,8 +246,8 @@ mod tests {
         assert_eq!(book.id, BookId::new("americas"));
         assert_eq!(book.name, Some("Americas".to_string()));
         assert!(book.is_root());
-        assert!(book.positions().is_empty());
-        assert!(book.children().is_empty());
+        assert!(book.position_ids.is_empty());
+        assert!(book.child_book_ids.is_empty());
     }
 
     #[test]
@@ -275,11 +265,11 @@ mod tests {
 
         book.add_position(pos_id.clone());
         assert!(book.contains_position(&pos_id));
-        assert_eq!(book.positions().len(), 1);
+        assert_eq!(book.position_ids.len(), 1);
 
         // Adding again should not duplicate
         book.add_position(pos_id.clone());
-        assert_eq!(book.positions().len(), 1);
+        assert_eq!(book.position_ids.len(), 1);
     }
 
     #[test]
@@ -289,11 +279,11 @@ mod tests {
 
         book.add_child(child_id.clone());
         assert!(book.contains_child(&child_id));
-        assert_eq!(book.children().len(), 1);
+        assert_eq!(book.child_book_ids.len(), 1);
 
         // Adding again should not duplicate
         book.add_child(child_id.clone());
-        assert_eq!(book.children().len(), 1);
+        assert_eq!(book.child_book_ids.len(), 1);
     }
 
     #[test]
@@ -306,7 +296,7 @@ mod tests {
 
         book.remove_position(&pos_id);
         assert!(!book.contains_position(&pos_id));
-        assert!(book.positions().is_empty());
+        assert!(book.position_ids.is_empty());
     }
 
     #[test]
@@ -319,6 +309,6 @@ mod tests {
 
         book.remove_child(&child_id);
         assert!(!book.contains_child(&child_id));
-        assert!(book.children().is_empty());
+        assert!(book.child_book_ids.is_empty());
     }
 }

@@ -74,14 +74,6 @@ pub enum Error {
     /// Invalid input data
     #[error("Invalid input: {0}")]
     InvalidInput(String),
-
-    /// Builder construction error
-    #[error("Builder error: {0}")]
-    BuilderError(String),
-
-    /// Index/collection access error
-    #[error("Index error: {0}")]
-    IndexError(String),
 }
 
 impl Error {
@@ -116,16 +108,6 @@ impl Error {
     /// Create an invalid input error
     pub fn invalid_input(msg: impl Into<String>) -> Self {
         Self::InvalidInput(msg.into())
-    }
-
-    /// Create a builder error
-    pub fn builder_error(msg: impl Into<String>) -> Self {
-        Self::BuilderError(msg.into())
-    }
-
-    /// Create an index error
-    pub fn index_error(msg: impl Into<String>) -> Self {
-        Self::IndexError(msg.into())
     }
 
     /// Create a scenario error

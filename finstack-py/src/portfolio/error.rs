@@ -38,12 +38,6 @@ pub(crate) fn portfolio_to_py(err: Error) -> PyErr {
         Error::InvalidInput(msg) => {
             crate::errors::ParameterError::new_err(format!("Invalid input: {}", msg))
         }
-        Error::BuilderError(msg) => {
-            crate::errors::ParameterError::new_err(format!("Builder error: {}", msg))
-        }
-        Error::IndexError(msg) => {
-            crate::errors::ParameterError::new_err(format!("Index error: {}", msg))
-        }
         Error::Core(err) => crate::errors::core_to_py(err),
         // Handle unknown variants due to #[non_exhaustive]
         _ => crate::errors::FinstackError::new_err(format!("Portfolio error: {}", err)),

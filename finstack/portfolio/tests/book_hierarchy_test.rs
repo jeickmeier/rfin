@@ -165,24 +165,24 @@ fn test_book_hierarchy_three_levels() {
         .get("americas")
         .expect("americas should exist");
     assert!(americas_book.is_root());
-    assert_eq!(americas_book.children().len(), 1);
-    assert_eq!(americas_book.children()[0], BookId::new("credit"));
+    assert_eq!(americas_book.child_book_ids.len(), 1);
+    assert_eq!(americas_book.child_book_ids[0], BookId::new("credit"));
 
     let credit_book = portfolio.books.get("credit").expect("credit should exist");
     assert!(!credit_book.is_root());
     assert_eq!(credit_book.parent_id, Some(BookId::new("americas")));
-    assert_eq!(credit_book.children().len(), 1);
-    assert_eq!(credit_book.children()[0], BookId::new("ig"));
+    assert_eq!(credit_book.child_book_ids.len(), 1);
+    assert_eq!(credit_book.child_book_ids[0], BookId::new("ig"));
 
     let ig_book = portfolio.books.get("ig").expect("ig should exist");
     assert!(!ig_book.is_root());
     assert_eq!(ig_book.parent_id, Some(BookId::new("credit")));
-    assert_eq!(ig_book.children().len(), 0);
+    assert_eq!(ig_book.child_book_ids.len(), 0);
 
     // Verify position assignments
-    assert_eq!(ig_book.positions().len(), 2);
-    assert_eq!(credit_book.positions().len(), 1);
-    assert_eq!(americas_book.positions().len(), 0); // No direct positions
+    assert_eq!(ig_book.position_ids.len(), 2);
+    assert_eq!(credit_book.position_ids.len(), 1);
+    assert_eq!(americas_book.position_ids.len(), 0); // No direct positions
 
     // Value the portfolio
     let market = build_test_market();
@@ -400,8 +400,11 @@ fn test_book_hierarchy_is_order_independent() {
         .expect("americas should exist");
     let credit_book = portfolio.books.get("credit").expect("credit should exist");
 
-    assert_eq!(americas_book.children(), &[BookId::new("credit")]);
-    assert_eq!(credit_book.children(), &[BookId::new("ig")]);
+    assert_eq!(
+        americas_book.child_book_ids.as_slice(),
+        &[BookId::new("credit")]
+    );
+    assert_eq!(credit_book.child_book_ids.as_slice(), &[BookId::new("ig")]);
 }
 
 #[test]
@@ -451,8 +454,8 @@ fn test_reassigning_position_between_books_removes_stale_membership() {
         .get_position("POS_001")
         .expect("position should exist");
 
-    assert!(book_a.positions().is_empty());
-    assert_eq!(book_b.positions().len(), 1);
-    assert_eq!(book_b.positions()[0], "POS_001");
+    assert!(book_a.position_ids.is_empty());
+    assert_eq!(book_b.position_ids.len(), 1);
+    assert_eq!(book_b.position_ids[0], "POS_001");
     assert_eq!(position.book_id, Some(BookId::new("book_b")));
 }
