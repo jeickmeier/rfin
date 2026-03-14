@@ -354,90 +354,34 @@ impl ScenarioEngine {
                             attrs,
                             pct,
                         } => {
-                            // Handle Types: Requires instruments
-                            if let Some(ts) = types {
-                                if let Some(instruments) = &mut ctx.instruments {
-                                    match crate::adapters::instruments::apply_instrument_type_price_shock(
-                                        instruments,
-                                        &ts,
-                                        pct,
-                                    ) {
-                                        Ok(c) => applied += c,
-                                        Err(e) => warnings.push(format!("Instrument price shock error: {}", e)),
-                                    }
-                                } else {
-                                    warnings.push("Instrument type shock requested but no instruments provided".to_string());
-                                }
-                            }
-                            // Handle Attrs: Supports empty (legacy fallback)
-                            if let Some(ats) = attrs {
-                                if let Some(instruments) = &mut ctx.instruments {
-                                    match crate::adapters::instruments::apply_instrument_attr_price_shock(
-                                        instruments,
-                                        &ats,
-                                        pct,
-                                    ) {
-                                        Ok((count, w)) => {
-                                            applied += count;
-                                            warnings.extend(w);
-                                        }
-                                        Err(e) => warnings.push(format!(
-                                            "Instrument price shock error: {}",
-                                            e
-                                        )),
-                                    }
-                                } else {
-                                    warnings.push(
-                                        "Instrument attribute shock requested but no instruments provided"
-                                            .to_string(),
-                                    );
-                                }
-                            }
+                            let (c, w) = apply_instrument_shock(
+                                types.as_deref(),
+                                attrs.as_ref(),
+                                pct,
+                                "price",
+                                &mut ctx.instruments,
+                                crate::adapters::instruments::apply_instrument_type_price_shock,
+                                crate::adapters::instruments::apply_instrument_attr_price_shock,
+                            );
+                            applied += c;
+                            warnings.extend(w);
                         }
                         crate::adapters::traits::ScenarioEffect::InstrumentSpreadShock {
                             types,
                             attrs,
                             bp,
                         } => {
-                            // Handle Types: Requires instruments
-                            if let Some(ts) = types {
-                                if let Some(instruments) = &mut ctx.instruments {
-                                    match crate::adapters::instruments::apply_instrument_type_spread_shock(
-                                        instruments,
-                                        &ts,
-                                        bp,
-                                    ) {
-                                        Ok(c) => applied += c,
-                                        Err(e) => warnings.push(format!("Instrument spread shock error: {}", e)),
-                                    }
-                                } else {
-                                    warnings.push("Instrument type shock requested but no instruments provided".to_string());
-                                }
-                            }
-                            // Handle Attrs: Supports empty
-                            if let Some(ats) = attrs {
-                                if let Some(instruments) = &mut ctx.instruments {
-                                    match crate::adapters::instruments::apply_instrument_attr_spread_shock(
-                                        instruments,
-                                        &ats,
-                                        bp,
-                                    ) {
-                                        Ok((count, w)) => {
-                                            applied += count;
-                                            warnings.extend(w);
-                                        }
-                                        Err(e) => warnings.push(format!(
-                                            "Instrument spread shock error: {}",
-                                            e
-                                        )),
-                                    }
-                                } else {
-                                    warnings.push(
-                                        "Instrument attribute shock requested but no instruments provided"
-                                            .to_string(),
-                                    );
-                                }
-                            }
+                            let (c, w) = apply_instrument_shock(
+                                types.as_deref(),
+                                attrs.as_ref(),
+                                bp,
+                                "spread",
+                                &mut ctx.instruments,
+                                crate::adapters::instruments::apply_instrument_type_spread_shock,
+                                crate::adapters::instruments::apply_instrument_attr_spread_shock,
+                            );
+                            applied += c;
+                            warnings.extend(w);
                         }
                         crate::adapters::traits::ScenarioEffect::AssetCorrelationShock { delta_pts }
                         | crate::adapters::traits::ScenarioEffect::PrepayDefaultCorrelationShock { delta_pts }
@@ -550,6 +494,67 @@ impl ScenarioEngine {
             rounding_context: rounding_stamp(),
         })
     }
+}
+
+/// Function that applies an instrument shock filtered by instrument type.
+type TypeShockFn = fn(
+    &mut [Box<dyn finstack_valuations::instruments::Instrument>],
+    &[finstack_valuations::pricer::InstrumentType],
+    f64,
+) -> crate::error::Result<usize>;
+
+/// Function that applies an instrument shock filtered by attributes.
+type AttrShockFn = fn(
+    &mut [Box<dyn finstack_valuations::instruments::Instrument>],
+    &indexmap::IndexMap<String, String>,
+    f64,
+) -> crate::error::Result<(usize, Vec<String>)>;
+
+/// Apply an instrument shock (price or spread) dispatching by type and attribute filters.
+fn apply_instrument_shock(
+    types: Option<&[finstack_valuations::pricer::InstrumentType]>,
+    attrs: Option<&indexmap::IndexMap<String, String>>,
+    value: f64,
+    kind: &str,
+    instruments: &mut Option<&mut Vec<Box<dyn finstack_valuations::instruments::Instrument>>>,
+    type_fn: TypeShockFn,
+    attr_fn: AttrShockFn,
+) -> (usize, Vec<String>) {
+    let mut applied = 0;
+    let mut warnings = Vec::new();
+
+    if let Some(ts) = types {
+        if let Some(instruments) = instruments.as_mut() {
+            match type_fn(instruments, ts, value) {
+                Ok(c) => applied += c,
+                Err(e) => warnings.push(format!("Instrument {} shock error: {}", kind, e)),
+            }
+        } else {
+            warnings.push(format!(
+                "Instrument type {} shock requested but no instruments provided",
+                kind
+            ));
+        }
+    }
+
+    if let Some(ats) = attrs {
+        if let Some(instruments) = instruments.as_mut() {
+            match attr_fn(instruments, ats, value) {
+                Ok((count, w)) => {
+                    applied += count;
+                    warnings.extend(w);
+                }
+                Err(e) => warnings.push(format!("Instrument {} shock error: {}", kind, e)),
+            }
+        } else {
+            warnings.push(format!(
+                "Instrument attribute {} shock requested but no instruments provided",
+                kind
+            ));
+        }
+    }
+
+    (applied, warnings)
 }
 
 /// Apply a correlation shock effect to StructuredCredit instruments via downcast.
