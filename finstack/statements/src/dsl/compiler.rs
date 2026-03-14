@@ -12,7 +12,7 @@ pub fn compile(ast: &StmtExpr) -> Result<Expr> {
     match ast {
         StmtExpr::Literal(val) => Ok(Expr::literal(*val)),
 
-        StmtExpr::NodeRef(name) => Ok(Expr::column(name.clone())),
+        StmtExpr::NodeRef(name) => Ok(Expr::column(name.as_str().to_string())),
 
         // Capital structure references are encoded as special column names
         // Format: __cs__component__instrument_or_total

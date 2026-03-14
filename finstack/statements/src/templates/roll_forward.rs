@@ -2,7 +2,7 @@
 
 use crate::builder::ModelBuilder;
 use crate::error::Result;
-use crate::types::{NodeSpec, NodeType};
+use crate::types::{NodeId, NodeSpec, NodeType};
 
 /// Add a roll-forward structure to the model.
 ///
@@ -52,8 +52,8 @@ pub fn add_roll_forward<State>(
         .with_formula(end_formula);
 
     // 3. Add nodes to builder
-    builder.nodes.insert(beg_node_id, beg_node);
-    builder.nodes.insert(end_node_id, end_node);
+    builder.nodes.insert(NodeId::from(beg_node_id), beg_node);
+    builder.nodes.insert(NodeId::from(end_node_id), end_node);
 
     Ok(builder)
 }

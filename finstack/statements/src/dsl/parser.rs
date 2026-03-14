@@ -232,7 +232,10 @@ fn identifier(input: &str) -> IResult<&str, StmtExpr> {
         }
     }
 
-    Ok((input, StmtExpr::NodeRef(id_str)))
+    Ok((
+        input,
+        StmtExpr::NodeRef(crate::types::NodeId::from(id_str.as_str())),
+    ))
 }
 
 // Identifier string (alphanumeric + underscore + dot + hyphen for instrument IDs)
@@ -271,7 +274,10 @@ mod tests {
     #[test]
     fn test_parse_identifier() {
         let result = parse_formula("revenue").expect("test should succeed");
-        assert_eq!(result, StmtExpr::NodeRef("revenue".into()));
+        assert_eq!(
+            result,
+            StmtExpr::NodeRef(crate::types::NodeId::new("revenue"))
+        );
     }
 
     #[test]
@@ -289,8 +295,11 @@ mod tests {
         match result {
             StmtExpr::BinOp { op, left, right } => {
                 assert_eq!(op, BinOp::Sub);
-                assert_eq!(*left, StmtExpr::NodeRef("revenue".into()));
-                assert_eq!(*right, StmtExpr::NodeRef("cogs".into()));
+                assert_eq!(
+                    *left,
+                    StmtExpr::NodeRef(crate::types::NodeId::new("revenue"))
+                );
+                assert_eq!(*right, StmtExpr::NodeRef(crate::types::NodeId::new("cogs")));
             }
             _ => panic!("Expected BinOp"),
         }
@@ -415,7 +424,10 @@ mod tests {
             StmtExpr::UnaryOp {
                 op: UnaryOp::Not,
                 operand,
-            } => assert_eq!(*operand, StmtExpr::NodeRef("revenue".into())),
+            } => assert_eq!(
+                *operand,
+                StmtExpr::NodeRef(crate::types::NodeId::new("revenue"))
+            ),
             _ => panic!("Expected unary not"),
         }
     }
@@ -427,7 +439,10 @@ mod tests {
             StmtExpr::UnaryOp {
                 op: UnaryOp::Not,
                 operand,
-            } => assert_eq!(*operand, StmtExpr::NodeRef("revenue".into())),
+            } => assert_eq!(
+                *operand,
+                StmtExpr::NodeRef(crate::types::NodeId::new("revenue"))
+            ),
             _ => panic!("Expected unary not"),
         }
     }
@@ -435,7 +450,10 @@ mod tests {
     #[test]
     fn test_parse_not_is_not_identifier_prefix() {
         let result = parse_formula("notional").expect("test should succeed");
-        assert_eq!(result, StmtExpr::NodeRef("notional".into()));
+        assert_eq!(
+            result,
+            StmtExpr::NodeRef(crate::types::NodeId::new("notional"))
+        );
     }
 
     #[test]

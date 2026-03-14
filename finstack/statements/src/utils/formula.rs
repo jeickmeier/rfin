@@ -119,7 +119,7 @@ fn collect_identifiers_from_ast(
     match expr {
         StmtExpr::Literal(_) => {}
         StmtExpr::NodeRef(name) => {
-            identifiers.insert(name.clone());
+            identifiers.insert(name.as_str().to_string());
         }
         StmtExpr::CSRef {
             component,

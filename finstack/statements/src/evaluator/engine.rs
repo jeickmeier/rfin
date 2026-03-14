@@ -12,7 +12,7 @@ use crate::evaluator::monte_carlo::{
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
 use crate::evaluator::results::{EvalWarning, ResultsMeta, StatementResult};
 use crate::evaluator::{capital_structure_runtime, capital_structure_runtime::dependent_closure};
-use crate::types::{FinancialModelSpec, NodeValueType};
+use crate::types::{FinancialModelSpec, NodeId, NodeValueType};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
 use indexmap::IndexMap;
@@ -48,7 +48,7 @@ use std::time::Instant;
 #[derive(Clone)]
 pub struct Evaluator {
     /// Cached compiled expressions (Arc-shared across Monte Carlo path clones)
-    compiled_cache: std::sync::Arc<IndexMap<String, Expr>>,
+    compiled_cache: std::sync::Arc<IndexMap<NodeId, Expr>>,
 
     /// Cached forecast results: node_id → (period_id → value)
     forecast_cache: IndexMap<String, IndexMap<PeriodId, f64>>,
@@ -158,7 +158,7 @@ impl Evaluator {
             eval_order
                 .iter()
                 .enumerate()
-                .map(|(i, node_id)| (node_id.clone(), i))
+                .map(|(i, node_id)| (node_id.as_str().to_string(), i))
                 .collect(),
         );
 
@@ -466,7 +466,7 @@ impl Evaluator {
             eval_order
                 .iter()
                 .enumerate()
-                .map(|(i, node_id)| (node_id.clone(), i))
+                .map(|(i, node_id)| (node_id.as_str().to_string(), i))
                 .collect(),
         );
 
@@ -542,14 +542,14 @@ impl Evaluator {
         let cache = std::sync::Arc::make_mut(&mut self.compiled_cache);
         for (node_id, node_spec) in &model.nodes {
             if let Some(formula_text) = &node_spec.formula_text {
-                if !cache.contains_key(node_id.as_str()) {
+                if !cache.contains_key(node_id) {
                     let expr = dsl::parse_and_compile(formula_text)?;
-                    cache.insert(node_id.as_str().to_string(), expr);
+                    cache.insert(node_id.clone(), expr);
                 }
             }
 
             if let Some(where_text) = &node_spec.where_text {
-                let where_key = format!("__where__{}", node_id);
+                let where_key = NodeId::new(format!("__where__{}", node_id));
                 if !cache.contains_key(&where_key) {
                     let expr = dsl::parse_and_compile(where_text)?;
                     cache.insert(where_key, expr);
@@ -570,28 +570,28 @@ impl Evaluator {
         model: &FinancialModelSpec,
         period_id: &PeriodId,
         is_actual: bool,
-        eval_order: &[String],
+        eval_order: &[NodeId],
         context: &mut EvaluationContext,
         seed_offset: Option<u64>,
         node_filter: Option<&HashSet<String>>,
     ) -> Result<()> {
         for node_id in eval_order {
             if let Some(filter) = node_filter {
-                if !filter.contains(node_id) {
+                if !filter.contains(node_id.as_str()) {
                     continue;
                 }
             }
 
             let node_spec = model
-                .get_node(node_id)
+                .get_node(node_id.as_str())
                 .ok_or_else(|| Error::eval(format!("Node '{}' not found in model", node_id)))?;
 
             if node_spec.where_text.is_some() {
-                let where_key = format!("__where__{}", node_id);
+                let where_key = NodeId::new(format!("__where__{}", node_id));
                 if let Some(where_expr) = self.compiled_cache.get(&where_key) {
                     let where_result = evaluate_formula(where_expr, context, None)?;
                     if where_result == 0.0 {
-                        context.set_value(node_id, 0.0)?;
+                        context.set_value(node_id.as_str(), 0.0)?;
                         continue;
                     }
                 }
@@ -613,7 +613,7 @@ impl Evaluator {
                         let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
                             Error::eval(format!("No compiled formula for node '{}'", node_id))
                         })?;
-                        evaluate_formula(expr, context, Some(node_id))
+                        evaluate_formula(expr, context, Some(node_id.as_str()))
                     }
                 }
             })()
@@ -627,7 +627,7 @@ impl Evaluator {
                 e
             })?;
 
-            context.set_value(node_id, value)?;
+            context.set_value(node_id.as_str(), value)?;
         }
 
         Ok(())
@@ -640,7 +640,7 @@ impl Evaluator {
         model: &FinancialModelSpec,
         period_id: &PeriodId,
         is_actual: bool,
-        eval_order: &[String],
+        eval_order: &[NodeId],
         node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         historical_cs: &IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
@@ -680,7 +680,7 @@ impl Evaluator {
         model: &FinancialModelSpec,
         period_id: &PeriodId,
         is_actual: bool,
-        eval_order: &[String],
+        eval_order: &[NodeId],
         node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         seed_offset: u64,

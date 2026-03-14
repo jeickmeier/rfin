@@ -2,7 +2,7 @@
 
 use crate::error::{Error, Result};
 use crate::registry::dynamic::StoredMetric;
-use crate::types::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
+use crate::types::{AmountOrScalar, FinancialModelSpec, NodeId, NodeSpec, NodeType};
 use finstack_core::dates::{build_periods, Period, PeriodId};
 use indexmap::{IndexMap, IndexSet};
 use std::marker::PhantomData;
@@ -105,7 +105,7 @@ pub struct Ready;
 pub struct ModelBuilder<State> {
     id: String,
     pub(crate) periods: Vec<Period>,
-    pub(crate) nodes: IndexMap<String, NodeSpec>,
+    pub(crate) nodes: IndexMap<NodeId, NodeSpec>,
     meta: IndexMap<String, serde_json::Value>,
     pub(crate) capital_structure: Option<crate::types::CapitalStructureSpec>,
     alias_registry: Option<crate::registry::AliasRegistry>,
@@ -188,7 +188,7 @@ impl ModelBuilder<Ready> {
         stored_metric: &StoredMetric,
         formula: String,
     ) {
-        let key = qualified_id.to_string();
+        let key = NodeId::new(qualified_id);
         let node = NodeSpec::new(key.clone(), NodeType::Calculated)
             .with_name(stored_metric.definition.name.clone())
             .with_formula(formula);
@@ -223,7 +223,7 @@ impl ModelBuilder<Ready> {
     #[must_use = "builder methods must be chained"]
     pub fn value(
         mut self,
-        node_id: impl Into<String>,
+        node_id: impl Into<NodeId>,
         values: &[(PeriodId, AmountOrScalar)],
     ) -> Self {
         let node_id = node_id.into();
@@ -265,7 +265,7 @@ impl ModelBuilder<Ready> {
     #[must_use = "builder methods must be chained"]
     pub fn value_money(
         mut self,
-        node_id: impl Into<String>,
+        node_id: impl Into<NodeId>,
         values: &[(PeriodId, finstack_core::money::Money)],
     ) -> Self {
         let node_id = node_id.into();
@@ -314,7 +314,7 @@ impl ModelBuilder<Ready> {
     /// # }
     /// ```
     #[must_use = "builder methods must be chained"]
-    pub fn value_scalar(mut self, node_id: impl Into<String>, values: &[(PeriodId, f64)]) -> Self {
+    pub fn value_scalar(mut self, node_id: impl Into<NodeId>, values: &[(PeriodId, f64)]) -> Self {
         let node_id = node_id.into();
         let values_map: IndexMap<PeriodId, AmountOrScalar> = values
             .iter()
@@ -351,14 +351,14 @@ impl ModelBuilder<Ready> {
     #[must_use = "builder methods must be chained"]
     pub fn compute(
         mut self,
-        node_id: impl Into<String>,
+        node_id: impl Into<NodeId>,
         formula: impl Into<String>,
     ) -> Result<Self> {
         let node_id = node_id.into();
         let formula = formula.into();
 
         // Validate node ID doesn't use reserved prefixes
-        validate_node_id(&node_id)?;
+        validate_node_id(node_id.as_str())?;
 
         // Basic validation: formula should not be empty
         if formula.trim().is_empty() {
@@ -409,7 +409,7 @@ impl ModelBuilder<Ready> {
     /// # }
     /// ```
     #[must_use = "builder methods must be chained"]
-    pub fn mixed(self, node_id: impl Into<String>) -> MixedNodeBuilder {
+    pub fn mixed(self, node_id: impl Into<NodeId>) -> MixedNodeBuilder {
         MixedNodeBuilder {
             parent: self,
             node_id: node_id.into(),
@@ -453,13 +453,13 @@ impl ModelBuilder<Ready> {
     #[must_use = "builder methods must be chained"]
     pub fn forecast(
         mut self,
-        node_id: impl Into<String>,
+        node_id: impl Into<NodeId>,
         forecast_spec: crate::types::ForecastSpec,
     ) -> Self {
         let node_id = node_id.into();
 
         // Get or create the node (converting to Mixed type if needed)
-        if let Some(node) = self.nodes.get_mut(&node_id) {
+        if let Some(node) = self.nodes.get_mut(node_id.as_str()) {
             // Set forecast on existing node
             node.forecast = Some(forecast_spec);
 
@@ -693,7 +693,7 @@ impl ModelBuilder<Ready> {
 
         // Add all dependencies first (if not already added)
         for dep_id in dependencies {
-            if !self.nodes.contains_key(&dep_id) {
+            if !self.nodes.contains_key(dep_id.as_str()) {
                 let dep_metric = registry.get(&dep_id)?;
 
                 // Update formula to use qualified references for metrics in the same namespace
@@ -761,7 +761,7 @@ impl ModelBuilder<Ready> {
 
         // Validate all node IDs don't use reserved prefixes
         for node_id in self.nodes.keys() {
-            validate_node_id(node_id)?;
+            validate_node_id(node_id.as_str())?;
         }
 
         for node in self.nodes.values_mut() {
@@ -774,7 +774,11 @@ impl ModelBuilder<Ready> {
         }
 
         if let Some(alias_registry) = &self.alias_registry {
-            let available_nodes: IndexSet<String> = self.nodes.keys().cloned().collect();
+            let available_nodes: IndexSet<String> = self
+                .nodes
+                .keys()
+                .map(|id| id.as_str().to_string())
+                .collect();
             for node in self.nodes.values_mut() {
                 if let Some(formula) = node.formula_text.as_mut() {
                     *formula =
@@ -789,11 +793,7 @@ impl ModelBuilder<Ready> {
 
         // Create the model spec
         let mut spec = FinancialModelSpec::new(self.id, self.periods);
-        spec.nodes = self
-            .nodes
-            .into_iter()
-            .map(|(k, v)| (crate::types::NodeId::from(k), v))
-            .collect();
+        spec.nodes = self.nodes;
         spec.meta = self.meta;
         spec.capital_structure = self.capital_structure;
 
@@ -808,7 +808,7 @@ impl ModelBuilder<Ready> {
 #[derive(Debug)]
 pub struct MixedNodeBuilder {
     parent: ModelBuilder<Ready>,
-    node_id: String,
+    node_id: NodeId,
     values: Option<IndexMap<PeriodId, AmountOrScalar>>,
     forecast: Option<crate::types::ForecastSpec>,
     formula: Option<String>,
@@ -978,7 +978,7 @@ impl MixedNodeBuilder {
     ///
     /// Returns an error if the node ID uses a reserved prefix (`__cs__` or `__`).
     pub fn try_build(self) -> Result<ModelBuilder<Ready>> {
-        validate_node_id(&self.node_id)?;
+        validate_node_id(self.node_id.as_str())?;
         Ok(self.build())
     }
 }

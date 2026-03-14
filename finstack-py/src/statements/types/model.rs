@@ -402,7 +402,7 @@ impl PyFinancialModelSpec {
     fn nodes(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         for (node_id, node_spec) in &self.inner.nodes {
-            dict.set_item(node_id, PyNodeSpec::new(node_spec.clone()))?;
+            dict.set_item(node_id.as_str(), PyNodeSpec::new(node_spec.clone()))?;
         }
         Ok(dict.into())
     }

@@ -189,7 +189,7 @@ impl PyNodeSpec {
     /// str
     ///     Node ID
     fn node_id(&self) -> String {
-        self.inner.node_id.clone()
+        self.inner.node_id.as_str().to_string()
     }
 
     #[getter]

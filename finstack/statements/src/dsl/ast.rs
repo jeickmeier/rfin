@@ -1,5 +1,6 @@
 //! Abstract Syntax Tree for the Statements DSL.
 
+use crate::types::NodeId;
 use serde::{Deserialize, Serialize};
 
 /// Statements DSL expression AST.
@@ -13,7 +14,7 @@ pub enum StmtExpr {
     Literal(f64),
 
     /// Node reference (e.g., "revenue", "cogs")
-    NodeRef(String),
+    NodeRef(NodeId),
 
     /// Binary operation
     BinOp {
@@ -117,7 +118,7 @@ impl StmtExpr {
     }
 
     /// Create a node reference.
-    pub fn node_ref(name: impl Into<String>) -> Self {
+    pub fn node_ref(name: impl Into<NodeId>) -> Self {
         Self::NodeRef(name.into())
     }
 
@@ -178,7 +179,7 @@ mod tests {
     #[test]
     fn test_node_ref() {
         let expr = StmtExpr::node_ref("revenue");
-        assert_eq!(expr, StmtExpr::NodeRef("revenue".into()));
+        assert_eq!(expr, StmtExpr::NodeRef(NodeId::new("revenue")));
     }
 
     #[test]

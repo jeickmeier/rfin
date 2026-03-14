@@ -12,15 +12,16 @@ use indexmap::{IndexMap, IndexSet};
 /// Returns `Ok(order)` when every node can be scheduled, or `Err(remaining)`
 /// containing the ids that participate in (at least) one cycle when the graph
 /// is not acyclic.
-pub fn toposort_ids(
-    dependencies: &IndexMap<String, IndexSet<String>>,
-) -> Result<Vec<String>, Vec<String>> {
+pub fn toposort_ids<K>(dependencies: &IndexMap<K, IndexSet<K>>) -> Result<Vec<K>, Vec<K>>
+where
+    K: Clone + Eq + std::hash::Hash,
+{
     // Initialize in-degree for every known node.
-    let mut in_degree: IndexMap<String, usize> =
+    let mut in_degree: IndexMap<K, usize> =
         dependencies.keys().map(|id| (id.clone(), 0usize)).collect();
 
     // Track dependents so we can decrement in-degree when removing a node.
-    let mut dependents: IndexMap<String, IndexSet<String>> = dependencies
+    let mut dependents: IndexMap<K, IndexSet<K>> = dependencies
         .keys()
         .map(|id| (id.clone(), IndexSet::new()))
         .collect();
@@ -46,7 +47,7 @@ pub fn toposort_ids(
 
     // Collect nodes that have no inbound edges. We mimic the previous behavior
     // (Vec + pop) to keep ordering identical.
-    let mut stack: Vec<String> = in_degree
+    let mut stack: Vec<K> = in_degree
         .iter()
         .filter(|(_, &degree)| degree == 0)
         .map(|(id, _)| id.clone())
@@ -72,7 +73,7 @@ pub fn toposort_ids(
     if order.len() == in_degree.len() {
         Ok(order)
     } else {
-        let remaining: Vec<String> = in_degree
+        let remaining: Vec<K> = in_degree
             .keys()
             .filter(|id| !order.contains(id))
             .cloned()

@@ -1,7 +1,7 @@
 //! Dependency graph construction and topological sorting.
 
 use crate::error::{Error, Result};
-use crate::types::FinancialModelSpec;
+use crate::types::{FinancialModelSpec, NodeId};
 use indexmap::{IndexMap, IndexSet};
 
 /// Dependency graph for nodes in a financial model.
@@ -12,10 +12,10 @@ use indexmap::{IndexMap, IndexSet};
 #[derive(Debug)]
 pub struct DependencyGraph {
     /// Map of node_id → set of dependencies (nodes it depends on)
-    pub dependencies: IndexMap<String, IndexSet<String>>,
+    pub dependencies: IndexMap<NodeId, IndexSet<NodeId>>,
 
     /// Map of node_id → set of dependents (nodes that depend on it)
-    pub dependents: IndexMap<String, IndexSet<String>>,
+    pub dependents: IndexMap<NodeId, IndexSet<NodeId>>,
 }
 
 impl DependencyGraph {
@@ -48,8 +48,8 @@ impl DependencyGraph {
 
         // Initialize empty sets for all nodes
         for node_id in model.nodes.keys() {
-            dependencies.insert(node_id.as_str().to_string(), IndexSet::new());
-            dependents.insert(node_id.as_str().to_string(), IndexSet::new());
+            dependencies.insert(node_id.clone(), IndexSet::new());
+            dependents.insert(node_id.clone(), IndexSet::new());
         }
 
         let all_node_ids: IndexSet<String> = model
@@ -62,22 +62,12 @@ impl DependencyGraph {
         for (node_id, node_spec) in &model.nodes {
             if let Some(formula) = &node_spec.formula_text {
                 let node_deps = extract_dependencies(formula, &all_node_ids)?;
-                add_dependency_edges(
-                    node_id.as_str(),
-                    &node_deps,
-                    &mut dependencies,
-                    &mut dependents,
-                );
+                add_dependency_edges(node_id, &node_deps, &mut dependencies, &mut dependents);
             }
 
             if let Some(where_clause) = &node_spec.where_text {
                 let node_deps = extract_dependencies(where_clause, &all_node_ids)?;
-                add_dependency_edges(
-                    node_id.as_str(),
-                    &node_deps,
-                    &mut dependencies,
-                    &mut dependents,
-                );
+                add_dependency_edges(node_id, &node_deps, &mut dependencies, &mut dependents);
             }
         }
 
@@ -163,7 +153,7 @@ impl DependencyGraph {
     /// # Returns
     /// Either an [`IndexSet`] of upstream dependencies or `None` if the node
     /// does not exist.
-    pub fn get_dependencies(&self, node_id: &str) -> Option<&IndexSet<String>> {
+    pub fn get_dependencies(&self, node_id: &str) -> Option<&IndexSet<NodeId>> {
         self.dependencies.get(node_id)
     }
 
@@ -173,7 +163,7 @@ impl DependencyGraph {
     /// exists.
     pub fn detect_cycles(&self) -> Result<()> {
         for node_id in self.dependencies.keys() {
-            if let Some(cycle) = self.find_cycle_from(node_id) {
+            if let Some(cycle) = self.find_cycle_from(node_id.as_str()) {
                 return Err(Error::circular_dependency(cycle));
             }
         }
@@ -209,7 +199,7 @@ impl DependencyGraph {
 
         if let Some(deps) = self.dependencies.get(node) {
             for dep in deps {
-                if let Some(cycle) = self.dfs_cycle(dep, visited, path) {
+                if let Some(cycle) = self.dfs_cycle(dep.as_str(), visited, path) {
                     return Some(cycle);
                 }
             }
@@ -222,17 +212,17 @@ impl DependencyGraph {
 }
 
 fn add_dependency_edges(
-    node_id: &str,
-    node_deps: &IndexSet<String>,
-    dependencies: &mut IndexMap<String, IndexSet<String>>,
-    dependents: &mut IndexMap<String, IndexSet<String>>,
+    node_id: &NodeId,
+    node_deps: &IndexSet<NodeId>,
+    dependencies: &mut IndexMap<NodeId, IndexSet<NodeId>>,
+    dependents: &mut IndexMap<NodeId, IndexSet<NodeId>>,
 ) {
     for dep in node_deps {
         if let Some(deps) = dependencies.get_mut(node_id) {
             deps.insert(dep.clone());
         }
         if let Some(dep_set) = dependents.get_mut(dep) {
-            dep_set.insert(node_id.to_string());
+            dep_set.insert(node_id.clone());
         }
     }
 }
@@ -262,11 +252,15 @@ fn add_dependency_edges(
 /// assert!(order.iter().position(|n| n == "a") < order.iter().position(|n| n == "b"));
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
+pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<NodeId>> {
     crate::utils::graph::toposort_ids(&graph.dependencies).map_err(|unprocessed| {
         Error::eval(format!(
             "Circular dependency detected in model. Affected nodes: {}",
-            unprocessed.join(", ")
+            unprocessed
+                .iter()
+                .map(|id| id.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
         ))
     })
 }
@@ -280,13 +274,16 @@ pub fn evaluate_order(graph: &DependencyGraph) -> Result<Vec<String>> {
 fn extract_dependencies(
     formula: &str,
     all_node_ids: &IndexSet<String>,
-) -> Result<IndexSet<String>> {
+) -> Result<IndexSet<NodeId>> {
     let direct_deps = crate::utils::formula::extract_direct_dependencies(formula).map_err(|e| {
         crate::error::Error::build(format!(
             "Failed to parse formula for dependency extraction: {e}"
         ))
     })?;
-    Ok(direct_deps.intersection(all_node_ids).cloned().collect())
+    Ok(direct_deps
+        .intersection(all_node_ids)
+        .map(|s| NodeId::new(s.as_str()))
+        .collect())
 }
 
 /// Suggest similar identifiers for a typo using Levenshtein distance.

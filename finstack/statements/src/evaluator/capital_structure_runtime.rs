@@ -54,7 +54,7 @@ impl Evaluator {
         model: &FinancialModelSpec,
         period: &Period,
         is_actual: bool,
-        eval_order: &[String],
+        eval_order: &[crate::types::NodeId],
         node_to_column: &std::sync::Arc<IndexMap<String, usize>>,
         historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
         historical_cs: &IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
@@ -141,10 +141,11 @@ pub(crate) fn dependent_closure(
     let mut stack: Vec<String> = seeds.iter().cloned().collect();
 
     while let Some(node) = stack.pop() {
-        if let Some(dependents) = graph.dependents.get(&node) {
+        if let Some(dependents) = graph.dependents.get(node.as_str()) {
             for dependent in dependents {
-                if visited.insert(dependent.clone()) {
-                    stack.push(dependent.clone());
+                let dep_str = dependent.as_str().to_string();
+                if visited.insert(dep_str.clone()) {
+                    stack.push(dep_str);
                 }
             }
         }

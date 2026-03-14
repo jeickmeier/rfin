@@ -47,6 +47,12 @@ impl From<String> for NodeId {
     }
 }
 
+impl From<&String> for NodeId {
+    fn from(s: &String) -> Self {
+        Self(s.clone())
+    }
+}
+
 impl Borrow<str> for NodeId {
     fn borrow(&self) -> &str {
         &self.0

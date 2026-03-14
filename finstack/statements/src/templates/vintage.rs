@@ -2,7 +2,7 @@
 
 use crate::builder::{ModelBuilder, Ready};
 use crate::error::Result;
-use crate::types::{NodeSpec, NodeType};
+use crate::types::{NodeId, NodeSpec, NodeType};
 use crate::utils::constants::EPSILON;
 
 /// Add a vintage buildup (cohort analysis) structure.
@@ -61,7 +61,7 @@ pub fn add_vintage_buildup(
         .with_name(format!("{} (Total)", name))
         .with_formula(formula);
 
-    builder.nodes.insert(name.to_string(), node);
+    builder.nodes.insert(NodeId::from(name), node);
 
     Ok(builder)
 }
