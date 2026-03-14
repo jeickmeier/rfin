@@ -397,3 +397,460 @@ mod tests {
         assert!((c - 0.05).abs() < 1e-12);
     }
 }
+
+// ── Drawdown-derived risk ratios ──
+//
+// These functions take a pre-computed drawdown series or summary scalars
+// derived from one, making them natural companions to the drawdown primitives
+// already in this module.
+
+/// Ulcer index: root-mean-square of the drawdown series.
+///
+/// Measures the depth and duration of drawdowns from a pre-computed
+/// drawdown series. A higher Ulcer Index indicates more persistent or
+/// deeper losses ("investor distress").
+///
+/// ```text
+/// UI = sqrt(mean(dd_i^2))
+/// ```
+///
+/// # Arguments
+///
+/// * `drawdown` - Pre-computed drawdown series (values ≤ 0), as produced
+///   by [`to_drawdown_series`].
+///
+/// # Returns
+///
+/// The Ulcer Index (a non-negative scalar). Returns `0.0` for an empty slice.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::ulcer_index;
+///
+/// // Flat drawdown of −10% throughout → UI = 0.10.
+/// let dd = [-0.10, -0.10, -0.10];
+/// assert!((ulcer_index(&dd) - 0.10).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
+pub fn ulcer_index(drawdown: &[f64]) -> f64 {
+    if drawdown.is_empty() {
+        return 0.0;
+    }
+    let ss: f64 = drawdown.iter().map(|&d| d * d).sum();
+    (ss / drawdown.len() as f64).sqrt()
+}
+
+/// Pain index: mean absolute drawdown over the full series.
+///
+/// ```text
+/// Pain = (1/n) Σ |dd_i|
+/// ```
+///
+/// Less sensitive to outlier drawdowns than max drawdown.
+///
+/// # Arguments
+///
+/// * `drawdown` - Pre-computed drawdown series (values ≤ 0).
+///
+/// # Returns
+///
+/// The pain index (non-negative). Returns `0.0` for an empty slice.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::pain_index;
+///
+/// let dd = [-0.05, -0.10, 0.0, -0.03];
+/// let pi = pain_index(&dd);
+/// assert!((pi - 0.045).abs() < 1e-12);
+/// ```
+pub fn pain_index(drawdown: &[f64]) -> f64 {
+    if drawdown.is_empty() {
+        return 0.0;
+    }
+    let sum: f64 = drawdown.iter().map(|&d| d.abs()).sum();
+    sum / drawdown.len() as f64
+}
+
+/// Average drawdown depth across all periods.
+///
+/// Returns the arithmetic mean of the drawdown series. Since drawdown
+/// values are non-positive, the result is typically negative or zero.
+/// Returns `0.0` for an empty slice.
+///
+/// # Arguments
+///
+/// * `drawdowns` - Slice of per-period drawdown depths (from
+///   [`to_drawdown_series`]).
+pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
+    if drawdowns.is_empty() {
+        0.0
+    } else {
+        drawdowns.iter().copied().sum::<f64>() / drawdowns.len() as f64
+    }
+}
+
+/// Calmar ratio = CAGR / |max drawdown|.
+///
+/// Compares annualized growth against the worst peak-to-trough loss,
+/// making it particularly useful for evaluating trend-following strategies.
+///
+/// # Arguments
+///
+/// * `cagr_val` - Compound annual growth rate (already computed).
+/// * `max_dd` - Maximum drawdown depth (a negative number, e.g., `-0.25`
+///   for a 25% drawdown).
+///
+/// # Returns
+///
+/// The Calmar ratio (positive when CAGR and max drawdown have the same sign).
+/// Returns `0.0` if `max_dd` is zero (no drawdown observed).
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::calmar;
+///
+/// // 15% CAGR with 30% max drawdown → Calmar ≈ 0.5
+/// assert!((calmar(0.15, -0.30) - 0.5).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Young (1991): see docs/REFERENCES.md#youngCalmar1991
+pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
+    if max_dd == 0.0 {
+        return 0.0;
+    }
+    cagr_val / max_dd.abs()
+}
+
+/// Recovery factor: total return / |max drawdown|.
+///
+/// Measures how many times the portfolio has recovered its worst loss.
+/// A higher value indicates greater resilience.
+///
+/// # Arguments
+///
+/// * `total_return` - Total compounded return over the period.
+/// * `max_dd`       - Maximum drawdown (negative number, e.g. `−0.25`).
+///
+/// # Returns
+///
+/// The recovery factor. Returns `0.0` if `max_dd` is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::recovery_factor;
+///
+/// // 50% total return with 25% max drawdown → 2.0.
+/// assert!((recovery_factor(0.50, -0.25) - 2.0).abs() < 1e-12);
+/// ```
+pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
+    if max_dd == 0.0 {
+        return 0.0;
+    }
+    total_return / max_dd.abs()
+}
+
+/// Recovery factor computed directly from a returns series.
+pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
+    let total_return = crate::analytics::returns::comp_total(returns);
+    let drawdowns = to_drawdown_series(returns);
+    let max_dd = drawdowns.iter().copied().fold(0.0_f64, f64::min);
+    recovery_factor(total_return, max_dd)
+}
+
+/// Martin ratio (Ulcer Performance Index): CAGR / Ulcer Index.
+///
+/// Measures return per unit of drawdown-based risk. Named after Peter
+/// Martin who introduced the Ulcer Index.
+///
+/// # Arguments
+///
+/// * `cagr_val` - Compound annual growth rate.
+/// * `ulcer`    - Ulcer Index (from [`ulcer_index`]).
+///
+/// # Returns
+///
+/// The Martin ratio. Returns `0.0` if the Ulcer Index is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::martin_ratio;
+///
+/// assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
+/// assert_eq!(martin_ratio(0.10, 0.0), 0.0);
+/// ```
+///
+/// # References
+///
+/// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
+pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
+    if ulcer == 0.0 {
+        return 0.0;
+    }
+    cagr_val / ulcer
+}
+
+/// Martin ratio computed directly from a returns series.
+pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
+    let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(returns, ann_factor);
+    let drawdowns = to_drawdown_series(returns);
+    let ulcer = ulcer_index(&drawdowns);
+    martin_ratio(cagr_val, ulcer)
+}
+
+/// Sterling ratio: risk-adjusted return using average drawdown.
+///
+/// ```text
+/// Sterling = (CAGR − R_f) / |avg_drawdown|
+/// ```
+///
+/// # Arguments
+///
+/// * `cagr_val`       - Compound annual growth rate.
+/// * `avg_dd`         - Average of the top-N worst drawdowns (negative number).
+/// * `risk_free_rate` - Annualized risk-free rate.
+///
+/// # Returns
+///
+/// The Sterling ratio. Returns `0.0` if `avg_dd` is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::sterling_ratio;
+///
+/// // 12% CAGR, 2% risk-free, −10% avg drawdown → 1.0.
+/// assert!((sterling_ratio(0.12, -0.10, 0.02) - 1.0).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Kestner (1996): see docs/REFERENCES.md#kestner1996
+pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
+    if avg_dd == 0.0 {
+        return 0.0;
+    }
+    (cagr_val - risk_free_rate) / avg_dd.abs()
+}
+
+/// Sterling ratio computed directly from a returns series.
+pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
+    let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(returns, ann_factor);
+    let drawdowns = to_drawdown_series(returns);
+    let avg_dd = average_drawdown(&drawdowns);
+    sterling_ratio(cagr_val, avg_dd, risk_free_rate)
+}
+
+/// Burke ratio: return per unit of drawdown-based risk (RMS of drawdowns).
+///
+/// ```text
+/// Burke = (CAGR − R_f) / sqrt( (1/n) Σ dd_i² )
+/// ```
+///
+/// where `dd_i` are the max-drawdown depths of the top-N episodes.
+///
+/// # Arguments
+///
+/// * `cagr_val`       - Compound annual growth rate.
+/// * `dd_episodes`    - Slice of max-drawdown values from each episode (negative).
+/// * `risk_free_rate` - Annualized risk-free rate.
+///
+/// # Returns
+///
+/// The Burke ratio. Returns `0.0` if `dd_episodes` is empty or all zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::burke_ratio;
+///
+/// let dds = [-0.10, -0.05, -0.03];
+/// let b = burke_ratio(0.15, &dds, 0.02);
+/// assert!(b > 0.0);
+/// ```
+///
+/// # References
+///
+/// - Burke (1994): see docs/REFERENCES.md#burke1994
+pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f64 {
+    if dd_episodes.is_empty() {
+        return 0.0;
+    }
+    let n = dd_episodes.len() as f64;
+    let ss: f64 = dd_episodes.iter().map(|&d| d * d).sum();
+    let rms = (ss / n).sqrt();
+    if rms == 0.0 {
+        return 0.0;
+    }
+    (cagr_val - risk_free_rate) / rms
+}
+
+/// Pain ratio: return per unit of average drawdown pain.
+///
+/// ```text
+/// Pain Ratio = (CAGR − R_f) / Pain Index
+/// ```
+///
+/// # Arguments
+///
+/// * `cagr_val`       - Compound annual growth rate.
+/// * `pain`           - Pain index (from [`pain_index`]).
+/// * `risk_free_rate` - Annualized risk-free rate.
+///
+/// # Returns
+///
+/// The pain ratio. Returns `0.0` if the pain index is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::drawdown::pain_ratio;
+///
+/// assert!((pain_ratio(0.10, 0.05, 0.02) - 1.6).abs() < 1e-12);
+/// ```
+pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
+    if pain == 0.0 {
+        return 0.0;
+    }
+    (cagr_val - risk_free_rate) / pain
+}
+
+/// Pain ratio computed directly from a returns series.
+pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
+    let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(returns, ann_factor);
+    let drawdowns = to_drawdown_series(returns);
+    let pain = pain_index(&drawdowns);
+    pain_ratio(cagr_val, pain, risk_free_rate)
+}
+
+#[cfg(test)]
+mod drawdown_ratio_tests {
+    use super::*;
+
+    #[test]
+    fn ulcer_index_flat() {
+        let dd = [-0.10, -0.10, -0.10];
+        assert!((ulcer_index(&dd) - 0.10).abs() < 1e-12);
+    }
+
+    #[test]
+    fn ulcer_index_empty() {
+        assert_eq!(ulcer_index(&[]), 0.0);
+    }
+
+    #[test]
+    fn pain_index_hand_calc() {
+        let dd = [-0.05, -0.10, 0.0, -0.03];
+        let pi = pain_index(&dd);
+        assert!((pi - 0.045).abs() < 1e-14);
+    }
+
+    #[test]
+    fn pain_index_empty() {
+        assert_eq!(pain_index(&[]), 0.0);
+    }
+
+    #[test]
+    fn calmar_hand_calc() {
+        assert!((calmar(0.15, -0.30) - 0.5).abs() < 1e-12);
+    }
+
+    #[test]
+    fn calmar_zero_dd() {
+        assert_eq!(calmar(0.15, 0.0), 0.0);
+    }
+
+    #[test]
+    fn recovery_factor_hand_calc() {
+        assert!((recovery_factor(0.50, -0.25) - 2.0).abs() < 1e-12);
+        assert!((recovery_factor(-0.10, -0.30) - (-1.0 / 3.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn recovery_factor_zero_dd() {
+        assert_eq!(recovery_factor(0.50, 0.0), 0.0);
+    }
+
+    #[test]
+    fn martin_ratio_hand_calc() {
+        assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
+        assert_eq!(martin_ratio(0.10, 0.0), 0.0);
+    }
+
+    #[test]
+    fn sterling_ratio_hand_calc() {
+        assert!((sterling_ratio(0.12, -0.10, 0.02) - 1.0).abs() < 1e-12);
+        assert!((sterling_ratio(0.15, -0.06, 0.03) - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn sterling_ratio_zero_dd() {
+        assert_eq!(sterling_ratio(0.12, 0.0, 0.02), 0.0);
+    }
+
+    #[test]
+    fn burke_ratio_hand_calc() {
+        let dds = [-0.10, -0.10];
+        let b = burke_ratio(0.12, &dds, 0.02);
+        assert!((b - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn burke_ratio_empty() {
+        assert_eq!(burke_ratio(0.15, &[], 0.02), 0.0);
+    }
+
+    #[test]
+    fn pain_ratio_hand_calc() {
+        assert!((pain_ratio(0.10, 0.05, 0.02) - 1.6).abs() < 1e-12);
+        assert!((pain_ratio(0.08, 0.04, 0.0) - 2.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn pain_ratio_zero_pain() {
+        assert_eq!(pain_ratio(0.10, 0.0, 0.0), 0.0);
+    }
+
+    #[test]
+    fn drawdown_composite_helpers_match_composed_formulas() {
+        let returns = [0.01, -0.02, 0.015, -0.005, 0.012, 0.008];
+        let ann = 252.0;
+        let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(&returns, ann);
+        let dd = to_drawdown_series(&returns);
+        let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
+        let ulcer = ulcer_index(&dd);
+        let avg_dd = average_drawdown(&dd);
+        let pain = pain_index(&dd);
+
+        assert!(
+            (recovery_factor_from_returns(&returns)
+                - recovery_factor(crate::analytics::returns::comp_total(&returns), max_dd))
+            .abs()
+                < 1e-12
+        );
+        assert!(
+            (martin_ratio_from_returns(&returns, ann) - martin_ratio(cagr_val, ulcer)).abs()
+                < 1e-12
+        );
+        assert!(
+            (sterling_ratio_from_returns(&returns, ann, 0.01)
+                - sterling_ratio(cagr_val, avg_dd, 0.01))
+            .abs()
+                < 1e-12
+        );
+        assert!(
+            (pain_ratio_from_returns(&returns, ann, 0.01) - pain_ratio(cagr_val, pain, 0.01)).abs()
+                < 1e-12
+        );
+    }
+}

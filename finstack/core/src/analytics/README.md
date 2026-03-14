@@ -26,13 +26,16 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
   - `LookbackReturns`: output type for MTD/QTD/YTD/FYTD compounded returns.
   - All methods delegate to the pure-function sub-modules; no analytics logic lives here directly.
 
-- **`risk_metrics.rs`**
-  - Pure scalar risk/return functions: `cagr`, `mean_return`, `volatility`, `sharpe`, `sortino`, `calmar`, `ulcer_index`, `risk_of_ruin`, `value_at_risk`, `expected_shortfall`, `tail_ratio`, `outlier_win_ratio`, `outlier_loss_ratio`, `skewness`, `kurtosis`, `geometric_mean`, `downside_deviation`, `omega_ratio`, `treynor`, `gain_to_pain`, `martin_ratio`, `parametric_var`, `cornish_fisher_var`, `recovery_factor`, `sterling_ratio`, `burke_ratio`, `pain_index`, `pain_ratio`, `m_squared`, `modified_sharpe`.
-  - Rolling outputs: `rolling_sharpe` → `RollingSharpe`, `rolling_volatility` → `RollingVolatility`, `rolling_sortino` → `RollingSortino`.
+- **`risk_metrics/`** (directory module)
+  - **`mod.rs`**: Public facade, re-exports from all three submodules.
+  - **`return_based.rs`**: `cagr`, `cagr_from_periods`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `risk_of_ruin`, `risk_of_ruin_from_returns`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
+  - **`tail_risk.rs`**: `skewness`, `kurtosis`, `value_at_risk`, `value_at_risk_with_scratch`, `expected_shortfall`, `expected_shortfall_with_scratch`, `parametric_var`, `cornish_fisher_var`, `tail_ratio`, `tail_ratio_with_scratch`, `outlier_win_ratio`, `outlier_win_ratio_with_scratch`, `outlier_loss_ratio`, `outlier_loss_ratio_with_scratch`.
+  - **`rolling.rs`**: `RollingSharpe`, `RollingVolatility`, `RollingSortino`, `rolling_sharpe`, `rolling_volatility`, `rolling_sortino`, `rolling_sharpe_values`, `rolling_volatility_values`, `rolling_sortino_values`.
   - All functions take `&[f64]` and return `f64` or a small struct.
 
 - **`benchmark.rs`**
   - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `calc_beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
+  - Benchmark-relative risk ratios: `treynor`, `m_squared`, `m_squared_from_returns`.
   - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
 
 - **`returns.rs`**
@@ -47,6 +50,7 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
   - `avg_drawdown`: mean of the N worst episodes.
   - `max_drawdown_duration`: longest drawdown duration in calendar days.
   - `cdar`: Conditional Drawdown at Risk at a given confidence level.
+  - Drawdown-derived risk ratios: `ulcer_index`, `pain_index`, `average_drawdown`, `calmar`, `recovery_factor`, `recovery_factor_from_returns`, `martin_ratio`, `martin_ratio_from_returns`, `sterling_ratio`, `sterling_ratio_from_returns`, `burke_ratio`, `pain_ratio`, `pain_ratio_from_returns`.
   - Output type: `DrawdownEpisode { start, valley, end, duration_days, max_drawdown, near_recovery_threshold }`.
 
 - **`aggregation.rs`**
@@ -435,7 +439,9 @@ The analytics module is **pure-function-first**: analytics logic lives in statel
 
 1. **Add a pure function** to the most appropriate sub-module:
    - Return or excess-return-based → `returns.rs`
-   - Risk metric → `risk_metrics.rs`
+   - Pure return-based risk metric → `risk_metrics/return_based.rs`
+   - Tail-risk / distribution-shape metric → `risk_metrics/tail_risk.rs`
+   - Drawdown-derived ratio → `drawdown.rs`
    - Benchmark-relative → `benchmark.rs`
    - Period-aggregation metric → `aggregation.rs`
 
@@ -458,7 +464,7 @@ The analytics module is **pure-function-first**: analytics logic lives in statel
    /// # Examples
    ///
    /// ```rust
-   /// use finstack_core::analytics::risk_metrics::my_metric;
+   /// use finstack_core::analytics::risk_metrics::return_based::my_metric;
    /// let result = my_metric(&[0.01, -0.005, 0.02], 252.0);
    /// assert!(result.is_finite());
    /// ```

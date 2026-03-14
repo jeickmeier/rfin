@@ -11,9 +11,11 @@ use super::benchmark::{
     multi_factor_greeks, r_squared, rolling_greeks, tracking_error, up_capture, BetaResult,
     GreeksResult, MultiFactorResult, RollingGreeks,
 };
+use super::benchmark::{m_squared, treynor};
 use super::drawdown::{
-    cdar, drawdown_details, max_drawdown_duration as dd_max_duration, to_drawdown_series,
-    DrawdownEpisode,
+    burke_ratio, calmar, cdar, drawdown_details, martin_ratio,
+    max_drawdown_duration as dd_max_duration, pain_index, pain_ratio, recovery_factor,
+    sterling_ratio, to_drawdown_series, ulcer_index, DrawdownEpisode,
 };
 use super::lookback;
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
@@ -350,7 +352,7 @@ impl Performance {
             .map(|i| {
                 let dd = self.active_drawdown(i);
                 let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
-                risk_metrics::calmar(cagrs[i], max_dd)
+                calmar(cagrs[i], max_dd)
             })
             .collect()
     }
@@ -413,7 +415,7 @@ impl Performance {
     /// Ulcer index for each ticker.
     pub fn ulcer_index(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| risk_metrics::ulcer_index(self.active_drawdown(i)))
+            .map(|i| ulcer_index(self.active_drawdown(i)))
             .collect()
     }
 
@@ -535,7 +537,7 @@ impl Performance {
                 let r = self.active_returns(i);
                 let ann_ret = risk_metrics::mean_return(r, true, ann);
                 let beta = super::benchmark::greeks(r, bench, ann).beta;
-                risk_metrics::treynor(ann_ret, risk_free_rate, beta)
+                treynor(ann_ret, risk_free_rate, beta)
             })
             .collect()
     }
@@ -552,8 +554,8 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let ulcer = risk_metrics::ulcer_index(self.active_drawdown(i));
-                risk_metrics::martin_ratio(cagrs[i], ulcer)
+                let ulcer = ulcer_index(self.active_drawdown(i));
+                martin_ratio(cagrs[i], ulcer)
             })
             .collect()
     }
@@ -604,7 +606,7 @@ impl Performance {
                 let total_ret = comp_total(self.active_returns(i));
                 let dd = self.active_drawdown(i);
                 let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
-                risk_metrics::recovery_factor(total_ret, max_dd)
+                recovery_factor(total_ret, max_dd)
             })
             .collect()
     }
@@ -622,7 +624,7 @@ impl Performance {
                 let dd = self.active_drawdown(i);
                 let dates = self.active_dates();
                 let avg = super::drawdown::avg_drawdown(dd, dates, n);
-                risk_metrics::sterling_ratio(cagrs[i], avg, risk_free_rate)
+                sterling_ratio(cagrs[i], avg, risk_free_rate)
             })
             .collect()
     }
@@ -641,7 +643,7 @@ impl Performance {
                 let dates = self.active_dates();
                 let episodes = super::drawdown::drawdown_details(dd, dates, n);
                 let dd_vals: Vec<f64> = episodes.iter().map(|e| e.max_drawdown).collect();
-                risk_metrics::burke_ratio(cagrs[i], &dd_vals, risk_free_rate)
+                burke_ratio(cagrs[i], &dd_vals, risk_free_rate)
             })
             .collect()
     }
@@ -649,7 +651,7 @@ impl Performance {
     /// Pain index for each ticker.
     pub fn pain_index(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| risk_metrics::pain_index(self.active_drawdown(i)))
+            .map(|i| pain_index(self.active_drawdown(i)))
             .collect()
     }
 
@@ -662,8 +664,8 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let pain = risk_metrics::pain_index(self.active_drawdown(i));
-                risk_metrics::pain_ratio(cagrs[i], pain, risk_free_rate)
+                let pain = pain_index(self.active_drawdown(i));
+                pain_ratio(cagrs[i], pain, risk_free_rate)
             })
             .collect()
     }
@@ -814,7 +816,7 @@ impl Performance {
                 let r = self.active_returns(i);
                 let ann_ret = risk_metrics::mean_return(r, true, ann);
                 let ann_vol = risk_metrics::volatility(r, true, ann);
-                risk_metrics::m_squared(ann_ret, ann_vol, bench_vol, risk_free_rate)
+                m_squared(ann_ret, ann_vol, bench_vol, risk_free_rate)
             })
             .collect()
     }

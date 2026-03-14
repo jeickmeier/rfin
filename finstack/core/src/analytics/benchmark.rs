@@ -1076,3 +1076,145 @@ mod tests {
         assert_eq!(batting_average(&[], &[]), 0.0);
     }
 }
+
+// ── Benchmark-relative risk ratios ──
+
+/// Treynor ratio: excess return per unit of systematic risk.
+///
+/// ```text
+/// Treynor = (R_p − R_f) / β
+/// ```
+///
+/// Complements the Sharpe ratio by using beta (systematic risk) rather
+/// than total volatility as the risk denominator.
+///
+/// # Arguments
+///
+/// * `ann_return`     - Annualized portfolio return.
+/// * `risk_free_rate` - Annualized risk-free rate.
+/// * `beta`           - Portfolio beta vs benchmark.
+///
+/// # Returns
+///
+/// The Treynor ratio. Returns `0.0` if beta is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::treynor;
+///
+/// // 10% return, 2% risk-free, beta = 1.2 → Treynor ≈ 0.0667.
+/// let t = treynor(0.10, 0.02, 1.2);
+/// assert!((t - 0.0667).abs() < 0.001);
+/// ```
+///
+/// # References
+///
+/// - Treynor (1965): see docs/REFERENCES.md#treynor1965
+pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
+    if beta == 0.0 {
+        return 0.0;
+    }
+    (ann_return - risk_free_rate) / beta
+}
+
+/// M-squared (Modigliani-Modigliani): risk-adjusted return on the benchmark's scale.
+///
+/// Leverages or deleverages the portfolio to match the benchmark's volatility,
+/// then reports the resulting return. The difference `M² − R_bench` is a
+/// direct measure of value added at the same risk level.
+///
+/// ```text
+/// M² = R_f + (R_p − R_f) × (σ_bench / σ_portfolio)
+/// ```
+///
+/// # Arguments
+///
+/// * `ann_return`     - Annualized portfolio return.
+/// * `ann_vol`        - Annualized portfolio volatility.
+/// * `bench_vol`      - Annualized benchmark volatility.
+/// * `risk_free_rate` - Annualized risk-free rate.
+///
+/// # Returns
+///
+/// The M-squared return. Returns the risk-free rate if portfolio volatility is zero.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::analytics::benchmark::m_squared;
+///
+/// // Portfolio: 12% return, 20% vol; Benchmark: 15% vol; Rf: 2%
+/// // M² = 0.02 + (0.12 − 0.02) × (0.15 / 0.20) = 0.02 + 0.075 = 0.095
+/// let m2 = m_squared(0.12, 0.20, 0.15, 0.02);
+/// assert!((m2 - 0.095).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
+pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
+    if ann_vol == 0.0 {
+        return risk_free_rate;
+    }
+    risk_free_rate + (ann_return - risk_free_rate) * (bench_vol / ann_vol)
+}
+
+/// M-squared computed directly from portfolio and benchmark return series.
+pub fn m_squared_from_returns(
+    portfolio: &[f64],
+    benchmark: &[f64],
+    ann_factor: f64,
+    risk_free_rate: f64,
+) -> f64 {
+    let ann_return = crate::analytics::risk_metrics::mean_return(portfolio, true, ann_factor);
+    let ann_vol = crate::analytics::risk_metrics::volatility(portfolio, true, ann_factor);
+    let bench_vol = crate::analytics::risk_metrics::volatility(benchmark, true, ann_factor);
+    m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
+}
+
+#[cfg(test)]
+mod benchmark_ratio_tests {
+    use super::*;
+
+    #[test]
+    fn treynor_hand_calc() {
+        let t = treynor(0.10, 0.02, 1.2);
+        assert!((t - 0.08 / 1.2).abs() < 1e-14);
+    }
+
+    #[test]
+    fn treynor_zero_beta() {
+        assert_eq!(treynor(0.10, 0.02, 0.0), 0.0);
+    }
+
+    #[test]
+    fn treynor_negative_beta() {
+        let t = treynor(0.10, 0.02, -0.5);
+        assert!((t - (0.08 / -0.5)).abs() < 1e-14);
+    }
+
+    #[test]
+    fn m_squared_hand_calc() {
+        let m2 = m_squared(0.12, 0.20, 0.15, 0.02);
+        assert!((m2 - 0.095).abs() < 1e-12);
+    }
+
+    #[test]
+    fn m_squared_zero_vol() {
+        assert_eq!(m_squared(0.10, 0.0, 0.15, 0.02), 0.02);
+    }
+
+    #[test]
+    fn m_squared_from_returns_matches_composed_formula() {
+        let portfolio = [0.01, -0.015, 0.012, 0.008, -0.004, 0.009];
+        let benchmark = [0.008, -0.01, 0.01, 0.006, -0.003, 0.007];
+        let ann = 252.0;
+        let ann_ret = crate::analytics::risk_metrics::mean_return(&portfolio, true, ann);
+        let ann_vol = crate::analytics::risk_metrics::volatility(&portfolio, true, ann);
+        let bench_vol = crate::analytics::risk_metrics::volatility(&benchmark, true, ann);
+        let expected = m_squared(ann_ret, ann_vol, bench_vol, 0.01);
+        let actual = m_squared_from_returns(&portfolio, &benchmark, ann, 0.01);
+        assert!((actual - expected).abs() < 1e-12);
+    }
+}

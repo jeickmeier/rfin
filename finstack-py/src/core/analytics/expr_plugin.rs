@@ -146,7 +146,7 @@ fn expr_calmar(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series
     let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
     let dd = drawdown::to_drawdown_series(&data);
     let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
-    let result = risk_metrics::calmar(cagr_val, max_dd);
+    let result = drawdown::calmar(cagr_val, max_dd);
     Ok(Series::new("calmar".into(), &[result]))
 }
 
@@ -219,7 +219,7 @@ fn expr_cornish_fisher_var(inputs: &[Series], kwargs: ConfidenceKwargs) -> Polar
 fn expr_ulcer_index(inputs: &[Series]) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let dd = drawdown::to_drawdown_series(&data);
-    let result = risk_metrics::ulcer_index(&dd);
+    let result = drawdown::ulcer_index(&dd);
     Ok(Series::new("ulcer_index".into(), &[result]))
 }
 
@@ -227,7 +227,7 @@ fn expr_ulcer_index(inputs: &[Series]) -> PolarsResult<Series> {
 fn expr_pain_index(inputs: &[Series]) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let dd = drawdown::to_drawdown_series(&data);
-    let result = risk_metrics::pain_index(&dd);
+    let result = drawdown::pain_index(&dd);
     Ok(Series::new("pain_index".into(), &[result]))
 }
 
@@ -277,7 +277,7 @@ fn expr_risk_of_ruin(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<
 #[polars_expr(output_type=Float64)]
 fn expr_recovery_factor(inputs: &[Series]) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
-    let result = risk_metrics::recovery_factor_from_returns(&data);
+    let result = drawdown::recovery_factor_from_returns(&data);
     Ok(Series::new("recovery_factor".into(), &[result]))
 }
 
@@ -285,7 +285,7 @@ fn expr_recovery_factor(inputs: &[Series]) -> PolarsResult<Series> {
 fn expr_martin_ratio(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let result = risk_metrics::martin_ratio_from_returns(&data, ann);
+    let result = drawdown::martin_ratio_from_returns(&data, ann);
     Ok(Series::new("martin_ratio".into(), &[result]))
 }
 
@@ -293,7 +293,7 @@ fn expr_martin_ratio(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<
 fn expr_sterling_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let result = risk_metrics::sterling_ratio_from_returns(&data, ann, kwargs.risk_free);
+    let result = drawdown::sterling_ratio_from_returns(&data, ann, kwargs.risk_free);
     Ok(Series::new("sterling_ratio".into(), &[result]))
 }
 
@@ -303,7 +303,7 @@ fn expr_burke_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Serie
     let ann = parse_ann_factor(&kwargs.freq)?;
     let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
     let dd = drawdown::to_drawdown_series(&data);
-    let result = risk_metrics::burke_ratio(cagr_val, &dd, kwargs.risk_free);
+    let result = drawdown::burke_ratio(cagr_val, &dd, kwargs.risk_free);
     Ok(Series::new("burke_ratio".into(), &[result]))
 }
 
@@ -311,7 +311,7 @@ fn expr_burke_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Serie
 fn expr_pain_ratio(inputs: &[Series], kwargs: FreqKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let result = risk_metrics::pain_ratio_from_returns(&data, ann, kwargs.risk_free);
+    let result = drawdown::pain_ratio_from_returns(&data, ann, kwargs.risk_free);
     Ok(Series::new("pain_ratio".into(), &[result]))
 }
 
@@ -328,7 +328,7 @@ fn expr_m_squared(inputs: &[Series], kwargs: MSquaredKwargs) -> PolarsResult<Ser
     let portfolio = series_to_f64_vec(&inputs[0])?;
     let bench = series_to_f64_vec(&inputs[1])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let result = risk_metrics::m_squared_from_returns(&portfolio, &bench, ann, kwargs.risk_free);
+    let result = benchmark::m_squared_from_returns(&portfolio, &bench, ann, kwargs.risk_free);
     Ok(Series::new("m_squared".into(), &[result]))
 }
 
