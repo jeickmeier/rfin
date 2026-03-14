@@ -10,6 +10,7 @@
 
 use crate::error::Result;
 use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec};
+use finstack_statements::NodeId;
 use indexmap::IndexMap;
 
 fn rounding_stamp() -> Option<String> {
@@ -68,7 +69,7 @@ pub struct ExecutionContext<'a> {
     pub instruments: Option<&'a mut Vec<Box<dyn finstack_valuations::instruments::Instrument>>>,
 
     /// Optional mapping from statement node IDs to binding specs for automatic rate updates.
-    pub rate_bindings: Option<IndexMap<String, RateBindingSpec>>,
+    pub rate_bindings: Option<IndexMap<NodeId, RateBindingSpec>>,
 
     /// Optional holiday calendar for calendar-aware tenor calculations.
     pub calendar: Option<&'a dyn finstack_core::dates::HolidayCalendar>,
@@ -541,12 +542,20 @@ impl ScenarioEngine {
                     }
                 }
                 crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
-                    crate::adapters::statements::apply_forecast_percent(ctx.model, &node_id, pct)?;
+                    crate::adapters::statements::apply_forecast_percent(
+                        ctx.model,
+                        node_id.as_str(),
+                        pct,
+                    )?;
                     applied += 1;
                     applied_stmt_ops += 1;
                 }
                 crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
-                    crate::adapters::statements::apply_forecast_assign(ctx.model, &node_id, value)?;
+                    crate::adapters::statements::apply_forecast_assign(
+                        ctx.model,
+                        node_id.as_str(),
+                        value,
+                    )?;
                     applied += 1;
                     applied_stmt_ops += 1;
                 }

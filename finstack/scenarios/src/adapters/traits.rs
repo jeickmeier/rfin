@@ -2,6 +2,7 @@ use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::spec::{OperationSpec, RateBindingSpec};
 use finstack_core::market_data::bumps::MarketBump;
+use finstack_statements::NodeId;
 
 use finstack_core::market_data::term_structures::{
     DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, VolatilityIndexCurve,
@@ -56,14 +57,14 @@ pub enum ScenarioEffect {
     /// Apply a forecast adjustment to the statement model (% change).
     StmtForecastPercent {
         /// The ID of the statement item node.
-        node_id: String,
+        node_id: NodeId,
         /// The percentage change to apply.
         pct: f64,
     },
     /// Apply a forecast assignment to the statement model (absolute value).
     StmtForecastAssign {
         /// The ID of the statement item node.
-        node_id: String,
+        node_id: NodeId,
         /// The value to assign.
         value: f64,
     },

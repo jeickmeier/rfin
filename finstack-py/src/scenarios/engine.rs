@@ -11,7 +11,7 @@ use crate::valuations::instruments::extract_instrument;
 use finstack_core::HashMap;
 use finstack_scenarios::engine::{ExecutionContext, ScenarioEngine};
 use finstack_scenarios::spec::RateBindingSpec;
-use finstack_scenarios::ScenarioSpec;
+use finstack_scenarios::{NodeId, ScenarioSpec};
 use finstack_valuations::instruments::Instrument;
 use indexmap::IndexMap;
 use pyo3::exceptions::PyTypeError;
@@ -68,7 +68,7 @@ pub struct PyExecutionContext {
     model: Py<PyFinancialModelSpec>,
     instruments: Option<Vec<Py<PyAny>>>,
     rust_instruments: Option<Vec<Box<dyn Instrument>>>,
-    rate_bindings: Option<IndexMap<String, RateBindingSpec>>,
+    rate_bindings: Option<IndexMap<NodeId, RateBindingSpec>>,
     calendar: Option<Py<PyCalendar>>,
     as_of: finstack_core::dates::Date,
 }
@@ -94,7 +94,7 @@ impl PyExecutionContext {
     fn convert_rate_bindings(
         py: Python<'_>,
         bindings: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<Option<IndexMap<String, RateBindingSpec>>> {
+    ) -> PyResult<Option<IndexMap<NodeId, RateBindingSpec>>> {
         let Some(obj) = bindings else {
             return Ok(None);
         };
@@ -105,17 +105,17 @@ impl PyExecutionContext {
 
         // Preferred: dict[str, RateBindingSpec]
         if let Ok(map) = obj.extract::<HashMap<String, Py<PyRateBindingSpec>>>() {
-            let mut out: IndexMap<String, RateBindingSpec> = IndexMap::with_capacity(map.len());
+            let mut out: IndexMap<NodeId, RateBindingSpec> = IndexMap::with_capacity(map.len());
             for (node_id, spec_obj) in map {
                 let borrowed = spec_obj.borrow(py);
-                out.insert(node_id, borrowed.inner.clone());
+                out.insert(NodeId::from(node_id), borrowed.inner.clone());
             }
             return Ok(Some(out));
         }
 
         // Fallback: list[RateBindingSpec]
         if let Ok(list) = obj.extract::<Vec<Py<PyRateBindingSpec>>>() {
-            let mut out: IndexMap<String, RateBindingSpec> = IndexMap::with_capacity(list.len());
+            let mut out: IndexMap<NodeId, RateBindingSpec> = IndexMap::with_capacity(list.len());
             for spec_obj in list {
                 let borrowed = spec_obj.borrow(py);
                 let spec = borrowed.inner.clone();
@@ -271,7 +271,12 @@ impl PyExecutionContext {
         self.rate_bindings.as_ref().map(|bindings| {
             bindings
                 .iter()
-                .map(|(k, v)| (k.clone(), PyRateBindingSpec::from_inner(v.clone())))
+                .map(|(k, v)| {
+                    (
+                        k.as_str().to_string(),
+                        PyRateBindingSpec::from_inner(v.clone()),
+                    )
+                })
                 .collect()
         })
     }

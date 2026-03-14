@@ -72,6 +72,6 @@ pub mod utils;
 pub use engine::{ExecutionContext, ScenarioEngine};
 pub use error::{Error, Result};
 pub use spec::{
-    Compounding, CurveKind, InstrumentType, OperationSpec, RateBindingSpec, ScenarioSpec,
+    Compounding, CurveKind, InstrumentType, NodeId, OperationSpec, RateBindingSpec, ScenarioSpec,
     TenorMatchMode, TimeRollMode, VolSurfaceKind,
 };

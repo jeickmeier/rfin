@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 /// type-safe instrument shock operations.
 pub use finstack_valuations::pricer::InstrumentType;
 
+/// Re-export [`NodeId`](finstack_statements::NodeId) for statement node identification.
+pub use finstack_statements::NodeId;
+
 /// A complete scenario specification with metadata and ordered operations.
 ///
 /// # Fields
@@ -291,7 +294,7 @@ pub enum OperationSpec {
     /// ```
     StmtForecastPercent {
         /// Statement node identifier.
-        node_id: String,
+        node_id: NodeId,
         /// Percentage change to apply.
         pct: f64,
     },
@@ -309,7 +312,7 @@ pub enum OperationSpec {
     /// ```
     StmtForecastAssign {
         /// Statement node identifier.
-        node_id: String,
+        node_id: NodeId,
         /// Absolute value to assign.
         value: f64,
     },
@@ -643,7 +646,7 @@ pub enum TimeRollMode {
 #[serde(deny_unknown_fields)]
 pub struct RateBindingSpec {
     /// Statement node ID to receive the rate.
-    pub node_id: String,
+    pub node_id: NodeId,
 
     /// Curve ID to extract rate from.
     pub curve_id: String,
@@ -664,7 +667,7 @@ impl RateBindingSpec {
     /// Build a binding from the legacy `(node_id, curve_id)` map.
     ///
     /// Uses a 1Y tenor with continuous compounding and no day-count override.
-    pub fn from_legacy(node_id: impl Into<String>, curve_id: impl Into<String>) -> Self {
+    pub fn from_legacy(node_id: impl Into<NodeId>, curve_id: impl Into<String>) -> Self {
         Self {
             node_id: node_id.into(),
             curve_id: curve_id.into(),
@@ -675,10 +678,11 @@ impl RateBindingSpec {
     }
 
     /// Convert a legacy `(node_id, curve_id)` map into detailed binding specs.
-    pub fn map_from_legacy(legacy: IndexMap<String, String>) -> IndexMap<String, RateBindingSpec> {
+    pub fn map_from_legacy(legacy: IndexMap<String, String>) -> IndexMap<NodeId, RateBindingSpec> {
         legacy
             .into_iter()
             .map(|(node_id, curve_id)| {
+                let node_id = NodeId::from(node_id);
                 let spec = RateBindingSpec::from_legacy(node_id.clone(), curve_id);
                 (node_id, spec)
             })
@@ -816,15 +820,15 @@ impl OperationSpec {
                 check_pct_floor(*pct, "pct")?;
             }
             OperationSpec::StmtForecastPercent { node_id, pct } => {
-                check_id(node_id, "node_id")?;
+                check_id(node_id.as_str(), "node_id")?;
                 check_finite(*pct, "pct")?;
             }
             OperationSpec::StmtForecastAssign { node_id, value } => {
-                check_id(node_id, "node_id")?;
+                check_id(node_id.as_str(), "node_id")?;
                 check_finite(*value, "value")?;
             }
             OperationSpec::RateBinding { binding } => {
-                check_id(&binding.node_id, "node_id")?;
+                check_id(binding.node_id.as_str(), "node_id")?;
                 check_id(&binding.curve_id, "curve_id")?;
                 if binding.tenor.trim().is_empty() {
                     return Err(crate::error::Error::Validation(

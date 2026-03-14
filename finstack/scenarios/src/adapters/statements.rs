@@ -130,7 +130,7 @@ pub fn update_rate_from_binding(
 
         let zero = curve.zero(tenor_years);
         let converted = convert_continuous_rate(zero, binding.compounding, tenor_years)?;
-        return set_scalar_rate(model, &binding.node_id, converted);
+        return set_scalar_rate(model, binding.node_id.as_str(), converted);
     }
 
     if let Ok(curve) = market.get_forward(curve_id) {
@@ -178,7 +178,7 @@ pub fn update_rate_from_binding(
             .map_err(|e| Error::Validation(e.to_string()))?;
         let converted =
             convert_continuous_rate(forward_continuous, binding.compounding, accrual_years)?;
-        return set_scalar_rate(model, &binding.node_id, converted);
+        return set_scalar_rate(model, binding.node_id.as_str(), converted);
     }
 
     Err(Error::MarketDataNotFound {

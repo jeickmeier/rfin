@@ -219,7 +219,7 @@ impl PyRateBindingSpec {
         day_count: Option<String>,
     ) -> Self {
         Self::from_inner(RateBindingSpec {
-            node_id,
+            node_id: node_id.into(),
             curve_id,
             tenor,
             compounding: compounding.map(|c| c.inner).unwrap_or_default(),
@@ -230,7 +230,7 @@ impl PyRateBindingSpec {
     #[getter]
     /// Statement node ID to receive the rate.
     fn node_id(&self) -> String {
-        self.inner.node_id.clone()
+        self.inner.node_id.to_string()
     }
 
     #[getter]
@@ -351,7 +351,7 @@ impl PyRateBindingSpec {
         let index_map: IndexMap<String, String> = legacy.into_iter().collect();
         RateBindingSpec::map_from_legacy(index_map)
             .into_iter()
-            .map(|(k, v)| (k, PyRateBindingSpec::from_inner(v)))
+            .map(|(k, v)| (k.as_str().to_string(), PyRateBindingSpec::from_inner(v)))
             .collect()
     }
 }
@@ -657,7 +657,10 @@ impl PyOperationSpec {
     /// OperationSpec
     ///     Operation specification.
     fn stmt_forecast_percent(_cls: &Bound<'_, PyType>, node_id: String, pct: f64) -> Self {
-        Self::new(OperationSpec::StmtForecastPercent { node_id, pct })
+        Self::new(OperationSpec::StmtForecastPercent {
+            node_id: node_id.into(),
+            pct,
+        })
     }
 
     #[classmethod]
@@ -676,7 +679,10 @@ impl PyOperationSpec {
     /// OperationSpec
     ///     Operation specification.
     fn stmt_forecast_assign(_cls: &Bound<'_, PyType>, node_id: String, value: f64) -> Self {
-        Self::new(OperationSpec::StmtForecastAssign { node_id, value })
+        Self::new(OperationSpec::StmtForecastAssign {
+            node_id: node_id.into(),
+            value,
+        })
     }
 
     #[classmethod]
