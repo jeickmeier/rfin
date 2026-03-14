@@ -97,7 +97,7 @@ impl JsNodeSpec {
     /// Get node identifier.
     #[wasm_bindgen(getter, js_name = nodeId)]
     pub fn node_id(&self) -> String {
-        self.inner.node_id.clone()
+        self.inner.node_id.to_string()
     }
 
     /// Get node type.

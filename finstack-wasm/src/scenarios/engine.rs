@@ -10,6 +10,7 @@ use crate::valuations::instruments::extract_instrument;
 use finstack_scenarios::engine::ScenarioEngine;
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::ExecutionContext;
+use finstack_scenarios::NodeId;
 use finstack_valuations::instruments::Instrument;
 use indexmap::IndexMap;
 use js_sys::Array;
@@ -122,7 +123,7 @@ pub struct JsExecutionContext {
     inner_model: finstack_statements::FinancialModelSpec,
     instruments: Option<Vec<JsValue>>,
     rust_instruments: Option<Vec<Box<dyn Instrument>>>,
-    rate_bindings: Option<IndexMap<String, RateBindingSpec>>,
+    rate_bindings: Option<IndexMap<NodeId, RateBindingSpec>>,
     calendar: Option<String>,
     as_of: finstack_core::dates::Date,
 }
@@ -145,7 +146,7 @@ impl JsExecutionContext {
 
     fn convert_rate_bindings(
         value: &JsValue,
-    ) -> Result<Option<IndexMap<String, RateBindingSpec>>, JsValue> {
+    ) -> Result<Option<IndexMap<NodeId, RateBindingSpec>>, JsValue> {
         if value.is_null() || value.is_undefined() {
             return Ok(None);
         }
@@ -154,7 +155,8 @@ impl JsExecutionContext {
         if let Ok(map) =
             serde_wasm_bindgen::from_value::<IndexMap<String, RateBindingSpec>>(value.clone())
         {
-            return Ok(Some(map));
+            let converted = map.into_iter().map(|(k, v)| (k.into(), v)).collect();
+            return Ok(Some(converted));
         }
 
         // Accept arrays of RateBindingSpec by deriving node_id keys.

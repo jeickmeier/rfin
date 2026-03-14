@@ -28,7 +28,7 @@ impl JsRateBindingSpec {
     ) -> JsRateBindingSpec {
         JsRateBindingSpec {
             inner: RateBindingSpec {
-                node_id,
+                node_id: node_id.into(),
                 curve_id,
                 tenor,
                 compounding: compounding.map(|c| c.inner).unwrap_or_default(),
@@ -62,7 +62,7 @@ impl JsRateBindingSpec {
 
     #[wasm_bindgen(getter, js_name = nodeId)]
     pub fn node_id(&self) -> String {
-        self.inner.node_id.clone()
+        self.inner.node_id.to_string()
     }
 
     #[wasm_bindgen(getter, js_name = curveId)]
@@ -339,7 +339,10 @@ impl JsOperationSpec {
     #[wasm_bindgen(js_name = stmtForecastPercent)]
     pub fn stmt_forecast_percent(node_id: String, pct: f64) -> JsOperationSpec {
         JsOperationSpec {
-            inner: OperationSpec::StmtForecastPercent { node_id, pct },
+            inner: OperationSpec::StmtForecastPercent {
+                node_id: node_id.into(),
+                pct,
+            },
         }
     }
 
@@ -354,7 +357,10 @@ impl JsOperationSpec {
     #[wasm_bindgen(js_name = stmtForecastAssign)]
     pub fn stmt_forecast_assign(node_id: String, value: f64) -> JsOperationSpec {
         JsOperationSpec {
-            inner: OperationSpec::StmtForecastAssign { node_id, value },
+            inner: OperationSpec::StmtForecastAssign {
+                node_id: node_id.into(),
+                value,
+            },
         }
     }
 
