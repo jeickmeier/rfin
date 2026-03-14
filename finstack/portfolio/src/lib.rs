@@ -112,27 +112,33 @@ pub mod scenarios;
 pub use attribution::{attribute_portfolio_pnl, PortfolioAttribution};
 pub use book::{Book, BookId};
 pub use builder::PortfolioBuilder;
-pub use cashflows::{aggregate_cashflows, PortfolioCashflows};
+pub use cashflows::{
+    aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
+    PortfolioCashflowBuckets, PortfolioCashflows,
+};
 pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};
-pub use grouping::{aggregate_by_attribute, aggregate_by_book, group_by_attribute};
+pub use grouping::{
+    aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
+};
 pub use margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,
 };
 pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
 pub use optimization::{
-    optimize_max_yield_with_ccc_limit, CandidatePosition, Constraint, DefaultLpOptimizer,
-    Inequality, MaxYieldWithCccLimitResult, MetricExpr, MissingMetricPolicy, Objective,
-    PerPositionMetric, PortfolioOptimizationProblem, PortfolioOptimizationResult, PositionFilter,
-    TradeDirection, TradeSpec, TradeType, TradeUniverse, WeightingScheme,
+    optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult, PortfolioOptimizationProblem,
+    PortfolioOptimizationResult,
 };
 pub use portfolio::Portfolio;
 pub use portfolio::PortfolioSpec;
 pub use position::{Position, PositionUnit};
 pub use results::PortfolioResult;
 pub use types::{Entity, EntityId, PositionId, DUMMY_ENTITY_ID};
-pub use valuation::{revalue_affected, value_portfolio, PortfolioValuation, PositionValue};
+pub use valuation::{
+    revalue_affected, value_portfolio, value_portfolio_with_options, PortfolioValuation,
+    PortfolioValuationOptions, PositionValue,
+};
 
 #[cfg(feature = "scenarios")]
 pub use scenarios::{apply_and_revalue, apply_scenario};

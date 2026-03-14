@@ -17,11 +17,12 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_portfolio::{aggregate_metrics, Entity, PortfolioBuilder, Position, PositionUnit};
-use finstack_portfolio::{
+use finstack_portfolio::optimization::{
     Constraint, DefaultLpOptimizer, MetricExpr, MissingMetricPolicy, Objective, PerPositionMetric,
-    PortfolioOptimizationProblem, WeightingScheme,
+    WeightingScheme,
 };
+use finstack_portfolio::PortfolioOptimizationProblem;
+use finstack_portfolio::{aggregate_metrics, Entity, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::PricingOverrides;
 use finstack_valuations::metrics::MetricId;
