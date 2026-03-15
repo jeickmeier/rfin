@@ -266,6 +266,7 @@ where
 }
 
 /// Utility helper to aggregate scenario P&Ls for both single-instrument and portfolio VaR.
+#[cfg(not(feature = "parallel"))]
 fn aggregate_scenario_pnls<F>(
     history: &MarketHistory,
     base_market: &MarketContext,
@@ -285,6 +286,31 @@ where
     }
 
     Ok(pnls)
+}
+
+/// Parallel version of [`aggregate_scenario_pnls`] using rayon.
+///
+/// Each scenario is independent (creates its own `MarketContext`), making this
+/// embarrassingly parallel. The closure must be `Fn + Send + Sync` (not `FnMut`)
+/// because multiple threads may invoke it concurrently.
+#[cfg(feature = "parallel")]
+fn aggregate_scenario_pnls_par<F>(
+    history: &MarketHistory,
+    base_market: &MarketContext,
+    scenario_pnl: F,
+) -> Result<Vec<f64>>
+where
+    F: Fn(&MarketContext) -> Result<f64> + Send + Sync,
+{
+    use rayon::prelude::*;
+    history
+        .scenarios
+        .par_iter()
+        .map(|scenario| {
+            let scenario_market = scenario.apply(base_market)?;
+            scenario_pnl(&scenario_market)
+        })
+        .collect()
 }
 
 /// Calculate VaR using full revaluation method.
@@ -321,7 +347,7 @@ where
         })
         .collect::<Result<_>>()?;
 
-    let pnls = aggregate_scenario_pnls(history, base_market, move |scenario_market| {
+    let scenario_pnl = move |scenario_market: &MarketContext| {
         let mut total = 0.0;
         for (inst, base_amount) in instrument_refs.iter().zip(base_values.iter()) {
             let scenario_amount = convert_money_to_reporting(
@@ -334,7 +360,13 @@ where
             total += scenario_amount - base_amount;
         }
         Ok(total)
-    })?;
+    };
+
+    #[cfg(feature = "parallel")]
+    let pnls = aggregate_scenario_pnls_par(history, base_market, scenario_pnl)?;
+
+    #[cfg(not(feature = "parallel"))]
+    let pnls = aggregate_scenario_pnls(history, base_market, scenario_pnl)?;
 
     // Calculate VaR and ES from P&L distribution
     VarResult::from_distribution(pnls, config.confidence_level)
