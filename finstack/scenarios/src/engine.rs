@@ -10,6 +10,9 @@
 
 use crate::error::Result;
 use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec};
+use finstack_core::market_data::hierarchy::ResolutionMode;
+use finstack_core::types::CurveId;
+use finstack_core::HashMap;
 use finstack_statements::NodeId;
 use indexmap::IndexMap;
 
@@ -103,6 +106,137 @@ pub struct ApplicationReport {
 
     /// Rounding context stamp (for determinism tracking).
     pub rounding_context: Option<String>,
+}
+
+/// Tracks a hierarchy-expanded operation with metadata needed for deduplication.
+struct HierarchyExpansion {
+    /// Depth of the hierarchy target path (longer = more specific).
+    path_depth: usize,
+    /// The expanded direct operation.
+    operation: OperationSpec,
+    /// The CurveId this expanded operation targets.
+    curve_id: CurveId,
+}
+
+/// Expand hierarchy-targeted operations into direct-targeted operations.
+///
+/// - `Cumulative`: All matching hierarchy operations expand independently.
+/// - `MostSpecificWins`: For each curve, only the deepest (longest path) hierarchy
+///   operation applies.
+///
+/// When no hierarchy is attached to the market context, returns a clone of the
+/// original operations unchanged.
+fn expand_hierarchy_operations(
+    operations: &[OperationSpec],
+    market: &finstack_core::market_data::context::MarketContext,
+    mode: ResolutionMode,
+) -> Vec<OperationSpec> {
+    let hierarchy = match market.hierarchy() {
+        Some(h) => h,
+        None => return operations.to_vec(),
+    };
+
+    let mut non_hierarchy_ops: Vec<OperationSpec> = Vec::new();
+    let mut hierarchy_expansions: Vec<HierarchyExpansion> = Vec::new();
+
+    for op in operations {
+        match op {
+            OperationSpec::HierarchyCurveParallelBp {
+                curve_kind,
+                target,
+                bp,
+            } => {
+                let ids = hierarchy.resolve(target, mode);
+                for id in ids {
+                    hierarchy_expansions.push(HierarchyExpansion {
+                        path_depth: target.path.len(),
+                        curve_id: id.clone(),
+                        operation: OperationSpec::CurveParallelBp {
+                            curve_kind: *curve_kind,
+                            curve_id: id.as_str().to_string(),
+                            bp: *bp,
+                        },
+                    });
+                }
+            }
+            OperationSpec::HierarchyVolSurfaceParallelPct {
+                surface_kind,
+                target,
+                pct,
+            } => {
+                let ids = hierarchy.resolve(target, mode);
+                for id in ids {
+                    hierarchy_expansions.push(HierarchyExpansion {
+                        path_depth: target.path.len(),
+                        curve_id: id.clone(),
+                        operation: OperationSpec::VolSurfaceParallelPct {
+                            surface_kind: *surface_kind,
+                            surface_id: id.as_str().to_string(),
+                            pct: *pct,
+                        },
+                    });
+                }
+            }
+            OperationSpec::HierarchyEquityPricePct { target, pct } => {
+                let ids = hierarchy.resolve(target, mode);
+                for id in ids {
+                    hierarchy_expansions.push(HierarchyExpansion {
+                        path_depth: target.path.len(),
+                        curve_id: id.clone(),
+                        operation: OperationSpec::EquityPricePct {
+                            ids: vec![id.as_str().to_string()],
+                            pct: *pct,
+                        },
+                    });
+                }
+            }
+            OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
+                let ids = hierarchy.resolve(target, mode);
+                for id in ids {
+                    hierarchy_expansions.push(HierarchyExpansion {
+                        path_depth: target.path.len(),
+                        curve_id: id.clone(),
+                        operation: OperationSpec::BaseCorrParallelPts {
+                            surface_id: id.as_str().to_string(),
+                            points: *points,
+                        },
+                    });
+                }
+            }
+            other => non_hierarchy_ops.push(other.clone()),
+        }
+    }
+
+    // Apply resolution mode for deduplication
+    let resolved_hierarchy_ops: Vec<OperationSpec> = match mode {
+        ResolutionMode::Cumulative => {
+            // All expansions pass through
+            hierarchy_expansions
+                .into_iter()
+                .map(|e| e.operation)
+                .collect()
+        }
+        ResolutionMode::MostSpecificWins => {
+            // For each CurveId, keep only the operations from the deepest path
+            let mut max_depth: HashMap<CurveId, usize> = HashMap::default();
+            for exp in &hierarchy_expansions {
+                let entry = max_depth.entry(exp.curve_id.clone()).or_insert(0);
+                *entry = (*entry).max(exp.path_depth);
+            }
+            hierarchy_expansions
+                .into_iter()
+                .filter(|exp| {
+                    max_depth
+                        .get(&exp.curve_id)
+                        .is_some_and(|&max| exp.path_depth == max)
+                })
+                .map(|e| e.operation)
+                .collect()
+        }
+    };
+
+    non_hierarchy_ops.extend(resolved_hierarchy_ops);
+    non_hierarchy_ops
 }
 
 /// Orchestrates the deterministic application of a [`ScenarioSpec`].
@@ -279,8 +413,12 @@ impl ScenarioEngine {
         // but ApplicationReport doesn't support it yet.
         // We focus on operations_applied and warnings.
 
+        // Phase -1: Expand hierarchy-targeted operations to direct operations
+        let expanded_ops =
+            expand_hierarchy_operations(&spec.operations, ctx.market, spec.resolution_mode);
+
         // Phase 0: Time Roll Forward
-        for op in &spec.operations {
+        for op in &expanded_ops {
             if let OperationSpec::TimeRollForward {
                 period,
                 apply_shocks,
@@ -327,7 +465,7 @@ impl ScenarioEngine {
         let mut deferred_stmts = Vec::new();
 
         // Phase 1: Market data operations & Instrument operations
-        for op in &spec.operations {
+        for op in &expanded_ops {
             if let OperationSpec::TimeRollForward { .. } = op {
                 continue; // handled in Phase 0
             }

@@ -9,6 +9,9 @@ use finstack_core::market_data::hierarchy::ResolutionMode;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
+/// Re-export [`HierarchyTarget`] for hierarchy-targeted operations.
+pub use finstack_core::market_data::hierarchy::HierarchyTarget;
+
 /// Re-export [`InstrumentType`] for
 /// type-safe instrument shock operations.
 pub use finstack_valuations::pricer::InstrumentType;
@@ -520,6 +523,45 @@ pub enum OperationSpec {
         delta_pts: f64,
     },
 
+    // ========================================================================
+    // Hierarchy-targeted operations (expanded to direct ops at execution time)
+    // ========================================================================
+    /// Hierarchy-targeted parallel curve shift (resolved to individual curves at execution).
+    HierarchyCurveParallelBp {
+        /// Type of curve (Discount, Forward, Hazard, etc.).
+        curve_kind: CurveKind,
+        /// Hierarchy target to resolve to curves.
+        target: HierarchyTarget,
+        /// Basis point shift (additive).
+        bp: f64,
+    },
+
+    /// Hierarchy-targeted vol surface parallel shift.
+    HierarchyVolSurfaceParallelPct {
+        /// Type of volatility surface.
+        surface_kind: VolSurfaceKind,
+        /// Hierarchy target to resolve to surfaces.
+        target: HierarchyTarget,
+        /// Percentage change in volatility.
+        pct: f64,
+    },
+
+    /// Hierarchy-targeted equity price shift.
+    HierarchyEquityPricePct {
+        /// Hierarchy target to resolve to equity IDs.
+        target: HierarchyTarget,
+        /// Percentage price change.
+        pct: f64,
+    },
+
+    /// Hierarchy-targeted base correlation parallel shift.
+    HierarchyBaseCorrParallelPts {
+        /// Hierarchy target to resolve to surfaces.
+        target: HierarchyTarget,
+        /// Absolute shift in correlation points.
+        points: f64,
+    },
+
     /// Roll forward horizon by a period with carry/theta.
     ///
     /// # Example
@@ -869,6 +911,40 @@ impl OperationSpec {
             }
             OperationSpec::PrepayFactorLoadingPts { delta_pts } => {
                 check_finite(*delta_pts, "delta_pts")?;
+            }
+            OperationSpec::HierarchyCurveParallelBp { target, bp, .. } => {
+                if target.path.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Hierarchy target path cannot be empty".into(),
+                    ));
+                }
+                check_finite(*bp, "bp")?;
+            }
+            OperationSpec::HierarchyVolSurfaceParallelPct { target, pct, .. } => {
+                if target.path.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Hierarchy target path cannot be empty".into(),
+                    ));
+                }
+                check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
+            }
+            OperationSpec::HierarchyEquityPricePct { target, pct } => {
+                if target.path.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Hierarchy target path cannot be empty".into(),
+                    ));
+                }
+                check_finite(*pct, "pct")?;
+                check_pct_floor(*pct, "pct")?;
+            }
+            OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
+                if target.path.is_empty() {
+                    return Err(crate::error::Error::Validation(
+                        "Hierarchy target path cannot be empty".into(),
+                    ));
+                }
+                check_finite(*points, "points")?;
             }
             OperationSpec::TimeRollForward { period, .. } => {
                 if period.trim().is_empty() {
