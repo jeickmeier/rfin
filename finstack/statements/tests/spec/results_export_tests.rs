@@ -38,14 +38,17 @@ fn test_export_to_polars_long() {
 
     // Should have 3 nodes × 2 periods = 6 rows
     assert_eq!(df.height(), 6);
-    assert_eq!(df.width(), 3); // node_id, period_id, value
+    assert_eq!(df.width(), 6); // node_id, period_id, value, value_money, currency, value_type
 
     // Check column names
     let columns = df.get_column_names();
-    assert_eq!(columns.len(), 3);
+    assert_eq!(columns.len(), 6);
     assert_eq!(columns[0].as_str(), "node_id");
     assert_eq!(columns[1].as_str(), "period_id");
     assert_eq!(columns[2].as_str(), "value");
+    assert_eq!(columns[3].as_str(), "value_money");
+    assert_eq!(columns[4].as_str(), "currency");
+    assert_eq!(columns[5].as_str(), "value_type");
 }
 
 #[test]
@@ -83,7 +86,7 @@ fn test_export_to_polars_long_filtered() {
 
     // Should have 2 nodes × 2 periods = 4 rows
     assert_eq!(df.height(), 4);
-    assert_eq!(df.width(), 3);
+    assert_eq!(df.width(), 6);
 
     // Verify only revenue and cogs are present
     let node_ids = df.column("node_id").unwrap().str().unwrap();

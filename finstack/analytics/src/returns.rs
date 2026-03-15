@@ -21,7 +21,7 @@ use crate::math::summation::NeumaierAccumulator;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::clean_returns;
+/// use finstack_analytics::returns::clean_returns;
 ///
 /// let mut r = vec![0.01, f64::INFINITY, 0.02, f64::NAN, f64::NAN];
 /// clean_returns(&mut r);
@@ -59,7 +59,7 @@ pub fn clean_returns(r: &mut Vec<f64>) {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::simple_returns;
+/// use finstack_analytics::returns::simple_returns;
 ///
 /// let r = simple_returns(&[100.0, 110.0, 99.0]);
 /// assert_eq!(r[0], 0.0);
@@ -110,7 +110,7 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::excess_returns;
+/// use finstack_analytics::returns::excess_returns;
 ///
 /// // Monthly returns, annualized risk-free rate of 10%.
 /// let ret = [0.05, 0.03, -0.02];
@@ -160,7 +160,7 @@ pub fn excess_returns(returns: &[f64], rf: &[f64], nperiods: Option<f64>) -> Vec
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::{simple_returns, convert_to_prices};
+/// use finstack_analytics::returns::{simple_returns, convert_to_prices};
 ///
 /// let prices = [100.0, 110.0, 99.0, 105.0];
 /// let r = simple_returns(&prices);
@@ -202,7 +202,7 @@ pub fn convert_to_prices(returns: &[f64], base: f64) -> Vec<f64> {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::rebase;
+/// use finstack_analytics::returns::rebase;
 ///
 /// let prices = [50.0, 55.0, 60.0];
 /// let rebased = rebase(&prices, 100.0);
@@ -255,7 +255,7 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::comp_sum;
+/// use finstack_analytics::returns::comp_sum;
 ///
 /// let r = [0.01, 0.02, -0.005];
 /// let cs = comp_sum(&r);
@@ -297,7 +297,7 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::returns::comp_total;
+/// use finstack_analytics::returns::comp_total;
 ///
 /// let r = [0.01, 0.02, -0.005];
 /// let ct = comp_total(&r);

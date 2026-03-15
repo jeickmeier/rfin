@@ -34,7 +34,7 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::lookback::mtd_select;
+/// use finstack_analytics::lookback::mtd_select;
 /// use time::{Date, Month};
 ///
 /// let dates: Vec<Date> = (1..=28)
@@ -72,7 +72,7 @@ pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::lookback::qtd_select;
+/// use finstack_analytics::lookback::qtd_select;
 /// use time::{Date, Month};
 ///
 /// let dates: Vec<Date> = (1..=60)
@@ -116,7 +116,7 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::lookback::ytd_select;
+/// use finstack_analytics::lookback::ytd_select;
 /// use time::{Date, Month};
 ///
 /// let dates: Vec<Date> = (0..60)
@@ -156,7 +156,7 @@ pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::lookback::fytd_select;
+/// use finstack_analytics::lookback::fytd_select;
 /// use finstack_core::dates::FiscalConfig;
 /// use time::{Date, Month};
 ///

@@ -42,7 +42,7 @@ pub struct RollingSharpe {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::rolling_sharpe;
+/// use finstack_analytics::risk_metrics::rolling_sharpe;
 /// use time::{Date, Month};
 ///
 /// let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
@@ -114,7 +114,7 @@ pub struct RollingVolatility {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::rolling_volatility;
+/// use finstack_analytics::risk_metrics::rolling_volatility;
 /// use time::{Date, Month};
 ///
 /// let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
@@ -183,7 +183,7 @@ pub struct RollingSortino {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::rolling_sortino;
+/// use finstack_analytics::risk_metrics::rolling_sortino;
 /// use time::{Date, Month};
 ///
 /// let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
@@ -420,7 +420,7 @@ pub fn rolling_sortino_values(returns: &[f64], window: usize, ann_factor: f64) -
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::analytics::risk_metrics::return_based::{sortino, volatility};
+    use crate::risk_metrics::return_based::{sortino, volatility};
     use time::Month;
 
     fn jan1(year: i32) -> Date {

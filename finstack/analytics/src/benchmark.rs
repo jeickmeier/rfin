@@ -32,7 +32,7 @@ use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::align_benchmark;
+/// use finstack_analytics::benchmark::align_benchmark;
 /// use time::{Date, Month};
 ///
 /// let bd = vec![
@@ -92,7 +92,7 @@ pub fn align_benchmark(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::tracking_error;
+/// use finstack_analytics::benchmark::tracking_error;
 ///
 /// // Identical series → zero tracking error.
 /// let r = [0.01, 0.02, -0.01, 0.03];
@@ -147,7 +147,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::information_ratio;
+/// use finstack_analytics::benchmark::information_ratio;
 ///
 /// let r = [0.02, 0.03, 0.01, 0.04];
 /// let b = [0.01, 0.01, 0.01, 0.01];
@@ -207,7 +207,7 @@ pub fn information_ratio(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::r_squared;
+/// use finstack_analytics::benchmark::r_squared;
 ///
 /// // Perfect linear relationship → R² = 1.
 /// let r = [1.0, 2.0, 3.0, 4.0];
@@ -266,7 +266,7 @@ pub struct BetaResult {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::calc_beta;
+/// use finstack_analytics::benchmark::calc_beta;
 ///
 /// // Portfolio returns are approximately 2× the benchmark with noise.
 /// let port  = [0.020, 0.042, 0.058, 0.081, 0.099];
@@ -353,7 +353,7 @@ pub struct GreeksResult {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::greeks;
+/// use finstack_analytics::benchmark::greeks;
 ///
 /// let r = [0.01, 0.02, 0.03, 0.04, 0.05];
 /// let b = [0.005, 0.01, 0.015, 0.02, 0.025];
@@ -418,7 +418,7 @@ pub struct RollingGreeks {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::rolling_greeks;
+/// use finstack_analytics::benchmark::rolling_greeks;
 /// use time::{Date, Month};
 ///
 /// let r: Vec<f64> = (0..20).map(|i| (i as f64 + 1.0) * 0.001).collect();
@@ -510,7 +510,7 @@ pub fn rolling_greeks(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::up_capture;
+/// use finstack_analytics::benchmark::up_capture;
 ///
 /// // Portfolio doubles the benchmark in up periods.
 /// let r = [0.04, -0.01, 0.06];
@@ -563,7 +563,7 @@ pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::down_capture;
+/// use finstack_analytics::benchmark::down_capture;
 ///
 /// // Portfolio loses less than benchmark in down periods (defensive).
 /// let r = [0.04, -0.01, 0.06];
@@ -613,7 +613,7 @@ pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::capture_ratio;
+/// use finstack_analytics::benchmark::capture_ratio;
 ///
 /// let r = [0.04, -0.01, 0.06];
 /// let b = [0.02, -0.03, 0.03];
@@ -649,7 +649,7 @@ pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::batting_average;
+/// use finstack_analytics::benchmark::batting_average;
 ///
 /// let r = [0.02, 0.01, 0.03, -0.01];
 /// let b = [0.01, 0.02, 0.01, 0.00];
@@ -710,7 +710,7 @@ pub struct MultiFactorResult {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::multi_factor_greeks;
+/// use finstack_analytics::benchmark::multi_factor_greeks;
 ///
 /// // y ≈ 2*f1 (single effective factor).
 /// let y = [0.02, 0.04, 0.06, 0.08, 0.10];
@@ -1101,7 +1101,7 @@ mod tests {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::treynor;
+/// use finstack_analytics::benchmark::treynor;
 ///
 /// // 10% return, 2% risk-free, beta = 1.2 → Treynor ≈ 0.0667.
 /// let t = treynor(0.10, 0.02, 1.2);
@@ -1142,7 +1142,7 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::benchmark::m_squared;
+/// use finstack_analytics::benchmark::m_squared;
 ///
 /// // Portfolio: 12% return, 20% vol; Benchmark: 15% vol; Rf: 2%
 /// // M² = 0.02 + (0.12 − 0.02) × (0.15 / 0.20) = 0.02 + 0.075 = 0.095
@@ -1167,9 +1167,9 @@ pub fn m_squared_from_returns(
     ann_factor: f64,
     risk_free_rate: f64,
 ) -> f64 {
-    let ann_return = crate::analytics::risk_metrics::mean_return(portfolio, true, ann_factor);
-    let ann_vol = crate::analytics::risk_metrics::volatility(portfolio, true, ann_factor);
-    let bench_vol = crate::analytics::risk_metrics::volatility(benchmark, true, ann_factor);
+    let ann_return = crate::risk_metrics::mean_return(portfolio, true, ann_factor);
+    let ann_vol = crate::risk_metrics::volatility(portfolio, true, ann_factor);
+    let bench_vol = crate::risk_metrics::volatility(benchmark, true, ann_factor);
     m_squared(ann_return, ann_vol, bench_vol, risk_free_rate)
 }
 
@@ -1210,9 +1210,9 @@ mod benchmark_ratio_tests {
         let portfolio = [0.01, -0.015, 0.012, 0.008, -0.004, 0.009];
         let benchmark = [0.008, -0.01, 0.01, 0.006, -0.003, 0.007];
         let ann = 252.0;
-        let ann_ret = crate::analytics::risk_metrics::mean_return(&portfolio, true, ann);
-        let ann_vol = crate::analytics::risk_metrics::volatility(&portfolio, true, ann);
-        let bench_vol = crate::analytics::risk_metrics::volatility(&benchmark, true, ann);
+        let ann_ret = crate::risk_metrics::mean_return(&portfolio, true, ann);
+        let ann_vol = crate::risk_metrics::volatility(&portfolio, true, ann);
+        let bench_vol = crate::risk_metrics::volatility(&benchmark, true, ann);
         let expected = m_squared(ann_ret, ann_vol, bench_vol, 0.01);
         let actual = m_squared_from_returns(&portfolio, &benchmark, ann, 0.01);
         assert!((actual - expected).abs() < 1e-12);

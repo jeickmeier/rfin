@@ -72,7 +72,7 @@ impl Performance {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_core::analytics::performance::Performance;
+    /// use finstack_analytics::performance::Performance;
     /// use finstack_core::dates::PeriodKind;
     /// use time::{Date, Month};
     ///

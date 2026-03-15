@@ -23,7 +23,7 @@
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::consecutive::count_consecutive;
+/// use finstack_analytics::consecutive::count_consecutive;
 ///
 /// // One losing period followed by three wins → longest streak is 3.
 /// let returns = [-0.01, 0.02, 0.03, 0.04];

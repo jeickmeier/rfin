@@ -50,6 +50,8 @@ dev-dependencies = [
 [tool.maturin]
 # Path to the Cargo manifest of the bindings crate
 manifest-path = "finstack-py/Cargo.toml"
+# Build finstack-py with extension-module linkage when packaging Python wheels.
+features = ["extension-module"]
 # Source directory that contains the Python package files (.pyi, py.typed)
 python-source = "finstack-py"
 include = [

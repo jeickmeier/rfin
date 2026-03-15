@@ -16,6 +16,7 @@
 //! | Feature       | Sub-crate              |
 //! |---------------|------------------------|
 //! | `core`        | [`finstack-core`]      |
+//! | `analytics`   | [`finstack-analytics`] |
 //! | `valuations`  | [`finstack-valuations`]|
 //! | `statements`  | [`finstack-statements`]|
 //! | `portfolio`   | [`finstack-portfolio`] |
@@ -25,6 +26,9 @@
 
 #[cfg(feature = "core")]
 pub use finstack_core as core;
+
+#[cfg(feature = "analytics")]
+pub use finstack_analytics as analytics;
 
 #[cfg(feature = "valuations")]
 pub use finstack_valuations as valuations;

@@ -19,7 +19,7 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
 
 - **`mod.rs`**
   - Public entrypoint for the analytics module.
-  - Re-exports all public types and functions so callers can use `finstack_core::analytics::*` without importing sub-modules directly.
+  - Re-exports all public types and functions so callers can use `finstack_analytics::*` without importing sub-modules directly.
 
 - **`performance.rs`**
   - `Performance`: stateful orchestrator holding pre-computed returns, drawdowns, and benchmark data for a universe of tickers.
@@ -231,7 +231,7 @@ pub struct PeriodStats {
 ### 1. Full Portfolio Analytics with `Performance`
 
 ```rust
-use finstack_core::analytics::Performance;
+use finstack_analytics::Performance;
 use finstack_core::dates::PeriodKind;
 use time::{Date, Month};
 
@@ -278,8 +278,8 @@ let h2_cagr = perf.cagr(); // recalculated over H1 only
 All functions in `risk_metrics.rs` can be used independently:
 
 ```rust
-use finstack_core::analytics::{sharpe, sortino, calmar, value_at_risk, expected_shortfall};
-use finstack_core::analytics::{cagr, volatility};
+use finstack_analytics::{sharpe, sortino, calmar, value_at_risk, expected_shortfall};
+use finstack_analytics::{cagr, volatility};
 use time::{Date, Month};
 
 let returns = vec![0.01, -0.005, 0.02, -0.01, 0.015, 0.008, -0.003];
@@ -298,7 +298,7 @@ assert!(es <= var); // ES is always at least as bad as VaR
 ### 3. Drawdown Analysis
 
 ```rust
-use finstack_core::analytics::{to_drawdown_series, drawdown_details, avg_drawdown};
+use finstack_analytics::{to_drawdown_series, drawdown_details, avg_drawdown};
 use time::{Date, Month};
 
 let returns = vec![0.05, -0.12, 0.03, -0.08, 0.10, -0.20, 0.15];
@@ -327,7 +327,7 @@ let avg_dd = avg_drawdown(&dd_series, &dates, 3);
 ### 4. Period Aggregation and Kelly Criterion
 
 ```rust
-use finstack_core::analytics::{group_by_period, period_stats};
+use finstack_analytics::{group_by_period, period_stats};
 use finstack_core::dates::PeriodKind;
 use time::{Date, Month};
 
@@ -352,8 +352,8 @@ println!("Worst month:   {:.1}%", stats.worst * 100.0);
 ### 5. Lookback Selectors (MTD / QTD / YTD)
 
 ```rust
-use finstack_core::analytics::{mtd_select, qtd_select, ytd_select};
-use finstack_core::analytics::comp_total;
+use finstack_analytics::{mtd_select, qtd_select, ytd_select};
+use finstack_analytics::comp_total;
 use time::{Date, Month};
 
 let dates: Vec<Date> = (0..252)
@@ -375,7 +375,7 @@ println!("MTD: {:.2}%  YTD: {:.2}%", mtd_ret * 100.0, ytd_ret * 100.0);
 ### 6. Benchmark Alignment and Greeks
 
 ```rust
-use finstack_core::analytics::{greeks, rolling_greeks};
+use finstack_analytics::{greeks, rolling_greeks};
 use time::{Date, Month};
 
 let portfolio: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.002).collect();
@@ -464,7 +464,7 @@ The analytics module is **pure-function-first**: analytics logic lives in statel
    /// # Examples
    ///
    /// ```rust
-   /// use finstack_core::analytics::risk_metrics::return_based::my_metric;
+   /// use finstack_analytics::risk_metrics::return_based::my_metric;
    /// let result = my_metric(&[0.01, -0.005, 0.02], 252.0);
    /// assert!(result.is_finite());
    /// ```
@@ -475,7 +475,7 @@ The analytics module is **pure-function-first**: analytics logic lives in statel
    pub fn my_metric(returns: &[f64], ann_factor: f64) -> f64 { ... }
    ```
 
-3. **Re-export from `mod.rs`** so callers reach it via `finstack_core::analytics::my_metric`.
+3. **Re-export from `mod.rs`** so callers reach it via `finstack_analytics::my_metric`.
 
 4. **Add a method to `Performance`** if the metric is per-ticker:
 

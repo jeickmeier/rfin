@@ -1,6 +1,6 @@
 //! Python bindings for the performance analytics module.
 //!
-//! Maps to `finstack_core::analytics` in Rust, exposed as
+//! Maps to `finstack_analytics` in Rust, exposed as
 //! `finstack.core.analytics` in Python (with a convenience alias at
 //! `finstack.analytics` for ergonomic access).
 

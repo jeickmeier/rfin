@@ -1,12 +1,12 @@
 //! Python bindings for the `Performance` analytics struct.
 //!
 //! Accepts Polars or pandas DataFrames on the Python side, extracts columns to Rust
-//! slices, delegates to `finstack_core::analytics::Performance`, and packs
+//! slices, delegates to `finstack_analytics::Performance`, and packs
 //! results back into Polars DataFrames or Python dicts.
 
 use crate::core::dates::utils::py_to_date;
 use crate::errors::core_to_py;
-use finstack_core::analytics::{DrawdownEpisode, Performance};
+use finstack_analytics::{DrawdownEpisode, Performance};
 use finstack_core::dates::PeriodKind;
 use polars::prelude::*;
 use pyo3::exceptions::{PyTypeError, PyValueError};

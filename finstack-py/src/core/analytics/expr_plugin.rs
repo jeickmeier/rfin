@@ -2,10 +2,10 @@
 //!
 //! Each `#[polars_expr]` function is exported as a C ABI symbol that Polars
 //! discovers at runtime via `register_plugin_function` on the Python side.
-//! All computation delegates to `finstack_core::analytics` — no logic is
+//! All computation delegates to `finstack_analytics` — no logic is
 //! duplicated.
 
-use finstack_core::analytics::{benchmark, drawdown, returns, risk_metrics};
+use finstack_analytics::{benchmark, drawdown, returns, risk_metrics};
 use finstack_core::dates::PeriodKind;
 use polars::prelude::*;
 use pyo3_polars::derive::polars_expr;

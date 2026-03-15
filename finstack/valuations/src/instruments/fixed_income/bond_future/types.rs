@@ -609,7 +609,7 @@ impl BondFuture {
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::types::{InstrumentId, CurveId};
-    /// use finstack_valuations::instruments::common_impl::traits::Attributes;
+    /// use finstack_valuations::instruments::common::traits::Attributes;
     /// use time::macros::date;
     ///
     /// let ctd_id = InstrumentId::new("US912828XG33");

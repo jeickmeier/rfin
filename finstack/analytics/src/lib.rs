@@ -2,9 +2,12 @@
 //! statistics, lookback selectors, and period aggregation.
 //!
 //! All analytics operate on `&[f64]` slices and `time::Date` -- no Polars
-//! dependency. The [`crate::analytics::performance::Performance`] struct ties everything together as a
+//! dependency. The [`crate::performance::Performance`] struct ties everything together as a
 //! stateful orchestrator; individual sub-module functions are also public
 //! for standalone use.
+
+pub(crate) use finstack_core::{dates, error, math};
+type Result<T> = finstack_core::Result<T>;
 
 pub mod aggregation;
 pub mod benchmark;

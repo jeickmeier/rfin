@@ -96,7 +96,7 @@ fn date_to_period_id(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::aggregation::group_by_period;
+/// use finstack_analytics::aggregation::group_by_period;
 /// use finstack_core::dates::{PeriodId, PeriodKind};
 /// use time::{Date, Month};
 ///
@@ -162,7 +162,7 @@ pub fn group_by_period(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::aggregation::period_stats;
+/// use finstack_analytics::aggregation::period_stats;
 /// use finstack_core::dates::PeriodId;
 ///
 /// let grouped = vec![

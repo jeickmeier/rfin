@@ -6,8 +6,8 @@
 //! - [`rolling`]: Rolling Sharpe, Sortino, and volatility over sliding windows.
 //!
 //! Drawdown-derived ratios (Calmar, Ulcer, Martin, Sterling, Burke, Pain,
-//! Recovery Factor) live in [`crate::analytics::drawdown`]. Benchmark-relative
-//! ratios (Treynor, M-squared) live in [`crate::analytics::benchmark`].
+//! Recovery Factor) live in [`crate::drawdown`]. Benchmark-relative
+//! ratios (Treynor, M-squared) live in [`crate::benchmark`].
 //!
 //! All functions operate on `&[f64]` return slices and return scalar `f64`.
 

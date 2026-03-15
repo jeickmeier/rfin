@@ -12,7 +12,7 @@
 //!    scalar-curve types apply bumps and rolls symmetrically; serde round-trip
 //!    is stable.
 
-use finstack_core::analytics::risk_metrics::{
+use finstack_analytics::risk_metrics::{
     expected_shortfall, expected_shortfall_with_scratch, outlier_loss_ratio,
     outlier_loss_ratio_with_scratch, outlier_win_ratio, outlier_win_ratio_with_scratch,
     rolling_sharpe, rolling_sharpe_values, rolling_sortino, rolling_sortino_values,

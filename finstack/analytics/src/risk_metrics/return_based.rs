@@ -34,7 +34,7 @@ use super::tail_risk::cornish_fisher_var;
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::cagr;
+/// use finstack_analytics::risk_metrics::cagr;
 /// use time::{Date, Month};
 ///
 /// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
@@ -47,7 +47,7 @@ pub fn cagr(returns: &[f64], start: crate::dates::Date, end: crate::dates::Date)
     if returns.is_empty() {
         return 0.0;
     }
-    let total = 1.0 + crate::analytics::returns::comp_total(returns);
+    let total = 1.0 + crate::returns::comp_total(returns);
     let days = (end - start).whole_days() as f64;
     if days <= 0.0 {
         return 0.0;
@@ -68,7 +68,7 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
     if n < 2 {
         return f64::NAN;
     }
-    let total = 1.0 + crate::analytics::returns::comp_total(returns);
+    let total = 1.0 + crate::returns::comp_total(returns);
     let years = n as f64 / ann_factor;
     if years > 0.0 {
         total.powf(1.0 / years) - 1.0
@@ -96,7 +96,7 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::mean_return;
+/// use finstack_analytics::risk_metrics::mean_return;
 ///
 /// let r = [0.01, 0.02, 0.03];
 /// let m = mean_return(&r, false, 252.0);
@@ -135,7 +135,7 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::volatility;
+/// use finstack_analytics::risk_metrics::volatility;
 ///
 /// let r = [0.01, -0.01, 0.02, -0.02];
 /// let vol = volatility(&r, false, 252.0);
@@ -171,7 +171,7 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::sharpe;
+/// use finstack_analytics::risk_metrics::sharpe;
 ///
 /// assert!((sharpe(0.10, 0.15, 0.0) - 0.6667).abs() < 0.001);
 /// // Zero volatility → zero Sharpe.
@@ -214,7 +214,7 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::downside_deviation;
+/// use finstack_analytics::risk_metrics::downside_deviation;
 ///
 /// let r = [0.01, -0.02, 0.03, -0.01, 0.005];
 /// let dd = downside_deviation(&r, 0.0, false, 252.0);
@@ -274,7 +274,7 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::sortino;
+/// use finstack_analytics::risk_metrics::sortino;
 ///
 /// let r = [0.01, 0.02, 0.03, -0.005, 0.01];
 /// let s = sortino(&r, false, 252.0);
@@ -329,7 +329,7 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::risk_of_ruin;
+/// use finstack_analytics::risk_metrics::risk_of_ruin;
 ///
 /// // Highly positive mean relative to vol → very low ruin probability.
 /// let p = risk_of_ruin(0.10, 0.05);
@@ -377,7 +377,7 @@ pub fn risk_of_ruin_from_returns(returns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::geometric_mean;
+/// use finstack_analytics::risk_metrics::geometric_mean;
 ///
 /// // +10% then −10%: geometric mean < 0 (volatility drag).
 /// let gm = geometric_mean(&[0.10, -0.10]);
@@ -418,7 +418,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::omega_ratio;
+/// use finstack_analytics::risk_metrics::omega_ratio;
 ///
 /// let r = [0.05, -0.02, 0.03, -0.01, 0.04];
 /// let omega = omega_ratio(&r, 0.0);
@@ -469,7 +469,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::gain_to_pain;
+/// use finstack_analytics::risk_metrics::gain_to_pain;
 ///
 /// let r = [0.05, -0.02, 0.03, -0.01, 0.04];
 /// let gtp = gain_to_pain(&r);
@@ -515,7 +515,7 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::modified_sharpe;
+/// use finstack_analytics::risk_metrics::modified_sharpe;
 ///
 /// let r = [0.01, -0.02, 0.03, -0.01, 0.02, 0.005, -0.005, 0.015];
 /// let ms = modified_sharpe(&r, 0.02, 0.95, 252.0);
@@ -712,8 +712,7 @@ mod tests {
         let vol = variance(&returns).sqrt();
         let z = crate::math::special_functions::standard_normal_inv_cdf(0.05);
         let expected = m * ann_factor + z * vol * ann_factor.sqrt();
-        let actual =
-            crate::analytics::risk_metrics::parametric_var(&returns, 0.95, Some(ann_factor));
+        let actual = crate::risk_metrics::parametric_var(&returns, 0.95, Some(ann_factor));
         assert!((actual - expected).abs() < 1e-14, "{actual} vs {expected}");
     }
 }

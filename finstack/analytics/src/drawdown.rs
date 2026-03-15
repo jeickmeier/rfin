@@ -54,7 +54,7 @@ pub struct DrawdownEpisode {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::to_drawdown_series;
+/// use finstack_analytics::drawdown::to_drawdown_series;
 ///
 /// // No drawdown while returns are positive.
 /// let dd = to_drawdown_series(&[0.10, 0.05]);
@@ -103,7 +103,7 @@ pub fn to_drawdown_series(returns: &[f64]) -> Vec<f64> {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::{to_drawdown_series, drawdown_details};
+/// use finstack_analytics::drawdown::{to_drawdown_series, drawdown_details};
 /// use time::{Date, Month};
 ///
 /// let returns = [0.10, -0.20, 0.05, 0.10];
@@ -199,7 +199,7 @@ fn make_episode(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::{to_drawdown_series, avg_drawdown};
+/// use finstack_analytics::drawdown::{to_drawdown_series, avg_drawdown};
 /// use time::{Date, Month};
 ///
 /// let returns = [0.05, -0.15, 0.10, -0.08, 0.03];
@@ -236,7 +236,7 @@ pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::{to_drawdown_series, max_drawdown_duration};
+/// use finstack_analytics::drawdown::{to_drawdown_series, max_drawdown_duration};
 /// use time::{Date, Month};
 ///
 /// let returns = [0.10, -0.20, 0.05, 0.10, -0.05, -0.03];
@@ -277,7 +277,7 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::cdar;
+/// use finstack_analytics::drawdown::cdar;
 ///
 /// let dd = [-0.01, -0.05, -0.10, -0.15, -0.20, 0.0, -0.03, -0.08, -0.12, -0.18];
 /// let c = cdar(&dd, 0.80);
@@ -426,7 +426,7 @@ mod tests {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::ulcer_index;
+/// use finstack_analytics::drawdown::ulcer_index;
 ///
 /// // Flat drawdown of −10% throughout → UI = 0.10.
 /// let dd = [-0.10, -0.10, -0.10];
@@ -463,7 +463,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::pain_index;
+/// use finstack_analytics::drawdown::pain_index;
 ///
 /// let dd = [-0.05, -0.10, 0.0, -0.03];
 /// let pi = pain_index(&dd);
@@ -514,7 +514,7 @@ pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::calmar;
+/// use finstack_analytics::drawdown::calmar;
 ///
 /// // 15% CAGR with 30% max drawdown → Calmar ≈ 0.5
 /// assert!((calmar(0.15, -0.30) - 0.5).abs() < 1e-12);
@@ -547,7 +547,7 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::recovery_factor;
+/// use finstack_analytics::drawdown::recovery_factor;
 ///
 /// // 50% total return with 25% max drawdown → 2.0.
 /// assert!((recovery_factor(0.50, -0.25) - 2.0).abs() < 1e-12);
@@ -561,7 +561,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 
 /// Recovery factor computed directly from a returns series.
 pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
-    let total_return = crate::analytics::returns::comp_total(returns);
+    let total_return = crate::returns::comp_total(returns);
     let drawdowns = to_drawdown_series(returns);
     let max_dd = drawdowns.iter().copied().fold(0.0_f64, f64::min);
     recovery_factor(total_return, max_dd)
@@ -584,7 +584,7 @@ pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::martin_ratio;
+/// use finstack_analytics::drawdown::martin_ratio;
 ///
 /// assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
 /// assert_eq!(martin_ratio(0.10, 0.0), 0.0);
@@ -602,7 +602,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 
 /// Martin ratio computed directly from a returns series.
 pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
-    let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(returns, ann_factor);
+    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
     let ulcer = ulcer_index(&drawdowns);
     martin_ratio(cagr_val, ulcer)
@@ -627,7 +627,7 @@ pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::sterling_ratio;
+/// use finstack_analytics::drawdown::sterling_ratio;
 ///
 /// // 12% CAGR, 2% risk-free, −10% avg drawdown → 1.0.
 /// assert!((sterling_ratio(0.12, -0.10, 0.02) - 1.0).abs() < 1e-12);
@@ -645,7 +645,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 
 /// Sterling ratio computed directly from a returns series.
 pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
-    let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(returns, ann_factor);
+    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
     let avg_dd = average_drawdown(&drawdowns);
     sterling_ratio(cagr_val, avg_dd, risk_free_rate)
@@ -672,7 +672,7 @@ pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_r
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::burke_ratio;
+/// use finstack_analytics::drawdown::burke_ratio;
 ///
 /// let dds = [-0.10, -0.05, -0.03];
 /// let b = burke_ratio(0.15, &dds, 0.02);
@@ -714,7 +714,7 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::drawdown::pain_ratio;
+/// use finstack_analytics::drawdown::pain_ratio;
 ///
 /// assert!((pain_ratio(0.10, 0.05, 0.02) - 1.6).abs() < 1e-12);
 /// ```
@@ -727,7 +727,7 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
 
 /// Pain ratio computed directly from a returns series.
 pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
-    let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(returns, ann_factor);
+    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
     let pain = pain_index(&drawdowns);
     pain_ratio(cagr_val, pain, risk_free_rate)
@@ -825,7 +825,7 @@ mod drawdown_ratio_tests {
     fn drawdown_composite_helpers_match_composed_formulas() {
         let returns = [0.01, -0.02, 0.015, -0.005, 0.012, 0.008];
         let ann = 252.0;
-        let cagr_val = crate::analytics::risk_metrics::cagr_from_periods(&returns, ann);
+        let cagr_val = crate::risk_metrics::cagr_from_periods(&returns, ann);
         let dd = to_drawdown_series(&returns);
         let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
         let ulcer = ulcer_index(&dd);
@@ -834,7 +834,7 @@ mod drawdown_ratio_tests {
 
         assert!(
             (recovery_factor_from_returns(&returns)
-                - recovery_factor(crate::analytics::returns::comp_total(&returns), max_dd))
+                - recovery_factor(crate::returns::comp_total(&returns), max_dd))
             .abs()
                 < 1e-12
         );

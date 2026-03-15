@@ -29,7 +29,7 @@ use crate::math::stats::{mean, quantile, variance};
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::value_at_risk;
+/// use finstack_analytics::risk_metrics::value_at_risk;
 ///
 /// let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
 /// let var95 = value_at_risk(&data, 0.95, None);
@@ -91,7 +91,7 @@ pub fn value_at_risk_with_scratch(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::{value_at_risk, expected_shortfall};
+/// use finstack_analytics::risk_metrics::{value_at_risk, expected_shortfall};
 ///
 /// let data: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
 /// let var = value_at_risk(&data, 0.95, None);
@@ -167,7 +167,7 @@ pub fn expected_shortfall_with_scratch(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::tail_ratio;
+/// use finstack_analytics::risk_metrics::tail_ratio;
 ///
 /// // Symmetric distribution → tail ratio ≈ 1.
 /// let r: Vec<f64> = (-50..=50).map(|i| i as f64 * 0.01).collect();
@@ -214,7 +214,7 @@ pub fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::outlier_win_ratio;
+/// use finstack_analytics::risk_metrics::outlier_win_ratio;
 ///
 /// let r: Vec<f64> = (0..100).map(|i| i as f64 * 0.001).collect();
 /// let ratio = outlier_win_ratio(&r, 0.95);
@@ -264,7 +264,7 @@ pub fn outlier_win_ratio_with_scratch(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::outlier_loss_ratio;
+/// use finstack_analytics::risk_metrics::outlier_loss_ratio;
 ///
 /// let r: Vec<f64> = (0..100).map(|i| i as f64 * 0.001).collect();
 /// let ratio = outlier_loss_ratio(&r, 0.95);
@@ -319,7 +319,7 @@ pub fn outlier_loss_ratio_with_scratch(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::skewness;
+/// use finstack_analytics::risk_metrics::skewness;
 ///
 /// // Symmetric distribution → skewness ≈ 0.
 /// let r: Vec<f64> = (-50..=50).map(|i| i as f64 * 0.01).collect();
@@ -381,7 +381,7 @@ pub fn skewness(returns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::kurtosis;
+/// use finstack_analytics::risk_metrics::kurtosis;
 ///
 /// // Uniform distribution has negative excess kurtosis.
 /// let r: Vec<f64> = (0..1000).map(|i| i as f64 / 1000.0).collect();
@@ -441,7 +441,7 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::parametric_var;
+/// use finstack_analytics::risk_metrics::parametric_var;
 ///
 /// let r: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
 /// let pvar = parametric_var(&r, 0.95, None);
@@ -499,7 +499,7 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 /// # Examples
 ///
 /// ```rust
-/// use finstack_core::analytics::risk_metrics::{parametric_var, cornish_fisher_var};
+/// use finstack_analytics::risk_metrics::{parametric_var, cornish_fisher_var};
 ///
 /// let r: Vec<f64> = (-100..=100).map(|i| i as f64 / 100.0).collect();
 /// let pvar = parametric_var(&r, 0.95, None);
