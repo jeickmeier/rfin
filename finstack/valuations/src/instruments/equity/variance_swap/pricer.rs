@@ -368,6 +368,7 @@ pub(crate) fn remaining_forward_variance(
                             } else {
                                 0.5 * (strikes[i + 1] - strikes[i - 1])
                             };
+                            // vol floored to 1e-8 so d1_d2 never sees vol==0
                             let vol = surface.value_clamped(t, k).max(1e-8);
                             let (d1, d2) = d1_d2(spot, k, r, vol, t, q);
                             let exp_mqt = (-q * t).exp();

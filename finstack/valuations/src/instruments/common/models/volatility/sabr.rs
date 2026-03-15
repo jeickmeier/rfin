@@ -1587,6 +1587,9 @@ fn bs_call_vega(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) -> 
         return 0.0;
     }
 
+    // NOTE: `forward` here is self.forward from SABRSmile (a true forward price),
+    // not spot. Using d1_d2 with r/q on top of a forward double-counts the drift.
+    // This preserves pre-existing behavior; to be revisited in BS price consolidation.
     let (d1, _d2) = d1_d2(forward, strike, r, vol, t, q);
     let pdf_d1 = finstack_core::math::norm_pdf(d1);
 
@@ -1602,6 +1605,7 @@ fn bs_call_price(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) ->
         return (forward - strike).max(0.0);
     }
 
+    // NOTE: same forward-as-spot concern as bs_call_vega above.
     let (d1, d2) = d1_d2(forward, strike, r, vol, t, q);
 
     let cdf_d1 = finstack_core::math::norm_cdf(d1);
