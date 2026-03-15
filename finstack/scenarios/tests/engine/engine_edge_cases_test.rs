@@ -25,6 +25,7 @@ fn test_empty_operations_list() {
         description: None,
         operations: vec![], // Empty
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -65,6 +66,7 @@ fn test_multiple_operations_same_target_last_wins() {
             },
         ],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -102,6 +104,7 @@ fn test_scenario_composition_same_priority() {
             pct: -5.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let s2 = ScenarioSpec {
@@ -113,6 +116,7 @@ fn test_scenario_composition_same_priority() {
             pct: -10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -133,6 +137,7 @@ fn test_scenario_composition_different_priorities() {
             pct: -5.0,
         }],
         priority: -10, // Lower value = higher priority
+        resolution_mode: Default::default(),
     };
 
     let low_priority = ScenarioSpec {
@@ -144,6 +149,7 @@ fn test_scenario_composition_different_priorities() {
             pct: -10.0,
         }],
         priority: 10,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -175,6 +181,7 @@ fn test_warnings_missing_equity() {
             pct: -10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -214,6 +221,7 @@ fn test_warnings_attribute_based_operations() {
             OperationSpec::InstrumentSpreadBpByAttr { attrs, bp: 50.0 },
         ],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -258,6 +266,7 @@ fn test_rate_binding_missing_curve() {
         description: None,
         operations: vec![],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -298,6 +307,7 @@ fn test_rate_binding_missing_node() {
         description: None,
         operations: vec![],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -337,6 +347,7 @@ fn test_time_roll_with_apply_shocks_false() {
             },
         ],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -380,6 +391,7 @@ fn test_time_roll_with_apply_shocks_true() {
             },
         ],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

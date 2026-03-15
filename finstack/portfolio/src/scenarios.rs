@@ -196,6 +196,7 @@ mod tests {
                 bp: 50.0,
             }],
             priority: 0,
+            resolution_mode: Default::default(),
         };
 
         let result = apply_scenario(&portfolio, &scenario, &market);
@@ -249,6 +250,7 @@ mod tests {
             description: None,
             operations: vec![],
             priority: 0,
+            resolution_mode: Default::default(),
         };
 
         let result = apply_and_revalue(&portfolio, &scenario, &market, &config);

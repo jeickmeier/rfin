@@ -36,6 +36,7 @@ fn test_forecast_curve_parallel_shock() {
             bp: 25.0, // +25bp
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -82,6 +83,7 @@ fn test_par_cds_parallel_shock() {
             bp: 50.0, // +50bp credit spread widening
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -138,6 +140,7 @@ fn test_inflation_curve_parallel_shock() {
             bp: 100.0, // +100bp = +1% inflation
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -183,6 +186,7 @@ fn test_forecast_curve_node_shock() {
             match_mode: TenorMatchMode::Exact,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -232,6 +236,7 @@ fn test_par_cds_node_shock() {
             match_mode: TenorMatchMode::Exact,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -295,6 +300,7 @@ fn test_inflation_curve_node_shock() {
             match_mode: TenorMatchMode::Exact,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -334,6 +340,7 @@ fn test_discount_curve_id_preservation() {
             bp: 50.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -427,6 +434,7 @@ fn test_all_curve_types_in_one_scenario() {
             },
         ],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

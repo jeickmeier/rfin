@@ -29,6 +29,7 @@ fn test_zero_percent_shock() {
             pct: 0.0, // No change
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -69,6 +70,7 @@ fn test_negative_shock() {
             pct: -50.0, // Large negative shock
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -109,6 +111,7 @@ fn test_very_large_shock() {
             pct: 500.0, // 5x increase
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -149,6 +152,7 @@ fn test_negative_100_percent_shock() {
             pct: -100.0, // 100% loss
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -195,6 +199,7 @@ fn test_shock_beyond_negative_100_percent() {
             pct: -150.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -241,6 +246,7 @@ fn test_shock_nonexistent_market_data() {
             pct: -10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -273,6 +279,7 @@ fn test_shock_nonexistent_statement_node() {
             pct: 10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -367,6 +374,7 @@ fn test_curve_parallel_shock_zero_bp() {
             bp: 0.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -408,6 +416,7 @@ fn test_statement_shock_negative_percent() {
             pct: -30.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -449,6 +458,7 @@ fn test_curve_shock_nonexistent_curve() {
             bp: 50.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -490,6 +500,7 @@ fn test_statement_assign_extreme_value() {
             value: 1_000_000_000.0, // Very large
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

@@ -69,6 +69,7 @@ fn test_instrument_type_price_shock_matching() {
             pct: -5.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -142,6 +143,7 @@ fn test_instrument_type_spread_shock_matching() {
             bp: 100.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -242,6 +244,7 @@ fn test_instrument_attr_price_shock_matching() {
         description: None,
         operations: vec![OperationSpec::InstrumentPricePctByAttr { attrs, pct: -4.0 }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -303,6 +306,7 @@ fn test_instrument_attr_price_shock_no_matches() {
         description: None,
         operations: vec![OperationSpec::InstrumentPricePctByAttr { attrs, pct: -4.0 }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -338,6 +342,7 @@ fn test_instrument_shock_empty_list() {
             pct: -5.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -389,6 +394,7 @@ fn test_instrument_shock_no_matching_types() {
             pct: -5.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -420,6 +426,7 @@ fn test_instrument_shock_without_instruments_provided() {
             pct: -5.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -493,6 +500,7 @@ fn test_instrument_shock_multiple_types() {
             pct: -10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

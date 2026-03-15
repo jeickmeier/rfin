@@ -40,6 +40,7 @@
 //!         },
 //!     ],
 //!     priority: 0,
+//!     resolution_mode: Default::default(),
 //! };
 //!
 //! let engine = ScenarioEngine::default();

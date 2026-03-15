@@ -41,6 +41,7 @@ fn test_vol_bucket_filtering_by_tenor() {
             pct: 10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -110,6 +111,7 @@ fn test_vol_bucket_filtering_by_strike() {
             pct: 20.0, // +20% vol
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -167,6 +169,7 @@ fn test_basecorr_bucket_filtering() {
             points: 0.05, // +5 points
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

@@ -38,6 +38,7 @@ fn test_fx_shock() {
             pct: 10.0, // EUR strengthens by 10%
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario
@@ -91,6 +92,7 @@ fn test_fx_shock_preserves_other_quotes() {
             pct: 5.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -161,6 +163,7 @@ fn test_rate_binding() {
             bp: 100.0, // +100bp = +1%
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario with rate binding

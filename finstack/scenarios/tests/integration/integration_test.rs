@@ -40,6 +40,7 @@ fn test_curve_parallel_shock() {
             bp: 50.0, // +50bp
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario
@@ -98,6 +99,7 @@ fn test_equity_price_shock() {
             pct: -10.0, // -10%
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario
@@ -139,6 +141,7 @@ fn test_scenario_composition() {
             bp: 25.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let s2 = ScenarioSpec {
@@ -151,6 +154,7 @@ fn test_scenario_composition() {
             bp: 30.0,
         }],
         priority: 1,
+        resolution_mode: Default::default(),
     };
 
     // Compose scenarios
@@ -188,6 +192,7 @@ fn test_vol_surface_parallel_shock() {
             pct: 15.0, // +15% vol increase
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -234,6 +239,7 @@ fn test_base_correlation_parallel_shock() {
             points: 0.10, // +10 correlation points
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

@@ -196,6 +196,7 @@ mod tests {
                 bp: 25.0,
             }],
             priority: 0,
+            resolution_mode: Default::default(),
         }
     }
 
@@ -333,6 +334,7 @@ mod tests {
                         bp: 25.0,
                     }],
                     priority: 0,
+                    resolution_mode: Default::default(),
                 },
             },
             composite: composite(vec!["rates"]),

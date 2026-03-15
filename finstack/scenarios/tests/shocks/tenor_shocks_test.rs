@@ -39,6 +39,7 @@ fn test_tenor_exact_match() {
             match_mode: TenorMatchMode::Exact,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario
@@ -96,6 +97,7 @@ fn test_tenor_exact_not_found() {
             match_mode: TenorMatchMode::Exact,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario - should fail
@@ -151,6 +153,7 @@ fn test_tenor_interpolate_mode() {
             match_mode: TenorMatchMode::Interpolate,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario

@@ -47,6 +47,7 @@ fn test_par_cds_bump_integration() {
             match_mode: TenorMatchMode::Exact,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();

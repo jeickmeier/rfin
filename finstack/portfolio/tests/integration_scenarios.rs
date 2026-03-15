@@ -68,6 +68,7 @@ fn apply_and_revalue_succeeds() {
             bp: 10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let (shocked_valuation, report) =

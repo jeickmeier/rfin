@@ -5,6 +5,7 @@
 //! behaviour so they can be shared across binaries, configuration files, and
 //! JSON/YAML APIs.
 
+use finstack_core::market_data::hierarchy::ResolutionMode;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -24,11 +25,14 @@ pub use finstack_statements::NodeId;
 /// - `operations`: Ordered list of [`OperationSpec`] values to execute.
 /// - `priority`: Used by [`ScenarioEngine::compose`](crate::engine::ScenarioEngine::compose)
 ///   to determine merge ordering (lower numbers run first).
+/// - `resolution_mode`: Controls how hierarchy-targeted shocks at multiple tree
+///   levels combine for a single curve. Defaults to [`ResolutionMode::MostSpecificWins`].
 ///
 /// # Examples
 ///
 /// ```rust
 /// use finstack_scenarios::{ScenarioSpec, OperationSpec, CurveKind};
+/// use finstack_core::market_data::hierarchy::ResolutionMode;
 ///
 /// let scenario = ScenarioSpec {
 ///     id: "stress_test".into(),
@@ -42,6 +46,7 @@ pub use finstack_statements::NodeId;
 ///         },
 ///     ],
 ///     priority: 0,
+///     resolution_mode: ResolutionMode::default(),
 /// };
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -64,6 +69,13 @@ pub struct ScenarioSpec {
     /// Priority for composition (lower value = higher priority).
     #[serde(default)]
     pub priority: i32,
+
+    /// Resolution mode for hierarchy-targeted operations.
+    ///
+    /// Only relevant when operations use hierarchy targeting.
+    /// Default: [`ResolutionMode::MostSpecificWins`].
+    #[serde(default)]
+    pub resolution_mode: ResolutionMode,
 }
 
 /// Individual operation within a scenario.

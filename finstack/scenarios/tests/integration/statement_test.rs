@@ -54,6 +54,7 @@ fn test_statement_forecast_percent() {
             pct: -10.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario
@@ -118,6 +119,7 @@ fn test_statement_forecast_assign() {
             value: 500.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     // Apply scenario

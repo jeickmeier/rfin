@@ -131,6 +131,7 @@ impl ScenarioSpecBuilder {
             description: self.description,
             operations: self.operations,
             priority: self.priority,
+            resolution_mode: Default::default(),
         };
         spec.validate()?;
         Ok(spec)
@@ -145,6 +146,7 @@ impl ScenarioSpecBuilder {
             description: self.description,
             operations: self.operations,
             priority: self.priority,
+            resolution_mode: Default::default(),
         }
     }
 

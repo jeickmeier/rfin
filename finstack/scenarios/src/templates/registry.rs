@@ -469,6 +469,7 @@ mod tests {
                 bp,
             }],
             priority: 0,
+            resolution_mode: Default::default(),
         }
     }
 

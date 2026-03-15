@@ -161,6 +161,7 @@ impl ScenarioEngine {
     ///         },
     ///     ],
     ///     priority: 0,
+    ///     resolution_mode: Default::default(),
     /// };
     ///
     /// let s2 = ScenarioSpec {
@@ -174,6 +175,7 @@ impl ScenarioEngine {
     ///         },
     ///     ],
     ///     priority: 1,
+    ///     resolution_mode: Default::default(),
     /// };
     ///
     /// let engine = ScenarioEngine::new();
@@ -199,6 +201,7 @@ impl ScenarioEngine {
             description: None,
             operations: all_operations,
             priority: 0,
+            resolution_mode: Default::default(),
         }
     }
 
@@ -248,6 +251,7 @@ impl ScenarioEngine {
     ///         },
     ///     ],
     ///     priority: 0,
+    ///     resolution_mode: Default::default(),
     /// };
     ///
     /// let engine = ScenarioEngine::new();

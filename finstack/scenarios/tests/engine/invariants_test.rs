@@ -50,6 +50,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
             bp: 50.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -116,6 +117,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
             match_mode: finstack_scenarios::TenorMatchMode::Interpolate,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -179,6 +181,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
             bp: 100.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -246,6 +249,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
             match_mode: finstack_scenarios::TenorMatchMode::Interpolate,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -309,6 +313,7 @@ fn test_base_correlation_bounds_after_parallel_shock() {
             points: 0.15,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -369,6 +374,7 @@ fn test_base_correlation_bounds_after_bucket_shock() {
             points: 0.25,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -427,6 +433,7 @@ fn test_vol_surface_non_negative_after_parallel_shock() {
             pct: 20.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);
@@ -493,6 +500,7 @@ fn test_vol_surface_non_negative_after_bucket_shock() {
             pct: 30.0,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let mut model = FinancialModelSpec::new("test", vec![]);

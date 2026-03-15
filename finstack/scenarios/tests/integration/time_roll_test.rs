@@ -31,6 +31,7 @@ fn test_time_roll_1_day() {
             roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -70,6 +71,7 @@ fn test_time_roll_1_month() {
             roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
@@ -106,6 +108,7 @@ fn test_time_roll_1_year() {
             roll_mode: TimeRollMode::BusinessDays,
         }],
         priority: 0,
+        resolution_mode: Default::default(),
     };
 
     let engine = ScenarioEngine::new();
