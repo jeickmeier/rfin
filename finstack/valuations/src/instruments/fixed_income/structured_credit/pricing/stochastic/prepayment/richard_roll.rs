@@ -8,7 +8,6 @@
 //!
 //! # Mathematical Model
 //!
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! ```text
 //! CPR(t, r, B) = refi_incentive(r) × seasoning(t) × burnout(B) × seasonality(month)
 //! ```
@@ -33,6 +32,8 @@
 //!
 //! - Richard, S.F., & Roll, R. (1989). "Prepayments on Fixed-Rate Mortgage-Backed Securities."
 //!   *Journal of Portfolio Management*, 15(3), 9-14.
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::traits::StochasticPrepayment;
 use crate::instruments::fixed_income::structured_credit::utils::rates::cpr_to_smm;

@@ -8,7 +8,6 @@
 //! At each tree node and time step:
 //! 1. Compute continuation value (discounted expected value from child nodes)
 //! 2. At exercise dates, compute exercise value = max(0, (S - K) × A × N) for payer
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! 3. Take max(continuation, exercise) for optimal exercise decision
 //!
 //! # Usage
@@ -410,6 +409,7 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
 
 /// Result of Bermudan swaption pricing with additional analytics.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // public API result struct
 pub struct BermudanSwaptionPriceResult {
     /// Present value
     pub pv: f64,
@@ -423,6 +423,7 @@ pub struct BermudanSwaptionPriceResult {
     pub bermudan_premium: Option<f64>,
 }
 
+#[allow(dead_code)] // public API constructor
 impl BermudanSwaptionPriceResult {
     /// Create a new price result.
     pub fn new(

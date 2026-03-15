@@ -8,7 +8,6 @@
 //!
 //! # Facility-Specific Function
 //!
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! - [`calculate_path_irr`]: Converts time-fraction cashflows (from MC paths) to dates
 //!   and computes XIRR. This is useful when working with path-based data where
 //!   cashflows are specified as `(time_in_years, amount)` tuples.
@@ -74,6 +73,7 @@ use finstack_core::dates::{Date, DayCount};
 ///
 /// let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
 /// ```
+#[allow(dead_code)] // public API for external bindings
 pub fn calculate_path_irr(
     cashflows: &[(f64, f64)],
     base_date: Date,

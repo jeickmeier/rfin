@@ -8,7 +8,6 @@
 //!
 //! - **RMBS (Residential Mortgage-Backed Securities)**: Agency and non-agency
 //! - **CLO (Collateralized Loan Obligations)**: Leveraged loan pools
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! - **CMBS (Commercial Mortgage-Backed Securities)**: Commercial loans
 //!
 //! # References
@@ -16,6 +15,8 @@
 //! - Moody's Default Study (annual corporate default rates)
 //! - PSA Standard Prepayment Model assumptions
 //! - Basel IRB correlation formulas
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 /// RMBS standard calibration parameters.
 ///

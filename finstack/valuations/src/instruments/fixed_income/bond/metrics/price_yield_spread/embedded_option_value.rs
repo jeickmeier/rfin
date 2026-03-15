@@ -8,7 +8,6 @@
 //! The embedded option value is the difference between these prices.
 //!
 //! # Option Value Decomposition
-#![allow(dead_code)] // Public API items may be used by external bindings
 //!
 //! ## Callable Bonds (Issuer Owns the Call)
 //!
@@ -99,6 +98,7 @@ pub struct EmbeddedOptionValueCalculator {
     volatility: f64,
 }
 
+#[allow(dead_code)] // public API for external bindings
 impl EmbeddedOptionValueCalculator {
     /// Create a calculator with default settings.
     ///

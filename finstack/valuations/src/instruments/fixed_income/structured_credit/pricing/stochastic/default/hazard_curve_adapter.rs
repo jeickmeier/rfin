@@ -8,7 +8,6 @@
 //!
 //! The adapter applies factor-based shocks to the hazard curve's survival probability:
 //! ```text
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! λ_shocked(t) = λ_base(t) × exp(β × Z × σ)
 //! ```
 //!
@@ -28,6 +27,8 @@
 //!
 //! - Duffie, D., & Singleton, K. J. (1999). "Modeling Term Structures of Defaultable Bonds."
 //! - O'Kane, D. (2008). *Modelling Single-name and Multi-name Credit Derivatives*.
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::traits::{MacroCreditFactors, StochasticDefault};
 use finstack_core::market_data::term_structures::HazardCurve;

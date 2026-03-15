@@ -74,9 +74,8 @@
 //! - ISDA CDS Standard Model (Markit, 2009)
 //! - O'Kane, D. "Modelling Single-name and Multi-name Credit Derivatives" (2008), Chapter 5
 //! - Hull, J.C. & White, A. "Valuing Credit Default Swaps I: No Counterparty Default Risk"
-// Allow dead_code for public API items exposed via Python (finstack-py) and WASM bindings.
-// Key items: CDSPricer, CDSPricerConfig, IntegrationMethod, CDSBootstrapper.
-#![allow(dead_code)]
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 use crate::calibration::api::schema::HazardCurveParams;
 use crate::calibration::solver::SolverConfig;
 use crate::calibration::targets::hazard::HazardCurveTarget;

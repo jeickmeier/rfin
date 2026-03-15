@@ -3,7 +3,8 @@
 //! Key-rate DV01 measures the sensitivity of MBS price to shifts in
 //! specific points along the yield curve, providing insight into
 //! curve risk exposure by maturity bucket.
-#![allow(dead_code)] // Public API items may be used by external bindings
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use crate::instruments::fixed_income::mbs_passthrough::pricer::price_mbs;
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;

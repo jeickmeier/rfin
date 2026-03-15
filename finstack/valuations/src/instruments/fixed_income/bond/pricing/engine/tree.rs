@@ -38,7 +38,6 @@
 //! - `TreePricerConfig` for configuration options
 
 #![allow(clippy::module_inception)]
-#![allow(dead_code)] // Public API items may be used by external bindings or tests
 use super::super::super::types::Bond;
 
 #[cfg(test)]

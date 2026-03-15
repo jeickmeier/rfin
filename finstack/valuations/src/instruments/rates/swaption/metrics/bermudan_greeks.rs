@@ -18,9 +18,10 @@
 //! ```text
 //! Delta = (V(r+dr) - V(r-dr)) / (2*dr)
 //! Gamma = (V(r+dr) - 2*V(r) + V(r-dr)) / (dr^2)
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! Vega = (V(σ+dσ) - V(σ-dσ)) / (2*dσ)
 //! ```
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use crate::instruments::rates::swaption::pricing::BermudanSwaptionTreeValuator;
 use crate::instruments::rates::swaption::{

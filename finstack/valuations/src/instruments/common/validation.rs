@@ -6,7 +6,8 @@
 //! and keep market-standard checks in instrument-specific validation.
 //!
 //! Some helpers are forward-looking and may not yet be used by all instruments.
-#![allow(dead_code)]
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

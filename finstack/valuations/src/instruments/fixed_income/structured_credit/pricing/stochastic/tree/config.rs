@@ -2,7 +2,8 @@
 //!
 //! Defines the parameters for scenario tree generation including
 //! time horizon, branching, and model specifications.
-#![allow(dead_code)] // Public API items may be used by external bindings
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::super::{
     correlation::CorrelationStructure, default::StochasticDefaultSpec,

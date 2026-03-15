@@ -2,7 +2,6 @@
 //!
 //! This module contains internal helpers used by the pricing engine
 //! for period-by-period simulation.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DateExt};
@@ -71,6 +70,7 @@ impl RecoveryQueue {
 }
 
 /// Cashflows generated in a single payment period.
+#[allow(dead_code)] // WIP: used by stochastic simulation path
 pub struct PeriodFlows {
     /// Interest collected from pool assets.
     pub interest_collections: Money,
@@ -88,6 +88,7 @@ impl PeriodFlows {
 }
 
 /// Update tranche balance after payment.
+#[allow(dead_code)] // WIP: used by stochastic simulation path
 pub fn update_tranche_balance(
     tranche_balances: &mut HashMap<String, Money>,
     tranche_id: &str,

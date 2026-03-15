@@ -7,7 +7,6 @@
 //!
 //! All spread-style quantities exposed here use **decimal units**:
 //! `0.01` corresponds to **100 basis points**.
-#![allow(dead_code)] // Public API items may be used by external bindings or tests
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;

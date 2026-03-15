@@ -1,5 +1,4 @@
 //! Stochastic pricing engine.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::config::{PricingMode, StochasticPricerConfig};
 use super::result::{StochasticPricingResult, TranchePricingResult};
@@ -336,6 +335,7 @@ impl StochasticPricer {
     }
 
     /// Get the pricing configuration.
+    #[allow(dead_code)] // public API accessor
     pub fn config(&self) -> &StochasticPricerConfig {
         &self.config
     }

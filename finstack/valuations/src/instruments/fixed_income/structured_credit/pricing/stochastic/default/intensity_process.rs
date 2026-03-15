@@ -8,7 +8,6 @@
 //! The default intensity λ follows:
 //! ```text
 //! λ(t) = λ₀ × exp(β × X(t))
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! ```
 //!
 //! where X(t) is an Ornstein-Uhlenbeck process:
@@ -25,6 +24,8 @@
 //!
 //! - Duffie, D., & Singleton, K. J. (1999). "Modeling Term Structures of Defaultable Bonds."
 //! - Lando, D. (1998). "On Cox Processes and Credit Risky Securities."
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};

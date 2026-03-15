@@ -3,7 +3,8 @@
 //! Contains per-metric calculators split into separate files for clarity and
 //! maintainability. The module exposes a registration helper to wire metrics
 //! into the shared `MetricRegistry`.
-#![allow(dead_code)] // Public API items may be used by external bindings
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 pub mod bermudan_greeks;
 mod delta;

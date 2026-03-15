@@ -4,7 +4,8 @@
 //! - Correlation01: Sensitivity to asset correlation
 //! - RecoveryCorrelation01: Sensitivity to recovery-default correlation
 //! - PrepaymentVol01: Sensitivity to prepayment volatility
-#![allow(dead_code)] // Public API items may be used by external bindings
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::calculator::StochasticMetricsCalculator;
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::ScenarioTreeConfig;

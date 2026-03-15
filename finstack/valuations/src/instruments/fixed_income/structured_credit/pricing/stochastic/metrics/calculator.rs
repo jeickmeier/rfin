@@ -1,7 +1,8 @@
 //! Stochastic metrics calculator.
 //!
 //! Computes risk metrics from scenario trees or Monte Carlo paths.
-#![allow(dead_code)] // Public API items may be used by external bindings
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tree::{
     ScenarioTree, ScenarioTreeConfig,

@@ -8,7 +8,6 @@
 //! For each obligor i:
 //! ```text
 //! Aᵢ = √ρ · Z + √(1-ρ) · εᵢ
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! Default: Aᵢ ≤ Φ⁻¹(PD)
 //! ```
 //!
@@ -20,6 +19,8 @@
 //! # References
 //!
 //! - Li, D. X. (2000). "On Default Correlation: A Copula Function Approach."
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};

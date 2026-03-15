@@ -8,7 +8,6 @@
 //! - Hull-White 1-factor short rate simulation with exact discretization
 //! - Longstaff-Schwartz backward induction with optimal exercise decisions
 //! - Variance reduction via antithetic variates and control variates
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! - Polynomial and Laguerre basis functions for regression
 //!
 //! # Usage

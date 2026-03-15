@@ -5,9 +5,6 @@
 //! sourced from a surface (clamped) unless overridden. This mirrors the
 //! structure used by `fx_option` and keeps pricing logic separate from
 //! instrument definitions.
-// Allow dead_code for public API items exposed via Python (finstack-py) and WASM bindings.
-// Key items: npv, compute_greeks, EquityOptionGreeks, SimpleEquityOptionBlackPricer.
-#![allow(dead_code)]
 
 use crate::instruments::common_impl::helpers::year_fraction;
 use crate::instruments::common_impl::models::trees::binomial_tree::BinomialTree;
@@ -128,6 +125,7 @@ pub struct EquityOptionInputs {
     /// Implied volatility
     pub sigma: f64,
     /// Time to expiry for rate calculations (curve day count)
+    #[allow(dead_code)] // part of public API result struct
     pub t_rate: f64,
     /// Time to expiry for vol calculations (ACT/365F standard)
     pub t_vol: f64,

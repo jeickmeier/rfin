@@ -2,7 +2,6 @@
 //!
 //! This module contains pure functions for executing waterfall distributions.
 //! All type definitions are in `types::waterfall`.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 use super::coverage_tests::{CoverageTest, TestContext};
 use crate::instruments::fixed_income::structured_credit::types::{
@@ -395,6 +394,7 @@ impl<'a> AllocationContext<'a> {
     /// Pass `tranche_balances` to use current (dynamic) tranche balances for
     /// interest accrual and principal calculations instead of the static balances
     /// stored on the `Tranche` definitions.
+    #[allow(dead_code)] // public API constructor
     pub fn new(
         base_currency: Currency,
         tranches: &'a TrancheStructure,

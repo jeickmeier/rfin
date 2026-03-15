@@ -2,7 +2,6 @@
 //!
 //! Provides a robust yield-to-maturity solver using Brent's method with
 //! intelligent initial guesses.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 use finstack_core::dates::Tenor;
 use finstack_core::dates::{Date, DayCount};

@@ -1,10 +1,10 @@
-#![allow(dead_code)] // Public API items may be used by external bindings
 use super::pool::AssetPool as Pool;
 use finstack_core::dates::{Date, DayCount};
 
 /// Structure of Arrays (SoA) layout for pool assets to improve cache locality
 /// and enable vectorization during pricing.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // WIP: SoA layout for vectorized pricing
 pub struct PoolState {
     /// Asset identifiers
     pub ids: Vec<String>,
@@ -110,6 +110,7 @@ impl PoolState {
     }
 
     /// Check if the pool is empty.
+    #[allow(dead_code)] // public API accessor
     pub fn is_empty(&self) -> bool {
         self.balances.is_empty()
     }

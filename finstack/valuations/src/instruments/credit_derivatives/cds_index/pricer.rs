@@ -8,7 +8,6 @@
 //!    hazard curve and weight, then aggregate the results.
 //!
 //! Public API mirrors the CDS pricer surface for parity: NPV, par spread,
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! risky PV01, and leg PVs. Heavy numerical work is delegated to
 //! `crate::instruments::credit_derivatives::cds::pricer::CDSPricer`.
 
@@ -86,6 +85,7 @@ impl CDSIndexPricer {
     }
 
     /// Create a pricer with custom configuration
+    #[allow(dead_code)] // public API for external bindings
     pub fn with_config(config: CDSIndexPricerConfig) -> Self {
         Self { config }
     }
@@ -457,6 +457,7 @@ impl CDSIndexPricer {
         }
     }
 
+    #[allow(dead_code)] // public API for external bindings
     fn constituent_cdss(&self, index: &CDSIndex) -> Result<Vec<CreditDefaultSwap>> {
         Ok(self
             .constituent_positions(index)?

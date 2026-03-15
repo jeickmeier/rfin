@@ -3,7 +3,6 @@
 //! OAS is the constant spread over the risk-free yield curve that equates
 //! the theoretical MBS price to its market price, accounting for the
 //! prepayment option embedded in the security.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 use crate::instruments::fixed_income::mbs_passthrough::pricer::price_with_spread;
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
@@ -14,6 +13,7 @@ use finstack_core::Result;
 
 /// OAS calculation result.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // public API result struct
 pub struct OasResult {
     /// Option-adjusted spread in decimal (e.g., 0.01 for 100 bps)
     pub oas: f64,
@@ -134,6 +134,7 @@ pub fn calculate_oas(
 ///
 /// Unlike OAS, static spread does not account for the prepayment option.
 /// It's faster to compute but less accurate for MBS.
+#[allow(dead_code)] // public API for external bindings
 pub fn calculate_static_spread(
     mbs: &AgencyMbsPassthrough,
     market_price_pct: f64,

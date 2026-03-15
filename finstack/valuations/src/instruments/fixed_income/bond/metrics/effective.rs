@@ -15,8 +15,6 @@
 //!
 //! where `shock` is the parallel rate bump in decimal (e.g., 0.0025 for 25 bps).
 
-#![allow(dead_code)] // Public API items may be used by external bindings
-
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::Bond;
 use finstack_core::dates::Date;
@@ -28,6 +26,7 @@ const DEFAULT_SHOCK_BPS: f64 = 25.0;
 
 /// Effective duration and convexity result.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // public API result struct
 pub struct EffectiveDurationResult {
     pub duration: f64,
     pub convexity: f64,

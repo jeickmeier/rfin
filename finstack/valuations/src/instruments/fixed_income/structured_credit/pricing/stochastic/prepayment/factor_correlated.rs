@@ -8,7 +8,6 @@
 //! # Mathematical Model
 //!
 //! ```text
-#![allow(dead_code)] // Public API items may be used by external bindings
 //! CPR(Z) = base_cpr × exp(β × Z × σ)
 //! ```
 //!
@@ -23,6 +22,8 @@
 //! Typical parameters for RMBS:
 //! - Factor loading (β): 0.3-0.5
 //! - CPR volatility (σ): 0.15-0.30
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::traits::StochasticPrepayment;
 use crate::cashflow::builder::specs::{PrepaymentCurve, PrepaymentModelSpec};

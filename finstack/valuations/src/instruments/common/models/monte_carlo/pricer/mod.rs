@@ -1,5 +1,4 @@
 //! Monte Carlo pricers for various instrument types.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 pub mod european;
 

@@ -2,7 +2,6 @@
 //!
 //! OAS for CMO tranches requires running the waterfall at multiple
 //! spread levels to find the spread that equates model price to market.
-#![allow(dead_code)] // Public API items may be used by external bindings
 
 use crate::instruments::fixed_income::cmo::pricer::generate_tranche_cashflows;
 use crate::instruments::fixed_income::cmo::AgencyCmo;
@@ -12,6 +11,7 @@ use finstack_core::Result;
 
 /// CMO tranche OAS result.
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // public API result struct
 pub struct CmoOasResult {
     /// Option-adjusted spread (decimal)
     pub oas: f64,

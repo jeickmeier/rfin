@@ -2,7 +2,8 @@
 //!
 //! Non-recombining tree for stochastic structured credit analysis.
 //! Designed for accuracy over speed, preserving full path information.
-#![allow(dead_code)] // Public API items may be used by external bindings
+
+#![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
 use super::{
     config::ScenarioTreeConfig,

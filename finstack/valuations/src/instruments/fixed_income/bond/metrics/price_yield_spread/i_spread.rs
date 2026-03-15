@@ -1,4 +1,3 @@
-#![allow(dead_code)] // Public API items may be used by external bindings
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
@@ -60,6 +59,7 @@ pub struct ISpreadCalculator {
     config: ISpreadConfig,
 }
 
+#[allow(dead_code)] // public API for external bindings
 impl ISpreadCalculator {
     /// Create an I-Spread calculator with default (annual Act/Act) fixed-leg
     /// conventions.
