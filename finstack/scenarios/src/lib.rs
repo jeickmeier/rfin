@@ -66,6 +66,8 @@ pub mod engine;
 pub mod error;
 /// Scenario specification types and enums.
 pub mod spec;
+/// Historical stress test template types and builders.
+pub mod templates;
 /// Utility helpers for scenario operations.
 pub mod utils;
 
@@ -74,4 +76,8 @@ pub use error::{Error, Result};
 pub use spec::{
     Compounding, CurveKind, InstrumentType, NodeId, OperationSpec, RateBindingSpec, ScenarioSpec,
     TenorMatchMode, TimeRollMode, VolSurfaceKind,
+};
+pub use templates::{
+    AssetClass, RegisteredTemplate, ScenarioSpecBuilder, Severity, TemplateMetadata,
+    TemplateRegistry,
 };
