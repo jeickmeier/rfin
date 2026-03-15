@@ -58,5 +58,8 @@ mod daycount;
 #[path = "dates/extensions.rs"]
 mod extensions;
 
+#[path = "dates/reexports.rs"]
+mod reexports;
+
 #[path = "dates/schedule.rs"]
 mod schedule;

@@ -1,7 +1,7 @@
 //! Performance analytics: returns, drawdowns, risk metrics, benchmark-relative
 //! statistics, lookback selectors, and period aggregation.
 //!
-//! All analytics operate on `&[f64]` slices and `time::Date` -- no Polars
+//! All analytics operate on `&[f64]` slices and `finstack_core::dates::Date` -- no Polars
 //! dependency. The [`crate::performance::Performance`] struct ties everything together as a
 //! stateful orchestrator; individual sub-module functions are also public
 //! for standalone use.

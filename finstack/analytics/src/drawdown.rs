@@ -103,8 +103,8 @@ pub fn to_drawdown_series(returns: &[f64]) -> Vec<f64> {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::drawdown::{to_drawdown_series, drawdown_details};
-/// use time::{Date, Month};
+/// use finstack_analytics::drawdown::{drawdown_details, to_drawdown_series};
+/// use finstack_core::dates::{Date, Month};
 ///
 /// let returns = [0.10, -0.20, 0.05, 0.10];
 /// let dd = to_drawdown_series(&returns);
@@ -199,8 +199,8 @@ fn make_episode(
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::drawdown::{to_drawdown_series, avg_drawdown};
-/// use time::{Date, Month};
+/// use finstack_analytics::drawdown::{avg_drawdown, to_drawdown_series};
+/// use finstack_core::dates::{Date, Month};
 ///
 /// let returns = [0.05, -0.15, 0.10, -0.08, 0.03];
 /// let dd = to_drawdown_series(&returns);
@@ -236,8 +236,8 @@ pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_analytics::drawdown::{to_drawdown_series, max_drawdown_duration};
-/// use time::{Date, Month};
+/// use finstack_analytics::drawdown::{max_drawdown_duration, to_drawdown_series};
+/// use finstack_core::dates::{Date, Month};
 ///
 /// let returns = [0.10, -0.20, 0.05, 0.10, -0.05, -0.03];
 /// let dd = to_drawdown_series(&returns);
@@ -308,13 +308,14 @@ pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use time::Month;
+
+    use crate::dates::{Duration, Month};
 
     fn make_dates(n: usize) -> Vec<Date> {
         (0..n)
             .map(|i| {
                 Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
-                    + time::Duration::days(i as i64)
+                    + Duration::days(i as i64)
             })
             .collect()
     }

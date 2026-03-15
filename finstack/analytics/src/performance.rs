@@ -73,8 +73,7 @@ impl Performance {
     ///
     /// ```rust
     /// use finstack_analytics::performance::Performance;
-    /// use finstack_core::dates::PeriodKind;
-    /// use time::{Date, Month};
+    /// use finstack_core::dates::{Date, Month, PeriodKind};
     ///
     /// let dates: Vec<Date> = (1..=10)
     ///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())

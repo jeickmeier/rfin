@@ -5,7 +5,7 @@
 //!
 //! Delegates to `dates::DateExt` for calendar math.
 
-use crate::dates::{Date, DateExt, FiscalConfig};
+use crate::dates::{Date, DateExt, Duration, FiscalConfig, Month};
 use core::ops::Range;
 
 /// Index of the first date on or after `target` via binary search.
@@ -34,8 +34,8 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
 /// # Examples
 ///
 /// ```rust
+/// use finstack_core::dates::{Date, Month};
 /// use finstack_analytics::lookback::mtd_select;
-/// use time::{Date, Month};
 ///
 /// let dates: Vec<Date> = (1..=28)
 ///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
@@ -47,9 +47,9 @@ fn lower_bound(dates: &[Date], target: Date) -> usize {
 pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let month_start = ref_date.end_of_month();
     let month_start = month_start.replace_day(1).unwrap_or(month_start);
-    let adj_start = month_start - time::Duration::days(offset_days);
+    let adj_start = month_start - Duration::days(offset_days);
     let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + time::Duration::days(1));
+    let hi = lower_bound(dates, ref_date + Duration::days(1));
     lo..hi
 }
 
@@ -72,12 +72,12 @@ pub fn mtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 /// # Examples
 ///
 /// ```rust
+/// use finstack_core::dates::{Date, Duration, Month};
 /// use finstack_analytics::lookback::qtd_select;
-/// use time::{Date, Month};
 ///
 /// let dates: Vec<Date> = (1..=60)
 ///     .map(|d| Date::from_calendar_date(2025, Month::January, 1).unwrap()
-///         + time::Duration::days(d - 1))
+///         + Duration::days(d - 1))
 ///     .collect();
 /// let range = qtd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap(), 0);
 /// // Q1 starts Jan 1 → range should include all dates up through Feb 15.
@@ -90,13 +90,13 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
     let (year, _month, _day) = ref_date.to_calendar_date();
     let qtr_start = crate::dates::create_date(
         year,
-        time::Month::try_from(quarter_start_month).unwrap_or(time::Month::January),
+        Month::try_from(quarter_start_month).unwrap_or(Month::January),
         1,
     )
     .unwrap_or(ref_date);
-    let adj_start = qtr_start - time::Duration::days(offset_days);
+    let adj_start = qtr_start - Duration::days(offset_days);
     let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + time::Duration::days(1));
+    let hi = lower_bound(dates, ref_date + Duration::days(1));
     lo..hi
 }
 
@@ -116,12 +116,12 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 /// # Examples
 ///
 /// ```rust
+/// use finstack_core::dates::{Date, Duration, Month};
 /// use finstack_analytics::lookback::ytd_select;
-/// use time::{Date, Month};
 ///
 /// let dates: Vec<Date> = (0..60)
 ///     .map(|d| Date::from_calendar_date(2025, Month::January, 1).unwrap()
-///         + time::Duration::days(d))
+///         + Duration::days(d))
 ///     .collect();
 /// let range = ytd_select(&dates, Date::from_calendar_date(2025, Month::February, 15).unwrap(), 0);
 /// assert_eq!(range.start, 0);
@@ -129,10 +129,10 @@ pub fn qtd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 /// ```
 pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usize> {
     let (year, _month, _day) = ref_date.to_calendar_date();
-    let year_start = crate::dates::create_date(year, time::Month::January, 1).unwrap_or(ref_date);
-    let adj_start = year_start - time::Duration::days(offset_days);
+    let year_start = crate::dates::create_date(year, Month::January, 1).unwrap_or(ref_date);
+    let adj_start = year_start - Duration::days(offset_days);
     let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + time::Duration::days(1));
+    let hi = lower_bound(dates, ref_date + Duration::days(1));
     lo..hi
 }
 
@@ -157,13 +157,12 @@ pub fn ytd_select(dates: &[Date], ref_date: Date, offset_days: i64) -> Range<usi
 ///
 /// ```rust
 /// use finstack_analytics::lookback::fytd_select;
-/// use finstack_core::dates::FiscalConfig;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Duration, FiscalConfig, Month};
 ///
 /// // US federal fiscal year: Oct 1 → Sep 30.
 /// let dates: Vec<Date> = (0..120)
 ///     .map(|d| Date::from_calendar_date(2024, Month::October, 1).unwrap()
-///         + time::Duration::days(d))
+///         + Duration::days(d))
 ///     .collect();
 /// let config = FiscalConfig::us_federal();
 /// let range = fytd_select(
@@ -182,8 +181,7 @@ pub fn fytd_select(
     offset_days: i64,
 ) -> Range<usize> {
     let fy = ref_date.fiscal_year(fiscal_config);
-    let fy_start_month =
-        time::Month::try_from(fiscal_config.start_month).unwrap_or(time::Month::January);
+    let fy_start_month = Month::try_from(fiscal_config.start_month).unwrap_or(Month::January);
     let calendar_year = if fiscal_config.start_month == 1 {
         fy
     } else {
@@ -192,9 +190,9 @@ pub fn fytd_select(
     let fy_start =
         crate::dates::create_date(calendar_year, fy_start_month, fiscal_config.start_day)
             .unwrap_or(ref_date);
-    let adj_start = fy_start - time::Duration::days(offset_days);
+    let adj_start = fy_start - Duration::days(offset_days);
     let lo = lower_bound(dates, adj_start);
-    let hi = lower_bound(dates, ref_date + time::Duration::days(1));
+    let hi = lower_bound(dates, ref_date + Duration::days(1));
     lo..hi
 }
 
@@ -202,17 +200,13 @@ pub fn fytd_select(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use time::Month;
-
     fn d(y: i32, m: u8, day: u8) -> Date {
         crate::dates::create_date(y, Month::try_from(m).expect("valid month"), day)
             .expect("valid date")
     }
 
     fn daily_dates(start: Date, n: usize) -> Vec<Date> {
-        (0..n)
-            .map(|i| start + time::Duration::days(i as i64))
-            .collect()
+        (0..n).map(|i| start + Duration::days(i as i64)).collect()
     }
 
     #[test]

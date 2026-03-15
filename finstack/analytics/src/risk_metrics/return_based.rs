@@ -35,7 +35,7 @@ use super::tail_risk::cornish_fisher_var;
 ///
 /// ```rust
 /// use finstack_analytics::risk_metrics::cagr;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Month};
 ///
 /// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
 /// let end   = Date::from_calendar_date(2025, Month::January, 1).unwrap();
@@ -546,8 +546,8 @@ pub fn modified_sharpe(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::dates::Month;
     use crate::math::stats::{mean, variance};
-    use time::Month;
 
     fn jan1(year: i32) -> crate::dates::Date {
         crate::dates::Date::from_calendar_date(year, Month::January, 1).expect("valid date")

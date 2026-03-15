@@ -97,8 +97,7 @@ fn date_to_period_id(
 ///
 /// ```rust
 /// use finstack_analytics::aggregation::group_by_period;
-/// use finstack_core::dates::{PeriodId, PeriodKind};
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Month, PeriodId, PeriodKind};
 ///
 /// let dates = vec![
 ///     Date::from_calendar_date(2025, Month::January, 2).unwrap(),
@@ -304,7 +303,7 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use time::Month;
+    use crate::dates::Month;
 
     fn d(y: i32, m: u8, day: u8) -> Date {
         crate::dates::create_date(y, Month::try_from(m).expect("valid month"), day)

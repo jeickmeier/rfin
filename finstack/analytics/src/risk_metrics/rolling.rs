@@ -43,12 +43,12 @@ pub struct RollingSharpe {
 ///
 /// ```rust
 /// use finstack_analytics::risk_metrics::rolling_sharpe;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Duration, Month};
 ///
 /// let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
 /// let dates: Vec<Date> = (0..20)
 ///     .map(|i| Date::from_calendar_date(2025, Month::January, 1).unwrap()
-///         + time::Duration::days(i))
+///         + Duration::days(i))
 ///     .collect();
 /// let rs = rolling_sharpe(&returns, &dates, 5, 252.0, 0.0);
 /// assert_eq!(rs.values.len(), 16); // 20 − 5 + 1
@@ -115,12 +115,12 @@ pub struct RollingVolatility {
 ///
 /// ```rust
 /// use finstack_analytics::risk_metrics::rolling_volatility;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Duration, Month};
 ///
 /// let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
 /// let dates: Vec<Date> = (0..20)
 ///     .map(|i| Date::from_calendar_date(2025, Month::January, 1).unwrap()
-///         + time::Duration::days(i))
+///         + Duration::days(i))
 ///     .collect();
 /// let rv = rolling_volatility(&returns, &dates, 5, 252.0);
 /// assert_eq!(rv.values.len(), 16);
@@ -184,12 +184,12 @@ pub struct RollingSortino {
 ///
 /// ```rust
 /// use finstack_analytics::risk_metrics::rolling_sortino;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Duration, Month};
 ///
 /// let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
 /// let dates: Vec<Date> = (0..20)
 ///     .map(|i| Date::from_calendar_date(2025, Month::January, 1).unwrap()
-///         + time::Duration::days(i))
+///         + Duration::days(i))
 ///     .collect();
 /// let rs = rolling_sortino(&returns, &dates, 5, 252.0);
 /// assert_eq!(rs.values.len(), 16);
@@ -420,8 +420,8 @@ pub fn rolling_sortino_values(returns: &[f64], window: usize, ann_factor: f64) -
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::dates::{Duration, Month};
     use crate::risk_metrics::return_based::{sortino, volatility};
-    use time::Month;
 
     fn jan1(year: i32) -> Date {
         Date::from_calendar_date(year, Month::January, 1).expect("valid date")
@@ -430,9 +430,7 @@ mod tests {
     #[test]
     fn rolling_sharpe_window() {
         let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
-        let dates: Vec<Date> = (0..20)
-            .map(|i| jan1(2025) + time::Duration::days(i))
-            .collect();
+        let dates: Vec<Date> = (0..20).map(|i| jan1(2025) + Duration::days(i)).collect();
         let rs = rolling_sharpe(&returns, &dates, 5, 252.0, 0.0);
         assert_eq!(rs.values.len(), 16);
     }
@@ -440,9 +438,7 @@ mod tests {
     #[test]
     fn rolling_volatility_window_count() {
         let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
-        let dates: Vec<Date> = (0..20)
-            .map(|i| jan1(2025) + time::Duration::days(i))
-            .collect();
+        let dates: Vec<Date> = (0..20).map(|i| jan1(2025) + Duration::days(i)).collect();
         let rv = rolling_volatility(&returns, &dates, 5, 252.0);
         assert_eq!(rv.values.len(), 16);
         assert_eq!(rv.dates.len(), 16);
@@ -452,9 +448,7 @@ mod tests {
     #[test]
     fn rolling_volatility_matches_pointwise() {
         let returns: Vec<f64> = (0..10).map(|i| (i as f64 - 5.0) * 0.01).collect();
-        let dates: Vec<Date> = (0..10)
-            .map(|i| jan1(2025) + time::Duration::days(i))
-            .collect();
+        let dates: Vec<Date> = (0..10).map(|i| jan1(2025) + Duration::days(i)).collect();
         let rv = rolling_volatility(&returns, &dates, 5, 252.0);
         let first_window = volatility(&returns[0..5], true, 252.0);
         assert!((rv.values[0] - first_window).abs() < 1e-12);
@@ -469,9 +463,7 @@ mod tests {
     #[test]
     fn rolling_sortino_window_count() {
         let returns: Vec<f64> = (0..20).map(|i| (i as f64 - 10.0) * 0.001).collect();
-        let dates: Vec<Date> = (0..20)
-            .map(|i| jan1(2025) + time::Duration::days(i))
-            .collect();
+        let dates: Vec<Date> = (0..20).map(|i| jan1(2025) + Duration::days(i)).collect();
         let rs = rolling_sortino(&returns, &dates, 5, 252.0);
         assert_eq!(rs.values.len(), 16);
         assert_eq!(rs.dates.len(), 16);
@@ -480,9 +472,7 @@ mod tests {
     #[test]
     fn rolling_sortino_matches_pointwise() {
         let returns: Vec<f64> = (0..10).map(|i| (i as f64 - 5.0) * 0.01).collect();
-        let dates: Vec<Date> = (0..10)
-            .map(|i| jan1(2025) + time::Duration::days(i))
-            .collect();
+        let dates: Vec<Date> = (0..10).map(|i| jan1(2025) + Duration::days(i)).collect();
         let rs = rolling_sortino(&returns, &dates, 5, 252.0);
         let first_window = sortino(&returns[0..5], true, 252.0);
         assert!((rs.values[0] - first_window).abs() < 1e-12);

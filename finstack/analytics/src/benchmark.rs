@@ -33,7 +33,7 @@ use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
 ///
 /// ```rust
 /// use finstack_analytics::benchmark::align_benchmark;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Month};
 ///
 /// let bd = vec![
 ///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
@@ -419,7 +419,7 @@ pub struct RollingGreeks {
 ///
 /// ```rust
 /// use finstack_analytics::benchmark::rolling_greeks;
-/// use time::{Date, Month};
+/// use finstack_core::dates::{Date, Month};
 ///
 /// let r: Vec<f64> = (0..20).map(|i| (i as f64 + 1.0) * 0.001).collect();
 /// let b: Vec<f64> = (0..20).map(|i| i as f64 * 0.0005).collect();
@@ -863,7 +863,8 @@ pub fn multi_factor_greeks(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use time::Month;
+
+    use crate::dates::Month;
 
     fn jan(day: u8) -> Date {
         Date::from_calendar_date(2025, Month::January, day).expect("valid date")

@@ -19,9 +19,8 @@ use finstack_analytics::risk_metrics::{
     rolling_volatility, rolling_volatility_values, tail_ratio, tail_ratio_with_scratch,
     value_at_risk, value_at_risk_with_scratch,
 };
-use finstack_core::dates::Date;
+use finstack_core::dates::{Date, Duration, Month};
 use finstack_core::market_data::term_structures::{PriceCurve, VolatilityIndexCurve};
-use time::Month;
 
 const TOL: f64 = 1e-12;
 
@@ -31,7 +30,7 @@ fn jan(year: i32, day: u8) -> Date {
 
 fn make_dates(n: usize) -> Vec<Date> {
     (0..n)
-        .map(|i| jan(2025, 1) + time::Duration::days(i as i64))
+        .map(|i| jan(2025, 1) + Duration::days(i as i64))
         .collect()
 }
 
@@ -617,7 +616,7 @@ mod scalar_curve_parity {
         let rolled_pc = pc.roll_forward(days).unwrap();
         let rolled_vc = vc.roll_forward(days).unwrap();
 
-        let expected_base = base_date() + time::Duration::days(days);
+        let expected_base = base_date() + Duration::days(days);
         assert_eq!(rolled_pc.base_date(), expected_base);
         assert_eq!(rolled_vc.base_date(), expected_base);
 

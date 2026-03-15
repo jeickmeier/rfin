@@ -70,7 +70,7 @@ pub const AVERAGE_DAYS_PER_YEAR: f64 = 365.25;
 // Re-exports – keep list short & focused
 // ----------------------------------------------------------------------------------
 
-pub use time::{Date, OffsetDateTime, PrimitiveDateTime};
+pub use time::{Date, Duration, Month, OffsetDateTime, PrimitiveDateTime};
 
 // Build-time bitsets removed the last runtime use of DateBuf; keep only if needed elsewhere.
 
