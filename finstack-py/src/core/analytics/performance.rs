@@ -932,7 +932,10 @@ impl PyPerformance {
             })
             .collect::<PyResult<Vec<Vec<f64>>>>()?;
         let factor_refs: Vec<&[f64]> = factor_vecs.iter().map(|v| v.as_slice()).collect();
-        let result = self.inner.multi_factor_greeks(idx, &factor_refs);
+        let result = self
+            .inner
+            .multi_factor_greeks(idx, &factor_refs)
+            .map_err(core_to_py)?;
         let dict = PyDict::new(py);
         dict.set_item("alpha", result.alpha)?;
         dict.set_item("betas", result.betas)?;

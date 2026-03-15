@@ -5,8 +5,8 @@ The `analytics` module in `finstack-core` provides **portfolio performance and r
 - **Returns**: simple returns, log returns, excess returns, compounded accumulation, geometric mean
 - **Risk metrics**: Sharpe, Sortino, Calmar, VaR (historical, parametric, Cornish-Fisher), CVaR/ES, Ulcer Index, risk of ruin, tail ratios, skewness (Fisher-corrected), kurtosis (Fisher-corrected), downside deviation, Omega, Treynor, gain-to-pain, Martin ratio, M-squared, Modified Sharpe
 - **Drawdown analysis**: drawdown series, episode detection, average drawdown, CDaR, max drawdown duration, recovery factor, Sterling/Burke/pain ratios
-- **Benchmark-relative**: tracking error, information ratio, R², beta (with SE and CI), alpha/beta/R² greeks, rolling greeks, up/down capture ratios, batting average, multi-factor regression (with adjusted R²)
-- **Period aggregation**: group-and-compound by any `PeriodKind` (daily → annual), win rate, Kelly criterion, payoff ratio
+- **Benchmark-relative**: tracking error, information ratio, R², beta (with SE and CI), alpha/beta/R² greeks, rolling greeks, up/down capture ratios, batting average, multi-factor regression (with adjusted R²; invalid or singular regressions return an error)
+- **Period aggregation**: group-and-compound by any `PeriodKind` (daily → annual), win rate, Kelly criterion, payoff ratio; weekly aggregation uses ISO week boundaries
 - **Lookback selectors**: MTD, QTD, YTD, FYTD index ranges into sorted date arrays
 - **Rolling time series**: rolling Sharpe, rolling Sortino, rolling volatility, rolling alpha/beta
 - **Orchestrator**: `Performance` struct ties all sub-modules together with date-windowing and benchmark state
@@ -37,6 +37,7 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
   - Benchmark alignment and relative statistics: `align_benchmark`, `tracking_error`, `information_ratio`, `r_squared`, `calc_beta`, `greeks`, `rolling_greeks`, `up_capture`, `down_capture`, `capture_ratio`, `batting_average`, `multi_factor_greeks`.
   - Benchmark-relative risk ratios: `treynor`, `m_squared`, `m_squared_from_returns`.
   - Output types: `BetaResult` (beta, std_err, CI), `GreeksResult` (alpha, beta, r²), `RollingGreeks` (dates, alphas, betas), `MultiFactorResult` (alpha, betas, r², adjusted_r², residual_vol).
+  - Invalid, mismatched, or singular multi-factor regressions return an error instead of silently zero-filling the output.
 
 - **`returns.rs`**
   - Return computation: `simple_returns`, `excess_returns`, `convert_to_prices`, `rebase`.
@@ -54,7 +55,7 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
   - Output type: `DrawdownEpisode { start, valley, end, duration_days, max_drawdown, near_recovery_threshold }`.
 
 - **`aggregation.rs`**
-  - `group_by_period`: compounds daily returns into period buckets keyed by `PeriodId`.
+  - `group_by_period`: compounds daily returns into period buckets keyed by `PeriodId` (`Weekly` uses ISO week numbering).
   - `period_stats`: derives win rate, best/worst, consecutive streaks, payoff ratio, Kelly criterion, profit factor from grouped returns.
   - Output type: `PeriodStats` (13 fields).
 
@@ -139,7 +140,7 @@ impl Performance {
     pub fn batting_average(&self) -> Vec<f64>;
     pub fn m_squared(&self, risk_free_rate: f64) -> Vec<f64>;
     pub fn modified_sharpe(&self, risk_free_rate: f64, confidence: f64) -> Vec<f64>;
-    pub fn multi_factor_greeks(&self, idx: usize, factors: &[&[f64]]) -> MultiFactorResult;
+    pub fn multi_factor_greeks(&self, idx: usize, factors: &[&[f64]]) -> Result<MultiFactorResult>;
 
     // Series outputs
     pub fn cumulative_returns(&self) -> Vec<Vec<f64>>;

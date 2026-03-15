@@ -29,6 +29,7 @@ use super::risk_metrics::{
 /// Holds pre-computed returns, drawdowns, and benchmark data for a universe of
 /// tickers. Methods delegate to the pure-function sub-modules.
 pub struct Performance {
+    price_dates: Vec<Date>,
     dates: Vec<Date>,
     returns: Vec<Vec<f64>>,
     ticker_names: Vec<String>,
@@ -173,6 +174,7 @@ impl Performance {
         let end_idx = all_returns.first().map(|r| r.len()).unwrap_or(0);
 
         Ok(Self {
+            price_dates: dates,
             dates: adj_dates,
             returns: all_returns,
             ticker_names,
@@ -232,6 +234,20 @@ impl Performance {
         self.start_idx..self.end_idx
     }
 
+    fn active_holding_period(&self) -> Option<(Date, Date)> {
+        let range = self.active_range();
+        if range.start >= range.end || self.price_dates.len() < 2 {
+            return None;
+        }
+        let last_price_idx = self.price_dates.len() - 1;
+        let start_idx = range.start.min(last_price_idx);
+        let end_idx = range.end.min(last_price_idx);
+        if start_idx >= end_idx {
+            return None;
+        }
+        Some((self.price_dates[start_idx], self.price_dates[end_idx]))
+    }
+
     fn active_returns(&self, ticker_idx: usize) -> &[f64] {
         let range = self.active_range();
         self.returns
@@ -275,12 +291,9 @@ impl Performance {
 
     /// CAGR for each ticker.
     pub fn cagr(&self) -> Vec<f64> {
-        let dates = self.active_dates();
-        if dates.is_empty() {
+        let Some((start, end)) = self.active_holding_period() else {
             return vec![0.0; self.ticker_names.len()];
-        }
-        let start = dates[0];
-        let end = *dates.last().unwrap_or(&start);
+        };
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::cagr(self.active_returns(i), start, end))
             .collect()
@@ -681,7 +694,7 @@ impl Performance {
         &self,
         ticker_idx: usize,
         factor_returns: &[&[f64]],
-    ) -> MultiFactorResult {
+    ) -> crate::Result<MultiFactorResult> {
         multi_factor_greeks(self.active_returns(ticker_idx), factor_returns, self.ann())
     }
 
@@ -984,7 +997,7 @@ impl Performance {
                 port_cum
                     .iter()
                     .zip(bench_cum.iter())
-                    .map(|(p, b)| p - b)
+                    .map(|(p, b)| ((1.0 + p) / (1.0 + b)) - 1.0)
                     .collect()
             })
             .collect()
@@ -1060,7 +1073,12 @@ impl Performance {
     pub fn freq(&self) -> PeriodKind {
         self.freq
     }
-    /// Whether log returns are used internally.
+    /// Whether the constructor was asked to accept log-return input.
+    ///
+    /// Internally, `Performance` stores simple returns even when constructed
+    /// with `use_log_returns = true`, converting log-return input back to its
+    /// simple-return equivalent so drawdown and compounding analytics remain
+    /// coherent. This accessor reports the input mode selected at construction.
     pub fn uses_log_returns(&self) -> bool {
         self.log_returns
     }

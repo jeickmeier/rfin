@@ -128,10 +128,10 @@ impl JsPeriodId {
 
     #[wasm_bindgen(js_name = week)]
     pub fn week(year: i32, week: u8) -> Result<JsPeriodId, JsValue> {
-        if week == 0 {
-            return Err(js_error("Week must be >= 1"));
-        }
-        Ok(JsPeriodId::new(PeriodId::week(year, week)))
+        let code = format!("{year}W{week:02}");
+        PeriodId::from_str(&code)
+            .map(JsPeriodId::new)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     #[wasm_bindgen(js_name = half)]

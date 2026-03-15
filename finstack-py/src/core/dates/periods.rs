@@ -208,12 +208,10 @@ impl PyPeriodId {
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, year, week)")]
-    /// Construct a period id referencing an ISO-ish week number.
+    /// Construct a period id referencing an ISO week-year number.
     fn week(_cls: &Bound<'_, PyType>, year: i32, week: u8) -> PyResult<Self> {
-        if week == 0 {
-            return Err(pyo3::exceptions::PyValueError::new_err("Week must be >= 1"));
-        }
-        Ok(Self::new(PeriodId::week(year, week)))
+        let code = format!("{year}W{week:02}");
+        PeriodId::from_str(&code).map(Self::new).map_err(core_to_py)
     }
 
     #[classmethod]

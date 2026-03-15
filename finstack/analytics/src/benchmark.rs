@@ -715,7 +715,7 @@ pub struct MultiFactorResult {
 /// // y ≈ 2*f1 (single effective factor).
 /// let y = [0.02, 0.04, 0.06, 0.08, 0.10];
 /// let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
-/// let result = multi_factor_greeks(&y, &[&f1], 252.0);
+/// let result = multi_factor_greeks(&y, &[&f1], 252.0).unwrap();
 /// assert!(result.r_squared > 0.99);
 /// ```
 ///
@@ -726,30 +726,25 @@ pub fn multi_factor_greeks(
     returns: &[f64],
     factors: &[&[f64]],
     ann_factor: f64,
-) -> MultiFactorResult {
+) -> crate::Result<MultiFactorResult> {
     let n = returns.len();
     let k = factors.len();
     let p = k + 1; // intercept + k factors
 
-    let zero_result = MultiFactorResult {
-        alpha: 0.0,
-        betas: vec![0.0; k],
-        r_squared: 0.0,
-        adjusted_r_squared: 0.0,
-        residual_vol: 0.0,
-    };
-
     if n < p + 1 || k == 0 {
-        return zero_result;
+        return Err(crate::error::InputError::Invalid.into());
     }
     if returns.iter().any(|r| !r.is_finite()) {
-        return zero_result;
+        return Err(crate::error::InputError::Invalid.into());
     }
     if factors
         .iter()
-        .any(|factor| factor.len() != n || factor.iter().any(|v| !v.is_finite()))
+        .any(|factor| factor.iter().any(|v| !v.is_finite()))
     {
-        return zero_result;
+        return Err(crate::error::InputError::Invalid.into());
+    }
+    if factors.iter().any(|factor| factor.len() != n) {
+        return Err(crate::error::InputError::DimensionMismatch.into());
     }
 
     // Build X'X and X'y where X[:,0] = 1 (intercept)
@@ -787,7 +782,7 @@ pub fn multi_factor_greeks(
             }
             if i == j {
                 if sum <= 0.0 {
-                    return zero_result;
+                    return Err(crate::error::InputError::Invalid.into());
                 }
                 l[i * p + j] = sum.sqrt();
             } else {
@@ -850,13 +845,13 @@ pub fn multi_factor_greeks(
         0.0
     };
 
-    MultiFactorResult {
+    Ok(MultiFactorResult {
         alpha,
         betas: factor_betas,
         r_squared: r_sq,
         adjusted_r_squared,
         residual_vol,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -1012,7 +1007,7 @@ mod tests {
         // y = 2*x → alpha ≈ 0, beta ≈ 2, R² ≈ 1.
         let y = [0.02, 0.04, 0.06, 0.08, 0.10];
         let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
-        let result = multi_factor_greeks(&y, &[&f1], 252.0);
+        let result = multi_factor_greeks(&y, &[&f1], 252.0).expect("single-factor regression");
         assert!((result.betas[0] - 2.0).abs() < 1e-8);
         assert!(result.r_squared > 0.999);
     }
@@ -1023,7 +1018,7 @@ mod tests {
         let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
         let f2 = [0.03, -0.01, 0.02, 0.01, -0.02];
         let y: Vec<f64> = (0..5).map(|i| 1.5 * f1[i] + 0.5 * f2[i]).collect();
-        let result = multi_factor_greeks(&y, &[&f1, &f2], 252.0);
+        let result = multi_factor_greeks(&y, &[&f1, &f2], 252.0).expect("two-factor regression");
         assert!(result.r_squared > 0.99);
         assert_eq!(result.betas.len(), 2);
         assert!((result.betas[0] - 1.5).abs() < 1e-6);
@@ -1031,19 +1026,17 @@ mod tests {
     }
 
     #[test]
-    fn multi_factor_empty() {
+    fn multi_factor_empty_errors() {
         let result = multi_factor_greeks(&[], &[&[]], 252.0);
-        assert_eq!(result.alpha, 0.0);
+        assert!(result.is_err());
     }
 
     #[test]
-    fn multi_factor_mismatched_factor_lengths_return_zero_result() {
+    fn multi_factor_mismatched_factor_lengths_error() {
         let y = [0.02, 0.04, 0.06, 0.08, 0.10];
         let f1 = [0.01, 0.02, 0.03];
         let result = multi_factor_greeks(&y, &[&f1], 252.0);
-        assert_eq!(result.alpha, 0.0);
-        assert_eq!(result.betas, vec![0.0]);
-        assert_eq!(result.r_squared, 0.0);
+        assert!(result.is_err());
     }
 
     #[test]
@@ -1051,7 +1044,7 @@ mod tests {
         // y = 2*x → R²≈1, adj_R² should also be close to 1
         let y = [0.02, 0.04, 0.06, 0.08, 0.10];
         let f1 = [0.01, 0.02, 0.03, 0.04, 0.05];
-        let result = multi_factor_greeks(&y, &[&f1], 252.0);
+        let result = multi_factor_greeks(&y, &[&f1], 252.0).expect("adjusted r-squared regression");
         assert!(result.adjusted_r_squared > 0.99);
         assert!(result.adjusted_r_squared <= result.r_squared);
     }

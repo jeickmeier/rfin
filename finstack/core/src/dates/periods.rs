@@ -16,7 +16,7 @@
 //! - **Quarterly**: 2025Q1, 2025Q2, 2025Q3, 2025Q4
 //! - **Monthly**: 2025M01 through 2025M12
 //! - **Semi-annual**: 2025H1, 2025H2
-//! - **Weekly**: 2025W01 through 2025W52 (non-ISO, Jan 1 anchor)
+//! - **Weekly**: 2025W01 through 2025W52/53 (ISO 8601 week-year)
 //! - **Annual**: 2025
 
 use crate::dates::date_extensions::DateExt;
@@ -38,7 +38,7 @@ pub enum PeriodKind {
     Quarterly,
     /// Monthly periods (12 per year)
     Monthly,
-    /// Weekly periods (52 per year, non-ISO 8601)
+    /// Weekly periods (ISO 8601 week-year, typically 52 or 53 per year)
     Weekly,
     /// Semi-annual periods (2 per year)
     SemiAnnual,
@@ -115,7 +115,7 @@ pub struct PeriodId {
     /// - Daily:   1..=366 (ordinal day of the calendar year)
     /// - Quarter: 1..=4
     /// - Month:   1..=12
-    /// - Week:    1..=53 (anchored at Jan-01 in 7-day blocks, differs from ISO 8601 week numbering)
+    /// - Week:    1..=53 (ISO 8601 week-year numbering)
     /// - Half:    1..=2
     /// - Annual:  1
     pub index: u16,
@@ -488,16 +488,26 @@ fn month_bounds(year: i32, m: u8) -> crate::Result<(Date, Date)> {
     Ok((start, end))
 }
 
-/// Calculate week bounds using simple Jan-01 anchoring.
-///
-/// This differs from ISO 8601 week numbering which uses Monday as the first day
-/// and may include days from the previous/next year. This implementation simply
-/// divides the year into 7-day blocks starting from January 1st, regardless of
-/// which day of the week that falls on.
+fn iso_weeks_in_year(year: i32) -> u8 {
+    use time::Weekday;
+
+    if Date::from_iso_week_date(year, 53, Weekday::Monday).is_ok() {
+        53
+    } else {
+        52
+    }
+}
+
+/// Calculate ISO 8601 week bounds for a given ISO week-year and week number.
 fn week_bounds(year: i32, w: u8) -> crate::Result<(Date, Date)> {
     use time::Duration;
-    let start_of_year = crate::dates::create_date(year, Month::January, 1)?;
-    let start = start_of_year + Duration::days(((w - 1) as i64) * 7);
+    use time::Weekday;
+
+    if w == 0 || w > iso_weeks_in_year(year) {
+        return Err(crate::error::InputError::Invalid.into());
+    }
+    let start = Date::from_iso_week_date(year, w, Weekday::Monday)
+        .map_err(|_| crate::error::InputError::Invalid)?;
     let end = start + Duration::days(7);
     Ok((start, end))
 }
@@ -783,7 +793,7 @@ fn parse_id(s: &str) -> crate::Result<PeriodId> {
         let w: u8 = s[i + 1..]
             .parse()
             .map_err(|_| crate::error::InputError::Invalid)?;
-        if !(1..=53).contains(&w) {
+        if !(1..=iso_weeks_in_year(year)).contains(&w) {
             return Err(crate::error::InputError::Invalid.into());
         }
         return Ok(PeriodId::week(year, w));
@@ -854,7 +864,8 @@ fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
             }
         }
         PeriodKind::Weekly => {
-            if id.index == 53 {
+            let max = iso_weeks_in_year(id.year) as u16;
+            if id.index >= max {
                 id.year += 1;
                 id.index = 1;
             } else {
@@ -907,7 +918,7 @@ fn step_backward(mut id: PeriodId) -> crate::Result<PeriodId> {
         PeriodKind::Weekly => {
             if id.index == 1 {
                 id.year -= 1;
-                id.index = 53;
+                id.index = iso_weeks_in_year(id.year) as u16;
             } else {
                 id.index -= 1;
             }
@@ -1018,5 +1029,43 @@ impl TryFrom<String> for PeriodId {
     type Error = crate::error::Error;
     fn try_from(s: String) -> Result<Self, Self::Error> {
         s.parse()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn d(year: i32, month: Month, day: u8) -> Date {
+        crate::dates::create_date(year, month, day).expect("valid date")
+    }
+
+    #[test]
+    fn build_periods_weekly_uses_iso_week_bounds() {
+        let plan = build_periods("2025W01..W01", None).expect("weekly plan");
+        assert_eq!(plan.periods.len(), 1);
+        let period = &plan.periods[0];
+        assert_eq!(period.start, d(2024, Month::December, 30));
+        assert_eq!(period.end, d(2025, Month::January, 6));
+    }
+
+    #[test]
+    fn parse_id_rejects_invalid_iso_week_for_year() {
+        assert!(PeriodId::from_str("2021W53").is_err());
+        assert!(PeriodId::from_str("2020W53").is_ok());
+    }
+
+    #[test]
+    fn next_rolls_to_next_iso_year_after_last_week() {
+        let next = PeriodId::week(2021, 52).next().expect("next week");
+        assert_eq!(next, PeriodId::week(2022, 1));
+    }
+
+    #[test]
+    fn prev_rolls_to_previous_iso_year_last_week() {
+        let prev = PeriodId::week(2022, 1).prev().expect("previous week");
+        assert_eq!(prev, PeriodId::week(2021, 52));
     }
 }

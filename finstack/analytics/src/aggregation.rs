@@ -48,9 +48,8 @@ fn date_to_period_id(
     match freq {
         PeriodKind::Daily => PeriodId::day(year, date.ordinal()),
         PeriodKind::Weekly => {
-            let ordinal = date.ordinal();
-            let week = ((ordinal - 1) / 7 + 1).min(53);
-            PeriodId::week(year, week as u8)
+            let (iso_year, iso_week, _weekday) = date.to_iso_week_date();
+            PeriodId::week(iso_year, iso_week)
         }
         PeriodKind::Monthly => PeriodId::month(year, month as u8),
         PeriodKind::Quarterly => {
