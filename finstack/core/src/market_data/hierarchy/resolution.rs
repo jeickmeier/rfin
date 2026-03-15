@@ -4,7 +4,7 @@
 //! configurable inheritance modes (most-specific-wins vs. cumulative).
 
 use super::{HierarchyNode, MarketDataHierarchy, NodePath};
-use crate::collections::HashMap;
+use crate::collections::{HashMap, HashSet};
 use crate::types::CurveId;
 use serde::{Deserialize, Serialize};
 
@@ -118,8 +118,10 @@ impl MarketDataHierarchy {
             ResolutionMode::MostSpecificWins => {
                 // Collect (depth, CurveId) pairs for all matching nodes, then
                 // for each CurveId keep only the entries from the deepest depth.
+                // `depth_map` maps each seen CurveId to the maximum depth at which
+                // it has appeared; only the keys are needed at the end.
                 let mut depth_map: HashMap<CurveId, usize> = HashMap::default();
-                let mut result: HashMap<CurveId, usize> = HashMap::default();
+                let mut result: HashSet<CurveId> = HashSet::default();
 
                 match &target.tag_filter {
                     None => collect_with_depth(node, 0, &mut depth_map, &mut result),
@@ -128,7 +130,7 @@ impl MarketDataHierarchy {
                     }
                 }
 
-                result.into_keys().collect()
+                result.into_iter().collect()
             }
         }
     }
@@ -161,19 +163,20 @@ fn collect_filtered(node: &HierarchyNode, filter: &TagFilter, ids: &mut Vec<Curv
 /// Recursively collect (depth, CurveId) for all nodes, implementing
 /// `MostSpecificWins`: for each `CurveId`, only entries at the maximum
 /// observed depth are retained.
+///
+/// `depth_map` tracks the best (maximum) depth seen for each `CurveId`.
+/// `result` is the deduplicated set of `CurveId`s at their best depth.
 fn collect_with_depth(
     node: &HierarchyNode,
     depth: usize,
     depth_map: &mut HashMap<CurveId, usize>,
-    result: &mut HashMap<CurveId, usize>,
+    result: &mut HashSet<CurveId>,
 ) {
     for id in node.curve_ids() {
         let best = depth_map.entry(id.clone()).or_insert(0);
-        if depth > *best {
+        if depth >= *best {
             *best = depth;
-            result.insert(id.clone(), depth);
-        } else if depth == *best {
-            result.entry(id.clone()).or_insert(depth);
+            result.insert(id.clone());
         }
         // depth < *best: a deeper match was already recorded; skip this one
     }
@@ -184,22 +187,24 @@ fn collect_with_depth(
 
 /// Recursively collect (depth, CurveId) for nodes whose tags match the filter,
 /// implementing `MostSpecificWins`.
+///
+/// `depth_map` tracks the best (maximum) depth seen for each `CurveId`.
+/// `result` is the deduplicated set of `CurveId`s at their best depth.
 fn collect_filtered_with_depth(
     node: &HierarchyNode,
     filter: &TagFilter,
     depth: usize,
     depth_map: &mut HashMap<CurveId, usize>,
-    result: &mut HashMap<CurveId, usize>,
+    result: &mut HashSet<CurveId>,
 ) {
     if filter.matches(node.tags()) {
         for id in node.curve_ids() {
             let best = depth_map.entry(id.clone()).or_insert(0);
-            if depth > *best {
+            if depth >= *best {
                 *best = depth;
-                result.insert(id.clone(), depth);
-            } else if depth == *best {
-                result.entry(id.clone()).or_insert(depth);
+                result.insert(id.clone());
             }
+            // depth < *best: a deeper match was already recorded; skip this one
         }
     }
     for child in node.children().values() {

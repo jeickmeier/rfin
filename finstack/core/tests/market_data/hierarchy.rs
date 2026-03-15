@@ -386,3 +386,134 @@ fn tag_predicate_exists_returns_empty_when_key_absent_from_all_nodes() {
     };
     assert!(h.query_by_tags(&filter).is_empty());
 }
+
+#[test]
+fn resolve_cumulative_with_tag_filter_scopes_to_subtree() {
+    // Build a hierarchy with two regions (USD and EUR), each with children
+    // tagged with `asset_class`. Only the USD subtree nodes tagged as "rates"
+    // should appear in the result.
+    //
+    // Structure:
+    //   USD
+    //   USD/Rates        (asset_class=rates)  → curves: USD-OIS, USD-SOFR
+    //   USD/Credit       (asset_class=credit) → curves: JPM-5Y
+    //   EUR
+    //   EUR/Rates        (asset_class=rates)  → curves: EUR-ESTR
+    let mut h = MarketDataHierarchy::new();
+    h.insert_curve("USD/Rates", "USD-OIS");
+    h.insert_curve("USD/Rates", "USD-SOFR");
+    h.insert_curve("USD/Credit", "JPM-5Y");
+    h.insert_curve("EUR/Rates", "EUR-ESTR");
+
+    // Tag the nodes via the builder on a fresh hierarchy (insert_curve does not
+    // attach tags). Rebuild using builder to attach tags properly.
+    let h = MarketDataHierarchy::builder()
+        .add_node("USD/Rates")
+        .tag("asset_class", "rates")
+        .curve_ids(&["USD-OIS", "USD-SOFR"])
+        .add_node("USD/Credit")
+        .tag("asset_class", "credit")
+        .curve_ids(&["JPM-5Y"])
+        .add_node("EUR/Rates")
+        .tag("asset_class", "rates")
+        .curve_ids(&["EUR-ESTR"])
+        .build()
+        .unwrap();
+
+    let filter = TagFilter {
+        predicates: vec![TagPredicate::Equals {
+            key: "asset_class".into(),
+            value: "rates".into(),
+        }],
+    };
+
+    // Resolve within the USD subtree with the tag filter in Cumulative mode.
+    let target = HierarchyTarget {
+        path: vec!["USD".into()],
+        tag_filter: Some(filter),
+    };
+    let mut ids = h.resolve(&target, ResolutionMode::Cumulative);
+    ids.sort();
+
+    // Only USD/Rates curves should appear — EUR-ESTR is excluded (wrong path),
+    // and JPM-5Y is excluded (wrong tag).
+    assert_eq!(
+        ids.len(),
+        2,
+        "expected 2 curves (USD-OIS, USD-SOFR), got {}: {:?}",
+        ids.len(),
+        ids
+    );
+    assert!(ids.contains(&CurveId::from("USD-OIS")));
+    assert!(ids.contains(&CurveId::from("USD-SOFR")));
+    assert!(
+        !ids.contains(&CurveId::from("EUR-ESTR")),
+        "EUR curve must be excluded by path scoping"
+    );
+    assert!(
+        !ids.contains(&CurveId::from("JPM-5Y")),
+        "credit curve must be excluded by tag filter"
+    );
+}
+
+#[test]
+fn resolve_most_specific_wins_with_tag_filter() {
+    // Build a hierarchy where the same CurveId appears at two depths, both
+    // under nodes matching the tag filter. MostSpecificWins should return it
+    // exactly once, from the deeper node.
+    //
+    // Structure:
+    //   Rates                (asset_class=rates) → SHARED-RATE         (depth 0)
+    //   Rates/USD            (asset_class=rates) → SHARED-RATE, USD-OIS (depth 1)
+    //
+    // Build with tagged nodes first, then use insert_curve to add the duplicate
+    // at the parent depth (bypassing builder's duplicate detection).
+    let mut h = MarketDataHierarchy::builder()
+        .add_node("Rates")
+        .tag("asset_class", "rates")
+        .curve_ids(&[])
+        .add_node("Rates/USD")
+        .tag("asset_class", "rates")
+        .curve_ids(&["SHARED-RATE", "USD-OIS"])
+        .build()
+        .unwrap();
+
+    // Insert SHARED-RATE at the parent (Rates) level to create the multi-depth
+    // scenario. insert_curve bypasses duplicate detection so this succeeds.
+    h.insert_curve("Rates", "SHARED-RATE");
+
+    let filter = TagFilter {
+        predicates: vec![TagPredicate::Equals {
+            key: "asset_class".into(),
+            value: "rates".into(),
+        }],
+    };
+
+    let target = HierarchyTarget {
+        path: vec!["Rates".into()],
+        tag_filter: Some(filter),
+    };
+    let mut ids = h.resolve(&target, ResolutionMode::MostSpecificWins);
+    ids.sort();
+
+    // SHARED-RATE appears at depth 0 (Rates) and depth 1 (Rates/USD).
+    // MostSpecificWins must return it exactly once (from depth 1).
+    // USD-OIS appears only at depth 1.
+    assert_eq!(
+        ids.len(),
+        2,
+        "expected 2 distinct curves (SHARED-RATE, USD-OIS), got {}: {:?}",
+        ids.len(),
+        ids
+    );
+    assert!(ids.contains(&CurveId::from("SHARED-RATE")));
+    assert!(ids.contains(&CurveId::from("USD-OIS")));
+    let shared_count = ids
+        .iter()
+        .filter(|id| *id == &CurveId::from("SHARED-RATE"))
+        .count();
+    assert_eq!(
+        shared_count, 1,
+        "SHARED-RATE must appear exactly once, got {shared_count}"
+    );
+}
