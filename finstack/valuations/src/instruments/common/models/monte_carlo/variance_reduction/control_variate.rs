@@ -34,8 +34,6 @@
 //! ```
 
 use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
-use crate::instruments::common_impl::models::volatility::black::d1_d2;
-use finstack_core::math::special_functions::norm_cdf;
 
 /// Black-Scholes formula for European call option.
 ///
@@ -59,23 +57,17 @@ pub fn black_scholes_call(
     dividend_yield: f64,
     volatility: f64,
 ) -> f64 {
-    if time_to_maturity <= 0.0 {
-        return (spot - strike).max(0.0);
-    }
-
-    let (d1, d2) = d1_d2(
+    use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+    use crate::instruments::common_impl::parameters::OptionType;
+    bs_price(
         spot,
         strike,
         rate,
+        dividend_yield,
         volatility,
         time_to_maturity,
-        dividend_yield,
-    );
-
-    let discount_factor = (-rate * time_to_maturity).exp();
-
-    spot * (-dividend_yield * time_to_maturity).exp() * norm_cdf(d1)
-        - strike * discount_factor * norm_cdf(d2)
+        OptionType::Call,
+    )
 }
 
 /// Black-Scholes formula for European put option.
@@ -87,23 +79,17 @@ pub fn black_scholes_put(
     dividend_yield: f64,
     volatility: f64,
 ) -> f64 {
-    if time_to_maturity <= 0.0 {
-        return (strike - spot).max(0.0);
-    }
-
-    let (d1, d2) = d1_d2(
+    use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+    use crate::instruments::common_impl::parameters::OptionType;
+    bs_price(
         spot,
         strike,
         rate,
+        dividend_yield,
         volatility,
         time_to_maturity,
-        dividend_yield,
-    );
-
-    let discount_factor = (-rate * time_to_maturity).exp();
-
-    strike * discount_factor * norm_cdf(-d2)
-        - spot * (-dividend_yield * time_to_maturity).exp() * norm_cdf(-d1)
+        OptionType::Put,
+    )
 }
 
 /// Apply control variate adjustment to Monte Carlo estimate.

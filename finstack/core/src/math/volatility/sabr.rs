@@ -380,15 +380,7 @@ impl SabrParams {
 
 /// Undiscounted Black call price for density checking.
 fn black_call_undiscounted(forward: f64, strike: f64, expiry: f64, vol: f64) -> f64 {
-    use crate::math::norm_cdf;
-    if vol <= 0.0 || expiry <= 0.0 || forward <= 0.0 || strike <= 0.0 {
-        return (forward - strike).max(0.0);
-    }
-    let sqrt_t = expiry.sqrt();
-    // d1/d2 intentionally inline: In finstack_core, cannot import from valuations
-    let d1 = ((forward / strike).ln() + 0.5 * vol * vol * expiry) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
-    forward * norm_cdf(d1) - strike * norm_cdf(d2)
+    crate::math::volatility::pricing::black_call(forward, strike, vol, expiry)
 }
 
 /// χ(z) function used in the Hagan SABR approximation.

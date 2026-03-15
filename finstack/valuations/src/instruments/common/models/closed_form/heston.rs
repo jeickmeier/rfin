@@ -36,7 +36,6 @@
 
 #[cfg(feature = "mc")]
 pub use crate::instruments::common_impl::models::monte_carlo::process::heston::HestonParams;
-use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use finstack_core::math::gauss_legendre_integrate_composite;
 use num_complex::Complex;
 use std::f64::consts::PI;
@@ -412,15 +411,9 @@ pub fn heston_put_price_fourier_with_settings(
 
 /// Black-Scholes call price (fallback for sigma_v ≈ 0).
 fn black_scholes_call(spot: f64, strike: f64, time: f64, r: f64, q: f64, vol: f64) -> f64 {
-    use finstack_core::math::special_functions::norm_cdf;
-
-    if vol <= 0.0 || time <= 0.0 {
-        return (spot * (-q * time).exp() - strike * (-r * time).exp()).max(0.0);
-    }
-
-    let (d1, d2) = d1_d2(spot, strike, r, vol, time, q);
-
-    spot * (-q * time).exp() * norm_cdf(d1) - strike * (-r * time).exp() * norm_cdf(d2)
+    use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+    use crate::instruments::common_impl::parameters::OptionType;
+    bs_price(spot, strike, r, q, vol, time, OptionType::Call)
 }
 
 #[cfg(test)]

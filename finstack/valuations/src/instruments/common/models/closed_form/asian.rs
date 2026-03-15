@@ -621,33 +621,17 @@ fn compute_arithmetic_mean_second_moment(
 /// Helper: vanilla call under Black-Scholes.
 #[inline]
 fn vanilla_call_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
-    if time <= 0.0 {
-        return (spot - strike).max(0.0);
-    }
-    if vol <= 0.0 {
-        let forward = spot * ((rate - div_yield) * time).exp();
-        return ((forward - strike) * (-rate * time).exp()).max(0.0);
-    }
-
-    let (d1, d2) = d1_d2(spot, strike, rate, vol, time, div_yield);
-
-    spot * (-div_yield * time).exp() * norm_cdf(d1) - strike * (-rate * time).exp() * norm_cdf(d2)
+    use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+    use crate::instruments::common_impl::parameters::OptionType;
+    bs_price(spot, strike, rate, div_yield, vol, time, OptionType::Call)
 }
 
 /// Helper: vanilla put under Black-Scholes.
 #[inline]
 fn vanilla_put_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
-    if time <= 0.0 {
-        return (strike - spot).max(0.0);
-    }
-    if vol <= 0.0 {
-        let forward = spot * ((rate - div_yield) * time).exp();
-        return ((strike - forward) * (-rate * time).exp()).max(0.0);
-    }
-
-    let (d1, d2) = d1_d2(spot, strike, rate, vol, time, div_yield);
-
-    strike * (-rate * time).exp() * norm_cdf(-d2) - spot * (-div_yield * time).exp() * norm_cdf(-d1)
+    use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+    use crate::instruments::common_impl::parameters::OptionType;
+    bs_price(spot, strike, rate, div_yield, vol, time, OptionType::Put)
 }
 
 #[cfg(test)]
