@@ -384,3 +384,112 @@ fn engine_works_with_resolution_mode_field() {
         report.operations_applied
     );
 }
+
+/// `HierarchyCurveParallelBp` with a `TagFilter` survives a JSON round-trip intact.
+///
+/// Verifies that:
+/// - The operation serializes with the correct `"kind": "hierarchy_curve_parallel_bp"` tag.
+/// - The `target.path`, `curve_kind`, and `bp` fields are preserved exactly.
+/// - The optional `tag_filter` with a `TagPredicate::Equals` predicate round-trips correctly.
+#[test]
+fn hierarchy_operation_json_round_trip() {
+    use finstack_core::market_data::hierarchy::HierarchyTarget;
+    use finstack_core::market_data::hierarchy::{TagFilter, TagPredicate};
+    use finstack_scenarios::{CurveKind, OperationSpec};
+
+    let op = OperationSpec::HierarchyCurveParallelBp {
+        curve_kind: CurveKind::Discount,
+        target: HierarchyTarget {
+            path: vec!["Credit".into(), "US".into(), "IG".into()],
+            tag_filter: Some(TagFilter {
+                predicates: vec![TagPredicate::Equals {
+                    key: "sector".into(),
+                    value: "Financials".into(),
+                }],
+            }),
+        },
+        bp: 50.0,
+    };
+
+    let json = serde_json::to_string_pretty(&op).unwrap();
+
+    // The OperationSpec enum uses #[serde(tag = "kind", rename_all = "snake_case")]
+    // so the JSON must contain the snake_case variant name as the "kind" field.
+    assert!(
+        json.contains("hierarchy_curve_parallel_bp"),
+        "JSON must contain the snake_case kind tag; got: {}",
+        json
+    );
+
+    let deserialized: OperationSpec = serde_json::from_str(&json).unwrap();
+
+    match deserialized {
+        OperationSpec::HierarchyCurveParallelBp {
+            curve_kind,
+            target,
+            bp,
+        } => {
+            assert_eq!(curve_kind, CurveKind::Discount);
+            assert_eq!(
+                target.path,
+                vec!["Credit".to_string(), "US".to_string(), "IG".to_string()]
+            );
+            assert!(
+                target.tag_filter.is_some(),
+                "tag_filter should survive the round-trip"
+            );
+            assert!(
+                (bp - 50.0).abs() < f64::EPSILON,
+                "bp should be exactly 50.0, got {}",
+                bp
+            );
+        }
+        other => panic!("Expected HierarchyCurveParallelBp, got: {:?}", other),
+    }
+}
+
+/// A full `ScenarioSpec` with `resolution_mode: Cumulative` round-trips through JSON.
+///
+/// Verifies that:
+/// - The serialized JSON contains the string `"cumulative"` (snake_case serde output).
+/// - Deserialization restores `resolution_mode` to `ResolutionMode::Cumulative`.
+#[test]
+fn scenario_with_resolution_mode_json_round_trip() {
+    use finstack_core::market_data::hierarchy::HierarchyTarget;
+    use finstack_core::market_data::hierarchy::ResolutionMode;
+    use finstack_scenarios::{CurveKind, OperationSpec, ScenarioSpec};
+
+    let scenario = ScenarioSpec {
+        id: "hierarchy_test".into(),
+        name: Some("Hierarchy Test".into()),
+        description: None,
+        operations: vec![OperationSpec::HierarchyCurveParallelBp {
+            curve_kind: CurveKind::Discount,
+            target: HierarchyTarget {
+                path: vec!["Rates".into()],
+                tag_filter: None,
+            },
+            bp: 25.0,
+        }],
+        priority: 0,
+        resolution_mode: ResolutionMode::Cumulative,
+    };
+
+    let json = serde_json::to_string_pretty(&scenario).unwrap();
+
+    // ResolutionMode uses #[serde(rename_all = "snake_case")] so Cumulative → "cumulative"
+    assert!(
+        json.contains("cumulative"),
+        "JSON must contain \"cumulative\" for ResolutionMode::Cumulative; got: {}",
+        json
+    );
+
+    let deserialized: ScenarioSpec = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        deserialized.resolution_mode,
+        ResolutionMode::Cumulative,
+        "resolution_mode should deserialize back to Cumulative"
+    );
+    assert_eq!(deserialized.id, "hierarchy_test");
+    assert_eq!(deserialized.operations.len(), 1);
+}
