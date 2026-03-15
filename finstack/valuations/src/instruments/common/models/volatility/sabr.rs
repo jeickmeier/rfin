@@ -114,31 +114,9 @@ impl SABRParameters {
     /// Same validation as `new()` plus shift validation:
     /// - shift > 0: Shift must be positive for negative rate support
     pub fn new_with_shift(alpha: f64, beta: f64, nu: f64, rho: f64, shift: f64) -> Result<Self> {
-        // Validate base parameters with descriptive messages
-        if alpha <= 0.0 {
-            return Err(Error::Validation(format!(
-                "SABR parameter α (alpha) must be positive, got: {:.6}",
-                alpha
-            )));
-        }
-        if !(0.0..=1.0).contains(&beta) {
-            return Err(Error::Validation(format!(
-                "SABR parameter β (beta) must be in [0, 1], got: {:.6}",
-                beta
-            )));
-        }
-        if nu < 0.0 {
-            return Err(Error::Validation(format!(
-                "SABR parameter ν (nu) must be non-negative, got: {:.6}",
-                nu
-            )));
-        }
-        if !(-1.0..=1.0).contains(&rho) {
-            return Err(Error::Validation(format!(
-                "SABR parameter ρ (rho) must be in [-1, 1], got: {:.6}",
-                rho
-            )));
-        }
+        // Validate base parameters via new(), then set shift
+        let mut params = Self::new(alpha, beta, nu, rho)?;
+
         // Shift should be positive to handle negative rates
         if shift <= 0.0 {
             return Err(Error::Validation(format!(
@@ -147,13 +125,8 @@ impl SABRParameters {
             )));
         }
 
-        Ok(Self {
-            alpha,
-            beta,
-            nu,
-            rho,
-            shift: Some(shift),
-        })
+        params.shift = Some(shift);
+        Ok(params)
     }
 
     /// Create parameters for normal SABR (beta = 0)
@@ -1360,9 +1333,9 @@ impl SABRSmile {
 
         // Normal inverse for delta
         let z = if is_call {
-            normal_inverse_cdf(delta)
+            finstack_core::math::standard_normal_inv_cdf(delta)
         } else {
-            normal_inverse_cdf(1.0 - delta)
+            finstack_core::math::standard_normal_inv_cdf(1.0 - delta)
         };
 
         let strike = self.forward * (z * std_dev).exp();
@@ -1637,24 +1610,6 @@ fn bs_call_price(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) ->
     let cdf_d2 = finstack_core::math::norm_cdf(d2);
 
     forward * (-q * t).exp() * cdf_d1 - strike * (-r * t).exp() * cdf_d2
-}
-
-/// Helper function for normal CDF inverse using high-precision implementation.
-///
-/// Uses the `statrs` crate's implementation which provides market-standard
-/// precision for tail probabilities, critical for accurate delta-to-strike
-/// conversions in FX and equity volatility surfaces.
-fn normal_inverse_cdf(p: f64) -> f64 {
-    // Handle boundary cases explicitly
-    if p <= 0.0 {
-        return f64::NEG_INFINITY;
-    }
-    if p >= 1.0 {
-        return f64::INFINITY;
-    }
-
-    // Use finstack_core high-precision implementation
-    finstack_core::math::standard_normal_inv_cdf(p)
 }
 
 #[cfg(test)]
@@ -2092,21 +2047,21 @@ mod tests {
 
         // Standard values
         assert!(
-            (normal_inverse_cdf(0.5) - 0.0).abs() < 1e-12,
+            (finstack_core::math::standard_normal_inv_cdf(0.5) - 0.0).abs() < 1e-12,
             "CDF^-1(0.5) should be 0"
         );
         assert!(
-            (normal_inverse_cdf(0.84134474606854) - 1.0).abs() < 1e-8,
+            (finstack_core::math::standard_normal_inv_cdf(0.84134474606854) - 1.0).abs() < 1e-8,
             "CDF^-1(0.84134...) should be ~1.0"
         );
         assert!(
-            (normal_inverse_cdf(0.97724986805182) - 2.0).abs() < 1e-8,
+            (finstack_core::math::standard_normal_inv_cdf(0.97724986805182) - 2.0).abs() < 1e-8,
             "CDF^-1(0.97724...) should be ~2.0"
         );
 
         // Tail precision test: p = 1e-8 should give approximately -5.6120
         // (from scipy.stats.norm.ppf(1e-8) = -5.612001244174965)
-        let tail_result = normal_inverse_cdf(1e-8);
+        let tail_result = finstack_core::math::standard_normal_inv_cdf(1e-8);
         assert!(
             (tail_result - (-5.612001244174965)).abs() < 1e-6,
             "Tail precision: CDF^-1(1e-8) = {} should be ~-5.612",
@@ -2114,7 +2069,7 @@ mod tests {
         );
 
         // Upper tail: p = 1 - 1e-8 should give approximately +5.6120
-        let upper_tail_result = normal_inverse_cdf(1.0 - 1e-8);
+        let upper_tail_result = finstack_core::math::standard_normal_inv_cdf(1.0 - 1e-8);
         assert!(
             (upper_tail_result - 5.612001244174965).abs() < 1e-6,
             "Upper tail precision: CDF^-1(1-1e-8) = {} should be ~5.612",
@@ -2122,7 +2077,7 @@ mod tests {
         );
 
         // Extreme tail: p = 1e-15 should give approximately -7.941
-        let extreme_tail = normal_inverse_cdf(1e-15);
+        let extreme_tail = finstack_core::math::standard_normal_inv_cdf(1e-15);
         assert!(
             (extreme_tail - (-7.941397804)).abs() < 1e-4,
             "Extreme tail: CDF^-1(1e-15) = {} should be ~-7.941",
@@ -2134,19 +2089,21 @@ mod tests {
     fn test_normal_inverse_cdf_boundary_behavior() {
         // Edge cases: boundaries should return appropriate infinity values
         assert!(
-            normal_inverse_cdf(0.0).is_infinite() && normal_inverse_cdf(0.0) < 0.0,
+            finstack_core::math::standard_normal_inv_cdf(0.0).is_infinite()
+                && finstack_core::math::standard_normal_inv_cdf(0.0) < 0.0,
             "CDF^-1(0) should be -infinity"
         );
         assert!(
-            normal_inverse_cdf(1.0).is_infinite() && normal_inverse_cdf(1.0) > 0.0,
+            finstack_core::math::standard_normal_inv_cdf(1.0).is_infinite()
+                && finstack_core::math::standard_normal_inv_cdf(1.0) > 0.0,
             "CDF^-1(1) should be +infinity"
         );
 
         // Values very close to boundaries
-        let near_zero = normal_inverse_cdf(1e-300);
+        let near_zero = finstack_core::math::standard_normal_inv_cdf(1e-300);
         assert!(near_zero < -30.0, "CDF^-1(1e-300) should be very negative");
 
-        let near_one = normal_inverse_cdf(1.0 - 1e-300);
+        let near_one = finstack_core::math::standard_normal_inv_cdf(1.0 - 1e-300);
         assert!(near_one > 30.0, "CDF^-1(1-1e-300) should be very positive");
     }
 

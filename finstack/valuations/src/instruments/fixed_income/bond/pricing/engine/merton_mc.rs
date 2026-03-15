@@ -476,18 +476,31 @@ impl MertonMcEngine {
         let mut total_coupon_periods: usize = 0;
         let mut surviving_paths: usize = 0;
 
+        // Pre-allocate random draw buffers outside the loop to avoid
+        // 3 heap allocations per base path (150K+ allocations for 50K paths).
+        let mut normals = vec![0.0f64; total_steps];
+        let mut uniforms = vec![0.0f64; total_steps];
+        let mut toggle_uniforms = vec![0.0f64; num_coupons];
+
         for path_idx in 0..n_base {
             // Per-path RNG for determinism
             let mut rng = Pcg64Rng::new_with_stream(config.seed, path_idx as u64);
 
-            // Pre-generate all random draws so that antithetic pairs share
-            // identical randomness (normals are sign-flipped; uniforms are reused).
-            let normals: Vec<f64> = (0..total_steps).map(|_| rng.normal(0.0, 1.0)).collect();
+            // Fill pre-allocated buffers with random draws so that antithetic
+            // pairs share identical randomness (normals are sign-flipped;
+            // uniforms are reused).
+            for n in normals.iter_mut() {
+                *n = rng.normal(0.0, 1.0);
+            }
             // Brownian-bridge crossing checks
-            let uniforms: Vec<f64> = (0..total_steps).map(|_| rng.uniform()).collect();
+            for u in uniforms.iter_mut() {
+                *u = rng.uniform();
+            }
             // Toggle decision draws — one per coupon date, shared across the
             // antithetic pair to preserve variance-reduction symmetry.
-            let toggle_uniforms: Vec<f64> = (0..num_coupons).map(|_| rng.uniform()).collect();
+            for tu in toggle_uniforms.iter_mut() {
+                *tu = rng.uniform();
+            }
 
             // Simulate base path (and optionally antithetic)
             let signs: &[f64] = if config.antithetic && path_pvs.len() + 1 < num_paths {
@@ -729,11 +742,11 @@ impl MertonMcEngine {
         let standard_error = std_dev / actual_paths.sqrt() / notional * 100.0;
 
         // Expected shortfall at 95% (average of worst 5% of paths)
-        let mut sorted_pvs = path_pvs.clone();
-        sorted_pvs.sort_by(|a, b| a.total_cmp(b));
+        // Sort in place — mean_pv and variance are already computed above.
+        path_pvs.sort_by(|a, b| a.total_cmp(b));
         let cutoff = (0.05 * actual_paths).ceil() as usize;
         let cutoff = cutoff.max(1);
-        let es_sum: f64 = sorted_pvs.iter().take(cutoff).sum();
+        let es_sum: f64 = path_pvs.iter().take(cutoff).sum();
         let expected_shortfall_95 = es_sum / cutoff as f64 / notional * 100.0;
 
         // Average PIK fraction

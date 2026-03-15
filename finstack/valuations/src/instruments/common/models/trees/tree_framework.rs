@@ -324,13 +324,12 @@ pub trait TreeModel {
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
 
+        // Use a single mutable clone for all bump scenarios, restoring each
+        // variable after its up/down pricing calls to avoid repeated cloning.
+        let mut vars = initial_vars;
+
         // Base price
-        let base_price = self.price(
-            initial_vars.clone(),
-            time_to_maturity,
-            market_context,
-            valuator,
-        )?;
+        let base_price = self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
 
         // Calculate Delta (spot sensitivity)
         let mut greeks = TreeGreeks {
@@ -342,18 +341,17 @@ pub trait TreeModel {
             rho: 0.0,
         };
 
-        if let Some(&spot) = initial_vars.get(state_keys::SPOT) {
+        if let Some(&spot) = vars.get(state_keys::SPOT) {
             let h = bump * spot;
 
-            // Spot up
-            let mut vars_up = initial_vars.clone();
-            vars_up.insert(state_keys::SPOT, spot + h);
-            let price_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
+            vars.insert(state_keys::SPOT, spot + h);
+            let price_up = self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
 
-            // Spot down
-            let mut vars_down = initial_vars.clone();
-            vars_down.insert(state_keys::SPOT, spot - h);
-            let price_down = self.price(vars_down, time_to_maturity, market_context, valuator)?;
+            vars.insert(state_keys::SPOT, spot - h);
+            let price_down =
+                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+
+            vars.insert(state_keys::SPOT, spot); // restore
 
             greeks.delta = (price_up - price_down) / (2.0 * h);
             greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
@@ -361,41 +359,38 @@ pub trait TreeModel {
 
         // Calculate Vega (volatility sensitivity) using central difference
         // This reduces first-order error compared to one-sided bumps
-        if let Some(&vol) = initial_vars.get(state_keys::VOLATILITY) {
+        if let Some(&vol) = vars.get(state_keys::VOLATILITY) {
             let h = 0.01; // 1% vol bump
 
-            // Vol up
-            let mut vars_vol_up = initial_vars.clone();
-            vars_vol_up.insert(state_keys::VOLATILITY, vol + h);
+            vars.insert(state_keys::VOLATILITY, vol + h);
             let price_vol_up =
-                self.price(vars_vol_up, time_to_maturity, market_context, valuator)?;
+                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
 
             // Vol down (ensure positive volatility)
             let vol_down = (vol - h).max(1e-6);
-            let mut vars_vol_down = initial_vars.clone();
-            vars_vol_down.insert(state_keys::VOLATILITY, vol_down);
+            vars.insert(state_keys::VOLATILITY, vol_down);
             let price_vol_down =
-                self.price(vars_vol_down, time_to_maturity, market_context, valuator)?;
+                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+
+            vars.insert(state_keys::VOLATILITY, vol); // restore
 
             // Central difference vega (per 1% vol move)
             greeks.vega = (price_vol_up - price_vol_down) / 2.0;
         }
 
         // Calculate Rho (rate sensitivity) using central difference
-        if let Some(&rate) = initial_vars.get(state_keys::INTEREST_RATE) {
+        if let Some(&rate) = vars.get(state_keys::INTEREST_RATE) {
             let h = 0.0001; // 1bp rate bump
 
-            // Rate up
-            let mut vars_rate_up = initial_vars.clone();
-            vars_rate_up.insert(state_keys::INTEREST_RATE, rate + h);
+            vars.insert(state_keys::INTEREST_RATE, rate + h);
             let price_rate_up =
-                self.price(vars_rate_up, time_to_maturity, market_context, valuator)?;
+                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
 
-            // Rate down
-            let mut vars_rate_down = initial_vars.clone();
-            vars_rate_down.insert(state_keys::INTEREST_RATE, rate - h);
+            vars.insert(state_keys::INTEREST_RATE, rate - h);
             let price_rate_down =
-                self.price(vars_rate_down, time_to_maturity, market_context, valuator)?;
+                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+
+            vars.insert(state_keys::INTEREST_RATE, rate); // restore
 
             // Central difference rho (per 1bp move)
             greeks.rho = (price_rate_up - price_rate_down) / 2.0;
@@ -404,12 +399,8 @@ pub trait TreeModel {
         // Calculate Theta (time decay) - use 1 day bump
         let dt = 1.0 / 365.25;
         if time_to_maturity > dt {
-            let price_tomorrow = self.price(
-                initial_vars,
-                time_to_maturity - dt,
-                market_context,
-                valuator,
-            )?;
+            let price_tomorrow =
+                self.price(vars, time_to_maturity - dt, market_context, valuator)?;
             greeks.theta = -(base_price - price_tomorrow) / dt;
         }
 

@@ -572,30 +572,24 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        // Validate credit index data is available -- missing data must propagate
-        // as an error rather than silently returning zero PV, which would be
+        // Get credit index data -- missing data must propagate as an error
+        // rather than silently returning zero PV, which would be
         // indistinguishable from a correctly-priced at-par position.
-        if market_ctx
+        let index_data_arc = market_ctx
             .get_credit_index(&tranche.credit_index_id)
-            .is_err()
-        {
-            return Err(finstack_core::Error::Input(
-                finstack_core::InputError::NotFound {
+            .map_err(|_| {
+                finstack_core::Error::Input(finstack_core::InputError::NotFound {
                     id: format!(
                         "Credit index '{}' required for tranche '{}' pricing",
                         tranche.credit_index_id, tranche.id
                     ),
-                },
-            ));
-        }
+                })
+            })?;
 
         // Check if tranche is already wiped out
         if tranche.accumulated_loss >= tranche.detach_pct / 100.0 {
             return Ok(Money::new(0.0, tranche.notional.currency()));
         }
-
-        // Get the credit index data
-        let index_data_arc = market_ctx.get_credit_index(&tranche.credit_index_id)?;
 
         // Get the discount curve
         let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref())?;
@@ -608,13 +602,23 @@ impl CDSTranchePricer {
             return Ok(Money::new(0.0, tranche.notional.currency()));
         }
 
-        // Calculate present values of premium and protection legs
-        // These now calculate the EL curve internally with proper time dependency
+        // Pre-compute payment schedule and EL curve once (EL curve is the most
+        // expensive step — Gauss-Hermite quadrature per date — so we avoid
+        // recomputing it for each leg).
+        let payment_dates = self.generate_payment_schedule(tranche, valuation_date)?;
+        let el_curve = if payment_dates.is_empty() {
+            Vec::new()
+        } else {
+            self.build_el_curve(tranche, index_data_arc.as_ref(), &payment_dates)?
+        };
+
         let pv_premium = self.calculate_premium_leg_pv(
             tranche,
             index_data_arc.as_ref(),
             discount_curve.as_ref(),
             valuation_date,
+            &payment_dates,
+            &el_curve,
         )?;
 
         let pv_protection = self.calculate_protection_leg_pv(
@@ -622,6 +626,8 @@ impl CDSTranchePricer {
             index_data_arc.as_ref(),
             discount_curve.as_ref(),
             valuation_date,
+            &payment_dates,
+            &el_curve,
         )?;
 
         // Net present value depends on the side
@@ -1199,7 +1205,8 @@ impl CDSTranchePricer {
                 }
                 let s = var.sqrt();
                 let a = (k - mean) / s;
-                mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+                let phi_a = norm_cdf(a);
+                mean * phi_a - s * norm_pdf(a) + k * (1.0 - phi_a)
             };
 
             let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
@@ -1274,7 +1281,8 @@ impl CDSTranchePricer {
             }
             let s = var.sqrt();
             let a = (k - mean) / s;
-            mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+            let phi_a = norm_cdf(a);
+            mean * phi_a - s * norm_pdf(a) + k * (1.0 - phi_a)
         };
 
         let el = if n_const <= credit::SMALL_POOL_THRESHOLD {
@@ -1501,7 +1509,8 @@ impl CDSTranchePricer {
                 }
                 let s = var.sqrt();
                 let a = (k - mean) / s;
-                mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+                let phi_a = norm_cdf(a);
+                mean * phi_a - s * norm_pdf(a) + k * (1.0 - phi_a)
             };
 
             let value = if !(self.params.adaptive_integration_low
@@ -1540,7 +1549,8 @@ impl CDSTranchePricer {
             }
             let s = var.sqrt();
             let a = (k - mean) / s;
-            mean * norm_cdf(a) - s * norm_pdf(a) + k * (1.0 - norm_cdf(a))
+            let phi_a = norm_cdf(a);
+            mean * phi_a - s * norm_pdf(a) + k * (1.0 - phi_a)
         };
 
         Ok(copula_ref.integrate_fn(&integrand))
@@ -1684,17 +1694,15 @@ impl CDSTranchePricer {
         index_data: &CreditIndexData,
         discount_curve: &dyn Discounting,
         as_of: Date,
+        payment_dates: &[Date],
+        el_curve: &[(Date, f64)],
     ) -> Result<f64> {
         let coupon = tranche.running_coupon_bp / BASIS_POINTS_PER_UNIT; // Convert bp to decimal
         let tranche_notional = tranche.notional.amount();
 
-        // Generate payment schedule and expected loss curve
-        let payment_dates = self.generate_payment_schedule(tranche, as_of)?;
         if payment_dates.is_empty() {
             return Ok(0.0);
         }
-
-        let el_curve = self.build_el_curve(tranche, index_data, &payment_dates)?;
 
         let mut pv_premium = 0.0;
         let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
@@ -1771,17 +1779,15 @@ impl CDSTranchePricer {
         tranche: &CDSTranche,
         index_data: &CreditIndexData,
         discount_curve: &dyn Discounting,
-        as_of: Date,
+        _as_of: Date,
+        payment_dates: &[Date],
+        el_curve: &[(Date, f64)],
     ) -> Result<f64> {
         let tranche_notional = tranche.notional.amount();
 
-        // Generate payment schedule and expected loss curve
-        let payment_dates = self.generate_payment_schedule(tranche, as_of)?;
         if payment_dates.is_empty() {
             return Ok(0.0);
         }
-
-        let el_curve = self.build_el_curve(tranche, index_data, &payment_dates)?;
 
         let mut pv_protection = 0.0;
         let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
@@ -2080,6 +2086,14 @@ impl CDSTranchePricer {
         // Use factored-out settlement date calculation
         let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
 
+        // Pre-compute shared schedule and EL curve
+        let payment_dates = self.generate_payment_schedule(tranche, valuation_date)?;
+        let el_curve = if payment_dates.is_empty() {
+            Vec::new()
+        } else {
+            self.build_el_curve(tranche, index_data.as_ref(), &payment_dates)?
+        };
+
         // Initial guess using ratio method (protection PV / premium per bp)
         let mut unit_tranche = tranche.clone();
         unit_tranche.running_coupon_bp = 1.0;
@@ -2088,6 +2102,8 @@ impl CDSTranchePricer {
             index_data.as_ref(),
             discount_curve.as_ref(),
             valuation_date,
+            &payment_dates,
+            &el_curve,
         )?;
 
         if premium_per_bp.abs() < self.params.numerical_tolerance {
@@ -2099,6 +2115,8 @@ impl CDSTranchePricer {
             index_data.as_ref(),
             discount_curve.as_ref(),
             valuation_date,
+            &payment_dates,
+            &el_curve,
         )?;
 
         // Initial guess from ratio method
@@ -3174,17 +3192,27 @@ mod tests {
             .expect("Discount curve should exist in test context");
 
         // Calculate individual leg PVs
+        let payment_dates = model
+            .generate_payment_schedule(&tranche, as_of)
+            .expect("Payment schedule generation should succeed in test");
+        let el_curve = model
+            .build_el_curve(&tranche, &index_data_arc, &payment_dates)
+            .expect("EL curve build should succeed in test");
         let pv_premium = model.calculate_premium_leg_pv(
             &tranche,
             &index_data_arc,
             discount_curve.as_ref(),
             as_of,
+            &payment_dates,
+            &el_curve,
         );
         let pv_protection = model.calculate_protection_leg_pv(
             &tranche,
             &index_data_arc,
             discount_curve.as_ref(),
             as_of,
+            &payment_dates,
+            &el_curve,
         );
 
         assert!(pv_premium.is_ok());
