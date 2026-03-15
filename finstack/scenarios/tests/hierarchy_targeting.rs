@@ -1,5 +1,6 @@
 //! Tests for hierarchy-targeted scenario operations.
 
+use finstack_core::money::Money;
 use finstack_scenarios::{OperationSpec, ScenarioSpec};
 
 /// Existing direct-targeted JSON must still deserialize (backwards compatibility).
@@ -500,4 +501,292 @@ fn scenario_with_resolution_mode_json_round_trip() {
     );
     assert_eq!(deserialized.id, "hierarchy_test");
     assert_eq!(deserialized.operations.len(), 1);
+}
+
+#[test]
+fn compose_preserves_resolution_mode_when_inputs_agree() {
+    use finstack_core::market_data::hierarchy::ResolutionMode;
+    use finstack_scenarios::ScenarioEngine;
+
+    let s1 = ScenarioSpec {
+        id: "one".into(),
+        name: None,
+        description: None,
+        operations: vec![],
+        priority: 0,
+        resolution_mode: ResolutionMode::Cumulative,
+    };
+    let s2 = ScenarioSpec {
+        id: "two".into(),
+        name: None,
+        description: None,
+        operations: vec![],
+        priority: 1,
+        resolution_mode: ResolutionMode::Cumulative,
+    };
+
+    let composed = ScenarioEngine::new().compose(vec![s1, s2]);
+    assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
+}
+
+#[test]
+fn compose_with_mixed_resolution_modes_defaults_to_cumulative() {
+    use finstack_core::market_data::hierarchy::ResolutionMode;
+    use finstack_scenarios::ScenarioEngine;
+
+    let most_specific = ScenarioSpec {
+        id: "one".into(),
+        name: None,
+        description: None,
+        operations: vec![],
+        priority: 0,
+        resolution_mode: ResolutionMode::MostSpecificWins,
+    };
+    let cumulative = ScenarioSpec {
+        id: "two".into(),
+        name: None,
+        description: None,
+        operations: vec![],
+        priority: 1,
+        resolution_mode: ResolutionMode::Cumulative,
+    };
+
+    let composed = ScenarioEngine::new().compose(vec![most_specific, cumulative]);
+    assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
+}
+
+#[test]
+fn most_specific_wins_uses_matched_node_depth_not_target_path_depth() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::hierarchy::{
+        HierarchyTarget, MarketDataHierarchy, ResolutionMode, TagFilter, TagPredicate,
+    };
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_scenarios::{CurveKind, ExecutionContext, ScenarioEngine};
+    use finstack_statements::FinancialModelSpec;
+    use time::macros::date;
+
+    let hierarchy = MarketDataHierarchy::builder()
+        .add_node("Credit/US/IG/Financials")
+        .tag("sector", "financials")
+        .curve_ids(&["JPM-5Y"])
+        .build()
+        .unwrap();
+
+    let base = date!(2025 - 01 - 01);
+    let curve = DiscountCurve::builder("JPM-5Y")
+        .base_date(base)
+        .knots([(0.0, 1.0), (5.0, 0.90)])
+        .build()
+        .unwrap();
+
+    let mut hierarchy_market = MarketContext::new().insert(curve.clone());
+    hierarchy_market.set_hierarchy(hierarchy);
+    let mut direct_market = MarketContext::new().insert(curve);
+
+    let hierarchy_scenario = ScenarioSpec {
+        id: "hier-depth".into(),
+        name: None,
+        description: None,
+        operations: vec![
+            OperationSpec::HierarchyCurveParallelBp {
+                curve_kind: CurveKind::Discount,
+                target: HierarchyTarget {
+                    path: vec!["Credit".into()],
+                    tag_filter: Some(TagFilter {
+                        predicates: vec![TagPredicate::Equals {
+                            key: "sector".into(),
+                            value: "financials".into(),
+                        }],
+                    }),
+                },
+                bp: 100.0,
+            },
+            OperationSpec::HierarchyCurveParallelBp {
+                curve_kind: CurveKind::Discount,
+                target: HierarchyTarget {
+                    path: vec!["Credit".into(), "US".into()],
+                    tag_filter: None,
+                },
+                bp: 50.0,
+            },
+        ],
+        priority: 0,
+        resolution_mode: ResolutionMode::MostSpecificWins,
+    };
+
+    let direct_scenario = ScenarioSpec {
+        id: "direct".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::CurveParallelBp {
+            curve_kind: CurveKind::Discount,
+            curve_id: "JPM-5Y".into(),
+            bp: 100.0,
+        }],
+        priority: 0,
+        resolution_mode: ResolutionMode::MostSpecificWins,
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut hierarchy_model = FinancialModelSpec::new("test", vec![]);
+    let mut direct_model = FinancialModelSpec::new("test", vec![]);
+
+    let mut hierarchy_ctx = ExecutionContext {
+        market: &mut hierarchy_market,
+        model: &mut hierarchy_model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base,
+    };
+    let mut direct_ctx = ExecutionContext {
+        market: &mut direct_market,
+        model: &mut direct_model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base,
+    };
+
+    engine
+        .apply(&hierarchy_scenario, &mut hierarchy_ctx)
+        .unwrap();
+    engine.apply(&direct_scenario, &mut direct_ctx).unwrap();
+
+    let hierarchy_df = hierarchy_market.get_discount("JPM-5Y").unwrap().df(5.0);
+    let direct_df = direct_market.get_discount("JPM-5Y").unwrap().df(5.0);
+    assert!(
+        (hierarchy_df - direct_df).abs() < 1e-12,
+        "hierarchy-targeted MostSpecificWins should match the direct +100bp outcome; got hierarchy_df={hierarchy_df}, direct_df={direct_df}"
+    );
+}
+
+#[test]
+fn most_specific_wins_deduplicates_per_operation_family_not_raw_identifier() {
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::hierarchy::{
+        HierarchyTarget, MarketDataHierarchy, ResolutionMode,
+    };
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_scenarios::{ExecutionContext, ScenarioEngine, VolSurfaceKind};
+    use finstack_statements::FinancialModelSpec;
+    use time::macros::date;
+
+    let hierarchy = MarketDataHierarchy::builder()
+        .add_node("Equity/US/LargeCap")
+        .curve_ids(&["SPX"])
+        .build()
+        .unwrap();
+
+    let surface = VolSurface::builder("SPX")
+        .expiries(&[1.0, 2.0])
+        .strikes(&[90.0, 100.0])
+        .row(&[0.20, 0.20])
+        .row(&[0.20, 0.20])
+        .build()
+        .unwrap();
+
+    let mut hierarchy_market = MarketContext::new()
+        .insert_surface(surface.clone())
+        .insert_price("SPX", MarketScalar::Price(Money::new(100.0, Currency::USD)));
+    hierarchy_market.set_hierarchy(hierarchy);
+
+    let mut direct_market = MarketContext::new()
+        .insert_surface(surface)
+        .insert_price("SPX", MarketScalar::Price(Money::new(100.0, Currency::USD)));
+
+    let hierarchy_scenario = ScenarioSpec {
+        id: "family-collision".into(),
+        name: None,
+        description: None,
+        operations: vec![
+            OperationSpec::HierarchyVolSurfaceParallelPct {
+                surface_kind: VolSurfaceKind::Equity,
+                target: HierarchyTarget {
+                    path: vec!["Equity".into()],
+                    tag_filter: None,
+                },
+                pct: 10.0,
+            },
+            OperationSpec::HierarchyEquityPricePct {
+                target: HierarchyTarget {
+                    path: vec!["Equity".into(), "US".into()],
+                    tag_filter: None,
+                },
+                pct: -5.0,
+            },
+        ],
+        priority: 0,
+        resolution_mode: ResolutionMode::MostSpecificWins,
+    };
+
+    let direct_scenario = ScenarioSpec {
+        id: "direct".into(),
+        name: None,
+        description: None,
+        operations: vec![
+            OperationSpec::VolSurfaceParallelPct {
+                surface_kind: VolSurfaceKind::Equity,
+                surface_id: "SPX".into(),
+                pct: 10.0,
+            },
+            OperationSpec::EquityPricePct {
+                ids: vec!["SPX".into()],
+                pct: -5.0,
+            },
+        ],
+        priority: 0,
+        resolution_mode: ResolutionMode::MostSpecificWins,
+    };
+
+    let engine = ScenarioEngine::new();
+    let base = date!(2025 - 01 - 01);
+    let mut hierarchy_model = FinancialModelSpec::new("test", vec![]);
+    let mut direct_model = FinancialModelSpec::new("test", vec![]);
+
+    let mut hierarchy_ctx = ExecutionContext {
+        market: &mut hierarchy_market,
+        model: &mut hierarchy_model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base,
+    };
+    let mut direct_ctx = ExecutionContext {
+        market: &mut direct_market,
+        model: &mut direct_model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base,
+    };
+
+    engine
+        .apply(&hierarchy_scenario, &mut hierarchy_ctx)
+        .unwrap();
+    engine.apply(&direct_scenario, &mut direct_ctx).unwrap();
+
+    let hierarchy_spot = match hierarchy_market.get_price("SPX").unwrap() {
+        MarketScalar::Price(price) => price.amount(),
+        other => panic!("expected SPX price, got {other:?}"),
+    };
+    let direct_spot = match direct_market.get_price("SPX").unwrap() {
+        MarketScalar::Price(price) => price.amount(),
+        other => panic!("expected SPX price, got {other:?}"),
+    };
+
+    let hierarchy_vol = hierarchy_market
+        .get_surface("SPX")
+        .unwrap()
+        .value_clamped(1.0, 100.0);
+    let direct_vol = direct_market
+        .get_surface("SPX")
+        .unwrap()
+        .value_clamped(1.0, 100.0);
+
+    assert!((hierarchy_spot - direct_spot).abs() < 1e-12);
+    assert!((hierarchy_vol - direct_vol).abs() < 1e-12);
 }

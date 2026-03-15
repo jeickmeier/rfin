@@ -12,6 +12,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::context::MarketContextState;
 use finstack_core::market_data::dividends::DividendSchedule;
+use finstack_core::market_data::hierarchy::MarketDataHierarchy;
 use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation, InflationLag};
 use finstack_core::market_data::scalars::{ScalarTimeSeries, SeriesInterpolation};
 use finstack_core::market_data::surfaces::VolSurface;
@@ -147,6 +148,56 @@ fn market_context_roundtrip() {
     assert!(deserialized.get_surface("VOL").is_ok());
     assert!(deserialized.get_dividend_schedule("AAPL-DIVS").is_ok());
     assert!(deserialized.fx().is_some());
+}
+
+#[test]
+fn market_context_roundtrip_preserves_hierarchy() {
+    let discount = DiscountCurve::builder("USD-OIS")
+        .base_date(test_date())
+        .knots([(0.0, 1.0), (5.0, 0.9)])
+        .build()
+        .unwrap();
+
+    let hierarchy = MarketDataHierarchy::builder()
+        .add_node("Rates/USD/OIS")
+        .curve_ids(&["USD-OIS"])
+        .add_node("Rates/EUR/ESTR")
+        .curve_ids(&["EUR-ESTR"])
+        .build()
+        .unwrap();
+
+    let mut ctx = MarketContext::new().insert(discount);
+    ctx.set_hierarchy(hierarchy);
+
+    let json = serde_json::to_string_pretty(&ctx).unwrap();
+    let deserialized: MarketContext = serde_json::from_str(&json).unwrap();
+
+    let report = deserialized
+        .completeness_report()
+        .expect("hierarchy should survive MarketContext serde round-trip");
+    assert_eq!(report.missing.len(), 1);
+    assert_eq!(report.missing[0].1, CurveId::from("EUR-ESTR"));
+}
+
+#[test]
+fn market_context_v1_snapshot_without_hierarchy_restores_with_none() {
+    let discount = DiscountCurve::builder("USD-OIS")
+        .base_date(test_date())
+        .knots([(0.0, 1.0), (5.0, 0.9)])
+        .build()
+        .unwrap();
+
+    let state: MarketContextState = (&MarketContext::new().insert(discount)).into();
+    let mut json = serde_json::to_value(state).unwrap();
+    let object = json
+        .as_object_mut()
+        .expect("MarketContextState should serialize to a JSON object");
+    object.insert("version".into(), serde_json::json!(1));
+    object.remove("hierarchy");
+
+    let restored: MarketContext = serde_json::from_value(json).unwrap();
+    assert!(restored.get_discount("USD-OIS").is_ok());
+    assert!(restored.completeness_report().is_none());
 }
 
 #[test]
@@ -358,6 +409,7 @@ fn curve_storage_roundtrip_and_market_context_state_error_branch() {
         }],
         fx_delta_vol_surfaces: vec![],
         collateral: std::collections::BTreeMap::new(),
+        hierarchy: None,
     };
     assert!(MarketContext::try_from(bad_state).is_err());
 }

@@ -14,6 +14,7 @@ use super::MarketContext;
 
 use crate::market_data::{
     dividends::DividendSchedule,
+    hierarchy::MarketDataHierarchy,
     scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
 };
@@ -145,7 +146,7 @@ pub struct CreditIndexState {
 // -----------------------------------------------------------------------------
 
 /// Current schema version for [`MarketContextState`].
-pub const MARKET_CONTEXT_STATE_VERSION: u32 = 1;
+pub const MARKET_CONTEXT_STATE_VERSION: u32 = 2;
 
 fn default_market_context_state_version() -> u32 {
     MARKET_CONTEXT_STATE_VERSION
@@ -161,6 +162,7 @@ pub struct MarketContextState {
     /// Schema version for forward/backward compatibility.
     ///
     /// - **1**: initial stable snapshot format.
+    /// - **2**: adds optional market data hierarchy snapshots.
     #[serde(default = "default_market_context_state_version")]
     pub version: u32,
     /// All curves (discount, forward, hazard, inflation, base correlation)
@@ -184,6 +186,9 @@ pub struct MarketContextState {
     pub fx_delta_vol_surfaces: Vec<FxDeltaVolSurface>,
     /// Collateral CSA mappings
     pub collateral: std::collections::BTreeMap<String, String>,
+    /// Optional market data hierarchy snapshot.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hierarchy: Option<MarketDataHierarchy>,
 }
 
 /// Quote-only FX provider used when restoring persisted market snapshots.
@@ -355,6 +360,7 @@ impl From<&MarketContext> for MarketContextState {
             credit_indices,
             fx_delta_vol_surfaces,
             collateral,
+            hierarchy: ctx.hierarchy.clone(),
         }
     }
 }
@@ -363,9 +369,9 @@ impl TryFrom<MarketContextState> for MarketContext {
     type Error = crate::Error;
 
     fn try_from(state: MarketContextState) -> crate::Result<Self> {
-        if state.version != MARKET_CONTEXT_STATE_VERSION {
+        if !(1..=MARKET_CONTEXT_STATE_VERSION).contains(&state.version) {
             return Err(crate::Error::Validation(format!(
-                "Unsupported MarketContextState version: {} (expected {})",
+                "Unsupported MarketContextState version: {} (expected 1..={})",
                 state.version, MARKET_CONTEXT_STATE_VERSION
             )));
         }
@@ -467,6 +473,8 @@ impl TryFrom<MarketContextState> for MarketContext {
         for (csa, curve_id_str) in state.collateral {
             ctx.collateral.insert(csa, CurveId::from(curve_id_str));
         }
+
+        ctx.hierarchy = state.hierarchy;
 
         Ok(ctx)
     }

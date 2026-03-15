@@ -8,6 +8,12 @@ use crate::collections::{HashMap, HashSet};
 use crate::types::CurveId;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ResolvedCurveMatch {
+    pub curve_id: CurveId,
+    pub matched_depth: usize,
+}
+
 /// Controls how shocks at multiple hierarchy levels combine for a single curve.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
@@ -91,8 +97,8 @@ impl MarketDataHierarchy {
     /// Resolve a hierarchy target to the set of `CurveId`s it covers.
     ///
     /// Walks to the node at `target.path`, then collects all `CurveId`s in that
-    /// subtree. If a `tag_filter` is provided, only curves under nodes whose **node-level**
-    /// tags match the filter are included.
+    /// subtree. If a `tag_filter` is provided, curves in the full subtree of any
+    /// matching node are included.
     ///
     /// The `mode` controls how matches at multiple tree depths combine:
     ///
@@ -102,35 +108,49 @@ impl MarketDataHierarchy {
     /// - [`ResolutionMode::Cumulative`]: all matching `CurveId`s from all
     ///   matching nodes are returned, including duplicates across depths.
     pub fn resolve(&self, target: &HierarchyTarget, mode: ResolutionMode) -> Vec<CurveId> {
+        self.resolve_matches(target, mode)
+            .into_iter()
+            .map(|matched| matched.curve_id)
+            .collect()
+    }
+
+    pub(crate) fn resolve_matches(
+        &self,
+        target: &HierarchyTarget,
+        mode: ResolutionMode,
+    ) -> Vec<ResolvedCurveMatch> {
         let Some(node) = self.get_node(&target.path) else {
             return Vec::new();
         };
 
+        let mut matches = Vec::new();
+        let start_depth = target.path.len();
+        match &target.tag_filter {
+            None => collect_all_matches(node, start_depth, &mut matches),
+            Some(filter) => collect_filtered_matches(node, filter, start_depth, &mut matches),
+        }
+
         match mode {
-            ResolutionMode::Cumulative => match &target.tag_filter {
-                None => node.all_curve_ids(),
-                Some(filter) => {
-                    let mut ids = Vec::new();
-                    collect_filtered(node, filter, &mut ids);
-                    ids
-                }
-            },
+            ResolutionMode::Cumulative => matches,
             ResolutionMode::MostSpecificWins => {
-                // Collect (depth, CurveId) pairs for all matching nodes, then
-                // for each CurveId keep only the entries from the deepest depth.
-                // `depth_map` maps each seen CurveId to the maximum depth at which
-                // it has appeared; only the keys are needed at the end.
-                let mut depth_map: HashMap<CurveId, usize> = HashMap::default();
-                let mut result: HashSet<CurveId> = HashSet::default();
-
-                match &target.tag_filter {
-                    None => collect_with_depth(node, 0, &mut depth_map, &mut result),
-                    Some(filter) => {
-                        collect_filtered_with_depth(node, filter, 0, &mut depth_map, &mut result)
-                    }
+                let mut max_depth: HashMap<CurveId, usize> = HashMap::default();
+                for matched in &matches {
+                    max_depth
+                        .entry(matched.curve_id.clone())
+                        .and_modify(|best| *best = (*best).max(matched.matched_depth))
+                        .or_insert(matched.matched_depth);
                 }
 
-                result.into_iter().collect()
+                let mut emitted = HashSet::default();
+                matches
+                    .into_iter()
+                    .filter(|matched| {
+                        max_depth
+                            .get(&matched.curve_id)
+                            .is_some_and(|best| *best == matched.matched_depth)
+                            && emitted.insert(matched.curve_id.clone())
+                    })
+                    .collect()
             }
         }
     }
@@ -139,75 +159,54 @@ impl MarketDataHierarchy {
     ///
     /// Tag predicates are matched against the **node's** tags, not the curve's.
     pub fn query_by_tags(&self, filter: &TagFilter) -> Vec<CurveId> {
-        let mut ids = Vec::new();
+        let mut matches = Vec::new();
         for root in self.roots.values() {
-            collect_filtered(root, filter, &mut ids);
+            collect_filtered_matches(root, filter, 1, &mut matches);
         }
-        ids
+        let mut seen = HashSet::default();
+        matches
+            .into_iter()
+            .filter_map(|matched| {
+                if seen.insert(matched.curve_id.clone()) {
+                    Some(matched.curve_id)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
-/// Recursively collect curve IDs from nodes whose tags match the filter.
-///
-/// Note: predicates in `filter` are evaluated against the **node's** tags,
-/// not against any per-curve metadata.
-fn collect_filtered(node: &HierarchyNode, filter: &TagFilter, ids: &mut Vec<CurveId>) {
-    if filter.matches(node.tags()) {
-        ids.extend(node.curve_ids().iter().cloned());
-    }
-    for child in node.children().values() {
-        collect_filtered(child, filter, ids);
-    }
-}
-
-/// Recursively collect (depth, CurveId) for all nodes, implementing
-/// `MostSpecificWins`: for each `CurveId`, only entries at the maximum
-/// observed depth are retained.
-///
-/// `depth_map` tracks the best (maximum) depth seen for each `CurveId`.
-/// `result` is the deduplicated set of `CurveId`s at their best depth.
-fn collect_with_depth(
+fn collect_subtree_matches(
     node: &HierarchyNode,
-    depth: usize,
-    depth_map: &mut HashMap<CurveId, usize>,
-    result: &mut HashSet<CurveId>,
+    matched_depth: usize,
+    matches: &mut Vec<ResolvedCurveMatch>,
 ) {
-    for id in node.curve_ids() {
-        let best = depth_map.entry(id.clone()).or_insert(0);
-        if depth >= *best {
-            *best = depth;
-            result.insert(id.clone());
-        }
-        // depth < *best: a deeper match was already recorded; skip this one
+    for curve_id in node.curve_ids() {
+        matches.push(ResolvedCurveMatch {
+            curve_id: curve_id.clone(),
+            matched_depth,
+        });
     }
     for child in node.children().values() {
-        collect_with_depth(child, depth + 1, depth_map, result);
+        collect_subtree_matches(child, matched_depth, matches);
     }
 }
 
-/// Recursively collect (depth, CurveId) for nodes whose tags match the filter,
-/// implementing `MostSpecificWins`.
-///
-/// `depth_map` tracks the best (maximum) depth seen for each `CurveId`.
-/// `result` is the deduplicated set of `CurveId`s at their best depth.
-fn collect_filtered_with_depth(
+fn collect_all_matches(node: &HierarchyNode, depth: usize, matches: &mut Vec<ResolvedCurveMatch>) {
+    collect_subtree_matches(node, depth, matches);
+}
+
+fn collect_filtered_matches(
     node: &HierarchyNode,
     filter: &TagFilter,
     depth: usize,
-    depth_map: &mut HashMap<CurveId, usize>,
-    result: &mut HashSet<CurveId>,
+    matches: &mut Vec<ResolvedCurveMatch>,
 ) {
     if filter.matches(node.tags()) {
-        for id in node.curve_ids() {
-            let best = depth_map.entry(id.clone()).or_insert(0);
-            if depth >= *best {
-                *best = depth;
-                result.insert(id.clone());
-            }
-            // depth < *best: a deeper match was already recorded; skip this one
-        }
+        collect_subtree_matches(node, depth, matches);
     }
     for child in node.children().values() {
-        collect_filtered_with_depth(child, filter, depth + 1, depth_map, result);
+        collect_filtered_matches(child, filter, depth + 1, matches);
     }
 }

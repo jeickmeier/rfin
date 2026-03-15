@@ -979,6 +979,7 @@ impl PyScenarioSpec {
                 description,
                 operations: ops,
                 priority: priority.unwrap_or(0),
+                resolution_mode: Default::default(),
             },
         }
     }

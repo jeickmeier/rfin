@@ -246,10 +246,6 @@ impl MarketContext {
         present.extend(self.credit_indices.keys().cloned());
         present.extend(self.dividends.keys().cloned());
         present.extend(self.fx_delta_vol_surfaces.keys().cloned());
-        // `collateral` maps CSA codes (String) → CurveId of the discount curve to use for that
-        // collateral agreement. The CurveId values represent real discount curves that should be
-        // present in the context, so include them in the coverage check.
-        present.extend(self.collateral.values().cloned());
 
         // Find missing: declared in hierarchy but absent from all stores.
         let declared = hierarchy.all_curve_ids();

@@ -366,6 +366,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                hierarchy: None,
             },
             market_t1: MarketContextState {
                 version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
@@ -379,6 +380,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                hierarchy: None,
             },
             as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
             as_of_t1: create_date(2025, Month::January, 2).expect("Valid test date"),
@@ -446,6 +448,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                hierarchy: None,
             },
             market_t1: MarketContextState {
                 version: finstack_core::market_data::context::MARKET_CONTEXT_STATE_VERSION,
@@ -459,6 +462,7 @@ mod tests {
                 credit_indices: vec![],
                 collateral: std::collections::BTreeMap::new(),
                 fx_delta_vol_surfaces: vec![],
+                hierarchy: None,
             },
             as_of_t0: create_date(2025, Month::January, 1).expect("Valid test date"),
             as_of_t1: create_date(2025, Month::January, 2).expect("Valid test date"),

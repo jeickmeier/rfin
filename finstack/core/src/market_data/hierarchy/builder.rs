@@ -1,8 +1,6 @@
 //! Fluent builder for constructing hierarchies from `/`-separated paths.
 
-use super::{HierarchyNode, MarketDataHierarchy};
-use crate::collections::HashMap;
-use crate::types::CurveId;
+use super::{parse_path, HierarchyNode, MarketDataHierarchy};
 
 /// Fluent builder for `MarketDataHierarchy`.
 ///
@@ -19,6 +17,7 @@ use crate::types::CurveId;
 pub struct HierarchyBuilder {
     hierarchy: MarketDataHierarchy,
     current_path: Option<Vec<String>>,
+    validation_error: Option<crate::Error>,
 }
 
 impl HierarchyBuilder {
@@ -26,17 +25,24 @@ impl HierarchyBuilder {
         Self {
             hierarchy: MarketDataHierarchy::new(),
             current_path: None,
+            validation_error: None,
         }
     }
 
     /// Start or switch to a node at the given `/`-separated path.
     /// Creates intermediate nodes as needed.
     ///
-    /// # Panics
-    ///
-    /// Panics if `path` is empty (i.e. an empty string `""`).
     pub fn add_node(mut self, path: &str) -> Self {
-        let segments: Vec<String> = path.split('/').map(String::from).collect();
+        let segments = match parse_path(path) {
+            Ok(segments) => segments,
+            Err(err) => {
+                if self.validation_error.is_none() {
+                    self.validation_error = Some(err);
+                }
+                self.current_path = None;
+                return self;
+            }
+        };
 
         // Ensure the root exists
         let root_name = segments[0].clone();
@@ -90,45 +96,11 @@ impl HierarchyBuilder {
     /// Validates:
     /// - No duplicate `CurveId` across different nodes (each curve has exactly one path).
     pub fn build(self) -> crate::Result<MarketDataHierarchy> {
-        // Validate no duplicate curve IDs
-        let mut seen: HashMap<CurveId, Vec<String>> = HashMap::default();
-        Self::collect_curve_locations(&self.hierarchy, &mut seen);
-
-        for (curve_id, locations) in &seen {
-            if locations.len() > 1 {
-                return Err(crate::Error::Validation(format!(
-                    "CurveId '{}' appears in multiple hierarchy locations: {}",
-                    curve_id.as_str(),
-                    locations.join(", ")
-                )));
-            }
+        if let Some(err) = self.validation_error {
+            return Err(err);
         }
 
+        self.hierarchy.validate()?;
         Ok(self.hierarchy)
-    }
-
-    fn collect_curve_locations(
-        hierarchy: &MarketDataHierarchy,
-        seen: &mut HashMap<CurveId, Vec<String>>,
-    ) {
-        fn visit(node: &HierarchyNode, path: &str, seen: &mut HashMap<CurveId, Vec<String>>) {
-            let current_path = if path.is_empty() {
-                node.name().to_string()
-            } else {
-                format!("{}/{}", path, node.name())
-            };
-            for id in node.curve_ids() {
-                seen.entry(id.clone())
-                    .or_default()
-                    .push(current_path.clone());
-            }
-            for child in node.children().values() {
-                visit(child, &current_path, seen);
-            }
-        }
-
-        for root in hierarchy.roots().values() {
-            visit(root, "", seen);
-        }
     }
 }

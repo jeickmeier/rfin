@@ -2,6 +2,7 @@
 
 use crate::{OperationSpec, ScenarioEngine, ScenarioSpec};
 use finstack_core::currency::Currency;
+use finstack_core::market_data::hierarchy::ResolutionMode;
 use indexmap::IndexMap;
 
 /// A builder for constructing [`ScenarioSpec`] values with parameterized overrides.
@@ -16,6 +17,7 @@ pub struct ScenarioSpecBuilder {
     description: Option<String>,
     operations: Vec<OperationSpec>,
     priority: i32,
+    resolution_mode: ResolutionMode,
     curve_overrides: IndexMap<String, String>,
     equity_overrides: IndexMap<String, String>,
     fx_overrides: IndexMap<(Currency, Currency), (Currency, Currency)>,
@@ -30,6 +32,7 @@ impl ScenarioSpecBuilder {
             description: None,
             operations: Vec::new(),
             priority: 0,
+            resolution_mode: ResolutionMode::default(),
             curve_overrides: IndexMap::new(),
             equity_overrides: IndexMap::new(),
             fx_overrides: IndexMap::new(),
@@ -57,6 +60,12 @@ impl ScenarioSpecBuilder {
     /// Set the composition priority. Lower values are applied first.
     pub fn priority(mut self, priority: i32) -> Self {
         self.priority = priority;
+        self
+    }
+
+    /// Set how overlapping hierarchy-targeted operations should resolve.
+    pub fn resolution_mode(mut self, resolution_mode: ResolutionMode) -> Self {
+        self.resolution_mode = resolution_mode;
         self
     }
 
@@ -115,6 +124,7 @@ impl ScenarioSpecBuilder {
             description: composed.description,
             operations: composed.operations,
             priority: composed.priority,
+            resolution_mode: composed.resolution_mode,
             curve_overrides: IndexMap::new(),
             equity_overrides: IndexMap::new(),
             fx_overrides: IndexMap::new(),
@@ -131,7 +141,7 @@ impl ScenarioSpecBuilder {
             description: self.description,
             operations: self.operations,
             priority: self.priority,
-            resolution_mode: Default::default(),
+            resolution_mode: self.resolution_mode,
         };
         spec.validate()?;
         Ok(spec)
@@ -146,7 +156,7 @@ impl ScenarioSpecBuilder {
             description: self.description,
             operations: self.operations,
             priority: self.priority,
-            resolution_mode: Default::default(),
+            resolution_mode: self.resolution_mode,
         }
     }
 
@@ -204,6 +214,7 @@ mod tests {
     use super::*;
     use crate::{CurveKind, OperationSpec, VolSurfaceKind};
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::hierarchy::ResolutionMode;
 
     #[test]
     fn test_builder_basic_construction() {
@@ -237,6 +248,28 @@ mod tests {
             .expect("should build");
 
         assert_eq!(spec.operations.len(), 2);
+    }
+
+    #[test]
+    fn test_builder_preserves_explicit_resolution_mode() {
+        let spec = ScenarioSpecBuilder::new("hierarchy")
+            .resolution_mode(ResolutionMode::Cumulative)
+            .build()
+            .expect("should build");
+
+        assert_eq!(spec.resolution_mode, ResolutionMode::Cumulative);
+    }
+
+    #[test]
+    fn test_builder_compose_preserves_resolution_mode() {
+        let composed = ScenarioSpecBuilder::compose(vec![
+            ScenarioSpecBuilder::new("one").resolution_mode(ResolutionMode::Cumulative),
+            ScenarioSpecBuilder::new("two").resolution_mode(ResolutionMode::Cumulative),
+        ])
+        .build()
+        .expect("should build");
+
+        assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
     }
 
     #[test]

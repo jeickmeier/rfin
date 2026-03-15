@@ -9,8 +9,10 @@
 //!   warnings were produced during execution
 
 use crate::error::Result;
-use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec};
-use finstack_core::market_data::hierarchy::ResolutionMode;
+use crate::spec::{OperationSpec, RateBindingSpec, ScenarioSpec, VolSurfaceKind};
+use finstack_core::market_data::hierarchy::{
+    HierarchyNode, HierarchyTarget, MarketDataHierarchy, ResolutionMode, TagFilter,
+};
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_statements::NodeId;
@@ -110,12 +112,83 @@ pub struct ApplicationReport {
 
 /// Tracks a hierarchy-expanded operation with metadata needed for deduplication.
 struct HierarchyExpansion {
-    /// Depth of the hierarchy target path (longer = more specific).
-    path_depth: usize,
+    /// Depth of the matched hierarchy node (deeper = more specific).
+    matched_depth: usize,
     /// The expanded direct operation.
     operation: OperationSpec,
-    /// The CurveId this expanded operation targets.
+    /// Operation family + identifier used for resolution-mode deduplication.
+    key: HierarchyExpansionKey,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum HierarchyExpansionKey {
+    Curve {
+        curve_kind: crate::spec::CurveKind,
+        curve_id: CurveId,
+    },
+    VolSurface {
+        surface_kind: VolSurfaceKind,
+        surface_id: CurveId,
+    },
+    EquityPrice {
+        price_id: CurveId,
+    },
+    BaseCorrelation {
+        surface_id: CurveId,
+    },
+}
+
+#[derive(Debug, Clone)]
+struct HierarchyResolvedMatch {
     curve_id: CurveId,
+    matched_depth: usize,
+}
+
+fn collect_subtree_matches(
+    node: &HierarchyNode,
+    matched_depth: usize,
+    matches: &mut Vec<HierarchyResolvedMatch>,
+) {
+    for curve_id in node.curve_ids() {
+        matches.push(HierarchyResolvedMatch {
+            curve_id: curve_id.clone(),
+            matched_depth,
+        });
+    }
+    for child in node.children().values() {
+        collect_subtree_matches(child, matched_depth, matches);
+    }
+}
+
+fn collect_filtered_matches(
+    node: &HierarchyNode,
+    filter: &TagFilter,
+    depth: usize,
+    matches: &mut Vec<HierarchyResolvedMatch>,
+) {
+    if filter.matches(node.tags()) {
+        collect_subtree_matches(node, depth, matches);
+    }
+    for child in node.children().values() {
+        collect_filtered_matches(child, filter, depth + 1, matches);
+    }
+}
+
+fn resolve_hierarchy_matches(
+    hierarchy: &MarketDataHierarchy,
+    target: &HierarchyTarget,
+) -> Vec<HierarchyResolvedMatch> {
+    let Some(node) = hierarchy.get_node(&target.path) else {
+        return Vec::new();
+    };
+
+    let mut matches = Vec::new();
+    let start_depth = target.path.len();
+    match &target.tag_filter {
+        None => collect_subtree_matches(node, start_depth, &mut matches),
+        Some(filter) => collect_filtered_matches(node, filter, start_depth, &mut matches),
+    }
+    matches
 }
 
 /// Expand hierarchy-targeted operations into direct-targeted operations.
@@ -146,14 +219,17 @@ fn expand_hierarchy_operations(
                 target,
                 bp,
             } => {
-                let ids = hierarchy.resolve(target, mode);
-                for id in ids {
+                let matches = resolve_hierarchy_matches(hierarchy, target);
+                for matched in matches {
                     hierarchy_expansions.push(HierarchyExpansion {
-                        path_depth: target.path.len(),
-                        curve_id: id.clone(),
+                        matched_depth: matched.matched_depth,
+                        key: HierarchyExpansionKey::Curve {
+                            curve_kind: *curve_kind,
+                            curve_id: matched.curve_id.clone(),
+                        },
                         operation: OperationSpec::CurveParallelBp {
                             curve_kind: *curve_kind,
-                            curve_id: id.as_str().to_string(),
+                            curve_id: matched.curve_id.as_str().to_string(),
                             bp: *bp,
                         },
                     });
@@ -164,40 +240,47 @@ fn expand_hierarchy_operations(
                 target,
                 pct,
             } => {
-                let ids = hierarchy.resolve(target, mode);
-                for id in ids {
+                let matches = resolve_hierarchy_matches(hierarchy, target);
+                for matched in matches {
                     hierarchy_expansions.push(HierarchyExpansion {
-                        path_depth: target.path.len(),
-                        curve_id: id.clone(),
+                        matched_depth: matched.matched_depth,
+                        key: HierarchyExpansionKey::VolSurface {
+                            surface_kind: *surface_kind,
+                            surface_id: matched.curve_id.clone(),
+                        },
                         operation: OperationSpec::VolSurfaceParallelPct {
                             surface_kind: *surface_kind,
-                            surface_id: id.as_str().to_string(),
+                            surface_id: matched.curve_id.as_str().to_string(),
                             pct: *pct,
                         },
                     });
                 }
             }
             OperationSpec::HierarchyEquityPricePct { target, pct } => {
-                let ids = hierarchy.resolve(target, mode);
-                for id in ids {
+                let matches = resolve_hierarchy_matches(hierarchy, target);
+                for matched in matches {
                     hierarchy_expansions.push(HierarchyExpansion {
-                        path_depth: target.path.len(),
-                        curve_id: id.clone(),
+                        matched_depth: matched.matched_depth,
+                        key: HierarchyExpansionKey::EquityPrice {
+                            price_id: matched.curve_id.clone(),
+                        },
                         operation: OperationSpec::EquityPricePct {
-                            ids: vec![id.as_str().to_string()],
+                            ids: vec![matched.curve_id.as_str().to_string()],
                             pct: *pct,
                         },
                     });
                 }
             }
             OperationSpec::HierarchyBaseCorrParallelPts { target, points } => {
-                let ids = hierarchy.resolve(target, mode);
-                for id in ids {
+                let matches = resolve_hierarchy_matches(hierarchy, target);
+                for matched in matches {
                     hierarchy_expansions.push(HierarchyExpansion {
-                        path_depth: target.path.len(),
-                        curve_id: id.clone(),
+                        matched_depth: matched.matched_depth,
+                        key: HierarchyExpansionKey::BaseCorrelation {
+                            surface_id: matched.curve_id.clone(),
+                        },
                         operation: OperationSpec::BaseCorrParallelPts {
-                            surface_id: id.as_str().to_string(),
+                            surface_id: matched.curve_id.as_str().to_string(),
                             points: *points,
                         },
                     });
@@ -217,18 +300,21 @@ fn expand_hierarchy_operations(
                 .collect()
         }
         ResolutionMode::MostSpecificWins => {
-            // For each CurveId, keep only the operations from the deepest path
-            let mut max_depth: HashMap<CurveId, usize> = HashMap::default();
+            // For each operation family + identifier, keep only the operations from
+            // the deepest matching hierarchy node.
+            let mut max_depth: HashMap<HierarchyExpansionKey, usize> = HashMap::default();
             for exp in &hierarchy_expansions {
-                let entry = max_depth.entry(exp.curve_id.clone()).or_insert(0);
-                *entry = (*entry).max(exp.path_depth);
+                max_depth
+                    .entry(exp.key.clone())
+                    .and_modify(|best| *best = (*best).max(exp.matched_depth))
+                    .or_insert(exp.matched_depth);
             }
             hierarchy_expansions
                 .into_iter()
                 .filter(|exp| {
                     max_depth
-                        .get(&exp.curve_id)
-                        .is_some_and(|&max| exp.path_depth == max)
+                        .get(&exp.key)
+                        .is_some_and(|&max| exp.matched_depth == max)
                 })
                 .map(|e| e.operation)
                 .collect()
@@ -321,6 +407,17 @@ impl ScenarioEngine {
         scenarios.sort_by_key(|s| s.priority);
 
         let mut all_operations = Vec::new();
+        let resolution_mode = if scenarios.is_empty() {
+            ResolutionMode::default()
+        } else if scenarios
+            .iter()
+            .all(|scenario| scenario.resolution_mode == scenarios[0].resolution_mode)
+        {
+            scenarios[0].resolution_mode
+        } else {
+            ResolutionMode::Cumulative
+        };
+
         for scenario in scenarios {
             all_operations.extend(scenario.operations);
         }
@@ -335,7 +432,7 @@ impl ScenarioEngine {
             description: None,
             operations: all_operations,
             priority: 0,
-            resolution_mode: Default::default(),
+            resolution_mode,
         }
     }
 

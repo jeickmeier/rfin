@@ -39,6 +39,23 @@ use serde::{Deserialize, Serialize};
 /// A path through the hierarchy tree, e.g., `["Credit", "US", "IG", "Financials"]`.
 pub type NodePath = Vec<String>;
 
+pub(crate) fn parse_path(path: &str) -> crate::Result<NodePath> {
+    if path.is_empty() {
+        return Err(crate::Error::Validation(
+            "Hierarchy paths must not be empty".to_string(),
+        ));
+    }
+
+    let segments: NodePath = path.split('/').map(String::from).collect();
+    if segments.iter().any(|segment| segment.is_empty()) {
+        return Err(crate::Error::Validation(format!(
+            "Hierarchy path '{path}' must not contain empty segments"
+        )));
+    }
+
+    Ok(segments)
+}
+
 /// A single node in the market data hierarchy tree.
 ///
 /// Nodes form a tree: each has a name, optional key-value tags for cross-cutting
@@ -151,7 +168,9 @@ impl<'de> Deserialize<'de> for MarketDataHierarchy {
             }
         }
         fixup_names(&mut raw.roots);
-        Ok(MarketDataHierarchy { roots: raw.roots })
+        let hierarchy = MarketDataHierarchy { roots: raw.roots };
+        hierarchy.validate().map_err(serde::de::Error::custom)?;
+        Ok(hierarchy)
     }
 }
 
@@ -209,12 +228,23 @@ impl MarketDataHierarchy {
 
     /// Insert a curve at a `/`-separated path, creating intermediate nodes as needed.
     ///
-    /// Returns without inserting if `path` is empty.
-    pub fn insert_curve(&mut self, path: &str, curve_id: impl Into<CurveId>) {
-        let segments: Vec<&str> = path.split('/').collect();
-        let Some(&root_name) = segments.first() else {
-            return;
-        };
+    /// # Errors
+    ///
+    /// Returns an error if `path` is malformed or if `curve_id` already exists
+    /// somewhere else in the hierarchy.
+    pub fn insert_curve(&mut self, path: &str, curve_id: impl Into<CurveId>) -> crate::Result<()> {
+        let segments = parse_path(path)?;
+        let curve_id = curve_id.into();
+
+        if let Some(existing_path) = self.path_for_curve(&curve_id) {
+            return Err(crate::Error::Validation(format!(
+                "CurveId '{}' already exists in hierarchy at '{}'",
+                curve_id.as_str(),
+                existing_path.join("/")
+            )));
+        }
+
+        let root_name = &segments[0];
 
         let root = self
             .roots
@@ -222,11 +252,12 @@ impl MarketDataHierarchy {
             .or_insert_with(|| HierarchyNode::new(root_name));
 
         let mut current = root;
-        for &segment in &segments[1..] {
+        for segment in &segments[1..] {
             current = current.get_or_create_child(segment);
         }
 
-        current.curve_ids.push(curve_id.into());
+        current.curve_ids.push(curve_id);
+        Ok(())
     }
 
     /// Remove a curve from wherever it sits in the tree. Returns `true` if found.
@@ -278,10 +309,69 @@ impl MarketDataHierarchy {
     }
 
     /// Set a tag on a node at the given `/`-separated path.
-    pub fn set_tag(&mut self, path: &str, key: &str, value: &str) {
-        let segments: Vec<String> = path.split('/').map(String::from).collect();
-        if let Some(node) = self.get_node_mut(&segments) {
-            node.set_tag(key, value);
+    pub fn set_tag(&mut self, path: &str, key: &str, value: &str) -> crate::Result<()> {
+        let segments = parse_path(path)?;
+        let node = self.get_node_mut(&segments).ok_or_else(|| {
+            crate::Error::Validation(format!(
+                "Hierarchy path '{}' does not exist",
+                segments.join("/")
+            ))
+        })?;
+        node.set_tag(key, value);
+        Ok(())
+    }
+
+    /// Validate structural hierarchy invariants.
+    ///
+    /// This is primarily useful after performing low-level manual mutations via
+    /// `get_node_mut`, `get_or_create_child`, or `add_curve_id`.
+    pub fn validate(&self) -> crate::Result<()> {
+        fn visit(
+            node: &HierarchyNode,
+            expected_name: &str,
+            path: &mut Vec<String>,
+            seen: &mut HashMap<CurveId, String>,
+        ) -> crate::Result<()> {
+            if expected_name.is_empty() || node.name().is_empty() {
+                return Err(crate::Error::Validation(
+                    "Hierarchy node names must not be empty".to_string(),
+                ));
+            }
+            if node.name() != expected_name {
+                return Err(crate::Error::Validation(format!(
+                    "Hierarchy node name '{}' does not match its map key '{}'",
+                    node.name(),
+                    expected_name
+                )));
+            }
+
+            path.push(node.name().to_string());
+            let current_path = path.join("/");
+
+            for curve_id in node.curve_ids() {
+                if let Some(existing_path) = seen.insert(curve_id.clone(), current_path.clone()) {
+                    return Err(crate::Error::Validation(format!(
+                        "CurveId '{}' appears in multiple hierarchy locations: {}, {}",
+                        curve_id.as_str(),
+                        existing_path,
+                        current_path
+                    )));
+                }
+            }
+
+            for (child_name, child) in node.children() {
+                visit(child, child_name, path, seen)?;
+            }
+
+            path.pop();
+            Ok(())
         }
+
+        let mut seen = HashMap::default();
+        let mut path = Vec::new();
+        for (root_name, root) in &self.roots {
+            visit(root, root_name, &mut path, &mut seen)?;
+        }
+        Ok(())
     }
 }
