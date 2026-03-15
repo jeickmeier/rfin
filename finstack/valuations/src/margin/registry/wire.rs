@@ -1,9 +1,8 @@
-#![allow(dead_code)]
-
 use serde::Deserialize;
 use serde_json::Value;
 
 // Shared envelope used by embedded registry files (similar to market conventions).
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryFile<R> {
@@ -12,6 +11,7 @@ pub struct RegistryFile<R> {
     pub entries: Vec<RegistryEntry<R>>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RegistryEntry<R> {
@@ -23,6 +23,7 @@ pub struct RegistryEntry<R> {
 // Schedule IM (BCBS-IOSCO grid)
 // -----------------------------------------------------------------------------//
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduleImFile {
@@ -31,6 +32,7 @@ pub struct ScheduleImFile {
     pub entries: Vec<RegistryEntry<ScheduleImRecord>>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduleImRecord {
@@ -42,6 +44,7 @@ pub struct ScheduleImRecord {
     pub rates: Vec<ScheduleImRate>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduleBucketBoundaries {
@@ -49,6 +52,7 @@ pub struct ScheduleBucketBoundaries {
     pub medium_to_long: f64,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScheduleImRate {
@@ -61,6 +65,7 @@ pub struct ScheduleImRate {
 // Collateral schedules and defaults
 // -----------------------------------------------------------------------------//
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CollateralSchedulesFile {
@@ -70,6 +75,7 @@ pub struct CollateralSchedulesFile {
     pub entries: Vec<RegistryEntry<CollateralScheduleRecord>>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AssetClassDefault {
@@ -78,6 +84,7 @@ pub struct AssetClassDefault {
     pub fx_addon: f64,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CollateralScheduleRecord {
@@ -86,6 +93,7 @@ pub struct CollateralScheduleRecord {
     pub rehypothecation_allowed: bool,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CollateralEligibilityRecord {
@@ -100,6 +108,7 @@ pub struct CollateralEligibilityRecord {
     pub concentration_limit: Option<f64>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MaturityConstraintsRecord {
@@ -113,6 +122,7 @@ pub struct MaturityConstraintsRecord {
 // Defaults (VM/IM thresholds, timing, settlement)
 // -----------------------------------------------------------------------------//
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsFile {
@@ -121,6 +131,7 @@ pub struct DefaultsFile {
     pub defaults: DefaultsRecord,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DefaultsRecord {
@@ -130,6 +141,7 @@ pub struct DefaultsRecord {
     pub cleared_settlement: ClearedSettlementRecord,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct VmDefaultsRecord {
@@ -141,6 +153,7 @@ pub struct VmDefaultsRecord {
     pub settlement_lag: u32,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ImDefaultsRecord {
@@ -150,6 +163,7 @@ pub struct ImDefaultsRecord {
     pub repo_haircut: ImMethodDefaultsRecord,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct ImMethodDefaultsRecord {
@@ -159,6 +173,7 @@ pub struct ImMethodDefaultsRecord {
     pub segregated: bool,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TimingDefaultsRecord {
@@ -167,6 +182,7 @@ pub struct TimingDefaultsRecord {
     pub ccp: MarginCallTimingRecord,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
 pub struct MarginCallTimingRecord {
@@ -176,6 +192,7 @@ pub struct MarginCallTimingRecord {
     pub delivery_grace_days: u8,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClearedSettlementRecord {
@@ -187,6 +204,7 @@ pub struct ClearedSettlementRecord {
 // CCP methodologies
 // -----------------------------------------------------------------------------//
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CcpFile {
@@ -195,6 +213,7 @@ pub struct CcpFile {
     pub entries: Vec<RegistryEntry<CcpRecord>>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CcpRecord {
@@ -208,6 +227,7 @@ pub struct CcpRecord {
 // SIMM parameters
 // -----------------------------------------------------------------------------//
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimmFile {
@@ -216,6 +236,7 @@ pub struct SimmFile {
     pub entries: Vec<RegistryEntry<SimmRecord>>,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SimmRecord {
@@ -247,6 +268,7 @@ pub struct SimmRecord {
     pub concentration_thresholds: Value,
 }
 
+#[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RiskClassCorrelationRecord {

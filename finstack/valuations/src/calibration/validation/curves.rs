@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! Curve validators (discount/forward/hazard/inflation/base-correlation).
 
 use crate::calibration::validation::points::{

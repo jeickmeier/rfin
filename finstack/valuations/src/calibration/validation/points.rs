@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 //! Shared validation grids (static points) to avoid repeated allocations.
 
 /// Standard year-fraction points for checking discount curve monotonicity.
