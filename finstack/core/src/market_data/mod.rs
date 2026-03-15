@@ -75,6 +75,8 @@ pub mod context;
 pub mod diff;
 /// Shared dividend schedules (cash/yield/stock) for equities/ETFs.
 pub mod dividends;
+/// Market data hierarchy for organizational grouping and scenario targeting.
+pub mod hierarchy;
 /// Scalar market data types and time series (including primitives)
 pub mod scalars;
 /// Two-dimensional surfaces (e.g. volatility).

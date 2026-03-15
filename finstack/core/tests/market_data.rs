@@ -60,3 +60,7 @@ mod credit_index;
 // Serialization tests
 #[path = "market_data/serde.rs"]
 mod market_data_serde;
+
+// Hierarchy tests
+#[path = "market_data/hierarchy.rs"]
+mod hierarchy;
