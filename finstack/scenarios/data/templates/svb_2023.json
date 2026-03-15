@@ -1,0 +1,134 @@
+{
+  "metadata": {
+    "id": "svb_2023",
+    "name": "SVB / Regional Banking Crisis 2023",
+    "description": "March 2023 regional banking stress after Silicon Valley Bank failed. Front-end rates rallied, regional bank spreads widened, equities sold off, volatility rose, and the USD strengthened modestly.",
+    "event_date": "2023-03-10",
+    "asset_classes": [
+      "rates",
+      "credit",
+      "equity",
+      "volatility",
+      "fx"
+    ],
+    "tags": [
+      "historical",
+      "banking",
+      "liquidity",
+      "regional"
+    ],
+    "severity": "moderate",
+    "components": [
+      "svb_2023_rates",
+      "svb_2023_credit",
+      "svb_2023_equity",
+      "svb_2023_vol",
+      "svb_2023_fx"
+    ]
+  },
+  "components": {
+    "svb_2023_rates": {
+      "id": "svb_2023_rates",
+      "name": "SVB 2023 - Rates",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "bp": -100.0
+        },
+        {
+          "kind": "curve_node_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "nodes": [
+            [
+              "2Y",
+              -50.0
+            ],
+            [
+              "10Y",
+              25.0
+            ]
+          ],
+          "match_mode": "interpolate"
+        }
+      ],
+      "priority": 0
+    },
+    "svb_2023_credit": {
+      "id": "svb_2023_credit",
+      "name": "SVB 2023 - Credit",
+      "operations": [
+        {
+          "kind": "instrument_spread_bp_by_attr",
+          "attrs": {
+            "sector": "regional_banks"
+          },
+          "bp": 150.0
+        }
+      ],
+      "priority": 1
+    },
+    "svb_2023_equity": {
+      "id": "svb_2023_equity",
+      "name": "SVB 2023 - Equity",
+      "operations": [
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "KRE"
+          ],
+          "pct": -20.0
+        },
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "SPX"
+          ],
+          "pct": -5.0
+        }
+      ],
+      "priority": 2
+    },
+    "svb_2023_vol": {
+      "id": "svb_2023_vol",
+      "name": "SVB 2023 - Volatility",
+      "operations": [
+        {
+          "kind": "vol_surface_parallel_pct",
+          "surface_kind": "equity",
+          "surface_id": "SPX_VOL",
+          "pct": 75.0
+        }
+      ],
+      "priority": 3
+    },
+    "svb_2023_fx": {
+      "id": "svb_2023_fx",
+      "name": "SVB 2023 - FX",
+      "operations": [
+        {
+          "kind": "market_fx_pct",
+          "base": "EUR",
+          "quote": "USD",
+          "pct": -1.0
+        }
+      ],
+      "priority": 4
+    }
+  },
+  "composite": {
+    "id": "svb_2023",
+    "name": "SVB / Regional Banking Crisis 2023",
+    "description": "Regional banking stress - front-end rally, bank spread widening, volatility jump",
+    "priority": 0,
+    "component_ids": [
+      "svb_2023_rates",
+      "svb_2023_credit",
+      "svb_2023_equity",
+      "svb_2023_vol",
+      "svb_2023_fx"
+    ]
+  }
+}

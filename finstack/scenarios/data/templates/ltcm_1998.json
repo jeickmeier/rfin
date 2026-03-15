@@ -1,0 +1,144 @@
+{
+  "metadata": {
+    "id": "ltcm_1998",
+    "name": "LTCM / Russian Default 1998",
+    "description": "August 1998 LTCM crisis and Russian default. Flight-to-quality in rates, EM spread blowouts, an equity selloff, higher volatility, and sharp USD strength versus EM FX.",
+    "event_date": "1998-08-17",
+    "asset_classes": [
+      "rates",
+      "credit",
+      "equity",
+      "volatility",
+      "fx"
+    ],
+    "tags": [
+      "historical",
+      "credit",
+      "liquidity",
+      "emerging_markets"
+    ],
+    "severity": "severe",
+    "components": [
+      "ltcm_1998_rates",
+      "ltcm_1998_credit",
+      "ltcm_1998_equity",
+      "ltcm_1998_vol",
+      "ltcm_1998_fx"
+    ]
+  },
+  "components": {
+    "ltcm_1998_rates": {
+      "id": "ltcm_1998_rates",
+      "name": "LTCM 1998 - Rates",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "bp": -75.0
+        },
+        {
+          "kind": "curve_node_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "nodes": [
+            [
+              "2Y",
+              -25.0
+            ],
+            [
+              "30Y",
+              50.0
+            ]
+          ],
+          "match_mode": "interpolate"
+        },
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "EM-SOVEREIGN",
+          "bp": 200.0
+        }
+      ],
+      "priority": 0
+    },
+    "ltcm_1998_credit": {
+      "id": "ltcm_1998_credit",
+      "name": "LTCM 1998 - Credit",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-IG",
+          "bp": 100.0
+        },
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "EM-CORPORATE",
+          "bp": 200.0
+        }
+      ],
+      "priority": 1
+    },
+    "ltcm_1998_equity": {
+      "id": "ltcm_1998_equity",
+      "name": "LTCM 1998 - Equity",
+      "operations": [
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "SPX"
+          ],
+          "pct": -20.0
+        }
+      ],
+      "priority": 2
+    },
+    "ltcm_1998_vol": {
+      "id": "ltcm_1998_vol",
+      "name": "LTCM 1998 - Volatility",
+      "operations": [
+        {
+          "kind": "vol_surface_parallel_pct",
+          "surface_kind": "equity",
+          "surface_id": "SPX_VOL",
+          "pct": 100.0
+        }
+      ],
+      "priority": 3
+    },
+    "ltcm_1998_fx": {
+      "id": "ltcm_1998_fx",
+      "name": "LTCM 1998 - FX",
+      "operations": [
+        {
+          "kind": "market_fx_pct",
+          "base": "BRL",
+          "quote": "USD",
+          "pct": -30.0
+        },
+        {
+          "kind": "market_fx_pct",
+          "base": "RUB",
+          "quote": "USD",
+          "pct": -50.0
+        }
+      ],
+      "priority": 4
+    }
+  },
+  "composite": {
+    "id": "ltcm_1998",
+    "name": "LTCM / Russian Default 1998",
+    "description": "Flight to quality - rates rally, EM spread blowout, equity decline, vol spike",
+    "priority": 0,
+    "component_ids": [
+      "ltcm_1998_rates",
+      "ltcm_1998_credit",
+      "ltcm_1998_equity",
+      "ltcm_1998_vol",
+      "ltcm_1998_fx"
+    ]
+  }
+}

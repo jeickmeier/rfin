@@ -1,0 +1,123 @@
+{
+  "metadata": {
+    "id": "rate_shock_2022",
+    "name": "2022 Fed Hiking Cycle",
+    "description": "Inflation-driven 2022 hiking cycle. Sharp rate repricing, wider credit spreads, equity drawdowns, higher volatility, and a stronger USD.",
+    "event_date": "2022-06-15",
+    "asset_classes": [
+      "rates",
+      "credit",
+      "equity",
+      "volatility",
+      "fx"
+    ],
+    "tags": [
+      "historical",
+      "rates",
+      "inflation",
+      "systemic"
+    ],
+    "severity": "moderate",
+    "components": [
+      "rate_shock_2022_rates",
+      "rate_shock_2022_credit",
+      "rate_shock_2022_equity",
+      "rate_shock_2022_vol",
+      "rate_shock_2022_fx"
+    ]
+  },
+  "components": {
+    "rate_shock_2022_rates": {
+      "id": "rate_shock_2022_rates",
+      "name": "2022 Rate Shock - Rates",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "bp": 300.0
+        }
+      ],
+      "priority": 0
+    },
+    "rate_shock_2022_credit": {
+      "id": "rate_shock_2022_credit",
+      "name": "2022 Rate Shock - Credit",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-IG",
+          "bp": 100.0
+        },
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-HY",
+          "bp": 200.0
+        }
+      ],
+      "priority": 1
+    },
+    "rate_shock_2022_equity": {
+      "id": "rate_shock_2022_equity",
+      "name": "2022 Rate Shock - Equity",
+      "operations": [
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "SPX"
+          ],
+          "pct": -25.0
+        },
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "NDX"
+          ],
+          "pct": -33.0
+        }
+      ],
+      "priority": 2
+    },
+    "rate_shock_2022_vol": {
+      "id": "rate_shock_2022_vol",
+      "name": "2022 Rate Shock - Volatility",
+      "operations": [
+        {
+          "kind": "vol_surface_parallel_pct",
+          "surface_kind": "equity",
+          "surface_id": "SPX_VOL",
+          "pct": 50.0
+        }
+      ],
+      "priority": 3
+    },
+    "rate_shock_2022_fx": {
+      "id": "rate_shock_2022_fx",
+      "name": "2022 Rate Shock - FX",
+      "operations": [
+        {
+          "kind": "market_fx_pct",
+          "base": "EUR",
+          "quote": "USD",
+          "pct": -15.0
+        }
+      ],
+      "priority": 4
+    }
+  },
+  "composite": {
+    "id": "rate_shock_2022",
+    "name": "2022 Fed Hiking Cycle",
+    "description": "Inflation shock - rates surge, credit widens, equities fall, vol rises",
+    "priority": 0,
+    "component_ids": [
+      "rate_shock_2022_rates",
+      "rate_shock_2022_credit",
+      "rate_shock_2022_equity",
+      "rate_shock_2022_vol",
+      "rate_shock_2022_fx"
+    ]
+  }
+}

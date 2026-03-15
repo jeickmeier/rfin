@@ -1,0 +1,142 @@
+{
+  "metadata": {
+    "id": "covid_2020",
+    "name": "COVID 2020 Market Shock",
+    "description": "Pandemic-driven market dislocation in March 2020. Emergency rate cuts, sharp credit widening, an equity crash, volatility spike, and broad USD strength.",
+    "event_date": "2020-03-16",
+    "asset_classes": [
+      "rates",
+      "credit",
+      "equity",
+      "volatility",
+      "fx"
+    ],
+    "tags": [
+      "systemic",
+      "pandemic",
+      "liquidity",
+      "historical"
+    ],
+    "severity": "severe",
+    "components": [
+      "covid_2020_rates",
+      "covid_2020_credit",
+      "covid_2020_equity",
+      "covid_2020_vol",
+      "covid_2020_fx"
+    ]
+  },
+  "components": {
+    "covid_2020_rates": {
+      "id": "covid_2020_rates",
+      "name": "COVID 2020 - Rates",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "bp": -150.0
+        },
+        {
+          "kind": "curve_node_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "nodes": [
+            [
+              "2Y",
+              -30.0
+            ],
+            [
+              "10Y",
+              10.0
+            ],
+            [
+              "30Y",
+              20.0
+            ]
+          ],
+          "match_mode": "interpolate"
+        }
+      ],
+      "priority": 0
+    },
+    "covid_2020_credit": {
+      "id": "covid_2020_credit",
+      "name": "COVID 2020 - Credit",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-IG",
+          "bp": 200.0
+        },
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-HY",
+          "bp": 600.0
+        }
+      ],
+      "priority": 1
+    },
+    "covid_2020_equity": {
+      "id": "covid_2020_equity",
+      "name": "COVID 2020 - Equity",
+      "operations": [
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "SPX"
+          ],
+          "pct": -34.0
+        }
+      ],
+      "priority": 2
+    },
+    "covid_2020_vol": {
+      "id": "covid_2020_vol",
+      "name": "COVID 2020 - Volatility",
+      "operations": [
+        {
+          "kind": "vol_surface_parallel_pct",
+          "surface_kind": "equity",
+          "surface_id": "SPX_VOL",
+          "pct": 250.0
+        }
+      ],
+      "priority": 3
+    },
+    "covid_2020_fx": {
+      "id": "covid_2020_fx",
+      "name": "COVID 2020 - FX",
+      "operations": [
+        {
+          "kind": "market_fx_pct",
+          "base": "EUR",
+          "quote": "USD",
+          "pct": -5.0
+        },
+        {
+          "kind": "market_fx_pct",
+          "base": "BRL",
+          "quote": "USD",
+          "pct": -15.0
+        }
+      ],
+      "priority": 4
+    }
+  },
+  "composite": {
+    "id": "covid_2020",
+    "name": "COVID 2020 Market Shock",
+    "description": "Pandemic panic - emergency easing, spread widening, equity crash, vol spike",
+    "priority": 0,
+    "component_ids": [
+      "covid_2020_rates",
+      "covid_2020_credit",
+      "covid_2020_equity",
+      "covid_2020_vol",
+      "covid_2020_fx"
+    ]
+  }
+}

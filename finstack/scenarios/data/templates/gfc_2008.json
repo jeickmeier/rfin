@@ -1,0 +1,153 @@
+{
+  "metadata": {
+    "id": "gfc_2008",
+    "name": "Global Financial Crisis 2008",
+    "description": "Lehman Brothers collapse and ensuing global credit crisis. Severe flight-to-quality in rates, massive credit spread widening, equity crash, and volatility spike.",
+    "event_date": "2008-09-15",
+    "asset_classes": [
+      "rates",
+      "credit",
+      "equity",
+      "volatility",
+      "fx"
+    ],
+    "tags": [
+      "systemic",
+      "credit",
+      "liquidity",
+      "historical"
+    ],
+    "severity": "severe",
+    "components": [
+      "gfc_2008_rates",
+      "gfc_2008_credit",
+      "gfc_2008_equity",
+      "gfc_2008_vol",
+      "gfc_2008_fx"
+    ]
+  },
+  "components": {
+    "gfc_2008_rates": {
+      "id": "gfc_2008_rates",
+      "name": "GFC 2008 - Rates",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "bp": -200.0
+        },
+        {
+          "kind": "curve_node_bp",
+          "curve_kind": "discount",
+          "curve_id": "USD-SOFR",
+          "nodes": [
+            [
+              "2Y",
+              -50.0
+            ],
+            [
+              "5Y",
+              0.0
+            ],
+            [
+              "10Y",
+              50.0
+            ],
+            [
+              "30Y",
+              75.0
+            ]
+          ],
+          "match_mode": "interpolate"
+        }
+      ],
+      "priority": 0
+    },
+    "gfc_2008_credit": {
+      "id": "gfc_2008_credit",
+      "name": "GFC 2008 - Credit",
+      "operations": [
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-IG",
+          "bp": 300.0
+        },
+        {
+          "kind": "curve_parallel_bp",
+          "curve_kind": "par_cds",
+          "curve_id": "USD-HY",
+          "bp": 800.0
+        }
+      ],
+      "priority": 1
+    },
+    "gfc_2008_equity": {
+      "id": "gfc_2008_equity",
+      "name": "GFC 2008 - Equity",
+      "operations": [
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "SPX"
+          ],
+          "pct": -50.0
+        },
+        {
+          "kind": "equity_price_pct",
+          "ids": [
+            "RTY"
+          ],
+          "pct": -55.0
+        }
+      ],
+      "priority": 2
+    },
+    "gfc_2008_vol": {
+      "id": "gfc_2008_vol",
+      "name": "GFC 2008 - Volatility",
+      "operations": [
+        {
+          "kind": "vol_surface_parallel_pct",
+          "surface_kind": "equity",
+          "surface_id": "SPX_VOL",
+          "pct": 200.0
+        }
+      ],
+      "priority": 3
+    },
+    "gfc_2008_fx": {
+      "id": "gfc_2008_fx",
+      "name": "GFC 2008 - FX",
+      "operations": [
+        {
+          "kind": "market_fx_pct",
+          "base": "EUR",
+          "quote": "USD",
+          "pct": -10.0
+        },
+        {
+          "kind": "market_fx_pct",
+          "base": "GBP",
+          "quote": "USD",
+          "pct": -25.0
+        }
+      ],
+      "priority": 4
+    }
+  },
+  "composite": {
+    "id": "gfc_2008",
+    "name": "Global Financial Crisis 2008",
+    "description": "Lehman collapse - rates rally, credit blowout, equity crash, vol spike",
+    "priority": 0,
+    "component_ids": [
+      "gfc_2008_rates",
+      "gfc_2008_credit",
+      "gfc_2008_equity",
+      "gfc_2008_vol",
+      "gfc_2008_fx"
+    ]
+  }
+}
