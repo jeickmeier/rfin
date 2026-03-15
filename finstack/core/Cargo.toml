@@ -21,6 +21,7 @@ phf = { version = "0.13", features = ["macros"], default-features = false }
 rustc-hash = { workspace = true }
 parking_lot = "0.12"
 lru = "0.16"
+indexmap = { workspace = true, features = ["serde"] }
 rust_decimal = { workspace = true, features = ["serde-with-str"] }
 statrs = { version = "0.18", default-features = false }
 nalgebra = "0.34"
