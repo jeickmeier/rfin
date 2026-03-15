@@ -112,6 +112,7 @@ pub fn quanto_call(
     // Effective drift for the quanto measure
     let drift_adj = rate_foreign - div_yield + quanto_adj;
 
+    // d1/d2 intentionally inline: Quanto-adjusted drift doesn't map cleanly to r, q params
     let d1 = ((spot / strike).ln() + (drift_adj + 0.5 * vol_asset * vol_asset) * time) / vol_sqrt_t;
     let d2 = d1 - vol_sqrt_t;
 

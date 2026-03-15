@@ -216,6 +216,7 @@ fn price_geometric_kv_commodity(
     // Black-76 style pricing with geometric mean forward
     // Use vol_adj_sq directly (it represents total variance) rather than vol_adj * sqrt(t)
     let total_vol = vol_adj_sq.sqrt();
+    // d1/d2 intentionally inline: Pre-computed adjusted variance, not decomposable into sigma,t
     let d1 = ((geo_mean_fwd / strike).ln() + 0.5 * vol_adj_sq) / total_vol;
     let d2 = d1 - total_vol;
 

@@ -210,6 +210,7 @@ pub fn implied_vol_black(
 
         // Compute d₁, d₂ for volga
         let st = sigma * sqrt_t;
+        // d1/d2 intentionally inline: ln_fk pre-hoisted for Newton loop performance
         let d1 = (ln_fk + 0.5 * st * st) / st;
         let d2 = d1 - st;
         let volga = vega * d1 * d2 / sigma;

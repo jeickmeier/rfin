@@ -318,6 +318,7 @@ fn barrier_helper(
 
     let mu = (rate - div_yield - 0.5 * vol * vol) / (vol * vol);
 
+    // d1/d2 intentionally inline: Merton barrier x,x1,y,y1 terms — not d1/d2
     let x = (spot / strike).ln() / (vol * time.sqrt()) + (1.0 + mu) * vol * time.sqrt();
     let x1 = (spot / barrier).ln() / (vol * time.sqrt()) + (1.0 + mu) * vol * time.sqrt();
     let y = (barrier * barrier / (spot * strike)).ln() / (vol * time.sqrt())

@@ -385,6 +385,7 @@ fn black_call_undiscounted(forward: f64, strike: f64, expiry: f64, vol: f64) -> 
         return (forward - strike).max(0.0);
     }
     let sqrt_t = expiry.sqrt();
+    // d1/d2 intentionally inline: In finstack_core, cannot import from valuations
     let d1 = ((forward / strike).ln() + 0.5 * vol * vol * expiry) / (vol * sqrt_t);
     let d2 = d1 - vol * sqrt_t;
     forward * norm_cdf(d1) - strike * norm_cdf(d2)

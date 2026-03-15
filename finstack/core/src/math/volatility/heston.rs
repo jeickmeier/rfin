@@ -590,6 +590,7 @@ fn bs_call_fallback(
     }
 
     let sqrt_t = t.sqrt();
+    // d1/d2 intentionally inline: In finstack_core, cannot import from valuations
     let d1 = ((spot / strike).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t);
     let d2 = d1 - vol * sqrt_t;
 
