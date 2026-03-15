@@ -834,6 +834,112 @@ Use cases:
 - **Scenario validation:** "Does my stress scenario cover all curves, or are some falling through unshocked?"
 - **Onboarding audit:** "I added 3 new issuers — are their hazard curves, spot prices, and dividend schedules all classified?"
 
+## Future Extensions: Entities, Statements, and Instruments
+
+The hierarchy is designed for market data today, but the same tree+tags+resolution pattern naturally extends to other domains. This section documents the extension points to ensure the day-one architecture doesn't preclude these use cases.
+
+### Motivating Scenarios
+
+1. **Private equity DCF stress:** "Revenue declines 10% for all US Technology companies" — targets entity-level statement models by region and sector classification.
+2. **Corporate lending book stress:** "Revenue -10% and margins -5% across the lending book" — targets statement nodes across a group of entities.
+3. **Structured credit CDR stress:** "CDR increases to 5% for all CLOs for one year" — targets instrument-level model parameters by instrument type.
+
+### Extension 1: Entity Hierarchy (Statement Targeting)
+
+Entities already have `EntityId` and `tags: IndexMap<String, String>`. A parallel entity hierarchy would organize entities the same way the market data hierarchy organizes curves:
+
+```
+Entities
+├── US
+│   ├── Technology
+│   │   ├── PrivateEquity  → [entity:acme-tech, entity:beta-ai]
+│   │   └── PublicEquity   → [entity:aapl, entity:msft]
+│   └── Financials
+│       └── Banks          → [entity:jpm, entity:gs]
+├── EU
+│   └── Industrials        → [entity:siemens]
+```
+
+A scenario could then target statement nodes via hierarchy:
+
+```json
+{
+  "kind": "stmt_forecast_percent",
+  "node_id": "Revenue",
+  "target": { "path": ["Entities", "US", "Technology"] },
+  "pct": -10.0
+}
+```
+
+The resolution engine resolves this to: "apply -10% revenue shock to the `FinancialModelSpec` for each entity under US/Technology."
+
+### Extension 2: Instrument Hierarchy (Model Parameter Targeting)
+
+Instruments/positions have `instrument_id`, `InstrumentType`, and position-level `tags`. An instrument hierarchy would organize positions for model-parameter shocks:
+
+```
+Instruments
+├── StructuredCredit
+│   ├── CLO              → [pos:clo-deal-1, pos:clo-deal-2]
+│   └── ABS              → [pos:abs-auto-1]
+├── CorporateLoans
+│   ├── Revolver         → [pos:acme-revolver]
+│   └── TermLoan         → [pos:acme-tl-b]
+```
+
+A scenario could target model parameters via hierarchy:
+
+```json
+{
+  "kind": "model_parameter_override",
+  "param": "conditional_default_rate",
+  "target": { "path": ["Instruments", "StructuredCredit", "CLO"] },
+  "value": 0.05
+}
+```
+
+### Architectural Provisions for Day One
+
+To ensure these extensions are possible without redesigning the core:
+
+**1. Generic leaf references.** `HierarchyNode` uses `Vec<CurveId>` today. The design should use a type alias that can later become an enum:
+
+```rust
+// Day one: simple alias
+pub type LeafId = CurveId;
+
+// Future: extensible enum
+pub enum LeafId {
+    Curve(CurveId),
+    Entity(EntityId),
+    Position(PositionId),
+}
+```
+
+For day one, we use `CurveId` directly. The extension to `enum LeafId` is a backwards-compatible change (existing JSON with string IDs deserializes the same way).
+
+**2. Resolution engine is target-agnostic.** The resolution logic (tree walk, tag filtering, cumulative vs. most-specific-wins) operates on `NodePath` and `LeafId`. It does not know what a `CurveId` is — it just resolves paths to sets of leaf IDs. This means the same engine works for entity and instrument hierarchies without modification.
+
+**3. Scenario engine dispatches by context.** The scenario engine already dispatches operations by type (`OperationSpec` variant). Adding `StmtForecastPercent` with hierarchy targeting just means the engine:
+- Resolves the target to a set of `EntityId`s (via entity hierarchy)
+- Applies the statement shock to each entity's `FinancialModelSpec`
+- This parallels how it already resolves market data targets to `CurveId`s
+
+**4. Multiple hierarchies or single unified tree.** Two valid approaches:
+- **Multiple hierarchies** (recommended): `MarketContext` holds a market data hierarchy; `Portfolio` holds an entity/instrument hierarchy. Each domain owns its own tree. Clean separation of concerns.
+- **Single unified tree**: One hierarchy with roots for `MarketData`, `Entities`, `Instruments`. Simpler config file, but mixes concerns.
+
+The day-one implementation uses a single `MarketDataHierarchy` on `MarketContext`. The `HierarchyNode` and resolution engine types are defined generically enough that a future `EntityHierarchy` or `InstrumentHierarchy` can reuse them (or the same `MarketDataHierarchy` struct can be parameterized).
+
+**5. No changes to existing structured credit ops.** The current `AssetCorrelationPts`, `PrepayDefaultCorrelationPts`, etc. are global (apply to all instruments in the execution context). Hierarchy targeting would add scoped variants that target specific instruments — this is additive and doesn't break the existing global ops.
+
+### What This Means for Day One
+
+- Build `HierarchyNode` with `curve_ids: Vec<CurveId>` (not a generic `LeafId` enum — avoid premature abstraction)
+- Keep the resolution engine logic in functions that take `&HierarchyNode` and return `Vec<CurveId>` — easy to generalize later
+- Use `NodePath`, `TagFilter`, `ResolutionMode` as the shared vocabulary — these are domain-agnostic and will work for any hierarchy
+- Document the extension path (this section) so future implementers know the design intent
+
 ## Cross-Crate Boundaries
 
 ### File Layout
