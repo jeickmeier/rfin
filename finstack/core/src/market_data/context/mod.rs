@@ -81,7 +81,7 @@ pub use state_serde::{
     CreditIndexState, CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION,
 };
 
-use crate::collections::HashMap;
+use crate::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::money::fx::FxMatrix;
@@ -89,6 +89,7 @@ use crate::types::CurveId;
 
 use super::{
     dividends::DividendSchedule,
+    hierarchy::{CompletenessReport, MarketDataHierarchy, SubtreeCoverage},
     scalars::InflationIndex,
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
@@ -132,6 +133,9 @@ pub struct MarketContext {
 
     /// Collateral CSA code mappings
     collateral: HashMap<String, CurveId>,
+
+    /// Optional market data hierarchy for organizational grouping.
+    hierarchy: Option<MarketDataHierarchy>,
 }
 
 impl std::fmt::Debug for MarketContext {
@@ -147,6 +151,7 @@ impl std::fmt::Debug for MarketContext {
             .field("dividends", &self.dividends.len())
             .field("fx_delta_vol_surfaces", &self.fx_delta_vol_surfaces.len())
             .field("collateral", &self.collateral.len())
+            .field("hierarchy", &self.hierarchy.is_some())
             .finish()
     }
 }
@@ -214,6 +219,82 @@ impl MarketContext {
         }
 
         Ok(rebuilt)
+    }
+
+    /// Get the attached hierarchy, if any.
+    pub fn hierarchy(&self) -> Option<&MarketDataHierarchy> {
+        self.hierarchy.as_ref()
+    }
+
+    /// Attach a market data hierarchy.
+    pub fn set_hierarchy(&mut self, h: MarketDataHierarchy) {
+        self.hierarchy = Some(h);
+    }
+
+    /// Generate a completeness report comparing hierarchy declarations against
+    /// all `CurveId`-keyed data stores. Returns `None` if no hierarchy is attached.
+    pub fn completeness_report(&self) -> Option<CompletenessReport> {
+        let hierarchy = self.hierarchy.as_ref()?;
+
+        // Collect all CurveIds present in any store.
+        let mut present: HashSet<CurveId> = HashSet::default();
+        present.extend(self.curves.keys().cloned());
+        present.extend(self.surfaces.keys().cloned());
+        present.extend(self.prices.keys().cloned());
+        present.extend(self.series.keys().cloned());
+        present.extend(self.inflation_indices.keys().cloned());
+        present.extend(self.credit_indices.keys().cloned());
+        present.extend(self.dividends.keys().cloned());
+        present.extend(self.fx_delta_vol_surfaces.keys().cloned());
+
+        // Find missing: declared in hierarchy but absent from all stores.
+        let declared = hierarchy.all_curve_ids();
+        let declared_set: HashSet<CurveId> = declared.iter().cloned().collect();
+
+        let mut missing = Vec::new();
+        for id in &declared {
+            if !present.contains(id) {
+                if let Some(path) = hierarchy.path_for_curve(id) {
+                    missing.push((path, id.clone()));
+                }
+            }
+        }
+
+        // Find unclassified: present in stores but not in hierarchy.
+        let mut unclassified: Vec<CurveId> = present
+            .iter()
+            .filter(|id| !declared_set.contains(*id))
+            .cloned()
+            .collect();
+        unclassified.sort_unstable();
+
+        // Coverage per root subtree.
+        let mut coverage = Vec::new();
+        for (name, root) in hierarchy.roots() {
+            let subtree_ids = root.all_curve_ids();
+            let total_expected = subtree_ids.len();
+            let total_present = subtree_ids
+                .iter()
+                .filter(|id| present.contains(*id))
+                .count();
+            let percent = if total_expected == 0 {
+                100.0
+            } else {
+                (total_present as f64 / total_expected as f64) * 100.0
+            };
+            coverage.push(SubtreeCoverage {
+                path: vec![name.clone()],
+                total_expected,
+                total_present,
+                percent,
+            });
+        }
+
+        Some(CompletenessReport {
+            missing,
+            unclassified,
+            coverage,
+        })
     }
 
     /// Rebind all credit indices to current curves.

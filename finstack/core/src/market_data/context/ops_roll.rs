@@ -98,6 +98,7 @@ impl MarketContext {
             dividends: self.dividends.clone(),
             fx_delta_vol_surfaces: self.fx_delta_vol_surfaces.clone(),
             collateral: self.collateral.clone(),
+            hierarchy: self.hierarchy.clone(),
         };
 
         // Roll each curve forward

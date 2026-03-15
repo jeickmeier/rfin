@@ -517,3 +517,58 @@ fn resolve_most_specific_wins_with_tag_filter() {
         "SHARED-RATE must appear exactly once, got {shared_count}"
     );
 }
+
+// ─── Completeness tracking tests ─────────────────────────────────────────────
+
+#[test]
+fn completeness_report_returns_none_without_hierarchy() {
+    use finstack_core::market_data::context::MarketContext;
+    let market = MarketContext::new();
+    assert!(market.completeness_report().is_none());
+}
+
+#[test]
+fn completeness_report_detects_missing_and_unclassified() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use time::Month;
+
+    let base = finstack_core::dates::Date::from_calendar_date(2025, Month::January, 1).unwrap();
+
+    let h = MarketDataHierarchy::builder()
+        .add_node("Rates/USD/OIS")
+        .curve_ids(&["USD-OIS"])
+        .add_node("Rates/EUR/ESTR")
+        .curve_ids(&["EUR-ESTR"]) // will be missing from MarketContext
+        .build()
+        .unwrap();
+
+    // Build MarketContext with only USD-OIS (EUR-ESTR is missing)
+    // Also add an unclassified curve not in hierarchy
+    let usd_curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.95)])
+        .build()
+        .unwrap();
+    let extra_curve = DiscountCurve::builder("GBP-SONIA")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.96)])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert(usd_curve).insert(extra_curve);
+    market.set_hierarchy(h);
+
+    let report = market.completeness_report().unwrap();
+
+    // EUR-ESTR is declared but missing
+    assert_eq!(report.missing.len(), 1);
+    assert_eq!(report.missing[0].1, CurveId::from("EUR-ESTR"));
+
+    // GBP-SONIA is present but not in hierarchy
+    assert_eq!(report.unclassified.len(), 1);
+    assert_eq!(report.unclassified[0], CurveId::from("GBP-SONIA"));
+
+    // Coverage: Rates root has 2 expected, 1 present = 50%
+    assert!(!report.coverage.is_empty());
+}
