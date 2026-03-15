@@ -34,6 +34,7 @@ use crate::instruments::common_impl::models::closed_form::barrier::{
     barrier_call_continuous, barrier_put_continuous, BarrierType as AnalyticalBarrierType,
 };
 use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use crate::instruments::common_impl::parameters::OptionType;
 
 /// Market quotes for the Vanna-Volga method (three-point smile).
@@ -69,10 +70,9 @@ fn bs_vega(spot: f64, strike: f64, r_d: f64, r_f: f64, vol: f64, t: f64) -> f64 
     if t <= 0.0 || vol <= 0.0 {
         return 0.0;
     }
-    let sqrt_t = t.sqrt();
-    let d1 = ((spot / strike).ln() + (r_d - r_f + 0.5 * vol * vol) * t) / (vol * sqrt_t);
+    let (d1, _d2) = d1_d2(spot, strike, r_d, vol, t, r_f);
     let pdf_d1 = finstack_core::math::norm_pdf(d1);
-    spot * (-r_f * t).exp() * pdf_d1 * sqrt_t
+    spot * (-r_f * t).exp() * pdf_d1 * t.sqrt()
 }
 
 /// Compute BS vanna for a vanilla option (∂²C/∂S∂σ).
@@ -82,9 +82,7 @@ fn bs_vanna(spot: f64, strike: f64, r_d: f64, r_f: f64, vol: f64, t: f64) -> f64
     if t <= 0.0 || vol <= 0.0 {
         return 0.0;
     }
-    let sqrt_t = t.sqrt();
-    let d1 = ((spot / strike).ln() + (r_d - r_f + 0.5 * vol * vol) * t) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(spot, strike, r_d, vol, t, r_f);
     let pdf_d1 = finstack_core::math::norm_pdf(d1);
     -(-r_f * t).exp() * pdf_d1 * d2 / vol
 }
@@ -96,9 +94,7 @@ fn bs_volga(spot: f64, strike: f64, r_d: f64, r_f: f64, vol: f64, t: f64) -> f64
     if t <= 0.0 || vol <= 0.0 {
         return 0.0;
     }
-    let sqrt_t = t.sqrt();
-    let d1 = ((spot / strike).ln() + (r_d - r_f + 0.5 * vol * vol) * t) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(spot, strike, r_d, vol, t, r_f);
     let vega = bs_vega(spot, strike, r_d, r_f, vol, t);
     vega * d1 * d2 / vol
 }

@@ -36,6 +36,7 @@
 
 #[cfg(feature = "mc")]
 pub use crate::instruments::common_impl::models::monte_carlo::process::heston::HestonParams;
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use finstack_core::math::gauss_legendre_integrate_composite;
 use num_complex::Complex;
 use std::f64::consts::PI;
@@ -417,9 +418,7 @@ fn black_scholes_call(spot: f64, strike: f64, time: f64, r: f64, q: f64, vol: f6
         return (spot * (-q * time).exp() - strike * (-r * time).exp()).max(0.0);
     }
 
-    let sqrt_t = time.sqrt();
-    let d1 = ((spot / strike).ln() + (r - q + 0.5 * vol * vol) * time) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(spot, strike, r, vol, time, q);
 
     spot * (-q * time).exp() * norm_cdf(d1) - strike * (-r * time).exp() * norm_cdf(d2)
 }

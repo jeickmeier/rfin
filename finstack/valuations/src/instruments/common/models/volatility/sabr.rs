@@ -30,6 +30,7 @@
 //! | Time (T) | Time to expiry | Years |
 //! | Output | Implied (Black) volatility | Decimal (0.20 = 20%) |
 
+use super::black::d1_d2;
 use finstack_core::{Error, Result};
 
 /// SABR model parameters
@@ -1586,11 +1587,10 @@ fn bs_call_vega(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) -> 
         return 0.0;
     }
 
-    let sqrt_t = t.sqrt();
-    let d1 = ((forward / strike).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t);
+    let (d1, _d2) = d1_d2(forward, strike, r, vol, t, q);
     let pdf_d1 = finstack_core::math::norm_pdf(d1);
 
-    forward * (-q * t).exp() * sqrt_t * pdf_d1
+    forward * (-q * t).exp() * t.sqrt() * pdf_d1
 }
 
 /// Black-Scholes call price for arbitrage checking.
@@ -1602,9 +1602,7 @@ fn bs_call_price(forward: f64, strike: f64, r: f64, q: f64, vol: f64, t: f64) ->
         return (forward - strike).max(0.0);
     }
 
-    let sqrt_t = t.sqrt();
-    let d1 = ((forward / strike).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(forward, strike, r, vol, t, q);
 
     let cdf_d1 = finstack_core::math::norm_cdf(d1);
     let cdf_d2 = finstack_core::math::norm_cdf(d2);

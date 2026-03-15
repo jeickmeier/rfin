@@ -152,6 +152,7 @@
 //! - [`AsianGreeks`] for first-order sensitivities
 //! - Monte Carlo pricing for exact arithmetic average pricing
 
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Pricing result for Asian options.
@@ -628,9 +629,7 @@ fn vanilla_call_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64,
         return ((forward - strike) * (-rate * time).exp()).max(0.0);
     }
 
-    let sqrt_t = time.sqrt();
-    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(spot, strike, rate, vol, time, div_yield);
 
     spot * (-div_yield * time).exp() * norm_cdf(d1) - strike * (-rate * time).exp() * norm_cdf(d2)
 }
@@ -646,9 +645,7 @@ fn vanilla_put_bs(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, 
         return ((strike - forward) * (-rate * time).exp()).max(0.0);
     }
 
-    let sqrt_t = time.sqrt();
-    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(spot, strike, rate, vol, time, div_yield);
 
     strike * (-rate * time).exp() * norm_cdf(-d2) - spot * (-div_yield * time).exp() * norm_cdf(-d1)
 }

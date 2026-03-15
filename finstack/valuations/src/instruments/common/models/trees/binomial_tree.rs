@@ -6,6 +6,7 @@
 //! Now includes generic TreeModel implementation for pricing arbitrary instruments.
 
 use crate::instruments::common_impl::models::trees::NodeState;
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use crate::instruments::common_impl::parameters::OptionMarketParams;
 use crate::instruments::{ExerciseStyle, OptionType};
 use finstack_core::market_data::context::MarketContext;
@@ -158,9 +159,7 @@ impl BinomialTree {
                 }
 
                 // Leisen–Reimer: use Peizer–Pratt inversion to determine probabilities
-                let d1 =
-                    ((spot / strike).ln() + (r - q + 0.5 * sigma * sigma) * t) / (sigma * t.sqrt());
-                let d2 = d1 - sigma * t.sqrt();
+                let (_d1, d2) = d1_d2(spot, strike, r, sigma, t, q);
 
                 // Probabilities via PP inversion
                 let eps = 1e-12;

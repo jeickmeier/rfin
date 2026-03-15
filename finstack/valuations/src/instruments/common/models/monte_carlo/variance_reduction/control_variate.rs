@@ -34,6 +34,7 @@
 //! ```
 
 use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Black-Scholes formula for European call option.
@@ -62,11 +63,14 @@ pub fn black_scholes_call(
         return (spot - strike).max(0.0);
     }
 
-    let sqrt_t = time_to_maturity.sqrt();
-    let d1 = ((spot / strike).ln()
-        + (rate - dividend_yield + 0.5 * volatility * volatility) * time_to_maturity)
-        / (volatility * sqrt_t);
-    let d2 = d1 - volatility * sqrt_t;
+    let (d1, d2) = d1_d2(
+        spot,
+        strike,
+        rate,
+        volatility,
+        time_to_maturity,
+        dividend_yield,
+    );
 
     let discount_factor = (-rate * time_to_maturity).exp();
 
@@ -87,11 +91,14 @@ pub fn black_scholes_put(
         return (strike - spot).max(0.0);
     }
 
-    let sqrt_t = time_to_maturity.sqrt();
-    let d1 = ((spot / strike).ln()
-        + (rate - dividend_yield + 0.5 * volatility * volatility) * time_to_maturity)
-        / (volatility * sqrt_t);
-    let d2 = d1 - volatility * sqrt_t;
+    let (d1, d2) = d1_d2(
+        spot,
+        strike,
+        rate,
+        volatility,
+        time_to_maturity,
+        dividend_yield,
+    );
 
     let discount_factor = (-rate * time_to_maturity).exp();
 

@@ -140,6 +140,7 @@
 //! - [`BarrierParams`] for parameter grouping
 //! - Monte Carlo barrier pricing for discrete monitoring and exotic payoffs
 
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use finstack_core::math::special_functions::norm_cdf;
 
 /// Parameters for barrier option pricing.
@@ -230,9 +231,7 @@ fn vanilla_option_price(
         };
     }
 
-    let sqrt_t = time.sqrt();
-    let d1 = ((spot / strike).ln() + (rate - div_yield + 0.5 * vol * vol) * time) / (vol * sqrt_t);
-    let d2 = d1 - vol * sqrt_t;
+    let (d1, d2) = d1_d2(spot, strike, rate, vol, time, div_yield);
 
     eta * spot * (-div_yield * time).exp() * norm_cdf(eta * d1)
         - eta * strike * (-rate * time).exp() * norm_cdf(eta * d2)

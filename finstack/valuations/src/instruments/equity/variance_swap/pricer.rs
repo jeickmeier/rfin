@@ -1,3 +1,4 @@
+use crate::instruments::common_impl::models::volatility::black::d1_d2;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::variance_swap::VarianceSwap;
 
@@ -368,13 +369,7 @@ pub(crate) fn remaining_forward_variance(
                                 0.5 * (strikes[i + 1] - strikes[i - 1])
                             };
                             let vol = surface.value_clamped(t, k).max(1e-8);
-                            let sqrt_t = t.sqrt();
-                            let d1 = if vol > 0.0 && t > 0.0 {
-                                ((spot / k).ln() + (r - q + 0.5 * vol * vol) * t) / (vol * sqrt_t)
-                            } else {
-                                0.0
-                            };
-                            let d2 = d1 - vol * sqrt_t;
+                            let (d1, d2) = d1_d2(spot, k, r, vol, t, q);
                             let exp_mqt = (-q * t).exp();
                             let exp_mrt = (-r * t).exp();
                             let call = spot * exp_mqt * finstack_core::math::norm_cdf(d1)
