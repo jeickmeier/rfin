@@ -48,7 +48,7 @@ pub use pricing::{
 
 // Black-76 (lognormal) model - USD/GBP swaptions, caps/floors
 pub use pricing::{
-    black_call, black_delta_call, black_delta_put, black_gamma, black_put, black_vega,
+    black_call, black_delta_call, black_delta_put, black_gamma, black_put, black_vega, d1_black76,
 };
 
 // Shifted Black model - low/negative rate environments

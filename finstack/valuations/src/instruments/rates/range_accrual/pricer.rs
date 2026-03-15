@@ -292,6 +292,7 @@ pub(crate) fn compute_pv(
 /// - Includes historical fixings in the accrual calculation for mid-life valuations
 #[cfg(feature = "mc")]
 pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    use crate::instruments::common_impl::models::volatility::black::d1_d2_black76;
     use finstack_core::math::special_functions::norm_cdf;
 
     inst.validate()?;
@@ -392,8 +393,7 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
             if std_dev < 1e-6 {
                 return (forward - k).max(0.0);
             }
-            let d1 = ((forward / k).ln() + 0.5 * vol * vol * t_obs) / std_dev;
-            let d2 = d1 - std_dev;
+            let (d1, d2) = d1_d2_black76(forward, k, vol, t_obs);
             forward * norm_cdf(d1) - k * norm_cdf(d2)
         };
 

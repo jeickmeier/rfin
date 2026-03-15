@@ -33,6 +33,7 @@
 use crate::{
     error::InputError,
     math::special_functions::{norm_cdf, standard_normal_inv_cdf},
+    math::volatility::d1_black76,
     types::CurveId,
 };
 
@@ -203,8 +204,7 @@ impl FxDeltaVolSurface {
     /// `d1 = [ln(F/K) + 0.5 * sigma^2 * T] / (sigma * sqrt(T))`.
     #[inline]
     pub fn strike_to_delta(strike: f64, forward: f64, vol: f64, expiry: f64, _r_f: f64) -> f64 {
-        let sqrt_t = expiry.sqrt();
-        let d1 = ((forward / strike).ln() + 0.5 * vol * vol * expiry) / (vol * sqrt_t);
+        let d1 = d1_black76(forward, strike, vol, expiry);
         norm_cdf(d1)
     }
 
