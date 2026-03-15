@@ -104,6 +104,9 @@ impl HierarchyNode {
     }
 
     /// Add a child node. Returns a mutable reference to the child.
+    ///
+    /// If a child with the same name already exists, the existing node is
+    /// returned unchanged and `child` is discarded.
     pub fn add_child(&mut self, child: HierarchyNode) -> &mut HierarchyNode {
         let name = child.name.clone();
         self.children.entry(name).or_insert(child)
