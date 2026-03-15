@@ -268,6 +268,183 @@ pub struct FactorDefinition {
 
 The hierarchy resolves `target` to a set of `CurveId`s. The factor model's statistical structure (covariance, PCA loadings, etc.) remains independent.
 
+## Hierarchy-Targeted Scenarios: Concrete Examples
+
+This section shows how existing `OperationSpec` variants gain hierarchy targeting, and how the resolution engine expands them to per-curve operations.
+
+### Today: Every Curve Enumerated
+
+A "Global Credit Stress" scenario today must list every credit curve individually:
+
+```json
+{
+  "id": "global_credit_stress",
+  "operations": [
+    { "kind": "curve_parallel_bp", "curve_kind": "par_cds", "curve_id": "JPM-5Y", "bp": 50.0 },
+    { "kind": "curve_parallel_bp", "curve_kind": "par_cds", "curve_id": "GS-5Y", "bp": 50.0 },
+    { "kind": "curve_parallel_bp", "curve_kind": "par_cds", "curve_id": "AAPL-5Y", "bp": 50.0 },
+    { "kind": "curve_parallel_bp", "curve_kind": "par_cds", "curve_id": "MSFT-5Y", "bp": 50.0 },
+    { "kind": "curve_parallel_bp", "curve_kind": "par_cds", "curve_id": "OXY-5Y", "bp": 150.0 },
+    { "kind": "curve_parallel_bp", "curve_kind": "par_cds", "curve_id": "SIE-5Y", "bp": 50.0 },
+    { "kind": "vol_surface_parallel_pct", "surface_kind": "equity", "surface_id": "SPX-VOL", "pct": 20.0 },
+    { "kind": "vol_surface_parallel_pct", "surface_kind": "equity", "surface_id": "AAPL-VOL", "pct": 25.0 },
+    { "kind": "vol_surface_parallel_pct", "surface_kind": "equity", "surface_id": "MSFT-VOL", "pct": 25.0 },
+    { "kind": "equity_price_pct", "ids": ["AAPL-SPOT", "MSFT-SPOT", "JPM-SPOT", "GS-SPOT"], "pct": -15.0 },
+    { "kind": "market_fx_pct", "base": "USD", "quote": "EUR", "pct": 5.0 },
+    { "kind": "market_fx_pct", "base": "USD", "quote": "GBP", "pct": 5.0 },
+    { "kind": "market_fx_pct", "base": "USD", "quote": "BRL", "pct": 15.0 },
+    { "kind": "market_fx_pct", "base": "USD", "quote": "ZAR", "pct": 15.0 }
+  ]
+}
+```
+
+Problems: verbose, fragile (add a new issuer → update every scenario), impossible to express "all IG credit" without knowing the full universe.
+
+### With Hierarchy: Define at the Right Level
+
+The same scenario using hierarchy targeting:
+
+```json
+{
+  "id": "global_credit_stress",
+  "resolution_mode": "cumulative",
+  "operations": [
+    {
+      "kind": "curve_parallel_bp",
+      "curve_kind": "par_cds",
+      "target": { "path": ["Credit"] },
+      "bp": 50.0
+    },
+    {
+      "kind": "curve_parallel_bp",
+      "curve_kind": "par_cds",
+      "target": { "path": ["Credit", "US", "HY"] },
+      "bp": 100.0
+    },
+    {
+      "kind": "vol_surface_parallel_pct",
+      "surface_kind": "equity",
+      "target": { "path": ["Volatility", "Equity", "Index"] },
+      "pct": 20.0
+    },
+    {
+      "kind": "vol_surface_parallel_pct",
+      "surface_kind": "equity",
+      "target": { "path": ["Volatility", "Equity", "SingleName"] },
+      "pct": 25.0
+    },
+    {
+      "kind": "equity_price_pct",
+      "target": { "path": ["Equity", "Prices"] },
+      "pct": -15.0
+    },
+    {
+      "kind": "market_fx_pct",
+      "target": { "path": ["FX", "Spot", "DM"] },
+      "pct": 5.0
+    },
+    {
+      "kind": "market_fx_pct",
+      "target": { "path": ["FX", "Spot", "EM"] },
+      "pct": 15.0
+    }
+  ]
+}
+```
+
+### Resolution Walkthrough
+
+With `resolution_mode: "cumulative"`, the engine resolves each curve by collecting shocks along its path:
+
+| Curve | Path | Matching Operations | Resolved Shock |
+|-------|------|---------------------|----------------|
+| `JPM-5Y` | Credit → US → IG → Financials | Credit +50bp | **+50bp** |
+| `GS-5Y` | Credit → US → IG → Financials | Credit +50bp | **+50bp** |
+| `OXY-5Y` | Credit → US → HY → Energy | Credit +50bp, US/HY +100bp | **+150bp** (cumulative) |
+| `SIE-5Y` | Credit → EU → IG → Industrials | Credit +50bp | **+50bp** |
+| `AAPL-VOL` | Volatility → Equity → SingleName | SingleName +25% | **+25%** |
+| `SPX-VOL` | Volatility → Equity → Index | Index +20% | **+20%** |
+| `AAPL-SPOT` | Equity → Prices → Technology | Prices -15% | **-15%** |
+| `EURUSD-SPOT` | FX → Spot → DM | DM +5% | **+5%** |
+| `BRLUSD-SPOT` | FX → Spot → EM | EM +15% | **+15%** |
+
+With `resolution_mode: "most_specific_wins"`, OXY-5Y would get only the HY-level shock (+100bp), since it's more specific than the Credit-level +50bp.
+
+### Tag-Filtered Targeting
+
+Scenarios can also use tag predicates for cross-cutting queries:
+
+```json
+{
+  "kind": "curve_parallel_bp",
+  "curve_kind": "par_cds",
+  "target": {
+    "path": ["Credit"],
+    "tag_filter": {
+      "predicates": [
+        { "equals": { "key": "sector", "value": "Energy" } }
+      ]
+    }
+  },
+  "bp": 200.0
+}
+```
+
+This targets all credit curves tagged `sector=Energy`, regardless of region or grade — useful for sector-specific stress tests.
+
+### How OperationSpec Changes
+
+Each existing `OperationSpec` variant that currently takes a `curve_id` / `surface_id` / `ids` field gains an **alternative** `target` field. The two are mutually exclusive:
+
+```rust
+// Existing: direct targeting (unchanged, backwards compatible)
+CurveParallelBp {
+    curve_kind: CurveKind,
+    curve_id: String,
+    bp: f64,
+}
+
+// New: hierarchy targeting (same operation, different targeting)
+CurveParallelBp {
+    curve_kind: CurveKind,
+    target: HierarchyTarget,  // instead of curve_id
+    bp: f64,
+}
+```
+
+Implementation approach: use an enum or `#[serde(untagged)]` to accept either form:
+
+```rust
+#[derive(Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum CurveTarget {
+    Direct { curve_id: String },
+    Hierarchy { target: HierarchyTarget },
+}
+```
+
+**Affected OperationSpec variants** (all variants that target specific market data by ID):
+
+| Variant | Current ID field | Gains hierarchy targeting |
+|---------|-----------------|--------------------------|
+| `CurveParallelBp` | `curve_id` | Yes |
+| `CurveNodeBp` | `curve_id` | Yes |
+| `BaseCorrParallelPts` | `surface_id` | Yes |
+| `BaseCorrBucketPts` | `surface_id` | Yes |
+| `VolSurfaceParallelPct` | `surface_id` | Yes |
+| `VolSurfaceBucketPct` | `surface_id` | Yes |
+| `EquityPricePct` | `ids` | Yes |
+| `MarketFxPct` | `base`/`quote` | Yes |
+| `InstrumentPricePctByAttr` | `attrs` | Already tag-based, complementary |
+| `InstrumentSpreadBpByAttr` | `attrs` | Already tag-based, complementary |
+| `InstrumentPricePctByType` | `instrument_types` | Already type-based, complementary |
+| `InstrumentSpreadBpByType` | `instrument_types` | Already type-based, complementary |
+| `StmtForecastPercent` | `node_id` | No (statement nodes, not market data) |
+| `StmtForecastAssign` | `node_id` | No |
+| `RateBinding` | binding spec | No |
+| `TimeRollForward` | N/A | No |
+| Structured credit ops | N/A (global) | No (already instrument-scoped) |
+
 ## Builder API
 
 ### Ergonomic Construction
