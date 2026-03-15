@@ -48,3 +48,72 @@ fn resolution_mode_defaults_to_most_specific_wins() {
     use finstack_core::market_data::hierarchy::ResolutionMode;
     assert_eq!(spec.resolution_mode, ResolutionMode::MostSpecificWins);
 }
+
+/// Engine smoke test: adding `resolution_mode` to `ScenarioSpec` does not break
+/// the existing engine flow for a direct curve-targeted operation.
+#[test]
+fn engine_works_with_resolution_mode_field() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::hierarchy::MarketDataHierarchy;
+    use finstack_core::market_data::hierarchy::ResolutionMode;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_scenarios::{CurveKind, ExecutionContext, ScenarioEngine};
+    use finstack_statements::FinancialModelSpec;
+    use time::macros::date;
+
+    let h = MarketDataHierarchy::builder()
+        .add_node("Rates/USD/OIS")
+        .curve_ids(&["USD-OIS"])
+        .add_node("Rates/USD/Treasury")
+        .curve_ids(&["USD-TSY"])
+        .build()
+        .unwrap();
+
+    let base = date!(2025 - 01 - 01);
+    let ois = DiscountCurve::builder("USD-OIS")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.95), (5.0, 0.78)])
+        .build()
+        .unwrap();
+    let tsy = DiscountCurve::builder("USD-TSY")
+        .base_date(base)
+        .knots([(0.0, 1.0), (1.0, 0.96), (5.0, 0.80)])
+        .build()
+        .unwrap();
+
+    let mut market = MarketContext::new().insert(ois).insert(tsy);
+    market.set_hierarchy(h);
+
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    // Bump USD-OIS directly with resolution_mode explicitly set
+    let scenario = ScenarioSpec {
+        id: "test_hierarchy".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::CurveParallelBp {
+            curve_kind: CurveKind::Discount,
+            curve_id: "USD-OIS".into(),
+            bp: 50.0,
+        }],
+        priority: 0,
+        resolution_mode: ResolutionMode::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert!(
+        report.operations_applied >= 1,
+        "Expected at least 1 operation applied, got {}",
+        report.operations_applied
+    );
+}
