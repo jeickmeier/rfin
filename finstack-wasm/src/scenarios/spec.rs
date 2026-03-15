@@ -541,6 +541,7 @@ impl JsScenarioSpec {
                 description: None,
                 operations: ops,
                 priority: 0,
+                resolution_mode: Default::default(),
             },
         })
     }
