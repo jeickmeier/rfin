@@ -9,6 +9,7 @@ repository = "https://github.com/rustfin/rfin"
 [workspace]
 members = [
     "finstack/core",
+    "finstack/correlation",
     "finstack/analytics",
     "finstack/statements",
     "finstack/valuations",
