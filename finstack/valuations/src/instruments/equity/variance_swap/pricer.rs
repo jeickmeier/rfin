@@ -1,4 +1,6 @@
-use crate::instruments::common_impl::models::volatility::black::d1_d2;
+use crate::instruments::common_impl::models::closed_form::vanilla::bs_price;
+use crate::instruments::common_impl::parameters::market::OptionType;
+use crate::instruments::common_impl::pricing::variance_replication::carr_madan_forward_variance;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::variance_swap::VarianceSwap;
 
@@ -348,49 +350,14 @@ pub(crate) fn remaining_forward_variance(
                         .unwrap_or(0.0);
                     let fwd = spot * ((r - q) * t).exp();
                     let strikes = surface.strikes();
-                    if t > 0.0 && strikes.len() >= 3 && fwd.is_finite() && fwd > 0.0 {
-                        let mut k0_idx = 0usize;
-                        for (i, &k) in strikes.iter().enumerate() {
-                            if k <= fwd {
-                                k0_idx = i;
-                            } else {
-                                break;
-                            }
-                        }
-                        let k0 = strikes[k0_idx].max(1e-12);
-                        let mut sum = 0.0;
-                        for i in 0..strikes.len() {
-                            let k = strikes[i].max(1e-12);
-                            let dk = if i == 0 {
-                                strikes[1] - strikes[0]
-                            } else if i + 1 == strikes.len() {
-                                strikes[i] - strikes[i - 1]
-                            } else {
-                                0.5 * (strikes[i + 1] - strikes[i - 1])
-                            };
-                            // vol floored to 1e-8 so d1_d2 never sees vol==0
-                            let vol = surface.value_clamped(t, k).max(1e-8);
-                            let (d1, d2) = d1_d2(spot, k, r, vol, t, q);
-                            let exp_mqt = (-q * t).exp();
-                            let exp_mrt = (-r * t).exp();
-                            let call = spot * exp_mqt * finstack_core::math::norm_cdf(d1)
-                                - k * exp_mrt * finstack_core::math::norm_cdf(d2);
-                            let put = k * exp_mrt * finstack_core::math::norm_cdf(-d2)
-                                - spot * exp_mqt * finstack_core::math::norm_cdf(-d1);
-                            let qk = if (i == k0_idx)
-                                || ((k0 - k).abs() < 1e-12 && (fwd - k0).abs() < 1e-12)
-                            {
-                                0.5 * (call + put)
-                            } else if k < fwd {
-                                put
-                            } else {
-                                call
-                            };
-                            sum += (dk / (k * k)) * qk;
-                        }
-                        let variance = (2.0 * (r * t).exp() / t) * sum
-                            - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
-                        if variance.is_finite() && variance > 0.0 {
+                    if t > 0.0 {
+                        let vol_fn = |t_exp: f64, k: f64| surface.value_clamped(t_exp, k);
+                        let bs_fn = |k: f64, v: f64, opt: OptionType| -> f64 {
+                            bs_price(spot, k, r, q, v, t, opt)
+                        };
+                        if let Some(variance) =
+                            carr_madan_forward_variance(strikes, fwd, r, t, vol_fn, bs_fn)
+                        {
                             return Ok(variance);
                         }
                     }

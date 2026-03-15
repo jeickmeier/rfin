@@ -1,5 +1,6 @@
 use crate::instruments::common_impl::models::bs_price;
 use crate::instruments::common_impl::parameters::OptionType;
+use crate::instruments::common_impl::pricing::variance_replication::carr_madan_forward_variance;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_variance_swap::FxVarianceSwap;
 
@@ -298,53 +299,13 @@ pub(crate) fn remaining_forward_variance(
     let r_f = -df_for.ln() / t;
     let fwd = spot * ((r_d - r_f) * t).exp();
     let strikes = surface.strikes();
-    if strikes.len() >= 3 && fwd.is_finite() && fwd > 0.0 {
-        let mut k0_idx = 0usize;
-        for (i, &k) in strikes.iter().enumerate() {
-            if k <= fwd {
-                k0_idx = i;
-            } else {
-                break;
-            }
-        }
-        let k0 = strikes[k0_idx].max(1e-12);
-
-        let mut sum = 0.0;
-        for i in 0..strikes.len() {
-            let k = strikes[i].max(1e-12);
-            let dk = if i == 0 {
-                strikes[1] - strikes[0]
-            } else if i + 1 == strikes.len() {
-                strikes[i] - strikes[i - 1]
-            } else {
-                0.5 * (strikes[i + 1] - strikes[i - 1])
-            };
-            let vol = surface.value_clamped(t, k).max(1e-8);
-            let call = bs_price(spot, k, r_d, r_f, vol, t, OptionType::Call);
-            let put = bs_price(spot, k, r_d, r_f, vol, t, OptionType::Put);
-            let qk = if i == k0_idx {
-                0.5 * (call + put)
-            } else if k < fwd {
-                put
-            } else {
-                call
-            };
-            sum += (dk / (k * k)) * qk;
-        }
-
-        let variance = (2.0 * (r_d * t).exp() / t) * sum - (1.0 / t) * ((fwd / k0 - 1.0).powi(2));
-        if variance.is_finite() && variance > 0.0 {
+    {
+        let vol_fn = |t_exp: f64, k: f64| surface.value_clamped(t_exp, k);
+        let bs_fn =
+            |k: f64, v: f64, opt: OptionType| -> f64 { bs_price(spot, k, r_d, r_f, v, t, opt) };
+        if let Some(variance) = carr_madan_forward_variance(strikes, fwd, r_d, t, vol_fn, bs_fn) {
             return Ok(variance);
         }
-
-        tracing::warn!(
-            instrument = %inst.id,
-            variance,
-            fwd,
-            k0,
-            "Variance swap replication integral produced non-positive variance ({:.6}); falling back to ATM implied variance. Consider using a finer strike grid.",
-            variance
-        );
     }
 
     let vol_atm = surface.value_clamped(t, fwd.max(1e-12));

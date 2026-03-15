@@ -14,6 +14,7 @@ mod generic;
 pub mod swap_legs;
 pub mod time;
 mod trs;
+pub mod variance_replication;
 
 // Re-export generic pricer types
 pub use generic::GenericInstrumentPricer;
