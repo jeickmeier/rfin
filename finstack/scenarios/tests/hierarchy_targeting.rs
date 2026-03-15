@@ -434,10 +434,18 @@ fn hierarchy_operation_json_round_trip() {
                 target.path,
                 vec!["Credit".to_string(), "US".to_string(), "IG".to_string()]
             );
-            assert!(
-                target.tag_filter.is_some(),
-                "tag_filter should survive the round-trip"
-            );
+            let filter = target
+                .tag_filter
+                .as_ref()
+                .expect("tag_filter should be Some");
+            assert_eq!(filter.predicates.len(), 1);
+            match &filter.predicates[0] {
+                TagPredicate::Equals { key, value } => {
+                    assert_eq!(key, "sector");
+                    assert_eq!(value, "Financials");
+                }
+                other => panic!("Expected Equals predicate, got: {:?}", other),
+            }
             assert!(
                 (bp - 50.0).abs() < f64::EPSILON,
                 "bp should be exactly 50.0, got {}",
