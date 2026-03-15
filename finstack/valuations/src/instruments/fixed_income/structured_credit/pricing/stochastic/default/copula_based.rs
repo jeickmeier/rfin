@@ -197,6 +197,7 @@ impl CopulaBasedDefault {
             CopulaSpec::MultiFactor { num_factors } => {
                 Box::new(crate::instruments::common_impl::models::correlation::copula::MultiFactorCopula::new(*num_factors))
             }
+            _ => Box::new(GaussianCopula::new()),
         }
     }
 

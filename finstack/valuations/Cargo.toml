@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core" }
+finstack-correlation = { path = "../correlation" }
 finstack-valuations-macros = { path = "macros" }
 indexmap = { workspace = true, features = ["serde"] }
 smallvec = { version = "1.15", default-features = false, features = ["serde"] }

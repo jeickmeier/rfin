@@ -1,6 +1,6 @@
 //! Shared correlation infrastructure for credit modeling.
 //!
-//! This module provides reusable correlation models used across credit instruments:
+//! This crate provides reusable correlation models used across credit instruments:
 //! - CDS tranche pricing
 //! - Structured credit (ABS/CLO/CMBS/RMBS)
 //! - Portfolio credit risk
@@ -14,11 +14,12 @@
 //!
 //! # Utilities
 //!
-//! - [`validate_correlation_matrix`]: Validate correlation matrices (delegates to core, rich error classification)
-//! - [`cholesky_decompose`]: Cholesky decomposition for correlated factor generation
-//! - [`correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
+//! - [`factor_model::validate_correlation_matrix`]: Validate correlation matrices
+//! - [`factor_model::cholesky_decompose`]: Cholesky decomposition for correlated factor generation
+//! - [`joint_probability::correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
 
 pub mod copula;
+pub mod error;
 pub mod factor_model;
 pub mod joint_probability;
 pub mod recovery;
@@ -28,9 +29,10 @@ pub use copula::{
     Copula, CopulaSpec, GaussianCopula, MultiFactorCopula, RandomFactorLoadingCopula,
     StudentTCopula,
 };
+pub use error::CorrelationMatrixError;
 pub use factor_model::{
-    cholesky_decompose, validate_correlation_matrix, CorrelationMatrixError, FactorModel,
-    FactorSpec, MultiFactorModel, SingleFactorModel, TwoFactorModel,
+    cholesky_decompose, validate_correlation_matrix, FactorModel, FactorSpec, MultiFactorModel,
+    SingleFactorModel, TwoFactorModel,
 };
 pub use joint_probability::{correlation_bounds, joint_probabilities, CorrelatedBernoulli};
 pub use recovery::{ConstantRecovery, CorrelatedRecovery, RecoveryModel, RecoverySpec};

@@ -1,0 +1,15 @@
+[package]
+name = "finstack-correlation"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Copula models, factor models, and recovery models for credit correlation"
+
+[dependencies]
+finstack-core = { path = "../core" }
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { version = "0.1", default-features = false }

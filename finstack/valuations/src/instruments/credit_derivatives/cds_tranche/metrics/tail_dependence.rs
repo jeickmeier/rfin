@@ -74,6 +74,7 @@ impl MetricCalculator for TailDependenceCalculator {
                 // Multi-factor Gaussian still has zero tail dependence
                 0.0
             }
+            _ => 0.0,
         };
 
         Ok(lambda)

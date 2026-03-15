@@ -52,7 +52,9 @@
 //!   dependent credit derivatives using a structural model."
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
-use finstack_core::math::{ln_gamma, student_t_cdf, student_t_inv_cdf, GaussHermiteQuadrature};
+#[cfg(test)]
+use finstack_core::math::student_t_inv_cdf;
+use finstack_core::math::{ln_gamma, student_t_cdf, GaussHermiteQuadrature};
 
 /// Minimum correlation for numerical stability.
 const MIN_CORRELATION: f64 = 0.01;
