@@ -15,7 +15,7 @@
 //! - `financial_tolerance(notional)`: For money amounts
 
 use crate::helpers::financial_tolerance;
-use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
+use finstack_cashflows::builder::specs::{CouponType, FeeSpec, FixedCouponSpec};
 use finstack_cashflows::builder::{AmortizationSpec, CashFlowSchedule};
 use finstack_core::cashflow::Discountable;
 use finstack_core::cashflow::{CFKind, CashFlow};
@@ -367,6 +367,102 @@ fn outstanding_by_date_dedup_and_values() {
         "Outstanding should decrease from {} to {} over the life",
         first_outstanding,
         last_outstanding
+    );
+}
+
+#[test]
+fn outstanding_by_date_includes_prepayment() {
+    let prepay_date = Date::from_calendar_date(2025, Month::March, 15).unwrap();
+    let schedule = finstack_cashflows::builder::schedule::CashFlowSchedule {
+        flows: vec![CashFlow {
+            date: prepay_date,
+            reset_date: None,
+            amount: Money::new(250.0, Currency::USD),
+            kind: CFKind::PrePayment,
+            accrual_factor: 0.0,
+            rate: None,
+        }],
+        notional: finstack_cashflows::builder::Notional::par(1_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: finstack_cashflows::builder::schedule::CashFlowMeta::default(),
+    };
+
+    let outstanding = schedule.outstanding_by_date().unwrap();
+    assert_eq!(outstanding.len(), 1, "expected one dated balance snapshot");
+    assert!(
+        (outstanding[0].1.amount() - 750.0).abs() < 1e-10,
+        "prepayment should reduce outstanding from 1000 to 750, got {}",
+        outstanding[0].1.amount()
+    );
+}
+
+#[test]
+fn outstanding_by_date_includes_defaulted_notional() {
+    let default_date = Date::from_calendar_date(2025, Month::March, 15).unwrap();
+    let recovery_date = Date::from_calendar_date(2025, Month::September, 15).unwrap();
+    let schedule = finstack_cashflows::builder::schedule::CashFlowSchedule {
+        flows: vec![
+            CashFlow {
+                date: default_date,
+                reset_date: None,
+                amount: Money::new(300.0, Currency::USD),
+                kind: CFKind::DefaultedNotional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: recovery_date,
+                reset_date: None,
+                amount: Money::new(120.0, Currency::USD),
+                kind: CFKind::Recovery,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ],
+        notional: finstack_cashflows::builder::Notional::par(1_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: finstack_cashflows::builder::schedule::CashFlowMeta::default(),
+    };
+
+    let outstanding = schedule.outstanding_by_date().unwrap();
+    assert_eq!(outstanding.len(), 2, "expected default and recovery dates");
+    assert!(
+        (outstanding[0].1.amount() - 700.0).abs() < 1e-10,
+        "defaulted notional should reduce outstanding from 1000 to 700, got {}",
+        outstanding[0].1.amount()
+    );
+    assert!(
+        (outstanding[1].1.amount() - 700.0).abs() < 1e-10,
+        "recovery should not restore outstanding, got {}",
+        outstanding[1].1.amount()
+    );
+}
+
+#[test]
+fn fixed_fee_on_issue_date_is_emitted() {
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2025, Month::July, 15).unwrap();
+
+    let mut builder = CashFlowSchedule::builder();
+    let _ = builder
+        .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+        .fee(FeeSpec::Fixed {
+            date: issue,
+            amount: Money::new(12_500.0, Currency::USD),
+        });
+
+    let schedule = builder.build_with_curves(None).unwrap();
+    let fees: Vec<_> = schedule
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Fee)
+        .collect();
+
+    assert_eq!(fees.len(), 1, "expected exactly one issue-date fixed fee");
+    assert_eq!(fees[0].date, issue);
+    assert!(
+        (fees[0].amount.amount() - 12_500.0).abs() < 1e-10,
+        "issue-date fixed fee amount should be preserved"
     );
 }
 

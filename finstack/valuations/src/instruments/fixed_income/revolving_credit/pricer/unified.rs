@@ -21,6 +21,8 @@ use crate::pricer::{
 };
 use crate::results::ValuationResult;
 #[cfg(feature = "mc")]
+use finstack_monte_carlo::estimate::Estimate;
+#[cfg(feature = "mc")]
 use finstack_monte_carlo::results::{MoneyEstimate, MonteCarloResult};
 
 use super::super::cashflow_engine::{
@@ -442,15 +444,10 @@ impl RevolvingCreditPricer {
         let ci_low = mean - z_95 * stderr;
         let ci_high = mean + z_95 * stderr;
 
-        let estimate = MoneyEstimate {
-            mean: Money::new(mean, facility.commitment_amount.currency()),
-            stderr,
-            ci_95: (
-                Money::new(ci_low, facility.commitment_amount.currency()),
-                Money::new(ci_high, facility.commitment_amount.currency()),
-            ),
-            num_paths: pvs.len(),
-        };
+        let estimate = MoneyEstimate::from_estimate(
+            Estimate::new(mean, stderr, (ci_low, ci_high), pvs.len()),
+            facility.commitment_amount.currency(),
+        );
 
         let result = EnhancedMonteCarloResult {
             mc_result: MonteCarloResult {
@@ -704,7 +701,20 @@ impl Pricer for RevolvingCreditPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    #[cfg(feature = "mc")]
+    use crate::instruments::fixed_income::revolving_credit::{
+        BaseRateSpec, CreditSpreadProcessSpec, DrawRepaySpec, McConfig, RevolvingCredit,
+        RevolvingCreditFees, StochasticUtilizationSpec, UtilizationProcess,
+    };
     use finstack_core::dates::DayCount;
+    #[cfg(feature = "mc")]
+    use finstack_core::market_data::context::MarketContext;
+    #[cfg(feature = "mc")]
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    #[cfg(feature = "mc")]
+    use finstack_core::money::Money;
+    #[cfg(feature = "mc")]
+    use finstack_core::{currency::Currency, dates::Tenor};
     use time::Month;
 
     #[test]
@@ -796,5 +806,71 @@ mod tests {
             (survivals_mismatch[0] - survivals_correct[0]).abs() > 1e-5,
             "Mismatching day counts should yield different results"
         );
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_price_with_paths_uses_moneyestimate_defaults() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2026, Month::January, 1).expect("valid date");
+
+        let facility = RevolvingCredit::builder()
+            .id("RC-UNIFIED-PATHS".into())
+            .commitment_amount(Money::new(1_000_000.0, Currency::USD))
+            .drawn_amount(Money::new(400_000.0, Currency::USD))
+            .commitment_date(start)
+            .maturity(end)
+            .base_rate_spec(BaseRateSpec::Fixed { rate: 0.05 })
+            .day_count(DayCount::Act360)
+            .frequency(Tenor::quarterly())
+            .fees(RevolvingCreditFees::default())
+            .draw_repay_spec(DrawRepaySpec::Stochastic(Box::new(
+                StochasticUtilizationSpec {
+                    utilization_process: UtilizationProcess::MeanReverting {
+                        target_rate: 0.5,
+                        speed: 0.75,
+                        volatility: 0.05,
+                    },
+                    num_paths: 8,
+                    seed: Some(7),
+                    antithetic: false,
+                    use_sobol_qmc: false,
+                    mc_config: Some(McConfig {
+                        recovery_rate: 0.4,
+                        credit_spread_process: CreditSpreadProcessSpec::Constant(0.0),
+                        interest_rate_process: None,
+                        correlation_matrix: None,
+                        util_credit_corr: None,
+                    }),
+                },
+            )))
+            .discount_curve_id("USD-OIS".into())
+            .recovery_rate(0.4)
+            .build()
+            .expect("facility should build");
+
+        let disc_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(start)
+            .day_count(DayCount::Act365F)
+            .knots([
+                (0.0, 1.0),
+                (1.0, (-0.03f64).exp()),
+                (5.0, (-0.03f64 * 5.0).exp()),
+            ])
+            .build()
+            .expect("curve should build");
+        let market = MarketContext::new().insert(disc_curve);
+
+        let result = RevolvingCreditPricer::price_with_paths(&facility, &market, start)
+            .expect("should price");
+
+        assert_eq!(result.mc_result.estimate.num_paths, 8);
+        assert_eq!(result.path_results.len(), 8);
+        assert!(result.mc_result.estimate.std_dev.is_none());
+        assert!(result.mc_result.estimate.median.is_none());
+        assert!(result.mc_result.estimate.percentile_25.is_none());
+        assert!(result.mc_result.estimate.percentile_75.is_none());
+        assert!(result.mc_result.estimate.min.is_none());
+        assert!(result.mc_result.estimate.max.is_none());
     }
 }

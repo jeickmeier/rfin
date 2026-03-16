@@ -112,7 +112,12 @@ impl Discountable for CashFlowSchedule {
         base: Date,
         dc: Option<DayCount>,
     ) -> finstack_core::Result<Money> {
-        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        let flows: Vec<(Date, Money)> = self
+            .flows
+            .iter()
+            .filter(|cf| cf.kind != CFKind::DefaultedNotional)
+            .map(|cf| (cf.date, cf.amount))
+            .collect();
         finstack_core::cashflow::npv(disc, base, dc, &flows)
     }
 }
@@ -374,9 +379,10 @@ fn apply_flow_to_outstanding(
     include_notional: bool,
 ) -> finstack_core::Result<()> {
     match cf.kind {
-        CFKind::Amortization => {
+        CFKind::Amortization | CFKind::PrePayment | CFKind::DefaultedNotional => {
             // Amortization amounts are stored as positive in the builder
-            // but economically represent principal reductions
+            // but economically represent principal reductions.
+            // PrePayment and DefaultedNotional likewise reduce outstanding.
             *outstanding = outstanding.checked_sub(cf.amount)?;
         }
         CFKind::PIK => {

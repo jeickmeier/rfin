@@ -677,7 +677,7 @@ impl CashFlowBuilder {
             cap_bp,
             all_in_floor_bp,
             index_cap_bp,
-            reset_freq: _,
+            reset_freq,
             reset_lag_days,
             dc,
             bdc,
@@ -706,6 +706,7 @@ impl CashFlowBuilder {
                 index_id,
                 margin_bp: spread_bp,
                 gearing,
+                reset_freq,
                 reset_lag_days,
                 gearing_includes_spread,
                 floor_bp,
@@ -883,6 +884,7 @@ impl CashFlowBuilder {
         schedule: ScheduleParams,
         split: CouponType,
     ) -> &mut Self {
+        let reset_freq = schedule.freq;
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow { start, end },
             schedule,
@@ -890,6 +892,7 @@ impl CashFlowBuilder {
                 index_id: params.index_id,
                 margin_bp: params.margin_bp,
                 gearing: params.gearing,
+                reset_freq,
                 reset_lag_days: params.reset_lag_days,
                 gearing_includes_spread: params.gearing_includes_spread,
                 floor_bp: params.floor_bp,
@@ -1371,6 +1374,18 @@ impl CashFlowBuilder {
         // 5) Initialize fold state and build context (processing issue-date principal events)
         let mut state = initialize_build_state(issue, &notional, dates.len(), &principal_events);
         let ccy = notional.initial.currency();
+        for (fee_date, amount) in &fixed_fees {
+            if *fee_date == issue && amount.amount() != 0.0 {
+                state.flows.push(CashFlow {
+                    date: *fee_date,
+                    reset_date: None,
+                    amount: *amount,
+                    kind: CFKind::Fee,
+                    accrual_factor: 0.0,
+                    rate: None,
+                });
+            }
+        }
         let ctx = BuildContext {
             ccy,
             maturity,

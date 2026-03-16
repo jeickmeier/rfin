@@ -374,6 +374,14 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
         Some(hazard),
         &date_ctx,
         |cf, df, sp| {
+            if cf.kind == CFKind::DefaultedNotional {
+                return Money::new(0.0, cf.amount.currency());
+            }
+
+            if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
+                return Money::new(cf.amount.amount() * df, cf.amount.currency());
+            }
+
             let recovery_term = if let Some(r) = recovery_rate {
                 match cf.kind {
                     CFKind::Amortization | CFKind::Notional | CFKind::PrePayment => r * (1.0 - sp),

@@ -509,6 +509,150 @@ fn accrued_on_default_zero_no_extra_flow() {
     assert_eq!(flows[1].kind, CFKind::Recovery);
 }
 
+#[test]
+fn defaulted_notional_is_not_counted_as_positive_npv_cashflow() {
+    use finstack_cashflows::builder::schedule::CashFlowMeta;
+    use finstack_cashflows::builder::Notional;
+    use finstack_core::cashflow::{CFKind, CashFlow, Discountable};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, DayCount};
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let default_date = Date::from_calendar_date(2025, Month::June, 1).unwrap();
+    let recovery_date = Date::from_calendar_date(2025, Month::December, 1).unwrap();
+
+    let schedule = finstack_cashflows::builder::schedule::CashFlowSchedule {
+        flows: vec![
+            CashFlow {
+                date: default_date,
+                reset_date: None,
+                amount: Money::new(500.0, Currency::USD),
+                kind: CFKind::DefaultedNotional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: recovery_date,
+                reset_date: None,
+                amount: Money::new(200.0, Currency::USD),
+                kind: CFKind::Recovery,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ],
+        notional: Notional::par(1_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: CashFlowMeta::default(),
+    };
+
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(base)
+        .knots([(0.0, 1.0), (5.0, 1.0)])
+        .interp(InterpStyle::Linear)
+        .allow_non_monotonic()
+        .build()
+        .unwrap();
+
+    let pv = schedule.npv(&curve, base, Some(DayCount::Act365F)).unwrap();
+    assert!(
+        (pv.amount() - 200.0).abs() < 1e-10,
+        "plain npv should include realized recovery but exclude default write-down markers, got {}",
+        pv.amount()
+    );
+}
+
+#[test]
+fn credit_adjusted_period_pv_respects_explicit_default_and_recovery_flows() {
+    use finstack_cashflows::builder::schedule::CashFlowMeta;
+    use finstack_cashflows::builder::Notional;
+    use finstack_core::cashflow::{CFKind, CashFlow};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
+    use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    let base = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let default_date = Date::from_calendar_date(2025, Month::June, 1).unwrap();
+    let recovery_date = Date::from_calendar_date(2025, Month::December, 1).unwrap();
+
+    let schedule = finstack_cashflows::builder::schedule::CashFlowSchedule {
+        flows: vec![
+            CashFlow {
+                date: default_date,
+                reset_date: None,
+                amount: Money::new(500.0, Currency::USD),
+                kind: CFKind::DefaultedNotional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date: recovery_date,
+                reset_date: None,
+                amount: Money::new(200.0, Currency::USD),
+                kind: CFKind::Recovery,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ],
+        notional: Notional::par(1_000.0, Currency::USD),
+        day_count: DayCount::Act365F,
+        meta: CashFlowMeta::default(),
+    };
+
+    let periods = vec![Period {
+        id: PeriodId::annual(2025),
+        start: base,
+        end: Date::from_calendar_date(2026, Month::January, 1).unwrap(),
+        is_actual: true,
+    }];
+
+    let disc = DiscountCurve::builder("USD-OIS")
+        .base_date(base)
+        .knots([(0.0, 1.0), (5.0, 1.0)])
+        .interp(InterpStyle::Linear)
+        .allow_non_monotonic()
+        .build()
+        .unwrap();
+
+    let hazard = HazardCurve::builder("USD-HZD")
+        .base_date(base)
+        .recovery_rate(0.40)
+        .knots([(1.0, 0.50)])
+        .build()
+        .unwrap();
+
+    let pv_map = schedule
+        .pv_by_period_with_survival_and_ctx(
+            &periods,
+            &disc,
+            Some(&hazard),
+            Some(0.40),
+            finstack_cashflows::cashflow::aggregation::DateContext::new(
+                base,
+                DayCount::Act365F,
+                DayCountCtx::default(),
+            ),
+        )
+        .unwrap();
+
+    let pv = pv_map
+        .get(&PeriodId::annual(2025))
+        .and_then(|ccy_map| ccy_map.get(&Currency::USD))
+        .expect("expected USD PV for 2025");
+
+    assert!(
+        (pv.amount() - 200.0).abs() < 1e-10,
+        "credit-adjusted PV should ignore default markers and discount realized recovery only, got {}",
+        pv.amount()
+    );
+}
+
 // =============================================================================
 // Property-Based Tests
 // =============================================================================

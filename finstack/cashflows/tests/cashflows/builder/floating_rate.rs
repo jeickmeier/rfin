@@ -11,7 +11,7 @@ use finstack_cashflows::builder::specs::{
 use finstack_cashflows::builder::CashFlowSchedule;
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
-use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+use finstack_core::dates::{BusinessDayConvention, DateExt, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -46,6 +46,78 @@ fn make_float_spec(fallback: FloatingRateFallback, spread_bp: Decimal) -> Floati
         freq: Tenor::quarterly(),
         stub: StubKind::None,
     }
+}
+
+#[test]
+fn test_payment_frequency_can_differ_from_reset_tenor() {
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::ForwardCurve;
+
+    let issue = Date::from_calendar_date(2025, Month::January, 15).unwrap();
+    let maturity = Date::from_calendar_date(2026, Month::January, 15).unwrap();
+    let init = Money::new(1_000_000.0, Currency::USD);
+
+    let mut spec = make_float_spec(FloatingRateFallback::Error, dec!(0.0));
+    spec.freq = Tenor::semi_annual();
+    spec.rate_spec.reset_freq = Tenor::quarterly();
+
+    let fwd = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+        .base_date(issue)
+        .day_count(DayCount::Act360)
+        .knots([(0.0, 0.02), (0.25, 0.03), (0.5, 0.05), (1.0, 0.07)])
+        .build()
+        .expect("ForwardCurve builder should succeed");
+    let market = MarketContext::new().insert(fwd);
+
+    let mut b = CashFlowSchedule::builder();
+    let _ = b.principal(init, issue, maturity).floating_cf(spec);
+    let schedule = b
+        .build_with_curves(Some(&market))
+        .expect("mixed tenor floating schedule should build");
+
+    let first_float = schedule
+        .flows
+        .iter()
+        .find(|cf| cf.kind == CFKind::FloatReset)
+        .expect("expected at least one floating coupon");
+
+    let reset_date = first_float
+        .reset_date
+        .expect("floating coupon should have reset date");
+    let fwd_curve = market
+        .get_forward("USD-SOFR-3M")
+        .expect("curve should exist");
+
+    let expected_quarterly = finstack_cashflows::builder::project_floating_rate(
+        reset_date,
+        reset_date.add_months(3),
+        fwd_curve.as_ref(),
+        &finstack_cashflows::builder::FloatingRateParams::default(),
+    )
+    .expect("quarterly projection should succeed");
+
+    let incorrect_semiannual = finstack_cashflows::builder::project_floating_rate(
+        reset_date,
+        reset_date.add_months(6),
+        fwd_curve.as_ref(),
+        &finstack_cashflows::builder::FloatingRateParams::default(),
+    )
+    .expect("semiannual projection should succeed");
+
+    assert!(
+        (expected_quarterly - incorrect_semiannual).abs() > 1e-6,
+        "test setup must distinguish reset tenor from payment frequency"
+    );
+
+    let built_rate = first_float
+        .rate
+        .expect("floating coupon should store built rate");
+    assert!(
+        (built_rate - expected_quarterly).abs() < RATE_TOLERANCE,
+        "built rate should use quarterly reset tenor: expected {}, got {}",
+        expected_quarterly,
+        built_rate
+    );
 }
 
 // =============================================================================
