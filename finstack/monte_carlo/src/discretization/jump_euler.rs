@@ -62,7 +62,7 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
         dt: f64,
         x: &mut [f64],
         z: &[f64],
-        work: &mut [f64],
+        _work: &mut [f64],
     ) {
         let params = process.params();
         let s_t = x[0];
@@ -89,19 +89,15 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
         // Step 3: Apply jumps
         let mut jump_product = 1.0;
         if num_jumps > 0 {
-            // Limit to max_jumps to avoid overflow
-            let actual_jumps = num_jumps.min(self.max_jumps_per_step);
+            // Limit to max_jumps and to the number of pre-generated jump shocks.
+            let available_jump_shocks = z.len().saturating_sub(2);
+            let actual_jumps = num_jumps
+                .min(self.max_jumps_per_step)
+                .min(available_jump_shocks);
 
             for i in 0..actual_jumps {
                 // Sample jump size J ~ LogNormal(μ_J, σ_J)
-                // Use work buffer for additional random numbers if needed
-                let z_jump = if i + 2 < z.len() {
-                    z[i + 2]
-                } else {
-                    // Use work buffer as backup (deterministically seeded)
-                    work[i % work.len()]
-                };
-
+                let z_jump = z[i + 2];
                 let log_jump = params.mu_j + params.sigma_j * z_jump;
                 let jump_size = log_jump.exp();
                 jump_product *= jump_size;
@@ -113,15 +109,19 @@ impl Discretization<MertonJumpProcess> for JumpEuler {
     }
 
     fn work_size(&self, _process: &MertonJumpProcess) -> usize {
-        self.max_jumps_per_step // Buffer for extra jump random numbers
+        0
     }
 }
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    use super::super::super::engine::McEngine;
+    use super::super::super::payoff::vanilla::Forward;
     use super::super::super::process::jump_diffusion::{MertonJumpParams, MertonJumpProcess};
+    use super::super::super::traits::RandomStream;
     use super::*;
+    use finstack_core::currency::Currency;
 
     #[test]
     fn test_jump_euler_no_jumps() {
@@ -212,5 +212,71 @@ mod tests {
         let k = params.jump_compensation();
         assert!(k > 0.0); // Positive jumps
         assert_eq!(drift, pure_gbm_drift - params.lambda * k);
+    }
+
+    #[derive(Clone)]
+    struct DeterministicJumpRng;
+
+    impl RandomStream for DeterministicJumpRng {
+        fn split(&self, _id: u64) -> Self {
+            Self
+        }
+
+        fn fill_u01(&mut self, out: &mut [f64]) {
+            for x in out {
+                *x = 0.5;
+            }
+        }
+
+        fn fill_std_normals(&mut self, out: &mut [f64]) {
+            for x in out.iter_mut() {
+                *x = 0.0;
+            }
+
+            if !out.is_empty() {
+                out[0] = 0.0;
+            }
+            if out.len() >= 2 {
+                out[1] = 8.0;
+            }
+            if out.len() >= 3 {
+                out[2] = 1.0;
+            }
+        }
+    }
+
+    #[test]
+    fn test_engine_supplies_jump_size_random_factors() {
+        let params = MertonJumpParams::new(0.0, 0.0, 0.0, 50.0, 0.0, 1.0);
+        let compensated_drift = params.compensated_drift();
+        let process = MertonJumpProcess::new(params);
+        let disc = JumpEuler::new();
+        let engine = McEngine::builder()
+            .num_paths(1)
+            .uniform_grid(0.1, 1)
+            .parallel(false)
+            .build()
+            .expect("engine should build");
+        let payoff = Forward::long(0.0, 1.0, 1);
+
+        let result = engine
+            .price(
+                &DeterministicJumpRng,
+                &process,
+                &disc,
+                &[100.0],
+                &payoff,
+                Currency::USD,
+                1.0,
+            )
+            .expect("pricing should succeed");
+
+        let expected_terminal_spot = 100.0 * (compensated_drift * 0.1).exp() * f64::exp(1.0);
+        assert!(
+            (result.mean.amount() - expected_terminal_spot).abs() < 1e-12,
+            "expected terminal spot {} but got {}",
+            expected_terminal_spot,
+            result.mean.amount()
+        );
     }
 }

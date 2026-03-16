@@ -61,13 +61,8 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
             // - Linearly dependent basis functions
             // - Too few ITM paths for regression
             // - Numerical issues with extreme values
-
-            // Fallback: return zero coefficients (exercise immediately)
-            // This is conservative but safe
-            tracing::warn!(
-                "LSMC regression failed (singular matrix), using zero continuation value"
-            );
-            Ok(vec![0.0; k])
+            tracing::warn!("LSMC regression failed (singular matrix)");
+            Err(finstack_core::Error::Internal)
         }
     }
 }

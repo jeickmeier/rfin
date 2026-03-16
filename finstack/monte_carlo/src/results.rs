@@ -16,6 +16,24 @@ pub struct MoneyEstimate {
     pub ci_95: (Money, Money),
     /// Number of paths
     pub num_paths: usize,
+    /// Optional: sample standard deviation
+    #[serde(default)]
+    pub std_dev: Option<f64>,
+    /// Optional: median value
+    #[serde(default)]
+    pub median: Option<f64>,
+    /// Optional: 25th percentile
+    #[serde(default)]
+    pub percentile_25: Option<f64>,
+    /// Optional: 75th percentile
+    #[serde(default)]
+    pub percentile_75: Option<f64>,
+    /// Optional: minimum value
+    #[serde(default)]
+    pub min: Option<f64>,
+    /// Optional: maximum value
+    #[serde(default)]
+    pub max: Option<f64>,
 }
 
 impl MoneyEstimate {
@@ -29,6 +47,12 @@ impl MoneyEstimate {
                 Money::new(estimate.ci_95.1, currency),
             ),
             num_paths: estimate.num_paths,
+            std_dev: estimate.std_dev,
+            median: estimate.median,
+            percentile_25: estimate.percentile_25,
+            percentile_75: estimate.percentile_75,
+            min: estimate.min,
+            max: estimate.max,
         }
     }
 
@@ -111,4 +135,27 @@ impl MonteCarloResult {
     }
 }
 
-// models/monte_carlo/results.rs placeholder
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::estimate::Estimate;
+
+    #[test]
+    fn test_from_estimate_preserves_optional_diagnostics() {
+        let estimate = Estimate::new(100.0, 1.0, (98.0, 102.0), 10_000)
+            .with_std_dev(10.0)
+            .with_median(99.0)
+            .with_percentiles(95.0, 105.0)
+            .with_range(80.0, 120.0);
+
+        let money_estimate = MoneyEstimate::from_estimate(estimate, Currency::USD);
+
+        assert_eq!(money_estimate.std_dev, Some(10.0));
+        assert_eq!(money_estimate.median, Some(99.0));
+        assert_eq!(money_estimate.percentile_25, Some(95.0));
+        assert_eq!(money_estimate.percentile_75, Some(105.0));
+        assert_eq!(money_estimate.min, Some(80.0));
+        assert_eq!(money_estimate.max, Some(120.0));
+    }
+}

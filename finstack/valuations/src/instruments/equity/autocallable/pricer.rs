@@ -116,9 +116,6 @@ impl AutocallableMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        let steps_per_year = self.config.steps_per_year;
-        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
-
         // Map observation dates to times
         let observation_times: Vec<f64> = inst
             .observation_dates
@@ -186,35 +183,10 @@ impl AutocallableMcPricer {
             self.config.seed
         };
 
-        // Create time grid that includes observation dates to ensure exact event timing
-        #[cfg(feature = "mc")]
-        use finstack_monte_carlo::time_grid::TimeGrid;
-
-        let mut grid_times = Vec::with_capacity(num_steps + observation_times.len() + 1);
-        grid_times.push(0.0);
-
-        // Add uniform steps
-        let dt = t / num_steps as f64;
-        for i in 1..=num_steps {
-            grid_times.push(i as f64 * dt);
-        }
-
-        // Add observation times (ensure we visit exact dates)
-        for &obs_t in &observation_times {
-            if obs_t > 1e-10 && obs_t <= t {
-                grid_times.push(obs_t);
-            }
-        }
-
-        // Sort and dedup
-        grid_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        grid_times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
-
-        let time_grid = TimeGrid::from_times(grid_times)?;
-
         let mut config = self.config.clone();
         config.seed = seed;
         let pricer = PathDependentPricer::new(config);
+        let time_grid = pricer.config().build_time_grid(t, &observation_times)?;
         let result = pricer.price_with_grid(
             &process,
             initial_spot,

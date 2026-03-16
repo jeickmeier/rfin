@@ -7,16 +7,21 @@ use super::super::engine::{McEngine, McEngineConfig, PathCaptureConfig};
 use super::super::results::{MoneyEstimate, MonteCarloResult};
 use super::super::traits::Payoff;
 use crate::discretization::exact::ExactGbm;
+use crate::estimate::Estimate;
+use crate::online_stats::OnlineStats;
+use crate::paths::{PathDataset, PathPoint, PathSamplingMethod, SimulatedPath};
 use crate::process::gbm::GbmProcess;
 use crate::process::metadata::ProcessMetadata;
+#[cfg(feature = "mc")]
+use crate::rng::brownian_bridge::BrownianBridge;
 use crate::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
-use crate::rng::sobol::SobolRng;
+use crate::rng::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 use crate::time_grid::TimeGrid;
-use crate::traits::Discretization;
-use crate::traits::StochasticProcess;
+use crate::traits::{Discretization, PathState, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
+use smallvec::SmallVec;
 
 /// Configuration for path-dependent option pricing.
 #[derive(Debug, Clone)]
@@ -152,6 +157,20 @@ impl PathDependentPricerConfig {
         self.use_brownian_bridge = enable;
         self
     }
+
+    /// Build a time grid from the configuration's step density and required event times.
+    pub fn build_time_grid(
+        &self,
+        time_to_maturity: f64,
+        required_times: &[f64],
+    ) -> Result<TimeGrid> {
+        TimeGrid::uniform_with_required_times(
+            time_to_maturity,
+            self.steps_per_year,
+            self.min_steps,
+            required_times,
+        )
+    }
 }
 
 /// Path-dependent option pricer.
@@ -167,6 +186,246 @@ impl PathDependentPricer {
     /// Create a new path-dependent pricer.
     pub fn new(config: PathDependentPricerConfig) -> Self {
         Self { config }
+    }
+
+    #[cfg(feature = "mc")]
+    fn validate_sobol_configuration(
+        &self,
+        time_grid: &TimeGrid,
+        num_factors: usize,
+    ) -> Result<usize> {
+        if self.config.use_parallel {
+            return Err(finstack_core::Error::Validation(
+                "Sobol pricing requires serial execution in PathDependentPricer".to_string(),
+            ));
+        }
+
+        if self.config.antithetic {
+            return Err(finstack_core::Error::Validation(
+                "Sobol pricing currently does not support antithetic variates".to_string(),
+            ));
+        }
+
+        if let crate::engine::PathCaptureMode::Sample { count, .. } =
+            self.config.path_capture.capture_mode
+        {
+            if self.config.path_capture.enabled && (count == 0 || count > self.config.num_paths) {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Sobol path capture sample count must be between 1 and num_paths (got {count})"
+                )));
+            }
+        }
+
+        let sobol_dimension = if self.config.use_brownian_bridge {
+            time_grid.num_steps()
+        } else {
+            time_grid.num_steps() * num_factors
+        };
+
+        if sobol_dimension == 0 || sobol_dimension > MAX_SOBOL_DIMENSION {
+            return Err(finstack_core::Error::Validation(format!(
+                "Sobol dimension {} is unsupported (maximum {})",
+                sobol_dimension, MAX_SOBOL_DIMENSION
+            )));
+        }
+
+        Ok(sobol_dimension)
+    }
+
+    fn apply_captured_path_statistics(estimate: Estimate, paths: &[SimulatedPath]) -> Estimate {
+        if paths.is_empty() {
+            return estimate;
+        }
+
+        let mut values: Vec<f64> = paths.iter().map(|p| p.final_value).collect();
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let n = values.len();
+        let median = if n.is_multiple_of(2) {
+            (values[n / 2 - 1] + values[n / 2]) / 2.0
+        } else {
+            values[n / 2]
+        };
+        let p25_idx = (n as f64 * 0.25).floor() as usize;
+        let p75_idx = (n as f64 * 0.75).floor() as usize;
+        let p25 = values[p25_idx.min(n - 1)];
+        let p75 = values[p75_idx.min(n - 1)];
+        let min = values[0];
+        let max = values[n - 1];
+
+        estimate
+            .with_median(median)
+            .with_percentiles(p25, p75)
+            .with_range(min, max)
+    }
+
+    #[cfg(feature = "mc")]
+    #[allow(clippy::too_many_arguments)]
+    fn price_with_sobol<P>(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_grid: TimeGrid,
+        payoff: &P,
+        currency: Currency,
+        discount_factor: f64,
+    ) -> Result<MonteCarloResult>
+    where
+        P: Payoff,
+    {
+        let sobol_dimension =
+            self.validate_sobol_configuration(&time_grid, process.num_factors())?;
+        let mut sobol = SobolRng::new(sobol_dimension, self.config.seed);
+        let disc = ExactGbm::new();
+        let initial_state = vec![initial_spot];
+        let capture_enabled = self.config.path_capture.enabled;
+        let sampling_method = match &self.config.path_capture.capture_mode {
+            crate::engine::PathCaptureMode::All => PathSamplingMethod::All,
+            crate::engine::PathCaptureMode::Sample { count, seed } => {
+                PathSamplingMethod::RandomSample {
+                    count: *count,
+                    seed: *seed,
+                }
+            }
+        };
+
+        let mut stats = OnlineStats::new();
+        let mut state = vec![0.0; process.dim()];
+        let mut work = vec![0.0; disc.work_size(process)];
+        let mut z_path = vec![0.0; sobol_dimension];
+        let mut z_step = vec![0.0; process.num_factors()];
+        let mut w_path = vec![0.0; time_grid.num_steps() + 1];
+        let bridge = self
+            .config
+            .use_brownian_bridge
+            .then(|| BrownianBridge::new(time_grid.num_steps()));
+        let mut captured_paths = if capture_enabled {
+            let estimated_capacity = match self.config.path_capture.capture_mode {
+                crate::engine::PathCaptureMode::All => self.config.num_paths,
+                crate::engine::PathCaptureMode::Sample { count, .. } => count,
+            };
+            Vec::with_capacity(estimated_capacity)
+        } else {
+            Vec::new()
+        };
+
+        for path_id in 0..self.config.num_paths {
+            sobol.fill_std_normals(&mut z_path);
+
+            let mut payoff_local = payoff.clone();
+            payoff_local.reset();
+
+            // Keep auxiliary uniforms off the Sobol stream so asset dimensions remain stable.
+            let mut aux_rng = PhiloxRng::new(self.config.seed ^ ((path_id as u64) << 1));
+            payoff_local.on_path_start(&mut aux_rng);
+
+            state.copy_from_slice(&initial_state);
+            let should_capture = capture_enabled
+                && self
+                    .config
+                    .path_capture
+                    .should_capture(path_id, self.config.num_paths);
+            let mut path_state = PathState::new(0, 0.0);
+            process.populate_path_state(&state, &mut path_state);
+            path_state.set_uniform_random(aux_rng.next_u01());
+            payoff_local.on_event(&mut path_state);
+
+            let mut simulated_path = if should_capture {
+                let mut simulated =
+                    SimulatedPath::with_capacity(path_id, time_grid.num_steps() + 1);
+                let initial_state_vec = SmallVec::from_slice(&state);
+                let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
+                for (time, amount, cf_type) in path_state.take_cashflows() {
+                    initial_point.add_typed_cashflow(time, amount, cf_type);
+                }
+                if self.config.path_capture.capture_payoffs {
+                    initial_point.set_payoff(payoff_local.value(currency).amount());
+                }
+                simulated.add_point(initial_point);
+                Some(simulated)
+            } else {
+                None
+            };
+
+            if let Some(bridge) = &bridge {
+                if time_grid.is_uniform() {
+                    bridge.construct_path(&z_path, &mut w_path, time_grid.dt(0));
+                } else {
+                    bridge.construct_path_irregular(&z_path, &mut w_path, time_grid.times());
+                }
+            }
+
+            for step in 0..time_grid.num_steps() {
+                let t = time_grid.time(step);
+                let dt = time_grid.dt(step);
+
+                if bridge.is_some() {
+                    z_step[0] = (w_path[step + 1] - w_path[step]) / dt.sqrt();
+                } else {
+                    let offset = step * process.num_factors();
+                    z_step.copy_from_slice(&z_path[offset..offset + process.num_factors()]);
+                }
+
+                disc.step(process, t, dt, &mut state, &z_step, &mut work);
+                path_state.set_step_time(step + 1, t + dt);
+                process.populate_path_state(&state, &mut path_state);
+                path_state.set_uniform_random(aux_rng.next_u01());
+                payoff_local.on_event(&mut path_state);
+
+                if let Some(simulated_path) = &mut simulated_path {
+                    let state_vec = SmallVec::from_slice(&state);
+                    let mut point = PathPoint::with_state(step + 1, t + dt, state_vec);
+                    for (time, amount, cf_type) in path_state.take_cashflows() {
+                        point.add_typed_cashflow(time, amount, cf_type);
+                    }
+                    if self.config.path_capture.capture_payoffs {
+                        point.set_payoff(payoff_local.value(currency).amount());
+                    }
+                    simulated_path.add_point(point);
+                }
+            }
+
+            let payoff_value = payoff_local.value(currency).amount();
+            stats.update(payoff_value * discount_factor);
+
+            if let Some(mut simulated_path) = simulated_path {
+                simulated_path.set_final_value(payoff_value * discount_factor);
+                let all_cashflows = simulated_path.extract_cashflows();
+                if all_cashflows.len() >= 2 {
+                    use finstack_core::cashflow::InternalRateOfReturn;
+                    let cashflow_amounts: Vec<f64> =
+                        all_cashflows.iter().map(|(_, amt)| *amt).collect();
+                    if let Ok(irr) = cashflow_amounts.irr(None) {
+                        simulated_path.set_irr(irr);
+                    }
+                }
+                captured_paths.push(simulated_path);
+            }
+        }
+
+        let estimate = Estimate::new(
+            stats.mean(),
+            stats.stderr(),
+            stats.confidence_interval(0.05),
+            stats.count(),
+        )
+        .with_std_dev(stats.std_dev());
+        let process_params = process.metadata();
+
+        if capture_enabled {
+            let mut dataset = PathDataset::new(stats.count(), sampling_method, process_params);
+            for path in &captured_paths {
+                dataset.add_path(path.clone());
+            }
+            let estimate = Self::apply_captured_path_statistics(estimate, &captured_paths);
+            Ok(MonteCarloResult::with_paths(
+                MoneyEstimate::from_estimate(estimate, currency),
+                dataset,
+            ))
+        } else {
+            Ok(MonteCarloResult::new(MoneyEstimate::from_estimate(
+                estimate, currency,
+            )))
+        }
     }
 
     /// Price a path-dependent option.
@@ -220,6 +479,20 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
+        #[cfg(feature = "mc")]
+        if self.config.use_sobol {
+            return self
+                .price_with_sobol(
+                    process,
+                    initial_spot,
+                    time_grid,
+                    payoff,
+                    currency,
+                    discount_factor,
+                )
+                .map(|result| result.estimate);
+        }
+
         // Create MC engine
         let engine_config = McEngineConfig {
             num_paths: self.config.num_paths,
@@ -242,40 +515,46 @@ impl PathDependentPricer {
             let process_params = process.metadata();
 
             // Price with path capture
-            if self.config.use_sobol {
-                #[cfg(feature = "mc")]
-                {
-                    let rng = SobolRng::new(process.num_factors(), self.config.seed);
-                    let result = engine.price_with_capture(
-                        &rng,
-                        process,
-                        &disc,
-                        &initial_state,
-                        payoff,
-                        currency,
-                        discount_factor,
-                        process_params,
-                    )?;
-                    Ok(result.estimate)
-                }
-                #[cfg(not(feature = "mc"))]
-                {
-                    let rng = PhiloxRng::new(self.config.seed);
-                    let result = engine.price_with_capture(
-                        &rng,
-                        process,
-                        &disc,
-                        &initial_state,
-                        payoff,
-                        currency,
-                        discount_factor,
-                        process_params,
-                    )?;
-                    Ok(result.estimate)
-                }
+            let rng = PhiloxRng::new(self.config.seed);
+            let result = engine.price_with_capture(
+                &rng,
+                process,
+                &disc,
+                &initial_state,
+                payoff,
+                currency,
+                discount_factor,
+                process_params,
+            )?;
+            Ok(result.estimate)
+        } else {
+            // Use regular pricing without path capture
+            let engine = McEngine::new(engine_config); // engine takes ownership of time_grid from config
+            let disc = ExactGbm::new();
+            let initial_state = vec![initial_spot];
+
+            let rng = PhiloxRng::new(self.config.seed);
+            if self.config.antithetic {
+                use crate::variance_reduction::antithetic::{antithetic_price, AntitheticConfig};
+                let time_grid_ref = &engine.config().time_grid;
+                let mut rng_clone = rng.clone();
+                let cfg = AntitheticConfig {
+                    num_pairs: self.config.num_paths / 2,
+                    time_grid: time_grid_ref,
+                    currency,
+                    discount_factor,
+                };
+                let stats =
+                    antithetic_price(&mut rng_clone, process, &disc, &initial_state, payoff, &cfg);
+                let est = crate::estimate::Estimate::new(
+                    stats.mean(),
+                    stats.stderr(),
+                    stats.confidence_interval(0.05),
+                    stats.count(),
+                );
+                Ok(MoneyEstimate::from_estimate(est, currency))
             } else {
-                let rng = PhiloxRng::new(self.config.seed);
-                let result = engine.price_with_capture(
+                engine.price(
                     &rng,
                     process,
                     &disc,
@@ -283,189 +562,7 @@ impl PathDependentPricer {
                     payoff,
                     currency,
                     discount_factor,
-                    process_params,
-                )?;
-                Ok(result.estimate)
-            }
-        } else {
-            // Use regular pricing without path capture
-            let engine = McEngine::new(engine_config); // engine takes ownership of time_grid from config
-            let disc = ExactGbm::new();
-            let initial_state = vec![initial_spot];
-
-            // RNG selection
-            if self.config.use_sobol {
-                #[cfg(feature = "mc")]
-                {
-                    let rng = SobolRng::new(1, self.config.seed);
-                    if self.config.antithetic {
-                        // Antithetic pricing path
-                        use crate::variance_reduction::antithetic::{
-                            antithetic_price, AntitheticConfig,
-                        };
-                        // Need time_grid ref, but engine took it?
-                        // McEngineConfig takes time_grid by value? Yes.
-                        // So engine has it.
-                        // But we need it for AntitheticConfig.
-                        // We need to clone it before creating engine?
-                        // Re-structure:
-                        // engine_config consumes time_grid.
-                        // We can clone time_grid before creating config if needed.
-
-                        // Actually, let's just clone the grid at start since we need it multiple places in this complex block
-                        // But time_grid was moved into price_with_grid.
-                        // We can clone it.
-
-                        // Easier: Clone passed time_grid before creating engine.
-                        // But I already created engine above.
-                        // Let's fix the structure.
-
-                        // For this specific refactor, to avoid massive diff, I will just copy the body and use `time_grid` variable.
-                        // But `time_grid` is moved into `McEngineConfig`.
-                        // TimeGrid implements Clone.
-
-                        // I will provide the implementation below correctly.
-                        let mut rng_clone = rng.clone();
-                        let time_grid_ref = &engine.config().time_grid;
-                        let cfg = AntitheticConfig {
-                            num_pairs: self.config.num_paths / 2,
-                            time_grid: time_grid_ref,
-                            currency,
-                            discount_factor,
-                        };
-                        let stats = antithetic_price(
-                            &mut rng_clone,
-                            process,
-                            &disc,
-                            &initial_state,
-                            payoff,
-                            &cfg,
-                        );
-                        let est = crate::estimate::Estimate::new(
-                            stats.mean(),
-                            stats.stderr(),
-                            stats.confidence_interval(0.05),
-                            stats.count(),
-                        );
-                        Ok(MoneyEstimate::from_estimate(est, currency))
-                    } else if self.config.use_brownian_bridge {
-                        use crate::online_stats::OnlineStats;
-                        use crate::rng::brownian_bridge::BrownianBridge;
-
-                        let time_grid_ref = &engine.config().time_grid;
-                        let num_steps = time_grid_ref.num_steps();
-                        let dt = time_grid_ref.dt(0);
-                        let bridge = BrownianBridge::new(num_steps);
-                        let mut stats = OnlineStats::new();
-
-                        let mut state = vec![0.0; process.dim()];
-                        let mut work = vec![0.0; disc.work_size(process)];
-                        let mut z_step = vec![0.0; process.num_factors()];
-                        let mut z_bridge = vec![0.0; num_steps];
-                        let mut w_path = vec![f64::NAN; num_steps + 1];
-
-                        let mut sobol = rng.clone();
-                        for _path_id in 0..self.config.num_paths {
-                            let mut payoff_clone = payoff.clone();
-                            payoff_clone.reset();
-                            state.copy_from_slice(&initial_state);
-
-                            sobol.fill_std_normals(&mut z_bridge);
-                            bridge.construct_path(&z_bridge, &mut w_path, dt);
-
-                            let mut path_state = crate::traits::PathState::new(0, 0.0);
-                            path_state.set(crate::traits::state_keys::SPOT, state[0]);
-                            payoff_clone.on_event(&mut path_state);
-
-                            for step in 0..num_steps {
-                                let t = time_grid_ref.time(step);
-                                let dt = time_grid_ref.dt(step);
-                                let w_inc = (w_path[step + 1] - w_path[step]) / dt.sqrt();
-                                z_step[0] = w_inc;
-                                disc.step(process, t, dt, &mut state, &z_step, &mut work);
-                                path_state.step = step + 1;
-                                path_state.time = t + dt;
-                                path_state.set(crate::traits::state_keys::SPOT, state[0]);
-                                payoff_clone.on_event(&mut path_state);
-                            }
-
-                            let payoff_money = payoff_clone.value(currency);
-                            stats.update(payoff_money.amount() * discount_factor);
-                        }
-
-                        let est = crate::estimate::Estimate::new(
-                            stats.mean(),
-                            stats.stderr(),
-                            stats.confidence_interval(0.05),
-                            stats.count(),
-                        )
-                        .with_std_dev(stats.std_dev());
-                        Ok(MoneyEstimate::from_estimate(est, currency))
-                    } else {
-                        engine.price(
-                            &rng,
-                            process,
-                            &disc,
-                            &initial_state,
-                            payoff,
-                            currency,
-                            discount_factor,
-                        )
-                    }
-                }
-                #[cfg(not(feature = "mc"))]
-                {
-                    let rng = PhiloxRng::new(self.config.seed);
-                    engine.price(
-                        &rng,
-                        process,
-                        &disc,
-                        &initial_state,
-                        payoff,
-                        currency,
-                        discount_factor,
-                    )
-                }
-            } else {
-                let rng = PhiloxRng::new(self.config.seed);
-                if self.config.antithetic {
-                    use crate::variance_reduction::antithetic::{
-                        antithetic_price, AntitheticConfig,
-                    };
-                    let time_grid_ref = &engine.config().time_grid;
-                    let mut rng_clone = rng.clone();
-                    let cfg = AntitheticConfig {
-                        num_pairs: self.config.num_paths / 2,
-                        time_grid: time_grid_ref,
-                        currency,
-                        discount_factor,
-                    };
-                    let stats = antithetic_price(
-                        &mut rng_clone,
-                        process,
-                        &disc,
-                        &initial_state,
-                        payoff,
-                        &cfg,
-                    );
-                    let est = crate::estimate::Estimate::new(
-                        stats.mean(),
-                        stats.stderr(),
-                        stats.confidence_interval(0.05),
-                        stats.count(),
-                    );
-                    Ok(MoneyEstimate::from_estimate(est, currency))
-                } else {
-                    engine.price(
-                        &rng,
-                        process,
-                        &disc,
-                        &initial_state,
-                        payoff,
-                        currency,
-                        discount_factor,
-                    )
-                }
+                )
             }
         }
     }
@@ -488,6 +585,19 @@ impl PathDependentPricer {
     where
         P: Payoff,
     {
+        #[cfg(feature = "mc")]
+        if self.config.use_sobol {
+            let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
+            return self.price_with_sobol(
+                process,
+                initial_spot,
+                time_grid,
+                payoff,
+                currency,
+                discount_factor,
+            );
+        }
+
         // Create time grid
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
 
@@ -508,54 +618,24 @@ impl PathDependentPricer {
         let initial_state = vec![initial_spot];
         let process_params = process.metadata();
 
-        if self.config.use_sobol {
-            #[cfg(feature = "mc")]
-            {
-                let rng = SobolRng::new(process.num_factors(), self.config.seed);
-                engine.price_with_capture(
-                    &rng,
-                    process,
-                    &disc,
-                    &initial_state,
-                    payoff,
-                    currency,
-                    discount_factor,
-                    process_params,
-                )
-            }
-            #[cfg(not(feature = "mc"))]
-            {
-                let rng = PhiloxRng::new(self.config.seed);
-                engine.price_with_capture(
-                    &rng,
-                    process,
-                    &disc,
-                    &initial_state,
-                    payoff,
-                    currency,
-                    discount_factor,
-                    process_params,
-                )
-            }
-        } else {
-            let rng = PhiloxRng::new(self.config.seed);
-            engine.price_with_capture(
-                &rng,
-                process,
-                &disc,
-                &initial_state,
-                payoff,
-                currency,
-                discount_factor,
-                process_params,
-            )
-        }
+        let rng = PhiloxRng::new(self.config.seed);
+        engine.price_with_capture(
+            &rng,
+            process,
+            &disc,
+            &initial_state,
+            payoff,
+            currency,
+            discount_factor,
+            process_params,
+        )
     }
 
     /// Price and compute LRM Greeks (delta, vega) for GBM using captured paths.
     ///
-    /// This uses the Likelihood Ratio Method, deriving W_T from terminal spots
-    /// under GBM: W_T = (ln(S_T/S_0) - (r - q - 0.5 σ^2) T) / σ
+    /// This uses the Likelihood Ratio Method, deriving the standardized terminal
+    /// shock `Z = W_T / √T` from terminal spots under GBM:
+    /// `Z = (ln(S_T/S_0) - (r - q - 0.5 σ^2) T) / (σ √T)`.
     #[allow(clippy::too_many_arguments)]
     pub fn price_with_lrm_greeks<P>(
         &self,
@@ -620,9 +700,9 @@ impl PathDependentPricer {
             return Ok((estimate, None));
         }
 
-        // Build undiscounted payoffs and W_T
+        // Build undiscounted payoffs and standardized terminal shocks.
         let mut payoffs: Vec<f64> = Vec::with_capacity(paths.len());
-        let mut w_terminals: Vec<f64> = Vec::with_capacity(paths.len());
+        let mut terminal_shocks: Vec<f64> = Vec::with_capacity(paths.len());
         let mu = rate - dividend_yield - 0.5 * volatility * volatility;
         for p in paths {
             // Final discounted payoff value is stored; un-discount it
@@ -632,18 +712,18 @@ impl PathDependentPricer {
             // Terminal spot from last point's state var
             if let Some(last) = p.terminal_point() {
                 if let Some(s_t) = last.spot() {
-                    let w_t = ((s_t / initial_spot).ln() - mu * time_to_maturity)
+                    let z_t = ((s_t / initial_spot).ln() - mu * time_to_maturity)
                         / (volatility * time_to_maturity.sqrt());
-                    w_terminals.push(w_t);
+                    terminal_shocks.push(z_t);
                 }
             }
         }
 
-        if payoffs.len() == w_terminals.len() && !payoffs.is_empty() {
+        if payoffs.len() == terminal_shocks.len() && !payoffs.is_empty() {
             use super::super::greeks::lrm::{lrm_delta, lrm_vega};
             let (delta, _) = lrm_delta(
                 &payoffs,
-                &w_terminals,
+                &terminal_shocks,
                 initial_spot,
                 volatility,
                 time_to_maturity,
@@ -651,7 +731,7 @@ impl PathDependentPricer {
             );
             let (vega, _) = lrm_vega(
                 &payoffs,
-                &w_terminals,
+                &terminal_shocks,
                 volatility,
                 time_to_maturity,
                 discount_factor,
@@ -671,6 +751,15 @@ impl PathDependentPricer {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
+    use super::{PathDependentPricer, PathDependentPricerConfig};
+    use crate::payoff::asian::{AsianCall, AveragingMethod};
+    use crate::process::gbm::{GbmParams, GbmProcess};
+    use crate::rng::sobol::MAX_SOBOL_DIMENSION;
+    use crate::time_grid::TimeGrid;
+    use finstack_core::currency::Currency;
+
+    #[cfg(feature = "slow")]
+    use crate::payoff::lookback::{Lookback, LookbackDirection};
 
     #[cfg(feature = "slow")]
     #[test]
@@ -712,5 +801,96 @@ mod tests {
 
         // Lookback should have positive value
         assert!(result.mean.amount() > 0.0);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_sobol_price_with_grid_multiple_paths() {
+        let config = PathDependentPricerConfig::new(8)
+            .with_seed(7)
+            .with_parallel(false)
+            .with_sobol(true)
+            .with_brownian_bridge(false);
+        let pricer = PathDependentPricer::new(config);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let time_grid = TimeGrid::uniform(1.0, 4).expect("grid should build");
+        let fixing_steps = vec![1, 2, 3, 4];
+        let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
+
+        let result = pricer
+            .price_with_grid(&gbm, 100.0, time_grid, &asian, Currency::USD, 1.0)
+            .expect("Sobol pricing should succeed for multiple paths");
+
+        assert_eq!(result.num_paths, 8);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_sobol_price_with_paths_multiple_paths() {
+        let config = PathDependentPricerConfig::new(8)
+            .with_seed(11)
+            .with_parallel(false)
+            .with_sobol(true)
+            .capture_all_paths();
+        let pricer = PathDependentPricer::new(config);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let fixing_steps = vec![1, 2, 3, 4];
+        let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
+
+        let result = pricer
+            .price_with_paths(&gbm, 100.0, 1.0, 4, &asian, Currency::USD, 1.0)
+            .expect("Sobol path capture should succeed for multiple paths");
+
+        assert_eq!(result.estimate.num_paths, 8);
+        assert_eq!(result.num_captured_paths(), 8);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_sobol_brownian_bridge_supports_irregular_grid() {
+        let config = PathDependentPricerConfig::new(8)
+            .with_seed(13)
+            .with_parallel(false)
+            .with_sobol(true)
+            .with_brownian_bridge(true);
+        let pricer = PathDependentPricer::new(config);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let time_grid = TimeGrid::from_times(vec![0.0, 0.2, 0.55, 1.0]).expect("grid should build");
+        let fixing_steps = vec![1, 2, 3];
+        let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
+
+        let result = pricer
+            .price_with_grid(&gbm, 100.0, time_grid, &asian, Currency::USD, 1.0)
+            .expect("Irregular-grid Sobol Brownian bridge pricing should succeed");
+
+        assert_eq!(result.num_paths, 8);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn test_sobol_rejects_excessive_dimension() {
+        let config = PathDependentPricerConfig::new(1)
+            .with_seed(17)
+            .with_parallel(false)
+            .with_sobol(true)
+            .with_brownian_bridge(false);
+        let pricer = PathDependentPricer::new(config);
+        let gbm = GbmProcess::new(GbmParams::new(0.05, 0.0, 0.2));
+        let fixing_steps = vec![MAX_SOBOL_DIMENSION + 1];
+        let asian = AsianCall::new(100.0, 1.0, AveragingMethod::Arithmetic, fixing_steps);
+
+        let err = pricer
+            .price(
+                &gbm,
+                100.0,
+                1.0,
+                MAX_SOBOL_DIMENSION + 1,
+                &asian,
+                Currency::USD,
+                1.0,
+            )
+            .expect_err("excessive Sobol dimension should be rejected");
+
+        assert!(err.to_string().contains("Sobol"));
     }
 }

@@ -116,6 +116,38 @@ impl TimeGrid {
         Ok(Self { t_max, times, dts })
     }
 
+    /// Create a uniform base grid and merge in required event times exactly.
+    pub fn uniform_with_required_times(
+        t_max: f64,
+        steps_per_year: f64,
+        min_steps: usize,
+        required_times: &[f64],
+    ) -> Result<Self> {
+        if !steps_per_year.is_finite() || steps_per_year <= 0.0 {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+
+        let num_steps = ((t_max * steps_per_year).round() as usize).max(min_steps);
+        let mut times = Vec::with_capacity(num_steps + required_times.len() + 1);
+        times.push(0.0);
+
+        let dt = t_max / num_steps as f64;
+        for i in 1..=num_steps {
+            times.push(i as f64 * dt);
+        }
+
+        for &required_time in required_times {
+            if required_time.is_finite() && required_time > 1e-10 && required_time <= t_max {
+                times.push(required_time);
+            }
+        }
+
+        times.sort_by(|a, b| a.total_cmp(b));
+        times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+
+        Self::from_times(times)
+    }
+
     /// Create a custom time grid from explicit time points.
     ///
     /// # Arguments
@@ -325,5 +357,18 @@ mod tests {
         assert!(TimeGrid::from_times(vec![0.1, 0.5, 1.0]).is_err());
         // Non-monotonic
         assert!(TimeGrid::from_times(vec![0.0, 0.5, 0.3, 1.0]).is_err());
+    }
+
+    #[test]
+    fn test_uniform_with_required_times_merges_and_dedups_events() {
+        let grid = TimeGrid::uniform_with_required_times(
+            1.0,
+            4.0,
+            2,
+            &[0.75, 0.5, 0.50000000001, 1.0, 0.0],
+        )
+        .expect("merged grid should succeed");
+
+        assert_eq!(grid.times(), &[0.0, 0.25, 0.5, 0.75, 1.0]);
     }
 }

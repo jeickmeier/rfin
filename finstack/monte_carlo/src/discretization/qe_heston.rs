@@ -11,7 +11,7 @@ use super::super::traits::Discretization;
 /// Integrated variance approximation method.
 ///
 /// Controls how the integrated variance ∫_t^{t+Δt} v_s ds is computed
-/// for the log-Euler spot evolution.
+/// for the martingale-corrected spot evolution.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum IntegratedVarianceMethod {
     /// Trapezoidal (midpoint) approximation: (v_t + v_{t+Δt}) / 2 × Δt
@@ -53,7 +53,7 @@ pub enum IntegratedVarianceMethod {
 /// - If ψ > ψ_c: use exponential/uniform mixture
 ///
 /// For spot:
-/// - Use log-Euler with integrated variance approximation
+/// - Use a martingale-corrected log update with integrated variance approximation
 ///
 /// # Integrated Variance Options
 ///
@@ -297,17 +297,19 @@ impl Discretization<HestonProcess> for QeHeston {
         let z_v = z[1]; // Independent shock for variance
         let v_next = self.step_variance(v_t, params.kappa, params.theta, params.sigma_v, dt, z_v);
 
-        // Step 2: Compute correlated shock for spot
-        // Z_S = ρ Z_v + √(1-ρ²) Z_indep
+        // Step 2: Evolve the spot with a martingale-corrected QE-M style update.
         let rho = params.rho;
-        let z_s = rho * z_v + (1.0 - rho * rho).sqrt() * z[0];
-
-        // Step 3: Evolve spot using log-Euler with integrated variance
         let int_var = self.integrated_variance(v_t, v_next, dt, params.kappa, params.theta);
-        let drift = (params.r - params.q - 0.5 * int_var / dt) * dt;
-        let diffusion = int_var.sqrt() * z_s;
+        let drift = (params.r - params.q) * dt - 0.5 * int_var;
+        let variance_correction = if params.sigma_v > 1e-12 {
+            rho / params.sigma_v
+                * (v_next - v_t - params.kappa * params.theta * dt + params.kappa * int_var)
+        } else {
+            0.0
+        };
+        let orthogonal_diffusion = (1.0 - rho * rho).sqrt() * int_var.sqrt() * z[0];
 
-        let s_next = s_t * (drift + diffusion).exp();
+        let s_next = s_t * (drift + variance_correction + orthogonal_diffusion).exp();
 
         // Update state
         x[0] = s_next;
@@ -323,6 +325,7 @@ impl Discretization<HestonProcess> for QeHeston {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::super::super::process::heston::HestonParams;
+    use super::super::super::process::heston::HestonProcess;
     use super::*;
 
     #[test]
@@ -539,5 +542,34 @@ mod tests {
             let v = qe.step_variance(0.04, params.kappa, params.theta, params.sigma_v, 0.1, z);
             assert!(v >= 0.0);
         }
+    }
+
+    #[test]
+    fn test_qe_heston_spot_update_includes_variance_correction_term() {
+        let heston = HestonProcess::with_params(0.03, 0.01, 1.7, 0.04, 0.6, -0.4, 0.05);
+        let qe = QeHeston::new();
+        let mut x = vec![100.0, 0.05];
+        let z = vec![0.3, -0.2];
+        let mut work = vec![];
+
+        let params = heston.params();
+        let s_t = x[0];
+        let v_t = x[1];
+        let v_next = qe.step_variance(v_t, params.kappa, params.theta, params.sigma_v, 0.1, z[1]);
+        let int_var = qe.integrated_variance(v_t, v_next, 0.1, params.kappa, params.theta);
+        let expected_log_return = (params.r - params.q) * 0.1 - 0.5 * int_var
+            + params.rho / params.sigma_v
+                * (v_next - v_t - params.kappa * params.theta * 0.1 + params.kappa * int_var)
+            + (1.0 - params.rho * params.rho).sqrt() * int_var.sqrt() * z[0];
+        let expected_spot = s_t * expected_log_return.exp();
+
+        qe.step(&heston, 0.0, 0.1, &mut x, &z, &mut work);
+
+        assert!(
+            (x[0] - expected_spot).abs() < 1e-12,
+            "expected spot {} but got {}",
+            expected_spot,
+            x[0]
+        );
     }
 }

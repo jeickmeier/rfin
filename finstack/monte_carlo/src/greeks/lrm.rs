@@ -11,17 +11,18 @@ use crate::online_stats::OnlineStats;
 
 /// Compute delta using Likelihood Ratio Method for GBM.
 ///
-/// For GBM, the score function for delta is:
+/// For GBM, when the input is the standardized terminal shock `Z`, the score
+/// function for delta is:
 /// ```text
-/// ∂ln(p)/∂S₀ = W_T / (S₀ σ √T)
+/// ∂ln(p)/∂S₀ = Z / (S₀ σ √T)
 /// ```
 ///
-/// where W_T is the terminal Brownian motion.
+/// where `Z = W_T / √T`.
 ///
 /// # Arguments
 ///
 /// * `payoffs` - Payoff values from MC paths
-/// * `wiener_terminals` - Terminal Wiener process values (W_T)
+/// * `terminal_shocks` - Standardized terminal shocks (Z = W_T / √T)
 /// * `initial_spot` - Initial spot price
 /// * `volatility` - Volatility
 /// * `time_to_maturity` - Time to maturity
@@ -33,7 +34,7 @@ use crate::online_stats::OnlineStats;
 #[must_use]
 pub fn lrm_delta(
     payoffs: &[f64],
-    wiener_terminals: &[f64],
+    terminal_shocks: &[f64],
     initial_spot: f64,
     volatility: f64,
     time_to_maturity: f64,
@@ -44,8 +45,8 @@ pub fn lrm_delta(
     let score_multiplier = 1.0 / (initial_spot * volatility * sqrt_t);
 
     for (i, &payoff) in payoffs.iter().enumerate() {
-        let w_t = wiener_terminals[i];
-        let score = w_t * score_multiplier;
+        let z_t = terminal_shocks[i];
+        let score = z_t * score_multiplier;
         let delta_contribution = discount_factor * payoff * score;
         stats.update(delta_contribution);
     }
@@ -55,13 +56,14 @@ pub fn lrm_delta(
 
 /// Compute vega using Likelihood Ratio Method.
 ///
-/// For GBM with terminal density parameterized by σ, the full score function is:
+/// For GBM with terminal density parameterized by σ and standardized shock `Z`,
+/// the full score function is:
 /// ```text
-/// ∂ln(p)/∂σ = (W_T² - T) / (σ T) - W_T
+/// ∂ln(p)/∂σ = (Z² - 1) / σ - √T Z
 /// ```
 ///
-/// The first term comes from the variance dependence (σ²T) and the second
-/// from the drift dependence ((r - q - σ²/2)T) on σ.
+/// The first term comes from the variance dependence and the second from the
+/// drift dependence `-(σ²/2)T` on σ.
 ///
 /// Returns Vega scaled by 0.01 (sensitivity per 1% volatility change).
 ///
@@ -71,16 +73,17 @@ pub fn lrm_delta(
 #[must_use]
 pub fn lrm_vega(
     payoffs: &[f64],
-    wiener_terminals: &[f64],
+    terminal_shocks: &[f64],
     volatility: f64,
     time_to_maturity: f64,
     discount_factor: f64,
 ) -> (f64, f64) {
     let mut stats = OnlineStats::new();
+    let sqrt_t = time_to_maturity.sqrt();
 
     for (i, &payoff) in payoffs.iter().enumerate() {
-        let w_t = wiener_terminals[i];
-        let score = (w_t * w_t - time_to_maturity) / (volatility * time_to_maturity) - w_t;
+        let z_t = terminal_shocks[i];
+        let score = (z_t * z_t - 1.0) / volatility - sqrt_t * z_t;
         let vega_contribution = discount_factor * payoff * score;
         stats.update(vega_contribution * 0.01);
     }
@@ -88,15 +91,31 @@ pub fn lrm_vega(
     (stats.mean(), stats.stderr())
 }
 
-/// Compute rho (sensitivity to interest rate) using LRM.
+/// Compute rho (sensitivity to the flat risk-free rate) using LRM.
+///
+/// For discounted GBM payoffs with standardized terminal shock `Z`, the score is:
+/// ```text
+/// ∂ln(p)/∂r = √T Z / σ
+/// ```
+/// so the present-value contribution becomes:
+/// ```text
+/// e^{-rT} payoff × (√T Z / σ - T)
+/// ```
 #[must_use]
-pub fn lrm_rho(payoffs: &[f64], time_to_maturity: f64, discount_factor: f64) -> (f64, f64) {
+pub fn lrm_rho(
+    payoffs: &[f64],
+    terminal_shocks: &[f64],
+    volatility: f64,
+    time_to_maturity: f64,
+    discount_factor: f64,
+) -> (f64, f64) {
     let mut stats = OnlineStats::new();
+    let drift_score_multiplier = time_to_maturity.sqrt() / volatility;
 
-    for &payoff in payoffs {
-        // For interest rate: sensitivity comes from both drift and discounting
-        // ∂V/∂r ≈ -T * PV + drift effect
-        let rho_contribution = -time_to_maturity * discount_factor * payoff;
+    for (i, &payoff) in payoffs.iter().enumerate() {
+        let z_t = terminal_shocks[i];
+        let score = drift_score_multiplier * z_t - time_to_maturity;
+        let rho_contribution = discount_factor * payoff * score;
         stats.update(rho_contribution);
     }
 
@@ -153,13 +172,39 @@ mod tests {
     }
 
     #[test]
+    fn test_lrm_vega_standard_normal_formula_for_nonunit_maturity() {
+        let payoffs = vec![1.0];
+        let z_terminal = vec![1.2];
+        let sigma = 0.4;
+        let maturity: f64 = 0.25;
+
+        let (vega, _) = lrm_vega(&payoffs, &z_terminal, sigma, maturity, 1.0);
+
+        let expected_score =
+            (z_terminal[0] * z_terminal[0] - 1.0) / sigma - maturity.sqrt() * z_terminal[0];
+        let expected_vega = expected_score * 0.01;
+
+        assert!(
+            (vega - expected_vega).abs() < 1e-12,
+            "expected vega {} but got {}",
+            expected_vega,
+            vega
+        );
+    }
+
+    #[test]
     fn test_lrm_rho() {
         let payoffs = vec![10.0, 8.0, 12.0];
+        let z_t = vec![0.5, -0.2, 0.3];
 
-        let (rho, _) = lrm_rho(&payoffs, 1.0, 0.95);
+        let (rho, _) = lrm_rho(&payoffs, &z_t, 0.2, 1.0, 0.95);
 
-        // Rho should be negative (higher rates reduce PV)
-        assert!(rho < 0.0);
+        let expected = 0.95
+            * ((10.0 * (0.5 / 0.2 - 1.0))
+                + (8.0 * (-0.2 / 0.2 - 1.0))
+                + (12.0 * (0.3 / 0.2 - 1.0)))
+            / 3.0;
+        assert!((rho - expected).abs() < 1e-12);
     }
 
     #[test]

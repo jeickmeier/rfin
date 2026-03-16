@@ -162,6 +162,39 @@ impl BrownianBridge {
         }
     }
 
+    /// Apply bridge construction on an irregular time grid.
+    ///
+    /// `times` must contain `num_steps + 1` monotonically increasing time points
+    /// with `times[0] == 0.0`.
+    pub fn construct_path_irregular(&self, z: &[f64], w_out: &mut [f64], times: &[f64]) {
+        let num_steps = z.len();
+        debug_assert_eq!(times.len(), num_steps + 1);
+        debug_assert_eq!(w_out.len(), num_steps + 1);
+
+        w_out.fill(f64::NAN);
+        w_out[0] = 0.0;
+        w_out[num_steps] = z[0] * times[num_steps].sqrt();
+
+        let mut populated = BTreeSet::new();
+        populated.insert(0);
+        populated.insert(num_steps);
+
+        for (i, &idx) in self.construction_order.iter().enumerate() {
+            let (left, right) = self.find_brackets(idx, &populated, num_steps);
+            let left_time = times[left];
+            let idx_time = times[idx];
+            let right_time = times[right];
+
+            let alpha = (idx_time - left_time) / (right_time - left_time);
+            let conditional_mean = w_out[left] + alpha * (w_out[right] - w_out[left]);
+            let conditional_variance =
+                ((idx_time - left_time) * (right_time - idx_time)) / (right_time - left_time);
+
+            w_out[idx] = conditional_mean + conditional_variance.sqrt() * z[i + 1];
+            populated.insert(idx);
+        }
+    }
+
     /// Find left and right bracketing points for bridge construction.
     ///
     /// Uses BTreeSet for O(log n) lookups instead of O(n) linear scan.
@@ -240,6 +273,23 @@ mod tests {
         bridge.construct_path(&z, &mut zero_buffer, dt);
 
         assert_eq!(zero_buffer, nan_buffer);
+    }
+
+    #[test]
+    fn test_brownian_bridge_irregular_grid_construction() {
+        let bridge = BrownianBridge::new(3);
+        let z = vec![1.0, 0.0, 0.0];
+        let times = vec![0.0, 0.1, 0.4, 1.0];
+        let mut w = vec![f64::NAN; 4];
+
+        bridge.construct_path_irregular(&z, &mut w, &times);
+
+        assert_eq!(w[0], 0.0);
+        assert!((w[3] - 1.0).abs() < 1e-12);
+        assert!((w[1] - 0.1).abs() < 1e-12);
+        for value in w {
+            assert!(value.is_finite());
+        }
     }
 
     #[test]

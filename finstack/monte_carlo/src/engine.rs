@@ -370,6 +370,91 @@ impl McEngine {
         &self.config
     }
 
+    fn validate_runtime<R, P>(
+        &self,
+        rng: &R,
+        process: &P,
+        initial_state: &[f64],
+        discount_factor: f64,
+        process_params: Option<&ProcessParams>,
+    ) -> Result<()>
+    where
+        R: RandomStream,
+        P: StochasticProcess,
+    {
+        if self.config.num_paths == 0 {
+            return Err(finstack_core::Error::Validation(
+                "Monte Carlo num_paths must be greater than zero".to_string(),
+            ));
+        }
+
+        if self.config.chunk_size == 0 {
+            return Err(finstack_core::Error::Validation(
+                "Monte Carlo chunk_size must be greater than zero".to_string(),
+            ));
+        }
+
+        if initial_state.len() != process.dim() {
+            return Err(finstack_core::Error::Validation(format!(
+                "initial_state length {} does not match process dimension {}",
+                initial_state.len(),
+                process.dim()
+            )));
+        }
+
+        if !discount_factor.is_finite() || discount_factor < 0.0 {
+            return Err(finstack_core::Error::Validation(
+                "discount_factor must be finite and non-negative".to_string(),
+            ));
+        }
+
+        if let Some(target) = self.config.target_ci_half_width {
+            if !target.is_finite() || target <= 0.0 {
+                return Err(finstack_core::Error::Validation(
+                    "target_ci_half_width must be finite and positive".to_string(),
+                ));
+            }
+
+            if self.config.use_parallel {
+                return Err(finstack_core::Error::Validation(
+                    "target_ci_half_width is currently unsupported with use_parallel=true"
+                        .to_string(),
+                ));
+            }
+        }
+
+        if self.config.use_parallel && !rng.supports_splitting() {
+            return Err(finstack_core::Error::Validation(
+                "Parallel Monte Carlo requires a splittable RNG (e.g., PhiloxRng). \
+                 SobolRng does not support stream splitting — use serial mode (use_parallel: false) \
+                 or switch to PhiloxRng for parallel execution."
+                    .to_string(),
+            ));
+        }
+
+        if self.config.path_capture.enabled {
+            if self.config.antithetic {
+                return Err(finstack_core::Error::Validation(
+                    "Path capture is currently unsupported with antithetic=true".to_string(),
+                ));
+            }
+
+            if let PathCaptureMode::Sample { count, .. } = self.config.path_capture.capture_mode {
+                if count == 0 || count > self.config.num_paths {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Path capture sample count must be between 1 and num_paths (got {count})"
+                    )));
+                }
+            }
+        }
+
+        if let Some(params) = process_params {
+            params.validate()?;
+        }
+
+        Ok(())
+    }
+
     /// Price a payoff using Monte Carlo simulation.
     ///
     /// # Type Parameters
@@ -409,15 +494,7 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
-        // Guard: parallel mode requires a splittable RNG
-        if self.config.use_parallel && !rng.supports_splitting() {
-            return Err(finstack_core::Error::Validation(
-                "Parallel Monte Carlo requires a splittable RNG (e.g., PhiloxRng). \
-                 SobolRng does not support stream splitting — use serial mode (use_parallel: false) \
-                 or switch to PhiloxRng for parallel execution."
-                    .to_string(),
-            ));
-        }
+        self.validate_runtime(rng, process, initial_state, discount_factor, None)?;
 
         let estimate = if self.config.use_parallel {
             self.price_parallel(
@@ -472,15 +549,13 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
-        // Guard: parallel mode requires a splittable RNG
-        if self.config.use_parallel && !rng.supports_splitting() {
-            return Err(finstack_core::Error::Validation(
-                "Parallel Monte Carlo requires a splittable RNG (e.g., PhiloxRng). \
-                 SobolRng does not support stream splitting — use serial mode (use_parallel: false) \
-                 or switch to PhiloxRng for parallel execution."
-                    .to_string(),
-            ));
-        }
+        self.validate_runtime(
+            rng,
+            process,
+            initial_state,
+            discount_factor,
+            Some(&process_params),
+        )?;
 
         let (estimate, paths) = if self.config.use_parallel {
             self.price_parallel_with_capture(
@@ -786,14 +861,14 @@ impl McEngine {
             },
         };
 
-        let mut paths = if capture_enabled {
-            Some(PathDataset::new(
-                self.config.num_paths,
-                sampling_method,
-                process_params,
-            ))
+        let mut captured_paths = if capture_enabled {
+            let estimated_capacity = match self.config.path_capture.capture_mode {
+                PathCaptureMode::All => self.config.num_paths,
+                PathCaptureMode::Sample { count, .. } => count,
+            };
+            Vec::with_capacity(estimated_capacity)
         } else {
-            None
+            Vec::new()
         };
 
         let mut payoff_local = payoff.clone();
@@ -860,8 +935,8 @@ impl McEngine {
             stats.update(discounted_value);
 
             // Store captured path
-            if let (Some(ref mut dataset), Some(path)) = (&mut paths, captured_path) {
-                dataset.add_path(path);
+            if let Some(path) = captured_path {
+                captured_paths.push(path);
             }
 
             // Check auto-stop condition
@@ -881,8 +956,12 @@ impl McEngine {
         )
         .with_std_dev(stats.std_dev());
 
-        // If we have captured paths, calculate additional statistics
-        if let Some(ref dataset) = paths {
+        let paths = if capture_enabled {
+            let mut dataset = PathDataset::new(stats.count(), sampling_method, process_params);
+            for path in captured_paths {
+                dataset.add_path(path);
+            }
+
             let mut values: Vec<f64> = dataset.paths.iter().map(|p| p.final_value).collect();
 
             if !values.is_empty() {
@@ -911,7 +990,10 @@ impl McEngine {
                     .with_percentiles(p25, p75)
                     .with_range(min, max);
             }
-        }
+            Some(dataset)
+        } else {
+            None
+        };
 
         Ok((estimate, paths))
     }
@@ -1084,8 +1166,7 @@ impl McEngine {
         .with_std_dev(combined.std_dev());
 
         let paths = if capture_enabled {
-            let mut dataset =
-                PathDataset::new(self.config.num_paths, sampling_method, process_params);
+            let mut dataset = PathDataset::new(combined.count(), sampling_method, process_params);
             // SAFETY: A poisoned mutex indicates a prior panic in another thread.
             // Re-panicking here propagates that failure rather than silently continuing
             // with potentially corrupted state.
@@ -1190,9 +1271,6 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
-        // Reset payoff for new path
-        payoff.reset();
-
         // Initialize state
         state.copy_from_slice(initial_state);
 
@@ -1210,8 +1288,7 @@ impl McEngine {
             rng.fill_std_normals(z);
             disc.step(process, t, dt, state, z, work);
 
-            path_state.step = step + 1;
-            path_state.time = t + dt;
+            path_state.set_step_time(step + 1, t + dt);
             process.populate_path_state(state, &mut path_state);
             path_state.set_uniform_random(rng.next_u01());
 
@@ -1248,34 +1325,29 @@ impl McEngine {
         D: Discretization<P>,
         F: Payoff,
     {
-        // Reset payoff for new path
-        payoff.reset();
-
         // Initialize state
         state.copy_from_slice(initial_state);
-
-        // Initialize simulated path.
-        //
-        // Use with_capacity for the points Vec to avoid reallocations as we push,
-        // but keep per-path allocation local to this function to preserve
-        // thread-safety and deterministic ordering under parallel execution.
-        let num_steps = self.config.time_grid.num_steps() + 1; // +1 for initial point
-        let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
-
-        // Capture initial point
-        let initial_state_vec = SmallVec::from_slice(state);
-        let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
-        if self.config.path_capture.capture_payoffs {
-            // Initial payoff is typically zero, but capture it for completeness
-            initial_point.set_payoff(0.0);
-        }
-        simulated_path.add_point(initial_point);
 
         // Create initial path state for payoff
         let mut path_state = PathState::new(0, 0.0);
         process.populate_path_state(state, &mut path_state);
         path_state.set_uniform_random(rng.next_u01());
         payoff.on_event(&mut path_state);
+
+        // Initialize simulated path after the initial event so step-0 payoff and
+        // cashflow state are captured consistently.
+        let num_steps = self.config.time_grid.num_steps() + 1; // +1 for initial point
+        let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
+        let initial_state_vec = SmallVec::from_slice(state);
+        let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
+        for (time, amount, cf_type) in path_state.take_cashflows() {
+            initial_point.add_typed_cashflow(time, amount, cf_type);
+        }
+        if self.config.path_capture.capture_payoffs {
+            let payoff_money = payoff.value(currency);
+            initial_point.set_payoff(payoff_money.amount());
+        }
+        simulated_path.add_point(initial_point);
 
         // Simulate path through time steps
         for step in 0..self.config.time_grid.num_steps() {
@@ -1285,8 +1357,7 @@ impl McEngine {
             rng.fill_std_normals(z);
             disc.step(process, t, dt, state, z, work);
 
-            path_state.step = step + 1;
-            path_state.time = t + dt;
+            path_state.set_step_time(step + 1, t + dt);
             process.populate_path_state(state, &mut path_state);
             path_state.set_uniform_random(rng.next_u01());
 
@@ -1359,7 +1430,6 @@ impl McEngine {
         // Primary path state and payoff
         state_p.copy_from_slice(initial_state);
         let mut payoff_p = payoff.clone();
-        payoff_p.reset();
         let mut path_state_p = PathState::new(0, 0.0);
         process.populate_path_state(state_p, &mut path_state_p);
         let u_init = rng.next_u01();
@@ -1369,7 +1439,6 @@ impl McEngine {
         // Antithetic path state and payoff
         state_a.copy_from_slice(initial_state);
         let mut payoff_a = payoff.clone();
-        payoff_a.reset();
         let mut path_state_a = PathState::new(0, 0.0);
         process.populate_path_state(state_a, &mut path_state_a);
         path_state_a.set_uniform_random(1.0 - u_init);
@@ -1389,14 +1458,12 @@ impl McEngine {
 
             let u_step = rng.next_u01();
 
-            path_state_p.step = step + 1;
-            path_state_p.time = t + dt;
+            path_state_p.set_step_time(step + 1, t + dt);
             process.populate_path_state(state_p, &mut path_state_p);
             path_state_p.set_uniform_random(u_step);
             payoff_p.on_event(&mut path_state_p);
 
-            path_state_a.step = step + 1;
-            path_state_a.time = t + dt;
+            path_state_a.set_step_time(step + 1, t + dt);
             process.populate_path_state(state_a, &mut path_state_a);
             path_state_a.set_uniform_random(1.0 - u_step);
             payoff_a.on_event(&mut path_state_a);
@@ -1412,6 +1479,7 @@ impl McEngine {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::paths::CashflowType;
     use finstack_core::money::Money;
 
     // Dummy implementations for testing
@@ -1468,6 +1536,46 @@ mod tests {
         fn value(&self, currency: Currency) -> Money {
             Money::new(100.0, currency)
         }
+        fn reset(&mut self) {}
+    }
+
+    #[derive(Clone, Default)]
+    struct PathStartPayoff {
+        start_uniform: Option<f64>,
+    }
+
+    impl Payoff for PathStartPayoff {
+        fn on_path_start<R: RandomStream>(&mut self, rng: &mut R) {
+            self.start_uniform = Some(rng.next_u01());
+        }
+
+        fn on_event(&mut self, _state: &mut PathState) {}
+
+        fn value(&self, currency: Currency) -> Money {
+            Money::new(self.start_uniform.unwrap_or(-1.0), currency)
+        }
+
+        fn reset(&mut self) {
+            self.start_uniform = None;
+        }
+    }
+
+    #[derive(Clone)]
+    struct InitialCashflowPayoff {
+        value: f64,
+    }
+
+    impl Payoff for InitialCashflowPayoff {
+        fn on_event(&mut self, state: &mut PathState) {
+            if state.step == 0 {
+                state.add_cashflow(state.time, self.value);
+            }
+        }
+
+        fn value(&self, currency: Currency) -> Money {
+            Money::new(self.value, currency)
+        }
+
         fn reset(&mut self) {}
     }
 
@@ -1734,5 +1842,274 @@ mod tests {
         {
             assert!(result.is_ok());
         }
+    }
+
+    #[test]
+    fn test_on_path_start_state_survives_into_simulation() {
+        let engine = McEngine::builder()
+            .num_paths(1)
+            .uniform_grid(1.0, 1)
+            .parallel(false)
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let result = engine
+            .price(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &PathStartPayoff::default(),
+                Currency::USD,
+                1.0,
+            )
+            .expect("pricing should succeed");
+
+        assert_eq!(result.mean.amount(), 0.5);
+    }
+
+    #[test]
+    fn test_price_rejects_zero_paths() {
+        let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 0,
+            seed: 42,
+            time_grid,
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1,
+            path_capture: PathCaptureConfig::disabled(),
+            antithetic: false,
+        });
+
+        let err = engine
+            .price(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &DummyPayoff,
+                Currency::USD,
+                1.0,
+            )
+            .expect_err("zero-path configuration should be rejected");
+
+        assert!(err.to_string().contains("num_paths"));
+    }
+
+    #[test]
+    fn test_price_rejects_zero_chunk_size() {
+        let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 10,
+            seed: 42,
+            time_grid,
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 0,
+            path_capture: PathCaptureConfig::disabled(),
+            antithetic: false,
+        });
+
+        let err = engine
+            .price(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &DummyPayoff,
+                Currency::USD,
+                1.0,
+            )
+            .expect_err("zero chunk size should be rejected");
+
+        assert!(err.to_string().contains("chunk_size"));
+    }
+
+    #[test]
+    fn test_price_rejects_initial_state_dimension_mismatch() {
+        let engine = McEngine::builder()
+            .num_paths(10)
+            .uniform_grid(1.0, 1)
+            .parallel(false)
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let err = engine
+            .price(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[],
+                &DummyPayoff,
+                Currency::USD,
+                1.0,
+            )
+            .expect_err("state dimension mismatch should be rejected");
+
+        assert!(err.to_string().contains("initial_state"));
+    }
+
+    #[test]
+    fn test_price_with_capture_rejects_invalid_sample_count() {
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 10,
+            seed: 42,
+            time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1,
+            path_capture: PathCaptureConfig::sample(0, 99),
+            antithetic: false,
+        });
+
+        let err = engine
+            .price_with_capture(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &DummyPayoff,
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect_err("zero sample count should be rejected");
+
+        assert!(err.to_string().contains("sample"));
+    }
+
+    #[test]
+    fn test_price_with_capture_rejects_antithetic_capture_combination() {
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 10,
+            seed: 42,
+            time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1,
+            path_capture: PathCaptureConfig::all(),
+            antithetic: true,
+        });
+
+        let err = engine
+            .price_with_capture(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &DummyPayoff,
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect_err("antithetic + path capture should be rejected");
+
+        assert!(err.to_string().contains("antithetic"));
+    }
+
+    #[test]
+    fn test_price_rejects_parallel_auto_stop_configuration() {
+        let time_grid = TimeGrid::uniform(1.0, 1).expect("grid should build");
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 10,
+            seed: 42,
+            time_grid,
+            target_ci_half_width: Some(0.01),
+            use_parallel: true,
+            chunk_size: 2,
+            path_capture: PathCaptureConfig::disabled(),
+            antithetic: false,
+        });
+
+        let result = engine.price(
+            &DummyRng,
+            &DummyProcess,
+            &DummyDisc,
+            &[100.0],
+            &DummyPayoff,
+            Currency::USD,
+            1.0,
+        );
+
+        #[cfg(feature = "parallel")]
+        {
+            let err = result.expect_err("parallel auto-stop should be rejected");
+            assert!(err.to_string().contains("target_ci_half_width"));
+        }
+        #[cfg(not(feature = "parallel"))]
+        {
+            assert!(result.is_ok());
+        }
+    }
+
+    #[test]
+    fn test_price_with_capture_captures_initial_event_cashflows_and_payoff() {
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 1,
+            seed: 42,
+            time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1,
+            path_capture: PathCaptureConfig::all().with_payoffs(),
+            antithetic: false,
+        });
+
+        let result = engine
+            .price_with_capture(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &InitialCashflowPayoff { value: 7.0 },
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect("capture should succeed");
+
+        let path = result
+            .paths()
+            .and_then(|dataset| dataset.path(0))
+            .expect("captured path should exist");
+        let initial_point = path.initial_point().expect("initial point should exist");
+        assert_eq!(initial_point.payoff_value, Some(7.0));
+        assert_eq!(
+            initial_point.cashflows,
+            vec![(0.0, 7.0, CashflowType::Other)]
+        );
+    }
+
+    #[test]
+    fn test_price_with_capture_uses_actual_path_count_after_auto_stop() {
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 5_000,
+            seed: 42,
+            time_grid: TimeGrid::uniform(1.0, 1).expect("grid should build"),
+            target_ci_half_width: Some(0.01),
+            use_parallel: false,
+            chunk_size: 100,
+            path_capture: PathCaptureConfig::all(),
+            antithetic: false,
+        });
+
+        let result = engine
+            .price_with_capture(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &DummyPayoff,
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect("pricing should succeed");
+
+        let captured = result.paths().expect("captured paths should exist");
+        assert_eq!(result.estimate.num_paths, 1001);
+        assert_eq!(captured.num_paths_total, 1001);
+        assert_eq!(captured.num_captured(), 1001);
     }
 }

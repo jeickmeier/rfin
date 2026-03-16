@@ -43,7 +43,8 @@
 //!
 //! 1. Variance process discretized with moment matching
 //! 2. Switch between quadratic and exponential approximations based on ψ critical value
-//! 3. Asset process uses exact conditional simulation given variance path
+//! 3. Asset process uses a QE-style martingale-corrected log update given the
+//!    simulated variance path
 //!
 //! **Advantages over Euler**:
 //! - Maintains positive variance naturally
@@ -88,7 +89,7 @@
 //! - Uses **Andersen QE scheme** by default (best accuracy/speed tradeoff)
 //! - Variance truncation at zero to prevent negative values
 //! - Correlated Brownian motions via Cholesky: W₂ = ρW₁ + √(1-ρ²)W₂'
-//! - Exact asset simulation conditional on variance path
+//! - Martingale-corrected log spot update conditional on the simulated variance path
 //!
 //! # Examples
 //!

@@ -313,38 +313,38 @@ impl LsmcPricer {
 
             // Perform regression if we have enough ITM paths
             if regression_x.len() > basis.num_basis() + 10 {
-                let continuation_values =
-                    regression_with_basis(&regression_x, &regression_y, basis)?;
+                match regression_with_basis(&regression_x, &regression_y, basis) {
+                    Ok(continuation_values) => {
+                        // Exercise decision
+                        for (j, &i) in regression_indices.iter().enumerate() {
+                            let spot = paths[i][exercise_step];
+                            let immediate = exercise.exercise_value(spot);
+                            let continuation = continuation_values[j];
 
-                // Exercise decision
-                for (j, &i) in regression_indices.iter().enumerate() {
-                    let spot = paths[i][exercise_step];
-                    let immediate = exercise.exercise_value(spot);
-                    let continuation = continuation_values[j];
-
-                    // Exercise if immediate value > continuation value
-                    if immediate > continuation {
-                        cashflows[i] = immediate;
-                        exercise_times[i] = t;
+                            // Exercise if immediate value > continuation value
+                            if immediate > continuation {
+                                cashflows[i] = immediate;
+                                exercise_times[i] = t;
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            exercise_step,
+                            itm_paths = regression_x.len(),
+                            "LSMC regression failed, preserving continuation cashflows: {err}"
+                        );
                     }
                 }
             } else {
                 // Fallback: too few ITM paths for stable regression.
-                // Exercise immediately for all ITM paths (conservative).
+                // Preserve existing continuation cashflows instead of forcing early exercise.
                 tracing::debug!(
                     exercise_step,
                     itm_paths = regression_x.len(),
                     min_required = basis.num_basis() + 10,
-                    "LSMC: insufficient ITM paths for regression, using immediate exercise fallback"
+                    "LSMC: insufficient ITM paths for regression, preserving continuation values"
                 );
-                for &i in &regression_indices {
-                    let spot = paths[i][exercise_step];
-                    let immediate = exercise.exercise_value(spot);
-                    if immediate > 1e-6 {
-                        cashflows[i] = immediate;
-                        exercise_times[i] = t;
-                    }
-                }
             }
         }
 
@@ -519,5 +519,21 @@ mod tests {
         assert!(price.mean.amount() < 0.1); // Should be near zero
 
         println!("Few ITM paths LSMC: {}", price.mean);
+    }
+
+    #[test]
+    fn test_lsmc_insufficient_itm_paths_preserves_continuation() {
+        let config = LsmcConfig::new(1, vec![1]);
+        let pricer = LsmcPricer::new(config);
+        let exercise = AmericanCall { strike: 100.0 };
+        let basis = PolynomialBasis::new(2);
+        let paths = vec![vec![100.0, 110.0, 130.0]];
+
+        let present_values = pricer
+            .backward_induction(&paths, &exercise, &basis, 0.05, 1.0, 2)
+            .expect("backward induction should succeed");
+
+        let expected = 30.0 * (-0.05_f64).exp();
+        assert!((present_values[0] - expected).abs() < 1e-12);
     }
 }

@@ -70,6 +70,8 @@ pub type StateVariables = HashMap<&'static str, f64>;
 
 /// Standard state variable keys.
 pub mod state_keys {
+    use std::sync::Mutex;
+
     /// Spot price (equity/FX)
     pub const SPOT: &str = "spot";
     /// Stochastic volatility (Heston, etc.)
@@ -90,6 +92,22 @@ pub mod state_keys {
     pub const NPV_PREVIOUS: &str = "npv_previous";
     /// Mark-to-market P&L (change in NPV)
     pub const MTM_PNL: &str = "mtm_pnl";
+
+    static INDEXED_SPOT_KEY_CACHE: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+
+    /// Return the canonical state key for the indexed spot of a multi-asset process.
+    pub fn indexed_spot(index: usize) -> &'static str {
+        #[allow(clippy::expect_used)]
+        let mut cache = INDEXED_SPOT_KEY_CACHE
+            .lock()
+            .expect("indexed spot key cache mutex should not be poisoned");
+        while cache.len() <= index {
+            let next_index = cache.len();
+            let key = Box::leak(format!("spot_{}", next_index).into_boxed_str());
+            cache.push(key);
+        }
+        cache[index]
+    }
 }
 
 /// Indexed state variable key for O(1) array access in the MC inner loop.
@@ -161,9 +179,14 @@ pub struct PathState {
 }
 
 impl PathState {
+    fn sync_core_fields(&mut self) {
+        self.set_key(StateKey::Time, self.time);
+        self.set_key(StateKey::Step, self.step as f64);
+    }
+
     /// Create a new path state.
     pub fn new(step: usize, time: f64) -> Self {
-        Self {
+        let mut state = Self {
             step,
             time,
             fixed: [0.0; STATE_ARRAY_LEN],
@@ -171,7 +194,9 @@ impl PathState {
             dynamic: HashMap::default(),
             cashflows: Vec::new(),
             uniform_random: 0.0,
-        }
+        };
+        state.sync_core_fields();
+        state
     }
 
     /// Create a path state with initial variables.
@@ -235,6 +260,13 @@ impl PathState {
         } else {
             self.dynamic.insert(key, value);
         }
+    }
+
+    /// Update the public step/time fields and their keyed representations together.
+    pub fn set_step_time(&mut self, step: usize, time: f64) {
+        self.step = step;
+        self.time = time;
+        self.sync_core_fields();
     }
 
     /// Backward-compatible access to all state variables as a HashMap.
@@ -446,7 +478,11 @@ mod tests {
         let state = PathState::new(5, 0.5);
         assert_eq!(state.step, 5);
         assert_eq!(state.time, 0.5);
-        assert!(state.vars().is_empty());
+        assert_eq!(state.get("step"), Some(5.0));
+        assert_eq!(state.get("time"), Some(0.5));
+        let vars = state.vars();
+        assert_eq!(vars.get(state_keys::STEP), Some(&5.0));
+        assert_eq!(vars.get(state_keys::TIME), Some(&0.5));
     }
 
     #[test]

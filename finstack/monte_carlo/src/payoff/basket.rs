@@ -14,35 +14,19 @@
 //! allocation overhead on the hot path. This is critical for performance
 //! when simulating millions of paths.
 
+use crate::traits::state_keys;
 use crate::traits::PathState;
 use crate::traits::Payoff;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use std::sync::Mutex;
-
-/// Global intern cache for "spot_0", "spot_1", ... keys.
-///
-/// Each unique index is leaked exactly once (not per basket construction).
-/// Subsequent calls return the cached `&'static str` reference.
-static SPOT_KEY_CACHE: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
 
 /// Pre-computed state keys for basket assets.
 ///
 /// Returns cached `&'static str` keys for zero-cost lookups on the hot path.
-/// Keys are interned globally so memory is bounded by the max asset index used.
+/// Keys are interned globally by `state_keys::indexed_spot` so memory is
+/// bounded by the max asset index used.
 fn make_spot_keys(num_assets: usize) -> Vec<&'static str> {
-    // SAFETY: panic on poisoned mutex is acceptable here -- a prior panic in
-    // another thread indicates unrecoverable state.
-    #[allow(clippy::expect_used)]
-    let mut cache = SPOT_KEY_CACHE
-        .lock()
-        .expect("spot key cache mutex should not be poisoned");
-    while cache.len() < num_assets {
-        let idx = cache.len();
-        let key: &'static str = Box::leak(format!("spot_{}", idx).into_boxed_str());
-        cache.push(key);
-    }
-    cache[..num_assets].to_vec()
+    (0..num_assets).map(state_keys::indexed_spot).collect()
 }
 
 /// Type of basket aggregation for multi-asset payoffs.
@@ -416,6 +400,10 @@ pub fn margrabe_exchange_option(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::discretization::exact::ExactMultiGbm;
+    use crate::engine::McEngine;
+    use crate::process::gbm::{GbmParams, MultiGbmProcess};
+    use crate::rng::philox::PhiloxRng;
 
     #[test]
     fn test_basket_type_sum() {
@@ -479,5 +467,37 @@ mod tests {
         assert!(price > 0.0);
         // Rough bound: at least intrinsic value
         assert!(price >= 10.0);
+    }
+
+    #[test]
+    fn test_basket_call_prices_with_multi_gbm_engine_state_keys() {
+        let engine = McEngine::builder()
+            .num_paths(8)
+            .uniform_grid(1.0, 1)
+            .parallel(false)
+            .build()
+            .expect("engine should build");
+        let rng = PhiloxRng::new(42);
+        let process = MultiGbmProcess::new(
+            vec![GbmParams::new(0.0, 0.0, 0.0), GbmParams::new(0.0, 0.0, 0.0)],
+            None,
+        );
+        let disc = ExactMultiGbm::new();
+        let initial_state = vec![100.0, 120.0];
+        let payoff = BasketCall::new(100.0, 1.0, BasketType::Average, 2, 1, Currency::USD);
+
+        let result = engine
+            .price(
+                &rng,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                Currency::USD,
+                1.0,
+            )
+            .expect("basket pricing should succeed");
+
+        assert!((result.mean.amount() - 10.0).abs() < 1e-12);
     }
 }

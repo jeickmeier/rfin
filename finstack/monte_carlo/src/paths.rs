@@ -4,7 +4,7 @@
 //! paths for visualization, debugging, and price explanation. Paths can be captured
 //! in full or sampled for efficiency.
 
-use finstack_core::HashMap;
+use finstack_core::{Error, HashMap, Result};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
@@ -367,9 +367,41 @@ impl ProcessParams {
 
     /// Get the dimension (number of factors) from correlation matrix.
     pub fn dim(&self) -> Option<usize> {
-        self.correlation
-            .as_ref()
-            .map(|corr| (corr.len() as f64).sqrt() as usize)
+        self.correlation.as_ref().and_then(|corr| {
+            let dim = (corr.len() as f64).sqrt() as usize;
+            if dim * dim == corr.len() {
+                Some(dim)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Validate metadata consistency for captured-path consumers.
+    pub fn validate(&self) -> Result<()> {
+        if let Some(correlation) = &self.correlation {
+            let dim = self.dim().ok_or_else(|| {
+                Error::Validation(
+                    "ProcessParams correlation metadata must be a square matrix".to_string(),
+                )
+            })?;
+
+            if !self.factor_names.is_empty() && self.factor_names.len() != dim {
+                return Err(Error::Validation(format!(
+                    "ProcessParams factor_names length {} does not match correlation dimension {}",
+                    self.factor_names.len(),
+                    dim
+                )));
+            }
+
+            if correlation.is_empty() {
+                return Err(Error::Validation(
+                    "ProcessParams correlation metadata cannot be empty".to_string(),
+                ));
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -590,6 +622,32 @@ mod tests {
         assert_eq!(params.process_type, "GBM");
         assert_eq!(params.parameters.get("r"), Some(&0.05));
         assert_eq!(params.parameters.get("sigma"), Some(&0.2));
+    }
+
+    #[test]
+    fn test_process_params_rejects_non_square_correlation_metadata() {
+        let params = ProcessParams::new("MultiGBM").with_correlation(vec![1.0, 0.5, 0.5]);
+
+        let err = params
+            .validate()
+            .expect_err("non-square correlation metadata should be rejected");
+        assert!(err.to_string().contains("square"));
+    }
+
+    #[test]
+    fn test_process_params_rejects_factor_name_dimension_mismatch() {
+        let params = ProcessParams::new("MultiGBM")
+            .with_correlation(vec![1.0, 0.5, 0.5, 1.0])
+            .with_factors(vec![
+                "spot_0".to_string(),
+                "spot_1".to_string(),
+                "spot_2".to_string(),
+            ]);
+
+        let err = params
+            .validate()
+            .expect_err("factor name mismatch should be rejected");
+        assert!(err.to_string().contains("factor_names"));
     }
 
     #[test]

@@ -78,7 +78,8 @@
 //! ```
 
 use super::super::paths::ProcessParams;
-use super::super::traits::StochasticProcess;
+use super::super::traits::{state_keys, PathState, StochasticProcess};
+use super::correlation::validate_correlation_matrix;
 use super::metadata::ProcessMetadata;
 
 /// Geometric Brownian Motion parameters.
@@ -207,14 +208,26 @@ impl MultiGbmProcess {
     /// * `params` - Parameters for each asset
     /// * `correlation` - Optional correlation matrix (if None, assumes independence)
     pub fn new(params: Vec<GbmParams>, correlation: Option<Vec<f64>>) -> Self {
-        if let Some(ref corr) = correlation {
-            let n = params.len();
-            assert_eq!(corr.len(), n * n, "Correlation matrix must be n x n");
+        #[allow(clippy::panic)]
+        match Self::try_new(params, correlation) {
+            Ok(process) => process,
+            Err(err) => panic!("invalid MultiGBM process configuration: {err}"),
         }
-        Self {
+    }
+
+    /// Create a multi-factor GBM process with explicit validation.
+    pub fn try_new(
+        params: Vec<GbmParams>,
+        correlation: Option<Vec<f64>>,
+    ) -> finstack_core::Result<Self> {
+        let n = params.len();
+        if let Some(ref corr) = correlation {
+            validate_correlation_matrix(corr, n)?;
+        }
+        Ok(Self {
             params,
             correlation,
-        }
+        })
     }
 
     /// Number of assets.
@@ -257,6 +270,15 @@ impl StochasticProcess for MultiGbmProcess {
     fn is_diagonal(&self) -> bool {
         self.correlation.is_none()
     }
+
+    fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
+        if let Some(&spot) = x.first() {
+            state.set(state_keys::SPOT, spot);
+        }
+        for (i, &spot) in x.iter().enumerate() {
+            state.set(state_keys::indexed_spot(i), spot);
+        }
+    }
 }
 
 impl ProcessMetadata for MultiGbmProcess {
@@ -289,6 +311,7 @@ impl ProcessMetadata for MultiGbmProcess {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::traits::PathState;
 
     #[test]
     fn test_gbm_creation() {
@@ -339,5 +362,32 @@ mod tests {
 
         assert!(!multi_gbm.is_diagonal());
         assert!(multi_gbm.correlation().is_some());
+    }
+
+    #[test]
+    fn test_multi_gbm_populates_indexed_spot_state() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let process = MultiGbmProcess::new(params, None);
+        let mut state = PathState::new(0, 0.0);
+
+        process.populate_path_state(&[100.0, 120.0], &mut state);
+
+        assert_eq!(state.get("spot"), Some(100.0));
+        assert_eq!(state.get("spot_0"), Some(100.0));
+        assert_eq!(state.get("spot_1"), Some(120.0));
+    }
+
+    #[test]
+    fn test_multi_gbm_try_new_rejects_asymmetric_correlation() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let corr = vec![1.0, 0.2, 0.4, 1.0];
+
+        assert!(MultiGbmProcess::try_new(params, Some(corr)).is_err());
     }
 }

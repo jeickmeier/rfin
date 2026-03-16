@@ -3,7 +3,7 @@
 //! These schemes produce numerically exact transitions (up to floating-point precision)
 //! without discretization error.
 
-use super::super::process::correlation::cholesky_correlation;
+use super::super::process::correlation::{cholesky_correlation, validate_correlation_matrix};
 use super::super::process::gbm::{GbmProcess, MultiGbmProcess};
 use super::super::traits::{Discretization, StochasticProcess};
 use finstack_core::math::linalg::CholeskyError;
@@ -131,6 +131,8 @@ impl ExactMultiGbmCorrelated {
     ///
     /// Returns error if correlation matrix is indefinite or has wrong size.
     pub fn new(correlation_matrix: &[f64], dim: usize) -> finstack_core::Result<Self> {
+        validate_correlation_matrix(correlation_matrix, dim)
+            .map_err(|_| finstack_core::Error::Input(finstack_core::InputError::Invalid))?;
         let cholesky_factor =
             cholesky_correlation(correlation_matrix, dim).map_err(|e| match e {
                 CholeskyError::NotPositiveDefinite { .. } => {
@@ -375,5 +377,11 @@ mod tests {
         let disc_from_process =
             ExactMultiGbmCorrelated::from_process(&multi_gbm).expect("should succeed");
         assert!(disc_from_process.is_none()); // Should return None for uncorrelated process
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_rejects_invalid_correlation_matrix() {
+        let invalid = vec![1.0, 0.2, 0.4, 1.0];
+        assert!(ExactMultiGbmCorrelated::new(&invalid, 2).is_err());
     }
 }

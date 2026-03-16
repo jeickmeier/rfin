@@ -42,4 +42,22 @@ mod tests {
             _ => panic!("Expected NotPositiveDefinite error"),
         }
     }
+
+    #[test]
+    fn test_validate_correlation_matrix_rejects_asymmetry() {
+        let invalid = vec![1.0, 0.2, 0.4, 1.0];
+        assert!(validate_correlation_matrix(&invalid, 2).is_err());
+    }
+
+    #[test]
+    fn test_validate_correlation_matrix_rejects_non_unit_diagonal() {
+        let invalid = vec![1.0, 0.4, 0.4, 0.99];
+        assert!(validate_correlation_matrix(&invalid, 2).is_err());
+    }
+
+    #[test]
+    fn test_validate_correlation_matrix_accepts_near_singular_psd_matrix() {
+        let valid = vec![1.0, 0.999_999, 0.999_999, 1.0];
+        assert!(validate_correlation_matrix(&valid, 2).is_ok());
+    }
 }

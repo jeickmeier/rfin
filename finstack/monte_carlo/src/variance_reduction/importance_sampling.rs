@@ -32,10 +32,12 @@ pub const DEFAULT_ESS_THRESHOLD: f64 = 0.1;
 ///
 /// (tilted_z, likelihood_ratio)
 ///
-/// The likelihood ratio is: L(Z) = exp(θ'Z - ½θ'θ)
+/// The returned likelihood ratio is the target-over-tilted density ratio
+/// evaluated at the shifted sample `Z* = Z + θ`:
+/// `L(Z*) = exp(-θ Z* + ½θ²)`.
 pub fn exponential_tilt(theta: f64, z: f64) -> (f64, f64) {
     let tilted_z = z + theta;
-    let log_likelihood = theta * z - 0.5 * theta * theta;
+    let log_likelihood = -theta * tilted_z + 0.5 * theta * theta;
     let likelihood_ratio = log_likelihood.exp();
 
     (tilted_z, likelihood_ratio)
@@ -44,7 +46,7 @@ pub fn exponential_tilt(theta: f64, z: f64) -> (f64, f64) {
 /// Result of importance sampling estimation with ESS diagnostics.
 #[derive(Debug, Clone)]
 pub struct ImportanceSamplingResult {
-    /// Weighted mean estimate
+    /// Importance-sampling mean estimate
     pub mean: f64,
     /// Standard error of the estimate
     pub stderr: f64,
@@ -56,28 +58,28 @@ pub struct ImportanceSamplingResult {
     pub low_ess_warning: bool,
 }
 
-/// Compute weighted estimate with importance sampling.
+/// Compute the ordinary importance-sampling estimate.
 ///
 /// # Arguments
 ///
-/// * `values` - Sampled values under tilted measure
+/// * `values` - Sampled values under the tilted measure
 /// * `weights` - Likelihood ratios
 ///
 /// # Returns
 ///
-/// (weighted_mean, weighted_stderr)
+/// `(is_mean, is_stderr)`
 pub fn weighted_estimate(values: &[f64], weights: &[f64]) -> (f64, f64) {
     let result = weighted_estimate_with_diagnostics(values, weights, DEFAULT_ESS_THRESHOLD);
     (result.mean, result.stderr)
 }
 
-/// Compute weighted estimate with importance sampling and full diagnostics.
+/// Compute the ordinary importance-sampling estimate with full diagnostics.
 ///
 /// Returns detailed results including ESS and warning flag when ESS is low.
 ///
 /// # Arguments
 ///
-/// * `values` - Sampled values under tilted measure
+/// * `values` - Sampled values under the tilted measure
 /// * `weights` - Likelihood ratios
 /// * `ess_threshold` - ESS ratio threshold for warning (typically 0.1)
 ///
@@ -122,24 +124,16 @@ pub fn weighted_estimate_with_diagnostics(
     let ess_ratio = ess / n;
     let low_ess_warning = ess_ratio < ess_threshold;
 
-    // Compute weighted mean
-    let sum_weights: f64 = weights.iter().sum();
-    let weighted_sum: f64 = values.iter().zip(weights).map(|(v, w)| v * w).sum();
-    let mean = if sum_weights > 1e-10 {
-        weighted_sum / sum_weights
-    } else {
-        0.0
-    };
+    let weighted_payoffs: Vec<f64> = values.iter().zip(weights).map(|(v, w)| v * w).collect();
 
-    // Compute weighted variance
-    let weighted_var: f64 = values
-        .iter()
-        .zip(weights)
-        .map(|(v, w)| w * (v - mean).powi(2))
-        .sum();
+    let mean = weighted_payoffs.iter().sum::<f64>() / n;
 
-    let variance = if sum_weights > 1e-10 {
-        weighted_var / sum_weights
+    let variance = if weighted_payoffs.len() > 1 {
+        weighted_payoffs
+            .iter()
+            .map(|x| (x - mean).powi(2))
+            .sum::<f64>()
+            / (n - 1.0)
     } else {
         0.0
     };
@@ -211,8 +205,8 @@ mod tests {
 
         let (mean, _) = weighted_estimate(&values, &weights);
 
-        // Weighted mean: (1*1 + 2*2 + 3*1) / 4 = 8/4 = 2
-        assert!((mean - 2.0).abs() < 1e-10);
+        // Ordinary IS mean: (1*1 + 2*2 + 3*1) / 3 = 8/3
+        assert!((mean - (8.0 / 3.0)).abs() < 1e-10);
     }
 
     #[test]
@@ -244,8 +238,40 @@ mod tests {
         let (_, lr_pos) = exponential_tilt(theta, z_positive);
         let (_, lr_neg) = exponential_tilt(theta, z_negative);
 
-        // Positive z should have higher likelihood under positive tilt
-        assert!(lr_pos > lr_neg);
+        // Positive shifted samples should have lower target-over-tilted likelihood
+        // under a positive tilt.
+        assert!(lr_pos < lr_neg);
+    }
+
+    #[test]
+    fn test_exponential_tilt_uses_target_over_tilted_density_ratio() {
+        let theta = 1.0;
+        let z = 2.0;
+        let (tilted_z, likelihood_ratio) = exponential_tilt(theta, z);
+
+        assert_eq!(tilted_z, 3.0);
+
+        let expected = (-theta * tilted_z + 0.5 * theta * theta).exp();
+        assert!(
+            (likelihood_ratio - expected).abs() < 1e-12,
+            "expected likelihood ratio {} but got {}",
+            expected,
+            likelihood_ratio
+        );
+    }
+
+    #[test]
+    fn test_weighted_estimate_uses_plain_mean_of_weighted_payoffs() {
+        let values = vec![1.0, 1.0];
+        let weights = vec![2.0, 1.0];
+
+        let (mean, _) = weighted_estimate(&values, &weights);
+
+        assert!(
+            (mean - 1.5).abs() < 1e-12,
+            "expected ordinary IS mean 1.5 but got {}",
+            mean
+        );
     }
 
     #[test]
