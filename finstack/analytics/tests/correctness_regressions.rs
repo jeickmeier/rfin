@@ -1,4 +1,7 @@
-use finstack_analytics::{group_by_period, Performance};
+use finstack_analytics::{
+    align_benchmark_with_policy, group_by_period, value_at_risk, BenchmarkAlignmentPolicy,
+    Performance,
+};
 use finstack_core::dates::{Date, Month, PeriodKind};
 
 fn d(year: i32, month: Month, day: u8) -> Date {
@@ -104,5 +107,97 @@ fn performance_new_rejects_interior_nan_return_data() {
     assert!(
         result.is_err(),
         "interior non-finite returns should be rejected rather than coerced"
+    );
+}
+
+#[test]
+fn drawdown_series_rebases_after_date_window_reset() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+        d(2024, Month::January, 4),
+    ];
+    let prices = vec![vec![100.0, 150.0, 120.0, 130.0]];
+    let mut perf = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    )
+    .expect("performance should build");
+
+    perf.reset_date_range(d(2024, Month::January, 4), d(2024, Month::January, 4));
+
+    let drawdowns = perf.drawdown_series();
+    assert_eq!(drawdowns.len(), 1);
+    assert_eq!(
+        drawdowns[0],
+        vec![0.0],
+        "windowed drawdowns should be rebased to the active window's own wealth path"
+    );
+    assert_eq!(
+        perf.max_drawdown(),
+        vec![0.0],
+        "max drawdown over an all-positive active window should be zero"
+    );
+}
+
+#[test]
+fn align_benchmark_policy_can_reject_missing_dates() {
+    let bench_dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 3)];
+    let bench_returns = vec![0.01, 0.02];
+    let target_dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+    ];
+
+    let result = align_benchmark_with_policy(
+        &bench_returns,
+        &bench_dates,
+        &target_dates,
+        BenchmarkAlignmentPolicy::ErrorOnMissingDates,
+    );
+
+    assert!(
+        result.is_err(),
+        "missing benchmark dates should be surfaced explicitly when requested"
+    );
+}
+
+#[test]
+fn value_at_risk_requires_strict_confidence_bounds() {
+    let returns = [-0.03, -0.01, 0.01, 0.02];
+
+    assert!(
+        value_at_risk(&returns, 0.0, None).is_nan(),
+        "confidence=0 should be rejected"
+    );
+    assert!(
+        value_at_risk(&returns, 1.0, None).is_nan(),
+        "confidence=1 should be rejected"
+    );
+}
+
+#[test]
+fn performance_new_rejects_returns_below_negative_one() {
+    let dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 2)];
+    let prices = vec![vec![100.0, -10.0]];
+
+    let result = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    );
+
+    assert!(
+        result.is_err(),
+        "price paths implying returns below -100% should be rejected"
     );
 }

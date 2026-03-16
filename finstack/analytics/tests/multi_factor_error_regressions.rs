@@ -69,3 +69,40 @@ fn standalone_multi_factor_greeks_errors_on_near_singular_factor_matrix() {
         "near-singular factor matrices should surface an error instead of unstable coefficients"
     );
 }
+
+#[test]
+fn standalone_multi_factor_greeks_errors_on_non_positive_ann_factor() {
+    let returns = [0.02, 0.04, 0.06, 0.08, 0.10];
+    let factor = [0.01, 0.02, 0.03, 0.04, 0.05];
+
+    let zero = multi_factor_greeks(&returns, &[&factor], 0.0);
+    let negative = multi_factor_greeks(&returns, &[&factor], -252.0);
+
+    assert!(
+        zero.is_err(),
+        "zero annualization factors should be rejected explicitly"
+    );
+    assert!(
+        negative.is_err(),
+        "negative annualization factors should be rejected explicitly"
+    );
+}
+
+#[test]
+fn standalone_multi_factor_greeks_errors_on_hidden_multicollinearity() {
+    let returns = [0.04, 0.01, 0.03, 0.02, 0.05, 0.06];
+    let factor_a = [0.01, -0.02, 0.03, -0.01, 0.02, 0.01];
+    let factor_b = [0.02, 0.01, -0.01, 0.03, -0.02, 0.04];
+    let factor_c: Vec<f64> = factor_a
+        .iter()
+        .zip(factor_b.iter())
+        .map(|(a, b)| a + b)
+        .collect();
+
+    let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b, &factor_c], 252.0);
+
+    assert!(
+        result.is_err(),
+        "factor sets with hidden linear dependence should be rejected explicitly"
+    );
+}

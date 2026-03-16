@@ -4,6 +4,10 @@
 
 use crate::math::stats::{mean, quantile, variance};
 
+fn has_strict_confidence(confidence: f64) -> bool {
+    confidence.is_finite() && confidence > 0.0 && confidence < 1.0
+}
+
 /// Historical Value-at-Risk at the given confidence level.
 ///
 /// Computes the `(1 - confidence)` quantile of the empirical return
@@ -43,6 +47,9 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
     if returns.is_empty() {
         return 0.0;
     }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
     let mut data: Vec<f64> = returns.to_vec();
     value_at_risk_with_scratch(&mut data, confidence, ann_factor)
 }
@@ -57,6 +64,9 @@ pub fn value_at_risk_with_scratch(
 ) -> f64 {
     if scratch.is_empty() {
         return 0.0;
+    }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
     }
     let var = quantile(scratch, 1.0 - confidence);
     let _ = ann_factor;
@@ -107,6 +117,9 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
     if returns.is_empty() {
         return 0.0;
     }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
     let mut data: Vec<f64> = returns.to_vec();
     expected_shortfall_with_scratch(&mut data, confidence, ann_factor)
 }
@@ -121,6 +134,9 @@ pub fn expected_shortfall_with_scratch(
 ) -> f64 {
     if scratch.is_empty() {
         return 0.0;
+    }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
     }
     let p = 1.0 - confidence;
     let var_threshold = quantile(scratch, p);
@@ -178,6 +194,9 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
     let mut data: Vec<f64> = returns.to_vec();
     tail_ratio_with_scratch(&mut data, confidence)
 }
@@ -186,6 +205,9 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
 pub fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
     if scratch.is_empty() {
         return 0.0;
+    }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
     }
     let upper = quantile(scratch, confidence).abs();
     let lower = quantile(scratch, 1.0 - confidence).abs();
@@ -224,6 +246,9 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
     let mut data: Vec<f64> = returns.to_vec();
     outlier_win_ratio_with_scratch(returns, &mut data, confidence)
 }
@@ -238,6 +263,9 @@ pub fn outlier_win_ratio_with_scratch(
 ) -> f64 {
     if scratch.is_empty() {
         return 0.0;
+    }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
     }
     let threshold = quantile(scratch, confidence);
     let count = original.iter().filter(|&&r| r > threshold).count();
@@ -274,6 +302,9 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
     let mut data: Vec<f64> = returns.to_vec();
     outlier_loss_ratio_with_scratch(returns, &mut data, confidence)
 }
@@ -288,6 +319,9 @@ pub fn outlier_loss_ratio_with_scratch(
 ) -> f64 {
     if scratch.is_empty() {
         return 0.0;
+    }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
     }
     let threshold = quantile(scratch, 1.0 - confidence);
     let count = original.iter().filter(|&&r| r < threshold).count();
@@ -455,6 +489,9 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
     if returns.is_empty() {
         return 0.0;
     }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
     let m = mean(returns);
     let vol = variance(returns).sqrt();
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);
@@ -514,6 +551,9 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;
+    }
+    if !has_strict_confidence(confidence) {
+        return f64::NAN;
     }
     let (m, vol, s, k) = moments4(returns);
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);

@@ -21,10 +21,10 @@ pub mod risk_metrics;
 
 pub use aggregation::{group_by_period, period_stats, PeriodStats};
 pub use benchmark::{
-    align_benchmark, batting_average, calc_beta, capture_ratio, down_capture, greeks,
-    information_ratio, m_squared, m_squared_from_returns, multi_factor_greeks, r_squared,
-    rolling_greeks, tracking_error, treynor, up_capture, BetaResult, GreeksResult,
-    MultiFactorResult, RollingGreeks,
+    align_benchmark, align_benchmark_with_policy, batting_average, calc_beta, capture_ratio,
+    down_capture, greeks, information_ratio, m_squared, m_squared_from_returns,
+    multi_factor_greeks, r_squared, rolling_greeks, tracking_error, treynor, up_capture,
+    BenchmarkAlignmentPolicy, BetaResult, GreeksResult, MultiFactorResult, RollingGreeks,
 };
 pub use consecutive::count_consecutive;
 pub use drawdown::{

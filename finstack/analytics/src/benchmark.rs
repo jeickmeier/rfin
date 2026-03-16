@@ -6,6 +6,15 @@
 use crate::dates::Date;
 use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
 
+/// Policy for handling benchmark dates that are missing from the target grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BenchmarkAlignmentPolicy {
+    /// Preserve legacy behavior by synthesizing a zero return for missing dates.
+    ZeroReturnOnMissingDates,
+    /// Reject missing benchmark dates explicitly.
+    ErrorOnMissingDates,
+}
+
 /// Align a benchmark return series to the target date grid via date lookup.
 ///
 /// For each date in `target_dates`, binary-searches `bench_dates` for an
@@ -54,17 +63,36 @@ pub fn align_benchmark(
     bench_dates: &[Date],
     target_dates: &[Date],
 ) -> Vec<f64> {
+    align_benchmark_with_policy(
+        bench_returns,
+        bench_dates,
+        target_dates,
+        BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates,
+    )
+    .unwrap_or_else(|_| vec![0.0; target_dates.len()])
+}
+
+/// Align a benchmark return series to the target date grid using an explicit policy.
+pub fn align_benchmark_with_policy(
+    bench_returns: &[f64],
+    bench_dates: &[Date],
+    target_dates: &[Date],
+    policy: BenchmarkAlignmentPolicy,
+) -> crate::Result<Vec<f64>> {
     let n_bench = bench_returns.len().min(bench_dates.len());
-    target_dates
-        .iter()
-        .map(|td| {
-            bench_dates[..n_bench]
-                .binary_search(td)
-                .ok()
-                .map(|i| bench_returns[i])
-                .unwrap_or(0.0)
-        })
-        .collect()
+    let mut aligned = Vec::with_capacity(target_dates.len());
+    for &target_date in target_dates {
+        match bench_dates[..n_bench].binary_search(&target_date) {
+            Ok(index) => aligned.push(bench_returns[index]),
+            Err(_) => match policy {
+                BenchmarkAlignmentPolicy::ZeroReturnOnMissingDates => aligned.push(0.0),
+                BenchmarkAlignmentPolicy::ErrorOnMissingDates => {
+                    return Err(crate::error::InputError::Invalid.into());
+                }
+            },
+        }
+    }
+    Ok(aligned)
 }
 
 /// Tracking error: annualized volatility of active (excess) returns.
@@ -686,6 +714,64 @@ pub struct MultiFactorResult {
     pub residual_vol: f64,
 }
 
+fn dot(lhs: &[f64], rhs: &[f64]) -> f64 {
+    lhs.iter().zip(rhs.iter()).map(|(l, r)| l * r).sum()
+}
+
+fn qr_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> {
+    let p = columns.len();
+    let n = y.len();
+    let max_col_norm = columns
+        .iter()
+        .map(|column| dot(column, column).sqrt())
+        .fold(0.0_f64, f64::max);
+    let tolerance = 1.0e-10 * max_col_norm.max(1.0);
+
+    let mut q_columns = vec![vec![0.0_f64; n]; p];
+    let mut r = vec![0.0_f64; p * p];
+
+    for j in 0..p {
+        let mut v = columns[j].clone();
+        for i in 0..j {
+            let projection = dot(&q_columns[i], &v);
+            r[i * p + j] = projection;
+            for (value, basis) in v.iter_mut().zip(q_columns[i].iter()) {
+                *value -= projection * basis;
+            }
+        }
+
+        let norm = dot(&v, &v).sqrt();
+        if !norm.is_finite() || norm <= tolerance {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+
+        r[j * p + j] = norm;
+        for (target, value) in q_columns[j].iter_mut().zip(v.iter()) {
+            *target = *value / norm;
+        }
+    }
+
+    let mut q_transpose_y = vec![0.0_f64; p];
+    for j in 0..p {
+        q_transpose_y[j] = dot(&q_columns[j], y);
+    }
+
+    let mut beta = vec![0.0_f64; p];
+    for i in (0..p).rev() {
+        let mut sum = q_transpose_y[i];
+        for j in (i + 1)..p {
+            sum -= r[i * p + j] * beta[j];
+        }
+        let diag = r[i * p + i];
+        if !diag.is_finite() || diag.abs() <= tolerance {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        beta[i] = sum / diag;
+    }
+
+    Ok(beta)
+}
+
 /// Multi-factor OLS regression: regress portfolio returns on multiple factors.
 ///
 /// Solves `y = α + β₁f₁ + β₂f₂ + ... + βₖfₖ + ε` via the normal equations
@@ -727,6 +813,10 @@ pub fn multi_factor_greeks(
     factors: &[&[f64]],
     ann_factor: f64,
 ) -> crate::Result<MultiFactorResult> {
+    if !ann_factor.is_finite() || ann_factor <= 0.0 {
+        return Err(crate::error::InputError::Invalid.into());
+    }
+
     let n = returns.len();
     let k = factors.len();
     let p = k + 1; // intercept + k factors
@@ -746,78 +836,11 @@ pub fn multi_factor_greeks(
     if factors.iter().any(|factor| factor.len() != n) {
         return Err(crate::error::InputError::DimensionMismatch.into());
     }
-    for j in 0..k {
-        for m in (j + 1)..k {
-            let corr = correlation(factors[j], factors[m]).abs();
-            if corr > 1.0 - 1.0e-10 {
-                return Err(crate::error::InputError::Invalid.into());
-            }
-        }
-    }
+    let mut columns = Vec::with_capacity(p);
+    columns.push(vec![1.0_f64; n]);
+    columns.extend(factors.iter().map(|factor| factor.to_vec()));
 
-    // Build X'X and X'y where X[:,0] = 1 (intercept)
-    let mut xtx = vec![0.0_f64; p * p];
-    let mut xty = vec![0.0_f64; p];
-
-    for (t, &y) in returns.iter().enumerate().take(n) {
-        // X'y
-        xty[0] += y;
-        for j in 0..k {
-            let fj = factors[j][t];
-            xty[j + 1] += fj * y;
-        }
-
-        // X'X
-        xtx[0] += 1.0; // (0,0)
-        for j in 0..k {
-            let fj = factors[j][t];
-            xtx[j + 1] += fj; // (0, j+1)
-            xtx[(j + 1) * p] += fj; // (j+1, 0)
-            for m in 0..k {
-                let fm = factors[m][t];
-                xtx[(j + 1) * p + (m + 1)] += fj * fm;
-            }
-        }
-    }
-
-    // Cholesky decomposition: X'X = L L'
-    let mut l = vec![0.0_f64; p * p];
-    for i in 0..p {
-        for j in 0..=i {
-            let mut sum = xtx[i * p + j];
-            for m in 0..j {
-                sum -= l[i * p + m] * l[j * p + m];
-            }
-            if i == j {
-                if sum <= 0.0 {
-                    return Err(crate::error::InputError::Invalid.into());
-                }
-                l[i * p + j] = sum.sqrt();
-            } else {
-                l[i * p + j] = sum / l[j * p + j];
-            }
-        }
-    }
-
-    // Solve L z = X'y
-    let mut z = vec![0.0_f64; p];
-    for i in 0..p {
-        let mut sum = xty[i];
-        for j in 0..i {
-            sum -= l[i * p + j] * z[j];
-        }
-        z[i] = sum / l[i * p + i];
-    }
-
-    // Solve L' beta = z
-    let mut beta = vec![0.0_f64; p];
-    for i in (0..p).rev() {
-        let mut sum = z[i];
-        for j in (i + 1)..p {
-            sum -= l[j * p + i] * beta[j];
-        }
-        beta[i] = sum / l[i * p + i];
-    }
+    let beta = qr_least_squares(&columns, returns)?;
 
     let alpha_per_period = beta[0];
     let factor_betas: Vec<f64> = beta[1..].to_vec();

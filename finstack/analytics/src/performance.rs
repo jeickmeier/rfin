@@ -157,6 +157,10 @@ impl Performance {
                 raw_returns
             };
 
+            if r.iter().any(|&value| !value.is_finite() || value < -1.0) {
+                return Err(crate::error::InputError::Invalid.into());
+            }
+
             let dd = to_drawdown_series(&r);
             all_drawdowns.push(dd);
             all_returns.push(r);
@@ -275,15 +279,21 @@ impl Performance {
         &self.dates[range.start.min(end)..end]
     }
 
-    fn active_drawdown(&self, ticker_idx: usize) -> &[f64] {
-        let range = self.active_range();
-        self.drawdowns
-            .get(ticker_idx)
-            .map(|d| {
-                let end = range.end.min(d.len());
-                &d[range.start.min(end)..end]
-            })
-            .unwrap_or(&[])
+    fn active_drawdown_values(&self, ticker_idx: usize) -> Vec<f64> {
+        let full_len = self.returns.get(ticker_idx).map_or(0, Vec::len);
+        if self.start_idx == 0 && self.end_idx >= full_len {
+            return self.drawdowns.get(ticker_idx).cloned().unwrap_or_default();
+        }
+
+        to_drawdown_series(self.active_returns(ticker_idx))
+    }
+
+    fn active_bench_drawdown_values(&self) -> Vec<f64> {
+        if self.start_idx == 0 && self.end_idx >= self.bench_returns.len() {
+            return self.bench_drawdown.clone();
+        }
+
+        to_drawdown_series(self.active_bench())
     }
 
     fn ann(&self) -> f64 {
@@ -365,7 +375,7 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let dd = self.active_drawdown(i);
+                let dd = self.active_drawdown_values(i);
                 let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
                 calmar(cagrs[i], max_dd)
             })
@@ -376,7 +386,7 @@ impl Performance {
     pub fn max_drawdown(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| {
-                let dd = self.active_drawdown(i);
+                let dd = self.active_drawdown_values(i);
                 dd.iter().copied().fold(0.0_f64, f64::min)
             })
             .collect()
@@ -430,7 +440,10 @@ impl Performance {
     /// Ulcer index for each ticker.
     pub fn ulcer_index(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| ulcer_index(self.active_drawdown(i)))
+            .map(|i| {
+                let dd = self.active_drawdown_values(i);
+                ulcer_index(&dd)
+            })
             .collect()
     }
 
@@ -482,7 +495,10 @@ impl Performance {
     /// Maximum drawdown duration (calendar days) for each ticker.
     pub fn max_drawdown_duration(&self) -> Vec<i64> {
         (0..self.ticker_names.len())
-            .map(|i| dd_max_duration(self.active_drawdown(i), self.active_dates()))
+            .map(|i| {
+                let dd = self.active_drawdown_values(i);
+                dd_max_duration(&dd, self.active_dates())
+            })
             .collect()
     }
 
@@ -568,7 +584,8 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let ulcer = ulcer_index(self.active_drawdown(i));
+                let dd = self.active_drawdown_values(i);
+                let ulcer = ulcer_index(&dd);
                 martin_ratio(cagrs[i], ulcer)
             })
             .collect()
@@ -618,7 +635,7 @@ impl Performance {
         (0..self.ticker_names.len())
             .map(|i| {
                 let total_ret = comp_total(self.active_returns(i));
-                let dd = self.active_drawdown(i);
+                let dd = self.active_drawdown_values(i);
                 let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
                 recovery_factor(total_ret, max_dd)
             })
@@ -635,9 +652,9 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let dd = self.active_drawdown(i);
+                let dd = self.active_drawdown_values(i);
                 let dates = self.active_dates();
-                let avg = super::drawdown::avg_drawdown(dd, dates, n);
+                let avg = super::drawdown::avg_drawdown(&dd, dates, n);
                 sterling_ratio(cagrs[i], avg, risk_free_rate)
             })
             .collect()
@@ -653,9 +670,9 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let dd = self.active_drawdown(i);
+                let dd = self.active_drawdown_values(i);
                 let dates = self.active_dates();
-                let episodes = super::drawdown::drawdown_details(dd, dates, n);
+                let episodes = super::drawdown::drawdown_details(&dd, dates, n);
                 let dd_vals: Vec<f64> = episodes.iter().map(|e| e.max_drawdown).collect();
                 burke_ratio(cagrs[i], &dd_vals, risk_free_rate)
             })
@@ -665,7 +682,10 @@ impl Performance {
     /// Pain index for each ticker.
     pub fn pain_index(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| pain_index(self.active_drawdown(i)))
+            .map(|i| {
+                let dd = self.active_drawdown_values(i);
+                pain_index(&dd)
+            })
             .collect()
     }
 
@@ -678,7 +698,8 @@ impl Performance {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
             .map(|i| {
-                let pain = pain_index(self.active_drawdown(i));
+                let dd = self.active_drawdown_values(i);
+                let pain = pain_index(&dd);
                 pain_ratio(cagrs[i], pain, risk_free_rate)
             })
             .collect()
@@ -707,7 +728,10 @@ impl Performance {
     /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
     pub fn cdar(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| cdar(self.active_drawdown(i), confidence))
+            .map(|i| {
+                let dd = self.active_drawdown_values(i);
+                cdar(&dd, confidence)
+            })
             .collect()
     }
 
@@ -723,7 +747,7 @@ impl Performance {
     /// Drawdown series for each ticker.
     pub fn drawdown_series(&self) -> Vec<Vec<f64>> {
         (0..self.ticker_names.len())
-            .map(|i| self.active_drawdown(i).to_vec())
+            .map(|i| self.active_drawdown_values(i))
             .collect()
     }
 
@@ -739,9 +763,9 @@ impl Performance {
     ///
     /// Up to `n` [`DrawdownEpisode`] structs.
     pub fn drawdown_details(&self, ticker_idx: usize, n: usize) -> Vec<DrawdownEpisode> {
-        let dd = self.active_drawdown(ticker_idx);
+        let dd = self.active_drawdown_values(ticker_idx);
         let dates = self.active_dates();
-        drawdown_details(dd, dates, n)
+        drawdown_details(&dd, dates, n)
     }
 
     // ── Benchmark-relative ──
@@ -1007,12 +1031,10 @@ impl Performance {
 
     /// Drawdown outperformance (portfolio drawdown − benchmark drawdown).
     pub fn drawdown_outperformance(&self) -> Vec<Vec<f64>> {
-        let range = self.active_range();
-        let end = range.end.min(self.bench_drawdown.len());
-        let bench_dd = &self.bench_drawdown[range.start.min(end)..end];
+        let bench_dd = self.active_bench_drawdown_values();
         (0..self.ticker_names.len())
             .map(|i| {
-                let dd = self.active_drawdown(i);
+                let dd = self.active_drawdown_values(i);
                 dd.iter().zip(bench_dd.iter()).map(|(p, b)| p - b).collect()
             })
             .collect()
@@ -1032,10 +1054,8 @@ impl Performance {
     ///
     /// Up to `n` [`DrawdownEpisode`] structs from the benchmark series.
     pub fn stats_during_bench_drawdowns(&self, n: usize) -> Vec<DrawdownEpisode> {
-        let range = self.active_range();
-        let end = range.end.min(self.bench_drawdown.len());
-        let bench_dd = &self.bench_drawdown[range.start.min(end)..end];
-        drawdown_details(bench_dd, self.active_dates(), n)
+        let bench_dd = self.active_bench_drawdown_values();
+        drawdown_details(&bench_dd, self.active_dates(), n)
     }
 
     // ── Excess returns ──
