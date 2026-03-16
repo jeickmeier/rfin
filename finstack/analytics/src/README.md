@@ -28,7 +28,7 @@ All functions are `no_std`-compatible, allocation-minimal, and use numerically s
 
 - **`risk_metrics/`** (directory module)
   - **`mod.rs`**: Public facade, re-exports from all three submodules.
-  - **`return_based.rs`**: `cagr`, `cagr_from_periods`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `risk_of_ruin`, `risk_of_ruin_from_returns`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
+  - **`return_based.rs`**: `cagr`, `cagr_from_periods`, `mean_return`, `volatility`, `sharpe`, `sortino`, `downside_deviation`, `estimate_ruin`, `RuinDefinition`, `RuinModel`, `RuinEstimate`, `geometric_mean`, `omega_ratio`, `gain_to_pain`, `modified_sharpe`.
   - **`tail_risk.rs`**: `skewness`, `kurtosis`, `value_at_risk`, `value_at_risk_with_scratch`, `expected_shortfall`, `expected_shortfall_with_scratch`, `parametric_var`, `cornish_fisher_var`, `tail_ratio`, `tail_ratio_with_scratch`, `outlier_win_ratio`, `outlier_win_ratio_with_scratch`, `outlier_loss_ratio`, `outlier_loss_ratio_with_scratch`.
   - **`rolling.rs`**: `RollingSharpe`, `RollingVolatility`, `RollingSortino`, `rolling_sharpe`, `rolling_volatility`, `rolling_sortino`, `rolling_sharpe_values`, `rolling_volatility_values`, `rolling_sortino_values`.
   - All functions take `&[f64]` and return `f64` or a small struct.
@@ -103,7 +103,7 @@ impl Performance {
     pub fn expected_shortfall(&self, confidence: f64) -> Vec<f64>;
     pub fn tail_ratio(&self, confidence: f64) -> Vec<f64>;
     pub fn ulcer_index(&self) -> Vec<f64>;
-    pub fn risk_of_ruin(&self) -> Vec<f64>;
+    pub fn estimate_ruin(&self, definition: RuinDefinition, model: &RuinModel) -> Vec<RuinEstimate>;
 
     // Distribution shape
     pub fn skewness(&self) -> Vec<f64>;

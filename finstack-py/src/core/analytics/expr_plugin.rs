@@ -35,6 +35,28 @@ fn series_to_f64_vec(s: &Series) -> PolarsResult<Vec<f64>> {
     Ok(ca.into_no_null_iter().collect())
 }
 
+fn parse_ruin_definition(
+    definition: &str,
+    threshold: f64,
+) -> PolarsResult<risk_metrics::RuinDefinition> {
+    match definition {
+        "wealth_floor" => Ok(risk_metrics::RuinDefinition::WealthFloor {
+            floor_fraction: threshold,
+        }),
+        "terminal_floor" => Ok(risk_metrics::RuinDefinition::TerminalFloor {
+            floor_fraction: threshold,
+        }),
+        "drawdown_breach" => Ok(risk_metrics::RuinDefinition::DrawdownBreach {
+            max_drawdown: threshold,
+        }),
+        _ => polars_bail!(
+            InvalidOperation:
+            "unknown ruin definition '{}'; expected one of: wealth_floor, terminal_floor, drawdown_breach",
+            definition
+        ),
+    }
+}
+
 // ── Kwargs structs ──
 
 #[derive(Deserialize)]
@@ -58,6 +80,17 @@ struct ConfidenceFreqKwargs {
     confidence: f64,
     freq: String,
     risk_free: f64,
+}
+
+#[derive(Deserialize)]
+struct RuinKwargs {
+    definition: String,
+    threshold: f64,
+    horizon_periods: usize,
+    n_paths: usize,
+    block_size: usize,
+    seed: u64,
+    confidence_level: f64,
 }
 
 #[derive(Deserialize)]
@@ -267,11 +300,21 @@ fn expr_outlier_loss_ratio(inputs: &[Series], kwargs: ConfidenceKwargs) -> Polar
 }
 
 #[polars_expr(output_type=Float64)]
-fn expr_risk_of_ruin(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series> {
+fn expr_estimate_ruin(inputs: &[Series], kwargs: RuinKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
-    parse_ann_factor(&kwargs.freq)?;
-    let result = risk_metrics::risk_of_ruin_from_returns(&data);
-    Ok(Series::new("risk_of_ruin".into(), &[result]))
+    let definition = parse_ruin_definition(&kwargs.definition, kwargs.threshold)?;
+    let model = risk_metrics::RuinModel {
+        horizon_periods: kwargs.horizon_periods,
+        n_paths: kwargs.n_paths,
+        block_size: kwargs.block_size,
+        seed: kwargs.seed,
+        confidence_level: kwargs.confidence_level,
+    };
+    let result = risk_metrics::estimate_ruin(&data, definition, &model);
+    Ok(Series::new(
+        "ruin_probability".into(),
+        &[result.probability],
+    ))
 }
 
 #[polars_expr(output_type=Float64)]

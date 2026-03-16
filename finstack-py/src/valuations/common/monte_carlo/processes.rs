@@ -26,15 +26,14 @@ use pyo3::prelude::*;
 )]
 #[derive(Clone)]
 pub struct PyGbmParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::models::monte_carlo::process::gbm::GbmParams,
+    pub(crate) inner: finstack_monte_carlo::process::gbm::GbmParams,
 }
 
 #[pymethods]
 impl PyGbmParams {
     #[new]
     fn new(r: f64, q: f64, sigma: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::gbm::GbmParams;
+        use finstack_monte_carlo::process::gbm::GbmParams;
         Self {
             inner: GbmParams::new(r, q, sigma),
         }
@@ -93,14 +92,14 @@ impl PyGbmParams {
 )]
 #[derive(Clone)]
 pub struct PyHestonParams {
-    pub(crate) inner: finstack_valuations::instruments::common::models::monte_carlo::process::heston::HestonParams,
+    pub(crate) inner: finstack_monte_carlo::process::heston::HestonParams,
 }
 
 #[pymethods]
 impl PyHestonParams {
     #[new]
     fn new(r: f64, q: f64, kappa: f64, theta: f64, sigma_v: f64, rho: f64, v0: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::heston::HestonParams;
+        use finstack_monte_carlo::process::heston::HestonParams;
         Self {
             inner: HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0),
         }
@@ -179,15 +178,14 @@ impl PyHestonParams {
 )]
 #[derive(Clone)]
 pub struct PyCirParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::models::monte_carlo::process::cir::CirParams,
+    pub(crate) inner: finstack_monte_carlo::process::cir::CirParams,
 }
 
 #[pymethods]
 impl PyCirParams {
     #[new]
     fn new(kappa: f64, theta: f64, sigma: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::cir::CirParams;
+        use finstack_monte_carlo::process::cir::CirParams;
         Self {
             inner: CirParams::new(kappa, theta, sigma),
         }
@@ -245,7 +243,7 @@ impl PyCirParams {
 )]
 #[derive(Clone)]
 pub struct PyHullWhite1FParams {
-    pub(crate) inner: finstack_valuations::instruments::common::models::monte_carlo::process::ou::HullWhite1FParams,
+    pub(crate) inner: finstack_monte_carlo::process::ou::HullWhite1FParams,
 }
 
 #[pymethods]
@@ -253,7 +251,7 @@ impl PyHullWhite1FParams {
     /// Create with constant theta (Vasicek model).
     #[new]
     fn new(kappa: f64, sigma: f64, theta: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::ou::HullWhite1FParams;
+        use finstack_monte_carlo::process::ou::HullWhite1FParams;
         Self {
             inner: HullWhite1FParams::new(kappa, sigma, theta),
         }
@@ -273,7 +271,7 @@ impl PyHullWhite1FParams {
         theta_curve: Vec<f64>,
         theta_times: Vec<f64>,
     ) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::ou::HullWhite1FParams;
+        use finstack_monte_carlo::process::ou::HullWhite1FParams;
         Self {
             inner: HullWhite1FParams::with_time_dependent_theta(
                 kappa,
@@ -336,15 +334,14 @@ impl PyHullWhite1FParams {
 )]
 #[derive(Clone)]
 pub struct PyMertonJumpParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::models::monte_carlo::process::jump_diffusion::MertonJumpParams,
+    pub(crate) inner: finstack_monte_carlo::process::jump_diffusion::MertonJumpParams,
 }
 
 #[pymethods]
 impl PyMertonJumpParams {
     #[new]
     fn new(r: f64, q: f64, sigma: f64, lambda_: f64, mu_j: f64, sigma_j: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::jump_diffusion::MertonJumpParams;
+        use finstack_monte_carlo::process::jump_diffusion::MertonJumpParams;
         Self {
             inner: MertonJumpParams::new(r, q, sigma, lambda_, mu_j, sigma_j),
         }
@@ -424,15 +421,14 @@ impl PyMertonJumpParams {
 )]
 #[derive(Clone)]
 pub struct PySchwartzSmithParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::models::monte_carlo::process::schwartz_smith::SchwartzSmithParams,
+    pub(crate) inner: finstack_monte_carlo::process::schwartz_smith::SchwartzSmithParams,
 }
 
 #[pymethods]
 impl PySchwartzSmithParams {
     #[new]
     fn new(kappa_x: f64, sigma_x: f64, mu_y: f64, sigma_y: f64, rho: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::schwartz_smith::SchwartzSmithParams;
+        use finstack_monte_carlo::process::schwartz_smith::SchwartzSmithParams;
         Self {
             inner: SchwartzSmithParams::new(kappa_x, sigma_x, mu_y, sigma_y, rho),
         }
@@ -490,15 +486,14 @@ impl PySchwartzSmithParams {
 )]
 #[derive(Clone)]
 pub struct PyBrownianParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::models::monte_carlo::process::brownian::BrownianParams,
+    pub(crate) inner: finstack_monte_carlo::process::brownian::BrownianParams,
 }
 
 #[pymethods]
 impl PyBrownianParams {
     #[new]
     fn new(mu: f64, sigma: f64) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::brownian::BrownianParams;
+        use finstack_monte_carlo::process::brownian::BrownianParams;
         Self {
             inner: BrownianParams::new(mu, sigma),
         }
@@ -543,8 +538,7 @@ impl PyBrownianParams {
 )]
 #[derive(Clone)]
 pub struct PyMultiOuParams {
-    pub(crate) inner:
-        finstack_valuations::instruments::common::models::monte_carlo::process::multi_ou::MultiOuParams,
+    pub(crate) inner: finstack_monte_carlo::process::multi_ou::MultiOuParams,
 }
 
 #[pymethods]
@@ -557,7 +551,7 @@ impl PyMultiOuParams {
         sigmas: Vec<f64>,
         correlation: Option<Vec<f64>>,
     ) -> Self {
-        use finstack_valuations::instruments::common::models::monte_carlo::process::multi_ou::MultiOuParams;
+        use finstack_monte_carlo::process::multi_ou::MultiOuParams;
         Self {
             inner: MultiOuParams::new(kappas, thetas, sigmas, correlation),
         }

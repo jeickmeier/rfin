@@ -39,12 +39,12 @@ pub use returns::{
     clean_returns, comp_sum, comp_total, convert_to_prices, excess_returns, rebase, simple_returns,
 };
 pub use risk_metrics::{
-    cagr, cagr_from_periods, cornish_fisher_var, downside_deviation, expected_shortfall,
-    expected_shortfall_with_scratch, gain_to_pain, geometric_mean, kurtosis, mean_return,
-    modified_sharpe, omega_ratio, outlier_loss_ratio, outlier_loss_ratio_with_scratch,
-    outlier_win_ratio, outlier_win_ratio_with_scratch, parametric_var, risk_of_ruin,
-    risk_of_ruin_from_returns, rolling_sharpe, rolling_sharpe_values, rolling_sortino,
-    rolling_sortino_values, rolling_volatility, rolling_volatility_values, sharpe, skewness,
-    sortino, tail_ratio, tail_ratio_with_scratch, value_at_risk, value_at_risk_with_scratch,
-    volatility, RollingSharpe, RollingSortino, RollingVolatility,
+    cagr, cagr_from_periods, cornish_fisher_var, downside_deviation, estimate_ruin,
+    expected_shortfall, expected_shortfall_with_scratch, gain_to_pain, geometric_mean, kurtosis,
+    mean_return, modified_sharpe, omega_ratio, outlier_loss_ratio, outlier_loss_ratio_with_scratch,
+    outlier_win_ratio, outlier_win_ratio_with_scratch, parametric_var, rolling_sharpe,
+    rolling_sharpe_values, rolling_sortino, rolling_sortino_values, rolling_volatility,
+    rolling_volatility_values, sharpe, skewness, sortino, tail_ratio, tail_ratio_with_scratch,
+    value_at_risk, value_at_risk_with_scratch, volatility, RollingSharpe, RollingSortino,
+    RollingVolatility, RuinDefinition, RuinEstimate, RuinModel,
 };

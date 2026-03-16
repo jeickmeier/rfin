@@ -80,3 +80,29 @@ fn weekly_grouping_uses_iso_week_boundaries_across_year_end() {
     );
     assert_eq!(grouped[0].0.to_string(), "2025W01");
 }
+
+#[test]
+fn performance_new_rejects_interior_nan_return_data() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+        d(2024, Month::January, 4),
+    ];
+    // Middle zero price creates an interior non-finite return that should be rejected.
+    let prices = vec![vec![100.0, 0.0, 110.0, 111.0]];
+
+    let result = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    );
+
+    assert!(
+        result.is_err(),
+        "interior non-finite returns should be rejected rather than coerced"
+    );
+}

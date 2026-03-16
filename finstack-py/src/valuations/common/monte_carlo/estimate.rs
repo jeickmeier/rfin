@@ -1,8 +1,6 @@
 //! Python bindings for Monte Carlo estimation types.
 
-use finstack_valuations::instruments::common::models::monte_carlo::estimate::{
-    ConvergenceDiagnostics, Estimate,
-};
+use finstack_monte_carlo::estimate::{ConvergenceDiagnostics, Estimate};
 use pyo3::prelude::*;
 
 /// Monte Carlo estimation result.

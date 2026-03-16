@@ -6,7 +6,7 @@
 
 use crate::core::dates::utils::py_to_date;
 use crate::errors::core_to_py;
-use finstack_analytics::{DrawdownEpisode, Performance};
+use finstack_analytics::{DrawdownEpisode, Performance, RuinDefinition, RuinEstimate, RuinModel};
 use finstack_core::dates::PeriodKind;
 use polars::prelude::*;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -185,6 +185,39 @@ fn scalars_to_df(tickers: &[String], values: &[f64], metric_name: &str) -> PyRes
     let value_col = vec_to_series(metric_name, values).into_column();
     DataFrame::new_infer_height(vec![ticker_col, value_col])
         .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))
+}
+
+fn ruin_estimates_to_df(tickers: &[String], values: &[RuinEstimate]) -> PyResult<DataFrame> {
+    let ticker_col = Column::new("ticker".into(), tickers);
+    let probability: Vec<f64> = values.iter().map(|value| value.probability).collect();
+    let std_err: Vec<f64> = values.iter().map(|value| value.std_err).collect();
+    let ci_lower: Vec<f64> = values.iter().map(|value| value.ci_lower).collect();
+    let ci_upper: Vec<f64> = values.iter().map(|value| value.ci_upper).collect();
+    DataFrame::new_infer_height(vec![
+        ticker_col,
+        vec_to_series("probability", &probability).into_column(),
+        vec_to_series("std_err", &std_err).into_column(),
+        vec_to_series("ci_lower", &ci_lower).into_column(),
+        vec_to_series("ci_upper", &ci_upper).into_column(),
+    ])
+    .map_err(|e| PyValueError::new_err(format!("DataFrame error: {e}")))
+}
+
+fn parse_ruin_definition(definition: &str, threshold: f64) -> PyResult<RuinDefinition> {
+    match definition {
+        "wealth_floor" => Ok(RuinDefinition::WealthFloor {
+            floor_fraction: threshold,
+        }),
+        "terminal_floor" => Ok(RuinDefinition::TerminalFloor {
+            floor_fraction: threshold,
+        }),
+        "drawdown_breach" => Ok(RuinDefinition::DrawdownBreach {
+            max_drawdown: threshold,
+        }),
+        _ => Err(PyValueError::new_err(format!(
+            "Unknown ruin definition '{definition}'. Expected: wealth_floor, terminal_floor, drawdown_breach"
+        ))),
+    }
 }
 
 fn episodes_to_py(py: Python<'_>, episodes: &[DrawdownEpisode]) -> PyResult<Py<PyList>> {
@@ -461,10 +494,36 @@ impl PyPerformance {
         Ok(PyDataFrame(df))
     }
 
-    /// Risk of ruin for each ticker.
-    fn risk_of_ruin(&self) -> PyResult<PyDataFrame> {
-        let vals = self.inner.risk_of_ruin();
-        let df = scalars_to_df(self.tickers(), &vals, "risk_of_ruin")?;
+    /// Estimate ruin probability for each ticker under an explicit ruin definition.
+    #[pyo3(signature = (
+        definition = "drawdown_breach",
+        threshold = 0.2,
+        horizon_periods = 252,
+        n_paths = 10000,
+        block_size = 5,
+        seed = 42,
+        confidence_level = 0.95
+    ))]
+    fn estimate_ruin(
+        &self,
+        definition: &str,
+        threshold: f64,
+        horizon_periods: usize,
+        n_paths: usize,
+        block_size: usize,
+        seed: u64,
+        confidence_level: f64,
+    ) -> PyResult<PyDataFrame> {
+        let ruin_definition = parse_ruin_definition(definition, threshold)?;
+        let model = RuinModel {
+            horizon_periods,
+            n_paths,
+            block_size,
+            seed,
+            confidence_level,
+        };
+        let vals = self.inner.estimate_ruin(ruin_definition, &model);
+        let df = ruin_estimates_to_df(self.tickers(), &vals)?;
         Ok(PyDataFrame(df))
     }
 

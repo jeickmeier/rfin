@@ -4,7 +4,7 @@ use super::paths::PyPathDataset;
 use crate::core::money::PyMoney;
 use finstack_core::math::special_functions::standard_normal_inv_cdf;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::common::models::monte_carlo::results::MonteCarloResult;
+use finstack_monte_carlo::results::MonteCarloResult;
 use pyo3::prelude::*;
 
 /// Monte Carlo result with optional path data.

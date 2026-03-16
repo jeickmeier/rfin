@@ -266,9 +266,14 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
     let mut acc = NeumaierAccumulator::new();
     let mut out = Vec::with_capacity(returns.len());
+    let mut invalid = false;
     for &r in returns {
-        let r_clamped = if r.is_finite() { r } else { -1.0 };
-        let g = (1.0 + r_clamped).max(MIN_GROWTH_FACTOR);
+        if invalid || !r.is_finite() {
+            invalid = true;
+            out.push(f64::NAN);
+            continue;
+        }
+        let g = (1.0 + r).max(MIN_GROWTH_FACTOR);
         acc.add(g.ln());
         out.push(acc.total().exp() - 1.0);
     }
@@ -316,8 +321,10 @@ pub fn comp_total(returns: &[f64]) -> f64 {
     let mut sum = 0.0_f64;
     let mut comp = 0.0_f64;
     for &r in returns {
-        let r_clamped = if r.is_finite() { r } else { -1.0 };
-        let y = (1.0 + r_clamped).max(MIN_GROWTH_FACTOR).ln() - comp;
+        if !r.is_finite() {
+            return f64::NAN;
+        }
+        let y = (1.0 + r).max(MIN_GROWTH_FACTOR).ln() - comp;
         let t = sum + y;
         comp = (t - sum) - y;
         sum = t;
@@ -411,22 +418,18 @@ mod tests {
     }
 
     #[test]
-    fn comp_total_clamps_nan_returns() {
+    fn comp_total_propagates_nan_returns() {
         let ct = comp_total(&[0.05, f64::NAN, 0.10]);
-        assert!(ct.is_finite(), "NaN inputs should be clamped to total loss");
-        assert!(ct < -0.99, "result should reflect the clamped total loss");
+        assert!(ct.is_nan(), "NaN inputs should remain invalid");
     }
 
     #[test]
-    fn comp_sum_clamps_nan_to_total_loss() {
+    fn comp_sum_propagates_nan_returns() {
         let cs = comp_sum(&[0.05, f64::NAN, 0.10]);
+        assert!(cs[1].is_nan(), "NaN period should mark the path invalid");
         assert!(
-            cs[1].is_finite(),
-            "NaN period should be clamped to total loss, not propagate NaN"
-        );
-        assert!(
-            cs[2].is_finite(),
-            "subsequent periods should remain finite after clamped NaN"
+            cs[2].is_nan(),
+            "invalid compounding should propagate forward"
         );
     }
 

@@ -27,6 +27,7 @@ from finstack.core.analytics.expr import (
     expected_shortfall,
     gain_to_pain,
     geometric_mean,
+    estimate_ruin,
     information_ratio,
     kurtosis,
     max_drawdown,
@@ -34,7 +35,6 @@ from finstack.core.analytics.expr import (
     omega_ratio,
     r_squared,
     recovery_factor,
-    risk_of_ruin,
     rolling_sharpe,
     rolling_volatility,
     sharpe,
@@ -93,7 +93,15 @@ risk_summary = returns.select(
     omega_ratio("AAPL", threshold=0.0).alias("aapl_omega"),
     gain_to_pain("AAPL").alias("aapl_gtp"),
     ulcer_index("AAPL").alias("aapl_ulcer"),
-    risk_of_ruin("AAPL", freq="daily").alias("aapl_ruin"),
+    estimate_ruin(
+        "AAPL",
+        definition="drawdown_breach",
+        threshold=0.2,
+        horizon_periods=63,
+        n_paths=512,
+        block_size=5,
+        seed=42,
+    ).alias("aapl_ruin"),
     recovery_factor("AAPL").alias("aapl_recovery"),
 )
 print("Tier 1 — Scalar Risk Metrics (single .select() call):")

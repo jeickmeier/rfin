@@ -49,3 +49,23 @@ fn performance_multi_factor_greeks_errors_on_invalid_factor_input() {
         "mismatched factor lengths should return an explicit error"
     );
 }
+
+#[test]
+fn standalone_multi_factor_greeks_errors_on_near_singular_factor_matrix() {
+    let returns = [0.02, 0.04, 0.06, 0.08, 0.10, 0.12];
+    let factor_a = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06];
+    let factor_b = [
+        0.010_000_000_001,
+        0.020_000_000_002,
+        0.029_999_999_999,
+        0.040_000_000_001,
+        0.050_000_000_003,
+        0.060_000_000_000,
+    ];
+
+    let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b], 252.0);
+    assert!(
+        result.is_err(),
+        "near-singular factor matrices should surface an error instead of unstable coefficients"
+    );
+}

@@ -321,13 +321,31 @@ def outlier_loss_ratio(expr: IntoExpr, *, confidence: float = 0.95) -> pl.Expr:
     )
 
 
-def risk_of_ruin(expr: IntoExpr, *, freq: str = "daily") -> pl.Expr:
-    """Probability of total loss under a simplified normal model."""
+def estimate_ruin(
+    expr: IntoExpr,
+    *,
+    definition: str = "drawdown_breach",
+    threshold: float = 0.2,
+    horizon_periods: int = 252,
+    n_paths: int = 10_000,
+    block_size: int = 5,
+    seed: int = 42,
+    confidence_level: float = 0.95,
+) -> pl.Expr:
+    """Estimate ruin probability from empirical returns under an explicit ruin definition."""
     return register_plugin_function(
         plugin_path=_PLUGIN_PATH,
-        function_name="expr_risk_of_ruin",
+        function_name="expr_estimate_ruin",
         args=_to_expr(expr),
-        kwargs={"freq": freq},
+        kwargs={
+            "definition": definition,
+            "threshold": threshold,
+            "horizon_periods": horizon_periods,
+            "n_paths": n_paths,
+            "block_size": block_size,
+            "seed": seed,
+            "confidence_level": confidence_level,
+        },
         is_elementwise=False,
         returns_scalar=True,
     )
@@ -665,6 +683,7 @@ __all__ = [
     "down_capture",
     "downside_deviation",
     "drawdown_series",
+    "estimate_ruin",
     "expected_shortfall",
     "gain_to_pain",
     "geometric_mean",
@@ -684,7 +703,6 @@ __all__ = [
     "r_squared",
     "rebase",
     "recovery_factor",
-    "risk_of_ruin",
     # Tier 4: Rolling metrics
     "rolling_sharpe",
     "rolling_sortino",

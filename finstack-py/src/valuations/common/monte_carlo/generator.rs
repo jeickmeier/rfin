@@ -2,20 +2,14 @@
 
 use super::paths::PyPathDataset;
 use crate::errors::core_to_py;
-use finstack_valuations::instruments::common::models::monte_carlo::discretization::exact::ExactGbm;
-use finstack_valuations::instruments::common::models::monte_carlo::engine::{
-    McEngineConfig, PathCaptureConfig, PathCaptureMode,
-};
-use finstack_valuations::instruments::common::models::monte_carlo::paths::{
-    PathDataset, PathPoint, PathSamplingMethod, SimulatedPath,
-};
-use finstack_valuations::instruments::common::models::monte_carlo::process::gbm::GbmProcess;
-use finstack_valuations::instruments::common::models::monte_carlo::process::metadata::ProcessMetadata;
-use finstack_valuations::instruments::common::models::monte_carlo::rng::philox::PhiloxRng;
-use finstack_valuations::instruments::common::models::monte_carlo::time_grid::TimeGrid;
-use finstack_valuations::instruments::common::models::monte_carlo::{
-    Discretization, RandomStream, StochasticProcess,
-};
+use finstack_monte_carlo::discretization::exact::ExactGbm;
+use finstack_monte_carlo::engine::{McEngineConfig, PathCaptureConfig, PathCaptureMode};
+use finstack_monte_carlo::paths::{PathDataset, PathPoint, PathSamplingMethod, SimulatedPath};
+use finstack_monte_carlo::process::gbm::GbmProcess;
+use finstack_monte_carlo::process::metadata::ProcessMetadata;
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+use finstack_monte_carlo::time_grid::TimeGrid;
+use finstack_monte_carlo::{Discretization, RandomStream, StochasticProcess};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;

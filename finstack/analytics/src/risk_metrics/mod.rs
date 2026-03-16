@@ -16,9 +16,9 @@ pub mod rolling;
 pub mod tail_risk;
 
 pub use return_based::{
-    cagr, cagr_from_periods, downside_deviation, gain_to_pain, geometric_mean, mean_return,
-    modified_sharpe, omega_ratio, risk_of_ruin, risk_of_ruin_from_returns, sharpe, sortino,
-    volatility,
+    cagr, cagr_from_periods, downside_deviation, estimate_ruin, gain_to_pain, geometric_mean,
+    mean_return, modified_sharpe, omega_ratio, sharpe, sortino, volatility, RuinDefinition,
+    RuinEstimate, RuinModel,
 };
 pub use rolling::{
     rolling_sharpe, rolling_sharpe_values, rolling_sortino, rolling_sortino_values,

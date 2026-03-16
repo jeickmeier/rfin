@@ -6,6 +6,7 @@
 
 use crate::math::stats::{mean, variance};
 use crate::math::summation::kahan_sum;
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::tail_risk::cornish_fisher_var;
 
@@ -303,55 +304,154 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     }
 }
 
-/// Risk of ruin: probability of total loss under a simplified normal model.
-///
-/// Uses the closed-form approximation:
-///
-/// ```text
-/// P(ruin) = exp(-2 × μ / σ²)
-/// ```
-///
-/// where `μ` is the mean return and `σ²` is the return variance. This is a
-/// rough heuristic; it assumes normally distributed returns and a fixed
-/// ruin threshold of zero.
-///
-/// # Arguments
-///
-/// * `mean_ret` - Period mean return.
-/// * `vol`      - Period standard deviation of returns (σ).
-///
-/// # Returns
-///
-/// Probability of ruin in `[0, 1]`. When `vol` is zero (deterministic
-/// returns), returns `0.0` if `mean_ret > 0.0` (guaranteed no ruin) or
-/// `1.0` if `mean_ret <= 0.0` (ruin is certain). Clamped to `1.0` from above.
-///
-/// # Examples
-///
-/// ```rust
-/// use finstack_analytics::risk_metrics::risk_of_ruin;
-///
-/// // Highly positive mean relative to vol → very low ruin probability.
-/// let p = risk_of_ruin(0.10, 0.05);
-/// assert!(p < 0.02);
-///
-/// // Mean = 0 → ruin probability = 1.
-/// let p_zero = risk_of_ruin(0.0, 0.10);
-/// assert!((p_zero - 1.0).abs() < 1e-12);
-/// ```
-pub fn risk_of_ruin(mean_ret: f64, vol: f64) -> f64 {
-    if vol == 0.0 {
-        return if mean_ret > 0.0 { 0.0 } else { 1.0 };
-    }
-    let var = vol * vol;
-    (-2.0 * mean_ret / var).exp().min(1.0)
+/// Explicit ruin event definition for simulated portfolio paths.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum RuinDefinition {
+    /// Ruin occurs once path wealth falls to or below a fraction of starting wealth.
+    WealthFloor { floor_fraction: f64 },
+    /// Ruin occurs if terminal wealth ends at or below a target fraction.
+    TerminalFloor { floor_fraction: f64 },
+    /// Ruin occurs once drawdown from the running peak reaches the threshold.
+    DrawdownBreach { max_drawdown: f64 },
 }
 
-/// Risk of ruin computed directly from a returns series.
-pub fn risk_of_ruin_from_returns(returns: &[f64]) -> f64 {
-    let mean_ret = mean(returns);
-    let vol = variance(returns).sqrt();
-    risk_of_ruin(mean_ret, vol)
+/// Simulation controls for ruin-probability estimation.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RuinModel {
+    /// Number of simulated periods per path.
+    pub horizon_periods: usize,
+    /// Number of bootstrap paths.
+    pub n_paths: usize,
+    /// Circular block-bootstrap length. Use `1` for IID resampling.
+    pub block_size: usize,
+    /// Deterministic RNG seed for reproducibility.
+    pub seed: u64,
+    /// Confidence level for the reported normal-approximation confidence interval.
+    pub confidence_level: f64,
+}
+
+impl Default for RuinModel {
+    fn default() -> Self {
+        Self {
+            horizon_periods: 252,
+            n_paths: 10_000,
+            block_size: 5,
+            seed: 42,
+            confidence_level: 0.95,
+        }
+    }
+}
+
+/// Ruin-probability estimate with uncertainty bounds.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RuinEstimate {
+    /// Estimated probability of ruin.
+    pub probability: f64,
+    /// Binomial standard error of the estimated probability.
+    pub std_err: f64,
+    /// Lower confidence bound.
+    pub ci_lower: f64,
+    /// Upper confidence bound.
+    pub ci_upper: f64,
+}
+
+impl RuinEstimate {
+    fn from_probability(probability: f64, n_paths: usize, confidence_level: f64) -> Self {
+        if !probability.is_finite() {
+            return Self {
+                probability: f64::NAN,
+                std_err: f64::NAN,
+                ci_lower: f64::NAN,
+                ci_upper: f64::NAN,
+            };
+        }
+        let std_err = if n_paths == 0 {
+            0.0
+        } else {
+            (probability * (1.0 - probability) / n_paths as f64).sqrt()
+        };
+        let cl = if (0.0..1.0).contains(&confidence_level) {
+            confidence_level
+        } else {
+            0.95
+        };
+        let z = crate::math::special_functions::standard_normal_inv_cdf(0.5 + cl / 2.0);
+        let margin = z * std_err;
+        Self {
+            probability,
+            std_err,
+            ci_lower: (probability - margin).max(0.0),
+            ci_upper: (probability + margin).min(1.0),
+        }
+    }
+}
+
+/// Estimate ruin probability from an empirical return distribution via deterministic bootstrap.
+///
+/// The estimator uses circular block bootstrap resampling of the supplied return history.
+/// This preserves short-run serial dependence better than IID resampling when `block_size > 1`
+/// and supports multiple operational notions of ruin through [`RuinDefinition`].
+pub fn estimate_ruin(
+    returns: &[f64],
+    definition: RuinDefinition,
+    model: &RuinModel,
+) -> RuinEstimate {
+    if returns.is_empty() || model.horizon_periods == 0 || model.n_paths == 0 {
+        return RuinEstimate::from_probability(0.0, model.n_paths, model.confidence_level);
+    }
+    if model.block_size == 0 || returns.iter().any(|r| !r.is_finite()) {
+        return RuinEstimate::from_probability(f64::NAN, model.n_paths, model.confidence_level);
+    }
+
+    let mut rng = SmallRng::seed_from_u64(model.seed);
+    let block_size = model.block_size.min(returns.len());
+    let mut ruin_count = 0usize;
+
+    for _ in 0..model.n_paths {
+        let mut wealth = 1.0_f64;
+        let mut peak = 1.0_f64;
+        let mut steps_done = 0usize;
+        let mut ruined = false;
+
+        while steps_done < model.horizon_periods && !ruined {
+            let start = rng.random_range(0..returns.len());
+            let block_len = block_size.min(model.horizon_periods - steps_done);
+
+            for offset in 0..block_len {
+                let r = returns[(start + offset) % returns.len()];
+                let growth = 1.0 + r;
+                wealth *= growth.max(0.0);
+                peak = peak.max(wealth);
+                steps_done += 1;
+
+                ruined = match definition {
+                    RuinDefinition::WealthFloor { floor_fraction } => wealth <= floor_fraction,
+                    RuinDefinition::DrawdownBreach { max_drawdown } => {
+                        peak > 0.0 && 1.0 - wealth / peak >= max_drawdown
+                    }
+                    RuinDefinition::TerminalFloor { .. } => false,
+                };
+                if ruined {
+                    break;
+                }
+            }
+        }
+
+        if !ruined {
+            ruined = match definition {
+                RuinDefinition::TerminalFloor { floor_fraction } => wealth <= floor_fraction,
+                RuinDefinition::WealthFloor { .. } | RuinDefinition::DrawdownBreach { .. } => false,
+            };
+        }
+
+        ruin_count += usize::from(ruined);
+    }
+
+    RuinEstimate::from_probability(
+        ruin_count as f64 / model.n_paths as f64,
+        model.n_paths,
+        model.confidence_level,
+    )
 }
 
 /// Geometric mean return per period.
@@ -682,14 +782,91 @@ mod tests {
     }
 
     #[test]
-    fn risk_of_ruin_from_returns_matches_composed_formula() {
-        let returns = [0.01, -0.02, 0.015, -0.005, 0.012, 0.008];
-        let ann = 252.0;
-        let mean_ret = mean_return(&returns, false, ann);
-        let vol = volatility(&returns, false, ann);
-        let expected = risk_of_ruin(mean_ret, vol);
-        let actual = risk_of_ruin_from_returns(&returns);
-        assert!((actual - expected).abs() < 1e-12);
+    fn ruin_model_reports_zero_probability_for_strictly_positive_paths() {
+        let returns = [0.01; 12];
+        let model = RuinModel {
+            horizon_periods: 24,
+            n_paths: 256,
+            block_size: 4,
+            seed: 7,
+            confidence_level: 0.95,
+        };
+        let estimate = estimate_ruin(
+            &returns,
+            RuinDefinition::DrawdownBreach { max_drawdown: 0.20 },
+            &model,
+        );
+        assert_eq!(estimate.probability, 0.0);
+    }
+
+    #[test]
+    fn ruin_model_reports_certain_ruin_when_every_path_breaches_floor() {
+        let returns = [-0.50; 4];
+        let model = RuinModel {
+            horizon_periods: 1,
+            n_paths: 128,
+            block_size: 1,
+            seed: 11,
+            confidence_level: 0.95,
+        };
+        let estimate = estimate_ruin(
+            &returns,
+            RuinDefinition::WealthFloor {
+                floor_fraction: 0.75,
+            },
+            &model,
+        );
+        assert_eq!(estimate.probability, 1.0);
+    }
+
+    #[test]
+    fn ruin_model_is_reproducible_for_fixed_seed() {
+        let returns = [0.03, -0.02, 0.01, -0.04, 0.02, -0.01];
+        let model = RuinModel {
+            horizon_periods: 18,
+            n_paths: 512,
+            block_size: 3,
+            seed: 42,
+            confidence_level: 0.95,
+        };
+        let first = estimate_ruin(
+            &returns,
+            RuinDefinition::TerminalFloor {
+                floor_fraction: 0.85,
+            },
+            &model,
+        );
+        let second = estimate_ruin(
+            &returns,
+            RuinDefinition::TerminalFloor {
+                floor_fraction: 0.85,
+            },
+            &model,
+        );
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn stricter_ruin_barrier_produces_higher_probability() {
+        let returns = [0.04, -0.05, 0.02, -0.03, 0.01, -0.02, 0.03, -0.04];
+        let model = RuinModel {
+            horizon_periods: 24,
+            n_paths: 1024,
+            block_size: 2,
+            seed: 99,
+            confidence_level: 0.95,
+        };
+        let strict = estimate_ruin(
+            &returns,
+            RuinDefinition::DrawdownBreach { max_drawdown: 0.10 },
+            &model,
+        );
+        let loose = estimate_ruin(
+            &returns,
+            RuinDefinition::DrawdownBreach { max_drawdown: 0.25 },
+            &model,
+        );
+        assert!(strict.probability >= loose.probability);
     }
 
     #[test]

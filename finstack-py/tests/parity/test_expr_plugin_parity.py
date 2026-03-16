@@ -153,9 +153,30 @@ class TestTier1ScalarParity:
         actual = _expr_scalar(returns_df, expr.tail_ratio("A", confidence=0.95))
         assert actual == pytest.approx(expected, rel=1e-10)
 
-    def test_risk_of_ruin(self, perf: Performance, returns_df: pl.DataFrame) -> None:
-        expected = _perf_scalar(perf.risk_of_ruin(), "risk_of_ruin")
-        actual = _expr_scalar(returns_df, expr.risk_of_ruin("A", freq="daily"))
+    def test_estimate_ruin(self, perf: Performance, returns_df: pl.DataFrame) -> None:
+        expected = _perf_scalar(
+            perf.estimate_ruin(
+                definition="drawdown_breach",
+                threshold=0.2,
+                horizon_periods=63,
+                n_paths=512,
+                block_size=5,
+                seed=42,
+            ),
+            "probability",
+        )
+        actual = _expr_scalar(
+            returns_df,
+            expr.estimate_ruin(
+                "A",
+                definition="drawdown_breach",
+                threshold=0.2,
+                horizon_periods=63,
+                n_paths=512,
+                block_size=5,
+                seed=42,
+            ),
+        )
         assert actual == pytest.approx(expected, rel=1e-10)
 
     def test_recovery_factor(self, perf: Performance, returns_df: pl.DataFrame) -> None:

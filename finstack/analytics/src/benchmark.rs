@@ -746,6 +746,14 @@ pub fn multi_factor_greeks(
     if factors.iter().any(|factor| factor.len() != n) {
         return Err(crate::error::InputError::DimensionMismatch.into());
     }
+    for j in 0..k {
+        for m in (j + 1)..k {
+            let corr = correlation(factors[j], factors[m]).abs();
+            if corr > 1.0 - 1.0e-10 {
+                return Err(crate::error::InputError::Invalid.into());
+            }
+        }
+    }
 
     // Build X'X and X'y where X[:,0] = 1 (intercept)
     let mut xtx = vec![0.0_f64; p * p];

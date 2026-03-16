@@ -169,11 +169,19 @@ class TestScalarMetrics:
         assert isinstance(result, pl.DataFrame)
         assert result.shape[0] == 3
 
-    def test_risk_of_ruin(self, price_df: pl.DataFrame) -> None:
+    def test_estimate_ruin(self, price_df: pl.DataFrame) -> None:
         perf = _make_perf(price_df)
-        result = perf.risk_of_ruin()
+        result = perf.estimate_ruin(
+            definition="drawdown_breach",
+            threshold=0.2,
+            horizon_periods=63,
+            n_paths=512,
+            block_size=5,
+            seed=42,
+        )
         assert isinstance(result, pl.DataFrame)
         assert result.shape[0] == 3
+        assert {"probability", "std_err", "ci_lower", "ci_upper"}.issubset(result.columns)
 
     def test_skewness(self, price_df: pl.DataFrame) -> None:
         perf = _make_perf(price_df)

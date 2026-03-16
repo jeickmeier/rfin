@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core" }
+rand = { version = "0.9", default-features = false, features = ["small_rng", "std"] }
 
 [dev-dependencies]
 serde_json = { workspace = true }

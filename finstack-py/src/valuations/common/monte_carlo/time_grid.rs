@@ -1,7 +1,7 @@
 //! Python bindings for Monte Carlo time grid.
 
 use crate::errors::core_to_py;
-use finstack_valuations::instruments::common::models::monte_carlo::time_grid::TimeGrid;
+use finstack_monte_carlo::time_grid::TimeGrid;
 use pyo3::prelude::*;
 
 /// Time grid for Monte Carlo simulation.

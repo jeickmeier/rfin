@@ -21,7 +21,7 @@ use super::lookback;
 use super::returns::{clean_returns, comp_sum, comp_total, excess_returns, simple_returns};
 use super::risk_metrics::{
     self, rolling_sharpe, rolling_sortino, rolling_volatility, RollingSharpe, RollingSortino,
-    RollingVolatility,
+    RollingVolatility, RuinDefinition, RuinEstimate, RuinModel,
 };
 
 /// Central performance analytics engine.
@@ -132,6 +132,9 @@ impl Performance {
                 sr[1..].to_vec()
             };
             clean_returns(&mut raw_returns);
+            if raw_returns.iter().any(|value| !value.is_finite()) {
+                return Err(crate::error::InputError::Invalid.into());
+            }
             if raw_returns.len() != expected_returns_len {
                 return Err(crate::error::InputError::Invalid.into());
             }
@@ -431,15 +434,14 @@ impl Performance {
             .collect()
     }
 
-    /// Risk of ruin for each ticker.
-    pub fn risk_of_ruin(&self) -> Vec<f64> {
+    /// Estimate ruin probabilities for each ticker under the supplied ruin definition.
+    pub fn estimate_ruin(
+        &self,
+        definition: RuinDefinition,
+        model: &RuinModel,
+    ) -> Vec<RuinEstimate> {
         (0..self.ticker_names.len())
-            .map(|i| {
-                let r = self.active_returns(i);
-                let m = crate::math::stats::mean(r);
-                let v = crate::math::stats::variance(r).sqrt();
-                risk_metrics::risk_of_ruin(m, v)
-            })
+            .map(|i| risk_metrics::estimate_ruin(self.active_returns(i), definition, model))
             .collect()
     }
 

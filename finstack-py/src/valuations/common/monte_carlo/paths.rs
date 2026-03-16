@@ -1,9 +1,7 @@
 //! Python bindings for Monte Carlo path data structures.
 
 use finstack_core::HashMap;
-use finstack_valuations::instruments::common::models::monte_carlo::paths::{
-    CashflowType, PathDataset, PathPoint, SimulatedPath,
-};
+use finstack_monte_carlo::paths::{CashflowType, PathDataset, PathPoint, SimulatedPath};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
@@ -112,7 +110,7 @@ impl PyPathPoint {
     /// Get state variables as a dictionary.
     #[getter]
     fn state_vars(&self, py: Python) -> PyResult<Py<PyDict>> {
-        use finstack_valuations::instruments::common::models::monte_carlo::paths::state_indices;
+        use finstack_monte_carlo::paths::state_indices;
         let dict = PyDict::new(py);
 
         // Map state vector indices to named keys
@@ -137,7 +135,7 @@ impl PyPathPoint {
 
     /// Get a specific state variable by name.
     fn get_var(&self, key: &str) -> Option<f64> {
-        use finstack_valuations::instruments::common::models::monte_carlo::paths::state_indices;
+        use finstack_monte_carlo::paths::state_indices;
         match key {
             "spot" => self.inner.state.get(state_indices::IDX_SPOT).copied(),
             "variance" => self.inner.state.get(state_indices::IDX_VARIANCE).copied(),

@@ -211,12 +211,45 @@ fn make_episode(
 /// assert!(avg < 0.0);
 /// ```
 pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
-    let episodes = drawdown_details(drawdown, dates, n);
-    if episodes.is_empty() {
+    let _ = dates;
+    let episode_depths = worst_episode_drawdowns(drawdown, n);
+    if episode_depths.is_empty() {
         return 0.0;
     }
-    let sum: f64 = episodes.iter().map(|e| e.max_drawdown).sum();
-    sum / episodes.len() as f64
+    let sum: f64 = episode_depths.iter().sum();
+    sum / episode_depths.len() as f64
+}
+
+fn worst_episode_drawdowns(drawdown: &[f64], n: usize) -> Vec<f64> {
+    if drawdown.is_empty() {
+        return vec![];
+    }
+
+    let mut depths = Vec::new();
+    let mut in_dd = false;
+    let mut valley_val = 0.0_f64;
+
+    for &d in drawdown {
+        if d < -1e-15 {
+            if !in_dd {
+                in_dd = true;
+                valley_val = d;
+            } else if d < valley_val {
+                valley_val = d;
+            }
+        } else if in_dd {
+            depths.push(valley_val);
+            in_dd = false;
+        }
+    }
+
+    if in_dd {
+        depths.push(valley_val);
+    }
+
+    depths.sort_by(|a, b| a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal));
+    depths.truncate(n);
+    depths
 }
 
 /// Maximum drawdown duration in calendar days across all episodes.
@@ -648,7 +681,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
-    let avg_dd = average_drawdown(&drawdowns);
+    let avg_dd = avg_drawdown(&drawdowns, &[], usize::MAX);
     sterling_ratio(cagr_val, avg_dd, risk_free_rate)
 }
 
@@ -737,6 +770,7 @@ pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate:
 #[cfg(test)]
 mod drawdown_ratio_tests {
     use super::*;
+    use crate::dates::Month;
 
     #[test]
     fn ulcer_index_flat() {
@@ -830,8 +864,14 @@ mod drawdown_ratio_tests {
         let dd = to_drawdown_series(&returns);
         let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
         let ulcer = ulcer_index(&dd);
-        let avg_dd = average_drawdown(&dd);
         let pain = pain_index(&dd);
+        let synthetic_dates = (0..returns.len())
+            .map(|i| {
+                Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
+                    + crate::dates::Duration::days(i as i64)
+            })
+            .collect::<Vec<_>>();
+        let avg_episode_dd = avg_drawdown(&dd, &synthetic_dates, usize::MAX);
 
         assert!(
             (recovery_factor_from_returns(&returns)
@@ -845,13 +885,35 @@ mod drawdown_ratio_tests {
         );
         assert!(
             (sterling_ratio_from_returns(&returns, ann, 0.01)
-                - sterling_ratio(cagr_val, avg_dd, 0.01))
+                - sterling_ratio(cagr_val, avg_episode_dd, 0.01))
             .abs()
                 < 1e-12
         );
         assert!(
             (pain_ratio_from_returns(&returns, ann, 0.01) - pain_ratio(cagr_val, pain, 0.01)).abs()
                 < 1e-12
+        );
+    }
+
+    #[test]
+    fn sterling_ratio_helper_uses_episode_average_not_path_average() {
+        let returns = [0.10, -0.20, 0.15, -0.10, 0.05, -0.08, 0.12];
+        let ann = 252.0;
+        let synthetic_dates = (0..returns.len())
+            .map(|i| {
+                Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
+                    + crate::dates::Duration::days(i as i64)
+            })
+            .collect::<Vec<_>>();
+        let dd = to_drawdown_series(&returns);
+        let avg_episode_dd = avg_drawdown(&dd, &synthetic_dates, usize::MAX);
+        let cagr_val = crate::risk_metrics::cagr_from_periods(&returns, ann);
+
+        let expected = sterling_ratio(cagr_val, avg_episode_dd, 0.01);
+        let actual = sterling_ratio_from_returns(&returns, ann, 0.01);
+        assert!(
+            (actual - expected).abs() < 1e-12,
+            "sterling_ratio_from_returns should match the episode-based Sterling definition"
         );
     }
 }

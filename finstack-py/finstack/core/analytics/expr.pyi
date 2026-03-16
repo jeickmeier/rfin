@@ -94,8 +94,18 @@ def outlier_loss_ratio(expr: IntoExpr, *, confidence: float = 0.95) -> pl.Expr:
     """Fraction of returns below the lower quantile (outlier losses)."""
     ...
 
-def risk_of_ruin(expr: IntoExpr, *, freq: str = "daily") -> pl.Expr:
-    """Probability of total loss under a simplified normal model."""
+def estimate_ruin(
+    expr: IntoExpr,
+    *,
+    definition: str = "drawdown_breach",
+    threshold: float = 0.2,
+    horizon_periods: int = 252,
+    n_paths: int = 10000,
+    block_size: int = 5,
+    seed: int = 42,
+    confidence_level: float = 0.95,
+) -> pl.Expr:
+    """Estimate ruin probability from empirical returns under an explicit ruin definition."""
     ...
 
 def recovery_factor(expr: IntoExpr) -> pl.Expr:

@@ -5,11 +5,11 @@
 use crate::core::money::PyMoney;
 use crate::errors::core_to_py;
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::common::models::monte_carlo::prelude::{
+use finstack_monte_carlo::prelude::{
     AmericanCall, AmericanPut, LaguerreBasis, LsmcConfig, LsmcPricer, PolynomialBasis,
 };
-use finstack_valuations::instruments::common::models::monte_carlo::process::gbm::GbmProcess;
-use finstack_valuations::instruments::common::models::monte_carlo::results::MoneyEstimate;
+use finstack_monte_carlo::process::gbm::GbmProcess;
+use finstack_monte_carlo::results::MoneyEstimate;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
