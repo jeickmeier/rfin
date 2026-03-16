@@ -21,8 +21,8 @@
 #[cfg(feature = "mc")]
 #[allow(clippy::expect_used)]
 mod golden_tests {
-    use crate::instruments::common_impl::models::monte_carlo::prelude::{ExactGbm, GbmProcess, PhiloxRng};
-    use crate::instruments::common_impl::models::monte_carlo::prelude::{
+    use finstack_monte_carlo::prelude::{ExactGbm, GbmProcess, PhiloxRng};
+    use finstack_monte_carlo::prelude::{
         EuropeanCall, EuropeanPut, McEngine,
     };
     use finstack_core::currency::Currency;

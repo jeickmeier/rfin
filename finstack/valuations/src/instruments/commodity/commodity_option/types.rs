@@ -349,7 +349,7 @@ impl CommodityOption {
         market: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        use crate::instruments::common_impl::models::monte_carlo::prelude::*;
+        use finstack_monte_carlo::prelude::*;
 
         let t = self.time_to_expiry(as_of)?;
         if t <= 0.0 {

@@ -14,15 +14,9 @@
 //! - Historical fixings for mid-life valuations (via `past_fixings_in_range`)
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::payoff::range_accrual::RangeAccrualPayoff;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
-    PathDependentPricer, PathDependentPricerConfig,
-};
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
-#[cfg(feature = "mc")]
 use crate::instruments::common_impl::traits::Instrument;
+#[cfg(feature = "mc")]
+use crate::instruments::rates::range_accrual::monte_carlo::RangeAccrualPayoff;
 #[cfg(feature = "mc")]
 use crate::instruments::rates::range_accrual::types::RangeAccrual;
 #[cfg(feature = "mc")]
@@ -39,6 +33,12 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 #[cfg(feature = "mc")]
 use finstack_core::Result;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::pricer::path_dependent::{
+    PathDependentPricer, PathDependentPricerConfig,
+};
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Helper to get FX spot for quanto vol lookup.
 /// Falls back to 1.0 if fx_spot_id is not provided (ATM approximation).
@@ -181,7 +181,7 @@ impl RangeAccrualMcPricer {
         );
 
         // Derive deterministic seed from instrument ID and scenario
-        use crate::instruments::common_impl::models::monte_carlo::seed;
+        use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             seed::derive_seed(&inst.id, scenario)

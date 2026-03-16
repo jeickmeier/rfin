@@ -1,12 +1,12 @@
 // Tests for Monte Carlo path capture functionality (integration tests).
-use crate::instruments::common_impl::models::monte_carlo::process::gbm::GbmProcess;
-use crate::instruments::common_impl::models::monte_carlo::process::metadata::ProcessMetadata;
-use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
-use crate::instruments::common_impl::models::monte_carlo::engine::{
+use finstack_monte_carlo::process::gbm::GbmProcess;
+use finstack_monte_carlo::process::metadata::ProcessMetadata;
+use finstack_monte_carlo::time_grid::TimeGrid;
+use finstack_monte_carlo::engine::{
     McEngineConfig, PathCaptureConfig, PathCaptureMode,
 };
-use crate::instruments::common_impl::models::monte_carlo::payoff::vanilla::EuropeanCall;
-use crate::instruments::common_impl::models::monte_carlo::prelude::{
+use finstack_monte_carlo::payoff::vanilla::EuropeanCall;
+use finstack_monte_carlo::prelude::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 use finstack_core::currency::Currency;

@@ -15,7 +15,7 @@ use finstack_core::Result;
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::traits::RandomStream;
+use finstack_monte_carlo::traits::RandomStream;
 
 /// Covenant forecast configuration.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -278,7 +278,7 @@ pub fn forecast_covenant_generic<MTS: ModelTimeSeries>(
             draws_per_date
         };
 
-        use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
+        use finstack_monte_carlo::rng::philox::PhiloxRng;
         let mut rng = PhiloxRng::new(seed);
 
         for i in 0..values.len() {

@@ -17,6 +17,12 @@
 //! // Use with HullWhiteTree for backward induction pricing
 //! ```
 
+#[cfg(feature = "mc")]
+pub mod monte_carlo_lsmc;
+#[cfg(feature = "mc")]
+pub mod monte_carlo_payoff;
+#[cfg(feature = "mc")]
+pub mod swap_rate_utils;
 pub mod tree_valuator;
 
 pub use tree_valuator::BermudanSwaptionTreeValuator;

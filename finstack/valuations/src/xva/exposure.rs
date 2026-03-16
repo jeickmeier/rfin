@@ -43,13 +43,13 @@ use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 
+use crate::instruments::Instrument;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::rng::philox::PhiloxRng;
+use finstack_monte_carlo::rng::philox::PhiloxRng;
 #[cfg(feature = "mc")]
-use crate::instruments::common::models::monte_carlo::{
+use finstack_monte_carlo::{
     state_keys, Discretization, PathState, RandomStream, StochasticProcess,
 };
-use crate::instruments::Instrument;
 
 use super::netting::{apply_collateral, apply_netting};
 use super::types::{ExposureProfile, NettingSet, XvaConfig};
@@ -880,8 +880,8 @@ mod tests {
     #[cfg(feature = "mc")]
     #[test]
     fn stochastic_exposure_profile_uses_quantile_based_pfe() {
-        use crate::instruments::common::models::monte_carlo::prelude::{ExactGbm, GbmProcess};
         use crate::xva::types::StochasticExposureConfig;
+        use finstack_monte_carlo::prelude::{ExactGbm, GbmProcess};
 
         let process = GbmProcess::with_params(0.0, 0.0, 0.25);
         let discretization = ExactGbm::new();
@@ -918,8 +918,8 @@ mod tests {
     #[cfg(feature = "mc")]
     #[test]
     fn stochastic_exposure_profile_collapses_to_deterministic_when_paths_are_identical() {
-        use crate::instruments::common::models::monte_carlo::prelude::{ExactGbm, GbmProcess};
         use crate::xva::types::StochasticExposureConfig;
+        use finstack_monte_carlo::prelude::{ExactGbm, GbmProcess};
 
         let process = GbmProcess::with_params(0.0, 0.0, 0.0);
         let discretization = ExactGbm::new();

@@ -47,6 +47,8 @@
 //! - Monte Carlo pricer for path-dependent pricing
 
 pub(crate) mod metrics;
+#[cfg(feature = "mc")]
+pub mod monte_carlo;
 pub(crate) mod pricer;
 pub(crate) mod traits;
 pub(crate) mod types;

@@ -19,18 +19,16 @@ use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::Result;
 
-use crate::instruments::common_impl::models::monte_carlo::discretization::revolving_credit::RevolvingCreditDiscretization;
-use crate::instruments::common_impl::models::monte_carlo::process::ou::HullWhite1FParams;
-use crate::instruments::common_impl::models::monte_carlo::process::revolving_credit::{
+use crate::instruments::fixed_income::revolving_credit::pricer::monte_carlo_discretization::RevolvingCreditDiscretization;
+use crate::instruments::fixed_income::revolving_credit::pricer::monte_carlo_process::{
     CreditSpreadParams, InterestRateSpec, RevolvingCreditProcess, RevolvingCreditProcessParams,
     UtilizationParams,
 };
-use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
-use crate::instruments::common_impl::models::monte_carlo::rng::sobol::SobolRng;
-use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
-use crate::instruments::common_impl::models::monte_carlo::traits::{
-    Discretization, RandomStream, StochasticProcess,
-};
+use finstack_monte_carlo::process::ou::HullWhite1FParams;
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+use finstack_monte_carlo::rng::sobol::SobolRng;
+use finstack_monte_carlo::time_grid::TimeGrid;
+use finstack_monte_carlo::traits::{Discretization, RandomStream, StochasticProcess};
 
 use super::super::cashflow_engine::ThreeFactorPathData;
 use super::super::types::{

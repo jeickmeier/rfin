@@ -126,21 +126,19 @@ fn linear_in_variance_vol(vol_surface: &VolSurface, expiry: f64, strike: f64) ->
 
 // LSMC imports (gated by feature)
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::payoff::swaption::{
-    BermudanSwaptionPayoff, SwapSchedule, SwaptionType,
-};
+use crate::instruments::common_impl::parameters::OptionType;
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::pricer::basis::PolynomialBasis;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::pricer::swaption_lsmc::{
+use crate::instruments::rates::swaption::pricing::monte_carlo_lsmc::{
     SwaptionLsmcConfig, SwaptionLsmcPricer as SharedSwaptionLsmcPricer,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::process::ou::{
-    calibrate_theta_from_curve, HullWhite1FProcess,
+use crate::instruments::rates::swaption::pricing::monte_carlo_payoff::{
+    BermudanSwaptionPayoff, SwapSchedule, SwaptionType,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::parameters::OptionType;
+use finstack_monte_carlo::pricer::basis::PolynomialBasis;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::process::ou::{calibrate_theta_from_curve, HullWhite1FProcess};
 
 // ========================= NEW SIMPLIFIED PRICER =========================
 
@@ -827,7 +825,6 @@ impl BermudanSwaptionPricer {
             strike,
             option_type,
             swaption.notional.amount(),
-            swaption.notional.currency(),
         );
 
         // Build exercise-aligned time grid

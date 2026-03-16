@@ -1,0 +1,27 @@
+[package]
+name = "finstack-monte-carlo"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Monte Carlo simulation engine for quantitative finance"
+
+[dependencies]
+finstack-core = { path = "../core" }
+smallvec = { version = "1.15", default-features = false, features = ["serde"] }
+serde = { workspace = true }
+tracing = { version = "0.1", default-features = false, features = ["attributes"] }
+rayon = { version = "1.11", optional = true }
+nalgebra = { version = "0.34", optional = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[features]
+default = ["parallel"]
+parallel = ["dep:rayon"]
+mc = ["dep:nalgebra"]
+advanced = ["mc"]
+slow = []

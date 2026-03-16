@@ -34,14 +34,10 @@
 //! - Carr & Madan (1999) - "Option valuation using the fast Fourier transform"
 //! - Albrecher et al. (2007) - "The Little Heston Trap"
 
-#[cfg(feature = "mc")]
-pub use crate::instruments::common_impl::models::monte_carlo::process::heston::HestonParams;
 use finstack_core::math::gauss_legendre_integrate_composite;
 use num_complex::Complex;
 use std::f64::consts::PI;
 
-// Standalone Heston parameters for when mc feature is not enabled
-#[cfg(not(feature = "mc"))]
 #[derive(Debug, Clone, Copy)]
 /// Heston stochastic volatility model parameters.
 ///
@@ -66,7 +62,6 @@ pub struct HestonParams {
     pub v0: f64,
 }
 
-#[cfg(not(feature = "mc"))]
 impl HestonParams {
     /// Create new Heston model parameters
     pub fn new(r: f64, q: f64, kappa: f64, theta: f64, sigma_v: f64, rho: f64, v0: f64) -> Self {
@@ -78,6 +73,21 @@ impl HestonParams {
             sigma_v,
             rho,
             v0,
+        }
+    }
+}
+
+#[cfg(feature = "mc")]
+impl From<finstack_monte_carlo::process::heston::HestonParams> for HestonParams {
+    fn from(value: finstack_monte_carlo::process::heston::HestonParams) -> Self {
+        Self {
+            r: value.r,
+            q: value.q,
+            kappa: value.kappa,
+            theta: value.theta,
+            sigma_v: value.sigma_v,
+            rho: value.rho,
+            v0: value.v0,
         }
     }
 }

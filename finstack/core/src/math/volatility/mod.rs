@@ -50,6 +50,7 @@ pub use pricing::{
 pub use pricing::{
     black_call, black_delta_call, black_delta_put, black_gamma, black_put, black_vega, d1_black76,
 };
+pub use pricing::{black_scholes_spot_call, black_scholes_spot_put, geometric_asian_call};
 
 // Shifted Black model - low/negative rate environments
 pub use pricing::{black_shifted_call, black_shifted_put, black_shifted_vega};

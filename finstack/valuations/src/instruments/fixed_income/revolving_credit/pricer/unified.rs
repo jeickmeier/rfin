@@ -15,15 +15,13 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::results::{
-    MoneyEstimate, MonteCarloResult,
-};
 use crate::instruments::common_impl::traits::Instrument;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
 use crate::results::ValuationResult;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::results::{MoneyEstimate, MonteCarloResult};
 
 use super::super::cashflow_engine::{
     CashflowEngine, PathAwareCashflowSchedule, ThreeFactorPathData,

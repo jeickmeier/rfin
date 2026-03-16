@@ -1,27 +1,11 @@
 //! Cliquet option Monte Carlo pricer.
 
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::engine::{McEngine, McEngineConfig};
+use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::paths::ProcessParams;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::payoff::cliquet::{
+use crate::instruments::equity::cliquet_option::monte_carlo::{
     CliquetCallPayoff, CliquetPayoffType as McPayoffType,
 };
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::process::metadata::ProcessMetadata;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::rng::philox::PhiloxRng;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::time_grid::TimeGrid;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::traits::Discretization;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::traits::StochasticProcess;
-#[cfg(feature = "mc")]
-use crate::instruments::common_impl::traits::Instrument;
 #[cfg(feature = "mc")]
 use crate::instruments::equity::cliquet_option::types::{CliquetOption, CliquetPayoffType};
 #[cfg(feature = "mc")]
@@ -38,6 +22,22 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 #[cfg(feature = "mc")]
 use finstack_core::Result;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::engine::{McEngine, McEngineConfig};
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::paths::ProcessParams;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::pricer::path_dependent::PathDependentPricerConfig;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::process::metadata::ProcessMetadata;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::time_grid::TimeGrid;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::traits::Discretization;
+#[cfg(feature = "mc")]
+use finstack_monte_carlo::traits::StochasticProcess;
 
 /// Piecewise constant GBM process for cliquet options.
 /// Handles term structure of volatility and rates between reset dates.
@@ -330,7 +330,7 @@ impl CliquetOptionMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common_impl::models::monte_carlo::seed;
+        use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             #[cfg(feature = "mc")]

@@ -17,15 +17,15 @@ use finstack_core::dates::DayCountCtx;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::payoff::barrier::BarrierOptionPayoff;
+use finstack_monte_carlo::payoff::barrier::BarrierOptionPayoff;
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::payoff::barrier::BarrierType as McBarrierType;
+use finstack_monte_carlo::payoff::barrier::{BarrierType as McBarrierType, OptionKind};
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
+use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
+use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 
 /// Barrier option Monte Carlo pricer.
 #[cfg(feature = "mc")]
@@ -58,6 +58,13 @@ impl BarrierOptionMcPricer {
             crate::instruments::exotics::barrier_option::types::BarrierType::DownAndIn => {
                 McBarrierType::DownAndIn
             }
+        }
+    }
+
+    fn convert_option_kind(option_type: crate::instruments::OptionType) -> OptionKind {
+        match option_type {
+            crate::instruments::OptionType::Call => OptionKind::Call,
+            crate::instruments::OptionType::Put => OptionKind::Put,
         }
     }
 
@@ -129,7 +136,7 @@ impl BarrierOptionMcPricer {
             inst.strike,
             inst.barrier.amount(),
             mc_barrier_type,
-            inst.option_type,
+            Self::convert_option_kind(inst.option_type),
             inst.rebate.map(|m| m.amount()),
             inst.notional.amount(),
             maturity_step,
@@ -140,7 +147,7 @@ impl BarrierOptionMcPricer {
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common_impl::models::monte_carlo::seed;
+        use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -240,7 +247,7 @@ impl BarrierOptionMcPricer {
             inst.strike,
             inst.barrier.amount(),
             mc_barrier_type,
-            inst.option_type,
+            Self::convert_option_kind(inst.option_type),
             inst.rebate.map(|m| m.amount()),
             inst.notional.amount(),
             maturity_step,
@@ -251,7 +258,7 @@ impl BarrierOptionMcPricer {
 
         // Seed
         #[cfg(feature = "mc")]
-        use crate::instruments::common_impl::models::monte_carlo::seed;
+        use finstack_monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {

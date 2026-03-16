@@ -276,6 +276,119 @@ pub fn black_put(forward: f64, strike: f64, sigma: f64, t: f64) -> f64 {
     strike * norm_cdf(-d2) - forward * norm_cdf(-d1)
 }
 
+/// Black-Scholes-Merton call price on spot with continuous carry.
+///
+/// This is the spot/dividend form used for equities and FX (Garman-Kohlhagen),
+/// unlike [`black_call`] which is the Black-76 forward form.
+#[must_use]
+pub fn black_scholes_spot_call(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    dividend_yield: f64,
+    sigma: f64,
+    t: f64,
+) -> f64 {
+    if !spot.is_finite()
+        || !strike.is_finite()
+        || !rate.is_finite()
+        || !dividend_yield.is_finite()
+        || !sigma.is_finite()
+        || !t.is_finite()
+    {
+        return f64::NAN;
+    }
+    if t <= 0.0 || sigma <= 0.0 || spot <= 0.0 || strike <= 0.0 {
+        return (spot - strike).max(0.0);
+    }
+
+    let st = sigma * t.sqrt();
+    let ln_sk = (spot / strike).ln();
+    let d1 = (ln_sk + (rate - dividend_yield + 0.5 * sigma * sigma) * t) / st;
+    let d2 = d1 - st;
+    let df_r = (-rate * t).exp();
+    let df_q = (-dividend_yield * t).exp();
+    spot * df_q * norm_cdf(d1) - strike * df_r * norm_cdf(d2)
+}
+
+/// Black-Scholes-Merton put price on spot with continuous carry.
+#[must_use]
+pub fn black_scholes_spot_put(
+    spot: f64,
+    strike: f64,
+    rate: f64,
+    dividend_yield: f64,
+    sigma: f64,
+    t: f64,
+) -> f64 {
+    if !spot.is_finite()
+        || !strike.is_finite()
+        || !rate.is_finite()
+        || !dividend_yield.is_finite()
+        || !sigma.is_finite()
+        || !t.is_finite()
+    {
+        return f64::NAN;
+    }
+    if t <= 0.0 || sigma <= 0.0 || spot <= 0.0 || strike <= 0.0 {
+        return (strike - spot).max(0.0);
+    }
+
+    let st = sigma * t.sqrt();
+    let ln_sk = (spot / strike).ln();
+    let d1 = (ln_sk + (rate - dividend_yield + 0.5 * sigma * sigma) * t) / st;
+    let d2 = d1 - st;
+    let df_r = (-rate * t).exp();
+    let df_q = (-dividend_yield * t).exp();
+    strike * df_r * norm_cdf(-d2) - spot * df_q * norm_cdf(-d1)
+}
+
+/// Geometric-average Asian call under GBM with discrete fixings.
+///
+/// Uses the Kemna-Vorst closed form with discrete-monitoring adjustment.
+#[must_use]
+pub fn geometric_asian_call(
+    spot: f64,
+    strike: f64,
+    time: f64,
+    rate: f64,
+    div_yield: f64,
+    vol: f64,
+    num_fixings: usize,
+) -> f64 {
+    if !spot.is_finite()
+        || !strike.is_finite()
+        || !time.is_finite()
+        || !rate.is_finite()
+        || !div_yield.is_finite()
+        || !vol.is_finite()
+    {
+        return f64::NAN;
+    }
+    if time <= 0.0 {
+        return (spot - strike).max(0.0);
+    }
+    if vol <= 0.0 || spot <= 0.0 || strike <= 0.0 || num_fixings == 0 {
+        let fwd = spot * ((rate - div_yield) * time).exp();
+        return (-rate * time).exp() * (fwd - strike).max(0.0);
+    }
+
+    let n = num_fixings as f64;
+    let sigma_g = vol * ((n + 1.0) * (2.0 * n + 1.0) / (6.0 * n * n)).sqrt();
+    let b_g = 0.5 * (rate - div_yield - 0.5 * vol * vol) * (n + 1.0) / n + 0.5 * sigma_g * sigma_g;
+    let st = sigma_g * time.sqrt();
+    if st <= 0.0 {
+        return 0.0;
+    }
+
+    let ln_s_over_k = (spot / strike).ln();
+    let d1 = (ln_s_over_k + (b_g + 0.5 * sigma_g * sigma_g) * time) / st;
+    let d2 = d1 - st;
+    let df_r = (-rate * time).exp();
+    let growth = ((b_g - rate) * time).exp();
+    df_r * (spot * growth * norm_cdf(d1) - strike * norm_cdf(d2))
+}
+
 /// Black-76 vega: sensitivity of option price to lognormal volatility.
 ///
 /// This is the same for both calls and puts.

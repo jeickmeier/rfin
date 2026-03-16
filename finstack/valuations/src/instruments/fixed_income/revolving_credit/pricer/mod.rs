@@ -39,6 +39,10 @@
 
 pub mod components;
 #[cfg(feature = "mc")]
+pub mod monte_carlo_discretization;
+#[cfg(feature = "mc")]
+pub mod monte_carlo_process;
+#[cfg(feature = "mc")]
 pub mod path_generator;
 pub mod unified;
 

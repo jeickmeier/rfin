@@ -13,21 +13,21 @@ use finstack_core::money::Money;
 
 // MC-specific imports
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::engine::PathCaptureConfig;
+use finstack_monte_carlo::engine::PathCaptureConfig;
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::estimate::Estimate;
+use finstack_monte_carlo::estimate::Estimate;
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::payoff::asian::{AsianCall, AsianPut};
+use finstack_monte_carlo::payoff::asian::{AsianCall, AsianPut};
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::pricer::path_dependent::{
+use finstack_monte_carlo::pricer::path_dependent::{
     PathDependentPricer, PathDependentPricerConfig,
 };
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::process::gbm::{GbmParams, GbmProcess};
+use finstack_monte_carlo::process::gbm::{GbmParams, GbmProcess};
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::results::MoneyEstimate;
+use finstack_monte_carlo::results::MoneyEstimate;
 #[cfg(feature = "mc")]
-use crate::instruments::common_impl::models::monte_carlo::variance_reduction::control_variate::{
+use finstack_monte_carlo::variance_reduction::control_variate::{
     apply_control_variate, covariance,
 };
 
@@ -142,16 +142,16 @@ impl AsianOptionMcPricer {
         // Create payoff
         let averaging = match inst.averaging_method {
             crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
-                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
+                finstack_monte_carlo::payoff::asian::AveragingMethod::Arithmetic
             }
             crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
-                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
+                finstack_monte_carlo::payoff::asian::AveragingMethod::Geometric
             }
         };
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]
-        use crate::instruments::common_impl::models::monte_carlo::seed;
+        use finstack_monte_carlo::seed;
 
         let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             #[cfg(feature = "mc")]
@@ -188,7 +188,7 @@ impl AsianOptionMcPricer {
                 let arith_payoff = AsianCall::with_history(
                     inst.strike,
                     inst.notional.amount(),
-                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
+                    finstack_monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -208,7 +208,7 @@ impl AsianOptionMcPricer {
                 let geom_payoff = AsianCall::with_history(
                     inst.strike,
                     inst.notional.amount(),
-                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
+                    finstack_monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -331,7 +331,7 @@ impl AsianOptionMcPricer {
                 let arith_payoff = AsianPut::with_history(
                     inst.strike,
                     inst.notional.amount(),
-                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
+                    finstack_monte_carlo::payoff::asian::AveragingMethod::Arithmetic,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -350,7 +350,7 @@ impl AsianOptionMcPricer {
                 let geom_payoff = AsianPut::with_history(
                     inst.strike,
                     inst.notional.amount(),
-                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric,
+                    finstack_monte_carlo::payoff::asian::AveragingMethod::Geometric,
                     fixing_steps.clone(),
                     hist_sum,
                     hist_prod_log,
@@ -598,16 +598,16 @@ impl AsianOptionMcPricer {
 
         let averaging = match inst.averaging_method {
             crate::instruments::exotics::asian_option::types::AveragingMethod::Arithmetic => {
-                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Arithmetic
+                finstack_monte_carlo::payoff::asian::AveragingMethod::Arithmetic
             }
             crate::instruments::exotics::asian_option::types::AveragingMethod::Geometric => {
-                crate::instruments::common_impl::models::monte_carlo::payoff::asian::AveragingMethod::Geometric
+                finstack_monte_carlo::payoff::asian::AveragingMethod::Geometric
             }
         };
 
         // Seed handling
         #[cfg(feature = "mc")]
-        use crate::instruments::common_impl::models::monte_carlo::seed;
+        use finstack_monte_carlo::seed;
         let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
@@ -629,16 +629,15 @@ impl AsianOptionMcPricer {
 
         let (est, greeks) = match inst.option_type {
             crate::instruments::OptionType::Call => {
-                let payoff =
-                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AsianCall::with_history(
-                        inst.strike,
-                        inst.notional.amount(),
-                        averaging,
-                        fixing_steps,
-                        hist_sum,
-                        hist_prod_log,
-                        hist_count,
-                    );
+                let payoff = finstack_monte_carlo::payoff::asian::AsianCall::with_history(
+                    inst.strike,
+                    inst.notional.amount(),
+                    averaging,
+                    fixing_steps,
+                    hist_sum,
+                    hist_prod_log,
+                    hist_count,
+                );
                 pricer.price_with_lrm_greeks(
                     &process,
                     spot,
@@ -653,16 +652,15 @@ impl AsianOptionMcPricer {
                 )?
             }
             crate::instruments::OptionType::Put => {
-                let payoff =
-                    crate::instruments::common_impl::models::monte_carlo::payoff::asian::AsianPut::with_history(
-                        inst.strike,
-                        inst.notional.amount(),
-                        averaging,
-                        fixing_steps,
-                        hist_sum,
-                        hist_prod_log,
-                        hist_count,
-                    );
+                let payoff = finstack_monte_carlo::payoff::asian::AsianPut::with_history(
+                    inst.strike,
+                    inst.notional.amount(),
+                    averaging,
+                    fixing_steps,
+                    hist_sum,
+                    hist_prod_log,
+                    hist_count,
+                );
                 pricer.price_with_lrm_greeks(
                     &process,
                     spot,

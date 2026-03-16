@@ -17,8 +17,6 @@
 pub mod closed_form;
 pub use finstack_correlation as correlation;
 pub mod credit;
-#[cfg(feature = "mc")]
-pub mod monte_carlo;
 pub mod trees;
 pub mod volatility;
 
