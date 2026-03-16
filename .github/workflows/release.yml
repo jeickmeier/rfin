@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Override the release tag. Defaults to latest-master."
+        description: "Override the release tag. Defaults to a unique timestamped master tag."
         type: string
         required: false
       publish:
@@ -194,15 +194,23 @@ jobs:
       - name: Resolve release metadata
         id: release
         run: |
+          timestamp_tag="master-$(date -u +%Y%m%d-%H%M%S)"
+
           if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            echo "tag=${DEFAULT_RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "tag=${timestamp_tag}" >> "$GITHUB_OUTPUT"
             echo "target=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
           elif [[ -n "${{ inputs.tag }}" ]]; then
             echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
             echo "target=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
           else
-            echo "tag=${DEFAULT_RELEASE_TAG}" >> "$GITHUB_OUTPUT"
+            echo "tag=${timestamp_tag}" >> "$GITHUB_OUTPUT"
             echo "target=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Update rolling release tag
@@ -257,11 +265,12 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: ${{ steps.release.outputs.tag }}
           tag_name: ${{ steps.release.outputs.tag }}
           target_commitish: ${{ steps.release.outputs.target }}
           files: dist/*
           fail_on_unmatched_files: true
           generate_release_notes: true
           overwrite_files: true
-          prerelease: ${{ steps.release.outputs.tag == env.DEFAULT_RELEASE_TAG }}
-          make_latest: ${{ steps.release.outputs.tag == env.DEFAULT_RELEASE_TAG && 'false' || 'true' }}
+          prerelease: ${{ steps.release.outputs.prerelease }}
+          make_latest: ${{ steps.release.outputs.make_latest }}
