@@ -61,7 +61,7 @@ impl Notional {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_valuations::cashflow::builder::{Notional, AmortizationSpec};
+    /// use finstack_cashflows::builder::{Notional, AmortizationSpec};
     /// use finstack_core::currency::Currency;
     ///
     /// let notional = Notional::par(1_000_000.0, Currency::USD);

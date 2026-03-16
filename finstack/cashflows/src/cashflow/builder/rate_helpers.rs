@@ -74,7 +74,7 @@ impl FloatingRateParams {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_valuations::cashflow::builder::rate_helpers::FloatingRateParams;
+    /// use finstack_cashflows::builder::rate_helpers::FloatingRateParams;
     ///
     /// let params = FloatingRateParams::with_spread(200.0); // 200 bps spread
     /// assert_eq!(params.spread_bp, 200.0);
@@ -115,7 +115,7 @@ impl FloatingRateParams {
     ///
     /// # Example
     /// ```rust
-    /// use finstack_valuations::cashflow::builder::rate_helpers::FloatingRateParams;
+    /// use finstack_cashflows::builder::rate_helpers::FloatingRateParams;
     ///
     /// let params = FloatingRateParams::with_spread_and_floor(200.0, 0.0); // 200 bps spread, 0% floor
     /// assert_eq!(params.spread_bp, 200.0);
@@ -224,7 +224,7 @@ impl FloatingRateParams {
 /// # Example
 ///
 /// ```rust
-/// use finstack_valuations::cashflow::builder::rate_helpers::{calculate_floating_rate, FloatingRateParams};
+/// use finstack_cashflows::builder::rate_helpers::{calculate_floating_rate, FloatingRateParams};
 ///
 /// let params = FloatingRateParams::with_spread(200.0); // 200 bps spread
 /// let rate = calculate_floating_rate(0.03, &params); // 3% index + 2% spread = 5%
@@ -276,7 +276,7 @@ pub fn calculate_floating_rate(index_rate: f64, params: &FloatingRateParams) -> 
 /// # Example
 ///
 /// ```rust
-/// use finstack_valuations::cashflow::builder::rate_helpers::{project_fallback_rate, FloatingRateParams};
+/// use finstack_cashflows::builder::rate_helpers::{project_fallback_rate, FloatingRateParams};
 ///
 /// let params = FloatingRateParams::with_spread_and_floor(200.0, 100.0); // 200 bps spread, 1% floor
 /// let rate = project_fallback_rate(&params);
@@ -308,7 +308,7 @@ pub fn project_fallback_rate(params: &FloatingRateParams) -> f64 {
 /// ```rust
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::market_data::term_structures::ForwardCurve;
-/// use finstack_valuations::cashflow::builder::rate_helpers::{project_floating_rate, FloatingRateParams};
+/// use finstack_cashflows::builder::rate_helpers::{project_floating_rate, FloatingRateParams};
 /// use time::Month;
 ///
 /// let reset = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
@@ -383,7 +383,7 @@ pub fn project_floating_rate(
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::market_data::term_structures::ForwardCurve;
-/// use finstack_valuations::cashflow::builder::rate_helpers::{
+/// use finstack_cashflows::builder::rate_helpers::{
 ///     project_floating_rate_from_market, FloatingRateParams
 /// };
 /// use time::Month;
@@ -437,7 +437,7 @@ pub fn project_floating_rate_from_market(
 /// # Example
 ///
 /// ```rust
-/// use finstack_valuations::cashflow::builder::rate_helpers::compute_compounded_rate;
+/// use finstack_cashflows::builder::rate_helpers::compute_compounded_rate;
 ///
 /// let fixings = vec![
 ///     (0.05, 1u32), (0.05, 1), (0.05, 1), (0.05, 1), (0.05, 3),

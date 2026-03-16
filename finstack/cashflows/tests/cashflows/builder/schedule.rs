@@ -15,6 +15,9 @@
 //! - `financial_tolerance(notional)`: For money amounts
 
 use crate::helpers::financial_tolerance;
+use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
+use finstack_cashflows::builder::{AmortizationSpec, CashFlowSchedule};
+use finstack_core::cashflow::Discountable;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -22,9 +25,6 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::market_data::term_structures::DiscountCurve as CoreDiscCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-use finstack_valuations::cashflow::builder::{AmortizationSpec, CashFlowSchedule};
-use finstack_valuations::instruments::Discountable;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::Month;
@@ -63,7 +63,7 @@ fn linear_vs_step_parity() {
     let s1 = b1.build_with_curves(None).unwrap();
 
     // Step schedule equivalent
-    let sched = finstack_valuations::cashflow::builder::date_generation::build_dates(
+    let sched = finstack_cashflows::builder::date_generation::build_dates(
         issue,
         maturity,
         Tenor::quarterly(),
@@ -920,8 +920,8 @@ fn npv_decreases_with_higher_discount_rate() {
 fn test_weighted_average_life_two_amort() {
     // Two equal amortization payments at ~1y and ~2y from as_of
     // WAL should be ~1.5 years
-    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
-    use finstack_valuations::cashflow::builder::Notional;
+    use finstack_cashflows::builder::schedule::CashFlowMeta;
+    use finstack_cashflows::builder::Notional;
 
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let d1 = Date::from_calendar_date(2026, Month::January, 15).unwrap();
@@ -967,8 +967,8 @@ fn test_weighted_average_life_two_amort() {
 fn test_weighted_average_life_bullet() {
     // Single notional payment at 5y (bullet bond)
     // WAL should be ~5.0 years
-    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
-    use finstack_valuations::cashflow::builder::Notional;
+    use finstack_cashflows::builder::schedule::CashFlowMeta;
+    use finstack_cashflows::builder::Notional;
 
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let maturity = Date::from_calendar_date(2030, Month::January, 15).unwrap();
@@ -1001,8 +1001,8 @@ fn test_weighted_average_life_bullet() {
 #[test]
 fn test_weighted_average_life_empty() {
     // No flows => WAL = 0.0
-    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
-    use finstack_valuations::cashflow::builder::Notional;
+    use finstack_cashflows::builder::schedule::CashFlowMeta;
+    use finstack_cashflows::builder::Notional;
 
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
 
@@ -1021,8 +1021,8 @@ fn test_weighted_average_life_empty() {
 fn test_weighted_average_life_ignores_coupons() {
     // Mix of coupon and principal flows
     // WAL should only count principal flows
-    use finstack_valuations::cashflow::builder::schedule::CashFlowMeta;
-    use finstack_valuations::cashflow::builder::Notional;
+    use finstack_cashflows::builder::schedule::CashFlowMeta;
+    use finstack_cashflows::builder::Notional;
 
     let as_of = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let d1 = Date::from_calendar_date(2025, Month::July, 15).unwrap();

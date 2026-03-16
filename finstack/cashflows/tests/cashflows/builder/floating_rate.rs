@@ -5,14 +5,14 @@
 //! - `SpreadOnly`: build succeeds, rate == spread (legacy behavior)
 //! - `FixedRate(r)`: build succeeds, rate == r + spread (through params pipeline)
 
+use finstack_cashflows::builder::specs::{
+    CouponType, FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec,
+};
+use finstack_cashflows::builder::CashFlowSchedule;
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::specs::{
-    CouponType, FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec,
-};
-use finstack_valuations::cashflow::builder::CashFlowSchedule;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 use time::Month;
@@ -868,7 +868,7 @@ fn test_floating_rate_all_in_floor() {
 // Overnight Compounding Tests
 // =============================================================================
 
-use finstack_valuations::cashflow::builder::specs::OvernightCompoundingMethod;
+use finstack_cashflows::builder::specs::OvernightCompoundingMethod;
 
 /// Helper: create a floating coupon spec with overnight compounding enabled.
 fn make_overnight_float_spec(
@@ -1214,10 +1214,10 @@ fn test_overnight_vs_term_rate_flat_curve_equivalence() {
 /// Without the fix, the Saturday-start schedule would lose 2 days of accrual.
 #[test]
 fn test_overnight_compounding_weekend_start_no_lost_days() {
+    use finstack_cashflows::builder::specs::OvernightCompoundingMethod;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::ForwardCurve;
     use finstack_core::math::interp::InterpStyle;
-    use finstack_valuations::cashflow::builder::specs::OvernightCompoundingMethod;
 
     // Jan 4 2025 = Saturday, Jan 6 2025 = Monday
     let saturday = Date::from_calendar_date(2025, Month::January, 4).unwrap();

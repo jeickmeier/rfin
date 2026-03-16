@@ -140,7 +140,7 @@ pub(super) fn build_fee_schedules(
     //! Example:
     //! ```rust
     //! use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention};
-    //! use finstack_valuations::cashflow::builder::{FeeSpec, FeeBase};
+    //! use finstack_cashflows::builder::{FeeSpec, FeeBase};
     //! use finstack_core::dates::StubKind;
     //! use rust_decimal_macros::dec;
     //! use time::Month;
@@ -359,7 +359,7 @@ pub(super) fn compute_coupon_schedules(
     //! Example:
     //! ```rust
     //! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention};
-    //! use finstack_valuations::cashflow::builder::{FixedCouponSpec, CouponType};
+    //! use finstack_cashflows::builder::{FixedCouponSpec, CouponType};
     //! use finstack_core::dates::StubKind;
     //! use rust_decimal_macros::dec;
     //! use time::Month;

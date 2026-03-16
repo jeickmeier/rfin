@@ -214,7 +214,7 @@ impl FloatingRateFallback {
 ///
 /// ```rust
 /// use finstack_core::dates::{DayCount, Tenor, BusinessDayConvention};
-/// use finstack_valuations::cashflow::builder::FloatingRateSpec;
+/// use finstack_cashflows::builder::FloatingRateSpec;
 /// use rust_decimal_macros::dec;
 ///
 /// // 3M SOFR + 200bps with 0% floor
@@ -404,8 +404,8 @@ pub struct FloatingCouponSpec {
 ///
 /// ```rust
 /// use finstack_core::dates::{Date, DayCount, Tenor, BusinessDayConvention, StubKind};
-/// use finstack_valuations::cashflow::builder::StepUpCouponSpec;
-/// use finstack_valuations::cashflow::builder::CouponType;
+/// use finstack_cashflows::builder::StepUpCouponSpec;
+/// use finstack_cashflows::builder::CouponType;
 /// use rust_decimal_macros::dec;
 /// use time::Month;
 ///

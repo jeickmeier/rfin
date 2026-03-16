@@ -31,7 +31,7 @@
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
 //! use finstack_core::money::Money;
-//! use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, FixedCouponSpec, CouponType};
+//! use finstack_cashflows::builder::{CashFlowSchedule, ScheduleParams, FixedCouponSpec, CouponType};
 //! use rust_decimal_macros::dec;
 //! use time::Month;
 //!
@@ -63,7 +63,7 @@
 #[allow(clippy::module_inception)]
 mod builder;
 pub(crate) mod compiler;
-pub(crate) mod emission;
+pub mod emission;
 
 // Public modules
 pub mod calendar;

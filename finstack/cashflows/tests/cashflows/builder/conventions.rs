@@ -24,7 +24,7 @@ fn d(year: i32, month: u8, day: u8) -> Date {
 /// Aggregating flows in different currencies should error.
 #[test]
 fn test_cross_currency_aggregation_error() {
-    use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
+    use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
 
     let flows = vec![
         (d(2024, 6, 15), Money::new(100.0, Currency::USD)),
@@ -38,7 +38,7 @@ fn test_cross_currency_aggregation_error() {
 /// Aggregating flows in the same currency should succeed.
 #[test]
 fn test_single_currency_aggregation() {
-    use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
+    use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
 
     let flows = vec![
         (d(2024, 6, 15), Money::new(100.0, Currency::USD)),
@@ -61,10 +61,10 @@ fn test_single_currency_aggregation() {
 /// Build a USD bond and verify every flow is USD-denominated.
 #[test]
 fn test_all_flows_preserve_currency() {
+    use finstack_cashflows::builder::specs::CouponType;
+    use finstack_cashflows::builder::specs::FixedCouponSpec;
+    use finstack_cashflows::builder::CashFlowSchedule;
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-    use finstack_valuations::cashflow::builder::specs::CouponType;
-    use finstack_valuations::cashflow::builder::specs::FixedCouponSpec;
-    use finstack_valuations::cashflow::builder::CashFlowSchedule;
     use rust_decimal::Decimal;
 
     let issue = d(2024, 1, 15);

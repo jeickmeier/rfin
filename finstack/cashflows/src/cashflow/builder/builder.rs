@@ -19,7 +19,7 @@
 //! use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention};
 //! use finstack_core::dates::StubKind;
 //! use finstack_core::money::Money;
-//! use finstack_valuations::cashflow::builder::{CashFlowSchedule, FixedCouponSpec, CouponType};
+//! use finstack_cashflows::builder::{CashFlowSchedule, FixedCouponSpec, CouponType};
 //! use rust_decimal_macros::dec;
 //! use time::Month;
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -936,7 +936,7 @@ impl CashFlowBuilder {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, ScheduleParams, CouponType};
+    /// use finstack_cashflows::builder::{CashFlowSchedule, ScheduleParams, CouponType};
     /// use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -1013,7 +1013,7 @@ impl CashFlowBuilder {
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
-    /// use finstack_valuations::cashflow::builder::{
+    /// use finstack_cashflows::builder::{
     ///     CashFlowSchedule, ScheduleParams, FloatCouponParams, CouponType
     /// };
     /// use rust_decimal_macros::dec;
@@ -1124,7 +1124,7 @@ impl CashFlowBuilder {
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
     /// use finstack_core::types::CurveId;
-    /// use finstack_valuations::cashflow::builder::{
+    /// use finstack_cashflows::builder::{
     ///     CashFlowSchedule, ScheduleParams, FixedWindow, FloatWindow,
     ///     FloatCouponParams, CouponType
     /// };
@@ -1215,7 +1215,7 @@ impl CashFlowBuilder {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{Date, Tenor, DayCount, BusinessDayConvention, StubKind};
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::{
+    /// use finstack_cashflows::builder::{
     ///     CashFlowSchedule, FixedCouponSpec, CouponType
     /// };
     /// use rust_decimal_macros::dec;

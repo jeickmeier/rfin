@@ -24,7 +24,7 @@
 //! }
 //! ```
 
-use crate::helpers::d;
+use super::helpers::d;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -186,7 +186,7 @@ mod irs_contract {
         let start = d(2025, 1, 15);
         let end = d(2030, 1, 15);
 
-        let swap = crate::finstack_test_utils::usd_irs_swap(
+        let swap = crate::cashflows::finstack_test_utils::usd_irs_swap(
             "TEST-IRS-PAY",
             Money::new(10_000_000.0, Currency::USD),
             0.04,
@@ -205,7 +205,7 @@ mod irs_contract {
         let start = d(2025, 1, 15);
         let end = d(2030, 1, 15);
 
-        let swap = crate::finstack_test_utils::usd_irs_swap(
+        let swap = crate::cashflows::finstack_test_utils::usd_irs_swap(
             "TEST-IRS-REC",
             Money::new(10_000_000.0, Currency::USD),
             0.04,

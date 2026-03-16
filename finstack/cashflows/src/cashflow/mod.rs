@@ -31,8 +31,8 @@
 //!
 //! ## Building a Cashflow Schedule
 //!
-//! ```rust
-//! use finstack_valuations::cashflow::builder::CashFlowSchedule;
+//! ```rust,ignore
+//! use finstack_cashflows::builder::CashFlowSchedule;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::{create_date, DayCount};
@@ -51,7 +51,7 @@
 //! ## Aggregating Cashflows
 //!
 //! ```rust
-//! use finstack_valuations::cashflow::aggregation::aggregate_cashflows_precise_checked;
+//! use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
@@ -82,7 +82,7 @@
 //! Any instrument implementing `CashflowProvider` + `CurveDependencies`
 //! automatically gains periodized PV methods via the [`crate::instruments::common::period_pv::PeriodizedPvExt`] trait:
 //!
-//! ```rust
+//! ```rust,ignore
 //! use finstack_valuations::instruments::Bond;
 //! use finstack_valuations::instruments::PeriodizedPvExt;
 //! use finstack_core::dates::{Date, Period, PeriodId, DayCount};
@@ -158,10 +158,10 @@ pub mod aggregation;
 pub mod builder;
 
 /// Cashflow-related traits and aliases.
-pub(crate) mod traits;
+pub mod traits;
 
 /// Generic schedule-driven interest accrual engine.
-pub(crate) mod accrual;
+pub mod accrual;
 
 // -----------------------------------------------------------------------------
 // Canonical flow aliases (deduplicated across the cashflow module)

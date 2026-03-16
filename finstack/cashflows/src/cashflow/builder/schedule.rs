@@ -5,6 +5,7 @@
 
 use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
+use finstack_core::cashflow::Discountable;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx, Period, PeriodId};
 use finstack_core::market_data::context::MarketContext;
@@ -18,7 +19,8 @@ use std::sync::Arc;
 
 use super::specs::{FixedCouponSpec, FloatingCouponSpec};
 
-pub(crate) fn kind_rank(kind: CFKind) -> u8 {
+/// Stable ordering rank used for deterministic sorting of same-date cashflows.
+pub fn kind_rank(kind: CFKind) -> u8 {
     match kind {
         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
         CFKind::Fee => 1,
@@ -101,6 +103,20 @@ pub struct CashFlowSchedule {
     pub meta: CashFlowMeta,
 }
 
+impl Discountable for CashFlowSchedule {
+    type PVOutput = finstack_core::Result<Money>;
+
+    fn npv(
+        &self,
+        disc: &dyn Discounting,
+        base: Date,
+        dc: Option<DayCount>,
+    ) -> finstack_core::Result<Money> {
+        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        finstack_core::cashflow::npv(disc, base, dc, &flows)
+    }
+}
+
 impl CashFlowSchedule {
     /// Create a new cashflow builder (standard Rust pattern).
     ///
@@ -112,7 +128,7 @@ impl CashFlowSchedule {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
+    /// use finstack_cashflows::builder::{CashFlowSchedule, CouponType, FixedCouponSpec};
     /// use rust_decimal_macros::dec;
     /// use time::Month;
     ///
@@ -182,9 +198,9 @@ impl CashFlowSchedule {
     /// use finstack_core::dates::Date;
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
+    /// use finstack_cashflows::builder::schedule::{CashFlowMeta, CashFlowSchedule};
     /// use finstack_core::cashflow::{CashFlow, CFKind};
-    /// use finstack_valuations::cashflow::builder::Notional;
+    /// use finstack_cashflows::builder::Notional;
     /// use time::Month;
     ///
     /// let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");

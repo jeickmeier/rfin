@@ -6,12 +6,12 @@
 //!
 //! Also verifies that deserialized values match expected market-standard conventions.
 
-use finstack_core::dates::{BusinessDayConvention, DayCount};
-use finstack_valuations::cashflow::builder::specs::{
+use finstack_cashflows::builder::specs::{
     AmortizationSpec, CouponType, DefaultEvent, DefaultModelSpec, FeeSpec, FeeTier,
     FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional, PrepaymentCurve,
     PrepaymentModelSpec, RecoveryModelSpec, ScheduleParams,
 };
+use finstack_core::dates::{BusinessDayConvention, DayCount};
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 

@@ -78,7 +78,6 @@
 //! # }
 //! ```
 
-use crate::cashflow::builder::schedule::resolve_credit_curves;
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::CurveDependencies;
 use finstack_core::currency::Currency;
@@ -272,13 +271,12 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         // This allows applying recovery rates to principal flows only.
         let schedule = self.build_full_schedule(market, base)?;
 
-        // Resolve discount and hazard curves once to avoid duplicated logic.
+        // Resolve discount curve once to avoid duplicated logic.
         let deps = self.curve_dependencies()?;
         let disc_curve_id = deps
             .discount_curves
             .first()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
-        let _ = resolve_credit_curves(market, disc_curve_id, Some(hazard_curve_id))?;
         use finstack_core::dates::DayCountCtx;
 
         schedule.pv_by_period_with_market_and_ctx(

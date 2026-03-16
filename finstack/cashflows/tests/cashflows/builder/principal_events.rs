@@ -11,10 +11,10 @@
 //! - Draw vs repay semantics
 //! - Outstanding balance constraints
 
+use finstack_cashflows::builder::{CashFlowSchedule, PrincipalEvent};
 use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::{CashFlowSchedule, PrincipalEvent};
 use time::Month;
 
 use finstack_core::dates::Date;

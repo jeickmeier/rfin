@@ -35,8 +35,8 @@ use super::super::specs::DefaultEvent;
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::cashflow::builder::emit_default_on;
-/// use finstack_valuations::cashflow::builder::specs::DefaultEvent;
+/// use finstack_cashflows::builder::emit_default_on;
+/// use finstack_cashflows::builder::specs::DefaultEvent;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use time::Month;
@@ -169,7 +169,7 @@ pub fn emit_default_on(
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::cashflow::builder::emit_prepayment_on;
+/// use finstack_cashflows::builder::emit_prepayment_on;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::Date;
 /// use time::Month;

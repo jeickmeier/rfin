@@ -30,8 +30,8 @@ pub trait CashflowProvider: Send + Sync {
     /// use finstack_core::dates::{Date, DayCount};
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
-    /// use finstack_valuations::cashflow::builder::CashFlowSchedule;
-    /// use finstack_valuations::cashflow::{CashflowProvider, schedule_from_dated_flows};
+    /// use finstack_cashflows::builder::CashFlowSchedule;
+    /// use finstack_cashflows::{CashflowProvider, schedule_from_dated_flows};
     ///
     /// struct MyInstrument {
     ///     notional: Money,
@@ -115,7 +115,7 @@ pub trait CashflowProvider: Send + Sync {
 /// # Example
 ///
 /// ```rust
-/// use finstack_valuations::cashflow::schedule_from_dated_flows;
+/// use finstack_cashflows::schedule_from_dated_flows;
 /// use finstack_core::dates::{Date, DayCount};
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;

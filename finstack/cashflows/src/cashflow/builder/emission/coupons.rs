@@ -24,7 +24,7 @@ use crate::cashflow::builder::calendar::resolve_calendar_strict;
 /// Emit inflation-linked coupon cashflows.
 ///
 /// Each tuple is `(payment_date, indexed_coupon_amount, accrual_factor, real_coupon_rate)`.
-pub(crate) fn emit_inflation_coupons(
+pub fn emit_inflation_coupons(
     ccy: Currency,
     coupons: &[(Date, f64, f64, f64)],
     out_flows: &mut Vec<CashFlow>,

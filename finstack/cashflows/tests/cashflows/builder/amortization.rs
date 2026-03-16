@@ -1,8 +1,8 @@
 //! Tests for amortization and notional functionality.
+use finstack_cashflows::builder::{AmortizationSpec, Notional};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
-use finstack_valuations::cashflow::builder::{AmortizationSpec, Notional};
 
 #[test]
 fn test_notional_par() {
@@ -354,10 +354,10 @@ fn test_amortization_spec_linear_to_zero_ok() {
 
 mod computation {
     use super::*;
+    use finstack_cashflows::builder::specs::{CouponType, FixedCouponSpec};
+    use finstack_cashflows::builder::CashFlowSchedule;
     use finstack_core::cashflow::CFKind;
     use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
-    use finstack_valuations::cashflow::builder::specs::{CouponType, FixedCouponSpec};
-    use finstack_valuations::cashflow::builder::CashFlowSchedule;
     use rust_decimal::Decimal;
     use time::Month;
 

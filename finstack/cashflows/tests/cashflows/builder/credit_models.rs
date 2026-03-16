@@ -24,8 +24,8 @@ fn psa_smm_golden_values() {
     // PSA (Public Securities Association) Prepayment Model Golden Values
     // 100% PSA ramps to 6% CPR over 30 months, then stays flat
     // SMM = 1 - (1 - CPR)^(1/12)
-    use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
-    use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
+    use finstack_cashflows::builder::PrepaymentModelSpec;
+    use finstack_cashflows::builder::{cpr_to_smm, smm_to_cpr};
 
     let model = PrepaymentModelSpec::psa_100();
 
@@ -84,8 +84,8 @@ fn psa_smm_golden_values() {
 fn sda_mdr_golden_values() {
     // SDA (Standard Default Assumption) Model Golden Values
     // SDA peaks at month 30 with 6% CDR, then declines to 3% terminal over next 30 months
-    use finstack_valuations::cashflow::builder::smm_to_cpr;
-    use finstack_valuations::cashflow::builder::DefaultModelSpec;
+    use finstack_cashflows::builder::smm_to_cpr;
+    use finstack_cashflows::builder::DefaultModelSpec;
 
     let model = DefaultModelSpec::sda(1.0);
 
@@ -143,7 +143,7 @@ fn cpr_smm_conversion_roundtrip_precision() {
     // Test that CPR ↔ SMM conversion maintains precision across range
     // Formula: SMM = 1 - (1 - CPR)^(1/12)
     //          CPR = 1 - (1 - SMM)^12
-    use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
+    use finstack_cashflows::builder::{cpr_to_smm, smm_to_cpr};
 
     let test_cprs = [0.0, 0.01, 0.03, 0.06, 0.10, 0.15, 0.20, 0.50];
 
@@ -184,8 +184,8 @@ fn cpr_smm_conversion_roundtrip_precision() {
 fn psa_matches_industry_standard_ramp() {
     // Reference: Bond Market Association PSA Standard Prepayment Model
     // 100% PSA: Linear ramp from 0% CPR at month 0 to 6% CPR at month 30
-    use finstack_valuations::cashflow::builder::smm_to_cpr;
-    use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+    use finstack_cashflows::builder::smm_to_cpr;
+    use finstack_cashflows::builder::PrepaymentModelSpec;
 
     let model = PrepaymentModelSpec::psa_100();
 
@@ -230,8 +230,8 @@ fn psa_matches_industry_standard_ramp() {
 #[test]
 fn psa_multiplier_scales_correctly() {
     // Test that PSA multipliers scale linearly
-    use finstack_valuations::cashflow::builder::smm_to_cpr;
-    use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+    use finstack_cashflows::builder::smm_to_cpr;
+    use finstack_cashflows::builder::PrepaymentModelSpec;
 
     // 50% PSA, 100% PSA, 200% PSA at month 30
     let psa_50 = PrepaymentModelSpec::psa(0.5);
@@ -272,8 +272,8 @@ fn psa_multiplier_scales_correctly() {
 #[test]
 fn psa_terminal_rate_is_flat() {
     // After month 30, PSA should stay flat at terminal rate
-    use finstack_valuations::cashflow::builder::smm_to_cpr;
-    use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+    use finstack_cashflows::builder::smm_to_cpr;
+    use finstack_cashflows::builder::PrepaymentModelSpec;
 
     let model = PrepaymentModelSpec::psa_100();
     let terminal_cpr = 0.06;
@@ -298,8 +298,8 @@ fn psa_terminal_rate_is_flat() {
 fn sda_matches_industry_standard_curve() {
     // Reference: Standard Default Assumption curve
     // Ramp to 6% CDR at month 30, decline to 3% CDR terminal by month 60
-    use finstack_valuations::cashflow::builder::smm_to_cpr;
-    use finstack_valuations::cashflow::builder::DefaultModelSpec;
+    use finstack_cashflows::builder::smm_to_cpr;
+    use finstack_cashflows::builder::DefaultModelSpec;
 
     let model = DefaultModelSpec::sda(1.0);
 
@@ -345,8 +345,8 @@ fn sda_matches_industry_standard_curve() {
 #[test]
 fn sda_multiplier_scales_correctly() {
     // Test that SDA multipliers scale linearly
-    use finstack_valuations::cashflow::builder::smm_to_cpr;
-    use finstack_valuations::cashflow::builder::DefaultModelSpec;
+    use finstack_cashflows::builder::smm_to_cpr;
+    use finstack_cashflows::builder::DefaultModelSpec;
 
     let sda_100 = DefaultModelSpec::sda(1.0);
     let sda_200 = DefaultModelSpec::sda(2.0);
@@ -394,11 +394,11 @@ fn sda_multiplier_scales_correctly() {
 fn accrued_on_default_emission() {
     // When accrued_on_default is Some(positive), emit_default_on should produce
     // 3 cashflows: DefaultedNotional + Recovery + AccruedOnDefault
+    use finstack_cashflows::builder::emit_default_on;
+    use finstack_cashflows::builder::DefaultEvent;
     use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
-    use finstack_valuations::cashflow::builder::emit_default_on;
-    use finstack_valuations::cashflow::builder::DefaultEvent;
     use time::Month;
 
     let d = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
@@ -444,11 +444,11 @@ fn accrued_on_default_emission() {
 #[test]
 fn accrued_on_default_none_no_extra_flow() {
     // When accrued_on_default is None, only 2 cashflows should be emitted
+    use finstack_cashflows::builder::emit_default_on;
+    use finstack_cashflows::builder::DefaultEvent;
     use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
-    use finstack_valuations::cashflow::builder::emit_default_on;
-    use finstack_valuations::cashflow::builder::DefaultEvent;
     use time::Month;
 
     let d = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
@@ -478,11 +478,11 @@ fn accrued_on_default_none_no_extra_flow() {
 #[test]
 fn accrued_on_default_zero_no_extra_flow() {
     // When accrued_on_default is Some(0.0), no AccruedOnDefault flow should be emitted
+    use finstack_cashflows::builder::emit_default_on;
+    use finstack_cashflows::builder::DefaultEvent;
     use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
-    use finstack_valuations::cashflow::builder::emit_default_on;
-    use finstack_valuations::cashflow::builder::DefaultEvent;
     use time::Month;
 
     let d = Date::from_calendar_date(2025, Month::June, 15).expect("valid date");
@@ -521,7 +521,7 @@ mod property_tests {
         /// Property: PSA SMM is always non-negative for any month and multiplier >= 0
         #[test]
         fn psa_smm_non_negative(month in 0u32..500, multiplier in 0.0f64..10.0) {
-            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+            use finstack_cashflows::builder::PrepaymentModelSpec;
 
             let model = PrepaymentModelSpec::psa(multiplier);
             let smm = model.smm(month).unwrap();
@@ -536,7 +536,7 @@ mod property_tests {
         /// Property: PSA SMM is monotonically non-decreasing in month during ramp (0-30)
         #[test]
         fn psa_smm_monotonic_during_ramp(month1 in 0u32..30, month2 in 0u32..30) {
-            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+            use finstack_cashflows::builder::PrepaymentModelSpec;
 
             let model = PrepaymentModelSpec::psa_100();
             let smm1 = model.smm(month1).unwrap();
@@ -554,7 +554,7 @@ mod property_tests {
         /// Property: PSA SMM is constant after ramp (month >= 30)
         #[test]
         fn psa_smm_constant_after_ramp(month in 30u32..500) {
-            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+            use finstack_cashflows::builder::PrepaymentModelSpec;
 
             let model = PrepaymentModelSpec::psa_100();
             let smm_30 = model.smm(30).unwrap();
@@ -570,7 +570,7 @@ mod property_tests {
         /// Property: Higher PSA multiplier -> higher SMM (monotonicity in multiplier)
         #[test]
         fn psa_smm_monotonic_in_multiplier(mult1 in 0.0f64..5.0, mult2 in 0.0f64..5.0, month in 1u32..100) {
-            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+            use finstack_cashflows::builder::PrepaymentModelSpec;
 
             let model1 = PrepaymentModelSpec::psa(mult1);
             let model2 = PrepaymentModelSpec::psa(mult2);
@@ -590,7 +590,7 @@ mod property_tests {
         /// Property: CPR -> SMM -> CPR roundtrip preserves value
         #[test]
         fn cpr_smm_roundtrip(cpr in 0.0f64..0.99) {
-            use finstack_valuations::cashflow::builder::{cpr_to_smm, smm_to_cpr};
+            use finstack_cashflows::builder::{cpr_to_smm, smm_to_cpr};
 
             let smm = cpr_to_smm(cpr).unwrap();
             let cpr_back = smm_to_cpr(smm);
@@ -605,7 +605,7 @@ mod property_tests {
         /// Property: SMM < CPR for all positive rates (monthly < annual)
         #[test]
         fn smm_less_than_cpr(cpr in 0.001f64..0.99) {
-            use finstack_valuations::cashflow::builder::cpr_to_smm;
+            use finstack_cashflows::builder::cpr_to_smm;
 
             let smm = cpr_to_smm(cpr).unwrap();
 
@@ -619,7 +619,7 @@ mod property_tests {
         /// Property: SDA MDR is always non-negative
         #[test]
         fn sda_mdr_non_negative(month in 0u32..500, multiplier in 0.0f64..10.0) {
-            use finstack_valuations::cashflow::builder::DefaultModelSpec;
+            use finstack_cashflows::builder::DefaultModelSpec;
 
             let model = DefaultModelSpec::sda(multiplier);
             let mdr = model.mdr(month).unwrap();
@@ -634,7 +634,7 @@ mod property_tests {
         /// Property: SDA MDR reaches terminal rate after month 60
         #[test]
         fn sda_mdr_terminal_after_60(month in 60u32..500) {
-            use finstack_valuations::cashflow::builder::{smm_to_cpr, DefaultModelSpec};
+            use finstack_cashflows::builder::{smm_to_cpr, DefaultModelSpec};
 
             let model = DefaultModelSpec::sda(1.0);
             let mdr = model.mdr(month).unwrap();
@@ -651,7 +651,7 @@ mod property_tests {
         /// Property: Zero PSA multiplier gives zero SMM
         #[test]
         fn psa_zero_multiplier_gives_zero(month in 0u32..500) {
-            use finstack_valuations::cashflow::builder::PrepaymentModelSpec;
+            use finstack_cashflows::builder::PrepaymentModelSpec;
 
             let model = PrepaymentModelSpec::psa(0.0);
             let smm = model.smm(month).unwrap();

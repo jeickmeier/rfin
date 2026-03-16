@@ -2,25 +2,9 @@
 
 pub use finstack_core::cashflow::Discountable;
 
-use crate::cashflow::builder::CashFlowSchedule;
-use finstack_core::dates::{Date, DayCount};
+use finstack_core::dates::Date;
 use finstack_core::market_data::term_structures::DiscountCurve;
-use finstack_core::market_data::traits::Discounting;
 use finstack_core::money::Money;
-
-impl Discountable for CashFlowSchedule {
-    type PVOutput = finstack_core::Result<Money>;
-
-    fn npv(
-        &self,
-        disc: &dyn Discounting,
-        base: Date,
-        dc: Option<DayCount>,
-    ) -> finstack_core::Result<Money> {
-        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
-        finstack_core::cashflow::npv(disc, base, dc, &flows)
-    }
-}
 
 /// Discount dated `Money` flows to `as_of` using the curve's own day-count and
 /// date-based discount factor calculation (**holder-view** semantics).

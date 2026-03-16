@@ -59,7 +59,7 @@ pub struct PeriodSchedule {
 ///
 /// ```rust
 /// use finstack_core::dates::{Date, Tenor, BusinessDayConvention, StubKind, create_date};
-/// use finstack_valuations::cashflow::builder::date_generation::build_dates;
+/// use finstack_cashflows::builder::date_generation::build_dates;
 /// use time::Month;
 ///
 /// let start = create_date(2025, Month::January, 15)?;

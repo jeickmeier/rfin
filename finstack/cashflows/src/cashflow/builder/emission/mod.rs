@@ -82,7 +82,7 @@ fn decimal_to_f64(value: rust_decimal::Decimal, _context: &str) -> finstack_core
 }
 
 // Re-export coupon emission (internal to builder module)
-pub(crate) use coupons::{emit_fixed_coupons_on, emit_float_coupons_on, emit_inflation_coupons};
+pub(crate) use coupons::{emit_fixed_coupons_on, emit_float_coupons_on};
 
 // Re-export amortization emission and types (internal to builder module)
 pub(super) use amortization::{emit_amortization_on, AmortizationParams};
@@ -95,6 +95,8 @@ pub(super) use helpers::compute_reset_date;
 
 // Re-export fee emission functions (used by revolving_credit engine and tests)
 pub use fees::{emit_commitment_fee_on, emit_facility_fee_on, emit_usage_fee_on};
+// Re-export inflation coupon emission for inflation-linked instruments.
+pub use coupons::emit_inflation_coupons;
 
 // Re-export credit event emission (used by credit model tests)
 pub use credit::{emit_default_on, emit_prepayment_on};

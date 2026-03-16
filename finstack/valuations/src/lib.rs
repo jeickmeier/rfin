@@ -296,7 +296,7 @@ extern crate self as finstack_valuations;
 /// Curve and surface calibration tooling.
 pub mod calibration;
 /// Cashflow schedule generation and builders.
-pub mod cashflow;
+pub use finstack_cashflows as cashflow;
 /// Shared numerical constants and basis point helpers.
 pub mod constants;
 /// Error types for pricing and valuation workflows.
