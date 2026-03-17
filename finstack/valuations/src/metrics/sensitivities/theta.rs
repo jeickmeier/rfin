@@ -322,7 +322,7 @@ pub fn calculate_theta_date(
 ///
 /// # Returns
 /// Sum of cashflow amounts in the period (converted to base currency)
-fn collect_cashflows_in_period(
+pub(crate) fn collect_cashflows_in_period(
     instrument: &dyn Instrument,
     curves: &finstack_core::market_data::context::MarketContext,
     start_date: Date,

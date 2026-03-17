@@ -246,7 +246,7 @@ impl PyInterestRateOptionBuilder {
         } else if let Ok(name) = kind.extract::<String>() {
             slf.rate_option_type = name
                 .parse::<RateOptionType>()
-                .map_err(|e| PyValueError::new_err(e))?;
+                .map_err(PyValueError::new_err)?;
         } else {
             return Err(PyTypeError::new_err("kind() expects RateOptionType or str"));
         }

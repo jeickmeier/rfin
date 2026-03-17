@@ -368,10 +368,7 @@ impl PyTranche {
 
     #[getter]
     fn target_balance(&self) -> Option<PyMoney> {
-        self.inner
-            .target_balance
-            .as_ref()
-            .map(|m| PyMoney::new(m.clone()))
+        self.inner.target_balance.as_ref().map(|m| PyMoney::new(*m))
     }
 
     #[getter]

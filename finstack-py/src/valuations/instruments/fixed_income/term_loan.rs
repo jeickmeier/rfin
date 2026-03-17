@@ -1183,7 +1183,7 @@ impl PyTermLoanBuilder {
         mut slf: PyRefMut<'py, Self>,
         ct: &'py PyCouponType,
     ) -> PyRefMut<'py, Self> {
-        slf.coupon_type = ct.inner.clone();
+        slf.coupon_type = ct.inner;
         slf
     }
 
@@ -1274,7 +1274,7 @@ impl PyTermLoanBuilder {
             .discount_curve_id(discount)
             .credit_curve_id_opt(slf.credit_curve.clone())
             .amortization(slf.amortization.clone())
-            .coupon_type(slf.coupon_type.clone())
+            .coupon_type(slf.coupon_type)
             .upfront_fee_opt(slf.upfront_fee)
             .ddtl_opt(slf.ddtl.clone())
             .covenants_opt(slf.covenants.clone())

@@ -27,9 +27,11 @@ use super::helpers::*;
 use super::model_params;
 use super::types::*;
 use crate::instruments::common_impl::traits::Instrument;
+use crate::metrics::sensitivities::theta::collect_cashflows_in_period;
 use finstack_core::config::FinstackConfig;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::Result;
 use std::sync::Arc;
 
@@ -207,6 +209,23 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     num_repricings += 1;
 
     attribution.carry = compute_pnl(val_t0, val_carry, val_t1.currency(), market_t1, as_of_t1)?;
+    let coupon_income = collect_cashflows_in_period(
+        instrument.as_ref(),
+        &market_frozen,
+        as_of_t0,
+        as_of_t1,
+        val_t1.currency(),
+    )
+    .ok()
+    .map(|value| Money::new(value, val_t1.currency()));
+    attribution.carry_detail = Some(CarryDetail {
+        total: attribution.carry,
+        coupon_income,
+        pull_to_par: None,
+        roll_down: None,
+        funding_cost: None,
+        theta: Some(attribution.carry),
+    });
 
     // Step 3: Rates curves attribution (discount + forward)
     let rates_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::RATES);

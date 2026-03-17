@@ -949,7 +949,7 @@ impl PyConvertibleBond {
         bump_size: Option<f64>,
     ) -> PyResult<PyConvertibleGreeks> {
         let date = py_to_date(&as_of)?;
-        let tt = tree_type.map(|t| t.inner.clone());
+        let tt = tree_type.map(|t| t.inner);
         let result = py
             .detach(|| self.inner.greeks(&market.inner, tt, bump_size, date))
             .map_err(core_to_py)?;

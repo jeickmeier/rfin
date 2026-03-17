@@ -397,6 +397,7 @@ fn generate_tornado_chart(
 #[pyo3(
     signature = (model, target_node, target_period, target_value, driver_node, driver_period=None, update_model=true, bounds=None)
 )]
+#[allow(clippy::too_many_arguments)]
 fn goal_seek(
     model: &mut PyFinancialModelSpec,
     target_node: &str,

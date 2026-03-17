@@ -545,7 +545,7 @@ impl PyInterestRateSwapBuilder {
         } else if let Ok(s) = compounding.extract::<&str>() {
             slf.compounding = Some(
                 s.parse::<FloatingLegCompounding>()
-                    .map_err(|e| PyValueError::new_err(e))?,
+                    .map_err(PyValueError::new_err)?,
             );
         } else {
             return Err(pyo3::exceptions::PyTypeError::new_err(
@@ -563,10 +563,7 @@ impl PyInterestRateSwapBuilder {
         if let Ok(m) = method.extract::<PyRef<PyParRateMethod>>() {
             slf.par_method = Some(m.inner);
         } else if let Ok(s) = method.extract::<&str>() {
-            slf.par_method = Some(
-                s.parse::<ParRateMethod>()
-                    .map_err(|e| PyValueError::new_err(e))?,
-            );
+            slf.par_method = Some(s.parse::<ParRateMethod>().map_err(PyValueError::new_err)?);
         } else {
             return Err(pyo3::exceptions::PyTypeError::new_err(
                 "Expected ParRateMethod or string",

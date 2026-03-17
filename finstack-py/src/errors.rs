@@ -329,8 +329,13 @@ impl<T> PyContext<T> for PyResult<T> {
 mod tests {
     use super::*;
 
+    fn init_python() {
+        Python::initialize();
+    }
+
     #[test]
     fn test_exception_hierarchy() -> PyResult<()> {
+        init_python();
         Python::attach(|py| -> PyResult<()> {
             // Create a test module to register exceptions
             let m = PyModule::new(py, "test_module")?;
@@ -349,6 +354,7 @@ mod tests {
 
     #[test]
     fn test_currency_mismatch_mapping() {
+        init_python();
         use finstack_core::currency::Currency;
 
         let err = CoreError::CurrencyMismatch {
@@ -364,6 +370,7 @@ mod tests {
 
     #[test]
     fn test_calibration_error_mapping() {
+        init_python();
         let err = CoreError::Calibration {
             message: "Failed to fit quotes".to_string(),
             category: "yield_curve".to_string(),

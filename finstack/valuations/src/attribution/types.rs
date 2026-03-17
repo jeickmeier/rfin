@@ -376,37 +376,46 @@ pub struct ModelParamsAttribution {
 /// Detailed carry decomposition.
 ///
 /// When available, breaks carry into sub-components:
-/// - **theta**: Pure time decay at constant curve shape
-/// - **roll_down**: Benefit from curve slope (moving down the term structure)
+/// - **coupon_income**: Net cashflows (coupons, interest) received during the period
+/// - **pull_to_par**: PV convergence toward par (time effect at flat yield)
+/// - **roll_down**: Curve shape benefit from aging along a sloped curve
+/// - **funding_cost**: Cost of financing the position
+/// - **theta**: Legacy field for total pre-funding carry
 ///
-/// In metrics-based attribution, theta comes from the pre-computed Theta metric
-/// and roll-down is estimated as `total - theta`. In parallel/waterfall attribution,
-/// only the total is available (theta/roll_down require a second repricing or
-/// pre-computed metrics).
+/// In metrics-based attribution, these fields are populated from pre-computed
+/// carry decomposition metrics when available. In repricing-based attribution
+/// methods, only a partial breakdown may be available.
 ///
 /// # Reference
 ///
 /// Bloomberg PORT decomposes carry into Carry (coupon/funding), Curve Roll-Down,
-/// and Shift as distinct P&L components. This struct captures the first two.
+/// and Shift as distinct P&L components.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CarryDetail {
-    /// Total carry P&L (theta + roll_down + other time effects).
+    /// Total carry P&L (sum of all components).
     pub total: Money,
 
-    /// Pure time decay component (from Theta metric if available).
-    ///
-    /// Theta represents the P&L from the passage of time at constant curve shape:
-    /// coupon accrual, option decay, funding cost.
+    /// Coupon/interest income received during the period.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub theta: Option<Money>,
+    pub coupon_income: Option<Money>,
 
-    /// Curve roll-down component (total - theta).
+    /// PV convergence toward par (time effect at flat yield).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pull_to_par: Option<Money>,
+
+    /// Curve shape benefit from aging along a sloped curve.
     ///
-    /// Roll-down represents the P&L from moving down a positively-sloped curve:
-    /// the instrument's remaining life shortens, and it benefits from lower
-    /// discount rates at shorter tenors.
+    /// This field includes slide/rolldown effects separate from pure pull-to-par.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub roll_down: Option<Money>,
+
+    /// Cost of financing the position.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding_cost: Option<Money>,
+
+    /// Legacy theta field retained for backward compatibility.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub theta: Option<Money>,
 }
 
 /// Detailed attribution for market scalars.
@@ -577,8 +586,11 @@ impl PnlAttribution {
 
         if let Some(d) = &mut self.carry_detail {
             d.total *= factor;
+            scale_money_opt(&mut d.coupon_income, factor);
+            scale_money_opt(&mut d.pull_to_par, factor);
             scale_money_opt(&mut d.theta, factor);
             scale_money_opt(&mut d.roll_down, factor);
+            scale_money_opt(&mut d.funding_cost, factor);
         }
         if let Some(d) = &mut self.rates_detail {
             scale_money_map(&mut d.by_curve, factor);
@@ -836,11 +848,20 @@ impl PnlAttribution {
         if show(&self.carry) {
             lines.push(format!("  ├─ Carry: {}", fmt(&self.carry, &self.total_pnl)));
             if let Some(ref detail) = self.carry_detail {
+                if let Some(ref coupon_income) = detail.coupon_income {
+                    lines.push(format!("  │   ├─ Coupon Income: {}", coupon_income));
+                }
+                if let Some(ref pull_to_par) = detail.pull_to_par {
+                    lines.push(format!("  │   ├─ Pull-to-Par: {}", pull_to_par));
+                }
                 if let Some(ref theta) = detail.theta {
-                    lines.push(format!("  │   ├─ Theta: {}", theta));
+                    lines.push(format!("  │   ├─ Theta (legacy): {}", theta));
                 }
                 if let Some(ref roll_down) = detail.roll_down {
-                    lines.push(format!("  │   └─ Roll-Down: {}", roll_down));
+                    lines.push(format!("  │   ├─ Roll-Down: {}", roll_down));
+                }
+                if let Some(ref funding_cost) = detail.funding_cost {
+                    lines.push(format!("  │   └─ Funding Cost: {}", funding_cost));
                 }
             }
         }
@@ -1012,4 +1033,51 @@ fn add_factor(sum: Money, value: Money, label: &str, notes: &mut Vec<String>) ->
         notes.push(note.clone());
         e
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+    use time::macros::date;
+
+    #[test]
+    fn test_carry_detail_scale_and_explain_include_decomposition_fields() {
+        let mut attribution = PnlAttribution::new(
+            Money::new(10.0, Currency::USD),
+            "BOND-1",
+            date!(2025 - 01 - 15),
+            date!(2025 - 02 - 15),
+            AttributionMethod::MetricsBased,
+        );
+        attribution.carry = Money::new(10.0, Currency::USD);
+        attribution.carry_detail = Some(CarryDetail {
+            total: Money::new(10.0, Currency::USD),
+            coupon_income: Some(Money::new(3.0, Currency::USD)),
+            pull_to_par: Some(Money::new(4.0, Currency::USD)),
+            roll_down: Some(Money::new(5.0, Currency::USD)),
+            funding_cost: Some(Money::new(2.0, Currency::USD)),
+            theta: Some(Money::new(12.0, Currency::USD)),
+        });
+
+        attribution.scale(0.5);
+
+        let detail = attribution.carry_detail.expect("carry detail");
+        assert_eq!(detail.total.amount(), 5.0);
+        assert_eq!(detail.coupon_income.expect("coupon income").amount(), 1.5);
+        assert_eq!(detail.pull_to_par.expect("pull to par").amount(), 2.0);
+        assert_eq!(detail.roll_down.expect("roll down").amount(), 2.5);
+        assert_eq!(detail.funding_cost.expect("funding cost").amount(), 1.0);
+        assert_eq!(detail.theta.expect("theta").amount(), 6.0);
+
+        attribution.carry_detail = Some(detail);
+        let explanation = attribution.explain_verbose();
+        assert!(explanation.contains("Coupon Income"));
+        assert!(explanation.contains("Pull-to-Par"));
+        assert!(explanation.contains("Roll-Down"));
+        assert!(explanation.contains("Funding Cost"));
+        assert!(explanation.contains("Theta (legacy)"));
+    }
 }

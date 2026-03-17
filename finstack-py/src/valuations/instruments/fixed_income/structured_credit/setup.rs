@@ -371,7 +371,7 @@ impl PyDealDates {
     ) -> PyResult<Self> {
         let freq = frequency
             .map(|f| f.0)
-            .unwrap_or_else(|| finstack_core::dates::Tenor::quarterly());
+            .unwrap_or_else(finstack_core::dates::Tenor::quarterly);
         Ok(Self {
             inner: RustDealDates {
                 closing_date: py_to_date(closing_date)?,
@@ -560,9 +560,12 @@ impl PyMarketConditions {
     #[new]
     #[pyo3(signature = (refi_rate = 0.0))]
     fn new(refi_rate: f64) -> Self {
-        let mut inner = RustMarketConditions::default();
-        inner.refi_rate = refi_rate;
-        Self { inner }
+        Self {
+            inner: RustMarketConditions {
+                refi_rate,
+                ..RustMarketConditions::default()
+            },
+        }
     }
 
     #[getter]

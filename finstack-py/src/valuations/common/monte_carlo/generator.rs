@@ -52,6 +52,7 @@ impl PyMonteCarloPathGenerator {
     /// Returns:
     ///     PathDataset with generated paths
     #[pyo3(signature = (initial_spot, r, q, sigma, time_to_maturity, num_steps, num_paths, capture_mode="all", sample_count=None, seed=42))]
+    #[allow(clippy::too_many_arguments)]
     fn generate_gbm_paths(
         &self,
         initial_spot: f64,

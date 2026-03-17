@@ -466,6 +466,7 @@ impl PyModelBuilder {
     /// Returns
     /// -------
     /// None
+    #[allow(clippy::too_many_arguments)]
     fn add_bond_with_convention(
         &mut self,
         id: String,

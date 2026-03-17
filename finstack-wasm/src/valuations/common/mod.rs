@@ -25,7 +25,7 @@ pub(crate) fn f64_to_decimal(
     field: &str,
 ) -> Result<rust_decimal::Decimal, wasm_bindgen::JsValue> {
     finstack_valuations::utils::decimal::f64_to_decimal(value, field)
-        .map_err(|e| crate::core::error::core_to_js(e))
+        .map_err(crate::core::error::core_to_js)
 }
 
 /// Convert an `Option<f64>` to [`rust_decimal::Decimal`], using zero for `None`

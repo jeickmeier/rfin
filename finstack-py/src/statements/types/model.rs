@@ -542,6 +542,7 @@ impl PyFinancialModelSpec {
     /// ...     driver_node="revenue",
     /// ... )
     /// >>> print(f"Revenue needed: ${solved:,.2f}")
+    #[allow(clippy::too_many_arguments)]
     fn goal_seek(
         &mut self,
         target_node: &str,

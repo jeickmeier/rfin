@@ -37,6 +37,7 @@ use super::helpers::*;
 use super::model_params;
 use super::types::*;
 use crate::instruments::common_impl::traits::Instrument;
+use crate::metrics::sensitivities::theta::collect_cashflows_in_period;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -247,7 +248,26 @@ fn attribute_pnl_waterfall_impl(
 
         // Record factor P&L
         match factor {
-            AttributionFactor::Carry => attribution.carry = factor_pnl,
+            AttributionFactor::Carry => {
+                attribution.carry = factor_pnl;
+                let coupon_income = collect_cashflows_in_period(
+                    ctx.current_instrument.as_ref(),
+                    &ctx.current_market,
+                    ctx.as_of_t0,
+                    ctx.as_of_t1,
+                    factor_pnl.currency(),
+                )
+                .ok()
+                .map(|value| Money::new(value, factor_pnl.currency()));
+                attribution.carry_detail = Some(CarryDetail {
+                    total: factor_pnl,
+                    coupon_income,
+                    pull_to_par: None,
+                    roll_down: None,
+                    funding_cost: None,
+                    theta: Some(factor_pnl),
+                });
+            }
             AttributionFactor::RatesCurves => attribution.rates_curves_pnl = factor_pnl,
             AttributionFactor::CreditCurves => attribution.credit_curves_pnl = factor_pnl,
             AttributionFactor::InflationCurves => attribution.inflation_curves_pnl = factor_pnl,

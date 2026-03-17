@@ -10,11 +10,30 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::attribution::{attribute_pnl_parallel, AttributionMethod};
+use finstack_valuations::attribution::{
+    attribute_pnl_metrics_based, attribute_pnl_parallel, AttributionMethod,
+};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::Instrument;
+use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;
 use time::Month;
+
+fn flat_curve(id: &str, base_date: finstack_core::dates::Date, rate: f64) -> DiscountCurve {
+    let knots: Vec<(f64, f64)> = (0..=20)
+        .map(|i| {
+            let t = i as f64 * 0.5;
+            (t, (-rate * t).exp())
+        })
+        .collect();
+
+    DiscountCurve::builder(id)
+        .base_date(base_date)
+        .knots(knots)
+        .interp(InterpStyle::LogLinear)
+        .build()
+        .unwrap()
+}
 
 #[test]
 fn test_bond_attribution_parallel() {
@@ -157,4 +176,113 @@ fn test_bond_attribution_structure() {
         attribution.meta.method,
         AttributionMethod::Parallel
     ));
+}
+
+#[test]
+fn test_metrics_based_bond_attribution_populates_carry_decomposition() {
+    let as_of_t0 = create_date(2025, Month::January, 15).unwrap();
+    let as_of_t1 = create_date(2025, Month::January, 16).unwrap();
+
+    let bond = Bond::fixed(
+        "US-BOND-CARRY",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        create_date(2025, Month::January, 15).unwrap(),
+        create_date(2030, Month::January, 15).unwrap(),
+        "USD-OIS",
+    )
+    .unwrap();
+
+    let market_t0 = MarketContext::new().insert(flat_curve("USD-OIS", as_of_t0, 0.05));
+    let market_t1 = MarketContext::new().insert(flat_curve("USD-OIS", as_of_t1, 0.05));
+
+    let metrics = [
+        MetricId::Theta,
+        MetricId::CarryTotal,
+        MetricId::CouponIncome,
+        MetricId::PullToPar,
+        MetricId::RollDown,
+        MetricId::FundingCost,
+    ];
+    let val_t0 = bond
+        .price_with_metrics(&market_t0, as_of_t0, &metrics)
+        .unwrap();
+    let val_t1 = bond.price_with_metrics(&market_t1, as_of_t1, &[]).unwrap();
+
+    let instrument: Arc<dyn Instrument> = Arc::new(bond);
+    let attribution = attribute_pnl_metrics_based(
+        &instrument,
+        &market_t0,
+        &market_t1,
+        &val_t0,
+        &val_t1,
+        as_of_t0,
+        as_of_t1,
+    )
+    .unwrap();
+
+    let detail = attribution.carry_detail.clone().expect("carry detail");
+    assert!(detail.coupon_income.is_some());
+    assert!(detail.pull_to_par.is_some());
+    assert!(detail.roll_down.is_some());
+    assert!(detail.funding_cost.is_some());
+
+    let coupon_income = detail.coupon_income.unwrap().amount();
+    let pull_to_par = detail.pull_to_par.unwrap().amount();
+    let roll_down = detail.roll_down.unwrap().amount();
+    let funding_cost = detail.funding_cost.unwrap().amount();
+    let total = detail.total.amount();
+    assert!((total - (coupon_income + pull_to_par + roll_down - funding_cost)).abs() < 1e-6);
+    assert_eq!(
+        detail.theta.expect("legacy theta").currency(),
+        Currency::USD
+    );
+}
+
+#[test]
+fn test_metrics_based_bond_attribution_without_carry_metrics_keeps_legacy_shape() {
+    let as_of_t0 = create_date(2025, Month::January, 15).unwrap();
+    let as_of_t1 = create_date(2025, Month::January, 16).unwrap();
+
+    let bond = Bond::fixed(
+        "US-BOND-LEGACY-CARRY",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        create_date(2025, Month::January, 15).unwrap(),
+        create_date(2030, Month::January, 15).unwrap(),
+        "USD-OIS",
+    )
+    .unwrap();
+
+    let market_t0 = MarketContext::new().insert(flat_curve("USD-OIS", as_of_t0, 0.05));
+    let market_t1 = MarketContext::new().insert(flat_curve("USD-OIS", as_of_t1, 0.05));
+
+    let val_t0 = bond
+        .price_with_metrics(&market_t0, as_of_t0, &[MetricId::Theta])
+        .unwrap();
+    let val_t1 = bond.price_with_metrics(&market_t1, as_of_t1, &[]).unwrap();
+
+    let instrument: Arc<dyn Instrument> = Arc::new(bond);
+    let attribution = attribute_pnl_metrics_based(
+        &instrument,
+        &market_t0,
+        &market_t1,
+        &val_t0,
+        &val_t1,
+        as_of_t0,
+        as_of_t1,
+    )
+    .unwrap();
+
+    let detail = attribution.carry_detail.clone().expect("carry detail");
+    assert!(detail.coupon_income.is_none());
+    assert!(detail.pull_to_par.is_none());
+    assert!(detail.roll_down.is_none());
+    assert!(detail.funding_cost.is_none());
+    assert!(detail.theta.is_some());
+
+    let mut scaled = attribution.clone();
+    scaled.scale(0.5);
+    let scaled_detail = scaled.carry_detail.expect("scaled carry detail");
+    assert!((scaled_detail.total.amount() * 2.0 - detail.total.amount()).abs() < 1e-6);
 }

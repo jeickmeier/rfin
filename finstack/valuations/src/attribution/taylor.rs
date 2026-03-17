@@ -271,8 +271,11 @@ pub fn attribute_pnl_taylor_compat(
             attribution.carry = factor_money;
             attribution.carry_detail = Some(CarryDetail {
                 total: factor_money,
+                coupon_income: None,
+                pull_to_par: None,
                 theta: Some(factor_money),
                 roll_down: None,
+                funding_cost: None,
             });
         }
     }

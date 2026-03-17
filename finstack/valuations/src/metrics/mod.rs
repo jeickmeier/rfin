@@ -212,6 +212,9 @@ pub use sensitivities::config::format_bucket_label;
 pub(crate) use core::finite_difference::{
     bump_discount_curve_parallel, bump_scalar_price, bump_sizes, bump_surface_vol_absolute,
 };
+pub(crate) use sensitivities::carry_decomposition::{
+    CarryComponentLookup, CarryDecompositionCalculator,
+};
 pub(crate) use sensitivities::config::from_finstack_config_or_default as resolve_sensitivities_config;
 pub(crate) use sensitivities::cs01::{
     GenericBucketedCs01, GenericBucketedCs01Hazard, GenericParallelCs01, GenericParallelCs01Hazard,
@@ -452,6 +455,31 @@ fn register_universal_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::ThetaDecay,
         std::sync::Arc::new(ThetaComponentLookup(MetricId::ThetaDecay)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::CarryTotal,
+        std::sync::Arc::new(CarryDecompositionCalculator),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::CouponIncome,
+        std::sync::Arc::new(CarryComponentLookup(MetricId::CouponIncome)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::PullToPar,
+        std::sync::Arc::new(CarryComponentLookup(MetricId::PullToPar)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::RollDown,
+        std::sync::Arc::new(CarryComponentLookup(MetricId::RollDown)),
+        &[],
+    );
+    registry.register_metric(
+        MetricId::FundingCost,
+        std::sync::Arc::new(CarryComponentLookup(MetricId::FundingCost)),
         &[],
     );
     registry.register_metric(
