@@ -99,13 +99,7 @@ impl GbmParams {
         Self { r, q, sigma }
     }
 
-    /// Create from market-implied parameters.
-    ///
-    /// # Arguments
-    ///
-    /// * `r` - Risk-free rate
-    /// * `q` - Dividend yield
-    /// * `sigma` - Implied volatility
+    /// Compatibility constructor retained for existing callers.
     pub fn from_market(r: f64, q: f64, sigma: f64) -> Self {
         Self::new(r, q, sigma)
     }
@@ -276,7 +270,7 @@ impl StochasticProcess for MultiGbmProcess {
             state.set(state_keys::SPOT, spot);
         }
         for (i, &spot) in x.iter().enumerate() {
-            state.set(state_keys::indexed_spot(i), spot);
+            state.set_indexed_spot(i, spot);
         }
     }
 }

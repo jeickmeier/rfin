@@ -137,7 +137,10 @@ impl std::fmt::Display for Estimate {
 
 // MoneyEstimate moved to instruments::common::models::monte_carlo::results
 
-/// Convergence diagnostics for Monte Carlo simulation.
+/// Compatibility type for bindings that still expose Monte Carlo diagnostics.
+///
+/// The engine does not currently populate this structure, but it remains part of
+/// the public API while downstream bindings and stubs still import it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConvergenceDiagnostics {
     /// Stderr decay rate (should be ~-0.5 for MC)
