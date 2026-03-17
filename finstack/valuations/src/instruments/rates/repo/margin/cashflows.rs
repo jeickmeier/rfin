@@ -1,10 +1,10 @@
 //! Margin cashflow generation for repos.
 
-use super::spec::RepoMarginSpec;
 use crate::margin::types::MarginCall;
 use finstack_core::cashflow::{CFKind, CashFlow};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_margin::RepoMarginSpec;
 
 /// Generate margin-related cashflows for a repo.
 ///
@@ -143,6 +143,13 @@ pub fn margin_calls_to_cashflows(calls: &[MarginCall]) -> Vec<CashFlow> {
                 }
                 crate::margin::MarginCallType::TopUp => CFKind::VariationMarginPay,
                 crate::margin::MarginCallType::Substitution => CFKind::CollateralSubstitutionOut,
+                _ => {
+                    tracing::warn!(
+                        call_type = %call.call_type,
+                        "unrecognized margin call type in repo cashflow bridge; defaulting to variation margin pay"
+                    );
+                    CFKind::VariationMarginPay
+                }
             };
 
             CashFlow {

@@ -13,6 +13,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 finstack-core = { path = "../finstack/core" }
+finstack-margin = { path = "../finstack/margin" }
 finstack-statements = { path = "../finstack/statements" }
 finstack-valuations = { path = "../finstack/valuations", default-features = false, features = ["mc"] }
 finstack-scenarios = { path = "../finstack/scenarios" }

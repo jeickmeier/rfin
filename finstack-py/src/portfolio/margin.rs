@@ -7,11 +7,11 @@ use crate::core::money::PyMoney;
 use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::extract_portfolio;
 use crate::portfolio::types::extract_position;
+use finstack_margin::{ImMethodology, NettingSetId, SimmSensitivities};
 use finstack_portfolio::margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,
 };
-use finstack_valuations::margin::{ImMethodology, NettingSetId};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
@@ -370,10 +370,9 @@ impl PyNettingSetManager {
         netting_set_id: &PyNettingSetId,
         sensitivities: &Bound<'_, PyAny>,
     ) -> PyResult<()> {
-        let sens: finstack_valuations::margin::SimmSensitivities = depythonize(sensitivities)
-            .map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid sensitivities: {}", e))
-            })?;
+        let sens: SimmSensitivities = depythonize(sensitivities).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid sensitivities: {}", e))
+        })?;
         self.inner.merge_sensitivities(&netting_set_id.inner, &sens);
         Ok(())
     }
@@ -417,10 +416,9 @@ impl PyNettingSet {
     }
 
     fn merge_sensitivities(&mut self, sensitivities: &Bound<'_, PyAny>) -> PyResult<()> {
-        let sens: finstack_valuations::margin::SimmSensitivities = depythonize(sensitivities)
-            .map_err(|e| {
-                pyo3::exceptions::PyValueError::new_err(format!("Invalid sensitivities: {}", e))
-            })?;
+        let sens: SimmSensitivities = depythonize(sensitivities).map_err(|e| {
+            pyo3::exceptions::PyValueError::new_err(format!("Invalid sensitivities: {}", e))
+        })?;
         self.inner.merge_sensitivities(&sens);
         Ok(())
     }

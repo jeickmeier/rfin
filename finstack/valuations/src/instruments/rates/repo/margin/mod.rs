@@ -25,7 +25,11 @@
 //! - Close-out and netting provisions
 
 mod cashflows;
-mod spec;
+
+/// Backward-compatible nested repo margin type exports.
+pub mod spec {
+    pub use finstack_margin::{RepoMarginSpec, RepoMarginType};
+}
 
 pub use cashflows::*;
-pub use spec::*;
+pub use finstack_margin::{RepoMarginSpec, RepoMarginType};

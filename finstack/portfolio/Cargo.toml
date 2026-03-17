@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core", features = ["golden"] }
+finstack-margin = { path = "../margin" }
 finstack-valuations = { path = "../valuations" }
 finstack-scenarios = { path = "../scenarios", optional = true }
 finstack-statements = { path = "../statements", optional = true }

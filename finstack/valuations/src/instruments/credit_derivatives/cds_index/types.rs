@@ -482,7 +482,7 @@ impl CDSIndex {
 impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
     impl_instrument_base!(crate::pricer::InstrumentType::CDSIndex);
 
-    fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
+    fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
     fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {

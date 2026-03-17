@@ -1,0 +1,29 @@
+[package]
+name = "finstack-margin"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Margin, collateral, and XVA primitives for Finstack"
+
+[dependencies]
+finstack-core = { path = "../core" }
+finstack-monte-carlo = { path = "../monte_carlo", default-features = false, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true, features = ["raw_value"] }
+time = { workspace = true }
+rust_decimal = { workspace = true }
+tracing = { version = "0.1", default-features = false, features = ["attributes"] }
+thiserror = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+nalgebra = { version = "0.34", optional = true }
+
+[dev-dependencies]
+time = { workspace = true, features = ["macros"] }
+rust_decimal_macros = { workspace = true }
+
+[features]
+default = []
+mc = ["dep:nalgebra", "dep:finstack-monte-carlo", "finstack-monte-carlo/advanced"]

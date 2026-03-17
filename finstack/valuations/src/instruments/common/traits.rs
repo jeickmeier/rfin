@@ -769,16 +769,16 @@ pub trait Instrument: Send + Sync {
         // Default no-op
     }
 
-    /// Expose this instrument as a [`Marginable`](crate::margin::traits::Marginable) when supported.
+    /// Expose this instrument as a [`finstack_margin::Marginable`] when supported.
     ///
     /// This hook enables the portfolio margin aggregator to obtain margin
     /// sensitivities without relying on manual downcasting for each concrete
     /// instrument type.
     ///
-    /// Instruments that implement [`Marginable`](crate::margin::traits::Marginable) should override
+    /// Instruments that implement [`finstack_margin::Marginable`] should override
     /// this method to return `Some(self)`. The default implementation returns
     /// `None`, indicating that the instrument does not support margin calculations.
-    fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
+    fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         None
     }
 

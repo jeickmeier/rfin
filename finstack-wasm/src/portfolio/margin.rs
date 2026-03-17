@@ -6,11 +6,11 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::core::money::JsMoney;
 use crate::portfolio::positions::JsPortfolio;
 use crate::portfolio::types::JsPosition;
+use finstack_margin::{NettingSetId, SimmSensitivities};
 use finstack_portfolio::margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,
 };
-use finstack_valuations::margin::NettingSetId;
 use js_sys::{Array, Object};
 use wasm_bindgen::prelude::*;
 
@@ -116,9 +116,8 @@ impl JsNettingSet {
     /// Merge SIMM sensitivities into the netting set.
     #[wasm_bindgen(js_name = mergeSensitivities)]
     pub fn merge_sensitivities(&mut self, sensitivities: JsValue) -> Result<(), JsValue> {
-        let sens: finstack_valuations::margin::SimmSensitivities =
-            serde_wasm_bindgen::from_value(sensitivities)
-                .map_err(|e| JsValue::from_str(&format!("Invalid sensitivities: {}", e)))?;
+        let sens: SimmSensitivities = serde_wasm_bindgen::from_value(sensitivities)
+            .map_err(|e| JsValue::from_str(&format!("Invalid sensitivities: {}", e)))?;
         self.inner.merge_sensitivities(&sens);
         Ok(())
     }

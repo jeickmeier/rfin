@@ -3,7 +3,7 @@
 use crate::core::dates::FsDate;
 use crate::core::money::JsMoney;
 use crate::valuations::margin::csa::JsCsaSpec;
-use finstack_valuations::margin::{VmCalculator, VmResult};
+use finstack_margin::{VmCalculator, VmResult};
 use wasm_bindgen::prelude::*;
 
 /// Variation margin calculation result.

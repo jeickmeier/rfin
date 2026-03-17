@@ -1,13 +1,13 @@
 //! Margin type bindings.
 //!
-//! This module exposes the core margin types from `finstack_valuations::margin` as thin
+//! This module exposes the core margin types from `finstack-margin` as thin
 //! Python wrappers. No Python-side margin logic is implemented here.
 
 use crate::core::currency::PyCurrency;
 use crate::core::money::PyMoney;
 use finstack_core::currency::Currency;
 use finstack_core::types::CurveId;
-use finstack_valuations::margin::{
+use finstack_margin::{
     CsaSpec, EligibleCollateralSchedule, ImMethodology, ImParameters, MarginCallTiming,
     MarginTenor, VmParameters,
 };

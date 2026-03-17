@@ -1,7 +1,8 @@
 //! Python bindings for the XVA (Valuation Adjustments) framework.
 //!
 //! Wraps CVA computation, exposure profiling, netting, and collateral
-//! from `finstack_valuations::xva`.
+//! from `finstack-margin`, using the valuations compatibility bridge only
+//! where instrument-based exposure APIs are still required.
 
 use crate::core::currency::{extract_currency, PyCurrency};
 use crate::core::dates::utils::py_to_date;
@@ -9,13 +10,13 @@ use crate::core::market_data::context::PyMarketContext;
 use crate::core::market_data::term_structures::{PyDiscountCurve, PyHazardCurve};
 use crate::errors::core_to_py;
 use crate::valuations::instruments::extract_instrument;
+use finstack_margin::xva as margin_xva;
+use finstack_valuations::xva::exposure as valuations_exposure;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList, PyModule};
 use pyo3::Bound;
 use std::sync::Arc;
-
-use finstack_valuations::xva;
 
 // ---------------------------------------------------------------------------
 // FundingConfig
@@ -30,7 +31,7 @@ use finstack_valuations::xva;
 )]
 #[derive(Clone)]
 pub struct PyFundingConfig {
-    pub(crate) inner: xva::types::FundingConfig,
+    pub(crate) inner: margin_xva::types::FundingConfig,
 }
 
 #[pymethods]
@@ -39,7 +40,7 @@ impl PyFundingConfig {
     #[pyo3(signature = (funding_spread_bps, funding_benefit_bps=None))]
     fn new(funding_spread_bps: f64, funding_benefit_bps: Option<f64>) -> Self {
         Self {
-            inner: xva::types::FundingConfig {
+            inner: margin_xva::types::FundingConfig {
                 funding_spread_bps,
                 funding_benefit_bps,
             },
@@ -87,7 +88,7 @@ impl PyFundingConfig {
 )]
 #[derive(Clone)]
 pub struct PyXvaConfig {
-    pub(crate) inner: xva::types::XvaConfig,
+    pub(crate) inner: margin_xva::types::XvaConfig,
 }
 
 #[pymethods]
@@ -101,7 +102,7 @@ impl PyXvaConfig {
         funding: Option<PyFundingConfig>,
     ) -> PyResult<Self> {
         let time_grid = time_grid.unwrap_or_else(|| (1..=120).map(|i| i as f64 * 0.25).collect());
-        let inner = xva::types::XvaConfig {
+        let inner = margin_xva::types::XvaConfig {
             time_grid,
             recovery_rate,
             own_recovery_rate,
@@ -168,7 +169,7 @@ impl PyXvaConfig {
 )]
 #[derive(Clone)]
 pub struct PyCsaTerms {
-    pub(crate) inner: xva::types::CsaTerms,
+    pub(crate) inner: margin_xva::types::CsaTerms,
 }
 
 #[pymethods]
@@ -177,7 +178,7 @@ impl PyCsaTerms {
     #[pyo3(signature = (threshold, mta, mpor_days=10, independent_amount=0.0))]
     fn new(threshold: f64, mta: f64, mpor_days: u32, independent_amount: f64) -> Self {
         Self {
-            inner: xva::types::CsaTerms {
+            inner: margin_xva::types::CsaTerms {
                 threshold,
                 mta,
                 mpor_days,
@@ -235,7 +236,7 @@ impl PyCsaTerms {
 )]
 #[derive(Clone)]
 pub struct PyNettingSet {
-    pub(crate) inner: xva::types::NettingSet,
+    pub(crate) inner: margin_xva::types::NettingSet,
 }
 
 #[pymethods]
@@ -253,7 +254,7 @@ impl PyNettingSet {
             None => None,
         };
         Ok(Self {
-            inner: xva::types::NettingSet {
+            inner: margin_xva::types::NettingSet {
                 id,
                 counterparty_id,
                 csa: csa.map(|c| c.inner),
@@ -304,7 +305,7 @@ impl PyNettingSet {
 )]
 #[derive(Clone)]
 pub struct PyExposureDiagnostics {
-    pub(crate) inner: xva::types::ExposureDiagnostics,
+    pub(crate) inner: margin_xva::types::ExposureDiagnostics,
 }
 
 #[pymethods]
@@ -316,7 +317,7 @@ impl PyExposureDiagnostics {
         total_time_points: usize,
     ) -> Self {
         Self {
-            inner: xva::types::ExposureDiagnostics {
+            inner: margin_xva::types::ExposureDiagnostics {
                 market_roll_failures,
                 valuation_failures,
                 total_time_points,
@@ -368,7 +369,7 @@ impl PyExposureDiagnostics {
 )]
 #[derive(Clone)]
 pub struct PyExposureProfile {
-    pub(crate) inner: xva::types::ExposureProfile,
+    pub(crate) inner: margin_xva::types::ExposureProfile,
 }
 
 #[pymethods]
@@ -426,7 +427,7 @@ impl PyExposureProfile {
 )]
 #[derive(Clone)]
 pub struct PyStochasticExposureConfig {
-    pub(crate) inner: xva::types::StochasticExposureConfig,
+    pub(crate) inner: margin_xva::types::StochasticExposureConfig,
 }
 
 #[pymethods]
@@ -434,7 +435,7 @@ impl PyStochasticExposureConfig {
     #[new]
     #[pyo3(signature = (num_paths=10_000, seed=42, pfe_quantile=0.975))]
     fn new(num_paths: usize, seed: u64, pfe_quantile: f64) -> PyResult<Self> {
-        let inner = xva::types::StochasticExposureConfig {
+        let inner = margin_xva::types::StochasticExposureConfig {
             num_paths,
             seed,
             pfe_quantile,
@@ -479,7 +480,7 @@ impl PyStochasticExposureConfig {
 )]
 #[derive(Clone)]
 pub struct PyStochasticExposureProfile {
-    pub(crate) inner: xva::types::StochasticExposureProfile,
+    pub(crate) inner: margin_xva::types::StochasticExposureProfile,
 }
 
 #[pymethods]
@@ -491,7 +492,7 @@ impl PyStochasticExposureProfile {
         path_count: usize,
         pfe_quantile: f64,
     ) -> PyResult<Self> {
-        let inner = xva::types::StochasticExposureProfile {
+        let inner = margin_xva::types::StochasticExposureProfile {
             profile: profile.inner,
             pfe_profile,
             path_count,
@@ -560,7 +561,7 @@ impl PyStochasticExposureProfile {
 )]
 #[derive(Clone)]
 pub struct PyXvaResult {
-    inner: xva::types::XvaResult,
+    inner: margin_xva::types::XvaResult,
 }
 
 #[pymethods]
@@ -636,7 +637,7 @@ impl PyXvaResult {
 ///     float: Net positive exposure ``max(sum(values), 0)``.
 #[pyfunction]
 fn apply_netting(instrument_values: Vec<f64>) -> f64 {
-    xva::netting::apply_netting(&instrument_values)
+    margin_xva::netting::apply_netting(&instrument_values)
 }
 
 /// Apply CSA collateral terms to reduce gross exposure.
@@ -649,7 +650,7 @@ fn apply_netting(instrument_values: Vec<f64>) -> f64 {
 ///     float: Net exposure after collateral, always non-negative.
 #[pyfunction]
 fn apply_collateral(gross_exposure: f64, csa: &PyCsaTerms) -> f64 {
-    xva::netting::apply_collateral(gross_exposure, &csa.inner)
+    margin_xva::netting::apply_collateral(gross_exposure, &csa.inner)
 }
 
 /// Compute exposure profile for a portfolio of instruments.
@@ -683,7 +684,7 @@ fn compute_exposure_profile<'py>(
         let handle = extract_instrument(&item)?;
         arcs.push(handle.instrument);
     }
-    let profile = xva::exposure::compute_exposure_profile(
+    let profile = valuations_exposure::compute_exposure_profile(
         &arcs,
         &market.inner,
         as_of_date,
@@ -722,7 +723,7 @@ fn compute_cva(
             "recovery_rate must be between 0 and 1",
         ));
     }
-    let result = xva::cva::compute_cva(
+    let result = margin_xva::cva::compute_cva(
         &exposure_profile.inner,
         &hazard_curve.inner,
         &discount_curve.inner,
@@ -745,7 +746,7 @@ fn compute_dva(
             "own_recovery_rate must be between 0 and 1",
         ));
     }
-    xva::cva::compute_dva(
+    margin_xva::cva::compute_dva(
         &exposure_profile.inner,
         &own_hazard_curve.inner,
         &discount_curve.inner,
@@ -762,7 +763,7 @@ fn compute_fva(
     funding_spread_bps: f64,
     funding_benefit_bps: f64,
 ) -> PyResult<f64> {
-    xva::cva::compute_fva(
+    margin_xva::cva::compute_fva(
         &exposure_profile.inner,
         &discount_curve.inner,
         funding_spread_bps,
@@ -782,7 +783,7 @@ fn compute_bilateral_xva(
     own_recovery_rate: f64,
     funding: Option<&PyFundingConfig>,
 ) -> PyResult<PyXvaResult> {
-    let result = xva::cva::compute_bilateral_xva(
+    let result = margin_xva::cva::compute_bilateral_xva(
         &exposure_profile.inner,
         &counterparty_hazard_curve.inner,
         &own_hazard_curve.inner,
