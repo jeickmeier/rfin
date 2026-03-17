@@ -463,17 +463,23 @@ pub struct PyCarryDetail {
 #[pymethods]
 impl PyCarryDetail {
     #[new]
-    #[pyo3(signature = (total, *, theta=None, roll_down=None))]
+    #[pyo3(signature = (total, *, coupon_income=None, pull_to_par=None, roll_down=None, funding_cost=None, theta=None))]
     fn new(
         total: crate::core::money::PyMoney,
-        theta: Option<crate::core::money::PyMoney>,
+        coupon_income: Option<crate::core::money::PyMoney>,
+        pull_to_par: Option<crate::core::money::PyMoney>,
         roll_down: Option<crate::core::money::PyMoney>,
+        funding_cost: Option<crate::core::money::PyMoney>,
+        theta: Option<crate::core::money::PyMoney>,
     ) -> Self {
         Self {
             inner: CarryDetail {
                 total: total.inner,
-                theta: theta.map(|value| value.inner),
+                coupon_income: coupon_income.map(|value| value.inner),
+                pull_to_par: pull_to_par.map(|value| value.inner),
                 roll_down: roll_down.map(|value| value.inner),
+                funding_cost: funding_cost.map(|value| value.inner),
+                theta: theta.map(|value| value.inner),
             },
         }
     }
@@ -493,9 +499,30 @@ impl PyCarryDetail {
     }
 
     #[getter]
+    fn coupon_income(&self) -> Option<crate::core::money::PyMoney> {
+        self.inner
+            .coupon_income
+            .map(|value| crate::core::money::PyMoney { inner: value })
+    }
+
+    #[getter]
+    fn pull_to_par(&self) -> Option<crate::core::money::PyMoney> {
+        self.inner
+            .pull_to_par
+            .map(|value| crate::core::money::PyMoney { inner: value })
+    }
+
+    #[getter]
     fn roll_down(&self) -> Option<crate::core::money::PyMoney> {
         self.inner
             .roll_down
+            .map(|value| crate::core::money::PyMoney { inner: value })
+    }
+
+    #[getter]
+    fn funding_cost(&self) -> Option<crate::core::money::PyMoney> {
+        self.inner
+            .funding_cost
             .map(|value| crate::core::money::PyMoney { inner: value })
     }
 }
@@ -756,6 +783,7 @@ pub struct PyTaylorAttributionResult {
 impl PyTaylorAttributionResult {
     #[new]
     #[pyo3(signature = (actual_pnl, total_explained, unexplained, unexplained_pct, factors, num_repricings, pv_t0, pv_t1))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         actual_pnl: f64,
         total_explained: f64,
@@ -1261,6 +1289,7 @@ impl PyPnlAttribution {
 /// ```
 #[pyfunction]
 #[pyo3(signature = (instrument, market_t0, market_t1, as_of_t0, as_of_t1, method=None, model_params_t0=None))]
+#[allow(clippy::too_many_arguments)]
 pub fn attribute_pnl(
     py: Python<'_>,
     instrument: Bound<'_, PyAny>,

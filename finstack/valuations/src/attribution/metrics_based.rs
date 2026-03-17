@@ -307,23 +307,46 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     // Extract time period in days
     let time_period_days = (as_of_t1 - as_of_t0).whole_days() as f64;
 
-    // 1. Carry attribution (Theta)
+    // 1. Carry attribution (Theta / Carry decomposition)
     //
     // METRIC DEFINITION:
     // - Theta: Dollar P&L per day ($ / day)
     // - Formula: Theta × Δt (where Δt is time period in days)
-    if let Some(theta) = val_t0.measures.get(MetricId::Theta.as_str()) {
-        // Theta is typically quoted per day, so multiply by days
-        let carry_amount = theta * time_period_days;
-        attribution.carry = Money::new(carry_amount, val_t1.value.currency());
+    // - Carry decomposition metrics, when present, are scaled over the same horizon.
+    let ccy = val_t1.value.currency();
+    let legacy_theta = val_t0
+        .measures
+        .get(MetricId::Theta.as_str())
+        .map(|theta| Money::new(theta * time_period_days, ccy));
 
-        // In metrics-based attribution, carry = theta (pure time decay).
-        // Roll-down requires full repricing which isn't available here;
-        // use parallel/waterfall attribution for total carry including roll-down.
+    if let Some(carry_total) = val_t0.measures.get(MetricId::CarryTotal.as_str()) {
+        attribution.carry = Money::new(carry_total * time_period_days, ccy);
+
+        let get_scaled = |id: MetricId| {
+            val_t0
+                .measures
+                .get(id.as_str())
+                .map(|value| Money::new(value * time_period_days, ccy))
+        };
+
         attribution.carry_detail = Some(CarryDetail {
             total: attribution.carry,
-            theta: Some(attribution.carry),
+            coupon_income: get_scaled(MetricId::CouponIncome),
+            pull_to_par: get_scaled(MetricId::PullToPar),
+            roll_down: get_scaled(MetricId::RollDown),
+            funding_cost: get_scaled(MetricId::FundingCost),
+            theta: legacy_theta,
+        });
+    } else if let Some(theta) = val_t0.measures.get(MetricId::Theta.as_str()) {
+        let carry_amount = theta * time_period_days;
+        attribution.carry = Money::new(carry_amount, ccy);
+        attribution.carry_detail = Some(CarryDetail {
+            total: attribution.carry,
+            coupon_income: None,
+            pull_to_par: None,
             roll_down: None,
+            funding_cost: None,
+            theta: Some(attribution.carry),
         });
     }
 
@@ -823,6 +846,61 @@ mod tests {
         assert!((attribution.carry.amount() + 5.0).abs() < 1e-9);
         assert!((attribution.total_pnl.amount() + 5.0).abs() < 1e-9);
         assert!(attribution.residual_within_tolerance(0.01, 0.01));
+    }
+
+    #[test]
+    fn test_metrics_based_carry_decomposition_populates_detail_fields() {
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
+
+        let instrument: Arc<dyn Instrument> = Arc::new(TestInstrument::new(
+            "TEST-CARRY-DECOMP",
+            Money::new(100_000.0, Currency::USD),
+        ));
+
+        let mut measures_t0 = IndexMap::new();
+        measures_t0.insert(MetricId::Theta, -5.0);
+        measures_t0.insert(MetricId::CarryTotal, -4.5);
+        measures_t0.insert(MetricId::CouponIncome, 13.7);
+        measures_t0.insert(MetricId::PullToPar, -8.2);
+        measures_t0.insert(MetricId::RollDown, -10.0);
+        measures_t0.insert(MetricId::FundingCost, 0.0);
+
+        let val_t0 = ValuationResult::stamped_with_meta(
+            "TEST-CARRY-DECOMP",
+            as_of_t0,
+            Money::new(100_000.0, Currency::USD),
+            meta.clone(),
+        )
+        .with_measures(measures_t0);
+        let val_t1 = ValuationResult::stamped_with_meta(
+            "TEST-CARRY-DECOMP",
+            as_of_t1,
+            Money::new(99_995.5, Currency::USD),
+            meta,
+        );
+
+        let attribution = attribute_pnl_metrics_based(
+            &instrument,
+            &MarketContext::new(),
+            &MarketContext::new(),
+            &val_t0,
+            &val_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .expect("metrics-based attribution should succeed");
+
+        let detail = attribution
+            .carry_detail
+            .expect("carry_detail should be populated");
+        assert_eq!(attribution.carry.amount(), -4.5);
+        assert_eq!(detail.coupon_income.expect("coupon income").amount(), 13.7);
+        assert_eq!(detail.pull_to_par.expect("pull to par").amount(), -8.2);
+        assert_eq!(detail.roll_down.expect("roll down").amount(), -10.0);
+        assert_eq!(detail.funding_cost.expect("funding cost").amount(), 0.0);
+        assert_eq!(detail.theta.expect("theta").amount(), -5.0);
     }
 
     #[test]

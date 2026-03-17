@@ -504,6 +504,7 @@ impl PyPerformance {
         seed = 42,
         confidence_level = 0.95
     ))]
+    #[allow(clippy::too_many_arguments)]
     fn estimate_ruin(
         &self,
         definition: &str,

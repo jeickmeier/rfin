@@ -1127,7 +1127,7 @@ impl PyCalibrationConfig {
 
         let tol = next.solver.tolerance();
         let max_it = next.solver.max_iterations();
-        let has_explicit_tolerance = tol != current_default.tolerance();
+        let has_explicit_tolerance = (tol - current_default.tolerance()).abs() > f64::EPSILON;
         let has_explicit_max_iterations = max_it != current_default.max_iterations();
 
         next.solver = kind.inner.clone();

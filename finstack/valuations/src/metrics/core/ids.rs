@@ -133,6 +133,21 @@ impl MetricId {
     /// Theta decay component (pure time value loss, optionality decay)
     pub const ThetaDecay: Self = Self(Cow::Borrowed("theta_decay"));
 
+    /// Total carry decomposition (coupon_income + pull_to_par + roll_down - funding_cost).
+    pub const CarryTotal: Self = Self(Cow::Borrowed("carry_total"));
+
+    /// Coupon/interest income received during the carry horizon.
+    pub const CouponIncome: Self = Self(Cow::Borrowed("coupon_income"));
+
+    /// PV convergence toward par (time effect at flat yield, isolates amortization).
+    pub const PullToPar: Self = Self(Cow::Borrowed("pull_to_par"));
+
+    /// Curve shape benefit from aging along a sloped curve (includes slide).
+    pub const RollDown: Self = Self(Cow::Borrowed("roll_down"));
+
+    /// Cost of financing the position (dirty_price x funding_rate x dcf).
+    pub const FundingCost: Self = Self(Cow::Borrowed("funding_cost"));
+
     /// Dollar value of 01 (DV01) - Standard for all parallel rate sensitivity
     pub const Dv01: Self = Self(Cow::Borrowed("dv01"));
 
@@ -843,6 +858,11 @@ impl MetricId {
         MetricId::ThetaCarry,
         MetricId::ThetaRollDown,
         MetricId::ThetaDecay,
+        MetricId::CarryTotal,
+        MetricId::CouponIncome,
+        MetricId::PullToPar,
+        MetricId::RollDown,
+        MetricId::FundingCost,
         MetricId::Dv01,
         MetricId::Cs01,
         MetricId::BucketedDv01,
@@ -1195,6 +1215,25 @@ mod tests {
         for metric in MetricId::ALL_STANDARD {
             let parsed = MetricId::parse_strict(metric.as_str()).unwrap();
             assert_eq!(&parsed, metric);
+            assert!(!parsed.is_custom());
+        }
+    }
+
+    #[test]
+    fn test_carry_decomposition_metrics_are_standard_and_parseable() {
+        for name in [
+            "carry_total",
+            "coupon_income",
+            "pull_to_par",
+            "roll_down",
+            "funding_cost",
+        ] {
+            assert!(MetricId::ALL_STANDARD
+                .iter()
+                .any(|metric| metric.as_str() == name));
+
+            let parsed = MetricId::parse_strict(name).unwrap();
+            assert_eq!(parsed.as_str(), name);
             assert!(!parsed.is_custom());
         }
     }

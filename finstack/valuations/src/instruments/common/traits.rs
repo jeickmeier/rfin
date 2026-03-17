@@ -1160,6 +1160,16 @@ pub trait Instrument: Send + Sync {
         None
     }
 
+    /// Funding curve ID for this instrument.
+    ///
+    /// Returns the funding or repo curve used to finance the position for
+    /// carry cost calculations.
+    ///
+    /// Default implementation returns `None`.
+    fn funding_curve_id(&self) -> Option<CurveId> {
+        None
+    }
+
     /// Convert this instrument to its JSON representation for serialization.
     ///
     /// This method enables serialization of instruments by converting them to

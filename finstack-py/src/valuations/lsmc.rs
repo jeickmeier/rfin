@@ -45,7 +45,7 @@ impl PyAmericanPut {
     fn new(strike: f64) -> PyResult<Self> {
         AmericanPut::new(strike)
             .map(|inner| Self { inner })
-            .map_err(|e| PyValueError::new_err(e))
+            .map_err(PyValueError::new_err)
     }
 
     #[getter]
@@ -84,7 +84,7 @@ impl PyAmericanCall {
     fn new(strike: f64) -> PyResult<Self> {
         AmericanCall::new(strike)
             .map(|inner| Self { inner })
-            .map_err(|e| PyValueError::new_err(e))
+            .map_err(PyValueError::new_err)
     }
 
     #[getter]
@@ -130,7 +130,7 @@ impl PyPolynomialBasis {
     fn new(degree: usize) -> PyResult<Self> {
         PolynomialBasis::try_new(degree)
             .map(|_| Self { degree_: degree })
-            .map_err(|e| PyValueError::new_err(e))
+            .map_err(PyValueError::new_err)
     }
 
     #[getter]
@@ -184,7 +184,7 @@ impl PyLaguerreBasis {
                 degree_: degree,
                 strike_: strike,
             })
-            .map_err(|e| PyValueError::new_err(e))
+            .map_err(PyValueError::new_err)
     }
 
     #[getter]
@@ -247,7 +247,7 @@ impl PyLsmcConfig {
             .map(|config| Self {
                 inner: config.with_seed(seed),
             })
-            .map_err(|e| PyValueError::new_err(e))
+            .map_err(PyValueError::new_err)
     }
 
     #[getter]
@@ -342,6 +342,7 @@ enum BasisType {
 }
 
 /// Helper function to price with specific exercise and basis types
+#[allow(clippy::too_many_arguments)]
 fn do_price(
     pricer: &LsmcPricer,
     process: &GbmProcess,
@@ -471,6 +472,7 @@ impl PyLsmcPricer {
     /// Raises:
     ///     ValueError: If parameters are invalid.
     #[pyo3(signature = (initial_spot, r, q, sigma, time_to_maturity, num_steps, exercise, basis, currency))]
+    #[allow(clippy::too_many_arguments)]
     fn price(
         &self,
         initial_spot: f64,

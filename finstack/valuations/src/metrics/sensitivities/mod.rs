@@ -1,3 +1,4 @@
+pub(crate) mod carry_decomposition;
 pub(crate) mod config;
 pub(crate) mod cs01;
 pub(crate) mod dv01;

@@ -112,6 +112,7 @@ impl PyPoolAsset {
     #[pyo3(
         text_signature = "(cls, id, balance_amount, currency, spread_bps, index_id, maturity, day_count='ACT_360')"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn floating_rate_loan(
         _cls: &Bound<'_, PyType>,
         id: &str,
@@ -360,6 +361,7 @@ impl PyRepLine {
     #[pyo3(
         text_signature = "(id, balance_amount, currency, rate, maturity, seasoning_months=0, spread_bps=None, index_id=None)"
     )]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         id: &str,
         balance_amount: f64,

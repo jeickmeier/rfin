@@ -213,7 +213,7 @@ impl PyMertonMcConfig {
             config = config.endogenous_hazard(eh.inner.clone());
         }
         if let Some(dr) = dynamic_recovery {
-            config = config.dynamic_recovery(dr.inner.clone());
+            config = config.dynamic_recovery(dr.inner);
         }
         if let Some(tm) = toggle_model {
             config = config.toggle_model(tm.inner.clone());

@@ -405,7 +405,7 @@ impl PyBondBuilder {
         use crate::valuations::common::f64_to_decimal;
         Ok(CashflowSpec::from_bond_builder_params(BondBuilderParams {
             coupon_rate: f64_to_decimal(self.coupon_rate, "coupon_rate")?,
-            coupon_type: self.coupon_type.clone(),
+            coupon_type: self.coupon_type,
             frequency: self.frequency,
             day_count: self.day_count,
             bdc: self.bdc,
@@ -928,7 +928,7 @@ impl PyBond {
         self.inner
             .call_put
             .as_ref()
-            .map_or(false, |cp| cp.has_options())
+            .is_some_and(|cp| cp.has_options())
     }
 
     /// Validate all bond parameters.

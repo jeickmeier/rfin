@@ -539,8 +539,13 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
 
+    fn init_python() {
+        Python::initialize();
+    }
+
     #[test]
     fn policy_from_name_rejects_spot_alias() {
+        init_python();
         // Ensure we never silently interpret FX "spot" as a cashflow conversion policy.
         let err = parse_policy_from_str("spot").expect_err("spot must be rejected");
         assert!(err.to_string().to_ascii_lowercase().contains("ambiguous"));
@@ -548,6 +553,7 @@ mod tests {
 
     #[test]
     fn fx_matrix_contains_checks_direct_or_reciprocal_quote() {
+        init_python();
         let fx = PyFxMatrix::ctor(None);
         let eur = PyCurrency::new(Currency::EUR);
         let usd = PyCurrency::new(Currency::USD);

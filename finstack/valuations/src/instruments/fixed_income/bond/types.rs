@@ -63,6 +63,10 @@ pub struct Bond {
     /// Optional credit curve identifier (default intensity). When present,
     /// credit-rate pricing is enabled.
     pub credit_curve_id: Option<CurveId>,
+    /// Optional funding/repo curve for carry cost computation.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[builder(default)]
+    pub funding_curve_id: Option<CurveId>,
     /// Pricing overrides (including quoted clean price)
     #[serde(default)]
     #[builder(default)]
@@ -107,6 +111,8 @@ impl<'de> serde::Deserialize<'de> for Bond {
             cashflow_spec: CashflowSpec,
             discount_curve_id: CurveId,
             credit_curve_id: Option<CurveId>,
+            #[serde(default)]
+            funding_curve_id: Option<CurveId>,
             #[serde(default)]
             pricing_overrides: PricingOverrides,
             call_put: Option<CallPutSchedule>,
@@ -159,6 +165,7 @@ impl<'de> serde::Deserialize<'de> for Bond {
             cashflow_spec: helper.cashflow_spec,
             discount_curve_id: helper.discount_curve_id,
             credit_curve_id: helper.credit_curve_id,
+            funding_curve_id: helper.funding_curve_id,
             pricing_overrides: helper.pricing_overrides,
             call_put: helper.call_put,
             custom_cashflows: helper.custom_cashflows,
@@ -1335,6 +1342,10 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
         Some(self.issue_date)
     }
 
+    fn funding_curve_id(&self) -> Option<CurveId> {
+        self.funding_curve_id.clone()
+    }
+
     fn metrics_equivalent(&self) -> Box<dyn crate::instruments::common_impl::traits::Instrument> {
         use crate::cashflow::builder::specs::CouponType;
 
@@ -2420,6 +2431,36 @@ mod tests {
                 .flows
                 .len(),
             flow_count
+        );
+    }
+
+    #[test]
+    fn test_bond_serde_roundtrip_preserves_funding_curve_id() {
+        let mut value = serde_json::to_value(Bond::example().expect("Bond example is valid"))
+            .expect("serialize");
+        let obj = value
+            .as_object_mut()
+            .expect("Bond should serialize to an object");
+        obj.insert(
+            "funding_curve_id".to_string(),
+            serde_json::Value::String("USD-REPO".to_string()),
+        );
+
+        let restored: Bond = serde_json::from_value(value).expect("deserialize");
+        assert_eq!(
+            restored
+                .funding_curve_id
+                .as_ref()
+                .expect("funding curve should deserialize")
+                .as_str(),
+            "USD-REPO"
+        );
+        assert_eq!(
+            restored
+                .funding_curve_id()
+                .expect("bond should expose funding curve through Instrument")
+                .as_str(),
+            "USD-REPO"
         );
     }
 

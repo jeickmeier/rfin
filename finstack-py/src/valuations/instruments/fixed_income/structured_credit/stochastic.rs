@@ -246,7 +246,7 @@ impl PyCorrelationStructure {
 
     /// Validate the correlation structure; raises ``ValueError`` on failure.
     fn validate(&self) -> PyResult<()> {
-        self.inner.validate().map_err(|e| PyValueError::new_err(e))
+        self.inner.validate().map_err(PyValueError::new_err)
     }
 
     /// Return a new structure with bumped asset correlation.

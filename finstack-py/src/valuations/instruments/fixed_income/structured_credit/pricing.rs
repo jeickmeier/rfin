@@ -152,6 +152,7 @@ fn py_run_simulation(
 ///     ValueError: If currency is invalid or waterfall execution fails.
 #[pyfunction(name = "execute_waterfall")]
 #[pyo3(signature = (waterfall, tranches, pool, available_cash_amount, interest_collections_amount, currency, payment_date, period_start, pool_balance_amount, market))]
+#[allow(clippy::too_many_arguments)]
 fn py_execute_waterfall(
     py: Python<'_>,
     waterfall: &PyWaterfall,

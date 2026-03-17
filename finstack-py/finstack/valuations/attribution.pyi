@@ -188,15 +188,24 @@ class CarryDetail:
         self,
         total: Money,
         *,
-        theta: Money | None = None,
+        coupon_income: Money | None = None,
+        pull_to_par: Money | None = None,
         roll_down: Money | None = None,
+        funding_cost: Money | None = None,
+        theta: Money | None = None,
     ) -> None: ...
     @property
     def total(self) -> Money: ...
     @property
+    def coupon_income(self) -> Money | None: ...
+    @property
+    def pull_to_par(self) -> Money | None: ...
+    @property
     def theta(self) -> Money | None: ...
     @property
     def roll_down(self) -> Money | None: ...
+    @property
+    def funding_cost(self) -> Money | None: ...
 
 class InflationCurvesAttribution:
     """Detailed attribution for inflation curves."""

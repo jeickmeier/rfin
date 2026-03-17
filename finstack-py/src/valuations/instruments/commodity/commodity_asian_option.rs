@@ -282,7 +282,7 @@ impl PyCommodityAsianOptionBuilder {
         let mut realized = Vec::new();
         for item in fixings.iter() {
             let tuple: (Py<PyAny>, f64) = item.extract()?;
-            let date = py_to_date(&tuple.0.bind(fixings.py())).context("realized_fixings date")?;
+            let date = py_to_date(tuple.0.bind(fixings.py())).context("realized_fixings date")?;
             realized.push((date, tuple.1));
         }
         slf.realized_fixings = realized;
