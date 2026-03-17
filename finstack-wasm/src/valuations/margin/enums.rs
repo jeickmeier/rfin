@@ -1,6 +1,6 @@
 //! Margin-related enumerations for WASM bindings.
 
-use finstack_valuations::margin::{ClearingStatus, ImMethodology, MarginTenor};
+use finstack_margin::{ClearingStatus, ImMethodology, MarginTenor};
 use wasm_bindgen::prelude::*;
 
 /// Margin call frequency.

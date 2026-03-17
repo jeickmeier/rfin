@@ -17,6 +17,7 @@
 //! |---------------|------------------------|
 //! | `core`        | [`finstack-core`]      |
 //! | `analytics`   | [`finstack-analytics`] |
+//! | `margin`      | [`finstack-margin`]    |
 //! | `valuations`  | [`finstack-valuations`]|
 //! | `statements`  | [`finstack-statements`]|
 //! | `portfolio`   | [`finstack-portfolio`] |
@@ -29,6 +30,9 @@ pub use finstack_core as core;
 
 #[cfg(feature = "analytics")]
 pub use finstack_analytics as analytics;
+
+#[cfg(feature = "margin")]
+pub use finstack_margin as margin;
 
 #[cfg(feature = "valuations")]
 pub use finstack_valuations as valuations;

@@ -18,10 +18,11 @@ use crate::traits::{Discretization, PathState, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 use smallvec::SmallVec;
-use std::sync::Mutex;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
+#[cfg(feature = "parallel")]
+use std::sync::Mutex;
 
 /// Path capture mode for Monte Carlo simulation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -338,20 +339,13 @@ pub struct McEngine {
 ///
 /// Balances load distribution across cores with cache efficiency.
 /// Target: 4 chunks per thread for good load balancing.
+#[cfg(feature = "parallel")]
 fn adaptive_chunk_size(num_paths: usize) -> usize {
-    #[cfg(feature = "parallel")]
-    {
-        let num_cpus = rayon::current_num_threads();
-        // Target 4 chunks per thread for load balancing
-        // Min 100 paths per chunk to amortize overhead
-        // Max 10_000 paths to avoid cache thrashing
-        (num_paths / (num_cpus * 4)).clamp(100, 10_000)
-    }
-    #[cfg(not(feature = "parallel"))]
-    {
-        // Serial execution - use full batch
-        num_paths
-    }
+    let num_cpus = rayon::current_num_threads();
+    // Target 4 chunks per thread for load balancing
+    // Min 100 paths per chunk to amortize overhead
+    // Max 10_000 paths to avoid cache thrashing
+    (num_paths / (num_cpus * 4)).clamp(100, 10_000)
 }
 
 impl McEngine {

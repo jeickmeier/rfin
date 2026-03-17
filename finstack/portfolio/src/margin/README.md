@@ -153,7 +153,7 @@ let result = aggregator.calculate(&portfolio, &market, as_of)?;
 
 ```rust
 use finstack_portfolio::margin::{NettingSet, NettingSetManager, NettingSetId};
-use finstack_valuations::margin::SimmSensitivities;
+use finstack_margin::SimmSensitivities;
 
 // Create netting set manager
 let mut manager = NettingSetManager::new();

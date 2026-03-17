@@ -2,12 +2,12 @@
 
 use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
-use crate::instruments::rates::repo::margin::RepoMarginSpec;
 use finstack_core::dates::{adjust, BusinessDayConvention, Date, DateExt, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{Bps, CalendarId, CurveId, InstrumentId, Rate};
 use finstack_core::{Error, Result};
+use finstack_margin::RepoMarginSpec;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
@@ -654,7 +654,7 @@ impl Instrument for Repo {
         Some(self)
     }
 
-    fn as_marginable(&self) -> Option<&dyn crate::margin::traits::Marginable> {
+    fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
 

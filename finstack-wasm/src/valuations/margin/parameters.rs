@@ -5,7 +5,7 @@ use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::margin::enums::{JsImMethodology, JsMarginTenor};
-use finstack_valuations::margin::{ImParameters, MarginCallTiming, VmParameters};
+use finstack_margin::{ImParameters, MarginCallTiming, VmParameters};
 use wasm_bindgen::prelude::*;
 
 /// Margin call timing parameters.

@@ -595,7 +595,10 @@ mod tests {
             .fixing_date(fixing)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(crate::utils::decimal::f64_to_decimal(0.05, "fixed_rate")?)
+            .fixed_rate(
+                crate::utils::decimal::f64_to_decimal(0.05, "fixed_rate")
+                    .expect("fixed rate should convert in test"),
+            )
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())
@@ -647,7 +650,10 @@ mod tests {
             .fixing_date(fixing)
             .start_date(start)
             .maturity(end)
-            .fixed_rate(crate::utils::decimal::f64_to_decimal(0.04, "fixed_rate")?) // Different from market rate
+            .fixed_rate(
+                crate::utils::decimal::f64_to_decimal(0.04, "fixed_rate")
+                    .expect("fixed rate should convert in test"),
+            ) // Different from market rate
             .day_count(finstack_core::dates::DayCount::Act360)
             .reset_lag(2)
             .discount_curve_id("DISC".into())

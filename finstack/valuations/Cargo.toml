@@ -11,6 +11,7 @@ authors.workspace = true
 finstack-core = { path = "../core" }
 finstack-cashflows = { path = "../cashflows" }
 finstack-correlation = { path = "../correlation" }
+finstack-margin = { path = "../margin" }
 finstack-monte-carlo = { path = "../monte_carlo", default-features = false, features = ["parallel"] }
 finstack-valuations-macros = { path = "macros" }
 indexmap = { workspace = true, features = ["serde"] }
@@ -40,7 +41,7 @@ finstack-statements = { path = "../statements" }
 [features]
 default = ["parallel"]
 parallel = ["dep:rayon"]
-mc = ["dep:nalgebra", "finstack-monte-carlo/advanced"]
+mc = ["dep:nalgebra", "finstack-monte-carlo/advanced", "finstack-margin/mc"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 strict_validation = []  # Enforce no-arbitrage checks as hard errors in validators
 ts_export = ["dep:ts-rs"]

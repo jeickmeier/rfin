@@ -5,7 +5,7 @@ use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::margin::parameters::{JsImParameters, JsMarginCallTiming, JsVmParameters};
 use finstack_core::types::CurveId;
-use finstack_valuations::margin::CsaSpec;
+use finstack_margin::{CsaSpec, EligibleCollateralSchedule, MarginCallTiming};
 use wasm_bindgen::prelude::*;
 
 /// Credit Support Annex specification (ISDA standard).
@@ -72,8 +72,6 @@ impl JsCsaSpec {
         im_params: Option<JsImParameters>,
         collateral_curve_id: &str,
     ) -> JsCsaSpec {
-        use finstack_valuations::margin::{EligibleCollateralSchedule, MarginCallTiming};
-
         JsCsaSpec {
             inner: CsaSpec {
                 id: id.to_string(),

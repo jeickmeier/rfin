@@ -368,7 +368,7 @@ impl MonteCarloAccumulator {
 }
 
 /// Aggregate path-level results into [`MonteCarloResults`].
-#[cfg(any(test, feature = "parallel"))]
+#[cfg(test)]
 pub(crate) fn aggregate_monte_carlo_paths(
     model: &FinancialModelSpec,
     config: &MonteCarloConfig,

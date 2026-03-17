@@ -534,42 +534,6 @@ impl PyFxMatrix {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use finstack_core::currency::Currency;
-
-    fn init_python() {
-        Python::initialize();
-    }
-
-    #[test]
-    fn policy_from_name_rejects_spot_alias() {
-        init_python();
-        // Ensure we never silently interpret FX "spot" as a cashflow conversion policy.
-        let err = parse_policy_from_str("spot").expect_err("spot must be rejected");
-        assert!(err.to_string().to_ascii_lowercase().contains("ambiguous"));
-    }
-
-    #[test]
-    fn fx_matrix_contains_checks_direct_or_reciprocal_quote() {
-        init_python();
-        let fx = PyFxMatrix::ctor(None);
-        let eur = PyCurrency::new(Currency::EUR);
-        let usd = PyCurrency::new(Currency::USD);
-
-        assert!(!fx.__contains__((eur, usd)));
-        assert!(!fx.__contains__((usd, eur)));
-
-        fx.set_quote(&eur, &usd, 1.10)
-            .expect("set_quote should succeed");
-
-        assert!(fx.__contains__((eur, usd)));
-        // reciprocal presence counts as "contains"
-        assert!(fx.__contains__((usd, eur)));
-    }
-}
-
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -587,4 +551,46 @@ pub(crate) fn register<'py>(
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+
+    fn init_python() {
+        Python::initialize();
+    }
+
+    #[test]
+    fn policy_from_name_rejects_spot_alias() {
+        init_python();
+        // Ensure we never silently interpret FX "spot" as a cashflow conversion policy.
+        let err = parse_policy_from_str("spot");
+        assert!(err.is_err(), "spot must be rejected");
+        let message = err
+            .err()
+            .map(|e| e.to_string())
+            .unwrap_or_default()
+            .to_ascii_lowercase();
+        assert!(message.contains("ambiguous"));
+    }
+
+    #[test]
+    fn fx_matrix_contains_checks_direct_or_reciprocal_quote() {
+        init_python();
+        let fx = PyFxMatrix::ctor(None);
+        let eur = PyCurrency::new(Currency::EUR);
+        let usd = PyCurrency::new(Currency::USD);
+
+        assert!(!fx.__contains__((eur, usd)));
+        assert!(!fx.__contains__((usd, eur)));
+
+        let quote_result = fx.set_quote(&eur, &usd, 1.10);
+        assert!(quote_result.is_ok(), "set_quote should succeed");
+
+        assert!(fx.__contains__((eur, usd)));
+        // reciprocal presence counts as "contains"
+        assert!(fx.__contains__((usd, eur)));
+    }
 }

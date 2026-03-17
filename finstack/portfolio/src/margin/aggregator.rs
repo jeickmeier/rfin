@@ -5,7 +5,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
-use finstack_valuations::margin::{ImMethodology, NettingSetId, SimmCalculator, SimmSensitivities};
+use finstack_margin::{ImMethodology, NettingSetId, SimmCalculator, SimmSensitivities};
 
 use crate::margin::netting_set::{NettingSet, NettingSetManager};
 use crate::margin::results::{NettingSetMargin, PortfolioMarginResult};

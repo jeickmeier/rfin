@@ -73,7 +73,7 @@ pub(crate) mod pricer;
 mod types;
 
 // Re-export main types
-pub use margin::{RepoMarginSpec, RepoMarginType};
+pub use finstack_margin::{RepoMarginSpec, RepoMarginType};
 pub use types::*;
 
 // Builder is generated via derive on `Repo`.

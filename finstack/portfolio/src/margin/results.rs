@@ -4,7 +4,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
-use finstack_valuations::margin::{ImMethodology, NettingSetId, SimmSensitivities};
+use finstack_margin::{ImMethodology, NettingSetId, SimmSensitivities};
 use std::fmt;
 
 /// Error returned when attempting to aggregate margin results with mismatched currencies.

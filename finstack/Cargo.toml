@@ -13,11 +13,12 @@ default = ["core"]
 # Crate selection features
 core = ["dep:finstack_core"]
 analytics = ["core", "dep:finstack_analytics"]
+margin = ["core", "dep:finstack_margin"]
 statements = ["core", "dep:finstack_statements", "dep:indexmap"]
 valuations = ["core", "dep:finstack_valuations"]
 scenarios = ["core", "statements", "dep:finstack_scenarios"]
 portfolio = ["core", "statements", "valuations", "dep:finstack_portfolio"]
-all = ["core", "analytics", "statements", "valuations", "portfolio", "scenarios"]
+all = ["core", "analytics", "margin", "statements", "valuations", "portfolio", "scenarios"]
 
 # Cross-cutting capability features
 serde = []  # Delegated to subcrates (enabled by default in most)
@@ -27,6 +28,7 @@ dataframes = ["finstack_statements/dataframes", "finstack_portfolio/dataframes"]
 [dependencies]
 finstack_core = { package = "finstack-core", path = "core", optional = true }
 finstack_analytics = { package = "finstack-analytics", path = "analytics", optional = true }
+finstack_margin = { package = "finstack-margin", path = "margin", optional = true }
 finstack_statements = { package = "finstack-statements", path = "statements", optional = true }
 finstack_valuations = { package = "finstack-valuations", path = "valuations", optional = true }
 finstack_portfolio = { package = "finstack-portfolio", path = "portfolio", optional = true }

@@ -5,7 +5,7 @@
 //! agreement (CSA) or clearing membership.
 
 use finstack_core::HashMap;
-use finstack_valuations::margin::{NettingSetId, OtcMarginSpec, SimmSensitivities};
+use finstack_margin::{NettingSetId, OtcMarginSpec, SimmSensitivities};
 
 use crate::position::Position;
 use crate::PositionId;

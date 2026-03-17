@@ -11,16 +11,17 @@ use crate::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use crate::instruments::rates::irs::InterestRateSwap;
 use crate::instruments::rates::repo::Repo;
 use crate::instruments::TrsSide;
-use crate::margin::constants::{
-    self, DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
-    INVESTMENT_GRADE_SPREAD_THRESHOLD_BP, ONE_BP, STANDARD_CDS_MATURITY_YEARS,
-};
-use crate::margin::traits::{Marginable, NettingSetId, SimmSensitivities};
-use crate::margin::types::{ClearingStatus, OtcMarginSpec};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use finstack_margin::constants::{
+    self, DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
+    INVESTMENT_GRADE_SPREAD_THRESHOLD_BP, ONE_BP, STANDARD_CDS_MATURITY_YEARS,
+};
+use finstack_margin::{
+    ClearingStatus, Marginable, NettingSetId, OtcMarginSpec, RepoMarginSpec, SimmSensitivities,
+};
 use rust_decimal::prelude::ToPrimitive;
 
 // ============================================================================
@@ -101,6 +102,7 @@ fn netting_set_id_from_spec(spec: &OtcMarginSpec) -> NettingSetId {
     match &spec.clearing_status {
         ClearingStatus::Cleared { ccp } => NettingSetId::cleared(ccp),
         ClearingStatus::Bilateral => NettingSetId::bilateral(&spec.csa.id, &spec.csa.id),
+        _ => NettingSetId::bilateral(&spec.csa.id, &spec.csa.id),
     }
 }
 
@@ -109,6 +111,10 @@ fn netting_set_id_from_spec(spec: &OtcMarginSpec) -> NettingSetId {
 // ============================================================================
 
 impl Marginable for InterestRateSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn margin_spec(&self) -> Option<&OtcMarginSpec> {
         self.margin_spec.as_ref()
     }
@@ -194,6 +200,10 @@ impl Marginable for InterestRateSwap {
 // ============================================================================
 
 impl Marginable for CreditDefaultSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn margin_spec(&self) -> Option<&OtcMarginSpec> {
         self.margin_spec.as_ref()
     }
@@ -269,6 +279,10 @@ impl Marginable for CreditDefaultSwap {
 // ============================================================================
 
 impl Marginable for CDSIndex {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn margin_spec(&self) -> Option<&OtcMarginSpec> {
         self.margin_spec.as_ref()
     }
@@ -322,6 +336,10 @@ impl Marginable for CDSIndex {
 // ============================================================================
 
 impl Marginable for EquityTotalReturnSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn margin_spec(&self) -> Option<&OtcMarginSpec> {
         self.margin_spec.as_ref()
     }
@@ -363,6 +381,10 @@ impl Marginable for EquityTotalReturnSwap {
 // ============================================================================
 
 impl Marginable for FIIndexTotalReturnSwap {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn margin_spec(&self) -> Option<&OtcMarginSpec> {
         self.margin_spec.as_ref()
     }
@@ -418,12 +440,16 @@ impl Marginable for FIIndexTotalReturnSwap {
 // ============================================================================
 
 impl Marginable for Repo {
+    fn id(&self) -> &str {
+        self.id.as_str()
+    }
+
     fn margin_spec(&self) -> Option<&OtcMarginSpec> {
         // Repos don't use OtcMarginSpec - they use RepoMarginSpec
         None
     }
 
-    fn repo_margin_spec(&self) -> Option<&crate::instruments::rates::repo::RepoMarginSpec> {
+    fn repo_margin_spec(&self) -> Option<&RepoMarginSpec> {
         self.margin_spec.as_ref()
     }
 

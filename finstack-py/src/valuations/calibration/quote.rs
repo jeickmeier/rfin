@@ -705,11 +705,11 @@ mod tests {
 
     #[test]
     fn parse_option_type_accepts_supported_aliases() {
-        assert_eq!(parse_option_type("call").unwrap(), OptionType::Call);
-        assert_eq!(
-            parse_option_type("sell_protection").unwrap(),
-            OptionType::Put
-        );
+        assert!(matches!(parse_option_type("call"), Ok(OptionType::Call)));
+        assert!(matches!(
+            parse_option_type("sell_protection"),
+            Ok(OptionType::Put)
+        ));
     }
 
     #[test]
