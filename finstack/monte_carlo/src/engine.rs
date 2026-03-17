@@ -10,6 +10,7 @@
 
 use super::results::{MoneyEstimate, MonteCarloResult};
 use super::traits::Payoff;
+use crate::captured_path_stats::apply_captured_path_statistics;
 use crate::estimate::Estimate;
 use crate::online_stats::OnlineStats;
 use crate::paths::{PathDataset, PathPoint, PathSamplingMethod, ProcessParams, SimulatedPath};
@@ -955,35 +956,7 @@ impl McEngine {
             for path in captured_paths {
                 dataset.add_path(path);
             }
-
-            let mut values: Vec<f64> = dataset.paths.iter().map(|p| p.final_value).collect();
-
-            if !values.is_empty() {
-                values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                let n = values.len();
-
-                // Median
-                let median = if n.is_multiple_of(2) {
-                    (values[n / 2 - 1] + values[n / 2]) / 2.0
-                } else {
-                    values[n / 2]
-                };
-
-                // Percentiles
-                let p25_idx = (n as f64 * 0.25).floor() as usize;
-                let p75_idx = (n as f64 * 0.75).floor() as usize;
-                let p25 = values[p25_idx.min(n - 1)];
-                let p75 = values[p75_idx.min(n - 1)];
-
-                // Min/Max
-                let min = values[0];
-                let max = values[n - 1];
-
-                estimate = estimate
-                    .with_median(median)
-                    .with_percentiles(p25, p75)
-                    .with_range(min, max);
-            }
+            estimate = apply_captured_path_statistics(estimate, &dataset.paths);
             Some(dataset)
         } else {
             None
@@ -1173,36 +1146,7 @@ impl McEngine {
             for path in collected_paths {
                 dataset.add_path(path);
             }
-
-            // Compute additional statistics from captured paths
-            let mut values: Vec<f64> = dataset.paths.iter().map(|p| p.final_value).collect();
-
-            if !values.is_empty() {
-                values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-                let n = values.len();
-
-                // Median
-                let median = if n.is_multiple_of(2) {
-                    (values[n / 2 - 1] + values[n / 2]) / 2.0
-                } else {
-                    values[n / 2]
-                };
-
-                // Percentiles
-                let p25_idx = (n as f64 * 0.25).floor() as usize;
-                let p75_idx = (n as f64 * 0.75).floor() as usize;
-                let p25 = values[p25_idx.min(n - 1)];
-                let p75 = values[p75_idx.min(n - 1)];
-
-                // Min/Max
-                let min = values[0];
-                let max = values[n - 1];
-
-                estimate = estimate
-                    .with_median(median)
-                    .with_percentiles(p25, p75)
-                    .with_range(min, max);
-            }
+            estimate = apply_captured_path_statistics(estimate, &dataset.paths);
 
             Some(dataset)
         } else {
@@ -1334,9 +1278,9 @@ impl McEngine {
         let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
         let initial_state_vec = SmallVec::from_slice(state);
         let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
-        for (time, amount, cf_type) in path_state.take_cashflows() {
+        path_state.drain_cashflows(|time, amount, cf_type| {
             initial_point.add_typed_cashflow(time, amount, cf_type);
-        }
+        });
         if self.config.path_capture.capture_payoffs {
             let payoff_money = payoff.value(currency);
             initial_point.set_payoff(payoff_money.amount());
@@ -1363,10 +1307,9 @@ impl McEngine {
             let mut point = PathPoint::with_state(step + 1, t + dt, state_vec);
 
             // Transfer cashflows from PathState to PathPoint
-            let cashflows = path_state.take_cashflows();
-            for (time, amount, cf_type) in cashflows {
+            path_state.drain_cashflows(|time, amount, cf_type| {
                 point.add_typed_cashflow(time, amount, cf_type);
-            }
+            });
 
             if self.config.path_capture.capture_payoffs {
                 // Capture intermediate payoff value (undiscounted)
@@ -1495,6 +1438,36 @@ mod tests {
         }
     }
 
+    #[derive(Clone)]
+    struct PathIndexedRng {
+        path_id: u64,
+    }
+
+    impl PathIndexedRng {
+        fn root() -> Self {
+            Self { path_id: 0 }
+        }
+    }
+
+    impl RandomStream for PathIndexedRng {
+        fn split(&self, stream_id: u64) -> Self {
+            Self { path_id: stream_id }
+        }
+
+        fn fill_u01(&mut self, out: &mut [f64]) {
+            let value = (self.path_id + 1) as f64 / 8.0;
+            for x in out {
+                *x = value;
+            }
+        }
+
+        fn fill_std_normals(&mut self, out: &mut [f64]) {
+            for x in out {
+                *x = 0.0;
+            }
+        }
+    }
+
     struct DummyProcess;
     impl StochasticProcess for DummyProcess {
         fn dim(&self) -> usize {
@@ -1554,6 +1527,27 @@ mod tests {
         }
     }
 
+    #[derive(Clone, Default)]
+    struct CapturedValuePayoff {
+        value: Option<f64>,
+    }
+
+    impl Payoff for CapturedValuePayoff {
+        fn on_path_start<R: RandomStream>(&mut self, rng: &mut R) {
+            self.value = Some(rng.next_u01());
+        }
+
+        fn on_event(&mut self, _state: &mut PathState) {}
+
+        fn value(&self, currency: Currency) -> Money {
+            Money::new(self.value.unwrap_or_default(), currency)
+        }
+
+        fn reset(&mut self) {
+            self.value = None;
+        }
+    }
+
     #[derive(Clone)]
     struct InitialCashflowPayoff {
         value: f64,
@@ -1568,6 +1562,21 @@ mod tests {
 
         fn value(&self, currency: Currency) -> Money {
             Money::new(self.value, currency)
+        }
+
+        fn reset(&mut self) {}
+    }
+
+    #[derive(Clone, Default)]
+    struct RecurringCashflowPayoff;
+
+    impl Payoff for RecurringCashflowPayoff {
+        fn on_event(&mut self, state: &mut PathState) {
+            state.add_typed_cashflow(state.time, state.step as f64 + 1.0, CashflowType::Interest);
+        }
+
+        fn value(&self, currency: Currency) -> Money {
+            Money::new(0.0, currency)
         }
 
         fn reset(&mut self) {}
@@ -2076,6 +2085,52 @@ mod tests {
     }
 
     #[test]
+    fn test_price_with_capture_preserves_cashflows_across_multiple_timesteps() {
+        let engine = McEngine::new(McEngineConfig {
+            num_paths: 1,
+            seed: 42,
+            time_grid: TimeGrid::uniform(1.0, 2).expect("grid should build"),
+            target_ci_half_width: None,
+            use_parallel: false,
+            chunk_size: 1000,
+            path_capture: PathCaptureConfig::all(),
+            antithetic: false,
+        });
+
+        let result = engine
+            .price_with_capture(
+                &DummyRng,
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &RecurringCashflowPayoff,
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect("captured pricing should succeed");
+
+        let path = result
+            .paths
+            .as_ref()
+            .and_then(|dataset| dataset.paths.first())
+            .expect("captured path should exist");
+        assert_eq!(path.points.len(), 3);
+        assert_eq!(
+            path.points[0].cashflows,
+            vec![(0.0, 1.0, CashflowType::Interest)]
+        );
+        assert_eq!(
+            path.points[1].cashflows,
+            vec![(0.5, 2.0, CashflowType::Interest)]
+        );
+        assert_eq!(
+            path.points[2].cashflows,
+            vec![(1.0, 3.0, CashflowType::Interest)]
+        );
+    }
+
+    #[test]
     fn test_price_with_capture_uses_actual_path_count_after_auto_stop() {
         let engine = McEngine::new(McEngineConfig {
             num_paths: 5_000,
@@ -2105,5 +2160,67 @@ mod tests {
         assert_eq!(result.estimate.num_paths, 1001);
         assert_eq!(captured.num_paths_total, 1001);
         assert_eq!(captured.num_captured(), 1001);
+    }
+
+    fn assert_captured_path_statistics(result: &MonteCarloResult) {
+        assert_eq!(result.estimate.median, Some(0.375));
+        assert_eq!(result.estimate.percentile_25, Some(0.25));
+        assert_eq!(result.estimate.percentile_75, Some(0.5));
+        assert_eq!(result.estimate.min, Some(0.125));
+        assert_eq!(result.estimate.max, Some(0.625));
+    }
+
+    #[test]
+    fn test_price_with_capture_serial_populates_captured_path_statistics() {
+        let engine = McEngine::builder()
+            .num_paths(5)
+            .uniform_grid(1.0, 1)
+            .parallel(false)
+            .capture_all_paths()
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let result = engine
+            .price_with_capture(
+                &PathIndexedRng::root(),
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &CapturedValuePayoff::default(),
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect("captured pricing should succeed");
+
+        assert_captured_path_statistics(&result);
+    }
+
+    #[cfg(feature = "parallel")]
+    #[test]
+    fn test_price_with_capture_parallel_populates_captured_path_statistics() {
+        let engine = McEngine::builder()
+            .num_paths(5)
+            .uniform_grid(1.0, 1)
+            .parallel(true)
+            .chunk_size(2)
+            .capture_all_paths()
+            .build()
+            .expect("McEngine builder should succeed with valid test data");
+
+        let result = engine
+            .price_with_capture(
+                &PathIndexedRng::root(),
+                &DummyProcess,
+                &DummyDisc,
+                &[100.0],
+                &CapturedValuePayoff::default(),
+                Currency::USD,
+                1.0,
+                ProcessParams::new("test"),
+            )
+            .expect("captured pricing should succeed");
+
+        assert_captured_path_statistics(&result);
     }
 }

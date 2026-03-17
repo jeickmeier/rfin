@@ -51,12 +51,12 @@ The `McEngine` orchestrates the simulation loop: for each path it splits the RNG
 
 ```
 monte_carlo/
-├── mod.rs                    # Module root, prelude, re-exports
+├── lib.rs                    # Crate root, prelude, re-exports
 ├── traits.rs                 # Core traits: RandomStream, StochasticProcess, Discretization, Payoff
 ├── engine.rs                 # McEngine, McEngineBuilder, McEngineConfig, path simulation loop
 ├── results.rs                # MoneyEstimate, MonteCarloResult, MonteCarloGreeks
 ├── paths.rs                  # PathPoint, SimulatedPath, PathDataset, ProcessParams, CashflowType
-├── estimate.rs               # Estimate, ConvergenceDiagnostics (re-export from core)
+├── estimate.rs               # Estimate and compatibility diagnostics types
 ├── online_stats.rs           # OnlineStats, required_samples (re-export from core)
 ├── time_grid.rs              # TimeGrid (re-export from core)
 ├── seed.rs                   # Deterministic seed derivation for Greek scenarios
@@ -89,7 +89,7 @@ monte_carlo/
 │   └── revolving_credit.rs   # RevolvingCreditDiscretization
 │
 ├── payoff/                   # Contract payoff definitions
-│   ├── traits.rs             # TerminalPayoff, PayoffBuilder, SimpleTerminalPayoff
+│   ├── traits.rs             # TerminalPayoff, SimpleTerminalPayoff, compatibility helpers
 │   ├── vanilla.rs            # EuropeanCall, EuropeanPut, Digital, Forward
 │   ├── asian.rs              # AsianCall, AsianPut, AveragingMethod, geometric closed-form
 │   ├── barrier.rs            # BarrierOptionPayoff, BarrierType (up/down, in/out)

@@ -69,6 +69,32 @@ impl ExactMultiGbm {
     }
 }
 
+fn recover_rate_coefficients<P: StochasticProcess>(
+    process: &P,
+    t: f64,
+    x: &[f64],
+    drift: f64,
+    diffusion: f64,
+    index: usize,
+) -> (f64, f64) {
+    if !x[index].is_subnormal() {
+        return (drift / x[index], diffusion / x[index]);
+    }
+
+    let mut probe_state = x.to_vec();
+    probe_state[index] = if x[index].is_sign_negative() {
+        -1.0
+    } else {
+        1.0
+    };
+    let mut probe_drift = vec![0.0; x.len()];
+    let mut probe_diffusion = vec![0.0; x.len()];
+    process.drift(t, &probe_state, &mut probe_drift);
+    process.diffusion(t, &probe_state, &mut probe_diffusion);
+
+    (probe_drift[index], probe_diffusion[index])
+}
+
 impl<P> Discretization<P> for ExactMultiGbm
 where
     P: StochasticProcess,
@@ -85,8 +111,14 @@ where
         // Apply exact GBM formula for each component
         // For diagonal diffusion: S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_i)
         for i in 0..dim {
-            let mu = drift_vec[i] / x[i]; // Convert absolute drift to rate
-            let sigma = diff_vec[i] / x[i]; // Convert absolute vol to rate
+            // Zero is an absorbing boundary for multiplicative GBM dynamics, so
+            // skip the rate reconstruction that would otherwise evaluate 0 / 0.
+            if x[i] == 0.0 {
+                continue;
+            }
+
+            let (mu, sigma) =
+                recover_rate_coefficients(process, _t, x, drift_vec[i], diff_vec[i], i);
 
             let drift_term = (mu - 0.5 * sigma * sigma) * dt;
             let diffusion_term = sigma * dt.sqrt() * z[i];
@@ -190,8 +222,14 @@ impl Discretization<MultiGbmProcess> for ExactMultiGbmCorrelated {
         // Apply exact GBM formula for each component using correlated shocks
         // S_i(t+dt) = S_i(t) exp((μ_i - ½σ_i²)dt + σ_i√dt Z_corr_i)
         for i in 0..dim {
-            let mu = drift_vec[i] / x[i]; // Convert absolute drift to rate
-            let sigma = diff_vec[i] / x[i]; // Convert absolute vol to rate
+            // Zero is an absorbing boundary for multiplicative GBM dynamics, so
+            // skip the rate reconstruction that would otherwise evaluate 0 / 0.
+            if x[i] == 0.0 {
+                continue;
+            }
+
+            let (mu, sigma) =
+                recover_rate_coefficients(process, _t, x, drift_vec[i], diff_vec[i], i);
 
             let drift_term = (mu - 0.5 * sigma * sigma) * dt;
             let diffusion_term = sigma * dt.sqrt() * z_corr[i];
@@ -280,6 +318,73 @@ mod tests {
     }
 
     #[test]
+    fn test_exact_multi_gbm_preserves_zero_and_evolves_small_positive_state() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let process = MultiGbmProcess::new(params, None);
+        let disc = ExactMultiGbm::new();
+
+        let small_positive = 1e-300;
+        let mut x = vec![0.0, small_positive];
+        let z = vec![0.0, 0.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        disc.step(&process, 0.0, 1.0, &mut x, &z, &mut work);
+
+        let expected = small_positive * (-0.025_f64).exp();
+        assert_eq!(x[0], 0.0);
+        assert!(x[0].is_finite());
+        assert!(x[1].is_finite());
+        assert!((x[1] - expected).abs() < 1e-312);
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_smallest_subnormal_can_round_to_zero() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let process = MultiGbmProcess::new(params, None);
+        let disc = ExactMultiGbm::new();
+
+        let smallest_subnormal = f64::from_bits(1);
+        let mut x = vec![0.0, smallest_subnormal];
+        let z = vec![0.0, -3.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        disc.step(&process, 0.0, 1.0, &mut x, &z, &mut work);
+
+        assert_eq!(x[0], 0.0);
+        assert!(x[0].is_finite());
+        assert_eq!(x[1], 0.0);
+        assert!(x[1].is_finite());
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_recovers_mixed_underflow_coefficients() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 1.5),
+        ];
+        let process = MultiGbmProcess::new(params, None);
+        let disc = ExactMultiGbm::new();
+
+        let smallest_subnormal = f64::from_bits(1);
+        let mut x = vec![0.0, smallest_subnormal];
+        let z = vec![0.0, 2.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        disc.step(&process, 0.0, 1.0, &mut x, &z, &mut work);
+
+        let expected = smallest_subnormal * 1.925_f64.exp();
+        assert_eq!(x[0], 0.0);
+        assert_eq!(x[1], expected);
+        assert!(x[1] > smallest_subnormal);
+    }
+
+    #[test]
     fn test_exact_multi_gbm_correlated_creation() {
         let params = vec![
             GbmParams::new(0.05, 0.02, 0.2),
@@ -324,6 +429,76 @@ mod tests {
         let expected_2 = 200.0 * (-0.025_f64).exp();
         assert!((x[0] - expected_1).abs() < 1e-10);
         assert!((x[1] - expected_2).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_preserves_zero_and_evolves_small_positive_state() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let corr = vec![1.0, 0.5, 0.5, 1.0];
+        let process = MultiGbmProcess::new(params, Some(corr.clone()));
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
+
+        let small_positive = 1e-300;
+        let mut x = vec![0.0, small_positive];
+        let z = vec![0.0, 0.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        disc.step(&process, 0.0, 1.0, &mut x, &z, &mut work);
+
+        let expected = small_positive * (-0.025_f64).exp();
+        assert_eq!(x[0], 0.0);
+        assert!(x[0].is_finite());
+        assert!(x[1].is_finite());
+        assert!((x[1] - expected).abs() < 1e-312);
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_smallest_subnormal_can_round_to_zero() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 0.3),
+        ];
+        let corr = vec![1.0, 0.0, 0.0, 1.0];
+        let process = MultiGbmProcess::new(params, Some(corr.clone()));
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
+
+        let smallest_subnormal = f64::from_bits(1);
+        let mut x = vec![0.0, smallest_subnormal];
+        let z = vec![0.0, -3.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        disc.step(&process, 0.0, 1.0, &mut x, &z, &mut work);
+
+        assert_eq!(x[0], 0.0);
+        assert!(x[0].is_finite());
+        assert_eq!(x[1], 0.0);
+        assert!(x[1].is_finite());
+    }
+
+    #[test]
+    fn test_exact_multi_gbm_correlated_recovers_mixed_underflow_coefficients() {
+        let params = vec![
+            GbmParams::new(0.05, 0.02, 0.2),
+            GbmParams::new(0.05, 0.03, 1.5),
+        ];
+        let corr = vec![1.0, 0.0, 0.0, 1.0];
+        let process = MultiGbmProcess::new(params, Some(corr.clone()));
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("should succeed");
+
+        let smallest_subnormal = f64::from_bits(1);
+        let mut x = vec![0.0, smallest_subnormal];
+        let z = vec![0.0, 2.0];
+        let mut work = vec![0.0; disc.work_size(&process)];
+
+        disc.step(&process, 0.0, 1.0, &mut x, &z, &mut work);
+
+        let expected = smallest_subnormal * 1.925_f64.exp();
+        assert_eq!(x[0], 0.0);
+        assert_eq!(x[1], expected);
+        assert!(x[1] > smallest_subnormal);
     }
 
     #[test]

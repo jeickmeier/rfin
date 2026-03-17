@@ -51,10 +51,8 @@
 //! - Andersen, L. (2008). "Simple and Efficient Simulation of the Heston Model."
 //! - Salmon, J. K. et al. (2011). "Parallel Random Numbers: As Easy as 1, 2, 3."
 
-// Allow some clippy lints for MC module (many parameters are necessary for flexibility)
-#![allow(clippy::too_many_arguments)]
-
 // --- Simulation primitives ---
+mod captured_path_stats;
 pub mod discretization;
 pub mod estimate;
 pub mod online_stats;

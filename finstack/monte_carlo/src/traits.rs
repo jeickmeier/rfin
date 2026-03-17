@@ -14,6 +14,7 @@ use super::paths::CashflowType;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::HashMap;
+use smallvec::SmallVec;
 
 /// Random stream trait for generating random numbers.
 ///
@@ -158,10 +159,21 @@ fn resolve_key(key: &str) -> Option<StateKey> {
     }
 }
 
+fn parse_indexed_spot_key(key: &str) -> Option<usize> {
+    key.strip_prefix("spot_")?.parse::<usize>().ok()
+}
+
+#[derive(Debug, Clone, Default)]
+struct PathStateExtras {
+    indexed_spots: SmallVec<[Option<f64>; 4]>,
+    dynamic: StateVariables,
+    cashflows: Vec<(f64, f64, CashflowType)>,
+}
+
 /// State information for a point along a Monte Carlo path.
 ///
-/// Uses a fixed-size array for known state keys (O(1) access) with a HashMap
-/// fallback for dynamic keys (basket "spot_0", "spot_1", etc.).
+/// Uses a fixed-size array for known state keys (O(1) access) and stores rarer
+/// dynamic/indexed state plus cashflows in an optional sidecar allocation.
 #[derive(Debug, Clone)]
 pub struct PathState {
     /// Time step index (0 = initial, N = final)
@@ -172,9 +184,7 @@ pub struct PathState {
     fixed: [f64; STATE_ARRAY_LEN],
     /// Bitmask tracking which fixed slots contain valid values
     fixed_set: u16,
-    /// Fallback for dynamic keys not in the fixed array (e.g., basket spot keys)
-    dynamic: HashMap<&'static str, f64>,
-    cashflows: Vec<(f64, f64, CashflowType)>,
+    extras: Option<Box<PathStateExtras>>,
     uniform_random: f64,
 }
 
@@ -184,6 +194,16 @@ impl PathState {
         self.set_key(StateKey::Step, self.step as f64);
     }
 
+    fn extras(&self) -> Option<&PathStateExtras> {
+        self.extras.as_deref()
+    }
+
+    fn extras_mut(&mut self) -> &mut PathStateExtras {
+        self.extras
+            .get_or_insert_with(|| Box::new(PathStateExtras::default()))
+            .as_mut()
+    }
+
     /// Create a new path state.
     pub fn new(step: usize, time: f64) -> Self {
         let mut state = Self {
@@ -191,8 +211,7 @@ impl PathState {
             time,
             fixed: [0.0; STATE_ARRAY_LEN],
             fixed_set: 0,
-            dynamic: HashMap::default(),
-            cashflows: Vec::new(),
+            extras: None,
             uniform_random: 0.0,
         };
         state.sync_core_fields();
@@ -242,8 +261,15 @@ impl PathState {
     pub fn get(&self, key: &str) -> Option<f64> {
         if let Some(sk) = resolve_key(key) {
             self.get_key(sk)
+        } else if let Some(index) = parse_indexed_spot_key(key) {
+            self.extras()
+                .and_then(|extras| extras.indexed_spots.get(index))
+                .copied()
+                .flatten()
         } else {
-            self.dynamic.get(key).copied()
+            self.extras()
+                .and_then(|extras| extras.dynamic.get(key))
+                .copied()
         }
     }
 
@@ -257,9 +283,20 @@ impl PathState {
     pub fn set(&mut self, key: &'static str, value: f64) {
         if let Some(sk) = resolve_key(key) {
             self.set_key(sk, value);
+        } else if let Some(index) = parse_indexed_spot_key(key) {
+            self.set_indexed_spot(index, value);
         } else {
-            self.dynamic.insert(key, value);
+            self.extras_mut().dynamic.insert(key, value);
         }
+    }
+
+    /// Set a multi-asset indexed spot without hashing a string key.
+    pub fn set_indexed_spot(&mut self, index: usize, value: f64) {
+        let indexed_spots = &mut self.extras_mut().indexed_spots;
+        if indexed_spots.len() <= index {
+            indexed_spots.resize_with(index + 1, || None);
+        }
+        indexed_spots[index] = Some(value);
     }
 
     /// Update the public step/time fields and their keyed representations together.
@@ -273,7 +310,9 @@ impl PathState {
     /// Merges fixed-slot values with dynamic values. This allocates --
     /// prefer `get`/`get_key` on hot paths.
     pub fn vars(&self) -> StateVariables {
-        let mut map = self.dynamic.clone();
+        let mut map = self
+            .extras()
+            .map_or_else(HashMap::default, |extras| extras.dynamic.clone());
         let key_names: [&'static str; STATE_ARRAY_LEN] = [
             state_keys::SPOT,
             state_keys::VARIANCE,
@@ -290,6 +329,13 @@ impl PathState {
         for (i, key_name) in key_names.iter().enumerate().take(STATE_ARRAY_LEN) {
             if self.fixed_set & (1 << i) != 0 {
                 map.insert(*key_name, self.fixed[i]);
+            }
+        }
+        if let Some(extras) = self.extras() {
+            for (index, value) in extras.indexed_spots.iter().enumerate() {
+                if let Some(value) = value {
+                    map.insert(state_keys::indexed_spot(index), *value);
+                }
             }
         }
         map
@@ -309,22 +355,39 @@ impl PathState {
 
     /// Add a cashflow to this state.
     pub fn add_cashflow(&mut self, time: f64, amount: f64) {
-        self.cashflows.push((time, amount, CashflowType::Other));
+        self.extras_mut()
+            .cashflows
+            .push((time, amount, CashflowType::Other));
     }
 
     /// Add a typed cashflow to this state.
     pub fn add_typed_cashflow(&mut self, time: f64, amount: f64, cf_type: CashflowType) {
-        self.cashflows.push((time, amount, cf_type));
+        self.extras_mut().cashflows.push((time, amount, cf_type));
+    }
+
+    /// Drain all cashflows into a callback while retaining the underlying capacity.
+    pub(crate) fn drain_cashflows<F>(&mut self, mut sink: F)
+    where
+        F: FnMut(f64, f64, CashflowType),
+    {
+        if let Some(extras) = self.extras.as_deref_mut() {
+            for (time, amount, cf_type) in extras.cashflows.drain(..) {
+                sink(time, amount, cf_type);
+            }
+        }
     }
 
     /// Take all cashflows from this state, leaving it empty.
     pub fn take_cashflows(&mut self) -> Vec<(f64, f64, CashflowType)> {
-        std::mem::take(&mut self.cashflows)
+        self.extras
+            .as_deref_mut()
+            .map_or_else(Vec::new, |extras| std::mem::take(&mut extras.cashflows))
     }
 
     /// Get a reference to cashflows (for inspection, not taking ownership).
     pub fn cashflows(&self) -> &[(f64, f64, CashflowType)] {
-        &self.cashflows
+        self.extras()
+            .map_or_else(|| &[][..], |extras| extras.cashflows.as_slice())
     }
 }
 
@@ -490,9 +553,12 @@ mod tests {
         let mut state = PathState::new(0, 0.0);
         state.set(state_keys::SPOT, 100.0);
         state.set(state_keys::VARIANCE, 0.04);
+        state.set_indexed_spot(1, 120.0);
 
         assert_eq!(state.spot(), Some(100.0));
         assert_eq!(state.variance(), Some(0.04));
+        assert_eq!(state.get("spot_1"), Some(120.0));
+        assert_eq!(state.vars().get("spot_1"), Some(&120.0));
         assert_eq!(state.get("nonexistent"), None);
         assert_eq!(state.get_or("nonexistent", 42.0), 42.0);
     }
@@ -522,5 +588,13 @@ mod tests {
         assert_eq!(state.cashflows().len(), 2);
         assert_eq!(state.cashflows()[0], (0.5, 2000.0, CashflowType::Interest));
         assert_eq!(state.cashflows()[1], (0.5, 100.0, CashflowType::Principal));
+
+        let mut drained = Vec::new();
+        state.drain_cashflows(|time, amount, cf_type| drained.push((time, amount, cf_type)));
+        assert_eq!(drained.len(), 2);
+        assert!(state.cashflows().is_empty());
+
+        state.add_cashflow(0.75, 50.0);
+        assert_eq!(state.cashflows(), &[(0.75, 50.0, CashflowType::Other)]);
     }
 }

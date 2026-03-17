@@ -6,6 +6,7 @@
 use super::super::engine::{McEngine, McEngineConfig, PathCaptureConfig};
 use super::super::results::{MoneyEstimate, MonteCarloResult};
 use super::super::traits::Payoff;
+use crate::captured_path_stats::apply_captured_path_statistics;
 use crate::discretization::exact::ExactGbm;
 use crate::estimate::Estimate;
 use crate::online_stats::OnlineStats;
@@ -232,32 +233,6 @@ impl PathDependentPricer {
         Ok(sobol_dimension)
     }
 
-    fn apply_captured_path_statistics(estimate: Estimate, paths: &[SimulatedPath]) -> Estimate {
-        if paths.is_empty() {
-            return estimate;
-        }
-
-        let mut values: Vec<f64> = paths.iter().map(|p| p.final_value).collect();
-        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let n = values.len();
-        let median = if n.is_multiple_of(2) {
-            (values[n / 2 - 1] + values[n / 2]) / 2.0
-        } else {
-            values[n / 2]
-        };
-        let p25_idx = (n as f64 * 0.25).floor() as usize;
-        let p75_idx = (n as f64 * 0.75).floor() as usize;
-        let p25 = values[p25_idx.min(n - 1)];
-        let p75 = values[p75_idx.min(n - 1)];
-        let min = values[0];
-        let max = values[n - 1];
-
-        estimate
-            .with_median(median)
-            .with_percentiles(p25, p75)
-            .with_range(min, max)
-    }
-
     #[cfg(feature = "mc")]
     #[allow(clippy::too_many_arguments)]
     fn price_with_sobol<P>(
@@ -334,9 +309,9 @@ impl PathDependentPricer {
                     SimulatedPath::with_capacity(path_id, time_grid.num_steps() + 1);
                 let initial_state_vec = SmallVec::from_slice(&state);
                 let mut initial_point = PathPoint::with_state(0, 0.0, initial_state_vec);
-                for (time, amount, cf_type) in path_state.take_cashflows() {
+                path_state.drain_cashflows(|time, amount, cf_type| {
                     initial_point.add_typed_cashflow(time, amount, cf_type);
-                }
+                });
                 if self.config.path_capture.capture_payoffs {
                     initial_point.set_payoff(payoff_local.value(currency).amount());
                 }
@@ -374,9 +349,9 @@ impl PathDependentPricer {
                 if let Some(simulated_path) = &mut simulated_path {
                     let state_vec = SmallVec::from_slice(&state);
                     let mut point = PathPoint::with_state(step + 1, t + dt, state_vec);
-                    for (time, amount, cf_type) in path_state.take_cashflows() {
+                    path_state.drain_cashflows(|time, amount, cf_type| {
                         point.add_typed_cashflow(time, amount, cf_type);
-                    }
+                    });
                     if self.config.path_capture.capture_payoffs {
                         point.set_payoff(payoff_local.value(currency).amount());
                     }
@@ -416,7 +391,7 @@ impl PathDependentPricer {
             for path in &captured_paths {
                 dataset.add_path(path.clone());
             }
-            let estimate = Self::apply_captured_path_statistics(estimate, &captured_paths);
+            let estimate = apply_captured_path_statistics(estimate, &captured_paths);
             Ok(MonteCarloResult::with_paths(
                 MoneyEstimate::from_estimate(estimate, currency),
                 dataset,
@@ -843,6 +818,26 @@ mod tests {
 
         assert_eq!(result.estimate.num_paths, 8);
         assert_eq!(result.num_captured_paths(), 8);
+
+        let captured = result.paths.as_ref().expect("paths should be captured");
+        let mut final_values: Vec<f64> =
+            captured.paths.iter().map(|path| path.final_value).collect();
+        final_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+
+        let len = final_values.len();
+        let expected_median = if len.is_multiple_of(2) {
+            (final_values[len / 2 - 1] + final_values[len / 2]) / 2.0
+        } else {
+            final_values[len / 2]
+        };
+        let expected_p25 = final_values[((len as f64 * 0.25).floor() as usize).min(len - 1)];
+        let expected_p75 = final_values[((len as f64 * 0.75).floor() as usize).min(len - 1)];
+
+        assert_eq!(result.estimate.median, Some(expected_median));
+        assert_eq!(result.estimate.percentile_25, Some(expected_p25));
+        assert_eq!(result.estimate.percentile_75, Some(expected_p75));
+        assert_eq!(result.estimate.min, Some(final_values[0]));
+        assert_eq!(result.estimate.max, Some(final_values[len - 1]));
     }
 
     #[cfg(feature = "mc")]

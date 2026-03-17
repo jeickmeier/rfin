@@ -22,7 +22,7 @@ pub trait TerminalPayoff: Payoff {
     }
 }
 
-/// Payoff builder for fluent construction.
+/// Compatibility wrapper for fluent payoff construction.
 pub struct PayoffBuilder<P> {
     payoff: P,
 }
