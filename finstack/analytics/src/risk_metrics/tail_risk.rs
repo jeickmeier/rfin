@@ -466,7 +466,8 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 ///
 /// * `returns`    - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
-/// * `ann_factor` - If `Some(f)`, multiplies the result by `sqrt(f)`.
+/// * `ann_factor` - If `Some(f)`, scales the mean term by `f` and the
+///   volatility term by `sqrt(f)`.
 ///
 /// # Returns
 ///
@@ -517,7 +518,8 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 ///
 /// * `returns`    - Slice of period simple returns.
 /// * `confidence` - Confidence level in `(0, 1)`, e.g. `0.95`.
-/// * `ann_factor` - If `Some(f)`, multiplies the result by `sqrt(f)`.
+/// * `ann_factor` - If `Some(f)`, scales the mean term by `f` and the
+///   volatility term by `sqrt(f)`.
 ///
 /// # Returns
 ///

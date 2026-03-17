@@ -182,13 +182,15 @@ fn make_episode(
 
 /// Average of the top-N worst drawdowns.
 ///
-/// Identifies the `n` largest drawdown episodes via [`drawdown_details`]
-/// and returns the arithmetic mean of their `max_drawdown` values.
+/// Identifies the `n` largest drawdown episodes directly from the drawdown
+/// path and returns the arithmetic mean of their episode minima.
 ///
 /// # Arguments
 ///
 /// * `drawdown` - Pre-computed drawdown series (values ≤ 0).
-/// * `dates`    - Date vector aligned with `drawdown`.
+/// * `dates`    - Date vector aligned with `drawdown`. Accepted for API
+///   consistency with [`drawdown_details`], but not consulted by this
+///   calculation.
 /// * `n`        - Number of worst episodes to average.
 ///
 /// # Returns
@@ -382,6 +384,23 @@ mod tests {
     #[test]
     fn avg_drawdown_empty() {
         assert_eq!(avg_drawdown(&[], &[], 5), 0.0);
+    }
+
+    #[test]
+    fn avg_drawdown_ignores_dates() {
+        let drawdown = [0.0, -0.10, -0.20, 0.0, -0.15, 0.0];
+        let jan_dates = make_dates(drawdown.len());
+        let feb_dates = (0..drawdown.len())
+            .map(|i| {
+                Date::from_calendar_date(2026, Month::January, 1).expect("valid date")
+                    + Duration::days(i as i64)
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(
+            avg_drawdown(&drawdown, &jan_dates, 2),
+            avg_drawdown(&drawdown, &feb_dates, 2)
+        );
     }
 
     #[test]

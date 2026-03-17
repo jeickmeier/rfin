@@ -240,8 +240,8 @@ const MIN_GROWTH_FACTOR: f64 = 1e-18;
 /// Uses a Neumaier accumulator in log-space for numerical stability on
 /// long series. Growth factors are clamped to `MIN_GROWTH_FACTOR` so
 /// that returns ≤ −1.0 produce a near-total-loss (≈ −100 %) rather than NaN.
-/// Non-finite returns (NaN, ±Inf) are clamped to the floor, treating them
-/// as total losses rather than poisoning the entire accumulator.
+/// Non-finite returns (NaN, ±Inf) mark the path invalid from that point
+/// forward, so the current and subsequent outputs become `NaN`.
 ///
 /// # Arguments
 ///
@@ -287,9 +287,8 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 ///
 /// Uses Kahan summation in log-space for numerical stability. Growth
 /// factors are clamped to `MIN_GROWTH_FACTOR` so that returns ≤ −1.0
-/// produce a near-total-loss rather than NaN. NaN returns are also
-/// Non-finite returns (NaN, ±Inf) are clamped to the floor, treating them
-/// as total losses rather than poisoning the result.
+/// produce a near-total-loss rather than NaN. Non-finite returns (NaN,
+/// ±Inf) immediately propagate invalidity by returning `NaN`.
 ///
 /// # Arguments
 ///
