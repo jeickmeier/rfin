@@ -31,13 +31,14 @@
 //! - Clark (2011), *Foreign Exchange Option Pricing*, Ch. 3-4
 
 use crate::{
-    error::InputError,
-    math::special_functions::{norm_cdf, standard_normal_inv_cdf},
-    math::volatility::d1_black76,
+    error::InputError, math::special_functions::norm_cdf, math::volatility::d1_black76,
     types::CurveId,
 };
 
-use super::{recover_fx_wing_vols, FxDeltaVolSurfaceBuilder, VolSurface};
+use super::{
+    fx_atm_dns_strike, fx_put_call_25d_strikes, interp_linear_clamp, recover_fx_wing_vols,
+    FxDeltaVolSurfaceBuilder, VolSurface,
+};
 
 // ---------------------------------------------------------------------------
 // FxDeltaVolSurface
@@ -194,8 +195,9 @@ impl FxDeltaVolSurface {
     /// `delta` should be in (0, 1) for a call.
     #[inline]
     pub fn delta_to_strike(delta: f64, forward: f64, vol: f64, expiry: f64, _r_f: f64) -> f64 {
+        let z_delta = crate::math::special_functions::standard_normal_inv_cdf(delta);
         let sqrt_t = expiry.sqrt();
-        forward * (-standard_normal_inv_cdf(delta) * vol * sqrt_t + 0.5 * vol * vol * expiry).exp()
+        forward * (-z_delta * vol * sqrt_t + 0.5 * vol * vol * expiry).exp()
     }
 
     /// Convert a strike to forward delta using Garman-Kohlhagen.
@@ -245,19 +247,8 @@ impl FxDeltaVolSurface {
 
         // Step 3: Convert to strikes.
         let _ = r_d; // r_d not needed for forward delta convention
-        let sqrt_t = expiry.sqrt();
-
-        let k_atm = forward * (0.5 * atm * atm * expiry).exp();
-
-        let k_call = forward
-            * (-standard_normal_inv_cdf(0.25) * sigma_call * sqrt_t
-                + 0.5 * sigma_call * sigma_call * expiry)
-                .exp();
-
-        let k_put = forward
-            * (standard_normal_inv_cdf(0.25) * sigma_put * sqrt_t
-                + 0.5 * sigma_put * sigma_put * expiry)
-                .exp();
+        let k_atm = fx_atm_dns_strike(forward, atm, expiry);
+        let (k_put, k_call) = fx_put_call_25d_strikes(forward, sigma_put, sigma_call, expiry);
 
         // Step 4: Interpolate linearly in strike space.
         let _ = r_f; // already baked into forward
@@ -376,33 +367,6 @@ impl FxDeltaVolSurface {
 
         Ok(())
     }
-}
-
-// ---------------------------------------------------------------------------
-// Interpolation helper (same approach as delta_vol_surface.rs)
-// ---------------------------------------------------------------------------
-
-/// Piecewise-linear interpolation on sorted knots with flat extrapolation.
-fn interp_linear_clamp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
-    debug_assert!(!xs.is_empty());
-    debug_assert_eq!(xs.len(), ys.len());
-
-    if x <= xs[0] {
-        return ys[0];
-    }
-    let n = xs.len();
-    if x >= xs[n - 1] {
-        return ys[n - 1];
-    }
-
-    for i in 0..n - 1 {
-        if x >= xs[i] && x <= xs[i + 1] {
-            let t = (x - xs[i]) / (xs[i + 1] - xs[i]);
-            return ys[i] + t * (ys[i + 1] - ys[i]);
-        }
-    }
-
-    ys[n - 1]
 }
 
 // ---------------------------------------------------------------------------

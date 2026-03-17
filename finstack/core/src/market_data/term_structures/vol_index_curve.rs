@@ -66,12 +66,12 @@
 
 use super::common::{
     build_interp_allow_any_values, bump_knots_parallel, bump_knots_percentage,
-    bump_knots_triangular, infer_spot_from_knots, roll_knots, split_points,
-    validate_non_negative_knots,
+    bump_knots_triangular, default_curve_base_date, infer_spot_from_knots, roll_knots,
+    split_points, validate_non_negative_knots, year_fraction_to,
 };
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle};
 use crate::{
-    dates::{Date, DayCount, DayCountCtx},
+    dates::{Date, DayCount},
     error::InputError,
     market_data::traits::TermStructure,
     math::interp::types::Interp,
@@ -172,12 +172,9 @@ impl VolatilityIndexCurve {
     /// **Defaults:** Linear interpolation with Flat extrapolation maintains
     /// stable tail levels consistent with mean reversion expectations.
     pub fn builder(id: impl Into<CurveId>) -> VolatilityIndexCurveBuilder {
-        // Epoch date - unwrap_or provides defensive fallback for infallible operation
-        let base =
-            Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN);
         VolatilityIndexCurveBuilder {
             id: id.into(),
-            base,
+            base: default_curve_base_date(),
             base_is_set: false,
             day_count: DayCount::Act365F,
             spot_level: None,
@@ -214,9 +211,7 @@ impl VolatilityIndexCurve {
         if date == self.base {
             return Ok(self.spot_level);
         }
-        let t = self
-            .day_count
-            .year_fraction(self.base, date, DayCountCtx::default())?;
+        let t = year_fraction_to(self.base, date, self.day_count)?;
         Ok(self.forward_level(t))
     }
 
@@ -394,9 +389,7 @@ impl VolatilityIndexCurve {
     /// Returns an error if fewer than 2 knot points remain after filtering expired points.
     pub fn roll_forward(&self, days: i64) -> crate::Result<Self> {
         let new_base = self.base + time::Duration::days(days);
-        let dt_years = self
-            .day_count
-            .year_fraction(self.base, new_base, DayCountCtx::default())?;
+        let dt_years = year_fraction_to(self.base, new_base, self.day_count)?;
 
         let rolled_points = roll_knots(&self.knots, &self.levels, dt_years);
 

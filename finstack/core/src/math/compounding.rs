@@ -177,7 +177,14 @@ impl Compounding {
                 let n = f64::from(n.get());
                 (1.0 + rate / n).powf(-n * t)
             }
-            Compounding::Simple => 1.0 / (1.0 + rate * t),
+            Compounding::Simple => {
+                let denominator = 1.0 + rate * t;
+                if denominator <= 0.0 || !denominator.is_finite() {
+                    f64::NAN
+                } else {
+                    1.0 / denominator
+                }
+            }
         }
     }
 
@@ -212,7 +219,13 @@ impl Compounding {
                 let n = f64::from(n.get());
                 n * (df.powf(-1.0 / (n * t)) - 1.0)
             }
-            Compounding::Simple => (1.0 / df - 1.0) / t,
+            Compounding::Simple => {
+                if df <= 0.0 || !df.is_finite() {
+                    f64::NAN
+                } else {
+                    (1.0 / df - 1.0) / t
+                }
+            }
         }
     }
 
@@ -488,6 +501,24 @@ mod tests {
         let t = 0.0;
         let result = Compounding::Continuous.convert_rate(rate, t, &Compounding::Annual);
         assert_eq!(result, 0.0, "convert_rate at t=0 should return 0.0");
+    }
+
+    #[test]
+    fn test_simple_df_from_rate_rejects_non_positive_denominator() {
+        let df = Compounding::Simple.df_from_rate(-2.0, 0.5);
+        assert!(df.is_nan(), "simple compounding should reject 1 + r*t <= 0");
+    }
+
+    #[test]
+    fn test_simple_rate_from_df_rejects_non_positive_discount_factor() {
+        let zero_df = Compounding::Simple.rate_from_df(0.0, 1.0);
+        assert!(zero_df.is_nan(), "simple compounding should reject df == 0");
+
+        let negative_df = Compounding::Simple.rate_from_df(-0.5, 1.0);
+        assert!(
+            negative_df.is_nan(),
+            "simple compounding should reject negative discount factors"
+        );
     }
 
     // ── H7 documentation tests: t == 0.0 float comparison semantics ──

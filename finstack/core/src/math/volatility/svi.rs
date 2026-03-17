@@ -249,6 +249,8 @@ pub fn calibrate_svi(
     forward: f64,
     expiry: f64,
 ) -> crate::Result<SviParams> {
+    const MAX_VOL_RMSE: f64 = 0.005;
+
     if strikes.len() != vols.len() {
         return Err(crate::Error::Validation(
             "strikes and vols must have the same length".to_string(),
@@ -389,9 +391,10 @@ pub fn calibrate_svi(
         rmse_w
     };
 
-    if rmse_vol_approx > 0.05 {
+    if rmse_vol_approx > MAX_VOL_RMSE {
         return Err(crate::Error::Validation(format!(
-            "SVI calibration RMSE too high: {rmse_vol_approx:.4} (>5%)"
+            "SVI calibration RMSE too high: {rmse_vol_approx:.4} (>{:.2}%)",
+            MAX_VOL_RMSE * 100.0
         )));
     }
 
@@ -579,6 +582,42 @@ mod tests {
         let vols = &[0.25, 0.20, 0.21];
         let result = calibrate_svi(strikes, vols, 100.0, 1.0);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn calibrate_svi_rejects_noisy_non_svi_slice() {
+        let strikes = &[80.0, 90.0, 100.0, 110.0, 120.0, 130.0, 140.0];
+        let vols = &[0.20, 0.26, 0.19, 0.27, 0.18, 0.28, 0.17];
+
+        let result = calibrate_svi(strikes, vols, 100.0, 1.0);
+        assert!(
+            result.is_err(),
+            "alternating smile should be rejected as a poor SVI fit"
+        );
+    }
+
+    #[test]
+    fn calibrate_svi_rejects_moderate_fit_error() {
+        let true_params = SviParams {
+            a: 0.04,
+            b: 0.3,
+            rho: -0.3,
+            m: 0.02,
+            sigma: 0.15,
+        };
+        let strikes = &[80.0, 90.0, 95.0, 100.0, 105.0, 110.0, 120.0];
+        let mut vols: Vec<f64> = strikes
+            .iter()
+            .map(|&k| true_params.implied_vol((k / 100.0_f64).ln(), 1.0))
+            .collect();
+        vols[1] += 0.03;
+        vols[5] -= 0.03;
+
+        let result = calibrate_svi(strikes, &vols, 100.0, 1.0);
+        assert!(
+            result.is_err(),
+            "10 vol-point perturbations should exceed production fit tolerance"
+        );
     }
 
     #[test]

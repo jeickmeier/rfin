@@ -543,6 +543,10 @@ impl VolSurface {
     /// assert!(v_deep_otm > 0.0);
     /// ```
     pub fn value_extrapolated(&self, expiry: f64, strike: f64, forward: f64) -> f64 {
+        if !forward.is_finite() || forward <= 0.0 {
+            return f64::NAN;
+        }
+
         // Try bilinear interpolation first
         if let Ok(v) = self.value_checked(expiry, strike) {
             return v;
@@ -605,7 +609,7 @@ impl VolSurface {
                 }
             }
             Err(_) => {
-                // SVI calibration failed — fall back to flat extrapolation
+                // SVI calibration failed — fall back to flat extrapolation.
                 self.value_clamped(clamped_expiry, strike)
             }
         }
@@ -1010,6 +1014,16 @@ mod tests {
         assert!(
             vol > 0.0 && vol.is_finite(),
             "Extrapolated for short expiry should be valid: {vol}"
+        );
+    }
+
+    #[test]
+    fn extrapolated_invalid_forward_surfaces_svi_failure() {
+        let vs = smile_surface();
+        let vol = vs.value_extrapolated(1.0, 50.0, 0.0);
+        assert!(
+            vol.is_nan(),
+            "invalid forward should not silently clamp a failed SVI fit"
         );
     }
 

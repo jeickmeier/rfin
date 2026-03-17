@@ -297,7 +297,7 @@ mod tests {
         // Identity matrix: all eigenvalues = 1
         let correlation = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
-        let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
+        let (eigenvalues, _, _) = pca_ordering(&correlation, 3).expect("3x3 matrix should succeed");
 
         // All eigenvalues should be 1
         for &val in &eigenvalues {
@@ -310,7 +310,7 @@ mod tests {
         // High correlation matrix
         let correlation = vec![1.0, 0.8, 0.6, 0.8, 1.0, 0.7, 0.6, 0.7, 1.0];
 
-        let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
+        let (eigenvalues, _, _) = pca_ordering(&correlation, 3).expect("3x3 matrix should succeed");
 
         println!("Eigenvalues: {:?}", eigenvalues);
 

@@ -95,6 +95,8 @@ pub struct DensityWarning {
 }
 
 impl SabrParams {
+    const LOGNORMAL_ATM_LOG_MONEYNESS_THRESHOLD: f64 = 1e-8;
+
     /// Alpha (α): initial volatility level.
     pub fn alpha(&self) -> f64 {
         self.alpha
@@ -183,13 +185,13 @@ impl SabrParams {
 
         let fk = f * k;
         let one_minus_beta = 1.0 - beta;
+        let log_fk = (f / k).ln();
 
-        // ATM case: use simplified formula for numerical stability
-        if (f - k).abs() < 1e-12 * f {
+        // ATM case: use the stable formula once log-moneyness is tiny, including
+        // low-rate environments where a purely relative |f-k| threshold becomes ineffective.
+        if log_fk.abs() <= Self::LOGNORMAL_ATM_LOG_MONEYNESS_THRESHOLD {
             return self.atm_vol_lognormal(f, t);
         }
-
-        let log_fk = (f / k).ln();
 
         // z = (ν/α) * (FK)^((1-β)/2) * ln(F/K)
         let fk_mid = fk.powf(one_minus_beta / 2.0);
@@ -341,7 +343,8 @@ impl SabrParams {
         let nu = self.nu;
 
         let omb = 1.0 - beta;
-        let f_omb = f.powf(omb);
+        let f_safe = f.max(1e-10);
+        let f_omb = f_safe.powf(omb);
 
         let base = alpha / f_omb;
 
@@ -830,6 +833,27 @@ mod tests {
         assert!(
             (vol_exact - vol_near_below).abs() < 1e-4,
             "Vol should be continuous at ATM: exact={vol_exact:.6}, below={vol_near_below:.6}"
+        );
+    }
+
+    #[test]
+    fn sabr_low_rate_near_atm_is_stable() {
+        let params = SabrParams::new(0.01, 0.5, -0.2, 0.4).expect("valid params");
+        let fwd = 0.0005;
+        let t = 1.0;
+
+        let vol_exact = params.implied_vol_lognormal(fwd, fwd, t);
+        let vol_near_above = params.implied_vol_lognormal(fwd, fwd + 1e-12, t);
+        let vol_near_below = params.implied_vol_lognormal(fwd, fwd - 1e-12, t);
+
+        assert!(vol_exact.is_finite() && vol_exact > 0.0);
+        assert_eq!(
+            vol_exact, vol_near_above,
+            "Low-rate ATM continuity failed above ATM: exact={vol_exact:.6}, above={vol_near_above:.6}"
+        );
+        assert_eq!(
+            vol_exact, vol_near_below,
+            "Low-rate ATM continuity failed below ATM: exact={vol_exact:.6}, below={vol_near_below:.6}"
         );
     }
 

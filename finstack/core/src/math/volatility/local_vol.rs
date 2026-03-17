@@ -475,6 +475,47 @@ mod tests {
     }
 
     #[test]
+    fn local_vol_falls_back_to_implied_vol_when_gamma_is_tiny() {
+        let surface = VolSurface::builder("TINY-GAMMA")
+            .expiries(&[1.0, 2.0])
+            .strikes(&[1_000_000.0, 2_000_000.0, 3_000_000.0])
+            .row(&[0.25, 0.25, 0.25])
+            .row(&[0.25, 0.25, 0.25])
+            .build()
+            .expect("surface should build");
+
+        let lv = LocalVolSurface::from_implied_vol(&surface, 100.0, 0.0)
+            .expect("extraction should succeed");
+        let fallback_vol = lv.value(1.0, 2_000_000.0);
+
+        assert!(
+            (fallback_vol - 0.25).abs() < 1e-12,
+            "tiny-gamma path should fall back to implied vol, got {fallback_vol}"
+        );
+    }
+
+    #[test]
+    fn local_vol_falls_back_to_implied_vol_when_local_variance_turns_negative() {
+        let surface = VolSurface::builder("NEG-LV2")
+            .expiries(&[0.25, 0.5, 1.0])
+            .strikes(&[80.0, 100.0, 120.0])
+            .row(&[0.60, 0.50, 0.60])
+            .row(&[0.10, 0.08, 0.10])
+            .row(&[0.09, 0.07, 0.09])
+            .build()
+            .expect("surface should build");
+
+        let lv = LocalVolSurface::from_implied_vol(&surface, 100.0, 0.0)
+            .expect("extraction should succeed");
+        let fallback_vol = lv.value(0.5, 100.0);
+
+        assert!(
+            (fallback_vol - 0.08).abs() < 1e-12,
+            "negative local-variance fallback should use implied vol, got {fallback_vol}"
+        );
+    }
+
+    #[test]
     fn local_vol_rejects_too_few_expiries() {
         let surface = VolSurface::builder("THIN")
             .expiries(&[1.0])

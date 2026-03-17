@@ -7,7 +7,6 @@
 use crate::collections::HashMap;
 use std::sync::Arc;
 
-use super::curve_storage::CurveStorage;
 use super::MarketContext;
 
 impl MarketContext {
@@ -103,37 +102,7 @@ impl MarketContext {
 
         // Roll each curve forward
         for (id, storage) in &self.curves {
-            let rolled_storage = match storage {
-                CurveStorage::Discount(curve) => {
-                    let rolled = curve.roll_forward(days)?;
-                    CurveStorage::Discount(Arc::new(rolled))
-                }
-                CurveStorage::Forward(curve) => {
-                    let rolled = curve.roll_forward(days)?;
-                    CurveStorage::Forward(Arc::new(rolled))
-                }
-                CurveStorage::Hazard(curve) => {
-                    let rolled = curve.roll_forward(days)?;
-                    CurveStorage::Hazard(Arc::new(rolled))
-                }
-                CurveStorage::Inflation(curve) => {
-                    let rolled = curve.roll_forward(days)?;
-                    CurveStorage::Inflation(Arc::new(rolled))
-                }
-                CurveStorage::BaseCorrelation(curve) => {
-                    // Base correlation curves don't have time-dependent knots
-                    // in the same way - they're keyed by detachment point, not time
-                    CurveStorage::BaseCorrelation(curve.clone())
-                }
-                CurveStorage::VolIndex(curve) => {
-                    let rolled = curve.roll_forward(days)?;
-                    CurveStorage::VolIndex(Arc::new(rolled))
-                }
-                CurveStorage::Price(curve) => {
-                    let rolled = curve.roll_forward(days)?;
-                    CurveStorage::Price(Arc::new(rolled))
-                }
-            };
+            let rolled_storage = storage.roll_forward_storage(days)?;
             new_ctx.curves.insert(id.clone(), rolled_storage);
         }
 

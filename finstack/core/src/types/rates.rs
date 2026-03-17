@@ -277,7 +277,7 @@ impl Add for Rate {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
+        Self::from_decimal(self.0 + rhs.0)
     }
 }
 
@@ -285,7 +285,7 @@ impl Sub for Rate {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
+        Self::from_decimal(self.0 - rhs.0)
     }
 }
 
@@ -293,7 +293,7 @@ impl Mul<f64> for Rate {
     type Output = Self;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Self(self.0 * rhs)
+        Self::from_decimal(self.0 * rhs)
     }
 }
 
@@ -301,7 +301,7 @@ impl Div<f64> for Rate {
     type Output = Self;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Self(self.0 / rhs)
+        Self::from_decimal(self.0 / rhs)
     }
 }
 
@@ -618,7 +618,7 @@ impl Add for Percentage {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        Self(self.0 + rhs.0)
+        Self::new(self.0 + rhs.0)
     }
 }
 
@@ -626,7 +626,7 @@ impl Sub for Percentage {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
+        Self::new(self.0 - rhs.0)
     }
 }
 
@@ -634,7 +634,7 @@ impl Mul<f64> for Percentage {
     type Output = Self;
 
     fn mul(self, rhs: f64) -> Self::Output {
-        Self(self.0 * rhs)
+        Self::new(self.0 * rhs)
     }
 }
 
@@ -642,7 +642,7 @@ impl Div<f64> for Percentage {
     type Output = Self;
 
     fn div(self, rhs: f64) -> Self::Output {
-        Self(self.0 / rhs)
+        Self::new(self.0 / rhs)
     }
 }
 

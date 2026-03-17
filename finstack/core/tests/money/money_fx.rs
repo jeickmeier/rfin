@@ -4,6 +4,7 @@ use finstack_core::money::fx::{
     FxConfig, FxConversionPolicy, FxMatrix, FxProvider, FxQuery, FxRate,
 };
 use finstack_core::money::Money;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 struct StaticFx {
@@ -258,4 +259,52 @@ fn with_bumped_rate_invalidates_cached_crosses() {
         .rate;
 
     assert!(bumped_cross > original_cross);
+}
+
+#[test]
+fn triangulation_missing_leg_only_queries_provider_once_per_leg() {
+    struct CountingMissingFx {
+        calls: AtomicUsize,
+    }
+
+    impl FxProvider for CountingMissingFx {
+        fn rate(
+            &self,
+            from: Currency,
+            to: Currency,
+            _on: Date,
+            _policy: FxConversionPolicy,
+        ) -> finstack_core::Result<FxRate> {
+            self.calls.fetch_add(1, Ordering::Relaxed);
+            Err(finstack_core::InputError::NotFound {
+                id: format!("FX:{from}->{to}"),
+            }
+            .into())
+        }
+    }
+
+    let provider = Arc::new(CountingMissingFx {
+        calls: AtomicUsize::new(0),
+    });
+    let matrix = FxMatrix::try_with_config(
+        provider.clone(),
+        FxConfig {
+            enable_triangulation: true,
+            pivot_currency: Currency::USD,
+            ..Default::default()
+        },
+    )
+    .expect("valid FxConfig");
+    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+
+    let result = matrix.rate(FxQuery::new(Currency::GBP, Currency::EUR, as_of));
+    assert!(
+        result.is_err(),
+        "missing triangulation legs should still error"
+    );
+    assert_eq!(
+        provider.calls.load(Ordering::Relaxed),
+        2,
+        "lookup should perform one direct probe and one first-leg probe, without a duplicate retry"
+    );
 }
