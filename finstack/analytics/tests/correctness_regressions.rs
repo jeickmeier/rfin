@@ -146,6 +146,97 @@ fn drawdown_series_rebases_after_date_window_reset() {
 }
 
 #[test]
+fn drawdown_cache_refreshes_across_repeated_date_window_resets() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+        d(2024, Month::January, 4),
+        d(2024, Month::January, 5),
+    ];
+    let prices = vec![vec![100.0, 150.0, 120.0, 130.0, 110.0]];
+    let mut perf = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    )
+    .expect("performance should build");
+
+    perf.reset_date_range(d(2024, Month::January, 4), d(2024, Month::January, 4));
+    assert_eq!(
+        perf.drawdown_series()[0],
+        vec![0.0],
+        "positive one-period window should rebase to zero drawdown"
+    );
+
+    perf.reset_date_range(d(2024, Month::January, 5), d(2024, Month::January, 5));
+    let refreshed = perf.drawdown_series();
+    let refreshed_port = &refreshed[0];
+    assert_eq!(refreshed_port.len(), 1);
+    assert!(
+        refreshed_port[0] < 0.0,
+        "cache should refresh when the active date window changes"
+    );
+    assert_eq!(
+        perf.max_drawdown(),
+        vec![refreshed_port[0]],
+        "max drawdown should reflect the refreshed one-period window"
+    );
+}
+
+#[test]
+fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
+    let dates = vec![
+        d(2024, Month::January, 1),
+        d(2024, Month::January, 2),
+        d(2024, Month::January, 3),
+        d(2024, Month::January, 4),
+    ];
+    let mut perf = Performance::new(
+        dates,
+        vec![
+            vec![100.0, 100.0, 110.0, 121.0],
+            vec![100.0, 100.0, 100.0, 80.0],
+            vec![100.0, 100.0, 100.0, 90.0],
+        ],
+        vec!["BENCH".to_string(), "ALT".to_string(), "PORT".to_string()],
+        Some("BENCH"),
+        PeriodKind::Daily,
+        false,
+    )
+    .expect("performance should build");
+
+    perf.reset_date_range(d(2024, Month::January, 4), d(2024, Month::January, 4));
+    let initial_port_outperformance = perf.drawdown_outperformance()[2][0];
+    assert!(
+        (initial_port_outperformance + 0.1).abs() < 1e-12,
+        "PORT should lag a flat benchmark by its own rebased drawdown"
+    );
+    assert!(
+        perf.stats_during_bench_drawdowns(1).is_empty(),
+        "positive benchmark window should have no drawdown episodes"
+    );
+
+    perf.reset_bench_ticker("ALT")
+        .expect("alternate benchmark should exist");
+    let switched_port_outperformance = perf.drawdown_outperformance()[2][0];
+    assert!(
+        (switched_port_outperformance - 0.1).abs() < 1e-12,
+        "drawdown outperformance should use the switched benchmark's windowed drawdown"
+    );
+
+    let bench_episodes = perf.stats_during_bench_drawdowns(1);
+    assert_eq!(bench_episodes.len(), 1);
+    assert!(
+        (bench_episodes[0].max_drawdown + 0.2).abs() < 1e-12,
+        "benchmark drawdown stats should come from the switched benchmark"
+    );
+}
+
+#[test]
 fn align_benchmark_policy_can_reject_missing_dates() {
     let bench_dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 3)];
     let bench_returns = vec![0.01, 0.02];
