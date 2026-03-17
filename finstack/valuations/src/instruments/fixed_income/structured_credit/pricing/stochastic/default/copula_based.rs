@@ -24,9 +24,7 @@
 
 use super::super::calibrations::{CLO_STANDARD, RMBS_STANDARD};
 use super::traits::{MacroCreditFactors, StochasticDefault};
-use crate::instruments::common_impl::models::correlation::copula::{
-    Copula, CopulaSpec, GaussianCopula,
-};
+use crate::instruments::common_impl::models::correlation::copula::{Copula, CopulaSpec};
 use crate::instruments::fixed_income::structured_credit::utils::rates::cdr_to_mdr;
 use finstack_core::math::distributions::binomial_distribution;
 use finstack_core::math::{standard_normal_inv_cdf, student_t_inv_cdf};
@@ -186,19 +184,7 @@ impl CopulaBasedDefault {
     }
 
     fn build_copula(spec: &CopulaSpec) -> Box<dyn Copula> {
-        match spec {
-            CopulaSpec::Gaussian => Box::new(GaussianCopula::new()),
-            CopulaSpec::StudentT { degrees_of_freedom } => {
-                Box::new(crate::instruments::common_impl::models::correlation::copula::StudentTCopula::new(*degrees_of_freedom))
-            }
-            CopulaSpec::RandomFactorLoading { loading_volatility } => {
-                Box::new(crate::instruments::common_impl::models::correlation::copula::RandomFactorLoadingCopula::new(*loading_volatility))
-            }
-            CopulaSpec::MultiFactor { num_factors } => {
-                Box::new(crate::instruments::common_impl::models::correlation::copula::MultiFactorCopula::new(*num_factors))
-            }
-            _ => Box::new(GaussianCopula::new()),
-        }
+        spec.build()
     }
 
     /// Compute the default threshold appropriate for the copula type.

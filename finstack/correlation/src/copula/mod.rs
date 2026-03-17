@@ -159,6 +159,23 @@ impl CopulaSpec {
         CopulaSpec::MultiFactor { num_factors }
     }
 
+    /// Build a copula from this specification.
+    #[must_use]
+    pub fn build(&self) -> Box<dyn Copula> {
+        match self {
+            CopulaSpec::Gaussian => Box::new(GaussianCopula::new()),
+            CopulaSpec::StudentT { degrees_of_freedom } => {
+                Box::new(StudentTCopula::new(*degrees_of_freedom))
+            }
+            CopulaSpec::RandomFactorLoading { loading_volatility } => {
+                Box::new(RandomFactorLoadingCopula::new(*loading_volatility))
+            }
+            CopulaSpec::MultiFactor { num_factors } => {
+                Box::new(MultiFactorCopula::new(*num_factors))
+            }
+        }
+    }
+
     /// Build a Gaussian copula from this specification.
     /// Returns None if the specification is not Gaussian.
     pub fn build_gaussian(&self) -> Option<GaussianCopula> {
@@ -278,25 +295,25 @@ mod tests {
         // Test Gaussian
         let gaussian = CopulaSpec::gaussian();
         assert!(gaussian.is_gaussian());
-        let g_copula = gaussian.build_gaussian().expect("Should build Gaussian");
+        let g_copula = gaussian.build();
         assert_eq!(g_copula.num_factors(), 1);
 
         // Test Student-t
         let student_t = CopulaSpec::student_t(5.0);
         assert!(student_t.is_student_t());
-        let t_copula = student_t.build_student_t().expect("Should build Student-t");
+        let t_copula = student_t.build();
         assert_eq!(t_copula.num_factors(), 1);
 
         // Test RFL
         let rfl = CopulaSpec::random_factor_loading(0.1);
         assert!(rfl.is_rfl());
-        let rfl_copula = rfl.build_rfl().expect("Should build RFL");
+        let rfl_copula = rfl.build();
         assert_eq!(rfl_copula.num_factors(), 2);
 
         // Test Multi-factor
         let mf = CopulaSpec::multi_factor(2);
         assert!(mf.is_multi_factor());
-        let mf_copula = mf.build_multi_factor().expect("Should build Multi-factor");
+        let mf_copula = mf.build();
         assert_eq!(mf_copula.num_factors(), 2);
     }
 }

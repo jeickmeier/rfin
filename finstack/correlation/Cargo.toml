@@ -13,3 +13,6 @@ finstack-core = { path = "../core" }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 tracing = { version = "0.1", default-features = false }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -297,23 +297,6 @@ impl ScenarioTree {
                 let recovery = mean_recovery + factor_correlation * recovery_volatility * factor;
                 recovery.clamp(0.0, 1.0)
             }
-            RecoverySpec::Beta { mean, .. } => {
-                // Simplified: use mean recovery
-                *mean
-            }
-            RecoverySpec::Frye {
-                base_lgd,
-                lgd_sensitivity,
-            } => {
-                // Simplified: base recovery, modified by default rate in practice
-                // For tree nodes, we don't have portfolio default rate easily,
-                // so use base recovery as approximation
-                let factor = factors.first().copied().unwrap_or(0.0);
-                let base_recovery = 1.0 - base_lgd;
-                // Higher defaults (negative factor) → lower recovery
-                let recovery = base_recovery - lgd_sensitivity * 0.01 * (-factor).max(0.0);
-                recovery.clamp(0.0, 1.0)
-            }
             _ => self.config.recovery_spec.expected_recovery(),
         }
     }

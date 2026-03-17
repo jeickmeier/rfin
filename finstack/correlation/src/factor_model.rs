@@ -104,8 +104,13 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixErro
         }
     }
 
-    // Must be a PSD failure
-    CorrelationMatrixError::NotPositiveSemiDefinite { row: 0 }
+    match cholesky_decompose(matrix, n) {
+        Err(CorrelationMatrixError::NotPositiveSemiDefinite { row }) => {
+            CorrelationMatrixError::NotPositiveSemiDefinite { row }
+        }
+        Err(err) => err,
+        Ok(_) => CorrelationMatrixError::NotPositiveSemiDefinite { row: 0 },
+    }
 }
 
 /// Perform Cholesky decomposition of a correlation matrix using diagonal pivoting.
@@ -174,7 +179,7 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
     /// Cholesky contribution `L[i,i] * z * vol[i]`, ignoring cross-factor
     /// correlation.  To generate properly correlated factor vectors, use
     /// [`MultiFactorModel::generate_correlated_factors`] instead.
-    fn conditional_factor(&self, factor_index: usize, z: f64) -> f64;
+    fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64;
 }
 
 /// Factor model specification for configuration and serialization.
@@ -346,7 +351,7 @@ impl FactorModel for SingleFactorModel {
         "Single Factor Model"
     }
 
-    fn conditional_factor(&self, _factor_index: usize, z: f64) -> f64 {
+    fn diagonal_factor_contribution(&self, _factor_index: usize, z: f64) -> f64 {
         z * self.volatility
     }
 }
@@ -464,7 +469,7 @@ impl FactorModel for TwoFactorModel {
         "Two-Factor Prepay-Credit Model"
     }
 
-    fn conditional_factor(&self, factor_index: usize, z: f64) -> f64 {
+    fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64 {
         // For two independent standard normals z1, z2:
         // Factor 1 = z1 * prepay_vol
         // Factor 2 = (ρ * z1 + √(1-ρ²) * z2) * credit_vol
@@ -626,14 +631,34 @@ impl MultiFactorModel {
     /// Vector of n correlated factor values (scaled by volatilities).
     #[must_use]
     pub fn generate_correlated_factors(&self, independent_z: &[f64]) -> Vec<f64> {
-        let n = self.num_factors;
-        let mut correlated_z = vec![0.0; n];
-        self.cholesky_factor.apply(independent_z, &mut correlated_z);
-        correlated_z
-            .iter()
-            .zip(self.volatilities.iter())
-            .map(|(&z, &vol)| z * vol)
-            .collect()
+        let mut factors = vec![0.0; self.num_factors];
+        self.generate_correlated_factors_into(independent_z, &mut factors);
+        factors
+    }
+
+    /// Generate correlated factor values into a caller-provided buffer.
+    ///
+    /// The input slice and output buffer must both have length `num_factors()`.
+    pub fn generate_correlated_factors_into(&self, independent_z: &[f64], out: &mut [f64]) {
+        assert_eq!(
+            independent_z.len(),
+            self.num_factors,
+            "expected {} independent factors, got {}",
+            self.num_factors,
+            independent_z.len()
+        );
+        assert_eq!(
+            out.len(),
+            self.num_factors,
+            "expected output buffer of length {}, got {}",
+            self.num_factors,
+            out.len()
+        );
+
+        self.cholesky_factor.apply(independent_z, out);
+        for (value, vol) in out.iter_mut().zip(self.volatilities.iter()) {
+            *value *= *vol;
+        }
     }
 }
 
@@ -658,7 +683,7 @@ impl FactorModel for MultiFactorModel {
         "Multi-Factor Model"
     }
 
-    fn conditional_factor(&self, factor_index: usize, z: f64) -> f64 {
+    fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64 {
         // For a single z draw, return the factor value using the Cholesky factor.
         // Note: For truly correlated factor generation, use generate_correlated_factors()
         // with all independent z values at once.
@@ -698,11 +723,19 @@ mod tests {
     }
 
     #[test]
-    fn test_conditional_factor() {
+    fn test_diagonal_factor_contribution_single_factor() {
         let model = SingleFactorModel::new(1.0, 0.0);
 
-        let factor = model.conditional_factor(0, 1.5);
+        let factor = model.diagonal_factor_contribution(0, 1.5);
         assert!((factor - 1.5).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_diagonal_factor_contribution_two_factor_credit_uses_diagonal_loading() {
+        let model = TwoFactorModel::new(0.20, 0.30, -0.30);
+
+        let factor = model.diagonal_factor_contribution(1, 2.0);
+        assert!((factor - 0.6).abs() < 1e-10);
     }
 
     #[test]
@@ -804,6 +837,21 @@ mod tests {
             result,
             Err(CorrelationMatrixError::NotPositiveSemiDefinite { .. })
         ));
+    }
+
+    #[test]
+    fn test_validate_not_psd_reports_cholesky_failure_row() {
+        let corr = vec![1.0, 0.9, 0.9, 0.9, 1.0, -0.5, 0.9, -0.5, 1.0];
+        let result = validate_correlation_matrix(&corr, 3);
+        let cholesky_result = cholesky_decompose(&corr, 3);
+
+        match (result, cholesky_result) {
+            (
+                Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: validate_row }),
+                Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: cholesky_row }),
+            ) => assert_eq!(validate_row, cholesky_row),
+            other => panic!("expected matching PSD errors, got {:?}", other),
+        }
     }
 
     #[test]
@@ -968,5 +1016,40 @@ mod tests {
         // With identity correlation: factors = z * vol
         assert!((factors[0] - 0.2).abs() < 1e-10);
         assert!((factors[1] - 0.3).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_generate_correlated_factors_into_matches_allocating_api() {
+        let corr = vec![1.0, 0.6, 0.6, 1.0];
+        let model = MultiFactorModel::validated(2, vec![0.2, 0.3], corr)
+            .expect("correlated model should create successfully");
+
+        let mut out = vec![0.0; 2];
+        model.generate_correlated_factors_into(&[1.0, 0.5], &mut out);
+
+        assert_eq!(out, model.generate_correlated_factors(&[1.0, 0.5]));
+    }
+
+    #[test]
+    #[should_panic(expected = "expected 2 independent factors, got 1")]
+    fn test_generate_correlated_factors_into_rejects_wrong_input_length() {
+        let corr = vec![1.0, 0.6, 0.6, 1.0];
+        let model = MultiFactorModel::validated(2, vec![0.2, 0.3], corr)
+            .expect("correlated model should create successfully");
+
+        let mut out = vec![0.0; 2];
+        model.generate_correlated_factors_into(&[1.0], &mut out);
+    }
+
+    #[test]
+    fn test_diagonal_factor_contribution_multi_factor_uses_cholesky_diagonal() {
+        let corr = vec![1.0, 0.6, 0.6, 1.0];
+        let model = MultiFactorModel::validated(2, vec![0.2, 0.3], corr)
+            .expect("correlated model should create successfully");
+
+        let factor = model.diagonal_factor_contribution(1, 2.0);
+        let l = model.cholesky_factor().factor_matrix();
+        let expected = 2.0 * l[3] * 0.3;
+        assert!((factor - expected).abs() < 1e-10);
     }
 }

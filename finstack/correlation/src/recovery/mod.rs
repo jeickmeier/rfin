@@ -22,28 +22,11 @@
 //! This captures the "double hit" effect: defaults cluster AND recovery
 //! falls simultaneously in stressed environments.
 //!
-//! ## Beta-Distributed
-//!
-//! Recovery bounded to [0, 1] with specified mean and variance:
-//! ```text
-//! R ~ Beta(α, β) with E[R] = μ, Var(R) = σ²
-//! ```
-//!
-//! ## Frye Model (LGD-Default Correlation)
-//!
-//! LGD as function of portfolio default rate:
-//! ```text
-//! LGD(DR) = α + β · DR
-//! ```
-//!
 //! # References
 //!
 //! - Altman, E., et al. (2005). "The Link between Default and Recovery Rates."
 //!   *Journal of Business*, 78(6).
 //! - Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula."
-//! - Amraoui, S., & Hitier, S. (2008). "Optimal Stochastic Recovery for Base
-//!   Correlation."
-//! - Frye, J. (2000). "Depressing Recoveries." *Risk*, November 2000.
 
 mod constant;
 mod correlated;
@@ -119,31 +102,6 @@ pub enum RecoverySpec {
         /// Correlation with systematic factor (typically negative)
         factor_correlation: f64,
     },
-
-    /// Beta-distributed recovery (bounded [0, 1]).
-    ///
-    /// **Approximation stub:** Currently implemented via [`CorrelatedRecovery`] with
-    /// zero factor correlation, which does not preserve the Beta distribution shape.
-    /// The mean is matched but tail behavior differs from a true Beta(α, β) model.
-    Beta {
-        /// Mean recovery
-        mean: f64,
-        /// Standard deviation
-        std_dev: f64,
-    },
-
-    /// Frye model: LGD = α + β * DefaultRate.
-    ///
-    /// **Approximation stub:** Currently mapped to [`CorrelatedRecovery`] with
-    /// `implied_vol = sensitivity * 0.1` and `correlation = -0.5`. These are
-    /// heuristic parameters; a production implementation should calibrate
-    /// directly to portfolio default rate data.
-    Frye {
-        /// Base LGD when default rate is zero
-        base_lgd: f64,
-        /// LGD sensitivity to default rate
-        lgd_sensitivity: f64,
-    },
 }
 
 impl Default for RecoverySpec {
@@ -190,36 +148,6 @@ impl RecoverySpec {
         RecoverySpec::market_correlated(0.40, 0.25, -0.40)
     }
 
-    /// Create beta-distributed recovery specification.
-    ///
-    /// Note: Currently approximated via correlated model.
-    ///
-    /// # Arguments
-    /// * `mean` - Mean recovery, clamped to [0.05, 0.95]
-    /// * `std_dev` - Standard deviation, clamped to [0.01, 0.30]
-    #[must_use]
-    pub fn beta(mean: f64, std_dev: f64) -> Self {
-        RecoverySpec::Beta {
-            mean: mean.clamp(0.05, 0.95),
-            std_dev: std_dev.clamp(0.01, 0.30),
-        }
-    }
-
-    /// Create Frye model specification.
-    ///
-    /// LGD(DR) = base_lgd + sensitivity * DefaultRate
-    ///
-    /// # Arguments
-    /// * `base_lgd` - Base LGD when default rate is zero, clamped to [0.0, 1.0]
-    /// * `sensitivity` - LGD sensitivity to default rate, clamped to [0.0, 5.0]
-    #[must_use]
-    pub fn frye(base_lgd: f64, sensitivity: f64) -> Self {
-        RecoverySpec::Frye {
-            base_lgd: base_lgd.clamp(0.0, 1.0),
-            lgd_sensitivity: sensitivity.clamp(0.0, 5.0),
-        }
-    }
-
     /// Build the recovery model instance from this specification.
     #[must_use]
     pub fn build(&self) -> Box<dyn RecoveryModel> {
@@ -234,22 +162,6 @@ impl RecoverySpec {
                 *recovery_volatility,
                 *factor_correlation,
             )),
-            RecoverySpec::Beta { mean, std_dev } => {
-                // Beta approximated via correlated model
-                // (full beta would require different integration)
-                Box::new(CorrelatedRecovery::new(*mean, *std_dev, 0.0))
-            }
-            RecoverySpec::Frye {
-                base_lgd,
-                lgd_sensitivity,
-            } => {
-                // Frye model: LGD(DR) = base + sens * DR
-                // Approximate via correlated recovery with negative correlation
-                let mean_recovery = 1.0 - base_lgd;
-                // Sensitivity translates to correlation in stressed scenarios
-                let implied_vol = lgd_sensitivity * 0.1;
-                Box::new(CorrelatedRecovery::new(mean_recovery, implied_vol, -0.5))
-            }
         }
     }
 
@@ -259,8 +171,6 @@ impl RecoverySpec {
         match self {
             RecoverySpec::Constant { rate } => *rate,
             RecoverySpec::MarketCorrelated { mean_recovery, .. } => *mean_recovery,
-            RecoverySpec::Beta { mean, .. } => *mean,
-            RecoverySpec::Frye { base_lgd, .. } => 1.0 - base_lgd,
         }
     }
 }
@@ -303,8 +213,6 @@ mod tests {
         let specs = vec![
             RecoverySpec::constant(0.40),
             RecoverySpec::market_correlated(0.40, 0.25, -0.40),
-            RecoverySpec::beta(0.40, 0.15),
-            RecoverySpec::frye(0.60, 1.5),
         ];
 
         for spec in specs {
@@ -313,6 +221,25 @@ mod tests {
             assert!(model.expected_recovery() <= 1.0);
             assert!(!model.model_name().is_empty());
         }
+    }
+
+    #[test]
+    fn test_recovery_spec_rejects_beta_variant() {
+        let err =
+            serde_json::from_str::<RecoverySpec>(r#"{"type":"Beta","mean":0.4,"std_dev":0.15}"#)
+                .expect_err("Beta recovery should not deserialize");
+
+        assert!(err.to_string().contains("unknown variant"));
+    }
+
+    #[test]
+    fn test_recovery_spec_rejects_frye_variant() {
+        let err = serde_json::from_str::<RecoverySpec>(
+            r#"{"type":"Frye","base_lgd":0.6,"lgd_sensitivity":1.5}"#,
+        )
+        .expect_err("Frye recovery should not deserialize");
+
+        assert!(err.to_string().contains("unknown variant"));
     }
 
     #[test]

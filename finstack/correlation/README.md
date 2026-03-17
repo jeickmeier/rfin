@@ -231,8 +231,6 @@ the full model:
 |-------------------|------------|--------------------------------------------------|
 | `Constant`        | Full       | Fixed rate                                       |
 | `MarketCorrelated`| Full       | Andersen-Sidenius R(Z) = μ + ρ·σ·Z              |
-| `Beta`            | Stub       | Approximated via CorrelatedRecovery (zero corr)  |
-| `Frye`            | Stub       | Approximated via CorrelatedRecovery (heuristic)  |
 
 ### Joint Probability (`joint_probability.rs`)
 
@@ -309,7 +307,7 @@ let intra = mf.intra_sector_correlation(); // β_G² + β_S² = 0.25
 
 // --- Copula via spec (serializable configuration) ---
 let spec = CopulaSpec::student_t(5.0);
-let built = spec.build_student_t().unwrap();
+let built = spec.build();
 
 // --- Recovery models ---
 let constant = ConstantRecovery::isda_standard(); // 40%
@@ -348,8 +346,6 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
 | Multi-factor valuation          | Hull, J., & White, A. (2004). "Valuation of a CDO and an n-th to Default CDS Without Monte Carlo Simulation." |
 | Stochastic recovery             | Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula." |
 | LGD-default correlation         | Altman, E., et al. (2005). "The Link between Default and Recovery Rates." *Journal of Business*, 78(6). |
-| Optimal stochastic recovery     | Amraoui, S., & Hitier, S. (2008). "Optimal Stochastic Recovery for Base Correlation." |
-| Frye LGD model                  | Frye, J. (2000). "Depressing Recoveries." *Risk*, November 2000. |
 | Stochastic recovery calibration | Krekel, M., & Stumpp, P. (2006). "Pricing Correlation Products: CDOs." |
 
 ## Adding New Features
@@ -364,7 +360,7 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
    - `num_factors()` — number of systematic factors
    - `tail_dependence()` — lower tail dependence coefficient λ_L
 3. Add `mod your_copula` and `pub use` in `copula/mod.rs`.
-4. Add a variant to `CopulaSpec` with a corresponding `build_*()` method.
+4. Add a variant to `CopulaSpec` with `build()` support.
 5. Add unit tests verifying:
    - Integration recovers unconditional PD: E[P(default|Z)] ≈ PD (critical self-consistency check)
    - Conditional probability is monotone in the factor (negative Z → higher default prob)
@@ -391,7 +387,7 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
 
 1. Implement the `FactorModel` trait in `factor_model.rs`:
    - `num_factors()`, `correlation_matrix()`, `volatilities()`, `factor_names()`
-   - `conditional_factor()` — single factor value from one standard normal draw
+   - `diagonal_factor_contribution()` — diagonal-only factor contribution from one standard normal draw
 2. Add a variant to `FactorSpec` with `build()` and `num_factors()` support.
 3. For multi-factor models, provide `generate_correlated_factors()` using Cholesky.
 4. Add unit tests verifying:

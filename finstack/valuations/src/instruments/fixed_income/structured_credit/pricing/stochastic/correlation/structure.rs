@@ -166,9 +166,12 @@ impl CorrelationStructure {
                 // Average correlation (simplified)
                 0.5 * intra_sector + 0.5 * inter_sector
             }
-            CorrelationStructure::Matrix { correlations, .. } => {
+            CorrelationStructure::Matrix {
+                correlations,
+                labels,
+            } => {
                 // Average off-diagonal correlation
-                let n = (correlations.len() as f64).sqrt() as usize;
+                let n = labels.len();
                 if n < 2 {
                     return 0.0;
                 }
@@ -177,8 +180,10 @@ impl CorrelationStructure {
                 for i in 0..n {
                     for j in 0..n {
                         if i != j {
-                            sum += correlations[i * n + j];
-                            count += 1;
+                            if let Some(value) = correlations.get(i * n + j) {
+                                sum += *value;
+                                count += 1;
+                            }
                         }
                     }
                 }
@@ -255,10 +260,13 @@ impl CorrelationStructure {
                     *inter_sector
                 }
             }
-            CorrelationStructure::Matrix { correlations, .. } => {
-                let n = (correlations.len() as f64).sqrt() as usize;
+            CorrelationStructure::Matrix {
+                correlations,
+                labels,
+            } => {
+                let n = labels.len();
                 if i < n && j < n {
-                    correlations[i * n + j]
+                    correlations.get(i * n + j).copied().unwrap_or(0.0)
                 } else {
                     0.0
                 }
@@ -655,5 +663,15 @@ mod tests {
         assert!(result
             .expect_err("expected validation error for non-symmetric matrix")
             .contains("symmetric"));
+    }
+
+    #[test]
+    fn test_matrix_asset_correlation_uses_label_count() {
+        let corr = CorrelationStructure::Matrix {
+            correlations: vec![1.0, 0.3, 0.5],
+            labels: vec!["A".to_string(), "B".to_string()],
+        };
+
+        assert!((corr.asset_correlation() - 0.4).abs() < 1e-10);
     }
 }
