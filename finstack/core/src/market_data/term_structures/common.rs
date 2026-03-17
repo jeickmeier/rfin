@@ -9,6 +9,13 @@ use crate::math::interp::types::Interp;
 use crate::math::interp::{ExtrapolationPolicy, InterpStyle, ValidationPolicy};
 use crate::Result;
 
+/// Shared default base date for term-structure builders.
+#[inline]
+pub(crate) fn default_curve_base_date() -> Date {
+    // Epoch date - unwrap_or provides defensive fallback for an effectively infallible operation.
+    Date::from_calendar_date(1970, time::Month::January, 1).unwrap_or(time::Date::MIN)
+}
+
 /// Convention defaults inferred from a forward-curve identifier.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct ForwardConventionDefaults {

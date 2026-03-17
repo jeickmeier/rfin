@@ -257,6 +257,24 @@ fn non_finite_rate_constructors_panic() {
 }
 
 #[test]
+fn non_finite_rate_arithmetic_panics() {
+    let rate = Rate::from_percent(3.0);
+
+    assert!(catch_unwind(|| {
+        let _ = rate / 0.0;
+    })
+    .is_err());
+    assert!(catch_unwind(|| {
+        let _ = rate * f64::NAN;
+    })
+    .is_err());
+    assert!(catch_unwind(|| {
+        let _ = rate + Rate::from_decimal(f64::INFINITY);
+    })
+    .is_err());
+}
+
+#[test]
 fn rate_edge_cases() {
     // Very small rates
     let tiny = Rate::from_bps(1);

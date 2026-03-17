@@ -44,9 +44,12 @@
 //!   Wiley. Chapters 3-4 (Delta conventions and smile construction).
 //! - Castagna, A. (2010). *FX Options and Smile Risk*. Wiley.
 
-use crate::{error::InputError, math::special_functions::standard_normal_inv_cdf, types::CurveId};
+use crate::{error::InputError, types::CurveId};
 
-use super::{recover_fx_wing_vols, VolSurface};
+use super::{
+    fx_atm_dns_strike, fx_forward, fx_put_call_25d_strikes, interp_linear_clamp,
+    recover_fx_wing_vols, VolSurface,
+};
 
 /// Builder that converts FX delta-quoted vols to a standard strike-based [`VolSurface`].
 ///
@@ -269,28 +272,9 @@ impl FxDeltaVolSurfaceBuilder {
                 }
 
                 // Forward rate
-                let fwd = self.spot * ((self.domestic_rate - self.foreign_rate) * t).exp();
-
-                // ATM DNS strike: K_ATM = F * exp(0.5 * sigma^2 * T)
-                let k_atm = fwd * (0.5 * atm * atm * t).exp();
-
-                // 25d call strike:
-                // K = F * exp(-N_inv(delta) * sigma * sqrt(T) + 0.5 * sigma^2 * T)
-                // For 25d call, delta = 0.25
-                let sqrt_t = t.sqrt();
-                let k_call = fwd
-                    * (-standard_normal_inv_cdf(0.25) * sigma_call * sqrt_t
-                        + 0.5 * sigma_call * sigma_call * t)
-                        .exp();
-
-                // 25d put strike:
-                // For 25d put, |delta| = 0.25, but put delta is negative.
-                // K = F * exp(N_inv(delta) * sigma * sqrt(T) + 0.5 * sigma^2 * T)
-                // where delta = 0.25 (absolute value of put delta)
-                let k_put = fwd
-                    * (standard_normal_inv_cdf(0.25) * sigma_put * sqrt_t
-                        + 0.5 * sigma_put * sigma_put * t)
-                        .exp();
+                let fwd = fx_forward(self.spot, self.domestic_rate, self.foreign_rate, t);
+                let k_atm = fx_atm_dns_strike(fwd, atm, t);
+                let (k_put, k_call) = fx_put_call_25d_strikes(fwd, sigma_put, sigma_call, t);
 
                 all_strikes.push(k_put);
                 all_strikes.push(k_atm);
@@ -333,8 +317,8 @@ impl FxDeltaVolSurfaceBuilder {
             for i in 0..n_expiries {
                 let t = self.expiries[i];
                 let atm = self.atm_vols[i];
-                let fwd = self.spot * ((self.domestic_rate - self.foreign_rate) * t).exp();
-                let k_atm = fwd * (0.5 * atm * atm * t).exp();
+                let fwd = fx_forward(self.spot, self.domestic_rate, self.foreign_rate, t);
+                let k_atm = fx_atm_dns_strike(fwd, atm, t);
                 all_strikes.push(k_atm);
             }
 
@@ -352,9 +336,9 @@ impl FxDeltaVolSurfaceBuilder {
             for i in 0..n_expiries {
                 let t = self.expiries[i];
                 let atm = self.atm_vols[i];
-                let fwd = self.spot * ((self.domestic_rate - self.foreign_rate) * t).exp();
+                let fwd = fx_forward(self.spot, self.domestic_rate, self.foreign_rate, t);
                 // k_atm computed for reference; flat surface uses atm vol for all strikes
-                let _k_atm = fwd * (0.5 * atm * atm * t).exp();
+                let _k_atm = fx_atm_dns_strike(fwd, atm, t);
 
                 let mut row = Vec::with_capacity(n_strikes);
                 for _ in strikes {
@@ -367,32 +351,4 @@ impl FxDeltaVolSurfaceBuilder {
             builder.build()
         }
     }
-}
-
-/// Piecewise-linear interpolation on sorted knots with flat extrapolation.
-///
-/// Given sorted `xs` and corresponding `ys`, interpolates the value at `x`.
-/// Clamps to boundary values outside the knot range.
-fn interp_linear_clamp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
-    debug_assert!(!xs.is_empty());
-    debug_assert_eq!(xs.len(), ys.len());
-
-    if x <= xs[0] {
-        return ys[0];
-    }
-    let n = xs.len();
-    if x >= xs[n - 1] {
-        return ys[n - 1];
-    }
-
-    // Find the segment containing x
-    for i in 0..n - 1 {
-        if x >= xs[i] && x <= xs[i + 1] {
-            let t = (x - xs[i]) / (xs[i + 1] - xs[i]);
-            return ys[i] + t * (ys[i + 1] - ys[i]);
-        }
-    }
-
-    // Fallback (should not be reached for valid inputs)
-    ys[n - 1]
 }

@@ -25,9 +25,7 @@ pub type YearBits = [u64; BITSET_WORDS];
 /// January 1 maps to `0` and December 31 maps to `364` or `365` depending on
 /// whether the year is a leap year.
 pub fn day_of_year_0_based(date: Date) -> u16 {
-    let jan1 = Date::from_calendar_date(date.year(), Month::January, 1)
-        .unwrap_or_else(|_| unreachable!("January 1 is a valid Gregorian date"));
-    (date - jan1).whole_days() as u16
+    date.ordinal() - 1
 }
 
 #[inline]

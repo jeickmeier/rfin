@@ -729,3 +729,37 @@ fn irr_rejects_ambiguous_multi_root_cashflows() {
         "non-conventional cashflows with multiple sign changes should be rejected explicitly"
     );
 }
+
+#[test]
+fn xirr_rejects_unsorted_multi_sign_change_flows() {
+    let flows = [
+        (d(2026, 1, 1), 250.0),
+        (d(2025, 1, 1), -100.0),
+        (d(2027, 1, 1), -175.0),
+    ];
+
+    let result = flows.irr(None);
+    assert!(
+        result.is_err(),
+        "dated multi-sign-change cashflows should remain explicitly rejected after sorting"
+    );
+}
+
+#[test]
+fn xirr_ignores_zero_flows_when_detecting_sign_changes() {
+    let flows = [
+        (d(2025, 1, 1), -100.0),
+        (d(2025, 6, 1), 0.0),
+        (d(2026, 1, 1), 120.0),
+    ];
+
+    let result = flows
+        .irr(None)
+        .expect("zero-valued intermediate flows should not create ambiguity");
+    let npv_at_irr = compute_dated_npv(&flows, result);
+    assert!(
+        npv_at_irr.abs() < 0.01,
+        "NPV at IRR should be ~0, got {}",
+        npv_at_irr
+    );
+}

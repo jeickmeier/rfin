@@ -23,6 +23,7 @@
 //! ```rust,no_run
 //! use finstack_core::math::random::sobol_pca::pca_ordering;
 //!
+//! # fn main() -> finstack_core::Result<()> {
 //! // 3-asset basket with correlation
 //! let correlation = vec![
 //!     1.0, 0.8, 0.6,
@@ -30,14 +31,18 @@
 //!     0.6, 0.7, 1.0,
 //! ];
 //!
-//! let (_eigenvalues, _eigenvectors, permutation) = pca_ordering(&correlation, 3);
+//! let (_eigenvalues, _eigenvectors, permutation) = pca_ordering(&correlation, 3)?;
 //!
 //! // permutation maps back to original asset order
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! Reference: Acworth et al. (1998) - "A comparison of some MC and QMC techniques"
 
 use nalgebra::{DMatrix, SymmetricEigen};
+
+use crate::error::InputError;
 
 /// Perform PCA on correlation matrix to find optimal dimension ordering.
 ///
@@ -52,12 +57,13 @@ use nalgebra::{DMatrix, SymmetricEigen};
 /// - eigenvalues: sorted in descending order
 /// - eigenvectors: columns are eigenvectors (sorted by eigenvalue)
 /// - permutation: maps original dimensions to PCA-ordered dimensions
-pub fn pca_ordering(correlation: &[f64], num_factors: usize) -> (Vec<f64>, Vec<f64>, Vec<usize>) {
-    assert_eq!(
-        correlation.len(),
-        num_factors * num_factors,
-        "Correlation matrix must be n x n"
-    );
+pub fn pca_ordering(
+    correlation: &[f64],
+    num_factors: usize,
+) -> crate::Result<(Vec<f64>, Vec<f64>, Vec<usize>)> {
+    if correlation.len() != num_factors * num_factors {
+        return Err(InputError::DimensionMismatch.into());
+    }
 
     // Convert to nalgebra matrix
     let corr_matrix = DMatrix::from_row_slice(num_factors, num_factors, correlation);
@@ -92,7 +98,7 @@ pub fn pca_ordering(correlation: &[f64], num_factors: usize) -> (Vec<f64>, Vec<f
         }
     }
 
-    (sorted_eigenvalues, sorted_eigenvectors, permutation)
+    Ok((sorted_eigenvalues, sorted_eigenvectors, permutation))
 }
 
 /// Compute effective dimension for QMC.
@@ -131,11 +137,11 @@ pub fn transform_pca_to_assets(
     eigenvectors: &[f64],
     permutation: &[usize],
     z_out: &mut [f64],
-) {
+) -> crate::Result<()> {
     let n = z_pca.len();
-    assert_eq!(eigenvectors.len(), n * n);
-    assert_eq!(z_out.len(), n);
-    assert_eq!(permutation.len(), n);
+    if eigenvectors.len() != n * n || z_out.len() != n || permutation.len() != n {
+        return Err(InputError::DimensionMismatch.into());
+    }
 
     // z_asset = Q * z_pca (where Q is eigenvector matrix)
     for i in 0..n {
@@ -145,6 +151,8 @@ pub fn transform_pca_to_assets(
         }
         z_out[i] = sum;
     }
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -157,7 +165,7 @@ mod tests {
         // Identity matrix: eigenvalues all 1, any order is optimal
         let correlation = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];
 
-        let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
+        let (eigenvalues, _, _) = pca_ordering(&correlation, 3).expect("3x3 matrix should succeed");
 
         // All eigenvalues should be 1
         for &val in &eigenvalues {
@@ -174,7 +182,7 @@ mod tests {
         // High correlation: effective dimension should be low
         let correlation = vec![1.0, 0.9, 0.9, 0.9, 1.0, 0.9, 0.9, 0.9, 1.0];
 
-        let (eigenvalues, _, _) = pca_ordering(&correlation, 3);
+        let (eigenvalues, _, _) = pca_ordering(&correlation, 3).expect("3x3 matrix should succeed");
 
         println!("Eigenvalues (high correlation): {:?}", eigenvalues);
 
@@ -207,13 +215,15 @@ mod tests {
         // Simple 2D test
         let correlation = vec![1.0, 0.5, 0.5, 1.0];
 
-        let (_eigenvalues, eigenvectors, permutation) = pca_ordering(&correlation, 2);
+        let (_eigenvalues, eigenvectors, permutation) =
+            pca_ordering(&correlation, 2).expect("2x2 matrix should succeed");
 
         // Transform identity shocks through PCA
         let z_pca = vec![1.0, 0.0]; // Shock in first PC direction
         let mut z_assets = vec![0.0; 2];
 
-        transform_pca_to_assets(&z_pca, &eigenvectors, &permutation, &mut z_assets);
+        transform_pca_to_assets(&z_pca, &eigenvectors, &permutation, &mut z_assets)
+            .expect("matching dimensions should succeed");
 
         // Result should be in asset space
         println!("PCA transform: {:?} -> {:?}", z_pca, z_assets);
@@ -228,7 +238,8 @@ mod tests {
             0.9, 1.0, 0.7, //
             0.8, 0.7, 1.0,
         ];
-        let (eigenvalues, eigenvectors, _) = pca_ordering(&correlation, 3);
+        let (eigenvalues, eigenvectors, _) =
+            pca_ordering(&correlation, 3).expect("3x3 matrix should succeed");
 
         let mut reconstructed = [0.0; 9];
         for row in 0..3 {
@@ -249,5 +260,22 @@ mod tests {
                 "reconstructed correlation mismatch: {actual} vs {expected}"
             );
         }
+    }
+
+    #[test]
+    fn test_pca_ordering_rejects_dimension_mismatch() {
+        let result = pca_ordering(&[1.0, 0.0, 0.0], 2);
+        assert!(result.is_err(), "dimension mismatch should return an error");
+    }
+
+    #[test]
+    fn test_transform_pca_to_assets_rejects_dimension_mismatch() {
+        let z_pca = [1.0, 0.0];
+        let eigenvectors = [1.0, 0.0, 0.0];
+        let permutation = [0, 1];
+        let mut z_out = [0.0; 2];
+
+        let result = transform_pca_to_assets(&z_pca, &eigenvectors, &permutation, &mut z_out);
+        assert!(result.is_err(), "dimension mismatch should return an error");
     }
 }

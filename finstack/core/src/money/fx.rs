@@ -897,7 +897,8 @@ impl FxMatrix {
             return validate_fx_rate(from, to, r);
         }
         // 2) Try provider for direct
-        if let Ok(r) = self.provider.rate(from, to, on, policy) {
+        let provider_direct = self.provider.rate(from, to, on, policy);
+        if let Ok(r) = provider_direct {
             let r = validate_fx_rate(from, to, r)?;
             self.insert_observed_quote(from, to, on, policy, r);
             return Ok(r);
@@ -910,10 +911,7 @@ impl FxMatrix {
             return reciprocal_rate_or_err(r_rev, to, from);
         }
         // 4) As last resort, propagate provider error
-        let r = self.provider.rate(from, to, on, policy)?;
-        let r = validate_fx_rate(from, to, r)?;
-        self.insert_observed_quote(from, to, on, policy, r);
-        Ok(r)
+        provider_direct
     }
 
     /// Read direct and reciprocal cached quotes for a pair under a single lock.

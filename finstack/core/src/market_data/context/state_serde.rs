@@ -17,6 +17,10 @@ use crate::market_data::{
     hierarchy::MarketDataHierarchy,
     scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
+    term_structures::{
+        BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
+        VolatilityIndexCurve,
+    },
 };
 use crate::money::fx::{
     reciprocal_rate_or_err, FxConversionPolicy, FxMatrix, FxMatrixState, FxProvider,
@@ -26,40 +30,35 @@ use crate::money::fx::{
 // Serde: CurveState and (De)Serialize impls
 // -----------------------------------------------------------------------------
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-/// Serializable state representation for any curve type.
-///
-/// Produced when the crate is compiled with the `serde` feature to persist
-/// market data snapshots.
-pub enum CurveState {
-    /// Discount curve state
-    Discount(crate::market_data::term_structures::DiscountCurve),
-    /// Forward curve state
-    Forward(crate::market_data::term_structures::ForwardCurve),
-    /// Hazard curve state
-    Hazard(crate::market_data::term_structures::HazardCurve),
-    /// Inflation curve state
-    Inflation(crate::market_data::term_structures::InflationCurve),
-    /// Base correlation curve state
-    BaseCorrelation(crate::market_data::term_structures::BaseCorrelationCurve),
-    /// Forward price curve state (commodities, indices)
-    Price(crate::market_data::term_structures::PriceCurve),
-    /// Volatility index curve state (VIX, VXN, VSTOXX)
-    VolIndex(crate::market_data::term_structures::VolatilityIndexCurve),
+macro_rules! define_curve_state {
+    ($( $variant:ident => {
+        accessor: $accessor:ident,
+        is_accessor: $is_accessor:ident,
+        ty: $ty:ident,
+        type_name: $type_name:literal
+    } ),* $(,)?) => {
+        /// Serializable state representation for any curve type.
+        ///
+        /// Produced when the crate is compiled with the `serde` feature to persist
+        /// market data snapshots.
+        #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+        #[serde(tag = "type", rename_all = "snake_case")]
+        pub enum CurveState {
+            $(
+                #[doc = concat!($type_name, " curve state")]
+                $variant($ty),
+            )*
+        }
+
+        fn curve_state_id(state: &CurveState) -> &CurveId {
+            match state {
+                $( CurveState::$variant(curve) => curve.id(), )*
+            }
+        }
+    };
 }
 
-fn curve_state_id(s: &CurveState) -> &CurveId {
-    match s {
-        CurveState::Discount(c) => c.id(),
-        CurveState::Forward(c) => c.id(),
-        CurveState::Hazard(c) => c.id(),
-        CurveState::Inflation(c) => c.id(),
-        CurveState::BaseCorrelation(c) => c.id(),
-        CurveState::Price(c) => c.id(),
-        CurveState::VolIndex(c) => c.id(),
-    }
-}
+super::curve_storage::for_each_context_curve!(define_curve_state);
 
 impl CurveStorage {
     /// Convert to serializable state.
@@ -82,13 +81,13 @@ impl CurveStorage {
     /// This conversion is infallible - all state variants map directly to storage variants.
     pub fn from_state(state: CurveState) -> Self {
         match state {
-            CurveState::Discount(c) => Self::Discount(Arc::new(c)),
-            CurveState::Forward(c) => Self::Forward(Arc::new(c)),
-            CurveState::Hazard(c) => Self::Hazard(Arc::new(c)),
-            CurveState::Inflation(c) => Self::Inflation(Arc::new(c)),
-            CurveState::BaseCorrelation(c) => Self::BaseCorrelation(Arc::new(c)),
-            CurveState::Price(c) => Self::Price(Arc::new(c)),
-            CurveState::VolIndex(c) => Self::VolIndex(Arc::new(c)),
+            CurveState::Discount(curve) => Self::Discount(Arc::new(curve)),
+            CurveState::Forward(curve) => Self::Forward(Arc::new(curve)),
+            CurveState::Hazard(curve) => Self::Hazard(Arc::new(curve)),
+            CurveState::Inflation(curve) => Self::Inflation(Arc::new(curve)),
+            CurveState::BaseCorrelation(curve) => Self::BaseCorrelation(Arc::new(curve)),
+            CurveState::Price(curve) => Self::Price(Arc::new(curve)),
+            CurveState::VolIndex(curve) => Self::VolIndex(Arc::new(curve)),
         }
     }
 }

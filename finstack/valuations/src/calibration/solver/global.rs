@@ -586,6 +586,10 @@ where
         fn has_jacobian(&self) -> bool {
             true
         }
+
+        fn residual_count(&self) -> Option<usize> {
+            Some(self.active_quotes.len())
+        }
     }
 
     let solution = if use_efficient {
@@ -1292,5 +1296,91 @@ mod tests {
             report.metadata.contains_key("first_invalid_eval"),
             "should include first_invalid_eval"
         );
+    }
+
+    #[test]
+    fn analytical_jacobian_path_handles_more_quotes_than_probe_buffer() {
+        struct EfficientTarget {
+            times: Vec<f64>,
+            targets: Vec<f64>,
+        }
+
+        impl GlobalSolveTarget for EfficientTarget {
+            type Quote = usize;
+            type Curve = DummyCurve;
+
+            fn build_time_grid_and_guesses(
+                &self,
+                quotes: &[Self::Quote],
+            ) -> Result<(Vec<f64>, Vec<f64>, Vec<Self::Quote>)> {
+                Ok((self.times.clone(), vec![0.0, 0.0], quotes.to_vec()))
+            }
+
+            fn build_curve_from_params(
+                &self,
+                _times: &[f64],
+                params: &[f64],
+            ) -> Result<Self::Curve> {
+                Ok(DummyCurve(params.to_vec()))
+            }
+
+            fn calculate_residuals(
+                &self,
+                curve: &Self::Curve,
+                quotes: &[Self::Quote],
+                residuals: &mut [f64],
+            ) -> Result<()> {
+                let level = curve.0[0] + curve.0[1];
+                for (i, quote) in quotes.iter().enumerate() {
+                    residuals[i] = level - self.targets[*quote];
+                }
+                Ok(())
+            }
+
+            fn jacobian(
+                &self,
+                _params: &[f64],
+                _times: &[f64],
+                quotes: &[Self::Quote],
+                jacobian: &mut [Vec<f64>],
+            ) -> Result<()> {
+                if jacobian.len() != quotes.len() {
+                    return Err(finstack_core::Error::Calibration {
+                        message: format!(
+                            "jacobian row count mismatch: {} vs {}",
+                            jacobian.len(),
+                            quotes.len()
+                        ),
+                        category: "efficient_jacobian".to_string(),
+                    });
+                }
+                for row in jacobian.iter_mut() {
+                    row[0] = 1.0;
+                    row[1] = 1.0;
+                }
+                Ok(())
+            }
+
+            fn supports_efficient_jacobian(&self) -> bool {
+                true
+            }
+        }
+
+        let target = EfficientTarget {
+            times: vec![1.0, 2.0],
+            targets: vec![0.5; 10],
+        };
+        let quotes: Vec<usize> = (0..10).collect();
+        let config = CalibrationConfig::default()
+            .with_calibration_method(crate::calibration::CalibrationMethod::GlobalSolve {
+                use_analytical_jacobian: true,
+            })
+            .with_tolerance(1e-12)
+            .with_max_iterations(50);
+
+        let (_curve, report) =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect("should succeed");
+
+        assert_eq!(report.residuals.len(), quotes.len());
     }
 }

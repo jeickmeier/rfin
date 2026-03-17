@@ -1003,6 +1003,30 @@ mod tests {
 
         assert!(result.is_ok(), "t=0 hazard knots should be accepted");
     }
+
+    #[test]
+    fn builder_rejects_empty_knots() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let result = HazardCurve::builder("USD-CREDIT").base_date(base).build();
+        assert!(
+            result.is_err(),
+            "builder should enforce the non-empty lambda invariant"
+        );
+    }
+
+    #[test]
+    fn hazard_rate_is_available_for_valid_built_curves() {
+        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let hc = HazardCurve::builder("USD-CREDIT")
+            .base_date(base)
+            .knots([(0.0, 0.01), (5.0, 0.02)])
+            .build()
+            .expect("HazardCurve builder should succeed with valid test data");
+
+        assert_eq!(hc.hazard_rate(-1.0), 0.01);
+        assert_eq!(hc.hazard_rate(0.0), 0.01);
+        assert_eq!(hc.hazard_rate(10.0), 0.02);
+    }
 }
 
 // -----------------------------------------------------------------------------
