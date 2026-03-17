@@ -9,9 +9,106 @@ use crate::Result;
 use std::sync::Arc;
 
 use super::curve_storage::CurveStorage;
-use super::{ContextMutationInfo, MarketContext};
+use super::{ContextMutationInfo, ContextScratchBump, MarketContext};
 
 impl MarketContext {
+    /// Apply a scalar price bump in place and return a token that restores the
+    /// original value.
+    pub fn apply_price_bump_pct_in_place(
+        &mut self,
+        price_id: &str,
+        bump_pct: f64,
+    ) -> Result<ContextScratchBump> {
+        let key = CurveId::from(price_id);
+        let current = self.prices.get(price_id).cloned().ok_or_else(|| {
+            crate::error::InputError::NotFound {
+                id: price_id.to_string(),
+            }
+        })?;
+        let bumped = match current {
+            crate::market_data::scalars::MarketScalar::Unitless(v) => {
+                crate::market_data::scalars::MarketScalar::Unitless(v * (1.0 + bump_pct))
+            }
+            crate::market_data::scalars::MarketScalar::Price(m) => {
+                crate::market_data::scalars::MarketScalar::Price(crate::money::Money::new(
+                    m.amount() * (1.0 + bump_pct),
+                    m.currency(),
+                ))
+            }
+        };
+        self.prices.insert(key.clone(), bumped);
+        Ok(ContextScratchBump::Price {
+            id: key,
+            previous: current,
+        })
+    }
+
+    /// Apply an absolute parallel volatility bump in place and return a token
+    /// that restores the original surface.
+    pub fn apply_surface_bump_in_place(
+        &mut self,
+        surface_id: &str,
+        spec: BumpSpec,
+    ) -> Result<ContextScratchBump> {
+        let key = CurveId::from(surface_id);
+        let previous = self.surfaces.get(surface_id).cloned().ok_or_else(|| {
+            crate::error::InputError::NotFound {
+                id: surface_id.to_string(),
+            }
+        })?;
+        let bumped = previous.apply_bump(spec)?;
+        self.surfaces.insert(key.clone(), Arc::new(bumped));
+        Ok(ContextScratchBump::Surface { id: key, previous })
+    }
+
+    /// Apply a curve bump in place and return a token that restores the
+    /// original curve and any credit indices that were rebound.
+    pub fn apply_curve_bump_in_place(
+        &mut self,
+        curve_id: &CurveId,
+        spec: BumpSpec,
+    ) -> Result<ContextScratchBump> {
+        let previous = self.curves.get(curve_id.as_str()).cloned().ok_or_else(|| {
+            crate::error::InputError::NotFound {
+                id: curve_id.to_string(),
+            }
+        })?;
+        let previous_credit_indices = self.credit_indices.clone();
+        let storage = self.curves.get_mut(curve_id.as_str()).ok_or_else(|| {
+            crate::error::InputError::NotFound {
+                id: curve_id.to_string(),
+            }
+        })?;
+        storage.apply_bump_preserving_id(curve_id, spec)?;
+        let _invalidated = self.rebind_all_credit_indices();
+        Ok(ContextScratchBump::Curve {
+            id: curve_id.clone(),
+            previous,
+            previous_credit_indices,
+        })
+    }
+
+    /// Revert a scratch bump token produced by one of the in-place bump helpers.
+    pub fn revert_scratch_bump(&mut self, bump: ContextScratchBump) -> Result<()> {
+        match bump {
+            ContextScratchBump::Price { id, previous } => {
+                self.prices.insert(id, previous);
+            }
+            ContextScratchBump::Surface { id, previous } => {
+                self.surfaces.insert(id, previous);
+            }
+            ContextScratchBump::Curve {
+                id,
+                previous,
+                previous_credit_indices,
+            } => {
+                self.curves.insert(id, previous);
+                self.credit_indices = previous_credit_indices;
+            }
+        }
+        Ok(())
+    }
+
     /// Apply a heterogeneous list of market bumps (curves, surfaces, prices, FX).
     ///
     /// This is the **single canonical** entry point for market bumping. It supports:
@@ -216,5 +313,100 @@ impl MarketContext {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::dates::Date;
+    use crate::market_data::bumps::{BumpMode, BumpType, BumpUnits};
+    use crate::market_data::scalars::MarketScalar;
+    use crate::market_data::surfaces::VolSurface;
+    use crate::market_data::term_structures::DiscountCurve;
+    use crate::math::interp::InterpStyle;
+    use time::Month;
+
+    fn as_of() -> Date {
+        Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
+    }
+
+    fn surface_spec(value: f64) -> BumpSpec {
+        BumpSpec {
+            mode: BumpMode::Additive,
+            units: BumpUnits::Fraction,
+            value,
+            bump_type: BumpType::Parallel,
+        }
+    }
+
+    #[test]
+    fn scratch_price_bump_restores_original_value() {
+        let mut ctx = MarketContext::new().insert_price("SPOT", MarketScalar::Unitless(100.0));
+
+        let token = ctx
+            .apply_price_bump_pct_in_place("SPOT", 0.01)
+            .expect("price bump");
+        let bumped = ctx.get_price("SPOT").expect("bumped spot");
+        match bumped {
+            MarketScalar::Unitless(v) => assert!((*v - 101.0).abs() < 1e-12),
+            _ => panic!("expected unitless price"),
+        }
+
+        ctx.revert_scratch_bump(token).expect("revert");
+        let restored = ctx.get_price("SPOT").expect("restored spot");
+        match restored {
+            MarketScalar::Unitless(v) => assert!((*v - 100.0).abs() < 1e-12),
+            _ => panic!("expected unitless price"),
+        }
+    }
+
+    #[test]
+    fn scratch_surface_bump_restores_original_surface() {
+        let surface =
+            VolSurface::from_grid("VOL", &[0.5, 1.0], &[90.0, 100.0], &[0.2; 4]).expect("surface");
+        let mut ctx = MarketContext::new().insert_surface(surface);
+
+        let token = ctx
+            .apply_surface_bump_in_place("VOL", surface_spec(0.01))
+            .expect("surface bump");
+        let bumped = ctx.get_surface("VOL").expect("bumped surface");
+        assert!((bumped.value_checked(0.5, 90.0).expect("bumped value") - 0.21).abs() < 1e-12);
+
+        ctx.revert_scratch_bump(token).expect("revert");
+        let restored = ctx.get_surface("VOL").expect("restored surface");
+        assert!((restored.value_checked(0.5, 90.0).expect("restored value") - 0.2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scratch_curve_bump_restores_original_curve() {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of())
+            .interp(InterpStyle::LogLinear)
+            .knots([(0.0, 1.0), (5.0, 0.85)])
+            .build()
+            .expect("curve");
+        let mut ctx = MarketContext::new().insert(curve);
+
+        let token = ctx
+            .apply_curve_bump_in_place(&CurveId::from("USD-OIS"), BumpSpec::parallel_bp(1.0))
+            .expect("curve bump");
+        let bumped_zero = ctx.get_discount("USD-OIS").expect("bumped curve").zero(5.0);
+
+        ctx.revert_scratch_bump(token).expect("revert");
+        let restored_zero = ctx
+            .get_discount("USD-OIS")
+            .expect("restored curve")
+            .zero(5.0);
+
+        assert!(
+            (bumped_zero - restored_zero).abs() > 1e-9,
+            "bump should change the curve before restore"
+        );
+        assert!(
+            (restored_zero - (-0.85f64.ln() / 5.0)).abs() < 1e-12,
+            "restored curve should match original"
+        );
     }
 }

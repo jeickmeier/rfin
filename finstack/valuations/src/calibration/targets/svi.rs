@@ -20,6 +20,28 @@ use std::collections::BTreeMap;
 pub struct SviSurfaceTarget;
 
 impl SviSurfaceTarget {
+    fn validate_positive_input(label: &str, value: f64) -> Result<()> {
+        if !value.is_finite() || value <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "{label} must be finite and positive; got {value}"
+            )));
+        }
+        Ok(())
+    }
+
+    fn validate_target_grid(params: &SviSurfaceParams) -> Result<()> {
+        for (idx, expiry) in params.target_expiries.iter().enumerate() {
+            Self::validate_positive_input(&format!("SVI target_expiries[{idx}]"), *expiry)?;
+        }
+        for (idx, strike) in params.target_strikes.iter().enumerate() {
+            Self::validate_positive_input(&format!("SVI target_strikes[{idx}]"), *strike)?;
+        }
+        if let Some(spot_override) = params.spot_override {
+            Self::validate_positive_input("SVI spot_override", spot_override)?;
+        }
+        Ok(())
+    }
+
     /// Calibrate an SVI volatility surface from option vol quotes.
     ///
     /// Groups quotes by expiry, calibrates SVI parameters per expiry slice,
@@ -35,6 +57,7 @@ impl SviSurfaceTarget {
                 finstack_core::InputError::TooFewPoints,
             ));
         }
+        Self::validate_target_grid(params)?;
 
         let option_quotes: Vec<&VolQuote> = quotes
             .iter()
@@ -64,6 +87,7 @@ impl SviSurfaceTarget {
                 MarketScalar::Unitless(value) => *value,
             }
         };
+        Self::validate_positive_input("SVI spot", spot)?;
 
         let discount = params
             .discount_curve_id
@@ -94,6 +118,8 @@ impl SviSurfaceTarget {
                     *expiry,
                     DayCountCtx::default(),
                 )?;
+                Self::validate_positive_input("SVI quote strike", *strike)?;
+                Self::validate_positive_input("SVI quote vol", *vol)?;
                 if t > 0.0 {
                     quotes_by_expiry
                         .entry(t.into())
@@ -123,6 +149,7 @@ impl SviSurfaceTarget {
 
             let expiry = expiry_key.into_inner();
             let forward = forward_fn(expiry);
+            Self::validate_positive_input("SVI forward", forward)?;
             let strikes: Vec<f64> = expiry_quotes.iter().map(|(strike, _)| *strike).collect();
             let vols: Vec<f64> = expiry_quotes.iter().map(|(_, vol)| *vol).collect();
 
@@ -147,6 +174,7 @@ impl SviSurfaceTarget {
         for &target_expiry in &params.target_expiries {
             let interp_params = interpolate_svi_params(target_expiry, &params_by_expiry)?;
             let forward = forward_fn(target_expiry);
+            Self::validate_positive_input("SVI forward", forward)?;
             for &target_strike in &params.target_strikes {
                 let log_moneyness = (target_strike / forward).ln();
                 let vol = interp_params.implied_vol(log_moneyness, target_expiry);
@@ -226,4 +254,94 @@ fn interpolate_svi_params(
         m: lower.1.m + w * (upper.1.m - lower.1.m),
         sigma: lower.1.sigma + w * (upper.1.sigma - lower.1.sigma),
     })
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::calibration::api::schema::SviSurfaceParams;
+    use crate::instruments::OptionType;
+    use crate::market::conventions::ids::OptionConventionId;
+    use crate::market::quotes::market_quote::MarketQuote;
+    use crate::market::quotes::vol::VolQuote;
+    use finstack_core::dates::Date;
+    use finstack_core::types::UnderlyingId;
+    use time::Month;
+
+    fn base_date() -> Date {
+        Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
+    }
+
+    fn base_params() -> SviSurfaceParams {
+        SviSurfaceParams {
+            surface_id: "SPX-SVI".to_string(),
+            base_date: base_date(),
+            underlying_ticker: "SPX".to_string(),
+            discount_curve_id: None,
+            target_expiries: vec![0.5],
+            target_strikes: vec![80.0, 90.0, 100.0, 110.0, 120.0],
+            spot_override: Some(100.0),
+        }
+    }
+
+    fn sample_quotes() -> Vec<MarketQuote> {
+        let expiry = Date::from_calendar_date(2025, Month::July, 2).expect("valid expiry");
+        [
+            (80.0, 0.30),
+            (90.0, 0.24),
+            (100.0, 0.20),
+            (110.0, 0.22),
+            (120.0, 0.27),
+        ]
+        .into_iter()
+        .map(|(strike, vol)| {
+            MarketQuote::Vol(VolQuote::OptionVol {
+                underlying: UnderlyingId::new("SPX"),
+                expiry,
+                strike,
+                vol,
+                option_type: OptionType::Call,
+                convention: OptionConventionId::new("USD-EQ"),
+            })
+        })
+        .collect()
+    }
+
+    #[test]
+    fn solve_rejects_non_positive_quote_strike() {
+        let mut quotes = sample_quotes();
+        quotes[0] = MarketQuote::Vol(VolQuote::OptionVol {
+            underlying: UnderlyingId::new("SPX"),
+            expiry: Date::from_calendar_date(2025, Month::July, 2).expect("valid expiry"),
+            strike: 0.0,
+            vol: 0.30,
+            option_type: OptionType::Call,
+            convention: OptionConventionId::new("USD-EQ"),
+        });
+
+        let err = SviSurfaceTarget::solve(
+            &base_params(),
+            &quotes,
+            &MarketContext::new(),
+            &CalibrationConfig::default(),
+        )
+        .expect_err("non-positive quote strikes should fail");
+        assert!(err.to_string().to_lowercase().contains("strike"));
+    }
+
+    #[test]
+    fn solve_rejects_non_positive_spot_override() {
+        let mut params = base_params();
+        params.spot_override = Some(0.0);
+
+        let err = SviSurfaceTarget::solve(
+            &params,
+            &sample_quotes(),
+            &MarketContext::new(),
+            &CalibrationConfig::default(),
+        )
+        .expect_err("non-positive spot override should fail");
+        assert!(err.to_string().to_lowercase().contains("spot"));
+    }
 }

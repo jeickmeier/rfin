@@ -8,6 +8,7 @@
 //! All spread-style quantities exposed here use **decimal units**:
 //! `0.01` corresponds to **100 basis points**.
 use crate::cashflow::traits::CashflowProvider;
+use crate::constants::numerical::ZERO_TOLERANCE;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::fixed_income::bond::Bond;
@@ -908,7 +909,7 @@ pub fn compute_quotes(
     let accrued_ccy = quote_ctx.accrued_at_quote_date;
 
     let notional = bond_for_metrics.notional.amount();
-    if notional == 0.0 {
+    if notional.abs() < ZERO_TOLERANCE {
         return Ok(BondQuoteSet {
             clean_price_ccy: 0.0,
             clean_price_pct: 0.0,
@@ -1189,4 +1190,47 @@ fn price_from_asw_market(
     let par_asw = coupon - par_rate;
     let price_pct = 1.0 + (asw_market - par_asw) * ann;
     Ok(price_pct * bond.notional.amount())
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::fixed_income::bond::Bond;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use time::macros::date;
+
+    #[test]
+    fn compute_quotes_returns_zeroes_for_effectively_zero_notional() {
+        let as_of = date!(2025 - 01 - 01);
+        let bond = Bond::fixed(
+            "QE-NEAR-ZERO-NOTIONAL",
+            Money::new(1e-12, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("bond");
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (5.0, 0.8)])
+            .build()
+            .expect("curve");
+
+        let quotes = compute_quotes(
+            &bond,
+            &MarketContext::new().insert(curve),
+            as_of,
+            BondQuoteInput::CleanPricePct(99.0),
+        )
+        .expect("quote conversion");
+
+        assert_eq!(quotes.clean_price_ccy, 0.0);
+        assert_eq!(quotes.clean_price_pct, 0.0);
+        assert_eq!(quotes.dirty_price_ccy, 0.0);
+        assert!(quotes.ytm.is_none());
+    }
 }

@@ -42,6 +42,29 @@ pub struct HazardCurveTarget {
 }
 
 impl HazardCurveTarget {
+    fn validate_hazard_bounds(
+        params: &HazardCurveParams,
+        config: &CalibrationConfig,
+    ) -> Result<()> {
+        let hazard_min = config.hazard_curve.hazard_hard_min;
+        let hazard_max = config.hazard_curve.hazard_hard_max;
+        if !hazard_min.is_finite()
+            || !hazard_max.is_finite()
+            || hazard_min < 0.0
+            || hazard_max <= 0.0
+            || hazard_min >= hazard_max
+        {
+            return Err(finstack_core::Error::Calibration {
+                message: format!(
+                    "Invalid hazard bounds for {}: hazard_hard_min={} hazard_hard_max={} (expected finite values with 0 <= min < max)",
+                    params.curve_id, hazard_min, hazard_max
+                ),
+                category: "bootstrapping".to_string(),
+            });
+        }
+        Ok(())
+    }
+
     /// Creates a new hazard curve bootstrapper.
     ///
     /// # Arguments
@@ -65,6 +88,7 @@ impl HazardCurveTarget {
         base_context: MarketContext,
         config: CalibrationConfig,
     ) -> Result<Self> {
+        Self::validate_hazard_bounds(&params, &config)?;
         let cds_conventions =
             crate::instruments::credit_derivatives::cds::resolve_market_conventions(
                 params.currency,
@@ -566,9 +590,8 @@ Global solve requires strictly increasing times.",
 mod tests {
     use super::*;
     use crate::calibration::solver::traits::BootstrapTarget;
-    use finstack_core::dates::Date;
-
     use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::ParInterp;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::types::CurveId;
@@ -615,6 +638,18 @@ mod tests {
             .validate_knot(1.0, hazard_max + 1e-6)
             .expect_err("should reject excessive hazard");
         assert!(err.to_string().to_lowercase().contains("out of bounds"));
+    }
+
+    #[test]
+    fn new_rejects_inverted_hazard_bounds() {
+        let mut config = CalibrationConfig::default();
+        config.hazard_curve.hazard_hard_min = 0.05;
+        config.hazard_curve.hazard_hard_max = 0.01;
+
+        let err = HazardCurveTarget::new(base_params(), MarketContext::default(), config)
+            .err()
+            .expect("inverted hazard bounds should be rejected");
+        assert!(err.to_string().to_lowercase().contains("hazard"));
     }
 
     #[test]

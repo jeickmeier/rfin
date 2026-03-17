@@ -19,9 +19,7 @@
 use std::marker::PhantomData;
 
 use crate::instruments::common_impl::traits::{EquityDependencies, Instrument};
-use crate::metrics::core::finite_difference::central_mixed;
 use crate::metrics::sensitivities::config as sens_config;
-use crate::metrics::{bump_scalar_price, bump_surface_vol_absolute};
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::Result;
@@ -87,6 +85,55 @@ fn ensure_finite(value: f64, metric_name: &str) -> finstack_core::Result<f64> {
             "{metric_name} produced non-finite result: {value}"
         )))
     }
+}
+
+fn eval_raw_with_scratch_bumps<I>(
+    scratch: &mut finstack_core::market_data::context::MarketContext,
+    instrument: &I,
+    as_of: Date,
+    spot_bump: Option<(&str, f64)>,
+    vol_bump: Option<(&str, f64)>,
+) -> Result<f64>
+where
+    I: Instrument,
+{
+    use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits};
+
+    let price_token = if let Some((spot_id, bump_pct)) = spot_bump {
+        Some(scratch.apply_price_bump_pct_in_place(spot_id, bump_pct)?)
+    } else {
+        None
+    };
+
+    let surface_token = match vol_bump {
+        Some((surface_id, bump_abs)) => {
+            let spec = BumpSpec {
+                mode: BumpMode::Additive,
+                units: BumpUnits::Fraction,
+                value: bump_abs,
+                bump_type: BumpType::Parallel,
+            };
+            match scratch.apply_surface_bump_in_place(surface_id, spec) {
+                Ok(token) => Some(token),
+                Err(err) => {
+                    if let Some(token) = price_token {
+                        scratch.revert_scratch_bump(token)?;
+                    }
+                    return Err(err);
+                }
+            }
+        }
+        None => None,
+    };
+
+    let value = instrument.value_raw(scratch, as_of);
+    if let Some(token) = surface_token {
+        scratch.revert_scratch_bump(token)?;
+    }
+    if let Some(token) = price_token {
+        scratch.revert_scratch_bump(token)?;
+    }
+    value
 }
 
 // ================================================================================================
@@ -339,13 +386,21 @@ where
             .scenario
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
-        // Bump spot up
-        let curves_up = bump_scalar_price(&context.curves, spot_id, bump_pct)?;
-        let pv_up = instrument_up.value_raw(&curves_up, as_of)?;
-
-        // Bump spot down
-        let curves_down = bump_scalar_price(&context.curves, spot_id, -bump_pct)?;
-        let pv_down = instrument_down.value_raw(&curves_down, as_of)?;
+        let mut scratch = context.curves.as_ref().clone();
+        let pv_up = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &instrument_up,
+            as_of,
+            Some((spot_id, bump_pct)),
+            None,
+        )?;
+        let pv_down = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &instrument_down,
+            as_of,
+            Some((spot_id, -bump_pct)),
+            None,
+        )?;
 
         // Central difference: delta = (PV_up - PV_down) / (2 * bump_size)
         let delta = (pv_up - pv_down) / (2.0 * bump_size);
@@ -425,16 +480,20 @@ where
             .pricing_overrides_mut()
             .scenario
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
+        let mut scratch = context.curves.as_ref().clone();
+        let base_pv = instrument_base.value_raw(&scratch, as_of)?;
 
         let mut instrument_up = instrument.clone();
         instrument_up
             .pricing_overrides_mut()
             .scenario
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let pv_up = instrument_up.value_raw(
-            &bump_scalar_price(&context.curves, spot_id, bump_pct)?,
+        let pv_up = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &instrument_up,
             as_of,
+            Some((spot_id, bump_pct)),
+            None,
         )?;
 
         let mut instrument_down = instrument.clone();
@@ -442,9 +501,12 @@ where
             .pricing_overrides_mut()
             .scenario
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let pv_down = instrument_down.value_raw(
-            &bump_scalar_price(&context.curves, spot_id, -bump_pct)?,
+        let pv_down = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &instrument_down,
             as_of,
+            Some((spot_id, -bump_pct)),
+            None,
         )?;
 
         let gamma = (pv_up - 2.0 * base_pv + pv_down) / (bump_size * bump_size);
@@ -512,13 +574,21 @@ where
         inst_down.pricing_overrides_mut().scenario.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
 
-        let curves_up =
-            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
-        let curves_down =
-            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), -bump_abs)?;
-
-        let pv_up = inst_up.value_raw(&curves_up, as_of)?;
-        let pv_down = inst_down.value_raw(&curves_down, as_of)?;
+        let mut scratch = context.curves.as_ref().clone();
+        let pv_up = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_up,
+            as_of,
+            None,
+            Some((vol_surface_id.as_str(), bump_abs)),
+        )?;
+        let pv_down = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_down,
+            as_of,
+            None,
+            Some((vol_surface_id.as_str(), -bump_abs)),
+        )?;
 
         // Vega is ∂V/∂σ (per absolute vol unit). With the default bump of 0.01, this is the
         // market-standard “per 1 vol point” sensitivity.
@@ -581,7 +651,8 @@ where
             .pricing_overrides_mut()
             .scenario
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        let base_pv = instrument_base.value_raw(&context.curves, as_of)?;
+        let mut scratch = context.curves.as_ref().clone();
+        let base_pv = instrument_base.value_raw(&scratch, as_of)?;
 
         // Absolute implied vol bump (vol points).
         let bump_abs = defaults.vol_bump_pct;
@@ -593,13 +664,20 @@ where
         inst_down.pricing_overrides_mut().scenario.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
 
-        let curves_up =
-            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), bump_abs)?;
-        let curves_down =
-            bump_surface_vol_absolute(&context.curves, vol_surface_id.as_str(), -bump_abs)?;
-
-        let pv_up = inst_up.value_raw(&curves_up, as_of)?;
-        let pv_down = inst_down.value_raw(&curves_down, as_of)?;
+        let pv_up = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_up,
+            as_of,
+            None,
+            Some((vol_surface_id.as_str(), bump_abs)),
+        )?;
+        let pv_down = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_down,
+            as_of,
+            None,
+            Some((vol_surface_id.as_str(), -bump_abs)),
+        )?;
 
         let volga = (pv_up - 2.0 * base_pv + pv_down) / (bump_abs * bump_abs);
 
@@ -677,56 +755,50 @@ where
         let h_abs = safe_bump_size(current_spot, spot_bump_pct); // absolute spot change
         let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
-        // Prepare evaluators for four combinations using CRN for variance reduction
-        let su_vu = {
-            let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
-                Some(CRN_SEED_SCENARIO.to_string());
-            let curves = bump_surface_vol_absolute(
-                &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
-                vol_surface_id.as_str(),
-                k_abs,
-            )?;
-            move || inst.value_raw(&curves, as_of)
-        };
+        let mut inst_pp = instrument.clone();
+        inst_pp.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        let mut inst_pm = instrument.clone();
+        inst_pm.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        let mut inst_mp = instrument.clone();
+        inst_mp.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
+        let mut inst_mm = instrument.clone();
+        inst_mm.pricing_overrides_mut().scenario.mc_seed_scenario =
+            Some(CRN_SEED_SCENARIO.to_string());
 
-        let su_vd = {
-            let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
-                Some(CRN_SEED_SCENARIO.to_string());
-            let curves = bump_surface_vol_absolute(
-                &bump_scalar_price(&context.curves, spot_id, spot_bump_pct)?,
-                vol_surface_id.as_str(),
-                -k_abs,
-            )?;
-            move || inst.value_raw(&curves, as_of)
-        };
+        let mut scratch = context.curves.as_ref().clone();
+        let v_pp = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_pp,
+            as_of,
+            Some((spot_id, spot_bump_pct)),
+            Some((vol_surface_id.as_str(), k_abs)),
+        )?;
+        let v_pm = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_pm,
+            as_of,
+            Some((spot_id, spot_bump_pct)),
+            Some((vol_surface_id.as_str(), -k_abs)),
+        )?;
+        let v_mp = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_mp,
+            as_of,
+            Some((spot_id, -spot_bump_pct)),
+            Some((vol_surface_id.as_str(), k_abs)),
+        )?;
+        let v_mm = eval_raw_with_scratch_bumps(
+            &mut scratch,
+            &inst_mm,
+            as_of,
+            Some((spot_id, -spot_bump_pct)),
+            Some((vol_surface_id.as_str(), -k_abs)),
+        )?;
 
-        let sd_vu = {
-            let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
-                Some(CRN_SEED_SCENARIO.to_string());
-            let curves = bump_surface_vol_absolute(
-                &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
-                vol_surface_id.as_str(),
-                k_abs,
-            )?;
-            move || inst.value_raw(&curves, as_of)
-        };
-
-        let sd_vd = {
-            let mut inst = instrument.clone();
-            inst.pricing_overrides_mut().scenario.mc_seed_scenario =
-                Some(CRN_SEED_SCENARIO.to_string());
-            let curves = bump_surface_vol_absolute(
-                &bump_scalar_price(&context.curves, spot_id, -spot_bump_pct)?,
-                vol_surface_id.as_str(),
-                -k_abs,
-            )?;
-            move || inst.value_raw(&curves, as_of)
-        };
-
-        let vanna = central_mixed(su_vu, su_vd, sd_vu, sd_vd, h_abs, k_abs)?;
+        let vanna = (v_pp - v_pm - v_mp + v_mm) / (4.0 * h_abs * k_abs);
 
         ensure_finite(vanna, "fd_vanna")
     }

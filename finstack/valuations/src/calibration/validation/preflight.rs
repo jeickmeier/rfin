@@ -136,6 +136,27 @@ fn validate_svi_surface_step(
             "SVI surface step requires at least five target_strikes".to_string(),
         ));
     }
+    for (idx, expiry) in p.target_expiries.iter().enumerate() {
+        if !expiry.is_finite() || *expiry <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "SVI surface step target_expiries[{idx}] must be finite and positive; got {expiry}"
+            )));
+        }
+    }
+    for (idx, strike) in p.target_strikes.iter().enumerate() {
+        if !strike.is_finite() || *strike <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "SVI surface step target_strikes[{idx}] must be finite and positive; got {strike}"
+            )));
+        }
+    }
+    if let Some(spot_override) = p.spot_override {
+        if !spot_override.is_finite() || spot_override <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "SVI surface step spot_override must be finite and positive; got {spot_override}"
+            )));
+        }
+    }
     if let Some(discount_curve_id) = &p.discount_curve_id {
         let _ = context.get_discount(discount_curve_id)?;
     }
@@ -735,5 +756,41 @@ mod tests {
             err.to_string().contains("USD-OIS"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn preflight_rejects_svi_surface_non_positive_spot_override() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let params = SviSurfaceParams {
+            surface_id: "SPX-SVI".to_string(),
+            base_date,
+            underlying_ticker: "SPX".to_string(),
+            discount_curve_id: None,
+            target_expiries: vec![0.5, 1.0],
+            target_strikes: vec![80.0, 90.0, 100.0, 110.0, 120.0],
+            spot_override: Some(0.0),
+        };
+
+        let err = validate_svi_surface_step(&params, &MarketContext::new())
+            .expect_err("non-positive spot override should fail preflight");
+        assert!(err.to_string().to_lowercase().contains("spot"));
+    }
+
+    #[test]
+    fn preflight_rejects_svi_surface_non_positive_target_strike() {
+        let base_date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let params = SviSurfaceParams {
+            surface_id: "SPX-SVI".to_string(),
+            base_date,
+            underlying_ticker: "SPX".to_string(),
+            discount_curve_id: None,
+            target_expiries: vec![0.5, 1.0],
+            target_strikes: vec![0.0, 90.0, 100.0, 110.0, 120.0],
+            spot_override: Some(100.0),
+        };
+
+        let err = validate_svi_surface_step(&params, &MarketContext::new())
+            .expect_err("non-positive target strike should fail preflight");
+        assert!(err.to_string().to_lowercase().contains("strike"));
     }
 }

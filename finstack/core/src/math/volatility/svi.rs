@@ -259,10 +259,26 @@ pub fn calibrate_svi(
             "Need at least 5 strike/vol pairs for SVI calibration (5 free parameters)".to_string(),
         ));
     }
-    if forward <= 0.0 || expiry <= 0.0 {
+    if !forward.is_finite() || forward <= 0.0 || !expiry.is_finite() || expiry <= 0.0 {
         return Err(crate::Error::Validation(
-            "forward and expiry must be positive".to_string(),
+            format!(
+                "forward and expiry must be finite and positive; got forward={forward}, expiry={expiry}"
+            ),
         ));
+    }
+    for (idx, &strike) in strikes.iter().enumerate() {
+        if !strike.is_finite() || strike <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "SVI strike at index {idx} must be finite and positive; got {strike}"
+            )));
+        }
+    }
+    for (idx, &vol) in vols.iter().enumerate() {
+        if !vol.is_finite() || vol <= 0.0 {
+            return Err(crate::Error::Validation(format!(
+                "SVI vol at index {idx} must be finite and positive; got {vol}"
+            )));
+        }
     }
 
     // Convert to log-moneyness and total variance
@@ -563,6 +579,32 @@ mod tests {
         let vols = &[0.25, 0.20, 0.21];
         let result = calibrate_svi(strikes, vols, 100.0, 1.0);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn calibrate_svi_rejects_non_positive_strike() {
+        let strikes = &[0.0, 90.0, 100.0, 110.0, 120.0];
+        let vols = &[0.25, 0.22, 0.20, 0.21, 0.23];
+
+        let err = calibrate_svi(strikes, vols, 100.0, 1.0)
+            .expect_err("non-positive strikes should be rejected");
+        assert!(
+            err.to_string().to_lowercase().contains("strike"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn calibrate_svi_rejects_non_finite_vol() {
+        let strikes = &[80.0, 90.0, 100.0, 110.0, 120.0];
+        let vols = &[0.30, 0.24, f64::NAN, 0.22, 0.27];
+
+        let err =
+            calibrate_svi(strikes, vols, 100.0, 1.0).expect_err("non-finite vols should fail");
+        assert!(
+            err.to_string().to_lowercase().contains("vol"),
+            "unexpected error: {err}"
+        );
     }
 
     #[test]

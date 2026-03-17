@@ -77,6 +77,39 @@ impl ContextMutationInfo {
     }
 }
 
+/// Reversible in-place bump token for scratch market-context workflows.
+///
+/// This is intended for hot-path finite-difference calculations that need to
+/// apply a small number of bumps to a reusable scratch `MarketContext` and then
+/// restore the previous state without cloning the full context.
+#[doc(hidden)]
+#[derive(Clone)]
+pub enum ContextScratchBump {
+    /// A bumped curve plus the credit-index snapshot needed to restore it.
+    Curve {
+        /// Curve identifier that was bumped.
+        id: CurveId,
+        /// Pre-bump curve storage.
+        previous: CurveStorage,
+        /// Pre-bump credit-index snapshot.
+        previous_credit_indices: HashMap<CurveId, Arc<CreditIndexData>>,
+    },
+    /// A bumped volatility surface.
+    Surface {
+        /// Surface identifier that was bumped.
+        id: CurveId,
+        /// Pre-bump surface.
+        previous: Arc<VolSurface>,
+    },
+    /// A bumped scalar/price.
+    Price {
+        /// Scalar identifier that was bumped.
+        id: CurveId,
+        /// Pre-bump scalar value.
+        previous: MarketScalar,
+    },
+}
+
 pub use state_serde::{
     CreditIndexState, CurveState, MarketContextState, MARKET_CONTEXT_STATE_VERSION,
 };

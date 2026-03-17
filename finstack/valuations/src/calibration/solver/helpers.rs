@@ -3,28 +3,10 @@
 //! This module intentionally contains the implementation logic that `calibration/mod.rs`
 //! re-exports. Keeping it here allows `mod.rs` to stay export-only.
 
-use finstack_core::Result;
-
 use crate::calibration::constants::OBJECTIVE_VALID_ABS_MAX;
 #[cfg(test)]
 use crate::calibration::constants::PENALTY;
-use crate::calibration::solver::SolverConfig;
-
-/// Solve a 1D root-finding problem using the configured solver kind.
-///
-/// This replaces the former `with_solver!` macro with a plain helper function
-/// to make control flow explicit and IDE-friendly. Dispatches to Newton or Brent.
-pub fn solve_1d<Fun>(solver: &SolverConfig, f: Fun, init: f64) -> Result<f64>
-where
-    Fun: Fn(f64) -> f64,
-{
-    use finstack_core::math::Solver;
-
-    match solver {
-        SolverConfig::Newton { solver } => solver.solve(f, init),
-        SolverConfig::Brent { solver } => solver.solve(f, init),
-    }
-}
+use finstack_core::Result;
 
 /// Diagnostics from bracketing scan, useful for error reporting.
 ///
@@ -122,11 +104,11 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
     for w in valid_points.windows(2) {
         let (x0, f0) = w[0];
         let (x1, f1) = w[1];
-        if f0 == 0.0 {
+        if f0.abs() < tol {
             diag.bracket_found = true;
             return Ok((Some(x0), diag));
         }
-        if f1 == 0.0 {
+        if f1.abs() < tol {
             diag.bracket_found = true;
             return Ok((Some(x1), diag));
         }
@@ -144,7 +126,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         }
     }
 
-    let Some(((mut a, mut fa), (mut b, _fb), _)) = best_bracket else {
+    let Some(((mut a, mut fa), (mut b, mut fb), _)) = best_bracket else {
         // No sign-change found. Try a bounded Newton fallback from the best observed point.
         if let Some(x0) = diag.best_point {
             let mut x = x0;
@@ -215,6 +197,7 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
 
         if fa.signum() != fm.signum() {
             b = m;
+            fb = fm;
         } else {
             a = m;
             fa = fm;
@@ -231,32 +214,40 @@ pub(crate) fn bracket_solve_1d_with_diagnostics(
         }
     }
 
-    // Fallback: robust Brent (x-space) + Newton polish (f-space) from bracket midpoint.
-    let guess = 0.5 * (a + b);
-    let solver_brent = SolverConfig::brent_default()
-        .with_tolerance(tol)
-        .with_max_iterations(max_iters.max(50));
-    let root_brent = solve_1d(&solver_brent, objective, guess)?;
-    let fb2 = objective(root_brent);
-    diag.update(root_brent, fb2);
-    if fb2.is_finite() && fb2.abs() < tol {
-        diag.bracket_found = true;
-        return Ok((Some(root_brent), diag));
-    }
-    let solver_newton = SolverConfig::newton_default()
-        .with_tolerance(tol)
-        .with_max_iterations(max_iters.max(50));
-    if let Ok(root_newton) = solve_1d(&solver_newton, objective, root_brent) {
-        let fnv = objective(root_newton);
-        diag.update(root_newton, fnv);
-        if fnv.is_finite() && fnv.abs() < tol {
+    // Fallback: stay inside the discovered bracket with bounded false-position updates.
+    for _ in 0..max_iters.max(50) {
+        let denom = fb - fa;
+        let mut candidate = if denom.is_finite() && denom.abs() > f64::EPSILON {
+            a - fa * (b - a) / denom
+        } else {
+            0.5 * (a + b)
+        };
+        if !candidate.is_finite() || candidate <= a || candidate >= b {
+            candidate = 0.5 * (a + b);
+        }
+
+        let fc = objective(candidate);
+        diag.update(candidate, fc);
+        if fc.is_finite() && fc.abs() < tol {
             diag.bracket_found = true;
-            return Ok((Some(root_newton), diag));
+            return Ok((Some(candidate), diag));
+        }
+        if !fc.is_finite() || fc.abs() >= OBJECTIVE_VALID_ABS_MAX {
+            break;
+        }
+
+        if fa.signum() != fc.signum() {
+            b = candidate;
+            fb = fc;
+        } else if fc.signum() != fb.signum() {
+            a = candidate;
+            fa = fc;
+        } else {
+            break;
         }
     }
 
-    // Note: bracket_found remains false - we're returning a fallback solution, not a bracketed root
-    Ok((Some(root_brent), diag))
+    Ok((None, diag))
 }
 
 #[cfg(test)]
@@ -324,5 +315,26 @@ mod tests {
         assert!(root.is_some());
         // Only values >= 0.5 are valid (not penalized)
         assert!(diag.valid_eval_count < diag.eval_count);
+    }
+
+    #[test]
+    fn test_bracket_fallback_stays_inside_discovered_domain() {
+        let f = |x: f64| {
+            if !(0.0..=1.0).contains(&x) || (0.30..0.70).contains(&x) {
+                PENALTY
+            } else {
+                x - 0.15
+            }
+        };
+        let scan = [0.0, 1.0];
+        let (root, diag) =
+            bracket_solve_1d_with_diagnostics(&f, 0.8, &scan, 1e-12, 100).expect("solver error");
+
+        let root = root.expect("bounded fallback should recover the bracketed root");
+        assert!(
+            (root - 0.15).abs() < 1e-8,
+            "unexpected root from bounded fallback: {root}"
+        );
+        assert!(diag.bracket_found, "fallback root should be bracket-safe");
     }
 }

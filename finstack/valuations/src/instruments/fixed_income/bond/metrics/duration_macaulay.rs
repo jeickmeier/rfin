@@ -1,3 +1,4 @@
+use crate::constants::numerical::ZERO_TOLERANCE;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
@@ -71,7 +72,7 @@ impl MetricCalculator for MacaulayDurationCalculator {
         let price = crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
             bond, flows, quote_date, ytm,
         )?;
-        if price == 0.0 {
+        if price.abs() < ZERO_TOLERANCE {
             return Ok(0.0);
         }
 
@@ -101,5 +102,49 @@ impl MetricCalculator for MacaulayDurationCalculator {
         }
 
         Ok(weighted_time / price)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use crate::instruments::fixed_income::bond::Bond;
+    use crate::instruments::Instrument;
+    use crate::metrics::MetricId;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use time::macros::date;
+
+    #[test]
+    fn duration_mac_returns_zero_for_effectively_zero_price() {
+        let as_of = date!(2025 - 01 - 01);
+        let mut bond = Bond::fixed(
+            "DUR-NEAR-ZERO",
+            Money::new(1e-12, Currency::USD),
+            0.05,
+            as_of,
+            date!(2030 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("bond");
+        bond.pricing_overrides =
+            crate::instruments::PricingOverrides::default().with_clean_price(100.0);
+
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (5.0, 0.8)])
+            .build()
+            .expect("curve");
+        let market = MarketContext::new().insert(curve);
+
+        let result = bond
+            .price_with_metrics(&market, as_of, &[MetricId::DurationMac])
+            .expect("duration result");
+        assert_eq!(
+            *result.measures.get("duration_mac").expect("duration_mac"),
+            0.0
+        );
     }
 }
