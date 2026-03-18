@@ -1,5 +1,5 @@
 use super::types::{FactorId, FactorType};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
 /// Strategy used when extracting factor sensitivities.
@@ -10,6 +10,88 @@ pub enum PricingMode {
     DeltaBased,
     /// Reprice across a scenario grid and derive deltas from the P&L profile.
     FullRepricing,
+}
+
+/// Risk measure used when aggregating factor exposures.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RiskMeasure {
+    /// Aggregate exposures using factor covariance and portfolio variance.
+    Variance,
+    /// Aggregate exposures using portfolio volatility.
+    Volatility,
+    /// Aggregate exposures using Value at Risk at a fixed one-sided loss confidence level.
+    #[serde(rename = "var")]
+    VaR {
+        /// Confidence level in the open interval `(0.5, 1)`.
+        confidence: f64,
+    },
+    /// Aggregate exposures using expected shortfall at a fixed one-sided loss confidence level.
+    ExpectedShortfall {
+        /// Confidence level in the open interval `(0.5, 1)`.
+        confidence: f64,
+    },
+}
+
+impl Default for RiskMeasure {
+    fn default() -> Self {
+        Self::Variance
+    }
+}
+
+impl RiskMeasure {
+    /// Validate any embedded confidence levels before downstream risk calculations use them.
+    pub fn validate(&self) -> crate::Result<()> {
+        match self {
+            Self::Variance | Self::Volatility => Ok(()),
+            Self::VaR { confidence } | Self::ExpectedShortfall { confidence } => {
+                validate_confidence(*confidence)
+            }
+        }
+    }
+}
+
+fn validate_confidence(confidence: f64) -> crate::Result<()> {
+    if confidence.is_finite() && confidence > 0.5 && confidence < 1.0 {
+        Ok(())
+    } else {
+        Err(crate::Error::Validation(format!(
+            "RiskMeasure confidence must be in the open interval (0.5, 1), got {confidence}"
+        )))
+    }
+}
+
+impl<'de> Deserialize<'de> for RiskMeasure {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(rename_all = "snake_case")]
+        enum RiskMeasureSerde {
+            Variance,
+            Volatility,
+            #[serde(rename = "var")]
+            VaR {
+                confidence: f64,
+            },
+            ExpectedShortfall {
+                confidence: f64,
+            },
+        }
+
+        let measure = match RiskMeasureSerde::deserialize(deserializer)? {
+            RiskMeasureSerde::Variance => Self::Variance,
+            RiskMeasureSerde::Volatility => Self::Volatility,
+            RiskMeasureSerde::VaR { confidence } => Self::VaR { confidence },
+            RiskMeasureSerde::ExpectedShortfall { confidence } => {
+                Self::ExpectedShortfall { confidence }
+            }
+        };
+
+        measure.validate().map_err(serde::de::Error::custom)?;
+        Ok(measure)
+    }
 }
 
 /// Per-factor-type bump magnitudes for finite-difference sensitivity engines.
@@ -73,6 +155,82 @@ impl BumpSizeConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_risk_measure_serde_roundtrip_for_all_variants() {
+        let cases = [
+            (RiskMeasure::Variance, "\"variance\""),
+            (RiskMeasure::Volatility, "\"volatility\""),
+            (
+                RiskMeasure::VaR { confidence: 0.99 },
+                r#"{"var":{"confidence":0.99}}"#,
+            ),
+            (
+                RiskMeasure::ExpectedShortfall { confidence: 0.975 },
+                r#"{"expected_shortfall":{"confidence":0.975}}"#,
+            ),
+        ];
+
+        for (measure, expected_json) in cases {
+            let json_result = serde_json::to_string(&measure);
+            assert!(json_result.is_ok());
+            let Ok(json) = json_result else {
+                return;
+            };
+
+            assert_eq!(json, expected_json);
+
+            let back_result: Result<RiskMeasure, _> = serde_json::from_str(&json);
+            assert!(back_result.is_ok());
+            let Ok(back) = back_result else {
+                return;
+            };
+
+            assert_eq!(measure, back);
+        }
+    }
+
+    #[test]
+    fn test_risk_measure_default_is_variance() {
+        assert_eq!(RiskMeasure::default(), RiskMeasure::Variance);
+    }
+
+    #[test]
+    fn test_risk_measure_validate_rejects_invalid_confidence() {
+        let invalid_measures = [
+            RiskMeasure::VaR { confidence: 0.1 },
+            RiskMeasure::VaR { confidence: 0.5 },
+            RiskMeasure::VaR { confidence: 0.0 },
+            RiskMeasure::VaR { confidence: 1.0 },
+            RiskMeasure::ExpectedShortfall { confidence: 0.25 },
+            RiskMeasure::ExpectedShortfall { confidence: 0.5 },
+            RiskMeasure::ExpectedShortfall { confidence: -0.1 },
+            RiskMeasure::ExpectedShortfall { confidence: 1.1 },
+        ];
+
+        for measure in invalid_measures {
+            assert!(measure.validate().is_err());
+        }
+    }
+
+    #[test]
+    fn test_risk_measure_serde_rejects_invalid_confidence() {
+        let invalid_payloads = [
+            r#"{"var":{"confidence":0.1}}"#,
+            r#"{"var":{"confidence":0.5}}"#,
+            r#"{"var":{"confidence":0.0}}"#,
+            r#"{"var":{"confidence":1.0}}"#,
+            r#"{"expected_shortfall":{"confidence":0.25}}"#,
+            r#"{"expected_shortfall":{"confidence":0.5}}"#,
+            r#"{"expected_shortfall":{"confidence":-0.1}}"#,
+            r#"{"expected_shortfall":{"confidence":1.1}}"#,
+        ];
+
+        for payload in invalid_payloads {
+            let result: Result<RiskMeasure, _> = serde_json::from_str(payload);
+            assert!(result.is_err());
+        }
+    }
 
     #[test]
     fn test_pricing_mode_serde() {

@@ -1,0 +1,677 @@
+//! Monte Carlo factor risk decomposition using already-weighted sensitivities.
+
+use super::traits::RiskDecomposer;
+use super::types::{FactorContribution, RiskDecomposition};
+use finstack_core::factor_model::{FactorCovarianceMatrix, RiskMeasure};
+use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
+
+const MATRIX_TOLERANCE: f64 = 1e-12;
+const ZERO_TOLERANCE: f64 = 1e-15;
+
+/// Cholesky decomposition returning a lower-triangular matrix `L` such that `L * L' = A`.
+pub(crate) fn cholesky(data: &[f64], n: usize) -> finstack_core::Result<Vec<f64>> {
+    if data.len() != n * n {
+        return Err(finstack_core::Error::Validation(format!(
+            "Covariance storage length {} does not match matrix dimension {n}x{n}",
+            data.len()
+        )));
+    }
+
+    if data.iter().any(|entry| !entry.is_finite()) {
+        return Err(finstack_core::Error::Validation(
+            "Covariance matrix entries must be finite".to_string(),
+        ));
+    }
+
+    let mut lower = vec![0.0; n * n];
+
+    for i in 0..n {
+        for j in 0..=i {
+            let mut sum = 0.0;
+            for k in 0..j {
+                sum += lower[i * n + k] * lower[j * n + k];
+            }
+
+            if i == j {
+                let diagonal = data[i * n + i] - sum;
+                if diagonal < -MATRIX_TOLERANCE {
+                    return Err(finstack_core::Error::Validation(
+                        "Covariance matrix is not positive semi-definite".to_string(),
+                    ));
+                }
+                lower[i * n + j] = diagonal.max(0.0).sqrt();
+            } else {
+                let denominator = lower[j * n + j];
+                let value = data[i * n + j] - sum;
+                if denominator.abs() <= MATRIX_TOLERANCE {
+                    if value.abs() > MATRIX_TOLERANCE {
+                        return Err(finstack_core::Error::Validation(
+                            "Covariance matrix is not positive semi-definite".to_string(),
+                        ));
+                    }
+                    lower[i * n + j] = 0.0;
+                } else {
+                    lower[i * n + j] = value / denominator;
+                }
+            }
+        }
+    }
+
+    Ok(lower)
+}
+
+#[derive(Debug, Clone)]
+struct ScenarioSet {
+    portfolio_pnls: Vec<f64>,
+    factor_pnls: Vec<Vec<f64>>,
+    factor_shocks: Vec<Vec<f64>>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct SplitMix64 {
+    state: u64,
+}
+
+impl SplitMix64 {
+    fn new(seed: u64) -> Self {
+        Self { state: seed }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.state = self.state.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+
+    fn next_unit_f64(&mut self) -> f64 {
+        let mantissa = self.next_u64() >> 11;
+        let uniform = mantissa as f64 / ((1_u64 << 53) as f64);
+        uniform.max(f64::MIN_POSITIVE)
+    }
+}
+
+/// Monte Carlo decomposer for factor risk measures.
+///
+/// The input [`SensitivityMatrix`] is assumed to already be weighted by the upstream
+/// sensitivity engine, so this decomposer aggregates exposures as simple column sums and
+/// intentionally does not re-apply any position weights.
+///
+/// `position_factor_contributions` are left empty because a stable, scenario-based
+/// per-position allocation is deferred for a later cluster.
+#[derive(Debug, Clone, Copy)]
+pub struct SimulationDecomposer {
+    n_scenarios: usize,
+    seed: u64,
+}
+
+impl SimulationDecomposer {
+    /// Create a simulation decomposer with a fixed number of scenarios and deterministic seed.
+    #[must_use]
+    pub fn new(n_scenarios: usize, seed: u64) -> Self {
+        Self { n_scenarios, seed }
+    }
+
+    fn validate_inputs(
+        &self,
+        sensitivities: &SensitivityMatrix,
+        covariance: &FactorCovarianceMatrix,
+        measure: &RiskMeasure,
+    ) -> finstack_core::Result<()> {
+        measure.validate()?;
+
+        if self.n_scenarios < 2 {
+            return Err(finstack_core::Error::Validation(
+                "SimulationDecomposer requires at least two scenarios".to_string(),
+            ));
+        }
+
+        if let RiskMeasure::VaR { confidence } | RiskMeasure::ExpectedShortfall { confidence } =
+            measure
+        {
+            let tail_count = ((1.0 - confidence) * self.n_scenarios as f64).ceil() as usize;
+            if tail_count < 2 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "SimulationDecomposer requires at least two tail scenarios for confidence {confidence}; increase n_scenarios"
+                )));
+            }
+        }
+
+        if sensitivities.n_factors() != covariance.n_factors() {
+            return Err(finstack_core::Error::Validation(
+                "SensitivityMatrix and FactorCovarianceMatrix factor dimensions do not match"
+                    .to_string(),
+            ));
+        }
+
+        if sensitivities.factor_ids() != covariance.factor_ids() {
+            return Err(finstack_core::Error::Validation(
+                "SensitivityMatrix and FactorCovarianceMatrix factor order does not match"
+                    .to_string(),
+            ));
+        }
+
+        Self::validate_covariance_storage(covariance.as_slice(), covariance.n_factors())
+    }
+
+    fn validate_covariance_storage(data: &[f64], n: usize) -> finstack_core::Result<()> {
+        if data.len() != n * n {
+            return Err(finstack_core::Error::Validation(format!(
+                "Covariance storage length {} does not match matrix dimension {n}x{n}",
+                data.len()
+            )));
+        }
+
+        if data.iter().any(|entry| !entry.is_finite()) {
+            return Err(finstack_core::Error::Validation(
+                "Covariance matrix entries must be finite".to_string(),
+            ));
+        }
+
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let lhs = data[i * n + j];
+                let rhs = data[j * n + i];
+                if (lhs - rhs).abs() > MATRIX_TOLERANCE {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Covariance matrix must be symmetric at ({i}, {j})"
+                    )));
+                }
+            }
+        }
+
+        let _ = cholesky(data, n)?;
+        Ok(())
+    }
+
+    fn portfolio_exposures(sensitivities: &SensitivityMatrix) -> Vec<f64> {
+        let mut exposures = vec![0.0; sensitivities.n_factors()];
+
+        for row in sensitivities
+            .as_slice()
+            .chunks_exact(sensitivities.n_factors())
+        {
+            for (exposure, delta) in exposures.iter_mut().zip(row.iter()) {
+                *exposure += *delta;
+            }
+        }
+
+        exposures
+    }
+
+    fn generate_standard_normals(&self, count: usize) -> Vec<f64> {
+        let mut rng = SplitMix64::new(self.seed);
+        let mut normals = Vec::with_capacity(count);
+
+        while normals.len() < count {
+            let u1 = rng.next_unit_f64();
+            let u2 = rng.next_unit_f64();
+            let radius = (-2.0 * u1.ln()).sqrt();
+            let angle = 2.0 * std::f64::consts::PI * u2;
+
+            normals.push(radius * angle.cos());
+            if normals.len() < count {
+                normals.push(radius * angle.sin());
+            }
+        }
+
+        normals
+    }
+
+    fn generate_scenarios(
+        &self,
+        lower: &[f64],
+        exposures: &[f64],
+        n_factors: usize,
+    ) -> ScenarioSet {
+        let normals = self.generate_standard_normals(self.n_scenarios * n_factors);
+        let mut portfolio_pnls = Vec::with_capacity(self.n_scenarios);
+        let mut factor_pnls = vec![vec![0.0; self.n_scenarios]; n_factors];
+        let mut factor_shocks = vec![vec![0.0; self.n_scenarios]; n_factors];
+
+        for scenario_idx in 0..self.n_scenarios {
+            let z = &normals[scenario_idx * n_factors..(scenario_idx + 1) * n_factors];
+            let mut shocks = vec![0.0; n_factors];
+
+            for i in 0..n_factors {
+                let mut shock = 0.0;
+                for j in 0..=i {
+                    shock += lower[i * n_factors + j] * z[j];
+                }
+                shocks[i] = shock;
+                factor_shocks[i][scenario_idx] = shock;
+                factor_pnls[i][scenario_idx] = exposures[i] * shock;
+            }
+
+            let portfolio_pnl = exposures
+                .iter()
+                .zip(shocks.iter())
+                .map(|(exposure, shock)| exposure * shock)
+                .sum();
+            portfolio_pnls.push(portfolio_pnl);
+        }
+
+        ScenarioSet {
+            portfolio_pnls,
+            factor_pnls,
+            factor_shocks,
+        }
+    }
+
+    fn sample_mean(values: &[f64]) -> f64 {
+        values.iter().sum::<f64>() / values.len() as f64
+    }
+
+    fn sample_covariance(lhs: &[f64], rhs: &[f64]) -> f64 {
+        let lhs_mean = Self::sample_mean(lhs);
+        let rhs_mean = Self::sample_mean(rhs);
+        let centered_sum: f64 = lhs
+            .iter()
+            .zip(rhs.iter())
+            .map(|(lhs_value, rhs_value)| (lhs_value - lhs_mean) * (rhs_value - rhs_mean))
+            .sum();
+        centered_sum / (lhs.len() - 1) as f64
+    }
+
+    fn build_factor_contributions(
+        covariance: &FactorCovarianceMatrix,
+        total_risk: f64,
+        absolute: &[f64],
+        marginal: &[f64],
+    ) -> Vec<FactorContribution> {
+        covariance
+            .factor_ids()
+            .iter()
+            .cloned()
+            .zip(absolute.iter().copied().zip(marginal.iter().copied()))
+            .map(
+                |(factor_id, (absolute_risk, marginal_risk))| FactorContribution {
+                    factor_id,
+                    absolute_risk,
+                    relative_risk: if total_risk.abs() > ZERO_TOLERANCE {
+                        absolute_risk / total_risk
+                    } else {
+                        0.0
+                    },
+                    marginal_risk,
+                },
+            )
+            .collect()
+    }
+
+    fn variance_like_decomposition(
+        covariance: &FactorCovarianceMatrix,
+        scenarios: &ScenarioSet,
+        measure: &RiskMeasure,
+    ) -> RiskDecomposition {
+        let variance =
+            Self::sample_covariance(&scenarios.portfolio_pnls, &scenarios.portfolio_pnls).max(0.0);
+        let sigma = variance.sqrt();
+
+        let component_variances: Vec<f64> = scenarios
+            .factor_pnls
+            .iter()
+            .map(|factor_pnl| Self::sample_covariance(&scenarios.portfolio_pnls, factor_pnl))
+            .collect();
+        let marginal_component_variances: Vec<f64> = scenarios
+            .factor_shocks
+            .iter()
+            .map(|factor_shock| Self::sample_covariance(&scenarios.portfolio_pnls, factor_shock))
+            .collect();
+
+        let (total_risk, scale) = match measure {
+            RiskMeasure::Variance => (variance, 1.0),
+            RiskMeasure::Volatility => {
+                if sigma > ZERO_TOLERANCE {
+                    (sigma, sigma.recip())
+                } else {
+                    (0.0, 0.0)
+                }
+            }
+            RiskMeasure::VaR { .. } | RiskMeasure::ExpectedShortfall { .. } => unreachable!(),
+        };
+
+        let absolute: Vec<f64> = component_variances
+            .iter()
+            .map(|value| value * scale)
+            .collect();
+        let marginal: Vec<f64> = marginal_component_variances
+            .iter()
+            .map(|value| value * scale)
+            .collect();
+
+        RiskDecomposition {
+            total_risk,
+            measure: *measure,
+            factor_contributions: Self::build_factor_contributions(
+                covariance, total_risk, &absolute, &marginal,
+            ),
+            residual_risk: 0.0,
+            position_factor_contributions: Vec::new(),
+        }
+    }
+
+    fn tail_risk_decomposition(
+        &self,
+        covariance: &FactorCovarianceMatrix,
+        scenarios: &ScenarioSet,
+        measure: &RiskMeasure,
+        confidence: f64,
+    ) -> RiskDecomposition {
+        let mut indices: Vec<usize> = (0..self.n_scenarios).collect();
+        indices.sort_by(|lhs, rhs| {
+            scenarios.portfolio_pnls[*lhs].total_cmp(&scenarios.portfolio_pnls[*rhs])
+        });
+
+        let tail_count = ((1.0 - confidence) * self.n_scenarios as f64).ceil() as usize;
+        let tail_count = tail_count.max(1);
+        let tail_indices = &indices[..tail_count];
+        let var_index = tail_indices[tail_count - 1];
+        let var = (-scenarios.portfolio_pnls[var_index]).max(0.0);
+        let es = tail_indices
+            .iter()
+            .map(|index| -scenarios.portfolio_pnls[*index])
+            .sum::<f64>()
+            / tail_count as f64;
+
+        let component_es: Vec<f64> = scenarios
+            .factor_pnls
+            .iter()
+            .map(|factor_pnl| {
+                tail_indices
+                    .iter()
+                    .map(|index| -factor_pnl[*index])
+                    .sum::<f64>()
+                    / tail_count as f64
+            })
+            .collect();
+        let marginal_es: Vec<f64> = scenarios
+            .factor_shocks
+            .iter()
+            .map(|factor_shock| {
+                tail_indices
+                    .iter()
+                    .map(|index| -factor_shock[*index])
+                    .sum::<f64>()
+                    / tail_count as f64
+            })
+            .collect();
+
+        let (total_risk, absolute, marginal) = match measure {
+            RiskMeasure::ExpectedShortfall { .. } => (es.max(0.0), component_es, marginal_es),
+            RiskMeasure::VaR { .. } => {
+                let ratio = if es.abs() > ZERO_TOLERANCE {
+                    var / es
+                } else {
+                    0.0
+                };
+                (
+                    var,
+                    component_es.iter().map(|value| value * ratio).collect(),
+                    marginal_es.iter().map(|value| value * ratio).collect(),
+                )
+            }
+            RiskMeasure::Variance | RiskMeasure::Volatility => unreachable!(),
+        };
+
+        RiskDecomposition {
+            total_risk,
+            measure: *measure,
+            factor_contributions: Self::build_factor_contributions(
+                covariance, total_risk, &absolute, &marginal,
+            ),
+            residual_risk: 0.0,
+            position_factor_contributions: Vec::new(),
+        }
+    }
+}
+
+impl RiskDecomposer for SimulationDecomposer {
+    fn decompose(
+        &self,
+        sensitivities: &SensitivityMatrix,
+        covariance: &FactorCovarianceMatrix,
+        measure: &RiskMeasure,
+    ) -> finstack_core::Result<RiskDecomposition> {
+        self.validate_inputs(sensitivities, covariance, measure)?;
+
+        if sensitivities.n_factors() == 0 {
+            return Ok(RiskDecomposition {
+                total_risk: 0.0,
+                measure: *measure,
+                factor_contributions: Vec::new(),
+                residual_risk: 0.0,
+                position_factor_contributions: Vec::new(),
+            });
+        }
+
+        let lower = cholesky(covariance.as_slice(), covariance.n_factors())?;
+        let exposures = Self::portfolio_exposures(sensitivities);
+        let scenarios = self.generate_scenarios(&lower, &exposures, covariance.n_factors());
+
+        let decomposition = match measure {
+            RiskMeasure::Variance | RiskMeasure::Volatility => {
+                Self::variance_like_decomposition(covariance, &scenarios, measure)
+            }
+            RiskMeasure::VaR { confidence } | RiskMeasure::ExpectedShortfall { confidence } => {
+                self.tail_risk_decomposition(covariance, &scenarios, measure, *confidence)
+            }
+        };
+
+        Ok(decomposition)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{cholesky, SimulationDecomposer};
+    use crate::factor_model::RiskDecomposer;
+    use finstack_core::factor_model::{FactorCovarianceMatrix, FactorId, RiskMeasure};
+    use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
+
+    type TestResult = finstack_core::Result<()>;
+
+    #[test]
+    fn test_cholesky_2x2_example() -> TestResult {
+        let lower = cholesky(&[4.0, 2.0, 2.0, 5.0], 2)?;
+
+        assert!((lower[0] - 2.0).abs() < 1e-12);
+        assert!(lower[1].abs() < 1e-12);
+        assert!((lower[2] - 1.0).abs() < 1e-12);
+        assert!((lower[3] - 2.0).abs() < 1e-12);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_expected_shortfall_converges_for_one_factor() -> TestResult {
+        let mut sensitivities =
+            SensitivityMatrix::zeros(vec!["pos-A".into()], vec![FactorId::new("Rates")]);
+        sensitivities.set_delta(0, 0, 100.0);
+
+        let covariance = FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04])?;
+        let decomposer = SimulationDecomposer::new(100_000, 42);
+        let result = decomposer.decompose(
+            &sensitivities,
+            &covariance,
+            &RiskMeasure::ExpectedShortfall { confidence: 0.99 },
+        )?;
+
+        assert!((result.total_risk - 53.304_289).abs() < 2.0);
+        assert_eq!(result.position_factor_contributions, Vec::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_var_converges_for_one_factor() -> TestResult {
+        let mut sensitivities =
+            SensitivityMatrix::zeros(vec!["pos-A".into()], vec![FactorId::new("Rates")]);
+        sensitivities.set_delta(0, 0, 100.0);
+
+        let covariance = FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04])?;
+        let decomposer = SimulationDecomposer::new(100_000, 4_242);
+        let result = decomposer.decompose(
+            &sensitivities,
+            &covariance,
+            &RiskMeasure::VaR { confidence: 0.99 },
+        )?;
+
+        assert!((result.total_risk - 46.526_958).abs() < 2.0);
+        assert_eq!(result.position_factor_contributions, Vec::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_rejects_asymmetric_unchecked_covariance() -> TestResult {
+        let mut sensitivities = SensitivityMatrix::zeros(
+            vec!["pos-A".into()],
+            vec![FactorId::new("Rates"), FactorId::new("Credit")],
+        );
+        sensitivities.set_delta(0, 0, 10.0);
+        sensitivities.set_delta(0, 1, 5.0);
+
+        let covariance = FactorCovarianceMatrix::new_unchecked(
+            vec![FactorId::new("Rates"), FactorId::new("Credit")],
+            vec![1.0, 0.25, 0.10, 1.0],
+        );
+
+        let decomposer = SimulationDecomposer::new(1_024, 7);
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance);
+        assert!(result.is_err());
+        let Err(error) = result else {
+            return Err(finstack_core::Error::Validation(
+                "asymmetric covariance should be rejected before simulation".to_string(),
+            ));
+        };
+        assert!(format!("{error}").contains("symmetric"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_variance_uses_already_weighted_exposures() -> TestResult {
+        let mut sensitivities = SensitivityMatrix::zeros(
+            vec!["pos-A".into(), "pos-B".into()],
+            vec![FactorId::new("Rates")],
+        );
+        sensitivities.set_delta(0, 0, 60.0);
+        sensitivities.set_delta(1, 0, 40.0);
+
+        let covariance = FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04])?;
+        let decomposer = SimulationDecomposer::new(100_000, 99);
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance)?;
+
+        assert!((result.total_risk - 400.0).abs() < 20.0);
+        assert_eq!(result.factor_contributions.len(), 1);
+        assert_eq!(result.position_factor_contributions, Vec::new());
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_volatility_scales_sample_variance() -> TestResult {
+        let mut sensitivities =
+            SensitivityMatrix::zeros(vec!["pos-A".into()], vec![FactorId::new("Rates")]);
+        sensitivities.set_delta(0, 0, 100.0);
+
+        let covariance = FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04])?;
+        let decomposer = SimulationDecomposer::new(100_000, 11);
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Volatility)?;
+
+        assert!((result.total_risk - 20.0).abs() < 0.75);
+        assert!((result.factor_contributions[0].absolute_risk - result.total_risk).abs() < 0.75);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_rejects_factor_order_mismatch() -> TestResult {
+        let mut sensitivities = SensitivityMatrix::zeros(
+            vec!["pos-A".into()],
+            vec![FactorId::new("Rates"), FactorId::new("Credit")],
+        );
+        sensitivities.set_delta(0, 0, 10.0);
+        sensitivities.set_delta(0, 1, 5.0);
+
+        let covariance = FactorCovarianceMatrix::new(
+            vec![FactorId::new("Credit"), FactorId::new("Rates")],
+            vec![1.0, 0.25, 0.25, 1.0],
+        )?;
+
+        let decomposer = SimulationDecomposer::new(1_024, 7);
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance);
+        assert!(result.is_err());
+        let Err(error) = result else {
+            return Err(finstack_core::Error::Validation(
+                "factor order mismatch should be rejected".to_string(),
+            ));
+        };
+        assert!(format!("{error}").contains("factor"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_rejects_non_psd_unchecked_covariance() -> TestResult {
+        let mut sensitivities =
+            SensitivityMatrix::zeros(vec!["pos-A".into()], vec![FactorId::new("Rates")]);
+        sensitivities.set_delta(0, 0, 10.0);
+
+        let covariance =
+            FactorCovarianceMatrix::new_unchecked(vec![FactorId::new("Rates")], vec![-1.0]);
+        let decomposer = SimulationDecomposer::new(1_024, 17);
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance);
+        assert!(result.is_err());
+        let Err(error) = result else {
+            return Err(finstack_core::Error::Validation(
+                "non-psd covariance should be rejected".to_string(),
+            ));
+        };
+        assert!(format!("{error}").contains("positive semi-definite"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_rejects_non_finite_unchecked_covariance() -> TestResult {
+        let mut sensitivities =
+            SensitivityMatrix::zeros(vec!["pos-A".into()], vec![FactorId::new("Rates")]);
+        sensitivities.set_delta(0, 0, 10.0);
+
+        let covariance =
+            FactorCovarianceMatrix::new_unchecked(vec![FactorId::new("Rates")], vec![f64::NAN]);
+        let decomposer = SimulationDecomposer::new(1_024, 23);
+        let result = decomposer.decompose(&sensitivities, &covariance, &RiskMeasure::Variance);
+        assert!(result.is_err());
+        let Err(error) = result else {
+            return Err(finstack_core::Error::Validation(
+                "non-finite covariance should be rejected".to_string(),
+            ));
+        };
+        assert!(format!("{error}").contains("finite"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_simulation_rejects_tail_risk_with_insufficient_tail_scenarios() -> TestResult {
+        let mut sensitivities =
+            SensitivityMatrix::zeros(vec!["pos-A".into()], vec![FactorId::new("Rates")]);
+        sensitivities.set_delta(0, 0, 100.0);
+
+        let covariance = FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04])?;
+        let decomposer = SimulationDecomposer::new(50, 123);
+        let result = decomposer.decompose(
+            &sensitivities,
+            &covariance,
+            &RiskMeasure::VaR { confidence: 0.99 },
+        );
+
+        assert!(result.is_err());
+
+        Ok(())
+    }
+}
