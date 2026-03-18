@@ -74,6 +74,8 @@ pub mod builder;
 pub mod dataframe;
 /// Error types for portfolio operations.
 pub mod error;
+/// Factor-model portfolio risk decomposition outputs and engines.
+pub mod factor_model;
 /// Grouping and aggregation by attributes or books.
 pub mod grouping;
 /// Portfolio margin and netting set utilities.
@@ -118,6 +120,7 @@ pub use cashflows::{
 };
 pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};
+pub use factor_model::{FactorContribution, PositionFactorContribution, RiskDecomposition};
 pub use grouping::{
     aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
 };

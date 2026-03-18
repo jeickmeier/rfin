@@ -7,7 +7,7 @@ mod error;
 pub mod matching;
 mod types;
 
-pub use config::{BumpSizeConfig, PricingMode};
+pub use config::{BumpSizeConfig, PricingMode, RiskMeasure};
 pub use covariance::FactorCovarianceMatrix;
 pub use definition::{FactorDefinition, MarketMapping};
 pub use dependency::{CurveType, DependencyType, MarketDependency};
