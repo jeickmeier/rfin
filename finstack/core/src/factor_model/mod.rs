@@ -1,3 +1,4 @@
+mod config;
 mod covariance;
 mod definition;
 mod dependency;
@@ -6,6 +7,7 @@ mod error;
 pub mod matching;
 mod types;
 
+pub use config::{BumpSizeConfig, PricingMode};
 pub use covariance::FactorCovarianceMatrix;
 pub use definition::{FactorDefinition, MarketMapping};
 pub use dependency::{CurveType, DependencyType, MarketDependency};
