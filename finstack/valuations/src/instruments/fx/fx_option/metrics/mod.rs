@@ -12,6 +12,10 @@ use crate::metrics::MetricRegistry;
 
 /// Register FX option metrics with the registry.
 pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::sensitivities::cross_factor::{
+        CrossFactorCalculator, CrossFactorPair, FxBumperFactory, RatesBumperFactory,
+        VolBumperFactory,
+    };
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
@@ -45,6 +49,24 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         Arc::new(crate::metrics::OptionForeignRhoCalculator::<
             crate::instruments::FxOption,
         >::default()),
+        &[InstrumentType::FxOption],
+    );
+    registry.register_metric(
+        MetricId::CrossGammaFxVol,
+        Arc::new(CrossFactorCalculator::new(
+            CrossFactorPair::FxVol,
+            Arc::new(FxBumperFactory),
+            Arc::new(VolBumperFactory),
+        )),
+        &[InstrumentType::FxOption],
+    );
+    registry.register_metric(
+        MetricId::CrossGammaFxRates,
+        Arc::new(CrossFactorCalculator::new(
+            CrossFactorPair::FxRates,
+            Arc::new(FxBumperFactory),
+            Arc::new(RatesBumperFactory),
+        )),
         &[InstrumentType::FxOption],
     );
 

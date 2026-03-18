@@ -2,7 +2,7 @@
 //!
 //! This module provides types for decomposing multi-period P&L changes into
 //! constituent factors: carry, curve shifts, credit spreads, FX, volatility,
-//! model parameters, and market scalars.
+//! cross-factor interactions, model parameters, and market scalars.
 
 use finstack_core::config::{FinstackConfig, RoundingContext};
 use finstack_core::currency::Currency;
@@ -231,12 +231,10 @@ pub struct PnlAttribution {
     pub fx_pnl: Money,
 
     /// Implied volatility changes P&L.
-    ///
-    /// In metrics-based attribution, this includes the Vanna cross-gamma term
-    /// (spot-vol interaction: `Vanna × Δspot × Δσ`) when both spot and vol
-    /// shifts are measurable. Vanna is attributed to vol because it represents
-    /// the sensitivity of delta to volatility changes.
     pub vol_pnl: Money,
+
+    /// Cross-factor interaction P&L (rates×credit, spot×vol, FX×rates, etc.).
+    pub cross_factor_pnl: Money,
 
     /// Model parameters P&L.
     pub model_params_pnl: Money,
@@ -268,6 +266,9 @@ pub struct PnlAttribution {
 
     /// Detailed volatility attribution (by surface).
     pub vol_detail: Option<VolAttribution>,
+
+    /// Detailed cross-factor attribution (by factor-pair label).
+    pub cross_factor_detail: Option<CrossFactorDetail>,
 
     /// Detailed model parameters attribution.
     pub model_params_detail: Option<ModelParamsAttribution>,
@@ -348,6 +349,17 @@ pub struct FxAttribution {
 pub struct VolAttribution {
     /// P&L by volatility surface ID.
     pub by_surface: IndexMap<CurveId, Money>,
+}
+
+/// Detailed attribution for cross-factor interaction terms.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CrossFactorDetail {
+    /// Total cross-factor P&L across all populated pairs.
+    pub total: Money,
+
+    /// P&L by human-readable factor-pair label.
+    #[serde(default)]
+    pub by_pair: IndexMap<String, Money>,
 }
 
 /// Detailed attribution for model-specific parameters.
@@ -513,6 +525,7 @@ impl PnlAttribution {
             correlations_pnl: zero,
             fx_pnl: zero,
             vol_pnl: zero,
+            cross_factor_pnl: zero,
             model_params_pnl: zero,
             market_scalars_pnl: zero,
             residual: total_pnl, // Initially all P&L is residual
@@ -523,6 +536,7 @@ impl PnlAttribution {
             correlations_detail: None,
             fx_detail: None,
             vol_detail: None,
+            cross_factor_detail: None,
             model_params_detail: None,
             scalars_detail: None,
             meta: AttributionMeta {
@@ -580,6 +594,7 @@ impl PnlAttribution {
         self.correlations_pnl *= factor;
         self.fx_pnl *= factor;
         self.vol_pnl *= factor;
+        self.cross_factor_pnl *= factor;
         self.model_params_pnl *= factor;
         self.market_scalars_pnl *= factor;
         self.residual *= factor;
@@ -617,6 +632,10 @@ impl PnlAttribution {
         if let Some(d) = &mut self.vol_detail {
             scale_money_map(&mut d.by_surface, factor);
         }
+        if let Some(d) = &mut self.cross_factor_detail {
+            d.total *= factor;
+            scale_money_map(&mut d.by_pair, factor);
+        }
         if let Some(d) = &mut self.model_params_detail {
             scale_money_opt(&mut d.prepayment, factor);
             scale_money_opt(&mut d.default_rate, factor);
@@ -648,6 +667,7 @@ impl PnlAttribution {
             ("correlations", self.correlations_pnl.currency()),
             ("fx", self.fx_pnl.currency()),
             ("vol", self.vol_pnl.currency()),
+            ("cross_factor", self.cross_factor_pnl.currency()),
             ("model_params", self.model_params_pnl.currency()),
             ("market_scalars", self.market_scalars_pnl.currency()),
         ];
@@ -719,6 +739,12 @@ impl PnlAttribution {
             attributed_sum,
             self.vol_pnl,
             "vol P&L",
+            &mut self.meta.notes,
+        )?;
+        attributed_sum = add_factor(
+            attributed_sum,
+            self.cross_factor_pnl,
+            "cross-factor P&L",
             &mut self.meta.notes,
         )?;
         attributed_sum = add_factor(
@@ -912,6 +938,18 @@ impl PnlAttribution {
             lines.push(format!("  ├─ Vol: {}", fmt(&self.vol_pnl, &self.total_pnl)));
         }
 
+        if show(&self.cross_factor_pnl) {
+            lines.push(format!(
+                "  ├─ Cross-Factor: {}",
+                fmt(&self.cross_factor_pnl, &self.total_pnl)
+            ));
+            if let Some(ref detail) = self.cross_factor_detail {
+                for (pair_label, pnl) in &detail.by_pair {
+                    lines.push(format!("  │   ├─ {}: {}", pair_label, pnl));
+                }
+            }
+        }
+
         if show(&self.model_params_pnl) {
             lines.push(format!(
                 "  ├─ Model Params: {}",
@@ -980,6 +1018,12 @@ impl AttributionMethod {
                 MetricId::IrConvexity,
                 MetricId::Volga,
                 MetricId::Vanna,
+                MetricId::CrossGammaRatesCredit,
+                MetricId::CrossGammaRatesVol,
+                MetricId::CrossGammaSpotVol,
+                MetricId::CrossGammaSpotCredit,
+                MetricId::CrossGammaFxVol,
+                MetricId::CrossGammaFxRates,
                 MetricId::CsGamma,
                 MetricId::InflationConvexity,
             ],
@@ -1079,5 +1123,42 @@ mod tests {
         assert!(explanation.contains("Roll-Down"));
         assert!(explanation.contains("Funding Cost"));
         assert!(explanation.contains("Theta (legacy)"));
+    }
+
+    #[test]
+    fn test_cross_factor_detail_serde_roundtrip() {
+        let detail = CrossFactorDetail {
+            total: Money::new(500.0, Currency::USD),
+            by_pair: {
+                let mut map = IndexMap::new();
+                map.insert("Rates×Credit".to_string(), Money::new(300.0, Currency::USD));
+                map.insert("Spot×Vol".to_string(), Money::new(200.0, Currency::USD));
+                map
+            },
+        };
+
+        let json = serde_json::to_string(&detail).unwrap();
+        let parsed: CrossFactorDetail = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.total.amount(), 500.0);
+        assert_eq!(parsed.by_pair.len(), 2);
+    }
+
+    #[test]
+    fn test_compute_residual_includes_cross_factor() {
+        let total = Money::new(1000.0, Currency::USD);
+        let mut attr = PnlAttribution::new(
+            total,
+            "TEST",
+            date!(2025 - 01 - 01),
+            date!(2025 - 01 - 02),
+            AttributionMethod::Parallel,
+        );
+        attr.rates_curves_pnl = Money::new(600.0, Currency::USD);
+        attr.credit_curves_pnl = Money::new(200.0, Currency::USD);
+        attr.cross_factor_pnl = Money::new(150.0, Currency::USD);
+
+        attr.compute_residual().unwrap();
+
+        assert!((attr.residual.amount() - 50.0).abs() < 1e-10);
     }
 }

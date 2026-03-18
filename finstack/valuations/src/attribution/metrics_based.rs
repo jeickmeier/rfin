@@ -85,6 +85,7 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_core::Result;
+use indexmap::IndexMap;
 use std::sync::Arc;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -147,6 +148,20 @@ fn extract_bucketed_dv01_per_curve(
     }
 
     result
+}
+
+fn add_cross_factor_term(
+    by_pair: &mut IndexMap<String, Money>,
+    total: &mut f64,
+    label: &str,
+    pnl: f64,
+    currency: finstack_core::currency::Currency,
+) {
+    if pnl.abs() < 1e-12 {
+        return;
+    }
+    *total += pnl;
+    by_pair.insert(label.to_string(), Money::new(pnl, currency));
 }
 
 /// Perform metrics-based P&L attribution for an instrument.
@@ -369,6 +384,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
     let mut rates_pnl = 0.0;
     let mut curves_with_data = 0;
     let mut total_shift_for_convexity = 0.0;
+    let mut avg_rate_shift_bp = None;
 
     if has_bucketed {
         // Use bucketed DV01: sum per-curve contributions
@@ -390,6 +406,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
 
         if curves_with_data > 0 {
+            avg_rate_shift_bp = Some(total_shift_for_convexity / curves_with_data as f64);
             attribution.meta.notes.push(format!(
                 "Rates attribution computed using bucketed DV01 across {} curves",
                 curves_with_data
@@ -421,6 +438,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         rates_pnl = dv01 * avg_shift;
         total_shift_for_convexity = avg_shift;
         curves_with_data = curve_count;
+        avg_rate_shift_bp = Some(avg_shift);
 
         attribution.rates_curves_pnl = Money::new(rates_pnl, val_t1.value.currency());
 
@@ -520,6 +538,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         } else {
             0.0
         };
+        let avg_credit_shift_bp = avg_shift;
 
         let credit_amount = cs01 * avg_shift;
         attribution.credit_curves_pnl = Money::new(credit_amount, val_t1.value.currency());
@@ -565,6 +584,8 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                 LARGE_SPREAD_MOVE_THRESHOLD_BP
             ));
         }
+
+        let _ = avg_credit_shift_bp;
     }
 
     // 4. FX attribution (FX01 or FX Delta)
@@ -585,6 +606,35 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         }
     }
 
+    let mut avg_credit_shift_bp = None;
+    if !market_deps.curve_dependencies().credit_curves.is_empty() {
+        let mut total_credit_shift = 0.0;
+        let mut credit_curve_count = 0;
+        for curve_id in &market_deps.curve_dependencies().credit_curves {
+            if let Ok(shift) = measure_hazard_curve_shift(
+                curve_id.as_str(),
+                market_t0,
+                market_t1,
+                TenorSamplingMethod::Standard,
+            ) {
+                total_credit_shift += shift;
+                credit_curve_count += 1;
+            }
+        }
+        if credit_curve_count > 0 {
+            avg_credit_shift_bp = Some(total_credit_shift / credit_curve_count as f64);
+        }
+    }
+
+    let mut fx_shift_pct = None;
+    if let Some((base_ccy, quote_ccy)) = instrument.fx_exposure() {
+        if let Ok(shift) = measure_fx_shift(
+            base_ccy, quote_ccy, market_t0, market_t1, as_of_t0, as_of_t1,
+        ) {
+            fx_shift_pct = Some(shift);
+        }
+    }
+
     // 5. Volatility attribution (Vega)
     //
     // METRIC DEFINITION:
@@ -596,6 +646,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
             if let Ok(vol_shift) =
                 measure_vol_surface_shift(surface_id.as_str(), market_t0, market_t1, None, None)
             {
+                let avg_vol_shift = vol_shift;
                 // vol_shift is already in percentage points
                 let vol_amount = vega * vol_shift;
                 attribution.vol_pnl = Money::new(vol_amount, val_t1.value.currency());
@@ -611,11 +662,6 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                     );
                 }
 
-                // 5c. Cross-gamma: Vanna (spot-vol cross effect)
-                // Only include if we can measure both Δspot and Δσ
-                // For now, skip vanna as it requires instrument-specific spot ID
-                // (would need instrument.underlying_id() or similar)
-
                 // Check for large vol moves that may exceed approximation accuracy
                 if vol_shift.abs() > LARGE_VOL_MOVE_THRESHOLD_PCT {
                     attribution.meta.notes.push(format!(
@@ -625,6 +671,8 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
                         LARGE_VOL_MOVE_THRESHOLD_PCT
                     ));
                 }
+
+                let _ = avg_vol_shift;
             }
         }
     }
@@ -641,16 +689,31 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
         let spot_ids = &market_deps.spot_ids;
         let delta_opt = val_t0.measures.get(MetricId::Delta.as_str());
         let gamma_opt = val_t0.measures.get(MetricId::Gamma.as_str());
+        let avg_spot_shift_pct = {
+            let mut total_shift = 0.0;
+            let mut count = 0;
+            for spot_id in spot_ids {
+                if let Ok(spot_shift_pct) = measure_scalar_shift(spot_id, market_t0, market_t1) {
+                    total_shift += spot_shift_pct;
+                    count += 1;
+                }
+            }
+            if count > 0 {
+                Some(total_shift / count as f64)
+            } else {
+                None
+            }
+        };
 
         if let Some(&delta) = delta_opt {
             let mut total_spot_pnl = 0.0;
-            let mut spot_shift_for_vanna = 0.0;
+            let mut total_spot_shift_pct = 0.0;
             let mut spots_found = 0;
 
             for spot_id in spot_ids {
                 if let Ok(spot_shift_pct) = measure_scalar_shift(spot_id, market_t0, market_t1) {
                     total_spot_pnl += delta * spot_shift_pct;
-                    spot_shift_for_vanna += spot_shift_pct;
+                    total_spot_shift_pct += spot_shift_pct;
                     spots_found += 1;
                 }
             }
@@ -658,7 +721,7 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
             // Second-order: Gamma
             if let Some(&gamma) = gamma_opt {
                 if spots_found > 0 {
-                    let avg_shift = spot_shift_for_vanna / spots_found as f64;
+                    let avg_shift = total_spot_shift_pct / spots_found as f64;
                     total_spot_pnl += 0.5 * gamma * avg_shift * avg_shift;
                 }
             }
@@ -666,41 +729,131 @@ fn attribute_pnl_metrics_based_impl(input: &AttributionInput) -> Result<PnlAttri
             if spots_found > 0 {
                 attribution.market_scalars_pnl =
                     Money::new(total_spot_pnl, val_t1.value.currency());
-
-                // 6b. Vanna cross-gamma: spot-vol interaction
-                //
-                // METRIC DEFINITION:
-                // - Vanna: ∂²V / (∂spot × ∂σ), dollar cross-gamma per (% spot × vol point)
-                // - Formula: PnL = Vanna × Δspot × Δσ
-                if let Some(&vanna) = val_t0.measures.get(MetricId::Vanna.as_str()) {
-                    let avg_spot_shift = spot_shift_for_vanna / spots_found as f64;
-
-                    // Get vol shift for the vanna cross-term
-                    let vol_shift_opt = market_deps
-                        .equity_dependencies()
-                        .vol_surface_id
-                        .as_ref()
-                        .and_then(|surface_id| {
-                            measure_vol_surface_shift(
-                                surface_id.as_str(),
-                                market_t0,
-                                market_t1,
-                                None,
-                                None,
-                            )
-                            .ok()
-                        });
-
-                    if let Some(vol_shift) = vol_shift_opt {
-                        let vanna_pnl = vanna * avg_spot_shift * vol_shift;
-                        // Add vanna to vol P&L (it's a cross-term between spot and vol)
-                        attribution.vol_pnl = Money::new(
-                            attribution.vol_pnl.amount() + vanna_pnl,
-                            val_t1.value.currency(),
-                        );
-                    }
-                }
             }
+        }
+
+        let mut cross_total = 0.0;
+        let mut cross_by_pair = IndexMap::new();
+        let currency = val_t1.value.currency();
+
+        let avg_vol_shift_abs = market_deps
+            .equity_dependencies()
+            .vol_surface_id
+            .as_ref()
+            .and_then(|surface_id| {
+                measure_vol_surface_shift(surface_id.as_str(), market_t0, market_t1, None, None)
+                    .ok()
+            });
+
+        if let (Some(cross_gamma), Some(rate_shift), Some(credit_shift)) = (
+            val_t0
+                .measures
+                .get(MetricId::CrossGammaRatesCredit.as_str())
+                .copied(),
+            avg_rate_shift_bp,
+            avg_credit_shift_bp,
+        ) {
+            add_cross_factor_term(
+                &mut cross_by_pair,
+                &mut cross_total,
+                "Rates×Credit",
+                cross_gamma * rate_shift * credit_shift,
+                currency,
+            );
+        }
+
+        if let (Some(cross_gamma), Some(rate_shift), Some(vol_shift)) = (
+            val_t0
+                .measures
+                .get(MetricId::CrossGammaRatesVol.as_str())
+                .copied(),
+            avg_rate_shift_bp,
+            avg_vol_shift_abs,
+        ) {
+            add_cross_factor_term(
+                &mut cross_by_pair,
+                &mut cross_total,
+                "Rates×Vol",
+                cross_gamma * rate_shift * vol_shift,
+                currency,
+            );
+        }
+
+        if let (Some(cross_gamma), Some(spot_shift), Some(vol_shift)) = (
+            val_t0
+                .measures
+                .get(MetricId::CrossGammaSpotVol.as_str())
+                .copied()
+                .or_else(|| val_t0.measures.get(MetricId::Vanna.as_str()).copied()),
+            avg_spot_shift_pct,
+            avg_vol_shift_abs,
+        ) {
+            add_cross_factor_term(
+                &mut cross_by_pair,
+                &mut cross_total,
+                "Spot×Vol",
+                cross_gamma * spot_shift * vol_shift,
+                currency,
+            );
+        }
+
+        if let (Some(cross_gamma), Some(spot_shift), Some(credit_shift)) = (
+            val_t0
+                .measures
+                .get(MetricId::CrossGammaSpotCredit.as_str())
+                .copied(),
+            avg_spot_shift_pct,
+            avg_credit_shift_bp,
+        ) {
+            add_cross_factor_term(
+                &mut cross_by_pair,
+                &mut cross_total,
+                "Spot×Credit",
+                cross_gamma * spot_shift * credit_shift,
+                currency,
+            );
+        }
+
+        if let (Some(cross_gamma), Some(fx_shift), Some(vol_shift)) = (
+            val_t0
+                .measures
+                .get(MetricId::CrossGammaFxVol.as_str())
+                .copied(),
+            fx_shift_pct,
+            avg_vol_shift_abs,
+        ) {
+            add_cross_factor_term(
+                &mut cross_by_pair,
+                &mut cross_total,
+                "FX×Vol",
+                cross_gamma * fx_shift * vol_shift,
+                currency,
+            );
+        }
+
+        if let (Some(cross_gamma), Some(fx_shift), Some(rate_shift)) = (
+            val_t0
+                .measures
+                .get(MetricId::CrossGammaFxRates.as_str())
+                .copied(),
+            fx_shift_pct,
+            avg_rate_shift_bp,
+        ) {
+            add_cross_factor_term(
+                &mut cross_by_pair,
+                &mut cross_total,
+                "FX×Rates",
+                cross_gamma * fx_shift * rate_shift,
+                currency,
+            );
+        }
+
+        if !cross_by_pair.is_empty() {
+            attribution.cross_factor_pnl = Money::new(cross_total, currency);
+            attribution.cross_factor_detail = Some(CrossFactorDetail {
+                total: attribution.cross_factor_pnl,
+                by_pair: cross_by_pair,
+            });
         }
     }
 
@@ -798,11 +951,87 @@ mod tests {
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
-    use std::sync::Arc;
+    use std::sync::{Arc, OnceLock};
     use test_utils::TestInstrument;
     use time::macros::date;
+
+    #[derive(Clone)]
+    struct SpotVolTestInstrument {
+        id: String,
+        value: Money,
+    }
+
+    impl SpotVolTestInstrument {
+        fn new(id: &str, value: Money) -> Self {
+            Self {
+                id: id.to_string(),
+                value,
+            }
+        }
+    }
+
+    impl Instrument for SpotVolTestInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::EquityOption
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
+            static ATTRS: OnceLock<crate::instruments::common_impl::traits::Attributes> =
+                OnceLock::new();
+            ATTRS.get_or_init(crate::instruments::common_impl::traits::Attributes::default)
+        }
+
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
+            unreachable!("SpotVolTestInstrument::attributes_mut should not be called")
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn market_dependencies(
+            &self,
+        ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+        {
+            let mut deps = crate::instruments::common_impl::dependencies::MarketDependencies::new();
+            deps.add_spot_id("TEST-SPOT");
+            deps.add_vol_surface_id("TEST-VOL");
+            Ok(deps)
+        }
+
+        fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
+            Ok(self.value)
+        }
+
+        fn price_with_metrics(
+            &self,
+            market: &MarketContext,
+            as_of: Date,
+            _metrics: &[MetricId],
+        ) -> Result<ValuationResult> {
+            Ok(ValuationResult::stamped(
+                self.id(),
+                as_of,
+                self.value(market, as_of)?,
+            ))
+        }
+    }
 
     #[test]
     fn test_metrics_based_carry_matches_theta() {
@@ -1031,6 +1260,84 @@ mod tests {
         assert_eq!(bucketed.get(&CurveId::new("USD-OIS")), Some(&-100.0));
         assert_eq!(bucketed.get(&CurveId::new("USD-SOFR")), None);
     }
+
+    #[test]
+    fn test_metrics_based_moves_spot_vol_cross_term_into_cross_factor_bucket() {
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+        let meta = finstack_core::config::results_meta(&FinstackConfig::default());
+
+        let instrument: Arc<dyn Instrument> = Arc::new(SpotVolTestInstrument::new(
+            "TEST-SPOT-VOL",
+            Money::new(100.0, Currency::USD),
+        ));
+
+        let surface_t0 = VolSurface::builder("TEST-VOL")
+            .expiries(&[1.0])
+            .strikes(&[100.0])
+            .row(&[0.20])
+            .build()
+            .expect("test vol surface should build");
+        let surface_t1 = VolSurface::builder("TEST-VOL")
+            .expiries(&[1.0])
+            .strikes(&[100.0])
+            .row(&[0.21])
+            .build()
+            .expect("test vol surface should build");
+
+        let market_t0 = MarketContext::new()
+            .insert_price("TEST-SPOT", MarketScalar::Unitless(100.0))
+            .insert_surface(surface_t0);
+        let market_t1 = MarketContext::new()
+            .insert_price("TEST-SPOT", MarketScalar::Unitless(110.0))
+            .insert_surface(surface_t1);
+
+        let mut measures_t0 = IndexMap::new();
+        measures_t0.insert(MetricId::Vega, 2.0);
+        measures_t0.insert(MetricId::Vanna, 3.0);
+
+        let val_t0 = ValuationResult::stamped_with_meta(
+            "TEST-SPOT-VOL",
+            as_of_t0,
+            Money::new(100.0, Currency::USD),
+            meta.clone(),
+        )
+        .with_measures(measures_t0);
+        let val_t1 = ValuationResult::stamped_with_meta(
+            "TEST-SPOT-VOL",
+            as_of_t1,
+            Money::new(132.0, Currency::USD),
+            meta,
+        );
+
+        let attribution = attribute_pnl_metrics_based(
+            &instrument,
+            &market_t0,
+            &market_t1,
+            &val_t0,
+            &val_t1,
+            as_of_t0,
+            as_of_t1,
+        )
+        .expect("metrics-based attribution should succeed");
+
+        assert!((attribution.vol_pnl.amount() - 2.0).abs() < 1e-9);
+        assert!((attribution.cross_factor_pnl.amount() - 30.0).abs() < 1e-9);
+        let detail = attribution
+            .cross_factor_detail
+            .expect("cross factor detail should be populated");
+        assert!(
+            (detail
+                .by_pair
+                .get("Spot×Vol")
+                .expect("spot-vol entry")
+                .amount()
+                - 30.0)
+                .abs()
+                < 1e-9
+        );
+    }
+
     fn make_flat_curve(id: &str, base_date: Date, rate: f64) -> DiscountCurve {
         let mut knots = Vec::new();
         knots.push((0.0, 1.0));

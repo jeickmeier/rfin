@@ -465,6 +465,41 @@ impl MetricId {
     /// Measures how DV01 with respect to one curve changes when the other moves.
     pub const IrCrossGamma: Self = Self(Cow::Borrowed("ir_cross_gamma"));
 
+    // ========================================================================
+    // Cross-Factor Gamma Metrics
+    // ========================================================================
+
+    /// Cross-gamma between interest rates and credit spreads.
+    ///
+    /// Mixed second derivative: ∂²V / (∂r × ∂s).
+    /// Measures how rate sensitivity changes when credit spreads move.
+    pub const CrossGammaRatesCredit: Self = Self(Cow::Borrowed("cross_gamma_rates_credit"));
+
+    /// Cross-gamma between interest rates and implied volatility.
+    ///
+    /// Mixed second derivative: ∂²V / (∂r × ∂σ).
+    pub const CrossGammaRatesVol: Self = Self(Cow::Borrowed("cross_gamma_rates_vol"));
+
+    /// Cross-gamma between spot price and implied volatility.
+    ///
+    /// Mixed second derivative: ∂²V / (∂S × ∂σ).
+    pub const CrossGammaSpotVol: Self = Self(Cow::Borrowed("cross_gamma_spot_vol"));
+
+    /// Cross-gamma between spot price and credit spreads.
+    ///
+    /// Mixed second derivative: ∂²V / (∂S × ∂s).
+    pub const CrossGammaSpotCredit: Self = Self(Cow::Borrowed("cross_gamma_spot_credit"));
+
+    /// Cross-gamma between FX rates and implied volatility.
+    ///
+    /// Mixed second derivative: ∂²V / (∂FX × ∂σ).
+    pub const CrossGammaFxVol: Self = Self(Cow::Borrowed("cross_gamma_fx_vol"));
+
+    /// Cross-gamma between FX rates and interest rates.
+    ///
+    /// Mixed second derivative: ∂²V / (∂FX × ∂r).
+    pub const CrossGammaFxRates: Self = Self(Cow::Borrowed("cross_gamma_fx_rates"));
+
     /// Credit spread gamma (second derivative w.r.t spreads)
     pub const CsGamma: Self = Self(Cow::Borrowed("cs_gamma"));
 
@@ -926,6 +961,12 @@ impl MetricId {
         MetricId::Veta,
         MetricId::IrConvexity,
         MetricId::IrCrossGamma,
+        MetricId::CrossGammaRatesCredit,
+        MetricId::CrossGammaRatesVol,
+        MetricId::CrossGammaSpotVol,
+        MetricId::CrossGammaSpotCredit,
+        MetricId::CrossGammaFxVol,
+        MetricId::CrossGammaFxRates,
         MetricId::CsGamma,
         MetricId::InflationConvexity,
         MetricId::Charm,
@@ -1234,6 +1275,24 @@ mod tests {
 
             let parsed = MetricId::parse_strict(name).unwrap();
             assert_eq!(parsed.as_str(), name);
+            assert!(!parsed.is_custom());
+        }
+    }
+
+    #[test]
+    fn test_cross_gamma_metric_ids_exist_and_parse() {
+        let pairs = [
+            (MetricId::CrossGammaRatesCredit, "cross_gamma_rates_credit"),
+            (MetricId::CrossGammaRatesVol, "cross_gamma_rates_vol"),
+            (MetricId::CrossGammaSpotVol, "cross_gamma_spot_vol"),
+            (MetricId::CrossGammaSpotCredit, "cross_gamma_spot_credit"),
+            (MetricId::CrossGammaFxVol, "cross_gamma_fx_vol"),
+            (MetricId::CrossGammaFxRates, "cross_gamma_fx_rates"),
+        ];
+        for (id, expected_str) in &pairs {
+            assert_eq!(id.as_str(), *expected_str);
+            let parsed = MetricId::parse_strict(expected_str).unwrap();
+            assert_eq!(&parsed, id);
             assert!(!parsed.is_custom());
         }
     }

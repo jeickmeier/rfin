@@ -426,6 +426,23 @@ impl XccySwap {
 impl crate::instruments::common_impl::traits::Instrument for XccySwap {
     impl_instrument_base!(crate::pricer::InstrumentType::XccySwap);
 
+    fn market_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
+        let mut deps =
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            )?;
+        if self.leg1.currency != self.reporting_currency {
+            deps.add_fx_pair(self.leg1.currency, self.reporting_currency);
+        }
+        if self.leg2.currency != self.reporting_currency {
+            deps.add_fx_pair(self.leg2.currency, self.reporting_currency);
+        }
+        Ok(deps)
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,

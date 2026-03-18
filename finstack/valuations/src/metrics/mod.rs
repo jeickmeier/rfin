@@ -201,6 +201,7 @@ pub use core::registry::MetricRegistry;
 pub use core::traits::{MetricCalculator, MetricContext, Structured2D, Structured3D};
 /// Format a standard risk bucket (years) as a human-readable label.
 pub use sensitivities::config::format_bucket_label;
+pub use sensitivities::cross_factor::{CrossFactorCalculator, CrossFactorPair};
 
 // -----------------------------------------------------------------------------
 // Crate-internal re-exports (NOT part of the public API)

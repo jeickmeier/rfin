@@ -33,7 +33,20 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
+use indexmap::IndexMap;
 use std::sync::Arc;
+
+fn cross_interaction_pnl(
+    val_t1: Money,
+    val_with_t0_a: Money,
+    val_with_t0_b: Money,
+    val_with_t0_ab: Money,
+) -> Result<Money> {
+    val_t1
+        .checked_sub(val_with_t0_a)?
+        .checked_sub(val_with_t0_b)?
+        .checked_add(val_with_t0_ab)
+}
 
 /// Perform parallel P&L attribution for an instrument.
 ///
@@ -189,6 +202,11 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
         rounding,
     );
 
+    let mut val_with_t0_credit = None;
+    let mut val_with_t0_fx = None;
+    let mut val_with_t0_vol = None;
+    let mut val_with_t0_scalars = None;
+
     // Step 2: Carry attribution (time decay + accruals + roll-down)
     //
     // METHODOLOGY: Price at T₁ date with T₀ market (frozen curves).
@@ -231,13 +249,14 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let rates_snapshot = MarketSnapshot::extract(market_t0, CurveRestoreFlags::RATES);
     let market_with_t0_rates =
         MarketSnapshot::restore_market(market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
-    let val_with_t0_rates = reprice_instrument(instrument, &market_with_t0_rates, as_of_t1)?;
+    let rates_reprice = reprice_instrument(instrument, &market_with_t0_rates, as_of_t1)?;
     num_repricings += 1;
+    let val_with_t0_rates = rates_reprice;
 
     // Rates P&L = impact of moving from T₀ rates to T₁ rates
     // val_t1 (with T₁ rates) - val_with_t0_rates (with T₀ rates)
     attribution.rates_curves_pnl = compute_pnl(
-        val_with_t0_rates,
+        rates_reprice,
         val_t1,
         val_t1.currency(),
         market_t1,
@@ -249,11 +268,12 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     if !credit_snapshot.hazard_curves.is_empty() {
         let market_with_t0_credit =
             MarketSnapshot::restore_market(market_t1, &credit_snapshot, CurveRestoreFlags::CREDIT);
-        let val_with_t0_credit = reprice_instrument(instrument, &market_with_t0_credit, as_of_t1)?;
+        let credit_reprice = reprice_instrument(instrument, &market_with_t0_credit, as_of_t1)?;
         num_repricings += 1;
+        val_with_t0_credit = Some(credit_reprice);
 
         attribution.credit_curves_pnl = compute_pnl(
-            val_with_t0_credit,
+            credit_reprice,
             val_t1,
             val_t1.currency(),
             market_t1,
@@ -333,13 +353,14 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let fx_t0 = extract_fx(market_t0);
     if fx_t0.is_some() {
         let market_with_t0_fx = restore_fx(market_t1, fx_t0.clone());
-        let val_with_t0_fx = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
+        let fx_reprice = reprice_instrument(instrument, &market_with_t0_fx, as_of_t1)?;
         num_repricings += 1;
+        val_with_t0_fx = Some(fx_reprice);
 
         // Compute combined FX P&L (exposure + translation)
         // Uses T₀ FX for converting T₀ PV and T₁ FX for converting T₁ PV
         attribution.fx_pnl = compute_pnl_with_fx(
-            val_with_t0_fx,
+            fx_reprice,
             val_t1,
             val_t1.currency(),
             market_t0,
@@ -361,16 +382,12 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
     let vol_snapshot = VolatilitySnapshot::extract(market_t0);
     if !vol_snapshot.surfaces.is_empty() {
         let market_with_t0_vol = restore_volatility(market_t1, &vol_snapshot);
-        let val_with_t0_vol = reprice_instrument(instrument, &market_with_t0_vol, as_of_t1)?;
+        let vol_reprice = reprice_instrument(instrument, &market_with_t0_vol, as_of_t1)?;
         num_repricings += 1;
+        val_with_t0_vol = Some(vol_reprice);
 
-        attribution.vol_pnl = compute_pnl(
-            val_with_t0_vol,
-            val_t1,
-            val_t1.currency(),
-            market_t1,
-            as_of_t1,
-        )?;
+        attribution.vol_pnl =
+            compute_pnl(vol_reprice, val_t1, val_t1.currency(), market_t1, as_of_t1)?;
     }
 
     // Step 9: Model parameters attribution
@@ -420,17 +437,139 @@ fn attribute_pnl_parallel_impl(input: &AttributionInput) -> Result<PnlAttributio
 
     if has_scalars {
         let market_with_t0_scalars = restore_scalars(market_t1, &scalars_snapshot);
-        let val_with_t0_scalars =
-            reprice_instrument(instrument, &market_with_t0_scalars, as_of_t1)?;
+        let scalars_reprice = reprice_instrument(instrument, &market_with_t0_scalars, as_of_t1)?;
         num_repricings += 1;
+        val_with_t0_scalars = Some(scalars_reprice);
 
         attribution.market_scalars_pnl = compute_pnl(
-            val_with_t0_scalars,
+            scalars_reprice,
             val_t1,
             val_t1.currency(),
             market_t1,
             as_of_t1,
         )?;
+    }
+
+    // Step 10b: Explicit cross-factor interaction repricings.
+    let mut cross_total = 0.0;
+    let mut cross_by_pair = IndexMap::new();
+
+    if let Some(credit_reprice) = val_with_t0_credit {
+        let market_with_t0_rates_credit = MarketSnapshot::restore_market(
+            &market_with_t0_rates,
+            &credit_snapshot,
+            CurveRestoreFlags::CREDIT,
+        );
+        let val_with_t0_rates_credit =
+            reprice_instrument(instrument, &market_with_t0_rates_credit, as_of_t1)?;
+        num_repricings += 1;
+
+        let pnl = cross_interaction_pnl(
+            val_t1,
+            val_with_t0_rates,
+            credit_reprice,
+            val_with_t0_rates_credit,
+        )?;
+        if pnl.amount().abs() > 1e-12 {
+            cross_total += pnl.amount();
+            cross_by_pair.insert("Rates×Credit".to_string(), pnl);
+        }
+    }
+
+    if let Some(vol_reprice) = val_with_t0_vol {
+        let market_with_t0_rates_vol = restore_volatility(&market_with_t0_rates, &vol_snapshot);
+        let val_with_t0_rates_vol =
+            reprice_instrument(instrument, &market_with_t0_rates_vol, as_of_t1)?;
+        num_repricings += 1;
+
+        let pnl = cross_interaction_pnl(
+            val_t1,
+            val_with_t0_rates,
+            vol_reprice,
+            val_with_t0_rates_vol,
+        )?;
+        if pnl.amount().abs() > 1e-12 {
+            cross_total += pnl.amount();
+            cross_by_pair.insert("Rates×Vol".to_string(), pnl);
+        }
+    }
+
+    if let (Some(scalars_reprice), Some(vol_reprice)) = (val_with_t0_scalars, val_with_t0_vol) {
+        let market_with_t0_spot_vol = restore_volatility(
+            &restore_scalars(market_t1, &scalars_snapshot),
+            &vol_snapshot,
+        );
+        let val_with_t0_spot_vol =
+            reprice_instrument(instrument, &market_with_t0_spot_vol, as_of_t1)?;
+        num_repricings += 1;
+
+        let pnl =
+            cross_interaction_pnl(val_t1, scalars_reprice, vol_reprice, val_with_t0_spot_vol)?;
+        if pnl.amount().abs() > 1e-12 {
+            cross_total += pnl.amount();
+            cross_by_pair.insert("Spot×Vol".to_string(), pnl);
+        }
+    }
+
+    if let (Some(scalars_reprice), Some(credit_reprice)) = (val_with_t0_scalars, val_with_t0_credit)
+    {
+        let market_with_t0_spot_credit = restore_scalars(
+            &MarketSnapshot::restore_market(market_t1, &credit_snapshot, CurveRestoreFlags::CREDIT),
+            &scalars_snapshot,
+        );
+        let val_with_t0_spot_credit =
+            reprice_instrument(instrument, &market_with_t0_spot_credit, as_of_t1)?;
+        num_repricings += 1;
+
+        let pnl = cross_interaction_pnl(
+            val_t1,
+            scalars_reprice,
+            credit_reprice,
+            val_with_t0_spot_credit,
+        )?;
+        if pnl.amount().abs() > 1e-12 {
+            cross_total += pnl.amount();
+            cross_by_pair.insert("Spot×Credit".to_string(), pnl);
+        }
+    }
+
+    if let (Some(fx_reprice), Some(vol_reprice)) = (val_with_t0_fx, val_with_t0_vol) {
+        let market_with_t0_fx_vol =
+            restore_volatility(&restore_fx(market_t1, fx_t0.clone()), &vol_snapshot);
+        let val_with_t0_fx_vol = reprice_instrument(instrument, &market_with_t0_fx_vol, as_of_t1)?;
+        num_repricings += 1;
+
+        let pnl = cross_interaction_pnl(val_t1, fx_reprice, vol_reprice, val_with_t0_fx_vol)?;
+        if pnl.amount().abs() > 1e-12 {
+            cross_total += pnl.amount();
+            cross_by_pair.insert("FX×Vol".to_string(), pnl);
+        }
+    }
+
+    if let Some(fx_reprice) = val_with_t0_fx {
+        let market_with_t0_fx_rates = MarketSnapshot::restore_market(
+            &restore_fx(market_t1, fx_t0),
+            &rates_snapshot,
+            CurveRestoreFlags::RATES,
+        );
+        let val_with_t0_fx_rates =
+            reprice_instrument(instrument, &market_with_t0_fx_rates, as_of_t1)?;
+        num_repricings += 1;
+
+        let pnl =
+            cross_interaction_pnl(val_t1, fx_reprice, val_with_t0_rates, val_with_t0_fx_rates)?;
+        if pnl.amount().abs() > 1e-12 {
+            cross_total += pnl.amount();
+            cross_by_pair.insert("FX×Rates".to_string(), pnl);
+        }
+    }
+
+    if !cross_by_pair.is_empty() {
+        attribution.cross_factor_pnl = Money::new(cross_total, val_t1.currency());
+        attribution.cross_factor_detail = Some(CrossFactorDetail {
+            total: attribution.cross_factor_pnl,
+            by_pair: cross_by_pair,
+        });
     }
 
     // Step 11: Compute residual
@@ -463,11 +602,90 @@ mod tests {
 
     use super::*;
     use finstack_core::currency::Currency;
+    use finstack_core::dates::Date;
     use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
+    use std::sync::OnceLock;
     use test_utils::TestInstrument;
     use time::macros::date;
+
+    #[derive(Clone)]
+    struct RatesCreditInteractionInstrument {
+        id: String,
+    }
+
+    impl RatesCreditInteractionInstrument {
+        fn new(id: &str) -> Self {
+            Self { id: id.to_string() }
+        }
+    }
+
+    impl Instrument for RatesCreditInteractionInstrument {
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn key(&self) -> crate::pricer::InstrumentType {
+            crate::pricer::InstrumentType::Bond
+        }
+
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+
+        fn attributes(&self) -> &crate::instruments::common_impl::traits::Attributes {
+            static ATTRS: OnceLock<crate::instruments::common_impl::traits::Attributes> =
+                OnceLock::new();
+            ATTRS.get_or_init(crate::instruments::common_impl::traits::Attributes::default)
+        }
+
+        fn attributes_mut(&mut self) -> &mut crate::instruments::common_impl::traits::Attributes {
+            unreachable!("RatesCreditInteractionInstrument::attributes_mut should not be called")
+        }
+
+        fn clone_box(&self) -> Box<dyn Instrument> {
+            Box::new(self.clone())
+        }
+
+        fn market_dependencies(
+            &self,
+        ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+        {
+            let mut deps = crate::instruments::common_impl::dependencies::MarketDependencies::new();
+            deps.add_curves(
+                crate::instruments::common_impl::traits::InstrumentCurves::builder()
+                    .discount(finstack_core::types::CurveId::new("USD-OIS"))
+                    .credit(finstack_core::types::CurveId::new("ACME-HAZ"))
+                    .build()?,
+            );
+            Ok(deps)
+        }
+
+        fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+            let rate = market.get_discount("USD-OIS")?.zero(1.0);
+            let hazard = market.get_hazard("ACME-HAZ")?.hazard_rate(1.0);
+            Ok(Money::new(1_000_000.0 * rate * hazard, Currency::USD))
+        }
+
+        fn price_with_metrics(
+            &self,
+            market: &MarketContext,
+            as_of: Date,
+            _metrics: &[crate::metrics::MetricId],
+        ) -> Result<crate::results::ValuationResult> {
+            Ok(crate::results::ValuationResult::stamped(
+                self.id(),
+                as_of,
+                self.value(market, as_of)?,
+            ))
+        }
+    }
 
     #[test]
     fn test_parallel_attribution_simple() {
@@ -537,5 +755,73 @@ mod tests {
         let restored =
             MarketSnapshot::restore_market(&market_t1, &rates_snapshot, CurveRestoreFlags::RATES);
         assert!(restored.get_discount("USD-OIS").is_ok());
+    }
+
+    #[test]
+    fn test_parallel_attribution_extracts_rates_credit_cross_factor() {
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+        let config = FinstackConfig::default();
+        let instrument: Arc<dyn Instrument> =
+            Arc::new(RatesCreditInteractionInstrument::new("TEST-RATES-CREDIT"));
+
+        let market_t0 = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of_t0)
+                    .knots(vec![(0.0, 1.0), (1.0, 0.99)])
+                    .interp(InterpStyle::Linear)
+                    .build()
+                    .expect("discount curve should build"),
+            )
+            .insert(
+                HazardCurve::builder("ACME-HAZ")
+                    .base_date(as_of_t0)
+                    .knots(vec![(1.0, 0.01)])
+                    .build()
+                    .expect("hazard curve should build"),
+            );
+
+        let market_t1 = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of_t1)
+                    .knots(vec![(0.0, 1.0), (1.0, 0.98)])
+                    .interp(InterpStyle::Linear)
+                    .build()
+                    .expect("discount curve should build"),
+            )
+            .insert(
+                HazardCurve::builder("ACME-HAZ")
+                    .base_date(as_of_t1)
+                    .knots(vec![(1.0, 0.02)])
+                    .build()
+                    .expect("hazard curve should build"),
+            );
+
+        let attribution = attribute_pnl_parallel(
+            &instrument,
+            &market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+            &config,
+            None,
+        )
+        .expect("parallel attribution should succeed");
+
+        assert!(attribution.cross_factor_pnl.amount().abs() > 0.0);
+        let detail = attribution
+            .cross_factor_detail
+            .expect("cross factor detail should be populated");
+        assert!(
+            detail
+                .by_pair
+                .get("Rates×Credit")
+                .expect("rates-credit entry")
+                .amount()
+                .abs()
+                > 0.0
+        );
     }
 }

@@ -567,10 +567,41 @@ impl ConvertibleBond {
         let greeks = self.greeks(curves, None, None, as_of)?;
         Ok(greeks.theta)
     }
+
+    fn vol_surface_dependency_ids(&self) -> Vec<String> {
+        let mut ids = Vec::new();
+        if let Some(id) = self.attributes.get_meta("vol_surface_id") {
+            ids.push(id.to_string());
+        }
+        if let Some(underlying_id) = &self.underlying_equity_id {
+            ids.push(format!("{underlying_id}-VOL"));
+            if let Some(stripped) = underlying_id.strip_suffix("-SPOT") {
+                ids.push(format!("{stripped}-VOL"));
+            }
+        }
+        ids
+    }
 }
 
 impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
     impl_instrument_base!(crate::pricer::InstrumentType::Convertible);
+
+    fn market_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
+        let mut deps =
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            )?;
+        if let Some(underlying_id) = &self.underlying_equity_id {
+            deps.add_spot_id(underlying_id.as_str());
+            for vol_surface_id in self.vol_surface_dependency_ids() {
+                deps.add_vol_surface_id(vol_surface_id);
+            }
+        }
+        Ok(deps)
+    }
 
     fn value(
         &self,

@@ -443,6 +443,7 @@ impl crate::instruments::common_impl::traits::Instrument for QuantoOption {
             )?;
         deps.add_spot_id(self.spot_id.as_str());
         deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
         Ok(deps)
     }
 

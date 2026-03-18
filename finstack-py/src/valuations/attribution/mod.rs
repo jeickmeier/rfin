@@ -19,10 +19,11 @@ use finstack_valuations::attribution::{
     attribute_pnl_taylor_compat, attribute_pnl_waterfall, compute_pnl, compute_pnl_with_fx,
     convert_currency, default_waterfall_order, reprice_instrument, AttributionFactor,
     AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
-    CreditCurvesAttribution, CurveRestoreFlags, FxAttribution, InflationCurvesAttribution,
-    JsonEnvelope, MarketSnapshot, ModelParamsAttribution, ModelParamsSnapshot, PnlAttribution,
-    RatesCurvesAttribution, ScalarsAttribution, ScalarsSnapshot, TaylorAttributionConfig,
-    TaylorAttributionResult, TaylorFactorResult, VolAttribution, VolatilitySnapshot,
+    CreditCurvesAttribution, CrossFactorDetail, CurveRestoreFlags, FxAttribution,
+    InflationCurvesAttribution, JsonEnvelope, MarketSnapshot, ModelParamsAttribution,
+    ModelParamsSnapshot, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
+    ScalarsSnapshot, TaylorAttributionConfig, TaylorAttributionResult, TaylorFactorResult,
+    VolAttribution, VolatilitySnapshot,
 };
 use indexmap::IndexMap;
 use pyo3::prelude::*;
@@ -674,6 +675,44 @@ impl PyScalarsAttribution {
     }
 }
 
+/// Python wrapper for CrossFactorDetail.
+#[pyclass(name = "CrossFactorDetail", from_py_object)]
+#[derive(Clone)]
+pub struct PyCrossFactorDetail {
+    pub(crate) inner: CrossFactorDetail,
+}
+
+#[pymethods]
+impl PyCrossFactorDetail {
+    #[new]
+    fn new(
+        total: crate::core::money::PyMoney,
+        by_pair: HashMap<String, crate::core::money::PyMoney>,
+    ) -> Self {
+        Self {
+            inner: CrossFactorDetail {
+                total: total.inner,
+                by_pair: by_pair.into_iter().map(|(k, v)| (k, v.inner)).collect(),
+            },
+        }
+    }
+
+    #[getter]
+    fn total(&self) -> crate::core::money::PyMoney {
+        crate::core::money::PyMoney {
+            inner: self.inner.total,
+        }
+    }
+
+    fn by_pair_to_dict(&self) -> HashMap<String, crate::core::money::PyMoney> {
+        self.inner
+            .by_pair
+            .iter()
+            .map(|(k, v)| (k.clone(), crate::core::money::PyMoney { inner: v.clone() }))
+            .collect()
+    }
+}
+
 /// Python wrapper for TaylorAttributionConfig.
 #[pyclass(name = "TaylorAttributionConfig", from_py_object)]
 #[derive(Clone)]
@@ -1207,6 +1246,21 @@ impl PyPnlAttribution {
             .vol_detail
             .as_ref()
             .map(|d| PyVolAttribution { inner: d.clone() })
+    }
+
+    #[getter]
+    fn cross_factor_pnl(&self) -> crate::core::money::PyMoney {
+        crate::core::money::PyMoney {
+            inner: self.inner.cross_factor_pnl,
+        }
+    }
+
+    #[getter]
+    fn cross_factor_detail(&self) -> Option<PyCrossFactorDetail> {
+        self.inner
+            .cross_factor_detail
+            .as_ref()
+            .map(|d| PyCrossFactorDetail { inner: d.clone() })
     }
 
     #[getter]
@@ -1763,6 +1817,7 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyFxAttribution>()?;
     module.add_class::<PyVolAttribution>()?;
     module.add_class::<PyScalarsAttribution>()?;
+    module.add_class::<PyCrossFactorDetail>()?;
     module.add_class::<PyTaylorAttributionConfig>()?;
     module.add_class::<PyTaylorFactorResult>()?;
     module.add_class::<PyTaylorAttributionResult>()?;

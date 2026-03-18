@@ -237,6 +237,10 @@ impl WasmPnlAttribution {
         self.inner.vol_pnl.amount()
     }
 
+    pub fn cross_factor_pnl(&self) -> f64 {
+        self.inner.cross_factor_pnl.amount()
+    }
+
     pub fn model_params_pnl(&self) -> f64 {
         self.inner.model_params_pnl.amount()
     }
@@ -262,6 +266,12 @@ impl WasmPnlAttribution {
             .rates_detail
             .as_ref()
             .map(|d| WasmRatesCurvesAttribution { inner: d.clone() })
+    }
+
+    pub fn cross_factor_detail(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner.cross_factor_detail).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize cross-factor detail: {}", e))
+        })
     }
 
     /// Get model params detail (if available)

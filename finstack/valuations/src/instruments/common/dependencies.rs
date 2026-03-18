@@ -154,7 +154,7 @@ impl MarketDependencies {
         match instrument {
             // Fixed Income
             InstrumentJson::Bond(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::ConvertibleBond(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::ConvertibleBond(i) => i.market_dependencies(),
             InstrumentJson::InflationLinkedBond(i) => Self::from_curve_dependencies(i),
             InstrumentJson::TermLoan(i) => Self::from_curve_dependencies(i),
             InstrumentJson::RevolvingCredit(i) => Self::from_curve_dependencies(i),
@@ -167,7 +167,7 @@ impl MarketDependencies {
             // Rates
             InstrumentJson::InterestRateSwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::BasisSwap(i) => Self::from_curve_dependencies(i),
-            InstrumentJson::XccySwap(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::XccySwap(i) => i.market_dependencies(),
             InstrumentJson::InflationSwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::YoYInflationSwap(i) => Self::from_curve_dependencies(i),
             InstrumentJson::InflationCapFloor(i) => Self::from_curve_dependencies(i),
@@ -239,12 +239,7 @@ impl MarketDependencies {
                 deps.add_fx_pair(i.base_currency, i.settlement_currency);
                 Ok(deps)
             }
-            InstrumentJson::FxOption(i) => {
-                let mut deps = Self::from_curve_dependencies(i)?;
-                deps.add_vol_surface_id(i.vol_surface_id.as_str());
-                deps.add_fx_pair(i.base_currency, i.quote_currency);
-                Ok(deps)
-            }
+            InstrumentJson::FxOption(i) => i.market_dependencies(),
             InstrumentJson::FxDigitalOption(i) => {
                 let mut deps = Self::from_curve_dependencies(i)?;
                 deps.add_vol_surface_id(i.vol_surface_id.as_str());
@@ -290,12 +285,7 @@ impl MarketDependencies {
                 }
                 Ok(deps)
             }
-            InstrumentJson::QuantoOption(i) => {
-                let mut deps = Self::from_curve_dependencies(i)?;
-                deps.add_spot_id(i.spot_id.as_str());
-                deps.add_vol_surface_id(i.vol_surface_id.as_str());
-                Ok(deps)
-            }
+            InstrumentJson::QuantoOption(i) => i.market_dependencies(),
 
             // Commodity
             InstrumentJson::CommodityOption(i) => Self::from_curves_and_equity(i),

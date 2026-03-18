@@ -146,6 +146,21 @@ impl JsPnlAttribution {
     }
 }
 
+#[wasm_bindgen(js_class = PnlAttribution)]
+impl JsPnlAttribution {
+    #[wasm_bindgen(getter, js_name = crossFactorPnl)]
+    pub fn cross_factor_pnl(&self) -> JsMoney {
+        JsMoney::from_inner(self.inner.cross_factor_pnl)
+    }
+
+    #[wasm_bindgen(getter, js_name = crossFactorDetail)]
+    pub fn cross_factor_detail(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner.cross_factor_detail).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize cross-factor detail: {}", e))
+        })
+    }
+}
+
 /// Portfolio-level P&L attribution result.
 #[wasm_bindgen(js_name = PortfolioAttribution)]
 pub struct JsPortfolioAttribution {

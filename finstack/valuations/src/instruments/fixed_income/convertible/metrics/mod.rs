@@ -29,6 +29,10 @@ use crate::metrics::MetricRegistry;
 
 /// Register convertible bond metrics into the registry.
 pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::sensitivities::cross_factor::{
+        CreditBumperFactory, CrossFactorCalculator, CrossFactorPair, RatesBumperFactory,
+        SpotBumperFactory, VolBumperFactory,
+    };
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
@@ -73,6 +77,33 @@ pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Oas,
         Arc::new(oas::OasCalculator),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::CrossGammaSpotVol,
+        Arc::new(CrossFactorCalculator::new(
+            CrossFactorPair::SpotVol,
+            Arc::new(SpotBumperFactory),
+            Arc::new(VolBumperFactory),
+        )),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::CrossGammaSpotCredit,
+        Arc::new(CrossFactorCalculator::new(
+            CrossFactorPair::SpotCredit,
+            Arc::new(SpotBumperFactory),
+            Arc::new(CreditBumperFactory),
+        )),
+        &[InstrumentType::Convertible],
+    );
+    registry.register_metric(
+        MetricId::CrossGammaRatesCredit,
+        Arc::new(CrossFactorCalculator::new(
+            CrossFactorPair::RatesCredit,
+            Arc::new(RatesBumperFactory),
+            Arc::new(CreditBumperFactory),
+        )),
         &[InstrumentType::Convertible],
     );
     registry.register_metric(

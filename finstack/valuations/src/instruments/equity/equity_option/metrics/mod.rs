@@ -14,6 +14,9 @@ use crate::metrics::MetricRegistry;
 
 /// Register equity option metrics with the registry.
 pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
+    use crate::metrics::sensitivities::cross_factor::{
+        CrossFactorCalculator, CrossFactorPair, SpotBumperFactory, VolBumperFactory,
+    };
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
@@ -22,6 +25,15 @@ pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Dividend01,
         Arc::new(dividend_risk::DividendRiskCalculator),
+        &[InstrumentType::EquityOption],
+    );
+    registry.register_metric(
+        MetricId::CrossGammaSpotVol,
+        Arc::new(CrossFactorCalculator::new(
+            CrossFactorPair::SpotVol,
+            Arc::new(SpotBumperFactory),
+            Arc::new(VolBumperFactory),
+        )),
         &[InstrumentType::EquityOption],
     );
 

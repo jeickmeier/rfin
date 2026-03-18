@@ -253,6 +253,13 @@ class ScalarsAttribution:
     def equity_prices_to_dict(self) -> Dict[str, Money]: ...
     def commodity_prices_to_dict(self) -> Dict[str, Money]: ...
 
+class CrossFactorDetail:
+    """Detailed attribution for cross-factor interaction terms."""
+
+    @property
+    def total(self) -> Money: ...
+    def by_pair_to_dict(self) -> Dict[str, Money]: ...
+
 class TaylorAttributionConfig:
     """Configuration for Taylor-based P&L attribution."""
 
@@ -423,6 +430,11 @@ class PnlAttribution:
         ...
 
     @property
+    def cross_factor_pnl(self) -> Money:
+        """Explicit cross-factor interaction P&L."""
+        ...
+
+    @property
     def model_params_pnl(self) -> Money:
         """Model parameters P&L."""
         ...
@@ -480,6 +492,11 @@ class PnlAttribution:
     @property
     def vol_detail(self) -> VolAttribution | None:
         """Detailed volatility attribution."""
+        ...
+
+    @property
+    def cross_factor_detail(self) -> CrossFactorDetail | None:
+        """Detailed cross-factor attribution."""
         ...
 
     @property

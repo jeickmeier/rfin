@@ -186,7 +186,6 @@ pub fn bump_surface_vol_absolute(
 /// variables with absolute bump sizes `h` (first variable) and `k` (second).
 ///
 /// Returns `[f(+h,+k) - f(+h,-k) - f(-h,+k) + f(-h,-k)] / (4 h k)`.
-#[cfg(any(feature = "mc", test))]
 pub fn central_mixed<EEpp, EEpm, EEmp, Eemm, E1, E2, E3, E4>(
     eval_pp: EEpp,
     eval_pm: EEpm,
@@ -252,5 +251,25 @@ mod tests {
             finstack_core::Error::Input(finstack_core::InputError::NonPositiveValue) => {}
             e => panic!("unexpected error: {e:?}"),
         }
+    }
+
+    #[test]
+    fn central_mixed_computes_known_cross_derivative() {
+        let h = 0.01;
+        let k = 0.01;
+        let result = central_mixed(
+            || Ok((1.0 + h) * (1.0 + k)),
+            || Ok((1.0 + h) * (1.0 - k)),
+            || Ok((1.0 - h) * (1.0 + k)),
+            || Ok((1.0 - h) * (1.0 - k)),
+            h,
+            k,
+        )
+        .expect("central mixed derivative should succeed");
+
+        assert!(
+            (result - 1.0).abs() < 1e-10,
+            "cross derivative of x*y should be 1.0, got {result}"
+        );
     }
 }

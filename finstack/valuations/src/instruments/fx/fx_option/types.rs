@@ -434,6 +434,19 @@ impl FxOption {
 impl crate::instruments::common_impl::traits::Instrument for FxOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxOption);
 
+    fn market_dependencies(
+        &self,
+    ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
+    {
+        let mut deps =
+            crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
+                self,
+            )?;
+        deps.add_vol_surface_id(self.vol_surface_id.as_str());
+        deps.add_fx_pair(self.base_currency, self.quote_currency);
+        Ok(deps)
+    }
+
     fn value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
