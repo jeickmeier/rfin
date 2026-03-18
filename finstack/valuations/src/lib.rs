@@ -301,6 +301,8 @@ pub use finstack_cashflows as cashflow;
 pub mod constants;
 /// Error types for pricing and valuation workflows.
 pub mod error;
+/// Factor-model integration helpers.
+pub mod factor_model;
 /// Margin calculation for collateralized derivatives.
 ///
 /// Provides VM (Variation Margin) and IM (Initial Margin) calculations,

@@ -1,0 +1,145 @@
+use super::cascade::CascadeMatcher;
+use super::filter::DependencyFilter;
+use super::hierarchical::{FactorNode, HierarchicalMatcher};
+use super::mapping_table::{MappingRule, MappingTableMatcher};
+use super::traits::FactorMatcher;
+use serde::{Deserialize, Serialize};
+
+/// Declarative configuration for a dependency-scoped hierarchical matcher.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HierarchicalConfig {
+    /// Dependency filter applied before any tree traversal.
+    #[serde(default)]
+    pub dependency_filter: DependencyFilter,
+    /// Root of the attribute classification tree.
+    pub root: FactorNode,
+}
+
+/// Declarative matcher configuration that can be serialized and rebuilt.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub enum MatchingConfig {
+    /// Flat mapping table with first-match-wins semantics.
+    MappingTable(Vec<MappingRule>),
+    /// Ordered matcher cascade.
+    Cascade(Vec<MatchingConfig>),
+    /// Hierarchical attribute-based tree matcher.
+    Hierarchical(HierarchicalConfig),
+}
+
+impl MatchingConfig {
+    /// Builds a concrete matcher from this declarative configuration.
+    #[must_use]
+    pub fn build_matcher(&self) -> Box<dyn FactorMatcher> {
+        match self {
+            Self::MappingTable(rules) => Box::new(MappingTableMatcher::new(rules.clone())),
+            Self::Cascade(configs) => Box::new(CascadeMatcher::new(
+                configs.iter().map(Self::build_matcher).collect(),
+            )),
+            Self::Hierarchical(config) => Box::new(HierarchicalMatcher::new_scoped(
+                config.dependency_filter.clone(),
+                config.root.clone(),
+            )),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::factor_model::dependency::{DependencyType, MarketDependency};
+    use crate::factor_model::matching::{AttributeFilter, DependencyFilter};
+    use crate::factor_model::types::FactorId;
+    use crate::types::{Attributes, CurveId};
+
+    #[test]
+    fn test_matching_config_mapping_table() {
+        let config = MatchingConfig::MappingTable(vec![MappingRule {
+            dependency_filter: DependencyFilter {
+                dependency_type: Some(DependencyType::Credit),
+                curve_type: None,
+                id: None,
+            },
+            attribute_filter: AttributeFilter::default(),
+            factor_id: FactorId::new("Credit"),
+        }]);
+
+        let matcher = config.build_matcher();
+        let dep = MarketDependency::CreditCurve {
+            id: CurveId::new("X"),
+        };
+        assert_eq!(
+            matcher.match_factor(&dep, &Attributes::default()),
+            Some(FactorId::new("Credit"))
+        );
+    }
+
+    #[test]
+    fn test_matching_config_cascade() {
+        let config = MatchingConfig::Cascade(vec![
+            MatchingConfig::MappingTable(vec![MappingRule {
+                dependency_filter: DependencyFilter {
+                    dependency_type: Some(DependencyType::Spot),
+                    curve_type: None,
+                    id: Some("SPECIAL".into()),
+                },
+                attribute_filter: AttributeFilter::default(),
+                factor_id: FactorId::new("Special"),
+            }]),
+            MatchingConfig::MappingTable(vec![MappingRule {
+                dependency_filter: DependencyFilter::default(),
+                attribute_filter: AttributeFilter::default(),
+                factor_id: FactorId::new("Fallback"),
+            }]),
+        ]);
+
+        let matcher = config.build_matcher();
+
+        let dep1 = MarketDependency::Spot {
+            id: "SPECIAL".into(),
+        };
+        assert_eq!(
+            matcher.match_factor(&dep1, &Attributes::default()),
+            Some(FactorId::new("Special"))
+        );
+
+        let dep2 = MarketDependency::Spot { id: "OTHER".into() };
+        assert_eq!(
+            matcher.match_factor(&dep2, &Attributes::default()),
+            Some(FactorId::new("Fallback"))
+        );
+    }
+
+    #[test]
+    fn test_matching_config_serde_roundtrip() {
+        let config = MatchingConfig::Cascade(vec![
+            MatchingConfig::MappingTable(vec![]),
+            MatchingConfig::Hierarchical(HierarchicalConfig {
+                dependency_filter: DependencyFilter {
+                    dependency_type: Some(DependencyType::Credit),
+                    curve_type: None,
+                    id: None,
+                },
+                root: FactorNode {
+                    factor_id: Some(FactorId::new("Root")),
+                    filter: AttributeFilter::default(),
+                    children: vec![],
+                },
+            }),
+        ]);
+        let json_result = serde_json::to_string(&config);
+        assert!(json_result.is_ok());
+        let Ok(json) = json_result else {
+            return;
+        };
+
+        let roundtrip_result: Result<MatchingConfig, _> = serde_json::from_str(&json);
+        assert!(roundtrip_result.is_ok());
+        let Ok(roundtrip) = roundtrip_result else {
+            return;
+        };
+
+        assert_eq!(config, roundtrip);
+    }
+}
