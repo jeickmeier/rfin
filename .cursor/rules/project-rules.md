@@ -10,3 +10,4 @@ globs:
 - Fix any errors that are present from lints and tests before moving on to next task.
 - If you change the rust library, you will need to rebuild the python and wasm bindings before using in python/wasm. Use `make python-dev` command for python and make `wasm-build` command for typescript/js/wasm
 - DO NOT OVER-ENGINEER THE SOLUTIONS. AIM FOR SIMPLICITY.
+- DO NOT RUN cargo test DIRECTLY, WE DON"T WANT TO RUN RUST DOC TESTS
