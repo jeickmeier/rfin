@@ -102,6 +102,8 @@ pub mod explain;
 /// Used by the statements crate for formula evaluation and time-series operations.
 /// Generally not needed by end users unless building custom evaluation logic.
 pub mod expr;
+/// Factor-model primitives for statistical risk decomposition.
+pub mod factor_model;
 /// Golden test framework for validating implementations against reference values.
 ///
 /// Provides unified loading, comparison, and assertion utilities for golden tests

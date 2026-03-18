@@ -16,10 +16,12 @@
 //! assert_eq!(pct.as_percent(), 25.0);
 //! ```
 
+mod attributes;
 mod id;
 mod rates;
 mod ratings;
 
+pub use attributes::Attributes;
 pub use id::{
     CalendarId, CurveId, DealId, Id, IndexId, InstrumentId, PoolId, PriceId, TypeTag, UnderlyingId,
 };

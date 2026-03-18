@@ -1,0 +1,186 @@
+use super::{FactorId, FactorType};
+use crate::currency::Currency;
+use crate::market_data::bumps::{BumpSpec, BumpUnits};
+use crate::types::CurveId;
+use serde::{Deserialize, Serialize};
+use std::fmt;
+use std::sync::Arc;
+
+/// How a factor movement translates to market-data perturbations.
+#[derive(Clone, Serialize, Deserialize)]
+pub enum MarketMapping {
+    /// Parallel shift to one or more curves.
+    CurveParallel {
+        /// Curves bumped by the factor.
+        curve_ids: Vec<CurveId>,
+        /// Units used for the bump magnitude.
+        units: BumpUnits,
+    },
+    /// Bucketed curve shift with tenor weights.
+    CurveBucketed {
+        /// Curve receiving the bucketed bump.
+        curve_id: CurveId,
+        /// `(tenor_years, weight)` pairs describing the bucketed shift.
+        tenor_weights: Vec<(f64, f64)>,
+    },
+    /// Equity spot move.
+    EquitySpot {
+        /// Tickers moved by the factor.
+        tickers: Vec<String>,
+    },
+    /// FX rate move.
+    FxRate {
+        /// Currency pair moved by the factor.
+        pair: (Currency, Currency),
+    },
+    /// Volatility shift.
+    VolShift {
+        /// Volatility surfaces moved by the factor.
+        surface_ids: Vec<String>,
+        /// Units used for the bump magnitude.
+        units: BumpUnits,
+    },
+    /// Custom mapping available only through the builder path.
+    #[serde(skip)]
+    Custom(Arc<dyn Fn(f64) -> Vec<BumpSpec> + Send + Sync>),
+}
+
+impl fmt::Debug for MarketMapping {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::CurveParallel { curve_ids, units } => f
+                .debug_struct("CurveParallel")
+                .field("curve_ids", curve_ids)
+                .field("units", units)
+                .finish(),
+            Self::CurveBucketed {
+                curve_id,
+                tenor_weights,
+            } => f
+                .debug_struct("CurveBucketed")
+                .field("curve_id", curve_id)
+                .field("tenor_weights", tenor_weights)
+                .finish(),
+            Self::EquitySpot { tickers } => f
+                .debug_struct("EquitySpot")
+                .field("tickers", tickers)
+                .finish(),
+            Self::FxRate { pair } => f.debug_struct("FxRate").field("pair", pair).finish(),
+            Self::VolShift { surface_ids, units } => f
+                .debug_struct("VolShift")
+                .field("surface_ids", surface_ids)
+                .field("units", units)
+                .finish(),
+            Self::Custom(_) => f.write_str("Custom(<closure>)"),
+        }
+    }
+}
+
+/// Complete definition of a risk factor.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FactorDefinition {
+    /// Unique factor identifier.
+    pub id: FactorId,
+    /// Broad factor classification.
+    pub factor_type: FactorType,
+    /// Mapping from factor move to market-data perturbation.
+    pub market_mapping: MarketMapping,
+    /// Optional free-form description.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_factor_definition_construction() {
+        let definition = FactorDefinition {
+            id: FactorId::new("USD-Rates"),
+            factor_type: FactorType::Rates,
+            market_mapping: MarketMapping::CurveParallel {
+                curve_ids: vec![CurveId::new("USD-OIS")],
+                units: BumpUnits::RateBp,
+            },
+            description: Some("US dollar rates factor".into()),
+        };
+
+        assert_eq!(definition.id.as_str(), "USD-Rates");
+        assert_eq!(definition.factor_type, FactorType::Rates);
+    }
+
+    #[test]
+    fn test_market_mapping_curve_parallel_serde() {
+        let mapping = MarketMapping::CurveParallel {
+            curve_ids: vec![CurveId::new("USD-OIS"), CurveId::new("USD-3M")],
+            units: BumpUnits::RateBp,
+        };
+
+        let json_result = serde_json::to_string(&mapping);
+        assert!(json_result.is_ok());
+        let Ok(json) = json_result else {
+            return;
+        };
+
+        let back_result: Result<MarketMapping, _> = serde_json::from_str(&json);
+        assert!(back_result.is_ok());
+        let Ok(back) = back_result else {
+            return;
+        };
+
+        let back_json_result = serde_json::to_string(&back);
+        assert!(back_json_result.is_ok());
+        let Ok(back_json) = back_json_result else {
+            return;
+        };
+        assert_eq!(json, back_json);
+    }
+
+    #[test]
+    fn test_market_mapping_equity_spot() {
+        let mapping = MarketMapping::EquitySpot {
+            tickers: vec!["AAPL".into(), "MSFT".into()],
+        };
+
+        let json_result = serde_json::to_string(&mapping);
+        assert!(json_result.is_ok());
+        let Ok(json) = json_result else {
+            return;
+        };
+        assert!(json.contains("AAPL"));
+        assert!(json.contains("MSFT"));
+    }
+
+    #[test]
+    fn test_market_mapping_fx_rate_serde() {
+        let mapping = MarketMapping::FxRate {
+            pair: (Currency::USD, Currency::JPY),
+        };
+
+        let json_result = serde_json::to_string(&mapping);
+        assert!(json_result.is_ok());
+        let Ok(json) = json_result else {
+            return;
+        };
+
+        let back_result: Result<MarketMapping, _> = serde_json::from_str(&json);
+        assert!(back_result.is_ok());
+        let Ok(back) = back_result else {
+            return;
+        };
+
+        let back_json_result = serde_json::to_string(&back);
+        assert!(back_json_result.is_ok());
+        let Ok(back_json) = back_json_result else {
+            return;
+        };
+        assert_eq!(json, back_json);
+    }
+
+    #[test]
+    fn test_market_mapping_custom_not_serializable() {
+        let mapping = MarketMapping::Custom(std::sync::Arc::new(|_| vec![]));
+        assert!(serde_json::to_string(&mapping).is_err());
+    }
+}
