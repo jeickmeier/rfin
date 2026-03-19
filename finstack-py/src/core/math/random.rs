@@ -158,8 +158,7 @@ pub(crate) fn register<'py>(
         "__doc__",
         "Random number utilities from finstack-core.\n\n\
          Classes:\n\
-         - Rng: Production-grade PCG64 random number generator (recommended)\n\
-         - SimpleRng: Alias for Rng (deprecated, use Rng instead)\n\n\
+         - Rng: Production-grade PCG64 random number generator\n\n\
          Functions:\n\
          - box_muller_transform: Generate standard normal samples from uniform inputs",
     )?;
@@ -167,15 +166,9 @@ pub(crate) fn register<'py>(
     // Register the main RNG class
     module.add_class::<PyRng>()?;
 
-    // Add SimpleRng as an alias for backward compatibility
-    // Users importing SimpleRng will get the same PCG64-backed RNG
-    let rng_class = module.getattr("Rng")?;
-    module.setattr("SimpleRng", rng_class)?;
-
     module.add_function(wrap_pyfunction!(box_muller_transform_py, &module)?)?;
 
-    // Export both names for compatibility
-    let exports = ["Rng", "SimpleRng", "box_muller_transform"];
+    let exports = ["Rng", "box_muller_transform"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

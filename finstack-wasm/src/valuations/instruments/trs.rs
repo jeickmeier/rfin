@@ -306,57 +306,6 @@ impl JsEquityTotalReturnSwapBuilder {
 
 #[wasm_bindgen(js_class = EquityTotalReturnSwap)]
 impl JsEquityTotalReturnSwap {
-    /// Create an equity total return swap (TRS).
-    ///
-    /// Conventions:
-    /// - `receive_total_return = true` means you receive the underlying total return and pay financing.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - TRS notional (currency-tagged)
-    /// @param underlying - Equity underlying parameters
-    /// @param financing - Financing leg specification
-    /// @param schedule - Payment/reset schedule specification
-    /// @param receive_total_return - Direction flag
-    /// @param initial_level - Optional initial level/spot override
-    /// @returns A new `EquityTotalReturnSwap`
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        instrument_id: &str,
-        notional: &JsMoney,
-        underlying: &JsEquityUnderlying,
-        financing: &JsFinancingLegSpec,
-        schedule: &JsTrsScheduleSpec,
-        receive_total_return: bool,
-        initial_level: Option<f64>,
-    ) -> JsEquityTotalReturnSwap {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "EquityTotalReturnSwap constructor is deprecated; use EquityTotalReturnSwapBuilder instead.",
-        ));
-        let side = if receive_total_return {
-            TrsSide::ReceiveTotalReturn
-        } else {
-            TrsSide::PayTotalReturn
-        };
-
-        let trs = EquityTotalReturnSwap {
-            id: instrument_id_from_str(instrument_id),
-            notional: notional.inner(),
-            underlying: underlying.inner.clone(),
-            financing: financing.inner.clone(),
-            schedule: schedule.inner.clone(),
-            side,
-            initial_level,
-            dividend_tax_rate: 0.0, // Default: no withholding tax
-            discrete_dividends: Vec::new(),
-            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
-            attributes: Default::default(),
-            margin_spec: None,
-        };
-
-        JsEquityTotalReturnSwap::from_inner(trs)
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()
@@ -557,55 +506,6 @@ impl JsFiIndexTotalReturnSwapBuilder {
 
 #[wasm_bindgen(js_class = FiIndexTotalReturnSwap)]
 impl JsFiIndexTotalReturnSwap {
-    /// Create a fixed-income index total return swap (TRS).
-    ///
-    /// Conventions:
-    /// - `receive_total_return = true` means you receive the index total return and pay financing.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - TRS notional (currency-tagged)
-    /// @param underlying - Index underlying parameters
-    /// @param financing - Financing leg specification
-    /// @param schedule - Payment/reset schedule specification
-    /// @param receive_total_return - Direction flag
-    /// @param initial_level - Optional initial level override
-    /// @returns A new `FiIndexTotalReturnSwap`
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        instrument_id: &str,
-        notional: &JsMoney,
-        underlying: &JsIndexUnderlying,
-        financing: &JsFinancingLegSpec,
-        schedule: &JsTrsScheduleSpec,
-        receive_total_return: bool,
-        initial_level: Option<f64>,
-    ) -> JsFiIndexTotalReturnSwap {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "FiIndexTotalReturnSwap constructor is deprecated; use FiIndexTotalReturnSwapBuilder instead.",
-        ));
-        let side = if receive_total_return {
-            TrsSide::ReceiveTotalReturn
-        } else {
-            TrsSide::PayTotalReturn
-        };
-
-        let trs = FIIndexTotalReturnSwap {
-            id: instrument_id_from_str(instrument_id),
-            notional: notional.inner(),
-            underlying: underlying.inner.clone(),
-            financing: financing.inner.clone(),
-            schedule: schedule.inner.clone(),
-            side,
-            initial_level,
-            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
-            attributes: Default::default(),
-            margin_spec: None,
-        };
-
-        JsFiIndexTotalReturnSwap::from_inner(trs)
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()

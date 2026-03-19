@@ -270,59 +270,6 @@ impl JsInflationCapFloorBuilder {
 
 #[wasm_bindgen(js_class = InflationCapFloor)]
 impl JsInflationCapFloor {
-    /// Create a new inflation cap/floor.
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        instrument_id: &str,
-        option_type: &JsInflationCapFloorType,
-        notional: &JsMoney,
-        strike: f64,
-        start_date: &JsDate,
-        end_date: &JsDate,
-        inflation_index_id: &str,
-        discount_curve_id: &str,
-        vol_surface_id: &str,
-        frequency: Option<String>,
-        day_count: Option<String>,
-        stub_kind: Option<String>,
-        bdc: Option<String>,
-        calendar_id: Option<String>,
-    ) -> Result<JsInflationCapFloor, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "InflationCapFloor constructor is deprecated; use InflationCapFloorBuilder instead.",
-        ));
-        let freq = parse_optional_with_default(frequency, Tenor::annual())?;
-        let dc = parse_optional_with_default(day_count, DayCount::Act365F)?;
-        let stub = parse_optional_with_default(stub_kind, StubKind::None)?;
-        let bdc_value = parse_optional_with_default(bdc, BusinessDayConvention::ModifiedFollowing)?;
-
-        let mut builder = InflationCapFloor::builder()
-            .id(instrument_id_from_str(instrument_id))
-            .option_type(option_type.inner())
-            .notional(notional.inner())
-            .strike(f64_to_decimal(strike, "strike")?)
-            .start_date(start_date.inner())
-            .maturity(end_date.inner())
-            .frequency(freq)
-            .day_count(dc)
-            .stub(stub)
-            .bdc(bdc_value)
-            .inflation_index_id(curve_id_from_str(inflation_index_id))
-            .discount_curve_id(curve_id_from_str(discount_curve_id))
-            .vol_surface_id(curve_id_from_str(vol_surface_id))
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Default::default());
-
-        if let Some(cal_id) = calendar_id {
-            builder = builder.calendar_id(cal_id);
-        }
-
-        let inner = builder.build().map_err(|e| js_error(e.to_string()))?;
-
-        Ok(JsInflationCapFloor { inner })
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {

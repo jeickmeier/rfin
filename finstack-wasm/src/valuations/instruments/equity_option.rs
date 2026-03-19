@@ -14,53 +14,6 @@ use finstack_valuations::instruments::{
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
-struct EquityOptionBuildParams {
-    instrument_id: String,
-    ticker: String,
-    strike: f64,
-    option_type: OptionType,
-    expiry: finstack_core::dates::Date,
-    notional: Money,
-    exercise_style: ExerciseStyle,
-    day_count: DayCount,
-    settlement: SettlementType,
-    discount_curve_id: String,
-    spot_id: String,
-    vol_surface_id: String,
-    div_yield_id: Option<String>,
-}
-
-fn build_equity_option(params: EquityOptionBuildParams) -> Result<EquityOption, JsValue> {
-    let underlying = EquityUnderlyingParams::new(
-        &params.ticker,
-        params.spot_id.as_str(),
-        params.notional.currency(),
-    );
-    let underlying = match params.div_yield_id.as_deref() {
-        Some(div_yield_id) => underlying.with_dividend_yield(div_yield_id),
-        None => underlying,
-    };
-
-    EquityOption::builder()
-        .id(InstrumentId::new(params.instrument_id))
-        .underlying_ticker(underlying.ticker)
-        .strike(params.strike)
-        .option_type(params.option_type)
-        .exercise_style(params.exercise_style)
-        .expiry(params.expiry)
-        .notional(params.notional)
-        .day_count(params.day_count)
-        .settlement(params.settlement)
-        .discount_curve_id(CurveId::new(params.discount_curve_id))
-        .spot_id(underlying.spot_id)
-        .vol_surface_id(CurveId::new(params.vol_surface_id))
-        .div_yield_id_opt(underlying.div_yield_id)
-        .pricing_overrides(PricingOverrides::default())
-        .attributes(Attributes::new())
-        .build()
-        .map_err(|e| js_error(e.to_string()))
-}
-
 #[wasm_bindgen(js_name = EquityOptionBuilder)]
 #[derive(Clone, Debug, Default)]
 pub struct JsEquityOptionBuilder {
@@ -221,22 +174,35 @@ impl JsEquityOptionBuilder {
             }
         };
 
-        build_equity_option(EquityOptionBuildParams {
-            instrument_id: self.instrument_id,
-            ticker: ticker.to_string(),
-            strike,
-            option_type,
-            expiry,
-            notional,
-            exercise_style,
-            day_count,
-            settlement,
-            discount_curve_id,
-            spot_id,
-            vol_surface_id,
-            div_yield_id,
-        })
-        .map(JsEquityOption::from_inner)
+        let underlying = EquityUnderlyingParams::new(
+            ticker,
+            spot_id.as_str(),
+            notional.currency(),
+        );
+        let underlying = match div_yield_id.as_deref() {
+            Some(div_yield_id) => underlying.with_dividend_yield(div_yield_id),
+            None => underlying,
+        };
+
+        EquityOption::builder()
+            .id(InstrumentId::new(self.instrument_id))
+            .underlying_ticker(underlying.ticker)
+            .strike(strike)
+            .option_type(option_type)
+            .exercise_style(exercise_style)
+            .expiry(expiry)
+            .notional(notional)
+            .day_count(day_count)
+            .settlement(settlement)
+            .discount_curve_id(CurveId::new(discount_curve_id))
+            .spot_id(underlying.spot_id)
+            .vol_surface_id(CurveId::new(vol_surface_id))
+            .div_yield_id_opt(underlying.div_yield_id)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .map(JsEquityOption::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
@@ -258,77 +224,6 @@ impl InstrumentWrapper for JsEquityOption {
 
 #[wasm_bindgen(js_class = EquityOption)]
 impl JsEquityOption {
-    /// Create a European equity option.
-    ///
-    /// Conventions:
-    /// - `strike` is an **absolute price level** (not bps/percent).
-    /// - `notional_amount` defaults to `1.0` if omitted.
-    /// - `option_type`: `"call"` or `"put"`.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param ticker - Underlying ticker/symbol (used to look up spot/dividends/vol in `MarketContext`)
-    /// @param strike - Strike price (absolute)
-    /// @param option_type - `"call"` or `"put"`
-    /// @param expiry - Expiry date
-    /// @param notional_amount - Optional notional amount multiplier (default 1.0)
-    /// @returns A new `EquityOption`
-    /// @throws {Error} If `option_type` is invalid
-    ///
-    /// @example
-    /// ```javascript
-    /// import init, { EquityOption, FsDate } from "finstack-wasm";
-    ///
-    /// await init();
-    /// const opt = new EquityOption(
-    ///   "eqopt_1",
-    ///   "AAPL",
-    ///   200.0,
-    ///   "call",
-    ///   new FsDate(2025, 6, 21),
-    ///   100
-    /// );
-    /// ```
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        instrument_id: &str,
-        ticker: &str,
-        strike: f64,
-        option_type: &str,
-        expiry: &JsDate,
-        notional_amount: Option<f64>,
-    ) -> Result<JsEquityOption, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "EquityOption constructor is deprecated; use EquityOptionBuilder instead.",
-        ));
-        let notional_amount = notional_amount.unwrap_or(1.0);
-        let option_type = match option_type.to_lowercase().as_str() {
-            "call" => OptionType::Call,
-            "put" => OptionType::Put,
-            other => {
-                return Err(js_error(format!(
-                    "Invalid option_type '{other}'; expected 'call' or 'put'"
-                )));
-            }
-        };
-
-        build_equity_option(EquityOptionBuildParams {
-            instrument_id: instrument_id.to_string(),
-            ticker: ticker.to_string(),
-            strike,
-            option_type,
-            expiry: expiry.inner(),
-            notional: Money::new(notional_amount, Currency::USD),
-            exercise_style: ExerciseStyle::European,
-            day_count: DayCount::Act365F,
-            settlement: SettlementType::Cash,
-            discount_curve_id: "USD-OIS".to_string(),
-            spot_id: "EQUITY-SPOT".to_string(),
-            vol_surface_id: "EQUITY-VOL".to_string(),
-            div_yield_id: Some("EQUITY-DIVYIELD".to_string()),
-        })
-        .map(JsEquityOption::from_inner)
-    }
-
     /// Parse an equity option from a JSON value (as produced by `toJson`).
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(value: JsValue) -> Result<JsEquityOption, JsValue> {

@@ -295,63 +295,6 @@ impl JsFxVarianceSwapBuilder {
 
 #[wasm_bindgen(js_class = FxVarianceSwap)]
 impl JsFxVarianceSwap {
-    /// Create a new FX variance swap.
-    ///
-    /// @param {string} id - Instrument identifier
-    /// @param {Currency} baseCurrency - Base currency (foreign)
-    /// @param {Currency} quoteCurrency - Quote currency (domestic)
-    /// @param {number} notional - Variance notional in quote currency
-    /// @param {number} strikeVariance - Strike variance (annualized)
-    /// @param {FsDate} startDate - Start date of observation period
-    /// @param {FsDate} maturity - Maturity/settlement date
-    /// @param {Tenor} observationFreq - Observation frequency
-    /// @param {VarianceSwapSide} side - Pay or receive variance
-    /// @param {string} domesticCurveId - Domestic discount curve ID
-    /// @param {string} foreignCurveId - Foreign discount curve ID
-    /// @param {string} volSurfaceId - FX volatility surface ID
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: &str,
-        base_currency: &JsCurrency,
-        quote_currency: &JsCurrency,
-        notional: f64,
-        strike_variance: f64,
-        start_date: &FsDate,
-        maturity: &FsDate,
-        observation_freq: &JsTenor,
-        side: &JsVarianceSwapSide,
-        domestic_curve_id: &str,
-        foreign_curve_id: &str,
-        vol_surface_id: &str,
-    ) -> Result<JsFxVarianceSwap, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "FxVarianceSwap constructor is deprecated; use FxVarianceSwapBuilder instead.",
-        ));
-        use finstack_core::math::stats::RealizedVarMethod;
-
-        let swap = FxVarianceSwap::builder()
-            .id(InstrumentId::new(id))
-            .base_currency(base_currency.inner())
-            .quote_currency(quote_currency.inner())
-            .notional(Money::new(notional, quote_currency.inner()))
-            .strike_variance(strike_variance)
-            .start_date(start_date.inner())
-            .maturity(maturity.inner())
-            .observation_freq(observation_freq.inner())
-            .realized_var_method(RealizedVarMethod::CloseToClose)
-            .side(side.inner())
-            .domestic_discount_curve_id(CurveId::new(domestic_curve_id))
-            .foreign_discount_curve_id(CurveId::new(foreign_curve_id))
-            .vol_surface_id(CurveId::new(vol_surface_id))
-            .day_count(DayCount::Act365F)
-            .attributes(Attributes::new())
-            .build()
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        Ok(JsFxVarianceSwap { inner: swap })
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {

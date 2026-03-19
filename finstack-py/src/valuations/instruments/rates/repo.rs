@@ -479,12 +479,6 @@ impl PyRepoBuilder {
         slf
     }
 
-    /// Deprecated: use `discount_curve()` instead.
-    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
-    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
-        Self::discount_curve(slf, curve_id)
-    }
-
     #[pyo3(text_signature = "($self, repo_type)")]
     fn repo_type<'py>(
         mut slf: PyRefMut<'py, Self>,

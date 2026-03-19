@@ -154,49 +154,6 @@ impl JsNdf {
 
 #[wasm_bindgen(js_class = Ndf)]
 impl JsNdf {
-    /// Create a new NDF.
-    ///
-    /// @param {string} id - Instrument identifier
-    /// @param {Currency} baseCurrency - Base currency (restricted, numerator)
-    /// @param {Currency} settlementCurrency - Settlement currency (convertible, typically USD)
-    /// @param {FsDate} fixingDate - Rate observation date (typically T-2 before maturity)
-    /// @param {FsDate} maturityDate - Maturity/settlement date
-    /// @param {number} notional - Notional amount in base currency
-    /// @param {number} contractRate - Contract forward rate (base per settlement)
-    /// @param {string} settlementCurveId - Settlement currency discount curve ID
-    #[allow(clippy::too_many_arguments)]
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        id: &str,
-        base_currency: &JsCurrency,
-        settlement_currency: &JsCurrency,
-        fixing_date: &FsDate,
-        maturity_date: &FsDate,
-        notional: f64,
-        contract_rate: f64,
-        settlement_curve_id: &str,
-    ) -> Result<JsNdf, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "Ndf constructor is deprecated; use NdfBuilder instead.",
-        ));
-        use finstack_valuations::instruments::Attributes;
-
-        let ndf = Ndf::builder()
-            .id(InstrumentId::new(id))
-            .base_currency(base_currency.inner())
-            .settlement_currency(settlement_currency.inner())
-            .fixing_date(fixing_date.inner())
-            .maturity(maturity_date.inner())
-            .notional(Money::new(notional, base_currency.inner()))
-            .contract_rate(contract_rate)
-            .domestic_discount_curve_id(CurveId::new(settlement_curve_id))
-            .attributes(Attributes::new())
-            .build()
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        Ok(JsNdf { inner: ndf })
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {

@@ -404,13 +404,6 @@ impl PyRangeAccrual {
         &self.inner.underlying_ticker
     }
 
-    /// Deprecated: use `underlying_ticker` instead.
-    #[getter]
-    #[pyo3(name = "ticker")]
-    fn ticker_deprecated(&self) -> &str {
-        &self.inner.underlying_ticker
-    }
-
     #[getter]
     fn lower_bound(&self) -> f64 {
         self.inner.lower_bound

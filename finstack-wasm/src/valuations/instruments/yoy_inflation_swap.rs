@@ -159,47 +159,6 @@ impl JsYoYInflationSwapBuilder {
 
 #[wasm_bindgen(js_class = YoYInflationSwap)]
 impl JsYoYInflationSwap {
-    /// Create a new YoY inflation swap.
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        instrument_id: &str,
-        notional: &JsMoney,
-        fixed_rate: f64,
-        start_date: &JsDate,
-        maturity: &JsDate,
-        discount_curve: &str,
-        inflation_index_id: &str,
-        frequency: Option<String>,
-        side: Option<String>,
-        day_count: Option<String>,
-    ) -> Result<JsYoYInflationSwap, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "YoYInflationSwap constructor is deprecated; use YoYInflationSwapBuilder instead.",
-        ));
-        let freq = parse_optional_with_default(frequency, Tenor::annual())?;
-        let side_value = parse_optional_with_default(side, PayReceive::PayFixed)?;
-        let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
-
-        let builder = YoYInflationSwap::builder()
-            .id(instrument_id_from_str(instrument_id))
-            .notional(notional.inner())
-            .fixed_rate(f64_to_decimal(fixed_rate, "fixed_rate")?)
-            .start_date(start_date.inner())
-            .maturity(maturity.inner())
-            .frequency(freq)
-            .discount_curve_id(curve_id_from_str(discount_curve))
-            .inflation_index_id(curve_id_from_str(inflation_index_id))
-            .day_count(dc)
-            .side(side_value)
-            .attributes(Default::default());
-
-        builder
-            .build()
-            .map(JsYoYInflationSwap::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {
