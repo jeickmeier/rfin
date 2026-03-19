@@ -194,12 +194,6 @@ impl PyDepositBuilder {
         slf
     }
 
-    /// Deprecated: use `discount_curve()` instead.
-    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
-    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
-        Self::discount_curve(slf, curve_id)
-    }
-
     #[pyo3(text_signature = "($self, quote_rate=None)", signature = (quote_rate=None))]
     fn quote_rate(mut slf: PyRefMut<'_, Self>, quote_rate: Option<f64>) -> PyRefMut<'_, Self> {
         slf.quote_rate = quote_rate;

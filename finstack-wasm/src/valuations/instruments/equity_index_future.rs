@@ -265,50 +265,6 @@ impl JsEquityIndexFutureBuilder {
 
 #[wasm_bindgen(js_class = EquityIndexFuture)]
 impl JsEquityIndexFuture {
-    /// Create a new equity index future.
-    ///
-    /// @param {string} id - Instrument identifier (e.g., "ESH5")
-    /// @param {string} indexTicker - Index ticker symbol (e.g., "SPX")
-    /// @param {Money} notional - Position notional
-    /// @param {FsDate} expiryDate - Contract expiry date
-    /// @param {FsDate} lastTradingDate - Last trading date
-    /// @param {FuturePosition} position - Long or Short
-    /// @param {EquityFutureSpecs} specs - Contract specifications
-    /// @param {string} discountCurveId - Discount curve ID
-    /// @param {string} spotId - Index spot price identifier
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: &str,
-        index_ticker: &str,
-        notional: &crate::core::money::JsMoney,
-        expiry_date: &FsDate,
-        last_trading_date: &FsDate,
-        position: &JsFuturePosition,
-        specs: &JsEquityFutureSpecs,
-        discount_curve_id: &str,
-        spot_id: &str,
-    ) -> Result<JsEquityIndexFuture, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "EquityIndexFuture constructor is deprecated; use EquityIndexFutureBuilder instead.",
-        ));
-        let future = EquityIndexFuture::builder()
-            .id(InstrumentId::new(id))
-            .underlying_ticker(index_ticker.to_string())
-            .notional(notional.inner())
-            .expiry(expiry_date.inner())
-            .last_trading_date(last_trading_date.inner())
-            .position(position.inner())
-            .contract_specs(specs.inner())
-            .discount_curve_id(CurveId::new(discount_curve_id))
-            .spot_id(spot_id.to_string().into())
-            .attributes(Attributes::new())
-            .build()
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        Ok(JsEquityIndexFuture { inner: future })
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {

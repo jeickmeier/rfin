@@ -193,16 +193,9 @@ impl CreditIndexDataBuilder {
 
     /// Add a single issuer credit curve.
     pub fn add_issuer_curve(mut self, issuer_id: String, curve: Arc<HazardCurve>) -> Self {
-        match &mut self.issuer_credit_curves {
-            Some(curves) => {
-                curves.insert(issuer_id, curve);
-            }
-            None => {
-                let mut curves = HashMap::default();
-                curves.insert(issuer_id, curve);
-                self.issuer_credit_curves = Some(curves);
-            }
-        }
+        self.issuer_credit_curves
+            .get_or_insert_with(HashMap::default)
+            .insert(issuer_id, curve);
         self
     }
 

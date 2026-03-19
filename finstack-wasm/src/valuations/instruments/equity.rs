@@ -89,47 +89,6 @@ impl InstrumentWrapper for JsEquity {
 
 #[wasm_bindgen(js_class = Equity)]
 impl JsEquity {
-    /// Create an equity spot position.
-    ///
-    /// Conventions:
-    /// - `shares` is the quantity of shares (defaults to 1.0 if omitted by the underlying instrument type).
-    /// - `price` is an optional spot price override (absolute).
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param ticker - Underlying ticker/symbol
-    /// @param currency - Reporting currency of the equity
-    /// @param shares - Optional share quantity
-    /// @param price - Optional price override (absolute)
-    /// @returns A new `Equity`
-    ///
-    /// @example
-    /// ```javascript
-    /// import init, { Equity, Currency } from "finstack-wasm";
-    ///
-    /// await init();
-    /// const eq = new Equity("eq_1", "AAPL", new Currency("USD"), 100, 200.0);
-    /// ```
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        instrument_id: &str,
-        ticker: &str,
-        currency: &JsCurrency,
-        shares: Option<f64>,
-        price: Option<f64>,
-    ) -> JsEquity {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "Equity constructor is deprecated; use EquityBuilder instead.",
-        ));
-        let mut equity = Equity::new(instrument_id.to_string(), ticker, currency.inner());
-        if let Some(qty) = shares {
-            equity = equity.with_shares(qty);
-        }
-        if let Some(px) = price {
-            equity = equity.with_price(px);
-        }
-        JsEquity::from_inner(equity)
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()

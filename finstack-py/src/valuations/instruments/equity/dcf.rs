@@ -491,14 +491,6 @@ impl PyDiscountedCashFlowBuilder {
         slf
     }
 
-    #[pyo3(name = "disc_id")]
-    fn disc_id_deprecated(
-        slf: PyRefMut<'_, Self>,
-        discount_curve_id: String,
-    ) -> PyRefMut<'_, Self> {
-        Self::discount_curve(slf, discount_curve_id)
-    }
-
     fn mid_year_convention(mut slf: PyRefMut<'_, Self>, enabled: bool) -> PyRefMut<'_, Self> {
         slf.mid_year_convention = enabled;
         slf

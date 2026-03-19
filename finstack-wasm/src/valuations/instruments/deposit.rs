@@ -123,67 +123,6 @@ impl InstrumentWrapper for JsDeposit {
 
 #[wasm_bindgen(js_class = Deposit)]
 impl JsDeposit {
-    /// Create a money-market deposit accruing simple interest over a date range.
-    ///
-    /// Conventions:
-    /// - `quote_rate` is a **decimal rate** (e.g. `0.0475` for 4.75%).
-    /// - Accrual is computed using the provided `day_count`.
-    ///
-    /// @param instrument_id - Unique identifier
-    /// @param notional - Deposit notional (currency-tagged)
-    /// @param start - Start date (trade/settlement start)
-    /// @param maturity - Maturity date
-    /// @param day_count - Day count convention for accrual (e.g. `DayCount.act360()`)
-    /// @param discount_curve - Discount curve ID (must exist in `MarketContext` when pricing)
-    /// @param quote_rate - Optional quoted deposit rate (decimal). If omitted, some models may treat it as 0 or infer from curves.
-    /// @returns A new `Deposit`
-    /// @throws {Error} If inputs are invalid (e.g., start > end)
-    ///
-    /// @example
-    /// ```javascript
-    /// import init, { Deposit, Money, FsDate, DayCount } from "finstack-wasm";
-    ///
-    /// await init();
-    /// const dep = new Deposit(
-    ///   "dep_1",
-    ///   Money.fromCode(10_000_000, "USD"),
-    ///   new FsDate(2024, 1, 2),
-    ///   new FsDate(2024, 4, 2),
-    ///   DayCount.act360(),
-    ///   "USD-OIS",
-    ///   0.0475
-    /// );
-    /// ```
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        instrument_id: &str,
-        notional: &JsMoney,
-        start: &JsDate,
-        maturity: &JsDate,
-        day_count: &JsDayCount,
-        discount_curve: &str,
-        quote_rate: Option<f64>,
-    ) -> Result<JsDeposit, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "Deposit constructor is deprecated; use DepositBuilder instead.",
-        ));
-        Deposit::builder()
-            .id(instrument_id_from_str(instrument_id))
-            .notional(notional.inner())
-            .start_date(start.inner())
-            .maturity(maturity.inner())
-            .day_count(day_count.inner())
-            .discount_curve_id(curve_id_from_str(discount_curve))
-            .quote_rate_opt(
-                quote_rate
-                    .map(|rate| crate::valuations::common::f64_to_decimal(rate, "quote_rate"))
-                    .transpose()?,
-            )
-            .build()
-            .map(JsDeposit::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(value: JsValue) -> Result<JsDeposit, JsValue> {
         from_js_value(value).map(JsDeposit::from_inner)

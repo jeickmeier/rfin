@@ -308,22 +308,10 @@ impl PyInterestRateOptionBuilder {
         slf
     }
 
-    /// Deprecated: use `discount_curve()` instead.
-    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
-    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
-        Self::discount_curve(slf, curve_id)
-    }
-
     #[pyo3(text_signature = "($self, curve_id)")]
     fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve_id = Some(CurveId::new(curve_id.as_str()));
         slf
-    }
-
-    /// Deprecated: use `forward_curve()` instead.
-    #[pyo3(name = "fwd_id", text_signature = "($self, curve_id)")]
-    fn fwd_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
-        Self::forward_curve(slf, curve_id)
     }
 
     #[pyo3(text_signature = "($self, vol_surface)")]

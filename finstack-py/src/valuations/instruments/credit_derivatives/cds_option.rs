@@ -179,14 +179,6 @@ impl PyCDSOptionBuilder {
         slf
     }
 
-    /// Set strike spread in basis points (e.g., 150.0 for 150bp).
-    /// Deprecated: prefer `strike()` with decimal rate.
-    #[pyo3(text_signature = "($self, strike_spread_bp)")]
-    fn strike_spread_bp(mut slf: PyRefMut<'_, Self>, strike_spread_bp: f64) -> PyRefMut<'_, Self> {
-        slf.strike = Some(strike_spread_bp / 10000.0);
-        slf
-    }
-
     #[pyo3(text_signature = "($self, expiry)")]
     fn expiry<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -257,17 +249,6 @@ impl PyCDSOptionBuilder {
     #[pyo3(text_signature = "($self, forward_adjust)")]
     fn forward_adjust(mut slf: PyRefMut<'_, Self>, forward_adjust: f64) -> PyRefMut<'_, Self> {
         slf.forward_adjust = forward_adjust;
-        slf
-    }
-
-    /// Set forward spread adjustment in basis points (e.g., 25.0 for 25bp).
-    /// Deprecated: prefer `forward_adjust()` with decimal rate.
-    #[pyo3(text_signature = "($self, forward_adjust_bp)")]
-    fn forward_adjust_bp(
-        mut slf: PyRefMut<'_, Self>,
-        forward_adjust_bp: f64,
-    ) -> PyRefMut<'_, Self> {
-        slf.forward_adjust = forward_adjust_bp / 10000.0;
         slf
     }
 

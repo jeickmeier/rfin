@@ -143,45 +143,6 @@ impl JsFxForward {
 
 #[wasm_bindgen(js_class = FxForward)]
 impl JsFxForward {
-    /// Create a new FX forward.
-    ///
-    /// @param {string} id - Instrument identifier
-    /// @param {Currency} baseCurrency - Base currency (foreign, numerator)
-    /// @param {Currency} quoteCurrency - Quote currency (domestic, denominator, PV currency)
-    /// @param {FsDate} maturityDate - Maturity/settlement date
-    /// @param {number} notional - Notional amount in base currency
-    /// @param {string} domesticCurveId - Domestic (quote) currency discount curve ID
-    /// @param {string} foreignCurveId - Foreign (base) currency discount curve ID
-    #[wasm_bindgen(constructor)]
-    pub fn new(
-        id: &str,
-        base_currency: &JsCurrency,
-        quote_currency: &JsCurrency,
-        maturity_date: &FsDate,
-        notional: f64,
-        domestic_curve_id: &str,
-        foreign_curve_id: &str,
-    ) -> Result<JsFxForward, JsValue> {
-        use finstack_valuations::instruments::Attributes;
-        web_sys::console::warn_1(&JsValue::from_str(
-            "FxForward constructor is deprecated; use FxForwardBuilder instead.",
-        ));
-
-        let forward = FxForward::builder()
-            .id(InstrumentId::new(id))
-            .base_currency(base_currency.inner())
-            .quote_currency(quote_currency.inner())
-            .maturity(maturity_date.inner())
-            .notional(Money::new(notional, base_currency.inner()))
-            .domestic_discount_curve_id(CurveId::new(domestic_curve_id))
-            .foreign_discount_curve_id(CurveId::new(foreign_curve_id))
-            .attributes(Attributes::new())
-            .build()
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-
-        Ok(JsFxForward { inner: forward })
-    }
-
     /// Get the instrument ID.
     #[wasm_bindgen(getter)]
     pub fn id(&self) -> String {

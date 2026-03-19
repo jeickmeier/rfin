@@ -446,12 +446,6 @@ impl PyInflationCapFloorBuilder {
         slf
     }
 
-    /// Deprecated: use `discount_curve()` instead.
-    #[pyo3(name = "disc_id", text_signature = "($self, curve_id)")]
-    fn disc_id_deprecated(slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
-        Self::discount_curve(slf, curve_id)
-    }
-
     /// Set volatility surface identifier.
     #[pyo3(text_signature = "($self, curve_id)")]
     fn vol_surface_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {

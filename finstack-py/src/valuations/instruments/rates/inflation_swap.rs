@@ -183,15 +183,6 @@ impl PyInflationSwapBuilder {
         slf
     }
 
-    /// Deprecated: use `inflation_index()` instead.
-    #[pyo3(name = "inflation_curve", text_signature = "($self, inflation_curve)")]
-    fn inflation_curve_deprecated(
-        slf: PyRefMut<'_, Self>,
-        inflation_curve: String,
-    ) -> PyRefMut<'_, Self> {
-        Self::inflation_index(slf, inflation_curve)
-    }
-
     #[pyo3(text_signature = "($self, side)")]
     fn side(mut slf: PyRefMut<'_, Self>, side: String) -> PyResult<PyRefMut<'_, Self>> {
         slf.side = parse_side(Some(side.as_str()))?;
@@ -534,15 +525,6 @@ impl PyYoYInflationSwapBuilder {
     fn inflation_index(mut slf: PyRefMut<'_, Self>, inflation_index: String) -> PyRefMut<'_, Self> {
         slf.inflation_index_id = Some(inflation_index);
         slf
-    }
-
-    /// Deprecated: use `inflation_index()` instead.
-    #[pyo3(name = "inflation_curve", text_signature = "($self, inflation_curve)")]
-    fn inflation_curve_deprecated(
-        slf: PyRefMut<'_, Self>,
-        inflation_curve: String,
-    ) -> PyRefMut<'_, Self> {
-        Self::inflation_index(slf, inflation_curve)
     }
 
     #[pyo3(text_signature = "($self, side)")]
