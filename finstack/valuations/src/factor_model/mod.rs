@@ -5,6 +5,6 @@ pub mod sensitivity;
 
 pub use decompose::decompose;
 pub use sensitivity::{
-    DeltaBasedEngine, FactorPnlProfile, FactorSensitivityEngine, FullRepricingEngine, ScenarioGrid,
-    SensitivityMatrix,
+    mapping_to_market_bumps, DeltaBasedEngine, FactorPnlProfile, FactorSensitivityEngine,
+    FullRepricingEngine, ScenarioGrid, SensitivityMatrix,
 };
