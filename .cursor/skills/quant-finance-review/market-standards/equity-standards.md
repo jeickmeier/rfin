@@ -88,7 +88,11 @@ P&L = Var_notional × (σ²_realized - K²_var)
 
 where:
   N = number of observations
-  K²_var = variance strike (quoted as vol² × 10000)
+  K²_var = variance strike in the same decimal variance units as σ²_realized
+
+Quote handling:
+- If the market quotes strike vol in vol points, convert it to decimal variance before applying the payout formula
+- Do not mix decimal realized variance with basis-point-squared or vol-point-squared quoting units
 
 Var_notional relationship to vega_notional:
 Var_notional = Vega_notional / (2 × K_vol)
@@ -97,12 +101,17 @@ Var_notional = Vega_notional / (2 × K_vol)
 ### Log contract replication
 
 ```
-Fair variance (no jumps):
-E[σ²_realized] = (2/T) × [F/S₀ - 1 - ln(F/S₀)
-                  - ∫₀^F (Put(K)/K²) dK
-                  - ∫_F^∞ (Call(K)/K²) dK]
+Fair variance strike (continuous-strike, no-jump idealization):
+K_var² = (2 e^(rT) / T) × [∫₀^F P(K)/K² dK + ∫_F^∞ C(K)/K² dK]
 
-This is the basis for VIX calculation
+where:
+  F = forward level for maturity T
+  P(K), C(K) = OTM put and call prices
+
+Desk implementation:
+- Use OTM puts below the forward and OTM calls above the forward
+- Apply discrete strike summation, truncation, and wing assumptions explicitly
+- Do not present ad hoc alternative rearrangements as the generic street-standard formula
 ```
 
 ### Audit checklist - Variance swaps
@@ -122,25 +131,38 @@ This is the basis for VIX calculation
 | Component | Standard | Notes |
 |-----------|----------|-------|
 | Equity leg | Total return (price + dividends) | Gross or net of tax |
-| Financing leg | SOFR + spread | Quarterly payment |
+| Financing leg | Funding index of trade currency + spread | SOFR/SONIA/ESTR etc. |
 | Reset | Daily or periodic | Mark-to-market |
 | Dividend treatment | Pass-through | Paid when received |
 
 ### TRS pricing
 
 ```
-Equity leg PV:
-PV_equity = Notional × [(S_T / S_0) - 1] × DF(T)
-          + Σ Div_i × DF(t_i)
+Model TRS as contractual period cashflows, not a single terminal return expression.
 
-Financing leg PV:
-PV_financing = Notional × Σ (r + spread) × τ_i × DF(t_i)
+For reset period i:
+Equity_cashflow_i =
+    Q_{i-1} × (S_i - S_{i-1})
+  + dividends_i
+  - withholding_tax_i
+  + corporate_action_adjustment_i
+
+Financing_cashflow_i =
+    N_{i-1} × (L_i + spread) × τ_i
+
+Present value:
+PV = Σ DF(t_i) × [Equity_cashflow_i - Financing_cashflow_i]
 
 where:
-  S_T = expected terminal price (forward)
-  S_0 = initial price
-  Div_i = expected dividend at t_i
+  Q_{i-1} = equity share quantity or equivalent units over the period
+  N_{i-1} = resettable financing notional
+  L_i = contractual funding index for the trade currency / CSA
   τ_i = accrual fraction for period i
+
+Desk-standard guidance:
+- Explicitly model reset dates, notional reset mechanics, and contract currency
+- Handle manufactured dividends, withholding tax, and corporate actions explicitly
+- Distinguish funded economics from collateral/CSA discounting
 ```
 
 ### Audit checklist - Equity TRS
@@ -206,7 +228,9 @@ Implementation: Discrete (daily close) with adjustment
 Broadie-Glasserman-Kou adjustment for discrete:
 H_adj = H × exp(±0.5826 × σ × √(Δt))
 
-where + for up barriers, - for down barriers
+where the barrier moves away from spot:
+- up barrier: use +
+- down barrier: use -
 ```
 
 ### Asian options
@@ -261,9 +285,9 @@ let var = returns.iter().map(|r| r * r).sum::<f64>() * 252.0 / n;
 // WRONG: Using exact barrier level
 let knocked_out = prices.iter().any(|&p| p < barrier);
 
-// CORRECT: Adjust barrier for discrete monitoring
-let adjustment = (0.5826 * vol * dt.sqrt()).exp();
-let adjusted_barrier = barrier * adjustment;  // for down barrier
+// CORRECT: For a down barrier, move the barrier away from spot
+let adjustment = (-0.5826 * vol * dt.sqrt()).exp();
+let adjusted_barrier = barrier * adjustment;
 let knocked_out = prices.iter().any(|&p| p < adjusted_barrier);
 ```
 

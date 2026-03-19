@@ -44,7 +44,7 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 |-------|----------|-------------|
 | Discounting (analytic) | P1 | Deposits, FRA, vanilla swaps |
 | Black-76 | P1 | Caps, floors, European swaptions |
-| Bachelier (normal) | P1 | Negative-rate environments |
+| Bachelier (normal) | P1 | Common swaption quoting convention, especially in low/negative-rate regimes |
 | SABR | P1 | Vol surface interpolation |
 | Hull-White 1F | P1 | Bermudan swaptions, callable bonds |
 | Hull-White 2F | P2 | Better correlation structure |
@@ -74,19 +74,20 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 | Convention | Standard | Notes |
 |-----------|----------|-------|
 | SOFR day count | ACT/360 | Daily compounding in-arrears |
-| SOFR compounding | Compounded in-arrears | With lookback (typically 2 days) and lockout |
-| SOFR payment lag | T+2 | Payment offset after period end |
+| SOFR compounding | Compounded in-arrears | Model lookback, observation shift, lockout, and payment lag separately |
+| SOFR payment lag | Template-specific, 2 business days common in USD OIS | Payment offset after period end |
 | EURIBOR day count | ACT/360 | Term rate, no compounding |
 | SONIA day count | ACT/365F | Daily compounding in-arrears |
 | TONA day count | ACT/365F | Japan overnight rate |
-| USD swap fixed leg | Semi-annual, 30/360 | Market standard |
-| EUR swap fixed leg | Annual, 30/360 | Market standard |
-| GBP swap fixed leg | Semi-annual, ACT/365F | Market standard |
-| JPY swap fixed leg | Semi-annual, ACT/365F | Market standard |
-| Cap/floor settlement | T+2 | Physical delivery |
+| USD OIS fixed leg | Template-specific | Do not reuse legacy IRS conventions for SOFR OIS |
+| EUR OIS fixed leg | Template-specific | Check CCP / venue template |
+| GBP OIS fixed leg | Annual, ACT/365F | Standard SONIA OIS convention |
+| Term-index IRS fixed leg | Product-specific | See `rates-standards.md` legacy / term-index section |
+| Cap/floor settlement | Cash-settled caplets/floorlets | Premium timing per confirmation, not physical delivery |
 | Swaption exercise | European: expiry, Bermudan: coupon dates | Physical or cash |
-| IMM dates | 3rd Wed of Mar/Jun/Sep/Dec | For futures and CDS |
-| Swap roll | Modified following | End-of-month rule applies |
+| IMM futures dates | 3rd Wed of Mar/Jun/Sep/Dec | Futures and many listed IR products |
+| CDS standard dates | 20th of Mar/Jun/Sep/Dec | Standard CDS roll and maturity dates |
+| Swap roll | Product / template specific | Vanilla term-index IRS often use modified following with EOM logic, but do not apply universally |
 
 ---
 
@@ -138,12 +139,12 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 | CDS standard coupon | 100bp (IG) or 500bp (HY) | North American convention |
 | CDS accrual | ACT/360 | Standard |
 | CDS payment frequency | Quarterly | On IMM dates |
-| CDS effective date | T+1 | Protection starts next business day |
+| CDS step-in / protection effective date | T+1 | Contractual accrual start still follows standard CDS date rules |
 | CDS roll dates | Mar/Jun/Sep/Dec 20th | Standard roll |
 | Accrued-on-default | Paid by protection buyer | ISDA 2014 |
 | Recovery rate (senior unsecured) | 40% | ISDA standard assumption |
 | Recovery rate (subordinated) | 20% | ISDA standard assumption |
-| Recovery rate (senior secured) | 35% | Loans |
+| Recovery rate (senior secured / LCDS) | Product-specific | Do not hardcode a universal secured-loan recovery assumption |
 | CDX IG composition | 125 names | Investment grade |
 | iTraxx Europe composition | 125 names | Investment grade |
 
@@ -207,12 +208,12 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 | USD/CAD settlement | T+1 | Exception to T+2 |
 | USD/TRY settlement | T+1 | Exception |
 | USD/RUB settlement | T+1 | Exception |
-| FX option delta | Spot delta (market standard) | Not forward delta unless specified |
-| FX option premium | Usually paid in DOM currency | But USD premium for EM pairs |
-| Vol quote convention | 25D RR, 25D BF, ATM DNS | Standard market quotes |
-| ATM convention | Delta-neutral straddle (DNS) | Not ATMF for most pairs |
-| Cut time | 10am NY for most pairs | Tokyo cut for JPY, Asia pairs |
-| FX forward points | Expressed as pips (1/10000) | Divide by spot point value |
+| FX option delta | Pair-specific: forward delta common in G10, premium-adjusted for some EM | Never assume spot delta or forward delta without confirming pair and venue |
+| FX option premium | Pair-specific | CCY2 common in G10, USD common in many EM pairs |
+| Vol quote convention | RR/BF plus ATM convention | Pair-specific smile quoting template |
+| ATM convention | Pair-specific | DNS common in some markets, but do not assume globally |
+| Cut time | Pair-specific benchmark / cut | Use the benchmark named in the market convention and confirmation |
+| FX forward points | Pair-specific pip scaling | 1/10000 for most pairs, 1/100 for JPY pairs |
 | Quanto correlation | Spot-FX correlation | Must be estimated, not observed |
 
 ---
@@ -276,13 +277,13 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 
 | Convention | Standard | Notes |
 |-----------|----------|-------|
-| UST day count | ACT/ACT (ISDA) | Semi-annual coupons |
+| UST day count | ACT/ACT (ICMA / Street) | Semi-annual coupons |
 | UST settlement | T+1 | Changed from T+2 in May 2023 |
 | Bund day count | ACT/ACT (ICMA) | Annual coupons |
 | Gilt day count | ACT/ACT (ICMA) | Semi-annual, 7-day ex-div |
 | JGB day count | varies | Simple yield convention |
 | Corporate bond day count | 30/360 (US), ACT/ACT (EUR) | Market dependent |
-| Corporate settlement | T+2 | Standard |
+| Corporate settlement | T+1 in current US cash market | Check market and settlement regime outside the US |
 | Accrued interest (UST) | ACT/ACT, inclusive start, exclusive end | |
 | Price quote | Per 100 face value | Clean price |
 | YTM compounding | Semi-annual (US), Annual (EUR) | Market dependent |
@@ -349,11 +350,11 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 | Convention | Standard | Notes |
 |-----------|----------|-------|
 | Equity option expiry | 3rd Friday of month (US listed) | OTC negotiated |
-| Dividend handling | Discrete dividends with ex-date adjustment | Reduce spot by div amount |
+| Dividend handling | Discrete dividends with ex-date adjustment | Use discounted dividends or explicit ex-date modeling, not raw spot subtraction |
 | Borrow cost | Subtracted from drift | For short selling |
 | Variance swap convention | Realized var = (252/N) * sum(ln(S_i/S_{i-1})^2) | Annualized, 252 trading days |
 | Vol swap vs var swap | Vol swap != sqrt(var swap) | Jensen's inequality |
-| TRS financing | SOFR + spread | Reset quarterly typical |
+| TRS financing | Funding index of trade currency + spread | SOFR/SONIA/ESTR etc., reset per contract |
 | Index dividend yield | Continuous vs discrete matters | Affects forward and options |
 | Autocallable observation | Closing price on observation dates | Typically monthly or quarterly |
 
@@ -482,7 +483,7 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 |-----------|----------|-------|
 | Loan day count | ACT/360 | Standard for USD leveraged loans |
 | Payment frequency | Quarterly | Interest and amortization |
-| SOFR lookback | Typically 2 business days | Daily simple SOFR or term SOFR |
+| SOFR coupon convention | Agreement-specific | Daily simple SOFR loans often use longer lookbacks; term SOFR loans use term fixings |
 | SOFR floor | 0% minimum | Some deals have 50-100bp floor |
 | Amortization (TLA) | 1% per quarter typical | Varies by deal |
 | Amortization (TLB) | 1% per annum | Minimal, bullet at maturity |
@@ -522,7 +523,7 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 |-----------|----------|-------|
 | T-bill day count | ACT/360 (discount) | Bank discount basis |
 | T-bill settlement | T+1 | Same as UST since 2023 |
-| T-bill pricing | Per $100 face, discount | Price = 100 - (discount * days/360) |
+| T-bill pricing | Per $100 face, discount | Price = 100 × (1 - discount × days/360) |
 | CP day count | ACT/360 | Discount basis |
 | CD day count | ACT/360 | Add-on basis |
 | Fed funds day count | ACT/360 | Overnight rate |
@@ -589,10 +590,10 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 | Tension spline | P3 | Alternative smoothing |
 | Turn-of-year effects | P2 | Short-end seasonality |
 | Fixing history | P1 | Historical rate fixings |
-| Implied forward rates | P1 | From discount curve |
+| Implied forward rates | P1 | From the relevant projection curve, not the discount curve |
 | Basis-adjusted forwards | P1 | Tenor basis in projections |
 | Central bank meeting date bumps | P2 | Rate step adjustments at FOMC/ECB dates |
-| Negative rate handling | P1 | Log-linear breaks for DF > 1 |
+| Negative rate handling | P1 | DF > 1 can be valid in negative-rate markets; handle interpolation and quoting consistently |
 | Curve snapshot/restore | P1 | Save/load calibrated state |
 | Curve diffing | P2 | Compare two snapshots for P&L attribution |
 
@@ -707,7 +708,7 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 |---------|----------|-------|
 | Rate fixing/reset | P1 | Historical fixings for floating legs |
 | Inflation fixing | P1 | CPI index lookup with publication lag |
-| FX fixing | P1 | WM/Reuters rates for NDF settlement |
+| FX fixing | P1 | Pair-specific benchmark from market convention and confirmation |
 | Exercise handling | P1 | European auto-exercise, Bermudan/American decisions |
 | Barrier monitoring | P1 | Continuous or discrete observation |
 | Coupon payment | P1 | Calculate amount, adjust for business day |
@@ -749,6 +750,6 @@ Use this checklist to identify coverage gaps. Items marked with priority indicat
 | Quote validation | P1 | Reject negative vol, inverted spreads |
 | Bid/ask handling | P2 | Mid, bid, ask, or custom weighting |
 | Snap time management | P2 | EOD vs intraday, timezone-aware |
-| Holiday-adjusted fixing | P1 | Use previous business day if holiday |
+| Holiday-adjusted fixing | P1 | Follow the product-specific fixing convention, not a universal previous-business-day rule |
 | Data source priority | P2 | Primary/secondary/fallback sources |
 | Audit trail | P1 | Which data was used for each calculation |

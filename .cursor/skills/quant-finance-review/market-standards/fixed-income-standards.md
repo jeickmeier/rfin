@@ -8,17 +8,18 @@
 |------|-----------|------------------|------------|-------------|
 | US Treasury | ACT/ACT ICMA | Semi-annual | T+1 | Clean, 32nds |
 | US Agency | 30/360 | Semi-annual | T+1 | Clean |
-| US Corporate | 30/360 | Semi-annual | T+2 | Clean |
-| US Municipal | 30/360 | Semi-annual | T+2 | Clean |
+| US Corporate | 30/360 | Semi-annual | T+1 | Clean |
+| US Municipal | 30/360 | Semi-annual | T+1 | Clean |
 | UK Gilt | ACT/ACT ICMA | Semi-annual | T+1 | Clean |
 | German Bund | ACT/ACT ICMA | Annual | T+2 | Clean |
 | JGB | ACT/365F | Semi-annual | T+2 | Clean |
 
-### Price/yield relationship (ISDA standard)
+### Price/yield relationship (market-specific convention)
 
 ```
 Clean price = Dirty price - Accrued interest
 
+Regular-coupon example:
 Dirty price = Σ CF_i / (1 + y/f)^(n_i)
 
 where:
@@ -27,17 +28,21 @@ where:
   f = coupon frequency (2 for semi-annual)
   n_i = periods to cashflow i
 
-Accrued interest = Coupon × days_accrued / days_in_period
+Accrued interest = Periodic_coupon_amount × accrued_fraction_of_current_coupon_period
+
+Production note:
+- There is no single universal desk-standard YTM formula across Treasuries, corporates, linkers, and ex-dividend markets
+- Real implementations must treat settlement date, fractional periods, stubs, redemption, ex-dividend rules, and quote basis as first-class inputs
 ```
 
 ### Accrued interest calculation
 
 ```
 US Treasury (ACT/ACT ICMA):
-AI = Coupon × (actual_days / actual_days_in_period)
+AI = Face × annual_coupon_rate × accrual_fraction(last_coupon, settlement)
 
 US Corporate (30/360):
-AI = Coupon × (30/360_days / 180)  [for semi-annual]
+AI = Face × annual_coupon_rate × day_count_30_360(last_coupon, settlement)
 
 30/360 adjustment:
 - If D1 = 31, set D1 = 30
@@ -94,7 +99,7 @@ Repurchase price = Purchase_price × (1 + r × T)
 where:
   Collateral_MV = Market value of collateral
   Haircut = Margin (e.g., 2% for Treasuries)
-  r = repo rate (simple, ACT/360)
+  r = repo rate (simple, using the market day-count basis)
   T = repo term in years
 
 Interest = Repurchase_price - Purchase_price
@@ -126,46 +131,55 @@ Interest = Repurchase_price - Purchase_price
 
 | Type | Indexation lag | Index | Day count |
 |------|----------------|-------|-----------|
-| US TIPS | 3 months | CPI-U NSA | ACT/ACT |
-| UK IL Gilt | 3 months | RPI | ACT/ACT |
-| Euro ILB | 3 months | HICP | ACT/ACT |
+| US TIPS | 3 months | CPI-U NSA | ACT/ACT ICMA |
+| UK IL Gilt (post-2005) | 3 months | RPI | ACT/ACT ICMA |
+| UK IL Gilt (legacy) | 8 months | RPI | ACT/ACT ICMA |
+| Euro ILB | 3 months | HICPxT | ACT/ACT ICMA |
 | JGBi | 3 months | Japan CPI | ACT/365 |
 
-### Index ratio calculation (Canadian model - most common)
+### Index ratio calculation
 
 ```
-Index_ratio = CPI(settlement) / CPI(base)
+Index_ratio = Reference_index(settlement) / Reference_index(base)
 
-CPI(settlement) = Linear interpolation between:
-  CPI(ref_month - 3)  and  CPI(ref_month - 2)
+US TIPS / post-2005 UK linker style:
+  daily interpolated reference index using the stated lag
 
-Interpolation:
-CPI(d) = CPI(M-3) + (d - 1) / days_in_month × [CPI(M-2) - CPI(M-3)]
+Legacy UK linker style:
+  indexation uses the legacy 8-month lag convention
 
-where:
-  d = day of month
-  M = settlement month
+Euro linker style:
+  use the bond family's published HICPxT reference index methodology
+
+JGBi:
+  follow the security-specific reference CPI and interpolation rule
+
+Do not collapse all linker families into one generic interpolation rule.
 ```
 
 ### TIPS pricing formula
 
 ```
-Dirty price = Index_ratio × [Σ CF_i × DF(t_i)]
+Quoted real dirty price = Σ CF_i × DF(t_i)
 
 where:
   CF_i = real cashflow (unadjusted by inflation)
   DF(t_i) = real discount factor
 
-Real yield solves:
-Clean_price / Index_ratio = Σ CF_i / (1 + y_real/2)^(n_i)
+Quoted real clean price / yield is solved on the real-price convention:
+Quoted_real_clean_price = Quoted_real_dirty_price - Real_accrued_interest
+
+Settlement cash amount applies indexation separately:
+Invoice_dirty_price = Index_ratio × Quoted_real_dirty_price
 ```
 
 ### Audit checklist - Inflation bonds
 
-- [ ] Index ratio uses 3-month lag (standard)
-- [ ] Linear interpolation between monthly CPI values
+- [ ] Index ratio matches the bond family (TIPS, UK legacy/post-2005, Euro linker, JGBi)
+- [ ] Reference index is the correct series (e.g. CPI-U NSA, RPI, HICPxT)
+- [ ] Interpolation rule matches the instrument, not a generic linker template
 - [ ] Real yield convention matches market (semi-annual for TIPS)
-- [ ] Deflation floor (if applicable - TIPS have floor at par)
+- [ ] Deflation floor handled instrument-by-instrument
 - [ ] Accrued inflation calculated correctly
 
 ---
@@ -176,16 +190,21 @@ Clean_price / Index_ratio = Σ CF_i / (1 + y_real/2)^(n_i)
 
 | Type | Rate | Day count | Prepayment |
 |------|------|-----------|------------|
-| Leveraged loan | SOFR + spread | ACT/360 | Par (with notice) |
+| Leveraged loan | SOFR + spread | ACT/360 | Credit-agreement specific; soft-call / 101-par schedules common |
 | Investment grade | SOFR + spread | ACT/360 | Par |
 | Real estate | Fixed or floating | ACT/360 | With penalty |
 
 ### Pricing components
 
 ```
-All-in rate = Base_rate + Spread + Facility_fee
+Interest coupon = Base_rate + Spread (+ floor effects where applicable)
 
-Present value = Σ [Principal_i + Interest_i] × DF(t_i)
+Fees are separate contractual cashflows:
+- commitment fee on undrawn amounts
+- ticking fee during unfunded commitment periods
+- utilization fee where applicable
+
+Present value = Σ [Principal_i + Interest_i + Fee_i] × DF(t_i)
 
 OID amortization (for discounted loans):
 Effective_rate solves: Purchase_price = Σ CF_i × (1 + r)^(-t_i)
@@ -221,12 +240,18 @@ Rounded to 4 decimal places
 ### CTD (Cheapest-to-Deliver) determination
 
 ```
-Net basis = Clean_price - Futures_price × CF - AI
+Invoice price at delivery = Futures_price × CF + AI_delivery
 
-Implied repo rate:
-IRR = [(Futures × CF + AI_delivery - Clean) / Clean] × (360/days)
+Carry analysis must include:
+- Dirty purchase price today
+- Repo financing to delivery
+- Coupon carry received before delivery
+- Invoice price at delivery
 
-CTD = bond with highest implied repo rate
+Desk-standard rule:
+- CTD = bond with the highest implied repo rate after full carry treatment
+- Equivalent net-basis comparisons must be done on a carry-consistent basis
+- Do not mix clean price and accrued interest shortcuts unless carry terms are handled explicitly
 ```
 
 ### Audit checklist - Bond futures
@@ -245,10 +270,10 @@ CTD = bond with highest implied repo rate
 
 ```rust
 // WRONG: Using ACT/ACT for corporates
-let accrued = coupon * actual_days as f64 / actual_period as f64;
+let accrued = face * coupon_rate * actual_days as f64 / actual_period as f64;
 
 // CORRECT: 30/360 for US corporates
-let accrued = coupon * day_count_30_360(last_coupon, settlement) * 2.0; // semi-annual
+let accrued = face * coupon_rate * day_count_30_360(last_coupon, settlement);
 ```
 
 ### 2. Accrued interest from wrong date
@@ -262,13 +287,13 @@ let last_coupon = most_recent_coupon_before(settlement, schedule);
 let accrued = calc_accrued(last_coupon, settlement);
 ```
 
-### 3. Inflation index ratio with wrong lag
+### 3. Inflation index ratio with wrong instrument-specific lag
 
 ```rust
 // WRONG: Using current month CPI
 let index_ratio = cpi_current / cpi_base;
 
-// CORRECT: 3-month lag with interpolation
+// CORRECT: TIPS-style 3-month lag with interpolation
 let ref_month = settlement_date.month() - 3;
 let cpi_interp = interpolate_cpi(ref_month, settlement_date.day());
 let index_ratio = cpi_interp / cpi_base;

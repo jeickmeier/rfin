@@ -1,62 +1,79 @@
 # Interest Rate Instrument Standards
 
-## Interest Rate Swaps (IRS)
+## Term-Index / Legacy IRS
 
 ### Standard market conventions
 
 | Currency | Float index | Day count (fixed) | Day count (float) | Frequency (fixed) | Frequency (float) | Bus day |
 |----------|-------------|-------------------|-------------------|-------------------|-------------------|---------|
-| USD | SOFR | 30/360 | ACT/360 | Semi-annual | Annual | NYC |
-| EUR | ESTR | 30/360 | ACT/360 | Annual | Annual | TARGET |
-| GBP | SONIA | ACT/365F | ACT/365F | Annual | Annual | London |
-| JPY | TONAR | ACT/365F | ACT/365F | Semi-annual | Annual | Tokyo |
-| CHF | SARON | 30/360 | ACT/360 | Annual | Annual | Zurich |
-| AUD | AONIA | ACT/365F | ACT/365F | Semi-annual | Quarterly | Sydney |
+| USD | Term SOFR or legacy 3M LIBOR | 30/360 | ACT/360 | Semi-annual | Quarterly | NYC |
+| EUR | 6M EURIBOR | 30/360 | ACT/360 | Annual | Semi-annual | TARGET |
+| GBP | Legacy 6M GBP LIBOR | ACT/365F | ACT/365F | Semi-annual | Semi-annual | London |
+| JPY | 6M TIBOR / JPY LIBOR legacy | ACT/365F | ACT/365F | Semi-annual | Semi-annual | Tokyo |
+| CHF | Legacy CHF LIBOR or contract-specific term-rate fallback | 30/360 | ACT/360 | Annual | Semi-annual | Zurich |
 
-### QuantLib/Bloomberg defaults
+This section is for term-index or legacy IRS templates, not the current generic G10 OIS market standard. For current benchmark swap conventions in USD/GBP/EUR risk systems, use the OIS section below unless the trade explicitly references a term index.
+
+### Standard trade template
 
 ```
-IRS defaults (QuantLib MakeOIS, Bloomberg SWDF):
+Vanilla IRS defaults:
 - Effective date: T+2 (spot start)
 - Roll convention: Modified Following
 - End of month rule: True (if start is EOM, roll to EOM)
-- Payment lag: 2 business days (for OIS)
-- Compounding: OIS = compounded with observation shift
-- Observation shift: 2 days lookback
-- Stub: Short front stub
+- Float leg: simple accrual off the underlying term index
+- Stub: none for standard spot-start schedules; explicit broken-date rule if non-standard
 - Notional: No exchange (single currency)
 ```
 
-### Compounding methods
+## Overnight Indexed Swaps (OIS)
 
-| Index type | Method | Shift | Professional library implementation |
-|------------|--------|-------|-------------------------------------|
-| OIS (SOFR, SONIA) | Compounded | Lookback/Observation shift | QuantLib: `OvernightIndexedSwap`, BBG: SWDF |
-| IBOR (legacy) | Simple | None | QuantLib: `VanillaSwap` |
-| Term SOFR | Simple | None | Same as legacy IBOR |
+### Standard market conventions
+
+| Currency | Overnight index | Float day count | Fixed-leg convention | Typical payment lag |
+|----------|-----------------|-----------------|---------------------|---------------------|
+| USD | SOFR | ACT/360 | CCP / venue template; do not inherit vanilla IRS defaults | 2 business days common |
+| EUR | ESTR | ACT/360 | CCP / venue template | 1-2 business days by template |
+| GBP | SONIA | ACT/365F | CCP / venue template | Often 0 business days |
+| JPY | TONAR | ACT/365F | CCP / venue template | Template-specific |
+| CHF | SARON | ACT/360 | CCP / venue template | Template-specific |
+
+### Coupon construction parameters
+
+Treat these as separate trade-template fields, not interchangeable labels:
+
+- **Lookback**: shift the observation window backward by N business days
+- **Observation shift**: shift both rates and day weights consistently over the observation window
+- **Lockout / rate cutoff**: repeat the last observed fixing for the final N days
+- **Payment delay**: pay N business days after the accrual period ends
+
+Desk-standard guidance: model the exact combination from the confirmation, CCP template, or market-standard product definition for that currency.
 
 ### OIS compounding formula (ISDA standard)
 
 ```
-Compounded rate = (∏(1 + r_i × d_i/360) - 1) × 360/D
+Coupon factor = ∏(1 + r_i × α_i)
+
+Compounded coupon rate over the accrual period:
+R = (Coupon factor - 1) / A
 
 where:
   r_i = overnight rate for day i
-  d_i = day count fraction for day i (usually 1/360)
-  D = total accrual days
+  α_i = day count fraction for observation i using the overnight index basis
+  A = total compounded accrual fraction over the coupon period on the overnight index basis
 
-With observation shift (lockout):
-  - 2-day shift: use rate from 2 business days prior
-  - Payment delay: pay 2 days after period end
+Implementation note:
+  - Lookback, observation shift, and lockout change different parts of the coupon construction
+  - Payment delay affects cashflow timing, not which rates are compounded
 ```
 
-### Audit checklist - IRS
+### Audit checklist - OIS
 
 - [ ] Day count matches market convention for currency
-- [ ] Compounding method correct (daily for OIS, simple for IBOR)
-- [ ] Observation shift implemented for OIS (2 days standard)
-- [ ] Payment lag matches convention (2 days for most OIS)
-- [ ] Stub period handling (front stub default)
+- [ ] Daily compounding uses the confirmed overnight coupon convention
+- [ ] Lookback, observation shift, lockout, and payment lag are modeled separately
+- [ ] Payment lag matches the clearinghouse or bilateral template
+- [ ] Stub handling is explicit only for broken-date schedules
 - [ ] Business day calendar correct for currency
 - [ ] Roll convention respects EOM rule
 
@@ -70,7 +87,7 @@ With observation shift (lockout):
 |----------|-----------|------------|------------|-----------------|
 | USD | ACT/360 | T-2 | Settlement date | Discounted |
 | EUR | ACT/360 | T-2 | Settlement date | Discounted |
-| GBP | ACT/365F | T-0 | Maturity date | Discounted |
+| GBP | ACT/365F | T-0 | Settlement date | Discounted |
 
 ### FRA pricing formula (ISDA/QuantLib standard)
 
@@ -119,15 +136,15 @@ FRA(
 | Swap type | Leg 1 | Leg 2 | Spread convention |
 |-----------|-------|-------|-------------------|
 | OIS-OIS | SOFR | FF | Spread on FF leg |
-| Tenor basis | 3M SOFR | 1M SOFR | Spread on shorter tenor |
-| XCCY basis | USD SOFR | EUR ESTR | Spread on non-USD leg |
+| Tenor basis | 6M EURIBOR | 3M EURIBOR | Quote convention, tenor-specific |
+| XCCY basis | USD SOFR | EUR EURIBOR or €STR leg | Pair-specific market convention |
 
 ### QuantLib defaults
 
 ```
 Basis swap conventions:
-- Spread: Added to second leg (typically shorter tenor or non-USD)
-- Notional: Single currency = no exchange, XCCY = exchange at start/end
+- Spread placement: Determined by the quoted market template, not a universal rule
+- Notional: Single currency = no exchange; XCCY may be fixed-notional or MTM resettable, with resettable-notional structures common in major currency pairs
 - Payment: Same dates or different based on tenor
 - Day count: Each leg follows its index convention
 ```
@@ -136,8 +153,8 @@ Basis swap conventions:
 
 - [ ] Spread applied to correct leg (market convention)
 - [ ] Each leg uses its own day count convention
-- [ ] XCCY includes notional exchanges (initial + final)
-- [ ] FX rate for notional exchange is spot at trade date
+- [ ] XCCY notional exchange and reset mechanics match the product template
+- [ ] FX reset rule and notionals are modeled correctly for MTM structures
 - [ ] Payment frequencies can differ between legs
 
 ---
@@ -146,11 +163,13 @@ Basis swap conventions:
 
 ### Market conventions
 
-| Currency | Day count | Volatility quote | Settlement |
-|----------|-----------|-----------------|------------|
-| USD | ACT/360 | Lognormal (Black) | T+2 |
-| EUR | ACT/360 | Normal (Bachelier) | T+2 |
-| GBP | ACT/365F | Lognormal | T+0 |
+| Currency | Day count | Volatility quote | Premium settlement |
+|----------|-----------|-----------------|--------------------|
+| USD | ACT/360 | Lognormal (Black) | Per confirmation, often spot-style |
+| EUR | ACT/360 | Normal (Bachelier) | Per confirmation |
+| GBP | ACT/365F | Lognormal or normal by market surface | Per confirmation |
+
+Caps and floors are premium-bearing cash-settled optionlets/floorlets. Do not model them as physically delivered instruments.
 
 ### Pricing models
 
@@ -196,22 +215,22 @@ where:
 
 | Currency | Vol quote | Exercise | Settlement |
 |----------|-----------|----------|------------|
-| USD | Lognormal | European | Physical or cash |
-| EUR | Normal (Bachelier) | European | Cash (ISDA formula) |
-| GBP | Lognormal | European | Physical |
+| USD | Normal common; lognormal also seen in some markets | European | Physical or cash |
+| EUR | Normal (Bachelier) | European | Cash (collateralized cash price) |
+| GBP | Normal common; lognormal legacy also seen | European | Physical |
 
-### Cash settlement (ISDA annuity)
+### Cash settlement conventions
 
 ```
-Cash settlement amount = Black_price × Annuity_factor
+Market-standard cash settlement depends on currency and market template.
 
-ISDA annuity (for cash-settled swaptions):
-A = Σ τ_i × DF(t_i)
+EUR market standard:
+- collateralized cash price
+- discounting consistent with collateralized swap cashflows
 
-where DF is calculated using the UNDERLYING swap rate (not market curve)
-This is the "ISDA" or "par" annuity convention.
-
-Alternative (market annuity): use market discount factors
+Legacy par-yield / ISDA annuity settlement:
+- historical convention for some markets and legacy trades
+- do not treat as the default EUR desk standard
 ```
 
 ### QuantLib implementation
@@ -232,8 +251,8 @@ BachelierSwaptionEngine    // Normal vol
 
 ### Audit checklist - Swaptions
 
-- [ ] Vol type matches market (lognormal USD/GBP, normal EUR)
-- [ ] Cash settlement uses ISDA annuity (not market annuity)
+- [ ] Vol type matches the quoted market surface and calibration convention
+- [ ] Cash settlement method matches the market standard for the currency and trade template
 - [ ] Expiry date is exercise date (not settlement)
 - [ ] Underlying swap terms match market standard
 - [ ] Physical delivery creates actual swap position
@@ -242,7 +261,7 @@ BachelierSwaptionEngine    // Normal vol
 
 ## Common implementation errors
 
-### 1. OIS compounding without shift
+### 1. OIS compounding without explicit coupon convention
 
 ```rust
 // WRONG: Simple average
@@ -252,9 +271,14 @@ let rate = daily_rates.iter().sum::<f64>() / daily_rates.len() as f64;
 let compound = daily_rates.iter()
     .fold(1.0, |acc, &r| acc * (1.0 + r * day_frac));
 
-// CORRECT: Compounding with 2-day observation shift
+// CORRECT: Compounding with explicit coupon convention parameters
 let compound = (0..accrual_days).fold(1.0, |acc, i| {
-    let obs_date = business_days_before(accrual_start + i, 2);
+    let obs_date = apply_ois_observation_convention(
+        accrual_start + i,
+        lookback_days,
+        observation_shift,
+        lockout_days,
+    );
     let rate = get_fixing(obs_date);
     acc * (1.0 + rate * 1.0/360.0)
 });

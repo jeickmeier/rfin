@@ -16,28 +16,31 @@
 | Method | Use case | Pros | Cons |
 |--------|----------|------|------|
 | Linear on zero | Quick approximation | Simple | Discontinuous forwards |
-| Log-linear on DF | Standard choice | Positive forwards | May be unstable |
-| Monotone convex | Production curves | Smooth, positive | Complex |
+| Log-linear on DF | Standard choice | Stable DF interpolation | Forward shape may be too simple |
+| Monotone convex | Production curves | Smooth, shape-preserving | More complex |
 | Cubic spline | General | C² continuous | May oscillate |
 | Tension spline | Avoiding overshoot | Controlled | Extra parameter |
 
-### Monotone convex (QuantLib/ISDA CDS standard)
+### Monotone convex (Hagan-West rates-curve interpolation)
 
 ```
 Key properties:
-1. Produces monotonically decreasing discount factors
-2. Forwards are always positive
+1. Produces a smooth, shape-preserving discount / forward curve
+2. Targets smooth, shape-preserving forward curves
 3. C¹ continuous (first derivative continuous)
 
 Implementation (Hagan-West algorithm):
 - Compute discrete forwards f_i from discount factors
-- Apply monotonicity filter to ensure positivity
+- Apply monotonicity and shape filters to avoid oscillatory forwards
 - Construct piecewise quadratic interpolant
+
+Do not treat this as an "ISDA CDS standard". CDS standard modeling is a separate hazard/survival bootstrapping problem.
 ```
 
 ### Audit checklist - Interpolation
 
-- [ ] Discount factors monotonically decreasing
+- [ ] Discount factors are consistent with the input curve and rate regime
+- [ ] Do not enforce monotonically decreasing discount factors when valid negative-rate curves imply DF > 1
 - [ ] No negative forward rates (unless intentional)
 - [ ] Extrapolation policy explicit (flat, linear, none)
 - [ ] Boundary conditions handled (at t=0, beyond max date)
@@ -52,7 +55,7 @@ Implementation (Hagan-West algorithm):
 | Problem | Algorithm | Tolerance | Max iterations |
 |---------|-----------|-----------|----------------|
 | Yield from price | Newton-Raphson | 1e-10 | 100 |
-| Implied vol | Newton + Brenner-Subrahmanyam | 1e-8 | 50 |
+| Implied vol | Safeguarded Newton / Jaeckel / Brent fallback | 1e-8 | 20-50 |
 | Curve bootstrap | Newton-Raphson | 1e-12 | 100 |
 | IRR calculation | Brent | 1e-10 | 100 |
 
@@ -65,7 +68,7 @@ Convergence: Quadratic when close to root
 Initial guess: Critical for convergence
 
 For yield: Start with coupon rate or 5%
-For implied vol: Start with Brenner-Subrahmanyam approximation
+For implied vol: Use arbitrage bounds plus a robust initial guess; prefer Jaeckel-style logic or safeguarded Newton/Brent
 ```
 
 ### Brent's method (bracketing, guaranteed convergence)
@@ -87,14 +90,13 @@ QuantLib: Brent is default for generic solvers
 ### Implied volatility initial guess
 
 ```
-Brenner-Subrahmanyam approximation:
-σ_approx = √(2π/T) × |C - P| / (F + K)
-
-Manaster-Koehler (more accurate):
-σ_approx = √(2 × |ln(F/K)| / T)
-
 Jaeckel (industry standard):
 See "Let's Be Rational" - provides near-optimal guess
+
+Practical desk-standard guidance:
+- Use Jaeckel / rational approximation when available
+- Otherwise run bounded Newton with a Brent fallback and arbitrage-checked brackets
+- Treat simple closed-form approximations as near-ATM heuristics only, not universal production formulas
 ```
 
 ### Audit checklist - Root-finding
@@ -127,7 +129,7 @@ Euler: S_{t+Δt} = S_t × (1 + μ Δt + σ √Δt × Z)
 
 Better: S_{t+Δt} = S_t × exp((μ - σ²/2) Δt + σ √Δt × Z)
 
-The exponential form (Milstein for GBM) prevents negative prices
+The exponential form is the log-Euler / exact GBM step and prevents negative prices
 ```
 
 ### Sobol sequences (QuantLib/Bloomberg standard)
@@ -158,6 +160,7 @@ c = -Cov(V, X) / Var(X)
 X = some correlated variate with known mean
 
 For options: Use forward as control
+For options: Prefer a closely related closed-form instrument as control variate
 ```
 
 ### Audit checklist - Monte Carlo
@@ -281,12 +284,12 @@ Calibration: Levenberg-Marquardt on option prices
 
 | Greek | Bump type | Size | Method |
 |-------|-----------|------|--------|
-| Delta | Spot | 1% relative | Central |
-| Gamma | Spot | 1% relative | Central second deriv |
-| Vega | Vol | 1% absolute | Central |
-| Theta | Time | 1 day | Forward |
-| Rho | Rate | 1 bp | Central |
-| DV01 | Curve | 1 bp parallel | Central |
+| Delta | Spot | Configurable numerical step; smaller than desk shock for local Greeks | Central |
+| Gamma | Spot | Configurable numerical step matched to payoff smoothness | Central second deriv |
+| Vega | Vol | Configurable by quoting convention and surface units | Central |
+| Theta | Time | 1 business day or desk-standard carry horizon | Forward |
+| Rho | Rate | 1 bp typical reporting shock; numerical step may differ | Central |
+| DV01 | Curve | 1 bp reporting shock; numerical step configurable | Central |
 
 ### Central difference formulas
 
@@ -319,7 +322,8 @@ Professional libraries increasingly use AAD:
 ### Audit checklist - Greeks
 
 - [ ] Central differences used (not forward)
-- [ ] Bump sizes appropriate (see table)
+- [ ] Numerical differentiation step is distinct from desk risk-reporting shock
+- [ ] Bump sizes appropriate for product smoothness and market quoting units
 - [ ] Gamma/Vega stable (not noisy)
 - [ ] Greeks consistent with no-arbitrage
 - [ ] For production: Consider AAD for speed
@@ -364,6 +368,6 @@ let s_next = s * ((mu - 0.5 * sigma * sigma) * dt + sigma * sqrt_dt * z).exp();
 // WRONG: Fixed initial guess
 let vol_init = 0.2;
 
-// CORRECT: Brenner-Subrahmanyam approximation
-let vol_init = (2.0 * PI / t).sqrt() * (call - put).abs() / (forward + strike);
+// CORRECT: Use a production-grade initial guess with bounded solver fallback
+let vol_init = jaeckel_initial_guess(forward, strike, option_price, t);
 ```

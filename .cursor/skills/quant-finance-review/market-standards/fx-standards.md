@@ -30,7 +30,7 @@ Example: EURGBP not GBPEUR, AUDUSD not USDAUD
 ### Audit checklist - FX Spot
 
 - [ ] Quote convention follows market standard
-- [ ] Settlement days correct (T+1 for USD/CAD, USD/TRY; T+2 otherwise)
+- [ ] Settlement days correct (for example USD/CAD, USD/TRY, and USD/RUB are T+1; many G10 pairs are T+2)
 - [ ] Business day calendar uses joint calendars (both currencies)
 - [ ] Base/quote currency follows priority rules
 
@@ -69,7 +69,7 @@ where:
 QuantLib FxForward:
 - Uses discount factor method (most accurate)
 - Settles notional on both currencies
-- Day count: ACT/360 for points calculation
+- Forward points come from the domestic and foreign discount curves, each with its own money-market basis
 
 Bloomberg FXFA:
 - Quotes in forward points (pips)
@@ -138,8 +138,8 @@ where:
 
 | Market | Vol quote | Delta convention | Premium currency |
 |--------|-----------|------------------|------------------|
-| G10 | ATM DNS, RR, BF | Forward delta | CCY2 (quote ccy) |
-| EM | ATM DNS | Forward delta | USD typically |
+| G10 | Pair-specific ATM / RR / BF template | Pair-specific | Often CCY2 (quote ccy), but confirm pair and venue |
+| EM | Pair-specific ATM / RR / BF template | Pair-specific, often premium-adjusted | Often USD, but confirm pair and venue |
 
 ### Volatility quote styles
 
@@ -149,7 +149,7 @@ ATM Definition:
 - ATMF (At-the-Money Forward): Strike = Forward
 - ATM Spot: Strike = Spot (rarely used professionally)
 
-Professional standard: ATM DNS
+Desk-standard guidance: ATM definition is pair- and venue-specific. Do not assume DNS globally.
 
 Risk Reversal (RR):
 - 25Δ RR = σ(25Δ call) - σ(25Δ put)
@@ -181,23 +181,30 @@ where:
 ### Delta conventions
 
 ```
-Spot delta (Bloomberg default):
+Spot delta (common as a screen/display convention, not the default interbank quote):
 δ_spot = e^(-r_f × T) × N(d1)
 
-Forward delta (professional interbank):
+Forward delta (common interbank default for many, not all, G10 pairs):
 δ_fwd = N(d1)
 
-Premium-adjusted delta (for EM):
-δ_pa = δ_spot - Premium/Spot × sign
+Premium-adjusted delta (common for some EM pairs):
+depends on:
+- premium currency
+- whether the market uses premium-adjusted spot or forward delta
+- the exact quoting convention for the pair / venue
+
+Desk-standard guidance:
+- Do not hardcode a single generic premium-adjusted delta formula
+- Use the market convention for the pair and quoting venue when inverting strikes or building a vol surface
 ```
 
 ### Audit checklist - FX Options
 
 - [ ] Garman-Kohlhagen used (not vanilla Black-Scholes)
 - [ ] Foreign rate discounts the spot, domestic rate discounts the strike
-- [ ] Delta convention matches market (forward delta for G10)
-- [ ] ATM strike uses DNS convention
-- [ ] Premium currency follows market convention
+- [ ] Delta convention matches the specific pair and quoting venue
+- [ ] ATM convention matches the surface construction rule for that pair
+- [ ] Premium currency follows the market template and confirmation
 - [ ] Vol surface interpolation respects smile
 
 ---
