@@ -7,7 +7,8 @@ use crate::collections::HashMap;
 
 /// Column name → index context for expression evaluation.
 ///
-/// This is the single concrete context type accepted by [`CompiledExpr::eval`].
+/// This is the single concrete context type accepted by
+/// [`CompiledExpr::eval`](crate::expr::CompiledExpr::eval).
 /// Construct it from any ordered iterator of column names; the index of each
 /// name in the iterator becomes its column index in the data arrays passed to
 /// `eval`.

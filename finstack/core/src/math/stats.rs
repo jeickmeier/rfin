@@ -282,7 +282,7 @@ pub fn quantile(data: &mut [f64], p: f64) -> f64 {
 ///
 /// # Errors
 ///
-/// Returns [`Error::Validation`] if `method` requires OHLC data.
+/// Returns [`Error::Validation`](crate::Error::Validation) if `method` requires OHLC data.
 ///
 /// # Returns
 /// Annualized realized variance
@@ -329,7 +329,7 @@ pub fn realized_variance(
 ///
 /// # Errors
 ///
-/// Returns [`Error::Validation`] if the four slices have different lengths.
+/// Returns [`Error::Validation`](crate::Error::Validation) if the four slices have different lengths.
 ///
 /// # Returns
 /// Annualized realized variance
