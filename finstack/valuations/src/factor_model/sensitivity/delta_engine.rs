@@ -61,7 +61,7 @@ impl DeltaBasedEngine {
 }
 
 /// Convert a `MarketMapping` into concrete `MarketBump`s that can be applied to a market.
-pub(crate) fn mapping_to_market_bumps(
+pub fn mapping_to_market_bumps(
     mapping: &MarketMapping,
     bump_size: f64,
     as_of: Date,

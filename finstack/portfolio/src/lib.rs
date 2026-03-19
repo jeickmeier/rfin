@@ -120,7 +120,12 @@ pub use cashflows::{
 };
 pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};
-pub use factor_model::{FactorContribution, PositionFactorContribution, RiskDecomposition};
+pub use factor_model::{
+    FactorAssignmentReport, FactorConstraint, FactorContribution, FactorContributionDelta,
+    FactorModel, FactorModelBuilder, FactorOptimizationResult, PositionAssignment, PositionChange,
+    PositionFactorContribution, RiskDecomposition, StressResult, UnmatchedEntry, WhatIfEngine,
+    WhatIfResult,
+};
 pub use grouping::{
     aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes, group_by_attribute,
 };

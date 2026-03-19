@@ -1,4 +1,8 @@
+use super::covariance::FactorCovarianceMatrix;
+use super::definition::FactorDefinition;
+use super::matching::MatchingConfig;
 use super::types::{FactorId, FactorType};
+use super::UnmatchedPolicy;
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
 
@@ -152,9 +156,37 @@ impl BumpSizeConfig {
     }
 }
 
+/// Serializable configuration bundle for constructing a factor-model workflow.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FactorModelConfig {
+    /// Factor definitions spanning the model universe.
+    pub factors: Vec<FactorDefinition>,
+    /// Covariance matrix aligned to `factors`.
+    pub covariance: FactorCovarianceMatrix,
+    /// Declarative dependency-to-factor matching configuration.
+    pub matching: MatchingConfig,
+    /// Sensitivity extraction strategy used by the analysis pipeline.
+    pub pricing_mode: PricingMode,
+    /// Risk measure used when aggregating factor sensitivities.
+    #[serde(default)]
+    pub risk_measure: RiskMeasure,
+    /// Optional finite-difference bump overrides for sensitivity engines.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bump_size: Option<BumpSizeConfig>,
+    /// Policy used when a dependency does not map to a configured factor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unmatched_policy: Option<UnmatchedPolicy>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::factor_model::{
+        FactorCovarianceMatrix, FactorDefinition, MarketMapping, MatchingConfig, UnmatchedPolicy,
+    };
+    use crate::market_data::bumps::BumpUnits;
+    use crate::types::CurveId;
 
     #[test]
     fn test_risk_measure_serde_roundtrip_for_all_variants() {
@@ -295,5 +327,107 @@ mod tests {
         assert!((config.fx_pct - back.fx_pct).abs() < 1e-12);
         assert!((config.vol_points - back.vol_points).abs() < 1e-12);
         assert_eq!(config.overrides, back.overrides);
+    }
+
+    #[test]
+    fn test_factor_model_config_serde_roundtrip() {
+        let config = FactorModelConfig {
+            factors: vec![FactorDefinition {
+                id: FactorId::new("Rates"),
+                factor_type: FactorType::Rates,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![CurveId::new("USD-OIS")],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            }],
+            covariance: {
+                let covariance_result =
+                    FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04]);
+                assert!(covariance_result.is_ok());
+                let Ok(covariance) = covariance_result else {
+                    return;
+                };
+                covariance
+            },
+            matching: MatchingConfig::MappingTable(vec![]),
+            pricing_mode: PricingMode::DeltaBased,
+            risk_measure: RiskMeasure::Variance,
+            bump_size: None,
+            unmatched_policy: Some(UnmatchedPolicy::Residual),
+        };
+
+        let json_result = serde_json::to_string_pretty(&config);
+        assert!(json_result.is_ok());
+        let Ok(json) = json_result else {
+            return;
+        };
+        let back_result: Result<FactorModelConfig, _> = serde_json::from_str(&json);
+        assert!(back_result.is_ok());
+        let Ok(back) = back_result else {
+            return;
+        };
+
+        assert_eq!(back.factors.len(), 1);
+        assert_eq!(back.pricing_mode, PricingMode::DeltaBased);
+        assert_eq!(back.risk_measure, RiskMeasure::Variance);
+        assert_eq!(back.unmatched_policy, Some(UnmatchedPolicy::Residual));
+    }
+
+    #[test]
+    fn test_bump_size_config_remains_equality_comparable() {
+        assert_eq!(BumpSizeConfig::default(), BumpSizeConfig::default());
+    }
+
+    #[test]
+    fn test_factor_model_config_deserialize_uses_defaults_for_omitted_optionals() {
+        let original = FactorModelConfig {
+            factors: vec![FactorDefinition {
+                id: FactorId::new("Rates"),
+                factor_type: FactorType::Rates,
+                market_mapping: MarketMapping::CurveParallel {
+                    curve_ids: vec![CurveId::new("USD-OIS")],
+                    units: BumpUnits::RateBp,
+                },
+                description: None,
+            }],
+            covariance: {
+                let covariance_result =
+                    FactorCovarianceMatrix::new(vec![FactorId::new("Rates")], vec![0.04]);
+                assert!(covariance_result.is_ok());
+                let Ok(covariance) = covariance_result else {
+                    return;
+                };
+                covariance
+            },
+            matching: MatchingConfig::MappingTable(vec![]),
+            pricing_mode: PricingMode::DeltaBased,
+            risk_measure: RiskMeasure::Variance,
+            bump_size: None,
+            unmatched_policy: None,
+        };
+
+        let value_result = serde_json::to_value(original);
+        assert!(value_result.is_ok());
+        let Ok(mut value) = value_result else {
+            return;
+        };
+        assert!(value.is_object());
+        let Some(object) = value.as_object_mut() else {
+            return;
+        };
+        object.remove("risk_measure");
+        object.remove("bump_size");
+        object.remove("unmatched_policy");
+
+        let config_result: Result<FactorModelConfig, _> = serde_json::from_value(value);
+        assert!(config_result.is_ok());
+        let Ok(config) = config_result else {
+            return;
+        };
+
+        assert_eq!(config.risk_measure, RiskMeasure::Variance);
+        assert_eq!(config.bump_size, None);
+        assert_eq!(config.unmatched_policy, None);
     }
 }

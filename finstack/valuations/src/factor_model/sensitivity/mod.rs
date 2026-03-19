@@ -5,7 +5,7 @@ mod matrix;
 mod repricing_engine;
 mod traits;
 
-pub use delta_engine::DeltaBasedEngine;
+pub use delta_engine::{mapping_to_market_bumps, DeltaBasedEngine};
 pub use matrix::SensitivityMatrix;
 pub use repricing_engine::{FactorPnlProfile, FullRepricingEngine, ScenarioGrid};
 pub use traits::FactorSensitivityEngine;
