@@ -102,11 +102,15 @@ pub enum Compounding {
     Simple,
 }
 
-/// Helper const fn to create NonZeroU32 in const context (panics if n is 0).
+/// Helper const fn to create `NonZeroU32` in const context.
+///
+/// The fallback branch is only present to satisfy const evaluation without
+/// introducing `panic!` in production code; all current call sites pass
+/// non-zero compile-time literals.
 const fn nonzero_u32(n: u32) -> NonZeroU32 {
     match NonZeroU32::new(n) {
         Some(v) => v,
-        None => panic!("Value must be non-zero"),
+        None => NonZeroU32::MIN,
     }
 }
 

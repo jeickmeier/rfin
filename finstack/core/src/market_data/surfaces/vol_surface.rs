@@ -76,17 +76,13 @@ use crate::{
 /// strikes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum VolSurfaceAxis {
     /// The secondary axis is strike/moneyness.
+    #[default]
     Strike,
     /// The secondary axis is swap tenor or another maturity-style bucket.
     Tenor,
-}
-
-impl Default for VolSurfaceAxis {
-    fn default() -> Self {
-        Self::Strike
-    }
 }
 
 impl std::fmt::Display for VolSurfaceAxis {

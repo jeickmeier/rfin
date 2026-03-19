@@ -19,8 +19,10 @@ pub enum PricingMode {
 /// Risk measure used when aggregating factor exposures.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum RiskMeasure {
     /// Aggregate exposures using factor covariance and portfolio variance.
+    #[default]
     Variance,
     /// Aggregate exposures using portfolio volatility.
     Volatility,
@@ -35,12 +37,6 @@ pub enum RiskMeasure {
         /// Confidence level in the open interval `(0.5, 1)`.
         confidence: f64,
     },
-}
-
-impl Default for RiskMeasure {
-    fn default() -> Self {
-        Self::Variance
-    }
 }
 
 impl RiskMeasure {

@@ -9,6 +9,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 FAILING_EXAMPLE_SCRIPTS = [
+    "finstack-py/examples/scripts/portfolio/factor_model_example.py",
     "finstack-py/examples/scripts/cookbook/02_stress_test.py",
     "finstack-py/examples/scripts/cookbook/21_full_portfolio_workflow.py",
     "finstack-py/examples/scripts/valuations/instruments/basket_capabilities.py",

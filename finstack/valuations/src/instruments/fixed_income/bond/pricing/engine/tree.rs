@@ -72,8 +72,10 @@ use finstack_core::money::Money;
 /// or `HullWhiteCalibratedToSwaptions` for automatic calibration.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type")]
+#[derive(Default)]
 pub enum TreeModelChoice {
     /// Ho-Lee / BDT model (current default) with exogenous volatility.
+    #[default]
     HoLee,
     /// Hull-White 1-factor with user-specified parameters.
     HullWhite {
@@ -91,12 +93,6 @@ pub enum TreeModelChoice {
         /// ID of the swaption volatility surface in the market context
         swaption_vol_surface_id: String,
     },
-}
-
-impl Default for TreeModelChoice {
-    fn default() -> Self {
-        Self::HoLee
-    }
 }
 
 /// Configuration for tree-based bond pricing (callable/putable bonds, OAS).

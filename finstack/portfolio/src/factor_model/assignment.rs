@@ -100,6 +100,9 @@ mod tests {
         assert_eq!(assignment.mappings[0].1, FactorId::new("Rates"));
         assert_eq!(unmatched.len(), 1);
         assert_eq!(unmatched[0].position_id, PositionId::new("pos-1"));
-        assert_eq!(unmatched[0].dependency, MarketDependency::Spot { id: "AAPL".into() });
+        assert_eq!(
+            unmatched[0].dependency,
+            MarketDependency::Spot { id: "AAPL".into() }
+        );
     }
 }

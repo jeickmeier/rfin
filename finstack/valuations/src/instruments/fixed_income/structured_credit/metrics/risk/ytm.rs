@@ -12,17 +12,13 @@ pub const STRUCTURED_CREDIT_YTM_CONFIG_KEY_V1: &str = "valuations.structured_cre
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 enum YtmCompounding {
+    #[default]
     Annual,
     SemiAnnual,
     Quarterly,
     Monthly,
-}
-
-impl Default for YtmCompounding {
-    fn default() -> Self {
-        Self::Annual
-    }
 }
 
 impl YtmCompounding {

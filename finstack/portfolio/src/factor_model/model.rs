@@ -1,12 +1,12 @@
 use super::assignment::{assign_position_factors, FactorAssignmentReport};
-use super::{ParametricDecomposer, RiskDecomposer, RiskDecomposition};
 use super::whatif::WhatIfEngine;
+use super::{ParametricDecomposer, RiskDecomposer, RiskDecomposition};
 use crate::error::{Error, Result};
 use crate::Portfolio;
 use finstack_core::dates::Date;
 use finstack_core::factor_model::{
-    BumpSizeConfig, FactorCovarianceMatrix, FactorDefinition, FactorModelConfig,
-    FactorModelError, MatchingConfig, PricingMode, RiskMeasure, UnmatchedPolicy,
+    BumpSizeConfig, FactorCovarianceMatrix, FactorDefinition, FactorModelConfig, FactorModelError,
+    MatchingConfig, PricingMode, RiskMeasure, UnmatchedPolicy,
 };
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::factor_model::decompose as flatten_dependencies;
@@ -115,9 +115,7 @@ impl Default for FactorModelBuilder {
     }
 }
 
-fn build_matcher(
-    config: &MatchingConfig,
-) -> Box<dyn finstack_core::factor_model::FactorMatcher> {
+fn build_matcher(config: &MatchingConfig) -> Box<dyn finstack_core::factor_model::FactorMatcher> {
     config.build_matcher()
 }
 
@@ -213,9 +211,12 @@ impl FactorModel {
             })
             .collect();
 
-        Ok(self
-            .sensitivity_engine
-            .compute_sensitivities(&positions, &self.factors, market, as_of)?)
+        Ok(self.sensitivity_engine.compute_sensitivities(
+            &positions,
+            &self.factors,
+            market,
+            as_of,
+        )?)
     }
 
     /// Run the full sensitivity-plus-decomposition pipeline.
@@ -272,7 +273,9 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use finstack_core::types::{Attributes, CurveId};
-    use finstack_valuations::factor_model::sensitivity::{FactorSensitivityEngine, SensitivityMatrix};
+    use finstack_valuations::factor_model::sensitivity::{
+        FactorSensitivityEngine, SensitivityMatrix,
+    };
     use finstack_valuations::instruments::common::dependencies::MarketDependencies;
     use finstack_valuations::instruments::common::traits::Instrument;
     use finstack_valuations::pricer::InstrumentType;
@@ -402,7 +405,11 @@ mod tests {
             "pos-1",
             DUMMY_ENTITY_ID,
             "inst-1",
-            Arc::new(MockInstrument::new("inst-1", "USD-OIS", vec!["AAPL".into()])),
+            Arc::new(MockInstrument::new(
+                "inst-1",
+                "USD-OIS",
+                vec!["AAPL".into()],
+            )),
             2.0,
             PositionUnit::Units,
         );
@@ -473,7 +480,8 @@ mod tests {
         };
 
         let portfolio = Portfolio::new("portfolio", Currency::USD, date!(2024 - 01 - 01));
-        let analysis_result = model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
+        let analysis_result =
+            model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
         assert!(analysis_result.is_ok());
         let Ok(actual) = analysis_result else {
             return;
@@ -540,7 +548,8 @@ mod tests {
         portfolio.positions.push(position);
         portfolio.rebuild_index();
 
-        let analysis_result = model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
+        let analysis_result =
+            model.analyze(&portfolio, &MarketContext::new(), date!(2024 - 01 - 01));
         assert!(analysis_result.is_err());
     }
 

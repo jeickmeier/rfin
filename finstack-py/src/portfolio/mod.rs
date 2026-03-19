@@ -9,6 +9,7 @@ pub(crate) mod builder;
 pub(crate) mod cashflows;
 pub(crate) mod dataframe;
 pub(crate) mod error;
+pub(crate) mod factor_model;
 pub(crate) mod grouping;
 pub(crate) mod margin;
 pub(crate) mod metrics;
@@ -121,6 +122,13 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         dataframe::register,
     )?;
     register_submodule(py, &module, "margin", &mut all_exports, margin::register)?;
+    register_submodule(
+        py,
+        &module,
+        "factor_model",
+        &mut all_exports,
+        factor_model::register,
+    )?;
     register_submodule(
         py,
         &module,

@@ -129,11 +129,12 @@ pub struct SwaptionQuote {
 /// Number of coupon payments per year for the underlying swap in HW1F calibration.
 ///
 /// USD swaps are semi-annual (2), EUR swaps are annual (1).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize, Default)]
 pub enum SwapFrequency {
     /// 1 payment per year (EUR, GBP standard).
     Annual,
     /// 2 payments per year (USD standard).
+    #[default]
     SemiAnnual,
     /// 4 payments per year.
     Quarterly,
@@ -146,12 +147,6 @@ impl SwapFrequency {
             Self::SemiAnnual => 2,
             Self::Quarterly => 4,
         }
-    }
-}
-
-impl Default for SwapFrequency {
-    fn default() -> Self {
-        Self::SemiAnnual
     }
 }
 

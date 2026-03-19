@@ -240,21 +240,17 @@ pub fn next_equity_option_expiry(date: Date) -> Date {
 /// month. See <https://www.sifma.org/resources/general/mbs-notification-and-settlement-dates/>.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SifmaSettlementClass {
     /// Class A: GNMA single-family 30-year.
     A,
     /// Class B: Conventional 30-year (FNMA/FHLMC UMBS). Most common for dollar rolls.
+    #[default]
     B,
     /// Class C: GNMA multi-family, ARMs, and other GNMA products.
     C,
     /// Class D: Conventional 15-year and 20-year (FNMA/FHLMC).
     D,
-}
-
-impl Default for SifmaSettlementClass {
-    fn default() -> Self {
-        Self::B
-    }
 }
 
 impl SifmaSettlementClass {

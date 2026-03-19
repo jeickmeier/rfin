@@ -183,14 +183,17 @@ impl<'a> WhatIfEngine<'a> {
 
         for position in &self.portfolio.positions {
             let base_value = position.instrument.value_raw(self.market, self.as_of)?;
-            let stressed_value = position.instrument.value_raw(&stressed_market, self.as_of)?;
+            let stressed_value = position
+                .instrument
+                .value_raw(&stressed_market, self.as_of)?;
             let pnl = (stressed_value - base_value) * position.quantity;
             position_pnl.push((position.position_id.clone(), pnl));
             total_pnl += pnl;
         }
 
         let stressed_decomposition =
-            self.model.analyze(self.portfolio, &stressed_market, self.as_of)?;
+            self.model
+                .analyze(self.portfolio, &stressed_market, self.as_of)?;
 
         Ok(StressResult {
             total_pnl,
@@ -239,7 +242,9 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use finstack_core::types::{Attributes, CurveId};
-    use finstack_valuations::factor_model::sensitivity::{FactorSensitivityEngine, SensitivityMatrix};
+    use finstack_valuations::factor_model::sensitivity::{
+        FactorSensitivityEngine, SensitivityMatrix,
+    };
     use finstack_valuations::instruments::common::dependencies::MarketDependencies;
     use finstack_valuations::instruments::common::traits::Instrument;
     use finstack_valuations::pricer::InstrumentType;
@@ -267,7 +272,13 @@ mod tests {
         };
 
         let result = model
-            .what_if(&base, &sensitivities, &portfolio, &market, date!(2024 - 01 - 01))
+            .what_if(
+                &base,
+                &sensitivities,
+                &portfolio,
+                &market,
+                date!(2024 - 01 - 01),
+            )
             .position_what_if(&[PositionChange::Resize {
                 position_id: PositionId::new("pos-1"),
                 new_quantity: 4.0,
@@ -300,7 +311,13 @@ mod tests {
         };
 
         let result = model
-            .what_if(&base, &sensitivities, &portfolio, &market, date!(2024 - 01 - 01))
+            .what_if(
+                &base,
+                &sensitivities,
+                &portfolio,
+                &market,
+                date!(2024 - 01 - 01),
+            )
             .position_what_if(&[PositionChange::Remove {
                 position_id: PositionId::new("pos-1"),
             }]);
@@ -345,7 +362,13 @@ mod tests {
         };
 
         let result = model
-            .what_if(&base, &sensitivities, &portfolio, &market, date!(2024 - 01 - 01))
+            .what_if(
+                &base,
+                &sensitivities,
+                &portfolio,
+                &market,
+                date!(2024 - 01 - 01),
+            )
             .position_what_if(&[PositionChange::Add {
                 position: Box::new(added_position),
             }]);
@@ -372,7 +395,13 @@ mod tests {
         };
 
         let stress_result = model
-            .what_if(&base, &sensitivities, &portfolio, &market, date!(2024 - 01 - 01))
+            .what_if(
+                &base,
+                &sensitivities,
+                &portfolio,
+                &market,
+                date!(2024 - 01 - 01),
+            )
             .factor_stress(&[(FactorId::new("Rates"), 1.0)]);
         assert!(stress_result.is_ok());
         let Ok(stress_result) = stress_result else {
@@ -441,7 +470,11 @@ mod tests {
         portfolio.positions.push(position);
         portfolio.rebuild_index();
 
-        Some((model, portfolio, build_test_market_at(date!(2024 - 01 - 01))))
+        Some((
+            model,
+            portfolio,
+            build_test_market_at(date!(2024 - 01 - 01)),
+        ))
     }
 
     #[derive(Clone)]

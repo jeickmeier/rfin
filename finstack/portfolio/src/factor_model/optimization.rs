@@ -36,10 +36,7 @@ pub struct FactorOptimizationResult {
 
 impl<'a> WhatIfEngine<'a> {
     /// Stub optimization entry point until the quadratic factor-risk problem is supported.
-    pub fn optimize(
-        &self,
-        _constraints: &[FactorConstraint],
-    ) -> Result<FactorOptimizationResult> {
+    pub fn optimize(&self, _constraints: &[FactorConstraint]) -> Result<FactorOptimizationResult> {
         Err(Error::optimization_error(
             "Factor-constrained optimization is not supported yet because the current LP optimizer cannot represent covariance-based factor-risk constraints",
         ))
@@ -62,7 +59,9 @@ mod tests {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::money::Money;
     use finstack_core::types::{Attributes, CurveId};
-    use finstack_valuations::factor_model::sensitivity::{FactorSensitivityEngine, SensitivityMatrix};
+    use finstack_valuations::factor_model::sensitivity::{
+        FactorSensitivityEngine, SensitivityMatrix,
+    };
     use finstack_valuations::instruments::common::dependencies::MarketDependencies;
     use finstack_valuations::instruments::common::traits::Instrument;
     use finstack_valuations::pricer::InstrumentType;
@@ -104,7 +103,13 @@ mod tests {
         };
 
         let result = model
-            .what_if(&base, &sensitivities, &portfolio, &market, date!(2024 - 01 - 01))
+            .what_if(
+                &base,
+                &sensitivities,
+                &portfolio,
+                &market,
+                date!(2024 - 01 - 01),
+            )
             .optimize(&[FactorConstraint::FactorNeutral {
                 factor_id: FactorId::new("Rates"),
             }]);
@@ -170,7 +175,11 @@ mod tests {
         portfolio.positions.push(position);
         portfolio.rebuild_index();
 
-        Some((model, portfolio, build_test_market_at(date!(2024 - 01 - 01))))
+        Some((
+            model,
+            portfolio,
+            build_test_market_at(date!(2024 - 01 - 01)),
+        ))
     }
 
     #[derive(Clone)]

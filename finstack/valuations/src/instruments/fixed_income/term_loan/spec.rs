@@ -577,9 +577,11 @@ fn default_settlement_days() -> u32 {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
+#[derive(Default)]
 pub enum LoanCallType {
     /// Hard call: callable at the stated price on or after the call date.
     /// This is the default if no call type is specified.
+    #[default]
     Hard,
     /// Soft call: callable with a premium during the call protection period.
     /// After the protection period, callable at par.
@@ -590,12 +592,6 @@ pub enum LoanCallType {
         /// Spread over the reference rate in basis points (e.g., 50 = T+50bps).
         treasury_spread_bp: i32,
     },
-}
-
-impl Default for LoanCallType {
-    fn default() -> Self {
-        Self::Hard
-    }
 }
 
 /// Borrower call option on term loan.
