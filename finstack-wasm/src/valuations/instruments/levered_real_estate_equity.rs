@@ -143,8 +143,8 @@ impl JsLeveredRealEstateEquity {
 
     /// Get the instrument type.
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::LeveredRealEstateEquity as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::LeveredRealEstateEquity.to_string()
     }
 
     #[wasm_bindgen(js_name = toJson)]

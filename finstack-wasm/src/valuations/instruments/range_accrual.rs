@@ -128,8 +128,8 @@ impl JsRangeAccrual {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::RangeAccrual as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::RangeAccrual.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

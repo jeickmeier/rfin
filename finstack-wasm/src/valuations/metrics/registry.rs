@@ -127,18 +127,28 @@ impl Default for JsMetricRegistry {
 // ============================================================================
 
 /// Parse MetricId from JsValue (currently only supports string names).
-#[allow(clippy::expect_used)]
 fn parse_metric_id(value: JsValue) -> Result<MetricId, JsValue> {
     // Extract string name
     if let Some(name) = value.as_string() {
-        // SAFETY: MetricId::from_str() never fails - returns Custom(name) for unknown names
-        // Error type is () and all code paths return Ok(_)
         return Ok(name
             .parse()
-            .expect("MetricId::from_str never fails, creates Custom for unknown names"));
+            .unwrap_or_else(|_| MetricId::custom(name)));
     }
 
     Err(JsValue::from_str(
         "Expected string metric name (e.g., 'pv', 'dv01', 'duration_mod')",
     ))
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn parse_metric_id_falls_back_to_custom_metric() {
+        let parsed = parse_metric_id(JsValue::from_str("my_custom_metric"))
+            .expect("string metric names should parse");
+        assert_eq!(parsed.as_str(), "my_custom_metric");
+    }
 }

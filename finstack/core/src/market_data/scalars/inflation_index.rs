@@ -373,17 +373,19 @@ impl InflationIndex {
         let observations = self.series.observations();
 
         if observations.is_empty() {
-            return Err(Error::Internal);
+            return Err(Error::internal(
+                "inflation index date_range requires at least one observation",
+            ));
         }
 
         let start_date = observations
             .first()
             .map(|(d, _)| *d)
-            .ok_or(Error::Internal)?;
+            .ok_or_else(|| Error::internal("inflation index observations missing first date"))?;
         let end_date = observations
             .last()
             .map(|(d, _)| *d)
-            .ok_or(Error::Internal)?;
+            .ok_or_else(|| Error::internal("inflation index observations missing last date"))?;
 
         Ok((start_date, end_date))
     }

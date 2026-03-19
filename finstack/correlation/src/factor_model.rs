@@ -272,7 +272,7 @@ impl FactorSpec {
                 num_factors,
                 volatilities,
                 correlations,
-            } => Box::new(MultiFactorModel::new(
+            } => Box::new(MultiFactorModel::new_or_identity(
                 *num_factors,
                 volatilities.clone(),
                 correlations.clone(),
@@ -513,16 +513,29 @@ pub struct MultiFactorModel {
 impl MultiFactorModel {
     /// Create a multi-factor model.
     ///
-    /// If the correlation matrix is invalid (wrong size, not PSD, etc.),
-    /// falls back to an identity correlation matrix (uncorrelated factors).
-    ///
     /// # Arguments
     /// * `num_factors` - Number of factors (must be ≥ 1)
     /// * `volatilities` - Factor volatilities (one per factor)
     /// * `correlations` - Correlation matrix (flattened row-major, n×n values)
+    ///
+    /// # Errors
+    /// Returns [`CorrelationMatrixError`] if the matrix is invalid.
+    pub fn new(
+        num_factors: usize,
+        volatilities: Vec<f64>,
+        correlations: Vec<f64>,
+    ) -> Result<Self, CorrelationMatrixError> {
+        Self::validated(num_factors, volatilities, correlations)
+    }
+
+    /// Create a multi-factor model, falling back to identity correlation on invalid input.
     #[must_use]
-    pub fn new(num_factors: usize, volatilities: Vec<f64>, correlations: Vec<f64>) -> Self {
-        Self::validated(num_factors, volatilities.clone(), correlations).unwrap_or_else(|err| {
+    pub fn new_or_identity(
+        num_factors: usize,
+        volatilities: Vec<f64>,
+        correlations: Vec<f64>,
+    ) -> Self {
+        Self::new(num_factors, volatilities.clone(), correlations).unwrap_or_else(|err| {
             tracing::warn!(
                 num_factors,
                 %err,
@@ -944,13 +957,22 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_factor_invalid_falls_back_to_identity() {
+    fn test_multi_factor_invalid_matrix_returns_error() {
         // Invalid matrix (not symmetric)
         let corr = vec![1.0, 0.5, 0.3, 1.0];
         let vols = vec![0.2, 0.3];
-        let model = MultiFactorModel::new(2, vols, corr);
+        let err = MultiFactorModel::new(2, vols, corr)
+            .expect_err("invalid matrices should no longer silently fall back");
 
-        // Should fall back to identity
+        assert!(matches!(err, CorrelationMatrixError::NotSymmetric { .. }));
+    }
+
+    #[test]
+    fn test_multi_factor_new_or_identity_preserves_legacy_fallback() {
+        let corr = vec![1.0, 0.5, 0.3, 1.0];
+        let vols = vec![0.2, 0.3];
+        let model = MultiFactorModel::new_or_identity(2, vols, corr);
+
         let corr_matrix = model.correlation_matrix();
         assert!((corr_matrix[0] - 1.0).abs() < 1e-10);
         assert!(corr_matrix[1].abs() < 1e-10);

@@ -141,14 +141,14 @@ impl TrinomialTree {
         // Extract required parameters from state variables
         let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
-            .ok_or(Error::Internal)?;
+            .ok_or_else(|| Error::internal("trinomial tree requires initial interest rate"))?;
         let q = initial_vars
             .get(state_keys::DIVIDEND_YIELD)
             .copied()
             .unwrap_or(0.0);
         let sigma = *initial_vars
             .get(state_keys::VOLATILITY)
-            .ok_or(Error::Internal)?;
+            .ok_or_else(|| Error::internal("trinomial tree requires initial volatility"))?;
 
         let (u, d, m, p_u, p_d, p_m) = self.calculate_parameters(r, sigma, time_to_maturity, q)?;
 

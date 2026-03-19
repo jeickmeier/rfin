@@ -865,7 +865,9 @@ impl ShortRateTree {
     /// Get the short rate at a specific node
     pub fn rate_at_node(&self, step: usize, node: usize) -> Result<f64> {
         if step >= self.rates.len() || node >= self.rates[step].len() {
-            return Err(Error::Internal);
+            return Err(Error::internal(format!(
+                "short-rate tree node out of bounds: step={step}, node={node}"
+            )));
         }
         Ok(self.rates[step][node])
     }
@@ -873,7 +875,9 @@ impl ShortRateTree {
     /// Get transition probabilities at a step
     pub fn probabilities(&self, step: usize) -> Result<(f64, f64)> {
         if step >= self.probs.len() {
-            return Err(Error::Internal);
+            return Err(Error::internal(format!(
+                "short-rate tree probability row out of bounds: step={step}"
+            )));
         }
         Ok(self.probs[step])
     }
@@ -881,7 +885,9 @@ impl ShortRateTree {
     /// Get time at step
     pub fn time_at_step(&self, step: usize) -> Result<f64> {
         if step >= self.time_steps.len() {
-            return Err(Error::Internal);
+            return Err(Error::internal(format!(
+                "short-rate tree time step out of bounds: step={step}"
+            )));
         }
         Ok(self.time_steps[step])
     }
@@ -897,7 +903,9 @@ impl TreeModel for ShortRateTree {
     ) -> Result<f64> {
         if self.rates.is_empty() {
             tracing::debug!("ShortRateTree::price called before calibration (rates is empty)");
-            return Err(Error::Internal); // Tree not calibrated
+            return Err(Error::internal(
+                "short-rate tree must be calibrated before pricing",
+            ));
         }
 
         // Ensure initial rate is present

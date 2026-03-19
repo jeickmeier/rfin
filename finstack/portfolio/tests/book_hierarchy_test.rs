@@ -346,7 +346,7 @@ fn test_position_without_book() {
         .expect("portfolio should build");
 
     // Verify position has no book
-    assert_eq!(portfolio.positions[0].book_id, None);
+    assert_eq!(portfolio.positions()[0].book_id, None);
     assert_eq!(portfolio.books.len(), 0);
 }
 

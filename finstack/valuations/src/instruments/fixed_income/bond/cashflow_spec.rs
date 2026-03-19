@@ -154,6 +154,13 @@ impl CashflowSpec {
     ///
     /// A `CashflowSpec::Fixed` variant with the specified coupon rate, frequency, and day count.
     ///
+    /// # Input validation note
+    ///
+    /// This convenience constructor keeps legacy behavior: after the debug-only
+    /// finite-value assertion above, any failed `f64 -> Decimal` conversion falls
+    /// back to `0`. External callers that need hard validation should prefer the
+    /// typed constructors or builder APIs that accept `Decimal` directly.
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -334,6 +341,13 @@ impl CashflowSpec {
     /// # Returns
     ///
     /// A `CashflowSpec::Floating` variant with the specified parameters.
+    ///
+    /// # Input validation note
+    ///
+    /// This convenience constructor retains the historical zero-fallback behavior
+    /// for `margin_bp` after the debug-only finite-value assertion. Callers that
+    /// require strict conversion semantics should construct `FloatingCouponSpec`
+    /// directly with typed `Decimal` inputs.
     ///
     /// # Examples
     ///
@@ -550,6 +564,13 @@ impl CashflowSpec {
     ///     DayCount::Thirty360,
     /// );
     /// ```
+    ///
+    /// # Input validation note
+    ///
+    /// This helper intentionally preserves the legacy behavior of coercing any
+    /// failed `f64 -> Decimal` conversion to `0` after debug assertions. Use a
+    /// typed `StepUpCouponSpec` directly when invalid external data must fail
+    /// fast instead of being normalized.
     pub fn step_up(
         initial_rate: f64,
         steps: Vec<(finstack_core::dates::Date, f64)>,

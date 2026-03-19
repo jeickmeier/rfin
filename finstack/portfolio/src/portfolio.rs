@@ -40,7 +40,7 @@ pub struct Portfolio {
 
     /// Flat list of positions (not serialized directly due to Instrument trait)
     #[serde(skip)]
-    pub positions: Vec<Position>,
+    pub(crate) positions: Vec<Position>,
 
     /// Index mapping position ID → index in `positions` for O(1) lookup.
     ///
@@ -136,6 +136,23 @@ impl Portfolio {
             .map(|(i, p)| (p.position_id.clone(), i))
             .collect();
         self.dependency_index = DependencyIndex::build(&self.positions);
+    }
+
+    /// Borrow all positions as an immutable slice.
+    pub fn positions(&self) -> &[Position] {
+        &self.positions
+    }
+
+    /// Append a position and refresh derived indices.
+    pub fn add_position(&mut self, position: Position) {
+        self.positions.push(position);
+        self.rebuild_index();
+    }
+
+    /// Replace all positions and refresh derived indices.
+    pub fn set_positions(&mut self, positions: Vec<Position>) {
+        self.positions = positions;
+        self.rebuild_index();
     }
 
     /// Get a position by identifier (O(1) via index).

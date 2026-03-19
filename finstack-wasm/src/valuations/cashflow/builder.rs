@@ -15,6 +15,7 @@ use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::dates::schedule::JsStubKind;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::decimal::decimal_from_f64;
 use crate::valuations::common::curve_id_from_str;
 use finstack_valuations::cashflow::builder::specs::{
     CouponType as CoreCouponType, FixedCouponSpec as CoreFixedCouponSpec,
@@ -66,13 +67,13 @@ impl JsCouponType {
     ///
     /// Note: cash_pct + pik_pct should sum to ~1.0
     #[wasm_bindgen(js_name = split)]
-    pub fn split(cash_pct: f64, pik_pct: f64) -> JsCouponType {
-        JsCouponType {
+    pub fn split(cash_pct: f64, pik_pct: f64) -> Result<JsCouponType, JsValue> {
+        Ok(JsCouponType {
             inner: CoreCouponType::Split {
-                cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
-                pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
+                cash_pct: decimal_from_f64(cash_pct, "cashPct")?,
+                pik_pct: decimal_from_f64(pik_pct, "pikPct")?,
             },
-        }
+        })
     }
 }
 
@@ -162,12 +163,12 @@ impl JsFixedCouponSpec {
         rate: f64,
         schedule: &JsScheduleParams,
         coupon_type: &JsCouponType,
-    ) -> JsFixedCouponSpec {
+    ) -> Result<JsFixedCouponSpec, JsValue> {
         let sched = schedule.inner();
-        JsFixedCouponSpec {
+        Ok(JsFixedCouponSpec {
             inner: CoreFixedCouponSpec {
                 coupon_type: coupon_type.inner(),
-                rate: rust_decimal::Decimal::from_f64_retain(rate).unwrap_or_default(),
+                rate: decimal_from_f64(rate, "rate")?,
                 freq: sched.freq,
                 dc: sched.dc,
                 bdc: sched.bdc,
@@ -176,7 +177,7 @@ impl JsFixedCouponSpec {
                 end_of_month: sched.end_of_month,
                 payment_lag_days: sched.payment_lag_days,
             },
-        }
+        })
     }
 }
 
@@ -202,13 +203,12 @@ impl JsFloatCouponParams {
         margin_bp: f64,
         gearing: Option<f64>,
         reset_lag_days: Option<i32>,
-    ) -> JsFloatCouponParams {
-        JsFloatCouponParams {
+    ) -> Result<JsFloatCouponParams, JsValue> {
+        Ok(JsFloatCouponParams {
             inner: CoreFloatCouponParams {
                 index_id: curve_id_from_str(index_id),
-                margin_bp: rust_decimal::Decimal::from_f64_retain(margin_bp).unwrap_or_default(),
-                gearing: rust_decimal::Decimal::from_f64_retain(gearing.unwrap_or(1.0))
-                    .unwrap_or(rust_decimal::Decimal::ONE),
+                margin_bp: decimal_from_f64(margin_bp, "marginBp")?,
+                gearing: decimal_from_f64(gearing.unwrap_or(1.0), "gearing")?,
                 reset_lag_days: reset_lag_days.unwrap_or(2),
                 gearing_includes_spread: true,
                 floor_bp: None,
@@ -219,7 +219,7 @@ impl JsFloatCouponParams {
                 overnight_compounding: None,
                 fallback: Default::default(),
             },
-        }
+        })
     }
 }
 
@@ -447,8 +447,8 @@ impl JsCashflowBuilder {
                     .parse()
                     .map_err(|_| js_error("Invalid PIK percentage in split"))?;
                 CoreCouponType::Split {
-                    cash_pct: rust_decimal::Decimal::from_f64_retain(cash_pct).unwrap_or_default(),
-                    pik_pct: rust_decimal::Decimal::from_f64_retain(pik_pct).unwrap_or_default(),
+                    cash_pct: decimal_from_f64(cash_pct, "cashPct")?,
+                    pik_pct: decimal_from_f64(pik_pct, "pikPct")?,
                 }
             } else {
                 return Err(js_error(

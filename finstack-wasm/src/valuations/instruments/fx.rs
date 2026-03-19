@@ -191,8 +191,8 @@ impl JsFxSpot {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::FxSpot as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::FxSpot.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]
@@ -508,8 +508,8 @@ impl JsFxOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::FxOption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::FxOption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]
@@ -785,8 +785,8 @@ impl JsFxSwap {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::FxSwap as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::FxSwap.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

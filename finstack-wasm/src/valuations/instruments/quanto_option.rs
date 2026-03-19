@@ -92,8 +92,8 @@ impl JsQuantoOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::QuantoOption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::QuantoOption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

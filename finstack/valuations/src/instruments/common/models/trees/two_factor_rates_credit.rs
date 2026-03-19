@@ -112,7 +112,9 @@ impl RatesCreditTree {
     ) -> Result<()> {
         let steps = self.config.steps;
         if steps == 0 || time_to_maturity <= 0.0 {
-            return Err(Error::Internal);
+            return Err(Error::internal(
+                "rates-credit tree calibration requires positive steps and time_to_maturity",
+            ));
         }
         let dt = time_to_maturity / steps as f64;
 
@@ -272,10 +274,14 @@ impl TreeModel for RatesCreditTree {
         valuator: &V,
     ) -> Result<f64> {
         if self.calibrated_rates.is_empty() || self.calibrated_hazards.is_empty() {
-            return Err(Error::Internal); // Tree not calibrated
+            return Err(Error::internal(
+                "rates-credit tree must be calibrated before pricing",
+            ));
         }
         if self.config.steps == 0 || time_to_maturity <= 0.0 {
-            return Err(Error::Internal);
+            return Err(Error::internal(
+                "rates-credit tree pricing requires positive steps and time_to_maturity",
+            ));
         }
 
         let steps = self.config.steps;

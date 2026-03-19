@@ -552,12 +552,18 @@ fn apply_observed(mut base: Date, observed: Observed) -> Date {
 fn shift_to_weekday(mut d: Date, weekday: Weekday, dir: Direction) -> Date {
     match dir {
         Direction::After => {
-            while d.weekday() != weekday {
+            for _ in 0..7 {
+                if d.weekday() == weekday {
+                    return d;
+                }
                 d += Duration::days(1);
             }
         }
         Direction::Before => {
-            while d.weekday() != weekday {
+            for _ in 0..7 {
+                if d.weekday() == weekday {
+                    return d;
+                }
                 d -= Duration::days(1);
             }
         }

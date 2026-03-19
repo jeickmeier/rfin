@@ -100,8 +100,8 @@ impl JsBasket {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::Basket as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::Basket.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]
@@ -255,8 +255,8 @@ impl JsStructuredCredit {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::StructuredCredit as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::StructuredCredit.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

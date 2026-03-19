@@ -35,10 +35,11 @@ pub enum StrictMode {
     /// This is the recommended mode for production use.
     Strict,
 
-    /// Best effort mode: continue on errors, insert 0.0 as fallback.
+    /// Best effort mode: continue on errors and omit missing values.
     ///
     /// Missing metrics, non-applicable metrics, and calculation failures
-    /// will be logged as warnings and assigned a value of 0.0.
+    /// will be logged as warnings and left unset so downstream callers can
+    /// apply an explicit fallback policy when needed.
     /// Use this mode only when you need backward compatibility or
     /// explicitly want to handle partial results.
     BestEffort,
@@ -281,9 +282,8 @@ impl MetricRegistry {
                         StrictMode::BestEffort => {
                             tracing::warn!(
                                 metric_id = %metric_id.as_str(),
-                                "Metric not registered, inserting 0.0 as fallback"
+                                "Metric not registered; omitting value in best-effort mode"
                             );
-                            context.computed.insert(metric_id, 0.0);
                         }
                     }
                 }
@@ -304,9 +304,8 @@ impl MetricRegistry {
                             tracing::warn!(
                                 metric_id = %metric_id.as_str(),
                                 %instrument_type,
-                                "Metric not applicable to instrument type, inserting 0.0 as fallback"
+                                "Metric not applicable to instrument type; omitting value in best-effort mode"
                             );
-                            context.computed.insert(metric_id, 0.0);
                         }
                     }
                 }
@@ -329,9 +328,8 @@ impl MetricRegistry {
                         tracing::warn!(
                             metric_id = %metric_id.as_str(),
                             error = %err,
-                            "Metric calculation failed, inserting 0.0 as fallback"
+                            "Metric calculation failed; omitting value in best-effort mode"
                         );
-                        context.computed.insert(metric_id, 0.0);
                     }
                 },
             }
@@ -686,7 +684,7 @@ mod tests {
     }
 
     #[test]
-    fn test_best_effort_mode_fallback() {
+    fn test_best_effort_mode_omits_missing_and_failed_metrics() {
         let mut registry = MetricRegistry::new();
 
         // Register one calculator that succeeds and one that fails
@@ -715,11 +713,12 @@ mod tests {
         // Dv01 should succeed with correct value
         assert_eq!(results.get(&MetricId::Dv01), Some(&100.0));
 
-        // Convexity should fallback to 0.0 (failed calculation)
-        assert_eq!(results.get(&MetricId::Convexity), Some(&0.0));
+        // Failed and unknown metrics should be omitted rather than synthesized.
+        assert!(!results.contains_key(&MetricId::Convexity));
+        assert!(!context.computed.contains_key(&MetricId::Convexity));
 
-        // Ytm should fallback to 0.0 (unknown metric)
-        assert_eq!(results.get(&MetricId::Ytm), Some(&0.0));
+        assert!(!results.contains_key(&MetricId::Ytm));
+        assert!(!context.computed.contains_key(&MetricId::Ytm));
     }
 
     #[test]
@@ -897,7 +896,8 @@ mod tests {
         let results = result.unwrap();
 
         assert_eq!(results.get(&MetricId::Dv01), Some(&100.0));
-        assert_eq!(results.get(&MetricId::Convexity), Some(&0.0)); // Failed -> 0.0
         assert_eq!(results.get(&MetricId::Theta), Some(&50.0));
+        assert!(!results.contains_key(&MetricId::Convexity));
+        assert!(!context.computed.contains_key(&MetricId::Convexity));
     }
 }

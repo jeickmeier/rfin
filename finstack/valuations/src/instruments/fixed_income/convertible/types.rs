@@ -460,7 +460,9 @@ impl ConvertibleBond {
         let underlying_id = self
             .underlying_equity_id
             .as_ref()
-            .ok_or(finstack_core::Error::Internal)?;
+            .ok_or_else(|| {
+                finstack_core::Error::internal("convertible parity requires underlying_equity_id")
+            })?;
 
         let spot_price = curves.get_price(underlying_id)?;
         let spot = match spot_price {
@@ -480,7 +482,11 @@ impl ConvertibleBond {
         let underlying_id = self
             .underlying_equity_id
             .as_ref()
-            .ok_or(finstack_core::Error::Internal)?;
+            .ok_or_else(|| {
+                finstack_core::Error::internal(
+                    "convertible conversion premium requires underlying_equity_id",
+                )
+            })?;
 
         let spot_price = curves.get_price(underlying_id)?;
         let spot = match spot_price {
@@ -491,7 +497,11 @@ impl ConvertibleBond {
         // Use effective conversion ratio (includes anti-dilution adjustments)
         let conversion_ratio = self
             .effective_conversion_ratio()
-            .ok_or(finstack_core::Error::Internal)?;
+            .ok_or_else(|| {
+                finstack_core::Error::internal(
+                    "convertible conversion premium requires effective conversion ratio",
+                )
+            })?;
 
         Ok(pricer::calculate_conversion_premium(
             bond_price,

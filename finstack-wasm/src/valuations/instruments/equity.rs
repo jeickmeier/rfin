@@ -161,8 +161,8 @@ impl JsEquity {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::Equity as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::Equity.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

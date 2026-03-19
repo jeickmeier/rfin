@@ -102,8 +102,8 @@ impl JsCmsOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::CmsOption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::CmsOption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

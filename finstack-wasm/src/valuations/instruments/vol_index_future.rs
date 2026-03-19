@@ -261,8 +261,8 @@ impl JsVolatilityIndexFuture {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::VolatilityIndexFuture as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::VolatilityIndexFuture.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

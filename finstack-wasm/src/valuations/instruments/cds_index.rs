@@ -397,8 +397,8 @@ impl JsCDSIndex {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::CDSIndex as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::CDSIndex.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

@@ -56,8 +56,8 @@ impl Evaluator {
         is_actual: bool,
         eval_order: &[crate::types::NodeId],
         node_to_column: &std::sync::Arc<IndexMap<crate::types::NodeId, usize>>,
-        historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
-        historical_cs: &IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
+        historical: &Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
+        historical_cs: &Arc<IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>>,
         market_ctx: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
         instruments: &Instruments,
@@ -77,12 +77,12 @@ impl Evaluator {
         let mut cs_cashflows = build_cs_cashflows_from_contractual(&contractual_flows, period_id);
         recompute_cs_totals(&mut cs_cashflows, period_id, fx_ctx.as_ref());
 
-        let mut context = EvaluationContext::new(
+        let mut context = EvaluationContext::new_with_history(
             period_id,
             std::sync::Arc::clone(node_to_column),
-            std::sync::Arc::new(historical.clone()),
+            Arc::clone(historical),
+            Arc::clone(historical_cs),
         );
-        context.historical_capital_structure_cashflows = std::sync::Arc::new(historical_cs.clone());
         context.capital_structure_cashflows = Some(cs_cashflows.clone());
 
         self.evaluate_nodes_in_order(

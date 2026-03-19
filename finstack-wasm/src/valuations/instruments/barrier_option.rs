@@ -411,8 +411,8 @@ impl JsBarrierOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::BarrierOption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::BarrierOption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

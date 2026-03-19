@@ -50,7 +50,11 @@ impl MetricCalculator for ImpliedVolCalculator {
         let underlying_id = bond
             .underlying_equity_id
             .as_deref()
-            .ok_or(finstack_core::Error::Internal)?;
+            .ok_or_else(|| {
+                finstack_core::Error::internal(
+                    "convertible implied vol requires underlying_equity_id",
+                )
+            })?;
 
         // Resolve the volatility ID using the same candidate logic as the pricer
         let mut vol_candidates: Vec<String> = Vec::new();

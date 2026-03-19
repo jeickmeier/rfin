@@ -61,13 +61,10 @@ impl JsMetricId {
     /// console.log(custom.name); // "my_custom_metric"
     /// ```
     #[wasm_bindgen(js_name = fromName)]
-    #[allow(clippy::expect_used)]
     pub fn from_name(name: &str) -> JsMetricId {
-        // SAFETY: MetricId::from_str() never fails - unknown names become Custom(name)
-        // Error type is () and all code paths return Ok(_)
         JsMetricId::from_inner(
             name.parse()
-                .expect("MetricId::from_str never fails, creates Custom for unknown names"),
+                .unwrap_or_else(|_| MetricId::custom(name)),
         )
     }
 
@@ -448,5 +445,16 @@ impl JsMetricId {
     #[wasm_bindgen(js_name = valueOf)]
     pub fn value_of(&self) -> String {
         self.name()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_name_falls_back_to_custom_metric() {
+        let metric = JsMetricId::from_name("my_custom_metric");
+        assert_eq!(metric.name(), "my_custom_metric");
     }
 }

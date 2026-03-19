@@ -197,7 +197,7 @@ impl PyPortfolio {
     fn positions(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let positions: Vec<PyPosition> = self
             .inner
-            .positions
+            .positions()
             .iter()
             .map(|p| PyPosition::new(p.clone()))
             .collect();
@@ -250,7 +250,7 @@ impl PyPortfolio {
             self.inner.id,
             self.inner.base_ccy,
             self.inner.as_of,
-            self.inner.positions.len()
+            self.inner.positions().len()
         )
     }
 
@@ -263,7 +263,7 @@ impl PyPortfolio {
 
     /// Return the number of positions in the portfolio.
     fn __len__(&self) -> usize {
-        self.inner.positions.len()
+        self.inner.positions().len()
     }
 
     /// Check if a position with the given ID exists in the portfolio.
@@ -274,7 +274,7 @@ impl PyPortfolio {
     /// Get a position by index or ID.
     fn __getitem__(&self, key: &Bound<'_, PyAny>) -> PyResult<PyPosition> {
         if let Ok(idx) = key.extract::<isize>() {
-            let len = self.inner.positions.len() as isize;
+            let len = self.inner.positions().len() as isize;
             let actual = if idx < 0 { len + idx } else { idx };
             if actual < 0 || actual >= len {
                 return Err(pyo3::exceptions::PyIndexError::new_err(format!(
@@ -282,9 +282,7 @@ impl PyPortfolio {
                     idx
                 )));
             }
-            Ok(PyPosition::new(
-                self.inner.positions[actual as usize].clone(),
-            ))
+            Ok(PyPosition::new(self.inner.positions()[actual as usize].clone()))
         } else if let Ok(id) = key.extract::<String>() {
             self.inner
                 .get_position(&id)
@@ -299,7 +297,7 @@ impl PyPortfolio {
 
     /// Return an iterator over the positions in the portfolio.
     fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyPositionIterator>> {
-        let positions: Vec<finstack_portfolio::Position> = slf.inner.positions.clone();
+        let positions: Vec<finstack_portfolio::Position> = slf.inner.positions().to_vec();
         Py::new(
             slf.py(),
             PyPositionIterator {

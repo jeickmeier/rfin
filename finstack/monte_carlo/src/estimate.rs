@@ -141,6 +141,10 @@ impl std::fmt::Display for Estimate {
 ///
 /// The engine does not currently populate this structure, but it remains part of
 /// the public API while downstream bindings and stubs still import it.
+///
+/// All fields are currently placeholders and remain `None` unless a downstream
+/// caller fills them manually. Prefer the statistics on [`Estimate`] and any
+/// simulation-result summaries for actual convergence analysis.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConvergenceDiagnostics {
     /// Stderr decay rate (should be ~-0.5 for MC)
@@ -152,7 +156,10 @@ pub struct ConvergenceDiagnostics {
 }
 
 impl ConvergenceDiagnostics {
-    /// Create empty diagnostics.
+    /// Create empty compatibility diagnostics.
+    ///
+    /// The Monte Carlo engine does not populate these fields today, so new
+    /// instances start empty and typically remain empty.
     pub fn new() -> Self {
         Self {
             stderr_decay_rate: None,

@@ -876,7 +876,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 .initial_vars
                 .get(state_keys::SPOT)
                 .or_else(|| inputs.initial_vars.get(state_keys::INTEREST_RATE))
-                .ok_or(finstack_core::Error::Internal)?;
+                .ok_or_else(|| {
+                    finstack_core::Error::internal(
+                        "tree pricing requires initial SPOT or INTEREST_RATE state",
+                    )
+                })?;
 
             let mut node_vars = inputs.initial_vars.clone(); // Clone once outside loops
 
@@ -884,7 +888,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 let spec = inputs
                     .barrier
                     .as_ref()
-                    .ok_or(finstack_core::Error::Internal)?;
+                    .ok_or_else(|| {
+                        finstack_core::Error::internal(
+                            "knock-in tree pricing requires a barrier specification",
+                        )
+                    })?;
                 let num_barriers =
                     spec.up_level.is_some() as usize + spec.down_level.is_some() as usize;
                 if num_barriers != 1 {
@@ -898,7 +906,9 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 } else if let Some(down) = spec.down_level {
                     (down, BarrierType::DownAndIn)
                 } else {
-                    return Err(finstack_core::Error::Internal);
+                    return Err(finstack_core::Error::internal(
+                        "knock-in tree pricing requires exactly one configured barrier level",
+                    ));
                 };
                 let hit_state = BarrierState {
                     barrier_hit: true,
@@ -1096,7 +1106,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 .initial_vars
                 .get(state_keys::SPOT)
                 .or_else(|| inputs.initial_vars.get(state_keys::INTEREST_RATE))
-                .ok_or(finstack_core::Error::Internal)?;
+                .ok_or_else(|| {
+                    finstack_core::Error::internal(
+                        "tree pricing requires initial SPOT or INTEREST_RATE state",
+                    )
+                })?;
 
             let p_m = inputs.prob_middle.unwrap_or(0.0);
 
@@ -1107,7 +1121,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 let spec = inputs
                     .barrier
                     .as_ref()
-                    .ok_or(finstack_core::Error::Internal)?;
+                    .ok_or_else(|| {
+                        finstack_core::Error::internal(
+                            "knock-in tree pricing requires a barrier specification",
+                        )
+                    })?;
                 let num_barriers =
                     spec.up_level.is_some() as usize + spec.down_level.is_some() as usize;
                 if num_barriers != 1 {
@@ -1121,7 +1139,9 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                 } else if let Some(down) = spec.down_level {
                     (down, BarrierType::DownAndIn)
                 } else {
-                    return Err(finstack_core::Error::Internal);
+                    return Err(finstack_core::Error::internal(
+                        "knock-in tree pricing requires exactly one configured barrier level",
+                    ));
                 };
                 let hit_state = BarrierState {
                     barrier_hit: true,

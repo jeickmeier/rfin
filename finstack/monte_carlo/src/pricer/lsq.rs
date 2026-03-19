@@ -40,7 +40,9 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
 
     // Check for degenerate cases
     if n < k {
-        return Err(finstack_core::Error::Internal);
+        return Err(finstack_core::Error::internal(
+            "LSMC regression requires at least as many observations as basis functions",
+        ));
     }
 
     // Convert to nalgebra matrices
@@ -62,7 +64,9 @@ pub fn solve_least_squares(design: &[f64], y: &[f64], n: usize, k: usize) -> Res
             // - Too few ITM paths for regression
             // - Numerical issues with extreme values
             tracing::warn!("LSMC regression failed (singular matrix)");
-            Err(finstack_core::Error::Internal)
+            Err(finstack_core::Error::internal(
+                "LSMC regression SVD solve failed for the design matrix",
+            ))
         }
     }
 }

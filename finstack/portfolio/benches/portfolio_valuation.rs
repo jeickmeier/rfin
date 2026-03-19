@@ -1117,7 +1117,7 @@ fn bench_position_filtering(c: &mut Criterion) {
 
     group.bench_function("iterate_all_positions", |b| {
         b.iter(|| {
-            let count = portfolio.positions.len();
+            let count = portfolio.positions().len();
             black_box(count);
         });
     });

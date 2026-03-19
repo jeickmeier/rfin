@@ -456,8 +456,8 @@ impl JsXccySwap {
 
     /// Get the instrument type.
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::XccySwap as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::XccySwap.to_string()
     }
 
     /// Create from JSON representation.

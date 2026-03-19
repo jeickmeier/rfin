@@ -887,7 +887,10 @@ impl Swaption {
     /// - Hagan, P. et al. (2002). "Managing Smile Risk" *Wilmott Magazine*
     /// - Antonov, A. et al. (2015). "SABR/Free Sabr" for normal vol extensions
     pub fn price_sabr(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        let params = self.sabr_params.as_ref().ok_or(Error::Internal)?;
+        let params = self
+            .sabr_params
+            .as_ref()
+            .ok_or_else(|| Error::internal("swaption SABR pricing requires sabr_params"))?;
         let model = SABRModel::new(params.to_internal()?);
         let time_to_expiry = year_fraction(self.day_count, as_of, self.expiry)?;
         if time_to_expiry <= 0.0 {

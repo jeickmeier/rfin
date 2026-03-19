@@ -425,12 +425,36 @@ impl Tenor {
     ) -> crate::Result<Date> {
         use crate::dates::date_extensions::DateExt;
 
-        let raw_date = match self.unit {
-            TenorUnit::Days => date + Duration::days(i64::from(self.count)),
-            TenorUnit::Weeks => date + Duration::weeks(i64::from(self.count)),
-            TenorUnit::Months => date.add_months(self.count as i32),
-            TenorUnit::Years => date.add_months((self.count as i32) * 12),
+        let raw_date: crate::Result<Date> = match self.unit {
+            TenorUnit::Days => Ok(date + Duration::days(i64::from(self.count))),
+            TenorUnit::Weeks => Ok(date + Duration::weeks(i64::from(self.count))),
+            TenorUnit::Months => {
+                let count_i32 =
+                    i32::try_from(self.count).map_err(|_| InputError::InvalidTenor {
+                        tenor: self.to_string(),
+                        reason: format!("count {} exceeds i32::MAX", self.count),
+                    })?;
+                Ok(date.add_months(count_i32))
+            }
+            TenorUnit::Years => {
+                let count_i32 =
+                    i32::try_from(self.count).map_err(|_| InputError::InvalidTenor {
+                        tenor: self.to_string(),
+                        reason: format!("count {} exceeds i32::MAX", self.count),
+                    })?;
+                let months = count_i32
+                    .checked_mul(12)
+                    .ok_or_else(|| InputError::InvalidTenor {
+                        tenor: self.to_string(),
+                        reason: format!(
+                            "year tenor {} exceeds supported month range after conversion",
+                            self.count
+                        ),
+                    })?;
+                Ok(date.add_months(months))
+            }
         };
+        let raw_date = raw_date?;
 
         // Apply business day convention if calendar provided
         if let Some(cal) = calendar {
@@ -746,6 +770,21 @@ mod tests {
         assert_eq!(
             end,
             Date::from_calendar_date(2025, Month::February, 28).expect("valid")
+        );
+    }
+
+    #[test]
+    fn tenor_rejects_count_exceeding_i32_max() {
+        let start = Date::from_calendar_date(2025, Month::January, 15).expect("valid");
+        let tenor = Tenor::new((i32::MAX as u32) + 1, TenorUnit::Months);
+
+        let err = tenor
+            .add_to_date(start, None, BusinessDayConvention::Unadjusted)
+            .expect_err("count above i32::MAX should be rejected");
+
+        assert!(
+            err.to_string().contains("exceeds i32::MAX"),
+            "unexpected error: {err}"
         );
     }
 

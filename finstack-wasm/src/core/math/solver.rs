@@ -2,7 +2,6 @@ use crate::core::error::js_error;
 use finstack_core::math::solver::{BrentSolver, NewtonSolver, Solver};
 use js_sys::Function;
 use std::cell::RefCell;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -21,39 +20,28 @@ struct JsClosureAdapter<'a> {
     error_cell: &'a RefCell<Option<JsValue>>,
 }
 
-#[allow(clippy::panic)]
 impl JsClosureAdapter<'_> {
     fn invoke(&self, x: f64) -> f64 {
         match call_js_fn_safe(self.func, x) {
             Ok(value) => value,
             Err(err) => {
                 *self.error_cell.borrow_mut() = Some(err);
-                panic!("JS callback error");
+                f64::NAN
             }
         }
     }
 }
 
-// Execute a function with panic catching for JS callbacks
-fn run_with_panic_catch<R>(
+// Execute a function and return any callback error captured by the adapter.
+fn run_with_error_check<R>(
     error_cell: &RefCell<Option<JsValue>>,
     eval: impl FnOnce() -> R,
 ) -> Result<R, JsValue> {
-    match catch_unwind(AssertUnwindSafe(eval)) {
-        Ok(value) => {
-            if let Some(err) = error_cell.borrow_mut().take() {
-                Err(err)
-            } else {
-                Ok(value)
-            }
-        }
-        Err(_) => {
-            if let Some(err) = error_cell.borrow_mut().take() {
-                Err(err)
-            } else {
-                Err(js_error("JavaScript callback failed"))
-            }
-        }
+    let value = eval();
+    if let Some(err) = error_cell.borrow_mut().take() {
+        Err(err)
+    } else {
+        Ok(value)
     }
 }
 
@@ -195,7 +183,7 @@ impl JsNewtonSolver {
             func,
             error_cell: &error_cell,
         };
-        let result = run_with_panic_catch(&error_cell, || {
+        let result = run_with_error_check(&error_cell, || {
             Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
         })?;
         result.map_err(|err| js_error(err.to_string()))
@@ -379,7 +367,7 @@ impl JsBrentSolver {
             func,
             error_cell: &error_cell,
         };
-        let result = run_with_panic_catch(&error_cell, || {
+        let result = run_with_error_check(&error_cell, || {
             Solver::solve(&self.inner, |x| adapter.invoke(x), initial_guess)
         })?;
         result.map_err(|err| js_error(err.to_string()))
@@ -397,5 +385,26 @@ impl JsBrentSolver {
             self.inner.bracket_expansion,
             self.inner.initial_bracket_size
         )
+    }
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn newton_solver_propagates_javascript_errors() {
+        let solver = JsNewtonSolver::new(None, None, None);
+        let callback = Function::new_with_args("x", "throw new Error('boom')");
+
+        let err = solver
+            .solve(&callback.into(), 1.0)
+            .expect_err("callback error should surface as Result::Err");
+
+        let message = js_sys::Reflect::get(&err, &JsValue::from_str("message"))
+            .ok()
+            .and_then(|value| value.as_string());
+        assert_eq!(message.as_deref(), Some("boom"));
     }
 }

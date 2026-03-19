@@ -13,6 +13,13 @@ use nom::{
     sequence::{delimited, pair, preceded},
     IResult, Parser,
 };
+use std::cell::Cell;
+
+const MAX_PARSE_DEPTH: usize = 64;
+
+thread_local! {
+    static PARSE_DEPTH: Cell<usize> = const { Cell::new(0) };
+}
 
 /// Parse a formula string into a [`StmtExpr`] AST.
 ///
@@ -22,19 +29,25 @@ use nom::{
 /// # Returns
 /// Parsed AST ready for compilation.
 pub fn parse_formula(input: &str) -> Result<StmtExpr> {
+    PARSE_DEPTH.with(|depth| depth.set(0));
     match expression(input) {
         Ok(("", expr)) => Ok(expr),
         Ok((remaining, _)) => Err(Error::formula_parse(format!(
             "Unexpected input remaining: '{}'",
             remaining
         ))),
+        Err(nom::Err::Failure(err)) if err.code == nom::error::ErrorKind::TooLarge => Err(
+            Error::formula_parse(format!(
+                "Parse nesting exceeds maximum depth of {MAX_PARSE_DEPTH}"
+            )),
+        ),
         Err(e) => Err(Error::formula_parse(format!("Parse error: {}", e))),
     }
 }
 
 // Expression parser entry point (handles operator precedence)
 fn expression(input: &str) -> IResult<&str, StmtExpr> {
-    logical_or(input)
+    with_parse_depth(input, logical_or)
 }
 
 // Logical OR (lowest precedence)
@@ -145,19 +158,21 @@ fn multiplicative(input: &str) -> IResult<&str, StmtExpr> {
 
 // Unary operators
 fn unary(input: &str) -> IResult<&str, StmtExpr> {
-    alt((
-        map(preceded(char('!'), unary), |expr| {
-            StmtExpr::unary_op(UnaryOp::Not, expr)
-        }),
-        map(preceded((tag("not"), multispace1), unary), |expr| {
-            StmtExpr::unary_op(UnaryOp::Not, expr)
-        }),
-        map(preceded(char('-'), unary), |expr| {
-            StmtExpr::unary_op(UnaryOp::Neg, expr)
-        }),
-        primary,
-    ))
-    .parse(input)
+    with_parse_depth(input, |input| {
+        alt((
+            map(preceded(char('!'), unary), |expr| {
+                StmtExpr::unary_op(UnaryOp::Not, expr)
+            }),
+            map(preceded((tag("not"), multispace1), unary), |expr| {
+                StmtExpr::unary_op(UnaryOp::Not, expr)
+            }),
+            map(preceded(char('-'), unary), |expr| {
+                StmtExpr::unary_op(UnaryOp::Neg, expr)
+            }),
+            primary,
+        ))
+        .parse(input)
+    })
 }
 
 // Primary expressions (literals, identifiers, function calls, parentheses)
@@ -253,6 +268,26 @@ fn identifier_string(input: &str) -> IResult<&str, String> {
 // Parenthesized expression
 fn parenthesized(input: &str) -> IResult<&str, StmtExpr> {
     delimited(char('('), expression, char(')')).parse(input)
+}
+
+fn with_parse_depth<'a>(
+    input: &'a str,
+    parse: impl FnOnce(&'a str) -> IResult<&'a str, StmtExpr>,
+) -> IResult<&'a str, StmtExpr> {
+    PARSE_DEPTH.with(|depth| {
+        let current = depth.get();
+        if current >= MAX_PARSE_DEPTH {
+            Err(nom::Err::Failure(nom::error::Error::new(
+                input,
+                nom::error::ErrorKind::TooLarge,
+            )))
+        } else {
+            depth.set(current + 1);
+            let result = parse(input);
+            depth.set(current);
+            result
+        }
+    })
 }
 
 #[cfg(test)]
@@ -481,5 +516,16 @@ mod tests {
 
         let result = parse_formula("revenue @@ cogs");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_parse_error_on_excessive_nesting() {
+        let formula = format!("{}1{}", "(".repeat(MAX_PARSE_DEPTH + 1), ")".repeat(MAX_PARSE_DEPTH + 1));
+        let err = parse_formula(&formula).expect_err("deep nesting should fail");
+        assert!(
+            err.to_string()
+                .contains(&format!("maximum depth of {MAX_PARSE_DEPTH}")),
+            "unexpected error: {err}"
+        );
     }
 }

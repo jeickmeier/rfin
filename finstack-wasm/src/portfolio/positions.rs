@@ -121,7 +121,7 @@ impl JsPortfolio {
     #[wasm_bindgen(getter)]
     pub fn positions(&self) -> Array {
         let arr = Array::new();
-        for position in &self.inner.positions {
+        for position in self.inner.positions() {
             let js_position = JsPosition::from_inner(position.clone());
             arr.push(&JsValue::from(js_position));
         }
