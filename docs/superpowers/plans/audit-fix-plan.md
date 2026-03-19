@@ -9,6 +9,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 ## Phase 1: CRITICAL Fixes (8 items)
 
 ### C1: MC Barrier dt for non-uniform grids
+
 **File:** `finstack/monte_carlo/src/payoff/barrier.rs`
 - Remove single `dt` field from `BarrierOptionPayoff`
 - Store `step_dts: Vec<f64>` precomputed from `TimeGrid` at construction
@@ -18,6 +19,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - **Test:** Non-uniform TimeGrid confirming different dt per step; regression test with uniform grid
 
 ### C2: MC Antithetic bypasses populate_path_state()
+
 **File:** `finstack/monte_carlo/src/variance_reduction/antithetic.rs:155-183`
 - Replace manual `set(SPOT, ...)` / `set(VARIANCE, ...)` with `process.populate_path_state(state, &mut path_state)`
 - Match pattern from `engine.rs:1370-1374`
@@ -25,12 +27,14 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - **Test:** Mock process with 3+ state dimensions; regression test for GBM antithetic pricing
 
 ### C3: Portfolio Attribution FX flow_translation not in total_pnl
+
 **File:** `finstack/portfolio/src/attribution.rs:471`
 - Line 471 pushes only `principal_translation` to `total_pnl_vals`
 - Change to push `total_translation` (= flow + principal) to match documented decomposition `total = factors + fx_translation + residual`
 - **Test:** Cross-currency attribution with known FX rates verifying P&L identity reconciles
 
 ### C4: Portfolio Margin silently swallows sensitivity errors
+
 **Files:** `finstack/portfolio/src/margin/aggregator.rs:101-107`, `finstack/portfolio/src/error.rs`
 - Change `if let Ok(sensitivities)` to `match` with error accumulation
 - Add `degraded_positions: Vec<(PositionId, String)>` to `PortfolioMarginResult`
@@ -39,6 +43,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - **Test:** Position returning error from `simm_sensitivities()` populates degraded list
 
 ### C5: Scenario curve resolution currency-prefix heuristic
+
 **File:** `finstack/scenarios/src/adapters/curves.rs:144-175`
 - Add optional explicit `discount_curve_id` parameter to operations needing it
 - When heuristic matches, validate curve exists in market context
@@ -47,6 +52,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - **Test:** Explicit curve ID bypass; ambiguous prefix with two matching curves
 
 ### C6: Scenario apply_forecast_assign overwrites all periods
+
 **File:** `finstack/scenarios/src/adapters/statements.rs:87-95`
 - Add `apply_forecast_assign_filtered(model, node_id, value, period_filter: Option<(Date, Date)>)`
 - Filter entries by period key within range when `period_filter` is `Some`
@@ -54,6 +60,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - **Test:** 4-period model, assign to only period 2, verify others unchanged
 
 ### C7: Scenario time roll single failure aborts all
+
 **File:** `finstack/scenarios/src/adapters/time_roll.rs:219`
 - Replace `?` on `checked_sub` with per-instrument `match`
 - Collect failures in `Vec<(String, String)>`, add to `RollForwardReport`
@@ -61,6 +68,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - **Test:** Instrument with currency mismatch doesn't abort remaining instruments
 
 ### C8: Analytics CAGR Act/365 Fixed bias
+
 **File:** `finstack/analytics/src/risk_metrics/return_based.rs:56`
 - Add `AnnualizationConvention` enum: `Act365Fixed`, `Act365_25`, `ActAct`
 - Add `cagr_with_convention()` function
@@ -87,7 +95,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 
 | # | Finding | File | Fix |
 |---|---------|------|-----|
-| H7 | `unwrap_or(Decimal::ZERO)` x4 | `builder.rs:864,1085,1103,1187` | Replace with `map_err(...)? ` returning proper errors |
+| H7 | `unwrap_or(Decimal::ZERO)` x4 | `builder.rs:864,1085,1103,1187` | Replace with `map_err(...)?` returning proper errors |
 
 ### finstack-correlation (1)
 
@@ -158,6 +166,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 ## Phase 5: MEDIUM Fixes (62 items)
 
 ### Sprint 5A: finstack-core (16 items)
+
 - LM solver probe fragile (`solver_multi.rs:723`) — require `residual_count()` implementation
 - SABR cross-zero fallback (`sabr.rs:262`) — improve midpoint approximation
 - Heston integration upper bound (`heston.rs:243`) — add second pass when suspect
@@ -176,6 +185,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - MarketContext Send+Sync assertion (`market_data/context/mod.rs:32`)
 
 ### Sprint 5B: finstack-cashflows + correlation + monte-carlo (14 items)
+
 - Swallowed day count errors (`cashflows/dataframe.rs`)
 - SMM-to-CPR missing release validation
 - Gaussian copula correlation gap 1e-10 vs 0.01 (`copula/gaussian.rs:132`)
@@ -192,6 +202,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - state_keys::indexed_spot leaks memory (`traits.rs:100`)
 
 ### Sprint 5C: finstack-analytics + margin (12 items)
+
 - `moments4` one-pass vs two-pass inconsistency
 - `mean_return` arithmetic annualization documentation
 - Beta CI z=1.96 documentation
@@ -201,6 +212,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - Various SIMM parameter validations
 
 ### Sprint 5D: finstack-valuations (13 items)
+
 - Spread metric list hardcoded (`pricer/registry.rs:238`)
 - HW1F forward rate fallback returns 3% (`calibration/hull_white.rs:408`)
 - HW1F initial guess hardcoded (`calibration/hull_white.rs:269`)
@@ -212,6 +224,7 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 - Various calibration and metric edge cases
 
 ### Sprint 5E: finstack-statements + portfolio + scenarios (13 items)
+
 - Statements: MC correlation, forecast edge cases, defensive coding
 - Portfolio: PvNative/PvBase mismatch, book cycle comment, grouping recursion depth
 - Scenarios: empty attrs matches all, compose loses names, unhandled ops warn not error, FX pct floor validation, vol arbitrage check, attribute matching only searches meta map
@@ -221,21 +234,27 @@ A systematic file-by-file audit of all 14 Rust crates (~2,500 source files) iden
 ## Phase 6: LOW Fixes (96 items)
 
 ### Sprint 6A: Documentation/naming (25 items)
+
 Rename misleading functions, add missing docstrings, clarify conventions
 
 ### Sprint 6B: Debug assertions -> runtime checks (10 items)
+
 Promote `debug_assert!` to runtime checks where failure would produce wrong results silently
 
 ### Sprint 6C: Minor edge cases (20 items)
+
 Handle degenerate inputs (empty slices, NaN, infinity, single-element collections)
 
 ### Sprint 6D: Minor performance (15 items)
+
 Reduce allocations in hot paths, avoid redundant computation
 
 ### Sprint 6E: API consistency (15 items)
+
 Align similar APIs, standardize error messages, add `#[must_use]`
 
 ### Sprint 6F: Minor correctness (11 items)
+
 Floating-point accumulation, rounding, clamping consistency
 
 ---
@@ -251,6 +270,7 @@ Each phase must pass before proceeding:
 6. Phase 4-6: standard unit test coverage
 
 ### High-Risk Changes Requiring Extra Review
+
 - **C3** (attribution FX): Verify P&L identity with real portfolio data before/after
 - **C1** (barrier dt): API-breaking constructor change — search all callers
 - **C8** (CAGR 365->365.25): Changes numerical output — coordinate with reporting

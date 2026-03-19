@@ -12,9 +12,11 @@ pub(crate) fn decimal_from_f64(value: f64, field_name: &str) -> Result<Decimal, 
 }
 
 pub(crate) fn decimal_to_f64(value: &Decimal, field_name: &str) -> Result<f64, JsValue> {
-    value
-        .to_f64()
-        .ok_or_else(|| js_error(format!("{field_name}: cannot convert Decimal {value} to f64")))
+    value.to_f64().ok_or_else(|| {
+        js_error(format!(
+            "{field_name}: cannot convert Decimal {value} to f64"
+        ))
+    })
 }
 
 pub(crate) fn decimal_to_f64_or_warn(value: &Decimal, field_name: &str) -> f64 {

@@ -318,7 +318,7 @@ impl JsYoYInflationSwap {
             let ccy = self.inner.notional.currency();
 
             let infl_amt = notional * yoy * accrual;
-        let fixed_rate = decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate");
+            let fixed_rate = decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate");
             let fixed_amt = notional * fixed_rate * accrual;
 
             let (infl_sign, fixed_sign) = match self.inner.side {

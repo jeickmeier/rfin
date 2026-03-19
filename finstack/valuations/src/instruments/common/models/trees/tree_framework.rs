@@ -885,14 +885,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             let mut node_vars = inputs.initial_vars.clone(); // Clone once outside loops
 
             if barrier_is_knock_in {
-                let spec = inputs
-                    .barrier
-                    .as_ref()
-                    .ok_or_else(|| {
-                        finstack_core::Error::internal(
-                            "knock-in tree pricing requires a barrier specification",
-                        )
-                    })?;
+                let spec = inputs.barrier.as_ref().ok_or_else(|| {
+                    finstack_core::Error::internal(
+                        "knock-in tree pricing requires a barrier specification",
+                    )
+                })?;
                 let num_barriers =
                     spec.up_level.is_some() as usize + spec.down_level.is_some() as usize;
                 if num_barriers != 1 {
@@ -1118,14 +1115,11 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
             let mut node_vars = inputs.initial_vars.clone(); // Clone once
 
             if barrier_is_knock_in {
-                let spec = inputs
-                    .barrier
-                    .as_ref()
-                    .ok_or_else(|| {
-                        finstack_core::Error::internal(
-                            "knock-in tree pricing requires a barrier specification",
-                        )
-                    })?;
+                let spec = inputs.barrier.as_ref().ok_or_else(|| {
+                    finstack_core::Error::internal(
+                        "knock-in tree pricing requires a barrier specification",
+                    )
+                })?;
                 let num_barriers =
                     spec.up_level.is_some() as usize + spec.down_level.is_some() as usize;
                 if num_barriers != 1 {

@@ -306,7 +306,8 @@ impl Evaluator {
             // Add to historical context for next period
             std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results.clone());
             if has_cs {
-                std::sync::Arc::make_mut(&mut historical_cs).insert(period.id, cs_cashflows_accum.clone());
+                std::sync::Arc::make_mut(&mut historical_cs)
+                    .insert(period.id, cs_cashflows_accum.clone());
             }
 
             // Advance CS state for next period

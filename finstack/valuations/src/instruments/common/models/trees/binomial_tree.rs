@@ -201,9 +201,7 @@ impl BinomialTree {
 
                 // Validate probability
                 if !(0.0..=1.0).contains(&p) {
-                    return Err(Error::internal(
-                        "CRR probability fell outside [0, 1]",
-                    ));
+                    return Err(Error::internal("CRR probability fell outside [0, 1]"));
                 }
 
                 (u, d, p)
@@ -584,9 +582,9 @@ impl BinomialTree {
             ) -> Result<f64> {
                 if let Some(steps) = &self.exercise_steps {
                     if steps.contains(&state.step) {
-                        let s = state
-                            .spot()
-                            .ok_or_else(|| Error::internal("barrier option node state missing spot"))?;
+                        let s = state.spot().ok_or_else(|| {
+                            Error::internal("barrier option node state missing spot")
+                        })?;
                         let exercise = match self.option_type {
                             OptionType::Call => (s - self.strike).max(0.0),
                             OptionType::Put => (self.strike - s).max(0.0),

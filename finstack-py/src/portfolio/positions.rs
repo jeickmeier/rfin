@@ -282,7 +282,9 @@ impl PyPortfolio {
                     idx
                 )));
             }
-            Ok(PyPosition::new(self.inner.positions()[actual as usize].clone()))
+            Ok(PyPosition::new(
+                self.inner.positions()[actual as usize].clone(),
+            ))
         } else if let Ok(id) = key.extract::<String>() {
             self.inner
                 .get_position(&id)

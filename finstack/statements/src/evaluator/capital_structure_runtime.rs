@@ -57,7 +57,9 @@ impl Evaluator {
         eval_order: &[crate::types::NodeId],
         node_to_column: &std::sync::Arc<IndexMap<crate::types::NodeId, usize>>,
         historical: &Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
-        historical_cs: &Arc<IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>>,
+        historical_cs: &Arc<
+            IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
+        >,
         market_ctx: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
         instruments: &Instruments,

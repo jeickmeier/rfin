@@ -62,10 +62,7 @@ impl JsMetricId {
     /// ```
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> JsMetricId {
-        JsMetricId::from_inner(
-            name.parse()
-                .unwrap_or_else(|_| MetricId::custom(name)),
-        )
+        JsMetricId::from_inner(name.parse().unwrap_or_else(|_| MetricId::custom(name)))
     }
 
     /// Parse a metric ID from a string name strictly.

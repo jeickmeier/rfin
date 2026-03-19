@@ -203,9 +203,7 @@ impl JsEquityOptionBuilder {
         let discount_curve_id = self
             .discount_curve_id
             .unwrap_or_else(|| format!("{}-OIS", notional.currency()));
-        let spot_id = self
-            .spot_id
-            .unwrap_or_else(|| "EQUITY-SPOT".to_string());
+        let spot_id = self.spot_id.unwrap_or_else(|| "EQUITY-SPOT".to_string());
         let vol_surface_id = self
             .vol_surface_id
             .unwrap_or_else(|| "EQUITY-VOL".to_string());

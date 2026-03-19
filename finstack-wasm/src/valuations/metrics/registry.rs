@@ -130,9 +130,7 @@ impl Default for JsMetricRegistry {
 fn parse_metric_id(value: JsValue) -> Result<MetricId, JsValue> {
     // Extract string name
     if let Some(name) = value.as_string() {
-        return Ok(name
-            .parse()
-            .unwrap_or_else(|_| MetricId::custom(name)));
+        return Ok(name.parse().unwrap_or_else(|_| MetricId::custom(name)));
     }
 
     Err(JsValue::from_str(

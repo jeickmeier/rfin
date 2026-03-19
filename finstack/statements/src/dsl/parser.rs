@@ -36,11 +36,11 @@ pub fn parse_formula(input: &str) -> Result<StmtExpr> {
             "Unexpected input remaining: '{}'",
             remaining
         ))),
-        Err(nom::Err::Failure(err)) if err.code == nom::error::ErrorKind::TooLarge => Err(
-            Error::formula_parse(format!(
+        Err(nom::Err::Failure(err)) if err.code == nom::error::ErrorKind::TooLarge => {
+            Err(Error::formula_parse(format!(
                 "Parse nesting exceeds maximum depth of {MAX_PARSE_DEPTH}"
-            )),
-        ),
+            )))
+        }
         Err(e) => Err(Error::formula_parse(format!("Parse error: {}", e))),
     }
 }
@@ -520,7 +520,11 @@ mod tests {
 
     #[test]
     fn test_parse_error_on_excessive_nesting() {
-        let formula = format!("{}1{}", "(".repeat(MAX_PARSE_DEPTH + 1), ")".repeat(MAX_PARSE_DEPTH + 1));
+        let formula = format!(
+            "{}1{}",
+            "(".repeat(MAX_PARSE_DEPTH + 1),
+            ")".repeat(MAX_PARSE_DEPTH + 1)
+        );
         let err = parse_formula(&formula).expect_err("deep nesting should fail");
         assert!(
             err.to_string()
