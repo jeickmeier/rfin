@@ -180,8 +180,8 @@ impl JsTermLoan {
 
     /// Get the instrument type.
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::TermLoan as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::TermLoan.to_string()
     }
 
     /// Convert to a string representation.

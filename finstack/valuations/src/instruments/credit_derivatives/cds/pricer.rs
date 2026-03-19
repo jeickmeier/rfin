@@ -1091,7 +1091,9 @@ impl CDSPricer {
         surv: &HazardCurve,
     ) -> Result<f64> {
         if t_start >= t_end || spread < 0.0 {
-            return Err(Error::Internal);
+            return Err(Error::internal(
+                "accrued-on-default integral requires t_start < t_end and non-negative spread",
+            ));
         }
         let h = (t_end - t_start) * numerical::INTEGRATION_STEP_FACTOR;
         let integrand = |t: f64| {

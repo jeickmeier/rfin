@@ -58,14 +58,53 @@ fn validate_unknown_entity_fails() {
     let p = Position::new("P", "UNKNOWN", "D", Arc::new(dep), 1.0, PositionUnit::Units).unwrap();
 
     let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
-    portfolio.positions.push(p);
-    portfolio.rebuild_index();
+    portfolio.add_position(p);
 
     let err = portfolio.validate().unwrap_err();
     match err {
         Error::UnknownEntity { .. } => {}
         other => panic!("unexpected error: {:?}", other),
     }
+}
+
+#[test]
+fn explicit_position_mutators_keep_lookup_index_in_sync() {
+    let as_of = base_date();
+    let maturity = as_of + time::Duration::days(1);
+
+    let dep1 = Deposit::builder()
+        .id("D1".into())
+        .notional(Money::new(1_000_000.0, Currency::USD))
+        .start_date(as_of)
+        .maturity(maturity)
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD".into())
+        .build()
+        .unwrap();
+    let dep2 = Deposit::builder()
+        .id("D2".into())
+        .notional(Money::new(2_000_000.0, Currency::USD))
+        .start_date(as_of)
+        .maturity(maturity)
+        .day_count(finstack_core::dates::DayCount::Act360)
+        .discount_curve_id("USD".into())
+        .build()
+        .unwrap();
+
+    let pos1 = Position::new("P1", "E", "D1", Arc::new(dep1), 1.0, PositionUnit::Units).unwrap();
+    let pos2 = Position::new("P2", "E", "D2", Arc::new(dep2), 1.0, PositionUnit::Units).unwrap();
+
+    let mut portfolio = Portfolio::new("P", Currency::USD, as_of);
+    portfolio.entities.insert("E".into(), Entity::new("E"));
+
+    portfolio.add_position(pos1);
+    assert_eq!(portfolio.positions().len(), 1);
+    assert!(portfolio.get_position("P1").is_some());
+
+    portfolio.set_positions(vec![pos2]);
+    assert_eq!(portfolio.positions().len(), 1);
+    assert!(portfolio.get_position("P1").is_none());
+    assert!(portfolio.get_position("P2").is_some());
 }
 
 #[test]

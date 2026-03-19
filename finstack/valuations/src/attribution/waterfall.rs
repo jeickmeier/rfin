@@ -465,7 +465,9 @@ impl<'a> WaterfallContext<'a> {
                 let scalars_t1 = ScalarsSnapshot::extract(self.market_t1);
                 Ok(restore_scalars(&self.current_market, &scalars_t1))
             }
-            AttributionFactor::ModelParameters => Err(Error::Internal),
+            AttributionFactor::ModelParameters => Err(Error::internal(
+                "model parameter restoration is not implemented for attribution waterfall",
+            )),
         }
     }
 

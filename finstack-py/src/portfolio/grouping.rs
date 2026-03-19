@@ -39,7 +39,7 @@ fn py_group_by_attribute(
     py: Python<'_>,
 ) -> PyResult<Py<PyAny>> {
     let portfolio_inner = extract_portfolio(portfolio)?;
-    let grouped = group_by_attribute(&portfolio_inner.positions, attribute_key);
+    let grouped = group_by_attribute(portfolio_inner.positions(), attribute_key);
 
     let dict = PyDict::new(py);
     for (key, positions) in grouped {
@@ -87,7 +87,7 @@ fn py_aggregate_by_attribute(
 
     let aggregated = aggregate_by_attribute(
         &valuation_inner,
-        &portfolio_inner.positions,
+        portfolio_inner.positions(),
         attribute_key,
         portfolio_inner.base_ccy,
     )
@@ -167,7 +167,7 @@ fn py_aggregate_by_multiple_attributes(
 
     let aggregated = aggregate_by_multiple_attributes(
         &valuation_inner,
-        &portfolio_inner.positions,
+        portfolio_inner.positions(),
         &keys,
         portfolio_inner.base_ccy,
     )

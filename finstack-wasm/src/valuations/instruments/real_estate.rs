@@ -512,8 +512,8 @@ impl JsRealEstateAsset {
 
     /// Get the instrument type.
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::RealEstateAsset as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::RealEstateAsset.to_string()
     }
 
     /// Create from JSON representation.

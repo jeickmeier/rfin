@@ -708,7 +708,7 @@ impl PyCrossFactorDetail {
         self.inner
             .by_pair
             .iter()
-            .map(|(k, v)| (k.clone(), crate::core::money::PyMoney { inner: v.clone() }))
+            .map(|(k, v)| (k.clone(), crate::core::money::PyMoney { inner: *v }))
             .collect()
     }
 }

@@ -92,8 +92,8 @@ impl JsCliquetOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::CliquetOption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::CliquetOption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

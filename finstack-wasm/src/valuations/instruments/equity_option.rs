@@ -1,8 +1,10 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
+use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::currency::Currency;
+use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::equity_option::EquityOption;
@@ -12,31 +14,46 @@ use finstack_valuations::instruments::{
 use finstack_valuations::pricer::InstrumentType;
 use wasm_bindgen::prelude::*;
 
-fn build_equity_option(
-    instrument_id: &str,
-    ticker: &str,
+struct EquityOptionBuildParams {
+    instrument_id: String,
+    ticker: String,
     strike: f64,
     option_type: OptionType,
     expiry: finstack_core::dates::Date,
-    notional_amount: f64,
-) -> Result<EquityOption, JsValue> {
-    // Match the prior convenience constructor conventions.
-    let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-        .with_dividend_yield("EQUITY-DIVYIELD");
+    notional: Money,
+    exercise_style: ExerciseStyle,
+    day_count: DayCount,
+    settlement: SettlementType,
+    discount_curve_id: String,
+    spot_id: String,
+    vol_surface_id: String,
+    div_yield_id: Option<String>,
+}
+
+fn build_equity_option(params: EquityOptionBuildParams) -> Result<EquityOption, JsValue> {
+    let underlying = EquityUnderlyingParams::new(
+        &params.ticker,
+        params.spot_id.as_str(),
+        params.notional.currency(),
+    );
+    let underlying = match params.div_yield_id.as_deref() {
+        Some(div_yield_id) => underlying.with_dividend_yield(div_yield_id),
+        None => underlying,
+    };
 
     EquityOption::builder()
-        .id(InstrumentId::new(instrument_id))
+        .id(InstrumentId::new(params.instrument_id))
         .underlying_ticker(underlying.ticker)
-        .strike(strike)
-        .option_type(option_type)
-        .exercise_style(ExerciseStyle::European)
-        .expiry(expiry)
-        .notional(Money::new(notional_amount, underlying.currency))
-        .day_count(finstack_core::dates::DayCount::Act365F)
-        .settlement(SettlementType::Cash)
-        .discount_curve_id(CurveId::new("USD-OIS"))
+        .strike(params.strike)
+        .option_type(params.option_type)
+        .exercise_style(params.exercise_style)
+        .expiry(params.expiry)
+        .notional(params.notional)
+        .day_count(params.day_count)
+        .settlement(params.settlement)
+        .discount_curve_id(CurveId::new(params.discount_curve_id))
         .spot_id(underlying.spot_id)
-        .vol_surface_id(CurveId::new("EQUITY-VOL"))
+        .vol_surface_id(CurveId::new(params.vol_surface_id))
         .div_yield_id_opt(underlying.div_yield_id)
         .pricing_overrides(PricingOverrides::default())
         .attributes(Attributes::new())
@@ -52,7 +69,14 @@ pub struct JsEquityOptionBuilder {
     strike: Option<f64>,
     option_type: Option<String>,
     expiry: Option<finstack_core::dates::Date>,
-    notional_amount: Option<f64>,
+    notional: Option<Money>,
+    exercise_style: Option<String>,
+    day_count: Option<String>,
+    settlement: Option<String>,
+    discount_curve_id: Option<String>,
+    spot_id: Option<String>,
+    vol_surface_id: Option<String>,
+    div_yield_id: Option<Option<String>>,
 }
 
 #[wasm_bindgen(js_class = EquityOptionBuilder)]
@@ -91,7 +115,55 @@ impl JsEquityOptionBuilder {
 
     #[wasm_bindgen(js_name = notionalAmount)]
     pub fn notional_amount(mut self, notional_amount: f64) -> JsEquityOptionBuilder {
-        self.notional_amount = Some(notional_amount);
+        self.notional = Some(Money::new(notional_amount, Currency::USD));
+        self
+    }
+
+    #[wasm_bindgen(js_name = money)]
+    pub fn money(mut self, notional: &JsMoney) -> JsEquityOptionBuilder {
+        self.notional = Some(notional.inner());
+        self
+    }
+
+    #[wasm_bindgen(js_name = exerciseStyle)]
+    pub fn exercise_style(mut self, exercise_style: String) -> JsEquityOptionBuilder {
+        self.exercise_style = Some(exercise_style);
+        self
+    }
+
+    #[wasm_bindgen(js_name = dayCount)]
+    pub fn day_count(mut self, day_count: String) -> JsEquityOptionBuilder {
+        self.day_count = Some(day_count);
+        self
+    }
+
+    #[wasm_bindgen(js_name = settlement)]
+    pub fn settlement(mut self, settlement: String) -> JsEquityOptionBuilder {
+        self.settlement = Some(settlement);
+        self
+    }
+
+    #[wasm_bindgen(js_name = discountCurve)]
+    pub fn discount_curve(mut self, discount_curve_id: String) -> JsEquityOptionBuilder {
+        self.discount_curve_id = Some(discount_curve_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = spotId)]
+    pub fn spot_id(mut self, spot_id: String) -> JsEquityOptionBuilder {
+        self.spot_id = Some(spot_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = volSurface)]
+    pub fn vol_surface(mut self, vol_surface_id: String) -> JsEquityOptionBuilder {
+        self.vol_surface_id = Some(vol_surface_id);
+        self
+    }
+
+    #[wasm_bindgen(js_name = divYieldId)]
+    pub fn div_yield_id(mut self, div_yield_id: Option<String>) -> JsEquityOptionBuilder {
+        self.div_yield_id = Some(div_yield_id);
         self
     }
 
@@ -104,6 +176,9 @@ impl JsEquityOptionBuilder {
         let strike = self
             .strike
             .ok_or_else(|| js_error("EquityOptionBuilder: strike is required".to_string()))?;
+        if strike <= 0.0 {
+            return Err(js_error("EquityOptionBuilder: strike must be positive"));
+        }
         let option_type = self
             .option_type
             .as_deref()
@@ -111,7 +186,32 @@ impl JsEquityOptionBuilder {
         let expiry = self
             .expiry
             .ok_or_else(|| js_error("EquityOptionBuilder: expiry is required".to_string()))?;
-        let notional_amount = self.notional_amount.unwrap_or(1.0);
+        let notional = self
+            .notional
+            .unwrap_or_else(|| Money::new(1.0, Currency::USD));
+        let exercise_style = self
+            .exercise_style
+            .unwrap_or_else(|| "european".to_string())
+            .parse::<ExerciseStyle>()
+            .map_err(js_error)?;
+        let settlement = self
+            .settlement
+            .unwrap_or_else(|| "cash".to_string())
+            .parse::<SettlementType>()
+            .map_err(js_error)?;
+        let day_count = parse_day_count_name(self.day_count.as_deref().unwrap_or("act_365f"))?;
+        let discount_curve_id = self
+            .discount_curve_id
+            .unwrap_or_else(|| format!("{}-OIS", notional.currency()));
+        let spot_id = self
+            .spot_id
+            .unwrap_or_else(|| "EQUITY-SPOT".to_string());
+        let vol_surface_id = self
+            .vol_surface_id
+            .unwrap_or_else(|| "EQUITY-VOL".to_string());
+        let div_yield_id = self
+            .div_yield_id
+            .unwrap_or_else(|| Some("EQUITY-DIVYIELD".to_string()));
 
         let option_type = match option_type.to_lowercase().as_str() {
             "call" => OptionType::Call,
@@ -123,14 +223,21 @@ impl JsEquityOptionBuilder {
             }
         };
 
-        build_equity_option(
-            &self.instrument_id,
-            ticker,
+        build_equity_option(EquityOptionBuildParams {
+            instrument_id: self.instrument_id,
+            ticker: ticker.to_string(),
             strike,
             option_type,
             expiry,
-            notional_amount,
-        )
+            notional,
+            exercise_style,
+            day_count,
+            settlement,
+            discount_curve_id,
+            spot_id,
+            vol_surface_id,
+            div_yield_id,
+        })
         .map(JsEquityOption::from_inner)
     }
 }
@@ -206,14 +313,21 @@ impl JsEquityOption {
             }
         };
 
-        build_equity_option(
-            instrument_id,
-            ticker,
+        build_equity_option(EquityOptionBuildParams {
+            instrument_id: instrument_id.to_string(),
+            ticker: ticker.to_string(),
             strike,
             option_type,
-            expiry.inner(),
-            notional_amount,
-        )
+            expiry: expiry.inner(),
+            notional: Money::new(notional_amount, Currency::USD),
+            exercise_style: ExerciseStyle::European,
+            day_count: DayCount::Act365F,
+            settlement: SettlementType::Cash,
+            discount_curve_id: "USD-OIS".to_string(),
+            spot_id: "EQUITY-SPOT".to_string(),
+            vol_surface_id: "EQUITY-VOL".to_string(),
+            div_yield_id: Some("EQUITY-DIVYIELD".to_string()),
+        })
         .map(JsEquityOption::from_inner)
     }
 
@@ -255,8 +369,8 @@ impl JsEquityOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::EquityOption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::EquityOption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]
@@ -270,5 +384,60 @@ impl JsEquityOption {
     #[wasm_bindgen(js_name = clone)]
     pub fn clone_js(&self) -> JsEquityOption {
         JsEquityOption::from_inner(self.inner.clone())
+    }
+}
+
+fn parse_day_count_name(value: &str) -> Result<DayCount, JsValue> {
+    match value.to_ascii_lowercase().as_str() {
+        "act_360" | "act/360" | "act360" => Ok(DayCount::Act360),
+        "act_365f" | "act/365f" | "act365f" => Ok(DayCount::Act365F),
+        "act_act" | "act/act" | "actact" => Ok(DayCount::ActAct),
+        "thirty_360" | "30/360" | "30e/360" | "30_360" => Ok(DayCount::Thirty360),
+        other => Err(js_error(format!("Unsupported day count '{other}'"))),
+    }
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn builder_supports_market_identifier_overrides() {
+        let option = JsEquityOptionBuilder::new("EQOPT-1")
+            .ticker("AAPL".to_string())
+            .strike(180.0)
+            .option_type("call".to_string())
+            .expiry(&JsDate::new(2026, 6, 19).expect("valid date"))
+            .money(&JsMoney::from_code(100.0, "EUR").expect("valid money"))
+            .exercise_style("american".to_string())
+            .day_count("act_360".to_string())
+            .settlement("physical".to_string())
+            .discount_curve("EUR-OIS".to_string())
+            .spot_id("AAPL-SPOT".to_string())
+            .vol_surface("AAPL-VOL".to_string())
+            .div_yield_id(Some("AAPL-DIV".to_string()))
+            .build()
+            .expect("builder should accept explicit overrides");
+
+        assert_eq!(option.instrument_type(), "equity_option");
+        assert_eq!(option.notional_amount(), 100.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn builder_rejects_unknown_day_count() {
+        let err = JsEquityOptionBuilder::new("EQOPT-2")
+            .ticker("AAPL".to_string())
+            .strike(180.0)
+            .option_type("call".to_string())
+            .expiry(&JsDate::new(2026, 6, 19).expect("valid date"))
+            .day_count("bad_dc".to_string())
+            .build()
+            .expect_err("invalid day count should error");
+
+        let message = js_sys::Reflect::get(&err, &JsValue::from_str("message"))
+            .ok()
+            .and_then(|value| value.as_string());
+        assert_eq!(message.as_deref(), Some("Unsupported day count 'bad_dc'"));
     }
 }

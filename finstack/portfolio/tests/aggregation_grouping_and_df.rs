@@ -65,17 +65,17 @@ fn grouping_and_multi_attribute_aggregation() {
         finstack_portfolio::value_portfolio(&portfolio, &market, &config, &Default::default())
             .unwrap();
 
-    let groups = group_by_attribute(&portfolio.positions, "rating");
+    let groups = group_by_attribute(portfolio.positions(), "rating");
     assert!(groups.contains_key("AAA") && groups.contains_key("AA"));
     assert!(!groups.contains_key("_untagged"));
 
     let agg =
-        aggregate_by_attribute(&valuation, &portfolio.positions, "rating", Currency::USD).unwrap();
+        aggregate_by_attribute(&valuation, portfolio.positions(), "rating", Currency::USD).unwrap();
     assert!(agg.contains_key("AAA") && agg.contains_key("AA"));
 
     let agg2 = aggregate_by_multiple_attributes(
         &valuation,
-        &portfolio.positions,
+        portfolio.positions(),
         &["rating", "sector"],
         Currency::USD,
     )

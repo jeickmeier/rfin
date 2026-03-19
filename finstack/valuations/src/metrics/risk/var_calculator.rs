@@ -569,6 +569,9 @@ fn compute_taylor_sensitivities(
     let dv01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedDv01.as_str());
     let cs01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedCs01.as_str());
 
+    // Historical Taylor VaR uses an explicit caller-side missing-value policy:
+    // unsupported or failed metrics stay absent in best-effort mode and are
+    // only coerced to zero here when assembling the sensitivity vector.
     let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
     let parallel_cs01 = computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
     let ir_convexity = computed.get(&MetricId::IrConvexity).copied().unwrap_or(0.0);

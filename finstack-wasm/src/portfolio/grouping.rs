@@ -36,7 +36,7 @@ pub fn js_group_by_attribute(
     portfolio: &JsPortfolio,
     attribute_key: &str,
 ) -> Result<JsValue, JsValue> {
-    let groups = finstack_portfolio::group_by_attribute(&portfolio.inner.positions, attribute_key);
+    let groups = finstack_portfolio::group_by_attribute(portfolio.inner.positions(), attribute_key);
 
     let obj = Object::new();
     for (attr_value, positions) in groups {
@@ -85,7 +85,7 @@ pub fn js_aggregate_by_attribute(
 ) -> Result<JsValue, JsValue> {
     let aggregated = finstack_portfolio::aggregate_by_attribute(
         &valuation.inner,
-        &portfolio.inner.positions,
+        portfolio.inner.positions(),
         attribute_key,
         portfolio.inner.base_ccy,
     )

@@ -2,6 +2,7 @@ use crate::core::dates::calendar::JsBusinessDayConvention;
 use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::money::JsMoney;
+use crate::utils::decimal::decimal_to_f64_or_warn;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
@@ -419,7 +420,7 @@ impl JsSwaption {
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.strike).unwrap_or_default()
+        decimal_to_f64_or_warn(&self.inner.strike, "strike")
     }
 
     #[wasm_bindgen(getter)]
@@ -448,8 +449,8 @@ impl JsSwaption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::Swaption as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::Swaption.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

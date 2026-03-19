@@ -167,7 +167,7 @@ use crate::currency::Currency;
 ///         Error::Calibration { message, .. } => format!("Calibration failed: {}", message),
 ///         Error::Validation(msg) => format!("Validation error: {}", msg),
 ///         Error::UnknownMetric { metric_id, .. } => format!("Unknown metric: {}", metric_id),
-///         Error::Internal => "Internal error".to_string(),
+///         Error::Internal(message) => format!("Internal error: {}", message),
 ///         _ => "Unknown error".to_string(), // Non-exhaustive enum
 ///     }
 /// }
@@ -256,8 +256,8 @@ pub enum Error {
     },
 
     /// Catch-all for unexpected internal failures.
-    #[error("Internal system error")]
-    Internal,
+    #[error("Internal system error: {0}")]
+    Internal(String),
 }
 
 /// Convenience result type used throughout the core crate.
@@ -398,6 +398,11 @@ impl Error {
     /// ```
     pub fn circular_dependency(path: Vec<String>) -> Self {
         Self::CircularDependency { path }
+    }
+
+    /// Create an internal error with invariant/debugging context.
+    pub fn internal(message: impl Into<String>) -> Self {
+        Self::Internal(message.into())
     }
 }
 
@@ -550,7 +555,7 @@ mod tests {
         let err4 = err3.clone();
         assert_eq!(err3, err4);
 
-        let cause = Error::Internal;
+        let cause = Error::internal("metric test failure");
         let err5 = Error::metric_calculation_failed("test", cause);
         let err6 = err5.clone();
         assert_eq!(err5, err6);
@@ -558,5 +563,15 @@ mod tests {
         let err7 = Error::circular_dependency(vec!["a".to_string(), "b".to_string()]);
         let err8 = err7.clone();
         assert_eq!(err7, err8);
+    }
+
+    #[test]
+    fn internal_error_carries_context() {
+        let err = Error::Internal("bootstrap diverged".into());
+        let msg = err.to_string();
+        assert!(
+            msg.contains("bootstrap diverged"),
+            "Error should contain context: {msg}"
+        );
     }
 }

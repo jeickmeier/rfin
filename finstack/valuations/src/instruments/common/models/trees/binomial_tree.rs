@@ -140,7 +140,9 @@ impl BinomialTree {
         q: f64,
     ) -> Result<(f64, f64, f64)> {
         if t <= 0.0 || sigma <= 0.0 {
-            return Err(Error::Internal);
+            return Err(Error::internal(
+                "binomial tree requires positive time_to_maturity and volatility",
+            ));
         }
 
         let dt = t / self.steps as f64;
@@ -153,7 +155,9 @@ impl BinomialTree {
                     let d = 1.0 / u;
                     let p = (((r - q) * dt).exp() - d) / (u - d);
                     if !(0.0..=1.0).contains(&p) {
-                        return Err(Error::Internal);
+                        return Err(Error::internal(
+                            "Leisen-Reimer fallback probability fell outside [0, 1]",
+                        ));
                     }
                     return Ok((u, d, p));
                 }
@@ -173,14 +177,18 @@ impl BinomialTree {
                 let one_minus_p = 1.0 - p;
                 let denom = p * one_minus_p;
                 if denom <= 0.0 {
-                    return Err(Error::Internal);
+                    return Err(Error::internal(
+                        "Leisen-Reimer probability denominator must be positive",
+                    ));
                 }
                 let delta = (var / denom).sqrt();
                 let d = m1 - p * delta;
                 let u = m1 + one_minus_p * delta;
 
                 if !(u.is_finite() && d.is_finite() && u > 1.0 && d < 1.0 && u > d) {
-                    return Err(Error::Internal);
+                    return Err(Error::internal(
+                        "Leisen-Reimer up/down factors are internally inconsistent",
+                    ));
                 }
 
                 (u, d, p)
@@ -193,7 +201,9 @@ impl BinomialTree {
 
                 // Validate probability
                 if !(0.0..=1.0).contains(&p) {
-                    return Err(Error::Internal);
+                    return Err(Error::internal(
+                        "CRR probability fell outside [0, 1]",
+                    ));
                 }
 
                 (u, d, p)
@@ -277,7 +287,9 @@ impl BinomialTree {
 
         impl TreeValuator for OptionValuator {
             fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
-                let s = state.spot().ok_or(Error::Internal)?;
+                let s = state
+                    .spot()
+                    .ok_or_else(|| Error::internal("option node state missing spot at maturity"))?;
                 Ok(match self.option_type {
                     OptionType::Call => (s - self.strike).max(0.0),
                     OptionType::Put => (self.strike - s).max(0.0),
@@ -292,7 +304,9 @@ impl BinomialTree {
             ) -> Result<f64> {
                 if let Some(steps) = &self.exercise_steps {
                     if steps.contains(&state.step) {
-                        let s = state.spot().ok_or(Error::Internal)?;
+                        let s = state
+                            .spot()
+                            .ok_or_else(|| Error::internal("option node state missing spot"))?;
                         let exercise = match self.option_type {
                             OptionType::Call => (s - self.strike).max(0.0),
                             OptionType::Put => (self.strike - s).max(0.0),
@@ -375,7 +389,11 @@ impl BinomialTree {
         let base_price = match exercise_style {
             ExerciseStyle::American => self.price_american(market_params)?,
             ExerciseStyle::European => self.price_european(market_params)?,
-            _ => return Err(Error::Internal),
+            _ => {
+                return Err(Error::internal(
+                    "binomial greeks only support American and European exercise styles",
+                ))
+            }
         };
 
         // Delta: use small bump
@@ -385,7 +403,11 @@ impl BinomialTree {
         let price_up = match exercise_style {
             ExerciseStyle::American => self.price_american(&params_up)?,
             ExerciseStyle::European => self.price_european(&params_up)?,
-            _ => return Err(Error::Internal),
+            _ => {
+                return Err(Error::internal(
+                    "binomial greeks only support American and European exercise styles",
+                ))
+            }
         };
 
         let mut params_down = market_params.clone();
@@ -393,7 +415,11 @@ impl BinomialTree {
         let price_down = match exercise_style {
             ExerciseStyle::American => self.price_american(&params_down)?,
             ExerciseStyle::European => self.price_european(&params_down)?,
-            _ => return Err(Error::Internal),
+            _ => {
+                return Err(Error::internal(
+                    "binomial greeks only support American and European exercise styles",
+                ))
+            }
         };
 
         let delta = (price_up - price_down) / (2.0 * h);
@@ -407,7 +433,11 @@ impl BinomialTree {
             let price_later = match exercise_style {
                 ExerciseStyle::American => self.price_american(&params_later)?,
                 ExerciseStyle::European => self.price_european(&params_later)?,
-                _ => return Err(Error::Internal),
+                _ => {
+                    return Err(Error::internal(
+                        "binomial greeks only support American and European exercise styles",
+                    ))
+                }
             };
             -(base_price - price_later) / dt
         } else {
@@ -448,7 +478,9 @@ impl BinomialTree {
 
         impl TreeValuator for OptionValuator {
             fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
-                let s = state.spot().ok_or(Error::Internal)?;
+                let s = state
+                    .spot()
+                    .ok_or_else(|| Error::internal("barrier option node state missing spot"))?;
                 Ok(match self.option_type {
                     OptionType::Call => (s - self.strike).max(0.0),
                     OptionType::Put => (self.strike - s).max(0.0),
@@ -535,7 +567,9 @@ impl BinomialTree {
 
         impl TreeValuator for OptionValuator {
             fn value_at_maturity(&self, state: &NodeState) -> Result<f64> {
-                let s = state.spot().ok_or(Error::Internal)?;
+                let s = state
+                    .spot()
+                    .ok_or_else(|| Error::internal("barrier option node state missing spot"))?;
                 Ok(match self.option_type {
                     OptionType::Call => (s - self.strike).max(0.0),
                     OptionType::Put => (self.strike - s).max(0.0),
@@ -550,7 +584,9 @@ impl BinomialTree {
             ) -> Result<f64> {
                 if let Some(steps) = &self.exercise_steps {
                     if steps.contains(&state.step) {
-                        let s = state.spot().ok_or(Error::Internal)?;
+                        let s = state
+                            .spot()
+                            .ok_or_else(|| Error::internal("barrier option node state missing spot"))?;
                         let exercise = match self.option_type {
                             OptionType::Call => (s - self.strike).max(0.0),
                             OptionType::Put => (self.strike - s).max(0.0),
@@ -684,14 +720,14 @@ impl BinomialTree {
         // Extract required parameters from state variables
         let r = *initial_vars
             .get(state_keys::INTEREST_RATE)
-            .ok_or(Error::Internal)?;
+            .ok_or_else(|| Error::internal("binomial tree requires initial interest rate"))?;
         let q = initial_vars
             .get(state_keys::DIVIDEND_YIELD)
             .copied()
             .unwrap_or(0.0);
         let sigma = *initial_vars
             .get(state_keys::VOLATILITY)
-            .ok_or(Error::Internal)?;
+            .ok_or_else(|| Error::internal("binomial tree requires initial volatility"))?;
 
         // Calculate binomial parameters and delegate to the shared engine
         let (u, d, p) = self.calculate_parameters(0.0, 0.0, r, sigma, time_to_maturity, q)?;

@@ -2,6 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::decimal::decimal_to_f64_or_warn;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -319,7 +320,7 @@ impl JsInterestRateOption {
 
     #[wasm_bindgen(getter)]
     pub fn strike(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.0.strike).unwrap_or_default()
+        decimal_to_f64_or_warn(&self.0.strike, "strike")
     }
 
     #[wasm_bindgen(getter, js_name = startDate)]
@@ -353,8 +354,8 @@ impl JsInterestRateOption {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::CapFloor as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::CapFloor.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

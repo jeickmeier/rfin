@@ -3,7 +3,6 @@ use finstack_core::math::integration as core_integration;
 use finstack_core::math::integration::GaussHermiteQuadrature;
 use js_sys::Function;
 use std::cell::RefCell;
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -22,39 +21,28 @@ struct JsClosureAdapter<'a> {
     error_cell: &'a RefCell<Option<JsValue>>,
 }
 
-#[allow(clippy::panic)]
 impl JsClosureAdapter<'_> {
     fn invoke(&self, x: f64) -> f64 {
         match call_js_fn_safe(self.func, x) {
             Ok(value) => value,
             Err(err) => {
                 *self.error_cell.borrow_mut() = Some(err);
-                panic!("JS callback error");
+                f64::NAN
             }
         }
     }
 }
 
-// Execute a function with panic catching for JS callbacks
-fn run_with_panic_catch<R>(
+// Execute a function and return any callback error captured by the adapter.
+fn run_with_error_check<R>(
     error_cell: &RefCell<Option<JsValue>>,
     eval: impl FnOnce() -> R,
 ) -> Result<R, JsValue> {
-    match catch_unwind(AssertUnwindSafe(eval)) {
-        Ok(value) => {
-            if let Some(err) = error_cell.borrow_mut().take() {
-                Err(err)
-            } else {
-                Ok(value)
-            }
-        }
-        Err(_) => {
-            if let Some(err) = error_cell.borrow_mut().take() {
-                Err(err)
-            } else {
-                Err(js_error("JavaScript callback failed"))
-            }
-        }
+    let value = eval();
+    if let Some(err) = error_cell.borrow_mut().take() {
+        Err(err)
+    } else {
+        Ok(value)
     }
 }
 
@@ -199,7 +187,7 @@ impl JsGaussHermiteQuadrature {
             func,
             error_cell: &error_cell,
         };
-        run_with_panic_catch(&error_cell, || self.inner.integrate(|x| adapter.invoke(x)))
+        run_with_error_check(&error_cell, || self.inner.integrate(|x| adapter.invoke(x)))
     }
 
     /// Integrate with adaptive tolerance using recursive subdivision.
@@ -233,7 +221,7 @@ impl JsGaussHermiteQuadrature {
             func,
             error_cell: &error_cell,
         };
-        run_with_panic_catch(&error_cell, || {
+        run_with_error_check(&error_cell, || {
             self.inner
                 .integrate_adaptive(|x| adapter.invoke(x), tolerance)
         })
@@ -280,7 +268,7 @@ pub fn simpson_rule(func: &JsValue, a: f64, b: f64, intervals: usize) -> Result<
         func,
         error_cell: &error_cell,
     };
-    let result = run_with_panic_catch(&error_cell, || {
+    let result = run_with_error_check(&error_cell, || {
         core_integration::simpson_rule(|x| adapter.invoke(x), a, b, intervals)
     })?;
     result.map_err(|err| js_error(err.to_string()))
@@ -326,7 +314,7 @@ pub fn adaptive_simpson(
         func,
         error_cell: &error_cell,
     };
-    let result = run_with_panic_catch(&error_cell, || {
+    let result = run_with_error_check(&error_cell, || {
         core_integration::adaptive_simpson(|x| adapter.invoke(x), a, b, tol, max_depth)
     })?;
     result.map_err(|err| js_error(err.to_string()))
@@ -369,7 +357,7 @@ pub fn gauss_legendre_integrate(
         func,
         error_cell: &error_cell,
     };
-    let result = run_with_panic_catch(&error_cell, || {
+    let result = run_with_error_check(&error_cell, || {
         core_integration::gauss_legendre_integrate(|x| adapter.invoke(x), a, b, order)
     })?;
     result.map_err(|err| js_error(err.to_string()))
@@ -415,7 +403,7 @@ pub fn gauss_legendre_integrate_composite(
         func,
         error_cell: &error_cell,
     };
-    let result = run_with_panic_catch(&error_cell, || {
+    let result = run_with_error_check(&error_cell, || {
         core_integration::gauss_legendre_integrate_composite(
             |x| adapter.invoke(x),
             a,
@@ -470,7 +458,7 @@ pub fn gauss_legendre_integrate_adaptive(
         func,
         error_cell: &error_cell,
     };
-    let result = run_with_panic_catch(&error_cell, || {
+    let result = run_with_error_check(&error_cell, || {
         core_integration::gauss_legendre_integrate_adaptive(
             |x| adapter.invoke(x),
             a,
@@ -511,8 +499,29 @@ pub fn trapezoidal_rule(func: &JsValue, a: f64, b: f64, intervals: usize) -> Res
         func,
         error_cell: &error_cell,
     };
-    let result = run_with_panic_catch(&error_cell, || {
+    let result = run_with_error_check(&error_cell, || {
         core_integration::trapezoidal_rule(|x| adapter.invoke(x), a, b, intervals)
     })?;
     result.map_err(|err| js_error(err.to_string()))
+}
+
+#[cfg(all(test, target_arch = "wasm32"))]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn integrate_propagates_javascript_errors() {
+        let quadrature = JsGaussHermiteQuadrature::new(5).expect("valid quadrature");
+        let callback = Function::new_with_args("x", "throw new Error('boom')");
+
+        let err = quadrature
+            .integrate(&callback.into())
+            .expect_err("callback error should surface as Result::Err");
+
+        let message = js_sys::Reflect::get(&err, &JsValue::from_str("message"))
+            .ok()
+            .and_then(|value| value.as_string());
+        assert_eq!(message.as_deref(), Some("boom"));
+    }
 }

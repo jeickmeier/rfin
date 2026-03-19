@@ -460,7 +460,8 @@ impl AllocationLedger {
 
     /// Export as JSON string for external analysis.
     pub fn to_json(&self) -> finstack_core::Result<String> {
-        serde_json::to_string_pretty(self).map_err(|_| finstack_core::Error::Internal)
+        serde_json::to_string_pretty(self)
+            .map_err(|_| finstack_core::Error::internal("failed to serialize PE fund waterfall"))
     }
 }
 

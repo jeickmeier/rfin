@@ -136,8 +136,8 @@ impl JsRevolvingCredit {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::RevolvingCredit as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::RevolvingCredit.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

@@ -160,9 +160,9 @@ pub fn map_error(err: CoreError) -> PyErr {
         CoreError::Validation(msg) => ValidationError::new_err(msg),
 
         // Internal errors
-        CoreError::Internal => InternalError::new_err(
-            "Internal finstack error - this is likely a bug. Please report it.",
-        ),
+        CoreError::Internal(message) => InternalError::new_err(format!(
+            "Internal finstack error - this is likely a bug. Please report it. Context: {message}"
+        )),
 
         // Fallback for any other error types
         other => FinstackError::new_err(other.to_string()),

@@ -138,7 +138,11 @@ impl PyEstimate {
     }
 }
 
-/// Convergence diagnostics for Monte Carlo simulation.
+/// Compatibility wrapper for Monte Carlo convergence diagnostics.
+///
+/// The underlying Rust engine currently leaves these fields unset, so Python
+/// callers should treat this type as a placeholder and rely on `Estimate`
+/// statistics for live convergence information.
 #[pyclass(
     module = "finstack.valuations.common.monte_carlo",
     name = "ConvergenceDiagnostics",
@@ -152,7 +156,7 @@ pub struct PyConvergenceDiagnostics {
 
 #[pymethods]
 impl PyConvergenceDiagnostics {
-    /// Create empty diagnostics.
+    /// Create empty compatibility diagnostics.
     #[new]
     fn new() -> Self {
         Self {

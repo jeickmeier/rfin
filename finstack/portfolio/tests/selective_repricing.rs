@@ -131,8 +131,7 @@ fn dependency_index_rebuilt_after_mutation() {
     )
     .unwrap();
 
-    portfolio.positions.push(pos3);
-    portfolio.rebuild_index();
+    portfolio.add_position(pos3);
 
     assert!(
         portfolio.dependency_index().factor_count() > count_before,
@@ -148,7 +147,7 @@ fn positions_for_key_returns_correct_indices() {
     let usd_indices = index.positions_for_key(&usd_discount_key());
     assert_eq!(usd_indices.len(), 1);
     assert_eq!(
-        portfolio.positions[usd_indices[0]].position_id.as_str(),
+        portfolio.positions()[usd_indices[0]].position_id.as_str(),
         "POS_USD"
     );
 
@@ -156,7 +155,7 @@ fn positions_for_key_returns_correct_indices() {
     let eur_indices = index.positions_for_key(&eur_key);
     assert_eq!(eur_indices.len(), 1);
     assert_eq!(
-        portfolio.positions[eur_indices[0]].position_id.as_str(),
+        portfolio.positions()[eur_indices[0]].position_id.as_str(),
         "POS_EUR"
     );
 }

@@ -80,6 +80,28 @@ impl EvaluationContext {
         node_to_column: Arc<IndexMap<NodeId, usize>>,
         historical_results: Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
     ) -> Self {
+        Self::new_with_history(
+            period_id,
+            node_to_column,
+            historical_results,
+            Arc::new(IndexMap::new()),
+        )
+    }
+
+    /// Create a new evaluation context with shared historical results and
+    /// capital-structure cashflow snapshots.
+    ///
+    /// This constructor is used by the evaluator hot path so each per-period
+    /// context can reuse the same `Arc`-backed history maps without cloning
+    /// their contents.
+    pub fn new_with_history(
+        period_id: PeriodId,
+        node_to_column: Arc<IndexMap<NodeId, usize>>,
+        historical_results: Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
+        historical_capital_structure_cashflows: Arc<
+            IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
+        >,
+    ) -> Self {
         let num_nodes = node_to_column.len();
         let period_kind = period_id.kind();
         Self {
@@ -87,7 +109,7 @@ impl EvaluationContext {
             period_kind,
             node_to_column,
             historical_results,
-            historical_capital_structure_cashflows: Arc::new(IndexMap::new()),
+            historical_capital_structure_cashflows,
             current_values: vec![None; num_nodes],
             node_value_types: IndexMap::new(),
             capital_structure_cashflows: None,

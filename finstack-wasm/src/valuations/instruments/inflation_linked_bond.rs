@@ -2,6 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::decimal::decimal_to_f64_or_warn;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
@@ -312,7 +313,7 @@ impl JsInflationLinkedBond {
 
     #[wasm_bindgen(getter, js_name = realCoupon)]
     pub fn real_coupon(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.real_coupon).unwrap_or_default()
+        decimal_to_f64_or_warn(&self.inner.real_coupon, "realCoupon")
     }
 
     #[wasm_bindgen(getter)]
@@ -371,8 +372,8 @@ impl JsInflationLinkedBond {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::InflationLinkedBond as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::InflationLinkedBond.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

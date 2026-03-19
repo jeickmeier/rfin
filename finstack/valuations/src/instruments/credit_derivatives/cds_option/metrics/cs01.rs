@@ -78,7 +78,7 @@ fn rebuild_hazard_with_id(
     curve
         .to_builder_with_id(new_id.clone())
         .build()
-        .map_err(|_| finstack_core::Error::Internal)
+        .map_err(|_| finstack_core::Error::internal("failed to rebuild hazard curve with new id"))
 }
 
 #[cfg(test)]

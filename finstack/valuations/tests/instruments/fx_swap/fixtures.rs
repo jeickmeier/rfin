@@ -55,7 +55,9 @@ impl FxProvider for MockFxProvider {
         if let Some(&rate) = self.rates.get(&(from, to)) {
             return Ok(rate);
         }
-        Err(finstack_core::Error::Internal)
+        Err(finstack_core::Error::internal(
+            "test FX provider missing requested currency pair",
+        ))
     }
 }
 

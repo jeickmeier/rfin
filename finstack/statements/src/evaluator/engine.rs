@@ -220,11 +220,11 @@ impl Evaluator {
         }
 
         // Evaluate period-by-period
-        let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
-        let mut historical_cs: IndexMap<
-            PeriodId,
-            crate::capital_structure::CapitalStructureCashflows,
-        > = IndexMap::new();
+        let mut historical: std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>> =
+            std::sync::Arc::new(IndexMap::new());
+        let mut historical_cs: std::sync::Arc<
+            IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
+        > = std::sync::Arc::new(IndexMap::new());
         let mut all_warnings = Vec::new();
         let mut results = StatementResult::new();
 
@@ -304,9 +304,9 @@ impl Evaluator {
             }
 
             // Add to historical context for next period
-            historical.insert(period.id, period_results.clone());
+            std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results.clone());
             if has_cs {
-                historical_cs.insert(period.id, cs_cashflows_accum.clone());
+                std::sync::Arc::make_mut(&mut historical_cs).insert(period.id, cs_cashflows_accum.clone());
             }
 
             // Advance CS state for next period
@@ -476,7 +476,8 @@ impl Evaluator {
             path_eval.forecast_cache.clear();
 
             let seed_offset = config.seed.wrapping_add(path_idx as u64);
-            let mut historical: IndexMap<PeriodId, IndexMap<String, f64>> = IndexMap::new();
+            let mut historical: std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>> =
+                std::sync::Arc::new(IndexMap::new());
             let mut all_warnings = Vec::new();
 
             for period in &model.periods {
@@ -490,11 +491,11 @@ impl Evaluator {
                     seed_offset,
                 )?;
                 all_warnings.extend(warnings);
-                historical.insert(period.id, period_results.clone());
+                std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results.clone());
             }
 
             let mut node_map: IndexMap<String, IndexMap<PeriodId, f64>> = IndexMap::new();
-            for (period_id, values) in &historical {
+            for (period_id, values) in historical.iter() {
                 for (node_id, value) in values {
                     node_map
                         .entry(node_id.clone())
@@ -642,16 +643,18 @@ impl Evaluator {
         is_actual: bool,
         eval_order: &[NodeId],
         node_to_column: &std::sync::Arc<IndexMap<NodeId, usize>>,
-        historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
-        historical_cs: &IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
+        historical: &std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
+        historical_cs: &std::sync::Arc<
+            IndexMap<PeriodId, crate::capital_structure::CapitalStructureCashflows>,
+        >,
         cs_cashflows: Option<&crate::capital_structure::CapitalStructureCashflows>,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
-        let mut context = EvaluationContext::new(
+        let mut context = EvaluationContext::new_with_history(
             *period_id,
             std::sync::Arc::clone(node_to_column),
-            std::sync::Arc::new(historical.clone()),
+            std::sync::Arc::clone(historical),
+            std::sync::Arc::clone(historical_cs),
         );
-        context.historical_capital_structure_cashflows = std::sync::Arc::new(historical_cs.clone());
 
         if let Some(cs) = cs_cashflows {
             context.capital_structure_cashflows = Some(cs.clone());
@@ -682,13 +685,13 @@ impl Evaluator {
         is_actual: bool,
         eval_order: &[NodeId],
         node_to_column: &std::sync::Arc<IndexMap<NodeId, usize>>,
-        historical: &IndexMap<PeriodId, IndexMap<String, f64>>,
+        historical: &std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
         seed_offset: u64,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
         let mut context = EvaluationContext::new(
             *period_id,
             std::sync::Arc::clone(node_to_column),
-            std::sync::Arc::new(historical.clone()),
+            std::sync::Arc::clone(historical),
         );
 
         self.evaluate_nodes_in_order(

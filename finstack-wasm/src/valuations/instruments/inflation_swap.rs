@@ -1,6 +1,7 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::decimal::decimal_to_f64_or_warn;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::parse::parse_optional_with_default;
 use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id_from_str};
@@ -274,8 +275,7 @@ impl JsInflationSwap {
         let ccy = self.inner.notional.currency();
 
         let inflation_leg = notional * (index_ratio - 1.0);
-        let fixed_rate =
-            rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default();
+        let fixed_rate = decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate");
         let fixed_leg = notional * ((1.0 + fixed_rate).powf(tau) - 1.0);
 
         let (infl_sign, fixed_sign) = match self.inner.side {
@@ -311,7 +311,7 @@ impl JsInflationSwap {
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
+        decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate")
     }
 
     #[wasm_bindgen(getter)]
@@ -320,8 +320,8 @@ impl JsInflationSwap {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::InflationSwap as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::InflationSwap.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

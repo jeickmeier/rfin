@@ -2,6 +2,7 @@
 
 use crate::core::currency::JsCurrency;
 use crate::core::dates::date::JsDate;
+use crate::utils::decimal::decimal_to_f64_or_warn;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::f64_to_decimal;
 use crate::valuations::instruments::InstrumentWrapper;
@@ -366,7 +367,7 @@ impl JsCommoditySwap {
 
     #[wasm_bindgen(getter, js_name = fixedPrice)]
     pub fn fixed_price(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_price).unwrap_or_default()
+        decimal_to_f64_or_warn(&self.inner.fixed_price, "fixedPrice")
     }
 
     #[wasm_bindgen(getter, js_name = payFixed)]
@@ -405,8 +406,8 @@ impl JsCommoditySwap {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::CommoditySwap as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::CommoditySwap.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

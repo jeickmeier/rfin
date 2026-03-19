@@ -2,6 +2,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::JsDayCount;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::decimal::decimal_to_f64_or_warn;
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -328,7 +329,7 @@ impl JsForwardRateAgreement {
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        rust_decimal::prelude::ToPrimitive::to_f64(&self.inner.fixed_rate).unwrap_or_default()
+        decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate")
     }
 
     #[wasm_bindgen(getter, js_name = fixingDate)]
@@ -357,8 +358,8 @@ impl JsForwardRateAgreement {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::FRA as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::FRA.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

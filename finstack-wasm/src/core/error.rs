@@ -108,7 +108,10 @@ pub(crate) fn core_to_js(err: Error) -> JsValue {
         Error::Validation(msg) => {
             js_error_with_kind(ErrorKind::Validation, format!("Validation error: {msg}"))
         }
-        Error::Internal => js_error_with_kind(ErrorKind::Internal, "Internal finstack error"),
+        Error::Internal(message) => js_error_with_kind(
+            ErrorKind::Internal,
+            format!("Internal finstack error: {message}"),
+        ),
         _ => js_error_with_kind(ErrorKind::Generic, err.to_string()),
     }
 }

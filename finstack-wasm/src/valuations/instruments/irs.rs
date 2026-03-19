@@ -3,6 +3,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::dates::daycount::{JsDayCount, JsTenor};
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
+use crate::utils::decimal::{decimal_from_f64, decimal_to_f64_or_warn};
 use crate::utils::json::{from_js_value, to_js_value};
 use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
@@ -188,12 +189,11 @@ impl JsInterestRateSwapBuilder {
         let float_dc = self.float_day_count.unwrap_or(DayCount::Act360);
         let stub = self.stub_kind.unwrap_or(StubKind::None);
         let reset_lag_days = self.reset_lag_days.unwrap_or(2);
-        let spread_bp = rust_decimal::Decimal::from_f64_retain(self.float_spread_bp.unwrap_or(0.0))
-            .unwrap_or_default();
+        let spread_bp = decimal_from_f64(self.float_spread_bp.unwrap_or(0.0), "floatSpreadBp")?;
 
         let fixed = FixedLegSpec {
             discount_curve_id: curve_id_from_str(discount_curve),
-            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
+            rate: decimal_from_f64(fixed_rate, "fixedRate")?,
             frequency: fixed_freq,
             day_count: fixed_dc,
             bdc,
@@ -354,7 +354,7 @@ impl JsInterestRateSwap {
         let stub = stub_kind.map(|s| s.inner()).unwrap_or(StubKind::None);
         let fixed = FixedLegSpec {
             discount_curve_id: curve_id_from_str(discount_curve),
-            rate: rust_decimal::Decimal::from_f64_retain(fixed_rate).unwrap_or_default(),
+            rate: decimal_from_f64(fixed_rate, "fixedRate")?,
             frequency: fixed_freq,
             day_count: fixed_dc,
             bdc,
@@ -458,14 +458,12 @@ impl JsInterestRateSwap {
 
     #[wasm_bindgen(getter, js_name = fixedRate)]
     pub fn fixed_rate(&self) -> f64 {
-        use rust_decimal::prelude::ToPrimitive;
-        self.inner.fixed.rate.to_f64().unwrap_or(0.0)
+        decimal_to_f64_or_warn(&self.inner.fixed.rate, "fixedRate")
     }
 
     #[wasm_bindgen(getter, js_name = floatSpreadBp)]
     pub fn float_spread_bp(&self) -> f64 {
-        use rust_decimal::prelude::ToPrimitive;
-        self.inner.float.spread_bp.to_f64().unwrap_or(0.0)
+        decimal_to_f64_or_warn(&self.inner.float.spread_bp, "floatSpreadBp")
     }
 
     #[wasm_bindgen(getter)]
@@ -489,8 +487,8 @@ impl JsInterestRateSwap {
     }
 
     #[wasm_bindgen(js_name = instrumentType)]
-    pub fn instrument_type(&self) -> u16 {
-        InstrumentType::IRS as u16
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::IRS.to_string()
     }
 
     #[wasm_bindgen(js_name = toString)]

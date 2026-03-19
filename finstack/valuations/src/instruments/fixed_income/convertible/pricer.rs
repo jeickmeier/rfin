@@ -149,7 +149,9 @@ impl ConvertibleBondValuator {
         volatility: f64,
     ) -> Result<Self> {
         // Use effective conversion ratio (includes anti-dilution adjustments)
-        let conversion_ratio = bond.effective_conversion_ratio().ok_or(Error::Internal)?;
+        let conversion_ratio = bond.effective_conversion_ratio().ok_or_else(|| {
+            Error::internal("convertible tree pricer requires effective conversion ratio")
+        })?;
 
         // Map cashflows to tree steps
         let dt = time_to_maturity / steps as f64;
@@ -773,14 +775,16 @@ fn extract_equity_state(
     let underlying_id = bond
         .underlying_equity_id
         .as_deref()
-        .ok_or(Error::Internal)?;
+        .ok_or_else(|| Error::internal("convertible pricing requires underlying equity spot"))?;
 
     // Get spot price, preserving the original scalar variant for type-safe bumping
     let spot_scalar = ctx.get_price(underlying_id)?.clone();
     let spot = match &spot_scalar {
         finstack_core::market_data::scalars::MarketScalar::Price(money) => {
             if money.currency() != bond.notional.currency() {
-                return Err(Error::Internal);
+                return Err(Error::internal(
+                    "convertible parity implied vol solver failed to bracket the root",
+                ));
             }
             money.amount()
         }
