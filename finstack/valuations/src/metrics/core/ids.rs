@@ -884,6 +884,30 @@ impl MetricId {
     pub const RollSpecialness: Self = Self(Cow::Borrowed("roll_specialness"));
 
     // ========================================================================
+    // Pricer registry: spread / yield metrics on cash-equivalent cashflows
+    // ========================================================================
+
+    /// Metrics computed on **cash-equivalent** cashflows when pricing with a
+    /// non-discounting model (hazard, tree, Monte Carlo, etc.).
+    ///
+    /// This list must stay aligned with the spread/yield split in
+    /// [`crate::pricer::PricerRegistry::price_with_metrics`].
+    pub const SPREAD_EQUIVALENT_METRICS: &'static [MetricId] = &[
+        MetricId::Ytm,
+        MetricId::Ytw,
+        MetricId::ZSpread,
+        MetricId::ISpread,
+        MetricId::DiscountMargin,
+        MetricId::Oas,
+        MetricId::ASWPar,
+        MetricId::ASWMarket,
+        MetricId::CleanPrice,
+        MetricId::DirtyPrice,
+        MetricId::Accrued,
+        MetricId::EmbeddedOptionValue,
+    ];
+
+    // ========================================================================
     // ALL_STANDARD Array
     // ========================================================================
 
@@ -1276,6 +1300,28 @@ mod tests {
             let parsed = MetricId::parse_strict(name).unwrap();
             assert_eq!(parsed.as_str(), name);
             assert!(!parsed.is_custom());
+        }
+    }
+
+    #[test]
+    fn spread_equivalent_metrics_are_unique_and_standard() {
+        let mut seen = std::collections::HashSet::new();
+        for m in MetricId::SPREAD_EQUIVALENT_METRICS {
+            assert!(
+                seen.insert(m.as_str()),
+                "duplicate spread-equivalent metric: {}",
+                m.as_str()
+            );
+            assert!(
+                !m.is_custom(),
+                "spread-equivalent metric must be standard: {}",
+                m.as_str()
+            );
+            assert!(
+                MetricId::ALL_STANDARD.contains(m),
+                "spread-equivalent metric missing from ALL_STANDARD: {}",
+                m.as_str()
+            );
         }
     }
 

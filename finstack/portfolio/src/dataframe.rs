@@ -90,7 +90,7 @@ pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::p
 
 /// Export metrics to a Polars `DataFrame` in long format.
 ///
-/// Columns produced: `metric_id`, `position_id`, `value`.
+/// Columns produced: `metric_id`, `position_id`, `currency`, `value`.
 ///
 /// # Arguments
 ///
@@ -100,14 +100,21 @@ pub fn entities_to_dataframe(valuation: &PortfolioValuation) -> Result<polars::p
 ///
 /// A [`Result`] containing the [`polars::prelude::DataFrame`].
 pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelude::DataFrame> {
-    let mut metric_ids: Vec<String> = Vec::new();
-    let mut position_ids: Vec<String> = Vec::new();
-    let mut values: Vec<f64> = Vec::new();
+    let row_count: usize = metrics
+        .by_position
+        .values()
+        .map(|pm| pm.metrics.len())
+        .sum();
+    let mut metric_ids: Vec<String> = Vec::with_capacity(row_count);
+    let mut position_ids: Vec<String> = Vec::with_capacity(row_count);
+    let mut currencies: Vec<String> = Vec::with_capacity(row_count);
+    let mut values: Vec<f64> = Vec::with_capacity(row_count);
 
     for (position_id, position_metrics) in &metrics.by_position {
-        for (metric_id, value) in position_metrics {
+        for (metric_id, value) in &position_metrics.metrics {
             metric_ids.push(metric_id.clone());
             position_ids.push(position_id.to_string());
+            currencies.push(position_metrics.currency.to_string());
             values.push(*value);
         }
     }
@@ -115,6 +122,7 @@ pub fn metrics_to_dataframe(metrics: &PortfolioMetrics) -> Result<polars::prelud
     let df = polars::prelude::df! (
         "metric_id" => metric_ids,
         "position_id" => position_ids,
+        "currency" => currencies,
         "value" => values,
     )
     .map_err(|_| Error::Input(InputError::Invalid))?;

@@ -3,7 +3,11 @@
 use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
 use crate::forecast;
-use crate::types::{FinancialModelSpec, NodeId, NodeSpec};
+use crate::forecast::statistical::{
+    monte_carlo_correlated_series, parse_correlation_params, record_independent_z_scores_for_mc,
+    CorrelatedMonteCarloSeries,
+};
+use crate::types::{FinancialModelSpec, ForecastMethod, NodeId, NodeSpec};
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -25,6 +29,7 @@ pub(crate) fn evaluate_forecast(
     context: &EvaluationContext,
     forecast_cache: &mut IndexMap<NodeId, IndexMap<PeriodId, f64>>,
     seed_offset: Option<u64>,
+    mc_z_cache: &mut Option<&mut IndexMap<NodeId, IndexMap<PeriodId, f64>>>,
 ) -> Result<f64> {
     // Check cache first
     if let Some(cached) = forecast_cache.get(node_spec.node_id.as_str()) {
@@ -63,12 +68,66 @@ pub(crate) fn evaluate_forecast(
 
     // Apply forecast method
     let forecast_results = if let Some(offset) = seed_offset {
-        forecast::apply_forecast_with_seed_offset(
-            forecast_spec,
-            base_value,
-            &forecast_periods,
-            offset,
-        )?
+        match mc_z_cache.as_mut() {
+            Some(cache) => match forecast_spec.method {
+                ForecastMethod::Normal | ForecastMethod::LogNormal => {
+                    if let Some((peer, rho)) = parse_correlation_params(&forecast_spec.params)? {
+                        if model.get_node(peer.as_str()).is_none() {
+                            return Err(Error::forecast(format!(
+                                "correlation_with references unknown node '{peer}'"
+                            )));
+                        }
+                        let (series, z_map) =
+                            monte_carlo_correlated_series(CorrelatedMonteCarloSeries {
+                                method: forecast_spec.method,
+                                params: &forecast_spec.params,
+                                forecast_periods: &forecast_periods,
+                                seed_offset: offset,
+                                node_id: node_spec.node_id.as_str(),
+                                peer_id: peer.as_str(),
+                                rho,
+                                mc_z_cache: cache,
+                            })?;
+                        cache
+                            .entry(node_spec.node_id.clone())
+                            .or_default()
+                            .extend(z_map);
+                        series
+                    } else {
+                        let series = forecast::apply_forecast_with_seed_offset(
+                            forecast_spec,
+                            base_value,
+                            &forecast_periods,
+                            offset,
+                            node_spec.node_id.as_str(),
+                        )?;
+                        record_independent_z_scores_for_mc(
+                            forecast_spec.method,
+                            &forecast_spec.params,
+                            &forecast_periods,
+                            &series,
+                            &node_spec.node_id,
+                            cache,
+                        )?;
+                        series
+                    }
+                }
+                _ => forecast::apply_forecast_with_seed_offset(
+                    forecast_spec,
+                    base_value,
+                    &forecast_periods,
+                    offset,
+                    node_spec.node_id.as_str(),
+                )?,
+            },
+            None => forecast::apply_forecast_with_seed_offset(
+                forecast_spec,
+                base_value,
+                &forecast_periods,
+                offset,
+                node_spec.node_id.as_str(),
+            )?,
+        }
     } else {
         forecast::apply_forecast(forecast_spec, base_value, &forecast_periods)?
     };

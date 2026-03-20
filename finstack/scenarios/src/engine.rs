@@ -230,6 +230,7 @@ fn expand_hierarchy_operations(
                         operation: OperationSpec::CurveParallelBp {
                             curve_kind: *curve_kind,
                             curve_id: matched.curve_id.as_str().to_string(),
+                            discount_curve_id: None,
                             bp: *bp,
                         },
                     });
@@ -346,6 +347,7 @@ impl ScenarioEngine {
     /// let other = ScenarioEngine::default();
     /// assert_eq!(format!("{:?}", engine), format!("{:?}", other));
     /// ```
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -377,6 +379,7 @@ impl ScenarioEngine {
     ///         OperationSpec::CurveParallelBp {
     ///             curve_kind: CurveKind::Discount,
     ///             curve_id: "USD_SOFR".into(),
+    ///             discount_curve_id: None,
     ///             bp: 25.0,
     ///         },
     ///     ],
@@ -402,10 +405,31 @@ impl ScenarioEngine {
     /// let composed = engine.compose(vec![s1, s2]);
     /// assert_eq!(composed.operations.len(), 2);
     /// ```
+    #[must_use]
     pub fn compose(&self, mut scenarios: Vec<ScenarioSpec>) -> ScenarioSpec {
         // Stable sort by priority (lower = higher priority)
         scenarios.sort_by_key(|s| s.priority);
 
+        let composed_id = if scenarios.is_empty() {
+            "composed".to_string()
+        } else {
+            scenarios
+                .iter()
+                .map(|scenario| scenario.id.as_str())
+                .collect::<Vec<_>>()
+                .join("+")
+        };
+        let composed_name = if scenarios.is_empty() {
+            Some("Composed Scenario".to_string())
+        } else {
+            Some(
+                scenarios
+                    .iter()
+                    .map(|scenario| scenario.name.as_deref().unwrap_or(scenario.id.as_str()))
+                    .collect::<Vec<_>>()
+                    .join(" + "),
+            )
+        };
         let mut all_operations = Vec::new();
         let resolution_mode = if scenarios.is_empty() {
             ResolutionMode::default()
@@ -427,8 +451,8 @@ impl ScenarioEngine {
         // additively (e.g., two +25bp shocks produce +50bp, NOT last-wins).
 
         ScenarioSpec {
-            id: "composed".into(),
-            name: Some("Composed Scenario".into()),
+            id: composed_id,
+            name: composed_name,
             description: None,
             operations: all_operations,
             priority: 0,
@@ -694,22 +718,38 @@ impl ScenarioEngine {
                     }
                 }
                 crate::adapters::traits::ScenarioEffect::StmtForecastPercent { node_id, pct } => {
-                    crate::adapters::statements::apply_forecast_percent(
+                    match crate::adapters::statements::apply_forecast_percent(
                         ctx.model,
                         node_id.as_str(),
                         pct,
-                    )?;
-                    applied += 1;
-                    applied_stmt_ops += 1;
+                    ) {
+                        Ok(()) => {
+                            applied += 1;
+                            applied_stmt_ops += 1;
+                        }
+                        Err(e) => warnings.push(format!(
+                            "Statement forecast percent for node {}: {}",
+                            node_id.as_str(),
+                            e
+                        )),
+                    }
                 }
                 crate::adapters::traits::ScenarioEffect::StmtForecastAssign { node_id, value } => {
-                    crate::adapters::statements::apply_forecast_assign(
+                    match crate::adapters::statements::apply_forecast_assign(
                         ctx.model,
                         node_id.as_str(),
                         value,
-                    )?;
-                    applied += 1;
-                    applied_stmt_ops += 1;
+                    ) {
+                        Ok(()) => {
+                            applied += 1;
+                            applied_stmt_ops += 1;
+                        }
+                        Err(e) => warnings.push(format!(
+                            "Statement forecast assign for node {}: {}",
+                            node_id.as_str(),
+                            e
+                        )),
+                    }
                 }
                 _ => {}
             }
@@ -861,4 +901,45 @@ fn apply_correlation_effect(
     }
 
     (count, warnings)
+}
+
+#[cfg(test)]
+#[allow(clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::spec::OperationSpec;
+
+    #[test]
+    fn compose_preserves_source_ids_and_names() {
+        let engine = ScenarioEngine::new();
+        let composed = engine.compose(vec![
+            ScenarioSpec {
+                id: "rates_up".into(),
+                name: Some("Rates Up".into()),
+                description: None,
+                operations: vec![OperationSpec::StmtForecastPercent {
+                    node_id: "Revenue".into(),
+                    pct: 1.0,
+                }],
+                priority: 2,
+                resolution_mode: ResolutionMode::MostSpecificWins,
+            },
+            ScenarioSpec {
+                id: "credit_down".into(),
+                name: None,
+                description: None,
+                operations: vec![OperationSpec::StmtForecastPercent {
+                    node_id: "Expenses".into(),
+                    pct: -1.0,
+                }],
+                priority: 1,
+                resolution_mode: ResolutionMode::Cumulative,
+            },
+        ]);
+
+        assert_eq!(composed.id.as_str(), "credit_down+rates_up");
+        assert_eq!(composed.name.as_deref(), Some("credit_down + Rates Up"));
+        assert_eq!(composed.operations.len(), 2);
+        assert_eq!(composed.resolution_mode, ResolutionMode::Cumulative);
+    }
 }

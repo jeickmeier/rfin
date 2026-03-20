@@ -20,6 +20,13 @@
 //! Step 2:   S₁ → S₁'  (dividend jump: S₁' = S₁ - D)
 //! Step 3:   S₁' → S₂  (exact GBM)
 //! ```
+//!
+//! # Brownian shocks across sub-intervals
+//!
+//! Each GBM leg uses an independent standard normal from the `z` slice so that
+//! sub-increment variances add correctly. Reusing one shock with
+//! `√(Δtᵢ/Δt)` scaling fixes the total variance but distorts intermediate
+//! marginals (path-dependent and dividend timing).
 
 use super::super::process::gbm_dividends::GbmWithDividends;
 use super::super::traits::Discretization;
@@ -62,15 +69,15 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
         let sigma = params.sigma;
 
         let mut spot = x[0];
-        let z_shock = z[0];
 
         // Find dividends in (t, t+dt]
         let dividends_in_period = process.dividends_in_interval(t, dt);
 
         if dividends_in_period.is_empty() {
             // No dividends: simple exact GBM evolution
-            spot = self.evolve_gbm(spot, r, q, sigma, dt, z_shock);
+            spot = self.evolve_gbm(spot, r, q, sigma, dt, z[0]);
         } else {
+            let mut z_idx = 0_usize;
             // Sub-divide interval at dividend times
             let mut sub_intervals = Vec::new();
             let mut prev_time = t;
@@ -90,13 +97,6 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
                 sub_intervals.push((prev_time, t + dt, None));
             }
 
-            // Distribute random shock across sub-intervals
-            // Use independent shocks for each sub-interval (simplest approach)
-            // More sophisticated: correlate shocks or use Brownian bridge
-
-            // For simplicity: split shock proportionally to √(sub_dt / dt)
-            let total_time = dt;
-
             for (start, end, div_opt) in sub_intervals {
                 if let Some(div) = div_opt {
                     // Apply dividend jump
@@ -105,9 +105,9 @@ impl Discretization<GbmWithDividends> for ExactGbmWithDividends {
                     // Evolve GBM for this sub-interval
                     let sub_dt = end - start;
                     if sub_dt > 1e-10 {
-                        // Scale random shock by sqrt(sub_dt / total_dt)
-                        let scaled_z = z_shock * (sub_dt / total_time).sqrt();
-                        spot = self.evolve_gbm(spot, r, q, sigma, sub_dt, scaled_z);
+                        let z_seg = z[z_idx];
+                        z_idx += 1;
+                        spot = self.evolve_gbm(spot, r, q, sigma, sub_dt, z_seg);
                     }
                 }
             }
@@ -158,7 +158,8 @@ mod tests {
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
-        let z = vec![0.0]; // No random shock for simplicity
+        // Two GBM legs: [t, div) and (div, t+dt]; matches `num_factors = 1 + schedule.len()`.
+        let z = vec![0.0, 0.0];
         let mut work = vec![];
 
         // Step that crosses dividend
@@ -182,7 +183,7 @@ mod tests {
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
-        let z = vec![0.0]; // No random shock
+        let z = vec![0.0, 0.0, 0.0];
         let mut work = vec![];
 
         disc.step(&gbm_div, 0.0, 0.01, &mut x, &z, &mut work);
@@ -203,7 +204,7 @@ mod tests {
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
-        let z = vec![0.0];
+        let z = vec![0.0, 0.0];
         let mut work = vec![];
 
         disc.step(&gbm_div, 0.0, 0.01, &mut x, &z, &mut work);
@@ -223,7 +224,7 @@ mod tests {
 
         let disc = ExactGbmWithDividends::new();
         let mut x = vec![100.0];
-        let z = vec![0.0];
+        let z = vec![0.0, 0.0];
         let mut work = vec![];
 
         disc.step(&gbm_div, 0.0, 0.01, &mut x, &z, &mut work);

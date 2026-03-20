@@ -235,20 +235,7 @@ impl PricerRegistry {
 
         // Non-discounting model: split metrics into spread (cash-equivalent
         // cashflows) and risk (actual cashflows).
-        let spread_ids: &[MetricId] = &[
-            MetricId::Ytm,
-            MetricId::Ytw,
-            MetricId::ZSpread,
-            MetricId::ISpread,
-            MetricId::DiscountMargin,
-            MetricId::Oas,
-            MetricId::ASWPar,
-            MetricId::ASWMarket,
-            MetricId::CleanPrice,
-            MetricId::DirtyPrice,
-            MetricId::Accrued,
-            MetricId::EmbeddedOptionValue,
-        ];
+        let spread_ids = MetricId::SPREAD_EQUIVALENT_METRICS;
 
         let mut spread_metrics = Vec::new();
         let mut risk_metrics = Vec::new();

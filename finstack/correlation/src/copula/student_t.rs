@@ -159,38 +159,21 @@ impl StudentTCopula {
     /// Standard Gauss-Laguerre (α=0) integrates ∫ h(u) exp(-u) du, so each
     /// weight must include the u^{ν/2-1} / Γ(ν/2) correction.
     fn compute_gamma_quadrature(nu: f64, n: usize) -> Vec<(f64, f64)> {
-        let laguerre_nodes_weights: &[(f64, f64)] = match n {
-            n if n <= 5 => &[
-                (0.263_560_319_7, 0.521_755_610_6),
-                (1.413_403_059_1, 0.398_666_811_1),
-                (3.596_425_771_0, 0.075_942_449_7),
-                (7.085_810_005_9, 0.003_611_758_7),
-                (12.640_800_844, 0.000_023_370_0),
-            ],
-            n if n <= 7 => &[
-                (0.193_043_676_6, 0.409_318_951_7),
-                (1.026_664_895_3, 0.421_831_277_9),
-                (2.567_876_744_9, 0.147_126_348_7),
-                (4.900_353_084_5, 0.020_633_514_5),
-                (8.182_153_444_6, 0.001_074_010_1),
-                (12.734_180_292, 0.000_015_865_5),
-                (19.395_727_862, 0.000_000_031_7),
-            ],
-            _ => &[
-                (0.137_793_470_5, 0.308_441_115_8),
-                (0.729_454_549_5, 0.401_119_929_2),
-                (1.808_342_901_7, 0.218_068_287_6),
-                (3.401_433_697_8, 0.062_087_456_1),
-                (5.552_496_140_1, 0.009_501_517_0),
-                (8.330_152_746_8, 0.000_753_008_4),
-                (11.843_785_838, 0.000_028_259_2),
-                (16.279_257_831, 0.000_000_424_9),
-                (21.996_585_812, 0.000_000_001_8),
-                (29.920_697_012, 0.000_000_000_001),
-            ],
-        };
+        let effective_n = n.max(10);
+        let laguerre_nodes_weights: &[(f64, f64)] = &[
+            (0.137_793_470_5, 0.308_441_115_8),
+            (0.729_454_549_5, 0.401_119_929_2),
+            (1.808_342_901_7, 0.218_068_287_6),
+            (3.401_433_697_8, 0.062_087_456_1),
+            (5.552_496_140_1, 0.009_501_517_0),
+            (8.330_152_746_8, 0.000_753_008_4),
+            (11.843_785_838, 0.000_028_259_2),
+            (16.279_257_831, 0.000_000_424_9),
+            (21.996_585_812, 0.000_000_001_8),
+            (29.920_697_012, 0.000_000_000_001),
+        ];
 
-        let num_points = laguerre_nodes_weights.len().min(n);
+        let num_points = laguerre_nodes_weights.len().min(effective_n);
         let alpha = nu / 2.0;
         let ln_gamma_alpha = ln_gamma(alpha);
 
@@ -212,7 +195,7 @@ impl StudentTCopula {
                     return None;
                 }
 
-                Some((w.max(1e-6), weight))
+                Some((w, weight))
             })
             .collect()
     }
@@ -226,16 +209,17 @@ impl Copula for StudentTCopula {
         correlation: f64,
     ) -> f64 {
         let m = factor_realization.first().copied().unwrap_or(0.0);
-        let rho = self.smooth_correlation(correlation);
         let nu = self.degrees_of_freedom;
 
-        if rho < 1e-10 {
+        if correlation <= 1e-10 {
             return student_t_cdf(default_threshold, nu);
         }
-        if rho > 1.0 - 1e-10 {
+        if correlation >= 1.0 - 1e-10 {
             let threshold_adj = default_threshold - m;
-            return student_t_cdf(threshold_adj, nu);
+            return student_t_cdf(threshold_adj, nu + 1.0);
         }
+
+        let rho = self.smooth_correlation(correlation);
 
         let sqrt_rho = rho.sqrt();
         let sqrt_1mr = (1.0 - rho).sqrt();
@@ -375,6 +359,23 @@ mod tests {
 
         assert!(prob_neg > prob_zero);
         assert!(prob_pos < prob_zero);
+    }
+
+    #[test]
+    fn test_conditional_prob_uses_nu_plus_one_in_perfect_correlation_limit() {
+        let copula = StudentTCopula::new(5.0);
+        let threshold = -1.25;
+        let factor = 0.35;
+
+        let prob = copula.conditional_default_prob(threshold, &[factor], 1.0);
+        let expected = student_t_cdf(threshold - factor, 6.0);
+
+        assert!(
+            (prob - expected).abs() < 1e-12,
+            "perfect-correlation limit should use ν+1 degrees of freedom: expected {}, got {}",
+            expected,
+            prob
+        );
     }
 
     #[test]

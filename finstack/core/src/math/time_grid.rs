@@ -116,7 +116,25 @@ impl TimeGrid {
         Ok(Self { t_max, times, dts })
     }
 
-    /// Create a uniform base grid and merge in required event times exactly.
+    /// Create a uniform base grid on `[0, t_max]` and merge in `required_times` exactly.
+    ///
+    /// Steps are chosen as `round(t_max * steps_per_year)`, floored to at least
+    /// `min_steps`, matching [`Self::uniform`] spacing. Any finite `required_time` in
+    /// `(0, t_max]` is inserted, the combined knot list is sorted and near-duplicates
+    /// removed, then [`Self::from_times`] validates the result (so the final grid may
+    /// be **non-uniform** if extra event times split intervals).
+    ///
+    /// # Arguments
+    ///
+    /// * `t_max` - Horizon in years (`> 0`).
+    /// * `steps_per_year` - Target density for the underlying uniform spacing (`> 0`).
+    /// * `min_steps` - Minimum number of uniform steps before merging events.
+    /// * `required_times` - Extra knot times (e.g. barrier monitoring, cashflow dates).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::Error`] if inputs are invalid or the merged grid fails
+    /// [`Self::from_times`] validation.
     pub fn uniform_with_required_times(
         t_max: f64,
         steps_per_year: f64,

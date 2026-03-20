@@ -37,13 +37,24 @@ fn currency_scale_factor(currency: Currency) -> f64 {
 
 #[inline]
 fn to_currency_units(amount: f64, scale: f64) -> Result<i64> {
+    if !amount.is_finite() || !scale.is_finite() || scale <= 0.0 {
+        return Err(CoreError::Validation(
+            "Invalid amount or scale for currency unit conversion".to_string(),
+        ));
+    }
     let scaled = amount * scale;
     if !scaled.is_finite() || scaled.abs() > i64::MAX as f64 {
         return Err(CoreError::Validation(
             "Tier amount exceeds penny-safe allocation capacity".to_string(),
         ));
     }
-    Ok(scaled.round() as i64)
+    let rounded = scaled.round();
+    if rounded > i64::MAX as f64 || rounded < i64::MIN as f64 {
+        return Err(CoreError::Validation(
+            "Tier amount exceeds penny-safe allocation capacity".to_string(),
+        ));
+    }
+    Ok(rounded as i64)
 }
 
 // ============================================================================
@@ -969,5 +980,23 @@ mod market_standards_tests {
         // We need to mock the context, but calculate_payment_amount is private/internal to pricing/waterfall.rs
         // However, we can test the logic if we can access it.
         // Since we can't easily unit test private functions from outside, we'll rely on integration test or add this to pricing/waterfall.rs
+    }
+}
+
+#[cfg(test)]
+mod to_currency_units_tests {
+    use super::to_currency_units;
+
+    #[test]
+    fn rejects_overflow_beyond_representable_units() {
+        let scale = 100.0;
+        let amount = (i64::MAX as f64) / scale + 1.0e6;
+        assert!(to_currency_units(amount, scale).is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_scale() {
+        assert!(to_currency_units(1.0, 0.0).is_err());
+        assert!(to_currency_units(1.0, -1.0).is_err());
     }
 }

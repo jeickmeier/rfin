@@ -4,6 +4,10 @@ use syn::{parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, 
 
 /// Derive macro to implement the `Instrument` trait with consistent boilerplate.
 ///
+/// This macro is an internal codegen helper for the `finstack-valuations` crate.
+/// It expands to crate-relative paths such as `crate::instruments::...`, so it is
+/// not a hygienic public macro for use outside this crate hierarchy.
+///
 /// Usage:
 /// ```text
 /// #[derive(Instrument)]

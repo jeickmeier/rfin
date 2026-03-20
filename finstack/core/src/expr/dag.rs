@@ -86,7 +86,37 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn dag_topological_sort_rejects_excessive_depth() {
+        let mut builder = DagBuilder::new();
+        let mut prev = 0_u64;
+        for id in 1..=MAX_DAG_RECURSION_DEPTH as u64 + 1 {
+            let dependencies = if prev == 0 { vec![] } else { vec![prev] };
+            builder.nodes.insert(
+                id,
+                DagNode {
+                    id,
+                    expr: Expr::literal(id as f64),
+                    dependencies,
+                    ref_count: 0,
+                    cost: 1,
+                },
+            );
+            prev = id;
+        }
+
+        let err = builder
+            .topological_sort(&[prev])
+            .expect_err("deep recursion should fail with a guard");
+        assert!(
+            err.to_string().contains("maximum DAG recursion depth"),
+            "unexpected error: {err}"
+        );
+    }
 }
+
+const MAX_DAG_RECURSION_DEPTH: usize = 512;
 
 /// Execution plan for a DAG of expressions.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -232,7 +262,11 @@ impl DagBuilder {
             nodes: &HashMap<u64, DagNode>,
             ref_counts: &mut HashMap<u64, usize>,
             visited: &mut HashSet<u64>,
+            depth: usize,
         ) {
+            if depth >= MAX_DAG_RECURSION_DEPTH {
+                return;
+            }
             if visited.contains(&node_id) {
                 return;
             }
@@ -241,13 +275,13 @@ impl DagBuilder {
             if let Some(node) = nodes.get(&node_id) {
                 for &dep_id in &node.dependencies {
                     *ref_counts.entry(dep_id).or_insert(0) += 1;
-                    count_refs(dep_id, nodes, ref_counts, visited);
+                    count_refs(dep_id, nodes, ref_counts, visited, depth + 1);
                 }
             }
         }
 
         for &root_id in root_ids {
-            count_refs(root_id, &self.nodes, &mut ref_counts, &mut visited);
+            count_refs(root_id, &self.nodes, &mut ref_counts, &mut visited, 0);
         }
 
         // Update nodes with reference counts
@@ -312,7 +346,13 @@ impl DagBuilder {
             visited: &mut HashSet<u64>,
             visiting: &mut HashSet<u64>,
             result: &mut Vec<DagNode>,
+            depth: usize,
         ) -> crate::Result<()> {
+            if depth >= MAX_DAG_RECURSION_DEPTH {
+                return Err(crate::Error::Validation(format!(
+                    "Execution plan exceeded maximum DAG recursion depth of {MAX_DAG_RECURSION_DEPTH}"
+                )));
+            }
             if visited.contains(&node_id) {
                 return Ok(());
             }
@@ -326,7 +366,7 @@ impl DagBuilder {
 
             if let Some(node) = nodes.get(&node_id) {
                 for &dep_id in &node.dependencies {
-                    visit(dep_id, nodes, visited, visiting, result)?;
+                    visit(dep_id, nodes, visited, visiting, result, depth + 1)?;
                 }
                 result.push(node.clone());
             } else {
@@ -347,6 +387,7 @@ impl DagBuilder {
                 &mut visited,
                 &mut visiting,
                 &mut result,
+                0,
             )?;
         }
 

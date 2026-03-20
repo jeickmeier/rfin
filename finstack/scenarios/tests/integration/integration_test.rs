@@ -37,6 +37,7 @@ fn test_curve_parallel_shock() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
             bp: 50.0, // +50bp
         }],
         priority: 0,
@@ -138,6 +139,7 @@ fn test_scenario_composition() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
             bp: 25.0,
         }],
         priority: 0,
@@ -151,6 +153,7 @@ fn test_scenario_composition() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "EUR-OIS".into(),
+            discount_curve_id: None,
             bp: 30.0,
         }],
         priority: 1,
@@ -162,7 +165,7 @@ fn test_scenario_composition() {
     let composed = engine.compose(vec![s1, s2]);
 
     assert_eq!(composed.operations.len(), 2);
-    assert_eq!(composed.id, "composed");
+    assert_eq!(composed.id, "base+overlay");
 }
 
 #[test]

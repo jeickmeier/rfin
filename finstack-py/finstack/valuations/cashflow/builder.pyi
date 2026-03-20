@@ -693,7 +693,11 @@ def cpr_to_smm(cpr: float) -> float:
     ...
 
 def smm_to_cpr(smm: float) -> float:
-    """Convert Single Monthly Mortality (SMM) to annual CPR."""
+    """Convert Single Monthly Mortality (SMM) to annual CPR.
+
+    Raises:
+        ValueError: If SMM is negative or greater than 100%.
+    """
     ...
 
 def compute_compounded_rate(

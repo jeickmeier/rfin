@@ -9,7 +9,7 @@ fn d(year: i32, month: Month, day: u8) -> Date {
 }
 
 #[test]
-fn performance_cagr_uses_full_holding_period_for_single_return_window() {
+fn performance_cagr_uses_default_act_365_25_convention_for_single_return_window() {
     let dates = vec![d(2023, Month::January, 1), d(2024, Month::January, 1)];
     let prices = vec![vec![100.0, 110.0]];
     let perf = Performance::new(
@@ -24,9 +24,11 @@ fn performance_cagr_uses_full_holding_period_for_single_return_window() {
 
     let cagr = perf.cagr();
     assert_eq!(cagr.len(), 1);
+    let expected = 1.10_f64.powf(365.25 / 365.0) - 1.0;
     assert!(
-        (cagr[0] - 0.10).abs() < 1e-12,
-        "expected 10% CAGR over one full year, got {}",
+        (cagr[0] - expected).abs() < 1e-12,
+        "expected default Act/365.25 CAGR {}, got {}",
+        expected,
         cagr[0]
     );
 }

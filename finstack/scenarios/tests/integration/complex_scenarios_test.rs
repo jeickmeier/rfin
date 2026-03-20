@@ -58,6 +58,7 @@ fn test_fx_equity_curve_combo() {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 75.0,
             },
         ],
@@ -138,6 +139,7 @@ fn test_statements_rate_bindings_curve() {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 100.0,
             },
             OperationSpec::StmtForecastPercent {
@@ -257,11 +259,13 @@ fn test_conflicting_operations_last_wins() {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 25.0,
             },
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 50.0, // This one wins (sequential application)
             },
         ],

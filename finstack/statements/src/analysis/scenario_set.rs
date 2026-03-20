@@ -204,8 +204,16 @@ impl ScenarioSet {
         let mut lineage = Vec::new();
         let mut seen = IndexSet::new();
         let mut current = Some(scenario);
+        let mut steps = 0usize;
+        let max_steps = self.scenarios.len().saturating_add(1);
 
         while let Some(name) = current {
+            steps += 1;
+            if steps > max_steps {
+                return Err(Error::invalid_input(
+                    "Scenario parent chain exceeded maximum depth; check for cycles or corrupted data",
+                ));
+            }
             if !seen.insert(name.to_string()) {
                 return Err(Error::invalid_input(format!(
                     "Cycle detected in scenario parents at '{name}'"
@@ -234,8 +242,16 @@ impl ScenarioSet {
         let mut stack = Vec::new();
         let mut seen = IndexSet::new();
         let mut current = Some(name);
+        let mut steps = 0usize;
+        let max_steps = self.scenarios.len().saturating_add(1);
 
         while let Some(scenario_name) = current {
+            steps += 1;
+            if steps > max_steps {
+                return Err(Error::invalid_input(
+                    "Scenario parent chain exceeded maximum depth; check for cycles or corrupted data",
+                ));
+            }
             if !seen.insert(scenario_name.to_string()) {
                 return Err(Error::invalid_input(format!(
                     "Cycle detected in scenario parents at '{scenario_name}'"

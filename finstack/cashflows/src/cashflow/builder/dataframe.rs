@@ -46,13 +46,18 @@ fn init_optional_column<T>(enabled: bool, capacity: usize, existing: &mut Option
 /// - 0.0 if dates are equal
 /// - Positive year fraction if cf_date > base
 /// - Negative year fraction if cf_date < base (historical cashflow)
-fn compute_discount_time(cf_date: Date, base: Date, dc: DayCount, dc_ctx: DayCountCtx<'_>) -> f64 {
+fn compute_discount_time(
+    cf_date: Date,
+    base: Date,
+    dc: DayCount,
+    dc_ctx: DayCountCtx<'_>,
+) -> finstack_core::Result<f64> {
     if cf_date == base {
-        0.0
+        Ok(0.0)
     } else if cf_date > base {
-        dc.year_fraction(base, cf_date, dc_ctx).unwrap_or(0.0)
+        dc.year_fraction(base, cf_date, dc_ctx)
     } else {
-        -dc.year_fraction(cf_date, base, dc_ctx).unwrap_or(0.0)
+        Ok(-dc.year_fraction(cf_date, base, dc_ctx)?)
     }
 }
 
@@ -108,32 +113,30 @@ fn compute_floating_decomposition(
     base: Date,
     period_start: Date,
     dc_ctx: DayCountCtx<'_>,
-) -> (Option<f64>, Option<f64>) {
+) -> finstack_core::Result<(Option<f64>, Option<f64>)> {
     use crate::cashflow::primitives::CFKind;
 
     // Only compute for floating rate resets with a forward curve
     if !matches!(cf.kind, CFKind::FloatReset) {
-        return (None, None);
+        return Ok((None, None));
     }
 
     let Some(fwd) = fwd else {
-        return (None, None);
+        return Ok((None, None));
     };
 
     // Compute reset time using forward curve's day count
     let reset_t = if let Some(reset_date) = cf.reset_date {
-        compute_discount_time(reset_date, base, fwd.day_count(), dc_ctx)
+        compute_discount_time(reset_date, base, fwd.day_count(), dc_ctx)?
     } else {
         // Fallback to period start if no explicit reset date
-        fwd.day_count()
-            .year_fraction(base, period_start, dc_ctx)
-            .unwrap_or(0.0)
+        fwd.day_count().year_fraction(base, period_start, dc_ctx)?
     };
 
     let base_rate = fwd.rate(reset_t);
     let spread = cf.rate.map(|rate| rate - base_rate);
 
-    (Some(base_rate), spread)
+    Ok((Some(base_rate), spread))
 }
 
 /// Options for period-aligned DataFrame exports.
@@ -495,9 +498,7 @@ impl CashFlowSchedule {
                 frequency: options.frequency,
                 bus_basis: None,
             };
-            let yr_fraq = dc
-                .year_fraction(period.start, cf.date, dc_ctx)
-                .unwrap_or(0.0);
+            let yr_fraq = dc.year_fraction(period.start, cf.date, dc_ctx)?;
             out.yr_fraqs.push(yr_fraq);
             out.days.push((cf.date - period.start).whole_days());
 
@@ -508,7 +509,7 @@ impl CashFlowSchedule {
                 frequency: options.frequency,
                 bus_basis: None,
             };
-            let t = compute_discount_time(cf.date, base, dc_for_discounting, disc_dc_ctx);
+            let t = compute_discount_time(cf.date, base, dc_for_discounting, disc_dc_ctx)?;
             let df = disc_arc.df(t);
             out.discount_factors.push(df);
 
@@ -565,7 +566,7 @@ impl CashFlowSchedule {
                     base,
                     period.start,
                     fwd_dc_ctx,
-                )
+                )?
             } else {
                 (None, None)
             };
@@ -799,5 +800,48 @@ mod tests {
             .expect("PeriodDataFrame creation should succeed in test");
 
         assert!(df.undrawn_notionals.is_none());
+    }
+
+    #[test]
+    fn dataframe_propagates_day_count_errors() {
+        let base = d(2025, 1, 1);
+        let flows = vec![CashFlow {
+            date: d(2025, 7, 1),
+            reset_date: None,
+            amount: Money::new(100.0, Currency::USD),
+            kind: CFKind::Fixed,
+            accrual_factor: 0.5,
+            rate: Some(0.04),
+        }];
+        let schedule = CashFlowSchedule {
+            flows,
+            notional: Notional::par(1_000.0, Currency::USD),
+            day_count: DayCount::ActActIsma,
+            meta: CashFlowMeta::default(),
+        };
+
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(base)
+            .knots([(0.0, 1.0), (1.0, 0.95)])
+            .interp(InterpStyle::Linear)
+            .build()
+            .expect("DiscountCurve builder should succeed with valid test data");
+        let market = MarketContext::new().insert(curve);
+
+        let result = schedule.to_period_dataframe(
+            &quarters_2025(),
+            &market,
+            "USD-OIS",
+            PeriodDataFrameOptions {
+                as_of: Some(base),
+                day_count: Some(DayCount::ActActIsma),
+                ..Default::default()
+            },
+        );
+
+        assert!(
+            result.is_err(),
+            "missing ISMA frequency should not be silently zeroed"
+        );
     }
 }

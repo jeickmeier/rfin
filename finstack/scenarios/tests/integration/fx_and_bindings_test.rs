@@ -160,6 +160,7 @@ fn test_rate_binding() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 100.0, // +100bp = +1%
         }],
         priority: 0,

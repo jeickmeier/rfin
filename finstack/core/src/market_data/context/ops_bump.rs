@@ -202,9 +202,10 @@ impl MarketContext {
             }
         }
 
-        // Selective clone: only clone maps that will be mutated.
-        // Note: selective clone optimization deferred -- all maps are cloned
-        // since HashMap<CurveId, Arc<_>> clone is cheap (Arc bumps, not data copies).
+        // This helper returns a bumped copy of the whole context. The map clone is
+        // shallow (Arc bumps, not deep data copies), but callers doing many bump /
+        // revert cycles in tight loops should prefer the in-place scratch workflow
+        // exposed by `bump_observed_in_place` to avoid repeated context cloning.
 
         let mut ctx = self.clone();
 

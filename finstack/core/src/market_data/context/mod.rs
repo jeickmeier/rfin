@@ -362,3 +362,14 @@ impl MarketContext {
         invalidated
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::MarketContext;
+
+    #[test]
+    fn market_context_is_send_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<MarketContext>();
+    }
+}

@@ -274,6 +274,21 @@ impl SimulatedPath {
         all_cashflows
     }
 
+    /// Extract cashflow amounts in path order (e.g. periodic IRR on amount series).
+    ///
+    /// This avoids allocating an intermediate `(time, amount)` vector when only
+    /// amounts are needed.
+    pub fn extract_cashflow_amounts(&self) -> Vec<f64> {
+        let cap: usize = self.points.iter().map(|p| p.cashflows.len()).sum();
+        let mut amounts = Vec::with_capacity(cap);
+        for point in &self.points {
+            for (_, amount, _) in &point.cashflows {
+                amounts.push(*amount);
+            }
+        }
+        amounts
+    }
+
     /// Extract typed cashflows from the path.
     ///
     /// Returns all (time, amount, type) tuples across all timesteps.
@@ -610,6 +625,9 @@ mod tests {
         assert_eq!(all_cashflows[1], (0.25, 5.0));
         assert_eq!(all_cashflows[2], (0.25, 2.0));
         assert_eq!(all_cashflows[3], (0.50, 5.0));
+
+        let amounts = path.extract_cashflow_amounts();
+        assert_eq!(amounts, vec![-100.0, 5.0, 2.0, 5.0]);
     }
 
     #[test]

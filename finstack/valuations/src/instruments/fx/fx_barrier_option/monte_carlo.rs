@@ -5,6 +5,7 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::Result;
 use finstack_monte_carlo::payoff::barrier::{BarrierOptionPayoff, BarrierType, OptionKind};
 use finstack_monte_carlo::traits::PathState;
 use finstack_monte_carlo::traits::Payoff;
@@ -69,7 +70,11 @@ impl FxBarrierCall {
         quote_currency: Currency,
         quanto_adjustment: f64,
         rebate: Option<f64>,
-    ) -> Self {
+    ) -> Result<Self> {
+        let time_grid = finstack_monte_carlo::time_grid::TimeGrid::uniform(
+            dt * maturity_step as f64,
+            maturity_step,
+        )?;
         let inner = BarrierOptionPayoff::new(
             strike,
             barrier,
@@ -79,16 +84,16 @@ impl FxBarrierCall {
             notional,
             maturity_step,
             sigma,
-            dt * maturity_step as f64,
+            &time_grid,
             use_gobet_miri,
         );
 
-        Self {
+        Ok(Self {
             inner,
             base_currency,
             quote_currency,
             quanto_adjustment,
-        }
+        })
     }
 
     /// Create a standard FX barrier (no quanto adjustment).
@@ -103,7 +108,7 @@ impl FxBarrierCall {
         dt: f64,
         base_currency: Currency,
         quote_currency: Currency,
-    ) -> Self {
+    ) -> Result<Self> {
         Self::new(
             strike,
             barrier,
@@ -137,7 +142,7 @@ impl FxBarrierCall {
         base_currency: Currency,
         quote_currency: Currency,
         quanto_adjustment: f64,
-    ) -> Self {
+    ) -> Result<Self> {
         Self::new(
             strike,
             barrier,
@@ -193,7 +198,8 @@ mod tests {
             0.01,
             Currency::EUR,
             Currency::USD,
-        );
+        )
+        .expect("valid standard FX barrier should construct");
 
         assert_eq!(fx_barrier.base_currency, Currency::EUR);
         assert_eq!(fx_barrier.quote_currency, Currency::USD);
@@ -214,7 +220,8 @@ mod tests {
             Currency::EUR,
             Currency::USD,
             quanto_adj,
-        );
+        )
+        .expect("valid quanto FX barrier should construct");
 
         assert_eq!(fx_barrier.quanto_adjustment, quanto_adj);
     }

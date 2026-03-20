@@ -16,6 +16,13 @@
 //! - Same seed → identical forecast values across runs
 //! - Different seeds → different (but still deterministic) values
 //!
+//! In Monte Carlo mode, per-path seeds are mixed with a stable hash of the node
+//! identifier so independent stochastic nodes do not share identical shock draws.
+//! Optional `correlation_with` / `correlation` parameters pair nodes for correlated
+//! shocks (see `forecast::statistical::parse_correlation_params`). The peer node must
+//! appear earlier in the evaluation order (for example via a formula dependency) so its
+//! Z-scores are available when the dependent node is simulated.
+//!
 //! The RNG uses the Box-Muller transform for normal distribution sampling,
 //! with guards against edge cases (e.g., ln(0)).
 //!
@@ -41,7 +48,7 @@
 
 mod deterministic;
 mod override_method;
-mod statistical;
+pub(crate) mod statistical;
 mod timeseries;
 
 pub use deterministic::{curve_pct, forward_fill, growth_pct};
@@ -90,22 +97,25 @@ pub fn apply_forecast(
 ///
 /// This is used by Monte Carlo evaluation to derive independent, but still
 /// deterministic, per-path seeds from the base seed configured in the
-/// [`ForecastSpec`].
+/// [`ForecastSpec`]. The `node_id` argument is mixed into the effective RNG seed
+/// so different stochastic nodes on the same path do not reuse identical draws.
 pub(crate) fn apply_forecast_with_seed_offset(
     spec: &ForecastSpec,
     base_value: f64,
     forecast_periods: &[PeriodId],
     seed_offset: u64,
+    node_id: &str,
 ) -> Result<indexmap::IndexMap<PeriodId, f64>> {
     use crate::types::ForecastMethod;
+    use statistical::{parse_seed_json, stable_hash_u64};
 
     match spec.method {
         ForecastMethod::Normal => {
             // Clone params so we can override the seed without mutating the spec.
             let mut params = spec.params.clone();
             if let Some(seed_val) = params.get_mut("seed") {
-                if let Some(seed) = seed_val.as_u64() {
-                    let effective_seed = seed ^ seed_offset;
+                if let Some(seed) = parse_seed_json(seed_val) {
+                    let effective_seed = seed ^ seed_offset ^ stable_hash_u64(node_id);
                     *seed_val = serde_json::json!(effective_seed);
                 }
             }
@@ -114,8 +124,8 @@ pub(crate) fn apply_forecast_with_seed_offset(
         ForecastMethod::LogNormal => {
             let mut params = spec.params.clone();
             if let Some(seed_val) = params.get_mut("seed") {
-                if let Some(seed) = seed_val.as_u64() {
-                    let effective_seed = seed ^ seed_offset;
+                if let Some(seed) = parse_seed_json(seed_val) {
+                    let effective_seed = seed ^ seed_offset ^ stable_hash_u64(node_id);
                     *seed_val = serde_json::json!(effective_seed);
                 }
             }

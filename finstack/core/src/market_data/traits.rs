@@ -210,11 +210,13 @@ pub trait Discounting: TermStructure {
 
     /// Instantaneous forward rate at time `t` (year fraction from base date).
     ///
-    /// Approximates the derivative of `-ln P(0,t)` using a small forward bump.
+    /// Approximates the derivative of `-ln P(0,t)` using a centered finite
+    /// difference around `t`, capped to a small local neighborhood.
     fn instantaneous_forward(&self, t: f64) -> crate::Result<f64> {
-        let eps = (t.abs() * 1e-4).max(1e-6);
-        let start = if t > 0.0 { t } else { 0.0 };
-        self.forward_rate_between_times(start, start + eps)
+        let eps = (t.abs() * 1e-4).clamp(1e-6, 1e-4);
+        let start = (t - eps).max(0.0);
+        let end = t + eps;
+        self.forward_rate_between_times(start, end)
     }
 }
 
@@ -275,24 +277,32 @@ pub trait Forward: TermStructure {
     /// # Arguments
     ///
     /// * `t1` - Start time in years
-    /// * `t2` - End time in years (must be > t1)
+    /// * `t2` - End time in years
     ///
     /// # Returns
     ///
     /// The average forward rate over `[t1, t2]`.
     ///
-    /// # Panics
-    ///
-    /// Debug assertion failure if `t2 <= t1`.
+    /// Returns [`f64::NAN`] if `t2 < t1` or inputs are non-finite. For
+    /// `t2` equal to `t1` within ~1e-12 years, returns [`Self::rate`] at `t1`
+    /// (degenerate interval / instantaneous forward).
     #[inline]
     fn rate_period(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 > t1, "t2 must be after t1");
+        if !(t1.is_finite() && t2.is_finite()) {
+            return f64::NAN;
+        }
+        let period = t2 - t1;
+        if period < 0.0 {
+            return f64::NAN;
+        }
+        if period <= 1e-12 {
+            return self.rate(t1);
+        }
         // Adaptive-interval composite Simpson's rule:
         //   ∫f(x)dx ≈ (h/3)[f(x0) + 4f(x1) + 2f(x2) + ... + f(xn)]
         //
         // Use more intervals for longer periods to maintain accuracy for
         // long-dated forward averages while keeping performance for short periods.
-        let period = t2 - t1;
         let n = if period > 20.0 {
             32_usize
         } else if period > 5.0 {
@@ -449,5 +459,84 @@ mod tests {
     fn discounting_df_between_times_validates_denominator() {
         let c = FlatCurve::new("TEST", 0.0);
         assert!(c.df_between_times(0.0, 1.0).is_err());
+    }
+
+    struct QuadraticLogDfCurve {
+        id: CurveId,
+        a: f64,
+        b: f64,
+    }
+
+    impl TermStructure for QuadraticLogDfCurve {
+        fn id(&self) -> &crate::types::CurveId {
+            &self.id
+        }
+    }
+
+    impl Discounting for QuadraticLogDfCurve {
+        fn base_date(&self) -> Date {
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("Valid test date")
+        }
+
+        fn df(&self, t: f64) -> f64 {
+            (-(self.a * t + 0.5 * self.b * t * t)).exp()
+        }
+    }
+
+    struct FlatForwardCurve {
+        id: CurveId,
+        rate: f64,
+    }
+
+    impl TermStructure for FlatForwardCurve {
+        fn id(&self) -> &CurveId {
+            &self.id
+        }
+    }
+
+    impl Forward for FlatForwardCurve {
+        fn rate(&self, _t: f64) -> f64 {
+            self.rate
+        }
+    }
+
+    #[test]
+    fn forward_trait_rate_period_rejects_reversed_times() {
+        let c = FlatForwardCurve {
+            id: CurveId::new("FLAT-FWD"),
+            rate: 0.05,
+        };
+        assert!(Forward::rate_period(&c, 1.0, 0.5).is_nan());
+    }
+
+    #[test]
+    fn forward_trait_rate_period_degenerate_matches_instantaneous_rate() {
+        let c = FlatForwardCurve {
+            id: CurveId::new("FLAT-FWD"),
+            rate: 0.05,
+        };
+        assert!((Forward::rate_period(&c, 1.0, 1.0) - 0.05).abs() < 1e-15);
+    }
+
+    #[test]
+    fn instantaneous_forward_uses_centered_difference() {
+        let curve = QuadraticLogDfCurve {
+            id: CurveId::new("QUADRATIC"),
+            a: 0.02,
+            b: 0.01,
+        };
+
+        let t = 2.0;
+        let expected = curve.a + curve.b * t;
+        let actual = curve
+            .instantaneous_forward(t)
+            .expect("instantaneous forward should be computable");
+
+        assert!(
+            (actual - expected).abs() < 1e-8,
+            "centered finite difference should recover the analytical forward: expected {}, got {}",
+            expected,
+            actual
+        );
     }
 }

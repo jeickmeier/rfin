@@ -82,11 +82,14 @@ pub fn apply_scenario(
         .apply(scenario, &mut ctx)
         .map_err(|e| Error::ScenarioError(e.to_string()))?;
 
-    // Update portfolio positions with modified instruments
-    for (i, position) in portfolio_copy.positions.iter_mut().enumerate() {
-        if let Some(modified_inst) = instruments.get(i) {
-            position.instrument = Arc::from(modified_inst.clone_box());
-        }
+    // Update portfolio positions with modified instruments (move boxes into `Arc`, no extra clone)
+    debug_assert_eq!(portfolio_copy.positions.len(), instruments.len());
+    for (position, modified_inst) in portfolio_copy
+        .positions
+        .iter_mut()
+        .zip(instruments.into_iter())
+    {
+        position.instrument = Arc::from(modified_inst);
     }
 
     Ok((portfolio_copy, market_copy, report))
@@ -193,6 +196,7 @@ mod tests {
             operations: vec![OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD".to_string(),
+                discount_curve_id: None,
                 bp: 50.0,
             }],
             priority: 0,

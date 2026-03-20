@@ -22,12 +22,25 @@
 //! ```
 
 use finstack_core::types::InstrumentId;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+
+const FNV1A_64_OFFSET_BASIS: u64 = 0xcbf29ce484222325;
+const FNV1A_64_PRIME: u64 = 0x100000001b3;
+
+fn fnv1a_extend(mut hash: u64, bytes: &[u8]) -> u64 {
+    for &byte in bytes {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(FNV1A_64_PRIME);
+    }
+    hash
+}
 
 /// Derive a deterministic seed from an instrument ID and scenario name.
 ///
-/// The seed is computed using a hash of the instrument ID string and scenario name.
+/// The seed is computed using a stable FNV-1a hash of the instrument ID string
+/// and scenario name. We avoid `DefaultHasher` here because its algorithm is an
+/// implementation detail of the Rust standard library, so changing toolchains
+/// could silently change Monte Carlo seeds.
+///
 /// This ensures that:
 /// - Same instrument + same scenario → same seed
 /// - Different instruments → different seeds (high probability)
@@ -40,10 +53,9 @@ use std::hash::{Hash, Hasher};
 /// # Returns
 /// A deterministic u64 seed
 pub fn derive_seed(instrument_id: &InstrumentId, scenario: &str) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    instrument_id.as_ref().hash(&mut hasher);
-    scenario.hash(&mut hasher);
-    hasher.finish()
+    let hash = fnv1a_extend(FNV1A_64_OFFSET_BASIS, instrument_id.as_ref().as_bytes());
+    let hash = fnv1a_extend(hash, &[0xff]);
+    fnv1a_extend(hash, scenario.as_bytes())
 }
 
 /// Derive a seed for a specific metric calculation scenario.
@@ -80,6 +92,7 @@ mod tests {
         let seed1 = derive_seed(&id, "base");
         let seed2 = derive_seed(&id, "base");
         assert_eq!(seed1, seed2);
+        assert_eq!(seed1, 0xf4f7d33fea0c2ce9);
 
         // Different scenarios should produce different seeds
         let seed_base = derive_seed(&id, "base");

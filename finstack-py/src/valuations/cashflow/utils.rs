@@ -19,10 +19,12 @@ fn py_cpr_to_smm(cpr: f64) -> PyResult<f64> {
 }
 
 /// Convert a Single Monthly Mortality (SMM) to an annual Conditional Prepayment Rate (CPR).
+///
+/// Raises `ValueError` if SMM is negative or greater than 100%.
 #[pyfunction]
 #[pyo3(name = "smm_to_cpr", text_signature = "(smm)")]
-fn py_smm_to_cpr(smm: f64) -> f64 {
-    smm_to_cpr(smm)
+fn py_smm_to_cpr(smm: f64) -> PyResult<f64> {
+    smm_to_cpr(smm).map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
 /// Compute a compounded rate from daily rate observations.

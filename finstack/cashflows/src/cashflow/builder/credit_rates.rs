@@ -87,22 +87,24 @@ pub fn cpr_to_smm(cpr: f64) -> finstack_core::Result<f64> {
 /// // Roundtrip conversion
 /// let cpr = 0.06;
 /// let smm = cpr_to_smm(cpr).unwrap();
-/// let cpr_back = smm_to_cpr(smm);
+/// let cpr_back = smm_to_cpr(smm).unwrap();
 /// assert!((cpr - cpr_back).abs() < 1e-10);
 /// ```
-pub fn smm_to_cpr(smm: f64) -> f64 {
-    // SMM is a monthly mortality rate and must be non-negative.
-    // cpr_to_smm already rejects negatives; this assertion ensures the
-    // inverse direction has symmetric protection in debug/test builds.
-    debug_assert!(
-        smm >= 0.0,
-        "smm_to_cpr: SMM must be non-negative, got {smm}. \
-         Use cpr_to_smm(cpr)? → smm_to_cpr(smm) for roundtrip conversions."
-    );
-    if smm == 0.0 {
-        return 0.0;
+pub fn smm_to_cpr(smm: f64) -> finstack_core::Result<f64> {
+    if smm < 0.0 {
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::NegativeValue,
+        ));
     }
-    1.0 - (1.0 - smm).powi(12)
+    if smm > 1.0 {
+        return Err(finstack_core::Error::Input(
+            finstack_core::InputError::Invalid,
+        ));
+    }
+    if smm == 0.0 {
+        return Ok(0.0);
+    }
+    Ok(1.0 - (1.0 - smm).powi(12))
 }
 
 #[cfg(test)]
@@ -124,7 +126,7 @@ mod tests {
     #[test]
     fn test_monthly_to_annual_conversion() {
         let monthly = 0.01; // 1% monthly
-        let annual = smm_to_cpr(monthly);
+        let annual = smm_to_cpr(monthly).expect("valid SMM");
 
         // Should be positive and greater than monthly
         assert!(annual > monthly);
@@ -135,7 +137,7 @@ mod tests {
     fn test_roundtrip_conversion() {
         let original = 0.06;
         let monthly = cpr_to_smm(original).expect("valid CPR");
-        let back = smm_to_cpr(monthly);
+        let back = smm_to_cpr(monthly).expect("valid SMM");
 
         // Should roundtrip with high precision
         assert!((original - back).abs() < 1e-10);
@@ -144,7 +146,7 @@ mod tests {
     #[test]
     fn test_zero_rate() {
         assert_eq!(cpr_to_smm(0.0).expect("zero CPR should succeed"), 0.0);
-        assert_eq!(smm_to_cpr(0.0), 0.0);
+        assert_eq!(smm_to_cpr(0.0).expect("zero SMM should succeed"), 0.0);
     }
 
     #[test]
@@ -162,8 +164,20 @@ mod tests {
     fn test_cpr_smm_roundtrip_via_new_names() {
         let cpr = 0.06;
         let smm = cpr_to_smm(cpr).expect("valid CPR");
-        let cpr_back = smm_to_cpr(smm);
+        let cpr_back = smm_to_cpr(smm).expect("valid SMM");
         assert!((cpr - cpr_back).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_smm_to_cpr_rejects_invalid_inputs() {
+        assert!(
+            smm_to_cpr(-0.01).is_err(),
+            "negative SMM should be rejected"
+        );
+        assert!(
+            smm_to_cpr(1.01).is_err(),
+            "SMM above 100% should be rejected"
+        );
     }
 
     #[test]

@@ -80,6 +80,21 @@ pub struct HestonParams {
     pub rho: f64,
 }
 
+/// Log-space spot/strike and discounting inputs shared by Gil–Pelaez \(P_j\) integration.
+#[derive(Clone, Copy)]
+struct HestonPjCoords {
+    /// Natural log of spot (\(\ln S\)).
+    x: f64,
+    /// Natural log of strike (\(\ln K\)).
+    ln_k: f64,
+    /// Risk-free rate (continuous).
+    r: f64,
+    /// Dividend yield (continuous).
+    q: f64,
+    /// Time to expiry in years.
+    t: f64,
+}
+
 impl HestonParams {
     /// Construct validated Heston parameters.
     ///
@@ -218,19 +233,68 @@ impl HestonParams {
     ///
     /// P_j = 1/2 + (1/π) ∫₀^∞ Re[exp(-iφ ln K) ψ_j(φ) / (iφ)] dφ
     fn compute_pj(&self, j: u8, spot: f64, strike: f64, r: f64, q: f64, t: f64) -> f64 {
-        let x = spot.ln();
-        let ln_k = strike.ln();
-        let i = Complex64::i();
+        let coords = HestonPjCoords {
+            x: spot.ln(),
+            ln_k: strike.ln(),
+            r,
+            q,
+            t,
+        };
 
+        let upper_limit = self.integration_upper_limit(t);
+        let coarse = self.compute_pj_with_upper_limit(j, coords, upper_limit);
+        if !coarse.is_finite() {
+            return coarse;
+        }
+
+        let tail_probability_mass = self
+            .compute_pj_interval_integral(j, coords, 0.5 * upper_limit, upper_limit)
+            .map(|tail| (tail / PI).abs())
+            .unwrap_or(0.0);
+        if tail_probability_mass > 1.0e-4 {
+            let refined_upper = (2.0 * upper_limit).min(2_000.0);
+            let refined = self.compute_pj_with_upper_limit(j, coords, refined_upper);
+            if refined.is_finite() {
+                return refined;
+            }
+        }
+
+        coarse
+    }
+
+    fn compute_pj_with_upper_limit(&self, j: u8, coords: HestonPjCoords, upper_limit: f64) -> f64 {
+        let integral = self
+            .compute_pj_interval_integral(j, coords, 1e-8, upper_limit)
+            .unwrap_or(f64::NAN);
+
+        if !integral.is_finite() {
+            return f64::NAN;
+        }
+
+        (0.5 + integral / PI).clamp(0.0, 1.0)
+    }
+
+    fn compute_pj_interval_integral(
+        &self,
+        j: u8,
+        coords: HestonPjCoords,
+        lower: f64,
+        upper: f64,
+    ) -> Option<f64> {
+        if !(lower.is_finite() && upper.is_finite()) || upper <= lower {
+            return None;
+        }
+
+        let i = Complex64::i();
         let integrand = |phi: f64| -> f64 {
             if phi.abs() < 1e-10 {
                 return 0.0;
             }
-            let psi = self.char_func_j(j, phi, x, r, q, t);
+            let psi = self.char_func_j(j, phi, coords.x, coords.r, coords.q, coords.t);
             if !psi.is_finite() {
                 return 0.0;
             }
-            let exp_term = (-i * phi * ln_k).exp();
+            let exp_term = (-i * phi * coords.ln_k).exp();
             let val = (exp_term * psi / (i * phi)).re;
             if val.is_finite() {
                 val
@@ -239,30 +303,19 @@ impl HestonParams {
             }
         };
 
-        // Adaptive upper bound: higher for low vol-of-vol or short expiry
-        let upper_limit = if self.sigma > 0.0 && t > 0.0 {
+        crate::math::integration::gauss_legendre_integrate_composite(integrand, lower, upper, 16, 8)
+            .ok()
+    }
+
+    fn integration_upper_limit(&self, t: f64) -> f64 {
+        if self.sigma > 0.0 && t > 0.0 {
             // Estimate where characteristic function decays below ~1e-12
             (2.0 * 28.0_f64.ln() / (self.sigma.powi(2) * t))
                 .sqrt()
                 .clamp(50.0, 500.0)
         } else {
             100.0
-        };
-        // Composite Gauss-Legendre on [ε, upper_limit]: 16th order × 8 panels = 128 points
-        let integral = crate::math::integration::gauss_legendre_integrate_composite(
-            integrand,
-            1e-8,
-            upper_limit,
-            16,
-            8,
-        )
-        .unwrap_or(f64::NAN);
-
-        if !integral.is_finite() {
-            return f64::NAN;
         }
-
-        (0.5 + integral / PI).clamp(0.0, 1.0)
     }
 
     /// Characteristic function ψ_j(φ) for the Heston model.
@@ -708,6 +761,37 @@ mod tests {
         let p = HestonParams::new(0.04, 2.0, 0.04, 0.3, -0.5).expect("valid");
         let price = p.price_european(100.0, 0.0, 0.05, 0.0, 1.0, true);
         assert!(price.is_nan());
+    }
+
+    #[test]
+    fn heston_refines_upper_bound_when_tail_remains_material() {
+        let p = HestonParams::new(0.01, 3.0, 0.01, 0.02, -0.5).expect("valid");
+        let spot: f64 = 100.0;
+        let strike: f64 = 100.0;
+        let r: f64 = 0.01;
+        let q: f64 = 0.0;
+        let t: f64 = 0.005;
+        let coords = HestonPjCoords {
+            x: spot.ln(),
+            ln_k: strike.ln(),
+            r,
+            q,
+            t,
+        };
+        let upper = p.integration_upper_limit(t);
+
+        let coarse = p.compute_pj_with_upper_limit(1, coords, upper);
+        let refined = p.compute_pj(1, spot, strike, r, q, t);
+        let extended = p.compute_pj_with_upper_limit(1, coords, 2.0 * upper);
+
+        assert!(
+            (coarse - extended).abs() > 1e-6,
+            "test case should exercise a materially non-zero tail: upper={upper}, coarse={coarse}, extended={extended}"
+        );
+        assert!(
+            (refined - extended).abs() < 1e-8,
+            "refined Heston probability should match the wider-bound integration"
+        );
     }
 
     #[test]

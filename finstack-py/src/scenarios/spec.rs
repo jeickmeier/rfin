@@ -455,7 +455,7 @@ impl PyOperationSpec {
     }
 
     #[classmethod]
-    #[pyo3(text_signature = "(cls, curve_kind, curve_id, bp)")]
+    #[pyo3(text_signature = "(cls, curve_kind, curve_id, bp, discount_curve_id=None)")]
     /// Parallel shift to a curve (additive in basis points).
     ///
     /// Parameters
@@ -464,6 +464,8 @@ impl PyOperationSpec {
     ///     Type of curve to shock.
     /// curve_id : str
     ///     Curve identifier.
+    /// discount_curve_id : str, optional
+    ///     Explicit discount curve identifier for recalibration-based bumps.
     /// bp : float
     ///     Basis points to add.
     ///
@@ -471,21 +473,26 @@ impl PyOperationSpec {
     /// -------
     /// OperationSpec
     ///     Operation specification.
+    #[pyo3(signature = (curve_kind, curve_id, bp, discount_curve_id=None))]
     fn curve_parallel_bp(
         _cls: &Bound<'_, PyType>,
         curve_kind: &PyCurveKind,
         curve_id: String,
         bp: f64,
+        discount_curve_id: Option<String>,
     ) -> Self {
         Self::new(OperationSpec::CurveParallelBp {
             curve_kind: curve_kind.inner,
             curve_id,
+            discount_curve_id,
             bp,
         })
     }
 
     #[classmethod]
-    #[pyo3(text_signature = "(cls, curve_kind, curve_id, nodes, match_mode=None)")]
+    #[pyo3(
+        text_signature = "(cls, curve_kind, curve_id, nodes, match_mode=None, discount_curve_id=None)"
+    )]
     /// Node-specific basis point shifts for curve shaping.
     ///
     /// Parameters
@@ -494,6 +501,8 @@ impl PyOperationSpec {
     ///     Type of curve to shock.
     /// curve_id : str
     ///     Curve identifier.
+    /// discount_curve_id : str, optional
+    ///     Explicit discount curve identifier for recalibration-based bumps.
     /// nodes : list[tuple[str, float]]
     ///     List of (tenor, bp) pairs (e.g., [("2Y", 25.0), ("10Y", -10.0)]).
     /// match_mode : TenorMatchMode, optional
@@ -503,16 +512,19 @@ impl PyOperationSpec {
     /// -------
     /// OperationSpec
     ///     Operation specification.
+    #[pyo3(signature = (curve_kind, curve_id, nodes, match_mode=None, discount_curve_id=None))]
     fn curve_node_bp(
         _cls: &Bound<'_, PyType>,
         curve_kind: &PyCurveKind,
         curve_id: String,
         nodes: Vec<(String, f64)>,
         match_mode: Option<&PyTenorMatchMode>,
+        discount_curve_id: Option<String>,
     ) -> Self {
         Self::new(OperationSpec::CurveNodeBp {
             curve_kind: curve_kind.inner,
             curve_id,
+            discount_curve_id,
             nodes,
             match_mode: match_mode
                 .map(|m| m.inner)

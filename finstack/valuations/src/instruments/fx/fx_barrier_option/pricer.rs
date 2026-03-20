@@ -131,7 +131,7 @@ impl FxBarrierOptionMcPricer {
             inst.quote_currency,
             quanto_adjustment,
             inst.rebate,
-        );
+        )?;
 
         // Derive deterministic seed from instrument ID and scenario
         #[cfg(feature = "mc")]

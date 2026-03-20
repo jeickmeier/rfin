@@ -64,8 +64,8 @@ pub enum Error {
         id: String,
     },
 
-    /// Statement node not found.
-    #[error("Statement node not found: {node_id}")]
+    /// Statement/model node not found (matches [`finstack_statements::error::Error::NodeNotFound`] wording).
+    #[error("Node not found: {node_id}")]
     NodeNotFound {
         /// Identifier of the missing statement node.
         node_id: String,

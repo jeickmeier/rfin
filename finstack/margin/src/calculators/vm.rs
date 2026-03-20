@@ -58,11 +58,9 @@ impl VmResult {
 ///
 /// # ISDA CSA Formula
 ///
-/// ```text
-/// Credit Support Amount = max(0, Exposure - Threshold + IA) - Current_Collateral
-/// Delivery Amount = max(0, CSA) if CSA ≥ MTA, else 0
-/// Return Amount = max(0, -CSA) if |CSA| ≥ MTA, else 0
-/// ```
+/// Credit support follows [`VmParameters::calculate_margin_call`] (symmetric
+/// threshold in `|Exposure|`, bilateral handling of signed exposure). Delivery
+/// and return amounts split that signed amount by exposure sign.
 ///
 /// Implementation delegates CSA/MTA/rounding logic to
 /// `VmParameters::calculate_margin_call` to ensure consistent behavior
@@ -196,22 +194,32 @@ impl VmCalculator {
 
         let vm_params = &self.csa.vm_params;
 
-        // Required margin before applying posted collateral and MTA
+        let exp = exposure.amount();
         let threshold = vm_params.threshold.amount();
         let ia = vm_params.independent_amount.amount();
-        let required = (exposure.amount() - threshold + ia).max(0.0);
+        let abs_excess = (exp.abs() - threshold).max(0.0);
+        let signed_excess = if abs_excess == 0.0 {
+            0.0
+        } else {
+            exp.signum() * abs_excess
+        };
+        let net_exposure_money = Money::new(signed_excess + ia, currency);
 
         // Delegate CSA/MTA/rounding logic to VmParameters for consistency
         let net_call = vm_params.calculate_margin_call(exposure, posted_collateral)?;
-        let (delivery, ret) = if net_call.amount() > 0.0 {
-            (net_call, Money::new(0.0, currency))
-        } else if net_call.amount() < 0.0 {
-            (
-                Money::new(0.0, currency),
-                Money::new(net_call.amount().abs(), currency),
-            )
-        } else {
-            (Money::new(0.0, currency), Money::new(0.0, currency))
+        let (delivery, ret) = match net_call.amount().total_cmp(&0.0) {
+            std::cmp::Ordering::Greater => (net_call, Money::new(0.0, currency)),
+            std::cmp::Ordering::Less => {
+                let abs_amt = Money::new(net_call.amount().abs(), currency);
+                // Negative credit support: return excess collateral when exposure ≥ 0;
+                // post margin to counterparty when exposure < 0 (bilateral netting).
+                if exp >= 0.0 {
+                    (Money::new(0.0, currency), abs_amt)
+                } else {
+                    (abs_amt, Money::new(0.0, currency))
+                }
+            }
+            std::cmp::Ordering::Equal => (Money::new(0.0, currency), Money::new(0.0, currency)),
         };
 
         // Calculate settlement date
@@ -220,7 +228,7 @@ impl VmCalculator {
         Ok(VmResult {
             date: as_of,
             gross_exposure: exposure,
-            net_exposure: Money::new(required, currency),
+            net_exposure: net_exposure_money,
             delivery_amount: delivery,
             return_amount: ret,
             settlement_date,
@@ -359,6 +367,21 @@ mod tests {
             .expect("calc ok");
 
         // With zero threshold, delivery = exposure - posted = 2M
+        assert_eq!(result.delivery_amount.amount(), 2_000_000.0);
+        assert_eq!(result.return_amount.amount(), 0.0);
+    }
+
+    #[test]
+    fn vm_calculator_bilateral_negative_exposure_delivery() {
+        let csa = CsaSpec::usd_regulatory().expect("registry should load");
+        let calc = VmCalculator::new(csa);
+
+        let exposure = Money::new(-2_000_000.0, Currency::USD);
+        let posted = Money::new(0.0, Currency::USD);
+        let result = calc
+            .calculate(exposure, posted, test_date(2025, 1, 15))
+            .expect("calc ok");
+
         assert_eq!(result.delivery_amount.amount(), 2_000_000.0);
         assert_eq!(result.return_amount.amount(), 0.0);
     }

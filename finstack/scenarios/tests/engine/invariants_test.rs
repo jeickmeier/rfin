@@ -47,6 +47,7 @@ fn test_discount_curve_df_monotonic_after_parallel_shock() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 50.0,
         }],
         priority: 0,
@@ -113,6 +114,7 @@ fn test_discount_curve_df_monotonic_after_node_shock() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             nodes: vec![("2Y".into(), 25.0)],
             match_mode: finstack_scenarios::TenorMatchMode::Interpolate,
         }],
@@ -178,6 +180,7 @@ fn test_forward_curve_rates_finite_after_parallel_shock() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
+            discount_curve_id: None,
             bp: 100.0,
         }],
         priority: 0,
@@ -245,6 +248,7 @@ fn test_forward_curve_rates_finite_after_node_shock() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
+            discount_curve_id: None,
             nodes: vec![("1Y".into(), 50.0)],
             match_mode: finstack_scenarios::TenorMatchMode::Interpolate,
         }],

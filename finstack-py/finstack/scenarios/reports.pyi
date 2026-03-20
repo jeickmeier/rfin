@@ -82,7 +82,7 @@ class RollForwardReport:
 
     RollForwardReport provides detailed P&L attribution from rolling the
     valuation date forward. It breaks down P&L into carry (time decay,
-    interest accrual) and market value changes (price movements).
+    interest accrual) and reports any instruments whose carry calculation failed.
 
     This report is generated when a time roll-forward operation is applied
     in a scenario. It provides transparency into how portfolio value changes
@@ -94,19 +94,12 @@ class RollForwardReport:
 
         >>> from finstack.scenarios import RollForwardReport
         >>> report = RollForwardReport.example()
-        >>> print(
-        ...     report.old_date,
-        ...     report.new_date,
-        ...     report.days,
-        ...     report.total_carry["USD"],
-        ...     report.total_mv_change["USD"],
-        ... )
-        2025-01-01 2025-02-01 31 25000.0 -10000.0
+        >>> print(report.old_date, report.new_date, report.days, report.total_carry["USD"])
+        2025-01-01 2025-02-01 31 25000.0
 
     Notes
     -----
     - Carry represents time decay and interest accrual
-    - Market value change represents price movements
     - P&L is broken down by instrument and currency
     - Useful for P&L attribution and risk reporting
 
@@ -154,15 +147,6 @@ class RollForwardReport:
         ...
 
     @property
-    def instrument_mv_change(self) -> List[Tuple[str, List[Tuple[str, float]]]]:
-        """Per-instrument market value change by currency.
-
-        Returns:
-            list[tuple[str, list[tuple[str, float]]]]:
-                List of (instrument_id, [(currency_code, amount)]) pairs
-        """
-        ...
-
     @property
     def total_carry(self) -> dict[str, float]:
         """Total P&L from carry by currency.
@@ -173,11 +157,11 @@ class RollForwardReport:
         ...
 
     @property
-    def total_mv_change(self) -> dict[str, float]:
-        """Total P&L from market value changes by currency.
+    def failed_instruments(self) -> List[Tuple[str, str]]:
+        """Instruments whose carry calculation failed without aborting the roll.
 
         Returns:
-            dict[str, float]: Mapping from currency code to total market value change
+            list[tuple[str, str]]: ``(instrument_id, error_message)`` pairs
         """
         ...
 
@@ -186,7 +170,7 @@ class RollForwardReport:
         """Return a deterministic sample report for documentation/testing.
 
         Returns:
-            RollForwardReport: Synthetic report with USD carry and MV change.
+            RollForwardReport: Synthetic report with USD carry.
         """
         ...
 

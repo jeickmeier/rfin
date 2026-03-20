@@ -66,6 +66,8 @@ pub struct PhiloxRng {
     idx: usize,
     /// Current block of random values
     block: [u32; 4],
+    /// Spare normal variate from the most recent Box-Muller pair.
+    spare_normal: Option<f64>,
 }
 
 // Philox constants
@@ -84,6 +86,7 @@ impl PhiloxRng {
             counter: 0,
             idx: 4, // Force generation on first use
             block: [0; 4],
+            spare_normal: None,
         };
         rng.generate_block();
         rng
@@ -98,6 +101,7 @@ impl PhiloxRng {
             counter: 0,
             idx: 4,
             block: [0; 4],
+            spare_normal: None,
         };
         rng.generate_block();
         rng
@@ -226,8 +230,14 @@ impl RandomStream for PhiloxRng {
     /// Uses Box-Muller transform in pairs for efficiency.
     #[inline]
     fn fill_std_normals(&mut self, out: &mut [f64]) {
-        // Use Box-Muller transform in pairs
         let mut i = 0;
+        if let Some(spare) = self.spare_normal.take() {
+            if let Some(first) = out.first_mut() {
+                *first = spare;
+                i = 1;
+            }
+        }
+
         while i < out.len() {
             let u1 = self.next_u01();
             let u2 = self.next_u01();
@@ -239,6 +249,8 @@ impl RandomStream for PhiloxRng {
             if i < out.len() {
                 out[i] = z2;
                 i += 1;
+            } else {
+                self.spare_normal = Some(z2);
             }
         }
     }
@@ -324,5 +336,21 @@ mod tests {
         for &val in &values {
             assert!((0.0..1.0).contains(&val));
         }
+    }
+
+    #[test]
+    fn test_philox_reuses_spare_normal_after_odd_request() {
+        let mut rng_odd = PhiloxRng::new(42);
+        let mut rng_even = PhiloxRng::new(42);
+
+        let mut odd = [0.0; 1];
+        rng_odd.fill_std_normals(&mut odd);
+        let next_from_odd = rng_odd.next_std_normal();
+
+        let mut even = [0.0; 2];
+        rng_even.fill_std_normals(&mut even);
+
+        assert_eq!(odd[0], even[0]);
+        assert_eq!(next_from_odd, even[1]);
     }
 }

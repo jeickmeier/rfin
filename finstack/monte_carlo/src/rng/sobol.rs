@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn split_zero_preserves_sequence() {
-        let rng = SobolRng::new(4, 0);
+        let rng = SobolRng::try_new(4, 0).expect("valid Sobol dimension");
         let mut split = rng.split(0);
         let mut original = rng.clone();
         let mut a = [0.0; 4];
@@ -49,7 +49,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "SobolRng::split is unsupported")]
     fn split_nonzero_is_rejected() {
-        let rng = SobolRng::new(4, 0);
+        let rng = SobolRng::try_new(4, 0).expect("valid Sobol dimension");
         let _ = rng.split(1);
     }
 }

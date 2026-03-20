@@ -13,6 +13,7 @@ pub struct TestInstrument {
     id: String,
     value: Money,
     discount_curves: CurveIdVec,
+    forward_curves: CurveIdVec,
 }
 
 impl TestInstrument {
@@ -21,11 +22,17 @@ impl TestInstrument {
             id: id.to_string(),
             value,
             discount_curves: CurveIdVec::new(),
+            forward_curves: CurveIdVec::new(),
         }
     }
 
     pub fn with_discount_curves(mut self, curves: &[&str]) -> Self {
         self.discount_curves = curves.iter().map(|id| CurveId::new(*id)).collect();
+        self
+    }
+
+    pub fn with_forward_curves(mut self, curves: &[&str]) -> Self {
+        self.forward_curves = curves.iter().map(|id| CurveId::new(*id)).collect();
         self
     }
 }
@@ -63,19 +70,26 @@ impl Instrument for TestInstrument {
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies> {
-        let mut deps = crate::instruments::common_impl::dependencies::MarketDependencies::new();
+        let mut builder = crate::instruments::common_impl::traits::InstrumentCurves::builder();
         for curve in &self.discount_curves {
-            deps.add_curves(
-                crate::instruments::common_impl::traits::InstrumentCurves::builder()
-                    .discount(curve.clone())
-                    .build()?,
-            );
+            builder = builder.discount(curve.clone());
         }
+        for curve in &self.forward_curves {
+            builder = builder.forward(curve.clone());
+        }
+        let mut deps = crate::instruments::common_impl::dependencies::MarketDependencies::new();
+        deps.add_curves(builder.build()?);
         Ok(deps)
     }
 
-    fn value(&self, _market: &MarketContext, _as_of: Date) -> Result<Money> {
-        Ok(self.value)
+    fn value(&self, market: &MarketContext, _as_of: Date) -> Result<Money> {
+        let mut amt = self.value.amount();
+        for id in &self.forward_curves {
+            let fwd = market.get_forward(id.as_str())?;
+            // Deterministic exposure to parallel forward moves (test-only stub).
+            amt += fwd.rate(1.0) * 1_000_000.0;
+        }
+        Ok(Money::new(amt, self.value.currency()))
     }
 
     fn price_with_metrics(

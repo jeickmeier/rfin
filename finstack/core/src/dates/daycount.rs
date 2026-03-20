@@ -691,6 +691,8 @@ impl DayCount {
     }
 }
 
+const MAX_ACT_ACT_ISMA_RECURSION_DEPTH: usize = 512;
+
 /// Calculate ACT/ACT (ICMA/ISMA) year fraction using explicit reference coupon boundaries.
 ///
 /// This helper is intended for irregular first/last coupons where the regular
@@ -726,9 +728,17 @@ pub fn act_act_isma_year_fraction_with_reference_period(
         reference_end: Date,
         period_months: u32,
         coupon_length_years: f64,
+        depth: usize,
     ) -> crate::Result<f64> {
         if start == end {
             return Ok(0.0);
+        }
+        if depth >= MAX_ACT_ACT_ISMA_RECURSION_DEPTH {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                "ACT/ACT ISMA reference-period traversal exceeded maximum depth of {MAX_ACT_ACT_ISMA_RECURSION_DEPTH}"
+            );
+            return Err(InputError::Invalid.into());
         }
         if reference_start >= reference_end {
             return Err(InputError::InvalidDateRange.into());
@@ -754,6 +764,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
                 reference_start,
                 period_months,
                 coupon_length_years,
+                depth + 1,
             );
         }
 
@@ -766,6 +777,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
                 next_end,
                 period_months,
                 coupon_length_years,
+                depth + 1,
             );
         }
 
@@ -778,6 +790,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
                 reference_start,
                 period_months,
                 coupon_length_years,
+                depth + 1,
             )? + recurse(
                 reference_start,
                 end,
@@ -785,6 +798,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
                 reference_end,
                 period_months,
                 coupon_length_years,
+                depth + 1,
             )?);
         }
 
@@ -797,6 +811,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
                 reference_end,
                 period_months,
                 coupon_length_years,
+                depth + 1,
             )? + recurse(
                 reference_end,
                 end,
@@ -804,6 +819,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
                 next_end,
                 period_months,
                 coupon_length_years,
+                depth + 1,
             )?);
         }
 
@@ -817,6 +833,7 @@ pub fn act_act_isma_year_fraction_with_reference_period(
         reference_end,
         period_months,
         coupon_length_years,
+        0,
     )
 }
 
@@ -1100,5 +1117,27 @@ const fn days_in_year(year: i32) -> i32 {
         366
     } else {
         365
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::panic, clippy::expect_used)]
+mod tests {
+    use super::act_act_isma_year_fraction_with_reference_period;
+    use time::macros::date;
+
+    #[test]
+    fn act_act_isma_reference_period_rejects_excessive_recursion_depth() {
+        let result = act_act_isma_year_fraction_with_reference_period(
+            date!(1700 - 01 - 01),
+            date!(1700 - 01 - 02),
+            date!(2025 - 01 - 01),
+            date!(2025 - 07 - 01),
+        );
+
+        assert!(
+            result.is_err(),
+            "far-away reference traversal should be rejected"
+        );
     }
 }

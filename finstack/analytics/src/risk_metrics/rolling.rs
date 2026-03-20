@@ -4,8 +4,27 @@
 //! a dated struct (aligned to window-end dates) or a NaN-padded `Vec<f64>`.
 
 use crate::dates::Date;
+use finstack_core::math::neumaier_sum;
 
 use super::return_based::sharpe;
+
+const ROLLING_KERNEL_RECOMPUTE_INTERVAL: usize = 1024;
+
+#[inline]
+fn recompute_sum_sum_sq(window: &[f64]) -> (f64, f64) {
+    (
+        neumaier_sum(window.iter().copied()),
+        neumaier_sum(window.iter().map(|r| r * r)),
+    )
+}
+
+#[inline]
+fn recompute_sum_sum_ds(window: &[f64]) -> (f64, f64) {
+    (
+        neumaier_sum(window.iter().copied()),
+        neumaier_sum(window.iter().filter(|&&r| r < 0.0).map(|&r| r * r)),
+    )
+}
 
 /// Output of a rolling Sharpe ratio computation.
 ///
@@ -249,18 +268,20 @@ fn rolling_sum_sum_sq_kernel<F>(returns: &[f64], n: usize, window: usize, mut em
 where
     F: FnMut(f64, f64),
 {
-    let mut sum = 0.0_f64;
-    let mut sum_sq = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        sum_sq += r * r;
-    }
+    let (mut sum, mut sum_sq) = recompute_sum_sum_sq(&returns[..window]);
     emit(sum, sum_sq);
+    let mut steps_since_recompute = 0_usize;
     for i in window..n {
         let add = returns[i];
         let rem = returns[i - window];
         sum += add - rem;
         sum_sq += add * add - rem * rem;
+        steps_since_recompute += 1;
+        if steps_since_recompute >= ROLLING_KERNEL_RECOMPUTE_INTERVAL {
+            let start = i + 1 - window;
+            (sum, sum_sq) = recompute_sum_sum_sq(&returns[start..=i]);
+            steps_since_recompute = 0;
+        }
         emit(sum, sum_sq);
     }
 }
@@ -273,15 +294,9 @@ fn rolling_sortino_kernel<F>(returns: &[f64], n: usize, window: usize, mut emit:
 where
     F: FnMut(f64, f64),
 {
-    let mut sum = 0.0_f64;
-    let mut sum_ds = 0.0_f64;
-    for &r in &returns[..window] {
-        sum += r;
-        if r < 0.0 {
-            sum_ds += r * r;
-        }
-    }
+    let (mut sum, mut sum_ds) = recompute_sum_sum_ds(&returns[..window]);
     emit(sum, sum_ds);
+    let mut steps_since_recompute = 0_usize;
     for i in window..n {
         let add = returns[i];
         let rem = returns[i - window];
@@ -293,6 +308,12 @@ where
             sum_ds -= rem * rem;
         }
         sum_ds = sum_ds.max(0.0); // guard against floating-point underflow
+        steps_since_recompute += 1;
+        if steps_since_recompute >= ROLLING_KERNEL_RECOMPUTE_INTERVAL {
+            let start = i + 1 - window;
+            (sum, sum_ds) = recompute_sum_sum_ds(&returns[start..=i]);
+            steps_since_recompute = 0;
+        }
         emit(sum, sum_ds);
     }
 }
@@ -398,6 +419,7 @@ mod tests {
     use super::*;
     use crate::dates::{Duration, Month};
     use crate::risk_metrics::return_based::{sortino, volatility};
+    use finstack_core::math::neumaier_sum;
 
     fn jan1(year: i32) -> Date {
         Date::from_calendar_date(year, Month::January, 1).expect("valid date")
@@ -452,5 +474,41 @@ mod tests {
         let rs = rolling_sortino(&returns, &dates, 5, 252.0);
         let first_window = sortino(&returns[0..5], true, 252.0);
         assert!((rs.values[0] - first_window).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rolling_sum_sq_kernel_limits_long_run_drift() {
+        fn next_u64(state: &mut u64) -> u64 {
+            *state ^= *state << 13;
+            *state ^= *state >> 7;
+            *state ^= *state << 17;
+            *state
+        }
+
+        let mut state = 0x1234_5678_9abc_def0_u64;
+        let returns: Vec<f64> = (0..20_000)
+            .map(|_| {
+                let u = next_u64(&mut state) as f64 / u64::MAX as f64;
+                let v = next_u64(&mut state) as f64 / u64::MAX as f64;
+                (u - 0.5) * 1.0e10 + (v - 0.5) * 1.0e-3
+            })
+            .collect();
+        let window = 257;
+        let n = returns.len();
+        let mut max_sum_sq_error = 0.0_f64;
+        let mut start = 0_usize;
+
+        rolling_sum_sum_sq_kernel(&returns, n, window, |_, sum_sq| {
+            let end = start + window;
+            let exact_sum_sq = neumaier_sum(returns[start..end].iter().map(|r| r * r));
+            max_sum_sq_error = max_sum_sq_error.max((sum_sq - exact_sum_sq).abs());
+            start += 1;
+        });
+
+        assert!(
+            max_sum_sq_error < 10_000_000.0,
+            "rolling sum_sq drift should stay bounded, got {}",
+            max_sum_sq_error
+        );
     }
 }

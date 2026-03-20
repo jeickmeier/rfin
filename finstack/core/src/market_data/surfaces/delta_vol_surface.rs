@@ -47,8 +47,8 @@
 use crate::{error::InputError, types::CurveId};
 
 use super::{
-    fx_atm_dns_strike, fx_forward, fx_put_call_25d_strikes, interp_linear_clamp,
-    recover_fx_wing_vols, VolSurface,
+    fx_atm_dns_strike, fx_forward, fx_put_call_25d_strikes, fx_put_call_delta_strikes,
+    interp_linear_clamp, recover_fx_wing_vols, VolSurface,
 };
 
 /// Builder that converts FX delta-quoted vols to a standard strike-based [`VolSurface`].
@@ -94,6 +94,8 @@ pub struct FxDeltaVolSurfaceBuilder {
     atm_vols: Vec<f64>,
     rr_25d: Option<Vec<f64>>,
     bf_25d: Option<Vec<f64>>,
+    rr_10d: Option<Vec<f64>>,
+    bf_10d: Option<Vec<f64>>,
 }
 
 impl FxDeltaVolSurfaceBuilder {
@@ -112,6 +114,8 @@ impl FxDeltaVolSurfaceBuilder {
             atm_vols: Vec::new(),
             rr_25d: None,
             bf_25d: None,
+            rr_10d: None,
+            bf_10d: None,
         }
     }
 
@@ -168,6 +172,18 @@ impl FxDeltaVolSurfaceBuilder {
     /// strikes are generated (single-strike surface).
     pub fn bf_25d(mut self, bf: &[f64]) -> Self {
         self.bf_25d = Some(bf.to_vec());
+        self
+    }
+
+    /// Set the 10-delta risk reversal quotes per expiry.
+    pub fn rr_10d(mut self, rr: &[f64]) -> Self {
+        self.rr_10d = Some(rr.to_vec());
+        self
+    }
+
+    /// Set the 10-delta butterfly quotes per expiry.
+    pub fn bf_10d(mut self, bf: &[f64]) -> Self {
+        self.bf_10d = Some(bf.to_vec());
         self
     }
 
@@ -242,22 +258,45 @@ impl FxDeltaVolSurfaceBuilder {
                 }
             }
         }
+        if let Some(ref rr) = self.rr_10d {
+            if rr.len() != self.expiries.len() {
+                return Err(InputError::DimensionMismatch.into());
+            }
+            for &v in rr {
+                if !v.is_finite() {
+                    return Err(InputError::Invalid.into());
+                }
+            }
+        }
+        if let Some(ref bf) = self.bf_10d {
+            if bf.len() != self.expiries.len() {
+                return Err(InputError::DimensionMismatch.into());
+            }
+            for &v in bf {
+                if !v.is_finite() {
+                    return Err(InputError::Invalid.into());
+                }
+            }
+        }
 
         // ── Build the surface ───────────────────────────────────────────
         let n_expiries = self.expiries.len();
+        let has_10d_wings = self.rr_10d.is_some() && self.bf_10d.is_some();
 
         if has_wings {
-            // 3 strikes per expiry: 25d put, ATM, 25d call
+            // 3 or 5 strikes per expiry depending on whether 10d wings are available.
             let (rr, bf) = match (self.rr_25d.as_ref(), self.bf_25d.as_ref()) {
                 (Some(r), Some(b)) => (r, b),
                 _ => return Err(InputError::Invalid.into()),
             };
+            let rr_10d = self.rr_10d.as_ref();
+            let bf_10d = self.bf_10d.as_ref();
 
             // Compute a common strike grid across all expiries.
             // Collect all strikes, then sort and deduplicate.
-            let mut all_strikes: Vec<f64> = Vec::with_capacity(3 * n_expiries);
-            let mut per_expiry_data: Vec<(f64, f64, f64, f64, f64, f64)> =
-                Vec::with_capacity(n_expiries);
+            let mut all_strikes: Vec<f64> =
+                Vec::with_capacity(if has_10d_wings { 5 } else { 3 } * n_expiries);
+            let mut per_expiry_data: Vec<(Vec<f64>, Vec<f64>)> = Vec::with_capacity(n_expiries);
 
             for i in 0..n_expiries {
                 let t = self.expiries[i];
@@ -275,12 +314,27 @@ impl FxDeltaVolSurfaceBuilder {
                 let fwd = fx_forward(self.spot, self.domestic_rate, self.foreign_rate, t);
                 let k_atm = fx_atm_dns_strike(fwd, atm, t);
                 let (k_put, k_call) = fx_put_call_25d_strikes(fwd, sigma_put, sigma_call, t);
+                let mut known_strikes = vec![k_put, k_atm, k_call];
+                let mut known_vols = vec![sigma_put, atm, sigma_call];
 
-                all_strikes.push(k_put);
-                all_strikes.push(k_atm);
-                all_strikes.push(k_call);
+                if has_10d_wings {
+                    let (rr10, bf10) = match (rr_10d, bf_10d) {
+                        (Some(rr10), Some(bf10)) => (rr10, bf10),
+                        _ => return Err(InputError::Invalid.into()),
+                    };
+                    let (sigma_put_10d, sigma_call_10d) =
+                        recover_fx_wing_vols(atm, rr10[i], bf10[i]);
+                    if sigma_call_10d <= 0.0 || sigma_put_10d <= 0.0 {
+                        return Err(InputError::NegativeValue.into());
+                    }
+                    let (k_put_10d, k_call_10d) =
+                        fx_put_call_delta_strikes(fwd, sigma_put_10d, sigma_call_10d, t, 0.10);
+                    known_strikes = vec![k_put_10d, k_put, k_atm, k_call, k_call_10d];
+                    known_vols = vec![sigma_put_10d, sigma_put, atm, sigma_call, sigma_call_10d];
+                }
 
-                per_expiry_data.push((k_put, k_atm, k_call, sigma_put, atm, sigma_call));
+                all_strikes.extend(known_strikes.iter().copied());
+                per_expiry_data.push((known_strikes, known_vols));
             }
 
             // Build a sorted, deduplicated strike grid
@@ -296,13 +350,10 @@ impl FxDeltaVolSurfaceBuilder {
                 .expiries(&self.expiries)
                 .strikes(strikes);
 
-            for (k_put, k_atm, k_call, sigma_put, sigma_atm, sigma_call) in &per_expiry_data {
-                let known_strikes = [*k_put, *k_atm, *k_call];
-                let known_vols = [*sigma_put, *sigma_atm, *sigma_call];
-
+            for (known_strikes, known_vols) in &per_expiry_data {
                 let mut row = Vec::with_capacity(n_strikes);
                 for &k in strikes {
-                    let vol = interp_linear_clamp(&known_strikes, &known_vols, k);
+                    let vol = interp_linear_clamp(known_strikes, known_vols, k);
                     row.push(vol);
                 }
                 builder = builder.row(&row);
@@ -350,5 +401,32 @@ impl FxDeltaVolSurfaceBuilder {
 
             builder.build()
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_uses_five_point_smile_when_10d_quotes_are_available() {
+        let surface = FxDeltaVolSurfaceBuilder::new("EURUSD-VOL")
+            .spot(1.10)
+            .domestic_rate(0.05)
+            .foreign_rate(0.04)
+            .expiries(&[0.5, 1.0])
+            .atm_vols(&[0.08, 0.09])
+            .rr_25d(&[0.01, 0.012])
+            .bf_25d(&[0.005, 0.006])
+            .rr_10d(&[0.015, 0.018])
+            .bf_10d(&[0.008, 0.009])
+            .build()
+            .expect("surface should build with 10d and 25d wings");
+
+        assert!(
+            surface.strikes().len() >= 5,
+            "10d wings should add extra smile points"
+        );
     }
 }

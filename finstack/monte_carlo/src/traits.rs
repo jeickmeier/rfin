@@ -73,6 +73,10 @@ pub type StateVariables = HashMap<&'static str, f64>;
 pub mod state_keys {
     use std::sync::Mutex;
 
+    pub use crate::indexed_spot_table::INDEXED_SPOT_INLINE;
+
+    use crate::indexed_spot_table::INDEXED_SPOT_TABLE;
+
     /// Spot price (equity/FX)
     pub const SPOT: &str = "spot";
     /// Stochastic volatility (Heston, etc.)
@@ -94,20 +98,32 @@ pub mod state_keys {
     /// Mark-to-market P&L (change in NPV)
     pub const MTM_PNL: &str = "mtm_pnl";
 
-    static INDEXED_SPOT_KEY_CACHE: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+    static INDEXED_SPOT_OVERFLOW: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
 
     /// Return the canonical state key for the indexed spot of a multi-asset process.
+    ///
+    /// Indices `0..INDEXED_SPOT_INLINE` map to static `&str` literals (no allocation).
+    /// Larger indices are interned once in a process-wide cache (rare in practice).
     pub fn indexed_spot(index: usize) -> &'static str {
+        if index < INDEXED_SPOT_INLINE {
+            INDEXED_SPOT_TABLE[index]
+        } else {
+            indexed_spot_overflow(index)
+        }
+    }
+
+    fn indexed_spot_overflow(index: usize) -> &'static str {
         #[allow(clippy::expect_used)]
-        let mut cache = INDEXED_SPOT_KEY_CACHE
+        let mut cache = INDEXED_SPOT_OVERFLOW
             .lock()
-            .expect("indexed spot key cache mutex should not be poisoned");
-        while cache.len() <= index {
-            let next_index = cache.len();
-            let key = Box::leak(format!("spot_{}", next_index).into_boxed_str());
+            .expect("indexed spot overflow cache mutex should not be poisoned");
+        let base = INDEXED_SPOT_INLINE;
+        while base + cache.len() <= index {
+            let next = base + cache.len();
+            let key = Box::leak(format!("spot_{next}").into_boxed_str());
             cache.push(key);
         }
-        cache[index]
+        cache[index - base]
     }
 }
 
@@ -306,13 +322,28 @@ impl PathState {
         self.sync_core_fields();
     }
 
-    /// Backward-compatible access to all state variables as a HashMap.
-    /// Merges fixed-slot values with dynamic values. This allocates --
-    /// prefer `get`/`get_key` on hot paths.
-    pub fn vars(&self) -> StateVariables {
-        let mut map = self
+    /// Merge all state variables into `out` (clears `out` first).
+    ///
+    /// Prefer this over [`Self::vars`] on hot paths to reuse a single `HashMap`
+    /// allocation instead of cloning the dynamic map and allocating a fresh map
+    /// on every call.
+    pub fn collect_vars(&self, out: &mut StateVariables) {
+        out.clear();
+
+        let dyn_len = self.extras().map(|e| e.dynamic.len()).unwrap_or(0);
+        let indexed_count = self
             .extras()
-            .map_or_else(HashMap::default, |extras| extras.dynamic.clone());
+            .map(|e| e.indexed_spots.iter().filter(|v| v.is_some()).count())
+            .unwrap_or(0);
+        let fixed_count = self.fixed_set.count_ones() as usize;
+        out.reserve(dyn_len + indexed_count + fixed_count);
+
+        if let Some(extras) = self.extras() {
+            for (k, v) in &extras.dynamic {
+                out.insert(*k, *v);
+            }
+        }
+
         let key_names: [&'static str; STATE_ARRAY_LEN] = [
             state_keys::SPOT,
             state_keys::VARIANCE,
@@ -328,16 +359,25 @@ impl PathState {
         ];
         for (i, key_name) in key_names.iter().enumerate().take(STATE_ARRAY_LEN) {
             if self.fixed_set & (1 << i) != 0 {
-                map.insert(*key_name, self.fixed[i]);
+                out.insert(*key_name, self.fixed[i]);
             }
         }
+
         if let Some(extras) = self.extras() {
             for (index, value) in extras.indexed_spots.iter().enumerate() {
                 if let Some(value) = value {
-                    map.insert(state_keys::indexed_spot(index), *value);
+                    out.insert(state_keys::indexed_spot(index), *value);
                 }
             }
         }
+    }
+
+    /// Backward-compatible access to all state variables as a HashMap.
+    /// Merges fixed-slot values with dynamic values. This allocates --
+    /// prefer `get`/`get_key` or [`Self::collect_vars`] on hot paths.
+    pub fn vars(&self) -> StateVariables {
+        let mut map = StateVariables::default();
+        self.collect_vars(&mut map);
         map
     }
 
@@ -559,8 +599,23 @@ mod tests {
         assert_eq!(state.variance(), Some(0.04));
         assert_eq!(state.get("spot_1"), Some(120.0));
         assert_eq!(state.vars().get("spot_1"), Some(&120.0));
+
+        let mut buf = StateVariables::default();
+        state.collect_vars(&mut buf);
+        assert_eq!(buf.get("spot_1"), Some(&120.0));
+        buf.clear();
+        state.collect_vars(&mut buf);
+        assert_eq!(buf.get("spot_1"), Some(&120.0));
+
         assert_eq!(state.get("nonexistent"), None);
         assert_eq!(state.get_or("nonexistent", 42.0), 42.0);
+    }
+
+    #[test]
+    fn test_indexed_spot_inline_keys() {
+        assert_eq!(state_keys::indexed_spot(0), "spot_0");
+        assert_eq!(state_keys::indexed_spot(127), "spot_127");
+        assert_eq!(state_keys::indexed_spot(128), "spot_128");
     }
 
     #[test]

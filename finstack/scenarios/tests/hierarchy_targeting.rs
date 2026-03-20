@@ -362,6 +362,7 @@ fn engine_works_with_resolution_mode_field() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
             bp: 50.0,
         }],
         priority: 0,
@@ -622,6 +623,7 @@ fn most_specific_wins_uses_matched_node_depth_not_target_path_depth() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "JPM-5Y".into(),
+            discount_curve_id: None,
             bp: 100.0,
         }],
         priority: 0,

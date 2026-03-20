@@ -193,6 +193,7 @@ mod tests {
             operations: vec![OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: format!("{id}_curve"),
+                discount_curve_id: None,
                 bp: 25.0,
             }],
             priority: 0,
@@ -331,6 +332,7 @@ mod tests {
                     operations: vec![OperationSpec::CurveParallelBp {
                         curve_kind: CurveKind::Discount,
                         curve_id: String::new(),
+                        discount_curve_id: None,
                         bp: 25.0,
                     }],
                     priority: 0,

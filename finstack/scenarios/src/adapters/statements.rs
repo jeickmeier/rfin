@@ -89,9 +89,43 @@ pub fn apply_forecast_assign(
     node_id: &str,
     value: f64,
 ) -> Result<()> {
-    with_node_values_mut(model, node_id, |val| {
-        *val = AmountOrScalar::Scalar(value);
-    })
+    apply_forecast_assign_filtered(model, node_id, value, None)
+}
+
+/// Assign a scalar value to explicit forecasts in a node, optionally filtering periods.
+pub fn apply_forecast_assign_filtered(
+    model: &mut FinancialModelSpec,
+    node_id: &str,
+    value: f64,
+    period_filter: Option<(finstack_core::dates::Date, finstack_core::dates::Date)>,
+) -> Result<()> {
+    let allowed_period_ids = period_filter.as_ref().map(|(start, end)| {
+        model
+            .periods
+            .iter()
+            .filter(|period| period.start >= *start && period.end <= *end)
+            .map(|period| period.id)
+            .collect::<std::collections::HashSet<_>>()
+    });
+
+    let node = model
+        .get_node_mut(node_id)
+        .ok_or_else(|| Error::NodeNotFound {
+            node_id: node_id.to_string(),
+        })?;
+
+    if let Some(values) = node.values.as_mut() {
+        for (period_id, val) in values.iter_mut() {
+            if allowed_period_ids
+                .as_ref()
+                .is_none_or(|allowed| allowed.contains(period_id))
+            {
+                *val = AmountOrScalar::Scalar(value);
+            }
+        }
+    }
+
+    Ok(())
 }
 
 /// Update a statement rate node using a full [`RateBindingSpec`].
@@ -241,4 +275,50 @@ pub fn reevaluate_model(model: &mut FinancialModelSpec) -> Result<Vec<String>> {
         .map(|w| format!("{:?}", w))
         .collect();
     Ok(warnings)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::build_periods;
+    use finstack_statements::{NodeSpec, NodeType};
+    use indexmap::IndexMap;
+
+    #[test]
+    fn test_apply_forecast_assign_filtered_updates_only_selected_periods() {
+        let period_plan = build_periods("2025Q1..Q4", None).expect("periods should build");
+        let periods = period_plan.periods;
+        let mut model = FinancialModelSpec::new("test", periods.clone());
+
+        let mut values = IndexMap::new();
+        for (i, period) in periods.iter().enumerate() {
+            values.insert(period.id, AmountOrScalar::Scalar(100.0 * (i as f64 + 1.0)));
+        }
+
+        model.add_node(NodeSpec::new("Revenue", NodeType::Value).with_values(values));
+
+        apply_forecast_assign_filtered(
+            &mut model,
+            "Revenue",
+            500.0,
+            Some((periods[1].start, periods[1].end)),
+        )
+        .expect("filtered assign should succeed");
+
+        let shocked_values: Vec<f64> = model
+            .get_node("Revenue")
+            .expect("node should exist")
+            .values
+            .as_ref()
+            .expect("values should exist")
+            .values()
+            .map(|v| match v {
+                AmountOrScalar::Scalar(s) => *s,
+                AmountOrScalar::Amount(_) => 0.0,
+            })
+            .collect();
+
+        assert_eq!(shocked_values, vec![100.0, 500.0, 300.0, 400.0]);
+    }
 }

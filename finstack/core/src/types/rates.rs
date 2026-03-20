@@ -223,8 +223,9 @@ impl Rate {
     ///
     /// # Overflow
     ///
-    /// Returns are truncated to `i32` range. For rates beyond ~±214,748 bps
-    /// (~±21.47%), consider using `(self.as_decimal() * 10_000.0).round() as i64`.
+    /// The rounded value is then saturated to the `i32` range by the float-to-int
+    /// cast. For rates beyond about `±2_147_483_647` bps
+    /// (`±21_474_836.47%`), prefer `(self.as_decimal() * 10_000.0).round() as i64`.
     #[must_use]
     pub fn as_bps(self) -> i32 {
         (self.0 * 10_000.0).round() as i32

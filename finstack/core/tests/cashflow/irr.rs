@@ -464,22 +464,32 @@ fn irr_handles_99_percent_loss() {
 // =============================================================================
 
 #[test]
-fn irr_multiple_sign_changes_is_rejected_as_ambiguous() {
+fn irr_multiple_sign_changes_is_not_rejected_as_ambiguous() {
     // Non-conventional cashflow pattern with multiple sign changes
     // These can have multiple mathematical IRR solutions
     // Pattern: -100, +320, -320, +100 (mining project style)
     let amounts = [-100.0, 320.0, -320.0, 100.0];
     let result = amounts.irr(None);
-    assert!(result.is_err());
+    if let Err(err) = result {
+        assert!(
+            !err.to_string().contains("multiple sign changes"),
+            "solver should attempt a root instead of rejecting ambiguity: {err}"
+        );
+    }
 }
 
 #[test]
-fn irr_two_sign_changes_pattern_is_rejected_as_ambiguous() {
+fn irr_two_sign_changes_pattern_is_not_rejected_as_ambiguous() {
     // Simpler two-sign-change pattern: invest, profit, reinvest
     // -100, +200, -50
     let amounts = [-100.0, 200.0, -50.0];
     let result = amounts.irr(None);
-    assert!(result.is_err());
+    if let Err(err) = result {
+        assert!(
+            !err.to_string().contains("multiple sign changes"),
+            "solver should attempt a root instead of rejecting ambiguity: {err}"
+        );
+    }
 }
 
 // =============================================================================
@@ -721,17 +731,19 @@ fn xirr_rejects_all_same_sign() {
 }
 
 #[test]
-fn irr_rejects_ambiguous_multi_root_cashflows() {
+fn irr_attempts_ambiguous_multi_root_cashflows() {
     let amounts = [-100.0, 320.0, -320.0, 100.0];
     let result = amounts.irr(None);
-    assert!(
-        result.is_err(),
-        "non-conventional cashflows with multiple sign changes should be rejected explicitly"
-    );
+    if let Err(err) = result {
+        assert!(
+            !err.to_string().contains("multiple sign changes"),
+            "non-conventional cashflows should no longer be rejected explicitly: {err}"
+        );
+    }
 }
 
 #[test]
-fn xirr_rejects_unsorted_multi_sign_change_flows() {
+fn xirr_attempts_unsorted_multi_sign_change_flows_after_sorting() {
     let flows = [
         (d(2026, 1, 1), 250.0),
         (d(2025, 1, 1), -100.0),
@@ -739,10 +751,12 @@ fn xirr_rejects_unsorted_multi_sign_change_flows() {
     ];
 
     let result = flows.irr(None);
-    assert!(
-        result.is_err(),
-        "dated multi-sign-change cashflows should remain explicitly rejected after sorting"
-    );
+    if let Err(err) = result {
+        assert!(
+            !err.to_string().contains("multiple sign changes"),
+            "dated multi-sign-change cashflows should be attempted after sorting: {err}"
+        );
+    }
 }
 
 #[test]

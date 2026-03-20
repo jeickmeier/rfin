@@ -54,6 +54,25 @@ pub const DEFAULT_SIGMA: f64 = 0.01;
 #[allow(dead_code)] // May be used by external bindings or tests
 pub const DEFAULT_TREE_STEPS: usize = 50;
 
+/// Validates Hull–White parameters used by Bermudan Greek calculators.
+///
+/// In release builds, invalid parameters must not be silently accepted: tree
+/// calibration and finite-difference vega can otherwise produce NaNs or garbage.
+fn validate_hw_greek_params(kappa: f64, sigma: f64) -> Result<()> {
+    if !sigma.is_finite() || sigma <= 0.0 {
+        return Err(finstack_core::Error::Validation(
+            "Hull-White volatility (sigma) must be positive and finite for Bermudan Greeks".into(),
+        ));
+    }
+    if !kappa.is_finite() || kappa < 0.0 {
+        return Err(finstack_core::Error::Validation(
+            "Hull-White mean reversion (kappa) must be non-negative and finite for Bermudan Greeks"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
 // ============================================================================
 // Bermudan Delta Calculator
 // ============================================================================
@@ -104,11 +123,8 @@ impl BermudanDeltaCalculator {
 
     /// Set Hull-White parameters.
     ///
-    /// # Panics (debug only)
-    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
+    /// Invalid values are rejected when computing metrics (runtime validation).
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
-        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
-        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
         self.kappa = kappa;
         self.sigma = sigma;
         self
@@ -134,6 +150,7 @@ impl BermudanDeltaCalculator {
             return Ok(0.0);
         }
 
+        validate_hw_greek_params(self.kappa, sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
             HullWhiteParams::new(self.kappa, sigma),
             self.tree_steps,
@@ -240,11 +257,8 @@ impl BermudanVegaCalculator {
 
     /// Set Hull-White parameters.
     ///
-    /// # Panics (debug only)
-    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
+    /// Invalid values are rejected when computing metrics (runtime validation).
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
-        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
-        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
         self.kappa = kappa;
         self.sigma = sigma;
         self
@@ -270,6 +284,7 @@ impl BermudanVegaCalculator {
             return Ok(0.0);
         }
 
+        validate_hw_greek_params(self.kappa, sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
             HullWhiteParams::new(self.kappa, sigma),
             self.tree_steps,
@@ -293,15 +308,26 @@ impl MetricCalculator for BermudanVegaCalculator {
             .curves
             .get_discount(swaption.discount_curve_id.as_str())?;
 
+        validate_hw_greek_params(self.kappa, self.sigma)?;
+
         // Bump volatility
         let sigma_up = self.sigma * (1.0 + self.bump_pct);
         let sigma_down = self.sigma * (1.0 - self.bump_pct);
+        validate_hw_greek_params(self.kappa, sigma_up)?;
+        validate_hw_greek_params(self.kappa, sigma_down)?;
+
+        let denom = 2.0 * self.bump_pct * self.sigma;
+        if !denom.is_finite() || denom.abs() <= f64::EPSILON * 1024.0 {
+            return Err(finstack_core::Error::Validation(
+                "Bermudan vega: bump_pct and sigma must yield a non-zero finite denominator".into(),
+            ));
+        }
 
         let price_up = self.price_bermudan(swaption, disc.as_ref(), context.as_of, sigma_up)?;
         let price_down = self.price_bermudan(swaption, disc.as_ref(), context.as_of, sigma_down)?;
 
         // Central difference
-        let vega = (price_up - price_down) / (2.0 * self.bump_pct * self.sigma);
+        let vega = (price_up - price_down) / denom;
 
         // Scale to 1% volatility change
         let vega_pct = vega * 0.01;
@@ -354,11 +380,8 @@ impl BermudanGammaCalculator {
 
     /// Set Hull-White parameters.
     ///
-    /// # Panics (debug only)
-    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
+    /// Invalid values are rejected when computing metrics (runtime validation).
     pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
-        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
-        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
         self.kappa = kappa;
         self.sigma = sigma;
         self
@@ -384,6 +407,7 @@ impl BermudanGammaCalculator {
             return Ok(0.0);
         }
 
+        validate_hw_greek_params(self.kappa, sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
             HullWhiteParams::new(self.kappa, sigma),
             self.tree_steps,
@@ -552,11 +576,8 @@ impl ExerciseProbabilityCalculator {
 
     /// Create a new calculator with calibrated Hull-White parameters.
     ///
-    /// # Panics (debug only)
-    /// Panics if `sigma <= 0` or `kappa < 0`, which would produce invalid tree calibration.
+    /// Invalid values are rejected when computing metrics (runtime validation).
     pub fn new_with_hw(kappa: f64, sigma: f64) -> Self {
-        debug_assert!(sigma > 0.0, "HW sigma must be positive, got {sigma}");
-        debug_assert!(kappa >= 0.0, "HW kappa must be non-negative, got {kappa}");
         Self {
             kappa,
             sigma,
@@ -582,6 +603,7 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
             return Ok(0.0);
         }
 
+        validate_hw_greek_params(self.kappa, self.sigma)?;
         let model = CalibratedHullWhiteModel::calibrate(
             HullWhiteParams::new(self.kappa, self.sigma),
             self.tree_steps,
@@ -603,6 +625,24 @@ impl MetricCalculator for ExerciseProbabilityCalculator {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn validate_hw_greek_params_accepts_typical_values() {
+        assert!(validate_hw_greek_params(0.03, 0.01).is_ok());
+    }
+
+    #[test]
+    fn validate_hw_greek_params_rejects_non_positive_sigma() {
+        assert!(validate_hw_greek_params(0.03, 0.0).is_err());
+        assert!(validate_hw_greek_params(0.03, -0.01).is_err());
+        assert!(validate_hw_greek_params(0.03, f64::NAN).is_err());
+    }
+
+    #[test]
+    fn validate_hw_greek_params_rejects_negative_kappa() {
+        assert!(validate_hw_greek_params(-0.01, 0.01).is_err());
+        assert!(validate_hw_greek_params(f64::NAN, 0.01).is_err());
+    }
 
     #[test]
     fn test_bermudan_delta_calculator_creation() {

@@ -468,7 +468,7 @@ pub fn attribute_portfolio_pnl(
             let total_translation = flow_translation + principal_translation;
             fx_translation_vals.push(total_translation);
 
-            total_pnl_vals.push(principal_translation);
+            total_pnl_vals.push(total_translation);
         }
 
         by_position.insert(position_id, pos_attr);

@@ -42,6 +42,7 @@ use crate::metrics::{MetricContext, MetricId};
 
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::neumaier_sum;
 use finstack_core::types::CurveId;
 use std::marker::PhantomData;
 
@@ -414,7 +415,7 @@ where
         }
 
         context.store_bucketed_series(metric_id, series.clone());
-        let total: f64 = series.iter().map(|(_, v)| *v).sum();
+        let total: f64 = neumaier_sum(series.iter().map(|(_, v)| *v));
         Ok(total)
     }
 }

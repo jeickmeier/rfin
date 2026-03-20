@@ -36,6 +36,7 @@
 //!         OperationSpec::CurveParallelBp {
 //!             curve_kind: CurveKind::Discount,
 //!             curve_id: "USD_SOFR".into(),
+//!             discount_curve_id: None,
 //!             bp: 50.0,
 //!         },
 //!     ],

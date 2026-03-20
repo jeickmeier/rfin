@@ -30,6 +30,15 @@
 //! the pricer applies spot adjustment and sets continuous dividend yield `q = 0`.
 //! When no discrete schedule is provided, pricing uses the continuous `q` model.
 //!
+//! ## American Exercise Limitation
+//!
+//! European pricing with discrete dividends uses the escrowed-dividend spot
+//! adjustment directly. American pricing reuses the tree engine with that
+//! adjusted spot and a continuous-yield-style state description, which is a
+//! practical approximation rather than a full discrete-dividend early-exercise
+//! model. Near large ex-dividend dates, prefer a dedicated discrete-dividend
+//! American engine or treat the result as approximate.
+//!
 //! ## Example: Manual Discrete Dividend Adjustment
 //!
 //! ```text

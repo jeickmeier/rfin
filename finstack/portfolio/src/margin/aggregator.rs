@@ -99,18 +99,29 @@ impl PortfolioMarginAggregator {
         for (pos_id, ns_id) in &self.positions {
             if let Some(position) = portfolio.get_position(pos_id.as_str()) {
                 // Calculate sensitivities and aggregate
-                if let Ok(sensitivities) =
-                    self.calculate_position_sensitivities(position, market, as_of)
-                {
-                    self.netting_sets.merge_sensitivities(ns_id, &sensitivities);
+                match self.calculate_position_sensitivities(position, market, as_of) {
+                    Ok(sensitivities) => {
+                        self.netting_sets.merge_sensitivities(ns_id, &sensitivities);
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            position_id = %position.position_id,
+                            error = %err,
+                            "Failed to calculate SIMM sensitivities for margin aggregation"
+                        );
+                        result.add_degraded_position(position.position_id.clone(), err.to_string());
+                    }
                 }
             }
         }
 
         // Calculate margin for each netting set
         for (_ns_id, netting_set) in self.netting_sets.iter() {
-            let ns_margin =
+            let (ns_margin, degraded_positions) =
                 self.calculate_netting_set_margin(netting_set, portfolio, market, as_of)?;
+            for (position_id, message) in degraded_positions {
+                result.add_degraded_position(position_id, message);
+            }
             // Currency mismatch is impossible here since we create all margins
             // with self.base_currency, but we handle the error for API consistency.
             result.add_netting_set(ns_margin).map_err(|e| {
@@ -154,22 +165,46 @@ impl PortfolioMarginAggregator {
         portfolio: &Portfolio,
         market: &MarketContext,
         as_of: Date,
-    ) -> Result<NettingSetMargin> {
+    ) -> Result<(NettingSetMargin, Vec<(PositionId, String)>)> {
         // Calculate aggregated VM from position MTMs, FX-converting to base currency
         let mut total_mtm = 0.0;
         let mut position_count = 0;
+        let mut degraded_positions = Vec::new();
 
         for pos_id in &netting_set.positions {
             if let Some(position) = portfolio.get_position(pos_id.as_str()) {
-                if let Ok(mtm) = self.get_position_mtm(position, market, as_of) {
-                    // FX-convert MTM to base currency if necessary
-                    let mtm_base = if mtm.currency() == self.base_currency {
-                        mtm.amount()
-                    } else {
-                        self.convert_to_base(mtm, market, as_of)
-                    };
-                    total_mtm += mtm_base;
-                    position_count += 1;
+                match self.get_position_mtm(position, market, as_of) {
+                    Ok(mtm) => {
+                        // FX-convert MTM to base currency if necessary
+                        let mtm_base = if mtm.currency() == self.base_currency {
+                            Ok(mtm.amount())
+                        } else {
+                            self.convert_to_base(mtm, market, as_of)
+                        };
+                        match mtm_base {
+                            Ok(value) => {
+                                total_mtm += value;
+                                position_count += 1;
+                            }
+                            Err(err) => {
+                                tracing::warn!(
+                                    position_id = %position.position_id,
+                                    error = %err,
+                                    "Failed to FX-convert VM MTM during margin aggregation"
+                                );
+                                degraded_positions
+                                    .push((position.position_id.clone(), err.to_string()));
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        tracing::warn!(
+                            position_id = %position.position_id,
+                            error = %err,
+                            "Failed to calculate VM MTM for margin aggregation"
+                        );
+                        degraded_positions.push((position.position_id.clone(), err.to_string()));
+                    }
                 }
             }
         }
@@ -206,7 +241,7 @@ impl PortfolioMarginAggregator {
             result = result.with_simm_breakdown(sensitivities.clone(), breakdown);
         }
 
-        Ok(result)
+        Ok((result, degraded_positions))
     }
 
     /// Get MTM for a position in its native currency.
@@ -227,21 +262,15 @@ impl PortfolioMarginAggregator {
     }
 
     /// Convert a monetary amount to base currency using the FX matrix.
-    ///
-    /// Falls back to 1.0 if FX rate is unavailable (logs warning).
-    fn convert_to_base(&self, amount: Money, market: &MarketContext, as_of: Date) -> f64 {
-        if let Some(fx_matrix) = market.fx() {
-            let query = FxQuery::new(amount.currency(), self.base_currency, as_of);
-            if let Ok(rate_result) = fx_matrix.rate(query) {
-                return amount.amount() * rate_result.rate;
-            }
-        }
-        tracing::warn!(
-            from = %amount.currency(),
-            to = %self.base_currency,
-            "Unable to FX-convert VM to base currency; using native amount"
-        );
-        amount.amount()
+    fn convert_to_base(&self, amount: Money, market: &MarketContext, as_of: Date) -> Result<f64> {
+        let fx_matrix = market.fx().ok_or_else(|| {
+            Error::missing_market_data("FX matrix not available for margin aggregation")
+        })?;
+        let query = FxQuery::new(amount.currency(), self.base_currency, as_of);
+        let rate_result = fx_matrix
+            .rate(query)
+            .map_err(|_| Error::fx_conversion(amount.currency(), self.base_currency))?;
+        Ok(amount.amount() * rate_result.rate)
     }
 
     /// Calculate SIMM from aggregated sensitivities.

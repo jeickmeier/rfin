@@ -65,6 +65,7 @@ fn apply_and_revalue_succeeds() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD".to_string(),
+            discount_curve_id: None,
             bp: 10.0,
         }],
         priority: 0,

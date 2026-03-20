@@ -10,7 +10,9 @@ use crate::valuation::PortfolioValuation;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use indexmap::IndexMap;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+
+const MAX_BOOK_GROUPING_RECURSION_DEPTH: usize = 512;
 
 /// Group positions by a specific tag or attribute.
 ///
@@ -137,6 +139,9 @@ pub fn aggregate_by_multiple_attributes(
 
 /// Aggregate portfolio values by book hierarchy with recursive rollup.
 ///
+/// Traversal follows each book's [`Book::child_book_ids`] links only (not the
+/// optional [`Book::parent_id`] field), which must form an acyclic tree/forest.
+///
 /// Computes total value for each book by summing:
 /// 1. Direct position values in the book
 /// 2. Recursively aggregated values from child books
@@ -196,10 +201,22 @@ pub fn aggregate_by_book(
         position_values: &HashMap<&crate::types::PositionId, &Money>,
         base_ccy: Currency,
         memo: &mut HashMap<BookId, Money>,
+        visiting: &mut HashSet<BookId>,
+        depth: usize,
     ) -> Result<Money> {
         // Check memo first
         if let Some(cached) = memo.get(book_id) {
             return Ok(*cached);
+        }
+        if depth >= MAX_BOOK_GROUPING_RECURSION_DEPTH {
+            return Err(crate::error::Error::invalid_input(format!(
+                "Book aggregation exceeded maximum recursion depth of {MAX_BOOK_GROUPING_RECURSION_DEPTH}"
+            )));
+        }
+        if !visiting.insert(book_id.clone()) {
+            return Err(crate::error::Error::invalid_input(format!(
+                "Book hierarchy contains a cycle at '{book_id}'"
+            )));
         }
 
         let book = books.get(book_id).ok_or_else(|| {
@@ -218,11 +235,20 @@ pub fn aggregate_by_book(
 
         // Recursively add child book totals
         for child_id in &book.child_book_ids {
-            let child_total = compute_book_total(child_id, books, position_values, base_ccy, memo)?;
+            let child_total = compute_book_total(
+                child_id,
+                books,
+                position_values,
+                base_ccy,
+                memo,
+                visiting,
+                depth + 1,
+            )?;
             total = total.checked_add(child_total)?;
         }
 
         // Memoize
+        visiting.remove(book_id);
         memo.insert(book_id.clone(), total);
 
         Ok(total)
@@ -231,7 +257,16 @@ pub fn aggregate_by_book(
     // Compute totals for all books
     let mut memo: HashMap<BookId, Money> = HashMap::new();
     for book_id in books.keys() {
-        let total = compute_book_total(book_id, books, &position_values, base_ccy, &mut memo)?;
+        let mut visiting = HashSet::new();
+        let total = compute_book_total(
+            book_id,
+            books,
+            &position_values,
+            base_ccy,
+            &mut memo,
+            &mut visiting,
+            0,
+        )?;
         book_totals.insert(book_id.clone(), total);
     }
 
@@ -242,11 +277,12 @@ pub fn aggregate_by_book(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use crate::book::Book;
     use crate::builder::PortfolioBuilder;
     use crate::position::{Position, PositionUnit};
     use crate::test_utils::build_test_market;
     use crate::types::Entity;
-    use crate::valuation::value_portfolio;
+    use crate::valuation::{value_portfolio, PortfolioValuation};
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
@@ -392,5 +428,53 @@ mod tests {
         assert!(aggregated.contains_key("AAA"));
         let total = aggregated.get("AAA").expect("test should succeed");
         assert!(total.amount().abs() >= 0.0);
+    }
+
+    fn empty_valuation() -> PortfolioValuation {
+        PortfolioValuation {
+            as_of: date!(2024 - 01 - 01),
+            position_values: IndexMap::new(),
+            total_base_ccy: Money::new(0.0, Currency::USD),
+            by_entity: IndexMap::new(),
+            degraded_positions: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn aggregate_by_book_rejects_cycles() {
+        let mut root = Book::new("root", Some("Root".to_string()));
+        root.add_child(BookId::from("child"));
+
+        let mut child = Book::new("child", Some("Child".to_string())).with_parent("root");
+        child.add_child(BookId::from("root"));
+
+        let books = IndexMap::from([(BookId::from("root"), root), (BookId::from("child"), child)]);
+
+        let err = aggregate_by_book(&empty_valuation(), &books, Currency::USD)
+            .expect_err("cyclic hierarchy should fail");
+        assert!(err.to_string().contains("cycle"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn aggregate_by_book_rejects_excessive_depth() {
+        let mut books = IndexMap::new();
+        for i in 0..=MAX_BOOK_GROUPING_RECURSION_DEPTH {
+            let id = BookId::from(format!("book_{i}"));
+            let mut book = Book::new(id.clone(), None);
+            if i > 0 {
+                book = book.with_parent(format!("book_{}", i - 1));
+            }
+            if i < MAX_BOOK_GROUPING_RECURSION_DEPTH {
+                book.add_child(BookId::from(format!("book_{}", i + 1)));
+            }
+            books.insert(id, book);
+        }
+
+        let err = aggregate_by_book(&empty_valuation(), &books, Currency::USD)
+            .expect_err("deep hierarchy should fail");
+        assert!(
+            err.to_string().contains("maximum recursion depth"),
+            "unexpected error: {err}"
+        );
     }
 }

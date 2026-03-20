@@ -327,6 +327,13 @@ impl GaussHermiteQuadrature {
     /// # Returns
     /// The approximate integral of f(x) * φ(x) dx from -∞ to +∞,
     /// where φ(x) is the standard normal PDF.
+    ///
+    /// # Convention
+    ///
+    /// The stored nodes and weights follow the physicists' Gauss-Hermite rule
+    /// for `∫ e^{-z^2} g(z) dz`. This helper converts that convention to a
+    /// standard-normal expectation by evaluating `f(√2 z)` and dividing the
+    /// weighted sum by `√π`.
     pub fn integrate<F2>(&self, f: F2) -> f64
     where
         F2: Fn(f64) -> f64,
@@ -366,23 +373,15 @@ impl GaussHermiteQuadrature {
     where
         F2: Fn(f64) -> f64 + Copy,
     {
-        // Internal helper that unwraps known-valid orders (5, 7, 10, 15, 20)
-        let quad = |order: usize| {
-            // SAFETY: We only call this with orders 5, 7, 10, 15, 20 which are all valid
-            GaussHermiteQuadrature::new(order).unwrap_or_else(|_| {
-                debug_assert!(false, "Invalid Gauss-Hermite order: {order}");
-                // Fallback to order 20 which is guaranteed valid
-                Self {
-                    points: GAUSS_HERMITE_20_POINTS,
-                    weights: GAUSS_HERMITE_20_WEIGHTS,
-                }
-            })
-        };
         let base = self.integrate(f);
         match self.points.len() {
             20 => base,
             15 => {
-                let v20 = quad(20).integrate(f);
+                let gh20 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_20_POINTS,
+                    weights: GAUSS_HERMITE_20_WEIGHTS,
+                };
+                let v20 = gh20.integrate(f);
                 if (v20 - base).abs() <= tolerance {
                     base
                 } else {
@@ -390,27 +389,51 @@ impl GaussHermiteQuadrature {
                 }
             }
             10 => {
-                let v15 = quad(15).integrate(f);
+                let gh15 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_15_POINTS,
+                    weights: GAUSS_HERMITE_15_WEIGHTS,
+                };
+                let gh20 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_20_POINTS,
+                    weights: GAUSS_HERMITE_20_WEIGHTS,
+                };
+                let v15 = gh15.integrate(f);
                 if (v15 - base).abs() <= tolerance {
                     v15
                 } else {
-                    quad(20).integrate(f)
+                    gh20.integrate(f)
                 }
             }
             7 => {
-                let v10 = quad(10).integrate(f);
+                let gh10 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_10_POINTS,
+                    weights: GAUSS_HERMITE_10_WEIGHTS,
+                };
+                let gh15 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_15_POINTS,
+                    weights: GAUSS_HERMITE_15_WEIGHTS,
+                };
+                let v10 = gh10.integrate(f);
                 if (v10 - base).abs() <= tolerance {
                     v10
                 } else {
-                    quad(15).integrate(f)
+                    gh15.integrate(f)
                 }
             }
             5 => {
-                let v7 = quad(7).integrate(f);
+                let gh7 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_7_POINTS,
+                    weights: GAUSS_HERMITE_7_WEIGHTS,
+                };
+                let gh10 = GaussHermiteQuadrature {
+                    points: GAUSS_HERMITE_10_POINTS,
+                    weights: GAUSS_HERMITE_10_WEIGHTS,
+                };
+                let v7 = gh7.integrate(f);
                 if (v7 - base).abs() <= tolerance {
                     v7
                 } else {
-                    quad(10).integrate(f)
+                    gh10.integrate(f)
                 }
             }
             _ => base,

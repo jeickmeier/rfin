@@ -718,16 +718,12 @@ impl LevenbergMarquardtSolver {
         if initial.is_empty() {
             return Err(InputError::Invalid.into());
         }
-        let n_residuals = if let Some(count) = derivatives.residual_count() {
-            count
-        } else {
-            let mut test_residuals = vec![f64::MAX; initial.len() * 4];
-            residuals(initial, &mut test_residuals);
-            test_residuals
-                .iter()
-                .position(|&r| r == f64::MAX)
-                .unwrap_or(test_residuals.len())
-        };
+        let n_residuals = derivatives.residual_count().ok_or_else(|| {
+            crate::Error::Validation(
+                "solve_system_with_jacobian_stats requires AnalyticalDerivatives::residual_count() to be implemented"
+                    .to_string(),
+            )
+        })?;
 
         let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<f64> {
             if derivatives.has_jacobian() {
@@ -1006,6 +1002,10 @@ mod tests {
             fn has_gradient(&self) -> bool {
                 false
             }
+
+            fn residual_count(&self) -> Option<usize> {
+                Some(2)
+            }
         }
 
         let solver = LevenbergMarquardtSolver::new().with_tolerance(1e-10);
@@ -1206,5 +1206,39 @@ mod tests {
             .expect("explicit residual count should avoid probe truncation");
 
         assert_eq!(solution.params.len(), 1);
+    }
+
+    #[test]
+    fn test_jacobian_system_requires_explicit_residual_count() {
+        struct MissingCountJacobian;
+
+        impl AnalyticalDerivatives for MissingCountJacobian {
+            fn gradient(&self, _params: &[f64], _gradient: &mut [f64]) {}
+
+            fn jacobian(&self, _params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
+                for row in jacobian.iter_mut() {
+                    row[0] = 1.0;
+                }
+                Some(())
+            }
+
+            fn has_jacobian(&self) -> bool {
+                true
+            }
+        }
+
+        let solver = LevenbergMarquardtSolver::new();
+        let residuals = |params: &[f64], resid: &mut [f64]| {
+            resid[0] = params[0] - 1.0;
+        };
+
+        let err = solver
+            .solve_system_with_jacobian_stats(residuals, &MissingCountJacobian, &[0.0])
+            .expect_err("missing residual_count should fail loudly");
+
+        assert!(
+            err.to_string().contains("residual_count"),
+            "expected residual_count guidance, got {err}"
+        );
     }
 }

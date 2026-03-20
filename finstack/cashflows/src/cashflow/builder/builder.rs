@@ -550,6 +550,46 @@ impl Default for CashFlowBuilder {
 }
 
 impl CashFlowBuilder {
+    fn record_pending_error(&mut self, error: finstack_core::Error) {
+        if self.pending_error.is_none() {
+            self.pending_error = Some(error);
+        }
+    }
+
+    fn decimal_from_f64_or_record_error(
+        &mut self,
+        method_name: &str,
+        field_name: &str,
+        value: f64,
+    ) -> Option<Decimal> {
+        match Decimal::try_from(value) {
+            Ok(decimal) => Some(decimal),
+            Err(_) => {
+                self.record_pending_error(finstack_core::Error::Validation(format!(
+                    "CashFlowBuilder::{method_name} could not convert {field_name}={value} to Decimal"
+                )));
+                None
+            }
+        }
+    }
+
+    fn f64_from_decimal_or_record_error(
+        &mut self,
+        method_name: &str,
+        field_name: &str,
+        value: Decimal,
+    ) -> Option<f64> {
+        match value.to_f64() {
+            Some(float) => Some(float),
+            None => {
+                self.record_pending_error(finstack_core::Error::Validation(format!(
+                    "CashFlowBuilder::{method_name} could not convert {field_name}={value} to f64"
+                )));
+                None
+            }
+        }
+    }
+
     fn issue_maturity_error(method_name: &str) -> finstack_core::Error {
         InputError::NotFound {
             id: format!(
@@ -861,7 +901,11 @@ impl CashFlowBuilder {
             rate.is_finite(),
             "add_fixed_coupon_window: rate is not finite ({rate})"
         );
-        let rate_decimal = Decimal::try_from(rate).unwrap_or(Decimal::ZERO);
+        let Some(rate_decimal) =
+            self.decimal_from_f64_or_record_error("add_fixed_coupon_window", "rate", rate)
+        else {
+            return self;
+        };
         self.coupon_program.push(CouponProgramPiece {
             window: DateWindow { start, end },
             schedule,
@@ -1081,8 +1125,14 @@ impl CashFlowBuilder {
                 "float_margin_stepup: margin_bp is not finite ({margin_bp})"
             );
             let mut params = base_params.clone();
-            // Convert f64 margin_bp to Decimal
-            params.margin_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
+            let Some(margin_decimal) = self.decimal_from_f64_or_record_error(
+                "float_margin_stepup",
+                "margin_bp",
+                margin_bp,
+            ) else {
+                return self;
+            };
+            params.margin_bp = margin_decimal;
             let _ = self.add_float_coupon_window(
                 prev,
                 end,
@@ -1099,8 +1149,14 @@ impl CashFlowBuilder {
                     margin_bp.is_finite(),
                     "float_margin_stepup: last margin_bp is not finite ({margin_bp})"
                 );
-                // Convert f64 margin_bp to Decimal
-                params.margin_bp = Decimal::try_from(margin_bp).unwrap_or(Decimal::ZERO);
+                let Some(margin_decimal) = self.decimal_from_f64_or_record_error(
+                    "float_margin_stepup",
+                    "margin_bp",
+                    margin_bp,
+                ) else {
+                    return self;
+                };
+                params.margin_bp = margin_decimal;
             }
             let _ = self.add_float_coupon_window(prev, maturity, params, schedule, default_split);
         }
@@ -1183,8 +1239,13 @@ impl CashFlowBuilder {
         let Some((issue, maturity)) = self.issue_maturity_or_record_error("fixed_to_float") else {
             return self;
         };
-        // Convert Decimal rate to f64 for add_fixed_coupon_window
-        let rate_f64 = fixed_win.rate.to_f64().unwrap_or(0.0);
+        let Some(rate_f64) = self.f64_from_decimal_or_record_error(
+            "fixed_to_float",
+            "fixed_win.rate",
+            fixed_win.rate,
+        ) else {
+            return self;
+        };
         let _ = self.add_fixed_coupon_window(
             issue,
             switch,
@@ -1424,5 +1485,91 @@ impl CashFlowBuilder {
             day_count: out_dc,
             meta,
         })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
+    use finstack_core::types::CurveId;
+    use rust_decimal_macros::dec;
+    use time::Month;
+
+    fn test_dates() -> (Date, Date, Date) {
+        let issue = Date::from_calendar_date(2025, Month::January, 1).expect("valid issue date");
+        let switch = Date::from_calendar_date(2026, Month::January, 1).expect("valid switch date");
+        let maturity =
+            Date::from_calendar_date(2027, Month::January, 1).expect("valid maturity date");
+        (issue, switch, maturity)
+    }
+
+    #[test]
+    fn add_fixed_coupon_window_records_decimal_conversion_error() {
+        let (issue, _, maturity) = test_dates();
+        let mut builder = CashFlowBuilder::default();
+        let _ = builder
+            .principal(Money::new(1_000_000.0, Currency::USD), issue, maturity)
+            .add_fixed_coupon_window(
+                issue,
+                maturity,
+                1e100,
+                ScheduleParams::annual_actact(),
+                CouponType::Cash,
+            );
+
+        let err = builder
+            .build()
+            .expect_err("oversized fixed rate should surface as a builder error");
+        assert!(
+            err.to_string().contains("add_fixed_coupon_window"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn fixed_to_float_records_decimal_to_f64_conversion_error() {
+        let (issue, switch, maturity) = test_dates();
+        let mut builder = CashFlowBuilder::default();
+        let _ = builder.principal(Money::new(1_000_000.0, Currency::USD), issue, maturity);
+        let fixed_win = FixedWindow {
+            rate: Decimal::MAX,
+            schedule: ScheduleParams::annual_actact(),
+        };
+        let float_win = FloatWindow {
+            params: FloatCouponParams {
+                index_id: CurveId::new("USD-SOFR"),
+                margin_bp: dec!(150),
+                gearing: dec!(1),
+                reset_lag_days: 2,
+                gearing_includes_spread: true,
+                floor_bp: None,
+                cap_bp: None,
+                all_in_floor_bp: None,
+                index_cap_bp: None,
+                fixing_calendar_id: None,
+                overnight_compounding: None,
+                fallback: Default::default(),
+            },
+            schedule: ScheduleParams {
+                freq: Tenor::annual(),
+                dc: DayCount::Act360,
+                bdc: BusinessDayConvention::Following,
+                calendar_id: "weekends_only".to_string(),
+                stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
+            },
+        };
+        let _ = builder.fixed_to_float(switch, fixed_win, float_win, CouponType::Cash);
+
+        let err = builder
+            .build()
+            .expect_err("oversized fixed-to-float rate should surface as a builder error");
+        assert!(
+            err.to_string().contains("could not convert rate"),
+            "unexpected error: {err}"
+        );
     }
 }

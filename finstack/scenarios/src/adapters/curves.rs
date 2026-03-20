@@ -12,7 +12,7 @@ use crate::error::{Error, Result};
 use crate::spec::{CurveKind, OperationSpec, TenorMatchMode};
 use crate::utils::{calculate_interpolation_weights_with_info, parse_tenor_to_years_with_context};
 use finstack_core::dates::{BusinessDayConvention, DayCount};
-use finstack_core::market_data::bumps::{BumpSpec, Bumpable, MarketBump};
+use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
 /// Adapter for curve operations.
 pub struct CurveAdapter;
@@ -128,23 +128,21 @@ fn resolve_bump_targets(
     })
 }
 
-/// Resolve a deterministic discount curve ID for (re)calibration-based bumps.
-///
-/// Some scenario operations (e.g. par-spread hazard bumps, inflation curve bumps)
-/// require a discount curve for repricing during re-calibration. Rather than
-/// hard-coding a specific curve id (like `"USD-OIS"`), pick the first discount
-/// curve from the context snapshot (which is deterministically sorted by curve id).
-/// Resolve a deterministic discount curve ID, preferring one whose 3-letter
-/// ISO currency prefix matches the curve being bumped.
-///
-/// # Arguments
-/// - `market`: Market context to search for discount curves.
-/// - `hint_curve_id`: Optional curve ID whose currency prefix is used for matching
-///   (e.g., "EUR_CPI" → prefers "EUR_ESTR" over "USD_SOFR").
+/// Resolve the discount curve ID used by recalibration-based curve bumps.
 fn resolve_discount_curve_id(
     market: &finstack_core::market_data::context::MarketContext,
+    explicit_discount_curve_id: Option<&str>,
     hint_curve_id: Option<&str>,
-) -> Option<finstack_core::types::CurveId> {
+) -> Result<(finstack_core::types::CurveId, Option<String>)> {
+    if let Some(explicit_id) = explicit_discount_curve_id {
+        market
+            .get_discount(explicit_id)
+            .map_err(|_| Error::MarketDataNotFound {
+                id: explicit_id.to_string(),
+            })?;
+        return Ok((finstack_core::types::CurveId::from(explicit_id), None));
+    }
+
     let state: finstack_core::market_data::context::MarketContextState = market.into();
     let discount_curves: Vec<_> = state
         .curves
@@ -155,23 +153,58 @@ fn resolve_discount_curve_id(
         })
         .collect();
 
-    // If hint provided, prefer a discount curve with matching 3-letter currency prefix
+    if discount_curves.is_empty() {
+        return Err(Error::Validation(
+            "No discount curves are available for recalibration-based scenario bump".into(),
+        ));
+    }
+
     if let Some(hint) = hint_curve_id {
         let ccy_prefix = hint.get(..3).unwrap_or("");
         if ccy_prefix.len() == 3 && ccy_prefix.chars().all(|c| c.is_ascii_uppercase()) {
-            for dc in &discount_curves {
-                let dc_id = dc.id().as_str();
-                if dc_id.starts_with(ccy_prefix) {
-                    return Some(finstack_core::types::CurveId::from(dc_id));
-                }
+            let prefix_matches: Vec<_> = discount_curves
+                .iter()
+                .filter(|dc| dc.id().as_str().starts_with(ccy_prefix))
+                .collect();
+
+            if prefix_matches.len() > 1 {
+                return Err(Error::Validation(format!(
+                    "Ambiguous discount curve resolution for '{}': multiple '{}' discount curves found",
+                    hint, ccy_prefix
+                )));
+            }
+
+            if let Some(discount_curve) = prefix_matches.first() {
+                let discount_curve_id =
+                    finstack_core::types::CurveId::from(discount_curve.id().as_str());
+                return Ok((
+                    discount_curve_id.clone(),
+                    Some(format!(
+                        "Using heuristic discount curve '{}' for '{}'",
+                        discount_curve_id.as_str(),
+                        hint
+                    )),
+                ));
             }
         }
     }
 
-    // Fallback: first available discount curve
-    discount_curves
-        .first()
-        .map(|dc| finstack_core::types::CurveId::from(dc.id().as_str()))
+    if discount_curves.len() == 1 {
+        let discount_curve_id =
+            finstack_core::types::CurveId::from(discount_curves[0].id().as_str());
+        return Ok((
+            discount_curve_id.clone(),
+            Some(format!(
+                "Using only available discount curve '{}' as fallback",
+                discount_curve_id.as_str()
+            )),
+        ));
+    }
+
+    Err(Error::Validation(format!(
+        "Unable to resolve discount curve for '{}' without an explicit discount_curve_id",
+        hint_curve_id.unwrap_or("curve bump")
+    )))
 }
 
 impl ScenarioAdapter for CurveAdapter {
@@ -190,6 +223,7 @@ impl ScenarioAdapter for CurveAdapter {
             OperationSpec::CurveParallelBp {
                 curve_kind,
                 curve_id,
+                discount_curve_id,
                 bp,
             } => {
                 let bump_req = BumpRequest::Parallel(*bp);
@@ -257,21 +291,29 @@ impl ScenarioAdapter for CurveAdapter {
                                 id: curve_id.to_string(),
                             }
                         })?;
-                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id));
+                        let (discount_id, warning) = resolve_discount_curve_id(
+                            ctx.market,
+                            discount_curve_id.as_deref(),
+                            Some(curve_id),
+                        )?;
                         let new_curve = bump_hazard_spreads(
                             &base_curve,
                             ctx.market,
                             &bump_req,
-                            discount_id.as_ref(),
+                            Some(&discount_id),
                         )
                         .or_else(|_| bump_hazard_shift(&base_curve, &bump_req))
                         .map_err(|e| {
                             Error::Internal(format!("Failed to bump hazard curve: {}", e))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
-                        )]))
+                        )];
+                        if let Some(warning) = warning {
+                            effects.push(ScenarioEffect::Warning(warning));
+                        }
+                        Ok(Some(effects))
                     }
                     CurveKind::Inflation => {
                         let base_curve =
@@ -281,8 +323,11 @@ impl ScenarioAdapter for CurveAdapter {
                                 }
                             })?;
 
-                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
-                            .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
+                        let (discount_id, warning) = resolve_discount_curve_id(
+                            ctx.market,
+                            discount_curve_id.as_deref(),
+                            Some(curve_id),
+                        )?;
 
                         let currency = infer_currency_from_curve_id(&base_curve);
                         let lag = observation_lag_from_curve(&base_curve);
@@ -299,9 +344,13 @@ impl ScenarioAdapter for CurveAdapter {
                             Error::Internal(format!("Failed to bump inflation curve: {}", e))
                         })?;
 
-                        Ok(Some(vec![ScenarioEffect::UpdateCurve(
+                        let mut effects = vec![ScenarioEffect::UpdateCurve(
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
-                        )]))
+                        )];
+                        if let Some(warning) = warning {
+                            effects.push(ScenarioEffect::Warning(warning));
+                        }
+                        Ok(Some(effects))
                     }
                     CurveKind::Commodity => {
                         // Commodity curves stored as DiscountCurve (convenience yields/cost-of-carry).
@@ -321,20 +370,15 @@ impl ScenarioAdapter for CurveAdapter {
                         Ok(Some(vec![ScenarioEffect::MarketBump(bump)]))
                     }
                     CurveKind::VolIndex => {
-                        // Volatility index curves store forward volatility levels (e.g., VIX, VSTOXX)
+                        // Volatility index curves store forward volatility *levels* (e.g., VIX).
                         //
-                        // UNIT SEMANTICS:
-                        // The `bp` parameter for vol index curves is passed directly to `BumpSpec::parallel_bp()`.
-                        // Unlike rate curves where bp=100 means 1% (100 basis points), for vol index curves
-                        // the underlying bump implementation determines the semantic meaning.
+                        // Normalize `bp` to absolute index points so parallel and node shocks use
+                        // the same convention:
+                        // - `bp = 100`  -> `+1.0` vol-index point
+                        // - `bp = -25`  -> `-0.25` vol-index points
                         //
-                        // The `Bumpable` trait implementation for `VolatilityIndexCurve` treats bp as
-                        // "index points" scaled by the bump spec. For example:
-                        // - A parallel bump of bp=100 with the default spec may add 1.0 index points
-                        // - Check the `VolatilityIndexCurve::apply_bump` implementation for exact behavior
-                        //
-                        // For node-specific bumps, see `CurveNodeBp` handling below which documents the
-                        // explicit bp/100 scaling used there.
+                        // This intentionally differs from rate curves where `bp` means 1e-4 in
+                        // fractional rate space.
                         let base_curve =
                             ctx.market.get_vol_index_curve(curve_id).map_err(|_| {
                                 Error::MarketDataNotFound {
@@ -342,10 +386,10 @@ impl ScenarioAdapter for CurveAdapter {
                                 }
                             })?;
 
-                        let spec = BumpSpec::parallel_bp(*bp);
-                        let new_curve = base_curve.apply_bump(spec).map_err(|e| {
-                            Error::Internal(format!("Failed to bump vol index curve: {}", e))
-                        })?;
+                        let new_curve =
+                            base_curve.with_parallel_bump(*bp / 100.0).map_err(|e| {
+                                Error::Internal(format!("Failed to bump vol index curve: {}", e))
+                            })?;
 
                         Ok(Some(vec![ScenarioEffect::UpdateCurve(
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
@@ -356,6 +400,7 @@ impl ScenarioAdapter for CurveAdapter {
             OperationSpec::CurveNodeBp {
                 curve_kind,
                 curve_id,
+                discount_curve_id,
                 nodes,
                 match_mode,
             } => {
@@ -477,13 +522,17 @@ impl ScenarioAdapter for CurveAdapter {
                         )?;
                         let bump_req = BumpRequest::Tenors(result.targets);
 
-                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id));
+                        let (discount_id, warning) = resolve_discount_curve_id(
+                            ctx.market,
+                            discount_curve_id.as_deref(),
+                            Some(curve_id),
+                        )?;
 
                         let new_curve = bump_hazard_spreads(
                             &base_curve,
                             ctx.market,
                             &bump_req,
-                            discount_id.as_ref(),
+                            Some(&discount_id),
                         )
                         .or_else(|_| bump_hazard_shift(&base_curve, &bump_req))
                         .map_err(|e| {
@@ -497,6 +546,9 @@ impl ScenarioAdapter for CurveAdapter {
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
                         )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        if let Some(warning) = warning {
+                            effects.push(ScenarioEffect::Warning(warning));
+                        }
                         Ok(Some(effects))
                     }
                     CurveKind::Inflation => {
@@ -514,13 +566,15 @@ impl ScenarioAdapter for CurveAdapter {
                         // when matching tenor strings (like "5Y") to curve knots, we use:
                         // 1. The discount curve's day count if one is available (for consistency)
                         // 2. Act365F as fallback (standard for inflation markets)
-                        let tenor_day_count = resolve_discount_curve_id(ctx.market, Some(curve_id))
-                            .and_then(|dc_id| {
-                                ctx.market
-                                    .get_discount(dc_id.as_str())
-                                    .ok()
-                                    .map(|dc| dc.day_count())
-                            })
+                        let (discount_id, warning) = resolve_discount_curve_id(
+                            ctx.market,
+                            discount_curve_id.as_deref(),
+                            Some(curve_id),
+                        )?;
+                        let tenor_day_count = ctx
+                            .market
+                            .get_discount(discount_id.as_str())
+                            .map(|dc| dc.day_count())
                             .unwrap_or(DayCount::Act365F);
 
                         let result = resolve_bump_targets(
@@ -531,9 +585,6 @@ impl ScenarioAdapter for CurveAdapter {
                             tenor_day_count,
                         )?;
                         let bump_req = BumpRequest::Tenors(result.targets);
-
-                        let discount_id = resolve_discount_curve_id(ctx.market, Some(curve_id))
-                            .unwrap_or_else(|| finstack_core::types::CurveId::from("USD-OIS"));
 
                         let currency = infer_currency_from_curve_id(&base_curve);
                         let lag = observation_lag_from_curve(&base_curve);
@@ -557,6 +608,9 @@ impl ScenarioAdapter for CurveAdapter {
                             finstack_core::market_data::context::CurveStorage::from(new_curve),
                         )];
                         effects.extend(result.warnings.into_iter().map(ScenarioEffect::Warning));
+                        if let Some(warning) = warning {
+                            effects.push(ScenarioEffect::Warning(warning));
+                        }
                         Ok(Some(effects))
                     }
                     CurveKind::Commodity => {
@@ -673,5 +727,58 @@ impl ScenarioAdapter for CurveAdapter {
             }
             _ => Ok(None),
         }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::VolatilityIndexCurve;
+    use finstack_statements::FinancialModelSpec;
+    use time::macros::date;
+
+    #[test]
+    fn vol_index_parallel_bp_uses_absolute_index_points() {
+        let as_of = date!(2025 - 01 - 01);
+        let vol_curve = VolatilityIndexCurve::builder("VIX")
+            .base_date(as_of)
+            .spot_level(18.5)
+            .knots([(0.0, 18.5), (0.25, 20.0), (0.5, 21.5)])
+            .build()
+            .expect("vol index curve should build");
+        let mut market = MarketContext::new().insert(vol_curve);
+        let mut model = FinancialModelSpec::new("demo", vec![]);
+        let ctx = ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of,
+        };
+
+        let op = OperationSpec::CurveParallelBp {
+            curve_kind: CurveKind::VolIndex,
+            curve_id: "VIX".to_string(),
+            discount_curve_id: None,
+            bp: 100.0,
+        };
+
+        let effects = CurveAdapter
+            .try_generate_effects(&op, &ctx)
+            .expect("curve adapter should succeed")
+            .expect("vol index curve shock should be handled");
+
+        let updated_curve = match &effects[0] {
+            ScenarioEffect::UpdateCurve(storage) => storage
+                .vol_index()
+                .expect("expected vol index update effect"),
+            effect => panic!("expected updated vol index curve, got {effect:?}"),
+        };
+
+        assert!((updated_curve.spot_level() - 19.5).abs() < 1.0e-12);
+        assert!((updated_curve.forward_level(0.25) - 21.0).abs() < 1.0e-12);
     }
 }

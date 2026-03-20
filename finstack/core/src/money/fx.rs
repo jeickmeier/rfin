@@ -194,9 +194,17 @@ struct QueryKey {
 #[serde(deny_unknown_fields)]
 #[serde(default)]
 pub struct FxConfig {
-    /// Pivot currency for triangulation fallback (typically USD)
+    /// Pivot currency for triangulation fallback (typically USD).
+    ///
+    /// Current limitation: triangulation uses this single configured pivot only.
+    /// If a market convention requires a different routing currency for a given
+    /// pair, callers must seed that direct quote explicitly instead of relying on
+    /// automatic cross construction.
     pub pivot_currency: Currency,
-    /// Whether to enable automatic triangulation for missing rates
+    /// Whether to enable automatic triangulation for missing rates.
+    ///
+    /// When enabled, the matrix will attempt `from -> pivot -> to` and will not
+    /// search multi-hop paths or alternative pivots.
     pub enable_triangulation: bool,
     /// Maximum number of cached quotes to retain in an LRU
     pub cache_capacity: usize,
@@ -755,7 +763,7 @@ impl FxMatrix {
         let current_rate = self.rate(query)?.rate;
 
         // Calculate bumped rate
-        let bumped_rate = current_rate * (1.0 + bump_pct);
+        let bumped_rate = validate_fx_rate(from, to, current_rate * (1.0 + bump_pct))?;
 
         // Create bumped provider
         use providers::BumpedFxProvider;
@@ -790,7 +798,11 @@ impl FxMatrix {
 
     // Private helper methods
 
-    /// Attempt to triangulate FX rate via pivot currency
+    /// Attempt to triangulate FX rate via the single configured pivot currency.
+    ///
+    /// This is intentionally a one-pivot fallback, not a general graph search.
+    /// It keeps lookup behavior deterministic and auditable, but it can miss
+    /// valid market crosses that would require a different routing currency.
     fn triangulate_rate(
         &self,
         from: Currency,
@@ -985,5 +997,24 @@ impl FxMatrix {
             }
         });
         (direct, rev)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use time::macros::date;
+
+    #[test]
+    fn with_bumped_rate_rejects_non_positive_result() {
+        let provider = Arc::new(SimpleFxProvider::new());
+        let _ = provider.set_quote(Currency::EUR, Currency::USD, 1.10);
+        let matrix = FxMatrix::new(provider);
+
+        let result =
+            matrix.with_bumped_rate(Currency::EUR, Currency::USD, -1.0, date!(2025 - 01 - 01));
+
+        assert!(result.is_err(), "100% negative bump should be rejected");
     }
 }

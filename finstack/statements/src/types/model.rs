@@ -9,13 +9,20 @@ use serde::{Deserialize, Serialize};
 ///
 /// This is the wire format for a complete financial statement model.
 /// It can be serialized to/from JSON for storage and interchange.
+///
+/// Period order in [`FinancialModelSpec::periods`] defines the evaluation timeline:
+/// engines iterate periods in this sequence when resolving dependencies and rolling
+/// windows.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FinancialModelSpec {
     /// Unique model identifier
     pub id: String,
 
-    /// Ordered list of periods (quarters, months, etc.)
+    /// Ordered list of periods (quarters, months, etc.).
+    ///
+    /// Evaluation follows this order end-to-end (dependency resolution and time-series
+    /// helpers assume a single coherent timeline).
     pub periods: Vec<Period>,
 
     /// Map of node_id → NodeSpec
@@ -40,6 +47,7 @@ impl FinancialModelSpec {
     /// # Arguments
     /// * `id` - Identifier used to reference the model
     /// * `periods` - Ordered list of [`Period`](finstack_core::dates::Period) instances
+    #[must_use]
     pub fn new(id: impl Into<String>, periods: Vec<Period>) -> Self {
         Self {
             id: id.into(),

@@ -45,6 +45,7 @@ pub use finstack_statements::NodeId;
 ///         OperationSpec::CurveParallelBp {
 ///             curve_kind: CurveKind::Discount,
 ///             curve_id: "USD_SOFR".into(),
+///             discount_curve_id: None,
 ///             bp: 50.0,
 ///         },
 ///     ],
@@ -146,9 +147,11 @@ pub enum OperationSpec {
     /// ```
     ///
     /// Matching semantics:
+    /// - Only instrument metadata key/value pairs are considered (the `meta` map on
+    ///   `Attributes`); tag sets are ignored.
     /// - Attribute keys/values compared case-insensitively
     /// - AND semantics (all provided pairs must match metadata)
-    /// - Empty map matches all instruments; missing keys do not match
+    /// - An empty attribute map matches every instrument (wildcard)
     InstrumentPricePctByAttr {
         /// Attributes to match. Matching uses AND semantics with
         /// case-insensitive key/value comparison.
@@ -166,6 +169,7 @@ pub enum OperationSpec {
     /// let op = OperationSpec::CurveParallelBp {
     ///     curve_kind: CurveKind::Discount,
     ///     curve_id: "USD_SOFR".into(),
+    ///     discount_curve_id: None,
     ///     bp: 50.0, // +50bp parallel shift
     /// };
     /// ```
@@ -174,6 +178,12 @@ pub enum OperationSpec {
         curve_kind: CurveKind,
         /// Curve identifier.
         curve_id: String,
+        /// Optional explicit discount curve identifier when an operation must pair
+        /// `curve_id` with a discounting curve (some forward/hazard bumps need one).
+        /// If `None`, adapters apply engine default resolution; set this when multiple
+        /// curves could match or you need deterministic selection.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        discount_curve_id: Option<String>,
         /// Basis point shift (additive).
         bp: f64,
     },
@@ -187,6 +197,7 @@ pub enum OperationSpec {
     /// let op = OperationSpec::CurveNodeBp {
     ///     curve_kind: CurveKind::Discount,
     ///     curve_id: "USD_SOFR".into(),
+    ///     discount_curve_id: None,
     ///     nodes: vec![
     ///         ("2Y".into(), 25.0),
     ///         ("10Y".into(), -10.0),
@@ -199,6 +210,12 @@ pub enum OperationSpec {
         curve_kind: CurveKind,
         /// Curve identifier.
         curve_id: String,
+        /// Optional explicit discount curve identifier when an operation must pair
+        /// `curve_id` with a discounting curve (some forward/hazard bumps need one).
+        /// If `None`, adapters apply engine default resolution; set this when multiple
+        /// curves could match or you need deterministic selection.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        discount_curve_id: Option<String>,
         /// Vector of (tenor, basis_point_shift) pairs.
         nodes: Vec<(String, f64)>,
         /// How to handle tenors not in the curve.
@@ -375,9 +392,11 @@ pub enum OperationSpec {
     /// ```
     ///
     /// Matching semantics:
+    /// - Only instrument metadata key/value pairs are considered (the `meta` map on
+    ///   `Attributes`); tag sets are ignored.
     /// - Attribute keys/values compared case-insensitively
     /// - AND semantics (all provided pairs must match metadata)
-    /// - Empty map matches all instruments; missing keys do not match
+    /// - An empty attribute map matches every instrument (wildcard)
     InstrumentSpreadBpByAttr {
         /// Attributes to match. Matching uses AND semantics with
         /// case-insensitive key/value comparison.
@@ -827,14 +846,28 @@ impl OperationSpec {
                 check_finite(*pct, "pct")?;
                 check_pct_floor(*pct, "pct")?;
             }
-            OperationSpec::CurveParallelBp { curve_id, bp, .. } => {
+            OperationSpec::CurveParallelBp {
+                curve_id,
+                discount_curve_id,
+                bp,
+                ..
+            } => {
                 check_id(curve_id, "curve_id")?;
+                if let Some(discount_curve_id) = discount_curve_id {
+                    check_id(discount_curve_id, "discount_curve_id")?;
+                }
                 check_finite(*bp, "bp")?;
             }
             OperationSpec::CurveNodeBp {
-                curve_id, nodes, ..
+                curve_id,
+                discount_curve_id,
+                nodes,
+                ..
             } => {
                 check_id(curve_id, "curve_id")?;
+                if let Some(discount_curve_id) = discount_curve_id {
+                    check_id(discount_curve_id, "discount_curve_id")?;
+                }
                 if nodes.is_empty() {
                     return Err(crate::error::Error::Validation(
                         "Curve nodes cannot be empty".into(),

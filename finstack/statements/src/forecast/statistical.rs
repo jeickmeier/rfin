@@ -7,6 +7,7 @@
 //! Uses [`Pcg64Rng`] for production-quality random number generation.
 
 use crate::error::{Error, Result};
+use crate::types::{ForecastMethod, NodeId};
 use finstack_core::dates::PeriodId;
 use finstack_core::math::random::{Pcg64Rng, RandomNumberGenerator};
 use indexmap::IndexMap;
@@ -16,6 +17,62 @@ struct DistributionParams {
     mean: f64,
     std_dev: f64,
     seed: u64,
+}
+
+/// Deterministic 64-bit mix of a node identifier for Monte Carlo seeding.
+///
+/// Used to decorrelate independent stochastic forecasts across nodes while
+/// keeping results reproducible for a given `(seed, path_offset, node_id)` tuple.
+#[must_use]
+pub(crate) fn stable_hash_u64(node_id: &str) -> u64 {
+    node_id.as_bytes().iter().fold(0u64, |acc, &b| {
+        acc.wrapping_mul(31).wrapping_add(u64::from(b))
+    })
+}
+
+/// Parse a JSON seed as `u64`, accepting integer JSON numbers stored as floats
+/// (e.g. `42.0`) when they represent exact integers.
+pub(crate) fn parse_seed_json(value: &serde_json::Value) -> Option<u64> {
+    value.as_u64().or_else(|| {
+        let f = value.as_f64()?;
+        if !f.is_finite() || f.fract() != 0.0 || f < 0.0 || f > u64::MAX as f64 {
+            return None;
+        }
+        Some(f as u64)
+    })
+}
+
+/// Optional Monte Carlo correlation pair: `(peer_node_id, rho)` in `[-1, 1]`.
+///
+/// When both `correlation_with` and `correlation` are present in forecast params,
+/// Monte Carlo evaluation samples shocks correlated with the peer node's standard
+/// normal shocks (same forecast period). The peer node must be evaluated earlier in
+/// the dependency order so its Z-scores are available.
+pub(crate) fn parse_correlation_params(
+    params: &IndexMap<String, serde_json::Value>,
+) -> Result<Option<(String, f64)>> {
+    let with = params
+        .get("correlation_with")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
+    let rho = params.get("correlation").and_then(|v| v.as_f64());
+
+    match (with, rho) {
+        (None, None) => Ok(None),
+        (Some(peer), Some(rho)) => {
+            if !rho.is_finite() || !(-1.0..=1.0).contains(&rho) {
+                return Err(Error::forecast(format!(
+                    "Monte Carlo 'correlation' must be finite and in [-1, 1], got {rho}"
+                )));
+            }
+            Ok(Some((peer, rho)))
+        }
+        (None, Some(_)) | (Some(_), None) => Err(Error::forecast(
+            "Monte Carlo correlation requires both 'correlation_with' (string) and \
+             'correlation' (number in [-1, 1])"
+                .to_string(),
+        )),
+    }
 }
 
 /// Extract distribution parameters from the params map.
@@ -44,13 +101,16 @@ fn extract_distribution_params(
             ))
         })?;
 
-    let seed = params.get("seed").and_then(|v| v.as_u64()).ok_or_else(|| {
-        Error::forecast(format!(
-            "Missing or invalid 'seed' parameter for {} forecast. \
-             A seed is required for deterministic sampling (e.g., 42).",
-            method_name
-        ))
-    })?;
+    let seed = params
+        .get("seed")
+        .and_then(parse_seed_json)
+        .ok_or_else(|| {
+            Error::forecast(format!(
+                "Missing or invalid 'seed' parameter for {} forecast. \
+                 A non-negative integer seed is required for deterministic sampling (e.g., 42).",
+                method_name
+            ))
+        })?;
 
     if std_dev < 0.0 {
         return Err(Error::forecast(format!(
@@ -204,11 +264,162 @@ pub fn lognormal_forecast(
     Ok(results)
 }
 
+/// Store standard-normal Z scores for independent Monte Carlo forecasts so peers can
+/// correlate in a later [`crate::evaluator::forecast_eval::evaluate_forecast`] pass.
+pub(crate) fn record_independent_z_scores_for_mc(
+    method: ForecastMethod,
+    params: &IndexMap<String, serde_json::Value>,
+    forecast_periods: &[PeriodId],
+    values: &IndexMap<PeriodId, f64>,
+    node_id: &NodeId,
+    mc_z_cache: &mut IndexMap<NodeId, IndexMap<PeriodId, f64>>,
+) -> Result<()> {
+    match method {
+        ForecastMethod::Normal => {
+            let p = extract_distribution_params(params, "Normal")?;
+            let entry = mc_z_cache.entry(node_id.clone()).or_default();
+            for pid in forecast_periods {
+                let v = values.get(pid).ok_or_else(|| {
+                    Error::forecast(format!(
+                        "Monte Carlo forecast missing value for period {:?}",
+                        pid
+                    ))
+                })?;
+                let z = if p.std_dev == 0.0 {
+                    0.0
+                } else {
+                    (*v - p.mean) / p.std_dev
+                };
+                entry.insert(*pid, z);
+            }
+        }
+        ForecastMethod::LogNormal => {
+            let p = extract_distribution_params(params, "LogNormal")?;
+            let entry = mc_z_cache.entry(node_id.clone()).or_default();
+            for pid in forecast_periods {
+                let v = values.get(pid).ok_or_else(|| {
+                    Error::forecast(format!(
+                        "Monte Carlo forecast missing value for period {:?}",
+                        pid
+                    ))
+                })?;
+                let z = if p.std_dev == 0.0 {
+                    0.0
+                } else {
+                    let ln_v = (*v).ln();
+                    (ln_v - p.mean) / p.std_dev
+                };
+                entry.insert(*pid, z);
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+/// Inputs for [`monte_carlo_correlated_series`].
+pub(crate) struct CorrelatedMonteCarloSeries<'a> {
+    /// Forecast method (Normal or LogNormal only).
+    pub method: ForecastMethod,
+    /// Method parameters.
+    pub params: &'a IndexMap<String, serde_json::Value>,
+    pub forecast_periods: &'a [PeriodId],
+    pub seed_offset: u64,
+    pub node_id: &'a str,
+    pub peer_id: &'a str,
+    pub rho: f64,
+    pub mc_z_cache: &'a IndexMap<NodeId, IndexMap<PeriodId, f64>>,
+}
+
+/// Correlated Normal / LogNormal series for Monte Carlo: `Z` uses
+/// `ρ·Z_peer + sqrt(1-ρ²)·Z_indep` per forecast period.
+pub(crate) fn monte_carlo_correlated_series(
+    input: CorrelatedMonteCarloSeries<'_>,
+) -> Result<(IndexMap<PeriodId, f64>, IndexMap<PeriodId, f64>)> {
+    let CorrelatedMonteCarloSeries {
+        method,
+        params,
+        forecast_periods,
+        seed_offset,
+        node_id,
+        peer_id,
+        rho,
+        mc_z_cache,
+    } = input;
+
+    let peer_key = NodeId::new(peer_id);
+    let peer_map = mc_z_cache.get(&peer_key).ok_or_else(|| {
+        Error::forecast(format!(
+            "Monte Carlo correlation peer '{peer_id}' must be evaluated before node '{node_id}' \
+             (no Z-scores in cache for peer)"
+        ))
+    })?;
+
+    let p = match method {
+        ForecastMethod::Normal => extract_distribution_params(params, "Normal")?,
+        ForecastMethod::LogNormal => extract_distribution_params(params, "LogNormal")?,
+        _ => {
+            return Err(Error::forecast(
+                "Monte Carlo correlation is only supported for Normal and LogNormal forecasts"
+                    .to_string(),
+            ));
+        }
+    };
+
+    let mut rng = Pcg64Rng::new(p.seed ^ seed_offset ^ stable_hash_u64(node_id));
+    let mut values = IndexMap::new();
+    let mut z_out = IndexMap::new();
+
+    for period_id in forecast_periods {
+        let z_peer = peer_map.get(period_id).copied().ok_or_else(|| {
+            Error::forecast(format!(
+                "Monte Carlo correlation: peer '{peer_id}' has no Z-score for period {:?}. \
+                 Ensure the peer forecast covers the same forecast periods.",
+                period_id
+            ))
+        })?;
+
+        let z_indep = box_muller_sample(&mut rng);
+        let z = rho * z_peer + (1.0 - rho * rho).sqrt() * z_indep;
+        z_out.insert(*period_id, z);
+
+        let value = if matches!(method, ForecastMethod::Normal) {
+            let v = p.mean + p.std_dev * z;
+            if !v.is_finite() {
+                return Err(Error::forecast(format!(
+                    "Normal forecast produced a non-finite value at period {:?}",
+                    period_id
+                )));
+            }
+            v
+        } else {
+            let normal_value = p.mean + p.std_dev * z;
+            let v = normal_value.exp();
+            if !v.is_finite() {
+                return Err(Error::forecast(format!(
+                    "LogNormal forecast produced a non-finite value at period {:?}",
+                    period_id
+                )));
+            }
+            v
+        };
+        values.insert(*period_id, value);
+    }
+
+    Ok((values, z_out))
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use finstack_core::dates::PeriodId;
+
+    #[test]
+    fn test_parse_seed_accepts_integer_like_json_float() {
+        let v = serde_json::json!(42.0);
+        assert_eq!(parse_seed_json(&v), Some(42));
+    }
 
     #[test]
     fn test_normal_forecast_deterministic() {

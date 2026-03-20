@@ -116,9 +116,8 @@ impl SobolRng {
     /// * `dimension` - Number of dimensions (must be > 0 and <= [`MAX_SOBOL_DIMENSION`])
     /// * `scramble_seed` - Seed for Owen scrambling (0 = no scrambling)
     ///
-    /// # Panics
-    ///
-    /// Panics if `dimension` is 0 or exceeds [`MAX_SOBOL_DIMENSION`].
+    /// Deprecated: prefer [`try_new`](Self::try_new) so invalid dimensions
+    /// return a validation error instead of panicking.
     ///
     /// # Example
     ///
@@ -126,8 +125,9 @@ impl SobolRng {
     /// use finstack_core::math::random::sobol::SobolRng;
     ///
     /// // Create a 5-dimensional Sobol sequence with scrambling
-    /// let sobol = SobolRng::new(5, 42);
+    /// let sobol = SobolRng::try_new(5, 42).expect("dimension within bounds");
     /// ```
+    #[deprecated(note = "prefer SobolRng::try_new to avoid panics on invalid dimensions")]
     #[allow(clippy::expect_used)]
     pub fn new(dimension: usize, scramble_seed: u64) -> Self {
         Self::try_new(dimension, scramble_seed).expect("Sobol dimension out of range")
@@ -477,6 +477,13 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_try_new_rejects_invalid_dimension() {
+        assert!(SobolRng::try_new(0, 0).is_err());
+        assert!(SobolRng::try_new(MAX_SOBOL_DIMENSION + 1, 0).is_err());
+    }
+
+    #[test]
+    #[allow(deprecated)]
     fn test_sobol_basic() {
         let mut sobol = SobolRng::new(2, 0);
 
@@ -492,6 +499,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_sobol_range() {
         let mut sobol = SobolRng::new(3, 0);
 
@@ -504,6 +512,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_owen_scrambling() {
         let sobol_no_scramble = SobolRng::new(2, 0);
         let sobol_scrambled = SobolRng::new(2, 12345);
@@ -516,6 +525,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_sobol_reset_and_skip() {
         let mut sobol = SobolRng::new(2, 0);
 
@@ -531,6 +541,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_fill_std_normals() {
         let mut sobol = SobolRng::new(1, 0);
         let mut normals = vec![0.0; 100];
@@ -553,6 +564,7 @@ mod tests {
     // The (k+0.5)/2^32 mapping should produce a normal quantile ≈ 4.6σ which,
     // while extreme, is not an artificial boundary artefact.
     #[test]
+    #[allow(deprecated)]
     fn test_fill_std_normals_first_point_finite_and_bounded() {
         // No scrambling — first point is k=0 in all dimensions.
         let mut sobol = SobolRng::new(1, 0);
@@ -575,6 +587,7 @@ mod tests {
     // (0.5/2^32, (2^31+0.5)/2^32) = (~1.16e-10, ~0.5). Their inverse-normal
     // quantiles should be symmetric and finite.
     #[test]
+    #[allow(deprecated)]
     fn test_fill_std_normals_symmetry_no_scramble() {
         let mut sobol = SobolRng::new(1, 0);
         let mut out = vec![0.0; 2];
@@ -589,6 +602,7 @@ mod tests {
     // With a large batch and scrambling the 5-sigma quantile should not
     // appear more than ~3× its theoretical frequency.
     #[test]
+    #[allow(deprecated)]
     fn test_fill_std_normals_no_extreme_tail_outliers() {
         let mut sobol = SobolRng::new(1, 42);
         let mut out = vec![0.0; 1024];

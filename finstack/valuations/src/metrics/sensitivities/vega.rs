@@ -7,6 +7,7 @@ use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::math::{neumaier_sum, NeumaierAccumulator};
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -147,7 +148,7 @@ where
         };
 
         let mut raw_matrix = Vec::new();
-        let mut raw_total = 0.0;
+        let mut raw_total = NeumaierAccumulator::new();
         static DEBUG_BUCKETED_VEGA: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
         let debug =
             *DEBUG_BUCKETED_VEGA.get_or_init(|| std::env::var("DEBUG_BUCKETED_VEGA").is_ok());
@@ -183,10 +184,12 @@ where
                 // Vega = (PV_bumped - PV_base) / bump_pct
                 let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
                 row.push(vega);
-                raw_total += vega;
+                raw_total.add(vega);
             }
             raw_matrix.push(row);
         }
+
+        let raw_total = raw_total.total();
 
         // Normalize bucketed vegas so they partition the parallel vega
         let scale = if raw_total.abs() > f64::EPSILON {
@@ -218,7 +221,7 @@ where
             .collect();
 
         if debug {
-            let sum_scaled: f64 = matrix.iter().flatten().sum();
+            let sum_scaled: f64 = neumaier_sum(matrix.iter().flatten().copied());
             tracing::debug!(
                 raw_total = raw_total,
                 target_total = target_total,

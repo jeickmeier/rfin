@@ -269,6 +269,8 @@ impl InflationCurve {
 
     /// Annualised inflation rate between `t1` and `t2` using CAGR formula.
     ///
+    /// Returns [`f64::NAN`] when `t2 <= t1`, or when `t1` / `t2` are non-finite.
+    ///
     /// Uses the Compound Annual Growth Rate, which is the market-standard
     /// formula for annualised inflation:
     /// ```text
@@ -280,7 +282,9 @@ impl InflationCurve {
     /// rather than the simple linear approximation `(I2/I1 - 1) / dt`.
     #[must_use]
     pub fn inflation_rate(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 > t1);
+        if !(t1.is_finite() && t2.is_finite()) || t2 <= t1 {
+            return f64::NAN;
+        }
         let c1 = self.cpi(t1);
         let c2 = self.cpi(t2);
         let dt = t2 - t1;
@@ -289,12 +293,16 @@ impl InflationCurve {
 
     /// Simple (non-compounded) inflation rate between `t1` and `t2`.
     ///
+    /// Returns [`f64::NAN`] when `t2 <= t1`, or when `t1` / `t2` are non-finite.
+    ///
     /// Returns `(I(t2) / I(t1) - 1) / (t2 - t1)`, which is the simple
     /// linear approximation. For most applications, prefer [`inflation_rate`](Self::inflation_rate)
     /// which uses the correct CAGR formula.
     #[must_use]
     pub fn inflation_rate_simple(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 > t1);
+        if !(t1.is_finite() && t2.is_finite()) || t2 <= t1 {
+            return f64::NAN;
+        }
         let c1 = self.cpi(t1);
         let c2 = self.cpi(t2);
         (c2 / c1 - 1.0) / (t2 - t1)
@@ -631,6 +639,27 @@ mod tests {
         let ic = sample_curve();
         let r = ic.inflation_rate(0.0, 1.0);
         assert!(r > 0.0);
+    }
+
+    #[test]
+    fn inflation_rate_rejects_non_increasing_times_with_nan() {
+        let ic = sample_curve();
+        assert!(ic.inflation_rate(1.0, 0.0).is_nan());
+        assert!(ic.inflation_rate(1.0, 1.0).is_nan());
+    }
+
+    #[test]
+    fn inflation_rate_simple_rejects_non_increasing_times_with_nan() {
+        let ic = sample_curve();
+        assert!(ic.inflation_rate_simple(1.0, 0.0).is_nan());
+        assert!(ic.inflation_rate_simple(1.0, 1.0).is_nan());
+    }
+
+    #[test]
+    fn inflation_rate_rejects_non_finite_times_with_nan() {
+        let ic = sample_curve();
+        assert!(ic.inflation_rate(f64::NAN, 1.0).is_nan());
+        assert!(ic.inflation_rate(0.0, f64::INFINITY).is_nan());
     }
 
     #[test]

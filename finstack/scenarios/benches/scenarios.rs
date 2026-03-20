@@ -198,6 +198,7 @@ fn create_scenarios_for_composition(count: usize) -> Vec<ScenarioSpec> {
                 OperationSpec::CurveParallelBp {
                     curve_kind: CurveKind::Discount,
                     curve_id: "USD_SOFR".into(),
+                    discount_curve_id: None,
                     bp: (i as f64 + 1.0) * 10.0,
                 },
                 OperationSpec::EquityPricePct {
@@ -249,6 +250,7 @@ fn bench_curve_parallel_shock(c: &mut Criterion) {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 50.0,
         }],
         priority: 0,
@@ -299,6 +301,7 @@ fn bench_curve_node_shock(c: &mut Criterion) {
             operations: vec![OperationSpec::CurveNodeBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 nodes: nodes.clone(),
                 match_mode: TenorMatchMode::Interpolate,
             }],
@@ -677,6 +680,7 @@ fn bench_complex_multi_operation(c: &mut Criterion) {
                     } else {
                         "EUR_ESTR".into()
                     },
+                    discount_curve_id: None,
                     bp: (i as f64 + 1.0) * 5.0,
                 }),
                 1 => operations.push(OperationSpec::EquityPricePct {
@@ -751,17 +755,20 @@ fn bench_serde_roundtrip(c: &mut Criterion) {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 50.0,
             },
             // Credit hazard curves
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_IG_HAZARD".into(),
+                discount_curve_id: None,
                 bp: 75.0,
             },
             OperationSpec::CurveNodeBp {
                 curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_HY_HAZARD".into(),
+                discount_curve_id: None,
                 nodes: vec![("3Y".into(), 100.0), ("5Y".into(), 150.0)],
                 match_mode: TenorMatchMode::Interpolate,
             },
@@ -848,6 +855,7 @@ fn bench_rate_bindings(c: &mut Criterion) {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 100.0,
         }],
         priority: 0,
@@ -891,6 +899,7 @@ fn bench_hazard_curve_shock(c: &mut Criterion) {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::ParCDS,
             curve_id: "CDX_IG_HAZARD".into(),
+            discount_curve_id: None,
             bp: 50.0, // +50bp widening
         }],
         priority: 0,
@@ -926,6 +935,7 @@ fn bench_hazard_curve_shock(c: &mut Criterion) {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::ParCDS,
             curve_id: "CDX_HY_HAZARD".into(),
+            discount_curve_id: None,
             nodes: vec![("3Y".into(), 100.0), ("5Y".into(), 150.0)],
             match_mode: TenorMatchMode::Interpolate,
         }],
@@ -1101,11 +1111,13 @@ fn bench_comprehensive_credit_scenario(c: &mut Criterion) {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_IG_HAZARD".into(),
+                discount_curve_id: None,
                 bp: 75.0,
             },
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::ParCDS,
                 curve_id: "CDX_HY_HAZARD".into(),
+                discount_curve_id: None,
                 bp: 200.0,
             },
             // Increase credit vol

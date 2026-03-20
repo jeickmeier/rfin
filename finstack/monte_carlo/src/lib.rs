@@ -55,6 +55,7 @@
 mod captured_path_stats;
 pub mod discretization;
 pub mod estimate;
+mod indexed_spot_table;
 pub mod online_stats;
 pub mod paths;
 pub mod process;

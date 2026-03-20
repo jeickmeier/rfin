@@ -186,28 +186,33 @@ impl Copula for RandomFactorLoadingCopula {
     }
 
     fn tail_dependence(&self, correlation: f64) -> f64 {
-        // **APPROXIMATE** tail dependence coefficient.
+        // Heuristic lower-tail dependence proxy (not the copula λ_L limit).
         //
-        // The RFL copula has implicit tail dependence through stochastic correlation:
-        // when loading is high (tail of loading distribution), correlation spikes,
-        // causing joint extremes to cluster.
+        // When loading volatility is zero, RFL collapses to a Gaussian copula with
+        // λ_L = 0 — the previous ad hoc formula incorrectly stayed positive because
+        // it mixed a fixed tail mass with √(ρ) even when σ_β = 0.
         //
-        // This is NOT the exact formula λ_L = lim_{u→0} P(U₂≤u|U₁≤u), but rather
-        // an effective measure that captures the qualitative behavior.
-        //
-        // For exact tail dependence, Monte Carlo simulation would be required.
+        // We keep a simple, monotone-in-(ρ, σ_β) gauge: stress loading in the η>2
+        // region versus mean loading, scaled to vanish when σ_β → 0.
+        if self.loading_volatility <= 0.0 {
+            return 0.0;
+        }
 
-        let mean_loading = correlation.clamp(0.0, 1.0).sqrt();
+        let rho = correlation.clamp(0.0, 1.0);
+        let mean_loading = rho.sqrt();
 
-        // Probability of high loading (β > β̄ + 2σ)
-        let high_loading = (mean_loading + 2.0 * self.loading_volatility).min(0.99);
-        let effective_high_corr = high_loading * high_loading;
+        // Stress scenario: β̄ + 2σ_β (same tail reference as before: η = 2).
+        let beta_stress = (mean_loading + 2.0 * self.loading_volatility).min(MAX_LOADING);
+        let rho_stress = beta_stress * beta_stress;
 
-        // Probability of being in the high-loading tail
-        let prob_high_loading = 1.0 - norm_cdf(2.0); // ~2.3%
+        // How much extra correlation mass appears in that stress tail vs mean loading.
+        let delta_rho = (rho_stress - rho).max(0.0);
 
-        // Approximate tail dependence contribution
-        prob_high_loading * effective_high_corr.sqrt() * 0.5
+        // Mass of the loading-shock tail (η > 2).
+        let tail_mass = 1.0 - norm_cdf(2.0);
+
+        // Vanishes linearly in σ_β so the Gaussian (σ_β = 0) limit is exact.
+        tail_mass * delta_rho * self.loading_volatility
     }
 }
 
@@ -306,6 +311,14 @@ mod tests {
         // RFL has small positive tail dependence from stochastic correlation
         assert!(lambda >= 0.0);
         assert!(lambda < 0.1); // Should be small
+    }
+
+    #[test]
+    fn test_tail_dependence_zero_loading_vol_is_gaussian_limit() {
+        let copula = RandomFactorLoadingCopula::new(0.0);
+        assert_eq!(copula.tail_dependence(0.0), 0.0);
+        assert_eq!(copula.tail_dependence(0.5), 0.0);
+        assert_eq!(copula.tail_dependence(0.99), 0.0);
     }
 
     #[test]

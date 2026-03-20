@@ -298,16 +298,18 @@ impl Discretization<HestonProcess> for QeHeston {
         let v_next = self.step_variance(v_t, params.kappa, params.theta, params.sigma_v, dt, z_v);
 
         // Step 2: Evolve the spot with a martingale-corrected QE-M style update.
-        let rho = params.rho;
-        let int_var = self.integrated_variance(v_t, v_next, dt, params.kappa, params.theta);
+        let rho = params.rho.clamp(-1.0, 1.0);
+        let int_var = self
+            .integrated_variance(v_t, v_next, dt, params.kappa, params.theta)
+            .max(0.0);
         let drift = (params.r - params.q) * dt - 0.5 * int_var;
-        let variance_correction = if params.sigma_v > 1e-12 {
+        let variance_correction = if params.sigma_v.abs() > 1e-10 {
             rho / params.sigma_v
                 * (v_next - v_t - params.kappa * params.theta * dt + params.kappa * int_var)
         } else {
             0.0
         };
-        let orthogonal_diffusion = (1.0 - rho * rho).sqrt() * int_var.sqrt() * z[0];
+        let orthogonal_diffusion = (1.0 - rho * rho).max(0.0).sqrt() * int_var.sqrt() * z[0];
 
         let s_next = s_t * (drift + variance_correction + orthogonal_diffusion).exp();
 
@@ -571,5 +573,29 @@ mod tests {
             expected_spot,
             x[0]
         );
+    }
+
+    #[test]
+    fn test_qe_heston_clamps_rho_and_integrated_variance_before_sqrt() {
+        let heston = HestonProcess::new(HestonParams {
+            r: 0.03,
+            q: 0.01,
+            kappa: 1.5,
+            theta: 0.04,
+            sigma_v: 1.0e-16,
+            rho: 1.0 + 1.0e-12,
+            v0: 0.04,
+        });
+        let qe = QeHeston::new();
+        let mut x = vec![100.0, 0.04];
+        let z = vec![0.2, -0.1];
+        let mut work = vec![];
+
+        qe.step(&heston, 0.0, 0.25, &mut x, &z, &mut work);
+
+        assert!(x[0].is_finite(), "spot update should stay finite");
+        assert!(x[1].is_finite(), "variance update should stay finite");
+        assert!(x[0] > 0.0, "spot should remain positive");
+        assert!(x[1] >= 0.0, "variance should remain non-negative");
     }
 }
