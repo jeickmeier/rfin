@@ -352,6 +352,40 @@ impl crate::instruments::common_impl::traits::OptionThetaProvider for IrFutureOp
     }
 }
 
+impl crate::instruments::common_impl::traits::OptionGreeksProvider for IrFutureOption {
+    fn option_greeks(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
+        use crate::instruments::common_impl::traits::{
+            OptionDeltaProvider, OptionGammaProvider, OptionGreekKind, OptionGreeks,
+            OptionThetaProvider, OptionVegaProvider,
+        };
+
+        match request.greek {
+            OptionGreekKind::Delta => Ok(OptionGreeks {
+                delta: Some(self.option_delta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Gamma => Ok(OptionGreeks {
+                gamma: Some(self.option_gamma(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vega => Ok(OptionGreeks {
+                vega: Some(self.option_vega(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Theta => Ok(OptionGreeks {
+                theta: Some(self.option_theta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            _ => Ok(OptionGreeks::default()),
+        }
+    }
+}
+
 impl crate::instruments::common_impl::traits::CurveDependencies for IrFutureOption {
     fn curve_dependencies(
         &self,

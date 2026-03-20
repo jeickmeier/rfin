@@ -429,6 +429,36 @@ impl crate::instruments::common_impl::traits::OptionGammaProvider for CommodityS
     }
 }
 
+impl crate::instruments::common_impl::traits::OptionGreeksProvider for CommoditySwaption {
+    fn option_greeks(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
+        use crate::instruments::common_impl::traits::{
+            OptionDeltaProvider, OptionGammaProvider, OptionGreekKind, OptionGreeks,
+            OptionVegaProvider,
+        };
+
+        match request.greek {
+            OptionGreekKind::Delta => Ok(OptionGreeks {
+                delta: Some(self.option_delta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Gamma => Ok(OptionGreeks {
+                gamma: Some(self.option_gamma(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vega => Ok(OptionGreeks {
+                vega: Some(self.option_vega(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            _ => Ok(OptionGreeks::default()),
+        }
+    }
+}
+
 impl crate::instruments::common_impl::traits::OptionVegaProvider for CommoditySwaption {
     fn option_vega(&self, market: &MarketContext, as_of: Date) -> finstack_core::Result<f64> {
         use finstack_core::math::special_functions::norm_pdf;

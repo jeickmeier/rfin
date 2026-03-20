@@ -379,3 +379,37 @@ impl crate::instruments::common_impl::traits::OptionRhoProvider for FxTouchOptio
         Ok(pv_bumped - base_pv)
     }
 }
+
+impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxTouchOption {
+    fn option_greeks(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
+        use crate::instruments::common_impl::traits::{
+            OptionDeltaProvider, OptionGammaProvider, OptionGreekKind, OptionGreeks,
+            OptionRhoProvider, OptionVegaProvider,
+        };
+
+        match request.greek {
+            OptionGreekKind::Delta => Ok(OptionGreeks {
+                delta: Some(self.option_delta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Gamma => Ok(OptionGreeks {
+                gamma: Some(self.option_gamma(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vega => Ok(OptionGreeks {
+                vega: Some(self.option_vega(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Rho => Ok(OptionGreeks {
+                rho_bp: Some(self.option_rho_bp(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            _ => Ok(OptionGreeks::default()),
+        }
+    }
+}

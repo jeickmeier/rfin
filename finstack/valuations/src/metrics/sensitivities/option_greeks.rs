@@ -2,25 +2,29 @@
 //!
 //! These calculators eliminate the per-instrument explosion of:
 //! `metrics/{delta,gamma,vega,rho,theta,vanna,volga}.rs`
-//! by delegating to small instrument-provided traits:
-//! - [`OptionDeltaProvider`]
-//! - [`OptionGammaProvider`]
-//! - [`OptionVegaProvider`]
-//! - [`OptionThetaProvider`]
-//! - [`OptionRhoProvider`]
-//! - [`OptionForeignRhoProvider`]
-//! - [`OptionVannaProvider`]
-//! - [`OptionVolgaProvider`]
+//! by delegating to the consolidated [`OptionGreeksProvider`] trait.
 
 use std::marker::PhantomData;
 
 use crate::instruments::common_impl::traits::{
-    Instrument, OptionDeltaProvider, OptionForeignRhoProvider, OptionGammaProvider,
-    OptionRhoProvider, OptionThetaProvider, OptionVannaProvider, OptionVegaProvider,
-    OptionVolgaProvider,
+    Instrument, OptionGreekKind, OptionGreeks, OptionGreeksProvider, OptionGreeksRequest,
 };
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::metrics::{metric_not_found, MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
+
+fn requested_value<I>(
+    context: &mut MetricContext,
+    request: OptionGreeksRequest,
+    metric_id: MetricId,
+    extract: impl FnOnce(OptionGreeks) -> Option<f64>,
+) -> Result<f64>
+where
+    I: Instrument + OptionGreeksProvider + 'static,
+{
+    let inst: &I = context.instrument_as()?;
+    let greeks = inst.option_greeks(&context.curves, context.as_of, &request)?;
+    extract(greeks).ok_or_else(|| metric_not_found(metric_id))
+}
 
 /// Delta metric calculator (cash delta).
 pub struct OptionDeltaCalculator<I> {
@@ -37,11 +41,18 @@ impl<I> Default for OptionDeltaCalculator<I> {
 
 impl<I> MetricCalculator for OptionDeltaCalculator<I>
 where
-    I: Instrument + OptionDeltaProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_delta(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Delta,
+                base_pv: None,
+            },
+            MetricId::Delta,
+            |greeks| greeks.delta,
+        )
     }
 }
 
@@ -60,11 +71,18 @@ impl<I> Default for OptionGammaCalculator<I> {
 
 impl<I> MetricCalculator for OptionGammaCalculator<I>
 where
-    I: Instrument + OptionGammaProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_gamma(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Gamma,
+                base_pv: None,
+            },
+            MetricId::Gamma,
+            |greeks| greeks.gamma,
+        )
     }
 }
 
@@ -83,11 +101,18 @@ impl<I> Default for OptionVegaCalculator<I> {
 
 impl<I> MetricCalculator for OptionVegaCalculator<I>
 where
-    I: Instrument + OptionVegaProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_vega(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Vega,
+                base_pv: None,
+            },
+            MetricId::Vega,
+            |greeks| greeks.vega,
+        )
     }
 }
 
@@ -106,11 +131,18 @@ impl<I> Default for OptionThetaCalculator<I> {
 
 impl<I> MetricCalculator for OptionThetaCalculator<I>
 where
-    I: Instrument + OptionThetaProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_theta(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Theta,
+                base_pv: None,
+            },
+            MetricId::Theta,
+            |greeks| greeks.theta,
+        )
     }
 }
 
@@ -129,11 +161,18 @@ impl<I> Default for OptionRhoCalculator<I> {
 
 impl<I> MetricCalculator for OptionRhoCalculator<I>
 where
-    I: Instrument + OptionRhoProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_rho_bp(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Rho,
+                base_pv: None,
+            },
+            MetricId::Rho,
+            |greeks| greeks.rho_bp,
+        )
     }
 }
 
@@ -154,11 +193,18 @@ impl<I> Default for OptionForeignRhoCalculator<I> {
 
 impl<I> MetricCalculator for OptionForeignRhoCalculator<I>
 where
-    I: Instrument + OptionForeignRhoProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_foreign_rho_bp(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::ForeignRho,
+                base_pv: None,
+            },
+            MetricId::ForeignRho,
+            |greeks| greeks.foreign_rho_bp,
+        )
     }
 }
 
@@ -182,11 +228,18 @@ impl<I> Default for OptionVannaCalculator<I> {
 
 impl<I> MetricCalculator for OptionVannaCalculator<I>
 where
-    I: Instrument + OptionVannaProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_vanna(&context.curves, context.as_of)
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Vanna,
+                base_pv: None,
+            },
+            MetricId::Vanna,
+            |greeks| greeks.vanna,
+        )
     }
 }
 
@@ -207,10 +260,17 @@ impl<I> Default for OptionVolgaCalculator<I> {
 
 impl<I> MetricCalculator for OptionVolgaCalculator<I>
 where
-    I: Instrument + OptionVolgaProvider + 'static,
+    I: Instrument + OptionGreeksProvider + 'static,
 {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        let inst: &I = context.instrument_as()?;
-        inst.option_volga(&context.curves, context.as_of, context.base_value.amount())
+        requested_value::<I>(
+            context,
+            OptionGreeksRequest {
+                greek: OptionGreekKind::Volga,
+                base_pv: Some(context.base_value.amount()),
+            },
+            MetricId::Volga,
+            |greeks| greeks.volga,
+        )
     }
 }

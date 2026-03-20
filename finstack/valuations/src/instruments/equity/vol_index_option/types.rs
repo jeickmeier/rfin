@@ -365,6 +365,31 @@ impl crate::instruments::common_impl::traits::OptionVegaProvider for VolatilityI
     }
 }
 
+impl crate::instruments::common_impl::traits::OptionGreeksProvider for VolatilityIndexOption {
+    fn option_greeks(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
+        use crate::instruments::common_impl::traits::{
+            OptionDeltaProvider, OptionGreekKind, OptionGreeks, OptionVegaProvider,
+        };
+
+        match request.greek {
+            OptionGreekKind::Delta => Ok(OptionGreeks {
+                delta: Some(self.option_delta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vega => Ok(OptionGreeks {
+                vega: Some(self.option_vega(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            _ => Ok(OptionGreeks::default()),
+        }
+    }
+}
+
 // =============================================================================
 // Trait Implementations
 // =============================================================================
