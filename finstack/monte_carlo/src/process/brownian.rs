@@ -2,40 +2,58 @@
 //!
 //! Provides additive Gaussian processes that are useful beyond financial pricing,
 //! e.g., generic diffusion dynamics for continuous time series.
+//!
+//! # Dynamics
+//!
+//! The one-dimensional process follows
+//!
+//! ```text
+//! dX_t = μ dt + σ dW_t
+//! ```
+//!
+//! where `μ` is the drift per year and `σ` is the diffusion scale per square
+//! root year. The multi-dimensional variant applies the same form componentwise
+//! and can attach an optional row-major correlation matrix for downstream
+//! metadata consumers.
 
 use super::super::paths::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 
-/// Parameters for 1D Brownian motion with drift.
+/// Parameters for one-dimensional Brownian motion with drift.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BrownianParams {
-    /// Constant drift (μ)
+    /// Constant drift per year.
     pub mu: f64,
-    /// Constant diffusion (σ)
+    /// Constant diffusion scale per square root year.
     pub sigma: f64,
 }
 
 impl BrownianParams {
-    /// Create new Brownian parameters.
+    /// Create Brownian-motion parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `mu` - Constant drift per year.
+    /// * `sigma` - Constant diffusion scale per square root year.
     pub fn new(mu: f64, sigma: f64) -> Self {
         Self { mu, sigma }
     }
 }
 
-/// 1D Brownian motion (additive) with constant drift and diffusion.
+/// One-dimensional additive Brownian motion with constant drift and diffusion.
 #[derive(Debug, Clone)]
 pub struct BrownianProcess {
     params: BrownianParams,
 }
 
 impl BrownianProcess {
-    /// Create a Brownian process.
+    /// Create a Brownian process from explicit parameters.
     pub fn new(params: BrownianParams) -> Self {
         Self { params }
     }
 
-    /// Convenience constructor.
+    /// Create a Brownian process from `mu` and `sigma`.
     pub fn with_params(mu: f64, sigma: f64) -> Self {
         Self::new(BrownianParams::new(mu, sigma))
     }
@@ -83,17 +101,27 @@ impl ProcessMetadata for BrownianProcess {
     }
 }
 
-/// Multi-dimensional Brownian motion with optional correlation handled upstream.
+/// Multi-dimensional Brownian motion.
+///
+/// Correlation, when present, is metadata describing the relationship between
+/// the components. Simulation code that needs correlated shocks should apply the
+/// appropriate transformation before calling a diagonal discretization scheme.
 #[derive(Debug, Clone)]
 pub struct MultiBrownianProcess {
     mus: Vec<f64>,
     sigmas: Vec<f64>,
-    /// Optional correlation matrix (n x n, row-major)
+    /// Optional row-major `n x n` correlation matrix.
     correlation: Option<Vec<f64>>,
 }
 
 impl MultiBrownianProcess {
     /// Create a multi-dimensional Brownian motion.
+    ///
+    /// # Arguments
+    ///
+    /// * `mus` - Per-component drifts per year.
+    /// * `sigmas` - Per-component diffusion scales per square root year.
+    /// * `correlation` - Optional row-major `n x n` correlation matrix.
     pub fn new(mus: Vec<f64>, sigmas: Vec<f64>, correlation: Option<Vec<f64>>) -> Self {
         assert_eq!(
             mus.len(),

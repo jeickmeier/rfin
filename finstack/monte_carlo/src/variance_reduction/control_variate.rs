@@ -7,7 +7,7 @@
 //! ```text
 //! X̂ = X̄ - β(Ȳ - E[Y])
 //! ```
-//! where Y is the control (BS price), E[Y] is known analytically,
+//! where `Y` is the control (BS price), `E[Y]` is known analytically,
 //! and β is the optimal coefficient.
 //!
 //! # Online Covariance

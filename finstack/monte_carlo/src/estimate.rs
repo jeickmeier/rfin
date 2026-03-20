@@ -1,45 +1,59 @@
-//! Monte Carlo estimation results.
+//! Numeric Monte Carlo estimation results without currency tagging.
 //!
-//! Provides structured results with mean, standard error, confidence intervals,
-//! and metadata for Monte Carlo simulations.
+//! [`Estimate`] is the engine's internal numeric summary for discounted path
+//! values. Pricing-facing APIs usually convert it into
+//! [`crate::results::MoneyEstimate`] once the output currency is known.
 
 use serde::{Deserialize, Serialize};
 
-/// Monte Carlo estimation result.
+/// Numeric Monte Carlo estimate for discounted path values.
 ///
-/// Contains point estimate, uncertainty quantification, and metadata
-/// about the simulation run.
+/// All fields are unitless `f64` values in the same numeric unit as the
+/// simulated discounted payoff. Pricing APIs usually wrap the mean and
+/// confidence interval in [`finstack_core::money::Money`] after choosing a
+/// currency.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Estimate {
-    /// Point estimate (mean)
+    /// Mean of the discounted path values.
     pub mean: f64,
-    /// Standard error of the mean
+    /// Standard error of the discounted mean.
     pub stderr: f64,
-    /// 95% confidence interval
+    /// 95% confidence interval for the discounted mean.
     pub ci_95: (f64, f64),
-    /// Number of paths simulated
+    /// Number of simulated paths contributing to the estimate.
     pub num_paths: usize,
-    /// Optional: sample standard deviation
+    /// Optional sample standard deviation of discounted path values.
     pub std_dev: Option<f64>,
-    /// Optional: median value
+    /// Optional median of captured discounted path values.
     #[serde(default)]
     pub median: Option<f64>,
-    /// Optional: 25th percentile
+    /// Optional 25th percentile of captured discounted path values.
     #[serde(default)]
     pub percentile_25: Option<f64>,
-    /// Optional: 75th percentile
+    /// Optional 75th percentile of captured discounted path values.
     #[serde(default)]
     pub percentile_75: Option<f64>,
-    /// Optional: minimum value
+    /// Optional minimum of captured discounted path values.
     #[serde(default)]
     pub min: Option<f64>,
-    /// Optional: maximum value
+    /// Optional maximum of captured discounted path values.
     #[serde(default)]
     pub max: Option<f64>,
 }
 
 impl Estimate {
-    /// Create a new estimate.
+    /// Create a new estimate from aggregate simulation statistics.
+    ///
+    /// # Arguments
+    ///
+    /// * `mean` - Discounted sample mean.
+    /// * `stderr` - Standard error of the discounted mean.
+    /// * `ci_95` - Lower and upper bounds of the 95% confidence interval.
+    /// * `num_paths` - Number of simulated paths used to compute the estimate.
+    ///
+    /// # Returns
+    ///
+    /// An estimate without optional distribution diagnostics populated.
     pub fn new(mean: f64, stderr: f64, ci_95: (f64, f64), num_paths: usize) -> Self {
         Self {
             mean,
@@ -55,33 +69,33 @@ impl Estimate {
         }
     }
 
-    /// Create estimate with standard deviation.
+    /// Attach the sample standard deviation of discounted path values.
     pub fn with_std_dev(mut self, std_dev: f64) -> Self {
         self.std_dev = Some(std_dev);
         self
     }
 
-    /// Set median value.
+    /// Attach the median of captured discounted path values.
     pub fn with_median(mut self, median: f64) -> Self {
         self.median = Some(median);
         self
     }
 
-    /// Set percentiles (25th and 75th).
+    /// Attach the 25th and 75th percentiles of captured discounted path values.
     pub fn with_percentiles(mut self, p25: f64, p75: f64) -> Self {
         self.percentile_25 = Some(p25);
         self.percentile_75 = Some(p75);
         self
     }
 
-    /// Set min and max values.
+    /// Attach the minimum and maximum of captured discounted path values.
     pub fn with_range(mut self, min: f64, max: f64) -> Self {
         self.min = Some(min);
         self.max = Some(max);
         self
     }
 
-    /// Get interquartile range (IQR) if percentiles are available.
+    /// Return the interquartile range when captured percentiles are available.
     pub fn iqr(&self) -> Option<f64> {
         match (self.percentile_25, self.percentile_75) {
             (Some(p25), Some(p75)) => Some(p75 - p25),
@@ -89,7 +103,7 @@ impl Estimate {
         }
     }
 
-    /// Get range (max - min) if available.
+    /// Return `max - min` when captured extrema are available.
     pub fn range(&self) -> Option<f64> {
         match (self.min, self.max) {
             (Some(min), Some(max)) => Some(max - min),
@@ -97,7 +111,9 @@ impl Estimate {
         }
     }
 
-    /// Relative standard error (stderr / mean).
+    /// Return `stderr / abs(mean)`.
+    ///
+    /// Returns `f64::INFINITY` when the estimate is numerically close to zero.
     pub fn relative_stderr(&self) -> f64 {
         if self.mean.abs() < 1e-10 {
             f64::INFINITY
@@ -106,7 +122,7 @@ impl Estimate {
         }
     }
 
-    /// Coefficient of variation (std_dev / mean).
+    /// Return the coefficient of variation `std_dev / abs(mean)` when available.
     pub fn cv(&self) -> Option<f64> {
         self.std_dev.map(|sd| {
             if self.mean.abs() < 1e-10 {
@@ -117,12 +133,10 @@ impl Estimate {
         })
     }
 
-    /// Half-width of the 95% confidence interval.
+    /// Return half the width of `ci_95`.
     pub fn ci_half_width(&self) -> f64 {
         (self.ci_95.1 - self.ci_95.0) / 2.0
     }
-
-    // Pricing-side currency conversion moved to models::monte_carlo::results
 }
 
 impl std::fmt::Display for Estimate {
@@ -134,8 +148,6 @@ impl std::fmt::Display for Estimate {
         )
     }
 }
-
-// MoneyEstimate moved to instruments::common::models::monte_carlo::results
 
 /// Compatibility type for bindings that still expose Monte Carlo diagnostics.
 ///
@@ -168,19 +180,19 @@ impl ConvergenceDiagnostics {
         }
     }
 
-    /// With stderr decay rate.
+    /// Set the observed stderr decay rate.
     pub fn with_stderr_decay(mut self, rate: f64) -> Self {
         self.stderr_decay_rate = Some(rate);
         self
     }
 
-    /// With effective sample size.
+    /// Set the effective sample size.
     pub fn with_ess(mut self, ess: usize) -> Self {
         self.effective_sample_size = Some(ess);
         self
     }
 
-    /// With variance reduction factor.
+    /// Set the variance-reduction factor versus a baseline run.
     pub fn with_vr_factor(mut self, factor: f64) -> Self {
         self.variance_reduction_factor = Some(factor);
         self
@@ -192,14 +204,6 @@ impl Default for ConvergenceDiagnostics {
         Self::new()
     }
 }
-
-// Monte Carlo result with optional path data.
-//
-// This structure wraps the statistical estimate along with optionally captured
-// paths for visualization and debugging.
-// MonteCarloResult moved to instruments::common::models::monte_carlo::results
-
-// Display for MonteCarloResult moved with pricing module
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]

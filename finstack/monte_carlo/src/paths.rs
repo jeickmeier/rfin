@@ -1,17 +1,31 @@
-//! Path data structures for Monte Carlo simulation capture and visualization.
+//! Captured-path data structures for Monte Carlo diagnostics.
 //!
-//! This module provides data structures to capture and store individual Monte Carlo
-//! paths for visualization, debugging, and price explanation. Paths can be captured
-//! in full or sampled for efficiency.
+//! These types store the optional path data produced by
+//! [`crate::engine::McEngine::price_with_capture`]. They are intended for
+//! visualization, debugging, and downstream analysis rather than for the
+//! performance-critical inner simulation loop.
+//!
+//! # Conventions
+//!
+//! - `time` values are year fractions.
+//! - `final_value` and per-point `payoff_value` are in the same numeric units as
+//!   the priced payoff amount.
+//! - Cashflow amounts use the sign convention `positive = inflow`, `negative = outflow`.
+//! - Captured datasets may contain every path or only a sampled subset.
 
 use finstack_core::{Error, HashMap, Result};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-/// Default state variable indices for standard single-asset models.
+/// Default state-variable indices for common single-factor layouts.
 ///
-/// These constants define the expected layout for common cases (GBM, Heston, etc.).
-/// Multi-asset models should use `PathDataset::process_params.factor_names` to interpret indices.
+/// These constants are convenience aliases for common cases such as GBM and
+/// Heston. They are not a universal schema for all models. In particular,
+/// `IDX_VARIANCE` and `IDX_SHORT_RATE` intentionally alias the same slot because
+/// the meaning of `state[1]` depends on the process family. Multi-asset and
+/// less standard models should prefer
+/// [`PathDataset::process_params.factor_names`](PathDataset::process_params) or
+/// [`PathDataset::state_var_keys`] to interpret captured state vectors.
 pub mod state_indices {
     /// Spot price (equity/FX) - index 0
     pub const IDX_SPOT: usize = 0;
@@ -23,10 +37,10 @@ pub mod state_indices {
     pub const IDX_CREDIT_SPREAD: usize = 2;
 }
 
-/// Type of cashflow for categorization and analysis.
+/// Classifies captured cashflows by economic meaning.
 ///
-/// Used to distinguish different cashflow categories in Monte Carlo simulations,
-/// particularly for complex instruments like revolving credit facilities.
+/// These tags are diagnostic metadata only. They do not change pricing logic by
+/// themselves.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CashflowType {
     /// Principal deployment (draws) or repayment
@@ -49,16 +63,18 @@ pub enum CashflowType {
     Other,
 }
 
-/// A single point along a Monte Carlo path.
+/// A single captured point along a Monte Carlo path.
 ///
-/// Captures the state at a specific time step, including state variables
-/// and optionally the payoff value at that point.
+/// Captures the process state at a specific time step, together with any
+/// cashflows emitted at that step and, optionally, a payoff snapshot.
 ///
 /// # State Vector Layout
 ///
-/// The `state` vector contains all state variable values in a compact, fixed-size allocation.
-/// For standard single-asset models, see `state_indices` for the expected layout.
-/// For multi-asset models, consult `PathDataset::process_params.factor_names` to interpret indices.
+/// The `state` vector contains the raw state variables in process-defined order.
+/// For simple single-asset models, [`state_indices`] provides common aliases.
+/// For multi-asset or process-specific layouts, consult
+/// [`PathDataset::process_params.factor_names`](PathDataset::process_params) or
+/// [`PathDataset::state_var_keys`].
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathPoint {
     /// Time step index (0 = initial, N = final)
@@ -68,16 +84,22 @@ pub struct PathPoint {
     /// State variables at this point (spot, variance, rate, etc.)
     /// Indexed by position - see `state_indices` for standard layout
     pub state: SmallVec<[f64; 8]>,
-    /// Optional payoff value at this point (if capture_payoffs is enabled)
+    /// Optional payoff snapshot at this point.
+    ///
+    /// This is populated only when path capture requested payoff snapshots. It
+    /// uses the payoff's native amount units and is not additionally discounted
+    /// inside `PathPoint`.
     pub payoff_value: Option<f64>,
-    /// Typed cashflows generated at this timestep (time, amount, type) tuples
-    /// For instruments like revolving credit: interest, fees, principal changes
+    /// Typed cashflows generated at this time step as `(time, amount, type)`.
+    ///
+    /// Amounts follow the sign convention `positive = inflow`,
+    /// `negative = outflow`.
     #[serde(default)]
     pub cashflows: Vec<(f64, f64, CashflowType)>,
 }
 
 impl PathPoint {
-    /// Create a new path point with empty state.
+    /// Create a path point with no state entries or cashflows.
     pub fn new(step: usize, time: f64) -> Self {
         Self {
             step,
@@ -88,7 +110,7 @@ impl PathPoint {
         }
     }
 
-    /// Create a path point with the given state vector.
+    /// Create a path point with an explicit raw state vector.
     pub fn with_state(step: usize, time: f64, state: SmallVec<[f64; 8]>) -> Self {
         Self {
             step,
@@ -99,7 +121,7 @@ impl PathPoint {
         }
     }
 
-    /// Set payoff value.
+    /// Store a payoff snapshot for this point.
     pub fn set_payoff(&mut self, value: f64) {
         self.payoff_value = Some(value);
     }
@@ -120,19 +142,20 @@ impl PathPoint {
         self.state.get(state_indices::IDX_VARIANCE).copied()
     }
 
-    /// Get short rate (convenience method for interest rate models).
+    /// Get the short rate for common interest-rate layouts.
     ///
-    /// Returns the value at `state_indices::IDX_SHORT_RATE` if it exists.
-    /// For multi-asset models, use `state` directly with the schema from `PathDataset`.
+    /// Returns the value at `state_indices::IDX_SHORT_RATE` if it exists. This
+    /// is only a convenience alias; for stochastic-volatility processes the same
+    /// slot may instead represent variance.
     pub fn short_rate(&self) -> Option<f64> {
         self.state.get(state_indices::IDX_SHORT_RATE).copied()
     }
 
-    /// Add a cashflow to this point (uses Other type).
+    /// Add a generic cashflow to this point.
     ///
     /// # Arguments
-    /// * `time` - Time in years when the cashflow occurs
-    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
+    /// * `time` - Cashflow time in years.
+    /// * `amount` - Cashflow amount (`positive = inflow`, `negative = outflow`).
     pub fn add_cashflow(&mut self, time: f64, amount: f64) {
         self.cashflows.push((time, amount, CashflowType::Other));
     }
@@ -140,9 +163,9 @@ impl PathPoint {
     /// Add a typed cashflow to this point.
     ///
     /// # Arguments
-    /// * `time` - Time in years when the cashflow occurs
-    /// * `amount` - Cashflow amount (positive = inflow, negative = outflow)
-    /// * `cf_type` - Type of cashflow
+    /// * `time` - Cashflow time in years.
+    /// * `amount` - Cashflow amount (`positive = inflow`, `negative = outflow`).
+    /// * `cf_type` - Economic category for the cashflow.
     pub fn add_typed_cashflow(&mut self, time: f64, amount: f64, cf_type: CashflowType) {
         self.cashflows.push((time, amount, cf_type));
     }
@@ -188,25 +211,28 @@ impl PathPoint {
     }
 }
 
-/// A complete simulated path through time.
+/// A complete captured Monte Carlo path.
 ///
-/// Contains all time steps for a single Monte Carlo path, along with
-/// metadata and the final payoff value.
+/// Contains all captured points for a single simulated path, plus the final
+/// discounted value used in summary statistics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimulatedPath {
     /// Path identifier (0-indexed)
     pub path_id: usize,
     /// Time points along the path
     pub points: Vec<PathPoint>,
-    /// Final discounted payoff value for this path
+    /// Final discounted payoff value for this path.
+    ///
+    /// This is the path-level amount after the engine applies the run's
+    /// `discount_factor`.
     pub final_value: f64,
-    /// Internal Rate of Return for this path (if calculable)
+    /// Internal rate of return inferred from the captured cashflow amounts, if calculable.
     #[serde(default)]
     pub irr: Option<f64>,
 }
 
 impl SimulatedPath {
-    /// Create a new simulated path.
+    /// Create an empty captured path.
     pub fn new(path_id: usize) -> Self {
         Self {
             path_id,
@@ -216,7 +242,7 @@ impl SimulatedPath {
         }
     }
 
-    /// Create a path with preallocated capacity.
+    /// Create an empty path with preallocated point capacity.
     pub fn with_capacity(path_id: usize, capacity: usize) -> Self {
         Self {
             path_id,
@@ -226,22 +252,22 @@ impl SimulatedPath {
         }
     }
 
-    /// Add a point to the path.
+    /// Append a captured point to the path.
     pub fn add_point(&mut self, point: PathPoint) {
         self.points.push(point);
     }
 
-    /// Set the final payoff value.
+    /// Set the final discounted path value.
     pub fn set_final_value(&mut self, value: f64) {
         self.final_value = value;
     }
 
-    /// Set the IRR for this path.
+    /// Store the inferred internal rate of return.
     pub fn set_irr(&mut self, irr: f64) {
         self.irr = Some(irr);
     }
 
-    /// Get the number of time steps.
+    /// Return the number of captured points in the path.
     pub fn num_steps(&self) -> usize {
         self.points.len()
     }
@@ -263,7 +289,8 @@ impl SimulatedPath {
 
     /// Extract all cashflows from the path.
     ///
-    /// Returns all (time, amount) cashflow pairs across all timesteps.
+    /// Returns all `(time, amount)` pairs in path order using the same sign
+    /// convention as [`PathPoint::cashflows`].
     pub fn extract_cashflows(&self) -> Vec<(f64, f64)> {
         let mut all_cashflows = Vec::new();
         for point in &self.points {
@@ -274,10 +301,10 @@ impl SimulatedPath {
         all_cashflows
     }
 
-    /// Extract cashflow amounts in path order (e.g. periodic IRR on amount series).
+    /// Extract cashflow amounts in path order.
     ///
-    /// This avoids allocating an intermediate `(time, amount)` vector when only
-    /// amounts are needed.
+    /// This is primarily used for IRR-style calculations that only need the
+    /// amount series and not the timestamps.
     pub fn extract_cashflow_amounts(&self) -> Vec<f64> {
         let cap: usize = self.points.iter().map(|p| p.cashflows.len()).sum();
         let mut amounts = Vec::with_capacity(cap);
@@ -312,16 +339,19 @@ impl SimulatedPath {
     }
 }
 
-/// Method used to sample paths from the full simulation.
+/// Records how a captured dataset was selected from the full simulation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PathSamplingMethod {
-    /// All paths were captured
+    /// Every path in the run was captured.
     All,
-    /// Random sample of N paths
+    /// Deterministic sample with target size `count`.
+    ///
+    /// The engine uses deterministic Bernoulli sampling, so `count` is the
+    /// target number of captured paths on average rather than a strict promise.
     RandomSample {
-        /// Number of paths to sample
+        /// Target number of paths to capture on average.
         count: usize,
-        /// Random seed for sampling
+        /// Seed used by the deterministic sampling rule.
         seed: u64,
     },
 }
@@ -337,23 +367,27 @@ impl std::fmt::Display for PathSamplingMethod {
     }
 }
 
-/// Process parameters for metadata.
+/// Metadata describing the process behind a captured dataset.
 ///
-/// This will be populated by the ProcessMetadata trait implementations.
+/// This structure is typically populated by
+/// [`crate::process::metadata::ProcessMetadata`] implementations and stored in a
+/// [`PathDataset`]. It describes how to interpret captured state vectors rather
+/// than how to price the instrument.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProcessParams {
-    /// Process type name (e.g., "GBM", "Heston", "MultiGBM")
+    /// Process type identifier, such as `"GBM"` or `"Heston"`.
     pub process_type: String,
-    /// Key-value parameters (e.g., r, q, sigma, kappa, theta)
+    /// Process parameters keyed by implementation-defined names such as `r`,
+    /// `q`, `sigma`, `kappa`, or `theta`.
     pub parameters: HashMap<String, f64>,
-    /// Optional correlation matrix (row-major, n×n)
+    /// Optional row-major `n x n` correlation matrix.
     pub correlation: Option<Vec<f64>>,
-    /// Factor names (e.g., ["spot"], ["spot", "variance"])
+    /// Names describing the order of captured state-vector entries.
     pub factor_names: Vec<String>,
 }
 
 impl ProcessParams {
-    /// Create new process parameters.
+    /// Create empty metadata for a process family.
     pub fn new(process_type: impl Into<String>) -> Self {
         Self {
             process_type: process_type.into(),
@@ -363,24 +397,27 @@ impl ProcessParams {
         }
     }
 
-    /// Add a parameter.
+    /// Add a named process parameter.
     pub fn add_param(&mut self, key: impl Into<String>, value: f64) {
         self.parameters.insert(key.into(), value);
     }
 
-    /// Set correlation matrix.
+    /// Attach a row-major correlation matrix.
+    ///
+    /// When `factor_names` is also present, its order must match the ordering of
+    /// this matrix.
     pub fn with_correlation(mut self, correlation: Vec<f64>) -> Self {
         self.correlation = Some(correlation);
         self
     }
 
-    /// Set factor names.
+    /// Attach state-vector names in capture order.
     pub fn with_factors(mut self, names: Vec<String>) -> Self {
         self.factor_names = names;
         self
     }
 
-    /// Get the dimension (number of factors) from correlation matrix.
+    /// Infer the matrix dimension from `correlation`.
     pub fn dim(&self) -> Option<usize> {
         self.correlation.as_ref().and_then(|corr| {
             let dim = (corr.len() as f64).sqrt() as usize;
@@ -393,6 +430,15 @@ impl ProcessParams {
     }
 
     /// Validate metadata consistency for captured-path consumers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when:
+    ///
+    /// * `correlation` is present but is not a square matrix
+    /// * `correlation` is present but empty
+    /// * `factor_names` is present and its length does not match the implied
+    ///   correlation dimension
     pub fn validate(&self) -> Result<()> {
         if let Some(correlation) = &self.correlation {
             let dim = self.dim().ok_or_else(|| {
@@ -420,24 +466,24 @@ impl ProcessParams {
     }
 }
 
-/// Collection of simulated paths with metadata.
+/// Captured-path collection plus the metadata needed to interpret it.
 ///
-/// This structure holds captured paths along with information about
-/// the simulation parameters and sampling method used.
+/// The dataset may contain every path or only a deterministic sample of the
+/// full simulation, depending on the value of `sampling_method`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PathDataset {
-    /// Captured paths
+    /// Captured paths in deterministic order.
     pub paths: Vec<SimulatedPath>,
-    /// Total number of paths in the full simulation
+    /// Total number of paths simulated by the engine.
     pub num_paths_total: usize,
-    /// Sampling method used
+    /// Sampling method used to retain `paths`.
     pub sampling_method: PathSamplingMethod,
-    /// Process parameters and metadata
+    /// Metadata needed to interpret captured state vectors.
     pub process_params: ProcessParams,
 }
 
 impl PathDataset {
-    /// Create a new path dataset.
+    /// Create an empty captured-path dataset.
     pub fn new(
         num_paths_total: usize,
         sampling_method: PathSamplingMethod,
@@ -456,7 +502,7 @@ impl PathDataset {
         }
     }
 
-    /// Create with preallocated capacity.
+    /// Create an empty dataset with explicit vector capacity.
     pub fn with_capacity(
         capacity: usize,
         num_paths_total: usize,
@@ -471,12 +517,12 @@ impl PathDataset {
         }
     }
 
-    /// Add a simulated path.
+    /// Append a captured path to the dataset.
     pub fn add_path(&mut self, path: SimulatedPath) {
         self.paths.push(path);
     }
 
-    /// Get the number of captured paths.
+    /// Return the number of captured paths currently stored.
     pub fn num_captured(&self) -> usize {
         self.paths.len()
     }
@@ -486,12 +532,12 @@ impl PathDataset {
         self.paths.get(index)
     }
 
-    /// Check if all paths were captured.
+    /// Return `true` when the dataset contains every simulated path.
     pub fn is_complete(&self) -> bool {
         self.sampling_method == PathSamplingMethod::All && self.paths.len() == self.num_paths_total
     }
 
-    /// Get the sampling ratio (captured / total).
+    /// Return `num_captured / num_paths_total`.
     pub fn sampling_ratio(&self) -> f64 {
         if self.num_paths_total == 0 {
             0.0
@@ -500,10 +546,11 @@ impl PathDataset {
         }
     }
 
-    /// Get the state variable names from the process metadata.
+    /// Return names describing the captured state-vector layout.
     ///
-    /// Returns the factor names if available, otherwise returns generic names
-    /// based on the maximum state dimension found in the dataset.
+    /// Returns `process_params.factor_names` when available. Otherwise the names
+    /// are synthesized as `state_0`, `state_1`, ... based on the widest
+    /// captured state vector in the dataset.
     pub fn state_var_keys(&self) -> Vec<String> {
         // Use factor names from process metadata if available
         if !self.process_params.factor_names.is_empty() {

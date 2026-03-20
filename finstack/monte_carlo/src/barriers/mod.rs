@@ -1,6 +1,9 @@
-//! Barrier handling for Monte Carlo.
+//! Barrier-monitoring helpers for Monte Carlo pricing.
 //!
-//! Implements Brownian bridge corrections and barrier adjustments.
+//! These modules are used by barrier payoffs and other first-passage-style
+//! diagnostics. [`bridge`] models continuous barrier hits between monitoring
+//! dates, while [`corrections`] provides continuity adjustments that reduce the
+//! bias of discretely monitored simulations.
 
 #[cfg(feature = "mc")]
 pub mod bridge;

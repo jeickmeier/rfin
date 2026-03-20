@@ -1,6 +1,12 @@
-//! Payoff specifications for Monte Carlo pricing.
+//! Payoff definitions for Monte Carlo pricing.
 //!
-//! All payoffs return `Money` types for currency safety.
+//! Start with [`vanilla`] for European call / put, digital, and forward-style
+//! payoffs. Under the `mc` feature this module adds path-dependent payoffs such
+//! as Asian, barrier, basket, and lookback contracts.
+//!
+//! All payoffs return [`finstack_core::money::Money`] for currency safety and
+//! are evaluated on a mutable [`crate::traits::PathState`], which lets them
+//! inspect named state variables and record path-level cashflows.
 
 pub mod traits;
 pub mod vanilla;

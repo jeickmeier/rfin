@@ -1,6 +1,18 @@
-//! Vanilla option payoffs (European call, put, digital, forward).
+//! Vanilla Monte Carlo payoffs.
 //!
-//! All payoffs return Money types for currency safety.
+//! These payoffs are evaluated against a single terminal spot observed at
+//! `maturity_step`. The generic engine reports discounted present values, but
+//! each payoff in this module returns an undiscounted
+//! [`finstack_core::money::Money`] amount and relies on the caller or engine to
+//! apply discounting externally.
+//!
+//! # Conventions
+//!
+//! - `strike`, `forward_price`, and observed spots use the same price units.
+//! - `notional` and `payout` scale the terminal payoff linearly in those same units.
+//! - `maturity_step` refers to the path step index, not calendar days. For a
+//!   vanilla payoff to trigger on the terminal simulation point, it should
+//!   usually equal `TimeGrid::num_steps()`.
 
 use super::traits::TerminalPayoff;
 use crate::traits::PathState;
@@ -10,12 +22,9 @@ use finstack_core::money::Money;
 
 /// European call option payoff.
 ///
-/// Payoff: max(S_T - K, 0) × N
+/// Pays `max(S_T - K, 0) * notional` at `maturity_step`.
 ///
-/// where:
-/// - S_T = spot at maturity
-/// - K = strike
-/// - N = notional
+/// `S_T` is the spot stored in [`PathState`] at the configured maturity step.
 #[derive(Debug, Clone)]
 pub struct EuropeanCall {
     /// Strike price
@@ -33,9 +42,13 @@ impl EuropeanCall {
     ///
     /// # Arguments
     ///
-    /// * `strike` - Strike price
-    /// * `notional` - Notional amount
-    /// * `maturity_step` - Time step index for maturity
+    /// * `strike` - Strike price in the same units as the simulated spot.
+    /// * `notional` - Linear payoff scaling.
+    /// * `maturity_step` - Path step index at which the payoff observes `S_T`.
+    ///
+    /// # Returns
+    ///
+    /// A payoff that records the spot when `state.step == maturity_step`.
     pub fn new(strike: f64, notional: f64, maturity_step: usize) -> Self {
         Self {
             strike,
@@ -76,7 +89,7 @@ impl TerminalPayoff for EuropeanCall {
 
 /// European put option payoff.
 ///
-/// Payoff: max(K - S_T, 0) × N
+/// Pays `max(K - S_T, 0) * notional` at `maturity_step`.
 #[derive(Debug, Clone)]
 pub struct EuropeanPut {
     /// Strike price
@@ -91,6 +104,12 @@ pub struct EuropeanPut {
 
 impl EuropeanPut {
     /// Create a new European put payoff.
+    ///
+    /// # Arguments
+    ///
+    /// * `strike` - Strike price in the same units as the simulated spot.
+    /// * `notional` - Linear payoff scaling.
+    /// * `maturity_step` - Path step index at which the payoff observes `S_T`.
     pub fn new(strike: f64, notional: f64, maturity_step: usize) -> Self {
         Self {
             strike,
@@ -131,12 +150,13 @@ impl TerminalPayoff for EuropeanPut {
 
 /// Digital (binary) option payoff.
 ///
-/// Pays fixed amount if condition is met at maturity.
+/// Pays a fixed `payout` amount if the terminal spot satisfies the strike test
+/// at `maturity_step`.
 ///
 /// # Variants
 ///
-/// - Call: pays if S_T > K
-/// - Put: pays if S_T < K
+/// - Call: pays if `S_T > K`
+/// - Put: pays if `S_T < K`
 #[derive(Debug, Clone)]
 pub struct Digital {
     /// Strike price
@@ -152,7 +172,7 @@ pub struct Digital {
 }
 
 impl Digital {
-    /// Create a new digital call (pays if S_T > K).
+    /// Create a digital call that pays `payout` when `S_T > strike`.
     pub fn call(strike: f64, payout: f64, maturity_step: usize) -> Self {
         Self {
             strike,
@@ -163,7 +183,7 @@ impl Digital {
         }
     }
 
-    /// Create a new digital put (pays if S_T < K).
+    /// Create a digital put that pays `payout` when `S_T < strike`.
     pub fn put(strike: f64, payout: f64, maturity_step: usize) -> Self {
         Self {
             strike,
@@ -212,9 +232,10 @@ impl TerminalPayoff for Digital {
 
 /// Forward contract payoff.
 ///
-/// Payoff: (S_T - K) × N
+/// Pays `(S_T - F) * notional` for a long position and `(F - S_T) * notional`
+/// for a short position.
 ///
-/// Note: This is not optionality - the payoff can be negative.
+/// Unlike an option payoff, this amount can be negative.
 #[derive(Debug, Clone)]
 pub struct Forward {
     /// Forward price
@@ -230,7 +251,7 @@ pub struct Forward {
 }
 
 impl Forward {
-    /// Create a new long forward position.
+    /// Create a long forward position.
     pub fn long(forward_price: f64, notional: f64, maturity_step: usize) -> Self {
         Self {
             forward_price,
@@ -241,7 +262,7 @@ impl Forward {
         }
     }
 
-    /// Create a new short forward position.
+    /// Create a short forward position.
     pub fn short(forward_price: f64, notional: f64, maturity_step: usize) -> Self {
         Self {
             forward_price,

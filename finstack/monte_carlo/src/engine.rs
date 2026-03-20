@@ -1,12 +1,44 @@
-//! Monte Carlo simulation engine.
+//! Monte Carlo execution engine and runtime configuration.
 //!
-//! Provides the core execution harness for Monte Carlo simulation with:
-//! - Structure of Arrays (SoA) layout for cache efficiency
-//! - Rayon-based parallelism with deterministic reduction
-//! - Online statistics via Welford's algorithm
-//! - Variance reduction integration
-//! - Auto-stopping on target confidence interval
-//! - Optional path capture for visualization and diagnostics
+//! This module contains the generic simulation loop used throughout the crate.
+//! [`McEngine`] combines a [`RandomStream`], a [`StochasticProcess`], a
+//! compatible [`Discretization`], and a [`Payoff`] into discounted Monte Carlo
+//! estimates.
+//!
+//! The engine provides:
+//!
+//! - reusable serial and parallel path loops
+//! - deterministic path-to-stream mapping for reproducibility
+//! - online mean / variance estimation via Welford's algorithm
+//! - optional early stopping on a target 95% confidence-interval half-width
+//! - optional path capture for visualization and diagnostics
+//! - built-in antithetic pairing in the generic engine loop
+//!
+//! # Important Runtime Constraints
+//!
+//! Several configuration combinations are intentionally rejected at runtime:
+//!
+//! - parallel execution requires an RNG with deterministic stream splitting
+//! - auto-stopping via `target_ci_half_width` is currently serial-only
+//! - path capture cannot be combined with antithetic pairing
+//! - sampled path capture uses deterministic Bernoulli sampling, so the number
+//!   of captured paths is an expected count, not an exact count
+//!
+//! # Conventions
+//!
+//! - `discount_factor` is the present-value multiplier for the payoff horizon
+//!   and must be finite and non-negative.
+//! - Payoffs produce undiscounted [`finstack_core::money::Money`] amounts in the
+//!   requested currency. The engine applies `discount_factor` after each path is
+//!   simulated.
+//! - Confidence intervals are reported on discounted path values.
+//!
+//! # References
+//!
+//! - Online variance accumulation follows
+//!   [`docs/REFERENCES.md#welford-1962`](docs/REFERENCES.md#welford-1962).
+//! - Discounting conventions should be consistent with
+//!   [`docs/REFERENCES.md#hull-options-futures`](docs/REFERENCES.md#hull-options-futures).
 
 use super::results::{MoneyEstimate, MonteCarloResult};
 use super::traits::Payoff;
@@ -28,21 +60,36 @@ use rayon::prelude::*;
 #[cfg(feature = "parallel")]
 use std::sync::Mutex;
 
-/// Path capture mode for Monte Carlo simulation.
+/// Selects how simulated paths are captured for diagnostics.
+///
+/// Use [`PathCaptureMode::All`] when every path should be retained. Use
+/// [`PathCaptureMode::Sample`] when you only need a representative subset for
+/// plotting or debugging.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PathCaptureMode {
-    /// Capture all paths
+    /// Capture every simulated path.
     All,
-    /// Capture a random sample of paths
+    /// Capture a deterministic sample of paths.
+    ///
+    /// The sample is selected by hashing `path_id` together with `seed` and
+    /// comparing the result against the implied sampling probability
+    /// `count / num_paths`. This makes the capture decision reproducible across
+    /// serial and parallel runs, but the realized number of captured paths is
+    /// generally close to `count`, not guaranteed to equal it exactly.
     Sample {
-        /// Number of Monte Carlo paths
+        /// Target number of paths to capture on average.
         count: usize,
-        /// Random seed for reproducibility
+        /// Seed controlling the deterministic sampling decision.
         seed: u64,
     },
 }
 
-/// Configuration for path capture during Monte Carlo simulation.
+/// Configures optional path capture during Monte Carlo pricing.
+///
+/// Captured paths can include state vectors, cashflows, and optionally payoff
+/// snapshots at each time step. The engine validates that sampled capture counts
+/// are between `1` and `num_paths`, and that capture is not combined with
+/// antithetic pricing.
 #[derive(Debug, Clone)]
 pub struct PathCaptureConfig {
     /// Whether path capture is enabled
@@ -54,7 +101,11 @@ pub struct PathCaptureConfig {
 }
 
 impl PathCaptureConfig {
-    /// Create a new path capture config (disabled by default).
+    /// Create a disabled path-capture configuration.
+    ///
+    /// # Returns
+    ///
+    /// A configuration with capture disabled and no payoff snapshots.
     pub fn new() -> Self {
         Self {
             enabled: false,
@@ -63,7 +114,12 @@ impl PathCaptureConfig {
         }
     }
 
-    /// Enable path capture for all paths.
+    /// Enable capture for every simulated path.
+    ///
+    /// # Returns
+    ///
+    /// A configuration that records all paths but does not capture intermediate
+    /// payoff values unless [`Self::with_payoffs`] is called.
     pub fn all() -> Self {
         Self {
             enabled: true,
@@ -72,7 +128,18 @@ impl PathCaptureConfig {
         }
     }
 
-    /// Enable path capture for a sample of paths.
+    /// Enable capture for a deterministic sample of paths.
+    ///
+    /// # Arguments
+    ///
+    /// * `count` - Target number of captured paths on average. Runtime
+    ///   validation requires `1 <= count <= num_paths`.
+    /// * `seed` - Sampling seed used in the hash-based selection rule.
+    ///
+    /// # Returns
+    ///
+    /// A configuration that records an expected sample of paths. The realized
+    /// number of captured paths can differ from `count`.
     pub fn sample(count: usize, seed: u64) -> Self {
         Self {
             enabled: true,
@@ -81,18 +148,37 @@ impl PathCaptureConfig {
         }
     }
 
-    /// Enable payoff capture at each timestep.
+    /// Record payoff snapshots at each captured time step.
+    ///
+    /// # Returns
+    ///
+    /// The same configuration with `capture_payoffs` enabled.
     pub fn with_payoffs(mut self) -> Self {
         self.capture_payoffs = true;
         self
     }
 
-    /// Disable path capture.
+    /// Disable path capture explicitly.
+    ///
+    /// # Returns
+    ///
+    /// A disabled path-capture configuration.
     pub fn disabled() -> Self {
         Self::new()
     }
 
-    /// Check if a path should be captured based on path_id.
+    /// Decide whether a particular path should be captured.
+    ///
+    /// # Arguments
+    ///
+    /// * `path_id` - Zero-based Monte Carlo path identifier.
+    /// * `num_paths` - Total number of simulated paths in the run.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the path should be recorded under the configured capture mode.
+    /// For sampled capture this uses deterministic Bernoulli sampling, so the
+    /// total number of `true` results is approximate.
     pub fn should_capture(&self, path_id: usize, num_paths: usize) -> bool {
         if !self.enabled {
             return false;
@@ -128,7 +214,10 @@ impl Default for PathCaptureConfig {
     }
 }
 
-/// Monte Carlo engine configuration.
+/// Stores the runtime configuration for a Monte Carlo pricing run.
+///
+/// This configuration is consumed by [`McEngine`] and can either be built
+/// manually or via [`McEngineBuilder`]. All time values are year fractions.
 #[derive(Debug, Clone)]
 pub struct McEngineConfig {
     /// Number of paths to simulate
@@ -150,7 +239,18 @@ pub struct McEngineConfig {
 }
 
 impl McEngineConfig {
-    /// Create a new configuration with defaults.
+    /// Create a configuration with default runtime options.
+    ///
+    /// # Arguments
+    ///
+    /// * `num_paths` - Requested number of Monte Carlo paths. Runtime validation
+    ///   requires this to be greater than zero.
+    /// * `time_grid` - Simulation grid in year fractions.
+    ///
+    /// # Returns
+    ///
+    /// A configuration using seed `42`, adaptive parallel defaults, disabled
+    /// path capture, and no antithetic pairing.
     pub fn new(num_paths: usize, time_grid: TimeGrid) -> Self {
         Self {
             num_paths,
@@ -164,56 +264,66 @@ impl McEngineConfig {
         }
     }
 
-    /// Set random seed.
+    /// Set the root RNG seed used by the engine.
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self
     }
 
-    /// Set target CI half-width for auto-stopping.
+    /// Set the target 95% CI half-width for serial auto-stopping.
+    ///
+    /// The engine currently rejects this option when `use_parallel` is `true`.
     pub fn with_target_ci(mut self, target: f64) -> Self {
         self.target_ci_half_width = Some(target);
         self
     }
 
-    /// Enable/disable parallel execution.
+    /// Enable or disable parallel execution.
+    ///
+    /// If the crate is built without the `parallel` feature this setter leaves
+    /// `use_parallel` as `false` even when `parallel` is `true`.
     pub fn with_parallel(mut self, parallel: bool) -> Self {
         self.use_parallel = parallel && cfg!(feature = "parallel");
         self
     }
 
-    /// Set parallel chunk size.
+    /// Set the parallel chunk size.
+    ///
+    /// A value of `1000` keeps the engine's adaptive chunking behavior. Runtime
+    /// validation rejects `0`.
     pub fn with_chunk_size(mut self, size: usize) -> Self {
         self.chunk_size = size;
         self
     }
 
-    /// Set path capture configuration.
+    /// Install a path-capture configuration for the run.
     pub fn with_path_capture(mut self, config: PathCaptureConfig) -> Self {
         self.path_capture = config;
         self
     }
 
-    /// Enable/disable antithetic variance reduction.
+    /// Enable or disable antithetic path pairing.
+    ///
+    /// Path capture and antithetic pricing are currently mutually exclusive.
     pub fn with_antithetic(mut self, enabled: bool) -> Self {
         self.antithetic = enabled;
         self
     }
 
-    /// Enable path capture for all paths.
+    /// Convenience helper equivalent to `with_path_capture(PathCaptureConfig::all())`.
     pub fn capture_all_paths(mut self) -> Self {
         self.path_capture = PathCaptureConfig::all();
         self
     }
 
-    /// Enable path capture for a sample.
+    /// Convenience helper equivalent to `with_path_capture(PathCaptureConfig::sample(count, seed))`.
     pub fn capture_sample_paths(mut self, count: usize, seed: u64) -> Self {
         self.path_capture = PathCaptureConfig::sample(count, seed);
         self
     }
 }
 
-/// Monte Carlo engine builder.
+/// Builder for [`McEngine`] with ergonomic defaults.
 pub struct McEngineBuilder {
     num_paths: usize,
     seed: u64,
@@ -226,7 +336,11 @@ pub struct McEngineBuilder {
 }
 
 impl McEngineBuilder {
-    /// Create a new builder.
+    /// Create a builder with default settings.
+    ///
+    /// The builder defaults to `100_000` paths, seed `42`, the crate's parallel
+    /// default, and no time grid. You must provide a valid grid via
+    /// [`Self::time_grid`] or [`Self::uniform_grid`] before calling [`Self::build`].
     pub fn new() -> Self {
         Self {
             num_paths: 100_000,
@@ -240,73 +354,91 @@ impl McEngineBuilder {
         }
     }
 
-    /// Set number of paths.
+    /// Set the requested number of paths.
     pub fn num_paths(mut self, n: usize) -> Self {
         self.num_paths = n;
         self
     }
 
-    /// Set random seed.
+    /// Set the root RNG seed.
     pub fn seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self
     }
 
-    /// Set time grid (required).
+    /// Set the simulation time grid.
     pub fn time_grid(mut self, grid: TimeGrid) -> Self {
         self.time_grid = Some(grid);
         self
     }
 
-    /// Set uniform time grid (convenience).
+    /// Set a uniform time grid in year fractions.
+    ///
+    /// # Arguments
+    ///
+    /// * `t_max` - Final simulation time in years.
+    /// * `num_steps` - Number of time steps between `0` and `t_max`.
+    ///
+    /// # Returns
+    ///
+    /// The builder with `time_grid` populated if `TimeGrid::uniform` succeeds.
+    /// Invalid inputs leave the builder without a grid, causing
+    /// [`Self::build`] to return an error later.
     pub fn uniform_grid(mut self, t_max: f64, num_steps: usize) -> Self {
         self.time_grid = TimeGrid::uniform(t_max, num_steps).ok();
         self
     }
 
-    /// Set target CI half-width for auto-stopping.
+    /// Set the target 95% CI half-width for serial auto-stopping.
     pub fn target_ci(mut self, target: f64) -> Self {
         self.target_ci = Some(target);
         self
     }
 
-    /// Enable/disable parallel execution.
+    /// Enable or disable parallel execution.
     pub fn parallel(mut self, enable: bool) -> Self {
         self.parallel = enable && cfg!(feature = "parallel");
         self
     }
 
-    /// Set parallel chunk size.
+    /// Set the parallel chunk size.
     pub fn chunk_size(mut self, size: usize) -> Self {
         self.chunk_size = size;
         self
     }
 
-    /// Set path capture configuration.
+    /// Install a path-capture configuration.
     pub fn path_capture(mut self, config: PathCaptureConfig) -> Self {
         self.path_capture = config;
         self
     }
 
-    /// Enable path capture for all paths.
+    /// Capture every path in the run.
     pub fn capture_all_paths(mut self) -> Self {
         self.path_capture = PathCaptureConfig::all();
         self
     }
 
-    /// Enable path capture for a sample.
+    /// Capture a deterministic sample of paths.
     pub fn capture_sample_paths(mut self, count: usize, seed: u64) -> Self {
         self.path_capture = PathCaptureConfig::sample(count, seed);
         self
     }
 
-    /// Enable/disable antithetic variance reduction.
+    /// Enable or disable antithetic path pairing.
     pub fn antithetic(mut self, enable: bool) -> Self {
         self.antithetic = enable;
         self
     }
 
-    /// Build the engine.
+    /// Build an [`McEngine`] from the accumulated settings.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when no valid time grid has been configured. This
+    /// commonly happens when neither [`Self::time_grid`] nor
+    /// [`Self::uniform_grid`] was called, or when `uniform_grid` was called with
+    /// invalid inputs.
     pub fn build(self) -> Result<McEngine> {
         let time_grid = self.time_grid.ok_or(finstack_core::InputError::Invalid)?;
 
@@ -331,10 +463,11 @@ impl Default for McEngineBuilder {
     }
 }
 
-/// Monte Carlo simulation engine.
+/// Generic Monte Carlo execution engine.
 ///
-/// The engine executes Monte Carlo simulation for a given process,
-/// discretization, and payoff, returning statistical estimates.
+/// [`McEngine`] prices a payoff by simulating discounted path values under a
+/// supplied process and discretization scheme. It can run serially or in
+/// parallel and optionally capture paths for diagnostics.
 pub struct McEngine {
     config: McEngineConfig,
 }
@@ -365,17 +498,17 @@ fn parallel_path_chunks(num_paths: usize, chunk_size: usize) -> Vec<Range<usize>
 }
 
 impl McEngine {
-    /// Create a builder for the engine.
+    /// Create a builder with the crate's default engine settings.
     pub fn builder() -> McEngineBuilder {
         McEngineBuilder::new()
     }
 
-    /// Create a new engine with the given configuration.
+    /// Create an engine from an explicit configuration.
     pub fn new(config: McEngineConfig) -> Self {
         Self { config }
     }
 
-    /// Get the engine configuration.
+    /// Borrow the engine configuration.
     pub fn config(&self) -> &McEngineConfig {
         &self.config
     }
@@ -465,7 +598,7 @@ impl McEngine {
         Ok(())
     }
 
-    /// Price a payoff using Monte Carlo simulation.
+    /// Price a payoff via discounted Monte Carlo simulation.
     ///
     /// # Type Parameters
     ///
@@ -476,17 +609,63 @@ impl McEngine {
     ///
     /// # Arguments
     ///
-    /// * `rng` - Random number generator
-    /// * `process` - Stochastic process
-    /// * `disc` - Discretization scheme
-    /// * `initial_state` - Initial state vector
-    /// * `payoff` - Payoff specification
-    /// * `currency` - Currency for result
-    /// * `discount_factor` - Optional discount factor (default 1.0)
+    /// * `rng` - Random stream used to generate per-path shocks.
+    /// * `process` - Stochastic process defining drift, diffusion, and state layout.
+    /// * `disc` - Time-stepping scheme compatible with `process`.
+    /// * `initial_state` - Initial process state. Its length must equal `process.dim()`.
+    /// * `payoff` - Payoff accumulator evaluated on each simulated path.
+    /// * `currency` - Currency tag for the returned [`MoneyEstimate`].
+    /// * `discount_factor` - Present-value multiplier for the payoff horizon.
     ///
     /// # Returns
     ///
-    /// Statistical estimate with mean, stderr, and confidence interval.
+    /// A discounted Monte Carlo estimate in `currency`, including the mean,
+    /// standard error, and 95% confidence interval of discounted path values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when:
+    ///
+    /// * `num_paths == 0`
+    /// * `chunk_size == 0`
+    /// * `initial_state.len() != process.dim()`
+    /// * `discount_factor` is not finite or is negative
+    /// * `target_ci_half_width` is non-positive or combined with parallel mode
+    /// * parallel mode is requested with an RNG that does not support splitting
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_monte_carlo::prelude::*;
+    ///
+    /// let engine = McEngine::builder()
+    ///     .num_paths(25_000)
+    ///     .seed(11)
+    ///     .uniform_grid(1.0, 252)
+    ///     .build()
+    ///     .expect("valid Monte Carlo configuration");
+    ///
+    /// let rng = PhiloxRng::new(11);
+    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+    /// let disc = ExactGbm::new();
+    /// let payoff = EuropeanCall::new(100.0, 1.0, 252);
+    /// let discount_factor = (-0.03_f64).exp();
+    ///
+    /// let result = engine
+    ///     .price(
+    ///         &rng,
+    ///         &process,
+    ///         &disc,
+    ///         &[100.0],
+    ///         &payoff,
+    ///         Currency::USD,
+    ///         discount_factor,
+    ///     )
+    ///     .expect("pricing should succeed");
+    ///
+    /// assert!(result.mean.amount() >= 0.0);
+    /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn price<R, P, D, F>(
         &self,
@@ -531,16 +710,66 @@ impl McEngine {
         Ok(MoneyEstimate::from_estimate(estimate, currency))
     }
 
-    /// Price with path capture support.
+    /// Price a payoff and optionally return captured paths.
     ///
-    /// This method is identical to `price` but returns a `MonteCarloResult` which
-    /// includes optional captured paths based on the engine configuration.
+    /// This method extends [`Self::price`] by validating and attaching
+    /// [`ProcessParams`] metadata and by returning a [`MonteCarloResult`] that
+    /// may include a [`PathDataset`].
     ///
     /// # Arguments
     ///
-    /// * `process_params` - Process parameters metadata for path dataset
+    /// * `process_params` - Metadata describing the captured state layout,
+    ///   process parameters, and optional correlation matrix.
     ///
-    /// For other arguments, see `price`.
+    /// For the other arguments, see [`Self::price`].
+    ///
+    /// # Returns
+    ///
+    /// A Monte Carlo result containing the discounted estimate and, when path
+    /// capture is enabled, a captured-path dataset.
+    ///
+    /// # Errors
+    ///
+    /// Returns the same errors as [`Self::price`], plus any validation error
+    /// raised by [`ProcessParams::validate`](crate::paths::ProcessParams::validate).
+    /// The engine also rejects `antithetic = true` together with path capture.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_monte_carlo::prelude::*;
+    ///
+    /// let engine = McEngine::builder()
+    ///     .num_paths(2_000)
+    ///     .seed(5)
+    ///     .uniform_grid(1.0, 12)
+    ///     .path_capture(PathCaptureConfig::sample(100, 17).with_payoffs())
+    ///     .build()
+    ///     .expect("valid Monte Carlo configuration");
+    ///
+    /// let rng = PhiloxRng::new(5);
+    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+    /// let disc = ExactGbm::new();
+    /// let payoff = EuropeanCall::new(100.0, 1.0, 12);
+    /// let discount_factor = (-0.03_f64).exp();
+    /// let process_params = ProcessParams::new("GBM").with_factors(vec!["spot".to_string()]);
+    ///
+    /// let result = engine
+    ///     .price_with_capture(
+    ///         &rng,
+    ///         &process,
+    ///         &disc,
+    ///         &[100.0],
+    ///         &payoff,
+    ///         Currency::USD,
+    ///         discount_factor,
+    ///         process_params,
+    ///     )
+    ///     .expect("pricing with capture should succeed");
+    ///
+    /// assert!(result.estimate.mean.amount().is_finite());
+    /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn price_with_capture<R, P, D, F>(
         &self,
