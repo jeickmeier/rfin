@@ -24,10 +24,10 @@ fn create_test_market(as_of: Date) -> MarketContext {
         .expect("should build");
 
     // Create FX provider with CNY/USD = 7.25
-    let fx_provider =
-{
+    let fx_provider = {
         let p = Arc::new(SimpleFxProvider::new());
-        p.set_quote(Currency::CNY, Currency::USD, 7.25).expect("valid rate");
+        p.set_quote(Currency::CNY, Currency::USD, 7.25)
+            .expect("valid rate");
         p
     };
     let fx_matrix = FxMatrix::new(fx_provider);
@@ -220,10 +220,10 @@ fn test_ndf_pricing_with_foreign_curve() {
         .build()
         .expect("should build");
 
-    let fx_provider =
-{
+    let fx_provider = {
         let p = Arc::new(SimpleFxProvider::new());
-        p.set_quote(Currency::CNY, Currency::USD, 7.25).expect("valid rate");
+        p.set_quote(Currency::CNY, Currency::USD, 7.25)
+            .expect("valid rate");
         p
     };
     let fx_matrix = FxMatrix::new(fx_provider);

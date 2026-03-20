@@ -539,10 +539,11 @@ fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
     };
 
     // Build v1 model
-    let model_v1 = real_estate::add_rent_roll_rental_revenue(make_base(), &[v1_lease], "total_rent")
-        .expect("v1 rent roll")
-        .build()
-        .expect("valid model");
+    let model_v1 =
+        real_estate::add_rent_roll_rental_revenue(make_base(), &[v1_lease], "total_rent")
+            .expect("v1 rent roll")
+            .build()
+            .expect("valid model");
 
     // Build v2 model
     let nodes = RentRollOutputNodes::default();

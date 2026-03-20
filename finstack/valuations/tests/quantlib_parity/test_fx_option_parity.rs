@@ -16,10 +16,10 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
     Attributes, FxOption, Instrument, PricingOverrides, SettlementType,
 };
+use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;
 use time::Month;

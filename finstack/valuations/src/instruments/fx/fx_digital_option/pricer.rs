@@ -513,7 +513,9 @@ mod tests {
             .build()
             .expect("vol surface");
         let provider = SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 1.20).expect("valid rate");
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.20)
+            .expect("valid rate");
         let fx_matrix = FxMatrix::new(Arc::new(provider));
 
         MarketContext::new()

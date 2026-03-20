@@ -190,7 +190,6 @@ impl ArbitrageViolation {
             }
         }
     }
-
 }
 
 impl core::fmt::Display for ArbitrageViolation {

@@ -190,8 +190,8 @@ mod mc_invariants {
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
     use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
-    use finstack_valuations::instruments::OptionType;
     use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::OptionType;
     use time::macros::date;
 
     fn create_mc_market(spot: f64, vol: f64, rate: f64) -> MarketContext {

@@ -947,7 +947,9 @@ mod tests {
         let eur = CurrencyScalarInstrument::new("EUR-INST", "EUR-INST", Currency::EUR);
 
         let provider = finstack_core::money::fx::SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 2.0).expect("valid rate");
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 2.0)
+            .expect("valid rate");
         let fx = finstack_core::money::fx::FxMatrix::new(Arc::new(provider));
 
         let base_market = MarketContext::new()
@@ -1184,7 +1186,9 @@ mod tests {
             .expect("valid FX option");
 
         let provider = SimpleFxProvider::new();
-        provider.set_quote(Currency::EUR, Currency::USD, 1.17).expect("valid rate");
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.17)
+            .expect("valid rate");
         let fx = FxMatrix::new(Arc::new(provider));
 
         let usd_disc = DiscountCurve::builder("USD-OIS")

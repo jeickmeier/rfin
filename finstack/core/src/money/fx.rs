@@ -402,8 +402,7 @@ impl FxMatrix {
                 "FxConfig.cache_capacity must be > 0".to_string(),
             ));
         }
-        let capacity = NonZeroUsize::new(config.cache_capacity)
-            .unwrap_or(NonZeroUsize::MIN);
+        let capacity = NonZeroUsize::new(config.cache_capacity).unwrap_or(NonZeroUsize::MIN);
         let quotes = LruCache::new(capacity);
         let observed_quotes = LruCache::new(capacity);
         Ok(Self {

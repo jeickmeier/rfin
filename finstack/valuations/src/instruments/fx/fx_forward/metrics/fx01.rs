@@ -118,7 +118,9 @@ mod tests {
             .expect("should build");
 
         let fx_provider = Arc::new(SimpleFxProvider::new());
-        fx_provider.set_quote(Currency::EUR, Currency::USD, 1.10).expect("valid rate");
+        fx_provider
+            .set_quote(Currency::EUR, Currency::USD, 1.10)
+            .expect("valid rate");
         let fx_matrix = FxMatrix::new(fx_provider);
 
         MarketContext::new()

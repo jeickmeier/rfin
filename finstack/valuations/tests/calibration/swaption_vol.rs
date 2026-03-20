@@ -13,10 +13,10 @@ use finstack_valuations::calibration::api::schema::{
     SwaptionVolConvention, SwaptionVolParams,
 };
 use finstack_valuations::calibration::CalibrationConfig;
-use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::rates::swaption::{
     Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,
 };
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::{Instrument, PricingOverrides};
 use finstack_valuations::market::conventions::ids::SwaptionConventionId;
 use finstack_valuations::market::quotes::market_quote::MarketQuote;

@@ -74,15 +74,16 @@ fn create_base_market() -> MarketContext {
         .unwrap();
 
     // FX matrix
-    let fx_provider = Arc::new(
-{
-            let p = SimpleFxProvider::new();
-            p.set_quote(Currency::EUR, Currency::USD, 1.10).expect("valid rate");
-            p.set_quote(Currency::GBP, Currency::USD, 1.25).expect("valid rate");
-            p.set_quote(Currency::JPY, Currency::USD, 0.0067).expect("valid rate");
-            p
-        },
-    );
+    let fx_provider = Arc::new({
+        let p = SimpleFxProvider::new();
+        p.set_quote(Currency::EUR, Currency::USD, 1.10)
+            .expect("valid rate");
+        p.set_quote(Currency::GBP, Currency::USD, 1.25)
+            .expect("valid rate");
+        p.set_quote(Currency::JPY, Currency::USD, 0.0067)
+            .expect("valid rate");
+        p
+    });
     let fx_matrix = FxMatrix::new(fx_provider);
 
     // Vol surface
