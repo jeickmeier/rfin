@@ -174,11 +174,7 @@ impl JsEquityOptionBuilder {
             }
         };
 
-        let underlying = EquityUnderlyingParams::new(
-            ticker,
-            spot_id.as_str(),
-            notional.currency(),
-        );
+        let underlying = EquityUnderlyingParams::new(ticker, spot_id.as_str(), notional.currency());
         let underlying = match div_yield_id.as_deref() {
             Some(div_yield_id) => underlying.with_dividend_yield(div_yield_id),
             None => underlying,
