@@ -5,6 +5,11 @@
 //! ```rust
 //! use finstack_statements::prelude::*;
 //! ```
+//!
+//! This prelude is intentionally broad: it re-exports the most common
+//! `finstack-statements` types plus the full `finstack_core::prelude::*`.
+//! Prefer importing from the source module directly when you want a narrower API
+//! boundary in libraries or examples aimed at teaching a specific subsystem.
 
 pub use crate::analysis::{
     BridgeChart, BridgeStep, CorporateAnalysis, CorporateAnalysisBuilder, CreditInstrumentAnalysis,

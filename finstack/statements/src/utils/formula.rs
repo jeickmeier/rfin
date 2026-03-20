@@ -97,7 +97,7 @@ pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<S
 ///
 /// # Returns
 ///
-/// Returns a set of [`NodeId`]s that are direct dependencies in the current period.
+/// Returns a set of `NodeId` values that are direct dependencies in the current period.
 pub fn extract_direct_dependencies(formula: &str) -> crate::error::Result<IndexSet<NodeId>> {
     let ast = parse_formula(formula)?;
     let mut identifiers: IndexSet<String> = IndexSet::new();

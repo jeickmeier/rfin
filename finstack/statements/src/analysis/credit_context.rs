@@ -6,6 +6,9 @@ use finstack_core::dates::{Period, PeriodId};
 use serde::{Deserialize, Serialize};
 
 /// Per-instrument credit context metrics derived from statement data.
+///
+/// Ratios are stored as plain scalars, so `2.0` means `2.0x` coverage and
+/// `0.40` means `40%` loan-to-value.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CreditContextMetrics {
     /// DSCR by period: coverage_node_value / (interest + principal)
@@ -26,12 +29,79 @@ pub struct CreditContextMetrics {
 /// capital structure cashflows to compute DSCR, interest coverage, and LTV.
 ///
 /// # Arguments
-/// * `statement` - Evaluated statement results containing the coverage node values
+///
+/// * `statement` - Evaluated statement results containing the coverage node
+///   values
 /// * `cs_cashflows` - Capital structure cashflows from evaluation
 /// * `instrument_id` - Which instrument to compute metrics for
-/// * `coverage_node` - Statement node used as coverage numerator (e.g., "ebitda")
+/// * `coverage_node` - Statement node used as the coverage numerator, typically
+///   EBITDA or EBIT
 /// * `periods` - Periods over which to compute metrics
-/// * `reference_value` - Optional reference value for LTV (e.g., enterprise value)
+/// * `reference_value` - Optional denominator for LTV, typically enterprise
+///   value or collateral value
+///
+/// # Returns
+///
+/// Returns [`CreditContextMetrics`]. If the instrument is absent from
+/// `cs_cashflows`, the result is empty rather than fallible so callers can
+/// aggregate over partial capital structures.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_statements::analysis::compute_credit_context;
+/// use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
+/// use finstack_statements::evaluator::StatementResult;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::{Period, PeriodId};
+/// use finstack_core::money::Money;
+/// use indexmap::IndexMap;
+///
+/// let mut results = StatementResult::new();
+/// results.nodes.insert(
+///     "ebitda".to_string(),
+///     IndexMap::from([(PeriodId::quarter(2025, 1), 300_000.0)]),
+/// );
+///
+/// let period = Period {
+///     id: PeriodId::quarter(2025, 1),
+///     start: time::macros::date!(2025 - 01 - 01),
+///     end: time::macros::date!(2025 - 04 - 01),
+///     is_actual: false,
+/// };
+///
+/// let mut cs = CapitalStructureCashflows::new();
+/// cs.by_instrument.insert(
+///     "TLB".to_string(),
+///     IndexMap::from([(
+///         period.id,
+///         CashflowBreakdown {
+///             interest_expense_cash: Money::new(50_000.0, Currency::USD),
+///             interest_expense_pik: Money::new(0.0, Currency::USD),
+///             principal_payment: Money::new(100_000.0, Currency::USD),
+///             fees: Money::new(0.0, Currency::USD),
+///             debt_balance: Money::new(4_000_000.0, Currency::USD),
+///             accrued_interest: Money::new(0.0, Currency::USD),
+///         },
+///     )]),
+/// );
+///
+/// let metrics = compute_credit_context(
+///     &results,
+///     &cs,
+///     "TLB",
+///     "ebitda",
+///     std::slice::from_ref(&period),
+///     Some(10_000_000.0),
+/// );
+///
+/// assert_eq!(metrics.dscr.len(), 1);
+/// assert_eq!(metrics.interest_coverage.len(), 1);
+/// ```
+///
+/// # References
+///
+/// - Coverage and leverage interpretation: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 pub fn compute_credit_context(
     statement: &StatementResult,
     cs_cashflows: &CapitalStructureCashflows,

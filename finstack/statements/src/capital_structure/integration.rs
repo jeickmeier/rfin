@@ -36,7 +36,13 @@ fn period_snapshot_date(period: &Period) -> Date {
 /// This helper extracts flows for a specific period from an instrument's full schedule,
 /// returning a CashflowBreakdown for that period. Used for dynamic period-by-period evaluation.
 ///
+/// Periods are treated with half-open semantics `[start, end)`. End-of-period
+/// balances and accruals are therefore snapped at `period.end - 1 day` so
+/// cashflows occurring exactly on the next period boundary are not attributed
+/// to the prior period.
+///
 /// # Arguments
+///
 /// * `instrument` - The instrument to calculate flows for
 /// * `period` - The period to extract flows for
 /// * `opening_balance` - Opening balance at the start of the period
@@ -44,7 +50,21 @@ fn period_snapshot_date(period: &Period) -> Date {
 /// * `as_of` - Valuation date
 ///
 /// # Returns
-/// CashflowBreakdown for the period and closing balance
+///
+/// Returns a tuple of:
+/// - [`CashflowBreakdown`] for the period
+/// - closing balance after scheduled flows
+/// - evaluation warnings for ignored or unsupported cashflow kinds
+///
+/// # Errors
+///
+/// Returns an error if the instrument schedule cannot be built, if currencies
+/// are inconsistent, or if accrued interest cannot be computed.
+///
+/// # References
+///
+/// - Cashflow discounting and schedule context: `docs/REFERENCES.md#hull-options-futures`
+/// - Fixed-income balance/risk interpretation: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 pub fn calculate_period_flows(
     instrument: &dyn CashflowProvider,
     period: &Period,

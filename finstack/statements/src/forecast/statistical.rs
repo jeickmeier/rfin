@@ -146,11 +146,25 @@ fn box_muller_sample(rng: &mut Pcg64Rng) -> f64 {
 ///
 /// Samples from a normal distribution N(mean, std_dev^2) for each forecast period.
 ///
-/// # Parameters
+/// # Arguments
 ///
-/// * `mean` - Mean of the distribution
-/// * `std_dev` - Standard deviation
-/// * `seed` - Random seed for deterministic sampling (required)
+/// * `base_value` - Unused for this method; included for API compatibility with
+///   other forecast helpers
+/// * `forecast_periods` - Periods to simulate
+/// * `params` - JSON parameter map containing `mean`, `std_dev`, and `seed`
+///
+/// `mean` and `std_dev` are expressed in the same units as the returned
+/// series. `seed` must be integer-like and is required for deterministic
+/// sampling.
+///
+/// # Returns
+///
+/// Returns one simulated scalar per forecast period.
+///
+/// # Errors
+///
+/// Returns an error if the parameter map is incomplete, if `std_dev` is
+/// negative, or if simulation produces a non-finite value.
 ///
 /// # Example
 ///
@@ -174,6 +188,11 @@ fn box_muller_sample(rng: &mut Pcg64Rng) -> f64 {
 /// # Ok(())
 /// # }
 /// ```
+///
+/// # References
+///
+/// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
+/// - Numerical sampling techniques: `docs/REFERENCES.md#press-numerical-recipes`
 pub fn normal_forecast(
     _base_value: f64,
     forecast_periods: &[PeriodId],
@@ -203,11 +222,24 @@ pub fn normal_forecast(
 ///
 /// Samples from a log-normal distribution. All values are positive.
 ///
-/// # Parameters
+/// # Arguments
 ///
-/// * `mean` - Mean of the underlying normal distribution
-/// * `std_dev` - Standard deviation of the underlying normal distribution
-/// * `seed` - Random seed for deterministic sampling (required)
+/// * `base_value` - Unused for this method; included for API compatibility with
+///   other forecast helpers
+/// * `forecast_periods` - Periods to simulate
+/// * `params` - JSON parameter map containing `mean`, `std_dev`, and `seed`
+///
+/// `mean` and `std_dev` describe the underlying normal distribution, so the
+/// returned series is always positive after exponentiation.
+///
+/// # Returns
+///
+/// Returns one positive simulated scalar per forecast period.
+///
+/// # Errors
+///
+/// Returns an error if the parameter map is incomplete, if `std_dev` is
+/// negative, or if exponentiation produces a non-finite value.
 ///
 /// # Example
 ///
@@ -230,6 +262,11 @@ pub fn normal_forecast(
 /// # Ok(())
 /// # }
 /// ```
+///
+/// # References
+///
+/// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
+/// - Numerical sampling techniques: `docs/REFERENCES.md#press-numerical-recipes`
 pub fn lognormal_forecast(
     _base_value: f64,
     forecast_periods: &[PeriodId],

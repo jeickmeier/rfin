@@ -16,6 +16,11 @@ use serde::{Deserialize, Serialize};
 /// via the `cs.*` namespace. It keeps both per-instrument details and totals so
 /// that downstream consumers can drill down or report aggregates.
 ///
+/// Monetary fields are stored as [`Money`] to preserve currency identity. The
+/// accessor methods return raw `f64` amounts in the reporting currency for
+/// convenience; callers that need full currency fidelity should inspect the
+/// underlying maps directly.
+///
 /// # Example
 ///
 /// ```rust
@@ -66,6 +71,10 @@ pub struct CapitalStructureCashflows {
 }
 
 /// Breakdown of cashflows by type for a single period.
+///
+/// Outflow-like fields such as interest, fees, and principal payments are
+/// stored as positive amounts representing debt service paid or accrued during
+/// the period.
 ///
 /// # Breaking Change (v2.0)
 ///
@@ -191,6 +200,11 @@ impl CapitalStructureCashflows {
     /// * `instrument_id` - Identifier supplied when the instrument was added to the model
     /// * `period_id` - Period for which the cashflow should be returned
     ///
+    /// # Returns
+    ///
+    /// Returns the total interest expense in the instrument's native currency as
+    /// a scalar amount.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -281,7 +295,14 @@ impl CapitalStructureCashflows {
     /// Get total interest expense (cash + PIK) across all instruments for a period.
     ///
     /// # Arguments
+    ///
     /// * `period_id` - Period to inspect
+    ///
+    /// # Returns
+    ///
+    /// Returns total interest in the reporting currency. If reporting totals are
+    /// unavailable because multiple currencies are present and no FX conversion
+    /// was supplied, this function returns an error.
     pub fn get_total_interest(&self, period_id: &PeriodId) -> Result<f64> {
         self.reporting_total(period_id, |cf| cf.interest_expense_total().amount())
     }
@@ -489,6 +510,10 @@ mod tests {
 /// Waterfall specification for dynamic cash flow allocation.
 ///
 /// Defines the priority of payments and sweep mechanics for capital structure.
+///
+/// Payment priorities and optional sweep / PIK controls model common leveraged
+/// finance behavior where scheduled debt service, excess cash flow sweeps, and
+/// equity leakage compete for the same cash pool.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct WaterfallSpec {
@@ -566,6 +591,10 @@ pub enum PaymentPriority {
 ///
 /// Set `cash_interest_node` to include cash interest in the deduction (recommended
 /// for LBO models). If omitted, cash interest is not deducted (legacy behavior).
+///
+/// # References
+///
+/// - Fixed-income and leverage context: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EcfSweepSpec {
@@ -608,6 +637,8 @@ pub struct EcfSweepSpec {
 /// Set `min_periods_in_pik` to prevent oscillation when the liquidity metric
 /// hovers near the threshold. Once PIK is triggered, it stays active for at
 /// least that many periods before it can switch back.
+///
+/// Thresholds use the same scalar units as the referenced `liquidity_metric`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PikToggleSpec {
@@ -631,6 +662,9 @@ pub struct PikToggleSpec {
 /// Capital structure state tracking for dynamic evaluation.
 ///
 /// Maintains opening/closing balances and cumulative metrics across periods.
+///
+/// This state is mutated by the waterfall engine during sequential evaluation
+/// and is therefore the runtime counterpart to the static [`WaterfallSpec`].
 #[derive(Debug, Clone, Default)]
 pub struct CapitalStructureState {
     /// Opening balances by instrument ID at the start of the current period

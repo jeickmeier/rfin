@@ -6,6 +6,25 @@
 //! - Applying precedence rules (Value > Forecast > Formula)
 //! - Evaluating formulas for each period
 //! - Handling where clause masking
+//!
+//! ## Where To Start
+//!
+//! - Use [`crate::evaluator::Evaluator`] for standard model evaluation.
+//! - Use [`crate::evaluator::EvaluatorWithContext`] when you need to reuse configured runtime
+//!   state across evaluations.
+//! - Use [`crate::evaluator::StatementResult`] as the canonical output envelope for downstream
+//!   analysis, reporting, and exports.
+//! - Use the `to_polars_*` helpers only when the `dataframes` feature is
+//!   enabled and you need tabular export.
+//!
+//! ## Conventions
+//!
+//! - Node precedence is `Value > Forecast > Formula`.
+//! - Result values are stored as scalar `f64` outputs, with optional
+//!   `NodeValueType` metadata preserving monetary-vs-scalar interpretation.
+//! - Capital-structure outputs in [`crate::evaluator::StatementResult`] follow reporting-currency
+//!   semantics when FX conversion is available; otherwise multi-currency totals
+//!   may remain unavailable.
 
 mod capital_structure_runtime;
 mod cashflow_export;

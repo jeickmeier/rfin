@@ -16,6 +16,10 @@ use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
 /// Unified analysis result combining statement, equity, and credit perspectives.
+///
+/// This is the highest-level analysis envelope in the crate. Monetary outputs
+/// remain in the evaluated model currency, while coverage/leverage metrics are
+/// plain scalar ratios.
 #[derive(Debug, Clone)]
 pub struct CorporateAnalysis {
     /// Full statement evaluation (all nodes, all periods)
@@ -27,6 +31,9 @@ pub struct CorporateAnalysis {
 }
 
 /// Credit analysis for a single instrument.
+///
+/// This currently exposes statement-derived credit context only, leaving room
+/// for future spread, rating, or recovery analytics.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditInstrumentAnalysis {
     /// Coverage and leverage metrics from statement context
@@ -45,6 +52,9 @@ enum EquityMode {
 }
 
 /// Builder for corporate analysis.
+///
+/// This builder is intended for "single button" analysis workflows where one
+/// evaluated statement model should feed both equity and credit views.
 ///
 /// # Example
 ///
@@ -91,18 +101,26 @@ impl CorporateAnalysisBuilder {
     }
 
     /// Set the market context for curve-based discounting.
+    ///
+    /// This context is forwarded both to statement evaluation and to DCF
+    /// valuation if equity analysis is enabled.
     pub fn market(mut self, ctx: MarketContext) -> Self {
         self.market = Some(ctx);
         self
     }
 
     /// Set the as-of date for valuation.
+    ///
+    /// The date controls market-context lookups during evaluation. It does not
+    /// change the model's discrete period grid.
     pub fn as_of(mut self, date: Date) -> Self {
         self.as_of = Some(date);
         self
     }
 
     /// Configure DCF equity valuation with default options.
+    ///
+    /// `wacc` uses decimal form, so `0.10` means `10%`.
     pub fn dcf(mut self, wacc: f64, terminal_value: TerminalValueSpec) -> Self {
         self.equity_mode = Some(EquityMode::Dcf {
             wacc,
@@ -115,6 +133,8 @@ impl CorporateAnalysisBuilder {
     }
 
     /// Configure DCF equity valuation with custom options.
+    ///
+    /// `wacc` uses decimal form, so `0.10` means `10%`.
     pub fn dcf_with_options(
         mut self,
         wacc: f64,
@@ -133,7 +153,8 @@ impl CorporateAnalysisBuilder {
 
     /// Override the UFCF node name (default: "ufcf").
     ///
-    /// Must be called after [`dcf`] or [`dcf_with_options`]; has no effect otherwise.
+    /// Must be called after [`Self::dcf`] or [`Self::dcf_with_options`]; has no
+    /// effect otherwise.
     pub fn dcf_node(mut self, node: &str) -> Self {
         if let Some(EquityMode::Dcf {
             ref mut ufcf_node, ..
@@ -146,7 +167,8 @@ impl CorporateAnalysisBuilder {
 
     /// Override net debt for equity bridge calculation.
     ///
-    /// Must be called after [`dcf`] or [`dcf_with_options`]; has no effect otherwise.
+    /// Must be called after [`Self::dcf`] or [`Self::dcf_with_options`]; has no
+    /// effect otherwise.
     pub fn net_debt_override(mut self, net_debt: f64) -> Self {
         if let Some(EquityMode::Dcf {
             net_debt_override: ref mut nd,
@@ -159,6 +181,9 @@ impl CorporateAnalysisBuilder {
     }
 
     /// Set the coverage node for credit metrics (default: "ebitda").
+    ///
+    /// The selected node is used as the numerator in DSCR and interest-coverage
+    /// calculations.
     pub fn coverage_node(mut self, node: &str) -> Self {
         self.coverage_node = node.to_string();
         self
@@ -174,6 +199,21 @@ impl CorporateAnalysisBuilder {
     ///
     /// **Note:** The DCF equity valuation reuses the already evaluated statement
     /// results so analysis stays consistent with the active `market` / `as_of` context.
+    ///
+    /// # Returns
+    ///
+    /// Returns [`CorporateAnalysis`] containing the statement result plus any
+    /// configured equity and credit outputs.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if statement evaluation fails, if DCF valuation fails,
+    /// or if capital-structure derived credit metrics cannot be computed.
+    ///
+    /// # References
+    ///
+    /// - Discounting context for DCF outputs: `docs/REFERENCES.md#hull-options-futures`
+    /// - Coverage and leverage interpretation: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn analyze(self) -> Result<CorporateAnalysis> {
         // Step 1: Evaluate statement
         let mut evaluator = crate::evaluator::Evaluator::new();

@@ -15,9 +15,15 @@ use finstack_valuations::covenants::{
 use time::Month;
 
 /// Forecast output envelope for covenant compliance projections.
+///
+/// This is a re-exported type alias from `finstack-valuations` so statements
+/// users can stay within the `finstack-statements::analysis` namespace.
 pub type CovenantForecast = ValuationCovenantForecast;
 
 /// Adapter to use Statements StatementResult as a ModelTimeSeries.
+///
+/// This is primarily useful when integrating statement outputs with the
+/// covenant engine without re-shaping data into a separate time-series object.
 pub struct StatementsAdapter<'a> {
     model: Option<&'a FinancialModelSpec>,
     results: &'a StatementResult,
@@ -103,6 +109,35 @@ fn last_day_of_month(year: i32, month: Month) -> u8 {
 }
 
 /// Forecast a single covenant's future compliance using statement results.
+///
+/// If `config.volatility` is absent, this helper tries to infer a volatility and
+/// random seed from the covenant's default statement driver when that driver is
+/// configured with a Normal or LogNormal forecast.
+///
+/// # Arguments
+///
+/// * `covenant` - Covenant specification to simulate
+/// * `model` - Source statement model used for date resolution and optional
+///   volatility inference
+/// * `base_case` - Evaluated base-case statement results
+/// * `periods` - Future periods to test
+/// * `config` - Forecasting configuration for simulation horizon and
+///   distribution assumptions
+///
+/// # Returns
+///
+/// Returns a [`CovenantForecast`] containing projected values, thresholds,
+/// headroom, and breach probabilities by test date.
+///
+/// # Errors
+///
+/// Returns an error if the covenant engine rejects the input series, if model
+/// periods cannot be resolved consistently, or if inferred volatility
+/// parameters are malformed.
+///
+/// # References
+///
+/// - Monte Carlo scenario generation: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
 pub fn forecast_covenant(
     covenant: &CovenantSpec,
     model: &FinancialModelSpec,
@@ -126,6 +161,22 @@ pub fn forecast_covenant(
 }
 
 /// Forecast multiple covenants with shared statement inputs.
+///
+/// # Arguments
+///
+/// * `covenants` - Covenant specifications to forecast
+/// * `model` - Source statement model
+/// * `base_case` - Evaluated base-case statement results
+/// * `periods` - Future periods to test
+/// * `config` - Shared simulation configuration
+///
+/// # Returns
+///
+/// Returns one [`CovenantForecast`] per covenant in input order.
+///
+/// # Errors
+///
+/// Returns the first error raised while forecasting any covenant in the batch.
 pub fn forecast_covenants(
     covenants: &[CovenantSpec],
     model: &FinancialModelSpec,
@@ -151,6 +202,15 @@ pub fn forecast_covenants(
 /// # Returns
 ///
 /// List of projected breaches.
+///
+/// # Errors
+///
+/// Returns an error if the covenant engine cannot project breaches from the
+/// provided results set.
+///
+/// # References
+///
+/// - Monte Carlo breach estimation: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
 pub fn forecast_breaches(
     results: &StatementResult,
     covenants: &CovenantEngine,
@@ -205,6 +265,9 @@ fn extract_sigma_and_seed(model: &FinancialModelSpec, node_id: &str) -> Option<(
 
 #[cfg(feature = "dataframes")]
 /// Convert a covenant forecast into a Polars DataFrame for downstream analysis.
+///
+/// The resulting schema is:
+/// `(test_date, projected_value, threshold, headroom, breach_prob)`.
 ///
 /// # Panics
 /// Panics if the DataFrame construction fails, which should never happen
