@@ -1,7 +1,9 @@
 use finstack_wasm::{
-    Bond, BusinessDayConvention, CreditDefaultSwap, Currency, DayCount, DayCountContext,
-    DayCountContextState, Deposit, Equity, EquityOption, Frequency, FsDate, FxOption, FxSpot,
-    InterestRateSwap, Money, ScheduleSpec, StubKind, Swaption, Tenor,
+    Bond, BusinessDayConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, Currency, DayCount,
+    DayCountContext, DayCountContextState, Deposit, DepositBuilder, Equity, EquityBuilder,
+    EquityOption, EquityOptionBuilder, Frequency, FsDate, FxOption, FxOptionBuilder, FxSpot,
+    FxSpotBuilder, InterestRateSwap, InterestRateSwapBuilder, Money, ScheduleSpec, StubKind,
+    Swaption, SwaptionBuilder, Tenor,
 };
 use js_sys::JSON;
 use wasm_bindgen_test::*;
@@ -102,16 +104,15 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- Deposit
-    let dep = Deposit::new(
-        "dep_1",
-        &notional,
-        &issue,
-        &FsDate::new(2024, 7, 2).unwrap(),
-        &DayCount::act_360(),
-        "USD-OIS",
-        Some(0.05),
-    )
-    .unwrap();
+    let dep = DepositBuilder::new("dep_1")
+        .money(&notional)
+        .start(&issue)
+        .maturity(&FsDate::new(2024, 7, 2).unwrap())
+        .day_count(&DayCount::act_360())
+        .discount_curve("USD-OIS")
+        .quote_rate(0.05)
+        .build()
+        .unwrap();
     let dep_json = dep.to_json().unwrap();
     let dep2 = Deposit::from_json(dep_json.clone()).unwrap();
     assert_eq!(
@@ -120,7 +121,13 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- Equity
-    let eq = Equity::new("eq_1", "AAPL", &usd, Some(100.0), Some(200.0));
+    let eq = EquityBuilder::new("eq_1")
+        .ticker("AAPL".to_string())
+        .currency(&usd)
+        .shares(100.0)
+        .price(200.0)
+        .build()
+        .unwrap();
     let eq_json = eq.to_json().unwrap();
     let eq2 = Equity::from_json(eq_json.clone()).unwrap();
     assert_eq!(
@@ -129,15 +136,14 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- EquityOption
-    let eq_opt = EquityOption::new(
-        "eqopt_1",
-        "AAPL",
-        200.0,
-        "call",
-        &FsDate::new(2025, 1, 2).unwrap(),
-        Some(1.0),
-    )
-    .unwrap();
+    let eq_opt = EquityOptionBuilder::new("eqopt_1")
+        .ticker("AAPL".to_string())
+        .strike(200.0)
+        .option_type("call".to_string())
+        .expiry(&FsDate::new(2025, 1, 2).unwrap())
+        .notional_amount(1.0)
+        .build()
+        .unwrap();
     let eq_opt_json = eq_opt.to_json().unwrap();
     let eq_opt2 = EquityOption::from_json(eq_opt_json.clone()).unwrap();
     assert_eq!(
@@ -146,7 +152,12 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- FX spot / option / swap
-    let fx_spot = FxSpot::new("fxspot_1", &eur, &usd, None, Some(1.10), None).unwrap();
+    let fx_spot = FxSpotBuilder::new("fxspot_1")
+        .base_currency(&eur)
+        .quote_currency(&usd)
+        .spot_rate(1.10)
+        .build()
+        .unwrap();
     let fx_spot_json = fx_spot.to_json().unwrap();
     let fx_spot2 = FxSpot::from_json(fx_spot_json.clone()).unwrap();
     assert_eq!(
@@ -154,19 +165,18 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
         js_stringify(&fx_spot2.to_json().unwrap())
     );
 
-    let fx_opt = FxOption::new(
-        "fxopt_1",
-        &eur,
-        &usd,
-        1.10,
-        "call",
-        &FsDate::new(2024, 7, 2).unwrap(),
-        &notional,
-        "USD-OIS",
-        "EUR-OIS",
-        "EURUSD-VOL",
-    )
-    .unwrap();
+    let fx_opt = FxOptionBuilder::new("fxopt_1")
+        .base_currency(&eur)
+        .quote_currency(&usd)
+        .strike(1.10)
+        .option_type("call".to_string())
+        .expiry(&FsDate::new(2024, 7, 2).unwrap())
+        .money(&notional)
+        .domestic_curve("USD-OIS")
+        .foreign_curve("EUR-OIS")
+        .vol_surface("EURUSD-VOL")
+        .build()
+        .unwrap();
     let fx_opt_json = fx_opt.to_json().unwrap();
     let fx_opt2 = FxOption::from_json(fx_opt_json.clone()).unwrap();
     assert_eq!(
@@ -175,18 +185,17 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- CDS
-    let cds = CreditDefaultSwap::new(
-        "cds_1",
-        &notional,
-        100.0,
-        &as_of,
-        &maturity,
-        "USD-OIS",
-        "ACME-HAZARD",
-        "buy_protection",
-        Some(0.4),
-    )
-    .unwrap();
+    let cds = CreditDefaultSwapBuilder::new("cds_1")
+        .money(&notional)
+        .spread_bp(100.0)
+        .start_date(&as_of)
+        .maturity(&maturity)
+        .discount_curve("USD-OIS")
+        .credit_curve("ACME-HAZARD")
+        .side("buy_protection".to_string())
+        .recovery_rate(0.4)
+        .build()
+        .unwrap();
     let cds_json = cds.to_json().unwrap();
     let cds2 = CreditDefaultSwap::from_json(cds_json.clone()).unwrap();
     assert_eq!(
@@ -195,25 +204,20 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- IRS (minimal fixed/float)
-    let irs = InterestRateSwap::new(
-        "irs_1",
-        &notional,
-        0.05,
-        &issue,
-        &maturity,
-        "USD-OIS",
-        "USD-SOFR-3M",
-        "pay_fixed",
-        None,
-        None,
-        None,
-        None,
-        Some(BusinessDayConvention::ModifiedFollowing),
-        Some("usny".to_string()),
-        Some(StubKind::none()),
-        Some(2),
-    )
-    .unwrap();
+    let irs = InterestRateSwapBuilder::new("irs_1")
+        .money(&notional)
+        .fixed_rate(0.05)
+        .start(&issue)
+        .end(&maturity)
+        .discount_curve("USD-OIS")
+        .forward_curve("USD-SOFR-3M")
+        .side("pay_fixed")
+        .business_day_convention(BusinessDayConvention::ModifiedFollowing)
+        .calendar_id("usny".to_string())
+        .stub_kind(StubKind::none())
+        .reset_lag_days(2)
+        .build()
+        .unwrap();
     let irs_json = irs.to_json().unwrap();
     let irs2 = InterestRateSwap::from_json(irs_json.clone()).unwrap();
     assert_eq!(
@@ -222,26 +226,18 @@ fn instrument_tojson_fromjson_roundtrips_smoke() {
     );
 
     // ---- Swaption
-    let swpt = Swaption::new(
-        "swpt_1",
-        &notional,
-        0.05,
-        "payer",
-        &FsDate::new(2025, 1, 2).unwrap(),
-        &FsDate::new(2025, 1, 2).unwrap(),
-        &FsDate::new(2030, 1, 2).unwrap(),
-        "USD-OIS",
-        "USD-SOFR-3M",
-        "USD-SWAPTION-VOL",
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
-    .unwrap();
+    let swpt = SwaptionBuilder::new("swpt_1")
+        .money(&notional)
+        .strike(0.05)
+        .swaption_type("payer".to_string())
+        .expiry(&FsDate::new(2025, 1, 2).unwrap())
+        .swap_start(&FsDate::new(2025, 1, 2).unwrap())
+        .swap_end(&FsDate::new(2030, 1, 2).unwrap())
+        .discount_curve("USD-OIS")
+        .forward_curve("USD-SOFR-3M")
+        .vol_surface("USD-SWAPTION-VOL")
+        .build()
+        .unwrap();
     let swpt_json = swpt.to_json().unwrap();
     let swpt2 = Swaption::from_json(swpt_json.clone()).unwrap();
     assert_eq!(
