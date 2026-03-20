@@ -28,6 +28,14 @@ pub struct NettingSet {
 
 impl NettingSet {
     /// Create a new empty netting set.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Netting-set identifier, usually driven by CSA or CCP membership.
+    ///
+    /// # Returns
+    ///
+    /// Empty netting set with no positions or cached sensitivities.
     #[must_use]
     pub fn new(id: NettingSetId) -> Self {
         Self {
@@ -39,6 +47,14 @@ impl NettingSet {
     }
 
     /// Create a new netting set with margin specification.
+    ///
+    /// # Arguments
+    ///
+    /// * `spec` - OTC margin specification associated with the set.
+    ///
+    /// # Returns
+    ///
+    /// The updated netting set for fluent chaining.
     #[must_use]
     pub fn with_margin_spec(mut self, spec: OtcMarginSpec) -> Self {
         self.margin_spec = Some(spec);
@@ -46,23 +62,40 @@ impl NettingSet {
     }
 
     /// Add a position to the netting set.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position to append.
     pub fn add_position(&mut self, position_id: PositionId) {
         self.positions.push(position_id);
     }
 
     /// Get the number of positions in this netting set.
+    ///
+    /// # Returns
+    ///
+    /// Count of directly assigned positions.
     #[must_use]
     pub fn position_count(&self) -> usize {
         self.positions.len()
     }
 
     /// Check if the netting set is cleared.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the identifier describes a cleared venue rather than a
+    /// bilateral agreement.
     #[must_use]
     pub fn is_cleared(&self) -> bool {
         self.id.is_cleared()
     }
 
     /// Merge sensitivities into this netting set.
+    ///
+    /// # Arguments
+    ///
+    /// * `sensitivities` - Additional sensitivities to accumulate.
     pub fn merge_sensitivities(&mut self, sensitivities: &SimmSensitivities) {
         if let Some(ref mut agg) = self.aggregated_sensitivities {
             agg.merge(sensitivities);
@@ -86,12 +119,24 @@ pub struct NettingSetManager {
 
 impl NettingSetManager {
     /// Create a new empty netting set manager.
+    ///
+    /// # Returns
+    ///
+    /// Manager with no tracked netting sets and no default set.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Set a default netting set for positions without margin specs.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Identifier of the fallback netting set.
+    ///
+    /// # Returns
+    ///
+    /// The updated manager for fluent chaining.
     pub fn with_default_set(mut self, id: NettingSetId) -> Self {
         self.default_set = Some(id.clone());
         self.netting_sets
@@ -118,33 +163,61 @@ impl NettingSetManager {
     }
 
     /// Get a netting set by ID.
+    ///
+    /// # Returns
+    ///
+    /// Borrowed netting set, if present.
     #[must_use]
     pub fn get(&self, id: &NettingSetId) -> Option<&NettingSet> {
         self.netting_sets.get(id)
     }
 
     /// Get a mutable reference to a netting set by ID.
+    ///
+    /// # Returns
+    ///
+    /// Mutable borrowed netting set, if present.
     pub fn get_mut(&mut self, id: &NettingSetId) -> Option<&mut NettingSet> {
         self.netting_sets.get_mut(id)
     }
 
     /// Iterate over all netting sets.
+    ///
+    /// # Returns
+    ///
+    /// Iterator over netting-set identifiers and their contents.
     pub fn iter(&self) -> impl Iterator<Item = (&NettingSetId, &NettingSet)> {
         self.netting_sets.iter()
     }
 
     /// Get the number of netting sets.
+    ///
+    /// # Returns
+    ///
+    /// Number of tracked netting sets.
     #[must_use]
     pub fn count(&self) -> usize {
         self.netting_sets.len()
     }
 
     /// Get all netting set IDs.
+    ///
+    /// # Returns
+    ///
+    /// Iterator over tracked identifiers.
     pub fn ids(&self) -> impl Iterator<Item = &NettingSetId> {
         self.netting_sets.keys()
     }
 
     /// Get or create a netting set.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Identifier of the desired netting set.
+    ///
+    /// # Returns
+    ///
+    /// Mutable reference to the existing or newly created netting set.
     pub fn get_or_create(&mut self, id: NettingSetId) -> &mut NettingSet {
         self.netting_sets
             .entry(id.clone())
@@ -152,6 +225,11 @@ impl NettingSetManager {
     }
 
     /// Merge sensitivities into a netting set.
+    ///
+    /// # Arguments
+    ///
+    /// * `netting_set_id` - Target netting set.
+    /// * `sensitivities` - Sensitivities to merge into the target set.
     pub fn merge_sensitivities(
         &mut self,
         netting_set_id: &NettingSetId,

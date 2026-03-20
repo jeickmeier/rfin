@@ -518,11 +518,76 @@ impl RuinEstimate {
     }
 }
 
-/// Estimate ruin probability from an empirical return distribution via deterministic bootstrap.
+/// Estimate ruin probability from an empirical return distribution via bootstrap simulation.
 ///
-/// The estimator uses circular block bootstrap resampling of the supplied return history.
-/// This preserves short-run serial dependence better than IID resampling when `block_size > 1`
-/// and supports multiple operational notions of ruin through [`RuinDefinition`].
+/// The estimator simulates wealth paths by circular block-bootstrap resampling
+/// the historical return series. Using `block_size > 1` preserves short-run
+/// serial dependence better than IID resampling, while `block_size = 1`
+/// reduces to period-by-period sampling with replacement.
+///
+/// Returns are interpreted as simple per-period decimal returns, so `0.01`
+/// means +1% and `-0.25` means -25%. Wealth starts at `1.0` on every path.
+/// The ruin condition is controlled by [`RuinDefinition`]:
+///
+/// - [`RuinDefinition::WealthFloor`] triggers once path wealth falls to or
+///   below `floor_fraction` of starting wealth.
+/// - [`RuinDefinition::TerminalFloor`] checks the same threshold only at the
+///   terminal horizon.
+/// - [`RuinDefinition::DrawdownBreach`] triggers once peak-to-trough drawdown
+///   reaches `max_drawdown`, expressed as a fraction in `[0, 1]`.
+///
+/// The confidence interval in [`RuinEstimate`] is a normal-approximation
+/// interval around the simulated binomial ruin frequency.
+///
+/// # Arguments
+///
+/// * `returns` - Historical simple-return sample in decimal form.
+/// * `definition` - Operational definition of ruin for each simulated path.
+/// * `model` - Simulation controls including horizon length, number of paths,
+///   bootstrap block size, deterministic RNG seed, and confidence level for
+///   the reported interval.
+///
+/// # Returns
+///
+/// A [`RuinEstimate`] with ruin probability, binomial standard error, and
+/// lower/upper confidence bounds.
+///
+/// Returns a zero-probability estimate when `returns` is empty, or when
+/// `model.horizon_periods == 0` or `model.n_paths == 0`.
+///
+/// Returns `NaN` fields when `model.block_size == 0` or any input return is
+/// non-finite.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::risk_metrics::{estimate_ruin, RuinDefinition, RuinModel};
+///
+/// let returns = [0.01, -0.02, 0.015, -0.01, 0.005];
+/// let model = RuinModel {
+///     horizon_periods: 30,
+///     n_paths: 5_000,
+///     block_size: 3,
+///     seed: 7,
+///     confidence_level: 0.95,
+/// };
+///
+/// let estimate = estimate_ruin(
+///     &returns,
+///     RuinDefinition::WealthFloor {
+///         floor_fraction: 0.8,
+///     },
+///     &model,
+/// );
+///
+/// assert!(estimate.probability.is_finite());
+/// assert!((0.0..=1.0).contains(&estimate.probability));
+/// assert!(estimate.ci_lower <= estimate.ci_upper);
+/// ```
+///
+/// # References
+///
+/// - Press et al.: see docs/REFERENCES.md#press-numerical-recipes
 pub fn estimate_ruin(
     returns: &[f64],
     definition: RuinDefinition,

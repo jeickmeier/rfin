@@ -4,6 +4,22 @@
 //! equity, FX, commodities, and exotic options. All instruments implement the
 //! `Instrument` trait for unified pricing and risk metric computation.
 //!
+//! # Documentation Rules For Instrument APIs
+//!
+//! Instrument docs should make these contracts explicit:
+//!
+//! - **Use typed rates when the example is about meaning, not convenience**.
+//!   Raw literals such as `0.05` are only appropriate when the doc explicitly says
+//!   the value is a decimal annual rate.
+//! - **Document curve roles and conventions near the constructor**. If an
+//!   instrument depends on discount, forward, credit, dividend, or volatility
+//!   inputs, its public docs should say which identifiers are required and how
+//!   they are interpreted.
+//! - **Separate contractual terms from portfolio economics**. Instrument docs
+//!   should describe cashflows and market conventions; funding, trade price, and
+//!   book-level effects belong in higher-level APIs unless the instrument exposes
+//!   them directly.
+//!
 //! # Organization
 //!
 //! Instruments are organized by asset class:
@@ -41,7 +57,7 @@
 //! let bond = Bond::fixed(
 //!     "US-TREASURY-5Y",
 //!     Money::new(1_000_000.0, Currency::USD),
-//!     0.045, // 4.5% coupon
+//!     finstack_core::types::Rate::from_percent(4.5),
 //!     issue,
 //!     maturity,
 //!     "USD-OIS",
@@ -120,6 +136,12 @@
 //! - [`crate::instruments::common::traits::Attributes`] for tagging and scenario selection
 //! - [`crate::pricer`] for pricing registry and dispatch
 //! - [`crate::metrics`] for risk metric calculations
+//!
+//! # References
+//!
+//! - Day-count and schedule conventions: `docs/REFERENCES.md#isda-2006-definitions`
+//! - Bond-market accrued-interest conventions: `docs/REFERENCES.md#icma-rule-book`
+//! - Fixed-income risk and hedging intuition: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 
 // Common functionality (traits, macros, models, helpers)
 #[macro_use]

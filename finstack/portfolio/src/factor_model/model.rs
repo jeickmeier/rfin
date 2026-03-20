@@ -1,3 +1,24 @@
+//! Factor-model orchestration for portfolio-level risk decomposition.
+//!
+//! This file contains the top-level builder and runtime model used to connect:
+//!
+//! - declarative factor definitions and covariance inputs
+//! - dependency-to-factor matching
+//! - sensitivity generation
+//! - downstream decomposition engines
+//!
+//! The public API is intentionally split between a configuration-time builder
+//! ([`FactorModelBuilder`]) and an execution-time model ([`FactorModel`]).
+//!
+//! # References
+//!
+//! - Factor-model portfolio construction:
+//!   `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
+//! - Euler-style capital allocation background:
+//!   `docs/REFERENCES.md#tasche-2008-capital-allocation`
+//! - Parametric VaR conventions:
+//!   `docs/REFERENCES.md#jpmorgan1996RiskMetrics`
+
 use super::assignment::{assign_position_factors, FactorAssignmentReport};
 use super::whatif::WhatIfEngine;
 use super::{ParametricDecomposer, RiskDecomposer, RiskDecomposition};
@@ -16,6 +37,9 @@ use finstack_valuations::factor_model::sensitivity::{
 use finstack_valuations::instruments::common::traits::Instrument;
 
 /// Builder for the top-level portfolio factor-model orchestrator.
+///
+/// Use this type to inject a declarative factor-model configuration and, when
+/// needed, override the matcher, sensitivity engine, or decomposition engine.
 pub struct FactorModelBuilder {
     config: Option<FactorModelConfig>,
     custom_matcher: Option<Box<dyn finstack_core::factor_model::FactorMatcher>>,
@@ -25,6 +49,10 @@ pub struct FactorModelBuilder {
 
 impl FactorModelBuilder {
     /// Create an empty builder.
+    ///
+    /// # Returns
+    ///
+    /// Builder with no configuration or overrides installed yet.
     #[must_use]
     pub fn new() -> Self {
         Self {
@@ -36,6 +64,15 @@ impl FactorModelBuilder {
     }
 
     /// Supply the declarative factor-model configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - Factor definitions, covariance matrix, matching rules, and
+    ///   risk-measure configuration.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     #[must_use]
     pub fn config(mut self, config: FactorModelConfig) -> Self {
         self.config = Some(config);
@@ -43,6 +80,14 @@ impl FactorModelBuilder {
     }
 
     /// Override the matcher built from `FactorModelConfig::matching`.
+    ///
+    /// # Arguments
+    ///
+    /// * `matcher` - Custom dependency matcher used instead of the config-built matcher.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     #[must_use]
     pub fn with_custom_matcher(
         mut self,
@@ -53,6 +98,14 @@ impl FactorModelBuilder {
     }
 
     /// Override the sensitivity engine selected from the pricing mode.
+    ///
+    /// # Arguments
+    ///
+    /// * `sensitivity_engine` - Custom engine producing weighted factor sensitivities.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     #[must_use]
     pub fn with_custom_sensitivity_engine(
         mut self,
@@ -63,6 +116,15 @@ impl FactorModelBuilder {
     }
 
     /// Override the risk decomposer used by the model.
+    ///
+    /// # Arguments
+    ///
+    /// * `decomposer` - Custom decomposition engine for converting sensitivities
+    ///   into portfolio risk contributions.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     #[must_use]
     pub fn with_custom_decomposer(mut self, decomposer: impl RiskDecomposer + 'static) -> Self {
         self.custom_decomposer = Some(Box::new(decomposer));
@@ -70,6 +132,17 @@ impl FactorModelBuilder {
     }
 
     /// Build the configured factor model.
+    ///
+    /// # Returns
+    ///
+    /// A fully configured [`FactorModel`] ready to assign factors, compute
+    /// sensitivities, and decompose risk.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::Error::InvalidInput`] when the configuration is missing,
+    /// the risk measure is invalid, or the covariance axes do not align with
+    /// the configured factors.
     pub fn build(self) -> Result<FactorModel> {
         let config = self
             .config
@@ -130,6 +203,10 @@ fn default_sensitivity_engine(
 }
 
 /// Portfolio-level factor-model orchestrator.
+///
+/// A `FactorModel` owns the factor definitions, covariance matrix, and the
+/// pluggable engines required to move from instrument dependencies to
+/// portfolio-level risk decomposition.
 pub struct FactorModel {
     factors: Vec<FactorDefinition>,
     covariance: FactorCovarianceMatrix,
@@ -142,12 +219,31 @@ pub struct FactorModel {
 
 impl FactorModel {
     /// Borrow the factor definitions configured on the model.
+    ///
+    /// # Returns
+    ///
+    /// Factor definitions in covariance order.
     #[must_use]
     pub fn factors(&self) -> &[FactorDefinition] {
         &self.factors
     }
 
     /// Match each position dependency in `portfolio` to configured factors.
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio` - Portfolio whose instrument dependencies should be mapped
+    ///   into the configured factor space.
+    ///
+    /// # Returns
+    ///
+    /// Assignment report including both successful matches and unmatched
+    /// dependencies.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a position cannot report dependencies or when the
+    /// unmatched policy is strict and at least one dependency cannot be mapped.
     pub fn assign_factors(&self, portfolio: &Portfolio) -> Result<FactorAssignmentReport> {
         let mut assignments = Vec::with_capacity(portfolio.positions.len());
         let mut unmatched = Vec::new();
@@ -192,6 +288,21 @@ impl FactorModel {
     }
 
     /// Compute the weighted position-factor sensitivity matrix for `portfolio`.
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio` - Portfolio to analyze.
+    /// * `market` - Market context used by the sensitivity engine.
+    /// * `as_of` - Valuation date for sensitivity generation.
+    ///
+    /// # Returns
+    ///
+    /// Weighted sensitivity matrix with one row per position and one column per
+    /// configured factor.
+    ///
+    /// # Errors
+    ///
+    /// Propagates assignment or sensitivity-engine failures.
     pub fn compute_sensitivities(
         &self,
         portfolio: &Portfolio,
@@ -220,6 +331,25 @@ impl FactorModel {
     }
 
     /// Run the full sensitivity-plus-decomposition pipeline.
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio` - Portfolio to analyze.
+    /// * `market` - Market context used for sensitivity generation.
+    /// * `as_of` - Valuation date for the analysis.
+    ///
+    /// # Returns
+    ///
+    /// Portfolio-level risk decomposition in the configured risk-measure units.
+    ///
+    /// # Errors
+    ///
+    /// Propagates assignment, sensitivity, and decomposition failures.
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
+    /// - `docs/REFERENCES.md#tasche-2008-capital-allocation`
     pub fn analyze(
         &self,
         portfolio: &Portfolio,
@@ -233,6 +363,19 @@ impl FactorModel {
     }
 
     /// Create a what-if engine anchored to a base decomposition and sensitivity matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - Previously computed baseline risk decomposition.
+    /// * `sensitivities` - Baseline sensitivity matrix.
+    /// * `portfolio` - Portfolio associated with the baseline analysis.
+    /// * `market` - Baseline market context.
+    /// * `as_of` - Valuation date associated with the baseline analysis.
+    ///
+    /// # Returns
+    ///
+    /// What-if engine that can evaluate factor changes relative to the supplied
+    /// baseline.
     #[must_use]
     pub fn what_if<'a>(
         &'a self,

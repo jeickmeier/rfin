@@ -613,6 +613,32 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 }
 
 /// Recovery factor computed directly from a returns series.
+///
+/// Computes total compounded return with [`crate::returns::comp_total`],
+/// derives the worst drawdown from [`to_drawdown_series`], then applies
+/// [`recovery_factor`].
+///
+/// # Arguments
+///
+/// * `returns` - Slice of simple period returns in decimal form.
+///
+/// # Returns
+///
+/// The recovery factor `total_return / |max_drawdown|`. Returns `0.0` for an
+/// empty slice or when no drawdown is observed.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::drawdown::{recovery_factor, recovery_factor_from_returns, to_drawdown_series};
+/// use finstack_analytics::returns::comp_total;
+///
+/// let returns = [0.10, -0.05, 0.08, -0.02];
+/// let direct = recovery_factor_from_returns(&returns);
+/// let max_dd = to_drawdown_series(&returns).into_iter().fold(0.0_f64, f64::min);
+/// let expected = recovery_factor(comp_total(&returns), max_dd);
+/// assert!((direct - expected).abs() < 1e-12);
+/// ```
 pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
     let total_return = crate::returns::comp_total(returns);
     let drawdowns = to_drawdown_series(returns);
@@ -654,6 +680,41 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 }
 
 /// Martin ratio computed directly from a returns series.
+///
+/// Annualizes the return series with [`crate::risk_metrics::cagr_from_periods`],
+/// computes the associated drawdown path and Ulcer Index, then delegates to
+/// [`martin_ratio`].
+///
+/// # Arguments
+///
+/// * `returns` - Slice of simple period returns in decimal form.
+/// * `ann_factor` - Number of periods per year used for CAGR annualization.
+///
+/// # Returns
+///
+/// The Martin ratio. Returns `0.0` for empty slices or zero Ulcer Index, and
+/// propagates `NaN` when `ann_factor` is invalid through
+/// [`crate::risk_metrics::cagr_from_periods`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::drawdown::{martin_ratio, martin_ratio_from_returns, to_drawdown_series, ulcer_index};
+/// use finstack_analytics::risk_metrics::cagr_from_periods;
+///
+/// let returns = [0.01, -0.02, 0.015, 0.01, -0.005];
+/// let ann_factor = 252.0;
+/// let direct = martin_ratio_from_returns(&returns, ann_factor);
+/// let expected = martin_ratio(
+///     cagr_from_periods(&returns, ann_factor),
+///     ulcer_index(&to_drawdown_series(&returns)),
+/// );
+/// assert!((direct - expected).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
 pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
@@ -697,6 +758,44 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 }
 
 /// Sterling ratio computed directly from a returns series.
+///
+/// Computes CAGR from the return history, derives the drawdown series, averages
+/// all detected drawdown episodes via [`avg_drawdown`], then applies
+/// [`sterling_ratio`].
+///
+/// # Arguments
+///
+/// * `returns` - Slice of simple period returns in decimal form.
+/// * `ann_factor` - Number of periods per year used for CAGR annualization.
+/// * `risk_free_rate` - Annualized risk-free rate in decimal form.
+///
+/// # Returns
+///
+/// The Sterling ratio. Returns `0.0` if no drawdowns are detected or if the
+/// average drawdown is zero. Propagates `NaN` when `ann_factor` is invalid
+/// through [`crate::risk_metrics::cagr_from_periods`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::drawdown::{avg_drawdown, sterling_ratio, sterling_ratio_from_returns, to_drawdown_series};
+/// use finstack_analytics::risk_metrics::cagr_from_periods;
+///
+/// let returns = [0.02, -0.04, 0.015, -0.01, 0.03];
+/// let ann_factor = 252.0;
+/// let risk_free_rate = 0.01;
+/// let direct = sterling_ratio_from_returns(&returns, ann_factor, risk_free_rate);
+/// let expected = sterling_ratio(
+///     cagr_from_periods(&returns, ann_factor),
+///     avg_drawdown(&to_drawdown_series(&returns), &[], usize::MAX),
+///     risk_free_rate,
+/// );
+/// assert!((direct - expected).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Kestner (1996): see docs/REFERENCES.md#kestner1996
 pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
@@ -779,6 +878,38 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
 }
 
 /// Pain ratio computed directly from a returns series.
+///
+/// Annualizes the return history with [`crate::risk_metrics::cagr_from_periods`],
+/// computes the drawdown path and Pain Index, then delegates to [`pain_ratio`].
+///
+/// # Arguments
+///
+/// * `returns` - Slice of simple period returns in decimal form.
+/// * `ann_factor` - Number of periods per year used for CAGR annualization.
+/// * `risk_free_rate` - Annualized risk-free rate in decimal form.
+///
+/// # Returns
+///
+/// The Pain ratio. Returns `0.0` if the Pain Index is zero. Propagates `NaN`
+/// when `ann_factor` is invalid through [`crate::risk_metrics::cagr_from_periods`].
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::drawdown::{pain_index, pain_ratio, pain_ratio_from_returns, to_drawdown_series};
+/// use finstack_analytics::risk_metrics::cagr_from_periods;
+///
+/// let returns = [0.015, -0.02, 0.01, -0.005, 0.02];
+/// let ann_factor = 252.0;
+/// let risk_free_rate = 0.01;
+/// let direct = pain_ratio_from_returns(&returns, ann_factor, risk_free_rate);
+/// let expected = pain_ratio(
+///     cagr_from_periods(&returns, ann_factor),
+///     pain_index(&to_drawdown_series(&returns)),
+///     risk_free_rate,
+/// );
+/// assert!((direct - expected).abs() < 1e-12);
+/// ```
 pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);

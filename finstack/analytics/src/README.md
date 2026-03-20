@@ -1,6 +1,10 @@
-## Analytics Module (core)
+## Analytics Module
 
-The `analytics` module in `finstack-core` provides **portfolio performance and risk analytics** operating directly on numeric slices and `time::Date` values — with no Polars or DataFrame dependency at the core level. It mirrors the Python `Performance` class in capability while exposing every computation as a standalone pure function for composability.
+The `finstack-analytics` crate provides **portfolio performance and risk
+analytics** operating directly on numeric slices and `time::Date` values, with
+no Polars or DataFrame dependency in the Rust API. It mirrors the Python
+`Performance` class in capability while exposing every computation as a
+standalone pure function for composability.
 
 - **Returns**: simple returns, log returns, excess returns, compounded accumulation, geometric mean
 - **Risk metrics**: Sharpe, Sortino, Calmar, VaR (historical, parametric, Cornish-Fisher), CVaR/ES, Ulcer Index, risk of ruin, tail ratios, skewness (Fisher-corrected), kurtosis (Fisher-corrected), downside deviation, Omega, Treynor, gain-to-pain, Martin ratio, M-squared, Modified Sharpe
@@ -11,7 +15,9 @@ The `analytics` module in `finstack-core` provides **portfolio performance and r
 - **Rolling time series**: rolling Sharpe, rolling Sortino, rolling volatility, rolling alpha/beta
 - **Orchestrator**: `Performance` struct ties all sub-modules together with date-windowing and benchmark state
 
-All functions are `no_std`-compatible, allocation-minimal, and use numerically stable algorithms (Kahan/Neumaier log-space compounding, Welford-style covariance).
+The crate is allocation-minimal and uses numerically stable algorithms
+(Kahan/Neumaier log-space compounding, Welford-style covariance). It currently
+relies on `std` for RNG-backed bootstrap routines such as ruin simulation.
 
 ---
 
@@ -185,8 +191,8 @@ OLS beta with inferential statistics:
 pub struct BetaResult {
     pub beta: f64,
     pub std_err: f64,
-    pub ci_lower: f64,   // beta − 1.96 × std_err
-    pub ci_upper: f64,   // beta + 1.96 × std_err
+    pub ci_lower: f64,   // lower confidence bound
+    pub ci_upper: f64,   // upper confidence bound
 }
 ```
 
@@ -219,6 +225,7 @@ pub struct PeriodStats {
     pub avg_win: f64,
     pub avg_loss: f64,
     pub payoff_ratio: f64,    // avg_win / |avg_loss|
+    pub profit_ratio: f64,    // sum(wins) / sum(|losses|)
     pub profit_factor: f64,   // sum(wins) / sum(|losses|)
     pub cpc_ratio: f64,       // profit_factor × win_rate × payoff_ratio
     pub kelly_criterion: f64, // win_rate − loss_rate / payoff_ratio
@@ -276,7 +283,7 @@ let h2_cagr = perf.cagr(); // recalculated over H1 only
 
 ### 2. Standalone Risk Metrics
 
-All functions in `risk_metrics.rs` can be used independently:
+All functions in the `risk_metrics/` module tree can be used independently:
 
 ```rust
 use finstack_analytics::{sharpe, sortino, calmar, value_at_risk, expected_shortfall};
@@ -583,7 +590,7 @@ mod tests {
 
 | Need | Use |
 |------|-----|
-| Portfolio performance analytics on `Vec<f64>` returns | `core::analytics` ✓ |
+| Portfolio performance analytics on `Vec<f64>` returns | `finstack_analytics` ✓ |
 | Python-facing analytics on a Polars DataFrame | `finstack-py` (`Performance`) |
 | Realized volatility from OHLC prices | `core::math::stats` (`realized_variance`) |
 | Pricing a derivative or computing Greeks | `valuations` |

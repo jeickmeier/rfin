@@ -21,6 +21,10 @@ use crate::{Error, PositionId, Result};
 ///
 /// Organizes positions into netting sets and calculates aggregate
 /// margin requirements with proper netting of sensitivities.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#isda-simm`
 #[derive(Debug)]
 pub struct PortfolioMarginAggregator {
     /// Netting set manager
@@ -35,6 +39,15 @@ pub struct PortfolioMarginAggregator {
 
 impl PortfolioMarginAggregator {
     /// Create a new aggregator with a base currency.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_currency` - Reporting currency for aggregated initial and
+    ///   variation margin.
+    ///
+    /// # Returns
+    ///
+    /// Empty aggregator with no positions or netting sets loaded.
     #[must_use]
     pub fn new(base_currency: Currency) -> Self {
         Self {
@@ -49,6 +62,14 @@ impl PortfolioMarginAggregator {
     ///
     /// Automatically organizes positions into netting sets based on their
     /// margin specifications.
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio` - Portfolio whose positions should seed the aggregator.
+    ///
+    /// # Returns
+    ///
+    /// Aggregator pre-populated with positions that expose margin metadata.
     #[must_use]
     pub fn from_portfolio(portfolio: &Portfolio) -> Self {
         let mut aggregator = Self::new(portfolio.base_ccy);
@@ -65,6 +86,10 @@ impl PortfolioMarginAggregator {
     ///
     /// The position will be assigned to its appropriate netting set
     /// based on its margin specification.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Position to inspect and register.
     pub fn add_position(&mut self, position: &Position) {
         // Try to get netting set ID from the instrument
         let netting_set_id = self.get_netting_set_for_position(position);
@@ -87,6 +112,22 @@ impl PortfolioMarginAggregator {
     /// Calculate margin requirements for the portfolio.
     ///
     /// Returns aggregated margin results by netting set.
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio` - Portfolio used for mark-to-market lookups.
+    /// * `market` - Market context required for VM and SIMM sensitivity extraction.
+    /// * `as_of` - Valuation date for the margin run.
+    ///
+    /// # Returns
+    ///
+    /// Portfolio-level margin report including per-netting-set totals and
+    /// degraded positions.
+    ///
+    /// # Errors
+    ///
+    /// Propagates portfolio-level calculation failures such as missing FX needed
+    /// for base-currency reporting or unexpected aggregation mismatches.
     pub fn calculate(
         &mut self,
         portfolio: &Portfolio,
@@ -304,6 +345,10 @@ impl PortfolioMarginAggregator {
     }
 
     /// Get the number of netting sets.
+    ///
+    /// # Returns
+    ///
+    /// Number of tracked netting sets.
     #[must_use]
     pub fn netting_set_count(&self) -> usize {
         self.netting_sets.count()

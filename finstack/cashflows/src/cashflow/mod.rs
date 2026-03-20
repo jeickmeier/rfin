@@ -11,21 +11,24 @@
 //! - **Aggregation**: Currency-preserving cashflow merging and rollup
 //! - **Traits**: `CashflowProvider` trait for instruments to expose schedules
 //!
-//! # Cashflow Classification
-//!
-//! Each cashflow is tagged with `CFKind`:
-//! - `Principal`: Principal repayments
-//! - `Interest`: Coupon or interest payments
-//! - `Fee`: Management, servicing, or structuring fees
-//! - `Fixed`: Generic fixed payment
-//! - `Floating`: Floating-rate payment projected from index
-//!
 //! # Currency Safety
 //!
 //! All aggregation operations enforce currency matching:
 //! - Cannot sum cashflows in different currencies without explicit FX
 //! - Currency preserved through aggregation pipeline
 //! - FX conversion requires explicit policy
+//!
+//! # Conventions
+//!
+//! - Coupon rates are generally decimals (for example `0.05` for 5%).
+//! - Spreads and fee quotes are often expressed in basis points on the
+//!   specification types.
+//! - Schedule timing depends on explicit day-count, business-day, calendar, and
+//!   lag settings carried by the builder specs.
+//! - `CFKind` behavior should be read from the authoritative
+//!   `finstack_core::cashflow::CFKind` definition rather than copied here. The
+//!   enum is `#[non_exhaustive]` and downstream logic should not assume a fixed
+//!   exhaustive list of variants.
 //!
 //! # Examples
 //!
@@ -77,73 +80,45 @@
 //!
 //! Compute present values aggregated by reporting period for analysis and reconciliation.
 //!
-//! ### From an Instrument (Recommended)
+//! ### From a Schedule (Recommended In This Crate)
 //!
-//! Any instrument implementing `CashflowProvider` + `CurveDependencies`
-//! automatically gains periodized PV methods via the [`crate::instruments::common::period_pv::PeriodizedPvExt`] trait:
+//! The stable public interface in this crate is the schedule-level API on
+//! [`builder::CashFlowSchedule`]:
 //!
-//! ```rust,ignore
-//! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::instruments::PeriodizedPvExt;
-//! use finstack_core::dates::{Date, Period, PeriodId, DayCount};
-//! use finstack_core::currency::Currency;
-//! use finstack_core::money::Money;
-//! use finstack_core::market_data::context::MarketContext;
-//! use finstack_core::market_data::term_structures::DiscountCurve;
-//! use time::Month;
+//! ```rust,no_run
+//! use finstack_cashflows::builder::CashFlowSchedule;
+//! use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
+//! use finstack_core::market_data::traits::Discounting;
 //!
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let issue = Date::from_calendar_date(2025, Month::January, 1)?;
-//! let maturity = Date::from_calendar_date(2026, Month::January, 1)?;
+//! fn periodized_pv(
+//!     schedule: &CashFlowSchedule,
+//!     periods: &[Period],
+//!     disc: &dyn Discounting,
+//!     base: Date,
+//! ) -> finstack_core::Result<()> {
+//!     let pv_map = schedule.pv_by_period_with_ctx(
+//!         periods,
+//!         disc,
+//!         base,
+//!         DayCount::Act365F,
+//!         DayCountCtx::default(),
+//!     )?;
 //!
-//! let bond = Bond::fixed(
-//!     "BOND-001",
-//!     Money::new(1_000_000.0, Currency::USD),
-//!     0.05,
-//!     issue,
-//!     maturity,
-//!     "USD-OIS",
-//! )?;
-//!
-//! let disc_curve = DiscountCurve::builder("USD-OIS")
-//!     .base_date(issue)
-//!     .knots([(0.0, 1.0), (1.0, 0.95)])
-//!     .interp(finstack_core::math::interp::InterpStyle::Linear)
-//!     .build()?;
-//! let market = MarketContext::new().insert(disc_curve);
-//!
-//! let periods = vec![
-//!     Period {
-//!         id: PeriodId::quarter(2025, 1),
-//!         start: Date::from_calendar_date(2025, Month::January, 1)?,
-//!         end: Date::from_calendar_date(2025, Month::April, 1)?,
-//!         is_actual: true,
-//!     },
-//! ];
-//!
-//! // Compute periodized PV using the extension trait
-//! let pv_by_period = bond.periodized_pv(&periods, &market, issue, DayCount::Act365F)?;
-//!
-//! // Access PV for a specific period
-//! if let Some(q1_pvs) = pv_by_period.get(&PeriodId::quarter(2025, 1)) {
-//!     if let Some(usd_pv) = q1_pvs.get(&Currency::USD) {
-//!         println!("Q1 PV: ${:.2}", usd_pv.amount());
-//!     }
+//!     let _ = pv_map;
+//!     Ok(())
 //! }
-//! # Ok(())
-//! # }
 //! ```
 //!
-//! ### From a Schedule Directly
+//! ### From Higher-Level Instruments
 //!
-//! For lower-level control, use `CashFlowSchedule::pv_by_period_with_ctx` or
-//! `CashFlowSchedule::pv_by_period_with_market_and_ctx` directly.
+//! Higher-level instrument adapters may exist in other crates, such as
+//! `finstack-valuations`, but they are outside this crate's direct public API.
 //!
 //! # See Also
 //!
 //! - `primitives` for core `CashFlow` type from finstack-core
 //! - `builder` for schedule construction
-//! - `aggregation` for currency-safe merging and `pv_by_period`
+//! - `aggregation` for currency-safe dated-flow aggregation
 //! - `CashflowProvider` and `schedule_from_dated_flows` for schedule interfaces
 
 /// Cash-flow primitives (`CashFlow`, `CFKind`, etc.).

@@ -1,304 +1,174 @@
 # Finstack Portfolio
 
-Portfolio management and aggregation for the Finstack ecosystem.
+`finstack-portfolio` provides portfolio construction, valuation aggregation,
+grouping, selective repricing, scenario application, margin aggregation, factor
+risk decomposition, and optimization on top of the wider Finstack ecosystem.
 
-## Features
+## What This Crate Covers
 
-- **Entity-based position tracking**: Organize positions under entities (companies, funds) with support for standalone instruments via dummy entity
-- **Flat position structure**: Simple Vec-based position storage with flexible attribute-based grouping
-- **Multi-instrument support**: Works with any instrument from `finstack-valuations` (deposits, bonds, swaps, options, etc.)
-- **Cross-currency aggregation**: Automatic FX conversion to portfolio base currency using `FxMatrix`
-- **Valuation & metrics**: Value all positions and aggregate metrics (DV01, CS01, Delta, etc.)
-- **Attribute-based grouping**: Group and aggregate by any position tag (rating, sector, instrument type, etc.)
-- **Scenario integration**: Apply scenarios to portfolios and re-value (requires `scenarios` feature)
-- **DataFrame exports**: Export results to Polars DataFrames for analysis
+- Entity-aware portfolio containers with optional dummy-entity support for
+  standalone instruments.
+- Position quantity scaling via explicit units such as `Units`, `Notional`,
+  `FaceValue`, and `Percentage`.
+- Base-currency portfolio valuation and per-position drill-down.
+- Portfolio-level metric aggregation, grouping, cashflow ladders, margin, and
+  advanced analytics.
+- Optional scenario application and Polars DataFrame exports.
+
+## Core Conventions
+
+- `Portfolio::base_ccy` is the reporting currency for totals and portfolio-level
+  analytics.
+- `Position::quantity` is interpreted by `PositionUnit`; it is not always a
+  literal number of units.
+- Summable risk metrics are FX-converted to the portfolio base currency before
+  aggregation.
+- Selective repricing relies on each instrument's declared market dependencies.
+  Instruments with unresolved dependencies are repriced conservatively.
 
 ## Quick Start
 
 ```rust
-use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit, Entity, DUMMY_ENTITY_ID};
-use finstack_portfolio::value_portfolio;
 use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
-use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_portfolio::{Entity, PortfolioBuilder, Position, PositionUnit};
+use finstack_portfolio::valuation::value_portfolio;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 use time::macros::date;
 
-// Create market data
+# fn main() -> finstack_portfolio::Result<()> {
+let as_of = date!(2024-01-01);
 let market = MarketContext::new();
 let config = FinstackConfig::default();
 
-// Create a deposit instrument
 let deposit = Deposit::builder()
     .id("DEP_1M".into())
     .notional(Money::new(1_000_000.0, Currency::USD))
-    .start(date!(2024-01-01))
+    .start_date(as_of)
     .maturity(date!(2024-02-01))
-    .day_count(DayCount::Act360)
-    .disc_id("USD".into())
+    .day_count(finstack_core::dates::DayCount::Act360)
+    .discount_curve_id("USD".into())
     .build()
-    .unwrap();
+    .expect("example deposit should build");
 
-// Create a position
 let position = Position::new(
     "POS_001",
-    DUMMY_ENTITY_ID, // Standalone instrument
+    "ACME_FUND",
     "DEP_1M",
     Arc::new(deposit),
     1.0,
     PositionUnit::Units,
-)
-.expect("position creation should succeed")
-.with_tag("rating", "AAA");
+)?
+.with_tag("asset_class", "cash");
 
-// Build portfolio
 let portfolio = PortfolioBuilder::new("MY_FUND")
     .base_ccy(Currency::USD)
-    .as_of(date!(2024-01-01))
+    .as_of(as_of)
+    .entity(Entity::new("ACME_FUND"))
     .position(position)
-    .build()
-    .unwrap();
+    .build()?;
 
-// Value the portfolio
-let valuation = value_portfolio(&portfolio, &market, &config).unwrap();
-println!("Total value: {}", valuation.total_base_ccy);
+let valuation = value_portfolio(&portfolio, &market, &config, &Default::default())?;
+println!("Portfolio total: {}", valuation.total_base_ccy);
+# Ok(())
+# }
 ```
 
-## Architecture
+## Main Workflows
 
-### Entity Model
+### Valuation and metrics
 
-Portfolios use an entity-based structure:
+Use `value_portfolio` to compute per-position and aggregate PV, then
+`aggregate_metrics` to roll up summable risk in base currency.
 
-- **Entity**: Represents a company, fund, or legal entity that owns positions
-- **Dummy Entity**: Special entity (`DUMMY_ENTITY_ID`) for standalone instruments (derivatives, FX, etc.)
-- **Position**: Links an entity to an instrument with quantity and tags
+### Grouping and reporting
 
-### Position Units
+Use `aggregate_by_attribute`, `aggregate_by_multiple_attributes`, and
+`aggregate_by_book` to roll up results by user tags or book hierarchy.
 
-Positions support multiple unit types with unit-aware scaling:
+### Selective repricing
 
-- **`Units`**: Number of shares/contracts (for equities, options)
-  - `quantity` is multiplied directly by instrument value
-  - Example: 100 shares × $50/share = $5,000 position value
+Use `revalue_affected` when only a subset of market factors changed and the
+portfolio's dependency index can identify affected positions.
 
-- **`Notional(Option<Currency>)`**: Notional amount (for derivatives, FX)
-  - `quantity` represents the notional amount
-  - Instrument should return unit price per unit of notional
-  - If instrument returns total PV for a defined notional, set `quantity = 1.0` to avoid double-scaling
-  - Example: 1M notional × $0.99 unit price = $990,000 position value
+### Scenarios
 
-- **`FaceValue`**: Face value of debt (for bonds, loans)
-  - `quantity` represents the face value held
-  - Instrument typically returns full PV for its defined notional
-  - Example: $1M face value × bond PV (already includes notional) = position value
+With the `scenarios` feature enabled, use `apply_scenario` or
+`apply_and_revalue` to clone the portfolio, mutate market data, and compute
+stressed results.
 
-- **`Percentage`**: Ownership percentage
-  - `quantity` can be 0.0-1.0 (fractional) or 0-100 (percentage points)
-  - Values > 1.0 are automatically normalized by dividing by 100
-  - Example: `quantity = 50` (treated as 50%) or `quantity = 0.50` (treated as 50%)
+### Advanced analytics
 
-### Valuation Flow
+The crate also exposes:
 
-1. **Price instruments**: Call `instrument.value()` for each position
-2. **Scale by quantity**: Apply unit-aware scaling using `Position::scale_value()` which respects the `PositionUnit` type
-3. **Cross-currency conversion**: Convert to portfolio base currency using `FxMatrix`
-4. **Aggregation**: Sum by entity and compute portfolio total using compensated summation (Neumaier) for numerical stability
+- `margin` for netting-set and SIMM-style aggregation.
+- `factor_model` for factor assignment and risk decomposition.
+- `optimization` for deterministic LP-based portfolio optimization.
+- `cashflows` for portfolio cashflow ladders and base-currency bucketing.
 
-### Metrics Aggregation
+## Quantity Semantics
 
-Metrics are classified as:
+`PositionUnit` controls how `Position::scale_value` interprets `quantity`:
 
-- **Summable**: DV01, CS01, Delta, Gamma, Vega, Theta, etc. (aggregate across positions)
-- **Non-summable**: YTM, Duration, Spread, etc. (store by position only)
+- `Units`: direct scaling by number of shares or contracts.
+- `Notional(Option<Currency>)`: direct scaling by notional amount. Use `1.0`
+  when the instrument already returns a total PV for its configured notional.
+- `FaceValue`: direct scaling by held face amount.
+- `Percentage`: always interpreted in percentage points, so `50.0` means `50%`
+  and is converted internally to `0.50`.
 
-## Scenario Support
+## FX and Reporting Semantics
 
-Apply market scenarios to portfolios (requires `scenarios` feature):
-
-```rust
-use finstack_scenarios::spec::{ScenarioSpec, OperationSpec, CurveKind};
-
-let scenario = ScenarioSpec {
-    id: "stress_test".to_string(),
-    operations: vec![
-        OperationSpec::CurveParallelBp {
-            curve_kind: CurveKind::Discount,
-            curve_id: "USD".to_string(),
-            bp: 50.0,
-        },
-    ],
-    ..Default::default()
-};
-
-let (stressed_valuation, report) =
-    apply_and_revalue(&portfolio, &scenario, &market, &config)?;
-```
-
-## Selective Repricing
-
-When only a subset of market data changes (e.g., a single curve bump), you can reprice only the affected positions instead of the entire portfolio:
-
-```rust
-use finstack_portfolio::dependencies::MarketFactorKey;
-use finstack_portfolio::valuation::{revalue_affected, value_portfolio, PortfolioValuationOptions};
-use finstack_valuations::instruments::common::traits::RatesCurveKind;
-
-// 1. Full valuation against the base market
-let base_val = value_portfolio(&portfolio, &base_market, &config)?;
-
-// 2. Identify changed factors
-let changed = vec![
-    MarketFactorKey::curve("USD-OIS".into(), RatesCurveKind::Discount),
-];
-
-// 3. Selectively reprice against the bumped market
-let bumped_val = revalue_affected(
-    &portfolio,
-    &bumped_market,
-    &config,
-    &PortfolioValuationOptions::default(),
-    &base_val,
-    &changed,
-)?;
-```
-
-The dependency index is built automatically during portfolio construction and maps each market factor (curve, spot, vol surface, FX pair, series) to the positions that depend on it. Only positions whose instruments declared a dependency on one of the changed keys are repriced; all other positions reuse their prior `PositionValue`. Aggregates (totals, entity rollups, degraded-risk tracking) are fully recomputed from the merged position values.
-
-### Current Limits
-
-- **Instrument shocks** (price overrides, spread overrides via scenario attributes) are not representable as `MarketFactorKey` values. Use full `apply_and_revalue` for those.
-- **Instrument mutations** (e.g., changing coupon via scenario) require full repricing.
-- Instruments whose `market_dependencies()` returns an error are excluded from the index; they will always be repriced as a conservative fallback.
-
-## Attribute-Based Grouping
-
-Group positions and aggregate values by any tag:
-
-```rust
-use finstack_portfolio::aggregate_by_attribute;
-
-// Group by rating
-let by_rating = aggregate_by_attribute(
-    &valuation,
-    &portfolio.positions,
-    "rating",
-    portfolio.base_ccy,
-)?;
-
-for (rating, total) in &by_rating {
-    println!("{}: {}", rating, total);
-}
-```
-
-## DataFrame Exports
-
-Export results to Polars DataFrames:
-
-```rust
-use finstack_portfolio::dataframe::{positions_to_dataframe, entities_to_dataframe};
-
-// Position-level data
-let df_positions = positions_to_dataframe(&valuation)?;
-// Columns: position_id, entity_id, value_native, value_base, currency_native, currency_base
-
-// Entity-level aggregates
-let df_entities = entities_to_dataframe(&valuation)?;
-// Columns: entity_id, total_value, currency
-```
-
-## Quantity and Unit Semantics
-
-The `Position` struct uses unit-aware scaling to correctly interpret the `quantity` field based on the `PositionUnit` type. This ensures that:
-
-- **Equity positions** with `Units` scale correctly (e.g., 100 shares)
-- **Derivative positions** with `Notional` avoid double-scaling when instruments return total PV
-- **Bond positions** with `FaceValue` correctly represent holdings
-- **Percentage positions** normalize percentage points (e.g., 50 = 50%)
-
-**Important**: If an instrument's `value()` method returns the total PV for a defined notional (common for OTC swaps), set `quantity = 1.0` to avoid double-scaling. The `PositionUnit` type helps document intent but the scaling logic handles the interpretation.
-
-## Numerical Stability
-
-Portfolio aggregation uses **compensated summation** (Neumaier algorithm) to maintain numerical accuracy when summing large portfolios with mixed-sign values. This is critical for:
-
-- **Large portfolios** (1000+ positions) with values spanning orders of magnitude
-- **Mixed-sign positions** (long/short) where cancellation can amplify rounding errors
-- **Regulatory reporting** where aggregate PV must match position-level sums within tight tolerances
-
-The implementation automatically uses Neumaier summation for:
-
-- Portfolio total value aggregation
-- Entity-level value aggregation
-- Metrics aggregation (DV01, CS01, etc.)
-
-Non-finite values (NaN, Inf) in metrics are automatically filtered out with warnings logged.
+- Position values are stored both in native currency and portfolio base
+  currency.
+- Portfolio-level totals and summable metrics are reported in base currency.
+- Cashflow conversion helpers use spot-equivalent FX for all dates; for
+  forward-sensitive reporting, derive forward FX explicitly outside this crate.
+- Attribution distinguishes instrument FX risk from FX translation caused by
+  reporting a non-base-currency position in the portfolio base currency.
 
 ## Serialization
 
-Portfolios can be serialized to JSON using `PortfolioSpec` and `PositionSpec`:
+Use `Portfolio::to_spec` and `Portfolio::from_spec` for JSON-friendly
+serialization:
 
 ```rust
-use finstack_portfolio::{Portfolio, PortfolioSpec};
+use finstack_portfolio::PortfolioSpec;
 
-// Convert portfolio to serializable spec
+# fn round_trip(portfolio: &finstack_portfolio::Portfolio) -> finstack_portfolio::Result<()> {
 let spec = portfolio.to_spec();
-
-// Serialize to JSON
-let json = serde_json::to_string(&spec)?;
-
-// Deserialize and reconstruct
-let spec: PortfolioSpec = serde_json::from_str(&json)?;
-let portfolio = Portfolio::from_spec(spec)?;
+let json = serde_json::to_string(&spec).expect("serialization should succeed");
+let decoded: PortfolioSpec = serde_json::from_str(&json).expect("deserialization should succeed");
+let rebuilt = finstack_portfolio::Portfolio::from_spec(decoded)?;
+assert_eq!(rebuilt.id, portfolio.id);
+# Ok(())
+# }
 ```
 
-**Note**: Full round-trip serialization requires instruments to implement `Instrument::to_instrument_json()`. Positions with `instrument_spec: None` cannot be fully reconstructed without an external instrument registry.
+Round-trip reconstruction requires each instrument to support
+`to_instrument_json()`. If a position serializes with `instrument_spec: None`,
+an external instrument registry is required to rebuild it.
 
-## Future Enhancements
+## Feature Flags
 
-The following features are planned for future releases:
+- `scenarios`: enables scenario application helpers.
+- `dataframes`: enables Polars `DataFrame` export helpers.
+- `parallel`: enables rayon-backed portfolio valuation and metric collection in
+  selected paths.
 
-- **Full metrics computation**: Integrate with `price_with_metrics` for complete risk measures
-- **Statement aggregation**: Attach financial models to entities and aggregate statements
-- **Book hierarchy**: Optional nested book/folder structure for organization
-- **Performance optimization**: Parallel valuation and caching
+## Examples and Verification
 
-## Examples
+- Optimization example:
+  `cargo run -p finstack-portfolio --example portfolio_optimization`
+- Crate tests:
+  `cargo test -p finstack-portfolio`
+- Doc tests:
+  `cargo test -p finstack-portfolio --doc`
 
-See `examples/rust/portfolio_example.rs` for a comprehensive example demonstrating:
+## References
 
-- Entity-based and standalone positions
-- Cross-currency aggregation
-- Attribute-based grouping
-- Scenario application
-- DataFrame exports
-
-Run with:
-
-```bash
-cargo run --example portfolio_example
-```
-
-## Testing
-
-Run tests with:
-
-```bash
-cargo test --package finstack-portfolio
-```
-
-All tests include market data setup and demonstrate real valuation workflows.
-
-## Dependencies
-
-- `finstack-core`: Foundation types, dates, money, FX
-- `finstack-valuations`: Instrument pricing and metrics
-- `finstack-scenarios`: Scenario engine (optional, enabled by default)
-- `finstack-statements`: Financial models (optional, for future statement aggregation)
-
-## License
-
-Licensed under Apache-2.0, consistent with the Finstack ecosystem.
+Canonical quantitative and market-convention references used across Finstack
+live in [`docs/REFERENCES.md`](../../docs/REFERENCES.md).

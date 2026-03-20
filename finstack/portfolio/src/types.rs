@@ -19,11 +19,19 @@ impl EntityId {
     /// # Arguments
     ///
     /// * `id` - The identifier string.
+    ///
+    /// # Returns
+    ///
+    /// A strongly typed entity identifier wrapping the supplied string.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
 
     /// Get the identifier as a string slice.
+    ///
+    /// # Returns
+    ///
+    /// Borrowed view of the underlying identifier without allocating.
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -86,11 +94,19 @@ impl PositionId {
     /// # Arguments
     ///
     /// * `id` - The identifier string.
+    ///
+    /// # Returns
+    ///
+    /// A strongly typed position identifier wrapping the supplied string.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
 
     /// Get the identifier as a string slice.
+    ///
+    /// # Returns
+    ///
+    /// Borrowed view of the underlying identifier without allocating.
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -173,6 +189,20 @@ impl Entity {
     /// # Arguments
     ///
     /// * `id` - Unique entity identifier.
+    ///
+    /// # Returns
+    ///
+    /// A new entity with empty tags and metadata.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::Entity;
+    ///
+    /// let entity = Entity::new("ACME");
+    /// assert_eq!(entity.id.as_str(), "ACME");
+    /// assert!(entity.name.is_none());
+    /// ```
     pub fn new(id: impl Into<EntityId>) -> Self {
         Self {
             id: id.into(),
@@ -187,6 +217,10 @@ impl Entity {
     /// # Arguments
     ///
     /// * `name` - Human-readable name.
+    ///
+    /// # Returns
+    ///
+    /// The updated entity for fluent chaining.
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
@@ -198,6 +232,10 @@ impl Entity {
     ///
     /// * `key` - Tag key.
     /// * `value` - Tag value.
+    ///
+    /// # Returns
+    ///
+    /// The updated entity for fluent chaining.
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
@@ -208,6 +246,10 @@ impl Entity {
     /// # Arguments
     ///
     /// * `tags` - Iterator of (key, value) pairs.
+    ///
+    /// # Returns
+    ///
+    /// The updated entity for fluent chaining.
     ///
     /// # Examples
     ///
@@ -233,6 +275,11 @@ impl Entity {
     }
 
     /// Create the dummy entity for standalone instruments.
+    ///
+    /// # Returns
+    ///
+    /// The canonical dummy entity used for positions that are not associated
+    /// with a real legal entity.
     pub fn dummy() -> Self {
         Self {
             id: EntityId::new(DUMMY_ENTITY_ID),

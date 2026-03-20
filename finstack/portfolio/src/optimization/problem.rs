@@ -40,6 +40,15 @@ impl PortfolioOptimizationProblem {
     /// - Uses `WeightingScheme::ValueWeight`
     /// - Uses a default `TradeUniverse` (all positions tradeable, no candidates)
     /// - Adds a `Budget { rhs: 1.0 }` constraint
+    ///
+    /// # Arguments
+    ///
+    /// * `portfolio` - Starting portfolio whose positions and metadata seed the problem.
+    /// * `objective` - Portfolio-level target to maximize or minimize.
+    ///
+    /// # Returns
+    ///
+    /// A problem initialized with standard long-only, fully-invested defaults.
     #[must_use]
     pub fn new(portfolio: Portfolio, objective: Objective) -> Self {
         Self {
@@ -55,6 +64,15 @@ impl PortfolioOptimizationProblem {
     }
 
     /// Set the trade universe.
+    ///
+    /// # Arguments
+    ///
+    /// * `universe` - Universe describing which existing positions may trade and
+    ///   which new candidates may be added.
+    ///
+    /// # Returns
+    ///
+    /// The updated problem for fluent chaining.
     #[must_use]
     pub fn with_trade_universe(mut self, universe: TradeUniverse) -> Self {
         self.trade_universe = universe;
@@ -62,6 +80,14 @@ impl PortfolioOptimizationProblem {
     }
 
     /// Add a single constraint.
+    ///
+    /// # Arguments
+    ///
+    /// * `constraint` - Additional portfolio constraint.
+    ///
+    /// # Returns
+    ///
+    /// The updated problem for fluent chaining.
     #[must_use]
     pub fn with_constraint(mut self, constraint: Constraint) -> Self {
         self.constraints.push(constraint);
@@ -69,6 +95,14 @@ impl PortfolioOptimizationProblem {
     }
 
     /// Add multiple constraints.
+    ///
+    /// # Arguments
+    ///
+    /// * `constraints` - Constraints to append to the problem.
+    ///
+    /// # Returns
+    ///
+    /// The updated problem for fluent chaining.
     #[must_use]
     pub fn with_constraints(mut self, constraints: impl IntoIterator<Item = Constraint>) -> Self {
         self.constraints.extend(constraints);

@@ -1,10 +1,20 @@
-//! Performance analytics: returns, drawdowns, risk metrics, benchmark-relative
-//! statistics, lookback selectors, and period aggregation.
+//! Performance analytics on numeric slices and `finstack_core::dates::Date`.
 //!
-//! All analytics operate on `&[f64]` slices and `finstack_core::dates::Date` -- no Polars
-//! dependency. The [`crate::performance::Performance`] struct ties everything together as a
-//! stateful orchestrator; individual sub-module functions are also public
-//! for standalone use.
+//! Start with [`crate::performance::Performance`] when you want a stateful,
+//! benchmark-aware facade over a full panel of ticker returns. Reach for the
+//! individual modules when you want standalone, allocation-light functions on
+//! pre-computed return or drawdown slices.
+//!
+//! Key conventions:
+//! - returns are simple decimal returns unless a function explicitly says otherwise
+//! - annualization uses the caller-supplied or [`crate::dates::PeriodKind`]-derived
+//!   periods-per-year factor
+//! - drawdown depths are non-positive fractions such as `-0.25` for a 25% loss
+//! - benchmark-relative metrics operate on return series, not fill-forwarded prices
+//!
+//! See [`crate::risk_metrics`] for return- and tail-based ratios,
+//! [`crate::drawdown`] for drawdown path analytics, and
+//! [`crate::benchmark`] for benchmark-relative regressions and attribution.
 
 pub(crate) use finstack_core::{dates, error, math};
 type Result<T> = finstack_core::Result<T>;

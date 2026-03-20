@@ -1,15 +1,23 @@
-//! Risk and return metrics: Sharpe, Sortino, Calmar, VaR, ES, and more.
+//! Return-based, tail-risk, and rolling analytics on simple return series.
 //!
-//! Organized into focused submodules:
-//! - [`return_based`]: CAGR, mean return, volatility, Sharpe, Sortino, Omega, etc.
-//! - [`tail_risk`]: VaR, ES, Cornish-Fisher VaR, skewness, kurtosis, tail ratios.
-//! - [`rolling`]: Rolling Sharpe, Sortino, and volatility over sliding windows.
+//! Start here when you already have a single `&[f64]` return slice and want a
+//! scalar or rolling risk/performance metric without constructing
+//! [`crate::performance::Performance`].
 //!
-//! Drawdown-derived ratios (Calmar, Ulcer, Martin, Sterling, Burke, Pain,
-//! Recovery Factor) live in [`crate::drawdown`]. Benchmark-relative
-//! ratios (Treynor, M-squared) live in [`crate::benchmark`].
+//! Submodules are organized by domain:
+//! - [`return_based`]: CAGR, mean return, volatility, Sharpe, Sortino, ruin estimation, and other return-level ratios
+//! - [`tail_risk`]: VaR, Expected Shortfall, Cornish-Fisher VaR, skewness, kurtosis, and tail-shape metrics
+//! - [`rolling`]: rolling Sharpe, Sortino, and volatility over sliding windows
 //!
-//! All functions operate on `&[f64]` return slices and return scalar `f64`.
+//! Important conventions:
+//! - returns are simple decimal returns, such as `0.01` for +1%
+//! - annualized means scale linearly with the periods-per-year factor
+//! - annualized volatility-like quantities scale with `sqrt(periods_per_year)`
+//! - historical VaR and ES are reported in return space and are not time-scaled
+//!
+//! Drawdown-derived ratios such as Calmar, Martin, Sterling, Burke, Pain, and
+//! Recovery Factor live in [`crate::drawdown`]. Benchmark-relative ratios such
+//! as Treynor and M-squared live in [`crate::benchmark`].
 
 pub mod return_based;
 pub mod rolling;

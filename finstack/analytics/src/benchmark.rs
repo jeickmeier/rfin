@@ -73,6 +73,61 @@ pub fn align_benchmark(
 }
 
 /// Align a benchmark return series to the target date grid using an explicit policy.
+///
+/// This is the fallible variant of [`align_benchmark`]. It performs the same
+/// exact-date lookup, but lets the caller decide whether missing benchmark
+/// dates should be synthesized as `0.0` returns or rejected as invalid input.
+///
+/// The function operates in return space, not price space: `0.0` means "no
+/// return observed on that target date", not "price unchanged after fill-forward
+/// interpolation".
+///
+/// # Arguments
+///
+/// * `bench_returns` - Benchmark simple-return series in decimal form. The
+///   usable sample is truncated to `min(bench_returns.len(), bench_dates.len())`.
+/// * `bench_dates` - Sorted benchmark dates corresponding to `bench_returns`.
+///   Dates must be strictly ascending for binary search to behave correctly.
+/// * `target_dates` - Sorted target date grid to align onto.
+/// * `policy` - Behavior when a target date is absent from the benchmark grid.
+///
+/// # Returns
+///
+/// A `Vec<f64>` of length `target_dates.len()` containing benchmark returns
+/// aligned to the target grid.
+///
+/// # Errors
+///
+/// Returns an error when `policy` is
+/// [`BenchmarkAlignmentPolicy::ErrorOnMissingDates`] and any `target_dates`
+/// entry is absent from `bench_dates`.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::benchmark::{
+///     align_benchmark_with_policy, BenchmarkAlignmentPolicy,
+/// };
+/// use finstack_core::dates::{Date, Month};
+///
+/// let bench_dates = vec![
+///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 3).unwrap(),
+/// ];
+/// let bench_returns = vec![0.01, 0.03];
+/// let target_dates = vec![
+///     Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+///     Date::from_calendar_date(2025, Month::January, 2).unwrap(),
+/// ];
+///
+/// let err = align_benchmark_with_policy(
+///     &bench_returns,
+///     &bench_dates,
+///     &target_dates,
+///     BenchmarkAlignmentPolicy::ErrorOnMissingDates,
+/// );
+/// assert!(err.is_err());
+/// ```
 pub fn align_benchmark_with_policy(
     bench_returns: &[f64],
     bench_dates: &[Date],
@@ -828,26 +883,52 @@ fn qr_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> 
     Ok(beta)
 }
 
-/// Multi-factor OLS regression: regress portfolio returns on multiple factors.
+/// Multi-factor OLS regression of portfolio returns on factor returns.
 ///
-/// Solves `y = α + β₁f₁ + β₂f₂ + ... + βₖfₖ + ε` via the normal equations
-/// `β = (X'X)⁻¹ X'y`, where `X` has a column of ones for the intercept.
+/// Estimates the linear model
 ///
-/// Uses Cholesky decomposition for the (k+1)×(k+1) system. Handles up to
-/// ~10 factors without external linear algebra dependencies.
+/// ```text
+/// r_portfolio = α + β₁f₁ + β₂f₂ + ... + βₖfₖ + ε
+/// ```
+///
+/// by solving the least-squares system with a QR decomposition of the design
+/// matrix. Using QR avoids explicitly forming the normal equations and is more
+/// numerically stable when factors are correlated.
 ///
 /// # Arguments
 ///
-/// * `returns`    - Portfolio return series.
+/// * `returns`    - Portfolio simple-return series in decimal form (for example,
+///   `0.01` for 1%).
 /// * `factors`    - Slice of factor return series (each inner slice is one
-///   factor's return series, all the same length as `returns`).
-/// * `ann_factor` - Number of periods per year for annualization.
+///   factor's return series, all the same length as `returns`). Factor returns
+///   use the same decimal convention as `returns`.
+/// * `ann_factor` - Number of observation periods per year used to annualize
+///   the intercept and residual volatility. For example, use `252.0` for daily
+///   data or `12.0` for monthly data.
 ///
 /// # Returns
 ///
-/// A [`MultiFactorResult`] with alpha (annualized), betas, R², and
-/// residual volatility. Returns zero-filled result if the system is
-/// degenerate.
+/// A [`MultiFactorResult`] containing:
+///
+/// - `alpha`: annualized intercept
+/// - `betas`: one loading per factor
+/// - `r_squared` and `adjusted_r_squared`: goodness-of-fit measures
+/// - `residual_vol`: annualized residual volatility
+///
+/// Coefficients are estimated on the overlapping sample implied by the input
+/// slices. The function does not truncate mismatched factor lengths; it rejects
+/// them as invalid input instead.
+///
+/// # Errors
+///
+/// Returns an error when:
+///
+/// - `ann_factor` is not finite or is `<= 0`
+/// - no factors are supplied
+/// - there are too few observations for the requested number of factors
+/// - any portfolio or factor return is non-finite
+/// - any factor length differs from `returns.len()`
+/// - the factor matrix is singular or numerically rank deficient
 ///
 /// # Examples
 ///
@@ -863,7 +944,8 @@ fn qr_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> 
 ///
 /// # References
 ///
-/// - Fama & French (1993): see docs/REFERENCES.md#famaFrench1993
+/// - Fama & French (1993): see docs/REFERENCES.md#fama-french-1993
+/// - Higham: see docs/REFERENCES.md#higham-accuracy-and-stability
 pub fn multi_factor_greeks(
     returns: &[f64],
     factors: &[&[f64]],
@@ -1276,6 +1358,50 @@ pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: 
 }
 
 /// M-squared computed directly from portfolio and benchmark return series.
+///
+/// This convenience wrapper annualizes the portfolio arithmetic mean return,
+/// portfolio volatility, and benchmark volatility from the supplied return
+/// series, then delegates to [`m_squared`].
+///
+/// # Arguments
+///
+/// * `portfolio` - Portfolio simple-return series in decimal form.
+/// * `benchmark` - Benchmark simple-return series in decimal form.
+/// * `ann_factor` - Number of periods per year used for annualization.
+/// * `risk_free_rate` - Annualized risk-free rate in decimal form.
+///
+/// # Returns
+///
+/// The M-squared return on the benchmark-volatility scale. Returns the
+/// risk-free rate if the annualized portfolio volatility is zero. Propagates
+/// `NaN` from the underlying annualized return or volatility calculations when
+/// `ann_factor` is invalid.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::benchmark::{m_squared, m_squared_from_returns};
+/// use finstack_analytics::risk_metrics::{mean_return, volatility};
+///
+/// let portfolio = [0.01, -0.015, 0.012, 0.008, -0.004, 0.009];
+/// let benchmark = [0.008, -0.01, 0.01, 0.006, -0.003, 0.007];
+/// let ann_factor = 252.0;
+/// let risk_free_rate = 0.01;
+///
+/// let direct = m_squared_from_returns(&portfolio, &benchmark, ann_factor, risk_free_rate);
+/// let expected = m_squared(
+///     mean_return(&portfolio, true, ann_factor),
+///     volatility(&portfolio, true, ann_factor),
+///     volatility(&benchmark, true, ann_factor),
+///     risk_free_rate,
+/// );
+///
+/// assert!((direct - expected).abs() < 1e-12);
+/// ```
+///
+/// # References
+///
+/// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
 pub fn m_squared_from_returns(
     portfolio: &[f64],
     benchmark: &[f64],

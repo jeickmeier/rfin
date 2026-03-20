@@ -60,6 +60,17 @@ pub struct CandidatePosition {
 
 impl CandidatePosition {
     /// Create a new candidate position.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - Identifier that will become the optimized `PositionId` if selected.
+    /// * `entity_id` - Owning entity for the candidate.
+    /// * `instrument` - Candidate instrument to trade.
+    /// * `unit` - Quantity semantics for the candidate.
+    ///
+    /// # Returns
+    ///
+    /// Candidate with empty tags, `max_weight = 1.0`, and `min_weight = 0.0`.
     pub fn new(
         id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
@@ -78,18 +89,43 @@ impl CandidatePosition {
     }
 
     /// Add a tag to the candidate.
+    ///
+    /// # Arguments
+    ///
+    /// * `key` - Tag key.
+    /// * `value` - Tag value.
+    ///
+    /// # Returns
+    ///
+    /// The updated candidate for fluent chaining.
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
     }
 
     /// Set maximum weight for this candidate.
+    ///
+    /// # Arguments
+    ///
+    /// * `max` - Maximum admissible weight.
+    ///
+    /// # Returns
+    ///
+    /// The updated candidate for fluent chaining.
     pub fn with_max_weight(mut self, max: f64) -> Self {
         self.max_weight = max;
         self
     }
 
     /// Set minimum weight (if included) for this candidate.
+    ///
+    /// # Arguments
+    ///
+    /// * `min` - Minimum admissible weight when the candidate is included.
+    ///
+    /// # Returns
+    ///
+    /// The updated candidate for fluent chaining.
     pub fn with_min_weight(mut self, min: f64) -> Self {
         self.min_weight = min;
         self
@@ -126,11 +162,23 @@ pub struct TradeUniverse {
 
 impl TradeUniverse {
     /// Create a universe where all existing positions are tradeable.
+    ///
+    /// # Returns
+    ///
+    /// Default trade universe with all held positions tradeable and no candidates.
     pub fn all_positions() -> Self {
         Self::default()
     }
 
     /// Create a universe with only specific positions tradeable.
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - Filter selecting which existing positions may trade.
+    ///
+    /// # Returns
+    ///
+    /// Trade universe with the supplied tradeable filter.
     pub fn filtered(filter: PositionFilter) -> Self {
         Self {
             tradeable_filter: filter,
@@ -139,12 +187,28 @@ impl TradeUniverse {
     }
 
     /// Add a candidate position to the universe.
+    ///
+    /// # Arguments
+    ///
+    /// * `candidate` - Candidate instrument that may be added by the optimizer.
+    ///
+    /// # Returns
+    ///
+    /// The updated trade universe for fluent chaining.
     pub fn with_candidate(mut self, candidate: CandidatePosition) -> Self {
         self.candidates.push(candidate);
         self
     }
 
     /// Add multiple candidate positions.
+    ///
+    /// # Arguments
+    ///
+    /// * `candidates` - Candidates to append to the universe.
+    ///
+    /// # Returns
+    ///
+    /// The updated trade universe for fluent chaining.
     pub fn with_candidates(
         mut self,
         candidates: impl IntoIterator<Item = CandidatePosition>,
@@ -154,12 +218,24 @@ impl TradeUniverse {
     }
 
     /// Set positions to hold constant (not trade).
+    ///
+    /// # Arguments
+    ///
+    /// * `filter` - Filter selecting positions that must keep their current weights.
+    ///
+    /// # Returns
+    ///
+    /// The updated trade universe for fluent chaining.
     pub fn with_held_positions(mut self, filter: PositionFilter) -> Self {
         self.held_filter = Some(filter);
         self
     }
 
     /// Allow short selling of candidate positions.
+    ///
+    /// # Returns
+    ///
+    /// The updated trade universe for fluent chaining.
     pub fn allow_shorting_candidates(mut self) -> Self {
         self.allow_short_candidates = true;
         self

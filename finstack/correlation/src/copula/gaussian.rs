@@ -32,8 +32,8 @@
 //!
 //! # References
 //!
-//! - Li, D. X. (2000). "On Default Correlation: A Copula Function Approach."
-//!   *Journal of Fixed Income*, 9(4), 43-54.
+//! - Gaussian copula reference:
+//!   `docs/REFERENCES.md#li-2000-gaussian-copula`
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
@@ -55,6 +55,10 @@ const CDF_CLIP: f64 = 10.0;
 /// - Correlation is clamped to [0.01, 0.99] to avoid numerical issues
 /// - CDF arguments are clipped to [-10, 10] to prevent overflow
 /// - Quadrature is cached for performance
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#li-2000-gaussian-copula`
 pub struct GaussianCopula {
     /// Quadrature order for integration
     quadrature_order: u8,
@@ -90,6 +94,23 @@ impl GaussianCopula {
     ///
     /// Uses 20-point Gauss-Hermite quadrature for integration
     /// (industry standard range: 20-50 points for tranche pricing).
+    ///
+    /// # Returns
+    ///
+    /// A one-factor Gaussian copula using the default quadrature order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{Copula, GaussianCopula};
+    /// use finstack_core::math::standard_normal_inv_cdf;
+    ///
+    /// let copula = GaussianCopula::new();
+    /// let threshold = standard_normal_inv_cdf(0.05);
+    /// let cond_pd = copula.conditional_default_prob(threshold, &[-1.0], 0.30);
+    ///
+    /// assert!(cond_pd > 0.0 && cond_pd < 1.0);
+    /// ```
     #[must_use]
     pub fn new() -> Self {
         let order = DEFAULT_QUADRATURE_ORDER;
@@ -103,6 +124,11 @@ impl GaussianCopula {
     ///
     /// # Arguments
     /// * `order` - Number of Gauss-Hermite quadrature points. Higher = more accuracy.
+    ///
+    /// # Returns
+    ///
+    /// A one-factor Gaussian copula using the requested quadrature order, or the
+    /// default order if the requested value is unsupported.
     #[must_use]
     pub fn with_quadrature_order(order: u8) -> Self {
         Self {

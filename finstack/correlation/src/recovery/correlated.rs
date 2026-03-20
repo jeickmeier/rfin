@@ -1,31 +1,32 @@
 //! Market-correlated stochastic recovery model (Andersen-Sidenius).
 //!
-//! Models recovery as inversely correlated with the systematic factor:
-//! - In good markets (high Z): recovery is higher
-//! - In stressed markets (low Z): recovery is lower
-//!
-//! This captures the "double hit" effect where defaults cluster AND
-//! recovery rates fall simultaneously in stressed environments.
+//! Models recovery through a latent-factor shock plus a smooth bounding
+//! transform. The public parameters are quoted in decimals, so `0.40` means a
+//! 40% recovery rate and `0.25` means 25% recovery volatility.
 //!
 //! # Mathematical Model
 //!
 //! ```text
-//! R(Z) = μ_R + ρ_R · σ_R · Z
+//! shock(Z) = ρ_R · σ_R · Z
+//! R(Z) = min_R + (max_R - min_R) * logistic(center(μ_R) + shock(Z) / local_slope)
 //! ```
 //!
 //! where:
-//! - μ_R is mean recovery
-//! - σ_R is recovery volatility
-//! - ρ_R is correlation with systematic factor (typically negative)
-//! - Z is the systematic market factor from the copula
+//! - `μ_R` is the mean recovery at `Z = 0`
+//! - `σ_R` is the recovery-volatility scale
+//! - `ρ_R` is the factor sensitivity
+//! - `Z` is the supplied latent market factor
 //!
-//! The result is clamped to [0, 1] to ensure valid recovery rates.
+//! The implementation does **not** hard-clamp an affine recovery rule. Instead,
+//! it uses a logistic transform so recovery stays inside the configured bounds
+//! smoothly while preserving the target mean exactly at `Z = 0`.
 //!
-//! # Impact on Tranches
+//! # Sign Convention
 //!
-//! - **Equity tranches**: Increased losses (first hit by low recovery)
-//! - **Mezzanine tranches**: Losses compound faster
-//! - **Senior tranches**: Significant impact when losses reach them
+//! The sign of `Z` is caller-defined. With the crate's preset calibrations
+//! (`ρ_R < 0`), negative factor realizations increase recovery and positive
+//! realizations decrease it. Callers that want the opposite mapping should
+//! either negate the factor they pass in or choose a positive `ρ_R`.
 //!
 //! # Calibration
 //!
@@ -36,9 +37,10 @@
 //!
 //! # References
 //!
-//! - Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula:
-//!   Random Recovery and Random Factor Loadings." *Journal of Credit Risk*.
-//! - Krekel, M., & Stumpp, P. (2006). "Pricing Correlation Products: CDOs."
+//! - Stochastic recovery and random loading context:
+//!   `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
+//! - Tranche calibration background:
+//!   `docs/REFERENCES.md#krekel-stumpp-2006-correlation-products`
 
 use super::RecoveryModel;
 
@@ -46,6 +48,11 @@ use super::RecoveryModel;
 ///
 /// Recovery varies with the systematic market factor, capturing
 /// the empirical negative correlation between defaults and recovery.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
+/// - `docs/REFERENCES.md#altman-et-al-2005-recovery`
 #[derive(Debug, Clone)]
 pub struct CorrelatedRecovery {
     /// Mean recovery rate
@@ -67,6 +74,21 @@ impl CorrelatedRecovery {
     /// * `mean` - Mean recovery rate, clamped to [0.05, 0.95]. Typical: 0.40
     /// * `vol` - Recovery volatility, clamped to [0.0, 0.50]. Typical: 0.20-0.30
     /// * `corr` - Correlation with market factor, clamped to [-1.0, 1.0]. Typical: -0.30 to -0.50
+    ///
+    /// # Returns
+    ///
+    /// A bounded stochastic recovery model with default bounds `[0.0, 1.0]`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{CorrelatedRecovery, RecoveryModel};
+    ///
+    /// let model = CorrelatedRecovery::new(0.40, 0.25, -0.40);
+    /// let mean = model.conditional_recovery(0.0);
+    ///
+    /// assert!((mean - 0.40).abs() < 1e-12);
+    /// ```
     #[must_use]
     pub fn new(mean: f64, vol: f64, corr: f64) -> Self {
         Self {
@@ -86,6 +108,10 @@ impl CorrelatedRecovery {
     /// * `corr` - Correlation with market factor
     /// * `min` - Minimum recovery (floor), clamped to [0.0, 0.5]
     /// * `max` - Maximum recovery (ceiling), clamped to [0.5, 1.0]
+    ///
+    /// # Returns
+    ///
+    /// A bounded stochastic recovery model with caller-specified recovery bounds.
     #[must_use]
     pub fn with_bounds(mean: f64, vol: f64, corr: f64, min: f64, max: f64) -> Self {
         let mut model = Self::new(mean, vol, corr);
@@ -100,6 +126,10 @@ impl CorrelatedRecovery {
     /// - Mean: 40%
     /// - Vol: 25%
     /// - Correlation: -40%
+    ///
+    /// # Returns
+    ///
+    /// The default stochastic-recovery calibration used by this crate.
     #[must_use]
     pub fn market_standard() -> Self {
         Self::new(0.40, 0.25, -0.40)
@@ -111,24 +141,40 @@ impl CorrelatedRecovery {
     /// - Mean: 40%
     /// - Vol: 30%
     /// - Correlation: -50%
+    ///
+    /// # Returns
+    ///
+    /// A higher-volatility, more factor-sensitive stochastic-recovery calibration.
     #[must_use]
     pub fn conservative() -> Self {
         Self::new(0.40, 0.30, -0.50)
     }
 
     /// Get the mean recovery rate.
+    ///
+    /// # Returns
+    ///
+    /// The target mean recovery in decimal form.
     #[must_use]
     pub fn mean(&self) -> f64 {
         self.mean_recovery
     }
 
     /// Get the recovery volatility.
+    ///
+    /// # Returns
+    ///
+    /// The recovery-volatility scale in decimal form.
     #[must_use]
     pub fn volatility(&self) -> f64 {
         self.recovery_volatility
     }
 
     /// Get the factor correlation.
+    ///
+    /// # Returns
+    ///
+    /// The signed factor-sensitivity parameter.
     #[must_use]
     pub fn correlation(&self) -> f64 {
         self.factor_correlation

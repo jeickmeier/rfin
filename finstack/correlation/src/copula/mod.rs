@@ -12,9 +12,12 @@
 //!
 //! # References
 //!
-//! - Li, D. X. (2000). "On Default Correlation: A Copula Function Approach."
-//! - Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula"
-//! - Hull, J., & White, A. (2004). "Valuation of a CDO without Monte Carlo"
+//! - Gaussian copula background:
+//!   `docs/REFERENCES.md#li-2000-gaussian-copula`
+//! - Random recovery and random-factor-loading extensions:
+//!   `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
+//! - Analytical CDO valuation context:
+//!   `docs/REFERENCES.md#hull-white-2004-cdo`
 
 mod gaussian;
 mod multi_factor;
@@ -51,6 +54,10 @@ pub trait Copula: Send + Sync {
     /// * `default_threshold` - Φ⁻¹(PD) or t⁻¹(PD) depending on copula
     /// * `factor_realization` - Systematic factor value(s)
     /// * `correlation` - Asset correlation parameter(s)
+    ///
+    /// # Returns
+    ///
+    /// A conditional default probability in `[0, 1]`.
     fn conditional_default_prob(
         &self,
         default_threshold: f64,
@@ -62,21 +69,44 @@ pub trait Copula: Send + Sync {
     ///
     /// Uses appropriate quadrature for the copula's factor distribution.
     /// The integrand receives factor values and returns a scalar.
+    ///
+    /// # Returns
+    ///
+    /// The factor-space expectation of the supplied integrand.
     fn integrate_fn(&self, f: &dyn Fn(&[f64]) -> f64) -> f64;
 
     /// Number of systematic factors in the model.
+    ///
+    /// # Returns
+    ///
+    /// The length of the factor vector expected by
+    /// [`Self::conditional_default_prob`].
     fn num_factors(&self) -> usize;
 
     /// Model description for diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A static human-readable model name.
     fn model_name(&self) -> &'static str;
 
-    /// Lower tail dependence coefficient λ_L.
+    /// Lower-tail dependence summary for the model at the given correlation.
     ///
-    /// Measures the probability of joint extreme defaults:
-    /// λ_L = lim_{u→0} P(U₂ ≤ u | U₁ ≤ u)
+    /// For strict copula implementations this is the mathematical lower-tail
+    /// dependence coefficient
+    /// `λ_L = lim_{u→0} P(U₂ ≤ u | U₁ ≤ u)`.
+    ///
+    /// Some heuristic models return a monotone stress-dependence proxy instead
+    /// of the exact copula limit. Callers that need mathematically exact
+    /// lower-tail dependence should consult the concrete implementation docs.
     ///
     /// - Gaussian copula: λ_L = 0 (no tail dependence)
     /// - Student-t copula: λ_L > 0 (positive tail dependence)
+    ///
+    /// # Returns
+    ///
+    /// A lower-tail dependence coefficient or documented proxy for the supplied
+    /// correlation level.
     fn tail_dependence(&self, correlation: f64) -> f64;
 }
 
@@ -126,6 +156,19 @@ pub enum CopulaSpec {
 
 impl CopulaSpec {
     /// Create a Gaussian copula specification.
+    ///
+    /// # Returns
+    ///
+    /// A [`CopulaSpec::Gaussian`] configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::CopulaSpec;
+    ///
+    /// let spec = CopulaSpec::gaussian();
+    /// assert!(spec.is_gaussian());
+    /// ```
     pub fn gaussian() -> Self {
         CopulaSpec::Gaussian
     }
@@ -134,6 +177,10 @@ impl CopulaSpec {
     ///
     /// # Arguments
     /// * `df` - Degrees of freedom (typically 4-10 for CDX)
+    ///
+    /// # Returns
+    ///
+    /// A [`CopulaSpec::StudentT`] configuration.
     ///
     /// # Panics
     /// Panics if df ≤ 2 (variance undefined)
@@ -148,6 +195,11 @@ impl CopulaSpec {
     ///
     /// # Arguments
     /// * `loading_vol` - Volatility of factor loading (0.05-0.20 typical)
+    ///
+    /// # Returns
+    ///
+    /// A [`CopulaSpec::RandomFactorLoading`] configuration with bounded
+    /// loading volatility.
     pub fn random_factor_loading(loading_vol: f64) -> Self {
         CopulaSpec::RandomFactorLoading {
             loading_volatility: loading_vol.clamp(0.0, 0.5),
@@ -155,11 +207,23 @@ impl CopulaSpec {
     }
 
     /// Create a Multi-factor copula specification.
+    ///
+    /// # Arguments
+    ///
+    /// * `num_factors` - Requested number of systematic factors.
+    ///
+    /// # Returns
+    ///
+    /// A [`CopulaSpec::MultiFactor`] configuration.
     pub fn multi_factor(num_factors: usize) -> Self {
         CopulaSpec::MultiFactor { num_factors }
     }
 
     /// Build a copula from this specification.
+    ///
+    /// # Returns
+    ///
+    /// A boxed [`Copula`] implementation matching the spec variant.
     #[must_use]
     pub fn build(&self) -> Box<dyn Copula> {
         match self {
@@ -177,7 +241,10 @@ impl CopulaSpec {
     }
 
     /// Build a Gaussian copula from this specification.
-    /// Returns None if the specification is not Gaussian.
+    ///
+    /// # Returns
+    ///
+    /// `Some(GaussianCopula)` if the specification is Gaussian, otherwise `None`.
     pub fn build_gaussian(&self) -> Option<GaussianCopula> {
         match self {
             CopulaSpec::Gaussian => Some(GaussianCopula::new()),
@@ -186,7 +253,10 @@ impl CopulaSpec {
     }
 
     /// Build a Student-t copula from this specification.
-    /// Returns None if the specification is not Student-t.
+    ///
+    /// # Returns
+    ///
+    /// `Some(StudentTCopula)` if the specification is Student-t, otherwise `None`.
     pub fn build_student_t(&self) -> Option<StudentTCopula> {
         match self {
             CopulaSpec::StudentT { degrees_of_freedom } => {
@@ -197,7 +267,11 @@ impl CopulaSpec {
     }
 
     /// Build a Random Factor Loading copula from this specification.
-    /// Returns None if the specification is not RFL.
+    ///
+    /// # Returns
+    ///
+    /// `Some(RandomFactorLoadingCopula)` if the specification is RFL, otherwise
+    /// `None`.
     pub fn build_rfl(&self) -> Option<RandomFactorLoadingCopula> {
         match self {
             CopulaSpec::RandomFactorLoading { loading_volatility } => {
@@ -208,7 +282,11 @@ impl CopulaSpec {
     }
 
     /// Build a Multi-factor copula from this specification.
-    /// Returns None if the specification is not Multi-factor.
+    ///
+    /// # Returns
+    ///
+    /// `Some(MultiFactorCopula)` if the specification is multi-factor, otherwise
+    /// `None`.
     pub fn build_multi_factor(&self) -> Option<MultiFactorCopula> {
         match self {
             CopulaSpec::MultiFactor { num_factors } => Some(MultiFactorCopula::new(*num_factors)),
@@ -217,21 +295,37 @@ impl CopulaSpec {
     }
 
     /// Check if this is a Gaussian copula specification.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this value is [`CopulaSpec::Gaussian`].
     pub fn is_gaussian(&self) -> bool {
         matches!(self, CopulaSpec::Gaussian)
     }
 
     /// Check if this is a Student-t copula specification.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this value is [`CopulaSpec::StudentT`].
     pub fn is_student_t(&self) -> bool {
         matches!(self, CopulaSpec::StudentT { .. })
     }
 
     /// Check if this is a Random Factor Loading copula specification.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this value is [`CopulaSpec::RandomFactorLoading`].
     pub fn is_rfl(&self) -> bool {
         matches!(self, CopulaSpec::RandomFactorLoading { .. })
     }
 
     /// Check if this is a Multi-factor copula specification.
+    ///
+    /// # Returns
+    ///
+    /// `true` if this value is [`CopulaSpec::MultiFactor`].
     pub fn is_multi_factor(&self) -> bool {
         matches!(self, CopulaSpec::MultiFactor { .. })
     }

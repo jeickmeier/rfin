@@ -14,10 +14,38 @@ pub const WEEKENDS_ONLY_ID: &str = "weekends_only";
 const WEEKENDS_ONLY: Calendar = Calendar::new("weekends_only", "Weekends Only", true, &[]);
 
 /// Resolve a calendar ID to a holiday calendar reference.
+/// Accepted IDs include the built-in `"weekends_only"` calendar and any
+/// calendar registered in `finstack_core::dates::CalendarRegistry`.
+///
+/// # Arguments
+///
+/// * `calendar_id` - Calendar identifier to resolve.
+///
+/// # Returns
+///
+/// A holiday-calendar reference that can be reused for date adjustment and
+/// business-day counting.
 ///
 /// # Errors
 ///
 /// Returns an error if the calendar ID is not recognized.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::builder::calendar::resolve_calendar_strict;
+///
+/// let cal = resolve_calendar_strict("weekends_only")?;
+/// assert!(cal.is_business_day(
+///     finstack_core::dates::Date::from_calendar_date(
+///         2025,
+///         time::Month::January,
+///         2,
+///     )
+///     .expect("valid date"),
+/// ));
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn resolve_calendar_strict(
     calendar_id: &str,
 ) -> finstack_core::Result<&'static dyn HolidayCalendar> {
@@ -35,6 +63,40 @@ pub fn resolve_calendar_strict(
 }
 
 /// Adjust a single date using the strict calendar policy.
+///
+/// # Arguments
+///
+/// * `date` - Date to adjust.
+/// * `bdc` - Business-day convention to apply when `date` is not a business
+///   day in the resolved calendar.
+/// * `calendar_id` - Calendar identifier used for holiday lookup.
+///
+/// # Returns
+///
+/// Adjusted business date according to `bdc` and `calendar_id`.
+///
+/// # Errors
+///
+/// Returns an error if the calendar ID cannot be resolved or if the underlying
+/// date adjustment fails.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::builder::calendar::adjust_date;
+/// use finstack_core::dates::{BusinessDayConvention, Date};
+/// use time::Month;
+///
+/// let saturday = Date::from_calendar_date(2025, Month::January, 4).expect("valid date");
+/// let adjusted = adjust_date(
+///     saturday,
+///     BusinessDayConvention::Following,
+///     "weekends_only",
+/// )
+/// .expect("adjustment succeeds");
+///
+/// assert!(adjusted >= saturday);
+/// ```
 pub fn adjust_date(
     date: Date,
     bdc: BusinessDayConvention,

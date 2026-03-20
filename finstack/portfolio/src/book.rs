@@ -25,11 +25,19 @@ impl BookId {
     /// # Arguments
     ///
     /// * `id` - The identifier string.
+    ///
+    /// # Returns
+    ///
+    /// A strongly typed book identifier.
     pub fn new(id: impl Into<String>) -> Self {
         Self(id.into())
     }
 
     /// Get the identifier as a string slice.
+    ///
+    /// # Returns
+    ///
+    /// Borrowed view of the underlying identifier.
     #[inline]
     pub fn as_str(&self) -> &str {
         &self.0
@@ -127,6 +135,20 @@ impl Book {
     ///
     /// * `id` - Unique book identifier.
     /// * `name` - Optional human-readable name.
+    ///
+    /// # Returns
+    ///
+    /// A root book with no parent, no child books, and no assigned positions.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_portfolio::Book;
+    ///
+    /// let book = Book::new("credit", Some("Credit".to_string()));
+    /// assert!(book.is_root());
+    /// assert_eq!(book.name.as_deref(), Some("Credit"));
+    /// ```
     pub fn new(id: impl Into<BookId>, name: Option<String>) -> Self {
         Self {
             id: id.into(),
@@ -144,12 +166,20 @@ impl Book {
     /// # Arguments
     ///
     /// * `parent_id` - Parent book identifier.
+    ///
+    /// # Returns
+    ///
+    /// The updated book for fluent chaining.
     pub fn with_parent(mut self, parent_id: impl Into<BookId>) -> Self {
         self.parent_id = Some(parent_id.into());
         self
     }
 
     /// Check if this is a root book (no parent).
+    ///
+    /// # Returns
+    ///
+    /// `true` when the book has no parent reference.
     pub fn is_root(&self) -> bool {
         self.parent_id.is_none()
     }
@@ -159,6 +189,10 @@ impl Book {
     /// # Arguments
     ///
     /// * `position_id` - Position identifier to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the position is directly assigned to this book.
     pub fn contains_position(&self, position_id: &PositionId) -> bool {
         self.position_ids.contains(position_id)
     }
@@ -168,6 +202,10 @@ impl Book {
     /// # Arguments
     ///
     /// * `child_id` - Child book identifier to check.
+    ///
+    /// # Returns
+    ///
+    /// `true` if the child is directly listed under this book.
     pub fn contains_child(&self, child_id: &BookId) -> bool {
         self.child_book_ids.contains(child_id)
     }

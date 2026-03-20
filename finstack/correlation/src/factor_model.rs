@@ -27,6 +27,13 @@
 //! - **Symmetric**: ρᵢⱼ = ρⱼᵢ
 //! - **Unit diagonal**: ρᵢᵢ = 1
 //! - **Positive semi-definite**: All eigenvalues ≥ 0 (verified via Cholesky)
+//!
+//! # References
+//!
+//! - Factor-model and covariance interpretation:
+//!   `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
+//! - Portfolio-risk and dependence context:
+//!   `docs/REFERENCES.md#mcneil-frey-embrechts-qrm`
 
 pub use crate::error::CorrelationMatrixError;
 use finstack_core::math::linalg::{cholesky_correlation, CholeskyError, CorrelationFactor};
@@ -53,6 +60,21 @@ const CORRELATION_TOLERANCE: f64 = 1e-10;
 ///
 /// # Returns
 /// `Ok(())` if valid, or the first error found.
+///
+/// # Errors
+///
+/// Returns [`CorrelationMatrixError`] when the flattened matrix has the wrong
+/// size, a non-unit diagonal, asymmetric entries, out-of-bounds correlations,
+/// or is not positive semidefinite.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_correlation::validate_correlation_matrix;
+///
+/// let corr = vec![1.0, 0.5, 0.5, 1.0];
+/// assert!(validate_correlation_matrix(&corr, 2).is_ok());
+/// ```
 pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), CorrelationMatrixError> {
     // Guard: core uses assert_eq! for size, so check before delegating
     if matrix.len() != n * n {
@@ -127,6 +149,11 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixErro
 /// # Returns
 /// [`CorrelationFactor`] with unpermuted lower-triangular L, or error if the matrix
 /// is indefinite.
+///
+/// # Errors
+///
+/// Returns [`CorrelationMatrixError`] if the flattened matrix shape is wrong or
+/// the matrix is not positive semidefinite.
 pub fn cholesky_decompose(
     matrix: &[f64],
     n: usize,
@@ -157,20 +184,40 @@ pub fn cholesky_decompose(
 /// for analytical pricing and scenario generation.
 pub trait FactorModel: Send + Sync + std::fmt::Debug {
     /// Number of factors in the model.
+    ///
+    /// # Returns
+    ///
+    /// The number of systematic factors in the model.
     fn num_factors(&self) -> usize;
 
     /// Get the factor correlation matrix (flattened row-major).
     ///
     /// For n factors, returns n×n values where element `matrix[i,j] = correlation(Zᵢ, Zⱼ)`.
+    ///
+    /// # Returns
+    ///
+    /// The factor correlation matrix in row-major order.
     fn correlation_matrix(&self) -> &[f64];
 
     /// Get factor volatilities.
+    ///
+    /// # Returns
+    ///
+    /// The factor volatilities in decimal form, aligned with the factor ordering.
     fn volatilities(&self) -> &[f64];
 
     /// Get factor names for reporting.
+    ///
+    /// # Returns
+    ///
+    /// Human-readable factor names aligned with [`Self::volatilities`].
     fn factor_names(&self) -> Vec<&'static str>;
 
     /// Model name for diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A static human-readable model name.
     fn model_name(&self) -> &'static str;
 
     /// Compute a single factor value given one standard normal draw.
@@ -179,6 +226,15 @@ pub trait FactorModel: Send + Sync + std::fmt::Debug {
     /// Cholesky contribution `L[i,i] * z * vol[i]`, ignoring cross-factor
     /// correlation.  To generate properly correlated factor vectors, use
     /// [`MultiFactorModel::generate_correlated_factors`] instead.
+    ///
+    /// # Arguments
+    ///
+    /// * `factor_index` - Index of the factor to evaluate.
+    /// * `z` - One standard-normal draw for that diagonal contribution.
+    ///
+    /// # Returns
+    ///
+    /// The requested factor's diagonal contribution, scaled by its volatility.
     fn diagonal_factor_contribution(&self, factor_index: usize, z: f64) -> f64;
 }
 
@@ -232,6 +288,10 @@ impl FactorSpec {
     /// # Arguments
     /// * `volatility` - Factor volatility, clamped to [0.01, 2.0]
     /// * `mean_reversion` - Mean reversion speed, clamped to [0.0, 10.0]
+    ///
+    /// # Returns
+    ///
+    /// A [`FactorSpec::SingleFactor`] configuration.
     #[must_use]
     pub fn single_factor(volatility: f64, mean_reversion: f64) -> Self {
         FactorSpec::SingleFactor {
@@ -246,6 +306,10 @@ impl FactorSpec {
     /// * `prepay_vol` - Prepayment factor volatility, clamped to [0.01, 2.0]
     /// * `credit_vol` - Credit factor volatility, clamped to [0.01, 2.0]
     /// * `correlation` - Correlation between factors, clamped to [-0.99, 0.99]
+    ///
+    /// # Returns
+    ///
+    /// A [`FactorSpec::TwoFactor`] configuration.
     #[must_use]
     pub fn two_factor(prepay_vol: f64, credit_vol: f64, correlation: f64) -> Self {
         FactorSpec::TwoFactor {
@@ -256,6 +320,10 @@ impl FactorSpec {
     }
 
     /// Build a factor model from this specification.
+    ///
+    /// # Returns
+    ///
+    /// A boxed [`FactorModel`] implementation matching the specification.
     #[must_use]
     pub fn build(&self) -> Box<dyn FactorModel> {
         match self {
@@ -281,6 +349,10 @@ impl FactorSpec {
     }
 
     /// Get the number of factors.
+    ///
+    /// # Returns
+    ///
+    /// The factor count implied by the specification.
     pub fn num_factors(&self) -> usize {
         match self {
             FactorSpec::SingleFactor { .. } => 1,
@@ -308,6 +380,20 @@ impl SingleFactorModel {
     /// # Arguments
     /// * `volatility` - Factor volatility, clamped to [0.01, 2.0]
     /// * `mean_reversion` - Mean reversion speed (0 = random walk), clamped to [0.0, 10.0]
+    ///
+    /// # Returns
+    ///
+    /// A single-factor model using the bounded volatility and mean-reversion
+    /// inputs.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{FactorModel, SingleFactorModel};
+    ///
+    /// let model = SingleFactorModel::new(0.25, 0.10);
+    /// assert_eq!(model.num_factors(), 1);
+    /// ```
     #[must_use]
     pub fn new(volatility: f64, mean_reversion: f64) -> Self {
         let vol = volatility.clamp(0.01, 2.0);
@@ -320,11 +406,19 @@ impl SingleFactorModel {
     }
 
     /// Get the volatility.
+    ///
+    /// # Returns
+    ///
+    /// The single-factor volatility in decimal form.
     pub fn volatility(&self) -> f64 {
         self.volatility
     }
 
     /// Get the mean reversion speed.
+    ///
+    /// # Returns
+    ///
+    /// The mean-reversion speed.
     pub fn mean_reversion(&self) -> f64 {
         self.mean_reversion
     }
@@ -380,6 +474,10 @@ impl TwoFactorModel {
     /// * `prepay_vol` - Prepayment factor volatility, clamped to [0.01, 2.0]
     /// * `credit_vol` - Credit factor volatility, clamped to [0.01, 2.0]
     /// * `correlation` - Correlation between factors (typically negative for RMBS), clamped to [-0.99, 0.99]
+    ///
+    /// # Returns
+    ///
+    /// A two-factor prepayment/credit model.
     #[must_use]
     pub fn new(prepay_vol: f64, credit_vol: f64, correlation: f64) -> Self {
         let corr = correlation.clamp(-0.99, 0.99);
@@ -405,6 +503,10 @@ impl TwoFactorModel {
     /// Standard RMBS calibration with negative prepay-credit correlation.
     ///
     /// Uses: prepay_vol=0.20, credit_vol=0.25, correlation=-0.30
+    ///
+    /// # Returns
+    ///
+    /// The crate's default RMBS-oriented two-factor calibration.
     #[must_use]
     pub fn rmbs_standard() -> Self {
         Self::new(0.20, 0.25, -0.30)
@@ -413,22 +515,38 @@ impl TwoFactorModel {
     /// Standard CLO calibration.
     ///
     /// Uses: prepay_vol=0.15, credit_vol=0.30, correlation=-0.20
+    ///
+    /// # Returns
+    ///
+    /// The crate's default CLO-oriented two-factor calibration.
     #[must_use]
     pub fn clo_standard() -> Self {
         Self::new(0.15, 0.30, -0.20)
     }
 
     /// Get prepayment factor volatility.
+    ///
+    /// # Returns
+    ///
+    /// The prepayment-factor volatility in decimal form.
     pub fn prepay_vol(&self) -> f64 {
         self.prepay_vol
     }
 
     /// Get credit factor volatility.
+    ///
+    /// # Returns
+    ///
+    /// The credit-factor volatility in decimal form.
     pub fn credit_vol(&self) -> f64 {
         self.credit_vol
     }
 
     /// Get factor correlation.
+    ///
+    /// # Returns
+    ///
+    /// The correlation between the prepayment and credit factors.
     pub fn correlation(&self) -> f64 {
         self.correlation
     }
@@ -438,11 +556,19 @@ impl TwoFactorModel {
     /// For generating correlated factors from independent normals (z1, z2):
     /// - Factor 1 = z1 * prepay_vol
     /// - Factor 2 = (l10 * z1 + l11 * z2) * credit_vol
+    ///
+    /// # Returns
+    ///
+    /// The off-diagonal Cholesky loading `L[1][0]`.
     pub fn cholesky_l10(&self) -> f64 {
         self.cholesky_l10
     }
 
     /// Get Cholesky `L[1][1]` coefficient for correlated factor generation.
+    ///
+    /// # Returns
+    ///
+    /// The diagonal Cholesky loading `L[1][1]`.
     pub fn cholesky_l11(&self) -> f64 {
         self.cholesky_l11
     }
@@ -520,6 +646,10 @@ impl MultiFactorModel {
     ///
     /// # Errors
     /// Returns [`CorrelationMatrixError`] if the matrix is invalid.
+    ///
+    /// # Returns
+    ///
+    /// A validated multi-factor model.
     pub fn new(
         num_factors: usize,
         volatilities: Vec<f64>,
@@ -529,6 +659,10 @@ impl MultiFactorModel {
     }
 
     /// Create a multi-factor model, falling back to identity correlation on invalid input.
+    ///
+    /// # Returns
+    ///
+    /// A validated model when possible, otherwise an uncorrelated fallback model.
     #[must_use]
     pub fn new_or_identity(
         num_factors: usize,
@@ -556,6 +690,10 @@ impl MultiFactorModel {
     ///
     /// # Errors
     /// Returns [`CorrelationMatrixError`] if the matrix is invalid.
+    ///
+    /// # Returns
+    ///
+    /// A validated multi-factor model.
     pub fn validated(
         num_factors: usize,
         volatilities: Vec<f64>,
@@ -594,6 +732,10 @@ impl MultiFactorModel {
     /// Create an uncorrelated (identity) multi-factor model.
     ///
     /// All factors are independent (correlation = 0 for i ≠ j).
+    ///
+    /// # Returns
+    ///
+    /// A multi-factor model with an identity correlation matrix.
     #[must_use]
     pub fn uncorrelated(num_factors: usize, volatilities: Vec<f64>) -> Self {
         let n = num_factors.max(1);
@@ -630,6 +772,10 @@ impl MultiFactorModel {
     /// correlated_z = L · z
     /// factor_i = correlated_z[i] * volatility[i]
     /// ```
+    ///
+    /// # Returns
+    ///
+    /// The cached Cholesky factor in original variable order.
     #[must_use]
     pub fn cholesky_factor(&self) -> &CorrelationFactor {
         &self.cholesky_factor
@@ -642,6 +788,17 @@ impl MultiFactorModel {
     ///
     /// # Returns
     /// Vector of n correlated factor values (scaled by volatilities).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::MultiFactorModel;
+    ///
+    /// let model = MultiFactorModel::uncorrelated(2, vec![0.2, 0.3]);
+    /// let factors = model.generate_correlated_factors(&[1.0, -1.0]);
+    ///
+    /// assert_eq!(factors, vec![0.2, -0.3]);
+    /// ```
     #[must_use]
     pub fn generate_correlated_factors(&self, independent_z: &[f64]) -> Vec<f64> {
         let mut factors = vec![0.0; self.num_factors];
@@ -652,6 +809,15 @@ impl MultiFactorModel {
     /// Generate correlated factor values into a caller-provided buffer.
     ///
     /// The input slice and output buffer must both have length `num_factors()`.
+    ///
+    /// # Arguments
+    ///
+    /// * `independent_z` - Independent standard-normal draws, one per factor.
+    /// * `out` - Output buffer that receives the correlated factor values.
+    ///
+    /// # Panics
+    ///
+    /// Panics if either slice length differs from `self.num_factors()`.
     pub fn generate_correlated_factors_into(&self, independent_z: &[f64], out: &mut [f64]) {
         assert_eq!(
             independent_z.len(),

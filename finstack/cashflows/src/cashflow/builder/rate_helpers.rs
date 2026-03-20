@@ -22,6 +22,11 @@
 //!
 //! ### Gearing Excludes Spread (Affine Model)
 //! `rate = cap( max( all_in_floor, (gearing * max(index, floor)) + spread ) )`
+//!
+//! ## References
+//!
+//! - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+//! - `docs/REFERENCES.md#hull-options-futures`
 
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
@@ -90,6 +95,16 @@ impl FloatingRateParams {
     /// Create standard (gearing includes spread) parameters: `(Index + Spread) * Gearing`.
     ///
     /// This is the default market standard for most leveraged floaters.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Contract spread in basis points.
+    /// * `gearing` - Multiplicative leverage applied to the all-in index-plus-spread leg.
+    ///
+    /// # Returns
+    ///
+    /// [`FloatingRateParams`] configured for the standard
+    /// `(index + spread) * gearing` convention.
     pub fn new_standard(spread_bp: f64, gearing: f64) -> Self {
         Self {
             spread_bp,
@@ -102,6 +117,16 @@ impl FloatingRateParams {
     /// Create affine (gearing excludes spread) parameters: `(Index * Gearing) + Spread`.
     ///
     /// Use this for models where the spread is additive to the leveraged index.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Contract spread in basis points.
+    /// * `gearing` - Multiplicative leverage applied only to the index leg.
+    ///
+    /// # Returns
+    ///
+    /// [`FloatingRateParams`] configured for the affine
+    /// `(index * gearing) + spread` convention.
     pub fn new_affine(spread_bp: f64, gearing: f64) -> Self {
         Self {
             spread_bp,
@@ -132,6 +157,18 @@ impl FloatingRateParams {
     /// Create params with spread, gearing, index floor, and all-in cap.
     ///
     /// This is the most common configuration for leveraged floaters.
+    ///
+    /// # Arguments
+    ///
+    /// * `spread_bp` - Contract spread in basis points.
+    /// * `gearing` - Multiplicative leverage applied under the standard convention.
+    /// * `index_floor_bp` - Optional floor on the index component in basis points.
+    /// * `all_in_cap_bp` - Optional cap on the final coupon rate in basis points.
+    ///
+    /// # Returns
+    ///
+    /// [`FloatingRateParams`] configured for a standard geared floater with an
+    /// optional index floor and all-in cap.
     pub fn with_full(
         spread_bp: f64,
         gearing: f64,
@@ -156,10 +193,19 @@ impl FloatingRateParams {
     /// - Gearing is positive (non-zero)
     /// - Floor/cap pairs are not contradictory (floor <= cap)
     ///
+    /// # Arguments
+    ///
+    /// * `self` - Floating-rate quote and floor/cap configuration to validate.
+    ///
     /// # Returns
     ///
     /// `Ok(())` if all parameters are valid, otherwise returns an error
     /// describing the validation failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InputError::Invalid` when any numeric input is non-finite,
+    /// gearing is non-positive, or a floor exceeds its paired cap.
     pub fn validate(&self) -> Result<()> {
         use finstack_core::InputError;
 
@@ -221,7 +267,7 @@ impl FloatingRateParams {
 ///
 /// The all-in rate as a decimal (e.g., 0.05 for 5%).
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use finstack_cashflows::builder::rate_helpers::{calculate_floating_rate, FloatingRateParams};
@@ -273,7 +319,7 @@ pub fn calculate_floating_rate(index_rate: f64, params: &FloatingRateParams) -> 
 ///
 /// The all-in rate assuming a zero index rate.
 ///
-/// # Example
+/// # Examples
 ///
 /// ```rust
 /// use finstack_cashflows::builder::rate_helpers::{project_fallback_rate, FloatingRateParams};
@@ -303,7 +349,24 @@ pub fn project_fallback_rate(params: &FloatingRateParams) -> f64 {
 /// * `fwd` - Resolved forward curve
 /// * `params` - Floating rate parameters (spread, gearing, floors, caps)
 ///
-/// # Example
+/// # Returns
+///
+/// All-in projected coupon rate as a decimal.
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - `params` fails validation
+/// - day-count conversion from the curve base date to the reset or accrual end
+///   date fails
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+/// - `docs/REFERENCES.md#hull-options-futures`
+///
+/// # Examples
 ///
 /// ```rust
 /// use finstack_core::dates::{Date, DayCount};
@@ -377,7 +440,20 @@ pub fn project_floating_rate(
 /// * `params` - Floating rate parameters
 /// * `market` - Market context containing forward curves
 ///
-/// # Example
+/// # Returns
+///
+/// All-in projected coupon rate as a decimal.
+///
+/// # Errors
+///
+/// Returns an error if the forward curve cannot be found in `market`, if
+/// `params` fails validation, or if the underlying time conversion fails.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+///
+/// # Examples
 ///
 /// ```rust
 /// use finstack_core::dates::{Date, DayCount};
@@ -434,7 +510,11 @@ pub fn project_floating_rate_from_market(
 ///
 /// The annualized compounded rate in decimal form.
 ///
-/// # Example
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+///
+/// # Examples
 ///
 /// ```rust
 /// use finstack_cashflows::builder::rate_helpers::compute_compounded_rate;
@@ -465,6 +545,29 @@ pub fn compute_compounded_rate(
 /// ```text
 /// Rate = (Σ r_i × d_i) / D
 /// ```
+///
+/// # Arguments
+///
+/// * `daily_rates` - Slice of `(rate, accrual_days)` pairs for each fixing.
+/// * `total_days` - Total calendar days in the accrual period.
+///
+/// # Returns
+///
+/// Annualized simple-average overnight rate in decimal form.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::builder::rate_helpers::compute_simple_average_rate;
+///
+/// let fixings = vec![(0.05, 1u32), (0.06, 1), (0.04, 3)];
+/// let rate = compute_simple_average_rate(&fixings, 5);
+/// assert!(rate > 0.0);
+/// ```
 pub fn compute_simple_average_rate(daily_rates: &[(f64, u32)], total_days: u32) -> f64 {
     if daily_rates.is_empty() || total_days == 0 {
         return 0.0;
@@ -490,6 +593,27 @@ pub fn compute_simple_average_rate(daily_rates: &[(f64, u32)], total_days: u32) 
 /// # Returns
 ///
 /// The period rate as a decimal.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::builder::rate_helpers::compute_overnight_rate;
+/// use finstack_cashflows::builder::OvernightCompoundingMethod;
+///
+/// let fixings = vec![(0.05, 1u32), (0.05, 1), (0.05, 3)];
+/// let rate = compute_overnight_rate(
+///     OvernightCompoundingMethod::CompoundedInArrears,
+///     &fixings,
+///     5,
+///     360.0,
+/// );
+///
+/// assert!(rate > 0.0);
+/// ```
 pub fn compute_overnight_rate(
     method: super::specs::OvernightCompoundingMethod,
     daily_rates: &[(f64, u32)],

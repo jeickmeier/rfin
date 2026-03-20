@@ -148,16 +148,54 @@ impl MetricId {
     /// Cost of financing the position (dirty_price x funding_rate x dcf).
     pub const FundingCost: Self = Self(Cow::Borrowed("funding_cost"));
 
-    /// Dollar value of 01 (DV01) - Standard for all parallel rate sensitivity
+    /// Dollar value of 01 (DV01) for a parallel rates bump.
+    ///
+    /// Measures the change in present value for a **+1bp parallel shift** of the
+    /// relevant rates curve set under the instrument's pricing convention.
+    ///
+    /// Units: currency per 1bp.
+    ///
+    /// # Sign Convention
+    ///
+    /// Positive means the position gains value when rates rise; negative means it
+    /// loses value when rates rise.
+    ///
+    /// # Note
+    ///
+    /// Distinct from:
+    /// - `Pv01`: swap-style PV change for a 1bp curve bump under its documented convention
+    /// - `YieldDv01`: sensitivity to the instrument's own quoted yield, not a market-curve bump
     pub const Dv01: Self = Self(Cow::Borrowed("dv01"));
 
-    /// Credit spread sensitivity (CS01) - Parallel shift in credit spread (quote spreads only)
+    /// Credit spread sensitivity (CS01) for a parallel quoted-spread bump.
+    ///
+    /// Measures the change in present value for a **+1bp parallel shift** in
+    /// market credit spreads, typically by bumping par spreads and re-bootstrapping
+    /// the credit curve.
+    ///
+    /// Units: currency per 1bp spread move.
+    ///
+    /// # Note
+    ///
+    /// Distinct from `Cs01Hazard`, which bumps hazard rates directly instead of
+    /// quoted spreads.
     pub const Cs01: Self = Self(Cow::Borrowed("cs01"));
 
-    /// Bucketed DV01 risk - Pointwise sensitivity to yield curve
+    /// Bucketed DV01 risk for pointwise or tenor-bucket rate moves.
+    ///
+    /// Represents rate sensitivity broken out by tenor bucket rather than as a
+    /// single parallel number. Implementations typically expose the aggregate
+    /// total under `bucketed_dv01` and per-bucket or per-curve components under
+    /// flattened composite keys.
+    ///
+    /// Units: currency per 1bp bucket move.
     pub const BucketedDv01: Self = Self(Cow::Borrowed("bucketed_dv01"));
 
-    /// Bucketed Credit Spread Risk - Pointwise sensitivity to credit spread
+    /// Bucketed credit spread risk for pointwise spread moves.
+    ///
+    /// Represents quoted-spread sensitivity decomposed by tenor bucket or pillar.
+    ///
+    /// Units: currency per 1bp bucket move.
     pub const BucketedCs01: Self = Self(Cow::Borrowed("bucketed_cs01"));
 
     /// Credit spread sensitivity via direct hazard rate bump (CS01 Hazard)
@@ -167,7 +205,9 @@ impl MetricId {
     /// or when hazard-rate sensitivity is specifically needed.
     pub const Cs01Hazard: Self = Self(Cow::Borrowed("cs01_hazard"));
 
-    /// Bucketed credit spread risk via direct hazard rate bump
+    /// Bucketed credit spread risk via direct hazard-rate bumps.
+    ///
+    /// Units: currency per 1bp hazard-rate bucket move.
     pub const BucketedCs01Hazard: Self = Self(Cow::Borrowed("bucketed_cs01_hazard"));
 
     // ========================================================================
@@ -250,7 +290,17 @@ impl MetricId {
     /// Macaulay duration
     pub const DurationMac: Self = Self(Cow::Borrowed("duration_mac"));
 
-    /// Modified duration
+    /// Modified duration under the instrument's quoted yield convention.
+    ///
+    /// Measures first-order percentage price sensitivity to a small change in
+    /// yield, approximately `-dP/P / dy`.
+    ///
+    /// Units: years.
+    ///
+    /// # Note
+    ///
+    /// Distinct from `Dv01` and `YieldDv01`, which convert sensitivity into
+    /// currency change for a 1bp move.
     pub const DurationMod: Self = Self(Cow::Borrowed("duration_mod"));
 
     /// Yield-basis DV01 for bonds and other yield-quoted fixed-income instruments.
@@ -259,7 +309,16 @@ impl MetricId {
     /// quoted yield convention, rather than a parallel bump of the market curve.
     pub const YieldDv01: Self = Self(Cow::Borrowed("yield_dv01"));
 
-    /// Convexity
+    /// Bond-style convexity under the instrument's yield convention.
+    ///
+    /// Measures the second-order sensitivity of price to changes in quoted yield.
+    ///
+    /// Units: years squared under standard bond-convexity conventions unless a
+    /// more specific instrument doc says otherwise.
+    ///
+    /// # Note
+    ///
+    /// Distinct from `IrConvexity`, which is used for swap/rates contexts.
     pub const Convexity: Self = Self(Cow::Borrowed("convexity"));
 
     // ========================================================================
@@ -395,10 +454,21 @@ impl MetricId {
     // CDS Metrics
     // ========================================================================
 
-    /// Par spread for CDS
+    /// CDS par spread under the instrument's premium-leg convention.
+    ///
+    /// The running spread that makes the CDS have zero PV under the current
+    /// discount and survival curves.
+    ///
+    /// Units: decimal spread per annum unless a quoting layer converts it to bp
+    /// for display.
     pub const ParSpread: Self = Self(Cow::Borrowed("par_spread"));
 
-    /// Risky PV01 for CDS
+    /// Risky PV01 for CDS premium-leg valuation.
+    ///
+    /// Present value of one basis point of running premium paid over the risky
+    /// premium leg, including default-contingent survival weighting.
+    ///
+    /// Units: currency per 1bp running spread.
     pub const RiskyPv01: Self = Self(Cow::Borrowed("risky_pv01"));
 
     /// Risky annuity (premium leg PV per 1bp)
@@ -410,13 +480,30 @@ impl MetricId {
     /// Premium leg present value
     pub const PremiumLegPv: Self = Self(Cow::Borrowed("premium_leg_pv"));
 
-    /// Jump-to-default amount
+    /// Jump-to-default amount.
+    ///
+    /// Immediate P&L impact of an instantaneous default event under the
+    /// instrument's loss and settlement convention.
+    ///
+    /// Units: currency.
     pub const JumpToDefault: Self = Self(Cow::Borrowed("jump_to_default"));
 
-    /// Expected loss
+    /// Expected loss under the current credit model.
+    ///
+    /// Expected discounted credit loss implied by default probabilities and
+    /// recovery assumptions.
+    ///
+    /// Units: currency.
     pub const ExpectedLoss: Self = Self(Cow::Borrowed("expected_loss"));
 
-    /// Default probability
+    /// Default probability over the documented horizon.
+    ///
+    /// Units: decimal probability in `[0, 1]`.
+    ///
+    /// # Note
+    ///
+    /// The horizon is instrument-specific and should be interpreted together
+    /// with the API producing the measure.
     pub const DefaultProbability: Self = Self(Cow::Borrowed("default_probability"));
 
     /// Expected recovery rate
@@ -426,37 +513,87 @@ impl MetricId {
     // Option Metrics
     // ========================================================================
 
-    /// Delta (price sensitivity to underlying)
+    /// Cash delta with respect to the instrument's chosen spot driver.
+    ///
+    /// Measures first-order PV sensitivity `dPV/dS` to the relevant underlying
+    /// spot or forward-style driver.
+    ///
+    /// Units: currency per unit of underlying move, already including instrument
+    /// scaling such as notional, contract multiplier, or quantity where applicable.
     pub const Delta: Self = Self(Cow::Borrowed("delta"));
 
-    /// Gamma (delta sensitivity to underlying)
+    /// Cash gamma with respect to the instrument's chosen spot driver.
+    ///
+    /// Measures second-order PV sensitivity `d²PV/dS²`.
+    ///
+    /// Units: currency per unit-underlying squared.
     pub const Gamma: Self = Self(Cow::Borrowed("gamma"));
 
-    /// Vega (price sensitivity to volatility)
+    /// Cash vega for a 1 vol point move.
+    ///
+    /// Measures the PV change for a **0.01 absolute volatility move**
+    /// (one vol point).
+    ///
+    /// Units: currency per 1 vol point.
     pub const Vega: Self = Self(Cow::Borrowed("vega"));
 
-    /// Bucketed Vega (surface point sensitivities)
+    /// Bucketed vega by volatility-surface point or node.
+    ///
+    /// Represents vega decomposed by surface location rather than as a single
+    /// aggregate number.
+    ///
+    /// Units: currency per 1 vol point at each bucket.
     pub const BucketedVega: Self = Self(Cow::Borrowed("bucketed_vega"));
 
-    /// Rho (price sensitivity to interest rates)
+    /// Domestic rho for a 1bp move in the relevant domestic rate driver.
+    ///
+    /// Measures `PV(r + 1bp) - PV(r)` under the instrument's domestic discounting
+    /// convention.
+    ///
+    /// Units: currency per 1bp.
     pub const Rho: Self = Self(Cow::Borrowed("rho"));
 
-    /// Foreign Rho (price sensitivity to foreign interest rates)
+    /// Foreign or dividend rho for a 1bp move in the secondary carry driver.
+    ///
+    /// Measures sensitivity to the foreign discount rate in FX models or the
+    /// dividend-yield style driver in equity models, depending on instrument type.
+    ///
+    /// Units: currency per 1bp.
     pub const ForeignRho: Self = Self(Cow::Borrowed("foreign_rho"));
 
-    /// Forward curve PV01 (price sensitivity to a 1bp forward curve bump)
+    /// Forward-curve PV01 for a 1bp forward/projection bump.
+    ///
+    /// Distinct from `Dv01` or `Pv01` when discount and forward curves are
+    /// separate and only the projection curve is bumped.
+    ///
+    /// Units: currency per 1bp.
     pub const ForwardPv01: Self = Self(Cow::Borrowed("forward_pv01"));
 
-    /// Vanna (delta sensitivity to volatility)
+    /// Vanna, the mixed sensitivity to spot and volatility.
+    ///
+    /// Commonly interpreted as `d²PV / (dS dσ)` under the instrument's bump
+    /// convention.
+    ///
+    /// Units: currency per unit-underlying per 1 vol point.
     pub const Vanna: Self = Self(Cow::Borrowed("vanna"));
 
-    /// Volga (vega sensitivity to volatility)
+    /// Volga, the second-order sensitivity to volatility.
+    ///
+    /// Commonly interpreted as `d²PV / dσ²` under the instrument's bump convention.
+    ///
+    /// Units: currency per vol-point squared.
     pub const Volga: Self = Self(Cow::Borrowed("volga"));
 
     /// Veta (theta sensitivity to volatility)
     pub const Veta: Self = Self(Cow::Borrowed("veta"));
 
-    /// Interest rate convexity (IRS, similar concept to bond convexity)
+    /// Interest-rate convexity for swap/rates contexts.
+    ///
+    /// Measures second-order PV sensitivity to the relevant rates driver.
+    ///
+    /// Units depend on the producing calculator, but the measure should be
+    /// interpreted as a second-order rates sensitivity rather than bond-style
+    /// quoted-yield convexity.
     pub const IrConvexity: Self = Self(Cow::Borrowed("ir_convexity"));
 
     /// Cross-gamma between discount and forward curves for IRS.
@@ -500,10 +637,15 @@ impl MetricId {
     /// Mixed second derivative: ∂²V / (∂FX × ∂r).
     pub const CrossGammaFxRates: Self = Self(Cow::Borrowed("cross_gamma_fx_rates"));
 
-    /// Credit spread gamma (second derivative w.r.t spreads)
+    /// Credit spread gamma, the second derivative with respect to spreads.
+    ///
+    /// Units: currency per bp squared when computed under bp bump conventions.
     pub const CsGamma: Self = Self(Cow::Borrowed("cs_gamma"));
 
-    /// Inflation convexity (second derivative w.r.t inflation)
+    /// Inflation convexity, the second derivative with respect to inflation moves.
+    ///
+    /// Units depend on the bump convention of the producing calculator and should
+    /// be interpreted together with the related inflation metric docs.
     pub const InflationConvexity: Self = Self(Cow::Borrowed("inflation_convexity"));
 
     /// Charm (rho sensitivity to volatility)
@@ -515,7 +657,10 @@ impl MetricId {
     /// Speed (gamma sensitivity to underlying)
     pub const Speed: Self = Self(Cow::Borrowed("speed"));
 
-    /// Implied volatility (from price)
+    /// Implied volatility inferred from an observed price.
+    ///
+    /// Units: decimal volatility (`0.20 = 20%`) unless a normal-volatility API
+    /// states a different convention.
     pub const ImpliedVol: Self = Self(Cow::Borrowed("implied_vol"));
 
     // ========================================================================
@@ -709,34 +854,52 @@ impl MetricId {
     // Structured Credit Metrics
     // ========================================================================
 
-    /// Weighted Average Life (years) - Expected principal repayment life
+    /// Weighted Average Life (WAL), the expected principal repayment life.
+    ///
+    /// Units: years.
     pub const WAL: Self = Self(Cow::Borrowed("wal"));
 
-    /// Weighted Average Maturity (years) - Pool maturity
+    /// Weighted Average Maturity (WAM) of the underlying pool.
+    ///
+    /// Units: years.
     pub const WAM: Self = Self(Cow::Borrowed("wam"));
 
     /// Expected final payment date under base assumptions
     pub const ExpectedMaturity: Self = Self(Cow::Borrowed("expected_maturity"));
 
-    /// Percentage of original pool balance remaining
+    /// Percentage of original pool balance remaining.
+    ///
+    /// Units: decimal fraction of original balance (`0.65 = 65%` remaining).
     pub const PoolFactor: Self = Self(Cow::Borrowed("pool_factor"));
 
-    /// Constant Prepayment Rate (annualized)
+    /// Constant Prepayment Rate (CPR), annualized.
+    ///
+    /// Units: decimal annual prepayment rate.
     pub const CPR: Self = Self(Cow::Borrowed("cpr"));
 
-    /// Single Monthly Mortality (monthly prepayment rate)
+    /// Single Monthly Mortality (SMM), monthly prepayment rate.
+    ///
+    /// Units: decimal monthly rate.
     pub const SMM: Self = Self(Cow::Borrowed("smm"));
 
-    /// Constant Default Rate (annualized)
+    /// Constant Default Rate (CDR), annualized.
+    ///
+    /// Units: decimal annual default rate.
     pub const CDR: Self = Self(Cow::Borrowed("cdr"));
 
-    /// Loss Severity (1 - Recovery Rate)
+    /// Loss severity, usually `1 - recovery_rate`.
+    ///
+    /// Units: decimal loss fraction.
     pub const LossSeverity: Self = Self(Cow::Borrowed("loss_severity"));
 
-    /// Spread duration (time-weighted sensitivity to spread changes)
+    /// Spread duration, a time-weighted sensitivity to spread changes.
+    ///
+    /// Units: years.
     pub const SpreadDuration: Self = Self(Cow::Borrowed("spread_duration"));
 
-    /// DM01 - Discount margin sensitivity (for floating-rate CLO)
+    /// DM01, discount-margin sensitivity for floating-rate structured credit.
+    ///
+    /// Units: currency per 1bp discount-margin move.
     pub const Dm01: Self = Self(Cow::Borrowed("dm01"));
 
     // ========================================================================
@@ -829,22 +992,34 @@ impl MetricId {
     // Private Equity / Private Markets Fund Metrics
     // ========================================================================
 
-    /// LP (Limited Partner) Internal Rate of Return
+    /// LP (Limited Partner) internal rate of return.
+    ///
+    /// Units: decimal annualized IRR.
     pub const LpIrr: Self = Self(Cow::Borrowed("lp_irr"));
 
-    /// GP (General Partner) Internal Rate of Return
+    /// GP (General Partner) internal rate of return.
+    ///
+    /// Units: decimal annualized IRR.
     pub const GpIrr: Self = Self(Cow::Borrowed("gp_irr"));
 
-    /// LP Multiple on Invested Capital
+    /// LP multiple on invested capital.
+    ///
+    /// Units: ratio multiple (`1.80 = 1.8x`).
     pub const MoicLp: Self = Self(Cow::Borrowed("moic_lp"));
 
-    /// LP Distributions to Paid In (DPI ratio)
+    /// LP distributions to paid-in capital (DPI).
+    ///
+    /// Units: ratio multiple (`0.75 = 0.75x`).
     pub const DpiLp: Self = Self(Cow::Borrowed("dpi_lp"));
 
-    /// LP Total Value to Paid In (TVPI ratio)
+    /// LP total value to paid-in capital (TVPI).
+    ///
+    /// Units: ratio multiple (`1.40 = 1.4x`).
     pub const TvpiLp: Self = Self(Cow::Borrowed("tvpi_lp"));
 
-    /// Accrued carry amount for GP
+    /// Accrued carry amount for the GP.
+    ///
+    /// Units: currency.
     pub const CarryAccrued: Self = Self(Cow::Borrowed("carry_accrued"));
 
     // ========================================================================

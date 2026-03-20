@@ -77,12 +77,29 @@ pub enum Error {
 }
 
 impl Error {
-    /// Create a validation error with context
+    /// Create a validation error with context.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - Human-readable description of the validation failure.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::ValidationFailed`] carrying the supplied message.
     pub fn validation(msg: impl Into<String>) -> Self {
         Self::ValidationFailed(msg.into())
     }
 
-    /// Create a valuation error with context
+    /// Create a valuation error with context.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position that triggered the valuation failure.
+    /// * `msg` - Human-readable error detail.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::ValuationError`] carrying position context and the supplied message.
     pub fn valuation(position_id: impl Into<PositionId>, msg: impl Into<String>) -> Self {
         Self::ValuationError {
             position_id: position_id.into(),
@@ -90,27 +107,68 @@ impl Error {
         }
     }
 
-    /// Create an FX conversion error
+    /// Create an FX conversion error.
+    ///
+    /// # Arguments
+    ///
+    /// * `from` - Source currency.
+    /// * `to` - Target currency.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::FxConversionFailed`] for the requested currency pair.
     pub fn fx_conversion(from: Currency, to: Currency) -> Self {
         Self::FxConversionFailed { from, to }
     }
 
-    /// Create a missing market data error
+    /// Create a missing market data error.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - Description of the missing market input.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::MissingMarketData`] carrying the supplied message.
     pub fn missing_market_data(msg: impl Into<String>) -> Self {
         Self::MissingMarketData(msg.into())
     }
 
-    /// Create an optimization error with context
+    /// Create an optimization error with context.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - Description of the optimization failure.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::OptimizationError`] carrying the supplied message.
     pub fn optimization_error(msg: impl Into<String>) -> Self {
         Self::OptimizationError(msg.into())
     }
 
-    /// Create an invalid input error
+    /// Create an invalid input error.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - Description of the bad caller input.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::InvalidInput`] carrying the supplied message.
     pub fn invalid_input(msg: impl Into<String>) -> Self {
         Self::InvalidInput(msg.into())
     }
 
-    /// Create a scenario error
+    /// Create a scenario error.
+    ///
+    /// # Arguments
+    ///
+    /// * `msg` - Description of the scenario-engine failure.
+    ///
+    /// # Returns
+    ///
+    /// [`Error::ScenarioError`] carrying the supplied message.
     #[cfg(feature = "scenarios")]
     pub fn scenario_error(msg: impl Into<String>) -> Self {
         Self::ScenarioError(msg.into())

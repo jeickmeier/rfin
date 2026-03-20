@@ -100,6 +100,13 @@ impl SplitMix64 {
 ///
 /// `position_factor_contributions` are left empty because a stable, scenario-based
 /// per-position allocation is deferred for a later cluster.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#glasserman-2004-monte-carlo`
+/// - `docs/REFERENCES.md#golub-van-loan-matrix-computations`
+/// - `docs/REFERENCES.md#jpmorgan1996RiskMetrics`
+/// - `docs/REFERENCES.md#artzner1999CoherentRisk`
 #[derive(Debug, Clone, Copy)]
 pub struct SimulationDecomposer {
     n_scenarios: usize,
@@ -108,6 +115,15 @@ pub struct SimulationDecomposer {
 
 impl SimulationDecomposer {
     /// Create a simulation decomposer with a fixed number of scenarios and deterministic seed.
+    ///
+    /// # Arguments
+    ///
+    /// * `n_scenarios` - Number of Monte Carlo scenarios to generate.
+    /// * `seed` - Deterministic seed for reproducible scenario generation.
+    ///
+    /// # Returns
+    ///
+    /// A simulation decomposer configured for deterministic tail-risk analysis.
     #[must_use]
     pub fn new(n_scenarios: usize, seed: u64) -> Self {
         Self { n_scenarios, seed }

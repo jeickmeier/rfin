@@ -387,7 +387,7 @@ impl Bond {
     /// let corp_bond = Bond::fixed(
     ///     "CORP-001",
     ///     notional,
-    ///     finstack_core::types::Rate::from_decimal(0.05),
+    ///     finstack_core::types::Rate::from_percent(5.0),
     ///     issue,
     ///     maturity,
     ///     "USD-OIS",
@@ -396,7 +396,8 @@ impl Bond {
     /// # let _ = corp_bond;
     ///
     /// // For US Treasury, use with_convention:
-    /// // let treasury = Bond::with_convention("UST-001", notional, 0.04, issue, maturity,
+    /// // let treasury = Bond::with_convention("UST-001", notional,
+    /// //     finstack_core::types::Rate::from_percent(4.0), issue, maturity,
     /// //                                       BondConvention::USTreasury, "USD-TREASURY").unwrap();
     /// ```
     /// # Errors

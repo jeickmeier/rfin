@@ -17,6 +17,7 @@
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
+//! use finstack_core::types::Rate;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -25,7 +26,7 @@
 //! let bond = Bond::fixed(
 //!     "BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
-//!     0.05,
+//!     Rate::from_percent(5.0),
 //!     issue,
 //!     maturity,
 //!     "USD-OIS"
@@ -210,6 +211,11 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// - [`value()`](Instrument::value): Fast NPV-only calculation (no metrics)
 /// - [`price_with_metrics()`](Instrument::price_with_metrics): NPV plus requested risk metrics
 ///
+/// `value()` is the canonical rounded pricing path and returns a [`Money`] amount
+/// in the instrument's reporting currency. [`value_raw()`](Instrument::value_raw)
+/// should be used only when the caller needs the same economics before currency
+/// rounding, typically for finite-difference risk calculations.
+///
 /// # Implementation Guidelines
 ///
 /// Instruments should:
@@ -228,6 +234,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 /// use finstack_core::dates::create_date;
+/// use finstack_core::types::Rate;
 /// use finstack_core::market_data::context::MarketContext;
 /// use time::Month;
 ///
@@ -237,7 +244,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// let bond = Bond::fixed(
 ///     "BOND-001",
 ///     Money::new(1_000_000.0, Currency::USD),
-///     0.05,
+///     Rate::from_percent(5.0),
 ///     issue,
 ///     maturity,
 ///     "USD-OIS"
@@ -261,6 +268,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
 /// # use finstack_core::dates::create_date;
+/// # use finstack_core::types::Rate;
 /// # use finstack_core::market_data::context::MarketContext;
 /// # use time::Month;
 ///
@@ -268,7 +276,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// # let issue = create_date(2025, Month::January, 15)?;
 /// # let maturity = create_date(2030, Month::January, 15)?;
 /// # let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-/// #     0.05, issue, maturity, "USD-OIS");
+/// #     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
 /// # let market = MarketContext::new();
 /// # let as_of = create_date(2025, Month::January, 1)?;
 ///
@@ -290,6 +298,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
 /// # use finstack_core::dates::create_date;
+/// # use finstack_core::types::Rate;
 /// # use time::Month;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -298,7 +307,7 @@ pub type CurveIdVec = SmallVec<[CurveId; 2]>;
 /// let bond = Bond::fixed(
 ///     "BOND-001",
 ///     Money::new(1_000_000.0, Currency::USD),
-///     0.05,
+///     Rate::from_percent(5.0),
 ///     issue,
 ///     maturity,
 ///     "USD-OIS"
@@ -396,6 +405,7 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -404,7 +414,7 @@ pub trait Instrument: Send + Sync {
     /// let bond = Bond::fixed(
     ///     "US-TREASURY-5Y-001",
     ///     Money::new(1_000_000.0, Currency::USD),
-    ///     0.05,
+    ///     Rate::from_percent(5.0),
     ///     issue,
     ///     maturity,
     ///     "USD-OIS"
@@ -434,13 +444,14 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     0.05, issue, maturity, "USD-OIS")?;
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS")?;
     ///
     /// assert_eq!(bond.key(), InstrumentType::Bond);
     /// # Ok(())
@@ -464,13 +475,14 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     0.05, issue, maturity, "USD-OIS")?;
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS")?;
     ///
     /// let instrument: &dyn Instrument = &bond;
     /// let concrete_bond: Option<&Bond> = instrument.as_any().downcast_ref::<Bond>();
@@ -506,6 +518,7 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use finstack_core::market_data::context::MarketContext;
     /// # use time::Month;
     ///
@@ -515,7 +528,7 @@ pub trait Instrument: Send + Sync {
     /// let bond = Bond::fixed(
     ///     "BOND-001",
     ///     Money::new(1_000_000.0, Currency::USD),
-    ///     0.05,
+    ///     Rate::from_percent(5.0),
     ///     issue,
     ///     maturity,
     ///     "USD-OIS"
@@ -651,13 +664,14 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     0.05, issue, maturity, "USD-OIS")?;
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS")?;
     ///
     /// let instrument: Box<dyn Instrument> = Box::new(bond);
     /// let cloned = instrument.clone_box();
@@ -680,6 +694,9 @@ pub trait Instrument: Send + Sync {
     /// implementation returns `self.clone_box()` — instruments with standard
     /// cashflows need no override.  Bonds override this to convert PIK coupon
     /// type to Cash so that spread metrics are on a cash-equivalent basis.
+    ///
+    /// This method affects spread- and yield-style metrics only. It should not be
+    /// used to change the economic basis of PV itself or unrelated risk measures.
     fn metrics_equivalent(&self) -> Box<dyn Instrument> {
         self.clone_box()
     }
@@ -691,6 +708,10 @@ pub trait Instrument: Send + Sync {
     /// This is the performance-optimized method for obtaining just the NPV
     /// without computing any risk metrics. Use this in hot paths like
     /// portfolio aggregation where metrics are not needed.
+    ///
+    /// The returned [`Money`] is the canonical rounded pricing output. Callers
+    /// that need pre-rounding arithmetic for sensitivities should use
+    /// [`Instrument::value_raw`] rather than inferring precision from `Money`.
     ///
     /// # Arguments
     ///
@@ -717,13 +738,14 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     0.05, issue, maturity, "USD-OIS");
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
     ///
     /// let market = MarketContext::new();
     /// let as_of = create_date(2025, Month::January, 1)?;
@@ -758,6 +780,9 @@ pub trait Instrument: Send + Sync {
     /// Instruments with internal high-precision pricing should override this method
     /// to return the raw value before Money wrapping for better sensitivity accuracy.
     ///
+    /// `value_raw()` should represent the same economics as [`Instrument::value`]
+    /// before currency rounding, not a different pricing convention.
+    ///
     /// # Examples
     ///
     /// ```rust,no_run
@@ -765,6 +790,7 @@ pub trait Instrument: Send + Sync {
     /// use finstack_core::currency::Currency;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
+    /// use finstack_core::types::Rate;
     /// use finstack_valuations::instruments::{Bond, Instrument};
     /// use time::macros::date;
     ///
@@ -772,7 +798,7 @@ pub trait Instrument: Send + Sync {
     /// let instrument = Bond::fixed(
     ///     "BOND-001",
     ///     Money::new(1_000_000.0, Currency::USD),
-    ///     0.05,
+    ///     Rate::from_percent(5.0),
     ///     date!(2025-01-15),
     ///     date!(2030-01-15),
     ///     "USD-OIS",
@@ -798,6 +824,10 @@ pub trait Instrument: Send + Sync {
     /// This method computes NPV plus any requested risk metrics (duration, DV01,
     /// Greeks, etc.). Metrics are computed on-demand based on the provided list,
     /// enabling efficient calculation of only the required sensitivities.
+    ///
+    /// PV is always returned in [`crate::results::ValuationResult::value`].
+    /// Requested metrics are stored in `ValuationResult::measures` and must be
+    /// interpreted using their [`crate::metrics::MetricId`] contracts.
     ///
     /// # Arguments
     ///
@@ -828,13 +858,14 @@ pub trait Instrument: Send + Sync {
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
     /// # use time::Month;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     0.05, issue, maturity, "USD-OIS");
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
     ///
     /// let market = MarketContext::new();
     /// let as_of = create_date(2025, Month::January, 1)?;

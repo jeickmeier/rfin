@@ -26,7 +26,40 @@ pub struct DefaultModelSpec {
 }
 
 impl DefaultModelSpec {
-    /// Calculate MDR (monthly default rate) for given seasoning.
+    /// Calculate MDR (monthly default rate) for the supplied seasoning.
+    ///
+    /// # Formula
+    ///
+    /// For the constant curve, the method converts annual CDR to monthly MDR
+    /// using:
+    ///
+    /// `MDR = 1 - (1 - CDR)^(1/12)`
+    ///
+    /// For the SDA curve, the annual CDR is first derived from seasoning:
+    ///
+    /// - months `1..=30`: linear ramp to a 6% annual CDR peak
+    /// - months `31..=60`: linear decline from 6% to a 3% terminal annual CDR
+    /// - months `> 60`: flat 3% annual CDR terminal level
+    ///
+    /// The `speed_multiplier` scales the resulting annual CDR before conversion
+    /// into MDR.
+    ///
+    /// # Arguments
+    ///
+    /// * `seasoning_months` - Number of months since origination or pool start.
+    ///
+    /// # Returns
+    ///
+    /// Monthly default rate as a decimal.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the derived annual CDR is negative.
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#isda-cds-standard-model`
+    /// - `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn mdr(&self, seasoning_months: u32) -> finstack_core::Result<f64> {
         let cdr = match &self.curve {
             None | Some(DefaultCurve::Constant) => self.cdr,
@@ -58,6 +91,9 @@ impl DefaultModelSpec {
     }
 
     /// SDA curve with multiplier (1.0 = 100% SDA).
+    ///
+    /// The implementation ramps annual CDR to a 6% peak by month 30, then
+    /// decays linearly to a 3% terminal annual CDR by month 60.
     pub fn sda(speed_multiplier: f64) -> Self {
         Self {
             cdr: 0.03, // 100% SDA terminal rate

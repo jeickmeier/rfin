@@ -5,31 +5,34 @@ use finstack_core::money::Money;
 use finstack_core::types::Bps;
 use rust_decimal::Decimal;
 
-/// Fee specification.
+/// Fee specification for fixed-fee and periodic-basis-point programs.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FeeSpec {
-    /// Fixed variant.
+    /// Fixed fee paid once on a specified date.
     Fixed {
-        /// Date.
+        /// Payment date of the fixed fee.
         date: Date,
-        /// Amount.
+        /// Fee amount in currency units.
         amount: Money,
     },
-    /// Periodic Bps variant.
+    /// Periodic fee quoted in basis points and accrued over generated periods.
     PeriodicBps {
-        /// Base.
+        /// Economic balance used as the fee base.
         base: FeeBase,
-        /// Fee rate in basis points. Uses Decimal for exact representation.
+        /// Fee quote in basis points per annum, stored as `Decimal` to preserve
+        /// the quoted value exactly.
         bps: Decimal,
-        /// Freq.
+        /// Accrual and payment frequency for the fee schedule.
         freq: Tenor,
-        /// Dc.
+        /// Day-count convention used to annualize the fee accrual.
         dc: DayCount,
-        /// Bdc.
+        /// Business-day convention applied to generated fee dates.
         bdc: BusinessDayConvention,
-        /// Calendar id (use "weekends_only" for weekends-only adjustments).
+        /// Holiday calendar identifier used with `bdc`.
+        ///
+        /// Use `"weekends_only"` when only weekend adjustment is required.
         calendar_id: String,
-        /// Stub.
+        /// Stub-handling rule for irregular first or last fee periods.
         stub: StubKind,
         /// How the outstanding balance is sampled for fee calculation.
         #[serde(default, skip_serializing_if = "FeeAccrualBasis::is_default")]
@@ -57,11 +60,11 @@ impl FeeAccrualBasis {
 /// Fee base for periodic bps fees.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FeeBase {
-    /// Base on drawn outstanding (post-amortization, post-PIK).
+    /// Fee base is the drawn outstanding after amortization and PIK updates.
     Drawn,
     /// Base on undrawn = max(limit - outstanding, 0).
     Undrawn {
-        /// Facility limit.
+        /// Total facility commitment used to compute the undrawn amount.
         facility_limit: Money,
     },
 }

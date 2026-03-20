@@ -29,6 +29,10 @@ impl PortfolioResult {
     /// * `valuation` - Portfolio valuation component.
     /// * `metrics` - Portfolio metrics component.
     /// * `meta` - Metadata describing calculation context.
+    ///
+    /// # Returns
+    ///
+    /// Combined result wrapper containing valuation, metrics, and calculation metadata.
     pub fn new(
         valuation: PortfolioValuation,
         metrics: PortfolioMetrics,
@@ -42,6 +46,10 @@ impl PortfolioResult {
     }
 
     /// Get the total portfolio value.
+    ///
+    /// # Returns
+    ///
+    /// Borrowed reference to the base-currency portfolio total.
     pub fn total_value(&self) -> &Money {
         &self.valuation.total_base_ccy
     }
@@ -51,6 +59,10 @@ impl PortfolioResult {
     /// # Arguments
     ///
     /// * `metric_id` - Identifier of the metric to retrieve.
+    ///
+    /// # Returns
+    ///
+    /// The aggregated metric total, if the metric was produced.
     pub fn get_metric(&self, metric_id: &str) -> Option<f64> {
         self.metrics.get_total(metric_id)
     }

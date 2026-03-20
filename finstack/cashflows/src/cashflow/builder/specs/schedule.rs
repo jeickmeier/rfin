@@ -4,24 +4,34 @@ use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::types::CurveId;
 use rust_decimal::Decimal;
 
-/// Schedule Params structure.
+/// Canonical schedule-generation parameters for coupons and periodic fees.
+///
+/// This type controls how accrual boundaries and payment dates are generated.
+/// The fields describe schedule construction conventions, not discounting or
+/// valuation conventions.
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct ScheduleParams {
-    /// freq.
+    /// Accrual and payment frequency used to generate the schedule boundaries.
     pub freq: Tenor,
-    /// dc.
+    /// Day-count convention used to convert each generated accrual period into a
+    /// year fraction.
     pub dc: DayCount,
-    /// bdc.
+    /// Business-day convention applied when rolling accrual-end and payment
+    /// dates onto valid business days.
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
-    /// Calendar id (use "weekends_only" for weekends-only adjustments).
+    /// Holiday calendar identifier used together with `bdc`.
+    ///
+    /// Use `"weekends_only"` when only Saturday/Sunday adjustment is needed.
     pub calendar_id: String,
-    /// stub.
+    /// Stub-handling rule used when the start/end dates do not fit an exact
+    /// whole number of periods.
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
-    /// End-of-month rolling.
+    /// Whether end-of-month rolling should be preserved when generating the
+    /// schedule.
     pub end_of_month: bool,
-    /// Payment lag in business days after accrual end.
+    /// Payment lag in business days after the adjusted accrual end date.
     pub payment_lag_days: i32,
 }
 
@@ -223,49 +233,59 @@ impl ScheduleParams {
     }
 }
 
-/// Float Coupon Params structure.
+/// Floating-rate window parameters used by segmented coupon programs.
+///
+/// These fields describe the floating index, margin, and optional floor/cap
+/// policy for a window. Schedule-generation settings live on the surrounding
+/// [`ScheduleParams`].
 #[derive(Debug, Clone)]
 pub struct FloatCouponParams {
-    /// index id.
+    /// Forward-curve identifier for the projected floating index, such as
+    /// `"USD-SOFR-3M"`.
     pub index_id: CurveId,
-    /// Margin over index in basis points. Uses Decimal for exact representation.
+    /// Margin over the index in basis points, stored as `Decimal` for exact
+    /// quote preservation.
     pub margin_bp: Decimal,
-    /// Gearing/leverage multiplier. Uses Decimal for exact representation.
+    /// Gearing or leverage multiplier applied to the floating rate formula.
     pub gearing: Decimal,
-    /// reset lag days.
+    /// Reset lag in business days from the accrual start to the fixing date.
     pub reset_lag_days: i32,
-    /// Whether gearing includes the spread (default: true).
+    /// Whether gearing is applied to `(index + spread)` or only to the index
+    /// leg before the spread is added back.
     pub gearing_includes_spread: bool,
-    /// Floor on index rate in basis points.
+    /// Optional floor on the index component in basis points.
     pub floor_bp: Option<Decimal>,
-    /// Cap on all-in rate in basis points.
+    /// Optional cap on the all-in coupon rate in basis points.
     pub cap_bp: Option<Decimal>,
-    /// Floor on all-in rate in basis points.
+    /// Optional floor on the all-in coupon rate in basis points.
     pub all_in_floor_bp: Option<Decimal>,
-    /// Cap on index rate in basis points.
+    /// Optional cap on the index component in basis points.
     pub index_cap_bp: Option<Decimal>,
-    /// Optional fixing calendar (distinct from payment calendar).
+    /// Optional fixing calendar distinct from the payment/accrual calendar.
+    ///
+    /// When `None`, the schedule calendar is also used for fixing adjustment.
     pub fixing_calendar_id: Option<String>,
-    /// Overnight compounding method for overnight indices (SOFR, ESTR, SONIA).
+    /// Overnight compounding convention for overnight indices such as SOFR,
+    /// ESTR, or SONIA.
     pub overnight_compounding: Option<super::OvernightCompoundingMethod>,
-    /// Policy when forward curve lookup fails during emission.
+    /// Policy applied when the forward curve cannot be resolved or projected.
     pub fallback: super::FloatingRateFallback,
 }
 
-/// Fixed Window structure.
+/// Fixed-rate coupon window with a shared schedule.
 #[derive(Debug, Clone)]
 pub struct FixedWindow {
-    /// Coupon rate as a decimal (e.g., 0.05 for 5%). Uses Decimal for exact representation.
+    /// Annual coupon rate as a decimal, for example `0.05` for 5%.
     pub rate: Decimal,
-    /// schedule.
+    /// Schedule-generation parameters for this fixed-rate window.
     pub schedule: ScheduleParams,
 }
 
-/// Float Window structure.
+/// Floating-rate coupon window with a shared schedule.
 #[derive(Debug, Clone)]
 pub struct FloatWindow {
-    /// params.
+    /// Floating-index, spread, and floor/cap parameters for this window.
     pub params: FloatCouponParams,
-    /// schedule.
+    /// Schedule-generation parameters for this floating-rate window.
     pub schedule: ScheduleParams,
 }

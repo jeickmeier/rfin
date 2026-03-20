@@ -13,6 +13,19 @@ use indexmap::IndexMap;
 /// It contains the instrument's present value, computed risk metrics,
 /// calculation metadata, and optional covenant checks or explainability traces.
 ///
+/// # Interpretation Contract
+///
+/// `ValuationResult` intentionally separates:
+///
+/// - [`Self::value`]: the canonical present value as [`Money`], with currency
+///   information preserved
+/// - [`Self::measures`]: additional scalar measures keyed by [`MetricId`]
+/// - [`Self::meta`]: execution and policy context needed to interpret the result
+///
+/// Consumers should **not** assume every entry in `measures` is a currency amount.
+/// Measure semantics, units, bump conventions, and sign conventions are defined
+/// by [`MetricId`] and the producing API.
+///
 /// # Structure
 ///
 /// - **Value**: Present value in the instrument's native currency
@@ -20,6 +33,11 @@ use indexmap::IndexMap;
 /// - **Metadata**: Calculation context (rounding, numeric mode, timing)
 /// - **Covenants**: Optional covenant compliance results
 /// - **Explanation**: Optional computation trace for debugging
+///
+/// # See Also
+///
+/// - [`crate::metrics::MetricId`] for metric meanings, units, and bump/sign conventions
+/// - [`crate::results`] for the public result-module surface
 ///
 /// # Metadata Stamping
 ///
@@ -159,6 +177,16 @@ pub struct ValuationResult {
     ///
     /// Keys are strongly-typed metric IDs (serialized as strings such as
     /// "ytm", "dv01", "delta"). Use `MetricId` helpers for consistent lookups.
+    ///
+    /// # Interpretation
+    ///
+    /// Entries in this map are heterogeneous by design:
+    /// - some are currency amounts (`jump_to_default`)
+    /// - some are currency-per-bump sensitivities (`dv01`, `vega`, `rho`)
+    /// - some are decimal rates or probabilities (`ytm`, `default_probability`)
+    /// - some are ratios or counts (`tvpi_lp`, `constituent_count`)
+    ///
+    /// Always interpret a measure together with its [`MetricId`] contract.
     pub measures: IndexMap<MetricId, f64>,
 
     /// Calculation metadata and policy stamps.

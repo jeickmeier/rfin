@@ -228,6 +228,10 @@ pub struct PortfolioValuationOptions {
 /// 2. Prices each instrument with metrics
 /// 3. Converts values to base currency using FX rates
 /// 4. Aggregates by entity
+//!
+/// Portfolio valuation uses compensated summation during aggregation and treats
+/// `PositionUnit` as part of the pricing contract, so the reported portfolio
+/// totals reflect scaled holdings rather than raw instrument PVs.
 ///
 /// # Arguments
 ///
@@ -253,6 +257,34 @@ pub struct PortfolioValuationOptions {
 ///
 /// When the `parallel` feature is enabled, position valuations are computed in parallel
 /// using rayon. Results are deterministically reduced to ensure consistency across runs.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_core::config::FinstackConfig;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_portfolio::valuation::{value_portfolio, PortfolioValuationOptions};
+///
+/// # fn main() -> finstack_portfolio::Result<()> {
+/// # let portfolio: finstack_portfolio::Portfolio = unimplemented!("Provide a portfolio");
+/// # let market: MarketContext = unimplemented!("Provide market data");
+/// let config = FinstackConfig::default();
+/// let valuation = value_portfolio(
+///     &portfolio,
+///     &market,
+///     &config,
+///     &PortfolioValuationOptions::default(),
+/// )?;
+///
+/// println!("Total base PV: {}", valuation.total_base_ccy);
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # References
+///
+/// - Numerically stable aggregation:
+///   `docs/REFERENCES.md#kahan-1965`
 pub fn value_portfolio(
     portfolio: &Portfolio,
     market: &MarketContext,
@@ -422,6 +454,11 @@ fn value_single_position(
 ///
 /// Propagates any pricing or FX conversion errors encountered when revaluing
 /// affected positions (same error semantics as [`value_portfolio`]).
+///
+/// # References
+///
+/// - Numerically stable aggregation:
+///   `docs/REFERENCES.md#kahan-1965`
 pub fn revalue_affected(
     portfolio: &Portfolio,
     market: &MarketContext,

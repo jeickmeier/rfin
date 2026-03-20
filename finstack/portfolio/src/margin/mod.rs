@@ -14,6 +14,19 @@
 //! - **Portfolio Margin Aggregation**: Combining sensitivities across positions
 //! - **Margin Reporting**: Summary views of margin requirements
 //!
+//! # Conventions
+//!
+//! - Initial margin is calculated per netting set and then aggregated into the
+//!   portfolio base currency.
+//! - Variation margin uses netted mark-to-market values, FX-converted into the
+//!   base currency when positions are not already denominated in that currency.
+//! - Positions that fail sensitivity or mark-to-market extraction are tracked as
+//!   degraded outputs rather than silently dropped.
+//!
+//! # References
+//!
+//! - `docs/REFERENCES.md#isda-simm`
+//!
 //! # Usage
 //!
 //! ```rust,no_run

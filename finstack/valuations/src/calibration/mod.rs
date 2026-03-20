@@ -7,6 +7,18 @@
 //! - Volatility surfaces
 //! - Base correlation curves
 //!
+//! # Documentation Rules For Calibration APIs
+//!
+//! Calibration docs should make three things explicit:
+//!
+//! - **Which quotes and conventions are assumed**: quote style, day count, curve
+//!   time basis, interpolation, and market-standard construction choices should be
+//!   stated near the public API that uses them.
+//! - **Which tolerance is being discussed**: solver convergence tolerances and
+//!   post-solve validation tolerances are distinct and should not be conflated.
+//! - **Which canonical source applies**: model-heavy and convention-heavy APIs
+//!   should include `# References` sections pointing to `docs/REFERENCES.md`.
+//!
 //! # Features
 //! - **Plan-Driven API**: Uses `"finstack.calibration"` schema for structured calibration plans.
 //! - **Flexible Solvers**: Supports both sequential bootstrapping and global optimization (Newton/LM).
@@ -53,6 +65,12 @@
 //! - `api` for the plan schema and engine.
 //! - `solver` for the underlying numerical solvers.
 //! - [`crate::market::quotes`] for market data representation.
+//!
+//! # References
+//!
+//! - Multi-curve discounting and construction: `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+//! - Curve interpolation: `docs/REFERENCES.md#hagan-west-monotone-convex`
+//! - Core rates/derivatives background: `docs/REFERENCES.md#hull-options-futures`
 
 /// Plan-driven calibration API (schema + execution engine).
 pub mod api;

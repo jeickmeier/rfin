@@ -180,6 +180,17 @@ impl PricerRegistry {
     /// normalized cashflows (e.g., PIK coupon type converted to Cash) so that
     /// spreads are on a cash-equivalent basis.  Risk metrics (duration, DV01,
     /// convexity, CS01) use the original instrument's actual cashflows.
+///
+/// # Behavioral Contract
+///
+/// This split is intentional:
+/// - **Spread/yield metrics** answer "what standard cash-equivalent spread or yield
+///   matches this model price?"
+/// - **Risk metrics** answer "how does the actual instrument economics move under
+///   the requested bump convention?"
+///
+/// Downstream consumers should not assume all metrics in the result were produced
+/// from the same normalized cashflow basis when `model != ModelKey::Discounting`.
     ///
     /// # Arguments
     ///

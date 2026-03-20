@@ -17,6 +17,22 @@
 //! - [`factor_model::validate_correlation_matrix`]: Validate correlation matrices
 //! - [`factor_model::cholesky_decompose`]: Cholesky decomposition for correlated factor generation
 //! - [`joint_probability::correlation_bounds`]: Fréchet-Hoeffding bounds for correlated Bernoulli
+//!
+//! # Conventions
+//!
+//! - Probabilities, correlations, and recovery rates are quoted in decimals.
+//! - Flattened correlation matrices use row-major ordering.
+//! - Latent-factor inputs are standard-normal or Student-t realizations, depending
+//!   on the concrete model.
+//!
+//! # References
+//!
+//! - Gaussian copula background:
+//!   `docs/REFERENCES.md#li-2000-gaussian-copula`
+//! - Student-t copula background:
+//!   `docs/REFERENCES.md#demarta-mcneil-2005-t-copula`
+//! - Factor-model and portfolio-risk context:
+//!   `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
 
 pub mod copula;
 pub mod error;

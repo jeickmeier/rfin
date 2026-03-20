@@ -14,6 +14,8 @@ use std::sync::Arc;
 /// Unit of position measurement.
 ///
 /// The unit describes how the `quantity` on a [`Position`] should be interpreted.
+/// Callers should treat it as part of the valuation contract, not display-only
+/// metadata.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
@@ -113,9 +115,48 @@ impl Position {
     /// * `quantity` - Signed quantity of the instrument (must be finite).
     /// * `unit` - Interpretation of the quantity.
     ///
+    /// # Returns
+    ///
+    /// A fully constructed position with empty tags and metadata.
+    ///
     /// # Errors
     ///
     /// Returns [`Error::InvalidInput`] if `quantity` is NaN or infinite.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_valuations::instruments::rates::deposit::Deposit;
+    /// use std::sync::Arc;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_portfolio::Result<()> {
+    /// let instrument = Deposit::builder()
+    ///     .id("DEP_1M".into())
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .start_date(date!(2024-01-01))
+    ///     .maturity(date!(2024-02-01))
+    ///     .day_count(finstack_core::dates::DayCount::Act360)
+    ///     .discount_curve_id("USD".into())
+    ///     .build()
+    ///     .expect("example deposit should build");
+    ///
+    /// let position = Position::new(
+    ///     "POS_001",
+    ///     "ENTITY_A",
+    ///     "DEP_1M",
+    ///     Arc::new(instrument),
+    ///     1.0,
+    ///     PositionUnit::Units,
+    /// )?;
+    ///
+    /// assert_eq!(position.instrument_id, "DEP_1M");
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(
         position_id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
@@ -170,6 +211,10 @@ impl Position {
     /// # Arguments
     ///
     /// * `book_id` - Book identifier for hierarchical organization.
+    ///
+    /// # Returns
+    ///
+    /// The updated position for fluent chaining.
     pub fn with_book(mut self, book_id: impl Into<BookId>) -> Self {
         self.book_id = Some(book_id.into());
         self
@@ -183,6 +228,10 @@ impl Position {
     ///
     /// * `key` - Tag key.
     /// * `value` - Tag value.
+    ///
+    /// # Returns
+    ///
+    /// The updated position for fluent chaining.
     pub fn with_tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
@@ -193,6 +242,10 @@ impl Position {
     /// # Arguments
     ///
     /// * `tags` - Iterator of (key, value) pairs.
+    ///
+    /// # Returns
+    ///
+    /// The updated position for fluent chaining.
     ///
     /// # Examples
     ///
@@ -250,17 +303,29 @@ impl Position {
     ///
     /// * `key` - Metadata key.
     /// * `value` - Arbitrary JSON value.
+    ///
+    /// # Returns
+    ///
+    /// The updated position for fluent chaining.
     pub fn with_meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.meta.insert(key.into(), value);
         self
     }
 
     /// Check if this position is long (positive quantity).
+    ///
+    /// # Returns
+    ///
+    /// `true` when the stored quantity is strictly greater than zero.
     pub fn is_long(&self) -> bool {
         self.quantity > 0.0
     }
 
     /// Check if this position is short (negative quantity).
+    ///
+    /// # Returns
+    ///
+    /// `true` when the stored quantity is strictly less than zero.
     pub fn is_short(&self) -> bool {
         self.quantity < 0.0
     }
@@ -280,6 +345,42 @@ impl Position {
     /// # Returns
     ///
     /// The scaled monetary value in the same currency.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_core::money::Money;
+    /// use finstack_portfolio::{Position, PositionUnit};
+    /// use finstack_valuations::instruments::rates::deposit::Deposit;
+    /// use std::sync::Arc;
+    /// use time::macros::date;
+    ///
+    /// # fn main() -> finstack_portfolio::Result<()> {
+    /// let instrument = Deposit::builder()
+    ///     .id("DEP_1M".into())
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .start_date(date!(2024-01-01))
+    ///     .maturity(date!(2024-02-01))
+    ///     .day_count(finstack_core::dates::DayCount::Act360)
+    ///     .discount_curve_id("USD".into())
+    ///     .build()
+    ///     .expect("example deposit should build");
+    ///
+    /// let position = Position::new(
+    ///     "POS_001",
+    ///     "ENTITY_A",
+    ///     "DEP_1M",
+    ///     Arc::new(instrument),
+    ///     50.0,
+    ///     PositionUnit::Percentage,
+    /// )?;
+    ///
+    /// let scaled = position.scale_value(Money::new(200.0, Currency::USD));
+    /// assert_eq!(scaled.amount(), 100.0);
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn scale_value(&self, value: Money) -> Money {
         let scale_factor = match self.unit {
             PositionUnit::Units => self.quantity,
@@ -310,6 +411,11 @@ impl Position {
     /// Attempts to extract the instrument JSON representation if the instrument
     /// implements the conversion. Returns `None` for `instrument_spec` if conversion
     /// is not supported.
+    ///
+    /// # Returns
+    ///
+    /// A serializable `PositionSpec` carrying tags, metadata, and an optional
+    /// instrument payload.
     pub fn to_spec(&self) -> PositionSpec {
         // Try to convert instrument to JSON (will be implemented in phase 5.3)
         let instrument_spec = self.instrument.to_instrument_json();
@@ -332,6 +438,10 @@ impl Position {
     /// # Arguments
     ///
     /// * `spec` - The position specification to reconstruct
+    ///
+    /// # Returns
+    ///
+    /// Reconstructed runtime position with a live instrument trait object.
     ///
     /// # Errors
     ///

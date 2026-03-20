@@ -23,10 +23,14 @@ use finstack_core::HashMap;
 /// |---------|---------------|---------------------|
 /// | **Rates** | `"discount"`, `"forward"` | *(none -- errors if missing)* |
 /// | **CDS** | `"discount"`, `"credit"` | *(none -- errors if missing)* |
-/// | **Bond** | | `"discount"` (falls back to convention's `default_discount_curve_id`) |
-/// | **FX** | | `"domestic_discount"`, `"foreign_discount"` (fall back to `"{CCY}-OIS"`) |
-/// | **XCCY** | | `"domestic_discount"`, `"foreign_discount"`, `"domestic_forward"`, `"foreign_forward"` (convention-derived defaults) |
+/// | **Bond** | *(none at context level)* | `"discount"` (falls back to convention's `default_discount_curve_id`) |
+/// | **FX** | *(none at context level)* | `"domestic_discount"`, `"foreign_discount"` (fall back to `"{CCY}-OIS"`) |
+/// | **XCCY** | *(none at context level)* | `"domestic_discount"`, `"foreign_discount"`, `"domestic_forward"`, `"foreign_forward"` (convention-derived defaults) |
 /// | **CDS Tranche** | `"discount"`, `"credit"` | *(none -- errors if missing)* |
+///
+/// Blank entries in the **Required roles** column mean the builder can derive or
+/// default the relevant IDs from conventions or currencies. They do **not** mean
+/// the curve is economically irrelevant to the built instrument.
 ///
 /// # Examples
 ///
@@ -76,8 +80,12 @@ pub struct BuildCtx {
     /// - `"forward"`: Forward curve for floating rate projections
     /// - `"credit"`: Credit curve for CDS instruments
     ///
-    /// If a role is not found, builders will fall back to currency-based defaults
-    /// (e.g., using the currency string as the curve ID).
+    /// Missing-role behavior is builder-specific:
+    /// - rates and CDS builders error when required roles are absent
+    /// - bond, FX, and XCCY builders may derive defaults from conventions or currencies
+    ///
+    /// Do not assume that a missing role always falls back to a currency-based ID.
+    /// Consult the builder-specific docs when the distinction matters.
     curve_ids: HashMap<String, String>,
 }
 
@@ -92,7 +100,7 @@ impl BuildCtx {
     ///
     /// # Returns
     ///
-    /// A new `BuildCtx` with empty attributes.
+    /// A new `BuildCtx`.
     ///
     /// # Examples
     ///

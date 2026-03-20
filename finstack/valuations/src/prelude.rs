@@ -3,6 +3,14 @@
 //! This module provides a single import point for the most frequently used types
 //! in finstack-valuations, making it easier to get started with pricing and risk.
 //!
+//! Prefer typed rates in examples and downstream code when practical. In particular,
+//! use [`finstack_core::types::Rate`] constructors instead of ambiguous raw
+//! decimals when you want the example to communicate financial units clearly.
+//!
+//! Metrics returned from pricing calls are still governed by the semantic contract
+//! documented on [`crate::metrics::MetricId`]; importing the prelude does not change
+//! measure units, sign conventions, or bump conventions.
+//!
 //! # Example
 //!
 //! ```rust
@@ -19,6 +27,11 @@
 //! );
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
+//!
+//! # References
+//!
+//! - Metric contract: [`crate::metrics::MetricId`]
+//! - Result envelope: [`crate::results::ValuationResult`]
 
 pub use crate::instruments::{Attributes, Instrument};
 

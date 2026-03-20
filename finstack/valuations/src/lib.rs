@@ -26,6 +26,24 @@
 //! - **Registry-based pricing**: Type-safe dispatch without macro complexity
 //! - **Metrics framework**: Composable calculators with dependency resolution
 //!
+//! # Documentation Conventions
+//!
+//! Public rustdoc in `finstack-valuations` follows a few crate-wide rules:
+//!
+//! - **Prefer typed rates and spreads in examples**: when an API accepts either raw
+//!   decimals or typed wrappers, examples should usually favor
+//!   [`finstack_core::types::Rate`] and related typed constructors such as
+//!   `Rate::from_percent(5.0)` or `Rate::from_decimal(0.05)`.
+//! - **Treat metrics as explicit contracts**: values stored in
+//!   [`results::ValuationResult::measures`] are not all currency amounts. Their units,
+//!   sign conventions, and bump conventions are defined by [`metrics::MetricId`].
+//! - **State market conventions near the API**: when behavior depends on day count,
+//!   calendars, compounding, settlement, quote style, or curve-role assumptions, the
+//!   rustdoc for that public API should say so directly.
+//! - **Cite canonical sources when the model matters**: public APIs implementing a
+//!   market convention, pricing model, or numerical method should include
+//!   `# References` sections pointing to `docs/REFERENCES.md#anchor`.
+//!
 //! # Architecture
 //!
 //! ```text
@@ -164,6 +182,17 @@
 //! - [`covenants`]: Covenant checking for structured products
 //! - [`schema`]: JSON Schema generation for API contracts
 //!
+//! # Semantic Contracts
+//!
+//! The main user-facing semantic contracts are:
+//!
+//! - [`metrics::MetricId`]: the authoritative glossary for metric meanings, units,
+//!   and bump/sign conventions.
+//! - [`results::ValuationResult`]: the canonical result envelope for PV, metrics,
+//!   and metadata.
+//! - [`instruments::Instrument`]: the common pricing and dependency contract for
+//!   all supported instruments.
+//!
 //! # API Layers
 //!
 //! The public API is organized into three layers:
@@ -283,6 +312,14 @@
 //! - `mc`: Enable Monte Carlo pricing (adds ~200KB to binary)
 //! - `serde`: Enable serialization/deserialization
 //! - `parallel`: Enable Rayon parallelism (deterministic results maintained)
+//!
+//! # References
+//!
+//! - Curve construction and discounting: `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+//! - Fixed-income risk conventions: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
+//! - Black-style option pricing: `docs/REFERENCES.md#black-1976`
+//! - Normal-model option pricing: `docs/REFERENCES.md#bachelier-1900`
+//! - SABR volatility: `docs/REFERENCES.md#hagan-2002-sabr`
 //!
 //! # See Also
 //!

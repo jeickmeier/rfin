@@ -316,6 +316,9 @@ impl Default for DiscountCurveSolveConfig {
 ///
 /// This struct consolidates all settings for solvers, validation, and market-regime
 /// specific bounds. It is typically derived from a `FinstackConfig` extension section.
+/// Public callers should treat it as the behavioral contract for calibration
+/// execution policy: solver choice, convergence settings, validation thresholds,
+/// rate-bound policy, and curve-specific numerical guardrails.
 ///
 /// # Tolerance Semantics
 ///
@@ -347,6 +350,8 @@ impl Default for DiscountCurveSolveConfig {
 /// 3. **Global defaults** (`CalibrationConfig::default()`): Fallback values
 ///
 /// Step-level settings always take precedence over plan-level settings.
+/// In other words, this struct provides default policy, but explicit plan steps
+/// remain authoritative when both are supplied.
 ///
 /// # Examples
 ///
@@ -364,6 +369,11 @@ impl Default for DiscountCurveSolveConfig {
 ///     .with_tolerance(1e-14)  // Solver convergence tolerance
 ///     .with_max_iterations(200);
 /// ```
+///
+/// # References
+///
+/// - Multi-curve construction context: `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+/// - Curve interpolation context: `docs/REFERENCES.md#hagan-west-monotone-convex`
 #[cfg_attr(feature = "ts_export", derive(TS))]
 #[cfg_attr(feature = "ts_export", ts(export))]
 #[derive(Debug, Clone, Serialize, Deserialize)]

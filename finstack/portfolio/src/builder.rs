@@ -69,6 +69,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `id` - Unique identifier for the portfolio; converted into an owned `String`.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no configured currency, valuation date, entities, or positions.
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -88,6 +92,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `name` - Display name stored alongside the portfolio identifier.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
@@ -98,6 +106,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `ccy` - Currency to use when consolidating values and metrics.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn base_ccy(mut self, ccy: Currency) -> Self {
         self.base_ccy = Some(ccy);
         self
@@ -108,6 +120,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `date` - The as-of date for valuation and risk calculation.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn as_of(mut self, date: Date) -> Self {
         self.as_of = Some(date);
         self
@@ -118,6 +134,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `entity` - Entity definition including identifier, tags and metadata.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn entity(mut self, entity: Entity) -> Self {
         self.entities.insert(entity.id.clone(), entity);
         self
@@ -128,6 +148,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `entities` - Iterator yielding entities to insert into the portfolio.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn entities(mut self, entities: impl IntoIterator<Item = Entity>) -> Self {
         for entity in entities {
             self.entities.insert(entity.id.clone(), entity);
@@ -140,6 +164,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `position` - Fully constructed [`Position`].
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn position(mut self, position: Position) -> Self {
         self.positions.push(position);
         self
@@ -150,6 +178,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `positions` - Iterator yielding positions to append to the builder.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn positions(mut self, positions: impl IntoIterator<Item = Position>) -> Self {
         self.positions.extend(positions);
         self
@@ -163,6 +195,10 @@ impl PortfolioBuilder {
     ///
     /// * `key` - Tag identifier.
     /// * `value` - Tag value stored as a string.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn tag(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.tags.insert(key.into(), value.into());
         self
@@ -174,6 +210,10 @@ impl PortfolioBuilder {
     ///
     /// * `key` - Metadata key.
     /// * `value` - JSON payload stored alongside the portfolio.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn meta(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
         self.meta.insert(key.into(), value);
         self
@@ -184,6 +224,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `book` - Book definition with optional parent reference.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn book(mut self, book: Book) -> Self {
         let book_id = book.id.clone();
         let parent_id = book.parent_id.clone();
@@ -216,6 +260,10 @@ impl PortfolioBuilder {
     /// # Arguments
     ///
     /// * `books` - Iterator yielding books to insert.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn books(mut self, books: impl IntoIterator<Item = Book>) -> Self {
         for book in books {
             self = self.book(book);
@@ -232,6 +280,10 @@ impl PortfolioBuilder {
     ///
     /// * `position_id` - Position identifier.
     /// * `book_id` - Book identifier.
+    ///
+    /// # Returns
+    ///
+    /// Updated builder with the position assigned to the requested book.
     ///
     /// # Errors
     ///
@@ -283,6 +335,10 @@ impl PortfolioBuilder {
     /// 2. Injects a dummy entity when positions reference [`DUMMY_ENTITY_ID`].
     /// 3. Delegates to [`Portfolio::validate`](crate::portfolio::Portfolio::validate) to confirm
     ///    entity references and portfolio structure.
+    ///
+    /// # Returns
+    ///
+    /// A validated [`Portfolio`] with derived indices rebuilt.
     ///
     /// # Errors
     ///

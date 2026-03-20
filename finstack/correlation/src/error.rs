@@ -1,6 +1,23 @@
 //! Error types for correlation modeling.
+//!
+//! This module contains the structured diagnostics returned by
+//! [`crate::factor_model::validate_correlation_matrix`] and
+//! [`crate::factor_model::cholesky_decompose`].
+//!
+//! The errors focus on caller-fixable input problems:
+//! - wrong flattened matrix size
+//! - non-unit diagonal entries
+//! - asymmetric correlation matrices
+//! - out-of-bounds correlation values
+//! - matrices that are not positive semidefinite
+//!
+//! Use these variants when surfacing validation failures to configuration or
+//! calibration layers.
 
 /// Error types for correlation matrix validation.
+///
+/// This enum preserves the first validation failure detected when checking a
+/// row-major flattened correlation matrix.
 #[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum CorrelationMatrixError {

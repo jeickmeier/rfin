@@ -1,7 +1,8 @@
 //! Generic schedule-driven interest accrual engine.
 //!
 //! This module provides reusable logic to compute accrued interest from a
-//! canonical [`CashFlowSchedule`] only, without depending on instrument
+//! canonical [`crate::cashflow::builder::CashFlowSchedule`] only, without
+//! depending on instrument
 //! specifications. Any instrument that can expose a `CashFlowSchedule`
 //! (via `CashflowProvider::build_full_schedule` or otherwise) can use this
 //! engine for consistent Linear / Compounded accrual, including:
@@ -170,10 +171,57 @@ impl Default for AccrualConfig {
     }
 }
 
-/// Convenience: accrued interest as scalar amount.
+/// Compute accrued interest as a scalar amount from a cashflow schedule.
 ///
-/// Callers can recover the currency from `schedule.notional.initial.currency()`
-/// if needed.
+/// The returned `f64` is expressed in the same currency space as the schedule's
+/// coupon and notional amounts. Callers that need the currency can recover it
+/// from `schedule.notional.initial.currency()` or by inspecting the underlying
+/// schedule flows.
+///
+/// # Arguments
+///
+/// * `schedule` - Canonical cashflow schedule containing coupon, PIK, and
+///   notional flows.
+/// * `as_of` - Accrual cut-off date. Dates outside all coupon periods return
+///   zero accrued interest.
+/// * `cfg` - Accrual method and ex-coupon configuration.
+///
+/// # Returns
+///
+/// Scalar accrued interest amount in the schedule's currency space. Returns
+/// `0.0` when the schedule has no coupon periods, the `as_of` date is outside
+/// all coupon periods, or the `as_of` date falls inside an active ex-coupon
+/// window.
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - the schedule's outstanding-balance path cannot be constructed
+/// - a required day-count calculation fails
+/// - an ex-coupon calendar ID is configured but cannot be resolved
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_cashflows::builder::CashFlowSchedule;
+/// use finstack_cashflows::{accrued_interest_amount, AccrualConfig, AccrualMethod};
+/// use finstack_core::dates::Date;
+///
+/// fn accrued_as_of(
+///     schedule: &CashFlowSchedule,
+///     as_of: Date,
+/// ) -> finstack_core::Result<f64> {
+///     accrued_interest_amount(
+///         schedule,
+///         as_of,
+///         &AccrualConfig {
+///             method: AccrualMethod::Linear,
+///             ..Default::default()
+///         },
+///     )
+/// }
+/// ```
 pub fn accrued_interest_amount(
     schedule: &CashFlowSchedule,
     as_of: Date,

@@ -1,8 +1,8 @@
 //! Stochastic recovery models for credit portfolio pricing.
 //!
-//! Recovery rates empirically decrease in stressed markets (negative correlation
-//! with default intensity). This is critical for senior tranches which are
-//! sensitive to realized recovery at the time of defaults.
+//! This module provides recovery-rate models used alongside latent-factor
+//! default models. Recovery is expressed in decimals, so `0.40` means a 40%
+//! recovery rate and `0.60` LGD.
 //!
 //! # Constant vs Stochastic Recovery
 //!
@@ -13,20 +13,28 @@
 //!
 //! ## Market-Correlated (Andersen-Sidenius)
 //!
-//! Recovery negatively correlated with the systematic factor:
+//! Recovery is driven by a bounded transformation of a latent factor shock:
 //! ```text
-//! R(Z) = μ_R + ρ_R · σ_R · Z
+//! shock(Z) = ρ_R · σ_R · Z
+//! R(Z) = bounded_transform(μ_R, shock(Z), min_R, max_R)
 //! ```
-//! where ρ_R < 0 (typically -0.3 to -0.5).
+//! where:
+//! - `μ_R` is the target mean recovery at `Z = 0`
+//! - `σ_R` is the recovery-volatility scale
+//! - `ρ_R` controls the sign and magnitude of factor sensitivity
+//! - the bounded transform maps the shocked recovery smoothly into
+//!   `[min_R, max_R]`
 //!
-//! This captures the "double hit" effect: defaults cluster AND recovery
-//! falls simultaneously in stressed environments.
+//! The sign convention for `Z` is caller-defined. In the current implementation,
+//! the preset calibrations use a negative `ρ_R`, so negative factor realizations
+//! increase recovery and positive realizations decrease it.
 //!
 //! # References
 //!
-//! - Altman, E., et al. (2005). "The Link between Default and Recovery Rates."
-//!   *Journal of Business*, 78(6).
-//! - Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula."
+//! - Default/recovery empirical evidence:
+//!   `docs/REFERENCES.md#altman-et-al-2005-recovery`
+//! - Stochastic recovery model context:
+//!   `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
 
 mod constant;
 mod correlated;
@@ -43,36 +51,73 @@ pub trait RecoveryModel: Send + Sync + std::fmt::Debug {
     ///
     /// This is the average recovery used for simple calculations
     /// and as the baseline for stochastic models.
+    ///
+    /// # Returns
+    ///
+    /// The unconditional recovery rate in decimal form.
     fn expected_recovery(&self) -> f64;
 
     /// Recovery rate conditional on the systematic market factor.
     ///
-    /// For stochastic models, recovery varies with market state:
-    /// - Low Z (stressed market): lower recovery
-    /// - High Z (good market): higher recovery
+    /// For stochastic models, recovery varies with the supplied latent-factor
+    /// realization. The sign convention is model-dependent: callers should treat
+    /// positive and negative factor values as abstract states unless the concrete
+    /// implementation documents a market interpretation.
     ///
-    /// For constant models, this equals expected_recovery().
+    /// For constant models, this equals [`Self::expected_recovery`].
+    ///
+    /// # Arguments
+    ///
+    /// * `market_factor` - A latent-factor realization supplied by the caller.
+    ///
+    /// # Returns
+    ///
+    /// The conditional recovery rate in decimal form.
     fn conditional_recovery(&self, market_factor: f64) -> f64;
 
     /// Loss given default = 1 - recovery.
+    ///
+    /// # Returns
+    ///
+    /// The unconditional LGD in decimal form.
     fn lgd(&self) -> f64 {
         1.0 - self.expected_recovery()
     }
 
     /// Conditional LGD given market factor.
+    ///
+    /// # Arguments
+    ///
+    /// * `market_factor` - A latent-factor realization supplied by the caller.
+    ///
+    /// # Returns
+    ///
+    /// The conditional LGD in decimal form.
     fn conditional_lgd(&self, market_factor: f64) -> f64 {
         1.0 - self.conditional_recovery(market_factor)
     }
 
-    /// Recovery rate standard deviation (volatility).
+    /// Recovery-rate volatility scale used by the model.
     ///
-    /// Returns 0 for constant models.
+    /// Returns `0.0` for constant models.
+    ///
+    /// # Returns
+    ///
+    /// The recovery-volatility scale in decimal form.
     fn recovery_volatility(&self) -> f64;
 
     /// Model name for diagnostics.
+    ///
+    /// # Returns
+    ///
+    /// A static human-readable model name.
     fn model_name(&self) -> &'static str;
 
     /// Whether this model is stochastic (varies with market factor).
+    ///
+    /// # Returns
+    ///
+    /// `true` if the model reports a non-zero recovery-volatility scale.
     fn is_stochastic(&self) -> bool {
         self.recovery_volatility() > 0.0
     }
@@ -93,7 +138,9 @@ pub enum RecoverySpec {
 
     /// Recovery correlated with market factor (Andersen-Sidenius model).
     ///
-    /// R(Z) = mean + correlation * volatility * Z
+    /// Uses the same bounded latent-factor shock as [`CorrelatedRecovery`]:
+    /// the affine shock `correlation * volatility * Z` is passed through a
+    /// smooth logistic transform so recovery stays inside the configured bounds.
     MarketCorrelated {
         /// Mean recovery rate
         mean_recovery: f64,
@@ -115,6 +162,10 @@ impl RecoverySpec {
     ///
     /// # Arguments
     /// * `rate` - Recovery rate, clamped to [0.0, 1.0]
+    ///
+    /// # Returns
+    ///
+    /// A [`RecoverySpec::Constant`] configuration.
     #[must_use]
     pub fn constant(rate: f64) -> Self {
         RecoverySpec::Constant {
@@ -128,6 +179,10 @@ impl RecoverySpec {
     /// * `mean` - Mean recovery rate, clamped to [0.0, 1.0]. Typical: 0.40
     /// * `vol` - Recovery volatility, clamped to [0.0, 0.5]. Typical: 0.20-0.30
     /// * `corr` - Correlation with factor, clamped to [-1.0, 1.0]. Typical: -0.30 to -0.50
+    ///
+    /// # Returns
+    ///
+    /// A [`RecoverySpec::MarketCorrelated`] configuration.
     #[must_use]
     pub fn market_correlated(mean: f64, vol: f64, corr: f64) -> Self {
         RecoverySpec::MarketCorrelated {
@@ -143,12 +198,29 @@ impl RecoverySpec {
     /// - Mean: 40%
     /// - Vol: 25%
     /// - Correlation: -40%
+    ///
+    /// # Returns
+    ///
+    /// The default stochastic-recovery specification used by this crate.
     #[must_use]
     pub fn market_standard_stochastic() -> Self {
         RecoverySpec::market_correlated(0.40, 0.25, -0.40)
     }
 
     /// Build the recovery model instance from this specification.
+    ///
+    /// # Returns
+    ///
+    /// A boxed [`RecoveryModel`] implementation matching the specification.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{RecoveryModel, RecoverySpec};
+    ///
+    /// let model = RecoverySpec::constant(0.40).build();
+    /// assert_eq!(model.expected_recovery(), 0.40);
+    /// ```
     #[must_use]
     pub fn build(&self) -> Box<dyn RecoveryModel> {
         match self {
@@ -166,6 +238,10 @@ impl RecoverySpec {
     }
 
     /// Get expected recovery rate from specification.
+    ///
+    /// # Returns
+    ///
+    /// The unconditional recovery implied by the specification.
     #[must_use]
     pub fn expected_recovery(&self) -> f64 {
         match self {

@@ -14,6 +14,9 @@ use super::emission::compute_reset_date;
 pub use super::date_generation::SchedulePeriod;
 
 /// Parameters for building schedule periods.
+///
+/// This struct captures the canonical schedule conventions used to derive
+/// accrual periods, payment dates, and optional reset dates.
 pub struct BuildPeriodsParams<'a> {
     /// Start date of the schedule.
     pub start: Date,
@@ -37,7 +40,54 @@ pub struct BuildPeriodsParams<'a> {
     pub reset_lag_days: Option<i32>,
 }
 
-/// Build a single canonical period with the same lag/reset/accrual logic as full schedules.
+/// Build one canonical schedule period from explicit start and end dates.
+///
+/// This helper applies the same calendar resolution, lag handling, reset-date
+/// logic, and accrual-factor calculation used by the full schedule builder.
+///
+/// # Arguments
+///
+/// * `params` - Start/end dates and schedule conventions for the single period.
+///
+/// # Returns
+///
+/// A fully populated [`SchedulePeriod`] containing adjusted accrual boundaries,
+/// payment date, optional reset date, and accrual year fraction.
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - `params.calendar_id` cannot be resolved
+/// - date adjustment fails for the supplied calendar and business-day
+///   convention
+/// - day-count calculation fails for the supplied convention
+/// - reset-date computation fails when `reset_lag_days` is provided
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::builder::periods::{build_single_period, BuildPeriodsParams};
+/// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+/// use time::Month;
+///
+/// let period = build_single_period(BuildPeriodsParams {
+///     start: Date::from_calendar_date(2025, Month::January, 15).expect("valid date"),
+///     end: Date::from_calendar_date(2025, Month::April, 15).expect("valid date"),
+///     frequency: Tenor::quarterly(),
+///     stub: StubKind::None,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     calendar_id: "weekends_only",
+///     end_of_month: false,
+///     day_count: DayCount::Act360,
+///     payment_lag_days: 2,
+///     reset_lag_days: Some(2),
+/// })
+/// .expect("single-period build succeeds");
+///
+/// assert!(period.accrual_start <= period.accrual_end);
+/// assert!(period.payment_date >= period.accrual_end);
+/// ```
 pub fn build_single_period(
     params: BuildPeriodsParams<'_>,
 ) -> finstack_core::Result<SchedulePeriod> {
@@ -77,6 +127,50 @@ pub fn build_single_period(
 }
 
 /// Build canonical schedule periods with consistent market conventions.
+///
+/// # Arguments
+///
+/// * `params` - Schedule boundaries and conventions used to generate the full
+///   period set.
+///
+/// # Returns
+///
+/// Ordered schedule periods spanning `params.start` to `params.end`. Returns an
+/// empty vector when date generation produces no periods.
+///
+/// # Errors
+///
+/// Returns an error if:
+///
+/// - `params.calendar_id` cannot be resolved
+/// - date generation fails for the supplied frequency, stub rule, or business
+///   day convention
+/// - day-count calculation fails for any generated period
+/// - reset-date computation fails when `reset_lag_days` is provided
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::builder::periods::{build_periods, BuildPeriodsParams};
+/// use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
+/// use time::Month;
+///
+/// let periods = build_periods(BuildPeriodsParams {
+///     start: Date::from_calendar_date(2025, Month::January, 15).expect("valid date"),
+///     end: Date::from_calendar_date(2026, Month::January, 15).expect("valid date"),
+///     frequency: Tenor::quarterly(),
+///     stub: StubKind::None,
+///     bdc: BusinessDayConvention::ModifiedFollowing,
+///     calendar_id: "weekends_only",
+///     end_of_month: false,
+///     day_count: DayCount::Act360,
+///     payment_lag_days: 2,
+///     reset_lag_days: Some(2),
+/// })
+/// .expect("period build succeeds");
+///
+/// assert!(!periods.is_empty());
+/// ```
 pub fn build_periods(params: BuildPeriodsParams<'_>) -> finstack_core::Result<Vec<SchedulePeriod>> {
     let cal = resolve_calendar_strict(params.calendar_id)?;
     let sched = build_dates(

@@ -125,11 +125,46 @@ fn aggregate_by_period_sorted(
 /// Public wrapper that sorts flows before aggregation. For pre-sorted inputs,
 /// this performs O(n log n) sort + O(n+m) aggregation.
 ///
+/// # Arguments
+///
+/// * `flows` - Dated cashflows to aggregate. Inputs do not need to be pre-sorted.
+/// * `periods` - Reporting periods using half-open intervals
+///   `[period.start, period.end)`.
+///
+/// # Returns
+///
+/// Map from `PeriodId` to currency-indexed nominal cashflow sums. Periods with
+/// no cashflows are omitted from the result.
+///
 /// # Performance
 ///
 /// - Uses `sort_unstable_by_key` for ~5-10% faster sorting vs stable sort
 /// - The `#[inline(never)]` attribute was removed to allow compiler optimization
 /// - Benchmarks show 2-5% improvement on hot paths overall
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::aggregation::aggregate_by_period;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::{Date, Period, PeriodId};
+/// use finstack_core::money::Money;
+/// use time::Month;
+///
+/// let flows = vec![(
+///     Date::from_calendar_date(2025, Month::March, 15).expect("valid date"),
+///     Money::new(100.0, Currency::USD),
+/// )];
+/// let periods = vec![Period {
+///     id: PeriodId::quarter(2025, 1),
+///     start: Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+///     end: Date::from_calendar_date(2025, Month::April, 1).expect("valid date"),
+///     is_actual: true,
+/// }];
+///
+/// let aggregated = aggregate_by_period(&flows, &periods);
+/// assert!(aggregated.contains_key(&PeriodId::quarter(2025, 1)));
+/// ```
 pub fn aggregate_by_period(
     flows: &[crate::cashflow::DatedFlow],
     periods: &[Period],
@@ -154,6 +189,38 @@ use finstack_core::market_data::traits::{Discounting, Survival};
 /// - Empty input returns `Ok(0 target)`.
 /// - All flows must match `target` currency; otherwise returns `Error::CurrencyMismatch`.
 /// - Sums using `Money::checked_add` to preserve Decimal arithmetic.
+///
+/// # Arguments
+///
+/// * `flows` - Dated cashflows to aggregate.
+/// * `target` - Required currency for every flow and for the returned total.
+///
+/// # Returns
+///
+/// Single `Money` total in `target` currency.
+///
+/// # Errors
+///
+/// Returns `CurrencyMismatch` if any flow currency differs from `target`.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_cashflows::aggregation::aggregate_cashflows_precise_checked;
+/// use finstack_core::currency::Currency;
+/// use finstack_core::dates::Date;
+/// use finstack_core::money::Money;
+/// use time::Month;
+///
+/// let flows = vec![(
+///     Date::from_calendar_date(2025, Month::January, 15).expect("valid date"),
+///     Money::new(25.0, Currency::USD),
+/// )];
+///
+/// let total =
+///     aggregate_cashflows_precise_checked(&flows, Currency::USD).expect("aggregation succeeds");
+/// assert_eq!(total.currency(), Currency::USD);
+/// ```
 pub fn aggregate_cashflows_precise_checked(
     flows: &[crate::cashflow::DatedFlow],
     target: Currency,
@@ -285,6 +352,32 @@ pub struct DateContext<'a> {
 
 impl<'a> DateContext<'a> {
     /// Create a new date context.
+    ///
+    /// # Arguments
+    ///
+    /// * `base` - Valuation or anchor date used for year-fraction calculations.
+    /// * `dc` - Day-count convention used to map dates into year fractions.
+    /// * `dc_ctx` - Supplemental day-count context such as frequency or calendar.
+    ///
+    /// # Returns
+    ///
+    /// New [`DateContext`] instance carrying the provided inputs.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_cashflows::aggregation::DateContext;
+    /// use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    /// use time::Month;
+    ///
+    /// let ctx = DateContext::new(
+    ///     Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+    ///     DayCount::Act365F,
+    ///     DayCountCtx::default(),
+    /// );
+    ///
+    /// assert_eq!(ctx.dc, DayCount::Act365F);
+    /// ```
     pub fn new(base: Date, dc: DayCount, dc_ctx: DayCountCtx<'a>) -> Self {
         Self { base, dc, dc_ctx }
     }
@@ -340,6 +433,49 @@ fn time_discount_survival(
 /// Returns an error if:
 /// - `hazard` curve is `None`
 /// - `recovery_rate` is outside the valid range `[0.0, 1.0]`
+///
+/// # Arguments
+///
+/// * `flows` - Full cashflows including `CFKind`, amount, and payment date.
+/// * `periods` - Reporting periods using half-open intervals
+///   `[period.start, period.end)`.
+/// * `disc` - Discount curve used for present value calculation.
+/// * `hazard` - Survival curve used to produce default-adjusted PVs.
+/// * `recovery_rate` - Optional recovery assumption for principal-like flows.
+/// * `date_ctx` - Valuation date and day-count configuration used to convert
+///   dates into year fractions.
+///
+/// # Returns
+///
+/// Map from `PeriodId` to currency-indexed present values. Periods with no
+/// flows are omitted from the result.
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use finstack_cashflows::aggregation::{pv_by_period_credit_adjusted_detailed, DateContext};
+/// use finstack_core::cashflow::CashFlow;
+/// use finstack_core::dates::{Date, DayCount, DayCountCtx, Period};
+/// use finstack_core::market_data::traits::{Discounting, Survival};
+///
+/// fn credit_pv(
+///     flows: &[CashFlow],
+///     periods: &[Period],
+///     disc: &dyn Discounting,
+///     hazard: &dyn Survival,
+///     base: Date,
+/// ) -> finstack_core::Result<()> {
+///     let _pv = pv_by_period_credit_adjusted_detailed(
+///         flows,
+///         periods,
+///         disc,
+///         Some(hazard),
+///         Some(0.4),
+///         DateContext::new(base, DayCount::Act365F, DayCountCtx::default()),
+///     )?;
+///     Ok(())
+/// }
+/// ```
 pub(crate) fn pv_by_period_credit_adjusted_detailed(
     flows: &[CashFlow],
     periods: &[Period],

@@ -22,6 +22,12 @@
 //! 1. Outer: over the random loading β (or equivalently, loading shock η)
 //! 2. Inner: over the market factor Z given β
 //!
+//! # Tail-Dependence Interpretation
+//!
+//! This implementation exposes a stress-dependence gauge through
+//! [`Copula::tail_dependence`]. It is monotone in correlation and loading
+//! volatility, but it is not the strict copula lower-tail-dependence limit.
+//!
 //! # Impact on Tranches
 //!
 //! - **Equity tranches**: Less affected (already high-risk)
@@ -30,8 +36,8 @@
 //!
 //! # References
 //!
-//! - Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula:
-//!   Random Recovery and Random Factor Loadings." *Journal of Credit Risk*.
+//! - Random recovery and random-factor-loading extensions:
+//!   `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
@@ -54,6 +60,10 @@ const CDF_CLIP: f64 = 10.0;
 /// - Effective loading is clamped to [0.01, 0.99]
 /// - CDF arguments are clipped to prevent overflow
 /// - Quadrature is cached for performance
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
 pub struct RandomFactorLoadingCopula {
     /// Volatility of the factor loading, clamped to [0, 0.5]
     loading_volatility: f64,
@@ -92,6 +102,23 @@ impl RandomFactorLoadingCopula {
     /// # Arguments
     /// * `loading_vol` - Volatility of factor loading, clamped to [0.0, 0.5].
     ///   Typical values: 0.05-0.20. Higher values increase correlation uncertainty.
+    ///
+    /// # Returns
+    ///
+    /// An RFL copula using the default quadrature order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{Copula, RandomFactorLoadingCopula};
+    /// use finstack_core::math::standard_normal_inv_cdf;
+    ///
+    /// let copula = RandomFactorLoadingCopula::new(0.15);
+    /// let threshold = standard_normal_inv_cdf(0.05);
+    /// let cond_pd = copula.conditional_default_prob(threshold, &[0.0, 1.0], 0.30);
+    ///
+    /// assert!(cond_pd > 0.0 && cond_pd < 1.0);
+    /// ```
     #[must_use]
     pub fn new(loading_vol: f64) -> Self {
         let order = DEFAULT_QUADRATURE_ORDER;
@@ -107,7 +134,11 @@ impl RandomFactorLoadingCopula {
     ///
     /// # Arguments
     /// * `loading_vol` - Volatility of factor loading, clamped to [0.0, 0.5]
-    /// * `order` - Quadrature order (5, 7, or 10)
+    /// * `order` - Requested quadrature order for both integration dimensions
+    ///
+    /// # Returns
+    ///
+    /// An RFL copula using the requested quadrature order.
     #[must_use]
     pub fn with_quadrature_order(loading_vol: f64, order: u8) -> Self {
         Self {
@@ -119,6 +150,10 @@ impl RandomFactorLoadingCopula {
     }
 
     /// Get the loading volatility.
+    ///
+    /// # Returns
+    ///
+    /// The bounded loading-volatility parameter in decimal units.
     #[must_use]
     pub fn loading_volatility(&self) -> f64 {
         self.loading_volatility

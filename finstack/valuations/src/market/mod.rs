@@ -14,6 +14,15 @@
 //! 3. **Builders** (`build/`): Quote-to-instrument construction logic that resolves conventions,
 //!    calculates dates, and creates concrete instrument instances ready for pricing.
 //!
+//! # Documentation Rules For Market APIs
+//!
+//! Market-facing docs should explicitly call out:
+//!
+//! - quote units and quote conventions (decimal vs bp, clean vs dirty, par vs spread)
+//! - day count, calendar, spot lag, and settlement assumptions when conventions are resolved
+//! - which curve-role mappings are required versus which are convention-derived fallbacks
+//! - whether the API is schema-only, convention lookup, or actual quote-to-instrument construction
+//!
 //! # Features
 //!
 //! - **Stable quote schemas**: All quote types use strict serde names for long-lived pipelines
@@ -60,6 +69,12 @@
 //! - [`crate::market::BuildCtx`] for build context configuration
 //! - [`crate::market::conventions::ConventionRegistry`] for convention lookups
 //! - [`crate::market::quotes::market_quote::MarketQuote`] for the unified quote enum
+//!
+//! # References
+//!
+//! - Day-count and business-day conventions: `docs/REFERENCES.md#isda-2006-definitions`
+//! - Bond-market conventions: `docs/REFERENCES.md#icma-rule-book`
+//! - FX volatility and market conventions: `docs/REFERENCES.md#clark-fx-options`
 
 /// Quote-to-instrument builders and prepared quotes.
 pub(crate) mod build;

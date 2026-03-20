@@ -95,6 +95,80 @@ risk calculation with a standard reference.
 - Meucci, A. *Risk and Asset Allocation*. Reference for factor models, covariance
   aggregation, and exposure-based portfolio risk decomposition.
 
+<a id="tasche-2008-capital-allocation"></a>
+
+### Tasche 2008 Capital Allocation
+
+- Tasche, D. "Capital Allocation to Business Units and Sub-Portfolios: the Euler
+  Principle." Canonical reference for Euler allocation of portfolio risk across
+  factors or sub-portfolios.
+
+<a id="li-2000-gaussian-copula"></a>
+
+### Li 2000 Gaussian Copula
+
+- Li, D. X. "On Default Correlation: A Copula Function Approach." *Journal of
+  Fixed Income*, 9(4), 43-54. Canonical reference for one-factor Gaussian
+  copula modeling of portfolio default correlation.
+
+<a id="demarta-mcneil-2005-t-copula"></a>
+
+### Demarta McNeil 2005 T Copula
+
+- Demarta, S., and McNeil, A. J. "The t Copula and Related Copulas."
+  *International Statistical Review*, 73(1), 111-129. Canonical reference for
+  multivariate Student-t copulas and lower-tail dependence.
+
+<a id="hull-predescu-white-2005"></a>
+
+### Hull Predescu White 2005
+
+- Hull, J., Predescu, M., and White, A. "The Valuation of Correlation-Dependent
+  Credit Derivatives Using a Structural Model." Practitioner reference for
+  Student-t and correlation-sensitive credit-derivative valuation.
+
+<a id="andersen-sidenius-2005-rfl"></a>
+
+### Andersen Sidenius 2005 RFL
+
+- Andersen, L., and Sidenius, J. "Extensions to the Gaussian Copula: Random
+  Recovery and Random Factor Loadings." *Journal of Credit Risk*. Canonical
+  reference for stochastic recovery and random-factor-loading extensions to the
+  Gaussian copula.
+
+<a id="andersen-sidenius-basu-2003"></a>
+
+### Andersen Sidenius Basu 2003
+
+- Andersen, L., Sidenius, J., and Basu, S. "All Your Hedges in One Basket."
+  *Risk*, November 2003. Practitioner reference for multi-factor basket and
+  bespoke CDO correlation modeling.
+
+<a id="hull-white-2004-cdo"></a>
+
+### Hull White 2004 CDO
+
+- Hull, J., and White, A. "Valuation of a CDO and an n-th to Default CDS
+  Without Monte Carlo Simulation." Canonical reference for analytical
+  correlation-product valuation with Gaussian-style latent-factor models.
+
+<a id="altman-et-al-2005-recovery"></a>
+
+### Altman Et Al 2005 Recovery
+
+- Altman, E., Brady, B., Resti, A., and Sironi, A. "The Link between Default
+  and Recovery Rates: Theory, Empirical Evidence, and Implications."
+  *Journal of Business*, 78(6). Canonical reference for the empirical
+  relationship between default clustering and recovery outcomes.
+
+<a id="krekel-stumpp-2006-correlation-products"></a>
+
+### Krekel Stumpp 2006 Correlation Products
+
+- Krekel, M., and Stumpp, P. "Pricing Correlation Products: CDOs."
+  Practitioner reference for tranche and stochastic-recovery calibration
+  conventions in credit correlation products.
+
 ## Volatility, Options, And Smile Models
 
 <a id="black-1976"></a>
@@ -176,6 +250,22 @@ risk calculation with a standard reference.
 - Press, W. H. et al. *Numerical Recipes*. Practical reference for root finding,
   integration, interpolation, and Monte Carlo techniques.
 
+<a id="glasserman-2004-monte-carlo"></a>
+
+### Glasserman 2004 Monte Carlo
+
+- Glasserman, P. *Monte Carlo Methods in Financial Engineering*. Canonical
+  reference for Monte Carlo scenario generation, tail-risk estimation, and
+  variance-aware simulation practice.
+
+<a id="golub-van-loan-matrix-computations"></a>
+
+### Golub Van Loan Matrix Computations
+
+- Golub, G. H., and Van Loan, C. F. *Matrix Computations*. Canonical reference
+  for Cholesky factorization, covariance-matrix numerics, and matrix
+  conditioning diagnostics.
+
 <a id="welford-1962"></a>
 
 ### Welford 1962
@@ -189,3 +279,142 @@ risk calculation with a standard reference.
 
 - Kahan, W. "Further Remarks on Reducing Truncation Errors." Canonical reference
   for compensated summation.
+
+## Performance Analytics, Portfolio Construction, And Risk Reporting
+
+<a id="grinoldKahn1999ActivePortfolio"></a>
+
+### Grinold Kahn 1999 Active Portfolio
+
+- Grinold, R. C., and Kahn, R. N. *Active Portfolio Management*. Canonical
+  practitioner reference for tracking error, information ratio, and
+  benchmark-relative performance measurement.
+
+<a id="fama-french-1993"></a>
+
+### Fama French 1993
+
+- Fama, E. F., and French, K. R. "Common Risk Factors in the Returns on Stocks
+  and Bonds." Canonical reference for multi-factor equity return regressions.
+
+<a id="treynor1965"></a>
+
+### Treynor 1965
+
+- Treynor, J. L. "How to Rate Management of Investment Funds." Canonical
+  reference for the Treynor ratio and beta-based performance evaluation.
+
+<a id="modigliani1997"></a>
+
+### Modigliani 1997
+
+- Modigliani, F., and Modigliani, L. "Risk-Adjusted Performance." Canonical
+  reference for M-squared (Modigliani-Modigliani) performance reporting.
+
+<a id="sharpe1966"></a>
+
+### Sharpe 1966
+
+- Sharpe, W. F. "Mutual Fund Performance." Canonical reference for the Sharpe
+  ratio.
+
+<a id="sortinoVanDerMeer1991"></a>
+
+### Sortino Van Der Meer 1991
+
+- Sortino, F. A., and van der Meer, R. "Downside Risk." Canonical reference for
+  downside deviation and the Sortino ratio.
+
+<a id="keatingShadwick2002"></a>
+
+### Keating Shadwick 2002
+
+- Keating, C., and Shadwick, W. F. "A Universal Performance Measure." Canonical
+  reference for the Omega ratio.
+
+<a id="schwager2012"></a>
+
+### Schwager 2012
+
+- Schwager, J. D. *Hedge Fund Market Wizards*. Common practitioner reference
+  for the gain-to-pain ratio in hedge fund and CTA performance reporting.
+
+<a id="gregoriou2003"></a>
+
+### Gregoriou Gueyie 2003
+
+- Gregoriou, G. N., and Gueyie, J.-P. "Risk-Adjusted Performance of Funds of
+  Hedge Funds Using a Modified Sharpe Ratio." Canonical reference for the
+  modified Sharpe ratio.
+
+<a id="jpmorgan1996RiskMetrics"></a>
+
+### J.P. Morgan RiskMetrics 1996
+
+- J.P. Morgan/Reuters. *RiskMetrics Technical Document* (4th ed.). Canonical
+  practitioner reference for parametric Value-at-Risk conventions.
+
+<a id="isda-simm"></a>
+
+### ISDA SIMM
+
+- International Swaps and Derivatives Association. *Standard Initial Margin
+  Model (SIMM) Methodology*. Canonical industry reference for SIMM bucket
+  definitions, sensitivity aggregation, and initial-margin conventions.
+
+<a id="artzner1999CoherentRisk"></a>
+
+### Artzner 1999 Coherent Risk
+
+- Artzner, P., Delbaen, F., Eber, J.-M., and Heath, D. "Coherent Measures of
+  Risk." Canonical reference for Expected Shortfall as a coherent risk measure.
+
+<a id="joanesGill1998"></a>
+
+### Joanes Gill 1998
+
+- Joanes, D. N., and Gill, C. A. "Comparing Measures of Sample Skewness and
+  Kurtosis." Canonical reference for bias-corrected sample skewness and
+  kurtosis estimators.
+
+<a id="cornishFisher1937"></a>
+
+### Cornish Fisher 1937
+
+- Cornish, E. A., and Fisher, R. A. "Moments and Cumulants in the Specification
+  of Distributions." Canonical reference for the Cornish-Fisher expansion.
+
+<a id="chekhlov2005"></a>
+
+### Chekhlov Uryasev Zabarankin 2005
+
+- Chekhlov, A., Uryasev, S., and Zabarankin, M. "Drawdown Measure in Portfolio
+  Optimization." Canonical reference for Conditional Drawdown at Risk.
+
+<a id="martinUlcer1987"></a>
+
+### Martin 1987 Ulcer Index
+
+- Martin, P. G. "The Ulcer Index." Canonical practitioner reference for the
+  Ulcer Index and related Martin ratio usage.
+
+<a id="youngCalmar1991"></a>
+
+### Young 1991 Calmar
+
+- Young, T. W. "Calmar Ratio: A Smoother Tool." Practitioner reference for the
+  Calmar ratio.
+
+<a id="kestner1996"></a>
+
+### Kestner 1996
+
+- Kestner, L. N. *Quantitative Trading Strategies*. Practitioner reference for
+  Sterling ratio conventions.
+
+<a id="burke1994"></a>
+
+### Burke 1994
+
+- Burke, G. "A Sharper Sharpe Ratio." Practitioner reference for Burke-style
+  drawdown-adjusted performance ratios.

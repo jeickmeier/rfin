@@ -2,6 +2,12 @@ use finstack_valuations::metrics::MetricId;
 use serde::{Deserialize, Serialize};
 
 /// How optimization weights are defined.
+///
+/// # Conventions
+///
+/// `ValueWeight` and `NotionalWeight` are normalized portfolio shares, whereas
+/// `UnitScaling` is a direct multiplier on current quantity for existing
+/// positions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum WeightingScheme {
     /// `w_i` is share of portfolio base currency PV; `∑ w_i = 1`.
@@ -79,6 +85,9 @@ pub enum MissingMetricPolicy {
 }
 
 /// Portfolio‑level scalar metric expressed in terms of position metrics + weights.
+///
+/// These expressions are intentionally restricted to linear or linearized forms
+/// so they can be represented by the LP-based optimizer.
 #[derive(Clone, Debug)]
 pub enum MetricExpr {
     /// `sum_i w_i * m_i`, where `m_i` comes from a `PerPositionMetric`.

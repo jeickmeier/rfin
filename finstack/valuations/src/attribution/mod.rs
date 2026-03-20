@@ -9,6 +9,15 @@
 //! P&L attribution answers the question: "Why did my position's value change from
 //! T₀ to T₁?" by isolating the impact of each market factor and model parameter.
 //!
+//! # Documentation Rules For Attribution APIs
+//!
+//! Attribution docs should state:
+//!
+//! - whether a contribution is exact, path-dependent, or an approximation
+//! - what units and sign conventions are used for input metrics and output P&L terms
+//! - whether curve, spread, vol, or scalar moves are parallel, bucketed, or model-specific
+//! - how residual should be interpreted and when it is expected to be large
+//!
 //! # Methodologies
 //!
 //! Four attribution methodologies are supported:
@@ -252,6 +261,11 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # References
+//!
+//! - Fixed-income sensitivity intuition: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
+//! - Risk decomposition and factor attribution: `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
 
 pub(crate) mod dataframe;
 pub(crate) mod factors;

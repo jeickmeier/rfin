@@ -33,6 +33,11 @@ pub enum OptimizationStatus {
 
 impl OptimizationStatus {
     /// Check if the status represents a usable solution.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the result contains a feasible portfolio that downstream
+    /// helpers may safely consume.
     #[must_use]
     pub fn is_feasible(&self) -> bool {
         matches!(self, Self::Optimal | Self::FeasibleButSuboptimal)
@@ -164,6 +169,11 @@ impl PortfolioOptimizationResult {
     /// Returns trades sorted by absolute quantity delta (largest first).
     /// Includes both adjustments to existing positions and new positions from
     /// candidates.
+    ///
+    /// # Returns
+    ///
+    /// Sorted trade list covering existing positions and candidate additions
+    /// whose weight changes are materially non-zero.
     #[must_use]
     pub fn to_trade_list(&self) -> Vec<TradeSpec> {
         // Tolerance for determining if a weight change is significant.
@@ -241,6 +251,10 @@ impl PortfolioOptimizationResult {
     }
 
     /// Get only trades for new positions (from candidates).
+    ///
+    /// # Returns
+    ///
+    /// Trade specifications whose `trade_type` is [`TradeType::NewPosition`].
     #[must_use]
     pub fn new_position_trades(&self) -> Vec<TradeSpec> {
         self.to_trade_list()
@@ -250,6 +264,10 @@ impl PortfolioOptimizationResult {
     }
 
     /// Get binding constraints at the optimal solution (slack ≈ 0).
+    ///
+    /// # Returns
+    ///
+    /// Constraint names and slack values for approximately binding constraints.
     #[must_use]
     pub fn binding_constraints(&self) -> Vec<(&str, f64)> {
         const SLACK_TOLERANCE: f64 = 1e-6; // Defined locally as it was a const in optim.rs
@@ -262,6 +280,10 @@ impl PortfolioOptimizationResult {
     }
 
     /// Calculate total turnover (sum of absolute weight changes).
+    ///
+    /// # Returns
+    ///
+    /// One-way turnover implied by the optimized weights.
     #[must_use]
     pub fn turnover(&self) -> f64 {
         self.weight_deltas.values().map(|d| d.abs()).sum()

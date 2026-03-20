@@ -403,7 +403,16 @@ impl Performance {
             .collect()
     }
 
-    /// Sortino ratio for each ticker.
+    /// Annualized Sortino ratio for each ticker.
+    ///
+    /// Uses the active date window, annualizes with the observation frequency
+    /// configured on this [`Performance`] instance, and uses a minimum
+    /// acceptable return of `0.0`.
+    ///
+    /// # Returns
+    ///
+    /// One Sortino ratio per ticker in column order. May return `±∞` for
+    /// tickers with zero downside deviation and nonzero mean return.
     pub fn sortino(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::sortino(self.active_returns(i), true, self.ann()))
@@ -411,6 +420,14 @@ impl Performance {
     }
 
     /// Calmar ratio for each ticker.
+    ///
+    /// Computes CAGR over the active date window and divides by the absolute
+    /// value of each ticker's worst drawdown over that same window.
+    ///
+    /// # Returns
+    ///
+    /// One Calmar ratio per ticker in column order. Returns `0.0` for tickers
+    /// with no observed drawdown.
     pub fn calmar(&self) -> Vec<f64> {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
@@ -477,7 +494,14 @@ impl Performance {
             .collect()
     }
 
-    /// Ulcer index for each ticker.
+    /// Ulcer Index for each ticker.
+    ///
+    /// Measures drawdown-based risk from the active drawdown path rather than
+    /// return volatility.
+    ///
+    /// # Returns
+    ///
+    /// One non-negative Ulcer Index per ticker in column order.
     pub fn ulcer_index(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| {
@@ -488,6 +512,24 @@ impl Performance {
     }
 
     /// Estimate ruin probabilities for each ticker under the supplied ruin definition.
+    ///
+    /// This is a batch wrapper over [`risk_metrics::estimate_ruin`]. The same
+    /// conventions apply: returns are simple decimal returns, wealth starts at
+    /// `1.0` on each path, and the confidence interval is a normal-approximation
+    /// interval around the simulated ruin frequency.
+    ///
+    /// # Arguments
+    ///
+    /// * `definition` - Operational definition of ruin for the simulated wealth
+    ///   paths.
+    /// * `model` - Simulation controls including horizon, path count, block
+    ///   size, seed, and interval confidence level.
+    ///
+    /// # Returns
+    ///
+    /// One [`RuinEstimate`] per ticker in column order. Invalid inputs produce
+    /// `NaN` estimates following the underlying [`risk_metrics::estimate_ruin`]
+    /// contract.
     pub fn estimate_ruin(
         &self,
         definition: RuinDefinition,
@@ -498,14 +540,24 @@ impl Performance {
             .collect()
     }
 
-    /// Skewness for each ticker.
+    /// Bias-corrected sample skewness for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One skewness estimate per ticker in column order. Positive values
+    /// indicate a heavier right tail.
     pub fn skewness(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::skewness(self.active_returns(i)))
             .collect()
     }
 
-    /// Excess kurtosis for each ticker.
+    /// Bias-corrected sample excess kurtosis for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One excess-kurtosis estimate per ticker in column order. Positive
+    /// values indicate fatter tails than a normal distribution.
     pub fn kurtosis(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::kurtosis(self.active_returns(i)))
@@ -513,17 +565,28 @@ impl Performance {
     }
 
     /// Geometric mean return for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One per-period geometric mean return per ticker in column order, using
+    /// the active return window.
     pub fn geometric_mean(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::geometric_mean(self.active_returns(i)))
             .collect()
     }
 
-    /// Downside deviation for each ticker.
+    /// Annualized downside deviation for each ticker.
     ///
     /// # Arguments
     ///
-    /// * `mar` - Minimum acceptable return threshold (e.g., `0.0`).
+    /// * `mar` - Minimum acceptable per-period return threshold in decimal
+    ///   form (for example, `0.0` or `0.001`).
+    ///
+    /// # Returns
+    ///
+    /// One downside-deviation value per ticker in column order, annualized
+    /// using the configured observation frequency.
     pub fn downside_deviation(&self, mar: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| {
@@ -532,7 +595,14 @@ impl Performance {
             .collect()
     }
 
-    /// Maximum drawdown duration (calendar days) for each ticker.
+    /// Maximum drawdown duration in calendar days for each ticker.
+    ///
+    /// Duration is measured on the active date grid, so irregular observation
+    /// spacing is reflected in the reported day counts.
+    ///
+    /// # Returns
+    ///
+    /// One maximum drawdown duration per ticker in column order.
     pub fn max_drawdown_duration(&self) -> Vec<i64> {
         (0..self.ticker_names.len())
             .map(|i| {
@@ -542,7 +612,12 @@ impl Performance {
             .collect()
     }
 
-    /// Up-market capture ratio for each ticker vs benchmark.
+    /// Up-market capture ratio for each ticker versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One up-capture ratio per ticker in column order. Values greater than
+    /// `1.0` indicate stronger participation than the benchmark in benchmark-up periods.
     pub fn up_capture(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -550,7 +625,12 @@ impl Performance {
             .collect()
     }
 
-    /// Down-market capture ratio for each ticker vs benchmark.
+    /// Down-market capture ratio for each ticker versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One down-capture ratio per ticker in column order. Values below `1.0`
+    /// indicate the ticker loses less than the benchmark in benchmark-down periods.
     pub fn down_capture(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -558,7 +638,11 @@ impl Performance {
             .collect()
     }
 
-    /// Capture ratio (up/down) for each ticker vs benchmark.
+    /// Capture ratio (up-capture divided by down-capture) for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One capture ratio per ticker in column order versus the active benchmark.
     pub fn capture_ratio(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -587,7 +671,11 @@ impl Performance {
     ///
     /// # Arguments
     ///
-    /// * `threshold` - Return threshold (typically `0.0`).
+    /// * `threshold` - Per-period threshold return in decimal form, typically `0.0`.
+    ///
+    /// # Returns
+    ///
+    /// One Omega ratio per ticker in column order over the active window.
     pub fn omega_ratio(&self, threshold: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::omega_ratio(self.active_returns(i), threshold))
@@ -598,7 +686,12 @@ impl Performance {
     ///
     /// # Arguments
     ///
-    /// * `risk_free_rate` - Annualized risk-free rate.
+    /// * `risk_free_rate` - Annualized risk-free rate in decimal form.
+    ///
+    /// # Returns
+    ///
+    /// One Treynor ratio per ticker in column order, using the active
+    /// benchmark to estimate beta.
     pub fn treynor(&self, risk_free_rate: f64) -> Vec<f64> {
         let ann = self.ann();
         let bench = self.active_bench();
@@ -613,13 +706,23 @@ impl Performance {
     }
 
     /// Gain-to-pain ratio for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One gain-to-pain ratio per ticker in column order over the active
+    /// return window.
     pub fn gain_to_pain(&self) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| risk_metrics::gain_to_pain(self.active_returns(i)))
             .collect()
     }
 
-    /// Martin ratio (CAGR / Ulcer Index) for each ticker.
+    /// Martin ratio (CAGR divided by Ulcer Index) for each ticker.
+    ///
+    /// # Returns
+    ///
+    /// One Martin ratio per ticker in column order. Returns `0.0` for tickers
+    /// with zero Ulcer Index.
     pub fn martin_ratio(&self) -> Vec<f64> {
         let cagrs = self.cagr();
         (0..self.ticker_names.len())
@@ -752,7 +855,18 @@ impl Performance {
     /// # Arguments
     ///
     /// * `ticker_idx`     - Zero-based column index of the ticker.
-    /// * `factor_returns` - Slice of factor return series.
+    /// * `factor_returns` - Slice of factor return series aligned with the
+    ///   active date window.
+    ///
+    /// # Returns
+    ///
+    /// A [`MultiFactorResult`] for the requested ticker, with annualized alpha
+    /// and residual volatility.
+    ///
+    /// # Errors
+    ///
+    /// Propagates errors from [`multi_factor_greeks`] when factor inputs are
+    /// mismatched, non-finite, insufficient, or numerically singular.
     pub fn multi_factor_greeks(
         &self,
         ticker_idx: usize,
@@ -810,7 +924,11 @@ impl Performance {
 
     // ── Benchmark-relative ──
 
-    /// Tracking error for each ticker vs benchmark.
+    /// Annualized tracking error for each ticker versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One annualized tracking-error value per ticker in column order.
     pub fn tracking_error(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -818,7 +936,11 @@ impl Performance {
             .collect()
     }
 
-    /// Information ratio for each ticker vs benchmark.
+    /// Annualized information ratio for each ticker versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One information ratio per ticker in column order.
     pub fn information_ratio(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -826,7 +948,11 @@ impl Performance {
             .collect()
     }
 
-    /// R-squared for each ticker vs benchmark.
+    /// R-squared for each ticker versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One coefficient-of-determination value in `[0, 1]` per ticker.
     pub fn r_squared(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -834,7 +960,12 @@ impl Performance {
             .collect()
     }
 
-    /// Beta for each ticker vs benchmark.
+    /// OLS beta estimates for each ticker versus the active benchmark.
+    ///
+    /// # Returns
+    ///
+    /// One [`BetaResult`] per ticker in column order, including standard error
+    /// and confidence interval information.
     pub fn beta(&self) -> Vec<BetaResult> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -842,7 +973,13 @@ impl Performance {
             .collect()
     }
 
-    /// Greeks (alpha, beta, r²) for each ticker vs benchmark.
+    /// Single-factor greeks for each ticker versus the active benchmark.
+    ///
+    /// Alpha is annualized using the configured observation frequency.
+    ///
+    /// # Returns
+    ///
+    /// One [`GreeksResult`] per ticker in column order.
     pub fn greeks(&self) -> Vec<GreeksResult> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -870,9 +1007,14 @@ impl Performance {
         )
     }
 
-    /// Batting average for each ticker vs benchmark.
+    /// Batting average for each ticker versus the active benchmark.
     ///
-    /// Fraction of periods where the ticker outperforms the benchmark.
+    /// Fraction of periods where the ticker's return exceeds the benchmark's
+    /// return over the active window.
+    ///
+    /// # Returns
+    ///
+    /// One batting-average fraction per ticker in column order.
     pub fn batting_average(&self) -> Vec<f64> {
         let bench = self.active_bench();
         (0..self.ticker_names.len())
@@ -884,7 +1026,12 @@ impl Performance {
     ///
     /// # Arguments
     ///
-    /// * `risk_free_rate` - Annualized risk-free rate.
+    /// * `risk_free_rate` - Annualized risk-free rate in decimal form.
+    ///
+    /// # Returns
+    ///
+    /// One M-squared return per ticker in column order, scaled to the active
+    /// benchmark's volatility.
     pub fn m_squared(&self, risk_free_rate: f64) -> Vec<f64> {
         let ann = self.ann();
         let bench = self.active_bench();
@@ -903,8 +1050,12 @@ impl Performance {
     ///
     /// # Arguments
     ///
-    /// * `risk_free_rate` - Annualized risk-free rate.
-    /// * `confidence`     - VaR confidence level (e.g., `0.95`).
+    /// * `risk_free_rate` - Annualized risk-free rate in decimal form.
+    /// * `confidence`     - Cornish-Fisher VaR confidence level in `(0, 1)`.
+    ///
+    /// # Returns
+    ///
+    /// One modified Sharpe ratio per ticker in column order.
     pub fn modified_sharpe(&self, risk_free_rate: f64, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
             .map(|i| {
@@ -948,6 +1099,10 @@ impl Performance {
 
     /// Compounded returns for each lookback period (MTD, QTD, YTD, FYTD) at `ref_date`.
     ///
+    /// Each horizon is computed by selecting the corresponding index range on
+    /// the active date grid, then compounding the in-range simple returns for
+    /// every ticker.
+    ///
     /// # Arguments
     ///
     /// * `ref_date` - Reference date (typically the most recent business day).
@@ -956,7 +1111,9 @@ impl Performance {
     ///
     /// # Returns
     ///
-    /// A [`LookbackReturns`] with per-ticker compounded returns for each horizon.
+    /// A [`LookbackReturns`] with per-ticker compounded returns for each
+    /// horizon. If a lookback range is empty for a given ticker, the
+    /// corresponding compounded return is `0.0`.
     pub fn lookback_returns(
         &self,
         ref_date: Date,
@@ -1003,7 +1160,8 @@ impl Performance {
     ///
     /// # Returns
     ///
-    /// A [`PeriodStats`] struct covering all periods in the active date range.
+    /// A [`PeriodStats`] struct covering all aggregation buckets in the active
+    /// date range for the requested ticker.
     pub fn period_stats(
         &self,
         ticker_idx: usize,

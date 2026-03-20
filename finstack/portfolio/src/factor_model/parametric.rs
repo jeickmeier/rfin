@@ -13,6 +13,11 @@ use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 /// position-weighted by the upstream sensitivity engine. Portfolio exposures are therefore
 /// just the column sums of the matrix, and Euler allocations are computed directly from those
 /// weighted exposures.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
+/// - `docs/REFERENCES.md#tasche-2008-capital-allocation`
 #[derive(Debug, Clone, Copy, Default)]
 pub struct ParametricDecomposer;
 

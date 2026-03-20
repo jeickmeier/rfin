@@ -58,6 +58,10 @@
 //! - [`crate::results::ValuationResult`] for the main result type
 //! - [`crate::results::ResultsMeta`] for execution metadata
 //! - [`crate::metrics`] for available metric calculators
+//!
+//! # References
+//!
+//! - Metric and sensitivity interpretation: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 
 pub(crate) mod dataframe;
 mod valuation_result;

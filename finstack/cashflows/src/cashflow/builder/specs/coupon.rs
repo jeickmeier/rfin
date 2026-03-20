@@ -18,9 +18,11 @@ pub enum CouponType {
     PIK,
     /// Split variant.
     Split {
-        /// Cash pct.
+        /// Fraction of the coupon paid in cash, expressed as a decimal share in
+        /// `[0, 1]`.
         cash_pct: Decimal,
-        /// Pik pct.
+        /// Fraction of the coupon capitalized as PIK, expressed as a decimal
+        /// share in `[0, 1]`.
         pik_pct: Decimal,
     },
 }
@@ -60,28 +62,37 @@ impl CouponType {
     }
 }
 
-/// Fixed coupon specification.
+/// Fixed-rate coupon specification.
+///
+/// This type combines the coupon quote, payment behavior, and schedule
+/// conventions required to emit a fixed-rate leg.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FixedCouponSpec {
-    /// coupon type.
+    /// Coupon settlement behavior: cash, PIK, or an explicit split of the
+    /// coupon amount.
     pub coupon_type: CouponType,
     /// Coupon rate as a decimal (e.g., 0.05 for 5%). Uses Decimal for exact representation.
     pub rate: Decimal,
-    /// freq.
+    /// Coupon accrual and payment frequency.
     pub freq: Tenor,
-    /// dc.
+    /// Day-count convention used to convert each accrual period into a year
+    /// fraction.
     pub dc: DayCount,
-    /// bdc.
+    /// Business-day convention applied when adjusting coupon schedule dates.
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
-    /// Calendar id (use "weekends_only" for weekends-only adjustments).
+    /// Holiday calendar identifier used with `bdc`.
+    ///
+    /// Use `"weekends_only"` when only weekend adjustment is required.
     pub calendar_id: String,
-    /// stub.
+    /// Stub rule used when the issue-to-maturity span is not an exact multiple
+    /// of `freq`.
     #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
-    /// End-of-month rolling.
+    /// Whether end-of-month rolling should be preserved during schedule
+    /// generation.
     pub end_of_month: bool,
-    /// Payment lag in business days after accrual end.
+    /// Payment lag in business days after the adjusted accrual end date.
     pub payment_lag_days: i32,
 }
 
@@ -104,6 +115,8 @@ pub struct FixedCouponSpec {
 ///
 /// - ISDA (2021). "IBOR Fallbacks Supplement." Section 7.
 /// - ARRC (2020). "SOFR: A User's Guide." Federal Reserve Bank of New York.
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+/// - `docs/REFERENCES.md#isda-2006-definitions`
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum OvernightCompoundingMethod {
     /// Simple average of daily rates (non-standard, for reference only).
@@ -160,6 +173,11 @@ fn default_reset_lag() -> i32 {
 /// Controls what happens when a forward curve lookup fails during
 /// cashflow emission. The default (`Error`) surfaces failures explicitly,
 /// replacing the previous silent spread-only fallback behavior.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+/// - `docs/REFERENCES.md#hull-options-futures`
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum FloatingRateFallback {
     /// Return an error with curve ID and reset date (strictest, safest).

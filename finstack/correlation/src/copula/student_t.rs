@@ -46,10 +46,10 @@
 //!
 //! # References
 //!
-//! - Demarta, S., & McNeil, A. J. (2005). "The t Copula and Related Copulas."
-//!   *International Statistical Review*, 73(1), 111-129.
-//! - Hull, J., Predescu, M., & White, A. (2005). "The valuation of correlation-
-//!   dependent credit derivatives using a structural model."
+//! - Student-t copula theory:
+//!   `docs/REFERENCES.md#demarta-mcneil-2005-t-copula`
+//! - Correlation-dependent credit valuation:
+//!   `docs/REFERENCES.md#hull-predescu-white-2005`
 
 use super::{select_quadrature, Copula, DEFAULT_QUADRATURE_ORDER};
 #[cfg(test)]
@@ -68,6 +68,11 @@ const MAX_CORRELATION: f64 = 0.99;
 ///
 /// Implements the standard multivariate t-copula (shared mixing variable)
 /// per Demarta & McNeil (2005), with proper ν+1 conditional degrees of freedom.
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#demarta-mcneil-2005-t-copula`
+/// - `docs/REFERENCES.md#hull-predescu-white-2005`
 pub struct StudentTCopula {
     /// Degrees of freedom (ν > 2 required for finite variance)
     degrees_of_freedom: f64,
@@ -106,8 +111,23 @@ impl StudentTCopula {
     /// # Arguments
     /// * `df` - Degrees of freedom (must be > 2 for finite variance)
     ///
+    /// # Returns
+    ///
+    /// A Student-t copula using the default quadrature order.
+    ///
     /// # Panics
     /// Panics if df ≤ 2
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{Copula, StudentTCopula};
+    ///
+    /// let copula = StudentTCopula::new(5.0);
+    /// let lambda = copula.tail_dependence(0.50);
+    ///
+    /// assert!(lambda > 0.0);
+    /// ```
     #[must_use]
     pub fn new(df: f64) -> Self {
         assert!(df > 2.0, "Student-t df must be > 2 for finite variance");
@@ -124,7 +144,11 @@ impl StudentTCopula {
     ///
     /// # Arguments
     /// * `df` - Degrees of freedom (must be > 2)
-    /// * `order` - Quadrature order (5, 7, or 10)
+    /// * `order` - Requested quadrature order for the inner Gaussian integration
+    ///
+    /// # Returns
+    ///
+    /// A Student-t copula using the requested quadrature order.
     #[must_use]
     pub fn with_quadrature_order(df: f64, order: u8) -> Self {
         assert!(df > 2.0, "Student-t df must be > 2");
@@ -137,6 +161,10 @@ impl StudentTCopula {
     }
 
     /// Get the degrees of freedom.
+    ///
+    /// # Returns
+    ///
+    /// The Student-t degrees of freedom used by this copula.
     #[must_use]
     pub fn df(&self) -> f64 {
         self.degrees_of_freedom

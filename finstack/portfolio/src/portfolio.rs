@@ -107,6 +107,22 @@ impl Portfolio {
     /// * `id` - Unique portfolio identifier.
     /// * `base_ccy` - Reporting currency.
     /// * `as_of` - Valuation date.
+    ///
+    /// # Returns
+    ///
+    /// An empty portfolio with no entities, positions, books, tags, or metadata.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_portfolio::Portfolio;
+    /// use time::macros::date;
+    ///
+    /// let portfolio = Portfolio::new("FUND_A", Currency::USD, date!(2024-01-01));
+    /// assert_eq!(portfolio.id, "FUND_A");
+    /// assert!(portfolio.positions().is_empty());
+    /// ```
     pub fn new(id: impl Into<String>, base_ccy: Currency, as_of: Date) -> Self {
         Self {
             id: id.into(),
@@ -139,17 +155,29 @@ impl Portfolio {
     }
 
     /// Borrow all positions as an immutable slice.
+    ///
+    /// # Returns
+    ///
+    /// All stored positions in insertion order.
     pub fn positions(&self) -> &[Position] {
         &self.positions
     }
 
     /// Append a position and refresh derived indices.
+    ///
+    /// # Arguments
+    ///
+    /// * `position` - Position to append to the portfolio.
     pub fn add_position(&mut self, position: Position) {
         self.positions.push(position);
         self.rebuild_index();
     }
 
     /// Replace all positions and refresh derived indices.
+    ///
+    /// # Arguments
+    ///
+    /// * `positions` - Complete replacement position vector.
     pub fn set_positions(&mut self, positions: Vec<Position>) {
         self.positions = positions;
         self.rebuild_index();
@@ -160,6 +188,10 @@ impl Portfolio {
     /// # Arguments
     ///
     /// * `position_id` - Identifier of the position to locate.
+    ///
+    /// # Returns
+    ///
+    /// The matching position, if present.
     pub fn get_position(&self, position_id: &str) -> Option<&Position> {
         self.position_index
             .get(position_id)
@@ -171,6 +203,10 @@ impl Portfolio {
     /// # Arguments
     ///
     /// * `entity_id` - Entity identifier used for filtering (accepts &str or &EntityId).
+    ///
+    /// # Returns
+    ///
+    /// All positions owned by the requested entity.
     pub fn positions_for_entity(&self, entity_id: &str) -> Vec<&Position> {
         self.positions
             .iter()
@@ -184,6 +220,10 @@ impl Portfolio {
     ///
     /// * `key` - Tag key to inspect.
     /// * `value` - Desired tag value.
+    ///
+    /// # Returns
+    ///
+    /// All positions whose tag matches the supplied key/value pair.
     pub fn positions_with_tag(&self, key: &str, value: &str) -> Vec<&Position> {
         self.positions
             .iter()
@@ -192,6 +232,10 @@ impl Portfolio {
     }
 
     /// Read-only access to the dependency index for inspection and testing.
+    ///
+    /// # Returns
+    ///
+    /// Borrowed dependency index rebuilt alongside the position lookup cache.
     pub fn dependency_index(&self) -> &DependencyIndex {
         &self.dependency_index
     }
@@ -203,6 +247,10 @@ impl Portfolio {
     /// - All positions reference valid entities
     /// - Dummy entity exists if needed
     /// - Book hierarchy contains no cycles
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when all portfolio invariants hold.
     ///
     /// # Errors
     ///
@@ -265,6 +313,10 @@ impl Portfolio {
     }
 
     /// Check if the portfolio uses the dummy entity.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the canonical standalone-positions entity is present.
     pub fn has_dummy_entity(&self) -> bool {
         self.entities.contains_key(DUMMY_ENTITY_ID)
     }
@@ -277,7 +329,7 @@ impl Portfolio {
     ///
     /// # Returns
     ///
-    /// A `PortfolioSpec` that can be serialized to JSON
+    /// A `PortfolioSpec` that can be serialized to JSON.
     pub fn to_spec(&self) -> PortfolioSpec {
         PortfolioSpec {
             id: self.id.clone(),
@@ -297,6 +349,10 @@ impl Portfolio {
     /// # Arguments
     ///
     /// * `spec` - The portfolio specification to reconstruct
+    ///
+    /// # Returns
+    ///
+    /// Rebuilt runtime portfolio with caches refreshed and validation applied.
     ///
     /// # Errors
     ///

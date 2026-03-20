@@ -16,6 +16,14 @@ const MAX_CPR: f64 = 0.999999;
 /// Uses the standard relationship (per Fabozzi's MBS handbook):
 /// `SMM = 1 - (1 - CPR)^(1/12)`.
 ///
+/// # Arguments
+///
+/// * `cpr` - Annualized CPR or CDR as a decimal, for example `0.06` for 6%.
+///
+/// # Returns
+///
+/// Monthly SMM or MDR as a decimal.
+///
 /// # Edge Cases
 ///
 /// - CPR = 0: Returns 0.0 (no prepayment)
@@ -78,6 +86,19 @@ pub fn cpr_to_smm(cpr: f64) -> finstack_core::Result<f64> {
 /// # Formula
 ///
 /// `annual = 1 - (1 - monthly)^12`
+///
+/// # Arguments
+///
+/// * `smm` - Monthly SMM or MDR as a decimal in `[0, 1]`.
+///
+/// # Returns
+///
+/// Annualized CPR or CDR as a decimal.
+///
+/// # Errors
+///
+/// Returns `InputError::NegativeValue` for negative inputs and
+/// `InputError::Invalid` for values above `1.0`.
 ///
 /// # Examples
 ///

@@ -4,6 +4,22 @@
 //! metrics independently from core pricing logic. Metrics can be computed
 //! on-demand, have dependencies, and are cached for efficiency.
 //!
+//! # Metric Contract
+//!
+//! Metric values are returned as raw `f64` values, but they are not unitless.
+//! The authoritative semantic contract for each measure lives on [`MetricId`],
+//! including:
+//!
+//! - units such as currency, currency per bp, decimal rate, or vol point
+//! - bump conventions such as per-1bp or per-1 vol point
+//! - sign conventions for long-holder, payer/receiver, or spot-up interpretations
+//! - distinctions between similarly named measures such as `Dv01`, `Pv01`,
+//!   `YieldDv01`, and `Cs01Hazard`
+//!
+//! Consumers should interpret values from
+//! [`crate::results::ValuationResult::measures`] through [`MetricId`] rather than
+//! assuming every `f64` is a currency amount.
+//!
 //! # Key Features
 //!
 //! - **Trait-based design**: `MetricCalculator` trait for custom metric implementations
@@ -106,7 +122,7 @@
 //! let result = option.price_with_metrics(&market, as_of, &metrics)?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
-//!     println!("Option 1-week theta: ${:.2}", theta);
+//!     println!("Option theta per day: ${:.2}", theta);
 //!     // Negative theta = option loses value over time (time decay)
 //! }
 //! # Ok(())
@@ -185,6 +201,12 @@
 //! - **`MetricContext`**: Context containing instrument, market data, and cached results
 //! - **`MetricRegistry`**: Registry for managing calculators and dependencies
 //! - **Risk metrics**: Specialized calculators for DV01, bucketed risk, and time decay
+//!
+//! # References
+//!
+//! - Fixed-income risk measures: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
+//! - Curve construction and sensitivities: `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+//! - VaR and Expected Shortfall interpretation: `docs/REFERENCES.md#mcneil-frey-embrechts-qrm`
 //!
 
 // Internal submodules (organized by concern)

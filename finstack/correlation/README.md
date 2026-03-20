@@ -109,7 +109,7 @@ correlation in stress scenarios.
 | Property            | Value                                          |
 |---------------------|------------------------------------------------|
 | Factors             | 2 (market Z, loading shock η)                  |
-| Tail dependence     | Implicit positive (from stochastic correlation) |
+| Tail dependence     | Stress-dependence proxy, not strict copula λ_L  |
 | Integration         | Gauss-Hermite × Gauss-Hermite (η, Z)           |
 | Loading vol range   | Clamped to [0, 0.5]; typical: 0.05–0.20        |
 | Loading bounds      | β clamped to [0.01, 0.99]                      |
@@ -139,7 +139,7 @@ Aᵢ = β_G · Z_G + β_S(i) · Z_S(i) + γᵢ · εᵢ
 |---------------------|----------------------------------------------------|
 | Factors             | 1 or 2 (global + sector); capped at 2              |
 | Tail dependence     | λ_L = 0 (sum of Gaussians is Gaussian)              |
-| Integration         | Nested Gauss-Hermite quadrature (order 5 per dim)   |
+| Integration         | Nested Gauss-Hermite quadrature (order 7 per dim)   |
 | Default loadings    | β_G = 0.4, β_S = 0.3, sector_fraction = 0.4        |
 | Variance constraint | β_G² + β_S² ≤ 1 (enforced via clamping)             |
 
@@ -198,14 +198,14 @@ compatible with standard Gaussian copula pricing.
 
 #### Market-Correlated Stochastic Recovery (`correlated.rs`)
 
-Recovery inversely correlated with the systematic factor (Andersen-Sidenius),
-capturing the "double hit" effect: defaults cluster AND recovery falls
-simultaneously in stressed environments.
+Recovery is driven by a latent-factor shock and then mapped through a smooth,
+bounded transform centered on the configured mean recovery.
 
 **Model:**
 
 ```
-R(Z) = μ_R + ρ_R · σ_R · Z    clamped to [min, max]
+shock(Z) = ρ_R · σ_R · Z
+R(Z) = bounded_transform(μ_R, shock(Z), min_R, max_R)
 ```
 
 | Property            | Typical Value                    |
@@ -230,7 +230,7 @@ the full model:
 | Variant           | Status     | Notes                                            |
 |-------------------|------------|--------------------------------------------------|
 | `Constant`        | Full       | Fixed rate                                       |
-| `MarketCorrelated`| Full       | Andersen-Sidenius R(Z) = μ + ρ·σ·Z              |
+| `MarketCorrelated`| Full       | Smooth bounded stochastic recovery               |
 
 ### Joint Probability (`joint_probability.rs`)
 
@@ -266,7 +266,7 @@ Pricing loop (per tranche, per integration point):
 ### Rust
 
 ```rust
-use finstack_valuations::instruments::common::models::correlation::{
+use finstack_correlation::{
     // Copulas
     GaussianCopula, StudentTCopula, RandomFactorLoadingCopula, MultiFactorCopula,
     Copula, CopulaSpec,
@@ -312,7 +312,7 @@ let built = spec.build();
 // --- Recovery models ---
 let constant = ConstantRecovery::isda_standard(); // 40%
 let stochastic = CorrelatedRecovery::market_standard(); // μ=40%, σ=25%, ρ=-40%
-let recovery_stressed = stochastic.conditional_recovery(-2.0); // lower in stress
+let recovery_downside_factor = stochastic.conditional_recovery(2.0); // lower for positive factor shocks
 let lgd = stochastic.lgd(); // 1 - E[R] = 0.60
 
 // --- Recovery via spec ---
@@ -334,19 +334,16 @@ validate_correlation_matrix(&matrix, 3).expect("valid 3×3 correlation matrix");
 let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition");
 ```
 
-## Academic References
+## References
 
-| Model / Concept                 | Reference |
-|---------------------------------|-----------|
-| Gaussian copula                 | Li, D. X. (2000). "On Default Correlation: A Copula Function Approach." *Journal of Fixed Income*, 9(4), 43-54. |
-| Student-t copula                | Demarta, S., & McNeil, A. J. (2005). "The t Copula and Related Copulas." *International Statistical Review*, 73(1), 111-129. |
-| Student-t valuation             | Hull, J., Predescu, M., & White, A. (2005). "The valuation of correlation-dependent credit derivatives using a structural model." |
-| Random Factor Loading           | Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula: Random Recovery and Random Factor Loadings." *Journal of Credit Risk*. |
-| Multi-factor CDO                | Andersen, L., Sidenius, J., & Basu, S. (2003). "All Your Hedges in One Basket." *Risk*, November 2003. |
-| Multi-factor valuation          | Hull, J., & White, A. (2004). "Valuation of a CDO and an n-th to Default CDS Without Monte Carlo Simulation." |
-| Stochastic recovery             | Andersen, L., & Sidenius, J. (2005). "Extensions to the Gaussian Copula." |
-| LGD-default correlation         | Altman, E., et al. (2005). "The Link between Default and Recovery Rates." *Journal of Business*, 78(6). |
-| Stochastic recovery calibration | Krekel, M., & Stumpp, P. (2006). "Pricing Correlation Products: CDOs." |
+- Gaussian copula: `docs/REFERENCES.md#li-2000-gaussian-copula`
+- Student-t copula: `docs/REFERENCES.md#demarta-mcneil-2005-t-copula`
+- Correlation-dependent credit valuation: `docs/REFERENCES.md#hull-predescu-white-2005`
+- Random recovery and random factor loading: `docs/REFERENCES.md#andersen-sidenius-2005-rfl`
+- Multi-factor basket and bespoke CDO modeling: `docs/REFERENCES.md#andersen-sidenius-basu-2003`
+- Analytical CDO valuation: `docs/REFERENCES.md#hull-white-2004-cdo`
+- Default/recovery linkage: `docs/REFERENCES.md#altman-et-al-2005-recovery`
+- Correlation-product calibration: `docs/REFERENCES.md#krekel-stumpp-2006-correlation-products`
 
 ## Adding New Features
 
@@ -358,7 +355,7 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
    - `conditional_default_prob()` — P(default | factor values, correlation)
    - `integrate_fn()` — quadrature over the factor distribution
    - `num_factors()` — number of systematic factors
-   - `tail_dependence()` — lower tail dependence coefficient λ_L
+   - `tail_dependence()` — lower-tail dependence coefficient or documented proxy
 3. Add `mod your_copula` and `pub use` in `copula/mod.rs`.
 4. Add a variant to `CopulaSpec` with `build()` support.
 5. Add unit tests verifying:
@@ -366,13 +363,13 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
    - Conditional probability is monotone in the factor (negative Z → higher default prob)
    - Extreme correlation handling (near 0 and near 1)
    - Convergence to Gaussian for appropriate parameter limits
-6. Re-export from `correlation/mod.rs`.
+6. Re-export from `src/lib.rs`.
 
 ### Adding a new recovery model
 
 1. Create `recovery/your_model.rs` implementing the `RecoveryModel` trait:
    - `expected_recovery()` — unconditional E[R]
-   - `conditional_recovery(market_factor)` — R(Z)
+   - `conditional_recovery(market_factor)` — bounded conditional recovery R(Z)
    - `recovery_volatility()` — σ_R (0 for constant models)
 2. Add `mod your_model` and `pub use` in `recovery/mod.rs`.
 3. Add a variant to `RecoverySpec` with `build()` support.
@@ -381,7 +378,7 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
    - Recovery is bounded [0, 1] for all factor values
    - Stochastic models have positive `recovery_volatility()`
    - Zero-volatility or zero-correlation reduces to constant behavior
-5. Re-export from `correlation/mod.rs`.
+5. Re-export from `src/lib.rs`.
 
 ### Adding a new factor model
 
@@ -411,7 +408,8 @@ let cholesky_l = cholesky_decompose(&matrix, 3).expect("Cholesky decomposition")
 Unit tests are co-located in each module. Run with:
 
 ```bash
-cargo test -p finstack-valuations -- instruments::common::models::correlation
+cargo test -p finstack-correlation
+cargo test -p finstack-correlation --doc
 ```
 
 ### Test coverage highlights
@@ -441,14 +439,26 @@ cargo test -p finstack-valuations -- instruments::common::models::correlation
 ## Numerical Considerations
 
 - **Quadrature order**: Default 20-point Gauss-Hermite matches industry standard
-  (QuantLib, Bloomberg use 20–50 points). Multi-factor uses 5 points per dimension
+  (QuantLib, Bloomberg use 20–50 points). Multi-factor uses 7 points per dimension
   to keep the tensor product manageable.
 - **Correlation boundaries**: All copulas clamp correlation to [0.01, 0.99] to
   avoid division by zero in √(1-ρ) and numerical overflow.
 - **CDF clipping**: Normal CDF arguments clipped to [-10, 10] to prevent
   floating-point overflow (norm_cdf(10) ≈ 1 - 7.6e-24).
-- **Cholesky fallback**: `MultiFactorModel::new()` falls back to the identity
+- **Cholesky fallback**: `MultiFactorModel::new_or_identity()` falls back to the identity
   matrix on invalid input, logging a warning via `tracing`.
 - **Student-t mixing**: The variance-gamma representation uses Gauss-Laguerre
   quadrature for the Gamma(ν/2, ν/2) outer integral with an explicit
   u^{α-1}/Γ(α) weight correction.
+
+## Verification
+
+Run the crate-local checks below after documentation changes:
+
+```bash
+cargo fmt -p finstack-correlation
+cargo clippy -p finstack-correlation --all-features -- -D warnings
+RUSTDOCFLAGS='-D warnings' cargo doc -p finstack-correlation --no-deps --all-features
+cargo test -p finstack-correlation --doc
+cargo test -p finstack-correlation
+```

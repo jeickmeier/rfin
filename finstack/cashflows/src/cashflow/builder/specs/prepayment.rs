@@ -35,7 +35,40 @@ pub struct PrepaymentModelSpec {
 }
 
 impl PrepaymentModelSpec {
-    /// Calculate SMM (monthly prepayment rate) for given seasoning.
+    /// Calculate SMM (single-month mortality) for the supplied seasoning.
+    ///
+    /// # Formula
+    ///
+    /// For the constant curve, the method converts annual CPR to monthly SMM
+    /// using:
+    ///
+    /// `SMM = 1 - (1 - CPR)^(1/12)`
+    ///
+    /// For the PSA curve, the annual CPR is first derived from the seasoning:
+    ///
+    /// - months `1..=30`: `CPR = speed_multiplier * 0.06 * seasoning / 30`
+    /// - months `> 30`: `CPR = speed_multiplier * 0.06`
+    ///
+    /// For the CMBS lockout curve:
+    ///
+    /// - months `<= lockout_months`: `CPR = 0`
+    /// - months `> lockout_months`: `CPR = self.cpr`
+    ///
+    /// # Arguments
+    ///
+    /// * `seasoning_months` - Number of months since origination or pool start.
+    ///
+    /// # Returns
+    ///
+    /// Monthly prepayment rate as a decimal.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the derived annual CPR is negative.
+    ///
+    /// # References
+    ///
+    /// - `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn smm(&self, seasoning_months: u32) -> finstack_core::Result<f64> {
         let cpr = match &self.curve {
             None | Some(PrepaymentCurve::Constant) => self.cpr,
@@ -79,6 +112,9 @@ impl PrepaymentModelSpec {
     }
 
     /// PSA curve with multiplier (1.0 = 100% PSA).
+    ///
+    /// The implementation uses the standard PSA ramp to a 6% annual CPR over
+    /// 30 months, then holds that terminal CPR flat.
     pub fn psa(speed_multiplier: f64) -> Self {
         Self {
             cpr: 0.06, // 100% PSA terminal rate

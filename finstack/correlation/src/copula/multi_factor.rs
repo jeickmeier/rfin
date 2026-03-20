@@ -32,10 +32,10 @@
 //!
 //! # References
 //!
-//! - Andersen, L., Sidenius, J., & Basu, S. (2003). "All Your Hedges in One Basket."
-//!   *Risk*, November 2003.
-//! - Hull, J., & White, A. (2004). "Valuation of a CDO and an n-th to Default CDS
-//!   Without Monte Carlo Simulation."
+//! - Multi-factor basket and bespoke CDO modeling:
+//!   `docs/REFERENCES.md#andersen-sidenius-basu-2003`
+//! - Analytical correlation-product valuation:
+//!   `docs/REFERENCES.md#hull-white-2004-cdo`
 
 use super::{select_quadrature, Copula};
 use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
@@ -61,6 +61,11 @@ const MULTI_FACTOR_QUADRATURE_ORDER: u8 = 7;
 /// - Sector loading: 0.3 (gives ~25% additional intra-sector correlation)
 /// - Sector fraction: 0.4 (40% of total correlation from sector factor)
 /// - Quadrature order: 7 (better accuracy while remaining cheap for two factors)
+///
+/// # References
+///
+/// - `docs/REFERENCES.md#andersen-sidenius-basu-2003`
+/// - `docs/REFERENCES.md#hull-white-2004-cdo`
 pub struct MultiFactorCopula {
     /// Number of systematic factors (1 or 2, capped)
     num_factors_count: usize,
@@ -107,6 +112,20 @@ impl MultiFactorCopula {
     ///
     /// # Arguments
     /// * `num_factors` - Number of factors (1 or 2; capped at 2)
+    ///
+    /// # Returns
+    ///
+    /// A multi-factor Gaussian copula with default loadings.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_correlation::{Copula, MultiFactorCopula};
+    ///
+    /// let copula = MultiFactorCopula::new(2);
+    /// assert_eq!(copula.num_factors(), 2);
+    /// assert!(copula.intra_sector_correlation() >= copula.inter_sector_correlation());
+    /// ```
     #[must_use]
     pub fn new(num_factors: usize) -> Self {
         let num_factors = num_factors.clamp(1, MAX_FACTORS);
@@ -127,6 +146,10 @@ impl MultiFactorCopula {
     /// * `num_factors` - Number of factors (1 or 2; capped at 2)
     /// * `global_loading` - Loading on global factor (β_G), clamped to [0, 0.99]
     /// * `sector_loading` - Loading on sector factor (β_S), clamped to maintain variance constraint
+    ///
+    /// # Returns
+    ///
+    /// A multi-factor Gaussian copula with bounded loadings.
     #[must_use]
     pub fn with_loadings(num_factors: usize, global_loading: f64, sector_loading: f64) -> Self {
         let gl = global_loading.clamp(0.0, 0.99);
@@ -149,6 +172,10 @@ impl MultiFactorCopula {
     /// * `global_loading` - Loading on global factor (β_G), clamped to [0, 0.99]
     /// * `sector_loading` - Loading on sector factor (β_S), clamped to maintain variance constraint
     /// * `sector_fraction` - Fraction of total correlation from sector factor, clamped to [0, 1]
+    ///
+    /// # Returns
+    ///
+    /// A multi-factor Gaussian copula with explicit sector-fraction decomposition.
     #[must_use]
     pub fn with_loadings_and_sector_fraction(
         num_factors: usize,
@@ -164,6 +191,10 @@ impl MultiFactorCopula {
     /// Get the inter-sector correlation (global factor only).
     ///
     /// Returns β_G² where β_G is the global factor loading.
+    ///
+    /// # Returns
+    ///
+    /// The implied correlation between names in different sectors.
     #[must_use]
     pub fn inter_sector_correlation(&self) -> f64 {
         self.default_global_loading * self.default_global_loading
@@ -172,6 +203,10 @@ impl MultiFactorCopula {
     /// Get the intra-sector correlation (global + sector factors).
     ///
     /// Returns β_G² + β_S² where β_G is global and β_S is sector loading.
+    ///
+    /// # Returns
+    ///
+    /// The implied correlation between names in the same sector.
     #[must_use]
     pub fn intra_sector_correlation(&self) -> f64 {
         let gl = self.default_global_loading;
@@ -196,6 +231,11 @@ impl MultiFactorCopula {
     /// # Arguments
     /// * `total_correlation` - Total correlation, clamped to [0, 0.99]
     /// * `sector_fraction` - Fraction of correlation from sector factor, clamped to [0, 1]
+    ///
+    /// # Returns
+    ///
+    /// A pair `(global_loading, sector_loading)` whose squared values reconstruct
+    /// the bounded total correlation.
     #[must_use]
     pub fn decompose_correlation(
         &self,
