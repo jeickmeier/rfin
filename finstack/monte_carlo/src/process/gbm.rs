@@ -78,7 +78,7 @@
 //! ```
 
 use super::super::paths::ProcessParams;
-use super::super::traits::{state_keys, PathState, StochasticProcess};
+use super::super::traits::{state_keys, PathState, ProportionalDiffusion, StochasticProcess};
 use super::correlation::validate_correlation_matrix;
 use super::metadata::ProcessMetadata;
 
@@ -174,6 +174,8 @@ impl ProcessMetadata for GbmProcess {
         params.with_factors(vec!["spot".to_string()])
     }
 }
+
+impl ProportionalDiffusion for GbmProcess {}
 
 /// Multi-factor GBM (for correlated assets).
 ///
@@ -300,6 +302,8 @@ impl ProcessMetadata for MultiGbmProcess {
         params.with_factors(factor_names)
     }
 }
+
+impl ProportionalDiffusion for MultiGbmProcess {}
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]

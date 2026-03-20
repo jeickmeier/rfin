@@ -283,19 +283,42 @@ where
     }
 }
 
-/// Compute ∂f/∂t via finite differences on the instantaneous forward.
+/// Compute ∂f/∂t via the second derivative of ln P(0,t).
+///
+/// Since f(0,t) = -d/dt ln P(0,t), we have ∂f/∂t = -d²/dt² ln P(0,t).
+/// Computing this directly from P avoids the double finite-difference
+/// (differentiating a finite-difference approximation of f), which would
+/// amplify curve noise.
 fn forward_derivative<F>(discount_curve_fn: &F, t: f64) -> f64
 where
     F: Fn(f64) -> f64,
 {
     let eps = 1e-4;
 
-    let f_plus = instantaneous_forward(discount_curve_fn, t + eps);
-    let f_minus = instantaneous_forward(discount_curve_fn, (t - eps).max(0.0));
+    if t < eps {
+        // Near t=0, use forward difference on f
+        let f_0 = instantaneous_forward(discount_curve_fn, 0.0);
+        let f_eps = instantaneous_forward(discount_curve_fn, eps);
+        (f_eps - f_0) / eps
+    } else {
+        // Central second derivative of ln P:
+        // ∂f/∂t = -[ln P(t+ε) - 2·ln P(t) + ln P(t-ε)] / ε²
+        let p_plus = discount_curve_fn(t + eps);
+        let p_mid = discount_curve_fn(t);
+        let p_minus = discount_curve_fn((t - eps).max(0.0));
 
-    let dt = if t < eps { eps } else { 2.0 * eps };
+        let dt_actual = (t + eps) - (t - eps).max(0.0);
+        let half_dt = dt_actual / 2.0;
 
-    (f_plus - f_minus) / dt
+        if p_plus > 0.0 && p_mid > 0.0 && p_minus > 0.0 {
+            -(p_plus.ln() - 2.0 * p_mid.ln() + p_minus.ln()) / (half_dt * half_dt)
+        } else {
+            // Fallback to differentiating instantaneous forwards
+            let f_plus = instantaneous_forward(discount_curve_fn, t + eps);
+            let f_minus = instantaneous_forward(discount_curve_fn, (t - eps).max(0.0));
+            (f_plus - f_minus) / dt_actual
+        }
+    }
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@
 //!
 //! Between dividends, evolution follows standard GBM.
 
-use super::super::traits::StochasticProcess;
+use super::super::traits::{ProportionalDiffusion, StochasticProcess};
 use super::gbm::GbmParams;
 
 /// Dividend payment specification.
@@ -152,6 +152,8 @@ impl StochasticProcess for GbmWithDividends {
         true
     }
 }
+
+impl ProportionalDiffusion for GbmWithDividends {}
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]

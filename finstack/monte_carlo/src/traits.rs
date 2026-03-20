@@ -505,6 +505,16 @@ pub trait StochasticProcess: Send + Sync {
     }
 }
 
+/// Marker trait for processes with proportional (GBM-like) diffusion.
+///
+/// A process has proportional diffusion when σ(X) = σ_const × X, which means
+/// ∂σ/∂X = σ/X. This is the only case where the Milstein correction term
+/// `½σσ'(Z²−1)Δt` is exact with the approximation σ' ≈ σ/X.
+///
+/// Implement this trait for any process where the diffusion is proportional
+/// to the state variable in each dimension.
+pub trait ProportionalDiffusion: StochasticProcess {}
+
 /// Time discretization scheme for SDEs.
 ///
 /// A discretization scheme advances the state from time t to t + Δt

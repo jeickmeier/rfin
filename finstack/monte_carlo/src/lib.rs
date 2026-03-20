@@ -78,8 +78,8 @@ pub mod variance_reduction;
 mod mc_process_params_serialization;
 
 pub use traits::{
-    state_keys, Discretization, PathState, Payoff, RandomStream, StateKey, StateVariables,
-    StochasticProcess,
+    state_keys, Discretization, PathState, Payoff, ProportionalDiffusion, RandomStream, StateKey,
+    StateVariables, StochasticProcess,
 };
 
 /// Prelude for convenient imports of the full Monte Carlo framework.

@@ -25,16 +25,7 @@
 //! Only works for diagonal diffusion. For non-diagonal diffusion,
 //! use Euler-Maruyama instead.
 
-use super::super::traits::{Discretization, StochasticProcess};
-
-#[inline]
-fn assert_gbm_like_process<P>() {
-    let process_type = std::any::type_name::<P>();
-    assert!(
-        process_type.contains("Gbm"),
-        "Milstein discretization only supports GBM-like proportional diffusion processes; got {process_type}"
-    );
-}
+use super::super::traits::{Discretization, ProportionalDiffusion, StochasticProcess};
 
 /// Milstein discretization for diagonal diffusion.
 ///
@@ -76,9 +67,8 @@ impl Milstein {
     }
 }
 
-impl<P: StochasticProcess> Discretization<P> for Milstein {
+impl<P: StochasticProcess + ProportionalDiffusion> Discretization<P> for Milstein {
     fn step(&self, process: &P, t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]) {
-        assert_gbm_like_process::<P>();
         let dim = process.dim();
 
         // Compute drift: work[0..dim] = μ(t, x)
@@ -138,9 +128,8 @@ impl LogMilstein {
     }
 }
 
-impl<P: StochasticProcess> Discretization<P> for LogMilstein {
+impl<P: StochasticProcess + ProportionalDiffusion> Discretization<P> for LogMilstein {
     fn step(&self, process: &P, t: f64, dt: f64, x: &mut [f64], z: &[f64], work: &mut [f64]) {
-        assert_gbm_like_process::<P>();
         let dim = process.dim();
 
         // Compute drift and diffusion in original space
@@ -170,7 +159,6 @@ impl<P: StochasticProcess> Discretization<P> for LogMilstein {
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
-    use super::super::super::process::brownian::{BrownianParams, BrownianProcess};
     use super::super::super::process::gbm::{GbmParams, GbmProcess};
     use super::super::euler::EulerMaruyama;
     use super::*;
@@ -263,17 +251,10 @@ mod tests {
         assert!(euler_error / x0 < 0.1);
     }
 
-    #[test]
-    #[should_panic(
-        expected = "Milstein discretization only supports GBM-like proportional diffusion processes"
-    )]
-    fn test_milstein_rejects_non_gbm_processes() {
-        let process = BrownianProcess::new(BrownianParams::new(0.05, 0.2));
-        let disc = Milstein::new();
-        let mut x = vec![100.0];
-        let z = vec![1.0];
-        let mut work = vec![0.0; disc.work_size(&process)];
-
-        disc.step(&process, 0.0, 0.01, &mut x, &z, &mut work);
-    }
+    // Compile-time safety: Milstein only accepts ProportionalDiffusion processes.
+    // The following would fail to compile (BrownianProcess does not implement
+    // ProportionalDiffusion):
+    //
+    //   let process = BrownianProcess::new(BrownianParams::new(0.05, 0.2));
+    //   Milstein::new().step(&process, 0.0, 0.01, &mut [100.0], &[1.0], &mut [0.0; 2]);
 }

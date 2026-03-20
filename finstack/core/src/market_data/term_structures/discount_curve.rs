@@ -1039,16 +1039,28 @@ impl DiscountCurve {
                     return Err(crate::error::InputError::Invalid.into());
                 }
             } else if i < self.knots.len() - 1 {
-                // Interior points: use central difference
+                // Interior points: average of left and right segment forward rates
+                // to reduce bias from non-uniform knot spacing.
+                // f_left  = ln(DF_{i-1}/DF_i) / (t_i - t_{i-1})
+                // f_right = ln(DF_i/DF_{i+1}) / (t_{i+1} - t_i)
+                // f_i ≈ 0.5 * (f_left + f_right)
                 let t_prev = self.knots[i - 1];
                 let t_next = self.knots[i + 1];
                 let df_prev = self.dfs[i - 1];
+                let df_curr = self.dfs[i];
                 let df_next = self.dfs[i + 1];
 
-                // Use instantaneous forward rate approximation
-                let dt = t_next - t_prev;
-                if dt > 0.0 && df_next > 0.0 && df_prev > 0.0 {
-                    (df_prev / df_next).ln() / dt
+                let dt_left = t - t_prev;
+                let dt_right = t_next - t;
+                if dt_left > 0.0
+                    && dt_right > 0.0
+                    && df_prev > 0.0
+                    && df_curr > 0.0
+                    && df_next > 0.0
+                {
+                    let f_left = (df_prev / df_curr).ln() / dt_left;
+                    let f_right = (df_curr / df_next).ln() / dt_right;
+                    0.5 * (f_left + f_right)
                 } else {
                     return Err(crate::error::InputError::Invalid.into());
                 }
