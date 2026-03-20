@@ -50,6 +50,16 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
         Arc::new(risk::severity01::Severity01Calculator),
         &[InstrumentType::StructuredCredit],
     );
+    registry.register_metric(
+        MetricId::CloWarf,
+        Arc::new(pool::CloWarfCalculator),
+        &[InstrumentType::StructuredCredit],
+    );
+    registry.register_metric(
+        MetricId::CmbsDscr,
+        Arc::new(deal_specific::CmbsDscrCalculator::new(1.25)),
+        &[InstrumentType::StructuredCredit],
+    );
 
     crate::register_metrics! {
         registry: registry,
@@ -82,7 +92,6 @@ pub fn register_structured_credit_metrics(registry: &mut crate::metrics::MetricR
         ]
     }
 
-    // Note: Deal-specific metrics (WARF, WAS, ABS speed, delinquency, DSCR, excess spread,
-    // LTV, FICO) would need custom MetricId variants in the core metrics module to be registered.
-    // These are currently used directly via their calculator structs when needed.
+    // Other deal-specific metrics (WAS, ABS speed, delinquency, excess spread, LTV, FICO)
+    // are still used directly via their calculator structs when needed.
 }

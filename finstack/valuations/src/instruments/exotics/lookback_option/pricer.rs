@@ -547,3 +547,157 @@ impl Pricer for LookbackOptionAnalyticalPricer {
         Ok(ValuationResult::stamped(lookback.id(), as_of, pv))
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::models::closed_form::lookback::{
+        fixed_strike_lookback_call, floating_strike_lookback_put,
+    };
+    use crate::instruments::exotics::lookback_option::{LookbackOption, LookbackType};
+    use crate::instruments::{Attributes, OptionType, PricingOverrides};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::DayCount;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use time::Month;
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (10.0, (-rate * 10.0).exp())])
+            .build()
+            .expect("discount curve");
+        let surface = VolSurface::builder("SPX-VOL")
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[80.0, 100.0, 120.0, 150.0])
+            .row(&[vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol])
+            .build()
+            .expect("vol surface");
+
+        MarketContext::new()
+            .insert(curve)
+            .insert_surface(surface)
+            .insert_price(
+                "SPX-SPOT",
+                MarketScalar::Price(Money::new(spot, Currency::USD)),
+            )
+            .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
+    }
+
+    fn fixed_strike_call(expiry: Date, strike: f64, observed_max: Option<f64>) -> LookbackOption {
+        LookbackOption::builder()
+            .id(InstrumentId::new("LOOKBACK-FIXED-CALL"))
+            .underlying_ticker("SPX".to_string())
+            .strike_opt(Some(strike))
+            .option_type(OptionType::Call)
+            .lookback_type(LookbackType::FixedStrike)
+            .expiry(expiry)
+            .notional(Money::new(1.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .observed_max_opt(observed_max.map(|value| Money::new(value, Currency::USD)))
+            .attributes(Attributes::new())
+            .build()
+            .expect("lookback option")
+    }
+
+    fn floating_strike_put(expiry: Date, observed_max: Option<f64>) -> LookbackOption {
+        LookbackOption::builder()
+            .id(InstrumentId::new("LOOKBACK-FLOAT-PUT"))
+            .underlying_ticker("SPX".to_string())
+            .strike_opt(None)
+            .option_type(OptionType::Put)
+            .lookback_type(LookbackType::FloatingStrike)
+            .expiry(expiry)
+            .notional(Money::new(1.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .observed_max_opt(observed_max.map(|value| Money::new(value, Currency::USD)))
+            .attributes(Attributes::new())
+            .build()
+            .expect("lookback option")
+    }
+
+    #[test]
+    fn analytical_pricer_matches_fixed_strike_lookback_call_benchmark() {
+        let as_of = date(2025, 1, 1);
+        let expiry = date(2026, 1, 1);
+        let spot = 100.0;
+        let strike = 100.0;
+        let observed_max = 120.0;
+        let rate = 0.05;
+        let div_yield = 0.0;
+        let vol = 0.20;
+
+        let option = fixed_strike_call(expiry, strike, Some(observed_max));
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("lookback pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected = fixed_strike_lookback_call(
+            spot,
+            strike,
+            t,
+            rate,
+            div_yield,
+            vol,
+            observed_max.max(spot),
+        );
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analytical_pricer_matches_floating_strike_lookback_put_benchmark() {
+        let as_of = date(2025, 1, 1);
+        let expiry = date(2026, 1, 1);
+        let spot = 100.0;
+        let observed_max = 130.0;
+        let rate = 0.03;
+        let div_yield = 0.01;
+        let vol = 0.25;
+
+        let option = floating_strike_put(expiry, Some(observed_max));
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("lookback pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected = floating_strike_lookback_put(
+            spot,
+            t,
+            rate,
+            div_yield,
+            vol,
+            observed_max.max(spot),
+        );
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+}

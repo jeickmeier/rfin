@@ -1063,3 +1063,199 @@ impl Pricer for AsianOptionSemiAnalyticalTwPricer {
         Ok(ValuationResult::stamped(asian.id(), as_of, pv))
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::models::closed_form::asian::{
+        geometric_asian_call, geometric_asian_put,
+    };
+    use crate::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
+    use crate::instruments::OptionType;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{Date, DayCount, DayCountCtx};
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::math::interp::InterpStyle;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use time::Month;
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
+        let discount = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("discount curve");
+
+        let vol_surface = VolSurface::builder("SPX-VOL")
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[80.0, 90.0, 100.0, 110.0, 120.0])
+            .row(&[vol, vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol, vol])
+            .build()
+            .expect("vol surface");
+
+        MarketContext::new()
+            .insert(discount)
+            .insert_surface(vol_surface)
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(spot))
+            .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
+    }
+
+    fn asian_option(
+        averaging: AveragingMethod,
+        option_type: OptionType,
+        expiry: Date,
+        strike: f64,
+        fixing_dates: Vec<Date>,
+    ) -> AsianOption {
+        AsianOption::builder()
+            .id(InstrumentId::new("ASIAN-TEST"))
+            .underlying_ticker("SPX".to_string())
+            .strike(strike)
+            .option_type(option_type)
+            .averaging_method(averaging)
+            .expiry(expiry)
+            .fixing_dates(fixing_dates)
+            .notional(Money::new(1.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(Default::default())
+            .attributes(Default::default())
+            .build()
+            .expect("asian option")
+    }
+
+    #[test]
+    fn geometric_pricer_matches_kemna_vorst_call_benchmark() {
+        let as_of = date(2025, 1, 2);
+        let expiry = date(2026, 1, 2);
+        let fixing_dates = vec![
+            date(2025, 4, 2),
+            date(2025, 7, 2),
+            date(2025, 10, 2),
+            date(2026, 1, 2),
+        ];
+
+        let spot = 100.0;
+        let strike = 100.0;
+        let vol = 0.20;
+        let rate = 0.05;
+        let div_yield = 0.00;
+
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let option = asian_option(
+            AveragingMethod::Geometric,
+            OptionType::Call,
+            expiry,
+            strike,
+            fixing_dates.clone(),
+        );
+
+        let pv = option.value(&market, as_of).expect("asian pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected = geometric_asian_call(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
+        let expected_money = Money::new(expected, Currency::USD).amount();
+
+        assert!((pv - expected_money).abs() < 1e-12);
+    }
+
+    #[test]
+    fn geometric_pricer_matches_kemna_vorst_put_benchmark() {
+        let as_of = date(2025, 1, 2);
+        let expiry = date(2026, 1, 2);
+        let fixing_dates = vec![date(2025, 6, 2), date(2026, 1, 2)];
+
+        let spot = 100.0;
+        let strike = 110.0;
+        let vol = 0.25;
+        let rate = 0.03;
+        let div_yield = 0.01;
+
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let option = asian_option(
+            AveragingMethod::Geometric,
+            OptionType::Put,
+            expiry,
+            strike,
+            fixing_dates.clone(),
+        );
+
+        let pv = option.value(&market, as_of).expect("asian pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected = geometric_asian_put(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
+        let expected_money = Money::new(expected, Currency::USD).amount();
+
+        assert!((pv - expected_money).abs() < 1e-12);
+    }
+
+    #[test]
+    fn turnbull_wakeman_respects_fully_realized_average_payoff() {
+        let as_of = date(2025, 7, 1);
+        let expiry = date(2025, 12, 31);
+        let fixing_dates = vec![
+            date(2025, 1, 31),
+            date(2025, 2, 28),
+            date(2025, 3, 31),
+            date(2025, 4, 30),
+            date(2025, 5, 31),
+            date(2025, 6, 30),
+        ];
+
+        let mut option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Call,
+            expiry,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates
+            .iter()
+            .copied()
+            .zip([102.0, 101.0, 103.0, 104.0, 100.0, 105.0])
+            .collect();
+
+        let market = market(as_of, 100.0, 0.20, 0.05, 0.0);
+        let pv = option.value(&market, as_of).expect("asian pv").amount();
+
+        let average = [102.0, 101.0, 103.0, 104.0, 100.0, 105.0]
+            .iter()
+            .sum::<f64>()
+            / fixing_dates.len() as f64;
+        let payoff = (average - 100.0).max(0.0);
+        let df = market
+            .get_discount("USD-OIS")
+            .expect("discount")
+            .df(
+                option
+                    .day_count
+                    .year_fraction(as_of, expiry, DayCountCtx::default())
+                    .expect("year fraction"),
+            );
+        let expected_money = Money::new(payoff * df, Currency::USD).amount();
+
+        assert!((pv - expected_money).abs() < 1e-12);
+    }
+}

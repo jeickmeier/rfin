@@ -584,3 +584,146 @@ impl Pricer for BarrierOptionAnalyticalPricer {
         Ok(ValuationResult::stamped(barrier_opt.id(), as_of, pv))
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::models::closed_form::barrier::{
+        barrier_rebate_continuous, down_out_call,
+    };
+    use crate::instruments::exotics::barrier_option::types::{BarrierOption, BarrierType};
+    use crate::instruments::{Attributes, OptionType, PricingOverrides};
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{DayCount, DayCountCtx};
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::types::InstrumentId;
+    use time::Month;
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
+        let discount = DiscountCurve::builder("USD_DISC")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
+            .build()
+            .expect("discount curve");
+        let surface = VolSurface::builder("SPX_VOL")
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[80.0, 90.0, 100.0, 110.0, 120.0])
+            .row(&[vol, vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol, vol])
+            .build()
+            .expect("vol surface");
+
+        MarketContext::new()
+            .insert(discount)
+            .insert_surface(surface)
+            .insert_price(
+                "SPX",
+                MarketScalar::Price(Money::new(spot, Currency::USD)),
+            )
+            .insert_price("SPX_DIV", MarketScalar::Unitless(div_yield))
+    }
+
+    fn down_and_out_call(expiry: Date, strike: f64, barrier: f64) -> BarrierOption {
+        BarrierOption {
+            id: InstrumentId::new("BARRIER-BENCH"),
+            underlying_ticker: "SPX".to_string(),
+            strike,
+            barrier: Money::new(barrier, Currency::USD),
+            rebate: None,
+            option_type: OptionType::Call,
+            barrier_type: BarrierType::DownAndOut,
+            expiry,
+            observed_barrier_breached: None,
+            notional: Money::new(1.0, Currency::USD),
+            day_count: DayCount::Act365F,
+            use_gobet_miri: false,
+            discount_curve_id: "USD_DISC".into(),
+            spot_id: "SPX".into(),
+            vol_surface_id: "SPX_VOL".into(),
+            div_yield_id: Some("SPX_DIV".into()),
+            pricing_overrides: PricingOverrides::default(),
+            monitoring_frequency: None,
+            attributes: Attributes::new(),
+        }
+    }
+
+    #[test]
+    fn analytical_pricer_matches_reiner_rubinstein_down_and_out_call() {
+        let as_of = date(2024, 1, 1);
+        let expiry = date(2024, 7, 1);
+        let spot = 100.0;
+        let strike = 100.0;
+        let barrier = 80.0;
+        let vol = 0.20;
+        let rate = 0.05;
+        let div_yield = 0.0;
+
+        let option = down_and_out_call(expiry, strike, barrier);
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("barrier pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected = down_out_call(spot, strike, barrier, t, rate, div_yield, vol);
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analytical_pricer_adds_reiner_rubinstein_rebate_value() {
+        let as_of = date(2024, 1, 1);
+        let expiry = date(2025, 1, 1);
+        let spot = 100.0;
+        let strike = 100.0;
+        let barrier = 120.0;
+        let vol = 0.18;
+        let rate = 0.04;
+        let div_yield = 0.01;
+        let rebate = 2.5;
+
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let base = BarrierOption {
+            barrier_type: BarrierType::UpAndOut,
+            option_type: OptionType::Call,
+            barrier: Money::new(barrier, Currency::USD),
+            ..down_and_out_call(expiry, strike, barrier)
+        };
+        let with_rebate = BarrierOption {
+            rebate: Some(Money::new(rebate, Currency::USD)),
+            ..base.clone()
+        };
+
+        let base_pv = base.value(&market, as_of).expect("base pv").amount();
+        let rebate_pv = with_rebate.value(&market, as_of).expect("rebate pv").amount();
+
+        let t = with_rebate
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected_rebate = barrier_rebate_continuous(
+            spot,
+            barrier,
+            rebate,
+            t,
+            rate,
+            div_yield,
+            vol,
+            AnalyticalBarrierType::UpOut,
+        );
+
+        assert!(((rebate_pv - base_pv) - expected_rebate).abs() < 1e-12);
+    }
+}
