@@ -142,6 +142,11 @@ fn instrument_holder_flows(
 ///
 /// [`Result`] containing [`PortfolioCashflows`] with both portfolio-level and
 /// per-position views.
+///
+/// # References
+///
+/// - Bond and cashflow conventions:
+///   `docs/REFERENCES.md#icma-rule-book`
 pub fn aggregate_cashflows(
     portfolio: &Portfolio,
     market: &MarketContext,
@@ -200,6 +205,20 @@ pub fn aggregate_cashflows(
 /// rate differential between currencies). For precise NPV-of-cashflows analysis
 /// where the forward FX curve matters, convert future cashflows using forward
 /// FX rates derived from the appropriate discount curves instead.
+///
+/// # Arguments
+///
+/// * `ladder` - Multi-currency cashflow ladder to convert.
+/// * `market` - Market context providing FX rates.
+/// * `base_ccy` - Reporting currency to convert into.
+///
+/// # Returns
+///
+/// Base-currency cashflow totals keyed by payment date.
+///
+/// # Errors
+///
+/// Returns an error when FX rates needed for conversion are unavailable.
 pub fn collapse_cashflows_to_base_by_date(
     ladder: &PortfolioCashflows,
     market: &MarketContext,
@@ -259,6 +278,21 @@ pub fn collapse_cashflows_to_base_by_date(
 ///
 /// See that function's documentation for important notes on the use of
 /// spot-equivalent FX rates for future cashflow conversion.
+///
+/// # Arguments
+///
+/// * `ladder` - Multi-currency cashflow ladder to bucket.
+/// * `market` - Market context providing FX rates for conversion.
+/// * `base_ccy` - Reporting currency for the bucket totals.
+/// * `periods` - Reporting periods used to bucket converted cashflows.
+///
+/// # Returns
+///
+/// Base-currency cashflows bucketed by reporting period.
+///
+/// # Errors
+///
+/// Returns an error when FX conversion or monetary aggregation fails.
 pub fn cashflows_to_base_by_period(
     ladder: &PortfolioCashflows,
     market: &MarketContext,

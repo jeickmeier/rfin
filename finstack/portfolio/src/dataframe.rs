@@ -3,6 +3,13 @@
 //! Functions in this module turn portfolio valuations and metrics into
 //! [`polars::prelude::DataFrame`] objects that can be consumed by downstream
 //! analytics pipelines or saved for offline processing.
+//!
+//! # Conventions
+//!
+//! - Position values are exported with both native-currency and base-currency
+//!   columns.
+//! - Metric exports use long format so bucketed and custom keys remain easy to
+//!   filter and pivot downstream.
 
 use crate::metrics::PortfolioMetrics;
 use crate::valuation::PortfolioValuation;
@@ -22,6 +29,19 @@ use finstack_core::{Error, InputError};
 /// # Returns
 ///
 /// A [`Result`] wrapping the generated [`polars::prelude::DataFrame`].
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_portfolio::dataframe::positions_to_dataframe;
+///
+/// # fn main() -> finstack_core::Result<()> {
+/// # let valuation: finstack_portfolio::PortfolioValuation = unimplemented!("Provide a valuation");
+/// let df = positions_to_dataframe(&valuation)?;
+/// assert!(df.get_column_names().iter().any(|name| name.as_str() == "position_id"));
+/// # Ok(())
+/// # }
+/// ```
 pub fn positions_to_dataframe(
     valuation: &PortfolioValuation,
 ) -> Result<polars::prelude::DataFrame> {

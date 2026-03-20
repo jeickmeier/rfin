@@ -159,6 +159,11 @@ const SUMMABLE_METRICS: &[&str] = &[
 /// # Arguments
 ///
 /// * `metric_id` - Metric identifier to test.
+///
+/// # Returns
+///
+/// `true` when the metric is safe to sum across positions after any required
+/// FX conversion.
 pub fn is_summable(metric_id: &str) -> bool {
     if SUMMABLE_METRICS.contains(&metric_id) {
         return true;
@@ -210,6 +215,13 @@ pub fn is_summable(metric_id: &str) -> bool {
 ///
 /// When the `parallel` feature is enabled, metrics are collected in parallel
 /// and then deterministically aggregated to ensure consistency across runs.
+///
+/// # References
+///
+/// - Fixed-income risk conventions:
+///   `docs/REFERENCES.md#tuckman-serrat-fixed-income`
+/// - Numerically stable aggregation:
+///   `docs/REFERENCES.md#kahan-1965`
 pub fn aggregate_metrics(
     valuation: &PortfolioValuation,
     base_ccy: Currency,

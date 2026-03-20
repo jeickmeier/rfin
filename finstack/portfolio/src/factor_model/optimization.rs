@@ -36,6 +36,20 @@ pub struct FactorOptimizationResult {
 
 impl<'a> WhatIfEngine<'a> {
     /// Stub optimization entry point until the quadratic factor-risk problem is supported.
+    ///
+    /// # Arguments
+    ///
+    /// * `_constraints` - Factor constraints the future optimizer would enforce.
+    ///
+    /// # Returns
+    ///
+    /// Currently always returns an error because covariance-based factor-risk
+    /// optimization is not yet implemented.
+    ///
+    /// # Errors
+    ///
+    /// Always returns [`crate::Error::OptimizationError`] with an explicit
+    /// unsupported-operation message.
     pub fn optimize(&self, _constraints: &[FactorConstraint]) -> Result<FactorOptimizationResult> {
         Err(Error::optimization_error(
             "Factor-constrained optimization is not supported yet because the current LP optimizer cannot represent covariance-based factor-risk constraints",

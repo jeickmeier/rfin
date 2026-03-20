@@ -53,6 +53,12 @@ use serde::{Deserialize, Serialize};
 /// The `by_position` map contains instrument-currency attribution before FX
 /// translation effects are applied. To reconcile with `total_pnl`, apply the
 /// FX rates and add the principal revaluation effect.
+///
+/// # Conventions
+///
+/// The portfolio-level aggregates are reported in portfolio base currency,
+/// while `by_position` remains in each instrument's native currency so callers
+/// can inspect raw instrument attribution before FX translation.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PortfolioAttribution {
     /// Total portfolio P&L in base currency.
@@ -345,6 +351,11 @@ fn attribute_single_position(
 /// # Ok(())
 /// # }
 /// ```
+///
+/// # References
+///
+/// - Parametric risk-reporting background:
+///   `docs/REFERENCES.md#jpmorgan1996RiskMetrics`
 pub fn attribute_portfolio_pnl(
     portfolio: &Portfolio,
     market_t0: &MarketContext,

@@ -5,6 +5,10 @@
 //! ```rust
 //! use finstack_portfolio::prelude::*;
 //! ```
+//!
+//! The prelude re-exports both the crate root and the `finstack_core` prelude,
+//! making it useful for examples, notebooks, and quick prototyping. For
+//! library-quality code, explicit imports are often clearer.
 
 // Re-export everything from the crate root (all pub use items from lib.rs)
 pub use crate::*;

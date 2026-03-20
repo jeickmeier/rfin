@@ -44,6 +44,23 @@ use std::sync::Arc;
 /// # Errors
 ///
 /// Returns [`Error::ScenarioError`] when the scenario engine reports a failure.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_portfolio::scenarios::apply_scenario;
+/// use finstack_scenarios::spec::ScenarioSpec;
+///
+/// # fn main() -> finstack_portfolio::Result<()> {
+/// # let portfolio: finstack_portfolio::Portfolio = unimplemented!("Provide a portfolio");
+/// # let market: MarketContext = unimplemented!("Provide market data");
+/// # let scenario: ScenarioSpec = unimplemented!("Provide a scenario");
+/// let (_portfolio, _market, report) = apply_scenario(&portfolio, &scenario, &market)?;
+/// println!("Applied {} operations", report.operations_applied);
+/// # Ok(())
+/// # }
+/// ```
 #[cfg(feature = "scenarios")]
 pub fn apply_scenario(
     portfolio: &Portfolio,
@@ -115,6 +132,25 @@ pub fn apply_scenario(
 /// # Errors
 ///
 /// Propagates errors from [`apply_scenario`] and [`value_portfolio`](crate::valuation::value_portfolio).
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_core::config::FinstackConfig;
+/// use finstack_core::market_data::context::MarketContext;
+/// use finstack_portfolio::scenarios::apply_and_revalue;
+/// use finstack_scenarios::spec::ScenarioSpec;
+///
+/// # fn main() -> finstack_portfolio::Result<()> {
+/// # let portfolio: finstack_portfolio::Portfolio = unimplemented!("Provide a portfolio");
+/// # let market: MarketContext = unimplemented!("Provide market data");
+/// # let scenario: ScenarioSpec = unimplemented!("Provide a scenario");
+/// let config = FinstackConfig::default();
+/// let (valuation, _report) = apply_and_revalue(&portfolio, &scenario, &market, &config)?;
+/// println!("Stressed total: {}", valuation.total_base_ccy);
+/// # Ok(())
+/// # }
+/// ```
 #[cfg(feature = "scenarios")]
 pub fn apply_and_revalue(
     portfolio: &Portfolio,

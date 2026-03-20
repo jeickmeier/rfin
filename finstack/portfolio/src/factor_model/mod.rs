@@ -12,8 +12,9 @@
 //! 4. Use [`FactorModel::analyze`] to decompose portfolio risk.
 //!
 //! The module exposes both closed-form covariance-based decomposition
-//! ([`ParametricDecomposer`]) and simulation-based tail-risk decomposition
-//! ([`SimulationDecomposer`]). All engines assume the upstream sensitivity
+//! ([`crate::factor_model::ParametricDecomposer`]) and simulation-based
+//! tail-risk decomposition
+//! ([`crate::factor_model::SimulationDecomposer`]). All engines assume the upstream sensitivity
 //! engine has already scaled rows by position quantity, so downstream
 //! decomposition works on portfolio exposures directly.
 //!

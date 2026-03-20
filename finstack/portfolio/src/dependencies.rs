@@ -3,7 +3,8 @@
 //! Provides a normalized key model ([`MarketFactorKey`]) and an inverted index
 //! ([`DependencyIndex`]) that maps market factor keys to the set of portfolio
 //! positions that depend on them. The index is built from each instrument's
-//! [`MarketDependencies`] and enables efficient lookup of affected positions
+//! [`finstack_valuations::instruments::MarketDependencies`] and enables
+//! efficient lookup of affected positions
 //! when a subset of market data changes.
 
 use finstack_core::currency::Currency;
@@ -45,32 +46,60 @@ pub enum MarketFactorKey {
 
 impl MarketFactorKey {
     /// Create a curve key from a `CurveId` and [`RatesCurveKind`].
+    ///
+    /// # Returns
+    ///
+    /// Curve market-factor key.
     pub fn curve(id: CurveId, kind: RatesCurveKind) -> Self {
         Self::Curve { id, kind }
     }
 
     /// Create a spot key.
+    ///
+    /// # Returns
+    ///
+    /// Spot market-factor key.
     pub fn spot(id: impl Into<String>) -> Self {
         Self::Spot(id.into())
     }
 
     /// Create a vol-surface key.
+    ///
+    /// # Returns
+    ///
+    /// Volatility-surface market-factor key.
     pub fn vol_surface(id: impl Into<String>) -> Self {
         Self::VolSurface(id.into())
     }
 
     /// Create an FX-pair key.
+    ///
+    /// # Returns
+    ///
+    /// FX market-factor key.
     pub fn fx(base: Currency, quote: Currency) -> Self {
         Self::Fx { base, quote }
     }
 
     /// Create a time-series key.
+    ///
+    /// # Returns
+    ///
+    /// Scalar-series market-factor key.
     pub fn series(id: impl Into<String>) -> Self {
         Self::Series(id.into())
     }
 }
 
 /// Flatten a [`MarketDependencies`] into a deduplicated set of [`MarketFactorKey`]s.
+///
+/// # Arguments
+///
+/// * `deps` - Instrument dependency description to normalize.
+///
+/// # Returns
+///
+/// Deduplicated normalized key set.
 pub fn flatten_dependencies(deps: &MarketDependencies) -> HashSet<MarketFactorKey> {
     let mut keys = HashSet::default();
 
@@ -121,6 +150,10 @@ impl DependencyIndex {
     /// flattens each into normalized keys, and records the position index.
     /// Instruments that return an error from `market_dependencies()` are
     /// tracked as unresolved and conservatively included in every query.
+    ///
+    /// # Returns
+    ///
+    /// Newly built dependency index.
     pub fn build(positions: &[crate::position::Position]) -> Self {
         let mut inner: HashMap<MarketFactorKey, Vec<usize>> = HashMap::default();
         let mut unresolved = Vec::new();
@@ -146,12 +179,20 @@ impl DependencyIndex {
     }
 
     /// Look up position indices affected by a single market factor key.
+    ///
+    /// # Returns
+    ///
+    /// Slice of matching position indices, or an empty slice when the key is absent.
     pub fn positions_for_key(&self, key: &MarketFactorKey) -> &[usize] {
         self.inner.get(key).map_or(&[], |v| v.as_slice())
     }
 
     /// Collect the deduplicated, sorted union of position indices affected by
     /// any of the supplied keys, plus all unresolved positions.
+    ///
+    /// # Returns
+    ///
+    /// Sorted affected-position indices.
     pub fn affected_positions(&self, keys: &[MarketFactorKey]) -> Vec<usize> {
         let mut seen = HashSet::default();
         let mut result = Vec::new();
@@ -175,21 +216,37 @@ impl DependencyIndex {
     }
 
     /// Position indices whose instruments failed to report dependencies.
+    ///
+    /// # Returns
+    ///
+    /// Slice of unresolved position indices.
     pub fn unresolved(&self) -> &[usize] {
         &self.unresolved
     }
 
     /// Total number of distinct market factor keys tracked.
+    ///
+    /// # Returns
+    ///
+    /// Number of normalized factor keys stored in the index.
     pub fn factor_count(&self) -> usize {
         self.inner.len()
     }
 
     /// Check whether the index is empty (no resolved keys and no unresolved positions).
+    ///
+    /// # Returns
+    ///
+    /// `true` when the index contains no keys and no unresolved positions.
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty() && self.unresolved.is_empty()
     }
 
     /// Iterate over all tracked market factor keys and their position indices.
+    ///
+    /// # Returns
+    ///
+    /// Iterator over normalized factor keys and matching position-index slices.
     pub fn iter(&self) -> impl Iterator<Item = (&MarketFactorKey, &[usize])> {
         self.inner.iter().map(|(k, v)| (k, v.as_slice()))
     }

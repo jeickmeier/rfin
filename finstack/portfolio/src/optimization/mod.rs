@@ -7,16 +7,17 @@
 //!
 //! The main entry points are:
 //!
-//! - [`PortfolioOptimizationProblem`] for declaring the optimization objective,
-//!   weighting scheme, trade universe, and constraints
-//! - [`DefaultLpOptimizer`] for solving the resulting linear program
-//! - [`PortfolioOptimizationResult`] for inspecting optimal weights, implied
-//!   quantities, and trade lists
+//! - [`crate::optimization::PortfolioOptimizationProblem`] for declaring the
+//!   optimization objective, weighting scheme, trade universe, and constraints
+//! - [`crate::optimization::DefaultLpOptimizer`] for solving the resulting
+//!   linear program
+//! - [`crate::optimization::PortfolioOptimizationResult`] for inspecting
+//!   optimal weights, implied quantities, and trade lists
 //!
 //! # Conventions
 //!
 //! - Optimization weights are abstract and must be interpreted via
-//!   [`WeightingScheme`]. In particular, `ValueWeight` means share of
+//!   [`crate::optimization::WeightingScheme`]. In particular, `ValueWeight` means share of
 //!   base-currency portfolio value, while `UnitScaling` means a multiplier on
 //!   the current quantity for existing positions.
 //! - Portfolio-level constraints assume metrics are comparable across positions.
@@ -24,17 +25,19 @@
 //!   linearization would otherwise be ambiguous.
 //! - The current optimizer is linear-program based. Covariance-driven or other
 //!   quadratic risk constraints are intentionally out of scope for
-//!   [`DefaultLpOptimizer`].
+//!   [`crate::optimization::DefaultLpOptimizer`].
 //!
 //! # Workflow
 //!
 //! 1. Value the current portfolio and confirm the required metrics are
 //!    available.
-//! 2. Define a [`PortfolioOptimizationProblem`] with an [`Objective`] and any
-//!    [`Constraint`] values.
-//! 3. Solve with [`DefaultLpOptimizer`].
-//! 4. Inspect [`PortfolioOptimizationResult::to_trade_list`] or rebuild a
-//!    portfolio with [`PortfolioOptimizationResult::to_rebalanced_portfolio`].
+//! 2. Define a [`crate::optimization::PortfolioOptimizationProblem`] with an
+//!    [`crate::optimization::Objective`] and any
+//!    [`crate::optimization::Constraint`] values.
+//! 3. Solve with [`crate::optimization::DefaultLpOptimizer`].
+//! 4. Inspect [`crate::optimization::PortfolioOptimizationResult::to_trade_list`]
+//!    or rebuild a portfolio with
+//!    [`crate::optimization::PortfolioOptimizationResult::to_rebalanced_portfolio`].
 //!
 //! # References
 //!

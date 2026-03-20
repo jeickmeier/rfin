@@ -228,7 +228,7 @@ pub struct PortfolioValuationOptions {
 /// 2. Prices each instrument with metrics
 /// 3. Converts values to base currency using FX rates
 /// 4. Aggregates by entity
-//!
+///
 /// Portfolio valuation uses compensated summation during aggregation and treats
 /// `PositionUnit` as part of the pricing contract, so the reported portfolio
 /// totals reflect scaled holdings rather than raw instrument PVs.
@@ -424,7 +424,7 @@ fn value_single_position(
 
 /// Revalue only the positions affected by a set of changed market factor keys.
 ///
-/// This function consults the portfolio's [`DependencyIndex`] to determine which
+/// This function consults the portfolio's [`crate::dependencies::DependencyIndex`] to determine which
 /// positions depend on the supplied keys, reprices only those positions against
 /// the (updated) market context, and patches the prior valuation with fresh
 /// results.  Unaffected positions retain their prior values.  Positions whose

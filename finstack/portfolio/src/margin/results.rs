@@ -63,6 +63,11 @@ pub struct NettingSetMargin {
 
 impl NettingSetMargin {
     /// Create a new netting set margin result.
+    ///
+    /// # Returns
+    ///
+    /// Netting-set margin result with total margin computed as
+    /// `initial_margin + max(variation_margin, 0)`.
     #[must_use]
     pub fn new(
         netting_set_id: NettingSetId,
@@ -92,6 +97,10 @@ impl NettingSetMargin {
     }
 
     /// Add SIMM breakdown information.
+    ///
+    /// # Returns
+    ///
+    /// The updated result for fluent chaining.
     pub fn with_simm_breakdown(
         mut self,
         sensitivities: SimmSensitivities,
@@ -103,6 +112,10 @@ impl NettingSetMargin {
     }
 
     /// Check if this is a cleared netting set.
+    ///
+    /// # Returns
+    ///
+    /// `true` when the netting set identifier represents a cleared venue.
     #[must_use]
     pub fn is_cleared(&self) -> bool {
         self.netting_set_id.is_cleared()
@@ -134,6 +147,10 @@ pub struct PortfolioMarginResult {
 
 impl PortfolioMarginResult {
     /// Create a new portfolio margin result.
+    ///
+    /// # Returns
+    ///
+    /// Empty portfolio margin report initialized in the supplied base currency.
     #[must_use]
     pub fn new(as_of: Date, base_currency: Currency) -> Self {
         Self {
@@ -228,12 +245,20 @@ impl PortfolioMarginResult {
     }
 
     /// Get the number of netting sets.
+    ///
+    /// # Returns
+    ///
+    /// Number of tracked netting sets.
     #[must_use]
     pub fn netting_set_count(&self) -> usize {
         self.by_netting_set.len()
     }
 
     /// Get results for cleared vs bilateral netting sets.
+    ///
+    /// # Returns
+    ///
+    /// Tuple of `(cleared_total, bilateral_total)` in the portfolio base currency.
     #[must_use]
     pub fn cleared_bilateral_split(&self) -> (Money, Money) {
         let mut cleared = 0.0;
@@ -254,11 +279,20 @@ impl PortfolioMarginResult {
     }
 
     /// Iterate over netting set results.
+    ///
+    /// # Returns
+    ///
+    /// Iterator over netting-set identifiers and their results.
     pub fn iter(&self) -> impl Iterator<Item = (&NettingSetId, &NettingSetMargin)> {
         self.by_netting_set.iter()
     }
 
     /// Record a degraded position with the corresponding error message.
+    ///
+    /// # Arguments
+    ///
+    /// * `position_id` - Position whose margin calculation degraded.
+    /// * `message` - Human-readable reason for the degradation.
     pub fn add_degraded_position(&mut self, position_id: PositionId, message: impl Into<String>) {
         self.degraded_positions.push((position_id, message.into()));
     }
