@@ -14,8 +14,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::config::constants::STANDARD_PSA_SPEEDS;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    DealType, Pool, PoolAsset, RmbsFicoCalculator, RmbsLtvCalculator, RmbsWalCalculator, Seniority,
-    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
+    CmbsDscrCalculator, DealType, Pool, PoolAsset, RmbsFicoCalculator, RmbsLtvCalculator,
+    RmbsWalCalculator, Seniority, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
 };
 use finstack_valuations::metrics::{MetricCalculator, MetricContext};
 use std::sync::Arc;
@@ -45,6 +45,38 @@ fn rmbs_instrument() -> StructuredCredit {
 
     StructuredCredit::new_rmbs(
         "RMBS-TEST",
+        pool,
+        tranches,
+        Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+        Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        "USD-OIS",
+    )
+}
+
+fn cmbs_instrument() -> StructuredCredit {
+    let mut pool = Pool::new("POOL", DealType::CMBS, Currency::USD);
+    pool.assets.push(PoolAsset::fixed_rate_bond(
+        "MORTGAGE-1",
+        Money::new(10_000_000.0, Currency::USD),
+        0.05,
+        Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        finstack_core::dates::DayCount::Thirty360,
+    ));
+
+    let tranche = Tranche::new(
+        "A",
+        0.0,
+        100.0,
+        Seniority::Senior,
+        Money::new(10_000_000.0, Currency::USD),
+        TrancheCoupon::Fixed { rate: 0.04 },
+        Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+    )
+    .unwrap();
+    let tranches = TrancheStructure::new(vec![tranche]).unwrap();
+
+    StructuredCredit::new_cmbs(
+        "CMBS-TEST",
         pool,
         tranches,
         Date::from_calendar_date(2025, Month::January, 1).unwrap(),
@@ -111,6 +143,18 @@ fn test_cmbs_metrics_require_cmbs_deal_type() {
             deal
         );
     }
+}
+
+#[test]
+fn test_cmbs_dscr_calculator_returns_configured_noi_multiple() {
+    let dscr = CmbsDscrCalculator::new(1.35)
+        .calculate(&mut metric_context(cmbs_instrument(), Date::from_calendar_date(2025, Month::January, 1).unwrap()))
+        .unwrap();
+
+    assert!(
+        (dscr - 1.35).abs() < 1e-12,
+        "Current CMBS DSCR implementation should equal the configured NOI multiplier"
+    );
 }
 
 #[test]

@@ -401,7 +401,7 @@ pub fn margrabe_exchange_option(
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::discretization::exact::ExactMultiGbm;
+    use crate::discretization::exact::{ExactMultiGbm, ExactMultiGbmCorrelated};
     use crate::engine::McEngine;
     use crate::process::gbm::{GbmParams, MultiGbmProcess};
     use crate::rng::philox::PhiloxRng;
@@ -500,5 +500,74 @@ mod tests {
             .expect("basket pricing should succeed");
 
         assert!((result.mean.amount() - 10.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_exchange_option_mc_matches_margrabe_benchmark() {
+        let sigma1 = 0.20;
+        let sigma2 = 0.25;
+        let rho = 0.35;
+        let initial_state = vec![105.0, 100.0];
+        let corr = vec![1.0, rho, rho, 1.0];
+
+        let engine = McEngine::builder()
+            .num_paths(25_000)
+            .uniform_grid(1.0, 252)
+            .parallel(false)
+            .build()
+            .expect("engine should build");
+        let rng = PhiloxRng::new(7);
+        let process = MultiGbmProcess::new(
+            vec![
+                GbmParams::new(0.0, 0.0, sigma1),
+                GbmParams::new(0.0, 0.0, sigma2),
+            ],
+            Some(corr.clone()),
+        );
+        let disc = ExactMultiGbmCorrelated::new(&corr, 2).expect("correlated discretization");
+        let payoff = ExchangeOption::new(0, 1, 1.0, 252, Currency::USD);
+
+        let result = engine
+            .price(
+                &rng,
+                &process,
+                &disc,
+                &initial_state,
+                &payoff,
+                Currency::USD,
+                1.0,
+            )
+            .expect("exchange option pricing should succeed");
+
+        let expected = margrabe_exchange_option(
+            initial_state[0],
+            initial_state[1],
+            sigma1,
+            sigma2,
+            rho,
+            1.0,
+            0.0,
+            0.0,
+        );
+
+        assert!(
+            (result.mean.amount() - expected).abs() < 0.35,
+            "MC exchange option price {} should stay close to Margrabe benchmark {}",
+            result.mean.amount(),
+            expected
+        );
+    }
+
+    #[test]
+    fn test_margrabe_price_decreases_with_higher_correlation() {
+        let low_corr = margrabe_exchange_option(100.0, 100.0, 0.20, 0.25, -0.25, 1.0, 0.0, 0.0);
+        let high_corr = margrabe_exchange_option(100.0, 100.0, 0.20, 0.25, 0.90, 1.0, 0.0, 0.0);
+
+        assert!(
+            low_corr > high_corr,
+            "Exchange option value should fall as correlation rises: low={} high={}",
+            low_corr,
+            high_corr
+        );
     }
 }

@@ -43,6 +43,43 @@ fn create_simple_pool() -> Pool {
     pool
 }
 
+fn create_simple_clo_pool() -> Pool {
+    let mut pool = Pool::new("CLO_POOL", DealType::CLO, Currency::USD);
+    pool.assets.push(
+        PoolAsset::fixed_rate_bond(
+            "L1",
+            Money::new(5_000_000.0, Currency::USD),
+            0.06,
+            Date::from_calendar_date(2029, Month::January, 1).unwrap(),
+            finstack_core::dates::DayCount::Thirty360,
+        )
+        .with_rating(finstack_core::types::CreditRating::BB),
+    );
+    pool.assets.push(
+        PoolAsset::fixed_rate_bond(
+            "L2",
+            Money::new(3_000_000.0, Currency::USD),
+            0.08,
+            Date::from_calendar_date(2028, Month::January, 1).unwrap(),
+            finstack_core::dates::DayCount::Thirty360,
+        )
+        .with_rating(finstack_core::types::CreditRating::B),
+    );
+    pool
+}
+
+fn create_simple_cmbs_pool() -> Pool {
+    let mut pool = Pool::new("CMBS_POOL", DealType::CMBS, Currency::USD);
+    pool.assets.push(PoolAsset::fixed_rate_bond(
+        "CMBS-LOAN-1",
+        Money::new(10_000_000.0, Currency::USD),
+        0.05,
+        Date::from_calendar_date(2030, Month::January, 1).unwrap(),
+        finstack_core::dates::DayCount::Thirty360,
+    ));
+    pool
+}
+
 fn create_simple_tranches() -> TrancheStructure {
     let senior = Tranche::new(
         "SENIOR",
@@ -265,6 +302,81 @@ fn test_structured_credit_full_metric_suite() {
     for (key, value) in &result.measures {
         assert!(value.is_finite(), "Metric {} should be finite", key);
     }
+}
+
+#[test]
+fn test_structured_credit_registry_exposes_clo_warf() {
+    let sc = StructuredCredit::new_clo(
+        "TEST_CLO_WARF",
+        create_simple_clo_pool(),
+        create_simple_tranches(),
+        Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+        maturity_date(),
+        "USD-OIS",
+    )
+    .with_payment_calendar("nyse");
+
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
+
+    let result = sc
+        .price_with_metrics(&market, test_date(), &[MetricId::CloWarf])
+        .expect("CLO metric request should succeed");
+
+    assert!(
+        result.measures.contains_key("clo_warf"),
+        "CLO WARF should be computed through the metric registry"
+    );
+}
+
+#[test]
+fn test_structured_credit_registry_exposes_cmbs_dscr() {
+    let sc = StructuredCredit::new_cmbs(
+        "TEST_CMBS_DSCR",
+        create_simple_cmbs_pool(),
+        create_simple_tranches(),
+        Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+        maturity_date(),
+        "USD-OIS",
+    )
+    .with_payment_calendar("nyse");
+
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
+
+    let result = sc
+        .price_with_metrics(&market, test_date(), &[MetricId::CmbsDscr])
+        .expect("CMBS metric request should succeed");
+
+    assert!(
+        result.measures.contains_key("cmbs_dscr"),
+        "CMBS DSCR should be computed through the metric registry"
+    );
+}
+
+#[test]
+fn test_structured_credit_registry_wal_matches_cashflow_wal() {
+    let sc = StructuredCredit::new_abs(
+        "TEST_ABS_WAL",
+        create_simple_pool(),
+        create_simple_tranches(),
+        Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+        maturity_date(),
+        "USD-OIS",
+    )
+    .with_payment_calendar("nyse");
+
+    let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
+    let valuation = sc
+        .price_with_metrics(&market, test_date(), &[MetricId::WAL])
+        .expect("WAL metric request should succeed");
+    let expected = 2.209_178_398_160_473_f64;
+    let actual = valuation.measures["wal"];
+
+    assert!(
+        (actual - expected).abs() < 1e-10,
+        "Registry WAL {} should match the deterministic reporting benchmark {}",
+        actual,
+        expected
+    );
 }
 
 #[test]
