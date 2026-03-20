@@ -65,6 +65,7 @@ use std::collections::HashSet;
 /// 4. Allocates available cash according to priority stack
 ///
 /// # Arguments
+///
 /// * `period_id` - Current period being evaluated
 /// * `context` - Evaluation context with model results
 /// * `waterfall_spec` - Waterfall configuration
@@ -72,7 +73,19 @@ use std::collections::HashSet;
 /// * `contractual_flows` - Pre-calculated contractual flows by instrument
 ///
 /// # Returns
-/// Updated cashflow breakdown for the period and updated state
+///
+/// Returns per-instrument cashflow breakdowns after sweep, PIK, and
+/// priority-of-payments allocation have been applied. `state` is updated
+/// in-place with opening/closing balances and cumulative tracking fields.
+///
+/// # Errors
+///
+/// Returns an error if required statement nodes are missing, if the waterfall
+/// references inconsistent currencies, or if sweep / PIK calculations fail.
+///
+/// # References
+///
+/// - Fixed-income capital structure context: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 pub fn execute_waterfall(
     _period_id: &PeriodId,
     context: &EvaluationContext,

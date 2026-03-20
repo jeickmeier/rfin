@@ -19,6 +19,10 @@ use finstack_valuations::instruments::{Attributes, Instrument};
 use serde_json::json;
 
 /// Corporate valuation result containing DCF outputs.
+///
+/// Monetary outputs are returned in the model currency inferred from
+/// `FinancialModelSpec::meta["currency"]`. Ratios such as
+/// `equity_value_per_share` are plain scalars.
 #[derive(Debug, Clone)]
 pub struct CorporateValuationResult {
     /// Equity value (EV - Net Debt, after discounts)
@@ -40,6 +44,8 @@ pub struct CorporateValuationResult {
 /// Optional configuration for DCF valuation beyond the core WACC/terminal parameters.
 ///
 /// All fields default to `None`/`false`.
+///
+/// Percentage-style inputs use decimal form, so `0.10` means `10%`.
 #[derive(Debug, Clone, Default)]
 pub struct DcfOptions {
     /// Enable mid-year discounting convention (default: false).
@@ -63,6 +69,76 @@ pub(crate) struct DcfEvalContext<'a> {
 ///
 /// Accepts a [`MarketContext`] for curve-based discounting when instruments
 /// reference discount curves.
+///
+/// `wacc` and any growth rates embedded in `terminal_value` must be provided as
+/// decimal fractions. Cash flows are sourced from the model's non-actual
+/// periods and anchored to the first forecast boundary when historical actuals
+/// are present.
+///
+/// # Arguments
+///
+/// * `model` - Statement model containing forecast periods plus a currency in
+///   metadata
+/// * `wacc` - Discount rate in decimal form (`0.10` means `10%`)
+/// * `terminal_value` - Terminal-value convention applied after the explicit
+///   forecast period
+/// * `ufcf_node` - Node id containing unlevered free cash flow for forecast
+///   periods
+/// * `net_debt_override` - Optional flat net-debt amount used instead of the
+///   model-derived bridge
+/// * `options` - Mid-year, bridge, share-count, and discount configuration
+/// * `market` - Optional market context used when the DCF instrument references
+///   discount curves
+///
+/// # Returns
+///
+/// Returns [`CorporateValuationResult`] containing enterprise value, equity
+/// value, the bridge inputs used in the calculation, and optional per-share
+/// outputs.
+///
+/// # Errors
+///
+/// Returns an error if the model cannot be evaluated, if `ufcf_node` has no
+/// forecast cash flows, if the model currency cannot be inferred, or if the
+/// terminal-value assumptions are internally inconsistent.
+///
+/// # Examples
+///
+/// ```rust,no_run
+/// use finstack_statements::analysis::{evaluate_dcf_with_market, DcfOptions};
+/// use finstack_statements::builder::ModelBuilder;
+/// use finstack_statements::types::AmountOrScalar;
+/// use finstack_core::dates::PeriodId;
+/// use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
+///
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let model = ModelBuilder::new("acme")
+///     .periods("2025Q1..Q4", Some("2025Q1"))?
+///     .value(
+///         "ufcf",
+///         &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(1_000_000.0))],
+///     )
+///     .with_meta("currency", serde_json::json!("USD"))
+///     .build()?;
+///
+/// let result = evaluate_dcf_with_market(
+///     &model,
+///     0.10,
+///     TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+///     "ufcf",
+///     None,
+///     &DcfOptions::default(),
+///     None,
+/// )?;
+///
+/// assert_eq!(result.enterprise_value.currency().to_string(), "USD");
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # References
+///
+/// - Discounting and terminal-value context: `docs/REFERENCES.md#hull-options-futures`
 pub fn evaluate_dcf_with_market(
     model: &FinancialModelSpec,
     wacc: f64,

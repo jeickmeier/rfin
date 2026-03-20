@@ -95,7 +95,8 @@ pub struct ScenarioDefinition {
 /// Registry of named scenarios built on top of a base model.
 ///
 /// The `scenarios` map preserves insertion order and is the primary surface
-/// for JSON (de)serialization.
+/// for JSON (de)serialization. Scenario overrides use plain scalar values that
+/// are broadcast to every model period.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScenarioSet {
@@ -130,6 +131,20 @@ impl ScenarioSet {
     /// Parent scenarios are resolved first, with child overrides applied
     /// last. Each scenario is evaluated independently starting from the
     /// provided `base_model`.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_model` - Baseline model that each scenario overrides
+    ///
+    /// # Returns
+    ///
+    /// Returns [`ScenarioResults`] keyed by scenario name in insertion order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the scenario set is empty, if parent chains are
+    /// invalid, if overrides reference missing nodes, or if model evaluation
+    /// fails for any scenario.
     pub fn evaluate_all(&self, base_model: &FinancialModelSpec) -> Result<ScenarioResults> {
         if self.scenarios.is_empty() {
             return Err(Error::invalid_input(
@@ -156,6 +171,27 @@ impl ScenarioSet {
     ///
     /// This delegates to [`VarianceAnalyzer`] under the hood so that
     /// scenario diffs share the same semantics as other variance reports.
+    ///
+    /// # Arguments
+    ///
+    /// * `results` - Previously evaluated scenario outputs
+    /// * `baseline` - Scenario name to treat as the base case
+    /// * `comparison` - Scenario name to treat as the comparison case
+    /// * `metrics` - Node ids to compare
+    /// * `periods` - Periods to include in the diff
+    ///
+    /// # Returns
+    ///
+    /// Returns a [`ScenarioDiff`] wrapping the underlying [`VarianceReport`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if either scenario is missing, or if `metrics` or
+    /// `periods` is empty, or if the variance calculation fails.
+    ///
+    /// # References
+    ///
+    /// - One-pass variance decomposition context: `docs/REFERENCES.md#welford-1962`
     pub fn diff(
         &self,
         results: &ScenarioResults,
@@ -200,6 +236,19 @@ impl ScenarioSet {
     /// Return the lineage of a scenario from root ancestor to the given name.
     ///
     /// This is useful for explainability and debugging of nested overrides.
+    ///
+    /// # Arguments
+    ///
+    /// * `scenario` - Scenario name to trace
+    ///
+    /// # Returns
+    ///
+    /// Returns scenario names ordered from the root ancestor to `scenario`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the named scenario does not exist or the parent
+    /// chain is cyclic.
     pub fn trace(&self, scenario: &str) -> Result<Vec<String>> {
         let mut lineage = Vec::new();
         let mut seen = IndexSet::new();

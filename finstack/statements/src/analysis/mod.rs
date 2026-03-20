@@ -10,6 +10,26 @@
 //! - **Forecast backtesting** - Evaluate forecast accuracy
 //! - **Covenant analysis** - Detect covenant breaches
 //! - **Scenario management** - Named scenario sets with diff/comparison helpers
+//!
+//! ## Where To Start
+//!
+//! - Use [`crate::analysis::CorporateAnalysisBuilder`] when you want one orchestrated pipeline
+//!   that evaluates statements and optionally adds equity plus credit analysis.
+//! - Use [`crate::analysis::evaluate_dcf_with_market`] for direct DCF valuation from a statement
+//!   model.
+//! - Use [`crate::analysis::ScenarioSet`] and [`crate::analysis::VarianceAnalyzer`] when comparing multiple
+//!   operating cases.
+//! - Use [`crate::analysis::forecast_breaches`] and [`crate::analysis::compute_credit_context`] for lender-style
+//!   compliance and coverage analysis.
+//!
+//! ## Conventions
+//!
+//! - Ratios such as DSCR, coverage, leverage, and valuation multiples are
+//!   returned as plain scalars, so `2.0` means `2.0x`.
+//! - Percentage-style inputs, such as WACC or growth assumptions, follow the
+//!   crate-wide decimal convention: `0.10` means `10%`.
+//! - Scenario overrides are deterministic full-period scalar overrides unless a
+//!   lower-level API states otherwise.
 
 pub mod backtesting;
 pub mod corporate;

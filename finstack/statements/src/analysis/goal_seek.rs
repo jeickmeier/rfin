@@ -104,6 +104,10 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 /// # Ok(())
 /// # }
 /// ```
+///
+/// # References
+///
+/// - Root-finding background: `docs/REFERENCES.md#press-numerical-recipes`
 #[allow(clippy::too_many_arguments)]
 pub fn goal_seek(
     model: &mut FinancialModelSpec,

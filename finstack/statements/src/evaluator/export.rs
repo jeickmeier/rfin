@@ -14,9 +14,17 @@ use polars::prelude::*;
 /// Schema: `(node_id, period_id, value, value_money, currency, value_type)`
 ///
 /// Includes both f64 and Money representations where applicable.
+/// Requires the `dataframes` feature.
 ///
 /// # Arguments
+///
 /// * `results` - Evaluation output to serialize
+///
+/// # Returns
+///
+/// Returns one row per `(node_id, period_id)` pair. Monetary nodes populate
+/// both `value` and `value_money`; scalar nodes leave `value_money` and
+/// `currency` null.
 ///
 /// # Example
 ///
@@ -81,11 +89,17 @@ pub fn to_polars_long(results: &StatementResult) -> Result<DataFrame> {
 /// Export results to long-format Polars DataFrame with node filtering.
 ///
 /// Schema: `(node_id, period_id, value, value_money, currency, value_type)`
+/// Requires the `dataframes` feature.
 ///
 /// # Arguments
 ///
 /// * `results` - The results to export
 /// * `node_filter` - List of node IDs to include (if empty, includes all)
+///
+/// # Returns
+///
+/// Returns the same schema as [`to_polars_long`] after filtering rows to the
+/// requested node ids.
 ///
 /// # Example
 ///
@@ -150,9 +164,16 @@ pub fn to_polars_long_filtered(
 /// Export results to wide-format Polars DataFrame.
 ///
 /// Schema: periods as rows, nodes as columns
+/// Requires the `dataframes` feature.
 ///
 /// # Arguments
+///
 /// * `results` - Evaluation output to serialize
+///
+/// # Returns
+///
+/// Returns a DataFrame with one row per unique period and one column per node.
+/// Missing `(node, period)` values are encoded as `NaN`.
 ///
 /// # Example
 ///

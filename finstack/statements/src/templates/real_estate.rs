@@ -1,6 +1,14 @@
 //! Real estate operating statement templates.
 //!
-//! These helpers provide a consistent NOI / NCF buildup pattern for property-level models.
+//! These helpers provide a consistent NOI / NCF buildup pattern for
+//! property-level models.
+//!
+//! All template inputs are expressed per model period unless a field says
+//! otherwise. For example, if the model is quarterly then rent, other income,
+//! OpEx, and CapEx inputs are all interpreted as quarterly amounts.
+//!
+//! The richer rent-roll APIs generate both aggregated property nodes and
+//! per-lease detail nodes so that underwriting outputs remain explainable.
 
 use crate::builder::{ModelBuilder, Ready};
 use crate::error::{Error, Result};
@@ -26,6 +34,24 @@ fn sum_expr_or_zero(nodes: &[&str]) -> String {
 /// `total_revenue = sum(revenue_nodes)`
 /// `total_expenses = sum(expense_nodes)`
 /// `noi = total_revenue - total_expenses`
+///
+/// # Arguments
+///
+/// * `builder` - Ready builder whose periods already define the model cadence
+/// * `total_revenue_node` - Node id for aggregated revenue
+/// * `revenue_nodes` - Revenue node ids to sum
+/// * `total_expenses_node` - Node id for aggregated operating expenses
+/// * `expense_nodes` - Expense node ids to sum
+/// * `noi_node` - Node id for net operating income
+///
+/// # Returns
+///
+/// Returns the updated builder with three calculated nodes.
+///
+/// # Errors
+///
+/// Returns an error if `revenue_nodes` or `expense_nodes` is empty, or if any
+/// computed node cannot be added to the builder.
 pub fn add_noi_buildup(
     builder: ModelBuilder<Ready>,
     total_revenue_node: &str,
@@ -50,6 +76,25 @@ pub fn add_noi_buildup(
 
 /// Add a standard NCF (net cash flow) buildup:
 /// `ncf = noi - sum(capex_nodes)`
+///
+/// `capex_nodes` are assumed to be positive outflows. When no CapEx nodes are
+/// supplied, the resulting `ncf_node` is simply an alias of `noi_node`.
+///
+/// # Arguments
+///
+/// * `builder` - Ready builder whose periods already define the model cadence
+/// * `noi_node` - Existing NOI node id
+/// * `capex_nodes` - CapEx node ids expressed as positive outflows
+/// * `ncf_node` - Node id for net cash flow after CapEx
+///
+/// # Returns
+///
+/// Returns the updated builder with a calculated NCF node.
+///
+/// # Errors
+///
+/// Returns an error if CapEx nodes are provided but cannot be combined into a
+/// valid formula, or if the new node cannot be added.
 pub fn add_ncf_buildup(
     builder: ModelBuilder<Ready>,
     noi_node: &str,
@@ -65,7 +110,8 @@ pub fn add_ncf_buildup(
 
 /// Simple lease-level rent schedule spec for rent-roll style revenue generation.
 ///
-/// Values are per-model-period amounts (i.e., if the model is quarterly, `base_rent` is per quarter).
+/// Values are per-model-period amounts (i.e., if the model is quarterly,
+/// `base_rent` is per quarter). `growth_rate` is also per model period.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LeaseSpec {
@@ -84,7 +130,7 @@ pub struct LeaseSpec {
     /// Number of periods of free rent starting at `start`.
     #[serde(default)]
     pub free_rent_periods: u32,
-    /// Occupancy factor \(\in [0,1]\) applied to rent (useful for probability/vacancy).
+    /// Occupancy factor in `0..=1` applied to rent (useful for probability/vacancy).
     #[serde(default = "default_occupancy")]
     pub occupancy: f64,
 }
@@ -132,6 +178,21 @@ impl LeaseSpec {
 ///
 /// This intentionally stays simple (no reimbursements, % rent, downtime, TI/LC). It’s meant to
 /// be a foundation for more market-standard templates.
+///
+/// # Arguments
+///
+/// * `builder` - Ready builder whose periods define the lease timeline
+/// * `leases` - Lease specifications, each expressed in per-period rent terms
+/// * `total_rent_node` - Aggregated output node id
+///
+/// # Returns
+///
+/// Returns the updated builder with per-lease value nodes plus a summed total.
+///
+/// # Errors
+///
+/// Returns an error if `leases` is empty, if any lease contains invalid numeric
+/// inputs, or if generated nodes cannot be added to the builder.
 pub fn add_rent_roll_rental_revenue(
     mut builder: ModelBuilder<Ready>,
     leases: &[LeaseSpec],
@@ -233,7 +294,7 @@ pub struct RenewalSpec {
     pub downtime_periods: u32,
     /// Renewal term length in model periods.
     pub term_periods: u32,
-    /// Probability of renewal \(\in [0,1]\).
+    /// Probability of renewal in `0..=1`.
     pub probability: f64,
     /// Rent multiplier applied to the last contractual rent of the initial term.
     ///
@@ -299,6 +360,8 @@ pub enum LeaseGrowthConvention {
 /// - optional renewal with downtime + probability
 ///
 /// All amounts are per-model-period (quarterly model => per quarter).
+/// Renewal probability is interpreted in expected-value terms, so vacancy and
+/// effective-rent outputs include the weighting implicitly.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct LeaseSpecV2 {
@@ -328,7 +391,7 @@ pub struct LeaseSpecV2 {
     /// Additional free rent windows (beyond the initial `free_rent_periods`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub free_rent_windows: Vec<FreeRentWindowSpec>,
-    /// Occupancy factor \(\in [0,1]\) applied to non-free contractual rent.
+    /// Occupancy factor in `0..=1` applied to non-free contractual rent.
     #[serde(default = "default_occupancy")]
     pub occupancy: f64,
     /// Optional renewal modeling after `end`.
@@ -379,6 +442,10 @@ impl LeaseSpecV2 {
 }
 
 /// Standard output node ids for a rent roll.
+///
+/// The richer rent-roll helper also emits fixed transparency nodes
+/// `vacancy_loss_physical` and `renewal_prob_loss` in addition to these
+/// configurable aggregate outputs.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RentRollOutputNodes {
@@ -429,6 +496,27 @@ fn apply_free_window(is_free: &mut [bool], start_idx: usize, len: u32) -> Result
 ///
 /// Creates per-lease value nodes (`{id}.pgi`, `{id}.free_rent`, `{id}.vacancy_loss`,
 /// `{id}.effective_rent`) and aggregated totals via `nodes`.
+///
+/// # Arguments
+///
+/// * `builder` - Ready builder whose periods define the lease timeline
+/// * `leases` - Rich lease specs with optional steps, free-rent windows, and
+///   renewals
+/// * `nodes` - Aggregate output node ids
+///
+/// # Returns
+///
+/// Returns the updated builder with per-lease detail nodes and aggregated PGI,
+/// free-rent, vacancy-loss, and effective-rent nodes.
+///
+/// # Errors
+///
+/// Returns an error if leases reference unknown periods, contain invalid
+/// numeric values, or if any generated node conflicts with the builder state.
+///
+/// # References
+///
+/// - Property cashflow and fixed-income style discounting context: `docs/REFERENCES.md#hull-options-futures`
 pub fn add_rent_roll(
     builder: ModelBuilder<Ready>,
     leases: &[LeaseSpecV2],
@@ -707,6 +795,8 @@ pub enum ManagementFeeBase {
 }
 
 /// Management fee specification.
+///
+/// `rate` is a decimal fraction, so `0.03` means `3%`.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ManagementFeeSpec {
@@ -727,6 +817,10 @@ impl Default for ManagementFeeSpec {
 }
 
 /// Standard node ids for a full property operating statement template.
+///
+/// These ids define the aggregate outputs produced by
+/// [`add_property_operating_statement`]. Per-lease detail nodes from the rent
+/// roll remain derived from the individual lease ids.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PropertyTemplateNodes {
@@ -800,6 +894,36 @@ impl Default for PropertyTemplateNodes {
 /// - NOI = EGI - OpEx
 /// - CapEx total
 /// - NCF = NOI - CapEx
+///
+/// `other_income_nodes`, `opex_nodes`, and `capex_nodes` are all assumed to be
+/// positive per-period amounts. CapEx is subtracted from NOI when computing
+/// NCF. Management fees are computed as a positive expense and added to OpEx.
+///
+/// # Arguments
+///
+/// * `builder` - Ready builder whose periods define the property model cadence
+/// * `leases` - Rich lease specs used to build the rent roll
+/// * `other_income_nodes` - Additional income nodes added to effective rent to
+///   form EGI
+/// * `opex_nodes` - Operating-expense nodes expressed as positive outflows
+/// * `capex_nodes` - Capital-expenditure nodes expressed as positive outflows
+/// * `management_fee` - Optional fee spec applied to EGI or effective rent
+/// * `nodes` - Aggregate output node ids for the operating statement
+///
+/// # Returns
+///
+/// Returns the updated builder with rent roll, EGI, OpEx, NOI, CapEx, and NCF
+/// nodes wired together.
+///
+/// # Errors
+///
+/// Returns an error if the rent roll cannot be generated, if management-fee
+/// inputs are invalid, or if any generated node conflicts with existing model
+/// state.
+///
+/// # References
+///
+/// - Property cashflow and discounting context: `docs/REFERENCES.md#hull-options-futures`
 pub fn add_property_operating_statement(
     mut builder: ModelBuilder<Ready>,
     leases: &[LeaseSpecV2],
