@@ -259,3 +259,73 @@ fn test_portfolio_from_spec_preserves_position_metadata() {
     assert_eq!(restored.tags.get("rating"), Some(&"AAA".to_string()));
     assert_eq!(restored.meta.get("desk"), Some(&json!("credit")));
 }
+
+#[test]
+fn test_portfolio_spec_json_deserializes_multiple_instrument_specs() {
+    let as_of = base_date();
+    let mut entities = IndexMap::new();
+    let entity = Entity::new("ENTITY_A");
+    entities.insert(entity.id.clone(), entity);
+
+    let portfolio_json = json!({
+        "id": "BULK_JSON",
+        "name": "bulk portfolio",
+        "base_ccy": "USD",
+        "as_of": as_of,
+        "entities": {
+            "ENTITY_A": {
+                "id": "ENTITY_A",
+                "name": null,
+                "entity_type": "legal_entity",
+                "parent_id": null,
+                "meta": {}
+            }
+        },
+        "positions": [
+            {
+                "position_id": "POS_BOND",
+                "entity_id": "ENTITY_A",
+                "instrument_id": "BOND_EXAMPLE",
+                "instrument_spec": serde_json::to_value(InstrumentJson::Bond(
+                    Bond::example().expect("valid bond example"),
+                ))
+                .expect("bond instrument json should serialize"),
+                "quantity": 1.0,
+                "unit": "units",
+                "book_id": null,
+                "tags": {},
+                "meta": {}
+            },
+            {
+                "position_id": "POS_DEPOSIT",
+                "entity_id": "ENTITY_A",
+                "instrument_id": "DEP_EXAMPLE",
+                "instrument_spec": serde_json::to_value(InstrumentJson::Deposit(
+                    Deposit::example().expect("valid deposit example"),
+                ))
+                .expect("deposit instrument json should serialize"),
+                "quantity": 2.0,
+                "unit": "units",
+                "book_id": null,
+                "tags": {},
+                "meta": {}
+            }
+        ],
+        "books": {},
+        "tags": {},
+        "meta": {}
+    });
+
+    let spec: PortfolioSpec =
+        serde_json::from_value(portfolio_json).expect("portfolio json should deserialize");
+
+    assert_eq!(spec.positions.len(), 2);
+    assert!(matches!(
+        spec.positions[0].instrument_spec,
+        Some(InstrumentJson::Bond(_))
+    ));
+    assert!(matches!(
+        spec.positions[1].instrument_spec,
+        Some(InstrumentJson::Deposit(_))
+    ));
+}
