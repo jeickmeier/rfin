@@ -101,7 +101,7 @@ impl LookbackOptionMcPricer {
         #[cfg(feature = "mc")]
         use finstack_monte_carlo::seed;
 
-        let seed = if let Some(ref scenario) = inst.pricing_overrides.scenario.mc_seed_scenario {
+        let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
                 seed::derive_seed(&inst.id, scenario)

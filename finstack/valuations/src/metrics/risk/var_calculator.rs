@@ -550,7 +550,17 @@ fn compute_taylor_sensitivities(
         base_value,
         MetricContext::default_config(),
     );
-    context.set_pricing_overrides(instrument.scenario_overrides().cloned());
+    context.set_instrument_overrides(
+        instrument
+            .pricing_overrides()
+            .map(crate::instruments::InstrumentPricingOverrides::from_pricing_overrides),
+    );
+    context.set_metric_overrides(
+        instrument
+            .pricing_overrides()
+            .map(crate::instruments::MetricPricingOverrides::from_pricing_overrides),
+    );
+    context.set_scenario_overrides(instrument.scenario_overrides().cloned());
 
     let metrics = [
         MetricId::BucketedDv01,

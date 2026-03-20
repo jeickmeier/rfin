@@ -381,9 +381,9 @@ impl Default for GenericThetaDecomposed {
 impl crate::metrics::MetricCalculator for GenericThetaDecomposed {
     fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
         let period_str = context
-            .pricing_overrides
+            .metric_overrides
             .as_ref()
-            .and_then(|po| po.scenario.theta_period.as_deref())
+            .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
         let expiry_date = context.instrument.expiry();
@@ -403,14 +403,12 @@ impl crate::metrics::MetricCalculator for GenericThetaDecomposed {
         }
 
         let base_pv = context
-            .instrument
-            .value(&context.curves, context.as_of)?
+            .instrument_value_with_scenario(&context.curves, context.as_of)?
             .amount();
         let base_ccy = context.base_value.currency();
 
         let rolled_pv = context
-            .instrument
-            .value(&context.curves, rolled_date)?
+            .instrument_value_with_scenario(&context.curves, rolled_date)?
             .amount();
 
         let carry = collect_cashflows_in_period(
@@ -488,9 +486,9 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
     fn calculate(&self, context: &mut crate::metrics::MetricContext) -> Result<f64> {
         // Get theta period from pricing overrides, default to "1D"
         let period_str = context
-            .pricing_overrides
+            .metric_overrides
             .as_ref()
-            .and_then(|po| po.scenario.theta_period.as_deref())
+            .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
         // Get expiry date if available (via Instrument trait method)
@@ -512,14 +510,12 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
         // Theta uses value() (holder-view) for both base and rolled dates.
         // See GenericTheta for rationale on why value_raw() is not appropriate here.
         let base_pv = context
-            .instrument
-            .value(&context.curves, context.as_of)?
+            .instrument_value_with_scenario(&context.curves, context.as_of)?
             .amount();
         let base_ccy = context.base_value.currency();
 
         let bumped_pv = context
-            .instrument
-            .value(&context.curves, rolled_date)?
+            .instrument_value_with_scenario(&context.curves, rolled_date)?
             .amount();
         let pv_change = bumped_pv - base_pv;
 

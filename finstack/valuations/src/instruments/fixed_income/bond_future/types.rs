@@ -1763,13 +1763,13 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
         Some(self.delivery_start)
     }
 
-    fn scenario_overrides_mut(
+    fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&mut self.pricing_overrides)
     }
 
-    fn scenario_overrides(
+    fn pricing_overrides(
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)

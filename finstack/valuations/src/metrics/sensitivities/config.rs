@@ -188,7 +188,7 @@ pub fn from_finstack_config_or_default(
 /// Resolve sensitivities defaults and then layer instrument-level pricing overrides.
 pub fn from_context_or_default(
     cfg: &FinstackConfig,
-    pricing_overrides: Option<&crate::instruments::PricingOverrides>,
+    pricing_overrides: Option<&crate::instruments::MetricPricingOverrides>,
 ) -> finstack_core::Result<SensitivitiesConfig> {
     let base = from_finstack_config_or_default(cfg)?;
     apply_pricing_overrides(base, pricing_overrides)
@@ -197,7 +197,7 @@ pub fn from_context_or_default(
 /// Apply per-instrument pricing overrides to a resolved sensitivities config.
 pub fn apply_pricing_overrides(
     mut base: SensitivitiesConfig,
-    pricing_overrides: Option<&crate::instruments::PricingOverrides>,
+    pricing_overrides: Option<&crate::instruments::MetricPricingOverrides>,
 ) -> finstack_core::Result<SensitivitiesConfig> {
     let Some(po) = pricing_overrides else {
         return Ok(base);
@@ -239,7 +239,11 @@ mod tests {
     #[test]
     fn apply_pricing_overrides_prefers_explicit_fields() {
         let base = SensitivitiesConfig::default();
-        let po = crate::instruments::PricingOverrides::none()
+        let po = crate::instruments::MetricPricingOverrides {
+            bump_config: crate::instruments::BumpConfig::default(),
+            mc_seed_scenario: None,
+            theta_period: None,
+        }
             .with_rate_bump(2.0)
             .with_credit_spread_bump(3.0)
             .with_spot_bump(0.02)
@@ -255,7 +259,7 @@ mod tests {
     #[test]
     fn apply_pricing_overrides_uses_fallback_units() {
         let base = SensitivitiesConfig::default();
-        let mut po = crate::instruments::PricingOverrides::default();
+        let mut po = crate::instruments::MetricPricingOverrides::default();
         po.bump_config.rho_bump_decimal = Some(0.0002);
         po.bump_config.vega_bump_decimal = Some(0.015);
 
@@ -267,7 +271,7 @@ mod tests {
     #[test]
     fn apply_pricing_overrides_rejects_non_positive_values() {
         let base = SensitivitiesConfig::default();
-        let po = crate::instruments::PricingOverrides::none().with_rate_bump(0.0);
+        let po = crate::instruments::MetricPricingOverrides::default().with_rate_bump(0.0);
 
         let err = apply_pricing_overrides(base, Some(&po)).expect_err("must fail");
         assert!(

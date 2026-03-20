@@ -203,8 +203,14 @@ pub struct MetricContext {
     /// When set, bucketed metrics (e.g., DV01 by tenor) will use this resolver
     /// to produce `MetricId`s instead of default static keys.
     pub(crate) bucket_key_resolver: Option<Arc<BucketKeyResolverFn>>,
-    /// Optional pricing overrides to control metric calculations (e.g., bumps)
-    pub(crate) pricing_overrides: Option<crate::instruments::PricingOverrides>,
+    /// Optional instrument-owned pricing inputs needed by specific metrics.
+    pub(crate) instrument_overrides: Option<crate::instruments::InstrumentPricingOverrides>,
+
+    /// Optional metric-only overrides to control risk calculations (e.g., bumps, theta horizon).
+    pub(crate) metric_overrides: Option<crate::instruments::MetricPricingOverrides>,
+
+    /// Optional scenario-only adjustments applied at the valuation boundary.
+    pub(crate) scenario_overrides: Option<crate::instruments::ScenarioPricingOverrides>,
 
     /// Finstack configuration (tolerances + versioned extensions).
     ///
@@ -254,7 +260,9 @@ impl MetricContext {
             day_count: None,
             notional: None,
             bucket_key_resolver: None,
-            pricing_overrides: None,
+            instrument_overrides: None,
+            metric_overrides: None,
+            scenario_overrides: None,
             finstack_config,
         }
     }
@@ -276,12 +284,41 @@ impl MetricContext {
         self.bucket_key_resolver = Some(resolver);
     }
 
-    /// Set pricing overrides used by downstream metric calculators.
-    pub fn set_pricing_overrides(
+    /// Set instrument-owned pricing inputs used by downstream calculators.
+    pub fn set_instrument_overrides(
         &mut self,
-        overrides: Option<crate::instruments::PricingOverrides>,
+        overrides: Option<crate::instruments::InstrumentPricingOverrides>,
     ) {
-        self.pricing_overrides = overrides;
+        self.instrument_overrides = overrides;
+    }
+
+    /// Set metric-only overrides used by downstream calculators.
+    pub fn set_metric_overrides(
+        &mut self,
+        overrides: Option<crate::instruments::MetricPricingOverrides>,
+    ) {
+        self.metric_overrides = overrides;
+    }
+
+    /// Set scenario-only adjustments used by valuation helpers.
+    pub fn set_scenario_overrides(
+        &mut self,
+        overrides: Option<crate::instruments::ScenarioPricingOverrides>,
+    ) {
+        self.scenario_overrides = overrides;
+    }
+
+    /// Value the instrument and apply any active scenario price shock.
+    pub fn instrument_value_with_scenario(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        let value = self.instrument.value(market, as_of)?;
+        Ok(self
+            .scenario_overrides
+            .as_ref()
+            .map_or(value, |overrides| overrides.apply_to_value(value)))
     }
 
     /// Downcast the instrument to a specific concrete type.

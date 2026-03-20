@@ -3,7 +3,6 @@
 //! Computes theta via a bump-and-reprice approach: reprice the instrument
 //! at `as_of + period` (default 1D) holding market curves and vol surface fixed.
 
-use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::cap_floor::InterestRateOption;
 use crate::metrics::calculate_theta_date;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -18,9 +17,9 @@ impl MetricCalculator for ThetaCalculator {
 
         // Get theta period from pricing overrides, default to "1D"
         let period_str = context
-            .pricing_overrides
+            .metric_overrides
             .as_ref()
-            .and_then(|po| po.scenario.theta_period.as_deref())
+            .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
         // Calculate rolled date (capping at instrument expiry)
@@ -65,7 +64,7 @@ impl MetricCalculator for ThetaCalculator {
         let base_pv = context.base_value.amount();
 
         // Reprice at rolled date with same market context
-        let bumped = option.value(&context.curves, rolled_date)?;
+        let bumped = context.instrument_value_with_scenario(&context.curves, rolled_date)?;
 
         Ok(bumped.amount() - base_pv)
     }

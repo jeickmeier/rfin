@@ -104,8 +104,8 @@ pub fn apply_instrument_type_price_shock(
         if instrument_types.contains(&inst_type) {
             // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_price_shock_pct = Some(accumulate_optional_shock(
-                    overrides.scenario.scenario_price_shock_pct,
+                overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
+                    overrides.scenario_price_shock_pct,
                     shock_decimal,
                 ));
             } else {
@@ -152,8 +152,8 @@ pub fn apply_instrument_type_spread_shock(
         if instrument_types.contains(&inst_type) {
             // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_spread_shock_bp = Some(accumulate_optional_shock(
-                    overrides.scenario.scenario_spread_shock_bp,
+                overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
+                    overrides.scenario_spread_shock_bp,
                     bp,
                 ));
             } else {
@@ -202,8 +202,8 @@ pub fn apply_instrument_attr_price_shock(
     for instrument in instruments.iter_mut() {
         if matches_attr_filter(instrument.attributes(), &filters) {
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_price_shock_pct = Some(accumulate_optional_shock(
-                    overrides.scenario.scenario_price_shock_pct,
+                overrides.scenario_price_shock_pct = Some(accumulate_optional_shock(
+                    overrides.scenario_price_shock_pct,
                     shock_decimal,
                 ));
             } else {
@@ -256,8 +256,8 @@ pub fn apply_instrument_attr_spread_shock(
     for instrument in instruments.iter_mut() {
         if matches_attr_filter(instrument.attributes(), &filters) {
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_spread_shock_bp = Some(accumulate_optional_shock(
-                    overrides.scenario.scenario_spread_shock_bp,
+                overrides.scenario_spread_shock_bp = Some(accumulate_optional_shock(
+                    overrides.scenario_spread_shock_bp,
                     bp,
                 ));
             } else {
