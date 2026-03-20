@@ -147,7 +147,6 @@ class RollForwardReport:
         ...
 
     @property
-    @property
     def total_carry(self) -> dict[str, float]:
         """Total P&L from carry by currency.
 

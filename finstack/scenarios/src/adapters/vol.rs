@@ -442,15 +442,15 @@ mod tests {
 
         let effects = VolAdapter
             .try_generate_effects(
-            &OperationSpec::VolSurfaceBucketPct {
-                surface_id: "VOL".into(),
-                surface_kind: crate::spec::VolSurfaceKind::Equity,
-                tenors: Some(vec!["6M".into()]),
-                strikes: None,
-                pct: -30.0,
-            },
-            &ctx,
-        )?
+                &OperationSpec::VolSurfaceBucketPct {
+                    surface_id: "VOL".into(),
+                    surface_kind: crate::spec::VolSurfaceKind::Equity,
+                    tenors: Some(vec!["6M".into()]),
+                    strikes: None,
+                    pct: -30.0,
+                },
+                &ctx,
+            )?
             .ok_or_else(|| crate::error::Error::Internal("vol op should be handled".to_string()))?;
 
         assert!(effects.iter().any(|effect| matches!(

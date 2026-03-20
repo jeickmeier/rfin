@@ -109,7 +109,6 @@ impl JsRollForwardReport {
         }
         result
     }
-
 }
 
 impl From<RollForwardReport> for JsRollForwardReport {
