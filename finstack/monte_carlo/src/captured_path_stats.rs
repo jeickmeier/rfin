@@ -1,6 +1,23 @@
 use crate::estimate::Estimate;
 use crate::paths::SimulatedPath;
 
+fn interpolated_percentile(sorted_values: &[f64], percentile: f64) -> f64 {
+    let len = sorted_values.len();
+    if len == 1 {
+        return sorted_values[0];
+    }
+
+    let rank = percentile.clamp(0.0, 1.0) * (len - 1) as f64;
+    let lower = rank.floor() as usize;
+    let upper = rank.ceil() as usize;
+    if lower == upper {
+        sorted_values[lower]
+    } else {
+        let weight = rank - lower as f64;
+        sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight
+    }
+}
+
 pub(crate) fn apply_captured_path_statistics(
     estimate: Estimate,
     paths: &[SimulatedPath],
@@ -18,8 +35,8 @@ pub(crate) fn apply_captured_path_statistics(
     } else {
         values[len / 2]
     };
-    let percentile_25 = values[((len as f64 * 0.25).floor() as usize).min(len - 1)];
-    let percentile_75 = values[((len as f64 * 0.75).floor() as usize).min(len - 1)];
+    let percentile_25 = interpolated_percentile(&values, 0.25);
+    let percentile_75 = interpolated_percentile(&values, 0.75);
     let min = values[0];
     let max = values[len - 1];
 
@@ -60,5 +77,22 @@ mod tests {
         assert_eq!(estimate.percentile_75, Some(0.5));
         assert_eq!(estimate.min, Some(0.125));
         assert_eq!(estimate.max, Some(0.625));
+    }
+
+    #[test]
+    fn test_apply_captured_path_statistics_interpolates_even_sample_percentiles() {
+        let estimate = Estimate::new(0.0, 0.0, (0.0, 0.0), 4);
+        let paths = vec![
+            captured_path(0, 4.0),
+            captured_path(1, 1.0),
+            captured_path(2, 3.0),
+            captured_path(3, 2.0),
+        ];
+
+        let estimate = apply_captured_path_statistics(estimate, &paths);
+
+        assert_eq!(estimate.median, Some(2.5));
+        assert_eq!(estimate.percentile_25, Some(1.75));
+        assert_eq!(estimate.percentile_75, Some(3.25));
     }
 }

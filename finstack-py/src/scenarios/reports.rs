@@ -95,13 +95,8 @@ impl PyApplicationReport {
 /// instrument_carry : list[tuple[str, list[tuple[str, float]]]]
 ///     Per-instrument carry accrual by currency as
 ///     ``[(instrument_id, [(currency_code, amount), ...]), ...]``.
-/// instrument_mv_change : list[tuple[str, list[tuple[str, float]]]]
-///     Per-instrument market value change by currency in the same shape
-///     as ``instrument_carry``.
 /// total_carry : dict[str, float]
 ///     Total P&L from carry by currency (ISO 4217 code -> amount).
-/// total_mv_change : dict[str, float]
-///     Total P&L from market value changes by currency.
 #[pyclass(
     module = "finstack.scenarios",
     name = "RollForwardReport",
@@ -126,17 +121,13 @@ impl PyRollForwardReport {
         let mut total_carry: IndexMap<Currency, Money> = IndexMap::new();
         total_carry.insert(Currency::USD, Money::new(25_000.0, Currency::USD));
 
-        let mut total_mv_change: IndexMap<Currency, Money> = IndexMap::new();
-        total_mv_change.insert(Currency::USD, Money::new(-10_000.0, Currency::USD));
-
         Ok(Self::new(RollForwardReport {
             old_date: date!(2025 - 01 - 01),
             new_date: date!(2025 - 02 - 01),
             days: 31,
             instrument_carry: Vec::new(),
-            instrument_mv_change: Vec::new(),
             total_carry,
-            total_mv_change,
+            failed_instruments: Vec::new(),
         }))
     }
 
@@ -194,26 +185,6 @@ impl PyRollForwardReport {
     }
 
     #[getter]
-    /// Per-instrument market value change.
-    ///
-    /// Returns
-    /// -------
-    /// list[tuple[str, list[tuple[str, float]]]]
-    ///     List of (instrument_id, [(currency_code, amount)]) pairs.
-    fn instrument_mv_change(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let outer = PyList::empty(py);
-        for (id, per_ccy) in &self.inner.instrument_mv_change {
-            let inner = PyList::empty(py);
-            for (ccy, money) in per_ccy {
-                let code = format!("{}", ccy);
-                inner.append((code, money.amount()))?;
-            }
-            outer.append((id.clone(), inner))?;
-        }
-        Ok(outer.into())
-    }
-
-    #[getter]
     /// Total P&L from carry.
     ///
     /// Returns
@@ -230,19 +201,18 @@ impl PyRollForwardReport {
     }
 
     #[getter]
-    /// Total P&L from market value changes.
+    /// Instruments whose carry calculation failed without aborting the roll.
     ///
     /// Returns
     /// -------
-    /// dict[str, float]
-    ///     Total market value change by currency code.
-    fn total_mv_change(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let dict = pyo3::types::PyDict::new(py);
-        for (ccy, money) in &self.inner.total_mv_change {
-            let code = format!("{}", ccy);
-            dict.set_item(code, money.amount())?;
+    /// list[tuple[str, str]]
+    ///     List of ``(instrument_id, error_message)`` pairs.
+    fn failed_instruments(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let failures = PyList::empty(py);
+        for (instrument_id, message) in &self.inner.failed_instruments {
+            failures.append((instrument_id.clone(), message.clone()))?;
         }
-        Ok(dict.into())
+        Ok(failures.into())
     }
 
     fn __repr__(&self) -> String {

@@ -133,6 +133,18 @@ impl CorrelatedRecovery {
     pub fn correlation(&self) -> f64 {
         self.factor_correlation
     }
+
+    fn logistic_bounded_recovery(&self, shock: f64) -> f64 {
+        let width = (self.max_recovery - self.min_recovery).max(f64::EPSILON);
+        let mean = self
+            .mean_recovery
+            .clamp(self.min_recovery + 1e-9, self.max_recovery - 1e-9);
+        let p = ((mean - self.min_recovery) / width).clamp(1e-9, 1.0 - 1e-9);
+        let center = (p / (1.0 - p)).ln();
+        let local_slope = (width * p * (1.0 - p)).max(1e-9);
+        let squashed = 1.0 / (1.0 + (-(center + shock / local_slope)).exp());
+        self.min_recovery + width * squashed
+    }
 }
 
 impl RecoveryModel for CorrelatedRecovery {
@@ -141,12 +153,8 @@ impl RecoveryModel for CorrelatedRecovery {
     }
 
     fn conditional_recovery(&self, market_factor: f64) -> f64 {
-        // R(Z) = μ + ρ · σ · Z
-        let recovery =
-            self.mean_recovery + self.factor_correlation * self.recovery_volatility * market_factor;
-
-        // Clamp to valid range
-        recovery.clamp(self.min_recovery, self.max_recovery)
+        let shock = self.factor_correlation * self.recovery_volatility * market_factor;
+        self.logistic_bounded_recovery(shock)
     }
 
     fn recovery_volatility(&self) -> f64 {
@@ -175,19 +183,11 @@ mod tests {
     fn test_conditional_recovery_in_stress() {
         let model = CorrelatedRecovery::market_standard();
 
-        // Mathematical note on sign convention:
-        // R(Z) = μ_R + ρ_R * σ_R * Z
-        // With ρ_R = -0.40 (negative correlation) and Z = -2 (stress):
-        // R = 0.40 + (-0.40) * 0.25 * (-2) = 0.40 + 0.20 = 0.60
-
         let stress_recovery = model.conditional_recovery(-2.0);
-        let expected = 0.40 + (-0.40) * 0.25 * (-2.0); // = 0.60
 
         assert!(
-            (stress_recovery - expected).abs() < 1e-10,
-            "Recovery {} should equal expected {}",
-            stress_recovery,
-            expected
+            stress_recovery > model.expected_recovery(),
+            "Stress with negative recovery correlation should raise recovery in this sign convention"
         );
     }
 
@@ -235,6 +235,14 @@ mod tests {
             (0.0..=1.0).contains(&extreme_pos),
             "Recovery {} should be in [0, 1]",
             extreme_pos
+        );
+        assert!(
+            extreme_neg < 1.0,
+            "smooth bounding should avoid hard ceiling clamp"
+        );
+        assert!(
+            extreme_pos > 0.0,
+            "smooth bounding should avoid hard floor clamp"
         );
     }
 

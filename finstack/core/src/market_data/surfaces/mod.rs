@@ -48,18 +48,30 @@ pub(crate) fn fx_atm_dns_strike(forward: f64, vol: f64, expiry: f64) -> f64 {
 }
 
 #[inline]
+pub(crate) fn fx_put_call_delta_strikes(
+    forward: f64,
+    sigma_put: f64,
+    sigma_call: f64,
+    expiry: f64,
+    delta_abs: f64,
+) -> (f64, f64) {
+    let sqrt_t = expiry.sqrt();
+    let z_delta = crate::math::special_functions::standard_normal_inv_cdf(delta_abs);
+    let k_put =
+        forward * (z_delta * sigma_put * sqrt_t + 0.5 * sigma_put * sigma_put * expiry).exp();
+    let k_call =
+        forward * (-z_delta * sigma_call * sqrt_t + 0.5 * sigma_call * sigma_call * expiry).exp();
+    (k_put, k_call)
+}
+
+#[inline]
 pub(crate) fn fx_put_call_25d_strikes(
     forward: f64,
     sigma_put: f64,
     sigma_call: f64,
     expiry: f64,
 ) -> (f64, f64) {
-    let sqrt_t = expiry.sqrt();
-    let z_25d = crate::math::special_functions::standard_normal_inv_cdf(0.25);
-    let k_put = forward * (z_25d * sigma_put * sqrt_t + 0.5 * sigma_put * sigma_put * expiry).exp();
-    let k_call =
-        forward * (-z_25d * sigma_call * sqrt_t + 0.5 * sigma_call * sigma_call * expiry).exp();
-    (k_put, k_call)
+    fx_put_call_delta_strikes(forward, sigma_put, sigma_call, expiry, 0.25)
 }
 
 /// Piecewise-linear interpolation on sorted knots with flat extrapolation.
@@ -88,4 +100,4 @@ pub(crate) fn interp_linear_clamp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
 // Re-export for ergonomic access (curated list)
 pub use delta_vol_surface::FxDeltaVolSurfaceBuilder;
 pub use fx_delta_vol_surface::FxDeltaVolSurface;
-pub use vol_surface::{VolSurface, VolSurfaceAxis, VolSurfaceBuilder};
+pub use vol_surface::{VolInterpolationMode, VolSurface, VolSurfaceAxis, VolSurfaceBuilder};

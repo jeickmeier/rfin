@@ -292,8 +292,14 @@ fn test_shock_nonexistent_statement_node() {
         as_of: base_date,
     };
 
-    let result = engine.apply(&scenario, &mut ctx);
-    assert!(result.is_err(), "Should error on missing node");
+    let report = engine
+        .apply(&scenario, &mut ctx)
+        .expect("apply completes; missing statement nodes surface as warnings");
+    assert!(
+        report.warnings.iter().any(|w| w.contains("NONEXISTENT")),
+        "expected warning for missing statement node, got {:?}",
+        report.warnings
+    );
 }
 
 #[test]
@@ -371,6 +377,7 @@ fn test_curve_parallel_shock_zero_bp() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 0.0,
         }],
         priority: 0,
@@ -455,6 +462,7 @@ fn test_curve_shock_nonexistent_curve() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "NONEXISTENT_CURVE".into(),
+            discount_curve_id: None,
             bp: 50.0,
         }],
         priority: 0,

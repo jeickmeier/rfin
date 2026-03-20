@@ -270,12 +270,6 @@ pub fn xirr_with_daycount_ctx(
             "Cashflows must contain at least one positive and one negative value".to_string(),
         ));
     }
-    if has_multiple_sign_changes(sorted_flows.iter().map(|(_, amt)| *amt)) {
-        return Err(crate::Error::Validation(
-            "Cashflows with multiple sign changes can have multiple IRR solutions; the result is ambiguous"
-                .to_string(),
-        ));
-    }
 
     let first_date = sorted_flows[0].0;
 
@@ -319,10 +313,10 @@ where
         return Err(InputError::Invalid.into());
     }
     if has_multiple_sign_changes(data.iter().map(|&(_, amt)| amt)) {
-        return Err(crate::Error::Validation(
-            "Cashflows with multiple sign changes can have multiple IRR solutions; the result is ambiguous"
-                .to_string(),
-        ));
+        #[cfg(feature = "tracing")]
+        tracing::warn!(
+            "Cashflows contain multiple sign changes; IRR may be non-unique, returning the first converged solution"
+        );
     }
 
     // Define NPV function: Σ C_t / (1+r)^t using Neumaier compensated summation
@@ -726,5 +720,30 @@ mod tests {
         assert!(result_365 > 0.0);
         assert!(result_360 > 0.0);
         assert!((result_360 - result_365).abs() < 0.015);
+    }
+
+    #[test]
+    fn test_xirr_allows_multiple_sign_changes_when_solver_can_converge() {
+        let flows = [
+            (
+                create_date(2024, Month::January, 1).expect("Valid test date"),
+                -100.0,
+            ),
+            (
+                create_date(2025, Month::January, 1).expect("Valid test date"),
+                230.0,
+            ),
+            (
+                create_date(2026, Month::January, 1).expect("Valid test date"),
+                -132.0,
+            ),
+        ];
+
+        let xirr = flows
+            .as_slice()
+            .irr(Some(0.10))
+            .expect("multiple sign changes should warn but still attempt a solve");
+
+        assert!(xirr.is_finite(), "expected a finite IRR, got {xirr}");
     }
 }

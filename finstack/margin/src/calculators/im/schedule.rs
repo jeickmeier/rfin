@@ -126,18 +126,30 @@ pub enum MaturityBucket {
     Long,
 }
 
+/// Default schedule IM registry id for the BCBS-IOSCO grid (`schedule_im.v1.json`).
+pub const BCBS_IOSCO_SCHEDULE_ID: &str = "bcbs_iosco";
+
 impl RegulatorySchedule {
     /// BCBS-IOSCO standard schedule loaded from the embedded registry.
     ///
     /// # Errors
     ///
     /// Returns an error if the embedded registry cannot be loaded or if the
-    /// "bcbs_iosco" schedule entry is missing.
+    /// [`BCBS_IOSCO_SCHEDULE_ID`] schedule entry is missing.
     pub fn bcbs_iosco() -> Result<Self> {
+        Self::from_registry_id(BCBS_IOSCO_SCHEDULE_ID)
+    }
+
+    /// Load a named schedule IM grid from the embedded registry (no hard-coded rates).
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be loaded or `schedule_id` is absent.
+    pub fn from_registry_id(schedule_id: &str) -> Result<Self> {
         let registry = embedded_registry()?;
-        let schedule = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
+        let schedule = registry.schedule_im.get(schedule_id).ok_or_else(|| {
             finstack_core::InputError::NotFound {
-                id: "bcbs_iosco schedule".to_string(),
+                id: format!("schedule_im '{schedule_id}'"),
             }
         })?;
         Ok(Self::from_registry(schedule.clone()))
@@ -219,12 +231,21 @@ impl ScheduleImCalculator {
     /// # Errors
     ///
     /// Returns an error if the embedded registry cannot be loaded or if the
-    /// "bcbs_iosco" schedule entry is missing.
+    /// [`BCBS_IOSCO_SCHEDULE_ID`] schedule entry is missing.
     pub fn bcbs_standard() -> Result<Self> {
+        Self::from_registry_id(BCBS_IOSCO_SCHEDULE_ID)
+    }
+
+    /// Create calculator from a schedule grid id in the embedded (or merged) registry.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the registry cannot be loaded or `schedule_id` is not found.
+    pub fn from_registry_id(schedule_id: &str) -> Result<Self> {
         let registry = embedded_registry()?;
-        let entry = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
+        let entry = registry.schedule_im.get(schedule_id).ok_or_else(|| {
             finstack_core::InputError::NotFound {
-                id: "bcbs_iosco schedule".to_string(),
+                id: format!("schedule_im '{schedule_id}'"),
             }
         })?;
         Ok(Self::from_registry(entry))
@@ -249,11 +270,12 @@ impl ScheduleImCalculator {
     /// "bcbs_iosco" schedule entry is missing.
     pub fn from_finstack_config(cfg: &finstack_core::config::FinstackConfig) -> Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
-        let entry = registry.schedule_im.get("bcbs_iosco").ok_or_else(|| {
-            finstack_core::InputError::NotFound {
-                id: "bcbs_iosco schedule".to_string(),
-            }
-        })?;
+        let entry = registry
+            .schedule_im
+            .get(BCBS_IOSCO_SCHEDULE_ID)
+            .ok_or_else(|| finstack_core::InputError::NotFound {
+                id: format!("schedule_im '{}'", BCBS_IOSCO_SCHEDULE_ID),
+            })?;
         Ok(Self::from_registry(entry))
     }
 
@@ -385,5 +407,14 @@ mod tests {
             ScheduleImCalculator::bcbs_standard().is_ok(),
             "ScheduleImCalculator::bcbs_standard() should return Ok"
         );
+    }
+
+    #[test]
+    fn from_registry_id_matches_bcbs_iosco() {
+        let via_named = RegulatorySchedule::from_registry_id(BCBS_IOSCO_SCHEDULE_ID)
+            .expect("named schedule should load");
+        let via_legacy = RegulatorySchedule::bcbs_iosco().expect("bcbs_iosco should load");
+        assert_eq!(via_named.default_rate, via_legacy.default_rate);
+        assert_eq!(via_named.rates.len(), via_legacy.rates.len());
     }
 }

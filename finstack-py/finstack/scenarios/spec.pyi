@@ -171,13 +171,21 @@ class OperationSpec:
         ...
 
     @classmethod
-    def curve_parallel_bp(cls, curve_kind: CurveKind, curve_id: str, bp: float) -> OperationSpec:
+    def curve_parallel_bp(
+        cls,
+        curve_kind: CurveKind,
+        curve_id: str,
+        bp: float,
+        discount_curve_id: str | None = None,
+    ) -> OperationSpec:
         """Parallel shift to a curve (additive in basis points).
 
         Args:
             curve_kind: Type of curve to shock
             curve_id: Curve identifier
             bp: Basis points to add
+            discount_curve_id: Optional explicit discount curve identifier for
+                recalibration-based bumps
 
         Returns:
             OperationSpec: Operation specification
@@ -191,6 +199,7 @@ class OperationSpec:
         curve_id: str,
         nodes: List[Tuple[str, float]],
         match_mode: TenorMatchMode | None = None,
+        discount_curve_id: str | None = None,
     ) -> OperationSpec:
         """Node-specific basis point shifts for curve shaping.
 
@@ -199,6 +208,8 @@ class OperationSpec:
             curve_id: Curve identifier
             nodes: List of (tenor, bp) pairs (e.g., [("2Y", 25.0), ("10Y", -10.0)])
             match_mode: Tenor matching strategy (default: Interpolate)
+            discount_curve_id: Optional explicit discount curve identifier for
+                recalibration-based bumps
 
         Returns:
             OperationSpec: Operation specification

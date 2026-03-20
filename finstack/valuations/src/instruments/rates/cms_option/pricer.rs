@@ -22,7 +22,9 @@
 //!
 //! This pricer uses the simplified Hagan (2003) first-order convexity adjustment. It is
 //! accurate for short-to-medium tenors (< 10Y) and moderate volatility. For long-dated
-//! CMS (> 10Y) or high-volatility environments, consider replication-based pricing.
+//! CMS (> 10Y) or high-volatility environments, a replication-based pricer is the
+//! market-standard approach; this implementation does not provide that fallback and
+//! should be treated as an approximation in those regimes.
 //!
 //! # Reference
 //!

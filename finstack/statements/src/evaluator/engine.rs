@@ -477,6 +477,7 @@ impl Evaluator {
             path_eval.forecast_cache.clear();
 
             let seed_offset = config.seed.wrapping_add(path_idx as u64);
+            let mut mc_z_cache: IndexMap<NodeId, IndexMap<PeriodId, f64>> = IndexMap::new();
             let mut historical: std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>> =
                 std::sync::Arc::new(IndexMap::new());
             let mut all_warnings = Vec::new();
@@ -490,6 +491,7 @@ impl Evaluator {
                     &node_to_column,
                     &historical,
                     seed_offset,
+                    &mut mc_z_cache,
                 )?;
                 all_warnings.extend(warnings);
                 std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results.clone());
@@ -576,6 +578,8 @@ impl Evaluator {
         context: &mut EvaluationContext,
         seed_offset: Option<u64>,
         node_filter: Option<&HashSet<NodeId>>,
+        track_mc_z: bool,
+        mc_z_cache: &mut IndexMap<NodeId, IndexMap<PeriodId, f64>>,
     ) -> Result<()> {
         for node_id in eval_order {
             if let Some(filter) = node_filter {
@@ -599,8 +603,14 @@ impl Evaluator {
                 }
             }
 
-            let value = (|| -> Result<f64> {
+            let value = {
                 let source = resolve_node_value(node_spec, period_id, is_actual)?;
+                let mut mc_z_wrapper: Option<&mut IndexMap<NodeId, IndexMap<PeriodId, f64>>> =
+                    if track_mc_z {
+                        Some(&mut *mc_z_cache)
+                    } else {
+                        None
+                    };
                 match source {
                     NodeValueSource::Value(v) => Ok(v),
                     NodeValueSource::Forecast => forecast_eval::evaluate_forecast(
@@ -610,6 +620,7 @@ impl Evaluator {
                         context,
                         &mut self.forecast_cache,
                         seed_offset,
+                        &mut mc_z_wrapper,
                     ),
                     NodeValueSource::Formula(_) => {
                         let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
@@ -618,7 +629,7 @@ impl Evaluator {
                         evaluate_formula(expr, context, Some(node_id.as_str()))
                     }
                 }
-            })()
+            }
             .map_err(|e| {
                 tracing::error!(
                     node_id = node_id.as_str(),
@@ -661,6 +672,7 @@ impl Evaluator {
             context.capital_structure_cashflows = Some(cs.clone());
         }
 
+        let mut z_dummy = IndexMap::new();
         self.evaluate_nodes_in_order(
             model,
             period_id,
@@ -669,6 +681,8 @@ impl Evaluator {
             &mut context,
             None,
             None,
+            false,
+            &mut z_dummy,
         )?;
 
         Ok(context.into_results())
@@ -688,6 +702,7 @@ impl Evaluator {
         node_to_column: &std::sync::Arc<IndexMap<NodeId, usize>>,
         historical: &std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>>,
         seed_offset: u64,
+        mc_z_cache: &mut IndexMap<NodeId, IndexMap<PeriodId, f64>>,
     ) -> Result<(IndexMap<String, f64>, Vec<EvalWarning>)> {
         let mut context = EvaluationContext::new(
             *period_id,
@@ -703,6 +718,8 @@ impl Evaluator {
             &mut context,
             Some(seed_offset),
             None,
+            true,
+            mc_z_cache,
         )?;
 
         Ok(context.into_results())

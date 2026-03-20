@@ -364,27 +364,8 @@ pub fn outlier_loss_ratio_with_scratch(
 ///
 /// - Joanes & Gill (1998): see docs/REFERENCES.md#joanesGill1998
 pub fn skewness(returns: &[f64]) -> f64 {
-    let n = returns.len();
-    if n < 3 {
-        return 0.0;
-    }
-    let nf = n as f64;
-    let m = mean(returns);
-    let mut m2 = 0.0_f64;
-    let mut m3 = 0.0_f64;
-    for &r in returns {
-        let d = r - m;
-        let d2 = d * d;
-        m2 += d2;
-        m3 += d2 * d;
-    }
-    let sample_var = m2 / (nf - 1.0);
-    if sample_var == 0.0 {
-        return 0.0;
-    }
-    let s = sample_var.sqrt();
-    let adj = nf / ((nf - 1.0) * (nf - 2.0));
-    adj * (m3 / (s * s * s))
+    let (_, _, skew, _) = moments4(returns);
+    skew
 }
 
 /// Fisher-corrected sample excess kurtosis (G₂) of a return distribution.
@@ -426,30 +407,8 @@ pub fn skewness(returns: &[f64]) -> f64 {
 ///
 /// - Joanes & Gill (1998): see docs/REFERENCES.md#joanesGill1998
 pub fn kurtosis(returns: &[f64]) -> f64 {
-    let n = returns.len();
-    if n < 4 {
-        return 0.0;
-    }
-    let nf = n as f64;
-    let m = mean(returns);
-    let mut m2 = 0.0_f64;
-    let mut m4 = 0.0_f64;
-    for &r in returns {
-        let d = r - m;
-        let d2 = d * d;
-        m2 += d2;
-        m4 += d2 * d2;
-    }
-    let sample_var = m2 / (nf - 1.0);
-    if sample_var == 0.0 {
-        return 0.0;
-    }
-    let s2 = sample_var;
-    let s4 = s2 * s2;
-    let sum_z4 = m4 / s4;
-    let a = (nf * (nf + 1.0)) / ((nf - 1.0) * (nf - 2.0) * (nf - 3.0));
-    let b = (3.0 * (nf - 1.0) * (nf - 1.0)) / ((nf - 2.0) * (nf - 3.0));
-    a * sum_z4 - b
+    let (_, _, _, kurt) = moments4(returns);
+    kurt
 }
 
 /// Parametric (Gaussian) Value-at-Risk.

@@ -89,6 +89,11 @@ impl PartialEq<str> for BookId {
 /// - Parent-child relationships tracked via `parent_id` field
 /// - Positions reference books via optional `book_id` field
 /// - Backward compatible: positions without `book_id` are not in any book
+/// - Book hierarchies are expected to be acyclic trees or forests; aggregation
+///   helpers reject cycles and excessively deep nesting instead of recursing
+///   indefinitely
+/// - [`Book::child_book_ids`] drives rollup in [`crate::grouping::aggregate_by_book`];
+///   [`Book::parent_id`] is informational and is not validated against the child lists
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Book {
     /// Unique identifier for this book

@@ -266,8 +266,9 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
         fwd_swap_rates.push(fwd_rate);
     }
 
-    let kappa_init: f64 = initial_guess.map(|p| p.kappa).unwrap_or(0.05);
-    let sigma_init: f64 = initial_guess.map(|p| p.sigma).unwrap_or(0.01);
+    let (default_kappa_init, default_sigma_init) = infer_hw_initial_guess(quotes, &fwd_swap_rates);
+    let kappa_init: f64 = initial_guess.map(|p| p.kappa).unwrap_or(default_kappa_init);
+    let sigma_init: f64 = initial_guess.map(|p| p.sigma).unwrap_or(default_sigma_init);
     let x0 = [kappa_init.ln(), sigma_init.ln()];
 
     let residuals = |x: &[f64], resid: &mut [f64]| {
@@ -408,10 +409,34 @@ fn compute_swap_annuity_and_rate(
     let fwd_rate = if annuity > 1e-15 {
         (df(t0) - df(t_n)) / annuity
     } else {
-        0.03 // fallback
+        let p0 = df(t0).max(1e-12);
+        let p_n = df(t_n).max(1e-12);
+        ((p0 / p_n).ln() / tenor.max(1e-8)).max(0.0)
     };
 
     (annuity, fwd_rate)
+}
+
+fn infer_hw_initial_guess(quotes: &[SwaptionQuote], fwd_swap_rates: &[f64]) -> (f64, f64) {
+    let horizon = if quotes.is_empty() {
+        5.0
+    } else {
+        quotes.iter().map(|q| q.expiry + 0.5 * q.tenor).sum::<f64>() / quotes.len() as f64
+    };
+    let avg_vol = if quotes.is_empty() {
+        0.01
+    } else {
+        quotes.iter().map(|q| q.volatility.abs()).sum::<f64>() / quotes.len() as f64
+    };
+    let avg_fwd = if fwd_swap_rates.is_empty() {
+        0.02
+    } else {
+        fwd_swap_rates.iter().map(|r| r.abs()).sum::<f64>() / fwd_swap_rates.len() as f64
+    };
+
+    let kappa_init = (1.0 / horizon.max(0.5)).clamp(0.01, 0.30);
+    let sigma_init = (avg_vol * avg_fwd.max(0.005)).clamp(0.001, 0.05);
+    (kappa_init, sigma_init)
 }
 
 /// Compute the market swaption price from the quoted volatility.

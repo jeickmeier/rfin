@@ -653,7 +653,9 @@ pub fn build_correlation_matrix(
 /// assert!(validate_correlation_matrix(&invalid, 2).is_err());
 /// ```
 pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
-    assert_eq!(matrix.len(), n * n, "Matrix must be n x n");
+    if matrix.len() != n * n {
+        return Err(crate::error::InputError::DimensionMismatch.into());
+    }
 
     // Check diagonal
     for i in 0..n {
@@ -773,6 +775,15 @@ mod tests {
         // Invalid: not positive definite (correlation > 1 is invalid anyway)
         let invalid_pd = vec![1.0, 1.1, 1.1, 1.0];
         assert!(validate_correlation_matrix(&invalid_pd, 2).is_err());
+    }
+
+    #[test]
+    fn test_validate_correlation_matrix_dimension_mismatch_returns_error() {
+        let wrong_shape = vec![1.0, 0.5, 0.5];
+        assert!(
+            validate_correlation_matrix(&wrong_shape, 2).is_err(),
+            "dimension mismatch should return Err instead of panicking"
+        );
     }
 
     // ── H6 documentation tests: symmetry tolerance semantics ──

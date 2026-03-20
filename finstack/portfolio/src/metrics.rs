@@ -49,8 +49,34 @@ pub struct PortfolioMetrics {
     /// Aggregated metrics (summable only)
     pub aggregated: IndexMap<String, AggregatedMetric>,
 
-    /// Raw metrics by position (all metrics)
-    pub by_position: IndexMap<PositionId, IndexMap<String, f64>>,
+    /// Raw metrics by position (all metrics), with explicit native currency context.
+    pub by_position: IndexMap<PositionId, PositionMetrics>,
+}
+
+/// Position-level metrics with explicit native currency context.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PositionMetrics {
+    /// Native currency for this position's valuation and non-summable metrics.
+    pub currency: Currency,
+    /// Raw metric values for the position.
+    pub metrics: IndexMap<String, f64>,
+}
+
+impl std::ops::Deref for PositionMetrics {
+    type Target = IndexMap<String, f64>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.metrics
+    }
+}
+
+impl<'a> IntoIterator for &'a PositionMetrics {
+    type Item = (&'a String, &'a f64);
+    type IntoIter = indexmap::map::Iter<'a, String, f64>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.metrics.iter()
+    }
 }
 
 impl PortfolioMetrics {
@@ -68,7 +94,7 @@ impl PortfolioMetrics {
     /// # Arguments
     ///
     /// * `position_id` - Identifier of the position to query.
-    pub fn get_position_metrics(&self, position_id: &str) -> Option<&IndexMap<String, f64>> {
+    pub fn get_position_metrics(&self, position_id: &str) -> Option<&PositionMetrics> {
         self.by_position.get(position_id)
     }
 
@@ -272,6 +298,7 @@ fn aggregate_metrics_serial(
             collected.push(PositionMetricData {
                 position_id: position_id.clone(),
                 entity_id: position_value.entity_id.clone(),
+                currency: position_value.value_native.currency(),
                 metrics,
                 fx_rate,
             });
@@ -311,6 +338,7 @@ fn aggregate_metrics_parallel(
                 Ok(PositionMetricData {
                     position_id: (*position_id).clone(),
                     entity_id: position_value.entity_id.clone(),
+                    currency: position_value.value_native.currency(),
                     metrics,
                     fx_rate,
                 })
@@ -325,6 +353,7 @@ fn aggregate_metrics_parallel(
 struct PositionMetricData {
     position_id: PositionId,
     entity_id: EntityId,
+    currency: Currency,
     metrics: IndexMap<String, f64>,
     fx_rate: f64,
 }
@@ -333,12 +362,18 @@ struct PositionMetricData {
 ///
 /// This is the shared Phase 2+3 logic used by both serial and parallel implementations.
 fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioMetrics {
-    let mut by_position: IndexMap<PositionId, IndexMap<String, f64>> = IndexMap::new();
+    let mut by_position: IndexMap<PositionId, PositionMetrics> = IndexMap::new();
     let mut metric_values: IndexMap<String, Vec<f64>> = IndexMap::new();
     let mut entity_values: IndexMap<String, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
 
     for data in &collected {
-        by_position.insert(data.position_id.clone(), data.metrics.clone());
+        by_position.insert(
+            data.position_id.clone(),
+            PositionMetrics {
+                currency: data.currency,
+                metrics: data.metrics.clone(),
+            },
+        );
 
         for (metric_id, value) in &data.metrics {
             if is_summable(metric_id) {
@@ -477,5 +512,9 @@ mod tests {
             !metrics.by_position.is_empty(),
             "Should have position metrics"
         );
+        let position_metrics = metrics
+            .get_position_metrics("POS_001")
+            .expect("position metrics should be present");
+        assert_eq!(position_metrics.currency, Currency::USD);
     }
 }

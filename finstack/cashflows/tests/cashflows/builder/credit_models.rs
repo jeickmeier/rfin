@@ -39,7 +39,7 @@ fn psa_smm_golden_values() {
 
     // Month 15: 3% CPR (halfway through ramp) → ~0.2536% SMM
     let smm_15 = model.smm(15).unwrap();
-    let cpr_15 = smm_to_cpr(smm_15);
+    let cpr_15 = smm_to_cpr(smm_15).expect("valid SMM");
     assert!(
         (cpr_15 - 0.03).abs() < RATE_TOLERANCE,
         "PSA at month 15 should be 3% CPR, got {}",
@@ -68,7 +68,7 @@ fn psa_smm_golden_values() {
     // 150% PSA should be 1.5x the base values
     let model_150 = PrepaymentModelSpec::psa(1.5);
     let smm_30_150 = model_150.smm(30).unwrap();
-    let cpr_30_150 = smm_to_cpr(smm_30_150);
+    let cpr_30_150 = smm_to_cpr(smm_30_150).expect("valid SMM");
     assert!(
         (cpr_30_150 - 0.09).abs() < RATE_TOLERANCE,
         "150% PSA at month 30 should be 9% CPR, got {}",
@@ -99,7 +99,7 @@ fn sda_mdr_golden_values() {
 
     // Month 15: 3% CDR (halfway to peak)
     let mdr_15 = model.mdr(15).unwrap();
-    let cdr_15 = smm_to_cpr(mdr_15);
+    let cdr_15 = smm_to_cpr(mdr_15).expect("valid SMM");
     assert!(
         (cdr_15 - 0.03).abs() < RATE_TOLERANCE,
         "SDA at month 15 should be 3% CDR, got {}",
@@ -108,7 +108,7 @@ fn sda_mdr_golden_values() {
 
     // Month 30: 6% CDR (peak)
     let mdr_30 = model.mdr(30).unwrap();
-    let cdr_30 = smm_to_cpr(mdr_30);
+    let cdr_30 = smm_to_cpr(mdr_30).expect("valid SMM");
     assert!(
         (cdr_30 - 0.06).abs() < RATE_TOLERANCE,
         "SDA at month 30 should be 6% CDR (peak), got {}",
@@ -117,7 +117,7 @@ fn sda_mdr_golden_values() {
 
     // Month 60: 3% CDR (terminal, 30 months after peak)
     let mdr_60 = model.mdr(60).unwrap();
-    let cdr_60 = smm_to_cpr(mdr_60);
+    let cdr_60 = smm_to_cpr(mdr_60).expect("valid SMM");
     assert!(
         (cdr_60 - 0.03).abs() < RATE_TOLERANCE,
         "SDA at month 60 should be 3% CDR (terminal), got {}",
@@ -126,7 +126,7 @@ fn sda_mdr_golden_values() {
 
     // Month 90: Still 3% CDR (flat after terminal)
     let mdr_90 = model.mdr(90).unwrap();
-    let cdr_90 = smm_to_cpr(mdr_90);
+    let cdr_90 = smm_to_cpr(mdr_90).expect("valid SMM");
     assert!(
         (cdr_90 - 0.03).abs() < RATE_TOLERANCE,
         "SDA at month 90 should still be 3% CDR, got {}",
@@ -149,7 +149,7 @@ fn cpr_smm_conversion_roundtrip_precision() {
 
     for &cpr in &test_cprs {
         let smm = cpr_to_smm(cpr).unwrap();
-        let cpr_back = smm_to_cpr(smm);
+        let cpr_back = smm_to_cpr(smm).expect("valid SMM");
 
         assert!(
             (cpr - cpr_back).abs() < FACTOR_TOLERANCE,
@@ -176,6 +176,20 @@ fn cpr_smm_conversion_roundtrip_precision() {
     );
 }
 
+#[test]
+fn smm_to_cpr_rejects_invalid_smm() {
+    use finstack_cashflows::builder::smm_to_cpr;
+
+    assert!(
+        smm_to_cpr(-0.01).is_err(),
+        "negative SMM should be rejected"
+    );
+    assert!(
+        smm_to_cpr(1.01).is_err(),
+        "SMM above 100% should be rejected"
+    );
+}
+
 // =============================================================================
 // PSA Industry Standard Benchmark Tests
 // =============================================================================
@@ -190,7 +204,7 @@ fn psa_matches_industry_standard_ramp() {
     let model = PrepaymentModelSpec::psa_100();
 
     // Month 1: 0.2% CPR (1/30 * 6%)
-    let cpr_1 = smm_to_cpr(model.smm(1).unwrap());
+    let cpr_1 = smm_to_cpr(model.smm(1).unwrap()).expect("valid SMM");
     assert!(
         (cpr_1 - 0.002).abs() < RATE_TOLERANCE,
         "PSA month 1 should be 0.2% CPR, got {}",
@@ -198,7 +212,7 @@ fn psa_matches_industry_standard_ramp() {
     );
 
     // Month 10: 2.0% CPR (10/30 * 6%)
-    let cpr_10 = smm_to_cpr(model.smm(10).unwrap());
+    let cpr_10 = smm_to_cpr(model.smm(10).unwrap()).expect("valid SMM");
     assert!(
         (cpr_10 - 0.02).abs() < RATE_TOLERANCE,
         "PSA month 10 should be 2.0% CPR, got {}",
@@ -206,7 +220,7 @@ fn psa_matches_industry_standard_ramp() {
     );
 
     // Month 20: 4.0% CPR (20/30 * 6%)
-    let cpr_20 = smm_to_cpr(model.smm(20).unwrap());
+    let cpr_20 = smm_to_cpr(model.smm(20).unwrap()).expect("valid SMM");
     assert!(
         (cpr_20 - 0.04).abs() < RATE_TOLERANCE,
         "PSA month 20 should be 4.0% CPR, got {}",
@@ -216,7 +230,7 @@ fn psa_matches_industry_standard_ramp() {
     // Verify ramp is linear for all months 1-30
     for month in 1..=30 {
         let expected_cpr = (month as f64 / 30.0) * 0.06;
-        let actual_cpr = smm_to_cpr(model.smm(month).unwrap());
+        let actual_cpr = smm_to_cpr(model.smm(month).unwrap()).expect("valid SMM");
         assert!(
             (actual_cpr - expected_cpr).abs() < RATE_TOLERANCE,
             "PSA month {} should be {:.4}% CPR, got {:.4}%",
@@ -238,9 +252,9 @@ fn psa_multiplier_scales_correctly() {
     let psa_100 = PrepaymentModelSpec::psa_100();
     let psa_200 = PrepaymentModelSpec::psa(2.0);
 
-    let cpr_50 = smm_to_cpr(psa_50.smm(30).unwrap());
-    let cpr_100 = smm_to_cpr(psa_100.smm(30).unwrap());
-    let cpr_200 = smm_to_cpr(psa_200.smm(30).unwrap());
+    let cpr_50 = smm_to_cpr(psa_50.smm(30).unwrap()).expect("valid SMM");
+    let cpr_100 = smm_to_cpr(psa_100.smm(30).unwrap()).expect("valid SMM");
+    let cpr_200 = smm_to_cpr(psa_200.smm(30).unwrap()).expect("valid SMM");
 
     assert!(
         (cpr_50 - 0.03).abs() < RATE_TOLERANCE,
@@ -280,7 +294,7 @@ fn psa_terminal_rate_is_flat() {
 
     // Test various months after the ramp
     for month in [31, 50, 100, 200, 360] {
-        let actual_cpr = smm_to_cpr(model.smm(month).unwrap());
+        let actual_cpr = smm_to_cpr(model.smm(month).unwrap()).expect("valid SMM");
         assert!(
             (actual_cpr - terminal_cpr).abs() < RATE_TOLERANCE,
             "PSA month {} should be terminal 6% CPR, got {}",
@@ -306,7 +320,7 @@ fn sda_matches_industry_standard_curve() {
     // Verify ramp phase (months 1-30)
     for month in 1..=30 {
         let expected_cdr = (month as f64 / 30.0) * 0.06;
-        let actual_cdr = smm_to_cpr(model.mdr(month).unwrap());
+        let actual_cdr = smm_to_cpr(model.mdr(month).unwrap()).expect("valid SMM");
         assert!(
             (actual_cdr - expected_cdr).abs() < RATE_TOLERANCE,
             "SDA month {} (ramp) should be {:.4}% CDR, got {:.4}%",
@@ -320,7 +334,7 @@ fn sda_matches_industry_standard_curve() {
     for month in 31..=60 {
         let months_past_peak = (month - 30) as f64;
         let expected_cdr = 0.06 - (months_past_peak / 30.0) * 0.03;
-        let actual_cdr = smm_to_cpr(model.mdr(month).unwrap());
+        let actual_cdr = smm_to_cpr(model.mdr(month).unwrap()).expect("valid SMM");
         assert!(
             (actual_cdr - expected_cdr).abs() < RATE_TOLERANCE,
             "SDA month {} (decline) should be {:.4}% CDR, got {:.4}%",
@@ -332,7 +346,7 @@ fn sda_matches_industry_standard_curve() {
 
     // Verify terminal phase (month 61+)
     for month in [61, 100, 360] {
-        let actual_cdr = smm_to_cpr(model.mdr(month).unwrap());
+        let actual_cdr = smm_to_cpr(model.mdr(month).unwrap()).expect("valid SMM");
         assert!(
             (actual_cdr - 0.03).abs() < RATE_TOLERANCE,
             "SDA month {} (terminal) should be 3% CDR, got {}",
@@ -352,8 +366,8 @@ fn sda_multiplier_scales_correctly() {
     let sda_200 = DefaultModelSpec::sda(2.0);
 
     // At peak (month 30)
-    let cdr_100_peak = smm_to_cpr(sda_100.mdr(30).unwrap());
-    let cdr_200_peak = smm_to_cpr(sda_200.mdr(30).unwrap());
+    let cdr_100_peak = smm_to_cpr(sda_100.mdr(30).unwrap()).expect("valid SMM");
+    let cdr_200_peak = smm_to_cpr(sda_200.mdr(30).unwrap()).expect("valid SMM");
 
     assert!(
         (cdr_100_peak - 0.06).abs() < RATE_TOLERANCE,
@@ -369,8 +383,8 @@ fn sda_multiplier_scales_correctly() {
     );
 
     // At terminal (month 90)
-    let cdr_100_term = smm_to_cpr(sda_100.mdr(90).unwrap());
-    let cdr_200_term = smm_to_cpr(sda_200.mdr(90).unwrap());
+    let cdr_100_term = smm_to_cpr(sda_100.mdr(90).unwrap()).expect("valid SMM");
+    let cdr_200_term = smm_to_cpr(sda_200.mdr(90).unwrap()).expect("valid SMM");
 
     assert!(
         (cdr_100_term - 0.03).abs() < RATE_TOLERANCE,
@@ -737,7 +751,7 @@ mod property_tests {
             use finstack_cashflows::builder::{cpr_to_smm, smm_to_cpr};
 
             let smm = cpr_to_smm(cpr).unwrap();
-            let cpr_back = smm_to_cpr(smm);
+            let cpr_back = smm_to_cpr(smm).expect("valid SMM");
 
             prop_assert!(
                 (cpr - cpr_back).abs() < FACTOR_TOLERANCE,
@@ -782,7 +796,7 @@ mod property_tests {
 
             let model = DefaultModelSpec::sda(1.0);
             let mdr = model.mdr(month).unwrap();
-            let cdr = smm_to_cpr(mdr);
+            let cdr = smm_to_cpr(mdr).expect("valid SMM");
 
             // Terminal rate for 100% SDA is 3% CDR
             prop_assert!(

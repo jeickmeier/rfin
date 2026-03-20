@@ -129,6 +129,7 @@ impl BarrierOptionMcPricer {
         let steps_per_year = self.config.steps_per_year;
         let num_steps = ((t_vol * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
+        let time_grid = finstack_monte_carlo::time_grid::TimeGrid::uniform(t_vol, num_steps)?;
 
         // Create payoff (using vol surface time for barrier adjustment calculations)
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
@@ -141,7 +142,7 @@ impl BarrierOptionMcPricer {
             inst.notional.amount(),
             maturity_step,
             sigma,
-            t_vol,
+            &time_grid,
             inst.use_gobet_miri,
         );
 
@@ -242,6 +243,7 @@ impl BarrierOptionMcPricer {
         let steps_per_year = self.config.steps_per_year;
         let num_steps = ((t_vol * steps_per_year).round() as usize).max(self.config.min_steps);
         let maturity_step = num_steps - 1;
+        let time_grid = finstack_monte_carlo::time_grid::TimeGrid::uniform(t_vol, num_steps)?;
         let mc_barrier_type = Self::convert_barrier_type(inst.barrier_type);
         let payoff = BarrierOptionPayoff::new(
             inst.strike,
@@ -252,7 +254,7 @@ impl BarrierOptionMcPricer {
             inst.notional.amount(),
             maturity_step,
             sigma,
-            t_vol,
+            &time_grid,
             inst.use_gobet_miri,
         );
 

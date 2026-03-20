@@ -38,7 +38,10 @@
 use crate::error::Result;
 use crate::utils::parse_tenor_to_years_with_context;
 use finstack_core::dates::{BusinessDayConvention, DayCount};
-use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, BumpUnits, MarketBump};
+use finstack_core::market_data::bumps::{
+    BumpMode, BumpSpec, BumpType, BumpUnits, Bumpable, MarketBump,
+};
+use finstack_core::market_data::surfaces::VolSurface;
 
 // Tolerance constants and matching helpers used only in tests.
 // Bucket matching for vol surface shocks is delegated to the market context
@@ -189,6 +192,36 @@ pub fn check_arbitrage(
     violations
 }
 
+fn surface_grid(surface: &VolSurface) -> Result<Vec<Vec<f64>>> {
+    surface
+        .expiries()
+        .iter()
+        .map(|&expiry| {
+            surface
+                .strikes()
+                .iter()
+                .map(|&strike| {
+                    surface
+                        .value_checked(expiry, strike)
+                        .map_err(crate::error::Error::from)
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn arbitrage_warnings_for_surface(surface_id: &str, surface: &VolSurface) -> Result<Vec<String>> {
+    let vols = surface_grid(surface)?;
+    Ok(
+        check_arbitrage(surface.expiries(), surface.strikes(), &vols)
+            .into_iter()
+            .map(|violation| {
+                format!("Vol surface '{surface_id}' post-shock arbitrage warning: {violation}")
+            })
+            .collect(),
+    )
+}
+
 use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::spec::OperationSpec;
@@ -212,6 +245,7 @@ impl ScenarioAdapter for VolAdapter {
             } => {
                 // NOTE: `surface_kind` is informational metadata; lookup is by surface_id only.
                 let mut effects = Vec::new();
+                let surface = ctx.market.get_surface(surface_id.as_str())?;
 
                 // Warn about potentially problematic vol shocks
                 if *pct <= LARGE_NEGATIVE_VOL_SHOCK_PCT {
@@ -221,6 +255,16 @@ impl ScenarioAdapter for VolAdapter {
                          check_arbitrage() to validate post-shock surface.",
                         surface_id, pct
                     )));
+                }
+
+                let preview = surface.as_ref().apply_bump(BumpSpec {
+                    mode: BumpMode::Multiplicative,
+                    units: BumpUnits::Factor,
+                    value: 1.0 + (pct / 100.0),
+                    bump_type: BumpType::Parallel,
+                })?;
+                for warning in arbitrage_warnings_for_surface(surface_id, &preview)? {
+                    effects.push(ScenarioEffect::Warning(warning));
                 }
 
                 let bump = MarketBump::Curve {
@@ -246,6 +290,7 @@ impl ScenarioAdapter for VolAdapter {
                 // NOTE: `surface_kind` is informational metadata; lookup is by surface_id only.
                 // The market context stores all vol surfaces in a single collection keyed by ID.
                 let mut warnings = Vec::new();
+                let surface = ctx.market.get_surface(surface_id.as_str())?;
 
                 // Warn about potentially problematic vol shocks
                 if *pct <= LARGE_NEGATIVE_VOL_SHOCK_PCT {
@@ -275,6 +320,13 @@ impl ScenarioAdapter for VolAdapter {
                     None
                 };
 
+                let preview = surface
+                    .apply_bucket_bump(exp_years.as_deref(), strikes.as_deref(), *pct)
+                    .ok_or_else(|| {
+                        finstack_core::Error::from(finstack_core::InputError::DimensionMismatch)
+                    })?;
+                warnings.extend(arbitrage_warnings_for_surface(surface_id, &preview)?);
+
                 let bump = MarketBump::VolBucketPct {
                     surface_id: finstack_core::types::CurveId::from(surface_id.as_str()),
                     expiries: exp_years,
@@ -297,6 +349,10 @@ impl ScenarioAdapter for VolAdapter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::engine::ExecutionContext;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use time::macros::date;
 
     #[test]
     fn test_matches_expiry() {
@@ -362,5 +418,45 @@ mod tests {
 
         let violations = check_arbitrage(&expiries, &strikes, &vols);
         assert!(violations.is_empty());
+    }
+
+    #[test]
+    fn test_bucket_shock_warns_on_post_bump_arbitrage() -> crate::error::Result<()> {
+        let surface = VolSurface::builder("VOL")
+            .expiries(&[0.25, 0.5])
+            .strikes(&[100.0])
+            .row(&[0.30])
+            .row(&[0.22])
+            .build()
+            .map_err(crate::error::Error::from)?;
+        let mut market = MarketContext::new().insert_surface(surface);
+        let mut model = finstack_statements::FinancialModelSpec::new("test", vec![]);
+        let ctx = ExecutionContext {
+            market: &mut market,
+            model: &mut model,
+            instruments: None,
+            rate_bindings: None,
+            calendar: None,
+            as_of: date!(2025 - 01 - 01),
+        };
+
+        let effects = VolAdapter
+            .try_generate_effects(
+            &OperationSpec::VolSurfaceBucketPct {
+                surface_id: "VOL".into(),
+                surface_kind: crate::spec::VolSurfaceKind::Equity,
+                tenors: Some(vec!["6M".into()]),
+                strikes: None,
+                pct: -30.0,
+            },
+            &ctx,
+        )?
+            .ok_or_else(|| crate::error::Error::Internal("vol op should be handled".to_string()))?;
+
+        assert!(effects.iter().any(|effect| matches!(
+            effect,
+            ScenarioEffect::Warning(message) if message.contains("post-shock arbitrage warning")
+        )));
+        Ok(())
     }
 }

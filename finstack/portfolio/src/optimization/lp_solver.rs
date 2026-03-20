@@ -159,11 +159,7 @@ impl DefaultLpOptimizer {
             PerPositionMetric::Metric(id) => feat.measures.get(id.as_str()).copied(),
             PerPositionMetric::CustomKey(key) => feat.measures.get(key).copied(),
             PerPositionMetric::PvBase => Some(feat.pv_base),
-            PerPositionMetric::PvNative => {
-                // We do not retain native PV separately in `DecisionFeatures`; for now
-                // treat PvNative as PvBase which is already in base currency.
-                Some(feat.pv_base)
-            }
+            PerPositionMetric::PvNative => Some(feat.pv_native),
             PerPositionMetric::TagEquals { key, value } => {
                 let matches = feat.tags.get(key) == Some(value);
                 Some(if matches { 1.0 } else { 0.0 })
@@ -194,7 +190,12 @@ impl DefaultLpOptimizer {
         match expr {
             MetricExpr::WeightedSum { metric } | MetricExpr::ValueWeightedAverage { metric } => {
                 for feat in feats {
-                    let m_i = Self::per_position_metric_value(metric, feat, missing_policy)?;
+                    let m_i = match metric {
+                        // Native PV is only comparable across positions after FX
+                        // normalization into the portfolio base currency.
+                        PerPositionMetric::PvNative => feat.pv_base,
+                        _ => Self::per_position_metric_value(metric, feat, missing_policy)?,
+                    };
                     coeffs.push(m_i);
                 }
             }
@@ -718,5 +719,33 @@ impl DefaultLpOptimizer {
             constraint_slacks,
             meta,
         })
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pv_native_metric_uses_native_value_not_base_value() {
+        let feat = DecisionFeatures {
+            pv_base: 125.0,
+            pv_native: 100.0,
+            pv_per_unit: 125.0,
+            measures: IndexMap::new(),
+            tags: IndexMap::new(),
+            min_weight: 0.0,
+            max_weight: 1.0,
+        };
+
+        let value = DefaultLpOptimizer::per_position_metric_value(
+            &PerPositionMetric::PvNative,
+            &feat,
+            MissingMetricPolicy::Strict,
+        )
+        .expect("native PV should be available");
+
+        assert_eq!(value, 100.0);
     }
 }

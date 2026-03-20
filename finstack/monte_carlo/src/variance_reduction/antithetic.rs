@@ -153,9 +153,7 @@ fn simulate_path_with_stored_shocks<P, D, F>(
 
     // Create initial path state
     let mut path_state = crate::traits::PathState::new(0, 0.0);
-    if !state.is_empty() {
-        path_state.set(crate::traits::state_keys::SPOT, state[0]);
-    }
+    process.populate_path_state(state, &mut path_state);
     payoff.on_event(&mut path_state);
 
     // Simulate path through time steps
@@ -175,12 +173,7 @@ fn simulate_path_with_stored_shocks<P, D, F>(
         // Update path state
         path_state.step = step + 1;
         path_state.time = t + dt;
-        if !state.is_empty() {
-            path_state.set(crate::traits::state_keys::SPOT, state[0]);
-            if state.len() > 1 {
-                path_state.set(crate::traits::state_keys::VARIANCE, state[1]);
-            }
-        }
+        process.populate_path_state(state, &mut path_state);
 
         // Process payoff event
         payoff.on_event(&mut path_state);
@@ -196,6 +189,7 @@ mod tests {
     use crate::process::gbm::{GbmParams, GbmProcess};
     use crate::rng::philox::PhiloxRng;
     use crate::time_grid::TimeGrid;
+    use crate::traits::PathState;
     use finstack_core::currency::Currency;
 
     #[test]
@@ -263,5 +257,96 @@ mod tests {
             stats_anti.mean(),
             stats_anti.stderr()
         );
+    }
+
+    #[derive(Clone)]
+    struct ThreeFactorProcess;
+
+    impl StochasticProcess for ThreeFactorProcess {
+        fn dim(&self) -> usize {
+            3
+        }
+
+        fn num_factors(&self) -> usize {
+            1
+        }
+
+        fn drift(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
+            out.fill(0.0);
+        }
+
+        fn diffusion(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
+            out.fill(0.0);
+            out[0] = 1.0;
+        }
+
+        fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
+            state.set(crate::traits::state_keys::SPOT, x[0]);
+            state.set(crate::traits::state_keys::VARIANCE, x[1]);
+            state.set("custom_state", x[2]);
+        }
+    }
+
+    struct IdentityDiscretization;
+
+    impl Discretization<ThreeFactorProcess> for IdentityDiscretization {
+        fn step(
+            &self,
+            _process: &ThreeFactorProcess,
+            _t: f64,
+            dt: f64,
+            x: &mut [f64],
+            z: &[f64],
+            _work: &mut [f64],
+        ) {
+            x[0] += z[0] * dt.sqrt();
+            x[2] += 1.0;
+        }
+    }
+
+    #[derive(Clone)]
+    struct CustomStatePayoff {
+        missing_custom_state: bool,
+    }
+
+    impl Payoff for CustomStatePayoff {
+        fn on_event(&mut self, state: &mut PathState) {
+            if state.get("custom_state").is_none() {
+                self.missing_custom_state = true;
+            }
+        }
+
+        fn value(&self, currency: Currency) -> finstack_core::money::Money {
+            finstack_core::money::Money::new(
+                if self.missing_custom_state { 0.0 } else { 1.0 },
+                currency,
+            )
+        }
+
+        fn reset(&mut self) {
+            self.missing_custom_state = false;
+        }
+    }
+
+    #[test]
+    fn test_antithetic_uses_process_path_state_population() {
+        let mut rng = PhiloxRng::new(7);
+        let process = ThreeFactorProcess;
+        let disc = IdentityDiscretization;
+        let initial_state = vec![100.0, 0.04, 3.0];
+        let payoff = CustomStatePayoff {
+            missing_custom_state: false,
+        };
+        let time_grid = TimeGrid::uniform(1.0, 2).expect("should succeed");
+        let config = AntitheticConfig {
+            num_pairs: 2,
+            time_grid: &time_grid,
+            currency: Currency::USD,
+            discount_factor: 1.0,
+        };
+
+        let stats = antithetic_price(&mut rng, &process, &disc, &initial_state, &payoff, &config);
+
+        assert_eq!(stats.mean(), 1.0);
     }
 }

@@ -105,21 +105,31 @@ impl VmParameters {
     ///
     /// # ISDA CSA Formula
     ///
+    /// Bilateral netting uses a **symmetric** threshold around signed exposure:
+    ///
     /// ```text
-    /// Credit Support Amount = max(0, Exposure - Threshold + IA) - Current_Collateral
-    /// Delivery Amount = CSA if CSA ≥ MTA, else 0
-    /// Return Amount = -CSA if CSA ≤ -MTA, else 0
+    /// Excess = sign(Exposure) × max(0, |Exposure| − Threshold)
+    /// Credit Support Amount = Excess + Independent_Amount − Current_Collateral
     /// ```
+    ///
+    /// When `Credit Support Amount` is negative and `Exposure ≥ 0`, the magnitude is
+    /// **excess collateral returned** to the counterparty. When `Exposure < 0`, a
+    /// negative amount means **delivery** of margin to the counterparty (implemented
+    /// in [`crate::calculators::VmCalculator`]).
+    ///
+    /// Calls where the **rounded** credit support amount is strictly below the
+    /// Minimum Transfer Amount return zero.
     ///
     /// # Arguments
     ///
-    /// * `exposure` - Current mark-to-market exposure (positive = we are owed money)
+    /// * `exposure` - Signed mark-to-market (positive = counterparty owes us)
     /// * `current_collateral` - Value of currently posted collateral
     ///
     /// # Returns
     ///
-    /// The net margin amount to be delivered (positive) or returned (negative).
-    /// Returns zero if the amount is below MTA.
+    /// Signed credit support amount (positive = collect from them; negative = return
+    /// excess when `Exposure ≥ 0`, or post margin when `Exposure < 0`). Zero if
+    /// below MTA after rounding.
     pub fn calculate_margin_call(
         &self,
         exposure: Money,
@@ -143,24 +153,27 @@ impl VmParameters {
 
         let currency = exposure.currency();
 
-        // Credit Support Amount = max(0, Exposure - Threshold + IA) - Current_Collateral
-        // Use f64 arithmetic to avoid Result handling
         let exp = exposure.amount();
         let threshold = self.threshold.amount();
         let ia = self.independent_amount.amount();
         let posted = current_collateral.amount();
 
-        let required = (exp - threshold + ia).max(0.0);
-        let credit_support_amount = required - posted;
+        let abs_excess = (exp.abs() - threshold).max(0.0);
+        let signed_excess = if abs_excess == 0.0 {
+            0.0
+        } else {
+            exp.signum() * abs_excess
+        };
+        let credit_support_amount = signed_excess + ia - posted;
 
-        // Apply MTA
+        // Round first; MTA applies to the transfer amount after rounding (CSA convention).
+        let rounded = self.round_to_nearest(Money::new(credit_support_amount, currency));
         let mta_amount = self.mta.amount();
-        if credit_support_amount.abs() < mta_amount {
+        if rounded.amount().abs() < mta_amount {
             return Ok(Money::new(0.0, currency));
         }
 
-        // Apply rounding
-        Ok(self.round_to_nearest(Money::new(credit_support_amount, currency)))
+        Ok(rounded)
     }
 
     /// Round an amount to the nearest rounding increment.
@@ -378,6 +391,46 @@ mod tests {
             .calculate_margin_call(exposure, collateral)
             .expect("matching currencies should succeed");
         assert_eq!(call, Money::new(0.0, Currency::USD)); // 50K < 100K MTA
+    }
+
+    #[test]
+    fn vm_margin_call_mta_applies_after_rounding() {
+        let params = VmParameters {
+            threshold: Money::new(0.0, Currency::USD),
+            mta: Money::new(150_000.0, Currency::USD),
+            rounding: Money::new(10_000.0, Currency::USD),
+            independent_amount: Money::new(0.0, Currency::USD),
+            frequency: MarginTenor::Daily,
+            settlement_lag: 1,
+        };
+
+        // Raw excess 147k is below MTA, but nearest 10k increment is 150k → call stands.
+        let exposure = Money::new(147_000.0, Currency::USD);
+        let collateral = Money::new(0.0, Currency::USD);
+        let call = params
+            .calculate_margin_call(exposure, collateral)
+            .expect("matching currencies should succeed");
+        assert_eq!(call, Money::new(150_000.0, Currency::USD));
+    }
+
+    #[test]
+    fn vm_margin_call_negative_exposure_bilateral() {
+        let params = VmParameters {
+            threshold: Money::new(1_000_000.0, Currency::USD),
+            mta: Money::new(100_000.0, Currency::USD),
+            rounding: Money::new(10_000.0, Currency::USD),
+            independent_amount: Money::new(0.0, Currency::USD),
+            frequency: MarginTenor::Daily,
+            settlement_lag: 1,
+        };
+
+        // We owe the counterparty: symmetric excess applies to |Exposure| − Threshold.
+        let exposure = Money::new(-2_000_000.0, Currency::USD);
+        let collateral = Money::new(0.0, Currency::USD);
+        let call = params
+            .calculate_margin_call(exposure, collateral)
+            .expect("matching currencies should succeed");
+        assert_eq!(call, Money::new(-1_000_000.0, Currency::USD)); // −(2M − 1M)
     }
 
     #[test]

@@ -129,10 +129,10 @@ impl Copula for GaussianCopula {
         let z = factor_realization.first().copied().unwrap_or(0.0);
 
         // Handle extreme correlation before clamping
-        if correlation < 1e-10 {
+        if correlation <= MIN_CORRELATION {
             return norm_cdf(default_threshold);
         }
-        if correlation > 1.0 - 1e-10 {
+        if correlation >= MAX_CORRELATION {
             return norm_cdf(default_threshold - z);
         }
 
@@ -253,5 +253,24 @@ mod tests {
         let prob_high_pos_z = copula.conditional_default_prob(threshold, &[2.0], 0.99);
         assert!(prob_high_neg_z > 0.5); // Should be very high
         assert!(prob_high_pos_z < 0.01); // Should be very low
+    }
+
+    #[test]
+    fn test_low_correlation_branch_matches_smoothing_floor() {
+        let copula = GaussianCopula::new();
+        let pd = 0.05;
+        let threshold = standard_normal_inv_cdf(pd);
+
+        let prob_below_floor = copula.conditional_default_prob(threshold, &[1.0], 0.005);
+        let prob_at_floor = copula.conditional_default_prob(threshold, &[1.0], MIN_CORRELATION);
+
+        assert!(
+            (prob_below_floor - pd).abs() < 1e-8,
+            "correlations below the smoothing floor should use the unconditional PD"
+        );
+        assert!(
+            (prob_at_floor - pd).abs() < 1e-8,
+            "the exact smoothing floor should take the same unconditional branch"
+        );
     }
 }

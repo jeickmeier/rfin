@@ -21,17 +21,22 @@ use finstack_core::math::interp::ExtrapolationPolicy;
 /// metadata. Returns USD if the curve ID doesn't match a known pattern.
 pub fn infer_currency_from_discount_curve_id(curve: &DiscountCurve) -> Currency {
     let id_str = curve.id().as_str();
-    if id_str.contains("USD") {
-        Currency::USD
-    } else if id_str.contains("EUR") {
-        Currency::EUR
-    } else if id_str.contains("GBP") {
-        Currency::GBP
-    } else if id_str.contains("JPY") {
-        Currency::JPY
-    } else {
-        Currency::USD
+    let uppercase = id_str.to_ascii_uppercase();
+    let tokens = uppercase
+        .split(|ch: char| !ch.is_ascii_alphanumeric())
+        .filter(|token| !token.is_empty());
+
+    for token in tokens {
+        match token {
+            "USD" | "USDOIS" | "SOFR" => return Currency::USD,
+            "EUR" | "EUROIS" | "ESTR" | "ESTER" => return Currency::EUR,
+            "GBP" | "GBPOIS" | "SONIA" => return Currency::GBP,
+            "JPY" | "JPYOIS" | "TONA" => return Currency::JPY,
+            _ => {}
+        }
     }
+
+    Currency::USD
 }
 
 /// Bump a discount curve by shocking rate quotes and re-calibrating.

@@ -300,7 +300,7 @@ impl LsmcPricer {
                 let immediate = exercise.exercise_value(spot);
 
                 // Only regress on ITM paths
-                if immediate > 1e-6 {
+                if immediate > 0.0 {
                     // Discount cashflow to this exercise date
                     let time_to_cashflow = exercise_times[i] - t;
                     let discounted_cf = cashflows[i] * (-discount_rate * time_to_cashflow).exp();
@@ -535,5 +535,25 @@ mod tests {
 
         let expected = 30.0 * (-0.05_f64).exp();
         assert!((present_values[0] - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_lsmc_tiny_positive_intrinsic_values_are_treated_as_itm() {
+        let config = LsmcConfig::new(16, vec![1]);
+        let pricer = LsmcPricer::new(config);
+        let exercise = AmericanCall { strike: 100.0 };
+        let basis = PolynomialBasis::new(1);
+        let paths = vec![vec![100.0, 100.0 + 1.0e-8, 100.0]; 16];
+
+        let present_values = pricer
+            .backward_induction(&paths, &exercise, &basis, 0.0, 1.0, 2)
+            .expect("backward induction should succeed");
+
+        for value in present_values {
+            assert!(
+                (value - 1.0e-8).abs() < 1.0e-14,
+                "tiny intrinsic value should trigger exercise instead of being dropped: {value}"
+            );
+        }
     }
 }

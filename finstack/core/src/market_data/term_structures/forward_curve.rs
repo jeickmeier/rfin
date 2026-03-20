@@ -274,10 +274,14 @@ impl ForwardCurve {
     }
 
     /// Average rate over `[t1, t2]`.
+    ///
+    /// Returns [`f64::NAN`] if `t2 < t1`.
     #[inline]
     #[must_use]
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
-        debug_assert!(t2 >= t1, "t2 must not be before t1");
+        if t2 < t1 {
+            return f64::NAN;
+        }
         // Market-standard interpretation: average forward over the interval.
         //
         // We approximate the integral average of the interpolated forward curve:
@@ -840,6 +844,12 @@ mod tests {
     fn interpolates_rate() {
         let fc = sample_forward();
         assert!((fc.rate(0.5) - 0.035).abs() < 1e-12);
+    }
+
+    #[test]
+    fn rate_period_reversed_times_returns_nan() {
+        let fc = sample_forward();
+        assert!(fc.rate_period(1.0, 0.5).is_nan());
     }
 
     #[test]

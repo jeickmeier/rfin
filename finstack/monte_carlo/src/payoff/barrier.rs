@@ -8,6 +8,7 @@
 
 use super::super::barriers::bridge::{check_barrier_hit, BarrierDirection};
 use super::super::barriers::corrections::gobet_miri_adjusted_barrier;
+use crate::time_grid::TimeGrid;
 use crate::traits::PathState;
 use crate::traits::Payoff;
 use finstack_core::currency::Currency;
@@ -82,8 +83,8 @@ pub struct BarrierOptionPayoff {
     pub maturity_step: usize,
     /// Volatility (for bridge correction)
     pub sigma: f64,
-    /// Time step (for bridge correction)
-    pub dt: f64,
+    /// Time steps for each monitoring interval (for bridge correction)
+    pub step_dts: Vec<f64>,
     /// Use Gobet-Miri adjustment
     pub use_gobet_miri: bool,
 
@@ -105,11 +106,9 @@ impl BarrierOptionPayoff {
         notional: f64,
         maturity_step: usize,
         sigma: f64,
-        time_to_maturity: f64,
+        time_grid: &TimeGrid,
         use_gobet_miri: bool,
     ) -> Self {
-        let dt = time_to_maturity / maturity_step as f64;
-
         Self {
             strike,
             barrier,
@@ -119,7 +118,7 @@ impl BarrierOptionPayoff {
             notional,
             maturity_step,
             sigma,
-            dt,
+            step_dts: time_grid.dts().to_vec(),
             use_gobet_miri,
             terminal_spot: 0.0,
             barrier_hit: false,
@@ -128,14 +127,9 @@ impl BarrierOptionPayoff {
     }
 
     /// Get effective barrier level (with Gobet-Miri adjustment if enabled).
-    pub fn effective_barrier(&self) -> f64 {
+    fn effective_barrier(&self, dt: f64) -> f64 {
         if self.use_gobet_miri {
-            gobet_miri_adjusted_barrier(
-                self.barrier,
-                self.sigma,
-                self.dt,
-                !self.barrier_type.is_up(),
-            )
+            gobet_miri_adjusted_barrier(self.barrier, self.sigma, dt, !self.barrier_type.is_up())
         } else {
             self.barrier
         }
@@ -171,8 +165,8 @@ impl Payoff for BarrierOptionPayoff {
             // Use independent uniform random from PathState for bridge sampling
             // This ensures proper statistical properties for barrier hit probability
             let uniform_random = state.uniform_random();
-
-            let effective_barrier = self.effective_barrier();
+            let dt = self.step_dts.get(state.step - 1).copied().unwrap_or(0.0);
+            let effective_barrier = self.effective_barrier(dt);
 
             let hit = check_barrier_hit(
                 self.previous_spot,
@@ -180,7 +174,7 @@ impl Payoff for BarrierOptionPayoff {
                 effective_barrier,
                 self.barrier_type.direction(),
                 self.sigma,
-                self.dt,
+                dt,
                 uniform_random,
             );
 
@@ -224,11 +218,13 @@ impl Payoff for BarrierOptionPayoff {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::time_grid::TimeGrid;
     use crate::traits::state_keys;
 
-    fn create_path_state(step: usize, spot: f64) -> PathState {
-        let mut state = PathState::new(step, step as f64 * 0.01);
+    fn create_path_state(step: usize, time: f64, spot: f64, uniform_random: f64) -> PathState {
+        let mut state = PathState::new(step, time);
         state.set(state_keys::SPOT, spot);
+        state.set_uniform_random(uniform_random);
         state
     }
 
@@ -243,14 +239,14 @@ mod tests {
             1.0,
             10,
             0.2,
-            1.0,
+            &TimeGrid::uniform(1.0, 10).expect("grid should build"),
             false,
         );
 
         // Path that never hits barrier (active)
         for step in 0..=10 {
             let spot = 90.0; // Below barrier, below strike (ITM put)
-            let mut state = create_path_state(step, spot);
+            let mut state = create_path_state(step, step as f64 * 0.1, spot, 0.5);
             barrier_put.on_event(&mut state);
         }
 
@@ -271,20 +267,46 @@ mod tests {
             1.0,
             10,
             0.2,
-            1.0,
+            &TimeGrid::uniform(1.0, 10).expect("grid should build"),
             false,
         );
 
         // Hit barrier
-        let mut s1 = create_path_state(0, 105.0);
+        let mut s1 = create_path_state(0, 0.0, 105.0, 0.5);
         barrier_call.on_event(&mut s1);
-        let mut s2 = create_path_state(1, 125.0); // Hit
+        let mut s2 = create_path_state(1, 0.1, 125.0, 0.5); // Hit
         barrier_call.on_event(&mut s2);
-        let mut s3 = create_path_state(10, 130.0); // Terminal
+        let mut s3 = create_path_state(10, 1.0, 130.0, 0.5); // Terminal
         barrier_call.on_event(&mut s3);
 
         // Should get rebate
         let value = barrier_call.value(Currency::USD);
         assert_eq!(value.amount(), 5.0);
+    }
+
+    #[test]
+    fn test_barrier_uses_step_dt_for_irregular_grid() {
+        let time_grid = TimeGrid::from_times(vec![0.0, 0.2, 1.0]).expect("grid should build");
+        let mut barrier_call = BarrierOptionPayoff::new(
+            80.0,
+            100.0,
+            BarrierType::UpAndOut,
+            OptionKind::Call,
+            None,
+            1.0,
+            2,
+            0.2,
+            &time_grid,
+            false,
+        );
+
+        let mut s0 = create_path_state(0, 0.0, 90.0, 0.65);
+        barrier_call.on_event(&mut s0);
+        let mut s1 = create_path_state(1, 0.2, 95.0, 0.65);
+        barrier_call.on_event(&mut s1);
+        let mut s2 = create_path_state(2, 1.0, 90.0, 0.65);
+        barrier_call.on_event(&mut s2);
+
+        assert_eq!(barrier_call.value(Currency::USD).amount(), 0.0);
     }
 }

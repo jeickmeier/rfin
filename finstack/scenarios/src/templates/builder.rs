@@ -25,6 +25,7 @@ pub struct ScenarioSpecBuilder {
 
 impl ScenarioSpecBuilder {
     /// Create a new builder with the given scenario identifier.
+    #[must_use]
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),
@@ -111,6 +112,7 @@ impl ScenarioSpecBuilder {
     ///
     /// The composed builder inherits the engine defaults, including the default `"composed"`
     /// identifier, so callers can override it with [`id`](Self::id) when needed.
+    #[must_use]
     pub fn compose(builders: Vec<ScenarioSpecBuilder>) -> Self {
         let specs = builders
             .into_iter()
@@ -237,11 +239,13 @@ mod tests {
             .with_operation(OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD-SOFR".into(),
+                discount_curve_id: None,
                 bp: 100.0,
             })
             .with_operation(OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Forward,
                 curve_id: "EUR-ESTR".into(),
+                discount_curve_id: None,
                 bp: -50.0,
             })
             .build()
@@ -278,11 +282,13 @@ mod tests {
             .with_operation(OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD-SOFR".into(),
+                discount_curve_id: None,
                 bp: 100.0,
             })
             .with_operation(OperationSpec::CurveNodeBp {
                 curve_kind: CurveKind::Forward,
                 curve_id: "USD-SOFR".into(),
+                discount_curve_id: None,
                 nodes: vec![("5Y".into(), 25.0)],
                 match_mode: crate::TenorMatchMode::Interpolate,
             })
@@ -423,6 +429,7 @@ mod tests {
             .with_operation(OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD-SOFR".into(),
+                discount_curve_id: None,
                 bp: 100.0,
             });
 
@@ -486,11 +493,13 @@ mod tests {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "A".into(),
+                discount_curve_id: None,
                 bp: 10.0,
             },
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "B".into(),
+                discount_curve_id: None,
                 bp: 20.0,
             },
         ];

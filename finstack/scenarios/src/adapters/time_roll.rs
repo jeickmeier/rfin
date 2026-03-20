@@ -27,9 +27,8 @@ use indexmap::IndexMap;
 ///     new_date: date!(2025 - 02 - 01),
 ///     days: 31,
 ///     instrument_carry: vec![],
-///     instrument_mv_change: vec![],
 ///     total_carry: IndexMap::new(),
-///     total_mv_change: IndexMap::new(),
+///     failed_instruments: vec![],
 /// };
 /// assert_eq!(report.days, 31);
 /// ```
@@ -47,14 +46,10 @@ pub struct RollForwardReport {
     /// Per-instrument carry accrual (if instruments provided), grouped by currency.
     pub instrument_carry: Vec<(String, IndexMap<Currency, Money>)>,
 
-    /// Per-instrument market value change (if instruments provided), grouped by currency.
-    pub instrument_mv_change: Vec<(String, IndexMap<Currency, Money>)>,
-
     /// Total P&L from carry, grouped by currency.
     pub total_carry: IndexMap<Currency, Money>,
-
-    /// Total P&L from market value changes, grouped by currency.
-    pub total_mv_change: IndexMap<Currency, Money>,
+    /// Instruments whose carry calculation failed but did not abort the roll.
+    pub failed_instruments: Vec<(String, String)>,
 }
 
 /// Apply a time roll-forward operation.
@@ -144,11 +139,11 @@ pub fn apply_time_roll_forward(
 
     // Calculate carry and market value changes for instruments BEFORE rolling curves
     // This ensures we capture the true carry (time value change with constant curves)
-    let (instrument_carry, instrument_mv_change, total_carry, total_mv_change) =
+    let (instrument_carry, total_carry, failed_instruments) =
         if let Some(instruments) = ctx.instruments.as_ref() {
             calculate_instrument_pnl(instruments, ctx.market, old_date, new_date, day_shift)?
         } else {
-            (Vec::new(), Vec::new(), IndexMap::new(), IndexMap::new())
+            (Vec::new(), IndexMap::new(), Vec::new())
         };
 
     // Roll all curves forward (adjusts base dates, shifts knots, filters expired)
@@ -172,9 +167,8 @@ pub fn apply_time_roll_forward(
         new_date,
         days: day_shift,
         instrument_carry,
-        instrument_mv_change,
         total_carry,
-        total_mv_change,
+        failed_instruments,
     })
 }
 
@@ -198,14 +192,12 @@ fn calculate_instrument_pnl(
     _days: i64,
 ) -> Result<(
     Vec<(String, IndexMap<Currency, Money>)>,
-    Vec<(String, IndexMap<Currency, Money>)>,
     IndexMap<Currency, Money>,
-    IndexMap<Currency, Money>,
+    Vec<(String, String)>,
 )> {
     let mut instrument_carry: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
-    let mut instrument_mv_change: Vec<(String, IndexMap<Currency, Money>)> = Vec::new();
     let mut total_carry: IndexMap<Currency, Money> = IndexMap::new();
-    let total_mv_change: IndexMap<Currency, Money> = IndexMap::new();
+    let mut failed_instruments = Vec::new();
 
     for instrument in instruments {
         let inst_id = instrument.id().to_string();
@@ -215,8 +207,15 @@ fn calculate_instrument_pnl(
         let pv_old = instrument.value(market, old_date).ok();
         let pv_new = instrument.value(market, new_date).ok();
         if let (Some(old), Some(new)) = (pv_old, pv_new) {
-            let diff = new.checked_sub(old)?;
-            pv_change_by_ccy.insert(diff.currency(), diff);
+            match new.checked_sub(old) {
+                Ok(diff) => {
+                    pv_change_by_ccy.insert(diff.currency(), diff);
+                }
+                Err(err) => {
+                    failed_instruments.push((inst_id.clone(), err.to_string()));
+                    continue;
+                }
+            }
         }
 
         // Collect cashflows during the period, grouped by currency.
@@ -232,10 +231,6 @@ fn calculate_instrument_pnl(
                 .or_insert(flow);
         }
 
-        // Market value change is zero in time roll (market data unchanged),
-        // so per-currency MV change is always an empty map.
-        let mv_change_by_ccy: IndexMap<Currency, Money> = IndexMap::new();
-
         // Accumulate totals by currency.
         for (ccy, amount) in &carry_by_ccy {
             total_carry
@@ -245,15 +240,9 @@ fn calculate_instrument_pnl(
         }
 
         instrument_carry.push((inst_id.clone(), carry_by_ccy));
-        instrument_mv_change.push((inst_id, mv_change_by_ccy));
     }
 
-    Ok((
-        instrument_carry,
-        instrument_mv_change,
-        total_carry,
-        total_mv_change,
-    ))
+    Ok((instrument_carry, total_carry, failed_instruments))
 }
 
 /// Collect cashflows for an instrument during a period, grouped by currency.
@@ -280,4 +269,24 @@ fn collect_instrument_cashflows(
     }
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::date;
+
+    #[test]
+    fn roll_forward_report_keeps_only_live_fields() {
+        let report = RollForwardReport {
+            old_date: date!(2025 - 01 - 01),
+            new_date: date!(2025 - 02 - 01),
+            days: 31,
+            instrument_carry: Vec::new(),
+            total_carry: IndexMap::new(),
+            failed_instruments: Vec::new(),
+        };
+
+        assert_eq!(report.days, 31);
+    }
 }

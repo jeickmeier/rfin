@@ -97,31 +97,6 @@ impl JsRollForwardReport {
         result
     }
 
-    /// Per-instrument market value change.
-    ///
-    /// # Returns
-    /// Array of [instrument_id, Array<[currency_code, amount]>] pairs
-    #[wasm_bindgen(getter, js_name = instrumentMvChange)]
-    pub fn instrument_mv_change(&self) -> Array {
-        let result = Array::new();
-        for (id, per_ccy) in &self.inner.instrument_mv_change {
-            let outer = Array::new();
-            outer.push(&JsValue::from_str(id));
-
-            let inner = Array::new();
-            for (ccy, money) in per_ccy {
-                let pair = Array::new();
-                pair.push(&JsValue::from_str(&ccy.to_string()));
-                pair.push(&JsValue::from_f64(money.amount()));
-                inner.push(&pair.into());
-            }
-
-            outer.push(&inner.into());
-            result.push(&outer.into());
-        }
-        result
-    }
-
     /// Total P&L from carry.
     #[wasm_bindgen(getter, js_name = totalCarry)]
     pub fn total_carry(&self) -> Array {
@@ -135,18 +110,6 @@ impl JsRollForwardReport {
         result
     }
 
-    /// Total P&L from market value changes.
-    #[wasm_bindgen(getter, js_name = totalMvChange)]
-    pub fn total_mv_change(&self) -> Array {
-        let result = Array::new();
-        for (ccy, money) in &self.inner.total_mv_change {
-            let pair = Array::new();
-            pair.push(&JsValue::from_str(&ccy.to_string()));
-            pair.push(&JsValue::from_f64(money.amount()));
-            result.push(&pair.into());
-        }
-        result
-    }
 }
 
 impl From<RollForwardReport> for JsRollForwardReport {

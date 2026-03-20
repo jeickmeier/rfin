@@ -175,7 +175,7 @@ fn auto_does_not_error_on_negative_forward() {
     let auto_cap = make_caplet(fixing, payment, strike, CapFloorVolType::Auto, true);
     let ctx = context_from(as_of, fwd_rate, sigma);
 
-    // Auto should NOT error (unlike Lognormal which would)
+    // Auto should NOT error (selects normal when Black domain is invalid)
     let result = auto_cap.value(&ctx, as_of);
     assert!(
         result.is_ok(),
@@ -185,7 +185,7 @@ fn auto_does_not_error_on_negative_forward() {
 }
 
 #[test]
-fn lognormal_errors_on_negative_forward() {
+fn lognormal_falls_back_to_normal_on_negative_forward() {
     let as_of = date!(2024 - 01 - 01);
     let fixing = date!(2024 - 04 - 01);
     let payment = date!(2024 - 07 - 01);
@@ -196,11 +196,14 @@ fn lognormal_errors_on_negative_forward() {
     let black_cap = make_caplet(fixing, payment, strike, CapFloorVolType::Lognormal, true);
     let ctx = context_from(as_of, fwd_rate, sigma);
 
-    // Lognormal SHOULD error on negative forward
-    let result = black_cap.value(&ctx, as_of);
+    // Lognormal (Black) is undefined for F <= 0; we fall back to normal (Bachelier) pricing.
+    let pv = black_cap
+        .value(&ctx, as_of)
+        .expect("lognormal should auto-fallback when forward is non-positive");
     assert!(
-        result.is_err(),
-        "Lognormal should error on negative forward rate"
+        pv.amount().is_finite() && pv.amount() >= 0.0,
+        "expected finite non-negative PV, got {}",
+        pv.amount()
     );
 }
 

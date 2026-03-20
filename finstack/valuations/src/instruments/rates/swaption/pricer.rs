@@ -400,6 +400,11 @@ impl HullWhiteParams {
         Self { kappa, sigma }
     }
 
+    /// Returns true when these parameters are the generic uncalibrated defaults.
+    pub fn is_uncalibrated_default(&self) -> bool {
+        (self.kappa - 0.03).abs() < f64::EPSILON && (self.sigma - 0.01).abs() < f64::EPSILON
+    }
+
     /// Create tree configuration with specified number of steps.
     pub(crate) fn to_tree_config(&self, steps: usize) -> HullWhiteTreeConfig {
         HullWhiteTreeConfig::new(self.kappa, self.sigma, steps)
@@ -662,6 +667,14 @@ impl BermudanSwaptionPricer {
             (valuator.price(), true)
         } else {
             // Calibrate new model (O(Steps × Time) per instrument)
+            if self.hw_params.is_uncalibrated_default() {
+                tracing::warn!(
+                    instrument_id = %swaption.id,
+                    kappa = self.hw_params.kappa,
+                    sigma = self.hw_params.sigma,
+                    "Pricing Bermudan swaption with uncalibrated HullWhiteParams::default(); calibrate to co-terminal swaptions for production use"
+                );
+            }
             let model = CalibratedHullWhiteModel::calibrate(
                 self.hw_params.clone(),
                 self.tree_steps,

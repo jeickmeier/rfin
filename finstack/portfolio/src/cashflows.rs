@@ -30,6 +30,49 @@ use finstack_core::money::Money;
 use finstack_valuations::cashflow::{DatedFlow, DatedFlows};
 use finstack_valuations::instruments::Instrument;
 use indexmap::IndexMap;
+use std::collections::HashSet;
+
+fn market_reference_date(market: &MarketContext) -> Option<Date> {
+    let state: finstack_core::market_data::context::MarketContextState = market.into();
+    state.curves.iter().find_map(|curve| match curve {
+        finstack_core::market_data::context::CurveState::Discount(curve) => Some(curve.base_date()),
+        finstack_core::market_data::context::CurveState::Forward(curve) => Some(curve.base_date()),
+        finstack_core::market_data::context::CurveState::Hazard(curve) => Some(curve.base_date()),
+        finstack_core::market_data::context::CurveState::Inflation(curve) => {
+            Some(curve.base_date())
+        }
+        finstack_core::market_data::context::CurveState::Price(curve) => Some(curve.base_date()),
+        finstack_core::market_data::context::CurveState::VolIndex(curve) => Some(curve.base_date()),
+        finstack_core::market_data::context::CurveState::BaseCorrelation(_) => None,
+    })
+}
+
+fn add_years_clamped(date: Date, years: i32) -> Date {
+    let target_year = date.year() + years;
+    let month = date.month();
+    let mut day = date.day();
+    loop {
+        if let Ok(result) = Date::from_calendar_date(target_year, month, day) {
+            return result;
+        }
+        day -= 1;
+    }
+}
+
+fn should_warn_far_future_fx_conversion(
+    market: &MarketContext,
+    payment_date: Date,
+    from_ccy: Currency,
+    base_ccy: Currency,
+) -> bool {
+    if from_ccy == base_ccy {
+        return false;
+    }
+    let Some(reference_date) = market_reference_date(market) else {
+        return false;
+    };
+    payment_date > add_years_clamped(reference_date, 30)
+}
 
 /// Aggregated portfolio cashflows by date and currency.
 ///
@@ -163,6 +206,7 @@ pub fn collapse_cashflows_to_base_by_date(
     base_ccy: Currency,
 ) -> Result<IndexMap<Date, Money>> {
     let mut by_date_base: IndexMap<Date, Money> = IndexMap::new();
+    let mut warned_pairs: HashSet<(Currency, Currency, Date)> = HashSet::new();
 
     for (date, per_ccy) in &ladder.by_date {
         let mut total = Money::new(0.0, base_ccy);
@@ -182,6 +226,17 @@ pub fn collapse_cashflows_to_base_by_date(
                         from: *ccy,
                         to: base_ccy,
                     })?;
+
+                if should_warn_far_future_fx_conversion(market, *date, *ccy, base_ccy)
+                    && warned_pairs.insert((*ccy, base_ccy, *date))
+                {
+                    tracing::warn!(
+                        from = %ccy,
+                        to = %base_ccy,
+                        payment_date = %date,
+                        "Converting cashflow beyond market as-of + 30Y using spot-equivalent FX; prefer forward FX for long-dated reporting"
+                    );
+                }
 
                 let converted = Money::new(money.amount() * rate_result.rate, base_ccy);
                 total = total.checked_add(converted).map_err(Error::Core)?;
@@ -359,5 +414,19 @@ mod tests {
             // Total should be in USD
             assert_eq!(total.currency(), Currency::USD);
         }
+    }
+
+    #[test]
+    fn far_future_fx_conversions_are_flagged_relative_to_market_reference_date() {
+        let as_of = date!(2025 - 01 - 01);
+        let market = build_test_market_at(as_of);
+        let payment_date = date!(2055 - 01 - 02);
+
+        assert!(should_warn_far_future_fx_conversion(
+            &market,
+            payment_date,
+            Currency::EUR,
+            Currency::USD
+        ));
     }
 }

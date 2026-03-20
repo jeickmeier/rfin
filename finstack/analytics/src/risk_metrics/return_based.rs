@@ -10,6 +10,24 @@ use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use super::tail_risk::cornish_fisher_var;
 
+/// True when annualization is requested but `ann_factor` is not a positive finite
+/// periods-per-year count (e.g. zero, negative, NaN, or infinity).
+#[inline]
+fn invalid_annualization_factor(annualize: bool, ann_factor: f64) -> bool {
+    annualize && (!ann_factor.is_finite() || ann_factor <= 0.0)
+}
+
+/// Day-count convention for CAGR annualization over explicit calendar dates.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AnnualizationConvention {
+    /// Actual calendar days divided by 365.0.
+    Act365Fixed,
+    /// Actual calendar days divided by 365.25.
+    Act365_25,
+    /// Actual/Actual using the actual number of days in each calendar year.
+    ActAct,
+}
+
 /// Compound annual growth rate from a return series over a date range.
 ///
 /// Computes:
@@ -18,8 +36,8 @@ use super::tail_risk::cornish_fisher_var;
 /// CAGR = (Π(1 + r_i))^(1/years) - 1
 /// ```
 ///
-/// where `years = (end - start).days / 365` using an Act/365 Fixed
-/// day-count convention.
+/// where `years = (end - start).days / 365.25` using the default
+/// `AnnualizationConvention::Act365_25`.
 ///
 /// # Arguments
 ///
@@ -45,16 +63,100 @@ use super::tail_risk::cornish_fisher_var;
 /// assert!((c - 0.10).abs() < 0.01);
 /// ```
 pub fn cagr(returns: &[f64], start: crate::dates::Date, end: crate::dates::Date) -> f64 {
+    cagr_with_convention(returns, start, end, AnnualizationConvention::Act365_25)
+}
+
+/// Compound annual growth rate from a return series over a date range using an explicit convention.
+///
+/// Same compounding formula as [`cagr`], but `years` in the annualization denominator
+/// follows `convention` (see [`AnnualizationConvention`]) instead of the default
+/// `Act365_25` used by [`cagr`].
+///
+/// # Arguments
+///
+/// * `returns` - Slice of simple period returns.
+/// * `start`   - Start date of the series (inclusive).
+/// * `end`     - End date of the series (inclusive).
+/// * `convention` - How calendar span maps to year fraction for the exponent.
+///
+/// # Returns
+///
+/// Annualized growth rate as a decimal. Returns `0.0` if `returns` is empty or if the
+/// implied year fraction is zero or negative.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_analytics::risk_metrics::return_based::{cagr_with_convention, AnnualizationConvention};
+/// use finstack_core::dates::{Date, Month};
+///
+/// let start = Date::from_calendar_date(2024, Month::January, 1).unwrap();
+/// let end   = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+/// let c = cagr_with_convention(&[0.10], start, end, AnnualizationConvention::Act365Fixed);
+/// assert!((c - 0.10).abs() < 0.01);
+/// ```
+pub fn cagr_with_convention(
+    returns: &[f64],
+    start: crate::dates::Date,
+    end: crate::dates::Date,
+    convention: AnnualizationConvention,
+) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
     let total = 1.0 + crate::returns::comp_total(returns);
+    let years = annualized_years(start, end, convention);
+    if years <= 0.0 {
+        return 0.0;
+    }
+    total.powf(1.0 / years) - 1.0
+}
+
+fn annualized_years(
+    start: crate::dates::Date,
+    end: crate::dates::Date,
+    convention: AnnualizationConvention,
+) -> f64 {
     let days = (end - start).whole_days() as f64;
     if days <= 0.0 {
         return 0.0;
     }
-    let years = days / 365.0;
-    total.powf(1.0 / years) - 1.0
+
+    match convention {
+        AnnualizationConvention::Act365Fixed => days / 365.0,
+        AnnualizationConvention::Act365_25 => days / 365.25,
+        AnnualizationConvention::ActAct => actual_actual_years(start, end),
+    }
+}
+
+fn actual_actual_years(start: crate::dates::Date, end: crate::dates::Date) -> f64 {
+    use crate::dates::Month;
+
+    let mut current = start;
+    let mut years = 0.0;
+
+    while current < end {
+        let next_year_start =
+            match crate::dates::Date::from_calendar_date(current.year() + 1, Month::January, 1) {
+                Ok(date) => date,
+                Err(_) => return years,
+            };
+        let segment_end = next_year_start.min(end);
+        let segment_days = (segment_end - current).whole_days() as f64;
+        years += segment_days
+            / if is_leap_year(current.year()) {
+                366.0
+            } else {
+                365.0
+            };
+        current = segment_end;
+    }
+
+    years
+}
+
+fn is_leap_year(year: i32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
 }
 
 /// Compound annual growth rate from a return series using a period-based
@@ -63,10 +165,14 @@ pub fn cagr(returns: &[f64], start: crate::dates::Date, end: crate::dates::Date)
 /// Unlike [`cagr`], which requires start/end dates, this variant derives
 /// the holding period from `returns.len() / ann_factor`.
 ///
-/// Returns `f64::NAN` when `returns` has fewer than 2 elements.
+/// Returns `f64::NAN` when `returns` has fewer than 2 elements, or when
+/// `ann_factor` is not finite and strictly positive.
 pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
     let n = returns.len();
     if n < 2 {
+        return f64::NAN;
+    }
+    if !ann_factor.is_finite() || ann_factor <= 0.0 {
         return f64::NAN;
     }
     let total = 1.0 + crate::returns::comp_total(returns);
@@ -80,8 +186,18 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
 
 /// Mean return, optionally annualized.
 ///
-/// Computes the arithmetic mean of `returns`. When `annualize` is `true`
-/// the result is scaled by `ann_factor` (e.g., 252 for daily data).
+/// Computes the **arithmetic** mean of `returns`. When `annualize` is `true`,
+/// that mean is scaled by `ann_factor` (e.g., 252 for daily data):
+///
+/// ```text
+/// μ_ann = μ_period × ann_factor
+/// ```
+///
+/// This is **simple** annualization of the average **per-period** return, not a
+/// compounded (geometric) annual return. For growth over time that compounds
+/// period returns, use [`cagr`] or [`cagr_from_periods`]. Volatility in this
+/// module uses the usual root-time rule (`σ_ann = σ_period × √ann_factor`); mean
+/// return uses **linear** scaling instead.
 ///
 /// # Arguments
 ///
@@ -92,7 +208,8 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
 /// # Returns
 ///
 /// Arithmetic mean return, annualized if requested. Returns `0.0` for an
-/// empty slice.
+/// empty slice. When `annualize` is `true`, returns [`f64::NAN`] if `ann_factor`
+/// is not finite or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -107,6 +224,9 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
 /// assert!((m_ann - 0.02 * 252.0).abs() < 1e-10);
 /// ```
 pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+    if invalid_annualization_factor(annualize, ann_factor) {
+        return f64::NAN;
+    }
     let m = mean(returns);
     if annualize {
         m * ann_factor
@@ -131,7 +251,8 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// # Returns
 ///
 /// Sample standard deviation of `returns` (n-1 denominator), annualized if requested.
-/// Returns `0.0` for an empty slice.
+/// Returns `0.0` for an empty slice. When `annualize` is `true`, returns
+/// [`f64::NAN`] if `ann_factor` is not finite or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -146,6 +267,9 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// assert!((vol_ann - vol * 252.0_f64.sqrt()).abs() < 1e-12);
 /// ```
 pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+    if invalid_annualization_factor(annualize, ann_factor) {
+        return f64::NAN;
+    }
     let v = variance(returns).sqrt();
     if annualize {
         v * ann_factor.sqrt()
@@ -210,7 +334,8 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 /// # Returns
 ///
 /// The downside deviation (non-negative). Returns `0.0` for an empty
-/// slice or when no returns fall below `mar`.
+/// slice or when no returns fall below `mar`. When `annualize` is `true`,
+/// returns [`f64::NAN`] if `ann_factor` is not finite or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -232,6 +357,9 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
+    }
+    if invalid_annualization_factor(annualize, ann_factor) {
+        return f64::NAN;
     }
     let downside_sq = kahan_sum(returns.iter().filter(|&&r| r < mar).map(|&r| {
         let d = r - mar;
@@ -270,7 +398,8 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// The Sortino ratio. Returns `±∞` when the mean is nonzero but there
 /// are no negative returns (zero downside risk), and `0.0` when the
-/// mean is zero or the downside deviation is zero.
+/// mean is zero or the downside deviation is zero. When `annualize` is
+/// `true`, returns [`f64::NAN`] if `ann_factor` is not finite or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -286,6 +415,9 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 ///
 /// - Sortino & van der Meer (1991): see docs/REFERENCES.md#sortinoVanDerMeer1991
 pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
+    if invalid_annualization_factor(annualize, ann_factor) {
+        return f64::NAN;
+    }
     let m = mean(returns);
     let dd = downside_deviation(returns, 0.0, false, ann_factor);
     if dd == 0.0 {
@@ -617,7 +749,7 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 /// ```rust
 /// use finstack_analytics::risk_metrics::modified_sharpe;
 ///
-/// let r = [0.01, -0.02, 0.03, -0.01, 0.02, 0.005, -0.005, 0.015];
+/// let r = [-0.06, -0.03, -0.02, 0.01, 0.02, 0.025, 0.03, 0.04];
 /// let ms = modified_sharpe(&r, 0.02, 0.95, 252.0);
 /// assert!(ms.is_finite());
 /// ```
@@ -634,12 +766,18 @@ pub fn modified_sharpe(
     if returns.is_empty() {
         return 0.0;
     }
-    let ann_ret = mean_return(returns, true, ann_factor);
+    let excess_return = mean_return(returns, true, ann_factor) - risk_free_rate;
     let cf_var = cornish_fisher_var(returns, confidence, Some(ann_factor));
-    if cf_var == 0.0 {
-        return 0.0;
+    if cf_var >= 0.0 {
+        return if excess_return > 0.0 {
+            f64::INFINITY
+        } else if excess_return < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
-    (ann_ret - risk_free_rate) / cf_var.abs()
+    excess_return / cf_var.abs()
 }
 
 #[cfg(test)]
@@ -658,6 +796,76 @@ mod tests {
         let r = [0.10];
         let c = cagr(&r, jan1(2024), jan1(2025));
         assert!((c - 0.10).abs() < 0.01);
+    }
+
+    #[test]
+    fn cagr_with_act_365_fixed_matches_legacy_behavior() {
+        let r = [0.10];
+        let c = cagr_with_convention(
+            &r,
+            jan1(2024),
+            jan1(2025),
+            AnnualizationConvention::Act365Fixed,
+        );
+        assert!((c - 0.09971358593414137).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn cagr_defaults_to_365_25_for_leap_year_spans() {
+        let r = [0.10];
+        let c_default = cagr(&r, jan1(2024), jan1(2025));
+        let c_fixed = cagr_with_convention(
+            &r,
+            jan1(2024),
+            jan1(2025),
+            AnnualizationConvention::Act365Fixed,
+        );
+        assert!(c_default > c_fixed);
+        assert!((c_default - 0.09978518245839707).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn cagr_act_act_matches_full_leap_year() {
+        let r = [0.10];
+        let c = cagr_with_convention(&r, jan1(2024), jan1(2025), AnnualizationConvention::ActAct);
+        assert!((c - 0.10).abs() < 1.0e-12);
+    }
+
+    #[test]
+    fn mean_return_volatility_nan_when_annualized_with_invalid_factor() {
+        let r = [0.01_f64, 0.02];
+        assert!(mean_return(&r, true, 0.0).is_nan());
+        assert!(mean_return(&r, true, -1.0).is_nan());
+        assert!(mean_return(&r, true, f64::NAN).is_nan());
+        assert!(volatility(&r, true, 0.0).is_nan());
+        assert!(volatility(&r, true, f64::INFINITY).is_nan());
+    }
+
+    #[test]
+    fn downside_deviation_and_sortino_nan_when_annualized_with_invalid_factor() {
+        let r = [0.01_f64, -0.02, 0.03];
+        assert!(downside_deviation(&r, 0.0, true, 0.0).is_nan());
+        assert!(sortino(&r, true, 0.0).is_nan());
+    }
+
+    #[test]
+    fn cagr_from_periods_rejects_bad_ann_factor() {
+        assert!(cagr_from_periods(&[0.01, 0.02], 0.0).is_nan());
+        assert!(cagr_from_periods(&[0.01, 0.02], -1.0).is_nan());
+        assert!(cagr_from_periods(&[0.01, 0.02], f64::NAN).is_nan());
+    }
+
+    #[test]
+    fn mean_return_annualized_scales_linearly_not_compounded() {
+        let r = [0.01, 0.02, 0.03];
+        let m_ann = mean_return(&r, true, 252.0);
+        let mean_p = mean(&r);
+        assert!((m_ann - mean_p * 252.0).abs() < 1e-10);
+        let cagr_ann = cagr_from_periods(&r, 252.0);
+        assert!(
+            cagr_ann.is_finite() && (m_ann - cagr_ann).abs() > 1e-6,
+            "arithmetic annualized mean should differ from compounded cagr_from_periods"
+        );
     }
 
     #[test]
@@ -870,8 +1078,8 @@ mod tests {
     }
 
     #[test]
-    fn modified_sharpe_finite() {
-        let r = [0.01, -0.02, 0.03, -0.01, 0.02, 0.005, -0.005, 0.015];
+    fn modified_sharpe_is_finite_when_cf_var_is_a_loss() {
+        let r = [-0.06, -0.03, -0.02, 0.01, 0.02, 0.025, 0.03, 0.04];
         let ms = modified_sharpe(&r, 0.02, 0.95, 252.0);
         assert!(ms.is_finite());
     }
@@ -879,6 +1087,13 @@ mod tests {
     #[test]
     fn modified_sharpe_empty() {
         assert_eq!(modified_sharpe(&[], 0.02, 0.95, 252.0), 0.0);
+    }
+
+    #[test]
+    fn modified_sharpe_positive_cf_var_reports_infinite_upside_ratio() {
+        let r = [0.03; 12];
+        let ms = modified_sharpe(&r, 0.0, 0.95, 12.0);
+        assert_eq!(ms, f64::INFINITY);
     }
 
     #[test]

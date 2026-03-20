@@ -12,6 +12,22 @@ use crate::spec::OperationSpec;
 use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::pricer::InstrumentType;
 
+fn accumulate_optional_shock(current: Option<f64>, delta: f64) -> f64 {
+    current.unwrap_or(0.0) + delta
+}
+
+fn accumulate_meta_shock(attrs: &mut Attributes, key: &str, delta: f64, precision: usize) {
+    let current = attrs
+        .meta
+        .get(key)
+        .and_then(|value| value.parse::<f64>().ok())
+        .unwrap_or(0.0);
+    attrs.meta.insert(
+        key.to_string(),
+        format!("{:.*}", precision, current + delta),
+    );
+}
+
 /// Adapter for instrument operations.
 pub struct InstrumentAdapter;
 
@@ -72,14 +88,18 @@ pub fn apply_instrument_type_price_shock(
         if instrument_types.contains(&inst_type) {
             // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_price_shock_pct = Some(shock_decimal);
+                overrides.scenario.scenario_price_shock_pct = Some(accumulate_optional_shock(
+                    overrides.scenario.scenario_price_shock_pct,
+                    shock_decimal,
+                ));
             } else {
                 // Fallback: store as metadata for downstream processing
-                let shock_str = format!("{:.6}", shock_decimal);
-                instrument
-                    .attributes_mut()
-                    .meta
-                    .insert("scenario_price_shock_pct".to_string(), shock_str);
+                accumulate_meta_shock(
+                    instrument.attributes_mut(),
+                    "scenario_price_shock_pct",
+                    shock_decimal,
+                    6,
+                );
             }
             count += 1;
         }
@@ -102,14 +122,18 @@ pub fn apply_instrument_type_spread_shock(
         if instrument_types.contains(&inst_type) {
             // Try to apply via scenario_overrides for functional pricing effect
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_spread_shock_bp = Some(bp);
+                overrides.scenario.scenario_spread_shock_bp = Some(accumulate_optional_shock(
+                    overrides.scenario.scenario_spread_shock_bp,
+                    bp,
+                ));
             } else {
                 // Fallback: store as metadata for downstream processing
-                let shock_str = format!("{:.2}", bp);
-                instrument
-                    .attributes_mut()
-                    .meta
-                    .insert("scenario_spread_shock_bp".to_string(), shock_str);
+                accumulate_meta_shock(
+                    instrument.attributes_mut(),
+                    "scenario_spread_shock_bp",
+                    bp,
+                    2,
+                );
             }
             count += 1;
         }
@@ -132,13 +156,17 @@ pub fn apply_instrument_attr_price_shock(
     for instrument in instruments.iter_mut() {
         if matches_attr_filter(instrument.attributes(), &filters) {
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_price_shock_pct = Some(shock_decimal);
+                overrides.scenario.scenario_price_shock_pct = Some(accumulate_optional_shock(
+                    overrides.scenario.scenario_price_shock_pct,
+                    shock_decimal,
+                ));
             } else {
-                let shock_str = format!("{:.6}", shock_decimal);
-                instrument
-                    .attributes_mut()
-                    .meta
-                    .insert("scenario_price_shock_pct".to_string(), shock_str);
+                accumulate_meta_shock(
+                    instrument.attributes_mut(),
+                    "scenario_price_shock_pct",
+                    shock_decimal,
+                    6,
+                );
             }
             count += 1;
         }
@@ -167,13 +195,17 @@ pub fn apply_instrument_attr_spread_shock(
     for instrument in instruments.iter_mut() {
         if matches_attr_filter(instrument.attributes(), &filters) {
             if let Some(overrides) = instrument.scenario_overrides_mut() {
-                overrides.scenario.scenario_spread_shock_bp = Some(bp);
+                overrides.scenario.scenario_spread_shock_bp = Some(accumulate_optional_shock(
+                    overrides.scenario.scenario_spread_shock_bp,
+                    bp,
+                ));
             } else {
-                let shock_str = format!("{:.2}", bp);
-                instrument
-                    .attributes_mut()
-                    .meta
-                    .insert("scenario_spread_shock_bp".to_string(), shock_str);
+                accumulate_meta_shock(
+                    instrument.attributes_mut(),
+                    "scenario_spread_shock_bp",
+                    bp,
+                    2,
+                );
             }
             count += 1;
         }
@@ -190,6 +222,8 @@ pub fn apply_instrument_attr_spread_shock(
 }
 
 /// Case-insensitive AND match across provided filters.
+///
+/// Only the `meta` map on `Attributes` is compared; tag sets are ignored.
 fn matches_attr_filter(attrs: &Attributes, filters: &[(String, String)]) -> bool {
     if filters.is_empty() {
         return true;

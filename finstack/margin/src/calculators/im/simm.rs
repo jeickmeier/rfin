@@ -86,6 +86,84 @@ impl SimmParams {
     }
 }
 
+fn commodity_inter_bucket_correlation(a: u8, b: u8) -> f64 {
+    const CORR: [[f64; 17]; 17] = [
+        [
+            1.00, 0.22, 0.18, 0.21, 0.20, 0.24, 0.49, 0.16, 0.38, 0.14, 0.10, 0.02, 0.12, 0.11,
+            0.02, 0.00, 0.17,
+        ],
+        [
+            0.22, 1.00, 0.92, 0.90, 0.88, 0.25, 0.08, 0.19, 0.17, 0.17, 0.42, 0.28, 0.36, 0.27,
+            0.20, 0.00, 0.64,
+        ],
+        [
+            0.18, 0.92, 1.00, 0.87, 0.84, 0.16, 0.07, 0.15, 0.10, 0.18, 0.33, 0.22, 0.27, 0.23,
+            0.16, 0.00, 0.54,
+        ],
+        [
+            0.21, 0.90, 0.87, 1.00, 0.77, 0.19, 0.11, 0.18, 0.16, 0.14, 0.32, 0.22, 0.28, 0.22,
+            0.11, 0.00, 0.58,
+        ],
+        [
+            0.20, 0.88, 0.84, 0.77, 1.00, 0.19, 0.09, 0.12, 0.13, 0.18, 0.42, 0.34, 0.32, 0.29,
+            0.13, 0.00, 0.59,
+        ],
+        [
+            0.24, 0.25, 0.16, 0.19, 0.19, 1.00, 0.31, 0.62, 0.23, 0.10, 0.21, 0.05, 0.18, 0.10,
+            0.08, 0.00, 0.28,
+        ],
+        [
+            0.49, 0.08, 0.07, 0.11, 0.09, 0.31, 1.00, 0.21, 0.79, 0.17, 0.10, -0.08, 0.10, 0.07,
+            -0.02, 0.00, 0.13,
+        ],
+        [
+            0.16, 0.19, 0.15, 0.18, 0.12, 0.62, 0.21, 1.00, 0.16, 0.08, 0.13, -0.07, 0.07, 0.05,
+            0.02, 0.00, 0.19,
+        ],
+        [
+            0.38, 0.17, 0.10, 0.16, 0.13, 0.23, 0.79, 0.16, 1.00, 0.15, 0.09, -0.06, 0.06, 0.06,
+            0.01, 0.00, 0.16,
+        ],
+        [
+            0.14, 0.17, 0.18, 0.14, 0.18, 0.10, 0.17, 0.08, 0.15, 1.00, 0.16, 0.09, 0.14, 0.09,
+            0.03, 0.00, 0.11,
+        ],
+        [
+            0.10, 0.42, 0.33, 0.32, 0.42, 0.21, 0.10, 0.13, 0.09, 0.16, 1.00, 0.36, 0.30, 0.25,
+            0.18, 0.00, 0.37,
+        ],
+        [
+            0.02, 0.28, 0.22, 0.22, 0.34, 0.05, -0.08, -0.07, -0.06, 0.09, 0.36, 1.00, 0.20, 0.18,
+            0.11, 0.00, 0.26,
+        ],
+        [
+            0.12, 0.36, 0.27, 0.28, 0.32, 0.18, 0.10, 0.07, 0.06, 0.14, 0.30, 0.20, 1.00, 0.28,
+            0.19, 0.00, 0.39,
+        ],
+        [
+            0.11, 0.27, 0.23, 0.22, 0.29, 0.10, 0.07, 0.05, 0.06, 0.09, 0.25, 0.18, 0.28, 1.00,
+            0.13, 0.00, 0.26,
+        ],
+        [
+            0.02, 0.20, 0.16, 0.11, 0.13, 0.08, -0.02, 0.02, 0.01, 0.03, 0.18, 0.11, 0.19, 0.13,
+            1.00, 0.00, 0.21,
+        ],
+        [
+            0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00, 0.00,
+            0.00, 1.00, 0.00,
+        ],
+        [
+            0.17, 0.64, 0.54, 0.58, 0.59, 0.28, 0.13, 0.19, 0.16, 0.11, 0.37, 0.26, 0.39, 0.26,
+            0.21, 0.00, 1.00,
+        ],
+    ];
+
+    match (a, b) {
+        (1..=17, 1..=17) => CORR[(a - 1) as usize][(b - 1) as usize],
+        _ => 0.0,
+    }
+}
+
 fn resolve_simm_params(
     version: SimmVersion,
     registry: &MarginRegistry,
@@ -304,12 +382,27 @@ impl SimmCalculator {
 
     /// Calculate commodity delta margin using SIMM bucket risk weights.
     pub fn calculate_commodity_delta(&self, delta_by_bucket: &HashMap<String, f64>) -> f64 {
-        let mut weighted_sum = 0.0;
-        for (bucket, delta) in delta_by_bucket {
-            let weight = self.params.commodity_bucket_weight(bucket);
-            weighted_sum += (delta * weight).abs();
+        let weighted_buckets: Vec<(u8, f64)> = delta_by_bucket
+            .iter()
+            .filter_map(|(bucket, delta)| {
+                let bucket_id = bucket_id_from_label(bucket)?;
+                let weight = self.params.commodity_bucket_weight(bucket);
+                Some((bucket_id, delta * weight))
+            })
+            .collect();
+
+        let mut sum = 0.0;
+        for &(bucket_i, weighted_i) in &weighted_buckets {
+            for &(bucket_j, weighted_j) in &weighted_buckets {
+                let rho = if bucket_i == bucket_j {
+                    1.0
+                } else {
+                    commodity_inter_bucket_correlation(bucket_i, bucket_j)
+                };
+                sum += rho * weighted_i * weighted_j;
+            }
         }
-        weighted_sum
+        sum.max(0.0).sqrt()
     }
 
     /// Calculate IR vega margin from vega sensitivities.
@@ -366,10 +459,16 @@ impl SimmCalculator {
         curvature_by_risk_class: &HashMap<SimmRiskClass, f64>,
     ) -> f64 {
         let scale = self.params.curvature_scale_factor;
-        curvature_by_risk_class
-            .values()
-            .map(|cvr| (cvr * scale).abs())
-            .sum()
+        let mut sum = 0.0;
+        for (risk_i, cvr_i) in curvature_by_risk_class {
+            let weighted_i = cvr_i * scale;
+            for (risk_j, cvr_j) in curvature_by_risk_class {
+                let weighted_j = cvr_j * scale;
+                let rho = self.params.correlation(*risk_i, *risk_j);
+                sum += rho * weighted_i * weighted_j;
+            }
+        }
+        sum.max(0.0).sqrt()
     }
 
     /// Calculate concentration add-on for a risk class.
@@ -790,6 +889,56 @@ mod tests {
         let ir_vega_margin = calc.calculate_ir_vega(&vega_by_tenor);
         // Single tenor: sqrt((500K * 0.21)^2) = 500K * 0.21 = 105K
         assert!((ir_vega_margin - 105_000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn curvature_uses_correlated_aggregation_across_risk_classes() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+        let curvature_by_risk_class: HashMap<SimmRiskClass, f64> = [
+            (SimmRiskClass::InterestRate, 1_000_000.0),
+            (SimmRiskClass::Equity, -600_000.0),
+        ]
+        .into_iter()
+        .collect();
+
+        let actual = calc.calculate_curvature(&curvature_by_risk_class);
+        let scale = calc.params.curvature_scale_factor;
+        let rho = calc
+            .params
+            .correlation(SimmRiskClass::InterestRate, SimmRiskClass::Equity);
+        let ir = 1_000_000.0 * scale;
+        let eq = -600_000.0 * scale;
+        let expected = (ir * ir + eq * eq + 2.0 * rho * ir * eq).sqrt();
+
+        assert!(
+            (actual - expected).abs() < 1.0,
+            "expected correlated curvature {}, got {}",
+            expected,
+            actual
+        );
+    }
+
+    #[test]
+    fn commodity_delta_uses_bucket_correlations() {
+        let calc = SimmCalculator::new(SimmVersion::V2_6).expect("registry should load");
+        let delta_by_bucket: HashMap<String, f64> =
+            [("2".to_string(), 100_000.0), ("3".to_string(), -100_000.0)]
+                .into_iter()
+                .collect();
+
+        let actual = calc.calculate_commodity_delta(&delta_by_bucket);
+        let bucket_2 = 100_000.0 * calc.params.commodity_bucket_weight("2");
+        let bucket_3 = -100_000.0 * calc.params.commodity_bucket_weight("3");
+        let rho_23 = 0.92_f64;
+        let expected =
+            (bucket_2 * bucket_2 + bucket_3 * bucket_3 + 2.0 * rho_23 * bucket_2 * bucket_3).sqrt();
+
+        assert!(
+            (actual - expected).abs() < 1.0,
+            "expected correlated commodity margin {}, got {}",
+            expected,
+            actual
+        );
     }
 
     #[derive(Clone)]

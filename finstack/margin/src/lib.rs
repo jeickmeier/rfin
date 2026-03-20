@@ -27,7 +27,7 @@ pub mod types;
 /// XVA valuation-adjustment models and exposure engines.
 pub mod xva;
 
-pub use calculators::im::schedule::ScheduleAssetClass;
+pub use calculators::im::schedule::{ScheduleAssetClass, BCBS_IOSCO_SCHEDULE_ID};
 pub use calculators::im::simm::SimmVersion;
 pub use calculators::{
     CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator, HaircutImCalculator,

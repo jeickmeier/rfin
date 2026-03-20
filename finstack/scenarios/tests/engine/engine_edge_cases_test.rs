@@ -123,7 +123,7 @@ fn test_scenario_composition_same_priority() {
     let composed = engine.compose(vec![s1, s2]);
 
     assert_eq!(composed.operations.len(), 2);
-    assert_eq!(composed.id, "composed");
+    assert_eq!(composed.id, "s1+s2");
 }
 
 #[test]
@@ -238,6 +238,43 @@ fn test_warnings_attribute_based_operations() {
     assert_eq!(report.warnings.len(), 2);
     assert!(report.warnings[0].contains("no instruments provided"));
     assert!(report.warnings[1].contains("no instruments provided"));
+}
+
+#[test]
+fn test_stmt_forecast_percent_missing_node_warns() {
+    let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
+    let mut market = MarketContext::new();
+    let mut model = FinancialModelSpec::new("test", vec![]);
+
+    let scenario = ScenarioSpec {
+        id: "stmt_missing".into(),
+        name: None,
+        description: None,
+        operations: vec![OperationSpec::StmtForecastPercent {
+            node_id: "NOPE".into(),
+            pct: 5.0,
+        }],
+        priority: 0,
+        resolution_mode: Default::default(),
+    };
+
+    let engine = ScenarioEngine::new();
+    let mut ctx = ExecutionContext {
+        market: &mut market,
+        model: &mut model,
+        instruments: None,
+        rate_bindings: None,
+        calendar: None,
+        as_of: base_date,
+    };
+
+    let report = engine.apply(&scenario, &mut ctx).unwrap();
+    assert_eq!(report.operations_applied, 0);
+    assert!(
+        report.warnings.iter().any(|w| w.contains("NOPE")),
+        "expected warning about missing node, got {:?}",
+        report.warnings
+    );
 }
 
 #[test]

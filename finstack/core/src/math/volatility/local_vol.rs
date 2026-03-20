@@ -15,7 +15,11 @@
 //! σ_local²(K, T) = (∂C/∂T + rKC_K + qC) / ((1/2)K²∂²C/∂K²)
 //! ```
 //!
-//! For zero dividends and zero rates (the case handled here for simplicity):
+//! This implementation works in the Black-76 / forward-measure setting, where
+//! discounting and carry are already embedded in the supplied forward price and
+//! discount factor. In that measure the spot-formula drift terms cancel.
+//!
+//! For zero dividends and zero rates (the simplest special case):
 //!
 //! ```text
 //! σ_local²(K, T) ≈ (∂C/∂T) / ((1/2)K²∂²C/∂K²)
@@ -30,6 +34,8 @@
 //! - Finite differences use central differences where possible, one-sided at boundaries
 //! - A small floor is applied to the denominator (gamma term) to avoid division by zero
 //! - The resulting local vol is stored on the same grid as the input implied vol surface
+//! - If you need spot-measure Dupire with explicit `r` / `q` terms, convert to
+//!   forward prices first or extend this extractor with explicit carry curves
 //!
 //! # Reference
 //!
@@ -85,8 +91,8 @@ impl LocalVolSurface {
     /// # Arguments
     ///
     /// * `surface` — implied volatility surface (bilinear-interpolated)
-    /// * `forward` — forward price (assumed constant across expiries for simplicity)
-    /// * `rate` — continuously compounded risk-free rate (used for discounting)
+    /// * `forward` — forward price under the forward measure (assumed constant across expiries for simplicity)
+    /// * `rate` — continuously compounded risk-free rate used only for discounting Black-76 prices
     ///
     /// # Returns
     ///

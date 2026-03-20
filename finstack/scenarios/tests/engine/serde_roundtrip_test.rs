@@ -16,6 +16,7 @@ fn test_scenario_json_roundtrip() {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 50.0,
             },
             OperationSpec::EquityPricePct {
@@ -61,11 +62,13 @@ fn test_all_operation_types_serialize() {
         OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 50.0,
         },
         OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR".into(),
+            discount_curve_id: None,
             nodes: vec![("1Y".into(), 25.0), ("5Y".into(), -10.0)],
             match_mode: TenorMatchMode::Interpolate,
         },
@@ -232,6 +235,7 @@ fn test_tenor_match_mode_default() {
     let op = OperationSpec::CurveNodeBp {
         curve_kind: CurveKind::Discount,
         curve_id: "USD_SOFR".into(),
+        discount_curve_id: None,
         nodes: vec![("5Y".into(), 50.0)],
         match_mode: TenorMatchMode::Interpolate,
     };

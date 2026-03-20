@@ -21,7 +21,7 @@ use crate::rng::sobol::{SobolRng, MAX_SOBOL_DIMENSION};
 use crate::time_grid::TimeGrid;
 use crate::traits::{Discretization, PathState, RandomStream, StochasticProcess};
 use finstack_core::currency::Currency;
-use finstack_core::Result;
+use finstack_core::{Error, Result};
 use smallvec::SmallVec;
 
 /// Configuration for path-dependent option pricing.
@@ -249,7 +249,8 @@ impl PathDependentPricer {
     {
         let sobol_dimension =
             self.validate_sobol_configuration(&time_grid, process.num_factors())?;
-        let mut sobol = SobolRng::new(sobol_dimension, self.config.seed);
+        let mut sobol = SobolRng::try_new(sobol_dimension, self.config.seed)
+            .map_err(|err| Error::Validation(err.to_string()))?;
         let disc = ExactGbm::new();
         let initial_state = vec![initial_spot];
         let capture_enabled = self.config.path_capture.enabled;
@@ -364,11 +365,9 @@ impl PathDependentPricer {
 
             if let Some(mut simulated_path) = simulated_path {
                 simulated_path.set_final_value(payoff_value * discount_factor);
-                let all_cashflows = simulated_path.extract_cashflows();
-                if all_cashflows.len() >= 2 {
+                let cashflow_amounts = simulated_path.extract_cashflow_amounts();
+                if cashflow_amounts.len() >= 2 {
                     use finstack_core::cashflow::InternalRateOfReturn;
-                    let cashflow_amounts: Vec<f64> =
-                        all_cashflows.iter().map(|(_, amt)| *amt).collect();
                     if let Ok(irr) = cashflow_amounts.irr(None) {
                         simulated_path.set_irr(irr);
                     }
@@ -802,6 +801,18 @@ mod tests {
     #[cfg(feature = "mc")]
     #[test]
     fn test_sobol_price_with_paths_multiple_paths() {
+        fn interpolated_percentile(sorted_values: &[f64], percentile: f64) -> f64 {
+            let rank = percentile * (sorted_values.len() - 1) as f64;
+            let lower = rank.floor() as usize;
+            let upper = rank.ceil() as usize;
+            if lower == upper {
+                sorted_values[lower]
+            } else {
+                let weight = rank - lower as f64;
+                sorted_values[lower] * (1.0 - weight) + sorted_values[upper] * weight
+            }
+        }
+
         let config = PathDependentPricerConfig::new(8)
             .with_seed(11)
             .with_parallel(false)
@@ -830,8 +841,8 @@ mod tests {
         } else {
             final_values[len / 2]
         };
-        let expected_p25 = final_values[((len as f64 * 0.25).floor() as usize).min(len - 1)];
-        let expected_p75 = final_values[((len as f64 * 0.75).floor() as usize).min(len - 1)];
+        let expected_p25 = interpolated_percentile(&final_values, 0.25);
+        let expected_p75 = interpolated_percentile(&final_values, 0.75);
 
         assert_eq!(result.estimate.median, Some(expected_median));
         assert_eq!(result.estimate.percentile_25, Some(expected_p25));

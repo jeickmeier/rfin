@@ -29,9 +29,15 @@ fn validate_node_id(node_id: &str) -> Result<()> {
 }
 
 fn replace_standalone_identifier(formula: &str, identifier: &str, replacement: &str) -> String {
+    const MAX_REPLACE_ITERATIONS: usize = 1_000_000;
     let mut result = formula.to_string();
     let mut idx = 0;
+    let mut iterations = 0usize;
     while let Some(pos) = result[idx..].find(identifier) {
+        iterations += 1;
+        if iterations > MAX_REPLACE_ITERATIONS {
+            break;
+        }
         let abs_pos = idx + pos;
         let end_pos = abs_pos + identifier.len();
         if crate::utils::formula::is_standalone_identifier(&result, abs_pos, end_pos, false) {
@@ -119,6 +125,7 @@ impl ModelBuilder<NeedPeriods> {
     /// * `id` - Unique identifier for the model
     ///
     /// You must call `.periods()` before adding nodes.
+    #[must_use]
     pub fn new(id: impl Into<String>) -> Self {
         Self {
             id: id.into(),

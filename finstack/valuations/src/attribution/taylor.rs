@@ -3,7 +3,7 @@
 //! Decomposes P&L into risk-factor contributions using first-order sensitivities
 //! computed via bump-and-reprice:
 //!
-//!   ΔP&L ≈ Σ DV01ᵢ × Δrateᵢ + Σ CS01ⱼ × Δspreadⱼ + vega × Δvol + FX01 × ΔFX + theta
+//!   ΔP&L ≈ Σ DV01ᵢ × Δrateᵢ + Σ Fwd01ₖ × Δfwdₖ + Σ CS01ⱼ × Δspreadⱼ + vega × Δvol + FX01 × ΔFX + theta
 //!
 //! Optionally includes second-order (gamma/convexity) terms:
 //!
@@ -22,7 +22,7 @@ use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::diff::{
     measure_discount_curve_shift, measure_hazard_curve_shift, measure_vol_surface_shift,
-    TenorSamplingMethod,
+    TenorSamplingMethod, STANDARD_TENORS,
 };
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
@@ -146,6 +146,20 @@ pub fn attribute_pnl_taylor(
     let market_deps = instrument.market_dependencies()?;
     for curve_id in &market_deps.curve_dependencies().discount_curves {
         if let Ok(result) = compute_rate_factor(
+            instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
+        ) {
+            total_explained += result.explained_pnl;
+            if let Some(g) = result.gamma_pnl {
+                total_explained += g;
+            }
+            num_repricings += 2;
+            factors.push(result);
+        }
+    }
+
+    // Forward curve sensitivities (parallel bump per forward curve)
+    for curve_id in &market_deps.curve_dependencies().forward_curves {
+        if let Ok(result) = compute_forward_factor(
             instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
         ) {
             total_explained += result.explained_pnl;
@@ -303,6 +317,59 @@ pub fn attribute_pnl_taylor_compat(
 
 // ─── Helper functions ──────────────────────────────────────────────────────
 
+/// Measure average parallel forward rate shift between two markets (basis points).
+fn measure_forward_curve_shift(
+    curve_id: &CurveId,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    method: TenorSamplingMethod,
+) -> Result<f64> {
+    let curve_t0 = market_t0.get_forward(curve_id.as_str())?;
+    let curve_t1 = market_t1.get_forward(curve_id.as_str())?;
+    let tenors: &[f64] = match method {
+        TenorSamplingMethod::Standard => STANDARD_TENORS,
+        TenorSamplingMethod::Dynamic => {
+            let knots = curve_t0.knots();
+            if knots.is_empty() {
+                STANDARD_TENORS
+            } else {
+                knots
+            }
+        }
+        TenorSamplingMethod::Custom(ref tenors) => tenors.as_slice(),
+    };
+    Ok(measure_average_rate_shift(
+        tenors,
+        |t| curve_t0.rate(t),
+        |t| curve_t1.rate(t),
+    ))
+}
+
+fn measure_average_rate_shift(
+    sample_points: &[f64],
+    mut value_t0: impl FnMut(f64) -> f64,
+    mut value_t1: impl FnMut(f64) -> f64,
+) -> f64 {
+    let mut total_shift = 0.0;
+    let mut count = 0;
+
+    for &t in sample_points {
+        if t <= 0.0 {
+            continue;
+        }
+        let v0 = value_t0(t);
+        let v1 = value_t1(t);
+        let shift = (v1 - v0) * 10_000.0;
+        total_shift += shift;
+        count += 1;
+    }
+
+    if count == 0 {
+        return 0.0;
+    }
+    total_shift / count as f64
+}
+
 /// Compute rate (DV01) attribution for a single discount curve.
 fn compute_rate_factor(
     instrument: &Arc<dyn Instrument>,
@@ -341,6 +408,54 @@ fn compute_rate_factor(
 
     Ok(TaylorFactorResult {
         factor_name: format!("Rates:{}", curve_id),
+        sensitivity: dv01,
+        market_move: rate_move_bp,
+        explained_pnl: explained,
+        gamma_pnl,
+    })
+}
+
+/// Compute forward-curve sensitivity attribution for a single forward curve.
+///
+/// Uses the same parallel bump convention as [`compute_rate_factor`], but applies
+/// to the forward curve entry in [`MarketContext`] and measures the realized
+/// move using forward rates (not discount zeros).
+fn compute_forward_factor(
+    instrument: &Arc<dyn Instrument>,
+    market_t0: &MarketContext,
+    market_t1: &MarketContext,
+    as_of_t0: Date,
+    pv_t0: Money,
+    curve_id: &CurveId,
+    config: &TaylorAttributionConfig,
+) -> Result<TaylorFactorResult> {
+    let bumped_up = bump_discount_curve_parallel(market_t0, curve_id, config.rate_bump_bp)?;
+    let pv_up = reprice_instrument(instrument, &bumped_up, as_of_t0)?;
+
+    let bumped_down = bump_discount_curve_parallel(market_t0, curve_id, -config.rate_bump_bp)?;
+    let pv_down = reprice_instrument(instrument, &bumped_down, as_of_t0)?;
+
+    let dv01 = (pv_up.amount() - pv_down.amount()) / (2.0 * config.rate_bump_bp);
+
+    let rate_move_bp = measure_forward_curve_shift(
+        curve_id,
+        market_t0,
+        market_t1,
+        TenorSamplingMethod::Standard,
+    )?;
+
+    let explained = dv01 * rate_move_bp;
+
+    let gamma_pnl = if config.include_gamma {
+        let gamma = (pv_up.amount() - 2.0 * pv_t0.amount() + pv_down.amount())
+            / (config.rate_bump_bp * config.rate_bump_bp);
+        Some(0.5 * gamma * rate_move_bp * rate_move_bp)
+    } else {
+        None
+    };
+
+    Ok(TaylorFactorResult {
+        factor_name: format!("Forward:{}", curve_id),
         sensitivity: dv01,
         market_move: rate_move_bp,
         explained_pnl: explained,
@@ -568,5 +683,56 @@ mod tests {
             attribution.meta.method,
             AttributionMethod::Taylor(_)
         ));
+    }
+
+    #[test]
+    fn taylor_attribution_includes_forward_curve_factors() {
+        use finstack_core::dates::DayCount;
+        use finstack_core::market_data::term_structures::ForwardCurve;
+        use finstack_core::types::CurveId;
+
+        let as_of_t0 = date!(2025 - 01 - 15);
+        let as_of_t1 = date!(2025 - 01 - 16);
+
+        let fwd_t0 = ForwardCurve::builder(CurveId::new("TEST-FWD"), 0.25)
+            .base_date(as_of_t0)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.03), (10.0, 0.03)])
+            .build()
+            .expect("forward curve");
+        let fwd_t1 = ForwardCurve::builder(CurveId::new("TEST-FWD"), 0.25)
+            .base_date(as_of_t0)
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.04), (10.0, 0.04)])
+            .build()
+            .expect("forward curve");
+
+        let market_t0 = MarketContext::new().insert(fwd_t0);
+        let market_t1 = MarketContext::new().insert(fwd_t1);
+
+        let instrument: Arc<dyn Instrument> = Arc::new(
+            TestInstrument::new("FWDI", Money::new(0.0, Currency::USD))
+                .with_forward_curves(&["TEST-FWD"]),
+        );
+
+        let config = TaylorAttributionConfig::default();
+        let result = attribute_pnl_taylor(
+            &instrument,
+            &market_t0,
+            &market_t1,
+            as_of_t0,
+            as_of_t1,
+            &config,
+        )
+        .expect("taylor attribution should succeed");
+
+        assert!(
+            result
+                .factors
+                .iter()
+                .any(|f| f.factor_name.starts_with("Forward:")),
+            "expected forward curve factor, got {:?}",
+            result.factors
+        );
     }
 }

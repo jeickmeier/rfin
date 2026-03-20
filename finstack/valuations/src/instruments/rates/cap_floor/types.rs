@@ -680,7 +680,15 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
             let vol_shift = self.resolved_vol_shift();
             let resolved = resolve_vol_type(self.vol_type, forward, strike, vol_shift);
             let leg_pv = match resolved {
-                CapFloorVolType::Lognormal => black_ir::price_caplet_floorlet(black_inputs())?,
+                CapFloorVolType::Lognormal => {
+                    if forward > 0.0 {
+                        black_ir::price_caplet_floorlet(black_inputs())?
+                    } else {
+                        // Black domain is F > 0; fall back to normal (Bachelier) for negative
+                        // rates while keeping the caller's vol surface as the normal vol input.
+                        normal_ir::price_caplet_floorlet(normal_inputs())?
+                    }
+                }
                 CapFloorVolType::ShiftedLognormal => {
                     black_ir::price_caplet_floorlet(black_ir::CapletFloorletInputs {
                         strike: strike + vol_shift,
@@ -688,14 +696,12 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateOption 
                         ..black_inputs()
                     })?
                 }
-                CapFloorVolType::Auto => {
-                    if forward > 0.0 && strike > 0.0 {
-                        black_ir::price_caplet_floorlet(black_inputs())?
-                    } else {
-                        normal_ir::price_caplet_floorlet(normal_inputs())?
-                    }
-                }
                 CapFloorVolType::Normal => normal_ir::price_caplet_floorlet(normal_inputs())?,
+                CapFloorVolType::Auto => {
+                    return Err(finstack_core::Error::Validation(
+                        "internal error: cap/floor vol_type resolved to Auto".to_string(),
+                    ));
+                }
             };
             total_pv = total_pv.checked_add(leg_pv)?;
         }
@@ -1038,14 +1044,14 @@ mod tests {
             "Normal cap/floor PV should be finite and non-negative"
         );
 
-        let black_err = black_floorlet
+        let black_pv = black_floorlet
             .value(&ctx, base_date)
-            .expect_err("Explicit lognormal should reject negative forwards");
+            .expect("lognormal should auto-fallback to Bachelier for non-positive forwards");
         assert!(
-            black_err
-                .to_string()
-                .contains("Black model requires positive forward rate"),
-            "unexpected lognormal error: {black_err}"
+            (black_pv.amount() - normal_pv.amount()).abs() < 1e-6,
+            "expected lognormal fallback to match normal PV: normal={} lognormal={}",
+            normal_pv.amount(),
+            black_pv.amount()
         );
     }
 

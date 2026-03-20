@@ -20,7 +20,7 @@ fn test_node_not_found_error() {
     };
 
     let display = format!("{}", error);
-    assert!(display.contains("Statement node not found"));
+    assert!(display.contains("Node not found"));
     assert!(display.contains("Revenue"));
 }
 

@@ -116,6 +116,8 @@ pub fn align_benchmark_with_policy(
 /// # Returns
 ///
 /// Tracking error (non-negative). Returns `0.0` for empty or mismatched series.
+/// When `annualize` is `true`, returns [`f64::NAN`] if `ann_factor` is not finite
+/// or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -134,6 +136,9 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
     let n = returns.len().min(benchmark.len());
     if n == 0 {
         return 0.0;
+    }
+    if annualize && (!ann_factor.is_finite() || ann_factor <= 0.0) {
+        return f64::NAN;
     }
     let mut os = OnlineStats::new();
     for i in 0..n {
@@ -170,7 +175,8 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 /// # Returns
 ///
 /// The Information Ratio. Returns `0.0` if tracking error is zero or the
-/// series are empty.
+/// series are empty. When `annualize` is `true`, returns [`f64::NAN`] if
+/// `ann_factor` is not finite or is `<= 0`.
 ///
 /// # Examples
 ///
@@ -195,6 +201,9 @@ pub fn information_ratio(
     let n = returns.len().min(benchmark.len());
     if n == 0 {
         return 0.0;
+    }
+    if annualize && (!ann_factor.is_finite() || ann_factor <= 0.0) {
+        return f64::NAN;
     }
     let mut os = OnlineStats::new();
     for i in 0..n {
@@ -260,6 +269,52 @@ pub struct BetaResult {
     pub ci_upper: f64,
 }
 
+// Two-sided 95% critical value: Student's t with `n−2` degrees of freedom for small
+// samples, and 1.96 when `n − 2 ≥ 38` (normal approximation).
+fn beta_ci_critical_value(sample_size: usize) -> f64 {
+    match sample_size.saturating_sub(2) {
+        0 => f64::NAN,
+        1 => 12.706_204_736_432_095,
+        2 => 4.302_652_729_696_142,
+        3 => 3.182_446_305_284_263,
+        4 => 2.776_445_105_197_798_7,
+        5 => 2.570_581_835_636_305,
+        6 => 2.446_911_851_144_969_2,
+        7 => 2.364_624_251_592_784_4,
+        8 => 2.306_004_135_204_166,
+        9 => 2.262_157_162_854_099_3,
+        10 => 2.228_138_851_964_938_5,
+        11 => 2.200_985_160_082_949,
+        12 => 2.178_812_829_663_417_7,
+        13 => 2.160_368_656_461_013,
+        14 => 2.144_786_687_916_927_7,
+        15 => 2.131_449_545_559_323,
+        16 => 2.119_905_299_221_011_2,
+        17 => 2.109_815_577_833_180_6,
+        18 => 2.100_922_040_240_96,
+        19 => 2.093_024_054_408_263,
+        20 => 2.085_963_447_265_837,
+        21 => 2.079_613_844_727_662,
+        22 => 2.073_873_067_904_015,
+        23 => 2.068_657_610_419_041,
+        24 => 2.063_898_561_628_021,
+        25 => 2.059_538_552_753_294,
+        26 => 2.055_529_438_642_872,
+        27 => 2.051_830_516_480_283_3,
+        28 => 2.048_407_141_795_244,
+        29 => 2.045_229_642_132_703,
+        30 => 2.042_272_456_301_238,
+        31 => 2.039_513_446_396_408_5,
+        32 => 2.036_933_343_460_101_6,
+        33 => 2.034_515_297_449_338_3,
+        34 => 2.032_244_509_317_719,
+        35 => 2.030_107_928_250_343,
+        36 => 2.028_094_000_980_451,
+        37 => 2.026_192_463_029_109_3,
+        _ => 1.96,
+    }
+}
+
 /// OLS beta of portfolio vs benchmark, with standard error and 95% CI.
 ///
 /// Estimates the slope of the single-factor linear regression
@@ -270,13 +325,13 @@ pub struct BetaResult {
 /// ```
 ///
 /// Standard error uses the OLS formula with `(n - 2)` degrees of freedom.
-/// Confidence interval: `β ± 1.96 × SE(β)` (asymptotic 95% CI).
 ///
-/// **Note on CI approximation**: The 1.96 multiplier uses the standard
-/// normal quantile, which is a good approximation for the t-distribution
-/// when `n > 40`. For smaller samples, the CI will be slightly too narrow.
-/// A full t-distribution inverse CDF is not implemented here as it would
-/// require a beta-function special function for marginal accuracy improvement.
+/// The **95% two-sided** interval uses `β ± t_{n−2, 0.975} × SE(β)`, where
+/// `t_{n−2, 0.975}` is the **Student's t** critical value for `n − 2` degrees
+/// of freedom (implemented as a small fixed table for `n − 2 ≤ 37`). For
+/// `n − 2 ≥ 38` (i.e. `n ≥ 40`), the **normal** critical value **1.96**
+/// (two-sided 95%) is used as the usual asymptotic approximation to the
+/// t distribution.
 ///
 /// Requires at least 3 observations; returns `NaN` for standard error and
 /// CI bounds when `n < 3`.
@@ -339,11 +394,12 @@ pub fn calc_beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
         f64::NAN
     };
 
+    let critical_value = beta_ci_critical_value(n);
     BetaResult {
         beta,
         std_err: se,
-        ci_lower: beta - 1.96 * se,
-        ci_upper: beta + 1.96 * se,
+        ci_lower: beta - critical_value * se,
+        ci_upper: beta + critical_value * se,
     }
 }
 
@@ -904,11 +960,28 @@ mod tests {
     }
 
     #[test]
+    fn tracking_error_nan_when_annualized_with_invalid_ann_factor() {
+        let r = [0.01, 0.02];
+        let b = [0.01, 0.01];
+        assert!(tracking_error(&r, &b, true, 0.0).is_nan());
+        assert!(tracking_error(&r, &b, true, -1.0).is_nan());
+        assert!(tracking_error(&r, &b, true, f64::NAN).is_nan());
+    }
+
+    #[test]
     fn information_ratio_basic() {
         let r = [0.02, 0.03, 0.01, 0.04];
         let b = [0.01, 0.01, 0.01, 0.01];
         let ir = information_ratio(&r, &b, false, 252.0);
         assert!(ir > 0.0);
+    }
+
+    #[test]
+    fn information_ratio_nan_when_annualized_with_invalid_ann_factor() {
+        let r = [0.02, 0.03, 0.01, 0.04];
+        let b = [0.01, 0.01, 0.01, 0.01];
+        assert!(information_ratio(&r, &b, true, 0.0).is_nan());
+        assert!(information_ratio(&r, &b, true, f64::INFINITY).is_nan());
     }
 
     #[test]
@@ -925,6 +998,23 @@ mod tests {
         let x = [0.01, 0.02, 0.03, 0.04, 0.05];
         let result = calc_beta(&y, &x);
         assert!((result.beta - 2.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn calc_beta_uses_t_critical_value_for_small_samples() {
+        let y = [0.020, 0.041, 0.059, 0.082, 0.099];
+        let x = [0.010, 0.020, 0.030, 0.040, 0.050];
+        let result = calc_beta(&y, &x);
+        let expected_t_critical_df3 = 3.182_446_305_284_263_f64;
+        let expected_half_width = expected_t_critical_df3 * result.std_err;
+        let actual_half_width = result.ci_upper - result.beta;
+
+        assert!(
+            (actual_half_width - expected_half_width).abs() < 1e-12,
+            "small-sample beta CI should use Student-t critical value: expected {}, got {}",
+            expected_half_width,
+            actual_half_width
+        );
     }
 
     #[test]

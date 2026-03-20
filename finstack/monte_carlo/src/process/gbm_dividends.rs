@@ -130,7 +130,10 @@ impl StochasticProcess for GbmWithDividends {
     }
 
     fn num_factors(&self) -> usize {
-        1
+        // Each `[t, t+Δt]` step splits into at most `dividends_in_interval + 1` exact GBM
+        // sub-intervals; independent Brownian increments per sub-interval require
+        // one standard normal per segment (see `ExactGbmWithDividends`).
+        self.dividends.len().saturating_add(1)
     }
 
     fn drift(&self, _t: f64, x: &[f64], out: &mut [f64]) {
@@ -154,6 +157,25 @@ impl StochasticProcess for GbmWithDividends {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::traits::StochasticProcess;
+
+    #[test]
+    fn test_num_factors_one_per_gbm_subinterval_budget() {
+        let empty = GbmWithDividends::new(GbmParams::new(0.05, 0.0, 0.2), vec![]);
+        assert_eq!(empty.num_factors(), 1);
+
+        let one_div = GbmWithDividends::new(
+            GbmParams::new(0.05, 0.0, 0.2),
+            vec![(0.5, Dividend::Cash(1.0))],
+        );
+        assert_eq!(one_div.num_factors(), 2);
+
+        let two_div = GbmWithDividends::new(
+            GbmParams::new(0.05, 0.0, 0.2),
+            vec![(0.25, Dividend::Cash(0.5)), (0.75, Dividend::Cash(0.5))],
+        );
+        assert_eq!(two_div.num_factors(), 3);
+    }
 
     #[test]
     fn test_cash_dividend() {

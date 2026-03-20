@@ -128,9 +128,13 @@ pub fn mean_var(xs: &[f64]) -> (f64, f64) {
 ///
 /// Matches `OnlineCovariance::covariance()` convention. Returns `0.0` for
 /// fewer than 2 observations.
+///
+/// Returns [`f64::NAN`] if slice lengths differ (pairing is undefined).
 pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
-    debug_assert_eq!(x.len(), y.len(), "covariance: mismatched slice lengths");
-    let n = x.len().min(y.len());
+    if x.len() != y.len() {
+        return f64::NAN;
+    }
+    let n = x.len();
     if n < 2 {
         return 0.0;
     }
@@ -152,8 +156,13 @@ pub fn covariance(x: &[f64], y: &[f64]) -> f64 {
 }
 
 /// Pearson correlation in a single Welford pass via `OnlineCovariance`.
+///
+/// Returns [`f64::NAN`] if slice lengths differ (pairing is undefined).
 pub fn correlation(x: &[f64], y: &[f64]) -> f64 {
-    let n = x.len().min(y.len());
+    if x.len() != y.len() {
+        return f64::NAN;
+    }
+    let n = x.len();
     if n < 2 {
         return 0.0;
     }
@@ -228,11 +237,32 @@ impl RealizedVarMethod {
 }
 
 /// Calculate log returns from a price series.
+///
+/// Each element is `ln(p_t / p_{t-1})` when both prices are finite and strictly
+/// positive. Windows with a non-positive prior price, non-finite values, or a
+/// non-positive ratio (including total wipeout to a zero price) return
+/// [`f64::NAN`] so downstream variance estimates do not silently absorb
+/// infinities.
 pub fn log_returns(prices: &[f64]) -> Vec<f64> {
     if prices.len() < 2 {
         return vec![];
     }
-    prices.windows(2).map(|w| (w[1] / w[0]).ln()).collect()
+    prices
+        .windows(2)
+        .map(|w| {
+            let p0 = w[0];
+            let p1 = w[1];
+            if p0 <= 0.0 || !p0.is_finite() || !p1.is_finite() {
+                return f64::NAN;
+            }
+            let ratio = p1 / p0;
+            if !ratio.is_finite() || ratio <= 0.0 {
+                f64::NAN
+            } else {
+                ratio.ln()
+            }
+        })
+        .collect()
 }
 
 /// Empirical quantile via partial sort.
@@ -241,10 +271,14 @@ pub fn log_returns(prices: &[f64]) -> Vec<f64> {
 /// interpolation between adjacent order statistics (the "R-7" / NumPy default).
 ///
 /// The input slice is **mutated** (partially sorted) to avoid allocation.
-/// Returns `NaN` if the slice is empty or `p` is outside `[0, 1]`.
+/// Returns `NaN` if the slice is empty or `p` is outside `[0, 1]`, or if any
+/// input value is non-finite (NaN or ±∞).
 pub fn quantile(data: &mut [f64], p: f64) -> f64 {
     let n = data.len();
     if n == 0 || !(0.0..=1.0).contains(&p) {
+        return f64::NAN;
+    }
+    if data.iter().any(|x| !x.is_finite()) {
         return f64::NAN;
     }
     if n == 1 {
@@ -268,12 +302,18 @@ pub fn quantile(data: &mut [f64], p: f64) -> f64 {
     v_lo + frac * (v_hi - v_lo)
 }
 
-/// Calculate realized variance from a close price series.
+/// Calculate annualized close-to-close realized variance from a close price series.
 ///
 /// Only the `CloseToClose` method is supported; OHLC-based estimators
 /// (`Parkinson`, `GarmanKlass`, `RogersSatchell`, `YangZhang`) require
 /// intraday high/low/open data and must be called via
 /// [`realized_variance_ohlc`].
+///
+/// For `CloseToClose`, this function returns the annualized mean of squared log
+/// returns. That is a close-to-close second moment estimator, not a de-meaned
+/// sample variance. The name follows common market terminology, but callers
+/// comparing against statistical variance formulas should account for that
+/// convention explicitly.
 ///
 /// # Arguments
 /// * `prices` - Close price series ordered in time
@@ -845,6 +885,20 @@ mod tests {
     }
 
     #[test]
+    fn covariance_rejects_mismatched_lengths_with_nan() {
+        let x = [1.0, 2.0, 3.0];
+        let y = [1.0, 2.0];
+        assert!(covariance(&x, &y).is_nan());
+    }
+
+    #[test]
+    fn correlation_rejects_mismatched_lengths_with_nan() {
+        let x = [1.0, 2.0, 3.0];
+        let y = [1.0, 2.0];
+        assert!(correlation(&x, &y).is_nan());
+    }
+
+    #[test]
     fn test_online_covariance_basic() {
         let mut cov = OnlineCovariance::new();
         cov.update(1.0, 2.0);
@@ -966,6 +1020,30 @@ mod tests {
         );
     }
 
+    // ── log_returns tests ──
+
+    #[test]
+    fn log_returns_empty_and_single_yield_empty() {
+        assert!(super::log_returns(&[]).is_empty());
+        assert!(super::log_returns(&[100.0]).is_empty());
+    }
+
+    #[test]
+    fn log_returns_matches_ln_ratio_for_positive_prices() {
+        let lr = super::log_returns(&[100.0, 110.0, 99.0]);
+        assert_eq!(lr.len(), 2);
+        assert!((lr[0] - 1.1_f64.ln()).abs() < 1e-12);
+        assert!((lr[1] - (99.0_f64 / 110.0).ln()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn log_returns_non_positive_or_non_finite_prices_yield_nan() {
+        assert!(super::log_returns(&[100.0, 0.0])[0].is_nan());
+        assert!(super::log_returns(&[0.0, 100.0])[0].is_nan());
+        assert!(super::log_returns(&[100.0, f64::NAN])[0].is_nan());
+        assert!(super::log_returns(&[f64::NAN, 100.0])[0].is_nan());
+    }
+
     // ── quantile tests ──
 
     #[test]
@@ -1012,6 +1090,14 @@ mod tests {
         let mut data = vec![1.0, 2.0, 3.0];
         assert!(super::quantile(&mut data, -0.1).is_nan());
         assert!(super::quantile(&mut data, 1.1).is_nan());
+    }
+
+    #[test]
+    fn quantile_non_finite_inputs_returns_nan() {
+        let mut data = vec![1.0, f64::NAN, 3.0];
+        assert!(super::quantile(&mut data, 0.5).is_nan());
+        let mut data_inf = vec![1.0, f64::INFINITY, 3.0];
+        assert!(super::quantile(&mut data_inf, 0.5).is_nan());
     }
 
     #[test]

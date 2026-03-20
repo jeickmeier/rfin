@@ -482,6 +482,20 @@ impl Bumpable for HazardCurve {
             }
         };
 
+        #[cfg(feature = "tracing")]
+        for (t, lambda) in self.knot_points() {
+            let shifted = lambda + shift;
+            if shifted < 0.0 {
+                tracing::warn!(
+                    curve_id = %self.id(),
+                    time = t,
+                    hazard_rate = lambda,
+                    hazard_shift = shift,
+                    "Hazard curve bump clamped negative hazard rate to zero"
+                );
+            }
+        }
+
         let shifted_points: Vec<(f64, f64)> = self
             .knot_points()
             .map(|(t, lambda)| (t, (lambda + shift).max(0.0)))
@@ -947,6 +961,32 @@ mod tests {
         let spec_mul = BumpSpec::multiplier(1.10);
         assert!(hc.apply_bump(spec_mul).is_err());
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_hazard_curve_negative_bump_clamps_to_zero() -> crate::Result<()> {
+        use crate::dates::Date;
+        use crate::market_data::term_structures::HazardCurve;
+        use time::Month;
+
+        let base = Date::from_calendar_date(2025, Month::January, 1).map_err(|_| {
+            crate::error::InputError::InvalidDate {
+                year: 2025,
+                month: 1,
+                day: 1,
+            }
+        })?;
+        let hc = HazardCurve::builder("CDS-CLAMP")
+            .base_date(base)
+            .recovery_rate(0.40)
+            .knots([(1.0, 0.0010)])
+            .build()?;
+
+        let spec = BumpSpec::parallel_bp(-20.0);
+        let bumped = hc.apply_bump(spec)?;
+
+        assert_eq!(bumped.hazard_rate(1.0), 0.0);
         Ok(())
     }
 

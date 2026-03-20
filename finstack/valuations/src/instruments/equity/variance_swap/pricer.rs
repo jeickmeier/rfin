@@ -17,6 +17,45 @@ use finstack_core::{
 /// Registry-facing pricer for variance swaps.
 pub struct SimpleVarianceSwapDiscountingPricer;
 
+fn smile_convexity_adjusted_variance(
+    surface: &finstack_core::market_data::surfaces::VolSurface,
+    time_to_expiry: f64,
+    forward: f64,
+) -> Option<f64> {
+    if !time_to_expiry.is_finite()
+        || time_to_expiry <= 0.0
+        || !forward.is_finite()
+        || forward <= 0.0
+    {
+        return None;
+    }
+
+    let vol_atm = surface.value_clamped(time_to_expiry, forward);
+    if !vol_atm.is_finite() || vol_atm <= 0.0 {
+        return None;
+    }
+    let atm_variance = vol_atm * vol_atm;
+
+    let strikes = surface.strikes();
+    let lower = strikes.iter().copied().filter(|&k| k < forward).next_back();
+    let upper = strikes.iter().copied().find(|&k| k > forward);
+
+    let (Some(k_lo), Some(k_hi)) = (lower, upper) else {
+        return Some(atm_variance);
+    };
+
+    let vol_lo = surface.value_clamped(time_to_expiry, k_lo);
+    let vol_hi = surface.value_clamped(time_to_expiry, k_hi);
+    if !(vol_lo.is_finite() && vol_lo > 0.0 && vol_hi.is_finite() && vol_hi > 0.0) {
+        return Some(atm_variance);
+    }
+
+    // Use the local butterfly in variance space as a cheap convexity proxy when
+    // full Carr-Madan replication is unavailable.
+    let wing_average_variance = 0.5 * (vol_lo * vol_lo + vol_hi * vol_hi);
+    Some(atm_variance + (wing_average_variance - atm_variance).max(0.0))
+}
+
 pub(crate) fn compute_pv(
     inst: &VarianceSwap,
     curves: &MarketContext,
@@ -361,14 +400,17 @@ pub(crate) fn remaining_forward_variance(
                             return Ok(variance);
                         }
                     }
-                    let vol_atm = surface.value_clamped(t.max(1e-8), spot);
-                    if vol_atm.is_finite() && vol_atm > 0.0 {
+                    if let Some(fallback_variance) =
+                        smile_convexity_adjusted_variance(&surface, t.max(1e-8), fwd)
+                    {
+                        let vol_atm = surface.value_clamped(t.max(1e-8), fwd);
                         tracing::warn!(
                             instrument_id = %inst.id,
                             vol_atm = vol_atm,
-                            "Carr-Madan replication failed; falling back to ATM vol^2 for forward variance"
+                            fallback_variance = fallback_variance,
+                            "Carr-Madan replication failed; falling back to ATM variance plus local smile convexity"
                         );
-                        return Ok(vol_atm * vol_atm);
+                        return Ok(fallback_variance);
                     }
                 }
             }
@@ -425,6 +467,7 @@ mod tests {
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use time::macros::date;
 
@@ -447,5 +490,23 @@ mod tests {
         let via_instrument = swap.value(&market, as_of).expect("instrument pv");
 
         assert_eq!(via_pricer, via_instrument);
+    }
+
+    #[test]
+    fn smile_convexity_fallback_lifts_forward_variance_above_atm_variance() {
+        let surface = VolSurface::builder("SPX")
+            .expiries(&[1.0])
+            .strikes(&[90.0, 100.0, 110.0])
+            .row(&[0.25, 0.20, 0.25])
+            .build()
+            .expect("surface");
+
+        let fallback =
+            smile_convexity_adjusted_variance(&surface, 1.0, 100.0).expect("fallback variance");
+
+        assert!(
+            fallback > 0.04,
+            "expected smile correction above ATM variance"
+        );
     }
 }

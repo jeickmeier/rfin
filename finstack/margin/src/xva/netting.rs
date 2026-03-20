@@ -25,6 +25,7 @@
 //!   counterparty credit risk exposures."
 
 use super::types::CsaTerms;
+use finstack_core::math::neumaier_sum;
 
 /// Apply close-out netting to a set of instrument mark-to-market values.
 ///
@@ -54,7 +55,7 @@ use super::types::CsaTerms;
 /// ```
 #[inline]
 pub fn apply_netting(instrument_values: &[f64]) -> f64 {
-    let net: f64 = instrument_values.iter().sum();
+    let net = neumaier_sum(instrument_values.iter().copied());
     net.max(0.0)
 }
 
@@ -157,6 +158,12 @@ mod tests {
     #[test]
     fn netting_single_negative_gives_zero() {
         assert!(apply_netting(&[-42.0]).abs() < 1e-12);
+    }
+
+    #[test]
+    fn netting_mixed_magnitude_cancellation_preserves_small_residual() {
+        let values = [1e16_f64, 1.0, -1e16];
+        assert!((apply_netting(&values) - 1.0).abs() < 1e-10);
     }
 
     // ── Collateral tests ───────────────────────────────────────────

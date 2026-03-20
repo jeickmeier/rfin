@@ -13,6 +13,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::math::{neumaier_sum, NeumaierAccumulator};
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -169,7 +170,7 @@ impl VarResult {
         // ES is always >= VaR and captures the expected loss given that losses exceed VaR
         let tail_size = var_index + 1;
         let expected_shortfall = if tail_size > 0 {
-            let sum: f64 = pnl_distribution.iter().take(tail_size).sum();
+            let sum: f64 = neumaier_sum(pnl_distribution.iter().take(tail_size).copied());
             -(sum / tail_size as f64) // Negative because losses are negative P&Ls
         } else {
             0.0
@@ -348,7 +349,7 @@ where
         .collect::<Result<_>>()?;
 
     let scenario_pnl = move |scenario_market: &MarketContext| {
-        let mut total = 0.0;
+        let mut acc = NeumaierAccumulator::new();
         for (inst, base_amount) in instrument_refs.iter().zip(base_values.iter()) {
             let scenario_amount = convert_money_to_reporting(
                 inst.value(scenario_market, as_of)?,
@@ -357,9 +358,9 @@ where
                 as_of,
                 "Historical VaR",
             )?;
-            total += scenario_amount - base_amount;
+            acc.add(scenario_amount - base_amount);
         }
-        Ok(total)
+        Ok(acc.total())
     };
 
     #[cfg(feature = "parallel")]
@@ -777,18 +778,19 @@ fn calculate_portfolio_var_taylor(
     let mut pnls = Vec::with_capacity(history.len());
 
     for scenario in history.iter() {
-        let mut total = 0.0;
+        let mut acc = NeumaierAccumulator::new();
         for sens in &sensitivities {
             let pnl_local = taylor_pnl_for_scenario(sens, base_market, scenario, &mut spot_cache);
-            total += convert_money_to_reporting(
+            let term = convert_money_to_reporting(
                 Money::new(pnl_local, sens.currency),
                 reporting_currency,
                 base_market,
                 as_of,
                 "Historical VaR",
             )?;
+            acc.add(term);
         }
-        pnls.push(total);
+        pnls.push(acc.total());
     }
 
     VarResult::from_distribution(pnls, config.confidence_level)

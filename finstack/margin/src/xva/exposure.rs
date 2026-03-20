@@ -39,6 +39,7 @@ use std::sync::Arc;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, CALENDAR_DAYS_PER_YEAR};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::neumaier_sum;
 use finstack_core::money::fx::FxConversionPolicy;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
@@ -56,9 +57,21 @@ use super::types::{ExposureProfile, NettingSet, XvaConfig};
 #[cfg(feature = "mc")]
 use super::types::{StochasticExposureConfig, StochasticExposureProfile};
 
+/// Map a year fraction to a whole-day offset using ACT/365F-style scaling.
+///
+/// Uses **half-up** rounding to the nearest calendar day. This avoids IEEE
+/// "ties to even" surprises from [`f64::round`] (e.g. 182.5 days rounding to 182).
 #[inline]
 fn years_to_days_act_365f(years: f64) -> i64 {
-    (years * CALENDAR_DAYS_PER_YEAR).round() as i64
+    let raw = years * CALENDAR_DAYS_PER_YEAR;
+    if !raw.is_finite() {
+        return 0;
+    }
+    if raw >= 0.0 {
+        (raw + 0.5).floor() as i64
+    } else {
+        (raw - 0.5).ceil() as i64
+    }
 }
 
 fn resolve_reporting_currency(
@@ -239,7 +252,7 @@ pub fn compute_exposure_profile(
         }
 
         // Apply close-out netting: net portfolio value
-        let net_value: f64 = values.iter().sum();
+        let net_value: f64 = neumaier_sum(values.iter().copied());
         let net_positive_exposure = apply_netting(&values);
         let net_negative_exposure = (-net_value).max(0.0);
 
@@ -471,6 +484,44 @@ mod tests {
         };
         config.validate().expect("Config should be valid");
         assert_eq!(config.time_grid.len(), 3);
+    }
+
+    #[test]
+    fn years_to_days_act_365f_half_up_midpoint() {
+        // 0.5 × 365 = 182.5 days → nearest whole day is 183 (half-up), not 182 (IEEE tie-to-even).
+        assert_eq!(years_to_days_act_365f(0.5), 183);
+    }
+
+    #[test]
+    fn exposure_profile_net_mtm_stable_summation() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid date");
+        let instruments: Vec<Arc<dyn Valuable>> = vec![
+            Arc::new(StaticInstrument::new("BIG", 1e16)),
+            Arc::new(StaticInstrument::new("ONE", 1.0)),
+            Arc::new(StaticInstrument::new("BIGNEG", -1e16)),
+        ];
+        let market = MarketContext::new();
+        let config = XvaConfig {
+            time_grid: vec![0.25],
+            recovery_rate: 0.40,
+            own_recovery_rate: None,
+            funding: None,
+        };
+        let netting_set = NettingSet {
+            id: "NS-STABLE-SUM".into(),
+            counterparty_id: "CP".into(),
+            csa: None,
+            reporting_currency: None,
+        };
+
+        let profile = compute_exposure_profile(&instruments, &market, as_of, &config, &netting_set)
+            .expect("profile should compute");
+
+        assert!(
+            (profile.mtm_values[0] - 1.0).abs() < 1e-10,
+            "expected net MtM ≈ 1, got {}",
+            profile.mtm_values[0]
+        );
     }
 
     #[test]

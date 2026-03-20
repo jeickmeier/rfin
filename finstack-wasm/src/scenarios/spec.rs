@@ -184,6 +184,7 @@ impl JsOperationSpec {
     /// # Arguments
     /// * `curve_kind` - Type of curve to shock
     /// * `curve_id` - Curve identifier
+    /// * `discount_curve_id` - Optional explicit discount curve identifier
     /// * `bp` - Basis points to add
     ///
     /// # Returns
@@ -192,12 +193,14 @@ impl JsOperationSpec {
     pub fn curve_parallel_bp(
         curve_kind: &JsCurveKind,
         curve_id: String,
+        discount_curve_id: Option<String>,
         bp: f64,
     ) -> JsOperationSpec {
         JsOperationSpec {
             inner: OperationSpec::CurveParallelBp {
                 curve_kind: curve_kind.inner,
                 curve_id,
+                discount_curve_id,
                 bp,
             },
         }
@@ -208,6 +211,7 @@ impl JsOperationSpec {
     /// # Arguments
     /// * `curve_kind` - Type of curve to shock
     /// * `curve_id` - Curve identifier
+    /// * `discount_curve_id` - Optional explicit discount curve identifier
     /// * `nodes` - Array of [tenor, bp] pairs
     /// * `match_mode` - Optional tenor matching mode (defaults to Interpolate)
     ///
@@ -217,6 +221,7 @@ impl JsOperationSpec {
     pub fn curve_node_bp(
         curve_kind: &JsCurveKind,
         curve_id: String,
+        discount_curve_id: Option<String>,
         nodes: &JsValue,
         match_mode: Option<JsTenorMatchMode>,
     ) -> Result<JsOperationSpec, JsValue> {
@@ -226,6 +231,7 @@ impl JsOperationSpec {
             inner: OperationSpec::CurveNodeBp {
                 curve_kind: curve_kind.inner,
                 curve_id,
+                discount_curve_id,
                 nodes: nodes_vec,
                 match_mode: match_mode.map(|m| m.inner).unwrap_or_default(),
             },

@@ -94,6 +94,17 @@ impl std::fmt::Display for VolSurfaceAxis {
     }
 }
 
+/// Interpolation contract for vol surfaces.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VolInterpolationMode {
+    /// Interpolate implied volatility directly.
+    #[default]
+    Vol,
+    /// Interpolate total variance `sigma^2 * t`, then convert back to implied vol.
+    TotalVariance,
+}
+
 /// Volatility surface defined on expiry × strike grid.
 ///
 /// Internally stores volatilities in row-major order as `Vec<f64>`.
@@ -104,6 +115,7 @@ pub struct VolSurface {
     expiries: Box<[f64]>,
     strikes: Box<[f64]>,
     secondary_axis: VolSurfaceAxis,
+    interpolation_mode: VolInterpolationMode,
     /// Row-major storage: vols[expiry_idx * n_strikes + strike_idx]
     vols: Vec<f64>,
 }
@@ -121,6 +133,9 @@ struct RawVolSurface {
     /// Semantic meaning of the secondary axis. Defaults to strike for older payloads.
     #[serde(default)]
     pub secondary_axis: VolSurfaceAxis,
+    /// Interpolation contract. Defaults to direct vol interpolation for older payloads.
+    #[serde(default)]
+    pub interpolation_mode: VolInterpolationMode,
     /// Volatility values in row-major order
     pub vols_row_major: Vec<f64>,
 }
@@ -132,6 +147,7 @@ impl From<VolSurface> for RawVolSurface {
             expiries: surface.expiries.to_vec(),
             strikes: surface.strikes.to_vec(),
             secondary_axis: surface.secondary_axis,
+            interpolation_mode: surface.interpolation_mode,
             vols_row_major: surface.vols,
         }
     }
@@ -147,7 +163,8 @@ impl TryFrom<RawVolSurface> for VolSurface {
             &state.strikes,
             &state.vols_row_major,
         )?
-        .with_secondary_axis(state.secondary_axis))
+        .with_secondary_axis(state.secondary_axis)
+        .with_interpolation_mode(state.interpolation_mode))
     }
 }
 
@@ -177,6 +194,7 @@ impl VolSurface {
             expiries: Vec::new(),
             strikes: Vec::new(),
             secondary_axis: VolSurfaceAxis::Strike,
+            interpolation_mode: VolInterpolationMode::Vol,
             vols: Vec::new(),
         }
     }
@@ -223,7 +241,20 @@ impl VolSurface {
         } else {
             (strike - s0) / (s1 - s0)
         };
-        Ok(Self::bilinear(q11, q21, q12, q22, t, u))
+        match self.interpolation_mode {
+            VolInterpolationMode::Vol => Ok(Self::bilinear(q11, q21, q12, q22, t, u)),
+            VolInterpolationMode::TotalVariance => {
+                let total_variance = Self::bilinear(
+                    e0 * q11 * q11,
+                    e1 * q21 * q21,
+                    e0 * q12 * q12,
+                    e1 * q22 * q22,
+                    t,
+                    u,
+                );
+                Ok((total_variance / expiry.max(f64::EPSILON)).max(0.0).sqrt())
+            }
+        }
     }
 
     /// Clamped evaluation: clamps to edge values when outside the grid.
@@ -279,10 +310,22 @@ impl VolSurface {
         self.secondary_axis
     }
 
+    /// Interpolation contract used when evaluating between grid points.
+    pub fn interpolation_mode(&self) -> VolInterpolationMode {
+        self.interpolation_mode
+    }
+
     /// Return a copy of this surface with an explicit secondary-axis contract.
     #[must_use]
     pub fn with_secondary_axis(mut self, secondary_axis: VolSurfaceAxis) -> Self {
         self.secondary_axis = secondary_axis;
+        self
+    }
+
+    /// Return a copy of this surface with an explicit interpolation contract.
+    #[must_use]
+    pub fn with_interpolation_mode(mut self, interpolation_mode: VolInterpolationMode) -> Self {
+        self.interpolation_mode = interpolation_mode;
         self
     }
 
@@ -394,6 +437,7 @@ impl VolSurface {
                 expiries: self.expiries.clone(),
                 strikes: self.strikes.clone(),
                 secondary_axis: self.secondary_axis,
+                interpolation_mode: self.interpolation_mode,
                 vols: self.vols.clone(),
             };
         }
@@ -406,6 +450,7 @@ impl VolSurface {
             expiries: self.expiries.clone(),
             strikes: self.strikes.clone(),
             secondary_axis: self.secondary_axis,
+            interpolation_mode: self.interpolation_mode,
             vols: scaled_vols,
         }
     }
@@ -448,6 +493,7 @@ impl Bumpable for VolSurface {
             expiries: self.expiries.clone(),
             strikes: self.strikes.clone(),
             secondary_axis: self.secondary_axis,
+            interpolation_mode: self.interpolation_mode,
             vols: bumped_vols,
         })
     }
@@ -653,6 +699,7 @@ pub struct VolSurfaceBuilder {
     expiries: Vec<f64>,
     strikes: Vec<f64>,
     secondary_axis: VolSurfaceAxis,
+    interpolation_mode: VolInterpolationMode,
     vols: Vec<Vec<f64>>, // row-major expiries
 }
 
@@ -671,6 +718,12 @@ impl VolSurfaceBuilder {
     /// Set the semantic meaning of the secondary axis.
     pub fn secondary_axis(mut self, axis: VolSurfaceAxis) -> Self {
         self.secondary_axis = axis;
+        self
+    }
+
+    /// Set the interpolation contract used for off-grid evaluation.
+    pub fn interpolation_mode(mut self, mode: VolInterpolationMode) -> Self {
+        self.interpolation_mode = mode;
         self
     }
 
@@ -712,6 +765,7 @@ impl VolSurfaceBuilder {
             expiries: self.expiries.into_boxed_slice(),
             strikes: self.strikes.into_boxed_slice(),
             secondary_axis: self.secondary_axis,
+            interpolation_mode: self.interpolation_mode,
             vols: flat,
         })
     }
@@ -725,12 +779,13 @@ impl VolSurface {
         strikes: &[f64],
         vols_row_major: &[f64],
     ) -> crate::Result<Self> {
-        Self::from_grid_with_axis(
+        Self::from_grid_with_axis_and_mode(
             id,
             expiries,
             strikes,
             vols_row_major,
             VolSurfaceAxis::Strike,
+            VolInterpolationMode::Vol,
         )
     }
 
@@ -742,6 +797,26 @@ impl VolSurface {
         strikes: &[f64],
         vols_row_major: &[f64],
         secondary_axis: VolSurfaceAxis,
+    ) -> crate::Result<Self> {
+        Self::from_grid_with_axis_and_mode(
+            id,
+            expiries,
+            strikes,
+            vols_row_major,
+            secondary_axis,
+            VolInterpolationMode::Vol,
+        )
+    }
+
+    /// Construct directly from axes and a row-major flat values array with an
+    /// explicit secondary-axis contract and interpolation mode.
+    pub fn from_grid_with_axis_and_mode(
+        id: impl AsRef<str>,
+        expiries: &[f64],
+        strikes: &[f64],
+        vols_row_major: &[f64],
+        secondary_axis: VolSurfaceAxis,
+        interpolation_mode: VolInterpolationMode,
     ) -> crate::Result<Self> {
         if expiries.is_empty() || strikes.is_empty() {
             return Err(InputError::TooFewPoints.into());
@@ -765,6 +840,7 @@ impl VolSurface {
             expiries: expiries.to_vec().into_boxed_slice(),
             strikes: strikes.to_vec().into_boxed_slice(),
             secondary_axis,
+            interpolation_mode,
             vols: vols_row_major.to_vec(),
         })
     }
@@ -1042,5 +1118,33 @@ mod tests {
             .row(&[0.2, 0.2])
             .build();
         assert!(bad2.is_err());
+    }
+
+    #[test]
+    fn total_variance_interpolation_differs_from_direct_vol_interpolation() {
+        let surface = VolSurface::builder("EQ-TV")
+            .expiries(&[1.0, 2.0])
+            .strikes(&[100.0, 110.0])
+            .interpolation_mode(VolInterpolationMode::TotalVariance)
+            .row(&[0.20, 0.20])
+            .row(&[0.30, 0.30])
+            .build()
+            .expect("surface should build");
+
+        let interpolated = surface
+            .value_checked(1.5, 100.0)
+            .expect("interpolated lookup should succeed");
+        let expected = ((0.5 * (1.0 * 0.20_f64.powi(2) + 2.0 * 0.30_f64.powi(2))) / 1.5).sqrt();
+
+        assert!(
+            (interpolated - expected).abs() < 1e-12,
+            "total-variance interpolation should match expected value: expected {}, got {}",
+            expected,
+            interpolated
+        );
+        assert!(
+            (interpolated - 0.25).abs() > 1e-6,
+            "total-variance interpolation should not collapse to direct vol interpolation"
+        );
     }
 }

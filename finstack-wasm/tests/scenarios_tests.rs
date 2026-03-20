@@ -61,7 +61,7 @@ fn test_operation_spec_curve_shock() {
     use finstack_wasm::{OperationSpec, ScenarioCurveKind};
 
     let curve_kind = ScenarioCurveKind::DISCOUNT();
-    let _op = OperationSpec::curve_parallel_bp(&curve_kind, "USD_SOFR".to_string(), 50.0);
+    let _op = OperationSpec::curve_parallel_bp(&curve_kind, "USD_SOFR".to_string(), None, 50.0);
     // If this compiles and runs, curve operation binding works
 }
 

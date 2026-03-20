@@ -680,8 +680,8 @@ let recovery = RecoveryModelSpec::with_lag(0.40, 0);     // 40% recovery
 let recovery_lag = RecoveryModelSpec::with_lag(0.70, 6); // 70%, 6-month lag
 
 // Rate conversions
-let smm = cpr_to_smm(0.06);  // 6% CPR → SMM
-let cpr = smm_to_cpr(0.005); // SMM → CPR
+let smm = cpr_to_smm(0.06).unwrap();  // 6% CPR → SMM
+let cpr = smm_to_cpr(0.005).unwrap(); // SMM → CPR
 ```
 
 ---

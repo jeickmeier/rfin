@@ -23,8 +23,9 @@ use finstack_core::money::Money;
 /// Pre-computed state keys for basket assets.
 ///
 /// Returns cached `&'static str` keys for zero-cost lookups on the hot path.
-/// Keys are interned globally by `state_keys::indexed_spot` so memory is
-/// bounded by the max asset index used.
+/// `state_keys::indexed_spot` uses static literals for the first
+/// `state_keys::INDEXED_SPOT_INLINE` indices; larger indices fall back to a
+/// small intern cache.
 fn make_spot_keys(num_assets: usize) -> Vec<&'static str> {
     (0..num_assets).map(state_keys::indexed_spot).collect()
 }

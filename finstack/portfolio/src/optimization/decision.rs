@@ -33,6 +33,10 @@ pub(crate) struct DecisionItem {
     /// Whether this position is held (weight locked to current).
     pub is_held: bool,
     /// Current quantity held (if any).
+    ///
+    /// This is only used when reconstructing `WeightingScheme::UnitScaling`
+    /// solutions, where the optimized weight is a dimensionless multiplier on
+    /// the live quantity rather than a PV share.
     #[allow(dead_code)]
     pub current_quantity: f64,
 }
@@ -42,6 +46,8 @@ pub(crate) struct DecisionItem {
 pub(crate) struct DecisionFeatures {
     /// Current base‑currency PV (scaled by quantity; 0 for candidates).
     pub pv_base: f64,
+    /// Current native-currency PV (scaled by quantity; 0 for candidates).
+    pub pv_native: f64,
     /// Base‑currency PV per unit of quantity (for implied quantities).
     pub pv_per_unit: f64,
     /// Metric measures by string key (as in `ValuationResult::measures`).
@@ -117,6 +123,7 @@ pub(crate) fn build_decision_space(
             })?;
 
         let pv_base = pv_entry.value_base.amount();
+        let pv_native = pv_entry.value_native.amount();
         total_pv_base = neumaier_sum([total_pv_base, pv_base].into_iter());
         gross_pv_base = neumaier_sum([gross_pv_base, pv_base.abs()].into_iter());
         // For NotionalWeight: use signed quantity as notional proxy
@@ -162,6 +169,7 @@ pub(crate) fn build_decision_space(
         // Default weight bounds: [0, 1]; will be refined by constraints later.
         features.push(DecisionFeatures {
             pv_base,
+            pv_native,
             // When quantity == 0, treat pv_per_unit as 0 to avoid division by zero.
             pv_per_unit: if position.quantity != 0.0 {
                 pv_base / position.quantity
@@ -258,6 +266,7 @@ pub(crate) fn build_decision_space(
 
         features.push(DecisionFeatures {
             pv_base: 0.0, // Currently held value is 0
+            pv_native: val_entry.value_native.amount(),
             pv_per_unit: pv_unit,
             measures,
             tags: candidate.tags.clone(),

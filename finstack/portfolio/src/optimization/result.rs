@@ -101,6 +101,12 @@ pub struct PortfolioOptimizationResult {
     pub weight_deltas: IndexMap<PositionId, f64>,
 
     /// Implied target quantities for each position (units / face / notional).
+    ///
+    /// Reconstruction depends on the weighting scheme:
+    /// - `ValueWeight`: convert target PV share back to quantity using `pv_per_unit`
+    /// - `NotionalWeight`: apply the target notional share directly
+    /// - `UnitScaling`: treat the optimized weight as a quantity multiplier for
+    ///   existing positions, or as the direct target quantity for new candidates
     pub implied_quantities: IndexMap<PositionId, f64>,
 
     /// Objective value at the solution.

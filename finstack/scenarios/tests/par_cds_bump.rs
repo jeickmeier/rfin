@@ -43,6 +43,7 @@ fn test_par_cds_bump_integration() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::ParCDS,
             curve_id: "USD-CDS".into(),
+            discount_curve_id: None,
             nodes: vec![("5Y".to_string(), 10.0)],
             match_mode: TenorMatchMode::Exact,
         }],

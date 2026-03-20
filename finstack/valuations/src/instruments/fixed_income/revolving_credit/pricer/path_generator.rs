@@ -172,7 +172,8 @@ pub fn generate_three_factor_paths(
     let mut work = vec![0.0; disc.work_size(&process)];
 
     if use_sobol {
-        let mut rng = SobolRng::new(num_factors, seed);
+        let mut rng = SobolRng::try_new(num_factors, seed)
+            .map_err(|err| finstack_core::Error::Validation(err.to_string()))?;
 
         for _path_idx in 0..num_paths {
             let mut state = initial_state.to_vec();

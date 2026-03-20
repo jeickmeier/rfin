@@ -395,6 +395,7 @@ mod tests {
                     OperationSpec::CurveParallelBp {
                         curve_kind: CurveKind::Discount,
                         curve_id: "USD-SOFR".into(),
+                        discount_curve_id: None,
                         bp: 100.0,
                     },
                 )
@@ -429,6 +430,7 @@ mod tests {
                             OperationSpec::CurveParallelBp {
                                 curve_kind: CurveKind::Discount,
                                 curve_id: "USD-SOFR".into(),
+                                discount_curve_id: None,
                                 bp: 100.0,
                             },
                         )
@@ -466,6 +468,7 @@ mod tests {
             operations: vec![OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: curve_id.to_string(),
+                discount_curve_id: None,
                 bp,
             }],
             priority: 0,

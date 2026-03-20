@@ -433,6 +433,8 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             concentration_thresholds,
         };
 
+        validate_simm_params(&params)?;
+
         for id in entry.ids {
             if map.insert(id.clone(), params.clone()).is_some() {
                 return Err(Error::Validation(format!("duplicate simm id '{id}'")));
@@ -610,6 +612,37 @@ fn ordered_pair(a: SimmRiskClass, b: SimmRiskClass) -> (SimmRiskClass, SimmRiskC
     } else {
         (b, a)
     }
+}
+
+fn validate_simm_params(p: &SimmParams) -> Result<()> {
+    if p.mpor_days == 0 {
+        return Err(Error::Validation(
+            "simm mpor_days must be greater than zero".to_string(),
+        ));
+    }
+    for (k, v) in &p.ir_delta_weights {
+        validate_non_negative(&format!("simm.ir_delta_weights[{k}]"), *v)?;
+    }
+    for (k, v) in &p.cq_delta_weights {
+        validate_non_negative(&format!("simm.cq_delta_weights[{k}]"), *v)?;
+    }
+    for (k, v) in &p.commodity_bucket_weights {
+        validate_non_negative(&format!("simm.commodity_bucket_weights[{k}]"), *v)?;
+    }
+    validate_non_negative("simm.cnq_delta_weight", p.cnq_delta_weight)?;
+    validate_non_negative("simm.equity_delta_weight", p.equity_delta_weight)?;
+    validate_non_negative("simm.fx_delta_weight", p.fx_delta_weight)?;
+    validate_non_negative("simm.ir_vega_weight", p.ir_vega_weight)?;
+    validate_non_negative("simm.cq_vega_weight", p.cq_vega_weight)?;
+    validate_non_negative("simm.cnq_vega_weight", p.cnq_vega_weight)?;
+    validate_non_negative("simm.equity_vega_weight", p.equity_vega_weight)?;
+    validate_non_negative("simm.fx_vega_weight", p.fx_vega_weight)?;
+    validate_non_negative("simm.commodity_vega_weight", p.commodity_vega_weight)?;
+    validate_non_negative("simm.curvature_scale_factor", p.curvature_scale_factor)?;
+    for (rc, v) in &p.concentration_thresholds {
+        validate_non_negative(&format!("simm.concentration_thresholds[{rc:?}]"), *v)?;
+    }
+    Ok(())
 }
 
 fn validate_rate(name: &str, v: f64) -> Result<()> {

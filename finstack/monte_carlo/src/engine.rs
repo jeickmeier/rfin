@@ -21,6 +21,9 @@ use finstack_core::Result;
 use smallvec::SmallVec;
 
 #[cfg(feature = "parallel")]
+use std::ops::Range;
+
+#[cfg(feature = "parallel")]
 use rayon::prelude::*;
 #[cfg(feature = "parallel")]
 use std::sync::Mutex;
@@ -347,6 +350,18 @@ fn adaptive_chunk_size(num_paths: usize) -> usize {
     // Min 100 paths per chunk to amortize overhead
     // Max 10_000 paths to avoid cache thrashing
     (num_paths / (num_cpus * 4)).clamp(100, 10_000)
+}
+
+/// Pre-sized chunk index ranges for parallel path loops (avoids `Vec` reallocations).
+#[cfg(feature = "parallel")]
+fn parallel_path_chunks(num_paths: usize, chunk_size: usize) -> Vec<Range<usize>> {
+    let num_chunks = num_paths.div_ceil(chunk_size);
+    let mut chunks = Vec::with_capacity(num_chunks);
+    for start in (0..num_paths).step_by(chunk_size) {
+        let end = (start + chunk_size).min(num_paths);
+        chunks.push(start..end);
+    }
+    chunks
 }
 
 impl McEngine {
@@ -700,13 +715,7 @@ impl McEngine {
             self.config.chunk_size
         };
 
-        let chunks: Vec<_> = (0..self.config.num_paths)
-            .step_by(effective_chunk_size)
-            .map(|start| {
-                let end = (start + effective_chunk_size).min(self.config.num_paths);
-                start..end
-            })
-            .collect();
+        let chunks = parallel_path_chunks(self.config.num_paths, effective_chunk_size);
 
         // Process chunks in parallel
         let chunk_results: Vec<Result<OnlineStats>> = chunks
@@ -1005,13 +1014,7 @@ impl McEngine {
             self.config.chunk_size
         };
 
-        let chunks: Vec<_> = (0..self.config.num_paths)
-            .step_by(effective_chunk_size)
-            .map(|start| {
-                let end = (start + effective_chunk_size).min(self.config.num_paths);
-                start..end
-            })
-            .collect();
+        let chunks = parallel_path_chunks(self.config.num_paths, effective_chunk_size);
 
         // Process chunks in parallel
         let chunk_results: Vec<Result<OnlineStats>> = chunks
@@ -1327,11 +1330,9 @@ impl McEngine {
         simulated_path.set_final_value(payoff_value * discount_factor);
 
         // Calculate IRR from cashflows (if available)
-        let all_cashflows = simulated_path.extract_cashflows();
-        if all_cashflows.len() >= 2 {
+        let cashflow_amounts = simulated_path.extract_cashflow_amounts();
+        if cashflow_amounts.len() >= 2 {
             // Use periodic IRR approximation (assumes roughly equal spacing)
-            let cashflow_amounts: Vec<f64> = all_cashflows.iter().map(|(_, amt)| *amt).collect();
-
             // Use finstack_core IRR calculation
             use finstack_core::cashflow::InternalRateOfReturn;
             if let Ok(irr) = cashflow_amounts.irr(None) {

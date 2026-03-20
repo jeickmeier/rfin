@@ -530,4 +530,51 @@ mod tests {
             im.amount.amount()
         );
     }
+
+    #[test]
+    fn schedule_im_subtracts_csa_threshold_after_breach() {
+        let mut spec_gross = OtcMarginSpec::usd_bilateral().expect("registry should load");
+        spec_gross.im_methodology = ImMethodology::Schedule;
+        if let Some(im_params) = spec_gross.csa.im_params.as_mut() {
+            im_params.threshold = Money::new(0.0, Currency::USD);
+            im_params.mta = Money::new(0.0, Currency::USD);
+        }
+
+        let instrument =
+            TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec_gross));
+        let metric = InitialMarginMetric::new();
+        let market = MarketContext::new();
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");
+
+        let gross_im = metric
+            .calculate(&instrument, &market, as_of)
+            .expect("im")
+            .amount
+            .amount();
+        assert!(
+            gross_im > 0.0,
+            "test setup must produce non-zero schedule IM"
+        );
+
+        let mut spec_net = OtcMarginSpec::usd_bilateral().expect("registry should load");
+        spec_net.im_methodology = ImMethodology::Schedule;
+        let threshold = gross_im / 2.0;
+        if let Some(im_params) = spec_net.csa.im_params.as_mut() {
+            im_params.threshold = Money::new(threshold, Currency::USD);
+            im_params.mta = Money::new(0.0, Currency::USD);
+        }
+
+        let instrument2 =
+            TestInstrument::new(Money::new(100_000_000.0, Currency::USD), Some(spec_net));
+        let net_im = metric
+            .calculate(&instrument2, &market, as_of)
+            .expect("im")
+            .amount
+            .amount();
+        let expected = gross_im - threshold;
+        assert!(
+            (net_im - expected).abs() < 1e-6,
+            "Schedule IM should subtract breached CSA threshold: expected {expected}, got {net_im}"
+        );
+    }
 }

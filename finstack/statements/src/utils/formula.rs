@@ -279,11 +279,17 @@ pub fn qualify_identifiers(
     sorted.sort_by_key(|id| std::cmp::Reverse(id.len()));
 
     // Replace each identifier with its qualified version
+    const MAX_REPLACE_ITERATIONS: usize = 1_000_000;
     for identifier in sorted {
         let qualified = format!("{}.{}", namespace, identifier);
 
         let mut idx = 0;
+        let mut iterations = 0usize;
         while let Some(pos) = result[idx..].find(&identifier) {
+            iterations += 1;
+            if iterations > MAX_REPLACE_ITERATIONS {
+                break;
+            }
             let abs_pos = idx + pos;
             let end_pos = abs_pos + identifier.len();
 

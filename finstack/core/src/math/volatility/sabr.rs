@@ -258,10 +258,14 @@ impl SabrParams {
         let fk = f * k;
         let one_minus_beta = 1.0 - beta;
 
-        // For normal vol with possible negative rates, use abs values
         if fk <= 0.0 {
-            // Cross-zero region: use simplified normal vol approximation
-            return self.atm_vol_normal(0.5 * (f + k), t);
+            // Cross-zero quotes are better handled by a shifted SABR-style
+            // approximation than by collapsing the smile to midpoint ATM.
+            let shift_scale = (f - k).abs().max(f.abs()).max(k.abs()).max(1.0e-4);
+            let shift = (-f.min(k)).max(0.0) + shift_scale;
+            let shifted_f = f + shift;
+            let shifted_k = k + shift;
+            return self.implied_vol_normal(shifted_f, shifted_k, t);
         }
 
         let fk_mid = fk.powf(one_minus_beta / 2.0);
@@ -813,6 +817,26 @@ mod tests {
         let fwd = 0.05;
         let vol = params.implied_vol_normal(fwd, fwd, 1.0);
         assert!(vol > 0.0, "Normal vol should be positive: {vol}");
+    }
+
+    #[test]
+    fn sabr_cross_zero_normal_vol_is_not_midpoint_atm_shortcut() {
+        let params = SabrParams::new(0.01, 0.0, -0.2, 0.4).expect("valid params");
+        let fwd = -0.01;
+        let strike = 0.02;
+        let t = 1.0;
+
+        let vol = params.implied_vol_normal(fwd, strike, t);
+        let midpoint_atm = params.atm_vol_normal(0.5 * (fwd + strike), t);
+
+        assert!(
+            vol.is_finite() && vol > 0.0,
+            "cross-zero normal vol should stay finite"
+        );
+        assert!(
+            (vol - midpoint_atm).abs() > 1e-12,
+            "cross-zero handling should not collapse to midpoint ATM vol"
+        );
     }
 
     #[test]

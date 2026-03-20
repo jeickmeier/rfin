@@ -33,6 +33,7 @@ fn test_forecast_curve_parallel_shock() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
+            discount_curve_id: None,
             bp: 25.0, // +25bp
         }],
         priority: 0,
@@ -62,6 +63,12 @@ fn test_forecast_curve_parallel_shock() {
 fn test_par_cds_parallel_shock() {
     let base_date = Date::from_calendar_date(2025, Month::January, 1).unwrap();
 
+    let discount = DiscountCurve::builder("USD-OIS")
+        .base_date(base_date)
+        .knots(vec![(0.0, 1.0), (1.0, 0.98), (5.0, 0.90)])
+        .build()
+        .unwrap();
+
     // Create hazard curve
     let curve = HazardCurve::builder("CORP_BBB")
         .base_date(base_date)
@@ -70,7 +77,7 @@ fn test_par_cds_parallel_shock() {
         .build()
         .unwrap();
 
-    let mut market = MarketContext::new().insert(curve);
+    let mut market = MarketContext::new().insert(discount).insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
     let scenario = ScenarioSpec {
@@ -80,6 +87,7 @@ fn test_par_cds_parallel_shock() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::ParCDS,
             curve_id: "CORP_BBB".into(),
+            discount_curve_id: Some("USD-OIS".into()),
             bp: 50.0, // +50bp credit spread widening
         }],
         priority: 0,
@@ -137,6 +145,7 @@ fn test_inflation_curve_parallel_shock() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Inflation,
             curve_id: "US_CPI".into(),
+            discount_curve_id: None,
             bp: 100.0, // +100bp = +1% inflation
         }],
         priority: 0,
@@ -182,6 +191,7 @@ fn test_forecast_curve_node_shock() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Forward,
             curve_id: "USD_LIBOR_3M".into(),
+            discount_curve_id: None,
             nodes: vec![("1Y".into(), 50.0)],
             match_mode: TenorMatchMode::Exact,
         }],
@@ -232,6 +242,7 @@ fn test_par_cds_node_shock() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::ParCDS,
             curve_id: "CORP_BBB".into(),
+            discount_curve_id: None,
             nodes: vec![("5Y".into(), 25.0)],
             match_mode: TenorMatchMode::Exact,
         }],
@@ -296,6 +307,7 @@ fn test_inflation_curve_node_shock() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Inflation,
             curve_id: "US_CPI".into(),
+            discount_curve_id: None,
             nodes: vec![("1Y".into(), 50.0)],
             match_mode: TenorMatchMode::Exact,
         }],
@@ -337,6 +349,7 @@ fn test_discount_curve_id_preservation() {
         operations: vec![OperationSpec::CurveParallelBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD_SOFR".into(),
+            discount_curve_id: None,
             bp: 50.0,
         }],
         priority: 0,
@@ -415,21 +428,25 @@ fn test_all_curve_types_in_one_scenario() {
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Discount,
                 curve_id: "USD_SOFR".into(),
+                discount_curve_id: None,
                 bp: 25.0,
             },
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Forward,
                 curve_id: "USD_LIBOR_3M".into(),
+                discount_curve_id: None,
                 bp: 30.0,
             },
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::ParCDS,
                 curve_id: "CORP_BBB".into(),
+                discount_curve_id: Some("USD-OIS".into()),
                 bp: 50.0,
             },
             OperationSpec::CurveParallelBp {
                 curve_kind: CurveKind::Inflation,
                 curve_id: "US_CPI".into(),
+                discount_curve_id: Some("USD-OIS".into()),
                 bp: 100.0,
             },
         ],

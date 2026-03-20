@@ -293,6 +293,26 @@ mod tests {
     }
 
     #[test]
+    fn test_uniform_grid_matches_irregular_constructor() {
+        let bridge = BrownianBridge::new(4);
+        let z = vec![0.75, -0.25, 1.25, -1.0];
+        let dt = 0.25;
+        let times = vec![0.0, dt, 2.0 * dt, 3.0 * dt, 4.0 * dt];
+        let mut uniform_path = vec![f64::NAN; 5];
+        let mut irregular_path = vec![f64::NAN; 5];
+
+        bridge.construct_path(&z, &mut uniform_path, dt);
+        bridge.construct_path_irregular(&z, &mut irregular_path, &times);
+
+        for (uniform, irregular) in uniform_path.iter().zip(irregular_path.iter()) {
+            assert!(
+                (uniform - irregular).abs() < 1e-12,
+                "uniform and irregular constructors diverged: {uniform} vs {irregular}"
+            );
+        }
+    }
+
+    #[test]
     fn test_pca_ordering_identity() {
         // Identity matrix: all eigenvalues = 1
         let correlation = vec![1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0];

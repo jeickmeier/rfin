@@ -212,7 +212,12 @@ impl CurveStorage {
             }
             Self::Inflation(original) => {
                 // Special handling for TriangularKeyRate bumps on InflationCurve
-                if let BumpType::TriangularKeyRate { target_bucket, .. } = spec.bump_type {
+                if let BumpType::TriangularKeyRate {
+                    prev_bucket,
+                    target_bucket,
+                    next_bucket,
+                } = spec.bump_type
+                {
                     let (delta, is_multiplicative) =
                         spec.resolve_standard_values().ok_or_else(|| {
                             crate::error::InputError::UnsupportedBump {
@@ -235,12 +240,30 @@ impl CurveStorage {
                         .copied()
                         .zip(original.cpi_levels().iter().copied())
                         .collect();
-                    if let Some((idx, _)) = points.iter().enumerate().min_by(|a, b| {
-                        let da = (a.1 .0 - target_bucket).abs();
-                        let db = (b.1 .0 - target_bucket).abs();
-                        da.total_cmp(&db)
-                    }) {
-                        points[idx].1 *= 1.0 + delta;
+                    let triangular_weight = |t: f64| -> f64 {
+                        if t <= prev_bucket || t >= next_bucket {
+                            0.0
+                        } else if t <= target_bucket {
+                            let width = target_bucket - prev_bucket;
+                            if width <= f64::EPSILON {
+                                0.0
+                            } else {
+                                ((t - prev_bucket) / width).clamp(0.0, 1.0)
+                            }
+                        } else {
+                            let width = next_bucket - target_bucket;
+                            if width <= f64::EPSILON {
+                                0.0
+                            } else {
+                                ((next_bucket - t) / width).clamp(0.0, 1.0)
+                            }
+                        }
+                    };
+                    for (tenor, level) in &mut points {
+                        let weight = triangular_weight(*tenor);
+                        if weight > 0.0 {
+                            *level *= 1.0 + delta * weight;
+                        }
                     }
 
                     let rebuilt = InflationCurve::builder(original_id.clone())
@@ -369,6 +392,57 @@ mod tests {
         );
         assert_eq!(bumped_json["interp_style"], original["interp_style"]);
         assert_eq!(bumped_json["extrapolation"], original["extrapolation"]);
+    }
+
+    #[test]
+    fn inflation_triangular_key_rate_bump_weights_neighboring_knots() {
+        let curve = InflationCurve::builder("CPI")
+            .base_date(test_date())
+            .base_cpi(300.0)
+            .day_count(DayCount::Act360)
+            .indexation_lag_months(3)
+            .interp(InterpStyle::Linear)
+            .knots([
+                (0.0, 300.0),
+                (2.5, 306.0),
+                (5.0, 312.0),
+                (7.5, 318.0),
+                (10.0, 324.0),
+            ])
+            .build()
+            .expect("curve builds");
+
+        let mut storage = CurveStorage::from(curve);
+        storage
+            .apply_bump_preserving_id(
+                &CurveId::from("CPI"),
+                BumpSpec::triangular_key_rate_bp(0.0, 5.0, 10.0, 100.0),
+            )
+            .expect("triangular bump succeeds");
+
+        let bumped = storage.inflation().expect("inflation curve");
+        let levels = bumped.cpi_levels();
+
+        assert!(
+            (levels[0] - 300.0).abs() < 1e-12,
+            "left boundary should stay unchanged"
+        );
+        assert!(
+            (levels[4] - 324.0).abs() < 1e-12,
+            "right boundary should stay unchanged"
+        );
+        assert!(
+            (levels[2] - 315.12).abs() < 1e-10,
+            "target knot should receive the full bump"
+        );
+        assert!(
+            (levels[1] - 307.53).abs() < 1e-10,
+            "left neighbor should receive half the bump"
+        );
+        assert!(
+            (levels[3] - 319.59).abs() < 1e-10,
+            "right neighbor should receive half the bump"
+        );
     }
 
     #[test]

@@ -7,6 +7,8 @@ use finstack_core::HashMap;
 use finstack_margin::{ImMethodology, NettingSetId, SimmSensitivities};
 use std::fmt;
 
+use crate::PositionId;
+
 /// Error returned when attempting to aggregate margin results with mismatched currencies.
 ///
 /// This error occurs when [`PortfolioMarginResult::add_netting_set`] is called with a
@@ -126,6 +128,8 @@ pub struct PortfolioMarginResult {
     pub total_positions: usize,
     /// Number of positions without margin specs (excluded)
     pub positions_without_margin: usize,
+    /// Positions whose sensitivity or VM valuation failed during aggregation.
+    pub degraded_positions: Vec<(PositionId, String)>,
 }
 
 impl PortfolioMarginResult {
@@ -141,6 +145,7 @@ impl PortfolioMarginResult {
             by_netting_set: HashMap::default(),
             total_positions: 0,
             positions_without_margin: 0,
+            degraded_positions: Vec::new(),
         }
     }
 
@@ -251,6 +256,11 @@ impl PortfolioMarginResult {
     /// Iterate over netting set results.
     pub fn iter(&self) -> impl Iterator<Item = (&NettingSetId, &NettingSetMargin)> {
         self.by_netting_set.iter()
+    }
+
+    /// Record a degraded position with the corresponding error message.
+    pub fn add_degraded_position(&mut self, position_id: PositionId, message: impl Into<String>) {
+        self.degraded_positions.push((position_id, message.into()));
     }
 }
 

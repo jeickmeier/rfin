@@ -35,6 +35,7 @@ fn test_tenor_exact_match() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
             nodes: vec![("5Y".into(), 25.0)], // +25bp at 5Y
             match_mode: TenorMatchMode::Exact,
         }],
@@ -93,6 +94,7 @@ fn test_tenor_exact_not_found() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
             nodes: vec![("3Y".into(), 25.0)], // 3Y doesn't exist
             match_mode: TenorMatchMode::Exact,
         }],
@@ -149,6 +151,7 @@ fn test_tenor_interpolate_mode() {
         operations: vec![OperationSpec::CurveNodeBp {
             curve_kind: CurveKind::Discount,
             curve_id: "USD-OIS".into(),
+            discount_curve_id: None,
             nodes: vec![("3Y".into(), 50.0)], // +50bp at 3Y (interpolated)
             match_mode: TenorMatchMode::Interpolate,
         }],

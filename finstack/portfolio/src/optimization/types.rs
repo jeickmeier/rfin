@@ -11,7 +11,12 @@ pub enum WeightingScheme {
     NotionalWeight,
 
     /// `w_i` scales the current quantity (e.g. units or face value).
-    /// For MVP we treat `w_i` as a fraction of current position size.
+    ///
+    /// Unlike `ValueWeight` and `NotionalWeight`, this is not a PV share.
+    /// For existing positions, `w_i = 1.0` means "keep the current quantity",
+    /// `w_i = 0.5` means "halve it", and `w_i = 0.0` means "close it".
+    /// For new candidates, `w_i` is interpreted directly as the target quantity
+    /// because there is no live quantity to scale.
     UnitScaling,
 }
 
@@ -34,6 +39,17 @@ pub enum PerPositionMetric {
     PvBase,
 
     /// Use the native‑currency PV of the position (after scaling).
+    ///
+    /// **Two behaviors** (historical naming: “native” refers to the stored native PV field):
+    ///
+    /// - When lowering a scalar through the generic per-metric path, this resolves to the
+    ///   **native-currency** PV.
+    /// - When this variant appears in [`MetricExpr::WeightedSum`] or
+    ///   [`MetricExpr::ValueWeightedAverage`], the linear coefficient builder uses
+    ///   **base-currency PV** (FX-converted to the portfolio base) so mixed-currency
+    ///   positions remain comparable inside the linear program.
+    ///
+    /// Use [`PerPositionMetric::PvBase`] when you need base-currency PV in every context.
     PvNative,
 
     /// Tag‑based 0/1 indicator: 1.0 if tag matches, else 0.0.
