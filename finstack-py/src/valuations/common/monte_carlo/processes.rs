@@ -6,6 +6,8 @@
 
 use pyo3::prelude::*;
 
+use crate::errors::core_to_py;
+
 // ============================================================================
 // GBM Process
 // ============================================================================
@@ -98,11 +100,19 @@ pub struct PyHestonParams {
 #[pymethods]
 impl PyHestonParams {
     #[new]
-    fn new(r: f64, q: f64, kappa: f64, theta: f64, sigma_v: f64, rho: f64, v0: f64) -> Self {
+    fn new(
+        r: f64,
+        q: f64,
+        kappa: f64,
+        theta: f64,
+        sigma_v: f64,
+        rho: f64,
+        v0: f64,
+    ) -> PyResult<Self> {
         use finstack_monte_carlo::process::heston::HestonParams;
-        Self {
-            inner: HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0),
-        }
+        HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0)
+            .map(|inner| Self { inner })
+            .map_err(core_to_py)
     }
 
     #[getter]

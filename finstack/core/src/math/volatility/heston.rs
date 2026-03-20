@@ -53,6 +53,9 @@
 use num_complex::Complex64;
 use std::f64::consts::PI;
 
+const HESTON_G_DENOM_EPS: f64 = 1e-8;
+const HESTON_EXPONENT_REAL_LIMIT: f64 = 700.0;
+
 /// Heston stochastic volatility model parameters.
 ///
 /// # Examples
@@ -636,6 +639,7 @@ impl HestonParams {
 
         let i = Complex64::i();
         let one = Complex64::new(1.0, 0.0);
+        let zero = Complex64::new(0.0, 0.0);
 
         // For P₁: u = 0.5, b = κ − ρσ  (stock numeraire)
         // For P₂: u = −0.5, b = κ       (money market numeraire)
@@ -656,9 +660,20 @@ impl HestonParams {
 
         // Little Heston Trap: g = (b − ρσiφ − d)/(b − ρσiφ + d)
         let bm = b - rsi_phi;
-        let g = (bm - d) / (bm + d);
+        let g_denom = bm + d;
+        let g_denom_limit = HESTON_G_DENOM_EPS * (1.0 + bm.norm() + d.norm());
+        if !g_denom.is_finite() || g_denom.norm() <= g_denom_limit {
+            return zero;
+        }
+        let g = (bm - d) / g_denom;
+        if !g.is_finite() {
+            return zero;
+        }
 
         let exp_minus_dt = (-d * t).exp();
+        if !exp_minus_dt.is_finite() {
+            return zero;
+        }
 
         // C = (r−q)iφT + (a/σ²)[(b−ρσiφ−d)T − 2 ln((1−g exp(−dT))/(1−g))]
         let c_val = i * phi * (r - q) * t
@@ -668,9 +683,22 @@ impl HestonParams {
 
         // D = (b−ρσiφ−d)/σ² × (1−exp(−dT))/(1−g exp(−dT))
         let d_val = ((bm - d) / sigma_sq) * (one - exp_minus_dt) / (one - g * exp_minus_dt);
+        if !c_val.is_finite() || !d_val.is_finite() {
+            return zero;
+        }
+
+        let exponent = c_val + d_val * v0 + i * phi * x;
+        if !exponent.is_finite() || exponent.re > HESTON_EXPONENT_REAL_LIMIT {
+            return zero;
+        }
 
         // ψ_j(φ) = exp(C + D v₀ + iφx)
-        (c_val + d_val * v0 + i * phi * x).exp()
+        let psi = exponent.exp();
+        if psi.is_finite() {
+            psi
+        } else {
+            zero
+        }
     }
 }
 
@@ -1091,6 +1119,16 @@ mod tests {
         assert!(
             (refined - extended).abs() < 1e-8,
             "refined Heston probability should match the wider-bound integration"
+        );
+    }
+
+    #[test]
+    fn heston_characteristic_function_handles_extreme_inputs() {
+        let p = HestonParams::new(0.04, 0.1, 0.04, 1.0, 0.9).expect("valid");
+        let psi = p.char_func_j(1, 0.0, 100.0_f64.ln(), 0.05, 0.0, 1.0);
+        assert!(
+            psi.is_finite(),
+            "characteristic function should stay finite"
         );
     }
 

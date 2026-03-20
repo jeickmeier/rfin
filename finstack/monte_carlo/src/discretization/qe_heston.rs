@@ -333,7 +333,7 @@ mod tests {
     #[test]
     fn test_qe_heston_variance_positive() {
         let qe = QeHeston::new();
-        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
 
         // Test with various shocks
         for z in [-3.0, -1.0, 0.0, 1.0, 3.0] {
@@ -346,7 +346,7 @@ mod tests {
     #[test]
     fn test_qe_heston_mean_reversion() {
         let qe = QeHeston::new();
-        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.1, -0.5, 0.04);
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.1, -0.5, 0.04).expect("valid");
 
         // Starting above theta
         let v_high = qe.step_variance(0.08, params.kappa, params.theta, params.sigma_v, 0.1, 0.0);
@@ -359,7 +359,8 @@ mod tests {
 
     #[test]
     fn test_qe_heston_step() {
-        let heston = HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let heston =
+            HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let qe = QeHeston::new();
 
         let mut x = vec![100.0, 0.04];
@@ -378,7 +379,8 @@ mod tests {
 
     #[test]
     fn test_qe_heston_correlated_shocks() {
-        let heston = HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let heston =
+            HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let qe = QeHeston::new();
 
         // Negative variance shock should (with neg correlation) give positive spot shock
@@ -528,7 +530,7 @@ mod tests {
         let qe = QeHeston::new().with_integrated_variance(IntegratedVarianceMethod::Exact);
 
         // Verify it works without panics
-        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let v = qe.step_variance(0.04, params.kappa, params.theta, params.sigma_v, 0.1, 0.0);
         assert!(v >= 0.0);
     }
@@ -537,7 +539,7 @@ mod tests {
     fn test_with_psi_c() {
         // Test custom psi_c threshold
         let qe = QeHeston::with_psi_c(2.0);
-        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04).expect("valid");
 
         // Variance should remain positive
         for z in [-2.0, 0.0, 2.0] {
@@ -548,7 +550,8 @@ mod tests {
 
     #[test]
     fn test_qe_heston_spot_update_includes_variance_correction_term() {
-        let heston = HestonProcess::with_params(0.03, 0.01, 1.7, 0.04, 0.6, -0.4, 0.05);
+        let heston =
+            HestonProcess::with_params(0.03, 0.01, 1.7, 0.04, 0.6, -0.4, 0.05).expect("valid");
         let qe = QeHeston::new();
         let mut x = vec![100.0, 0.05];
         let z = vec![0.3, -0.2];

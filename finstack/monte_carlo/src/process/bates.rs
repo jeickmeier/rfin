@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn test_bates_params() {
-        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04);
+        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.05, 0.1);
 
         let bates = BatesParams::new(heston, jump);
@@ -143,7 +143,7 @@ mod tests {
 
     #[test]
     fn test_bates_compensated_drift() {
-        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04);
+        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 2.0, 0.0, 0.05);
 
         let bates = BatesParams::new(heston, jump);
@@ -157,7 +157,7 @@ mod tests {
 
     #[test]
     fn test_bates_process_drift() {
-        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04);
+        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.02, 0.08);
         let bates_params = BatesParams::new(heston, jump);
 
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn test_bates_process_diffusion() {
-        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04);
+        let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
         let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, 0.0, 0.1);
         let bates_params = BatesParams::new(heston, jump);
 

@@ -824,7 +824,10 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
             })
             .unwrap_or(0.04);
 
-        let params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0);
+        let err_ctx = crate::pricer::PricingErrorContext::from_instrument(equity_option)
+            .model(crate::pricer::ModelKey::HestonFourier);
+        let params = HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0)
+            .map_err(|e| crate::pricer::PricingError::from_core(e, err_ctx))?;
 
         let price = match equity_option.option_type {
             OptionType::Call => heston_call_price_fourier(spot, equity_option.strike, t, &params),

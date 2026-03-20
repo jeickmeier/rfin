@@ -107,7 +107,8 @@
 //!     0.3,    // σᵥ = vol of vol
 //!     -0.7,   // ρ = correlation (typically negative for equity)
 //!     0.04,   // v₀ = initial variance (20% current vol)
-//! );
+//! )
+//! .unwrap();
 //!
 //! let heston = HestonProcess::new(params.clone());
 //!
@@ -152,14 +153,52 @@ impl HestonParams {
     /// * `sigma_v` - Vol-of-vol (> 0)
     /// * `rho` - Correlation in [-1, 1]
     /// * `v0` - Initial variance (> 0)
-    pub fn new(r: f64, q: f64, kappa: f64, theta: f64, sigma_v: f64, rho: f64, v0: f64) -> Self {
-        assert!(kappa > 0.0, "kappa must be positive");
-        assert!(theta > 0.0, "theta must be positive");
-        assert!(sigma_v > 0.0, "sigma_v must be positive");
-        assert!((-1.0..=1.0).contains(&rho), "rho must be in [-1, 1]");
-        assert!(v0 > 0.0, "v0 must be positive");
+    pub fn new(
+        r: f64,
+        q: f64,
+        kappa: f64,
+        theta: f64,
+        sigma_v: f64,
+        rho: f64,
+        v0: f64,
+    ) -> finstack_core::Result<Self> {
+        if !r.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter r must be finite, got {r}"
+            )));
+        }
+        if !q.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter q must be finite, got {q}"
+            )));
+        }
+        if kappa <= 0.0 || !kappa.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter kappa must be positive, got {kappa}"
+            )));
+        }
+        if theta <= 0.0 || !theta.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter theta must be positive, got {theta}"
+            )));
+        }
+        if sigma_v <= 0.0 || !sigma_v.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter sigma_v must be positive, got {sigma_v}"
+            )));
+        }
+        if !(-1.0..=1.0).contains(&rho) || !rho.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter rho must be in [-1, 1], got {rho}"
+            )));
+        }
+        if v0 <= 0.0 || !v0.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston parameter v0 must be positive, got {v0}"
+            )));
+        }
 
-        Self {
+        Ok(Self {
             r,
             q,
             kappa,
@@ -167,7 +206,7 @@ impl HestonParams {
             sigma_v,
             rho,
             v0,
-        }
+        })
     }
 
     /// Check Feller condition: 2κθ > σ_v²
@@ -222,8 +261,10 @@ impl HestonProcess {
         sigma_v: f64,
         rho: f64,
         v0: f64,
-    ) -> Self {
-        Self::new(HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0))
+    ) -> finstack_core::Result<Self> {
+        Ok(Self::new(HestonParams::new(
+            r, q, kappa, theta, sigma_v, rho, v0,
+        )?))
     }
 
     /// Get parameters.
@@ -304,7 +345,8 @@ mod tests {
             0.3,  // sigma_v
             -0.5, // rho
             0.04, // v0
-        );
+        )
+        .expect("valid");
 
         assert_eq!(params.kappa, 2.0);
         assert!(params.satisfies_feller());
@@ -312,20 +354,23 @@ mod tests {
 
     #[test]
     fn test_feller_condition() {
-        let params_feller = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.2, -0.5, 0.04);
+        let params_feller =
+            HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.2, -0.5, 0.04).expect("valid");
         assert!(params_feller.satisfies_feller());
 
-        let params_no_feller = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.5, -0.5, 0.04);
+        let params_no_feller =
+            HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.5, -0.5, 0.04).expect("valid");
         assert!(!params_no_feller.satisfies_feller());
     }
 
     #[test]
     fn test_heston_drift_diffusion() {
-        let heston = HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.5, 0.04);
+        let heston =
+            HestonProcess::with_params(0.05, 0.02, 2.0, 0.04, 0.3, -0.5, 0.04).expect("valid");
 
-        let x = vec![100.0, 0.04];
-        let mut drift = vec![0.0; 2];
-        let mut diffusion = vec![0.0; 2];
+        let x = vec![100.0_f64, 0.04_f64];
+        let mut drift = vec![0.0_f64; 2];
+        let mut diffusion = vec![0.0_f64; 2];
 
         heston.drift(0.0, &x, &mut drift);
         heston.diffusion(0.0, &x, &mut diffusion);
@@ -344,14 +389,12 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_invalid_params_negative_kappa() {
-        HestonParams::new(0.05, 0.02, -1.0, 0.04, 0.3, -0.5, 0.04);
+        assert!(HestonParams::new(0.05, 0.02, -1.0, 0.04, 0.3, -0.5, 0.04).is_err());
     }
 
     #[test]
-    #[should_panic]
     fn test_invalid_params_rho_out_of_range() {
-        HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, 1.5, 0.04);
+        assert!(HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, 1.5, 0.04).is_err());
     }
 }

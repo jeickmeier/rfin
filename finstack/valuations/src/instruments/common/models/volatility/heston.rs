@@ -24,8 +24,12 @@
 use finstack_core::math::integration::gauss_legendre_integrate_adaptive;
 use finstack_core::Result;
 use num_complex::Complex;
+use std::cell::RefCell;
 use std::f64::consts::PI;
 use tracing::warn;
+
+const HESTON_G_DENOM_EPS: f64 = 1e-8;
+const HESTON_EXPONENT_REAL_LIMIT: f64 = 700.0;
 
 /// Heston model parameters.
 #[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]
@@ -57,31 +61,31 @@ impl HestonParameters {
     /// Returns an error if any parameter is out of valid range.
     #[must_use = "creating parameters without using them has no effect"]
     pub fn new(v0: f64, kappa: f64, theta: f64, sigma: f64, rho: f64) -> Result<Self> {
-        if v0 < 0.0 {
+        if v0 <= 0.0 || !v0.is_finite() {
             return Err(finstack_core::Error::Validation(format!(
-                "Heston parameter v0 (initial variance) must be non-negative, got: {:.6}",
+                "Heston parameter v0 (initial variance) must be positive, got: {:.6}",
                 v0
             )));
         }
-        if kappa < 0.0 {
+        if kappa <= 0.0 || !kappa.is_finite() {
             return Err(finstack_core::Error::Validation(format!(
-                "Heston parameter κ (kappa, mean reversion) must be non-negative, got: {:.6}",
+                "Heston parameter κ (kappa, mean reversion) must be positive, got: {:.6}",
                 kappa
             )));
         }
-        if theta < 0.0 {
+        if theta <= 0.0 || !theta.is_finite() {
             return Err(finstack_core::Error::Validation(format!(
-                "Heston parameter θ (theta, long-run variance) must be non-negative, got: {:.6}",
+                "Heston parameter θ (theta, long-run variance) must be positive, got: {:.6}",
                 theta
             )));
         }
-        if sigma < 0.0 {
+        if sigma <= 0.0 || !sigma.is_finite() {
             return Err(finstack_core::Error::Validation(format!(
-                "Heston parameter σ (sigma, vol-of-vol) must be non-negative, got: {:.6}",
+                "Heston parameter σ (sigma, vol-of-vol) must be positive, got: {:.6}",
                 sigma
             )));
         }
-        if !(-1.0..=1.0).contains(&rho) {
+        if !(-1.0..=1.0).contains(&rho) || !rho.is_finite() {
             return Err(finstack_core::Error::Validation(format!(
                 "Heston parameter ρ (rho, correlation) must be in [-1, 1], got: {:.6}",
                 rho
@@ -227,6 +231,20 @@ impl HestonModel {
         let sigma = self.params.sigma;
         let rho = self.params.rho;
         let v0 = self.params.v0;
+        self.characteristic_function(
+            prob_num,
+            lower_bound,
+            S,
+            T,
+            r,
+            q,
+            kappa,
+            theta,
+            sigma,
+            rho,
+            v0,
+        )?;
+        let error_cell: RefCell<Option<finstack_core::Error>> = RefCell::new(None);
 
         // Integrand function for adaptive quadrature
         let integrand_fn = |phi: f64| -> f64 {
@@ -234,38 +252,20 @@ impl HestonModel {
                 return 0.0;
             }
 
-            // Compute characteristic function inline to avoid Result handling in closure
-            let i_complex = Complex::new(0.0, 1.0);
-            let x = S.ln();
-
-            let (u, b) = if prob_num == 1 {
-                (0.5, kappa - rho * sigma)
-            } else {
-                (-0.5, kappa)
+            let psi = match self
+                .characteristic_function(prob_num, phi, S, T, r, q, kappa, theta, sigma, rho, v0)
+            {
+                Ok(psi) => psi,
+                Err(err) => {
+                    if error_cell.borrow().is_none() {
+                        *error_cell.borrow_mut() = Some(err);
+                    }
+                    return 0.0;
+                }
             };
 
-            let a = kappa * theta;
-            let d_sq = (rho * sigma * phi * i_complex - b).powi(2)
-                - sigma * sigma * (2.0 * u * phi * i_complex - phi * phi);
-            let d = d_sq.sqrt();
-
-            // Little Heston Trap (Albrecher et al., 2007): use g_minus = 1/g and exp(-dT)
-            // instead of exp(dT) to avoid branch-cut discontinuities in the complex logarithm
-            // and prevent overflow when Re(d) > 0.
-            let g_minus =
-                (b - rho * sigma * phi * i_complex - d) / (b - rho * sigma * phi * i_complex + d);
-
-            let c = (r - q) * phi * i_complex * T
-                + (a / sigma.powi(2))
-                    * ((b - rho * sigma * phi * i_complex - d) * T
-                        - 2.0 * ((1.0 - g_minus * (-d * T).exp()) / (1.0 - g_minus)).ln());
-
-            let d_term = (b - rho * sigma * phi * i_complex - d) / sigma.powi(2)
-                * ((1.0 - (-d * T).exp()) / (1.0 - g_minus * (-d * T).exp()));
-
-            let psi = (c + d_term * v0 + i_complex * phi * x).exp();
-
             // Integrand: Re[ (e^{-i * phi * ln(K)} * psi) / (i * phi) ]
+            let i_complex = Complex::new(0.0, 1.0);
             let log_k = K.ln();
             let term = (-i_complex * phi * log_k).exp() * psi / (i_complex * phi);
 
@@ -288,7 +288,93 @@ impl HestonModel {
             max_depth,
         )?;
 
+        if let Some(err) = error_cell.borrow_mut().take() {
+            return Err(err);
+        }
+
         Ok(0.5 + (1.0 / PI) * integral)
+    }
+
+    #[allow(clippy::too_many_arguments, non_snake_case)]
+    fn characteristic_function(
+        &self,
+        prob_num: u8,
+        phi: f64,
+        S: f64,
+        T: f64,
+        r: f64,
+        q: f64,
+        kappa: f64,
+        theta: f64,
+        sigma: f64,
+        rho: f64,
+        v0: f64,
+    ) -> Result<Complex<f64>> {
+        let i_complex = Complex::new(0.0, 1.0);
+        let one = Complex::new(1.0, 0.0);
+        let x = S.ln();
+
+        let (u, b) = if prob_num == 1 {
+            (0.5, kappa - rho * sigma)
+        } else {
+            (-0.5, kappa)
+        };
+
+        let a = kappa * theta;
+        let d_sq = (rho * sigma * phi * i_complex - b).powi(2)
+            - sigma * sigma * (2.0 * u * phi * i_complex - phi * phi);
+        let d = d_sq.sqrt();
+        let b_minus_rsi = b - rho * sigma * phi * i_complex;
+        let g_denom = b_minus_rsi + d;
+        let g_denom_limit = HESTON_G_DENOM_EPS * (1.0 + b_minus_rsi.norm() + d.norm());
+        if !g_denom.is_finite() || g_denom.norm() <= g_denom_limit {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston characteristic function became unstable near phi={phi:.6e} (P{prob_num}); parameter combination is too extreme"
+            )));
+        }
+
+        let g_minus = (b_minus_rsi - d) / g_denom;
+        if !g_minus.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston characteristic function became non-finite near phi={phi:.6e} (P{prob_num}); parameter combination is too extreme"
+            )));
+        }
+
+        let exp_minus_dt = (-d * T).exp();
+        if !exp_minus_dt.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston characteristic function overflowed near phi={phi:.6e} (P{prob_num}); parameter combination is too extreme"
+            )));
+        }
+
+        let c = (r - q) * phi * i_complex * T
+            + (a / sigma.powi(2))
+                * ((b_minus_rsi - d) * T
+                    - 2.0 * ((one - g_minus * exp_minus_dt) / (one - g_minus)).ln());
+
+        let d_term = (b_minus_rsi - d) / sigma.powi(2)
+            * ((one - exp_minus_dt) / (one - g_minus * exp_minus_dt));
+        if !c.is_finite() || !d_term.is_finite() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston characteristic function became non-finite near phi={phi:.6e} (P{prob_num}); parameter combination is too extreme"
+            )));
+        }
+
+        let exponent = c + d_term * v0 + i_complex * phi * x;
+        if !exponent.is_finite() || exponent.re > HESTON_EXPONENT_REAL_LIMIT {
+            return Err(finstack_core::Error::Validation(format!(
+                "Heston characteristic function exponent overflowed near phi={phi:.6e} (P{prob_num}); parameter combination is too extreme"
+            )));
+        }
+
+        let psi = exponent.exp();
+        if psi.is_finite() {
+            Ok(psi)
+        } else {
+            Err(finstack_core::Error::Validation(format!(
+                "Heston characteristic function became non-finite near phi={phi:.6e} (P{prob_num}); parameter combination is too extreme"
+            )))
+        }
     }
 }
 
@@ -372,6 +458,23 @@ mod tests {
         assert!(call_price > 0.0);
         assert!(call_price < S);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_heston_parameters_reject_zero_inputs() {
+        assert!(HestonParameters::new(0.0, 2.0, 0.04, 0.3, -0.5).is_err());
+        assert!(HestonParameters::new(0.04, 0.0, 0.04, 0.3, -0.5).is_err());
+        assert!(HestonParameters::new(0.04, 2.0, 0.0, 0.3, -0.5).is_err());
+        assert!(HestonParameters::new(0.04, 2.0, 0.04, 0.0, -0.5).is_err());
+    }
+
+    #[test]
+    fn test_heston_extreme_inputs_return_error_instead_of_nan() -> Result<()> {
+        let params = HestonParameters::new(0.04, 0.1, 0.04, 1.0, 0.9)?;
+        let model = HestonModel::new(params);
+        let price = model.price_european_call(100.0, 100.0, 1.0, 0.05, 0.0);
+        assert!(price.is_err(), "extreme inputs should return an error");
         Ok(())
     }
 }
