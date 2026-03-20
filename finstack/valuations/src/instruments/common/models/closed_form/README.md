@@ -346,7 +346,8 @@ let params = HestonParams::new(
     0.3,    // sigma_v (vol-of-vol)
     -0.7,   // rho (asset-variance correlation)
     0.04,   // v0 (initial variance = 20% vol)
-);
+)
+.unwrap();
 
 let price = heston_call_price_fourier(100.0, 100.0, 1.0, &params);
 ```

@@ -46,7 +46,8 @@ fn test_heston_params_serialization() {
         0.3,  // σᵥ = vol of vol
         -0.7, // ρ = correlation (typically negative for equity)
         0.04, // v₀ = initial variance (20% current vol)
-    );
+    )
+    .expect("valid");
 
     let restored = roundtrip_json(&params);
 
@@ -92,7 +93,7 @@ fn test_cir_params_serialization() {
 
 #[test]
 fn test_bates_params_serialization() {
-    let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04);
+    let heston = HestonParams::new(0.05, 0.02, 0.5, 0.04, 0.3, -0.7, 0.04).expect("valid");
     let jump = MertonJumpParams::new(0.05, 0.02, 0.0, 1.0, -0.05, 0.1);
     let params = BatesParams::new(heston, jump);
 
