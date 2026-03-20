@@ -66,6 +66,12 @@ impl MarginCallTiming {
 /// - ISDA 2016 Credit Support Annex for Variation Margin (VM CSA)
 /// - ISDA 2018 Credit Support Annex for Initial Margin (IM CSA)
 ///
+/// # References
+///
+/// - ISDA 2016 VM CSA: `docs/REFERENCES.md#isda-vm-csa-2016`
+/// - ISDA 2018 IM CSA: `docs/REFERENCES.md#isda-im-csa-2018`
+/// - BCBS-IOSCO uncleared margin framework: `docs/REFERENCES.md#bcbs-iosco-uncleared-margin`
+///
 /// # Example
 ///
 /// ```rust,no_run

@@ -55,6 +55,13 @@ use tracing::{debug, warn};
 /// Calculates the initial margin requirement for a marginable instrument
 /// based on its margin specification. Dispatches to the appropriate
 /// IM calculator (SIMM, Schedule, Haircut, or CCP).
+///
+/// # Notes
+///
+/// The schedule and clearing-house fallback calculators currently rely on
+/// `instrument.mtm_for_vm(...).abs()` when dispatched through the generic
+/// [`Marginable`] interface, so these paths are conservative placeholders rather
+/// than full regulatory-notional or CCP-engine replications.
 #[derive(Debug, Clone, Default)]
 pub struct InitialMarginMetric {
     /// Override SIMM calculator (uses default if None)
@@ -103,6 +110,21 @@ impl InitialMarginMetric {
     }
 
     /// Calculate initial margin for an instrument.
+    ///
+    /// # Arguments
+    ///
+    /// * `instrument` - Marginable instrument whose margin specification drives dispatch
+    /// * `market` - Market context used for valuation and SIMM sensitivity generation
+    /// * `as_of` - Valuation date for the margin snapshot
+    ///
+    /// # Returns
+    ///
+    /// An [`ImResult`] containing the chosen methodology, MPOR, total amount, and breakdown.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the selected calculator cannot value the instrument,
+    /// load required registry data, or compute required sensitivities.
     pub fn calculate(
         &self,
         instrument: &dyn Marginable,

@@ -58,7 +58,7 @@ impl VmResult {
 ///
 /// # ISDA CSA Formula
 ///
-/// Credit support follows [`VmParameters::calculate_margin_call`] (symmetric
+/// Credit support follows [`crate::VmParameters::calculate_margin_call`] (symmetric
 /// threshold in `|Exposure|`, bilateral handling of signed exposure). Delivery
 /// and return amounts split that signed amount by exposure sign.
 ///

@@ -38,12 +38,9 @@
 //!
 //! # References
 //!
-//! - Gregory, J. (2020). *The xVA Challenge*, 4th ed. Wiley. Chapters 14, 17, 19.
-//! - Green, A. (2015). *XVA: Credit, Funding and Capital Valuation Adjustments*. Wiley.
-//! - Brigo, D., Morini, M. & Pallavicini, A. (2013). *Counterparty Credit Risk,
-//!   Collateral and Funding*. Wiley.
-//! - Pykhtin, M. & Zhu, S. (2007). "A Guide to Modelling Counterparty Credit Risk."
-//! - BCBS (2011). "Application of own credit risk adjustments to derivatives."
+//! - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+//! - Green XVA: `docs/REFERENCES.md#green-xva`
+//! - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 

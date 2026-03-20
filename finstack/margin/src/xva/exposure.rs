@@ -29,10 +29,8 @@
 //!
 //! # References
 //!
-//! - Gregory, J. (2020). *The xVA Challenge*, Chapters 8–10.
-//! - Pykhtin, M. & Zhu, S. (2007). "A Guide to Modelling Counterparty
-//!   Credit Risk." *GARP Risk Review*, July/August 2007.
-//! - BCBS 279 (2014). SA-CCR.
+//! - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+//! - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 
 use std::sync::Arc;
 
@@ -191,6 +189,11 @@ fn interpolate_quantile(samples: &mut [f64], quantile: f64) -> f64 {
 /// - PFE equals EPE in this simplified model
 /// - Does not model margin period of risk (MPOR) explicitly
 /// - Curve roll uses constant-curves assumption (no carry/theta)
+///
+/// # References
+///
+/// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 #[tracing::instrument(skip(instruments, market), fields(grid_points = config.time_grid.len()))]
 pub fn compute_exposure_profile(
     instruments: &[Arc<dyn Valuable>],
@@ -314,6 +317,73 @@ pub fn compute_exposure_profile(
 /// pathwise callback at each time bucket. It keeps the current deterministic
 /// exposure API intact while providing a reusable route to genuine exposure
 /// distributions and quantile-based PFE.
+///
+/// # Arguments
+///
+/// * `process` - Stochastic process that evolves the factor state
+/// * `discretization` - Time-stepping scheme used to advance `process`
+/// * `initial_state` - Initial factor state vector; length must equal `process.dim()`
+/// * `xva_config` - Exposure time grid expressed as year fractions
+/// * `stochastic_config` - Monte Carlo path count, RNG seed, and PFE quantile
+/// * `valuation_fn` - Callback that converts a simulated [`PathState`] into a
+///   signed portfolio MtM in reporting-currency units
+///
+/// # Returns
+///
+/// A [`StochasticExposureProfile`] containing path-average MtM/EPE/ENE and a
+/// quantile-based positive-exposure profile.
+///
+/// # Errors
+///
+/// Returns an error if:
+/// - `xva_config` or `stochastic_config` fails validation
+/// - `initial_state` has the wrong dimension
+/// - `valuation_fn` fails for any simulated path/time step
+/// - the aggregated profile fails internal validation
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use finstack_margin::xva::exposure::compute_stochastic_exposure_profile;
+/// use finstack_margin::xva::types::{StochasticExposureConfig, XvaConfig};
+///
+/// # #[cfg(feature = "mc")]
+/// # fn example<P, D>(process: &P, discretization: &D) -> finstack_core::Result<()>
+/// # where
+/// #     P: finstack_monte_carlo::core::StochasticProcess,
+/// #     D: finstack_monte_carlo::discretization::Discretization<P>,
+/// # {
+/// let xva_config = XvaConfig {
+///     time_grid: vec![0.25, 0.5, 1.0],
+///     ..XvaConfig::default()
+/// };
+/// let mc_config = StochasticExposureConfig::default();
+/// let initial_state = vec![0.0; process.dim()];
+///
+/// let profile = compute_stochastic_exposure_profile(
+///     process,
+///     discretization,
+///     &initial_state,
+///     &xva_config,
+///     &mc_config,
+///     |_path_state| Ok(0.0),
+/// )?;
+/// # let _ = profile;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// # Limitations
+///
+/// - Collateral and netting must be represented inside `valuation_fn` or in the
+///   factor-to-value mapping around it; this helper only simulates pathwise MtM.
+/// - Time points are taken directly from `xva_config.time_grid` and are assumed
+///   to be year fractions.
+///
+/// # References
+///
+/// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 #[cfg(feature = "mc")]
 pub fn compute_stochastic_exposure_profile<P, D, V>(
     process: &P,

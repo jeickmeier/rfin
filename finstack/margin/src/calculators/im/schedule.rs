@@ -5,8 +5,10 @@
 //!
 //! # Error Handling
 //!
-//! The constructors [`RegulatorySchedule::bcbs_iosco()`] and
-//! [`ScheduleImCalculator::bcbs_standard()`] return `Result` rather than panicking,
+//! The constructors
+//! [`crate::calculators::im::schedule::RegulatorySchedule::bcbs_iosco()`] and
+//! [`crate::calculators::im::schedule::ScheduleImCalculator::bcbs_standard()`]
+//! return `Result` rather than panicking,
 //! allowing callers to handle missing registry data gracefully.
 
 use crate::calculators::traits::{ImCalculator, ImResult};
@@ -102,7 +104,13 @@ impl std::str::FromStr for ScheduleAssetClass {
 
 /// BCBS-IOSCO regulatory schedule for IM calculation.
 ///
-/// Provides grid-based rates by asset class and maturity.
+/// Stores the schedule-grid rates used by the regulatory fallback methodology
+/// for uncleared derivatives. Rates are decimals, so `0.04` means 4% of the
+/// regulatory notional or other proxy exposure base.
+///
+/// # References
+///
+/// - BCBS-IOSCO uncleared margin framework: `docs/REFERENCES.md#bcbs-iosco-uncleared-margin`
 #[derive(Debug, Clone)]
 pub struct RegulatorySchedule {
     /// IM rates by asset class and maturity bucket
@@ -186,14 +194,34 @@ impl RegulatorySchedule {
 
 /// Schedule-based IM calculator.
 ///
-/// Calculates initial margin using the BCBS-IOSCO regulatory schedule approach.
-/// This is a simpler alternative to SIMM that applies grid-based rates to notional.
+/// Implements the BCBS-IOSCO schedule fallback for uncleared derivatives.
+/// The schedule itself is a percentage grid keyed by asset class and maturity
+/// bucket, with rates stored in decimal form.
+///
+/// There are two distinct entry points:
+/// - [`Self::calculate_for_notional`] applies the schedule to an explicit
+///   notional amount supplied by the caller.
+/// - [`ImCalculator::calculate`] uses `instrument.mtm_for_vm(...).abs()` as a
+///   conservative placeholder exposure base because [`crate::traits::Marginable`] does not yet
+///   expose a regulatory notional measure. That trait-based path therefore does
+///   **not** implement full regulatory schedule margin.
 ///
 /// # Formula
 ///
 /// ```text
-/// IM = Notional × Schedule_Rate(asset_class, maturity)
+/// Explicit notional helper:
+/// IM = |Notional| × Schedule_Rate(asset_class, maturity)
+///
+/// Trait-based fallback:
+/// IM_proxy = |Current_MtM| × Schedule_Rate(default_asset_class, default_maturity)
 /// ```
+///
+/// # Conventions
+///
+/// - `Schedule_Rate` is a decimal fraction, not basis points.
+/// - Maturity is supplied as a year fraction.
+/// - The embedded BCBS-IOSCO grid uses the schedule boundaries carried in the
+///   registry entry rather than hard-coded bucket cutoffs.
 ///
 /// # Example
 ///
@@ -213,6 +241,10 @@ impl RegulatorySchedule {
 /// # Ok(())
 /// # }
 /// ```
+///
+/// # References
+///
+/// - BCBS-IOSCO uncleared margin framework: `docs/REFERENCES.md#bcbs-iosco-uncleared-margin`
 #[derive(Debug, Clone)]
 pub struct ScheduleImCalculator {
     /// Regulatory schedule
@@ -226,7 +258,7 @@ pub struct ScheduleImCalculator {
 }
 
 impl ScheduleImCalculator {
-    /// Create calculator with BCBS-IOSCO standard schedule.
+    /// Create calculator with the embedded BCBS-IOSCO standard schedule.
     ///
     /// # Errors
     ///
@@ -236,7 +268,11 @@ impl ScheduleImCalculator {
         Self::from_registry_id(BCBS_IOSCO_SCHEDULE_ID)
     }
 
-    /// Create calculator from a schedule grid id in the embedded (or merged) registry.
+    /// Create calculator from a schedule grid id in the embedded or merged registry.
+    ///
+    /// # Arguments
+    ///
+    /// * `schedule_id` - Registry identifier such as [`BCBS_IOSCO_SCHEDULE_ID`]
     ///
     /// # Errors
     ///
@@ -251,7 +287,15 @@ impl ScheduleImCalculator {
         Ok(Self::from_registry(entry))
     }
 
-    /// Create calculator from a registry entry.
+    /// Create calculator from a resolved registry entry.
+    ///
+    /// # Arguments
+    ///
+    /// * `entry` - Fully parsed schedule grid with decimal rates and bucket boundaries
+    ///
+    /// # Returns
+    ///
+    /// A calculator using the registry defaults for asset class, maturity, and MPOR.
     #[must_use]
     pub fn from_registry(entry: &crate::registry::ScheduleImSchedule) -> Self {
         Self {
@@ -263,6 +307,9 @@ impl ScheduleImCalculator {
     }
 
     /// Create calculator resolved from a provided `FinstackConfig`.
+    ///
+    /// Loads the schedule entry identified by [`BCBS_IOSCO_SCHEDULE_ID`] after
+    /// applying any margin-registry overlay in the config.
     ///
     /// # Errors
     ///
@@ -279,21 +326,49 @@ impl ScheduleImCalculator {
         Ok(Self::from_registry(entry))
     }
 
-    /// Set default asset class.
+    /// Set the default asset class used by [`ImCalculator::calculate`].
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_class` - Asset class used when the trait-based fallback path
+    ///   cannot infer a more specific regulatory schedule bucket
+    ///
+    /// # Returns
+    ///
+    /// The updated calculator.
     #[must_use]
     pub fn with_asset_class(mut self, asset_class: ScheduleAssetClass) -> Self {
         self.default_asset_class = asset_class;
         self
     }
 
-    /// Set default maturity.
+    /// Set the default maturity used by [`ImCalculator::calculate`].
+    ///
+    /// # Arguments
+    ///
+    /// * `years` - Maturity expressed as a year fraction
+    ///
+    /// # Returns
+    ///
+    /// The updated calculator.
     #[must_use]
     pub fn with_maturity(mut self, years: f64) -> Self {
         self.default_maturity_years = years;
         self
     }
 
-    /// Calculate IM for a given notional, asset class, and maturity.
+    /// Calculate schedule IM from an explicit notional amount.
+    ///
+    /// # Arguments
+    ///
+    /// * `notional` - Regulatory notional or other caller-supplied exposure base
+    ///   in the reporting currency
+    /// * `asset_class` - Regulatory schedule asset class
+    /// * `maturity_years` - Remaining maturity as a year fraction
+    ///
+    /// # Returns
+    ///
+    /// `|notional| × rate`, with the rate taken from the configured schedule grid.
     pub fn calculate_for_notional(
         &self,
         notional: Money,
@@ -304,7 +379,16 @@ impl ScheduleImCalculator {
         Money::new(notional.amount().abs(), notional.currency()) * rate
     }
 
-    /// Get the schedule rate for an asset class and maturity.
+    /// Get the decimal schedule rate for an asset class and maturity.
+    ///
+    /// # Arguments
+    ///
+    /// * `asset_class` - Regulatory schedule asset class
+    /// * `maturity_years` - Remaining maturity as a year fraction
+    ///
+    /// # Returns
+    ///
+    /// A decimal rate such as `0.01` for 1%.
     #[must_use]
     pub fn rate(&self, asset_class: ScheduleAssetClass, maturity_years: f64) -> f64 {
         self.schedule.rate(asset_class, maturity_years)

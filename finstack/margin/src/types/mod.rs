@@ -13,9 +13,12 @@ mod call;
 mod collateral;
 mod csa;
 mod enums;
+/// Netting-set identifiers and per-instrument margin aggregation outputs.
 pub mod netting;
 mod otc;
+/// Repo-specific margining conventions and helper calculations.
 pub mod repo_margin;
+/// SIMM risk-class and sensitivity container types.
 pub mod simm_types;
 mod thresholds;
 

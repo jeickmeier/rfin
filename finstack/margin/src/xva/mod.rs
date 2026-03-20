@@ -5,6 +5,14 @@
 //! the cost of counterparty credit risk, own-default benefit, funding, and
 //! capital for uncollateralized or partially collateralized derivative positions.
 //!
+//! # Key Conventions
+//!
+//! - Exposure times are expressed as year fractions.
+//! - Deterministic exposure uses a constant-curves roll-forward assumption.
+//! - Netting follows an ISDA-master-agreement view of close-out.
+//! - CSA collateral terms reduce exposure but the current deterministic engine
+//!   does not yet model MPOR gap risk explicitly.
+//!
 //! # Overview
 //!
 //! The XVA framework provides:
@@ -103,17 +111,20 @@
 //!
 //! # References
 //!
-//! - Gregory, J. (2020). *The xVA Challenge*, 4th ed. Wiley.
-//! - Green, A. (2015). *XVA: Credit, Funding and Capital Valuation Adjustments*. Wiley.
-//! - Brigo, D., Morini, M. & Pallavicini, A. (2013). *Counterparty Credit Risk,
-//!   Collateral and Funding*. Wiley.
-//! - Pykhtin, M. & Zhu, S. (2007). "A Guide to Modelling Counterparty Credit Risk."
-//!   GARP Risk Review.
+//! - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+//! - Green XVA: `docs/REFERENCES.md#green-xva`
+//! - ISDA 2002 Master Agreement: `docs/REFERENCES.md#isda-2002-master-agreement`
+//! - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 
+/// CVA, DVA, FVA, and bilateral-XVA integration formulas.
 pub mod cva;
+/// Deterministic and stochastic exposure engines.
 pub mod exposure;
+/// Netting and collateral-reduction helpers.
 pub mod netting;
+/// Minimal trait surface for XVA-compatible instruments.
 pub mod traits;
+/// Shared XVA configuration and result container types.
 pub mod types;
 
 pub use traits::Valuable;

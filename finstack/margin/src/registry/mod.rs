@@ -1,4 +1,18 @@
-#![allow(missing_docs)]
+//! Margin-registry loading and override helpers.
+//!
+//! This module exposes the resolved configuration surface that powers schedule
+//! IM, SIMM parameters, collateral schedules, and CCP fallback settings.
+//! Values are loaded from embedded JSON assets and may be overlaid through
+//! [`finstack_core::config::FinstackConfig`] using
+//! [`crate::registry::MARGIN_REGISTRY_EXTENSION_KEY`].
+//!
+//! # Units And Conventions
+//!
+//! - Rates and haircuts are stored as decimal fractions, not basis points.
+//! - Thresholds, MTAs, and independent amounts are stored as raw currency
+//!   amounts before conversion into [`finstack_core::money::Money`].
+//! - `mpor_days` and settlement lags are stored in calendar days.
+//! - Schedule maturities are stored as year fractions.
 use std::sync::OnceLock;
 
 use finstack_core::config::FinstackConfig;
@@ -22,121 +36,207 @@ mod wire;
 pub use merge::merge_json;
 
 /// Fully resolved, ready-to-use margin registry.
+///
+/// This is the public, parsed view of the embedded margin registry after any
+/// optional JSON overlay has been applied.
 #[derive(Debug, Clone)]
 pub struct MarginRegistry {
+    /// Workspace-wide default VM, IM, timing, and settlement settings.
     pub defaults: MarginDefaults,
+    /// Regulatory schedule IM grids keyed by registry id such as `"bcbs_iosco"`.
     pub schedule_im: HashMap<String, ScheduleImSchedule>,
+    /// Default collateral haircuts keyed by collateral asset class.
     pub collateral_asset_class_defaults: HashMap<CollateralAssetClass, AssetClassDefault>,
+    /// Eligible collateral schedules keyed by registry id.
     pub collateral_schedules: HashMap<String, EligibleCollateralSchedule>,
+    /// CCP conservative fallback parameters keyed by CCP identifier.
     pub ccp: HashMap<String, CcpParams>,
+    /// Optional default key into [`Self::ccp`].
     pub ccp_default: Option<String>,
+    /// SIMM parameter sets keyed by registry id such as `"v2_6"`.
     pub simm: HashMap<String, SimmParams>,
+    /// Optional default key into [`Self::simm`].
     pub simm_default: Option<String>,
 }
 
+/// Top-level default settings shared across margin methodologies.
 #[derive(Debug, Clone)]
 pub struct MarginDefaults {
+    /// Variation-margin defaults.
     pub vm: VmDefaults,
+    /// Initial-margin defaults split by methodology.
     pub im: ImDefaults,
+    /// Margin call timing defaults for different agreement types.
     pub timing: TimingDefaults,
+    /// Settlement defaults for cleared margin flows.
     pub cleared_settlement: ClearedSettlementDefaults,
 }
 
+/// Default variation-margin parameters stored in raw numeric form.
 #[derive(Debug, Clone)]
 pub struct VmDefaults {
+    /// VM threshold amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub threshold: f64,
+    /// Minimum transfer amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub mta: f64,
+    /// Rounding amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub rounding: f64,
+    /// Independent amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub independent_amount: f64,
+    /// Margin-call frequency.
     pub frequency: MarginTenor,
+    /// Settlement lag in calendar days.
     pub settlement_lag: u32,
 }
 
+/// Default initial-margin settings grouped by methodology.
 #[derive(Debug, Clone)]
 pub struct ImDefaults {
+    /// Defaults for SIMM-based bilateral IM.
     pub simm: ImMethodDefaults,
+    /// Defaults for schedule-based IM.
     pub schedule: ImMethodDefaults,
+    /// Defaults for cleared-derivative CCP IM.
     pub cleared: ImMethodDefaults,
+    /// Defaults for repo haircut IM.
     pub repo_haircut: ImMethodDefaults,
 }
 
+/// Raw default parameters for a single IM methodology.
 #[derive(Debug, Clone)]
 pub struct ImMethodDefaults {
+    /// Margin period of risk in calendar days.
     pub mpor_days: u32,
+    /// Threshold amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub threshold: f64,
+    /// Minimum transfer amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub mta: f64,
+    /// Whether the methodology assumes segregated collateral.
     pub segregated: bool,
 }
 
+/// Default timing conventions for margin calls and responses.
 #[derive(Debug, Clone)]
 pub struct TimingDefaults {
+    /// Standard bilateral timing defaults.
     pub standard: MarginCallTiming,
+    /// Regulatory VM timing defaults.
     pub regulatory_vm: MarginCallTiming,
+    /// Cleared or CCP timing defaults.
     pub ccp: MarginCallTiming,
 }
 
+/// Default settlement handling for cleared collateral flows.
 #[derive(Debug, Clone)]
 pub struct ClearedSettlementDefaults {
+    /// Settlement rounding amount in base-currency units before conversion to [`finstack_core::money::Money`].
     pub rounding: f64,
+    /// Settlement lag in calendar days.
     pub settlement_lag: u32,
 }
 
+/// Parsed regulatory schedule IM entry from the registry.
 #[derive(Debug, Clone)]
 pub struct ScheduleImSchedule {
+    /// Year-fraction boundaries separating short, medium, and long buckets.
     pub boundaries: ScheduleBucketBoundaries,
+    /// Fallback decimal rate used when a bucket-specific entry is absent.
     pub default_rate: f64,
+    /// Default asset class used by the schedule calculator's trait-based fallback path.
     pub default_asset_class: ScheduleAssetClass,
+    /// Default maturity expressed as a year fraction.
     pub default_maturity_years: f64,
+    /// Margin period of risk in calendar days.
     pub mpor_days: u32,
+    /// Decimal rates keyed by `(asset_class, maturity_bucket)`.
     pub rates: HashMap<(ScheduleAssetClass, MaturityBucket), f64>,
 }
 
+/// Boundaries, in years, for the schedule IM maturity buckets.
 #[derive(Debug, Clone)]
 pub struct ScheduleBucketBoundaries {
+    /// Cutoff between short and medium maturity buckets, in years.
     pub short_to_medium: f64,
+    /// Cutoff between medium and long maturity buckets, in years.
     pub medium_to_long: f64,
 }
 
+/// Default collateral haircut settings for an asset class.
 #[derive(Debug, Clone)]
 pub struct AssetClassDefault {
+    /// Standard collateral haircut as a decimal fraction.
     pub standard_haircut: f64,
+    /// Additional FX haircut as a decimal fraction when collateral currency differs.
     pub fx_addon: f64,
 }
 
+/// Conservative fallback CCP parameters.
 #[derive(Debug, Clone)]
 pub struct CcpParams {
+    /// Margin period of risk in calendar days.
     pub mpor_days: u32,
+    /// Conservative fallback margin rate as a decimal fraction.
     pub conservative_rate: f64,
 }
 
+/// Registry-backed SIMM parameter set.
 #[derive(Debug, Clone)]
 pub struct SimmParams {
+    /// SIMM version identifier for this parameter set.
     pub version: SimmVersion,
+    /// Margin period of risk in calendar days.
     pub mpor_days: u32,
+    /// Interest-rate delta risk weights keyed by tenor label.
     pub ir_delta_weights: HashMap<String, f64>,
+    /// Credit-qualifying delta risk weights keyed by sector or bucket label.
     pub cq_delta_weights: HashMap<String, f64>,
+    /// Credit-non-qualifying delta risk weight.
     pub cnq_delta_weight: f64,
+    /// Equity delta risk weight.
     pub equity_delta_weight: f64,
+    /// FX delta risk weight.
     pub fx_delta_weight: f64,
+    /// Cross-risk-class correlations keyed by risk-class pair.
     pub risk_class_correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64>,
+    /// Commodity delta risk weights keyed by bucket label.
     pub commodity_bucket_weights: HashMap<String, f64>,
+    /// Interest-rate tenor correlations keyed by ordered tenor pair.
     pub ir_tenor_correlations: HashMap<(String, String), f64>,
     /// Inter-currency correlation γ for IR delta aggregation across currencies.
     /// Per ISDA SIMM specification (typically 0.27 for v2.5/v2.6).
     pub ir_inter_currency_correlation: f64,
+    /// Interest-rate vega risk weight.
     pub ir_vega_weight: f64,
+    /// Credit-qualifying vega risk weight.
     pub cq_vega_weight: f64,
+    /// Credit-non-qualifying vega risk weight.
     pub cnq_vega_weight: f64,
+    /// Equity vega risk weight.
     pub equity_vega_weight: f64,
+    /// FX vega risk weight.
     pub fx_vega_weight: f64,
+    /// Commodity vega risk weight.
     pub commodity_vega_weight: f64,
+    /// Curvature scale factor applied before aggregation.
     pub curvature_scale_factor: f64,
+    /// Concentration thresholds keyed by SIMM risk class.
     pub concentration_thresholds: HashMap<SimmRiskClass, f64>,
 }
 
 static EMBEDDED_REGISTRY: OnceLock<MarginRegistry> = OnceLock::new();
 
-/// Access the embedded registry (no overrides).
+/// Access the embedded registry without any overlays.
+///
+/// The result is cached for the lifetime of the process.
+///
+/// # Returns
+///
+/// A shared reference to the parsed embedded registry.
+///
+/// # Errors
+///
+/// Returns an error if the embedded JSON assets cannot be parsed into a valid
+/// [`MarginRegistry`].
 pub fn embedded_registry() -> Result<&'static MarginRegistry> {
     if EMBEDDED_REGISTRY.get().is_none() {
         let registry = build_registry(None)?;
@@ -147,7 +247,20 @@ pub fn embedded_registry() -> Result<&'static MarginRegistry> {
         .ok_or_else(|| Error::Validation("Failed to load embedded margin registry".to_string()))
 }
 
-/// Build a registry applying an optional JSON overlay (already parsed).
+/// Build a registry applying an optional JSON overlay.
+///
+/// # Arguments
+///
+/// * `overlay` - Parsed JSON overlay that follows the embedded registry schema
+///
+/// # Returns
+///
+/// A fully parsed [`MarginRegistry`] containing embedded defaults plus any overlay values.
+///
+/// # Errors
+///
+/// Returns an error if the embedded assets are invalid, if the overlay is
+/// malformed, or if any parsed values violate registry validation rules.
 pub fn build_registry(overlay: Option<&Value>) -> Result<MarginRegistry> {
     let mut root = embedded::load_embedded_root()?;
     if let Some(ov) = overlay {
@@ -455,8 +568,22 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
 // Public helper for overrides via FinstackConfig
 // -----------------------------------------------------------------------------//
 
+/// Extension key used by [`finstack_core::config::FinstackConfig`] for margin-registry JSON overlays.
 pub const MARGIN_REGISTRY_EXTENSION_KEY: &str = "valuations.margin_registry.v1";
 
+/// Build a margin registry from a [`finstack_core::config::FinstackConfig`] extension overlay.
+///
+/// # Arguments
+///
+/// * `cfg` - Config whose `extensions` map may contain [`crate::registry::MARGIN_REGISTRY_EXTENSION_KEY`]
+///
+/// # Returns
+///
+/// A new [`MarginRegistry`] built from embedded defaults plus any configured overlay.
+///
+/// # Errors
+///
+/// Returns an error if the embedded registry or the configured overlay fails validation.
 pub fn margin_registry_from_config(cfg: &FinstackConfig) -> Result<MarginRegistry> {
     let overlay = cfg.extensions.get(MARGIN_REGISTRY_EXTENSION_KEY);
     build_registry(overlay)
@@ -685,6 +812,15 @@ fn to_validation(err: serde_json::Error) -> Error {
 // -----------------------------------------------------------------------------//
 
 impl VmDefaults {
+    /// Convert raw VM defaults into currency-tagged [`VmParameters`].
+    ///
+    /// # Arguments
+    ///
+    /// * `currency` - Currency used to wrap raw numeric defaults in [`finstack_core::money::Money`]
+    ///
+    /// # Returns
+    ///
+    /// Concrete VM parameters in `currency`.
     pub fn to_vm_params(&self, currency: finstack_core::currency::Currency) -> VmParameters {
         VmParameters {
             threshold: Money::new(self.threshold, currency),
@@ -698,6 +834,16 @@ impl VmDefaults {
 }
 
 impl ImMethodDefaults {
+    /// Convert raw IM defaults into currency-tagged [`ImParameters`].
+    ///
+    /// # Arguments
+    ///
+    /// * `methodology` - IM methodology label for the returned parameter set
+    /// * `currency` - Currency used to wrap raw numeric defaults in [`finstack_core::money::Money`]
+    ///
+    /// # Returns
+    ///
+    /// Concrete IM parameters in `currency`.
     pub fn to_im_params(
         &self,
         methodology: ImMethodology,

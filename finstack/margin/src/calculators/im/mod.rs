@@ -11,7 +11,9 @@
 mod clearing;
 mod haircut;
 mod internal;
+/// BCBS-IOSCO schedule-based IM fallback calculator.
 pub mod schedule;
+/// ISDA SIMM calculator and supporting types.
 pub mod simm;
 
 pub use clearing::{CcpMarginInputSource, CcpMethodology, ClearingHouseImCalculator};

@@ -71,6 +71,20 @@ impl std::fmt::Display for SimmRiskClass {
 /// Sensitivities are organized by risk class and further bucketed
 /// according to SIMM specifications.
 ///
+/// # Units And Conventions
+///
+/// - Delta and vega entries are stored as currency amounts, not as decimal
+///   rates or basis-point quote moves.
+/// - For rate and credit buckets, callers should provide DV01/CS01-style
+///   amounts in currency per 1bp move before loading them into this struct.
+/// - Tenor labels should match the registry-backed SIMM tenor set used by the
+///   calculator, such as `2W`, `1M`, `3M`, `6M`, `1Y`, `2Y`, `3Y`, `5Y`,
+///   `10Y`, `15Y`, `20Y`, and `30Y`.
+/// - Signs are preserved on input so netting and offsetting can occur before
+///   SIMM applies absolute-value or quadratic aggregation steps.
+/// - `base_currency` identifies the currency in which the sensitivity set was
+///   produced; the margin result currency is chosen separately by the caller.
+///
 /// # Example
 ///
 /// ```rust,no_run
@@ -87,9 +101,16 @@ impl std::fmt::Display for SimmRiskClass {
 /// // Add credit delta
 /// sensitivities.add_credit_delta("CDX.NA.IG", true, "5Y", 50_000.0);
 /// ```
+///
+/// # References
+///
+/// - ISDA SIMM: `docs/REFERENCES.md#isda-simm`
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct SimmSensitivities {
-    /// Base currency for the sensitivities
+    /// Base currency for the sensitivities.
+    ///
+    /// This is the currency context in which the sensitivity set was produced.
+    /// It does not force the output currency of the eventual margin result.
     pub base_currency: Currency,
 
     /// Interest rate delta by (currency, tenor bucket).
@@ -97,7 +118,10 @@ pub struct SimmSensitivities {
     /// Tenor buckets follow SIMM specification: 2W, 1M, 3M, 6M, 1Y, 2Y, 3Y, 5Y, 10Y, 15Y, 20Y, 30Y
     pub ir_delta: HashMap<(Currency, String), f64>,
 
-    /// Interest rate vega by (currency, tenor bucket).
+    /// Interest rate vega by `(currency, tenor bucket)`.
+    ///
+    /// Values should already be expressed in currency units compatible with the
+    /// SIMM vega weights.
     pub ir_vega: HashMap<(Currency, String), f64>,
 
     /// Credit qualifying delta by (issuer/index, tenor bucket).
@@ -111,26 +135,45 @@ pub struct SimmSensitivities {
     pub credit_non_qualifying_delta: HashMap<(String, String), f64>,
 
     /// Equity delta by underlier.
+    ///
+    /// Values are signed currency sensitivities, not percentage deltas.
     pub equity_delta: HashMap<String, f64>,
 
     /// Equity vega by underlier.
     pub equity_vega: HashMap<String, f64>,
 
-    /// FX delta by currency (sensitivity to USD exchange rate).
+    /// FX delta by currency.
+    ///
+    /// Values are signed currency sensitivities to the reporting FX risk factor
+    /// used by the caller's SIMM mapping, not spot levels or percentage moves.
     pub fx_delta: HashMap<Currency, f64>,
 
     /// FX vega by currency pair.
     pub fx_vega: HashMap<(Currency, Currency), f64>,
 
     /// Commodity delta by bucket.
+    ///
+    /// Bucket labels should match the SIMM commodity bucket naming expected by
+    /// the calculator's registry-backed lookup table.
     pub commodity_delta: HashMap<String, f64>,
 
     /// Curvature risk by risk class.
+    ///
+    /// Values should be the signed curvature contributions in currency units
+    /// before the SIMM curvature scale factor is applied.
     pub curvature: HashMap<SimmRiskClass, f64>,
 }
 
 impl SimmSensitivities {
     /// Create new empty sensitivities for a base currency.
+    ///
+    /// # Arguments
+    ///
+    /// * `base_currency` - Currency context in which the raw sensitivities were computed
+    ///
+    /// # Returns
+    ///
+    /// An empty sensitivity container ready for incremental population.
     #[must_use]
     pub fn new(base_currency: Currency) -> Self {
         Self {
@@ -148,25 +191,32 @@ impl SimmSensitivities {
         }
     }
 
-    /// Add interest rate delta sensitivity.
+    /// Add an interest-rate delta sensitivity bucket.
+    ///
+    /// `delta` should be a signed DV01-style currency amount for the given tenor
+    /// bucket, typically interpreted as currency per 1bp move.
     pub fn add_ir_delta(&mut self, currency: Currency, tenor: impl Into<String>, delta: f64) {
         let key = (currency, tenor.into());
         *self.ir_delta.entry(key).or_insert(0.0) += delta;
     }
 
-    /// Add interest rate vega sensitivity.
+    /// Add an interest-rate vega sensitivity bucket.
+    ///
+    /// `vega` should be a signed currency amount compatible with the SIMM vega
+    /// weighting conventions for the specified tenor bucket.
     pub fn add_ir_vega(&mut self, currency: Currency, tenor: impl Into<String>, vega: f64) {
         let key = (currency, tenor.into());
         *self.ir_vega.entry(key).or_insert(0.0) += vega;
     }
 
-    /// Add credit delta sensitivity.
+    /// Add a credit delta sensitivity bucket.
     ///
     /// # Arguments
-    /// * `name` - Issuer or index name
-    /// * `qualifying` - True for investment grade, false for high yield/EM
-    /// * `tenor` - Tenor bucket (e.g., "5Y")
-    /// * `delta` - Sensitivity amount
+    ///
+    /// * `name` - Issuer or index identifier
+    /// * `qualifying` - `true` for qualifying credit, `false` for non-qualifying credit
+    /// * `tenor` - Tenor bucket such as `"5Y"`
+    /// * `delta` - Signed CS01-style currency amount, typically currency per 1bp move
     pub fn add_credit_delta(
         &mut self,
         name: impl Into<String>,
@@ -182,19 +232,23 @@ impl SimmSensitivities {
         }
     }
 
-    /// Add equity delta sensitivity.
+    /// Add an equity delta sensitivity bucket.
+    ///
+    /// `delta` is a signed currency sensitivity for the named underlier.
     pub fn add_equity_delta(&mut self, underlier: impl Into<String>, delta: f64) {
         let key = underlier.into();
         *self.equity_delta.entry(key).or_insert(0.0) += delta;
     }
 
-    /// Add equity vega sensitivity.
+    /// Add an equity vega sensitivity bucket.
     pub fn add_equity_vega(&mut self, underlier: impl Into<String>, vega: f64) {
         let key = underlier.into();
         *self.equity_vega.entry(key).or_insert(0.0) += vega;
     }
 
-    /// Add FX delta sensitivity.
+    /// Add an FX delta sensitivity bucket.
+    ///
+    /// `delta` is a signed currency sensitivity to the specified FX risk factor.
     pub fn add_fx_delta(&mut self, currency: Currency, delta: f64) {
         *self.fx_delta.entry(currency).or_insert(0.0) += delta;
     }

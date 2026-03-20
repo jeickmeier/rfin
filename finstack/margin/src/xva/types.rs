@@ -11,8 +11,8 @@
 ///
 /// # References
 ///
-/// - Gregory, J. (2020). *The xVA Challenge*, 4th ed. Wiley. Chapter 19 (FVA).
-/// - Green, A. (2015). *XVA: Credit, Funding and Capital Valuation Adjustments*. Chapter 5.
+/// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+/// - Green XVA: `docs/REFERENCES.md#green-xva`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FundingConfig {
     /// Funding spread in basis points (cost on positive exposure).
@@ -36,6 +36,10 @@ impl FundingConfig {
     ///
     /// If `funding_benefit_bps` is `None`, returns `funding_spread_bps`
     /// (symmetric funding assumption).
+    ///
+    /// # Returns
+    ///
+    /// The benefit spread in basis points.
     pub fn effective_benefit_bps(&self) -> f64 {
         self.funding_benefit_bps.unwrap_or(self.funding_spread_bps)
     }
@@ -53,8 +57,8 @@ impl FundingConfig {
 ///
 /// # References
 ///
-/// - Gregory, J. (2020). *The xVA Challenge*, 4th ed. Wiley. Chapter 8 (Exposure).
-/// - BCBS 325 (2014). "Fundamental review of the trading book."
+/// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
+/// - BCBS 279 SA-CCR: `docs/REFERENCES.md#bcbs-279-saccr`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct XvaConfig {
     /// Time grid for exposure simulation (years from today).
@@ -101,6 +105,10 @@ impl Default for XvaConfig {
 
 impl XvaConfig {
     /// Validate configuration parameters.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the configuration is internally consistent.
     ///
     /// # Errors
     ///
@@ -287,6 +295,10 @@ pub struct ExposureDiagnostics {
 ///
 /// This is the intermediate result from exposure simulation,
 /// consumed by the CVA calculator.
+///
+/// All vectors are expressed in the netting set's reporting currency when one
+/// is configured; otherwise they use the natural single-currency portfolio
+/// currency inferred by the exposure engine.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ExposureProfile {
     /// Time points in years from valuation date.
@@ -308,6 +320,10 @@ pub struct ExposureProfile {
 
 impl ExposureProfile {
     /// Validate that the exposure profile is internally consistent.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when vector lengths, time ordering, and numeric finiteness are valid.
     ///
     /// # Errors
     ///
@@ -372,6 +388,9 @@ impl ExposureProfile {
 ///
 /// Used by the Monte Carlo-based XVA exposure engine to control simulation
 /// size, reproducibility, and the PFE confidence level.
+///
+/// `pfe_quantile` is a decimal probability, so `0.975` means the 97.5th
+/// percentile of positive exposure.
 #[cfg(feature = "mc")]
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct StochasticExposureConfig {
@@ -389,6 +408,9 @@ pub struct StochasticExposureConfig {
 
 #[cfg(feature = "mc")]
 impl Default for StochasticExposureConfig {
+    /// Create the default stochastic exposure configuration.
+    ///
+    /// Uses 10,000 paths, seed `42`, and a 97.5% PFE quantile.
     fn default() -> Self {
         Self {
             num_paths: 10_000,
@@ -401,6 +423,14 @@ impl Default for StochasticExposureConfig {
 #[cfg(feature = "mc")]
 impl StochasticExposureConfig {
     /// Validate stochastic exposure simulation parameters.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the Monte Carlo path count and quantile are usable.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `num_paths` is zero or `pfe_quantile` is outside `(0, 1)`.
     pub fn validate(&self) -> finstack_core::Result<()> {
         if self.num_paths == 0 {
             return Err(finstack_core::Error::Validation(
@@ -443,11 +473,24 @@ pub struct StochasticExposureProfile {
 #[cfg(feature = "mc")]
 impl StochasticExposureProfile {
     /// Maximum PFE across the simulated horizon.
+    ///
+    /// # Returns
+    ///
+    /// The largest value in [`Self::pfe_profile`].
     pub fn max_pfe(&self) -> f64 {
         self.pfe_profile.iter().copied().fold(0.0, f64::max)
     }
 
     /// Validate internal consistency between the average profile and PFE vector.
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the embedded profile and tail profile are aligned.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded average profile is invalid or if the
+    /// PFE vector length or values are inconsistent.
     pub fn validate(&self) -> finstack_core::Result<()> {
         self.profile.validate()?;
         if self.pfe_profile.len() != self.profile.times.len() {
@@ -476,8 +519,8 @@ impl StochasticExposureProfile {
 ///
 /// # References
 ///
-/// - ISDA (2002). "2002 ISDA Master Agreement."
-/// - Gregory, J. (2020). *The xVA Challenge*, Chapter 6.
+/// - ISDA 2002 Master Agreement: `docs/REFERENCES.md#isda-2002-master-agreement`
+/// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct NettingSet {
     /// Unique identifier for this netting set.
@@ -518,8 +561,8 @@ pub struct NettingSet {
 ///
 /// # References
 ///
-/// - ISDA (2016). "Credit Support Annex for Variation Margin."
-/// - Gregory, J. (2020). *The xVA Challenge*, Chapter 7.
+/// - ISDA 2016 VM CSA: `docs/REFERENCES.md#isda-vm-csa-2016`
+/// - Gregory XVA Challenge: `docs/REFERENCES.md#gregory-xva-challenge`
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CsaTerms {
     /// Threshold below which no collateral is required.

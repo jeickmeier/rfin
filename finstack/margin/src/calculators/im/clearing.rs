@@ -18,6 +18,9 @@ use finstack_core::Result;
 use std::sync::Arc;
 
 /// CCP methodology type.
+///
+/// Represents the clearing-house rulebook used to source conservative fallback
+/// parameters such as MPOR and the decimal conservative-rate proxy.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
 pub enum CcpMethodology {
@@ -104,7 +107,19 @@ impl CcpMethodology {
         self.default_params()
     }
 
-    /// Choose a CCP methodology based on a CCP name and instrument type.
+    /// Choose a CCP methodology from a CCP display name.
+    ///
+    /// The mapping is heuristic and string-based. Unknown names fall back to
+    /// [`CcpMethodology::GenericVaR`] with a 99% confidence level and 250-day
+    /// lookback.
+    ///
+    /// # Arguments
+    ///
+    /// * `ccp` - Human-readable CCP name such as `"LCH"` or `"ICE Clear Credit"`
+    ///
+    /// # Returns
+    ///
+    /// The closest built-in CCP methodology.
     #[must_use]
     pub fn from_ccp_name(ccp: &str) -> Self {
         let normalized = ccp.trim().to_ascii_lowercase();
@@ -137,9 +152,12 @@ impl CcpMethodology {
     }
 }
 
-/// CCP margin input source for external VaR/SPAN results.
+/// CCP margin input source for external VaR or SPAN results.
 pub trait CcpMarginInputSource: Send + Sync {
     /// Return a CCP-supplied IM amount when available.
+    ///
+    /// Returned amounts are expected to be final margin amounts in the currency
+    /// carried by the [`Money`] value, not percentages or risk weights.
     fn initial_margin(
         &self,
         instrument: &dyn Marginable,
@@ -156,8 +174,16 @@ pub trait CcpMarginInputSource: Send + Sync {
 
 /// Clearing house IM calculator.
 ///
-/// Provides IM calculation for cleared derivatives using CCP-specific methodologies.
-/// This is a simplified implementation that uses conservative estimates.
+/// Provides CCP-specific initial-margin approximations for cleared derivatives.
+/// When a [`CcpMarginInputSource`] is attached, the calculator uses the
+/// externally supplied IM amount and optional MPOR override. Otherwise it falls
+/// back to a conservative placeholder computed from the absolute current MtM.
+///
+/// The fallback path is intentionally simpler than a real CCP model:
+/// `calculate()` reads `instrument.mtm_for_vm(...).abs()` and multiplies it by a
+/// decimal conservative rate loaded from the registry or built-in defaults.
+/// This makes the result a proxy for cleared IM, not a replication of a CCP VaR
+/// or SPAN engine.
 ///
 /// # Real-World Implementation
 ///
@@ -165,6 +191,13 @@ pub trait CcpMarginInputSource: Send + Sync {
 /// 1. Interface with CCP margin APIs (e.g., LCH SMART, CME CORE)
 /// 2. Replicate VaR/SPAN calculations with historical scenarios
 /// 3. Apply portfolio margining and cross-product netting
+///
+/// # Conventions
+///
+/// - `conservative_rate` values are decimal fractions, so `0.02` means 2%.
+/// - MPOR is expressed in calendar days.
+/// - The proxy fallback uses absolute current MtM as the exposure base, not
+///   regulatory notional or CCP scan risk.
 ///
 /// # Example
 ///
@@ -184,6 +217,11 @@ pub trait CcpMarginInputSource: Send + Sync {
 /// # Ok(())
 /// # }
 /// ```
+///
+/// # References
+///
+/// - BCBS-IOSCO uncleared margin framework: `docs/REFERENCES.md#bcbs-iosco-uncleared-margin`
+/// - Quantitative Risk Management: `docs/REFERENCES.md#mcneil-frey-embrechts-qrm`
 #[derive(Clone)]
 pub struct ClearingHouseImCalculator {
     /// CCP methodology
@@ -211,7 +249,15 @@ impl std::fmt::Debug for ClearingHouseImCalculator {
 }
 
 impl ClearingHouseImCalculator {
-    /// Create a new calculator for a specific CCP.
+    /// Create a new calculator for a specific CCP methodology.
+    ///
+    /// # Arguments
+    ///
+    /// * `methodology` - CCP rule set used to resolve conservative fallback parameters
+    ///
+    /// # Returns
+    ///
+    /// A calculator with no external input source and no parameter overrides.
     #[must_use]
     pub fn new(methodology: CcpMethodology) -> Self {
         Self {
@@ -221,13 +267,30 @@ impl ClearingHouseImCalculator {
         }
     }
 
-    /// Create a calculator from a CCP name and instrument type.
+    /// Create a calculator from a CCP display name.
+    ///
+    /// # Arguments
+    ///
+    /// * `ccp` - Human-readable CCP name passed to [`CcpMethodology::from_ccp_name`]
+    ///
+    /// # Returns
+    ///
+    /// A calculator using the inferred built-in methodology.
     #[must_use]
     pub fn for_ccp(ccp: &str) -> Self {
         Self::new(CcpMethodology::from_ccp_name(ccp))
     }
 
-    /// Create a calculator with explicitly resolved params.
+    /// Create a calculator with explicitly resolved parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `methodology` - CCP methodology identifier
+    /// * `params` - Conservative fallback parameters with decimal rates and day counts
+    ///
+    /// # Returns
+    ///
+    /// A calculator using `params` instead of registry lookup.
     #[must_use]
     pub fn with_params(methodology: CcpMethodology, params: CcpParams) -> Self {
         Self {
@@ -237,7 +300,16 @@ impl ClearingHouseImCalculator {
         }
     }
 
-    /// Create using registry overrides from config.
+    /// Create a calculator using registry overrides from config.
+    ///
+    /// # Arguments
+    ///
+    /// * `ccp` - Human-readable CCP name used to infer the methodology
+    /// * `cfg` - Config whose margin-registry extension may override CCP parameters
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the margin registry cannot be loaded from `cfg`.
     pub fn for_ccp_with_config(ccp: &str, cfg: &FinstackConfig) -> Result<Self> {
         let registry = margin_registry_from_config(cfg)?;
         let methodology = CcpMethodology::from_ccp_name(ccp);
@@ -263,7 +335,16 @@ impl ClearingHouseImCalculator {
         Self::new(CcpMethodology::Cme)
     }
 
-    /// Create a generic VaR-based calculator.
+    /// Create a generic VaR-based fallback calculator.
+    ///
+    /// # Arguments
+    ///
+    /// * `confidence` - Confidence level in decimal form, such as `0.99`
+    /// * `lookback_days` - Historical lookback window in calendar days
+    ///
+    /// # Returns
+    ///
+    /// A calculator with generic VaR metadata and default conservative-rate lookup.
     #[must_use]
     pub fn generic_var(confidence: f64, lookback_days: u32) -> Self {
         Self::new(CcpMethodology::GenericVaR {
@@ -272,19 +353,33 @@ impl ClearingHouseImCalculator {
         })
     }
 
-    /// Attach a CCP input source (VaR/SPAN outputs).
+    /// Attach a CCP input source that provides external VaR or SPAN outputs.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - Provider of CCP-supplied margin amounts and optional MPOR overrides
+    ///
+    /// # Returns
+    ///
+    /// The updated calculator.
     #[must_use]
     pub fn with_input_source(mut self, source: Arc<dyn CcpMarginInputSource>) -> Self {
         self.input_source = Some(source);
         self
     }
 
-    /// Calculate IM using conservative estimate.
+    /// Calculate a conservative fallback IM amount from an exposure proxy.
     ///
-    /// This is a simplified calculation. Real CCP margins use VaR/ES
-    /// with historical scenarios.
-    pub fn calculate_conservative(&self, notional: Money) -> Money {
-        Money::new(notional.amount().abs(), notional.currency()) * self.params().conservative_rate
+    /// # Arguments
+    ///
+    /// * `exposure_base` - Absolute exposure proxy to scale, typically current MtM
+    ///
+    /// # Returns
+    ///
+    /// `|exposure_base| × conservative_rate`, where the rate is a decimal fraction.
+    pub fn calculate_conservative(&self, exposure_base: Money) -> Money {
+        Money::new(exposure_base.amount().abs(), exposure_base.currency())
+            * self.params().conservative_rate
     }
 }
 
