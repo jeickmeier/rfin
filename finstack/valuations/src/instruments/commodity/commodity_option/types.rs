@@ -955,6 +955,44 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for CommodityO
     }
 }
 
+impl crate::instruments::common_impl::traits::OptionGreeksProvider for CommodityOption {
+    fn option_greeks(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
+        use crate::instruments::common_impl::traits::{
+            OptionDeltaProvider, OptionGammaProvider, OptionGreekKind, OptionGreeks,
+            OptionVannaProvider, OptionVegaProvider, OptionVolgaProvider,
+        };
+
+        match request.greek {
+            OptionGreekKind::Delta => Ok(OptionGreeks {
+                delta: Some(self.option_delta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Gamma => Ok(OptionGreeks {
+                gamma: Some(self.option_gamma(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vega => Ok(OptionGreeks {
+                vega: Some(self.option_vega(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vanna => Ok(OptionGreeks {
+                vanna: Some(self.option_vanna(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Volga => Ok(OptionGreeks {
+                volga: Some(self.option_volga(market, as_of, request.require_base_pv()?)?),
+                ..OptionGreeks::default()
+            }),
+            _ => Ok(OptionGreeks::default()),
+        }
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

@@ -403,6 +403,48 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxBarrierO
     }
 }
 
+impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxBarrierOption {
+    fn option_greeks(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+        request: &crate::instruments::common_impl::traits::OptionGreeksRequest,
+    ) -> finstack_core::Result<crate::instruments::common_impl::traits::OptionGreeks> {
+        use crate::instruments::common_impl::traits::{
+            OptionDeltaProvider, OptionGammaProvider, OptionGreekKind, OptionGreeks,
+            OptionRhoProvider, OptionVannaProvider, OptionVegaProvider, OptionVolgaProvider,
+        };
+
+        match request.greek {
+            OptionGreekKind::Delta => Ok(OptionGreeks {
+                delta: Some(self.option_delta(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Gamma => Ok(OptionGreeks {
+                gamma: Some(self.option_gamma(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vega => Ok(OptionGreeks {
+                vega: Some(self.option_vega(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Rho => Ok(OptionGreeks {
+                rho_bp: Some(self.option_rho_bp(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Vanna => Ok(OptionGreeks {
+                vanna: Some(self.option_vanna(market, as_of)?),
+                ..OptionGreeks::default()
+            }),
+            OptionGreekKind::Volga => Ok(OptionGreeks {
+                volga: Some(self.option_volga(market, as_of, request.require_base_pv()?)?),
+                ..OptionGreeks::default()
+            }),
+            _ => Ok(OptionGreeks::default()),
+        }
+    }
+}
+
 impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxBarrierOption);
 

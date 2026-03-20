@@ -23,5 +23,6 @@ mod edge_cases;
 mod graceful_metrics_test;
 mod greek_relationships;
 mod invariants;
+mod option_provider_consolidation;
 mod sign_conventions;
 mod vanna_volga_pockets;
