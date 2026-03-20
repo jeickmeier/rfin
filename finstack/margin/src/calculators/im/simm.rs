@@ -314,7 +314,54 @@ impl SimmCalculator {
         self
     }
 
-    /// Calculate IR delta margin from DV01 sensitivities.
+    /// Calculate IR delta margin with multi-currency aggregation.
+    ///
+    /// Per ISDA SIMM methodology:
+    /// 1. For each currency, compute K_ccy using intra-currency tenor correlations
+    /// 2. Aggregate across currencies: `sqrt(sum_c sum_d gamma(c,d) * K_c * K_d)`
+    ///    where gamma = 1.0 when c == d, and `ir_inter_currency_correlation` otherwise
+    ///
+    /// # Arguments
+    ///
+    /// * `ir_delta` - Map of (currency, tenor) to DV01 sensitivity
+    pub fn calculate_ir_delta_multi_currency(
+        &self,
+        ir_delta: &HashMap<(Currency, String), f64>,
+    ) -> f64 {
+        // Group sensitivities by currency
+        let mut by_currency: HashMap<Currency, HashMap<String, f64>> = HashMap::default();
+        for ((ccy, tenor), delta) in ir_delta {
+            *by_currency
+                .entry(*ccy)
+                .or_default()
+                .entry(tenor.clone())
+                .or_insert(0.0) += delta;
+        }
+
+        // Compute K_ccy for each currency using intra-currency tenor correlations
+        let k_values: Vec<f64> = by_currency
+            .values()
+            .map(|tenor_map| self.calculate_ir_delta(tenor_map))
+            .collect();
+
+        // Single currency: no cross-currency aggregation needed
+        if k_values.len() <= 1 {
+            return k_values.first().copied().unwrap_or(0.0);
+        }
+
+        // Aggregate across currencies with inter-currency correlation gamma
+        let gamma = self.params.ir_inter_currency_correlation;
+        let mut total = 0.0;
+        for (i, k_i) in k_values.iter().enumerate() {
+            for (j, k_j) in k_values.iter().enumerate() {
+                let corr = if i == j { 1.0 } else { gamma };
+                total += corr * k_i * k_j;
+            }
+        }
+        total.max(0.0).sqrt()
+    }
+
+    /// Calculate IR delta margin for a single currency from DV01 sensitivities.
     ///
     /// Uses intra-bucket tenor correlations per ISDA SIMM methodology:
     /// `K = sqrt(sum_i sum_j rho(i,j) * WS_i * WS_j)`
@@ -508,14 +555,9 @@ impl SimmCalculator {
         let mut breakdown = HashMap::default();
         let mut risk_class_margins = HashMap::default();
 
-        // IR Delta
+        // IR Delta — per-currency calculation with inter-currency aggregation
         if !sensitivities.ir_delta.is_empty() {
-            let ir_delta_map: HashMap<String, f64> = sensitivities
-                .ir_delta
-                .iter()
-                .map(|((_, tenor), delta)| (tenor.clone(), *delta))
-                .collect();
-            let ir_margin = self.calculate_ir_delta(&ir_delta_map);
+            let ir_margin = self.calculate_ir_delta_multi_currency(&sensitivities.ir_delta);
             if ir_margin > 0.0 {
                 breakdown.insert("IR_Delta".to_string(), Money::new(ir_margin, currency));
                 risk_class_margins.insert(SimmRiskClass::InterestRate, ir_margin);

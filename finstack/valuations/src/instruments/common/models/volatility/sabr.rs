@@ -470,7 +470,7 @@ impl SABRModel {
             }
             if (1.0 + rho).abs() < 1e-10 {
                 // rho ≈ -1: Use stable form
-                return Ok((sqrt_disc + z_val + 1.0).ln() - (2.0_f64).ln() / 2.0);
+                return Ok((sqrt_disc + z_val + 1.0).ln() - (2.0_f64).ln());
             }
 
             let numerator = sqrt_disc + z_val - rho;

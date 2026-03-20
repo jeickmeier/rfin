@@ -161,13 +161,17 @@ impl HestonFourierSettings {
 
 /// Heston probability characteristic function ψ_j(φ) for j ∈ {1, 2}.
 ///
-/// Uses the standard Heston (1993) formulation, matching the validated
-/// implementation in `volatility/heston.rs`.
+/// Uses the "Little Heston Trap" formulation from Albrecher et al. (2007)
+/// to avoid branch-cut discontinuities and overflow from `exp(+dT)`.
+///
+/// The key change vs. the original Heston (1993) is:
+/// - `g⁻ = (b - ρσφi - d) / (b - ρσφi + d)` (swapped numerator/denominator)
+/// - `exp(-dT)` instead of `exp(+dT)` (avoids overflow for large T or Re(d) > 0)
 ///
 /// # Arguments
 ///
 /// * `j` - Probability index (1 or 2)
-/// * `phi` - Tenor parameter
+/// * `phi` - Fourier variable
 /// * `time` - Time to maturity
 /// * `log_spot` - Natural log of spot price
 /// * `params` - Heston model parameters
@@ -175,6 +179,10 @@ impl HestonFourierSettings {
 /// # Returns
 ///
 /// Complex value of ψ_j(φ)
+///
+/// # References
+///
+/// - Albrecher et al. (2007) — "The Little Heston Trap"
 fn heston_pj_characteristic_function(
     j: u8,
     phi: f64,
@@ -207,20 +215,28 @@ fn heston_pj_characteristic_function(
     let d_sq = (rho * sigma * phi * i - b).powi(2) - sigma_sq * (2.0 * u * phi * i - phi * phi);
     let d = d_sq.sqrt();
 
-    // g = (b - rho*sigma*phi*i + d) / (b - rho*sigma*phi*i - d)
+    // Little Heston Trap formulation (Albrecher et al. 2007):
+    // g⁻ = (b - rho*sigma*phi*i - d) / (b - rho*sigma*phi*i + d)
+    // Uses exp(-dT) to avoid overflow
     let b_minus_rsi = b - rho * sigma * phi * i;
-    let g = (b_minus_rsi + d) / (b_minus_rsi - d);
+    let g_minus = (b_minus_rsi - d) / (b_minus_rsi + d);
 
-    // exp(d*T)
-    let exp_dt = (d * time).exp();
+    // exp(-d*T) — bounded, avoids the overflow of exp(+dT)
+    let exp_minus_dt = (-d * time).exp();
 
-    // C = (r - q)*phi*i*T + (a/sigma^2) * [(b - rho*sigma*phi*i + d)*T - 2*ln((1 - g*exp(d*T))/(1 - g))]
     let one = Complex::new(1.0, 0.0);
-    let c = (r - q) * phi * i * time
-        + (a / sigma_sq) * ((b_minus_rsi + d) * time - 2.0 * ((one - g * exp_dt) / (one - g)).ln());
 
-    // D = (b - rho*sigma*phi*i + d) / sigma^2 * (1 - exp(d*T)) / (1 - g*exp(d*T))
-    let d_val = (b_minus_rsi + d) / sigma_sq * (one - exp_dt) / (one - g * exp_dt);
+    // C = (r-q)*phi*i*T + (a/sigma^2) * [(b - rho*sigma*phi*i - d)*T
+    //     - 2*ln((1 - g⁻*exp(-dT)) / (1 - g⁻))]
+    let c = (r - q) * phi * i * time
+        + (a / sigma_sq)
+            * ((b_minus_rsi - d) * time
+                - 2.0 * ((one - g_minus * exp_minus_dt) / (one - g_minus)).ln());
+
+    // D = (b - rho*sigma*phi*i - d) / sigma^2
+    //     * (1 - exp(-dT)) / (1 - g⁻*exp(-dT))
+    let d_val =
+        (b_minus_rsi - d) / sigma_sq * (one - exp_minus_dt) / (one - g_minus * exp_minus_dt);
 
     // ψ_j(φ) = exp(C + D*v0 + i*φ*ln(S))
     (c + d_val * v0 + i * phi * log_spot).exp()

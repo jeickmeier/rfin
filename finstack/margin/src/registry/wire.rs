@@ -251,6 +251,8 @@ pub struct SimmRecord {
     #[serde(default)]
     pub ir_tenor_correlations: Value,
     #[serde(default)]
+    pub ir_inter_currency_correlation: Option<f64>,
+    #[serde(default)]
     pub ir_vega_weight: Option<f64>,
     #[serde(default)]
     pub cq_vega_weight: Option<f64>,

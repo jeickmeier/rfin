@@ -62,6 +62,74 @@ impl BasisFunctions for PolynomialBasis {
     }
 }
 
+/// Normalized polynomial basis: {1, x̃, x̃², ...} where x̃ = (x - center) / scale.
+///
+/// Centering and scaling dramatically improve the condition number of the
+/// Vandermonde-like regression matrix in LSMC, especially for higher degrees
+/// or wide spot ranges. Recommended over [`PolynomialBasis`] when degree > 2.
+#[derive(Debug, Clone)]
+pub struct NormalizedPolynomialBasis {
+    degree: usize,
+    center: f64,
+    scale: f64,
+}
+
+impl NormalizedPolynomialBasis {
+    /// Create a normalized polynomial basis.
+    ///
+    /// # Arguments
+    ///
+    /// * `degree` - Polynomial degree (must be > 0)
+    /// * `center` - Centering value (typically the mean or ATM spot)
+    /// * `scale` - Scaling value (typically the standard deviation or strike)
+    pub fn new(degree: usize, center: f64, scale: f64) -> Self {
+        assert!(degree > 0, "Degree must be positive");
+        assert!(scale.abs() > 1e-14, "Scale must be non-zero");
+        Self {
+            degree,
+            center,
+            scale,
+        }
+    }
+
+    /// Create a validated normalized polynomial basis.
+    pub fn try_new(degree: usize, center: f64, scale: f64) -> Result<Self, String> {
+        if degree == 0 {
+            return Err("degree must be positive".to_string());
+        }
+        if scale.abs() <= 1e-14 {
+            return Err("scale must be non-zero".to_string());
+        }
+        Ok(Self {
+            degree,
+            center,
+            scale,
+        })
+    }
+}
+
+impl BasisFunctions for NormalizedPolynomialBasis {
+    fn num_basis(&self) -> usize {
+        self.degree + 1
+    }
+
+    fn evaluate(&self, state: f64, out: &mut [f64]) {
+        debug_assert_eq!(
+            out.len(),
+            self.num_basis(),
+            "Buffer size mismatch: expected {}, got {}",
+            self.num_basis(),
+            out.len()
+        );
+
+        let x = (state - self.center) / self.scale;
+        out[0] = 1.0;
+        for i in 1..=self.degree {
+            out[i] = out[i - 1] * x;
+        }
+    }
+}
+
 /// Laguerre basis normalized by strike for option-style payoffs.
 #[derive(Debug, Clone)]
 pub struct LaguerreBasis {

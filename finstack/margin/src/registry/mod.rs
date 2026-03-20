@@ -121,6 +121,9 @@ pub struct SimmParams {
     pub risk_class_correlations: HashMap<(SimmRiskClass, SimmRiskClass), f64>,
     pub commodity_bucket_weights: HashMap<String, f64>,
     pub ir_tenor_correlations: HashMap<(String, String), f64>,
+    /// Inter-currency correlation γ for IR delta aggregation across currencies.
+    /// Per ISDA SIMM specification (typically 0.27 for v2.5/v2.6).
+    pub ir_inter_currency_correlation: f64,
     pub ir_vega_weight: f64,
     pub cq_vega_weight: f64,
     pub cnq_vega_weight: f64,
@@ -423,6 +426,7 @@ fn parse_simm(value: Option<&Value>) -> Result<(HashMap<String, SimmParams>, Opt
             risk_class_correlations: correlations,
             commodity_bucket_weights,
             ir_tenor_correlations,
+            ir_inter_currency_correlation: record.ir_inter_currency_correlation.unwrap_or(0.27),
             ir_vega_weight,
             cq_vega_weight,
             cnq_vega_weight,
