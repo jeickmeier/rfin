@@ -21,9 +21,9 @@ use super::super::traits::Discretization;
 ///
 /// # Factor Usage
 ///
-/// - z[0]: Continuous diffusion shock
-/// - z[1]: Poisson number of jumps (via CDF transform)
-/// - z[2..]: Jump sizes (one per jump, if needed)
+/// - `z[0]`: Continuous diffusion shock
+/// - `z[1]`: Poisson number of jumps (via CDF transform)
+/// - `z[2..]`: Jump sizes (one per jump, if needed)
 ///
 /// For efficiency, pre-generates jump sizes from RNG stream.
 #[derive(Debug, Clone)]

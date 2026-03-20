@@ -1,55 +1,99 @@
-//! Monte Carlo simulation engine for derivative pricing.
+//! Monte Carlo pricing infrastructure for derivative valuation and diagnostics.
 //!
-//! This module provides a complete Monte Carlo framework including both
-//! simulation primitives (RNG, stochastic processes, discretization schemes)
-//! and pricing infrastructure (payoffs, pricers, Greeks, variance reduction).
+//! This crate combines stochastic-process definitions, discretization schemes,
+//! random-number generators, payoffs, and pricing engines behind composable
+//! traits. Most users start with [`engine::McEngine`] for generic simulations or
+//! [`pricer::european::EuropeanPricer`] for a GBM-only entry point.
 //!
-//! # Features
+//! # What Is Available
 //!
-//! - **RNG**: Philox counter-based RNG, Sobol quasi-random sequences, Brownian bridge
-//! - **Stochastic Processes**: GBM, Heston, Hull-White, CIR, Bates, jump diffusion
-//! - **Discretization**: Exact, Euler-Maruyama, Milstein, QE schemes
-//! - **Payoffs**: Vanilla, Asian, barrier, basket, lookback, autocallable, cliquet
-//! - **Early Exercise**: Longstaff-Schwartz LSM algorithm
-//! - **Variance Reduction**: Antithetic variates, control variates, importance sampling
-//! - **Greeks**: Pathwise, finite-difference, and likelihood ratio sensitivities
-//! - **Deterministic Results**: Seedable RNG for reproducibility
+//! Without the `mc` feature, the crate provides the base building blocks needed
+//! for vanilla Monte Carlo pricing:
 //!
-//! # Supported Models
+//! - [`rng::philox::PhiloxRng`] for deterministic pseudo-random sampling
+//! - [`process::gbm::GbmProcess`] and related Brownian / OU-style processes
+//! - [`discretization::exact::ExactGbm`] and other always-on exact schemes
+//! - vanilla payoffs and the core [`traits`] / [`engine`] infrastructure
 //!
-//! | Process | Dynamics | Discretization |
-//! |---------|----------|----------------|
-//! | GBM | dS = μS dt + σS dW | Exact, Euler, Milstein |
-//! | Heston | dS = μS dt + √v S dW₁, dv = κ(θ-v)dt + ξ√v dW₂ | Andersen QE |
-//! | Hull-White | dr = (θ(t) - ar)dt + σ dW | Exact |
-//! | CIR | dr = κ(θ-r)dt + σ√r dW | QE |
-//! | Bates | GBM + Heston + Merton jumps | QE + Jump-Euler |
+//! Enabling `mc` adds the heavier Monte Carlo surface:
 //!
-//! # Quick Example
+//! - quasi-random Sobol generators and Brownian-bridge utilities
+//! - Heston, CIR, Hull-White, jump-diffusion, Bates, and Schwartz-Smith models
+//! - Euler / Milstein / QE discretizations, path-dependent payoffs, LSMC, Greeks,
+//!   and advanced variance reduction
+//! - deterministic seed helpers in [`seed`]
 //!
-//! ```rust,ignore
+//! The `parallel` feature enables Rayon-backed path simulation. Parallel mode
+//! requires an RNG that supports deterministic stream splitting, such as
+//! [`rng::philox::PhiloxRng`].
+//!
+//! # Conventions
+//!
+//! Public APIs in this crate use the following conventions unless a module says
+//! otherwise:
+//!
+//! - Rates, dividend yields, and volatilities are quoted in decimals, not basis points.
+//! - Times and time-grid coordinates are year fractions.
+//! - [`engine::McEngine::price`] expects a caller-supplied discount factor for the
+//!   payoff horizon, typically `exp(-rT)` under a flat continuously compounded rate.
+//! - [`traits::Payoff::value`] returns an undiscounted [`finstack_core::money::Money`]
+//!   amount in the requested currency; the engine applies the discount factor outside
+//!   the payoff implementation.
+//! - Captured path statistics such as percentiles and ranges are computed from the
+//!   captured subset, not necessarily from the full Monte Carlo population.
+//!
+//! # Start Here
+//!
+//! - Use [`prelude`] for ergonomic imports in examples and downstream code.
+//! - Read [`traits`] to understand the contracts shared by processes, schemes, and payoffs.
+//! - Read [`engine`] for runtime constraints such as parallel RNG requirements and
+//!   unsupported configuration combinations.
+//! - Read [`rng`], [`process`], and [`discretization`] module docs for model- and
+//!   scheme-specific assumptions.
+//!
+//! # Examples
+//!
+//! ```rust,no_run
+//! use finstack_core::currency::Currency;
 //! use finstack_monte_carlo::prelude::*;
 //!
 //! let engine = McEngine::builder()
-//!     .num_paths(100_000)
-//!     .seed(42)
+//!     .num_paths(50_000)
+//!     .seed(7)
 //!     .uniform_grid(1.0, 252)
 //!     .build()
-//!     .expect("valid config");
+//!     .expect("valid Monte Carlo configuration");
 //!
-//! let gbm = GbmProcess::with_params(0.03, 0.00, 0.20);
-//! let payoff = EuropeanCall::new(100.0, 1.0, 252);
-//! let rng = PhiloxRng::new(42);
+//! let rng = PhiloxRng::new(7);
+//! let process = GbmProcess::with_params(0.03, 0.01, 0.20);
 //! let disc = ExactGbm::new();
-//! let result = engine.price(&rng, &gbm, &disc, &[100.0], &payoff, Currency::USD, 1.0)?;
+//! let payoff = EuropeanCall::new(100.0, 1.0, 252);
+//! let discount_factor = (-0.03_f64).exp();
+//!
+//! let result = engine
+//!     .price(
+//!         &rng,
+//!         &process,
+//!         &disc,
+//!         &[100.0],
+//!         &payoff,
+//!         Currency::USD,
+//!         discount_factor,
+//!     )
+//!     .expect("pricing should succeed");
+//!
+//! assert!(result.mean.amount().is_finite());
 //! ```
 //!
-//! # Academic References
+//! # References
 //!
-//! - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*. Springer.
-//! - Longstaff, F. A., & Schwartz, E. S. (2001). "Valuing American Options by Simulation."
-//! - Andersen, L. (2008). "Simple and Efficient Simulation of the Heston Model."
-//! - Salmon, J. K. et al. (2011). "Parallel Random Numbers: As Easy as 1, 2, 3."
+//! - Heston-style stochastic-volatility documentation should cite
+//!   [`docs/REFERENCES.md#heston-1993`](../../docs/REFERENCES.md#heston-1993).
+//! - Rate-discounting and option-pricing conventions should cite
+//!   [`docs/REFERENCES.md#hull-options-futures`](../../docs/REFERENCES.md#hull-options-futures).
+//! - Monte Carlo path generation and variance-reduction routines follow the
+//!   standard references discussed in the relevant module docs, especially
+//!   Glasserman (2003) and Andersen (2008).
 
 // --- Simulation primitives ---
 mod captured_path_stats;
@@ -82,7 +126,11 @@ pub use traits::{
     StochasticProcess,
 };
 
-/// Prelude for convenient imports of the full Monte Carlo framework.
+/// Prelude for convenient imports of the main Monte Carlo entry points.
+///
+/// Items behind the `mc` feature remain feature-gated here as well. Use this
+/// module when you want the crate's common engine, process, payoff, and pricer
+/// types without spelling their full paths.
 pub mod prelude {
     // --- Core traits and infrastructure ---
     pub use super::estimate::Estimate;

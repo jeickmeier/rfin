@@ -1,43 +1,63 @@
-//! Pricing-side Monte Carlo result types with currency.
+//! Pricing-side Monte Carlo result types with explicit currency tags.
+//!
+//! This module wraps the numeric estimates from [`crate::estimate`] into
+//! currency-aware result types for pricing APIs. All amounts here refer to
+//! discounted path values unless a field explicitly says otherwise.
 
 use crate::paths::PathDataset;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use serde::{Deserialize, Serialize};
 
-/// Estimate with currency information.
+/// Discounted Monte Carlo estimate tagged with a currency.
+///
+/// The engine computes these values from discounted path outcomes. `mean` and
+/// `ci_95` are stored as [`Money`], while the auxiliary statistics remain raw
+/// `f64` values in the same currency unit as `mean.amount()`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MoneyEstimate {
-    /// Point estimate
+    /// Discounted mean present value.
     pub mean: Money,
-    /// Standard error (in currency amount)
+    /// Standard error of the discounted mean, in `mean.amount()` units.
     pub stderr: f64,
-    /// 95% confidence interval (lower, upper)
+    /// 95% confidence interval for the discounted mean present value.
     pub ci_95: (Money, Money),
-    /// Number of paths
+    /// Number of simulated paths contributing to the estimate.
     pub num_paths: usize,
-    /// Optional: sample standard deviation
+    /// Optional sample standard deviation of discounted path values.
     #[serde(default)]
     pub std_dev: Option<f64>,
-    /// Optional: median value
+    /// Optional median of captured discounted path values.
+    ///
+    /// This is populated only when captured-path diagnostics are available.
     #[serde(default)]
     pub median: Option<f64>,
-    /// Optional: 25th percentile
+    /// Optional 25th percentile of captured discounted path values.
     #[serde(default)]
     pub percentile_25: Option<f64>,
-    /// Optional: 75th percentile
+    /// Optional 75th percentile of captured discounted path values.
     #[serde(default)]
     pub percentile_75: Option<f64>,
-    /// Optional: minimum value
+    /// Optional minimum of captured discounted path values.
     #[serde(default)]
     pub min: Option<f64>,
-    /// Optional: maximum value
+    /// Optional maximum of captured discounted path values.
     #[serde(default)]
     pub max: Option<f64>,
 }
 
 impl MoneyEstimate {
-    /// Create from estimate and currency.
+    /// Convert a numeric estimate into a currency-aware pricing estimate.
+    ///
+    /// # Arguments
+    ///
+    /// * `estimate` - Numeric Monte Carlo estimate on discounted path values.
+    /// * `currency` - Currency tag to attach to `mean` and `ci_95`.
+    ///
+    /// # Returns
+    ///
+    /// A [`MoneyEstimate`] whose raw `f64` diagnostics remain in the same
+    /// currency unit as `mean.amount()`.
     pub fn from_estimate(estimate: crate::estimate::Estimate, currency: Currency) -> Self {
         Self {
             mean: Money::new(estimate.mean, currency),
@@ -56,7 +76,9 @@ impl MoneyEstimate {
         }
     }
 
-    /// Relative standard error.
+    /// Return `stderr / abs(mean.amount())`.
+    ///
+    /// Returns `f64::INFINITY` when the estimate is numerically close to zero.
     pub fn relative_stderr(&self) -> f64 {
         if self.mean.amount().abs() < 1e-10 {
             f64::INFINITY
@@ -76,29 +98,32 @@ impl std::fmt::Display for MoneyEstimate {
     }
 }
 
-/// Monte Carlo result with optional path data.
+/// Monte Carlo pricing result with optional captured paths.
 ///
-/// This structure wraps the statistical estimate along with optionally captured
-/// paths for visualization and debugging.
+/// The estimate always reflects all simulated discounted path values used by the
+/// pricing run. When `paths` is present, it contains the captured subset only.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonteCarloResult {
-    /// Statistical estimate (mean, stderr, CI)
+    /// Discounted pricing estimate for the full simulation.
     pub estimate: MoneyEstimate,
-    /// Optional captured paths
+    /// Optional captured-path subset for diagnostics and visualization.
     pub paths: Option<PathDataset>,
 }
 
-/// Monte Carlo Greeks (subset) computed via simulation-based estimators.
+/// Container for simulation-based Greeks reported by higher-level APIs.
+///
+/// The generic engine in this module does not populate this struct directly.
+/// Downstream pricers or bindings may use it as a convenience result type.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct MonteCarloGreeks {
-    /// Delta estimate
+    /// Delta estimate in price units per unit change in spot.
     pub delta: Option<f64>,
-    /// Vega estimate
+    /// Vega estimate. Individual estimator docs define the quoting convention.
     pub vega: Option<f64>,
 }
 
 impl MonteCarloResult {
-    /// Create a new Monte Carlo result without paths.
+    /// Create a result that only contains the aggregate estimate.
     pub fn new(estimate: MoneyEstimate) -> Self {
         Self {
             estimate,
@@ -106,7 +131,7 @@ impl MonteCarloResult {
         }
     }
 
-    /// Create a Monte Carlo result with paths.
+    /// Create a result that includes captured-path diagnostics.
     pub fn with_paths(estimate: MoneyEstimate, paths: PathDataset) -> Self {
         Self {
             estimate,
@@ -114,22 +139,22 @@ impl MonteCarloResult {
         }
     }
 
-    /// Check if paths were captured.
+    /// Return `true` when captured-path diagnostics are present.
     pub fn has_paths(&self) -> bool {
         self.paths.is_some()
     }
 
-    /// Get a reference to captured paths if available.
+    /// Borrow the captured-path subset if available.
     pub fn paths(&self) -> Option<&PathDataset> {
         self.paths.as_ref()
     }
 
-    /// Get the number of captured paths.
+    /// Return the number of captured paths, or `0` when none were retained.
     pub fn num_captured_paths(&self) -> usize {
         self.paths.as_ref().map(|p| p.num_captured()).unwrap_or(0)
     }
 
-    /// Get a reference to the estimate.
+    /// Borrow the aggregate discounted estimate.
     pub fn estimate(&self) -> &MoneyEstimate {
         &self.estimate
     }

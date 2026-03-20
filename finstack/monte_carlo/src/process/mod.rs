@@ -1,6 +1,14 @@
-//! Stochastic processes for Monte Carlo simulation.
+//! Stochastic-process definitions used by the Monte Carlo engine.
 //!
-//! Implements various SDEs including GBM, Heston, Hull-White, etc.
+//! Start with [`gbm`] for vanilla equity / FX-style simulations and
+//! [`brownian`] for additive Gaussian dynamics. When the `mc` feature is
+//! enabled this module also exposes Heston, CIR, Hull-White / Vasicek,
+//! jump-diffusion, Bates, and Schwartz-Smith models.
+//!
+//! Important assumptions such as time units, rate / volatility quoting, and
+//! state-vector layout are documented in each process module. Use
+//! [`metadata::ProcessMetadata`] when captured paths need a stable schema for
+//! downstream consumers.
 
 pub mod brownian;
 pub mod correlation;

@@ -1,6 +1,9 @@
-//! European option pricer using Monte Carlo simulation.
+//! Convenience pricer for European-style payoffs under GBM dynamics.
 //!
-//! Provides pricing for European-style options under GBM dynamics.
+//! This module wraps [`crate::engine::McEngine`] for the common case of pricing
+//! a European payoff under [`crate::process::gbm::GbmProcess`] with
+//! [`crate::discretization::exact::ExactGbm`]. Use it when you want a compact
+//! API and do not need custom process / discretization combinations.
 
 use super::super::engine::{McEngine, McEngineConfig};
 use super::super::results::MoneyEstimate;
@@ -12,14 +15,14 @@ use crate::time_grid::TimeGrid;
 use finstack_core::currency::Currency;
 use finstack_core::Result;
 
-/// Configuration for European option pricing.
+/// Configuration for [`EuropeanPricer`].
 #[derive(Debug, Clone)]
 pub struct EuropeanPricerConfig {
-    /// Number of Monte Carlo paths
+    /// Number of Monte Carlo paths.
     pub num_paths: usize,
-    /// Random seed
+    /// Root RNG seed for deterministic replay.
     pub seed: u64,
-    /// Use parallel execution
+    /// Whether to request parallel execution.
     pub use_parallel: bool,
 }
 
@@ -34,7 +37,7 @@ impl Default for EuropeanPricerConfig {
 }
 
 impl EuropeanPricerConfig {
-    /// Create a new configuration.
+    /// Create a configuration with the given path count.
     pub fn new(num_paths: usize) -> Self {
         Self {
             num_paths,
@@ -42,49 +45,80 @@ impl EuropeanPricerConfig {
         }
     }
 
-    /// Set random seed.
+    /// Override the RNG seed.
     pub fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self
     }
 
-    /// Enable/disable parallel execution.
+    /// Enable or disable parallel execution.
+    ///
+    /// If the crate is built without the `parallel` feature the underlying
+    /// engine falls back to serial execution.
     pub fn with_parallel(mut self, parallel: bool) -> Self {
         self.use_parallel = parallel;
         self
     }
 }
 
-/// European option pricer.
+/// Compact GBM-only pricer for European-style contracts.
 ///
-/// Prices European-style payoffs under Geometric Brownian Motion.
-///
-/// See unit tests and `examples/` for usage.
+/// The pricer always uses exact GBM transitions and delegates the simulation
+/// loop to [`crate::engine::McEngine`].
 pub struct EuropeanPricer {
     config: EuropeanPricerConfig,
 }
 
 impl EuropeanPricer {
-    /// Create a new European pricer.
+    /// Create a pricer from an explicit configuration.
     pub fn new(config: EuropeanPricerConfig) -> Self {
         Self { config }
     }
 
-    /// Price a European option using Monte Carlo.
+    /// Price a European-style payoff under GBM.
     ///
     /// # Arguments
     ///
-    /// * `process` - GBM process (drift and volatility)
-    /// * `initial_spot` - Initial spot price
-    /// * `time_to_maturity` - Time to maturity in years
-    /// * `num_steps` - Number of time steps
-    /// * `payoff` - Payoff specification
-    /// * `currency` - Currency for result
-    /// * `discount_factor` - Discount factor to maturity
+    /// * `process` - GBM process supplying the risk-neutral drift and volatility.
+    /// * `initial_spot` - Spot level at time `0`.
+    /// * `time_to_maturity` - Maturity in years.
+    /// * `num_steps` - Number of time-grid steps between `0` and maturity.
+    /// * `payoff` - European-style payoff evaluated at `maturity_step = num_steps`.
+    /// * `currency` - Currency for the returned estimate.
+    /// * `discount_factor` - Present-value multiplier for the payoff horizon.
     ///
     /// # Returns
     ///
-    /// Statistical estimate with mean, stderr, and confidence interval.
+    /// A discounted Monte Carlo estimate in `currency`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the uniform time grid is invalid or when the
+    /// underlying engine rejects the runtime configuration.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_core::currency::Currency;
+    /// use finstack_monte_carlo::payoff::vanilla::EuropeanCall;
+    /// use finstack_monte_carlo::pricer::european::{EuropeanPricer, EuropeanPricerConfig};
+    /// use finstack_monte_carlo::process::gbm::GbmProcess;
+    ///
+    /// let pricer = EuropeanPricer::new(
+    ///     EuropeanPricerConfig::new(25_000)
+    ///         .with_seed(19)
+    ///         .with_parallel(false),
+    /// );
+    /// let process = GbmProcess::with_params(0.03, 0.01, 0.20);
+    /// let payoff = EuropeanCall::new(100.0, 1.0, 252);
+    /// let discount_factor = (-0.03_f64).exp();
+    ///
+    /// let result = pricer
+    ///     .price(&process, 100.0, 1.0, 252, &payoff, Currency::USD, discount_factor)
+    ///     .expect("pricing should succeed");
+    ///
+    /// assert!(result.mean.amount().is_finite());
+    /// ```
     #[allow(clippy::too_many_arguments)]
     pub fn price<P>(
         &self,
@@ -134,7 +168,7 @@ impl EuropeanPricer {
         )
     }
 
-    /// Get configuration.
+    /// Borrow the current pricer configuration.
     pub fn config(&self) -> &EuropeanPricerConfig {
         &self.config
     }

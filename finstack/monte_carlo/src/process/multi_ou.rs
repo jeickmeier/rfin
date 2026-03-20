@@ -3,26 +3,36 @@
 //! State dynamics for each component i:
 //! dX_i = κ_i (θ_i - X_i) dt + σ_i dW_i
 //! with optional correlation across the driving Brownian motions.
+//!
+//! `κ_i` is the mean-reversion speed per year, `θ_i` is the long-run level in
+//! state units, and `σ_i` is the diffusion scale per square root year.
 
 use super::super::paths::ProcessParams;
 use super::super::traits::StochasticProcess;
 use super::metadata::ProcessMetadata;
 
-/// Parameters for multi-dimensional OU.
+/// Parameters for a multi-dimensional Ornstein-Uhlenbeck process.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MultiOuParams {
-    /// Mean reversion speeds κ_i (>0)
+    /// Mean-reversion speeds `κ_i` per year.
     pub kappas: Vec<f64>,
-    /// Long-run means θ_i
+    /// Long-run means `θ_i` in state units.
     pub thetas: Vec<f64>,
-    /// Volatilities σ_i (>=0)
+    /// Diffusion scales `σ_i` per square root year.
     pub sigmas: Vec<f64>,
-    /// Optional correlation matrix (n x n, row-major)
+    /// Optional row-major `n x n` correlation matrix.
     pub correlation: Option<Vec<f64>>,
 }
 
 impl MultiOuParams {
-    /// Create parameters; vectors must have equal length.
+    /// Create OU parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `kappas` - Mean-reversion speeds per year.
+    /// * `thetas` - Long-run levels in state units.
+    /// * `sigmas` - Diffusion scales per square root year.
+    /// * `correlation` - Optional row-major `n x n` correlation matrix.
     pub fn new(
         kappas: Vec<f64>,
         thetas: Vec<f64>,
@@ -44,24 +54,24 @@ impl MultiOuParams {
     }
 }
 
-/// Multi-dimensional OU process.
+/// Multi-dimensional Ornstein-Uhlenbeck process.
 #[derive(Debug, Clone)]
 pub struct MultiOuProcess {
     params: MultiOuParams,
 }
 
 impl MultiOuProcess {
-    /// Create a new multi-dimensional Ornstein-Uhlenbeck process
+    /// Create a multi-dimensional Ornstein-Uhlenbeck process.
     pub fn new(params: MultiOuParams) -> Self {
         Self { params }
     }
 
-    /// Get the dimension (number of factors) of the process
+    /// Return the number of state variables in the process.
     pub fn dim(&self) -> usize {
         self.params.kappas.len()
     }
 
-    /// Get the correlation matrix (if specified)
+    /// Borrow the optional row-major correlation matrix.
     pub fn correlation(&self) -> Option<&[f64]> {
         self.params.correlation.as_deref()
     }

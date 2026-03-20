@@ -1,6 +1,12 @@
-//! Time discretization schemes for SDEs.
+//! Time-stepping schemes for stochastic differential equations.
 //!
-//! Implements exact, Euler, Milstein, and specialized schemes.
+//! Start with [`exact`] whenever an analytical transition is available because
+//! it avoids discretization bias. Under the `mc` feature this module adds
+//! general-purpose Euler / Milstein schemes and model-specific QE / jump
+//! schemes for Heston, CIR, and jump-diffusion dynamics.
+//!
+//! Each discretization module documents the assumptions it makes about the
+//! process state, convergence behavior, and positivity / stability guarantees.
 
 pub mod exact;
 pub mod exact_gbm_dividends;

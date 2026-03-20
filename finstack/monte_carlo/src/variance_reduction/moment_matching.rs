@@ -6,8 +6,8 @@
 //! # Mathematical Note
 //!
 //! This implementation matches the *theoretical moments* of the standard normal:
-//! - E[Z] = 0 (first moment)
-//! - E[Z²] = 1 (second raw moment, which equals variance for zero-mean)
+//! - `E[Z] = 0` (first moment)
+//! - `E[Z^2] = 1` (second raw moment, which equals variance for zero-mean)
 //!
 //! We use n (not n-1) in the variance calculation because we're matching
 //! the theoretical second moment, not computing an unbiased variance estimate.
@@ -22,7 +22,7 @@
 ///
 /// # Note on Variance Formula
 ///
-/// Uses n (not n-1) denominator to match the theoretical second moment E[Z²] = 1.
+/// Uses `n` (not `n - 1`) to match the theoretical second moment `E[Z^2] = 1`.
 /// This is standard practice for Monte Carlo moment matching - we want the
 /// sample to have the exact theoretical properties, not an unbiased estimate.
 ///
@@ -60,7 +60,7 @@ pub fn match_standard_normal_moments(samples: &mut [f64]) {
 ///
 /// # Arguments
 ///
-/// * `samples` - Matrix of samples (row-major: [path][step])
+/// * `samples` - Matrix of samples in row-major form: `samples[path * num_steps + step]`
 /// * `num_paths` - Number of paths
 /// * `num_steps` - Number of time steps
 pub fn match_moments_per_step(samples: &mut [f64], num_paths: usize, num_steps: usize) {

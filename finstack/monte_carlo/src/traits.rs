@@ -8,7 +8,61 @@
 //! - `Discretization`: Time-stepping schemes
 //! - `PathState`: State information at a point along a path
 //! - `Payoff`: Payoff computation with currency safety
-//! - `PathObserver`: Path observer for collecting statistics along paths
+//!
+//! Times are expressed as year fractions, and process-specific quantities such
+//! as rates, dividend yields, and volatilities are generally quoted in decimals
+//! rather than basis points unless a process module says otherwise.
+//!
+//! # Example
+//!
+//! The example below shows the most important interaction in this module:
+//! a process maps raw state-vector entries into named [`state_keys`] so a payoff
+//! can read them through [`PathState`] during `on_event`.
+//!
+//! ```rust
+//! use finstack_core::currency::Currency;
+//! use finstack_core::money::Money;
+//! use finstack_monte_carlo::traits::{
+//!     state_keys, PathState, Payoff, StochasticProcess,
+//! };
+//!
+//! struct SpotOnlyProcess;
+//!
+//! impl StochasticProcess for SpotOnlyProcess {
+//!     fn dim(&self) -> usize { 1 }
+//!
+//!     fn drift(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
+//!         out[0] = 0.0;
+//!     }
+//!
+//!     fn diffusion(&self, _t: f64, _x: &[f64], out: &mut [f64]) {
+//!         out[0] = 0.0;
+//!     }
+//!
+//!     fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
+//!         state.set(state_keys::SPOT, x[0]);
+//!     }
+//! }
+//!
+//! #[derive(Clone, Default)]
+//! struct IntrinsicValuePayoff {
+//!     terminal_spot: f64,
+//! }
+//!
+//! impl Payoff for IntrinsicValuePayoff {
+//!     fn on_event(&mut self, state: &mut PathState) {
+//!         self.terminal_spot = state.spot().unwrap_or(0.0);
+//!     }
+//!
+//!     fn value(&self, currency: Currency) -> Money {
+//!         Money::new((self.terminal_spot - 100.0).max(0.0), currency)
+//!     }
+//!
+//!     fn reset(&mut self) {
+//!         self.terminal_spot = 0.0;
+//!     }
+//! }
+//! ```
 
 use super::paths::CashflowType;
 use finstack_core::currency::Currency;
@@ -20,8 +74,6 @@ use smallvec::SmallVec;
 ///
 /// Implementations must support deterministic stream splitting for parallel execution.
 /// Each stream is independent and can be split into substreams identified by a unique ID.
-///
-/// See unit tests and `examples/` for usage.
 pub trait RandomStream: Send + Sync {
     /// Split this stream into a new independent substream.
     ///
@@ -69,7 +121,7 @@ pub trait RandomStream: Send + Sync {
 /// Map of state variables for a path node (used only for dynamic/non-standard keys).
 pub type StateVariables = HashMap<&'static str, f64>;
 
-/// Standard state variable keys.
+/// Standard named keys for values stored in [`PathState`].
 pub mod state_keys {
     use std::sync::Mutex;
 
@@ -441,6 +493,8 @@ impl PathState {
 /// ```
 ///
 /// where μ is the drift vector and Σ is the diffusion matrix (or diagonal).
+/// Implementers are responsible for documenting the economic meaning and units
+/// of each state variable in their concrete process modules.
 ///
 /// # Example
 ///
@@ -486,11 +540,13 @@ pub trait StochasticProcess: Send + Sync {
         true
     }
 
-    /// Populate a `PathState` from the raw state vector.
+    /// Populate a [`PathState`] from the raw state vector.
     ///
-    /// Maps state vector indices to named keys (SPOT, VARIANCE, etc.)
-    /// so payoffs can access state by name. Override for processes whose
-    /// state layout differs from the default equity model.
+    /// This is the bridge between process-specific storage and payoff logic.
+    /// Implementations should map raw state-vector indices to stable semantic
+    /// keys such as [`state_keys::SPOT`] or [`state_keys::SHORT_RATE`] so payoffs
+    /// can read the values without knowing the process's raw layout. Override
+    /// this method whenever the default equity-style mapping is not sufficient.
     ///
     /// Default mapping (suitable for GBM and Heston-like models):
     /// - `x[0]` => `SPOT`
@@ -545,7 +601,8 @@ pub trait Discretization<P: StochasticProcess + ?Sized>: Send + Sync {
 ///
 /// Payoffs accumulate path information via `on_event` calls and
 /// return a final `Money` value. This ensures all results carry
-/// explicit currency information.
+/// explicit currency information. The engine calls `reset()` before each path
+/// and then invokes `on_event()` at the initial state and after every time step.
 pub trait Payoff: Send + Sync + Clone {
     /// Process a path event (fixing, barrier check, etc.).
     ///
@@ -560,7 +617,10 @@ pub trait Payoff: Send + Sync + Clone {
     /// Reset payoff state for next path.
     fn reset(&mut self);
 
-    /// Optional: discount factor to apply; default is 1.0 (no discounting).
+    /// Optional payoff-level discount factor hook.
+    ///
+    /// The generic [`crate::engine::McEngine`] still expects an explicit
+    /// `discount_factor` argument and does not infer it from this method.
     fn discount_factor(&self) -> f64 {
         1.0
     }

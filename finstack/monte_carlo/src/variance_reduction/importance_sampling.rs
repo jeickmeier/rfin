@@ -3,8 +3,8 @@
 //! Uses exponential tilting to shift the sampling distribution toward
 //! rare events (deep OTM, barriers, tail risks).
 //!
-//! The tilted estimator is: E[X] ≈ E*[X * L(ω)]
-//! where L is the likelihood ratio and E* is under the tilted measure.
+//! The tilted estimator is `E[X] ≈ E*[X * L(ω)]`,
+//! where `L` is the likelihood ratio and `E*` is under the tilted measure.
 //!
 //! # ESS Threshold Warning
 //!
