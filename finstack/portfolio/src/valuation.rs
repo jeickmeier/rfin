@@ -430,7 +430,6 @@ pub fn revalue_affected(
     prior: &PortfolioValuation,
     changed: &[crate::dependencies::MarketFactorKey],
 ) -> Result<PortfolioValuation> {
-    // TODO: parallelise the affected-position loop with rayon (mirrors value_portfolio)
     let affected_indices = portfolio.dependency_index().affected_positions(changed);
 
     if affected_indices.is_empty() {

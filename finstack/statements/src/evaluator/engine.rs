@@ -395,7 +395,7 @@ impl Evaluator {
             num_nodes: model.nodes.len(),
             num_periods: model.periods.len(),
             numeric_mode: crate::evaluator::NumericMode::Float64,
-            rounding_context: None, // TODO(v0.5): wire through from FinstackConfig
+            rounding_context: None,
             parallel: false,
             warnings: all_warnings,
         };
