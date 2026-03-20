@@ -391,33 +391,6 @@ pub struct Schedule {
 }
 
 impl Schedule {
-    /// Create a [`ScheduleBuilder`] for constructing a new schedule.
-    ///
-    /// # Deprecated
-    ///
-    /// Use [`ScheduleBuilder::new`] directly as the canonical entry point:
-    ///
-    /// ```rust
-    /// use finstack_core::dates::{ScheduleBuilder, Tenor};
-    /// use time::{Date, Month};
-    ///
-    /// let start = Date::from_calendar_date(2025, Month::January, 15)?;
-    /// let end = Date::from_calendar_date(2025, Month::March, 15)?;
-    ///
-    /// let schedule = ScheduleBuilder::new(start, end)?
-    ///     .frequency(Tenor::monthly())
-    ///     .build()?;
-    /// # Ok::<(), Box<dyn std::error::Error>>(())
-    /// ```
-    #[deprecated(
-        since = "0.4.1",
-        note = "Use `ScheduleBuilder::new(start, end)` directly; \
-                `Schedule::builder` is a redundant forwarding alias."
-    )]
-    pub fn builder(start: Date, end: Date) -> crate::Result<ScheduleBuilder<'static>> {
-        ScheduleBuilder::new(start, end)
-    }
-
     /// Returns `true` if any warnings were generated during schedule construction.
     ///
     /// When using graceful fallback mode, this should be checked to ensure

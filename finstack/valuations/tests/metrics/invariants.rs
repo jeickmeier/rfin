@@ -190,7 +190,7 @@ mod mc_invariants {
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
     use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
-    use finstack_valuations::instruments::market::OptionType;
+    use finstack_valuations::instruments::OptionType;
     use finstack_valuations::instruments::Instrument;
     use time::macros::date;
 

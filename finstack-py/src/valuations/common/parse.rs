@@ -6,10 +6,7 @@
 use crate::valuations::common::parameters::{
     PyExerciseStyle, PyOptionType, PyPayReceive, PySettlementType,
 };
-use finstack_valuations::instruments::{
-    legs::PayReceive,
-    market::{ExerciseStyle, OptionType, SettlementType},
-};
+use finstack_valuations::instruments::{ExerciseStyle, OptionType, PayReceive, SettlementType};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};

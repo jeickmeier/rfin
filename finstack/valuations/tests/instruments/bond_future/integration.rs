@@ -3,8 +3,6 @@
 //! Comprehensive integration tests for bond future pricing, invoice price calculation,
 //! and error handling using realistic UST 10-year contract parameters.
 
-#![allow(deprecated)]
-
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -12,10 +10,11 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond_future::BondFuturePricer;
 use finstack_valuations::instruments::fixed_income::bond_future::{
-    BondFuture, DeliverableBond, Position,
+    BondFuture, BondFutureSpecs, DeliverableBond, Position,
 };
 use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
 use time::macros::date;
@@ -182,6 +181,97 @@ fn create_deliverable_basket() -> (Vec<Bond>, Vec<DeliverableBond>) {
     (bonds, deliverable_bonds)
 }
 
+/// Helper to create a UST 10Y bond future using the builder pattern.
+fn create_ust_10y_future(
+    id: &str,
+    notional: f64,
+    expiry: Date,
+    delivery_start: Date,
+    delivery_end: Date,
+    quoted_price: f64,
+    position: Position,
+    deliverable_basket: Vec<DeliverableBond>,
+    ctd_bond_id: &str,
+    discount_curve_id: &str,
+) -> BondFuture {
+    BondFuture::builder()
+        .id(InstrumentId::new(id))
+        .notional(Money::new(notional, Currency::USD))
+        .expiry(expiry)
+        .delivery_start(delivery_start)
+        .delivery_end(delivery_end)
+        .quoted_price(quoted_price)
+        .position(position)
+        .contract_specs(BondFutureSpecs::ust_10y())
+        .deliverable_basket(deliverable_basket)
+        .ctd_bond_id(InstrumentId::new(ctd_bond_id))
+        .discount_curve_id(CurveId::new(discount_curve_id))
+        .attributes(Attributes::new())
+        .build_validated()
+        .expect("Future construction should succeed")
+}
+
+/// Helper to create a UST 10Y bond future with embedded CTD bond.
+fn create_ust_10y_future_with_ctd(
+    id: &str,
+    notional: f64,
+    expiry: Date,
+    delivery_start: Date,
+    delivery_end: Date,
+    quoted_price: f64,
+    position: Position,
+    deliverable_basket: Vec<DeliverableBond>,
+    ctd_bond_id: &str,
+    ctd_bond: Bond,
+    discount_curve_id: &str,
+) -> BondFuture {
+    BondFuture::builder()
+        .id(InstrumentId::new(id))
+        .notional(Money::new(notional, Currency::USD))
+        .expiry(expiry)
+        .delivery_start(delivery_start)
+        .delivery_end(delivery_end)
+        .quoted_price(quoted_price)
+        .position(position)
+        .contract_specs(BondFutureSpecs::ust_10y())
+        .deliverable_basket(deliverable_basket)
+        .ctd_bond_id(InstrumentId::new(ctd_bond_id))
+        .ctd_bond(ctd_bond)
+        .discount_curve_id(CurveId::new(discount_curve_id))
+        .attributes(Attributes::new())
+        .build_validated()
+        .expect("Future construction should succeed")
+}
+
+/// Helper to try building a UST 10Y bond future (may fail validation).
+fn try_create_ust_10y_future(
+    id: &str,
+    notional: f64,
+    expiry: Date,
+    delivery_start: Date,
+    delivery_end: Date,
+    quoted_price: f64,
+    position: Position,
+    deliverable_basket: Vec<DeliverableBond>,
+    ctd_bond_id: &str,
+    discount_curve_id: &str,
+) -> finstack_core::Result<BondFuture> {
+    BondFuture::builder()
+        .id(InstrumentId::new(id))
+        .notional(Money::new(notional, Currency::USD))
+        .expiry(expiry)
+        .delivery_start(delivery_start)
+        .delivery_end(delivery_end)
+        .quoted_price(quoted_price)
+        .position(position)
+        .contract_specs(BondFutureSpecs::ust_10y())
+        .deliverable_basket(deliverable_basket)
+        .ctd_bond_id(InstrumentId::new(ctd_bond_id))
+        .discount_curve_id(CurveId::new(discount_curve_id))
+        .attributes(Attributes::new())
+        .build_validated()
+}
+
 // ========================================================================================
 // Integration Tests
 // ========================================================================================
@@ -221,7 +311,6 @@ fn test_realistic_ust_10y_future_full_workflow() {
 
     // For testing, assume the first bond (3.75% coupon) is the CTD
     // In production, CTD would be determined by calculating the cheapest delivery option
-    let ctd_bond_id = InstrumentId::new("US912828XG33");
     let ctd_bond = &bonds[0];
     let ctd_cf = deliverable_bonds[0].conversion_factor;
 
@@ -230,19 +319,18 @@ fn test_realistic_ust_10y_future_full_workflow() {
     // - Notional: $1,000,000 (10 contracts × $100,000)
     // - Quoted price: 125.50 (representing 125-16/32 in fractional notation)
     // - Position: Long
-    let future = BondFuture::ust_10y(
-        InstrumentId::new("TYH5"),
-        Money::new(1_000_000.0, Currency::USD),
+    let future = create_ust_10y_future(
+        "TYH5",
+        1_000_000.0,
         date!(2025 - 03 - 20), // Expiry: March 20, 2025
         date!(2025 - 03 - 21), // Delivery start: March 21, 2025
         date!(2025 - 03 - 31), // Delivery end: March 31, 2025
         125.50,                // Quoted futures price
         Position::Long,
         deliverable_bonds.clone(), // Clone to allow later access
-        ctd_bond_id.clone(),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Future construction should succeed");
+        "US912828XG33",
+        "USD-TREASURY",
+    );
 
     // Test 1: NPV Calculation
     // The NPV represents the mark-to-market value of the futures position
@@ -357,20 +445,19 @@ fn test_bond_future_pricer_registry_ctd_npv() {
         conversion_factor,
     }];
 
-    let future = BondFuture::ust_10y_with_ctd_bond(
-        InstrumentId::new("TYH5"),
-        Money::new(1_000_000.0, Currency::USD),
+    let future = create_ust_10y_future_with_ctd(
+        "TYH5",
+        1_000_000.0,
         expiry,
         delivery_start,
         delivery_end,
         125.50,
         Position::Long,
         basket,
-        InstrumentId::new("US912828XG33"),
-        Some(ctd_bond.clone()),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Failed to create bond future");
+        "US912828XG33",
+        ctd_bond.clone(),
+        "USD-TREASURY",
+    );
 
     let registry = create_standard_registry();
     let result = registry
@@ -405,33 +492,31 @@ fn test_short_position_npv() {
     deliverable_bonds[0].conversion_factor = ctd_cf;
 
     // Create two futures: one long, one short, otherwise identical
-    let long_future = BondFuture::ust_10y(
-        InstrumentId::new("TYH5_LONG"),
-        Money::new(100_000.0, Currency::USD),
+    let long_future = create_ust_10y_future(
+        "TYH5_LONG",
+        100_000.0,
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         vec![deliverable_bonds[0].clone()],
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Long future construction should succeed");
+        "US912828XG33",
+        "USD-TREASURY",
+    );
 
-    let short_future = BondFuture::ust_10y(
-        InstrumentId::new("TYH5_SHORT"),
-        Money::new(100_000.0, Currency::USD),
+    let short_future = create_ust_10y_future(
+        "TYH5_SHORT",
+        100_000.0,
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Short,
         vec![deliverable_bonds[0].clone()],
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Short future construction should succeed");
+        "US912828XG33",
+        "USD-TREASURY",
+    );
 
     let npv_long = BondFuturePricer::calculate_npv(&long_future, ctd_bond, ctd_cf, &market, as_of)
         .expect("Long NPV should succeed");
@@ -457,17 +542,17 @@ fn test_error_handling_invalid_dates() {
     // Test validation: expiry_date must be before delivery_start
     let (_, deliverable_bonds) = create_deliverable_basket();
 
-    let result = BondFuture::ust_10y(
-        InstrumentId::new("INVALID"),
-        Money::new(100_000.0, Currency::USD),
+    let result = try_create_ust_10y_future(
+        "INVALID",
+        100_000.0,
         date!(2025 - 03 - 25), // Expiry AFTER delivery start (invalid!)
         date!(2025 - 03 - 21), // Delivery start
         date!(2025 - 03 - 31), // Delivery end
         125.50,
         Position::Long,
         deliverable_bonds,
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
+        "US912828XG33",
+        "USD-TREASURY",
     );
 
     assert!(
@@ -487,17 +572,17 @@ fn test_error_handling_invalid_delivery_period() {
     // Test validation: delivery_start must be before delivery_end
     let (_, deliverable_bonds) = create_deliverable_basket();
 
-    let result = BondFuture::ust_10y(
-        InstrumentId::new("INVALID"),
-        Money::new(100_000.0, Currency::USD),
+    let result = try_create_ust_10y_future(
+        "INVALID",
+        100_000.0,
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 31), // Delivery start AFTER delivery end (invalid!)
         date!(2025 - 03 - 21), // Delivery end
         125.50,
         Position::Long,
         deliverable_bonds,
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
+        "US912828XG33",
+        "USD-TREASURY",
     );
 
     assert!(
@@ -516,17 +601,17 @@ fn test_error_handling_invalid_delivery_period() {
 #[test]
 fn test_error_handling_empty_basket() {
     // Test validation: deliverable_basket cannot be empty
-    let result = BondFuture::ust_10y(
-        InstrumentId::new("INVALID"),
-        Money::new(100_000.0, Currency::USD),
+    let result = try_create_ust_10y_future(
+        "INVALID",
+        100_000.0,
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         vec![], // Empty basket (invalid!)
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
+        "US912828XG33",
+        "USD-TREASURY",
     );
 
     assert!(
@@ -549,17 +634,17 @@ fn test_error_handling_ctd_not_in_basket() {
     // Only include one bond in basket, but reference a different one as CTD
     deliverable_bonds.truncate(1);
 
-    let result = BondFuture::ust_10y(
-        InstrumentId::new("INVALID"),
-        Money::new(100_000.0, Currency::USD),
+    let result = try_create_ust_10y_future(
+        "INVALID",
+        100_000.0,
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         deliverable_bonds,
-        InstrumentId::new("NONEXISTENT_BOND"), // Not in basket!
-        CurveId::new("USD-TREASURY"),
+        "NONEXISTENT_BOND", // Not in basket!
+        "USD-TREASURY",
     );
 
     assert!(
@@ -582,17 +667,17 @@ fn test_error_handling_negative_conversion_factor() {
     // Set a negative conversion factor (invalid!)
     deliverable_bonds[0].conversion_factor = -0.5;
 
-    let result = BondFuture::ust_10y(
-        InstrumentId::new("INVALID"),
-        Money::new(100_000.0, Currency::USD),
+    let result = try_create_ust_10y_future(
+        "INVALID",
+        100_000.0,
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         deliverable_bonds,
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
+        "US912828XG33",
+        "USD-TREASURY",
     );
 
     assert!(
@@ -622,47 +707,44 @@ fn test_multiple_contracts_scaling() {
     deliverable_bonds[0].conversion_factor = ctd_cf;
 
     // Create futures with 1, 5, and 10 contracts
-    let future_1_contract = BondFuture::ust_10y(
-        InstrumentId::new("TY_1"),
-        Money::new(100_000.0, Currency::USD), // 1 contract
+    let future_1_contract = create_ust_10y_future(
+        "TY_1",
+        100_000.0, // 1 contract
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         vec![deliverable_bonds[0].clone()],
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("1-contract future should succeed");
+        "US912828XG33",
+        "USD-TREASURY",
+    );
 
-    let future_5_contracts = BondFuture::ust_10y(
-        InstrumentId::new("TY_5"),
-        Money::new(500_000.0, Currency::USD), // 5 contracts
+    let future_5_contracts = create_ust_10y_future(
+        "TY_5",
+        500_000.0, // 5 contracts
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         vec![deliverable_bonds[0].clone()],
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("5-contract future should succeed");
+        "US912828XG33",
+        "USD-TREASURY",
+    );
 
-    let future_10_contracts = BondFuture::ust_10y(
-        InstrumentId::new("TY_10"),
-        Money::new(1_000_000.0, Currency::USD), // 10 contracts
+    let future_10_contracts = create_ust_10y_future(
+        "TY_10",
+        1_000_000.0, // 10 contracts
         date!(2025 - 03 - 20),
         date!(2025 - 03 - 21),
         date!(2025 - 03 - 31),
         125.50,
         Position::Long,
         vec![deliverable_bonds[0].clone()],
-        InstrumentId::new("US912828XG33"),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("10-contract future should succeed");
+        "US912828XG33",
+        "USD-TREASURY",
+    );
 
     let npv_1 =
         BondFuturePricer::calculate_npv(&future_1_contract, ctd_bond, ctd_cf, &market, as_of)
@@ -825,20 +907,19 @@ fn test_bond_future_dv01_calculation() {
     }];
 
     // Create bond future (10 contracts = $1M notional)
-    let future = BondFuture::ust_10y_with_ctd_bond(
-        InstrumentId::new("TYH5"),
-        Money::new(1_000_000.0, Currency::USD),
+    let future = create_ust_10y_future_with_ctd(
+        "TYH5",
+        1_000_000.0,
         expiry,
         delivery_start,
         delivery_end,
         125.50, // Quoted futures price
         Position::Long,
         basket,
-        InstrumentId::new("US912828XG33"),
-        Some(ctd_bond.clone()),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Failed to create bond future");
+        "US912828XG33",
+        ctd_bond.clone(),
+        "USD-TREASURY",
+    );
 
     // Calculate NPV
     let pv = future
@@ -981,36 +1062,34 @@ fn test_bond_future_dv01_sign_convention() {
     }];
 
     // Create long position
-    let future_long = BondFuture::ust_10y_with_ctd_bond(
-        InstrumentId::new("TYH5_LONG"),
-        Money::new(1_000_000.0, Currency::USD),
+    let future_long = create_ust_10y_future_with_ctd(
+        "TYH5_LONG",
+        1_000_000.0,
         expiry,
         delivery_start,
         delivery_end,
         125.50,
         Position::Long,
         basket.clone(),
-        InstrumentId::new("US912828XG33"),
-        Some(ctd_bond.clone()),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Failed to create long bond future");
+        "US912828XG33",
+        ctd_bond.clone(),
+        "USD-TREASURY",
+    );
 
     // Create short position
-    let future_short = BondFuture::ust_10y_with_ctd_bond(
-        InstrumentId::new("TYH5_SHORT"),
-        Money::new(1_000_000.0, Currency::USD),
+    let future_short = create_ust_10y_future_with_ctd(
+        "TYH5_SHORT",
+        1_000_000.0,
         expiry,
         delivery_start,
         delivery_end,
         125.50,
         Position::Short,
         basket,
-        InstrumentId::new("US912828XG33"),
-        Some(ctd_bond),
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Failed to create short bond future");
+        "US912828XG33",
+        ctd_bond,
+        "USD-TREASURY",
+    );
 
     // Calculate DV01 for long position
     let pv_long = future_long.value(&market, as_of).unwrap();
@@ -1100,19 +1179,18 @@ fn test_invoice_price() {
     let delivery_start = date!(2025 - 03 - 21);
     let delivery_end = date!(2025 - 03 - 31);
 
-    let future = BondFuture::ust_10y(
-        InstrumentId::new("TYH5"),
-        Money::new(1_000_000.0, Currency::USD), // 10 contracts
+    let future = create_ust_10y_future(
+        "TYH5",
+        1_000_000.0, // 10 contracts
         expiry,
         delivery_start,
         delivery_end,
         quoted_price,
         Position::Long,
         deliverable_bonds.clone(),
-        InstrumentId::new("US912828XG33"), // First bond as CTD
-        CurveId::new("USD-TREASURY"),
-    )
-    .expect("Failed to create UST 10Y future");
+        "US912828XG33", // First bond as CTD
+        "USD-TREASURY",
+    );
 
     // Calculate invoice price for settlement (T+2 after expiry)
     let settlement_date = date!(2025 - 03 - 23);

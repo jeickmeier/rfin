@@ -35,7 +35,7 @@ use rust_decimal::Decimal;
 /// ```rust
 /// use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 /// use finstack_valuations::instruments::CommodityUnderlyingParams;
-/// use finstack_valuations::instruments::legs::PayReceive;
+/// use finstack_valuations::instruments::PayReceive;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::dates::{Date, BusinessDayConvention, Tenor, TenorUnit};
 /// use finstack_core::types::{CurveId, InstrumentId};

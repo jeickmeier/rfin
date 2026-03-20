@@ -47,7 +47,11 @@ pub fn market_with_fx() -> MarketContext {
         .build()
         .unwrap();
 
-    let provider = Arc::new(SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 1.10));
+    let provider = {
+        let p = Arc::new(SimpleFxProvider::new());
+        p.set_quote(Currency::EUR, Currency::USD, 1.10).expect("valid rate");
+        p
+    };
     let fx = FxMatrix::new(provider);
 
     MarketContext::new()
@@ -193,7 +197,11 @@ pub fn market_with_extended_curves() -> MarketContext {
         .build()
         .unwrap();
 
-    let provider = Arc::new(SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 1.10));
+    let provider = {
+        let p = Arc::new(SimpleFxProvider::new());
+        p.set_quote(Currency::EUR, Currency::USD, 1.10).expect("valid rate");
+        p
+    };
     let fx = FxMatrix::new(provider);
 
     MarketContext::new()

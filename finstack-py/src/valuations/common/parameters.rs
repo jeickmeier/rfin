@@ -1,11 +1,9 @@
 //! Python bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
 use finstack_valuations::instruments::{
-    legs::PayReceive,
-    market::{ExerciseStyle, OptionType, SettlementType},
     rates::cap_floor::CapFloorVolType,
     rates::swaption::{CashSettlementMethod, VolatilityModel},
-    BarrierType,
+    BarrierType, ExerciseStyle, OptionType, PayReceive, SettlementType,
 };
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

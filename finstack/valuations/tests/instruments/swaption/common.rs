@@ -6,7 +6,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::surfaces::VolSurface;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::market::OptionType;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use finstack_valuations::instruments::rates::swaption::{
     Swaption, SwaptionExercise, SwaptionSettlement, VolatilityModel,

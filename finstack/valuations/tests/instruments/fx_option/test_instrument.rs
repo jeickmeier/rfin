@@ -9,7 +9,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_option::{FxOption, FxOptionParams};
-use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::FxUnderlyingParams;
 use finstack_valuations::instruments::{Attributes, Instrument};
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};

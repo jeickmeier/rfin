@@ -1,15 +1,12 @@
 //! Corporate analysis integration tests.
-#![allow(clippy::expect_used, deprecated)]
+#![allow(clippy::expect_used)]
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, PeriodId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_statements::analysis::corporate::{
-    evaluate_dcf, evaluate_dcf_with_market, evaluate_dcf_with_options, evaluate_dcf_with_trace,
-    DcfOptions,
-};
+use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::AmountOrScalar;
@@ -46,12 +43,14 @@ fn test_dcf_evaluation_gordon_growth() {
         .build()
         .expect("valid model");
 
-    let result = evaluate_dcf(
+    let result = evaluate_dcf_with_market(
         &model,
         0.10,
         TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
         "ufcf",
         Some(50_000.0),
+        &DcfOptions::default(),
+        None,
     )
     .expect("DCF evaluation should succeed");
 
@@ -233,12 +232,14 @@ fn test_dcf_excludes_historical_periods_from_explicit_flows() {
         .build()
         .expect("valid model");
 
-    let result = evaluate_dcf(
+    let result = evaluate_dcf_with_market(
         &model,
         0.10,
         TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
         "ufcf",
         Some(0.0),
+        &DcfOptions::default(),
+        None,
     )
     .expect("DCF evaluation should succeed");
 
@@ -302,11 +303,13 @@ fn test_dcf_uses_forecast_boundary_for_valuation_date_and_auto_net_debt() {
         .build()
         .expect("valid model");
 
-    let result = evaluate_dcf(
+    let result = evaluate_dcf_with_market(
         &model,
         0.10,
         TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
         "ufcf",
+        None,
+        &DcfOptions::default(),
         None,
     )
     .expect("DCF evaluation should succeed");
@@ -389,11 +392,13 @@ fn test_dcf_forecast_only_uses_first_forecast_boundary_for_net_debt() {
         .build()
         .expect("valid model");
 
-    let result = evaluate_dcf(
+    let result = evaluate_dcf_with_market(
         &model,
         0.10,
         TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
         "ufcf",
+        None,
+        &DcfOptions::default(),
         None,
     )
     .expect("DCF evaluation should succeed");
@@ -441,90 +446,6 @@ fn make_simple_dcf_model() -> finstack_statements::types::FinancialModelSpec {
         .with_meta("currency", serde_json::json!("USD"))
         .build()
         .expect("valid model")
-}
-
-#[test]
-fn parity_evaluate_dcf_matches_evaluate_dcf_with_market() {
-    let model = make_simple_dcf_model();
-    let tv = TerminalValueSpec::GordonGrowth { growth_rate: 0.02 };
-
-    let result_simple =
-        evaluate_dcf(&model, 0.10, tv.clone(), "ufcf", Some(50_000.0)).expect("evaluate_dcf");
-
-    let result_market = evaluate_dcf_with_market(
-        &model,
-        0.10,
-        tv,
-        "ufcf",
-        Some(50_000.0),
-        &DcfOptions::default(),
-        None,
-    )
-    .expect("evaluate_dcf_with_market");
-
-    assert!(
-        (result_simple.equity_value.amount() - result_market.equity_value.amount()).abs() < 1e-6,
-        "equity values must match: {} vs {}",
-        result_simple.equity_value.amount(),
-        result_market.equity_value.amount()
-    );
-    assert!(
-        (result_simple.enterprise_value.amount() - result_market.enterprise_value.amount()).abs()
-            < 1e-6,
-        "enterprise values must match: {} vs {}",
-        result_simple.enterprise_value.amount(),
-        result_market.enterprise_value.amount()
-    );
-}
-
-#[test]
-fn parity_evaluate_dcf_with_options_matches_evaluate_dcf_with_market() {
-    let model = make_simple_dcf_model();
-    let tv = TerminalValueSpec::GordonGrowth { growth_rate: 0.02 };
-    let opts = DcfOptions::default();
-
-    let result_options =
-        evaluate_dcf_with_options(&model, 0.10, tv.clone(), "ufcf", Some(50_000.0), &opts)
-            .expect("evaluate_dcf_with_options");
-
-    let result_market =
-        evaluate_dcf_with_market(&model, 0.10, tv, "ufcf", Some(50_000.0), &opts, None)
-            .expect("evaluate_dcf_with_market");
-
-    assert!(
-        (result_options.equity_value.amount() - result_market.equity_value.amount()).abs() < 1e-6,
-        "equity values must match: {} vs {}",
-        result_options.equity_value.amount(),
-        result_market.equity_value.amount()
-    );
-}
-
-#[test]
-fn parity_evaluate_dcf_with_trace_result_matches_evaluate_dcf_with_market() {
-    let model = make_simple_dcf_model();
-    let tv = TerminalValueSpec::GordonGrowth { growth_rate: 0.02 };
-
-    let (result_trace, _trace) =
-        evaluate_dcf_with_trace(&model, 0.10, tv.clone(), "ufcf", Some(50_000.0))
-            .expect("evaluate_dcf_with_trace");
-
-    let result_market = evaluate_dcf_with_market(
-        &model,
-        0.10,
-        tv,
-        "ufcf",
-        Some(50_000.0),
-        &DcfOptions::default(),
-        None,
-    )
-    .expect("evaluate_dcf_with_market");
-
-    assert!(
-        (result_trace.equity_value.amount() - result_market.equity_value.amount()).abs() < 1e-6,
-        "trace and market results must match: {} vs {}",
-        result_trace.equity_value.amount(),
-        result_market.equity_value.amount()
-    );
 }
 
 #[test]

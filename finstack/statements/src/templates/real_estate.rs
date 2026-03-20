@@ -425,24 +425,11 @@ fn apply_free_window(is_free: &mut [bool], start_idx: usize, len: u32) -> Result
 
 /// Add a richer rent roll that outputs standard PGI/EGI nodes and per-lease detail nodes.
 ///
-/// Canonical entry point for rent roll generation. Preferred over `add_rent_roll_rental_revenue`
-/// (simple v1) and `add_rent_roll_rental_revenue_v2` (deprecated alias).
+/// Canonical entry point for rent roll generation.
 ///
 /// Creates per-lease value nodes (`{id}.pgi`, `{id}.free_rent`, `{id}.vacancy_loss`,
 /// `{id}.effective_rent`) and aggregated totals via `nodes`.
 pub fn add_rent_roll(
-    builder: ModelBuilder<Ready>,
-    leases: &[LeaseSpecV2],
-    nodes: &RentRollOutputNodes,
-) -> Result<ModelBuilder<Ready>> {
-    add_rent_roll_rental_revenue_v2_impl(builder, leases, nodes)
-}
-
-/// Add a richer rent roll that outputs standard PGI/EGI nodes and per-lease detail nodes.
-///
-/// **Deprecated**: Use [`add_rent_roll`] instead.
-#[deprecated(since = "0.5.0", note = "Use `add_rent_roll` instead")]
-pub fn add_rent_roll_rental_revenue_v2(
     builder: ModelBuilder<Ready>,
     leases: &[LeaseSpecV2],
     nodes: &RentRollOutputNodes,

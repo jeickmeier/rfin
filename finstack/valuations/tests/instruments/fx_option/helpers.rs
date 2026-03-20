@@ -14,7 +14,7 @@ use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::fx_option::FxOption;
-use finstack_valuations::instruments::market::{ExerciseStyle, OptionType};
+use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::{PricingOverrides, SettlementType};
@@ -113,11 +113,9 @@ pub fn build_flat_vol_surface(vol: f64, surface_id: &str) -> VolSurface {
 
 /// Create FX matrix with a given spot rate.
 pub fn create_fx_matrix(eur_usd_rate: f64) -> FxMatrix {
-    FxMatrix::new(Arc::new(SimpleFxProvider::new().with_quote(
-        BASE,
-        QUOTE,
-        eur_usd_rate,
-    )))
+    let provider = Arc::new(SimpleFxProvider::new());
+    provider.set_quote(BASE, QUOTE, eur_usd_rate).expect("valid rate");
+    FxMatrix::new(provider)
 }
 
 /// Build complete market context from parameters.

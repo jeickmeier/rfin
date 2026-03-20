@@ -1,9 +1,7 @@
 //! WASM bindings for common parameter types (OptionType, ExerciseStyle, etc.)
 
 use finstack_valuations::instruments::{
-    legs::PayReceive,
-    market::{ExerciseStyle, OptionType, SettlementType},
-    BarrierType,
+    BarrierType, ExerciseStyle, OptionType, PayReceive, SettlementType,
 };
 use wasm_bindgen::prelude::*;
 

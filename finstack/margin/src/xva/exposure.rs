@@ -781,7 +781,11 @@ mod tests {
             )),
         ];
 
-        let provider = SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 2.0);
+        let provider = {
+            let p = SimpleFxProvider::new();
+            p.set_quote(Currency::EUR, Currency::USD, 2.0).expect("valid rate");
+            p
+        };
         let fx = FxMatrix::new(Arc::new(provider));
 
         let market = MarketContext::new().insert_fx(fx);
@@ -824,7 +828,11 @@ mod tests {
             )),
         ];
 
-        let provider = SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 2.0);
+        let provider = {
+            let p = SimpleFxProvider::new();
+            p.set_quote(Currency::EUR, Currency::USD, 2.0).expect("valid rate");
+            p
+        };
         let fx = FxMatrix::new(Arc::new(provider));
 
         let market = MarketContext::new().insert_fx(fx);

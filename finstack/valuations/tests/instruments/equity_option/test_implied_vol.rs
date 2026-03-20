@@ -3,7 +3,7 @@
 use super::helpers::*;
 use finstack_core::dates::{DayCount, DayCountCtx};
 use finstack_core::math::norm_cdf;
-use finstack_valuations::instruments::market::OptionType;
+use finstack_valuations::instruments::OptionType;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;

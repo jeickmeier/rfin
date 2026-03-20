@@ -91,7 +91,11 @@ mod tests {
 
         // Create FX provider with CNY/USD = 7.25
         let fx_provider =
-            Arc::new(SimpleFxProvider::new().with_quote(Currency::CNY, Currency::USD, 7.25));
+{
+            let p = Arc::new(SimpleFxProvider::new());
+            p.set_quote(Currency::CNY, Currency::USD, 7.25).expect("valid rate");
+            p
+        };
         let fx_matrix = FxMatrix::new(fx_provider);
 
         MarketContext::new().insert(usd_curve).insert_fx(fx_matrix)

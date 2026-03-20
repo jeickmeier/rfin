@@ -39,8 +39,7 @@ pub struct CorporateValuationResult {
 
 /// Optional configuration for DCF valuation beyond the core WACC/terminal parameters.
 ///
-/// All fields default to `None`/`false`, preserving backward compatibility with
-/// the original `evaluate_dcf()` signature.
+/// All fields default to `None`/`false`.
 #[derive(Debug, Clone, Default)]
 pub struct DcfOptions {
     /// Enable mid-year discounting convention (default: false).
@@ -60,122 +59,10 @@ pub(crate) struct DcfEvalContext<'a> {
     pub(crate) market: Option<&'a MarketContext>,
 }
 
-/// Evaluate a financial model using DCF methodology.
-///
-/// **Deprecated**: Use [`evaluate_dcf_with_market`] instead:
-/// ```rust,no_run
-/// # use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
-/// # use finstack_statements::types::FinancialModelSpec;
-/// # use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let model: FinancialModelSpec = unimplemented!();
-/// let result = evaluate_dcf_with_market(
-///     &model, 0.10,
-///     TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
-///     "ufcf", None, &DcfOptions::default(), None,
-/// )?;
-/// # Ok(()) }
-/// ```
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `evaluate_dcf_with_market` with `DcfOptions::default()` and `market: None` instead"
-)]
-pub fn evaluate_dcf(
-    model: &FinancialModelSpec,
-    wacc: f64,
-    terminal_value: TerminalValueSpec,
-    ufcf_node: &str,
-    net_debt_override: Option<f64>,
-) -> Result<CorporateValuationResult> {
-    let (result, _trace) = evaluate_dcf_impl(
-        model,
-        wacc,
-        terminal_value,
-        ufcf_node,
-        DcfEvalContext {
-            net_debt_override,
-            options: &DcfOptions::default(),
-            market: None,
-        },
-    )?;
-    Ok(result)
-}
-
-/// Evaluate a financial model using DCF methodology with additional options.
-///
-/// **Deprecated**: Use [`evaluate_dcf_with_market`] instead. This function is equivalent to:
-/// ```rust,no_run
-/// # use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
-/// # use finstack_statements::types::FinancialModelSpec;
-/// # use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// # let model: FinancialModelSpec = unimplemented!();
-/// # let options = DcfOptions::default();
-/// let result = evaluate_dcf_with_market(
-///     &model, 0.10,
-///     TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
-///     "ufcf", None, &options, None,
-/// )?;
-/// # Ok(()) }
-/// ```
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `evaluate_dcf_with_market` with `market: None` instead"
-)]
-pub fn evaluate_dcf_with_options(
-    model: &FinancialModelSpec,
-    wacc: f64,
-    terminal_value: TerminalValueSpec,
-    ufcf_node: &str,
-    net_debt_override: Option<f64>,
-    options: &DcfOptions,
-) -> Result<CorporateValuationResult> {
-    let (result, _trace) = evaluate_dcf_impl(
-        model,
-        wacc,
-        terminal_value,
-        ufcf_node,
-        DcfEvalContext {
-            net_debt_override,
-            options,
-            market: None,
-        },
-    )?;
-    Ok(result)
-}
-
-/// Evaluate a financial model using DCF methodology and return an explanation trace.
-///
-/// **Deprecated**: Use [`evaluate_dcf_with_market`] instead. If you need the trace,
-/// call the lower-level implementation directly or use the orchestrator pipeline.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `evaluate_dcf_with_market` instead; trace output will be unified in a future release"
-)]
-pub fn evaluate_dcf_with_trace(
-    model: &FinancialModelSpec,
-    wacc: f64,
-    terminal_value: TerminalValueSpec,
-    ufcf_node: &str,
-    net_debt_override: Option<f64>,
-) -> Result<(CorporateValuationResult, ExplanationTrace)> {
-    evaluate_dcf_impl(
-        model,
-        wacc,
-        terminal_value,
-        ufcf_node,
-        DcfEvalContext {
-            net_debt_override,
-            options: &DcfOptions::default(),
-            market: None,
-        },
-    )
-}
-
 /// Evaluate a financial model using DCF methodology with optional market context.
 ///
-/// This extends [`evaluate_dcf_with_options`] by accepting a [`MarketContext`]
-/// for curve-based discounting when instruments reference discount curves.
+/// Accepts a [`MarketContext`] for curve-based discounting when instruments
+/// reference discount curves.
 pub fn evaluate_dcf_with_market(
     model: &FinancialModelSpec,
     wacc: f64,
@@ -584,7 +471,7 @@ fn calculate_net_debt_from_model(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, deprecated)]
+#[allow(clippy::expect_used)]
 mod tests {
     use super::*;
     use crate::builder::ModelBuilder;
@@ -620,11 +507,13 @@ mod tests {
             .build()
             .expect("valid model");
 
-        let result = evaluate_dcf(
+        let result = evaluate_dcf_with_market(
             &model,
             0.10,
             TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
             "ufcf",
+            None,
+            &DcfOptions::default(),
             None,
         );
         assert!(result.is_err(), "currency metadata must be explicit");
@@ -652,11 +541,13 @@ mod tests {
             .build()
             .expect("valid model");
 
-        let result = evaluate_dcf(
+        let result = evaluate_dcf_with_market(
             &model,
             0.10,
             TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
             "ufcf",
+            None,
+            &DcfOptions::default(),
             None,
         );
         assert!(
