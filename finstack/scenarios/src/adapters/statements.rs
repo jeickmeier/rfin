@@ -66,7 +66,20 @@ where
     Ok(())
 }
 
-/// Apply a percentage change to a statement node's forecast values.
+/// Apply a percentage change to a statement node's explicit forecast values.
+///
+/// `pct` is interpreted in percentage points (`5.0 = +5%`). Scalar values and
+/// monetary amounts are both scaled multiplicatively.
+///
+/// # Arguments
+///
+/// - `model`: Statement model containing the target node.
+/// - `node_id`: Identifier of the statement node to shock.
+/// - `pct`: Percentage-point shock to apply.
+///
+/// # Errors
+///
+/// Returns [`Error::NodeNotFound`] if `node_id` is not present in `model`.
 pub fn apply_forecast_percent(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -84,6 +97,16 @@ pub fn apply_forecast_percent(
 }
 
 /// Assign a uniform scalar value to all explicit forecasts in a node.
+///
+/// # Arguments
+///
+/// - `model`: Statement model containing the target node.
+/// - `node_id`: Identifier of the statement node to overwrite.
+/// - `value`: Scalar value to assign to every explicit forecast period.
+///
+/// # Errors
+///
+/// Returns [`Error::NodeNotFound`] if `node_id` is not present in `model`.
 pub fn apply_forecast_assign(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -93,6 +116,18 @@ pub fn apply_forecast_assign(
 }
 
 /// Assign a scalar value to explicit forecasts in a node, optionally filtering periods.
+///
+/// # Arguments
+///
+/// - `model`: Statement model containing the target node.
+/// - `node_id`: Identifier of the statement node to overwrite.
+/// - `value`: Scalar value to assign to the selected periods.
+/// - `period_filter`: Optional inclusive `(start, end)` date window used to
+///   select forecast periods by their statement-period boundaries.
+///
+/// # Errors
+///
+/// Returns [`Error::NodeNotFound`] if `node_id` is not present in `model`.
 pub fn apply_forecast_assign_filtered(
     model: &mut FinancialModelSpec,
     node_id: &str,
@@ -137,6 +172,33 @@ pub fn apply_forecast_assign_filtered(
 ///   simple forwards for forward curves) into the requested [`Compounding`].
 /// - Emits clear validation errors when the tenor is outside the curve range or
 ///   when compounding/day-count combinations are incompatible.
+///
+/// The assigned statement value is always a decimal annualized rate such as
+/// `0.0525` for 5.25%.
+///
+/// # Arguments
+///
+/// - `binding`: Rate-binding specification defining the node, curve, tenor, and
+///   output compounding.
+/// - `model`: Statement model whose target node will be updated.
+/// - `market`: Market context that supplies the referenced discount or forward curve.
+///
+/// # Errors
+///
+/// Returns:
+/// - [`Error::MarketDataNotFound`] if `binding.curve_id` resolves to neither a
+///   discount curve nor a forward curve.
+/// - [`Error::InvalidTenor`] if `binding.tenor` cannot be parsed.
+/// - [`Error::Validation`] if the requested tenor is outside the curve range or
+///   if rate-conversion inputs are inconsistent.
+/// - [`Error::NodeNotFound`] if the target statement node is missing.
+/// - [`Error::Internal`] if calendar-aware year-fraction conversion fails.
+///
+/// # References
+///
+/// - Day-count and business-day conventions: `docs/REFERENCES.md#isda-2006-definitions`
+/// - Term-structure and rate-conversion context: `docs/REFERENCES.md#hull-options-futures`
+/// - Multi-curve term-structure conventions: `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
 pub fn update_rate_from_binding(
     binding: &RateBindingSpec,
     model: &mut FinancialModelSpec,
@@ -255,6 +317,19 @@ fn convert_continuous_rate(
 ///
 /// Runs the evaluator and returns any warnings (division by zero, NaN
 /// propagation, etc.) that were encountered during evaluation.
+///
+/// # Arguments
+///
+/// - `model`: Statement model to evaluate after scenario edits.
+///
+/// # Returns
+///
+/// A vector of warning strings emitted by the evaluator. An empty vector means
+/// evaluation completed without warnings.
+///
+/// # Errors
+///
+/// Propagates any error returned by [`Evaluator::evaluate`].
 ///
 /// # Examples
 /// ```rust

@@ -128,19 +128,32 @@ pub enum Error {
 }
 
 impl Error {
-    /// Create a market data not found error
+    /// Create a market data not found error.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: Identifier of the missing market data object.
     pub fn market_data_not_found(id: impl Into<String>) -> Self {
         Self::MarketDataNotFound { id: id.into() }
     }
 
-    /// Create a node not found error
+    /// Create a node not found error.
+    ///
+    /// # Arguments
+    ///
+    /// - `node_id`: Identifier of the missing statement node.
     pub fn node_not_found(node_id: impl Into<String>) -> Self {
         Self::NodeNotFound {
             node_id: node_id.into(),
         }
     }
 
-    /// Create a curve type mismatch error
+    /// Create a curve type mismatch error.
+    ///
+    /// # Arguments
+    ///
+    /// - `expected`: Curve type expected by the caller.
+    /// - `actual`: Curve type that was encountered.
     pub fn curve_type_mismatch(expected: impl Into<String>, actual: impl Into<String>) -> Self {
         Self::CurveTypeMismatch {
             expected: expected.into(),
@@ -148,7 +161,12 @@ impl Error {
         }
     }
 
-    /// Create an unsupported operation error
+    /// Create an unsupported operation error.
+    ///
+    /// # Arguments
+    ///
+    /// - `operation`: Operation that was attempted.
+    /// - `target`: Target object that rejected the operation.
     pub fn unsupported_operation(operation: impl Into<String>, target: impl Into<String>) -> Self {
         Self::UnsupportedOperation {
             operation: operation.into(),
@@ -156,22 +174,39 @@ impl Error {
         }
     }
 
-    /// Create a validation error
+    /// Create a validation error.
+    ///
+    /// # Arguments
+    ///
+    /// - `msg`: Human-readable validation message.
     pub fn validation(msg: impl Into<String>) -> Self {
         Self::Validation(msg.into())
     }
 
-    /// Create an internal error
+    /// Create an internal error.
+    ///
+    /// # Arguments
+    ///
+    /// - `msg`: Human-readable internal error message.
     pub fn internal(msg: impl Into<String>) -> Self {
         Self::Internal(msg.into())
     }
 
-    /// Create an invalid tenor error
+    /// Create an invalid tenor error.
+    ///
+    /// # Arguments
+    ///
+    /// - `tenor`: Tenor string that failed validation or parsing.
     pub fn invalid_tenor(tenor: impl Into<String>) -> Self {
         Self::InvalidTenor(tenor.into())
     }
 
-    /// Create a tenor not found error
+    /// Create a tenor not found error.
+    ///
+    /// # Arguments
+    ///
+    /// - `tenor`: Tenor string that could not be matched.
+    /// - `curve_id`: Curve identifier on which the tenor lookup failed.
     pub fn tenor_not_found(tenor: impl Into<String>, curve_id: impl Into<String>) -> Self {
         Self::TenorNotFound {
             tenor: tenor.into(),
@@ -179,12 +214,20 @@ impl Error {
         }
     }
 
-    /// Create an invalid period error
+    /// Create an invalid period error.
+    ///
+    /// # Arguments
+    ///
+    /// - `period`: Period string that failed validation or parsing.
     pub fn invalid_period(period: impl Into<String>) -> Self {
         Self::InvalidPeriod(period.into())
     }
 
-    /// Create an instrument not found error
+    /// Create an instrument not found error.
+    ///
+    /// # Arguments
+    ///
+    /// - `instrument`: Instrument identifier that could not be found.
     pub fn instrument_not_found(instrument: impl Into<String>) -> Self {
         Self::InstrumentNotFound(instrument.into())
     }

@@ -3,6 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 /// Severity classification for stress scenarios.
+///
+/// This label is intended for discovery and filtering rather than for pricing
+/// logic. Registries and UIs can use it to group historical events by the
+/// magnitude of the modeled dislocation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Severity {
@@ -15,6 +19,9 @@ pub enum Severity {
 }
 
 /// Asset class categories affected by a stress template.
+///
+/// These values describe the primary risk buckets touched by a historical
+/// scenario so registries can expose coarse filtering and search.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetClass {
@@ -34,6 +41,11 @@ pub enum AssetClass {
 }
 
 /// Metadata describing a historical stress test template.
+///
+/// A template registry stores this metadata alongside a builder factory. The
+/// fields are intentionally discovery-oriented: they identify the historical
+/// event, the affected asset classes, and any component templates that can be
+/// built separately from the composite scenario.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TemplateMetadata {
@@ -44,6 +56,9 @@ pub struct TemplateMetadata {
     /// Description of the historical event and modeled effects.
     pub description: String,
     /// Primary date associated with the historical event.
+    ///
+    /// This is typically the date of the market dislocation rather than the
+    /// valuation date used when the template is later executed.
     pub event_date: time::Date,
     /// Asset classes materially affected by the scenario.
     pub asset_classes: Vec<AssetClass>,
@@ -52,6 +67,9 @@ pub struct TemplateMetadata {
     /// Severity classification for the template.
     pub severity: Severity,
     /// IDs of composable sub-component templates.
+    ///
+    /// Empty when the template is atomic rather than a composite built from
+    /// multiple reusable scenario fragments.
     pub components: Vec<String>,
 }
 

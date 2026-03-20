@@ -93,6 +93,19 @@ pub fn parse_tenor_to_years_with_context(
 }
 
 /// Parse a day-count string override into a [`DayCount`] enum.
+///
+/// # Arguments
+///
+/// - `raw`: Day-count alias such as `act/360`, `act/365f`, `act/act`,
+///   `30/360`, or `30e/360`.
+///
+/// # Returns
+///
+/// The normalized [`DayCount`] enum corresponding to the provided alias.
+///
+/// # Errors
+///
+/// Returns [`Error::Validation`] if `raw` is not one of the supported aliases.
 pub fn parse_day_count_override(raw: &str) -> Result<DayCount> {
     let normalised = raw.trim().to_lowercase();
     let parsed = match normalised.as_str() {
@@ -112,6 +125,22 @@ pub fn parse_day_count_override(raw: &str) -> Result<DayCount> {
 }
 
 /// Calendar-aware tenor conversion using the conventions of a discount curve.
+///
+/// # Arguments
+///
+/// - `tenor`: Tenor string to convert.
+/// - `curve`: Discount curve supplying the base date and day-count convention.
+/// - `calendar`: Optional holiday calendar for business-day adjustment.
+/// - `bdc`: Business-day convention to apply when `calendar` is present.
+///
+/// # Returns
+///
+/// The year fraction implied by `tenor` under the curve's base date and day
+/// count.
+///
+/// # Errors
+///
+/// Propagates any tenor parsing or calendar-aware date-conversion error.
 pub fn tenor_years_from_discount_curve(
     tenor: &str,
     curve: &DiscountCurve,
@@ -122,6 +151,22 @@ pub fn tenor_years_from_discount_curve(
 }
 
 /// Calendar-aware tenor conversion using the conventions of a forward curve.
+///
+/// # Arguments
+///
+/// - `tenor`: Tenor string to convert.
+/// - `curve`: Forward curve supplying the base date and day-count convention.
+/// - `calendar`: Optional holiday calendar for business-day adjustment.
+/// - `bdc`: Business-day convention to apply when `calendar` is present.
+///
+/// # Returns
+///
+/// The year fraction implied by `tenor` under the curve's base date and day
+/// count.
+///
+/// # Errors
+///
+/// Propagates any tenor parsing or calendar-aware date-conversion error.
 pub fn tenor_years_from_forward_curve(
     tenor: &str,
     curve: &ForwardCurve,
@@ -132,6 +177,25 @@ pub fn tenor_years_from_forward_curve(
 }
 
 /// Resolve the effective day-count and tenor length for a rate binding.
+///
+/// # Arguments
+///
+/// - `binding`: Binding that supplies the tenor and optional day-count override.
+/// - `base_date`: Date from which the tenor should be measured.
+/// - `default_day_count`: Day-count convention to use when the binding does not
+///   override it.
+/// - `calendar`: Optional holiday calendar for business-day adjustment.
+/// - `bdc`: Business-day convention to apply when `calendar` is present.
+///
+/// # Returns
+///
+/// A tuple `(year_fraction, effective_day_count)` where `effective_day_count`
+/// is either the parsed override or `default_day_count`.
+///
+/// # Errors
+///
+/// Returns an error if the day-count override is unsupported or the tenor
+/// cannot be converted into a year fraction.
 pub fn tenor_years_from_binding(
     binding: &RateBindingSpec,
     base_date: Date,

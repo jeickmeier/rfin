@@ -463,10 +463,15 @@ impl ScenarioEngine {
     /// Apply a scenario specification to the execution context.
     ///
     /// Operations are applied in this order:
+    /// 0. Time roll-forward, if present
     /// 1. Market data (FX, equities, vol surfaces, curves, base correlation)
     /// 2. Rate bindings update (if configured)
     /// 3. Statement forecast adjustments
     /// 4. Statement re-evaluation
+    ///
+    /// If a [`crate::spec::OperationSpec::TimeRollForward`] sets
+    /// `apply_shocks = false`, the engine returns immediately after phase 0 and
+    /// does not apply the remaining operations in `spec`.
     ///
     /// # Arguments
     /// - `spec`: Scenario specification to apply.

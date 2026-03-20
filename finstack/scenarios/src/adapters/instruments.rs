@@ -74,6 +74,22 @@ impl ScenarioAdapter for InstrumentAdapter {
 }
 
 /// Apply a percentage price shock to instruments matching the provided types.
+///
+/// `pct` is supplied in percentage points (`5.0 = +5%`) and converted into a
+/// decimal shock before storage. When an instrument exposes
+/// `scenario_overrides_mut()`, the shock is applied through pricing overrides.
+/// Otherwise, the helper stores the shock in instrument metadata under
+/// `scenario_price_shock_pct` for downstream consumers.
+///
+/// # Arguments
+///
+/// - `instruments`: Instrument collection to mutate.
+/// - `instrument_types`: Instrument types to match.
+/// - `pct`: Percentage-point price shock to apply.
+///
+/// # Returns
+///
+/// The number of matched instruments that were updated.
 pub fn apply_instrument_type_price_shock(
     instruments: &mut [Box<dyn Instrument>],
     instrument_types: &[InstrumentType],
@@ -109,6 +125,20 @@ pub fn apply_instrument_type_price_shock(
 }
 
 /// Apply a spread shock (basis points) to instruments matching the provided types.
+///
+/// `bp` is additive in basis points. As with price shocks, the helper prefers
+/// functional scenario overrides and falls back to metadata storage under
+/// `scenario_spread_shock_bp` when direct overrides are unavailable.
+///
+/// # Arguments
+///
+/// - `instruments`: Instrument collection to mutate.
+/// - `instrument_types`: Instrument types to match.
+/// - `bp`: Additive spread shock in basis points.
+///
+/// # Returns
+///
+/// The number of matched instruments that were updated.
 pub fn apply_instrument_type_spread_shock(
     instruments: &mut [Box<dyn Instrument>],
     instrument_types: &[InstrumentType],
@@ -143,6 +173,22 @@ pub fn apply_instrument_type_spread_shock(
 }
 
 /// Apply a percentage price shock to instruments matching the provided attributes.
+///
+/// Matching is case-insensitive and uses AND semantics across the provided
+/// `attrs` map. Only the metadata map on [`Attributes`] is compared; tag sets
+/// are ignored. `pct` is supplied in percentage points and stored internally as
+/// a decimal shock.
+///
+/// # Arguments
+///
+/// - `instruments`: Instrument collection to mutate.
+/// - `attrs`: Metadata filters to match.
+/// - `pct`: Percentage-point price shock to apply.
+///
+/// # Returns
+///
+/// A tuple `(matched_count, warnings)`. `warnings` contains a single message if
+/// no instruments matched the attribute filter.
 pub fn apply_instrument_attr_price_shock(
     instruments: &mut [Box<dyn Instrument>],
     attrs: &indexmap::IndexMap<String, String>,
@@ -183,6 +229,21 @@ pub fn apply_instrument_attr_price_shock(
 }
 
 /// Apply a spread shock to instruments matching the provided attributes.
+///
+/// Matching is case-insensitive and uses AND semantics across the provided
+/// `attrs` map. Only the metadata map on [`Attributes`] is compared; tag sets
+/// are ignored.
+///
+/// # Arguments
+///
+/// - `instruments`: Instrument collection to mutate.
+/// - `attrs`: Metadata filters to match.
+/// - `bp`: Additive spread shock in basis points.
+///
+/// # Returns
+///
+/// A tuple `(matched_count, warnings)`. `warnings` contains a single message if
+/// no instruments matched the attribute filter.
 pub fn apply_instrument_attr_spread_shock(
     instruments: &mut [Box<dyn Instrument>],
     attrs: &indexmap::IndexMap<String, String>,

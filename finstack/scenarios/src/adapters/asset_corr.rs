@@ -274,6 +274,15 @@ where
 // now use methods on CorrelationStructure directly
 
 /// Set correlation structure to a specific configuration.
+///
+/// # Arguments
+///
+/// - `instruments`: Structured-credit instruments to update.
+/// - `structure`: Correlation structure to clone onto each instrument.
+///
+/// # Returns
+///
+/// The number of instruments updated.
 pub fn set_correlation_structure(
     instruments: &mut [StructuredCredit],
     structure: CorrelationStructure,
@@ -287,6 +296,16 @@ pub fn set_correlation_structure(
 }
 
 /// Enable stochastic pricing for instruments with default configurations.
+///
+/// Instruments that are already stochastic are left unchanged.
+///
+/// # Arguments
+///
+/// - `instruments`: Structured-credit instruments to inspect and update.
+///
+/// # Returns
+///
+/// The number of instruments newly switched to stochastic pricing.
 pub fn enable_stochastic_pricing(instruments: &mut [StructuredCredit]) -> Result<usize> {
     let mut count = 0;
     for inst in instruments.iter_mut() {
