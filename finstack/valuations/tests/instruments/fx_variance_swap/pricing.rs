@@ -26,11 +26,9 @@ fn test_forward_variance_flat_surface() {
     let vol = 0.20;
     let vol_surface = flat_vol_surface("EURUSD-VOL", &expiries, &strikes, vol);
 
-    let fx_matrix = FxMatrix::new(Arc::new(SimpleFxProvider::new().with_quote(
-        Currency::EUR,
-        Currency::USD,
-        1.25,
-    )));
+    let fx_provider = Arc::new(SimpleFxProvider::new());
+    fx_provider.set_quote(Currency::EUR, Currency::USD, 1.25).expect("valid rate");
+    let fx_matrix = FxMatrix::new(fx_provider);
 
     let ctx = MarketContext::new()
         .insert(dom_curve)

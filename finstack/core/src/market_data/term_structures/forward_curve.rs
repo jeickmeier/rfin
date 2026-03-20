@@ -212,22 +212,6 @@ impl ForwardCurve {
         self.reset_lag
     }
 
-    /// Reset lag in business days from fixing to spot.
-    ///
-    /// # Deprecated
-    ///
-    /// Use [`reset_lag`](ForwardCurve::reset_lag) instead; both return the same
-    /// value and `reset_lag` is the canonical name.
-    #[inline]
-    #[deprecated(
-        since = "0.4.1",
-        note = "Use `reset_lag()` instead; `reset_lag_business_days` is a \
-                redundant alias."
-    )]
-    pub fn reset_lag_business_days(&self) -> i32 {
-        self.reset_lag
-    }
-
     /// Day-count convention used for this index.
     #[inline]
     pub fn day_count(&self) -> DayCount {
@@ -728,20 +712,6 @@ impl ForwardCurveBuilder {
         self
     }
 
-    /// Override the **reset lag** (fixing → spot) in business days.
-    ///
-    /// # Deprecated
-    ///
-    /// Use [`reset_lag`](ForwardCurveBuilder::reset_lag) instead; both set the
-    /// same underlying field and `reset_lag` is the canonical builder method.
-    #[deprecated(
-        since = "0.4.1",
-        note = "Use `reset_lag(lag)` instead; `reset_lag_business_days` is a \
-                redundant alias."
-    )]
-    pub fn reset_lag_business_days(self, lag: i32) -> Self {
-        self.reset_lag(lag)
-    }
     /// Choose the **day-count** convention.
     pub fn day_count(mut self, dc: DayCount) -> Self {
         self.day_count = dc;
@@ -930,7 +900,7 @@ mod tests {
             .build()
             .expect("USD-SOFR-3M curve should build");
         assert_eq!(sofr_term.day_count(), DayCount::Act360);
-        assert_eq!(sofr_term.reset_lag_business_days(), 2);
+        assert_eq!(sofr_term.reset_lag(), 2);
 
         let sonia = ForwardCurve::builder("GBP-SONIA", 1.0 / 365.0)
             .base_date(base)
@@ -938,14 +908,14 @@ mod tests {
             .build()
             .expect("GBP-SONIA curve should build");
         assert_eq!(sonia.day_count(), DayCount::Act365F);
-        assert_eq!(sonia.reset_lag_business_days(), 0);
+        assert_eq!(sonia.reset_lag(), 0);
 
         let generic = ForwardCurve::builder("TEST", 0.25)
             .base_date(base)
             .knots([(0.0, 0.03), (1.0, 0.035)])
             .build()
             .expect("Generic forward curve should build");
-        assert_eq!(generic.reset_lag_business_days(), 0);
+        assert_eq!(generic.reset_lag(), 0);
     }
 
     #[test]

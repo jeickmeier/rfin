@@ -14,6 +14,4 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
 
-#[allow(deprecated)]
-pub use pricer::SimpleXccySwapDiscountingPricer;
 pub use types::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};

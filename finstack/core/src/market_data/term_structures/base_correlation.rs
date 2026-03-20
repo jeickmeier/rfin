@@ -191,14 +191,6 @@ impl ArbitrageViolation {
         }
     }
 
-    /// Human-readable description of the violation.
-    #[deprecated(
-        since = "0.1.0",
-        note = "Use Display trait instead: format!(\"{}\", violation)"
-    )]
-    pub fn description(&self) -> String {
-        format!("{}", self)
-    }
 }
 
 impl core::fmt::Display for ArbitrageViolation {
@@ -840,7 +832,6 @@ impl BaseCorrelationCurveBuilder {
                 .collect();
 
             if !hard_violations.is_empty() {
-                #[allow(deprecated)]
                 let descriptions: Vec<String> =
                     hard_violations.iter().map(|v| v.to_string()).collect();
                 return Err(crate::Error::Validation(format!(

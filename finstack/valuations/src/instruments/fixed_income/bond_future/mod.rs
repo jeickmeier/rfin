@@ -14,28 +14,32 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::instruments::fixed_income::bond_future::{
-//!     BondFuture, DeliverableBond, Position,
+//!     BondFuture, BondFutureSpecs, DeliverableBond, Position,
 //! };
+//! use finstack_valuations::instruments::common::traits::Attributes;
 //! use finstack_core::money::Money;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::types::{InstrumentId, CurveId};
 //! use time::macros::date;
 //!
-//! let future = BondFuture::ust_10y(
-//!     InstrumentId::new("TYH5"),
-//!     Money::new(1_000_000.0, Currency::USD),
-//!     date!(2025-03-20),
-//!     date!(2025-03-21),
-//!     date!(2025-03-31),
-//!     125.50,
-//!     Position::Long,
-//!     vec![DeliverableBond {
+//! let future = BondFuture::builder()
+//!     .id(InstrumentId::new("TYH5"))
+//!     .notional(Money::new(1_000_000.0, Currency::USD))
+//!     .expiry(date!(2025-03-20))
+//!     .delivery_start(date!(2025-03-21))
+//!     .delivery_end(date!(2025-03-31))
+//!     .quoted_price(125.50)
+//!     .position(Position::Long)
+//!     .contract_specs(BondFutureSpecs::ust_10y())
+//!     .deliverable_basket(vec![DeliverableBond {
 //!         bond_id: InstrumentId::new("US912828XG33"),
 //!         conversion_factor: 0.8234,
-//!     }],
-//!     InstrumentId::new("US912828XG33"),
-//!     CurveId::new("USD-TREASURY"),
-//! ).expect("Valid bond future");
+//!     }])
+//!     .ctd_bond_id(InstrumentId::new("US912828XG33"))
+//!     .discount_curve_id(CurveId::new("USD-TREASURY"))
+//!     .attributes(Attributes::new())
+//!     .build_validated()
+//!     .expect("Valid bond future");
 //! ```
 
 pub(crate) mod metrics;

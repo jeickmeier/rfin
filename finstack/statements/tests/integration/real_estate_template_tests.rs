@@ -1,12 +1,9 @@
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
-use finstack_statements::templates::real_estate::LeaseSpec;
 use finstack_statements::templates::real_estate::{
-    LeaseGrowthConvention, LeaseSpecV2, RenewalSpec, RentRollOutputNodes, RentStepSpec,
-};
-use finstack_statements::templates::real_estate::{
-    ManagementFeeBase, ManagementFeeSpec, PropertyTemplateNodes,
+    self, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase, ManagementFeeSpec,
+    PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
 };
 use finstack_statements::templates::RealEstateExtension;
 use finstack_statements::types::AmountOrScalar;
@@ -82,7 +79,6 @@ fn real_estate_noi_and_ncf_templates_compute_expected_values() {
     assert_eq!(ncf[&q2], ((110.0 + 12.0) - (22.0 + 6.0)) - 4.0);
 }
 
-#[allow(deprecated)]
 #[test]
 fn real_estate_rent_roll_template_builds_lease_series_and_total_rent() {
     let leases = vec![
@@ -106,10 +102,10 @@ fn real_estate_rent_roll_template_builds_lease_series_and_total_rent() {
         },
     ];
 
-    let model = ModelBuilder::new("re_rent_roll")
+    let builder = ModelBuilder::new("re_rent_roll")
         .periods("2025Q1..Q4", None)
-        .expect("periods should parse")
-        .add_rent_roll_rental_revenue(&leases, "rent_total")
+        .expect("periods should parse");
+    let model = real_estate::add_rent_roll_rental_revenue(builder, &leases, "rent_total")
         .expect("rent roll template")
         .build()
         .expect("build");
@@ -501,7 +497,6 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
 
 // --- Parity: v1 (LeaseSpec) vs v2 (LeaseSpecV2) produce same simple effective rent ---
 
-#[allow(deprecated)]
 #[test]
 fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
     use finstack_statements::templates::real_estate::{
@@ -544,8 +539,7 @@ fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
     };
 
     // Build v1 model
-    let model_v1 = make_base()
-        .add_rent_roll_rental_revenue(&[v1_lease], "total_rent")
+    let model_v1 = real_estate::add_rent_roll_rental_revenue(make_base(), &[v1_lease], "total_rent")
         .expect("v1 rent roll")
         .build()
         .expect("valid model");

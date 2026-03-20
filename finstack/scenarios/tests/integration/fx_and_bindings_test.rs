@@ -18,8 +18,8 @@ use time::Month;
 #[test]
 fn test_fx_shock() {
     // Setup FX provider
-    let fx_provider =
-        Arc::new(SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 1.1));
+    let fx_provider = Arc::new(SimpleFxProvider::new());
+    fx_provider.set_quote(Currency::EUR, Currency::USD, 1.1).expect("valid rate");
 
     let fx_matrix = FxMatrix::new(fx_provider);
     let mut market = MarketContext::new().insert_fx(fx_matrix);
@@ -72,11 +72,9 @@ fn test_fx_shock() {
 
 #[test]
 fn test_fx_shock_preserves_other_quotes() {
-    let fx_provider = Arc::new(
-        SimpleFxProvider::new()
-            .with_quote(Currency::EUR, Currency::USD, 1.1)
-            .with_quote(Currency::GBP, Currency::USD, 1.25),
-    );
+    let fx_provider = Arc::new(SimpleFxProvider::new());
+    fx_provider.set_quote(Currency::EUR, Currency::USD, 1.1).expect("valid rate");
+    fx_provider.set_quote(Currency::GBP, Currency::USD, 1.25).expect("valid rate");
 
     let fx_matrix = FxMatrix::new(fx_provider);
     let mut market = MarketContext::new().insert_fx(fx_matrix);

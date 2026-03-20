@@ -3,7 +3,6 @@
 //! Each pricer integrates a bond pricing engine with the instrument pricing
 //! registry system. Pricers are organized by model:
 //!
-//! - [`SimpleBondDiscountingPricer`]: Risk-free PV via discount curves
 //! - [`SimpleBondHazardPricer`]: Credit-adjusted PV via hazard curves (FRP)
 //! - [`SimpleBondOasPricer`]: OAS for callable/putable bonds via tree pricing
 //! - [`SimpleBondMertonMcPricer`]: Structural credit MC for PIK bonds (feature-gated)
@@ -14,8 +13,6 @@ mod hazard;
 mod merton_mc;
 mod oas;
 
-#[allow(deprecated, unused_imports)]
-pub use discount::SimpleBondDiscountingPricer;
 pub use hazard::SimpleBondHazardPricer;
 #[cfg(feature = "mc")]
 pub use merton_mc::SimpleBondMertonMcPricer;

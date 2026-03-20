@@ -395,49 +395,6 @@ impl FxMatrix {
         }
     }
 
-    /// Create a new [`FxMatrix`] with custom configuration.
-    ///
-    /// # Deprecated
-    ///
-    /// Use [`try_with_config`](FxMatrix::try_with_config) instead, which validates
-    /// the configuration and returns a `Result` rather than silently clamping
-    /// `cache_capacity` to 1 on zero input:
-    ///
-    /// ```rust
-    /// # use finstack_core::money::fx::{FxConfig, FxMatrix, FxProvider, FxConversionPolicy};
-    /// # use finstack_core::currency::Currency;
-    /// # use finstack_core::dates::Date;
-    /// # use std::sync::Arc;
-    /// # struct StaticFx;
-    /// # impl FxProvider for StaticFx {
-    /// #     fn rate(&self, _: Currency, _: Currency, _: Date, _: FxConversionPolicy) -> finstack_core::Result<f64> { Ok(1.0) }
-    /// # }
-    /// let mut cfg = FxConfig::default();
-    /// cfg.cache_capacity = 128;
-    /// let matrix = FxMatrix::try_with_config(Arc::new(StaticFx), cfg)
-    ///     .expect("valid FX config");
-    /// ```
-    #[deprecated(
-        since = "0.4.1",
-        note = "Use `try_with_config` instead; `with_config` silently clamps \
-                invalid `cache_capacity` to 1 rather than failing fast."
-    )]
-    pub fn with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> Self {
-        let sanitized = FxConfig {
-            cache_capacity: config.cache_capacity.max(1),
-            ..config
-        };
-        let capacity = NonZeroUsize::new(sanitized.cache_capacity).unwrap_or(NonZeroUsize::MIN);
-        let quotes = LruCache::new(capacity);
-        let observed_quotes = LruCache::new(capacity);
-        Self {
-            provider,
-            quotes: Mutex::new(quotes),
-            observed_quotes: Mutex::new(observed_quotes),
-            config: sanitized,
-        }
-    }
-
     /// Create a new [`FxMatrix`] with custom configuration, failing closed on invalid inputs.
     pub fn try_with_config(provider: Arc<dyn FxProvider>, config: FxConfig) -> crate::Result<Self> {
         if config.cache_capacity == 0 {
@@ -445,8 +402,16 @@ impl FxMatrix {
                 "FxConfig.cache_capacity must be > 0".to_string(),
             ));
         }
-        #[allow(deprecated)]
-        Ok(Self::with_config(provider, config))
+        let capacity = NonZeroUsize::new(config.cache_capacity)
+            .unwrap_or(NonZeroUsize::MIN);
+        let quotes = LruCache::new(capacity);
+        let observed_quotes = LruCache::new(capacity);
+        Ok(Self {
+            provider,
+            quotes: Mutex::new(quotes),
+            observed_quotes: Mutex::new(observed_quotes),
+            config,
+        })
     }
 
     /// Access the underlying FX provider reference.

@@ -6,8 +6,6 @@
 //! - DV01 calculation (target: <50ms)
 //! - Bucketed DV01 (target: <200ms)
 
-#![allow(deprecated)]
-
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -15,6 +13,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::common::traits::Attributes;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond_future::{
     BondFuture, BondFutureSpecs, DeliverableBond, Position,
@@ -54,19 +53,21 @@ fn create_ust_10y_future() -> BondFuture {
         },
     ];
 
-    BondFuture::ust_10y(
-        InstrumentId::from("TYH5"),
-        Money::new(1_000_000.0, Currency::USD), // 10 contracts
-        expiry,
-        delivery_start,
-        delivery_end,
-        125.50,
-        Position::Long,
-        basket,
-        InstrumentId::from("US912828XG33"), // CTD bond
-        CurveId::from("USD-TREASURY"),
-    )
-    .unwrap()
+    BondFuture::builder()
+        .id(InstrumentId::from("TYH5"))
+        .notional(Money::new(1_000_000.0, Currency::USD)) // 10 contracts
+        .expiry(expiry)
+        .delivery_start(delivery_start)
+        .delivery_end(delivery_end)
+        .quoted_price(125.50)
+        .position(Position::Long)
+        .contract_specs(BondFutureSpecs::ust_10y())
+        .deliverable_basket(basket)
+        .ctd_bond_id(InstrumentId::from("US912828XG33")) // CTD bond
+        .discount_curve_id(CurveId::from("USD-TREASURY"))
+        .attributes(Attributes::new())
+        .build_validated()
+        .unwrap()
 }
 
 /// Create a CTD bond for testing

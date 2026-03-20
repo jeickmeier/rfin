@@ -594,306 +594,6 @@ impl BondFuture {
         Ok(())
     }
 
-    /// Create a UST 10-year futures contract.
-    ///
-    /// **Market**: U.S. Treasury 10-Year Note Futures (CBOT)
-    ///
-    /// # Deprecated
-    ///
-    /// Use `BondFuture::builder()` with `contract_specs(BondFutureSpecs::ust_10y())` instead:
-    ///
-    /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{
-    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
-    /// };
-    /// use finstack_core::money::Money;
-    /// use finstack_core::currency::Currency;
-    /// use finstack_core::types::{InstrumentId, CurveId};
-    /// use finstack_valuations::instruments::common::traits::Attributes;
-    /// use time::macros::date;
-    ///
-    /// let ctd_id = InstrumentId::new("US912828XG33");
-    /// let future = BondFuture::builder()
-    ///     .id(InstrumentId::new("TYH5"))
-    ///     .notional(Money::new(1_000_000.0, Currency::USD))
-    ///     .expiry(date!(2025-03-20))
-    ///     .delivery_start(date!(2025-03-21))
-    ///     .delivery_end(date!(2025-03-31))
-    ///     .quoted_price(125.50)
-    ///     .position(Position::Long)
-    ///     .contract_specs(BondFutureSpecs::ust_10y())
-    ///     .deliverable_basket(vec![DeliverableBond {
-    ///         bond_id: ctd_id.clone(),
-    ///         conversion_factor: 0.8234,
-    ///     }])
-    ///     .ctd_bond_id(ctd_id)
-    ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
-    ///     .attributes(Attributes::new())
-    ///     .build_validated()
-    ///     .unwrap();
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (see `BondFuture::validate`).
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_10y()) instead"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub fn ust_10y(
-        id: InstrumentId,
-        notional: Money,
-        expiry: Date,
-        delivery_start: Date,
-        delivery_end: Date,
-        quoted_price: f64,
-        position: Position,
-        deliverable_basket: Vec<DeliverableBond>,
-        ctd_bond_id: InstrumentId,
-        discount_curve_id: CurveId,
-    ) -> finstack_core::Result<Self> {
-        #[allow(deprecated)]
-        Self::ust_10y_with_ctd_bond(
-            id,
-            notional,
-            expiry,
-            delivery_start,
-            delivery_end,
-            quoted_price,
-            position,
-            deliverable_basket,
-            ctd_bond_id,
-            None,
-            discount_curve_id,
-        )
-    }
-
-    /// Create a UST 10-year futures contract, optionally embedding the CTD bond definition.
-    ///
-    /// When `ctd_bond` is provided, the future can be priced without relying on any
-    /// external instrument registry.
-    ///
-    /// # Deprecated
-    ///
-    /// Use `BondFuture::builder()` with `contract_specs(BondFutureSpecs::ust_10y())` and
-    /// optionally `.ctd_bond(bond)` instead. See [`ust_10y`](Self::ust_10y) for migration guide.
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_10y()) instead"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub fn ust_10y_with_ctd_bond(
-        id: InstrumentId,
-        notional: Money,
-        expiry: Date,
-        delivery_start: Date,
-        delivery_end: Date,
-        quoted_price: f64,
-        position: Position,
-        deliverable_basket: Vec<DeliverableBond>,
-        ctd_bond_id: InstrumentId,
-        ctd_bond: Option<crate::instruments::fixed_income::bond::Bond>,
-        discount_curve_id: CurveId,
-    ) -> finstack_core::Result<Self> {
-        let mut builder = BondFuture::builder()
-            .id(id)
-            .notional(notional)
-            .expiry(expiry)
-            .delivery_start(delivery_start)
-            .delivery_end(delivery_end)
-            .quoted_price(quoted_price)
-            .position(position)
-            .contract_specs(BondFutureSpecs::ust_10y())
-            .deliverable_basket(deliverable_basket)
-            .ctd_bond_id(ctd_bond_id);
-
-        if let Some(bond) = ctd_bond {
-            builder = builder.ctd_bond(bond);
-        }
-
-        builder
-            .discount_curve_id(discount_curve_id)
-            .attributes(Attributes::new())
-            .build_validated()
-    }
-
-    /// Create a UST 5-year futures contract.
-    ///
-    /// # Deprecated
-    ///
-    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::ust_5y())` instead.
-    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (see `BondFuture::validate`).
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_5y()) instead"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub fn ust_5y(
-        id: InstrumentId,
-        notional: Money,
-        expiry: Date,
-        delivery_start: Date,
-        delivery_end: Date,
-        quoted_price: f64,
-        position: Position,
-        deliverable_basket: Vec<DeliverableBond>,
-        ctd_bond_id: InstrumentId,
-        discount_curve_id: CurveId,
-    ) -> finstack_core::Result<Self> {
-        BondFuture::builder()
-            .id(id)
-            .notional(notional)
-            .expiry(expiry)
-            .delivery_start(delivery_start)
-            .delivery_end(delivery_end)
-            .quoted_price(quoted_price)
-            .position(position)
-            .contract_specs(BondFutureSpecs::ust_5y())
-            .deliverable_basket(deliverable_basket)
-            .ctd_bond_id(ctd_bond_id)
-            .discount_curve_id(discount_curve_id)
-            .attributes(Attributes::new())
-            .build_validated()
-    }
-
-    /// Create a UST 2-year futures contract.
-    ///
-    /// **Note**: 2-year contracts have a larger contract size ($200,000) than 5Y/10Y.
-    ///
-    /// # Deprecated
-    ///
-    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::ust_2y())` instead.
-    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (see `BondFuture::validate`).
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::ust_2y()) instead"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub fn ust_2y(
-        id: InstrumentId,
-        notional: Money,
-        expiry: Date,
-        delivery_start: Date,
-        delivery_end: Date,
-        quoted_price: f64,
-        position: Position,
-        deliverable_basket: Vec<DeliverableBond>,
-        ctd_bond_id: InstrumentId,
-        discount_curve_id: CurveId,
-    ) -> finstack_core::Result<Self> {
-        BondFuture::builder()
-            .id(id)
-            .notional(notional)
-            .expiry(expiry)
-            .delivery_start(delivery_start)
-            .delivery_end(delivery_end)
-            .quoted_price(quoted_price)
-            .position(position)
-            .contract_specs(BondFutureSpecs::ust_2y())
-            .deliverable_basket(deliverable_basket)
-            .ctd_bond_id(ctd_bond_id)
-            .discount_curve_id(discount_curve_id)
-            .attributes(Attributes::new())
-            .build_validated()
-    }
-
-    /// Create a German Bund futures contract.
-    ///
-    /// # Deprecated
-    ///
-    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::bund())` instead.
-    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (see `BondFuture::validate`).
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::bund()) instead"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub fn bund(
-        id: InstrumentId,
-        notional: Money,
-        expiry: Date,
-        delivery_start: Date,
-        delivery_end: Date,
-        quoted_price: f64,
-        position: Position,
-        deliverable_basket: Vec<DeliverableBond>,
-        ctd_bond_id: InstrumentId,
-        discount_curve_id: CurveId,
-    ) -> finstack_core::Result<Self> {
-        BondFuture::builder()
-            .id(id)
-            .notional(notional)
-            .expiry(expiry)
-            .delivery_start(delivery_start)
-            .delivery_end(delivery_end)
-            .quoted_price(quoted_price)
-            .position(position)
-            .contract_specs(BondFutureSpecs::bund())
-            .deliverable_basket(deliverable_basket)
-            .ctd_bond_id(ctd_bond_id)
-            .discount_curve_id(discount_curve_id)
-            .attributes(Attributes::new())
-            .build_validated()
-    }
-
-    /// Create a UK Gilt futures contract.
-    ///
-    /// **Note**: Gilts use a 4% standard coupon, different from UST/Bund 6%.
-    ///
-    /// # Deprecated
-    ///
-    /// Use `BondFuture::builder().contract_specs(BondFutureSpecs::gilt())` instead.
-    /// See [`ust_10y`](Self::ust_10y) for the migration pattern.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if validation fails (see `BondFuture::validate`).
-    #[deprecated(
-        since = "0.5.0",
-        note = "Use BondFuture::builder().contract_specs(BondFutureSpecs::gilt()) instead"
-    )]
-    #[allow(clippy::too_many_arguments)]
-    pub fn gilt(
-        id: InstrumentId,
-        notional: Money,
-        expiry: Date,
-        delivery_start: Date,
-        delivery_end: Date,
-        quoted_price: f64,
-        position: Position,
-        deliverable_basket: Vec<DeliverableBond>,
-        ctd_bond_id: InstrumentId,
-        discount_curve_id: CurveId,
-    ) -> finstack_core::Result<Self> {
-        BondFuture::builder()
-            .id(id)
-            .notional(notional)
-            .expiry(expiry)
-            .delivery_start(delivery_start)
-            .delivery_end(delivery_end)
-            .quoted_price(quoted_price)
-            .position(position)
-            .contract_specs(BondFutureSpecs::gilt())
-            .deliverable_basket(deliverable_basket)
-            .ctd_bond_id(ctd_bond_id)
-            .discount_curve_id(discount_curve_id)
-            .attributes(Attributes::new())
-            .build_validated()
-    }
-
     /// Calculate the invoice price for settlement of the bond future.
     ///
     /// The invoice price is the amount the buyer pays to the seller when taking delivery
@@ -928,26 +628,30 @@ impl BondFuture {
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
     /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{
+    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
+    /// };
     /// use time::macros::date;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let ctd_bond_id = InstrumentId::new("US912828XG33");
-    /// let future = BondFuture::ust_10y(
-    ///     InstrumentId::new("TYH5"),
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     date!(2025-03-20),
-    ///     date!(2025-03-21),
-    ///     date!(2025-03-31),
-    ///     125.50,
-    ///     Position::Long,
-    ///     vec![DeliverableBond {
+    /// let future = BondFuture::builder()
+    ///     .id(InstrumentId::new("TYH5"))
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .expiry(date!(2025-03-20))
+    ///     .delivery_start(date!(2025-03-21))
+    ///     .delivery_end(date!(2025-03-31))
+    ///     .quoted_price(125.50)
+    ///     .position(Position::Long)
+    ///     .contract_specs(BondFutureSpecs::ust_10y())
+    ///     .deliverable_basket(vec![DeliverableBond {
     ///         bond_id: ctd_bond_id.clone(),
     ///         conversion_factor: 0.8234,
-    ///     }],
-    ///     ctd_bond_id.clone(),
-    ///     CurveId::new("USD-TREASURY"),
-    /// )?;
+    ///     }])
+    ///     .ctd_bond_id(ctd_bond_id.clone())
+    ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
+    ///     .build()
+    ///     .expect("Valid bond future");
     /// let ctd_bond = Bond::fixed(
     ///     ctd_bond_id.as_str(),
     ///     Money::new(100_000.0, Currency::USD),
@@ -1055,7 +759,9 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{
+    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
+    /// };
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
@@ -1066,21 +772,23 @@ impl BondFuture {
     /// let bond1_id = InstrumentId::new("US912828XG33");
     /// let bond2_id = InstrumentId::new("US912828XG34");
     ///
-    /// let future = BondFuture::ust_10y(
-    ///     InstrumentId::new("TYH5"),
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     date!(2025-03-20),
-    ///     date!(2025-03-21),
-    ///     date!(2025-03-31),
-    ///     125.50,
-    ///     Position::Long,
-    ///     vec![
+    /// let future = BondFuture::builder()
+    ///     .id(InstrumentId::new("TYH5"))
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .expiry(date!(2025-03-20))
+    ///     .delivery_start(date!(2025-03-21))
+    ///     .delivery_end(date!(2025-03-31))
+    ///     .quoted_price(125.50)
+    ///     .position(Position::Long)
+    ///     .contract_specs(BondFutureSpecs::ust_10y())
+    ///     .deliverable_basket(vec![
     ///         DeliverableBond { bond_id: bond1_id.clone(), conversion_factor: 0.8234 },
     ///         DeliverableBond { bond_id: bond2_id.clone(), conversion_factor: 0.8567 },
-    ///     ],
-    ///     bond1_id.clone(), // Initial CTD guess
-    ///     CurveId::new("USD-TREASURY"),
-    /// )?;
+    ///     ])
+    ///     .ctd_bond_id(bond1_id.clone())
+    ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
+    ///     .build()
+    ///     .expect("Valid bond future");
     ///
     /// // Determine CTD based on current market prices
     /// let bond_prices = vec![
@@ -1166,7 +874,9 @@ impl BondFuture {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{
+    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
+    /// };
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
@@ -1176,21 +886,23 @@ impl BondFuture {
     /// let bond1_id = InstrumentId::new("US912828XG33");
     /// let bond2_id = InstrumentId::new("US912828XG34");
     ///
-    /// let future = BondFuture::ust_10y(
-    ///     InstrumentId::new("TYH5"),
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     date!(2025-03-20),
-    ///     date!(2025-03-21),
-    ///     date!(2025-03-31),
-    ///     125.50,
-    ///     Position::Long,
-    ///     vec![
+    /// let future = BondFuture::builder()
+    ///     .id(InstrumentId::new("TYH5"))
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .expiry(date!(2025-03-20))
+    ///     .delivery_start(date!(2025-03-21))
+    ///     .delivery_end(date!(2025-03-31))
+    ///     .quoted_price(125.50)
+    ///     .position(Position::Long)
+    ///     .contract_specs(BondFutureSpecs::ust_10y())
+    ///     .deliverable_basket(vec![
     ///         DeliverableBond { bond_id: bond1_id.clone(), conversion_factor: 0.8234 },
     ///         DeliverableBond { bond_id: bond2_id.clone(), conversion_factor: 0.8567 },
-    ///     ],
-    ///     bond1_id.clone(),
-    ///     CurveId::new("USD-TREASURY"),
-    /// )?;
+    ///     ])
+    ///     .ctd_bond_id(bond1_id.clone())
+    ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
+    ///     .build()
+    ///     .expect("Valid bond future");
     ///
     /// let bond_data = vec![
     ///     (bond1_id.clone(), 103.25, 1.25, 1.75),  // (id, clean, accrued_today, accrued_at_delivery)
@@ -1282,7 +994,9 @@ impl BondFuture {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::fixed_income::bond_future::{BondFuture, DeliverableBond, Position};
+    /// use finstack_valuations::instruments::fixed_income::bond_future::{
+    ///     BondFuture, BondFutureSpecs, DeliverableBond, Position,
+    /// };
     /// use finstack_core::currency::Currency;
     /// use finstack_core::money::Money;
     /// use finstack_core::types::{CurveId, InstrumentId};
@@ -1290,18 +1004,22 @@ impl BondFuture {
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// let bond_id = InstrumentId::new("US912828XG33");
-    /// let future = BondFuture::ust_10y(
-    ///     InstrumentId::new("TYH5"),
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     date!(2025-03-20),
-    ///     date!(2025-03-21),
-    ///     date!(2025-03-31),
-    ///     125.50,
-    ///     Position::Long,
-    ///     vec![DeliverableBond { bond_id: bond_id.clone(), conversion_factor: 0.8234 }],
-    ///     bond_id.clone(),
-    ///     CurveId::new("USD-TREASURY"),
-    /// )?;
+    /// let future = BondFuture::builder()
+    ///     .id(InstrumentId::new("TYH5"))
+    ///     .notional(Money::new(1_000_000.0, Currency::USD))
+    ///     .expiry(date!(2025-03-20))
+    ///     .delivery_start(date!(2025-03-21))
+    ///     .delivery_end(date!(2025-03-31))
+    ///     .quoted_price(125.50)
+    ///     .position(Position::Long)
+    ///     .contract_specs(BondFutureSpecs::ust_10y())
+    ///     .deliverable_basket(vec![
+    ///         DeliverableBond { bond_id: bond_id.clone(), conversion_factor: 0.8234 },
+    ///     ])
+    ///     .ctd_bond_id(bond_id.clone())
+    ///     .discount_curve_id(CurveId::new("USD-TREASURY"))
+    ///     .build()
+    ///     .expect("Valid bond future");
     ///
     /// // Calculate implied repo for the CTD bond
     /// let implied_repo = future.implied_repo_rate(
@@ -1774,27 +1492,29 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    // Convenience constructor tests
+    // Builder-based constructor tests for each contract spec
     #[test]
-    fn test_ust_10y_constructor() {
+    fn test_ust_10y_builder() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("US912828XG33"),
             conversion_factor: 0.8234,
         };
 
-        let future = BondFuture::ust_10y(
-            InstrumentId::new("TYH5"),
-            Money::new(1_000_000.0, Currency::USD),
-            Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            125.50,
-            Position::Long,
-            vec![deliverable],
-            InstrumentId::new("US912828XG33"),
-            CurveId::new("USD-TREASURY"),
-        )
-        .expect("Valid UST 10Y future");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::ust_10y())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build_validated()
+            .expect("Valid UST 10Y future");
 
         assert_eq!(future.id.as_str(), "TYH5");
         assert_eq!(future.quoted_price, 125.50);
@@ -1807,25 +1527,27 @@ mod tests {
     }
 
     #[test]
-    fn test_ust_5y_constructor() {
+    fn test_ust_5y_builder() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("US912828XG33"),
             conversion_factor: 0.7890,
         };
 
-        let future = BondFuture::ust_5y(
-            InstrumentId::new("FVH5"),
-            Money::new(500_000.0, Currency::USD),
-            Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            118.75,
-            Position::Long,
-            vec![deliverable],
-            InstrumentId::new("US912828XG33"),
-            CurveId::new("USD-TREASURY"),
-        )
-        .expect("Valid UST 5Y future");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("FVH5"))
+            .notional(Money::new(500_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(118.75)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::ust_5y())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build_validated()
+            .expect("Valid UST 5Y future");
 
         assert_eq!(future.id.as_str(), "FVH5");
         assert_eq!(future.quoted_price, 118.75);
@@ -1838,25 +1560,27 @@ mod tests {
     }
 
     #[test]
-    fn test_ust_2y_constructor() {
+    fn test_ust_2y_builder() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("US912828XG33"),
             conversion_factor: 0.9123,
         };
 
-        let future = BondFuture::ust_2y(
-            InstrumentId::new("TUH5"),
-            Money::new(400_000.0, Currency::USD),
-            Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            105.25,
-            Position::Long,
-            vec![deliverable],
-            InstrumentId::new("US912828XG33"),
-            CurveId::new("USD-TREASURY"),
-        )
-        .expect("Valid UST 2Y future");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("TUH5"))
+            .notional(Money::new(400_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(105.25)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::ust_2y())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build_validated()
+            .expect("Valid UST 2Y future");
 
         assert_eq!(future.id.as_str(), "TUH5");
         assert_eq!(future.quoted_price, 105.25);
@@ -1869,25 +1593,27 @@ mod tests {
     }
 
     #[test]
-    fn test_bund_constructor() {
+    fn test_bund_builder() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("DE0001102473"),
             conversion_factor: 0.8567,
         };
 
-        let future = BondFuture::bund(
-            InstrumentId::new("FGBLH5"),
-            Money::new(1_000_000.0, Currency::EUR),
-            Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            132.15,
-            Position::Long,
-            vec![deliverable],
-            InstrumentId::new("DE0001102473"),
-            CurveId::new("EUR-BUNDS"),
-        )
-        .expect("Valid Bund future");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("FGBLH5"))
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(132.15)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::bund())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("DE0001102473"))
+            .discount_curve_id(CurveId::new("EUR-BUNDS"))
+            .attributes(Attributes::new())
+            .build_validated()
+            .expect("Valid Bund future");
 
         assert_eq!(future.id.as_str(), "FGBLH5");
         assert_eq!(future.quoted_price, 132.15);
@@ -1900,25 +1626,27 @@ mod tests {
     }
 
     #[test]
-    fn test_gilt_constructor() {
+    fn test_gilt_builder() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("GB00B128DH60"),
             conversion_factor: 0.7234,
         };
 
-        let future = BondFuture::gilt(
-            InstrumentId::new("GILTH5"),
-            Money::new(500_000.0, Currency::GBP),
-            Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            115.25,
-            Position::Long,
-            vec![deliverable],
-            InstrumentId::new("GB00B128DH60"),
-            CurveId::new("GBP-GILTS"),
-        )
-        .expect("Valid Gilt future");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("GILTH5"))
+            .notional(Money::new(500_000.0, Currency::GBP))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(115.25)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::gilt())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("GB00B128DH60"))
+            .discount_curve_id(CurveId::new("GBP-GILTS"))
+            .attributes(Attributes::new())
+            .build_validated()
+            .expect("Valid Gilt future");
 
         assert_eq!(future.id.as_str(), "GILTH5");
         assert_eq!(future.quoted_price, 115.25);
@@ -1931,49 +1659,53 @@ mod tests {
     }
 
     #[test]
-    fn test_convenience_constructor_short_position() {
+    fn test_builder_short_position() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("US912828XG33"),
             conversion_factor: 0.8234,
         };
 
-        let future = BondFuture::ust_10y(
-            InstrumentId::new("TYH5"),
-            Money::new(1_000_000.0, Currency::USD),
-            Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            125.50,
-            Position::Short, // Short position
-            vec![deliverable],
-            InstrumentId::new("US912828XG33"),
-            CurveId::new("USD-TREASURY"),
-        )
-        .expect("Valid short future");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("Valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Short)
+            .contract_specs(BondFutureSpecs::ust_10y())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build_validated()
+            .expect("Valid short future");
 
         assert_eq!(future.position, Position::Short);
     }
 
     #[test]
-    fn test_convenience_constructor_validation_error() {
+    fn test_builder_validation_error() {
         let deliverable = DeliverableBond {
             bond_id: InstrumentId::new("US912828XG33"),
             conversion_factor: 0.8234,
         };
 
         // Invalid: expiry after delivery start
-        let result = BondFuture::ust_10y(
-            InstrumentId::new("TYH5"),
-            Money::new(1_000_000.0, Currency::USD),
-            Date::from_calendar_date(2025, Month::March, 25).expect("Valid date"), // After delivery_start
-            Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"),
-            Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"),
-            125.50,
-            Position::Long,
-            vec![deliverable],
-            InstrumentId::new("US912828XG33"),
-            CurveId::new("USD-TREASURY"),
-        );
+        let result = BondFuture::builder()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::March, 25).expect("Valid date")) // After delivery_start
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("Valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("Valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::ust_10y())
+            .deliverable_basket(vec![deliverable])
+            .ctd_bond_id(InstrumentId::new("US912828XG33"))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build_validated();
 
         assert!(result.is_err());
     }

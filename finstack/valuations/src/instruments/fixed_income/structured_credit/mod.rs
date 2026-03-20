@@ -99,8 +99,6 @@ pub mod prelude {
 // MAIN TYPES
 // ============================================================================
 
-#[allow(deprecated)]
-pub use pricer::StructuredCreditDiscountingPricer;
 pub use types::{
     // Pool types
     calculate_pool_stats,

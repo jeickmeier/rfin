@@ -372,7 +372,8 @@ mod tests {
             .knots([(0.0, 1.0), (1.0, (-0.01_f64).exp())])
             .build()
             .expect("eur curve");
-        let provider = SimpleFxProvider::new().with_quote(Currency::EUR, Currency::USD, 1.10);
+        let provider = SimpleFxProvider::new();
+        provider.set_quote(Currency::EUR, Currency::USD, 1.10).expect("valid rate");
         let fx = FxMatrix::new(Arc::new(provider));
         MarketContext::new()
             .insert(usd_curve)

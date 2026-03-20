@@ -63,8 +63,6 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
 
-#[allow(deprecated)]
-pub use pricer::SimpleInflationSwapDiscountingPricer;
 pub use types::{InflationSwap, InflationSwapBuilder, YoYInflationSwap, YoYInflationSwapBuilder};
 
 // Re-export PayReceive from common parameters for backward compatibility
