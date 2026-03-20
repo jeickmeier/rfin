@@ -6,12 +6,12 @@
 //! # ISDA SIMM Methodology
 //!
 //! SIMM calculates IM based on sensitivities across risk classes:
-//! - Interest Rate (IR): DV01 by tenor bucket
-//! - Credit Qualifying (CQ): CS01 for investment grade
-//! - Credit Non-Qualifying (CNQ): CS01 for high yield
-//! - Equity: Delta sensitivities
-//! - Commodity: Delta sensitivities
-//! - FX: Delta sensitivities
+//! - Interest Rate (IR): DV01-style currency sensitivities by tenor bucket
+//! - Credit Qualifying (CQ): CS01-style currency sensitivities for investment-grade credit
+//! - Credit Non-Qualifying (CNQ): CS01-style currency sensitivities for high-yield credit
+//! - Equity: signed currency delta and vega sensitivities
+//! - Commodity: signed currency delta and vega sensitivities
+//! - FX: signed currency delta and vega sensitivities
 //!
 //! # Formula
 //!
@@ -24,6 +24,21 @@
 //! > **Implementation note:** `calculate_from_sensitivities` applies intra-bucket
 //! > tenor correlations for IR delta, vega margin (IR, equity, FX), curvature
 //! > risk, concentration add-ons, and the SIMM risk-class correlation matrix.
+//!
+//! # Conventions
+//!
+//! - Risk weights and correlations are stored as decimal quantities in the
+//!   registry, not basis points.
+//! - Rate and credit delta inputs are expected to be DV01 or CS01 style
+//!   currency amounts per 1bp move before they reach this module.
+//! - Tenor keys must match the registry-backed tenor labels exactly.
+//! - The aggregation currency is chosen by the caller to
+//!   [`SimmCalculator::calculate_from_sensitivities`].
+//!
+//! # References
+//!
+//! - ISDA SIMM: `docs/REFERENCES.md#isda-simm`
+//! - BCBS-IOSCO uncleared margin framework: `docs/REFERENCES.md#bcbs-iosco-uncleared-margin`
 
 use crate::calculators::traits::{ImCalculator, ImResult};
 use crate::config::margin_registry_from_config;
@@ -40,6 +55,9 @@ use finstack_core::Result;
 use tracing::debug;
 
 /// SIMM version identifier.
+///
+/// Version choice controls the registry-backed risk weights, correlations, and
+/// concentration thresholds used by the calculator.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
 )]
@@ -249,8 +267,14 @@ impl IrTenorCorrelationMatrix {
 
 /// ISDA SIMM calculator.
 ///
-/// Calculates initial margin using the ISDA Standard Initial Margin Model.
-/// This is the industry standard methodology for bilateral OTC derivatives.
+/// Calculates initial margin using the ISDA Standard Initial Margin Model for
+/// bilateral OTC derivatives. The calculator is parameterized entirely from the
+/// margin registry, so version changes and config overlays affect risk weights,
+/// correlations, concentration thresholds, and MPOR.
+///
+/// # References
+///
+/// - ISDA SIMM: `docs/REFERENCES.md#isda-simm`
 #[derive(Debug, Clone)]
 pub struct SimmCalculator {
     /// SIMM parameters (risk weights, correlations, thresholds)
@@ -268,6 +292,14 @@ impl Default for SimmCalculator {
 impl SimmCalculator {
     /// Create a new SIMM calculator with the specified version.
     ///
+    /// # Arguments
+    ///
+    /// * `version` - SIMM rule set to load from the embedded margin registry
+    ///
+    /// # Returns
+    ///
+    /// A calculator with registry-backed risk weights and correlations for `version`.
+    ///
     /// # Errors
     ///
     /// Returns an error if the embedded margin registry cannot be loaded.
@@ -282,6 +314,19 @@ impl SimmCalculator {
     }
 
     /// Create a new SIMM calculator resolved from a `FinstackConfig`.
+    ///
+    /// # Arguments
+    ///
+    /// * `version` - SIMM rule set to resolve
+    /// * `cfg` - Config whose margin-registry overlay may replace embedded SIMM parameters
+    ///
+    /// # Returns
+    ///
+    /// A calculator using the merged registry derived from `cfg`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the margin registry cannot be loaded from `cfg`.
     pub fn from_finstack_config(
         version: SimmVersion,
         cfg: &finstack_core::config::FinstackConfig,
@@ -308,20 +353,32 @@ impl SimmCalculator {
     }
 
     /// Set margin period of risk.
+    ///
+    /// # Arguments
+    ///
+    /// * `days` - Margin period of risk in calendar days
+    ///
+    /// # Returns
+    ///
+    /// The updated calculator.
     #[must_use]
     pub fn with_mpor(mut self, days: u32) -> Self {
         self.params.mpor_days = days;
         self
     }
 
-    /// Calculate IR delta margin from DV01 sensitivities.
+    /// Calculate IR delta margin from DV01-style sensitivities.
     ///
     /// Uses intra-bucket tenor correlations per ISDA SIMM methodology:
     /// `K = sqrt(sum_i sum_j rho(i,j) * WS_i * WS_j)`
     ///
     /// # Arguments
     ///
-    /// * `dv01_by_tenor` - Map of tenor bucket to DV01 sensitivity
+    /// * `dv01_by_tenor` - Map of tenor bucket to signed currency DV01 per 1bp move
+    ///
+    /// # Returns
+    ///
+    /// The interest-rate delta margin contribution in the caller's implicit currency units.
     pub fn calculate_ir_delta(&self, dv01_by_tenor: &HashMap<String, f64>) -> f64 {
         let weighted: Vec<(usize, f64)> = dv01_by_tenor
             .iter()
@@ -342,12 +399,16 @@ impl SimmCalculator {
         sum.max(0.0).sqrt()
     }
 
-    /// Calculate credit delta margin from CS01 sensitivities.
+    /// Calculate credit delta margin from CS01-style sensitivities.
     ///
     /// # Arguments
     ///
-    /// * `cs01` - Credit spread sensitivity (par spread bump)
+    /// * `cs01` - Signed currency CS01 per 1bp par-spread move
     /// * `qualifying` - Whether the credit is investment grade (qualifying)
+    ///
+    /// # Returns
+    ///
+    /// The credit delta margin contribution after the applicable SIMM risk weight.
     pub fn calculate_credit_delta(&self, cs01: f64, qualifying: bool) -> f64 {
         let weight = if qualifying {
             *self
@@ -366,7 +427,11 @@ impl SimmCalculator {
     ///
     /// # Arguments
     ///
-    /// * `equity_delta` - Equity delta sensitivity
+    /// * `equity_delta` - Signed currency equity delta sensitivity
+    ///
+    /// # Returns
+    ///
+    /// The weighted equity delta margin contribution.
     pub fn calculate_equity_delta(&self, equity_delta: f64) -> f64 {
         (equity_delta * self.params.equity_delta_weight).abs()
     }
@@ -375,12 +440,24 @@ impl SimmCalculator {
     ///
     /// # Arguments
     ///
-    /// * `fx_delta` - FX delta sensitivity
+    /// * `fx_delta` - Signed currency FX delta sensitivity
+    ///
+    /// # Returns
+    ///
+    /// The weighted FX delta margin contribution.
     pub fn calculate_fx_delta(&self, fx_delta: f64) -> f64 {
         (fx_delta * self.params.fx_delta_weight).abs()
     }
 
     /// Calculate commodity delta margin using SIMM bucket risk weights.
+    ///
+    /// # Arguments
+    ///
+    /// * `delta_by_bucket` - Signed currency delta by SIMM commodity bucket label
+    ///
+    /// # Returns
+    ///
+    /// The commodity delta margin contribution after bucket weighting and inter-bucket correlation.
     pub fn calculate_commodity_delta(&self, delta_by_bucket: &HashMap<String, f64>) -> f64 {
         let weighted_buckets: Vec<(u8, f64)> = delta_by_bucket
             .iter()
@@ -405,7 +482,15 @@ impl SimmCalculator {
         sum.max(0.0).sqrt()
     }
 
-    /// Calculate IR vega margin from vega sensitivities.
+    /// Calculate IR vega margin from tenor-bucketed vega sensitivities.
+    ///
+    /// # Arguments
+    ///
+    /// * `vega_by_tenor` - Signed currency vega amounts keyed by SIMM tenor label
+    ///
+    /// # Returns
+    ///
+    /// The interest-rate vega margin contribution.
     pub fn calculate_ir_vega(&self, vega_by_tenor: &HashMap<String, f64>) -> f64 {
         let weight = self.params.ir_vega_weight;
         let indexed: Vec<(usize, f64)> = vega_by_tenor
@@ -427,6 +512,9 @@ impl SimmCalculator {
     }
 
     /// Calculate credit vega margin.
+    ///
+    /// `total_vega` is expected to be a signed currency vega amount already
+    /// aggregated across the caller's chosen credit buckets.
     pub fn calculate_credit_vega(&self, total_vega: f64, qualifying: bool) -> f64 {
         let weight = if qualifying {
             self.params.cq_vega_weight
@@ -436,24 +524,27 @@ impl SimmCalculator {
         (total_vega * weight).abs()
     }
 
-    /// Calculate equity vega margin.
+    /// Calculate equity vega margin from a signed currency vega amount.
     pub fn calculate_equity_vega(&self, total_vega: f64) -> f64 {
         (total_vega * self.params.equity_vega_weight).abs()
     }
 
-    /// Calculate FX vega margin.
+    /// Calculate FX vega margin from a signed currency vega amount.
     pub fn calculate_fx_vega(&self, total_vega: f64) -> f64 {
         (total_vega * self.params.fx_vega_weight).abs()
     }
 
-    /// Calculate commodity vega margin.
+    /// Calculate commodity vega margin from a signed currency vega amount.
     pub fn calculate_commodity_vega(&self, total_vega: f64) -> f64 {
         (total_vega * self.params.commodity_vega_weight).abs()
     }
 
-    /// Calculate curvature margin for a risk class.
+    /// Calculate curvature margin across risk classes.
     ///
     /// SIMM curvature risk = scale_factor x max(0, sum of curvature CVR)
+    ///
+    /// `curvature_by_risk_class` should contain signed currency curvature
+    /// contributions before the SIMM scale factor is applied.
     pub fn calculate_curvature(
         &self,
         curvature_by_risk_class: &HashMap<SimmRiskClass, f64>,
@@ -475,6 +566,9 @@ impl SimmCalculator {
     ///
     /// If the net sensitivity exceeds the concentration threshold,
     /// apply a sqrt(|sensitivity| / threshold) multiplier.
+    ///
+    /// Both `net_sensitivity` and the configured threshold are interpreted in
+    /// the same signed currency units.
     pub fn concentration_factor(&self, risk_class: SimmRiskClass, net_sensitivity: f64) -> f64 {
         if let Some(&threshold) = self.params.concentration_thresholds.get(&risk_class) {
             if threshold > 0.0 && net_sensitivity.abs() > threshold {
@@ -494,12 +588,24 @@ impl SimmCalculator {
     ///
     /// # Arguments
     ///
-    /// * `sensitivities` - SIMM sensitivities by risk class
-    /// * `currency` - Currency for the resulting margin amounts
+    /// * `sensitivities` - SIMM sensitivities by risk class using the units documented on [`SimmSensitivities`]
+    /// * `currency` - Currency in which returned [`Money`] amounts will be labeled
     ///
     /// # Returns
     ///
-    /// A tuple of (total_margin, breakdown_by_risk_class).
+    /// A tuple of `(total_margin, breakdown_by_risk_class)` where `total_margin`
+    /// is a scalar amount in `currency` units and the breakdown labels the
+    /// major SIMM components included in the aggregate.
+    ///
+    /// # Notes
+    ///
+    /// Currency labels from `sensitivities.ir_delta` and similar fields are
+    /// preserved for bucketing but the returned margin amounts are all reported
+    /// in `currency`.
+    ///
+    /// # References
+    ///
+    /// - ISDA SIMM: `docs/REFERENCES.md#isda-simm`
     pub fn calculate_from_sensitivities(
         &self,
         sensitivities: &SimmSensitivities,

@@ -12,6 +12,7 @@
 //! - [`ClearingHouseImCalculator`]: CCP-specific IM calculation
 //! - [`InternalModelImCalculator`]: Internal model IM calculation
 
+/// Initial-margin calculators and methodology-specific helpers.
 pub mod im;
 mod traits;
 mod vm;

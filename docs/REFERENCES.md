@@ -95,6 +95,72 @@ risk calculation with a standard reference.
 - Meucci, A. *Risk and Asset Allocation*. Reference for factor models, covariance
   aggregation, and exposure-based portfolio risk decomposition.
 
+## Margin, Collateral, And XVA
+
+<a id="isda-2002-master-agreement"></a>
+
+### ISDA 2002 Master Agreement
+
+- International Swaps and Derivatives Association. *2002 ISDA Master Agreement*.
+  Canonical reference for close-out netting and default-management terms used in
+  OTC derivatives netting sets.
+
+<a id="isda-vm-csa-2016"></a>
+
+### ISDA 2016 VM CSA
+
+- International Swaps and Derivatives Association. *Credit Support Annex for
+  Variation Margin (VM CSA)*. Standard reference for regulatory VM collateral
+  terms, threshold conventions, and margin-call mechanics.
+
+<a id="isda-im-csa-2018"></a>
+
+### ISDA 2018 IM CSA
+
+- International Swaps and Derivatives Association. *Credit Support Deed and
+  Credit Support Annex for Initial Margin*. Standard reference for segregated IM
+  documentation and collateral terms for uncleared derivatives.
+
+<a id="isda-simm"></a>
+
+### ISDA SIMM
+
+- International Swaps and Derivatives Association. *Standard Initial Margin
+  Model (SIMM) Methodology*. Canonical reference for SIMM risk classes, buckets,
+  risk weights, correlations, concentration thresholds, and margin aggregation.
+
+<a id="bcbs-iosco-uncleared-margin"></a>
+
+### BCBS IOSCO Uncleared Margin
+
+- Basel Committee on Banking Supervision and International Organization of
+  Securities Commissions. *Margin Requirements for Non-Centrally Cleared
+  Derivatives*. Standard reference for regulatory IM and VM requirements,
+  including the schedule-based fallback methodology.
+
+<a id="bcbs-279-saccr"></a>
+
+### BCBS 279 SA-CCR
+
+- Basel Committee on Banking Supervision. *The Standardised Approach for
+  Measuring Counterparty Credit Risk Exposures* (BCBS 279). Canonical reference
+  for Effective EPE and counterparty-credit-risk exposure terminology.
+
+<a id="gregory-xva-challenge"></a>
+
+### Gregory XVA Challenge
+
+- Gregory, J. *The xVA Challenge*. Practitioner reference for exposure
+  simulation, collateral, CVA, DVA, and FVA workflows.
+
+<a id="green-xva"></a>
+
+### Green XVA
+
+- Green, A. *XVA: Credit, Funding and Capital Valuation Adjustments*.
+  Practitioner reference for bilateral XVA decomposition and funding-adjustment
+  conventions.
+
 ## Volatility, Options, And Smile Models
 
 <a id="black-1976"></a>

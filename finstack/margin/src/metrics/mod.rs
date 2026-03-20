@@ -8,6 +8,7 @@
 //! - Haircut sensitivity (Haircut01)
 //! - Instrument-level IM and VM calculations
 
+/// Instrument-level IM, VM, and total-margin metrics.
 pub mod instrument;
 
 pub use instrument::{
