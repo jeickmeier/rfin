@@ -25,6 +25,15 @@ pub struct ScenarioSpecBuilder {
 
 impl ScenarioSpecBuilder {
     /// Create a new builder with the given scenario identifier.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: Stable identifier for the scenario that will be built.
+    ///
+    /// # Returns
+    ///
+    /// A builder with no operations, default priority `0`, and the default
+    /// hierarchy resolution mode.
     #[must_use]
     pub fn new(id: impl Into<String>) -> Self {
         Self {
@@ -41,42 +50,99 @@ impl ScenarioSpecBuilder {
     }
 
     /// Override the scenario identifier.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: Replacement scenario identifier.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn id(mut self, id: impl Into<String>) -> Self {
         self.id = id.into();
         self
     }
 
     /// Set the human-readable scenario name.
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: Display name to store in the final [`ScenarioSpec`].
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn name(mut self, name: impl Into<String>) -> Self {
         self.name = Some(name.into());
         self
     }
 
     /// Set the optional scenario description.
+    ///
+    /// # Arguments
+    ///
+    /// - `description`: Freeform text describing the scenario intent.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn description(mut self, description: impl Into<String>) -> Self {
         self.description = Some(description.into());
         self
     }
 
     /// Set the composition priority. Lower values are applied first.
+    ///
+    /// # Arguments
+    ///
+    /// - `priority`: Ordering key used by [`crate::ScenarioEngine::compose`].
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn priority(mut self, priority: i32) -> Self {
         self.priority = priority;
         self
     }
 
     /// Set how overlapping hierarchy-targeted operations should resolve.
+    ///
+    /// # Arguments
+    ///
+    /// - `resolution_mode`: Hierarchy merge policy to store in the final
+    ///   [`ScenarioSpec`].
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn resolution_mode(mut self, resolution_mode: ResolutionMode) -> Self {
         self.resolution_mode = resolution_mode;
         self
     }
 
     /// Append a single operation to the builder.
+    ///
+    /// # Arguments
+    ///
+    /// - `operation`: Scenario operation to append in insertion order.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn with_operation(mut self, operation: OperationSpec) -> Self {
         self.operations.push(operation);
         self
     }
 
     /// Append multiple operations to the builder.
+    ///
+    /// # Arguments
+    ///
+    /// - `operations`: Operations to append in insertion order.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn with_operations(mut self, operations: Vec<OperationSpec>) -> Self {
         self.operations.extend(operations);
         self
@@ -85,6 +151,15 @@ impl ScenarioSpecBuilder {
     /// Override a conventional curve or surface identifier with a user-specific one.
     ///
     /// This applies to curve, volatility-surface, and base-correlation operations.
+    ///
+    /// # Arguments
+    ///
+    /// - `default_id`: Identifier encoded by the template.
+    /// - `user_id`: Replacement identifier to use in the built scenario.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn override_curve(mut self, default_id: &str, user_id: &str) -> Self {
         self.curve_overrides
             .insert(default_id.to_string(), user_id.to_string());
@@ -92,6 +167,15 @@ impl ScenarioSpecBuilder {
     }
 
     /// Override a conventional equity identifier with a user-specific one.
+    ///
+    /// # Arguments
+    ///
+    /// - `default_id`: Equity identifier encoded by the template.
+    /// - `user_id`: Replacement identifier to use in the built scenario.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn override_equity(mut self, default_id: &str, user_id: &str) -> Self {
         self.equity_overrides
             .insert(default_id.to_string(), user_id.to_string());
@@ -99,6 +183,19 @@ impl ScenarioSpecBuilder {
     }
 
     /// Override a conventional FX pair with a user-specific pair.
+    ///
+    /// If the replacement pair reverses the original base/quote orientation,
+    /// the builder converts the stored percentage shock into the reciprocal FX
+    /// move so that economic direction is preserved.
+    ///
+    /// # Arguments
+    ///
+    /// - `default`: Template FX pair.
+    /// - `user`: Replacement FX pair.
+    ///
+    /// # Returns
+    ///
+    /// The updated builder for fluent chaining.
     pub fn override_fx(
         mut self,
         default: (Currency, Currency),
@@ -112,6 +209,14 @@ impl ScenarioSpecBuilder {
     ///
     /// The composed builder inherits the engine defaults, including the default `"composed"`
     /// identifier, so callers can override it with [`id`](Self::id) when needed.
+    ///
+    /// # Arguments
+    ///
+    /// - `builders`: Builders to convert into specs and compose in priority order.
+    ///
+    /// # Returns
+    ///
+    /// A new builder containing the composed operations.
     #[must_use]
     pub fn compose(builders: Vec<ScenarioSpecBuilder>) -> Self {
         let specs = builders
@@ -134,6 +239,38 @@ impl ScenarioSpecBuilder {
     }
 
     /// Resolve overrides and validate the resulting [`ScenarioSpec`].
+    ///
+    /// # Returns
+    ///
+    /// A validated [`ScenarioSpec`] with all configured identifier overrides
+    /// applied.
+    ///
+    /// # Errors
+    ///
+    /// Returns any validation error raised by [`ScenarioSpec::validate`], such
+    /// as empty identifiers, invalid operations, or multiple time-roll
+    /// operations.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_core::currency::Currency;
+    /// use finstack_scenarios::{CurveKind, OperationSpec, ScenarioSpecBuilder};
+    ///
+    /// let spec = ScenarioSpecBuilder::new("rates")
+    ///     .with_operation(OperationSpec::CurveParallelBp {
+    ///         curve_kind: CurveKind::Discount,
+    ///         curve_id: "USD_SOFR".into(),
+    ///         discount_curve_id: None,
+    ///         bp: 25.0,
+    ///     })
+    ///     .override_curve("USD_SOFR", "USD_OIS")
+    ///     .override_fx((Currency::USD, Currency::EUR), (Currency::USD, Currency::EUR))
+    ///     .build()?;
+    ///
+    /// assert_eq!(spec.operations.len(), 1);
+    /// # Ok::<(), finstack_scenarios::Error>(())
+    /// ```
     pub fn build(mut self) -> crate::Result<ScenarioSpec> {
         self.resolve_overrides();
 

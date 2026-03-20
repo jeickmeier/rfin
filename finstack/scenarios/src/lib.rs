@@ -15,6 +15,17 @@
 //! and financial statement forecasts. It enables what-if analysis and stress testing
 //! without requiring a full DSL parser.
 //!
+//! # API Layers
+//!
+//! Most callers start with:
+//! - [`ScenarioSpec`] and [`OperationSpec`] to describe shocks and time rolls
+//! - [`ScenarioEngine`] to apply a spec deterministically
+//! - [`ExecutionContext`] to supply market data, statements, instruments, and calendars
+//! - [`templates`] for reusable historical stress scenarios
+//!
+//! Public helpers in [`adapters`] and [`utils`] are available for advanced workflows
+//! that need to build or apply individual effects outside the top-level engine.
+//!
 //! # Quick Start
 //!
 //! ```rust,no_run
@@ -59,6 +70,14 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # Documentation Conventions
+//!
+//! Public APIs in `finstack-scenarios` follow the workspace documentation standard in
+//! `docs/DOCUMENTATION_STANDARD.md`. Finance-sensitive APIs state units and market
+//! conventions explicitly, including percent versus basis-point inputs, compounding,
+//! day-count handling, and calendar behavior. When an API follows a canonical market
+//! convention or numerical method, its rustdoc links to `docs/REFERENCES.md`.
 
 /// Adaptations for scenario execution across domains.
 pub mod adapters;

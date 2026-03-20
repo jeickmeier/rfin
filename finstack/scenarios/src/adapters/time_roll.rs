@@ -73,6 +73,11 @@ pub struct RollForwardReport {
 ///   string cannot be parsed.
 /// - Propagates any errors encountered while revaluing instruments.
 ///
+/// # References
+///
+/// - Day-count and business-day conventions: `docs/REFERENCES.md#isda-2006-definitions`
+/// - Period notation: `docs/REFERENCES.md#iso-8601`
+///
 /// # Examples
 /// ```rust,no_run
 /// use finstack_scenarios::ExecutionContext;
@@ -95,7 +100,7 @@ pub struct RollForwardReport {
 ///     as_of,
 /// };
 /// let report = apply_time_roll_forward(&mut ctx, "1M", TimeRollMode::BusinessDays)?;
-/// assert_eq!(report.days, 30);
+/// assert_eq!(report.days, 31);
 /// # Ok(())
 /// # }
 /// ```

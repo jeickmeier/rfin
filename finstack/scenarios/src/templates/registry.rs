@@ -11,6 +11,10 @@ use std::{collections::HashSet, fs, path::Path};
 type TemplateFactory = dyn Fn() -> ScenarioSpecBuilder + Send + Sync;
 
 /// Registered template entry containing metadata and fresh builder factories.
+///
+/// Use [`RegisteredTemplate::builder`] to build the full composite template, or
+/// [`RegisteredTemplate::component`] to access an individual component builder
+/// by identifier when a historical scenario is decomposed into reusable parts.
 pub struct RegisteredTemplate {
     metadata: TemplateMetadata,
     factory: Box<TemplateFactory>,
@@ -83,24 +87,45 @@ impl RegisteredTemplate {
     }
 
     /// Access the registered template metadata.
+    ///
+    /// # Returns
+    ///
+    /// The immutable metadata stored for this registered template.
     #[must_use]
     pub fn metadata(&self) -> &TemplateMetadata {
         &self.metadata
     }
 
     /// Build a fresh scenario builder from the registered factory.
+    ///
+    /// # Returns
+    ///
+    /// A new [`ScenarioSpecBuilder`] for the full registered template.
     #[must_use]
     pub fn builder(&self) -> ScenarioSpecBuilder {
         (self.factory)()
     }
 
     /// Build a fresh component builder by component identifier.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: Component identifier listed in [`TemplateMetadata::components`].
+    ///
+    /// # Returns
+    ///
+    /// `Some(builder)` when a matching component exists, otherwise `None`.
     #[must_use]
     pub fn component(&self, id: &str) -> Option<ScenarioSpecBuilder> {
         self.components.get(id).map(|factory| factory())
     }
 
     /// List registered component identifiers in deterministic insertion order.
+    ///
+    /// # Returns
+    ///
+    /// Component identifiers in the same order used when the composite
+    /// template is assembled.
     #[must_use]
     pub fn component_ids(&self) -> Vec<&str> {
         self.components.keys().map(String::as_str).collect()
@@ -108,6 +133,9 @@ impl RegisteredTemplate {
 }
 
 /// Registry of template metadata and builder factories.
+///
+/// The registry preserves insertion order for listing and filtering operations
+/// so discovery APIs remain deterministic across runs.
 pub struct TemplateRegistry {
     entries: IndexMap<String, RegisteredTemplate>,
 }
@@ -125,6 +153,16 @@ impl TemplateRegistry {
     }
 
     /// Create a registry preloaded with the crate-owned embedded built-in templates.
+    ///
+    /// # Returns
+    ///
+    /// A registry containing all embedded historical stress templates shipped
+    /// with the crate.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the embedded JSON documents cannot be parsed or fail
+    /// validation.
     pub fn with_embedded_builtins() -> Result<Self> {
         let mut registry = Self::new();
         register_builtins(&mut registry)?;
@@ -132,6 +170,14 @@ impl TemplateRegistry {
     }
 
     /// Register or replace a template and its builder factory.
+    ///
+    /// Registration clears `metadata.components` because this overload stores
+    /// only a top-level builder factory.
+    ///
+    /// # Arguments
+    ///
+    /// - `metadata`: Discovery metadata for the template.
+    /// - `factory`: Factory that produces a fresh builder on each call.
     pub fn register<F>(&mut self, metadata: TemplateMetadata, factory: F)
     where
         F: Fn() -> ScenarioSpecBuilder + Send + Sync + 'static,
@@ -150,6 +196,12 @@ impl TemplateRegistry {
     }
 
     /// Register or replace a template with explicit component builder factories.
+    ///
+    /// # Arguments
+    ///
+    /// - `metadata`: Discovery metadata for the template.
+    /// - `factory`: Factory for the composite template builder.
+    /// - `components`: Component factories keyed by component identifier.
     pub fn register_with_components<F>(
         &mut self,
         metadata: TemplateMetadata,
@@ -181,6 +233,17 @@ impl TemplateRegistry {
     }
 
     /// Parse, validate, and register a template from a runtime JSON string.
+    ///
+    /// # Arguments
+    ///
+    /// - `name`: Logical source name used in error messages.
+    /// - `json`: JSON template document to parse and register.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`](crate::Error::Validation) if the JSON
+    /// cannot be parsed, fails template validation, or duplicates an existing
+    /// template identifier.
     pub fn register_json_template_str(&mut self, name: &str, json: &str) -> Result<()> {
         let document = parse_json_template_document(name, json)?;
         let entry = self.registered_runtime_json_entry(document)?;
@@ -192,6 +255,16 @@ impl TemplateRegistry {
     ///
     /// Only files with a lowercase `.json` extension are loaded. Files are
     /// processed in deterministic filename order.
+    ///
+    /// # Arguments
+    ///
+    /// - `path`: Directory containing runtime JSON template documents.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::Validation`](crate::Error::Validation) if the
+    /// directory cannot be read, any JSON file cannot be parsed or validated,
+    /// or duplicate template identifiers are found during the batch load.
     pub fn load_json_dir<P>(&mut self, path: P) -> Result<()>
     where
         P: AsRef<Path>,
@@ -262,18 +335,38 @@ impl TemplateRegistry {
     }
 
     /// Get a registered template entry by identifier.
+    ///
+    /// # Arguments
+    ///
+    /// - `id`: Template identifier to look up.
+    ///
+    /// # Returns
+    ///
+    /// `Some(entry)` if the template is registered, otherwise `None`.
     #[must_use]
     pub fn get(&self, id: &str) -> Option<&RegisteredTemplate> {
         self.entries.get(id)
     }
 
     /// List all registered template metadata in deterministic insertion order.
+    ///
+    /// # Returns
+    ///
+    /// Metadata references in the order the templates were registered.
     #[must_use]
     pub fn list(&self) -> Vec<&TemplateMetadata> {
         self.entries.values().map(|entry| &entry.metadata).collect()
     }
 
     /// Filter registered templates by tag in deterministic insertion order.
+    ///
+    /// # Arguments
+    ///
+    /// - `tag`: Exact tag to match.
+    ///
+    /// # Returns
+    ///
+    /// Matching templates in registry insertion order.
     #[must_use]
     pub fn filter_by_tag(&self, tag: &str) -> Vec<&TemplateMetadata> {
         self.entries
@@ -284,6 +377,14 @@ impl TemplateRegistry {
     }
 
     /// Filter registered templates by asset class in deterministic insertion order.
+    ///
+    /// # Arguments
+    ///
+    /// - `asset_class`: Asset-class label to match.
+    ///
+    /// # Returns
+    ///
+    /// Matching templates in registry insertion order.
     #[must_use]
     pub fn filter_by_asset_class(&self, asset_class: AssetClass) -> Vec<&TemplateMetadata> {
         self.entries
@@ -294,6 +395,14 @@ impl TemplateRegistry {
     }
 
     /// Filter registered templates by severity in deterministic insertion order.
+    ///
+    /// # Arguments
+    ///
+    /// - `severity`: Severity level to match.
+    ///
+    /// # Returns
+    ///
+    /// Matching templates in registry insertion order.
     #[must_use]
     pub fn filter_by_severity(&self, severity: Severity) -> Vec<&TemplateMetadata> {
         self.entries

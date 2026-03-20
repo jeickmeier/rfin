@@ -1,9 +1,25 @@
 //! Serializable scenario specifications (serde-stable).
 //!
-//! This module defines the surface area that callers use to describe shocks.
-//! Types here are intentionally lightweight and focus on data rather than
-//! behaviour so they can be shared across binaries, configuration files, and
-//! JSON/YAML APIs.
+//! This module defines the data contract that callers use to describe market,
+//! instrument, statement, and time-roll shocks. Types here are intentionally
+//! lightweight and focus on configuration rather than behaviour so they can be
+//! shared across binaries, configuration files, and JSON/YAML APIs.
+//!
+//! Start with [`ScenarioSpec`] and [`OperationSpec`]. Use [`RateBindingSpec`]
+//! when statement nodes should follow curve-driven rates, and use
+//! [`HierarchyTarget`] together with [`ResolutionMode`](finstack_core::market_data::hierarchy::ResolutionMode)
+//! for hierarchy-expanded shocks.
+//!
+//! # Conventions
+//!
+//! - Percent shocks use percentage-point inputs (`5.0 = +5%`).
+//! - Curve and spread shocks quoted in `bp` use additive basis points.
+//! - Time-roll operations distinguish business-day-aware, calendar-day, and
+//!   approximate day-count semantics via [`TimeRollMode`].
+//! - Hierarchy-targeted operations expand to direct market-data identifiers at
+//!   execution time; [`ScenarioSpec::resolution_mode`] determines whether
+//!   overlapping hierarchy matches accumulate or collapse to the most specific
+//!   match.
 
 use finstack_core::market_data::hierarchy::ResolutionMode;
 use indexmap::IndexMap;
@@ -16,7 +32,7 @@ pub use finstack_core::market_data::hierarchy::HierarchyTarget;
 /// type-safe instrument shock operations.
 pub use finstack_valuations::pricer::InstrumentType;
 
-/// Re-export [`NodeId`](finstack_statements::NodeId) for statement node identification.
+/// Re-export [`NodeId`] for statement node identification.
 pub use finstack_statements::NodeId;
 
 /// A complete scenario specification with metadata and ordered operations.
@@ -84,8 +100,16 @@ pub struct ScenarioSpec {
 
 /// Individual operation within a scenario.
 ///
-/// Each variant represents a specific type of shock or adjustment
-/// that can be applied to market data or statements.
+/// Each variant represents a specific type of shock or adjustment that can be
+/// applied to market data, instruments, statements, or the valuation horizon.
+/// Units are encoded in the variant name and field docs:
+/// - `Pct` fields use percentage points (`5.0 = +5%`)
+/// - `Bp` fields use additive basis points
+/// - `Pts` fields use absolute correlation or volatility points in decimal form
+///
+/// Hierarchy-targeted variants are resolved into direct identifiers during
+/// [`crate::engine::ScenarioEngine::apply`] using the market hierarchy attached
+/// to the execution context.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum OperationSpec {
@@ -545,7 +569,13 @@ pub enum OperationSpec {
     // ========================================================================
     // Hierarchy-targeted operations (expanded to direct ops at execution time)
     // ========================================================================
-    /// Hierarchy-targeted parallel curve shift (resolved to individual curves at execution).
+    /// Hierarchy-targeted parallel curve shift.
+    ///
+    /// During [`crate::engine::ScenarioEngine::apply`], the engine resolves
+    /// `target` against the market-data hierarchy and expands this into one
+    /// [`OperationSpec::CurveParallelBp`] per matched curve. When multiple
+    /// hierarchy operations reach the same curve, [`ScenarioSpec::resolution_mode`]
+    /// determines whether they accumulate or only the most specific match survives.
     HierarchyCurveParallelBp {
         /// Type of curve (Discount, Forward, Hazard, etc.).
         curve_kind: CurveKind,
@@ -555,7 +585,11 @@ pub enum OperationSpec {
         bp: f64,
     },
 
-    /// Hierarchy-targeted vol surface parallel shift.
+    /// Hierarchy-targeted vol-surface parallel shift.
+    ///
+    /// Resolution follows the same hierarchy-expansion rules as
+    /// [`OperationSpec::HierarchyCurveParallelBp`], but targets volatility
+    /// surfaces of the requested [`VolSurfaceKind`].
     HierarchyVolSurfaceParallelPct {
         /// Type of volatility surface.
         surface_kind: VolSurfaceKind,
@@ -566,6 +600,9 @@ pub enum OperationSpec {
     },
 
     /// Hierarchy-targeted equity price shift.
+    ///
+    /// Resolution expands the hierarchy target into one direct equity-price
+    /// shock per matched identifier. Percent inputs use percentage points.
     HierarchyEquityPricePct {
         /// Hierarchy target to resolve to equity IDs.
         target: HierarchyTarget,
@@ -573,7 +610,10 @@ pub enum OperationSpec {
         pct: f64,
     },
 
-    /// Hierarchy-targeted base correlation parallel shift.
+    /// Hierarchy-targeted base-correlation parallel shift.
+    ///
+    /// Resolution expands the hierarchy target into one direct
+    /// [`OperationSpec::BaseCorrParallelPts`] per matched surface.
     HierarchyBaseCorrParallelPts {
         /// Hierarchy target to resolve to surfaces.
         target: HierarchyTarget,
@@ -581,7 +621,17 @@ pub enum OperationSpec {
         points: f64,
     },
 
-    /// Roll forward horizon by a period with carry/theta.
+    /// Roll the valuation horizon forward before any later scenario operations run.
+    ///
+    /// `period` uses tenor-style strings such as `"1D"`, `"1W"`, `"1M"`, and
+    /// `"1Y"`. [`TimeRollMode`] controls whether the roll uses business-day-aware
+    /// date arithmetic, pure calendar arithmetic, or fixed approximate day counts.
+    ///
+    /// This operation is handled in phase 0 of
+    /// [`crate::engine::ScenarioEngine::apply`], before market or statement
+    /// shocks. If `apply_shocks` is `false`, the engine stops after the time roll
+    /// and returns an [`crate::engine::ApplicationReport`] without applying the
+    /// remaining operations in the scenario.
     ///
     /// # Example
     /// ```rust
@@ -596,7 +646,10 @@ pub enum OperationSpec {
     TimeRollForward {
         /// Period to roll forward (e.g., "1D", "1W", "1M", "1Y")
         period: String,
-        /// Whether to apply market shocks after rolling
+        /// Whether to continue applying the remaining scenario operations after the roll.
+        ///
+        /// When `false`, [`crate::engine::ScenarioEngine::apply`] returns
+        /// immediately after the roll-forward step.
         #[serde(default = "default_true")]
         apply_shocks: bool,
         /// Roll mode controlling calendar vs business-day behaviour.
@@ -615,6 +668,8 @@ fn default_true() -> bool {
 ///
 /// These variants map to the market data collections exposed by
 /// `finstack_core::market_data::context::MarketContext`.
+/// They also determine which quoting and interpolation conventions apply when
+/// downstream helpers extract rates or apply node shocks.
 ///
 /// # Examples
 /// ```rust
@@ -666,6 +721,11 @@ pub enum VolSurfaceKind {
 
 /// Strategy for aligning requested tenor bumps with curve pillars.
 ///
+/// [`TenorMatchMode::Exact`] requires the requested tenor to coincide with an
+/// existing pillar. [`TenorMatchMode::Interpolate`] instead distributes the
+/// bump across adjacent knots using the interpolation policy implemented by the
+/// adapter.
+///
 /// # Examples
 /// ```rust
 /// use finstack_scenarios::TenorMatchMode;
@@ -684,6 +744,12 @@ pub enum TenorMatchMode {
 }
 
 /// Controls how time roll-forward periods are interpreted.
+///
+/// Use [`TimeRollMode::BusinessDays`] when the scenario should respect holiday
+/// calendars and business-day adjustment rules. Use
+/// [`TimeRollMode::CalendarDays`] when the tenor should be added without a
+/// business-day adjustment. [`TimeRollMode::Approximate`] uses fixed day-count
+/// approximations aligned with [`crate::utils::parse_period_to_days`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum TimeRollMode {
@@ -701,6 +767,15 @@ pub enum TimeRollMode {
 /// Specifies how to extract a rate from a market curve and link it to a
 /// statement forecast node. This enables automatic propagation of market
 /// rate shocks to financial statement projections.
+///
+/// The extracted rate is written into the statement model as a decimal scalar
+/// (for example `0.0525` for 5.25%). `compounding` controls the output quote
+/// convention, while `day_count` optionally overrides the curve's native day
+/// count when converting `tenor` into a year fraction.
+///
+/// Supported `day_count` override strings are the aliases accepted by
+/// [`crate::utils::parse_day_count_override`], including `act/360`,
+/// `act/365f`, `act/act`, `30/360`, and `30e/360`.
 ///
 /// # Examples
 /// ```rust
@@ -740,6 +815,29 @@ impl RateBindingSpec {
     /// Build a binding from the legacy `(node_id, curve_id)` map.
     ///
     /// Uses a 1Y tenor with continuous compounding and no day-count override.
+    ///
+    /// # Arguments
+    ///
+    /// - `node_id`: Statement node that should receive the extracted rate.
+    /// - `curve_id`: Curve identifier to query during scenario application.
+    ///
+    /// # Returns
+    ///
+    /// A [`RateBindingSpec`] using the legacy defaults:
+    /// - tenor = `1Y`
+    /// - compounding = [`Compounding::Continuous`]
+    /// - day count override = `None`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use finstack_scenarios::{Compounding, RateBindingSpec};
+    ///
+    /// let binding = RateBindingSpec::from_legacy("InterestRate", "USD_SOFR");
+    /// assert_eq!(binding.tenor, "1Y");
+    /// assert_eq!(binding.compounding, Compounding::Continuous);
+    /// assert!(binding.day_count.is_none());
+    /// ```
     pub fn from_legacy(node_id: impl Into<NodeId>, curve_id: impl Into<String>) -> Self {
         Self {
             node_id: node_id.into(),
@@ -751,6 +849,28 @@ impl RateBindingSpec {
     }
 
     /// Convert a legacy `(node_id, curve_id)` map into detailed binding specs.
+    ///
+    /// # Arguments
+    ///
+    /// - `legacy`: Mapping from statement node identifiers to curve identifiers.
+    ///
+    /// # Returns
+    ///
+    /// An [`IndexMap`] containing one [`RateBindingSpec`] per legacy entry, in
+    /// insertion order.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use indexmap::IndexMap;
+    /// use finstack_scenarios::RateBindingSpec;
+    ///
+    /// let mut legacy = IndexMap::new();
+    /// legacy.insert("InterestRate".to_string(), "USD_SOFR".to_string());
+    ///
+    /// let bindings = RateBindingSpec::map_from_legacy(legacy);
+    /// assert_eq!(bindings["InterestRate"].curve_id, "USD_SOFR");
+    /// ```
     pub fn map_from_legacy(legacy: IndexMap<String, String>) -> IndexMap<NodeId, RateBindingSpec> {
         legacy
             .into_iter()
@@ -766,7 +886,9 @@ impl RateBindingSpec {
 /// Compounding convention for rate conversions.
 ///
 /// Used when extracting rates from curves to convert between
-/// different quoting conventions (e.g., from continuous to annual).
+/// different quoting conventions (for example from continuous zeros to annual
+/// or simple statement rates). The output remains a decimal annualized rate;
+/// only the compounding basis changes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum Compounding {
@@ -791,6 +913,18 @@ impl ScenarioSpec {
     /// Checks for:
     /// - Non-empty ID
     /// - Valid operations (recursively)
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the scenario has a non-empty identifier, contains at most
+    /// one [`OperationSpec::TimeRollForward`], and every contained operation
+    /// passes [`OperationSpec::validate`].
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::Error::Validation`] if the scenario ID is empty,
+    /// more than one time-roll operation is present, or any contained operation
+    /// is invalid.
     pub fn validate(&self) -> crate::error::Result<()> {
         if self.id.trim().is_empty() {
             return Err(crate::error::Error::Validation(
@@ -823,6 +957,17 @@ impl OperationSpec {
     /// - Non-NaN numeric values
     /// - Non-empty identifiers
     /// - Logical consistency (e.g. valid currency pairs)
+    ///
+    /// # Returns
+    ///
+    /// `Ok(())` when the operation's identifiers, numeric inputs, and variant-
+    /// specific invariants are valid.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`crate::error::Error::Validation`] if any identifier is empty,
+    /// any numeric field is non-finite, a percentage shock is less than or equal
+    /// to `-100%`, or the variant violates its own structural rules.
     pub fn validate(&self) -> crate::error::Result<()> {
         match self {
             OperationSpec::MarketFxPct { base, quote, pct } => {
