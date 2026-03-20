@@ -95,6 +95,186 @@ struct HestonPjCoords {
     t: f64,
 }
 
+struct HestonStripCache {
+    upper_limit: f64,
+    panel_half_width: f64,
+    order: usize,
+    grid: Vec<(f64, f64)>,
+    psi1_over_iphi: Vec<Complex64>,
+    psi2_over_iphi: Vec<Complex64>,
+}
+
+impl HestonStripCache {
+    fn new(params: &HestonParams, coords: HestonPjCoords, upper_limit: f64) -> Option<Self> {
+        let order = 16;
+        let (grid, panel_half_width) = composite_gauss_legendre_grid(1e-8, upper_limit, order, 8)?;
+        let i = Complex64::i();
+        let mut psi1_over_iphi = Vec::with_capacity(grid.len());
+        let mut psi2_over_iphi = Vec::with_capacity(grid.len());
+
+        for (phi, _) in &grid {
+            let denom = i * *phi;
+            let psi1 = params.char_func_j(1, *phi, coords.x, coords.r, coords.q, coords.t);
+            let psi2 = params.char_func_j(2, *phi, coords.x, coords.r, coords.q, coords.t);
+            psi1_over_iphi.push(if psi1.is_finite() {
+                psi1 / denom
+            } else {
+                Complex64::new(0.0, 0.0)
+            });
+            psi2_over_iphi.push(if psi2.is_finite() {
+                psi2 / denom
+            } else {
+                Complex64::new(0.0, 0.0)
+            });
+        }
+
+        Some(Self {
+            upper_limit,
+            panel_half_width,
+            order,
+            grid,
+            psi1_over_iphi,
+            psi2_over_iphi,
+        })
+    }
+
+    fn probability(&self, log_strike: f64, cached_values: &[Complex64]) -> f64 {
+        let i = Complex64::i();
+        let mut integral = 0.0;
+
+        for (grid_chunk, cached_chunk) in self
+            .grid
+            .chunks(self.order)
+            .zip(cached_values.chunks(self.order))
+        {
+            let mut panel_sum = 0.0;
+            for ((phi, weight), cached) in grid_chunk.iter().zip(cached_chunk.iter()) {
+                let exp_term = (-i * *phi * log_strike).exp();
+                let value = (exp_term * *cached).re;
+                if value.is_finite() {
+                    panel_sum += *weight * value;
+                }
+            }
+            integral += panel_sum * self.panel_half_width;
+        }
+
+        (0.5 + integral / PI).clamp(0.0, 1.0)
+    }
+}
+
+fn gl_nodes_weights(order: usize) -> Option<(&'static [f64], &'static [f64])> {
+    match order {
+        2 => Some((
+            &[-0.577_350_269_189_625_7, 0.577_350_269_189_625_7],
+            &[1.0, 1.0],
+        )),
+        4 => Some((
+            &[
+                -0.861_136_311_594_052_6,
+                -0.339_981_043_584_856_3,
+                0.339_981_043_584_856_3,
+                0.861_136_311_594_052_6,
+            ],
+            &[
+                0.347_854_845_137_453_85,
+                0.652_145_154_862_546_1,
+                0.652_145_154_862_546_1,
+                0.347_854_845_137_453_85,
+            ],
+        )),
+        8 => Some((
+            &[
+                -0.960_289_856_497_536_3,
+                -0.796_666_477_413_626_7,
+                -0.525_532_409_916_329,
+                -0.183_434_642_495_649_8,
+                0.183_434_642_495_649_8,
+                0.525_532_409_916_329,
+                0.796_666_477_413_626_7,
+                0.960_289_856_497_536_3,
+            ],
+            &[
+                0.101_228_536_290_376_26,
+                0.222_381_034_453_374_48,
+                0.313_706_645_877_887_27,
+                0.362_683_783_378_361_96,
+                0.362_683_783_378_361_96,
+                0.313_706_645_877_887_27,
+                0.222_381_034_453_374_48,
+                0.101_228_536_290_376_26,
+            ],
+        )),
+        16 => Some((
+            &[
+                -0.989_400_934_991_649_9,
+                -0.944_575_023_073_232_6,
+                -0.865_631_202_387_831_8,
+                -0.755_404_408_355_003,
+                -0.617_876_244_402_643_8,
+                -0.458_016_777_657_227_37,
+                -0.281_603_550_779_258_9,
+                -0.095_012_509_837_637_44,
+                0.095_012_509_837_637_44,
+                0.281_603_550_779_258_9,
+                0.458_016_777_657_227_37,
+                0.617_876_244_402_643_8,
+                0.755_404_408_355_003,
+                0.865_631_202_387_831_8,
+                0.944_575_023_073_232_6,
+                0.989_400_934_991_649_9,
+            ],
+            &[
+                0.027_152_459_411_754_095,
+                0.062_253_523_938_647_894,
+                0.095_158_511_682_492_78,
+                0.124_628_971_255_533_88,
+                0.149_595_988_816_576_73,
+                0.169_156_519_395_002_54,
+                0.182_603_415_044_923_58,
+                0.189_450_610_455_068_5,
+                0.189_450_610_455_068_5,
+                0.182_603_415_044_923_58,
+                0.169_156_519_395_002_54,
+                0.149_595_988_816_576_73,
+                0.124_628_971_255_533_88,
+                0.095_158_511_682_492_78,
+                0.062_253_523_938_647_894,
+                0.027_152_459_411_754_095,
+            ],
+        )),
+        _ => None,
+    }
+}
+
+fn composite_gauss_legendre_grid(
+    a: f64,
+    b: f64,
+    order: usize,
+    panels: usize,
+) -> Option<(Vec<(f64, f64)>, f64)> {
+    if panels == 0 || !(a.is_finite() && b.is_finite()) || b <= a {
+        return None;
+    }
+
+    let (xs, ws) = gl_nodes_weights(order)?;
+    let h = (b - a) / panels as f64;
+    let mut grid = Vec::with_capacity(xs.len() * panels);
+    let panel_half_width = 0.5 * h;
+
+    for panel_idx in 0..panels {
+        let panel_start = a + panel_idx as f64 * h;
+        let panel_end = panel_start + h;
+        let half = 0.5 * (panel_end - panel_start);
+        let mid = panel_start + half;
+
+        for (x, w) in xs.iter().zip(ws.iter()) {
+            grid.push((mid + half * x, *w));
+        }
+    }
+
+    Some((grid, panel_half_width))
+}
+
 impl HestonParams {
     /// Construct validated Heston parameters.
     ///
@@ -227,6 +407,130 @@ impl HestonParams {
             // Put-call parity
             (call - spot * (-q * t).exp() + strike * (-r * t).exp()).max(0.0)
         }
+    }
+
+    /// Price a strip of European options sharing the same expiry and model inputs.
+    ///
+    /// Reuses the strike-independent part of the Fourier integrand across all
+    /// strikes, reducing characteristic-function evaluations from O(strikes x grid)
+    /// to O(grid).
+    #[must_use]
+    pub fn price_european_strip(
+        &self,
+        spot: f64,
+        strikes: &[f64],
+        r: f64,
+        q: f64,
+        t: f64,
+        is_call: bool,
+    ) -> Vec<f64> {
+        if strikes.is_empty() {
+            return Vec::new();
+        }
+
+        if t <= 0.0 {
+            return strikes
+                .iter()
+                .map(|&strike| {
+                    if !spot.is_finite() || !strike.is_finite() {
+                        f64::NAN
+                    } else if is_call {
+                        (spot - strike).max(0.0)
+                    } else {
+                        (strike - spot).max(0.0)
+                    }
+                })
+                .collect();
+        }
+
+        if !spot.is_finite()
+            || !r.is_finite()
+            || !q.is_finite()
+            || !t.is_finite()
+            || spot <= 0.0
+            || strikes
+                .iter()
+                .any(|&strike| !strike.is_finite() || strike <= 0.0)
+        {
+            return strikes.iter().map(|_| f64::NAN).collect();
+        }
+
+        if self.sigma < 1e-10 {
+            return strikes
+                .iter()
+                .map(|&strike| bs_call_fallback(spot, strike, r, q, t, self.v0.sqrt(), is_call))
+                .collect();
+        }
+
+        let coords = HestonPjCoords {
+            x: spot.ln(),
+            ln_k: strikes[0].ln(),
+            r,
+            q,
+            t,
+        };
+
+        let upper_limit = self.integration_upper_limit(t);
+        let coarse_cache = match HestonStripCache::new(self, coords, upper_limit) {
+            Some(cache) => cache,
+            None => {
+                return strikes
+                    .iter()
+                    .map(|&strike| self.price_european(spot, strike, r, q, t, is_call))
+                    .collect();
+            }
+        };
+
+        let refined_upper = (2.0 * coarse_cache.upper_limit).min(2_000.0);
+        let mut refined_cache: Option<HestonStripCache> = None;
+
+        strikes
+            .iter()
+            .map(|&strike| {
+                let log_strike = strike.ln();
+                let strike_coords = HestonPjCoords {
+                    ln_k: log_strike,
+                    ..coords
+                };
+                let tail_p1 = self
+                    .compute_pj_interval_integral(
+                        1,
+                        strike_coords,
+                        0.5 * coarse_cache.upper_limit,
+                        coarse_cache.upper_limit,
+                    )
+                    .map(|tail| (tail / PI).abs())
+                    .unwrap_or(0.0);
+                let tail_p2 = self
+                    .compute_pj_interval_integral(
+                        2,
+                        strike_coords,
+                        0.5 * coarse_cache.upper_limit,
+                        coarse_cache.upper_limit,
+                    )
+                    .map(|tail| (tail / PI).abs())
+                    .unwrap_or(0.0);
+
+                let cache = if tail_p1.max(tail_p2) > 1.0e-4 {
+                    if refined_cache.is_none() {
+                        refined_cache = HestonStripCache::new(self, coords, refined_upper);
+                    }
+                    refined_cache.as_ref().unwrap_or(&coarse_cache)
+                } else {
+                    &coarse_cache
+                };
+
+                let p1 = cache.probability(log_strike, &cache.psi1_over_iphi);
+                let p2 = cache.probability(log_strike, &cache.psi2_over_iphi);
+                let call = (spot * (-q * t).exp() * p1 - strike * (-r * t).exp() * p2).max(0.0);
+
+                if is_call {
+                    call
+                } else {
+                    (call - spot * (-q * t).exp() + strike * (-r * t).exp()).max(0.0)
+                }
+            })
+            .collect()
     }
 
     /// Compute probability P_j via Fourier inversion.
@@ -485,8 +789,6 @@ pub fn calibrate_heston(
     }
 
     // ---- Flatten market data and pre-compute market prices + vegas ----
-    let mut flat_expiry = Vec::with_capacity(n_total);
-    let mut flat_strike = Vec::with_capacity(n_total);
     let mut flat_market_price = Vec::with_capacity(n_total);
     let mut flat_vega = Vec::with_capacity(n_total);
 
@@ -494,8 +796,6 @@ pub fn calibrate_heston(
         let fwd = spot * ((r - q) * t).exp();
         let df = (-r * t).exp();
         for (&k, &vol) in ks.iter().zip(vs.iter()) {
-            flat_expiry.push(t);
-            flat_strike.push(k);
             let mkt_price = df * crate::math::volatility::black_call(fwd, k, vol, t);
             let vega = (df * crate::math::volatility::black_vega(fwd, k, vol, t)).max(1e-10);
             flat_market_price.push(mkt_price);
@@ -552,18 +852,18 @@ pub fn calibrate_heston(
             rho,
         };
 
-        for (idx, (((&t, &k), &mkt_p), &vega)) in flat_expiry
-            .iter()
-            .zip(flat_strike.iter())
-            .zip(flat_market_price.iter())
-            .zip(flat_vega.iter())
-            .enumerate()
-        {
-            let model_price = params.price_european(spot, k, r, q, t, true);
-            if model_price.is_finite() {
-                resid[idx] = (model_price - mkt_p) / vega;
-            } else {
-                resid[idx] = 1.0; // penalty
+        let mut idx = 0usize;
+        for (&t, ks) in expiries.iter().zip(strikes.iter()) {
+            let model_prices = params.price_european_strip(spot, ks, r, q, t, true);
+            for &model_price in &model_prices {
+                let mkt_p = flat_market_price[idx];
+                let vega = flat_vega[idx];
+                if model_price.is_finite() {
+                    resid[idx] = (model_price - mkt_p) / vega;
+                } else {
+                    resid[idx] = 1.0; // penalty
+                }
+                idx += 1;
             }
         }
     };
@@ -918,5 +1218,69 @@ mod tests {
             result.params.theta,
             true_params.theta
         );
+    }
+
+    #[test]
+    fn price_european_strip_matches_single_strike_prices() {
+        let params = HestonParams::new(0.04, 2.0, 0.04, 0.3, -0.5).expect("valid");
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+
+        let strip_prices = params.price_european_strip(100.0, &strikes, 0.05, 0.02, 1.0, true);
+
+        assert_eq!(strip_prices.len(), strikes.len());
+        for (idx, &strike) in strikes.iter().enumerate() {
+            let single_price = params.price_european(100.0, strike, 0.05, 0.02, 1.0, true);
+            assert!(
+                (strip_prices[idx] - single_price).abs() < 1e-5,
+                "strip price {} should match single-strike price {} for K={}",
+                strip_prices[idx],
+                single_price,
+                strike
+            );
+        }
+    }
+
+    #[test]
+    fn price_european_strip_put_call_parity_holds_per_strike() {
+        let params = HestonParams::new(0.04, 2.0, 0.04, 0.3, -0.7).expect("valid");
+        let spot: f64 = 100.0;
+        let r: f64 = 0.05;
+        let q: f64 = 0.02;
+        let t: f64 = 1.0;
+        let strikes = [85.0, 95.0, 100.0, 105.0, 115.0];
+
+        let calls = params.price_european_strip(spot, &strikes, r, q, t, true);
+        let puts = params.price_european_strip(spot, &strikes, r, q, t, false);
+
+        for ((&strike, &call), &put) in strikes.iter().zip(calls.iter()).zip(puts.iter()) {
+            let parity = call - put - (spot * (-q * t).exp() - strike * (-r * t).exp());
+            assert!(
+                parity.abs() < 1e-12,
+                "put-call parity should hold for K={strike}: residual={parity}"
+            );
+        }
+    }
+
+    #[test]
+    fn price_european_strip_matches_single_strike_when_refinement_is_active() {
+        let params = HestonParams::new(0.01, 3.0, 0.01, 0.02, -0.5).expect("valid");
+        let spot = 100.0;
+        let r = 0.01;
+        let q = 0.0;
+        let t = 0.005;
+        let strikes = [95.0, 100.0, 105.0];
+
+        let strip_prices = params.price_european_strip(spot, &strikes, r, q, t, true);
+
+        for (idx, &strike) in strikes.iter().enumerate() {
+            let single_price = params.price_european(spot, strike, r, q, t, true);
+            assert!(
+                (strip_prices[idx] - single_price).abs() < 1e-5,
+                "strip price {} should match refined single-strike price {} for K={}",
+                strip_prices[idx],
+                single_price,
+                strike
+            );
+        }
     }
 }

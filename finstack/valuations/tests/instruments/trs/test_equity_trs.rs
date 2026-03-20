@@ -5,9 +5,13 @@
 
 use super::test_utils::*;
 use finstack_core::currency::Currency::*;
+use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::market_data::term_structures::DiscountCurve;
+use finstack_core::math::neumaier_sum;
 use finstack_core::money::Money;
+use finstack_core::types::CurveId;
 use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::TrsSide;
@@ -193,6 +197,40 @@ fn test_equity_trs_total_return_leg_pv() {
     // Assert
     assert_eq!(tr_pv.currency(), USD);
     assert!(tr_pv.amount().is_finite());
+}
+
+#[test]
+fn test_equity_trs_discrete_dividends_preserve_small_amounts_after_large_amounts() {
+    // Arrange
+    let as_of = as_of_date();
+    let disc = DiscountCurve::builder(CurveId::new("DISC"))
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (1.0, 1.0)])
+        .build()
+        .unwrap();
+    let market = MarketContext::new()
+        .insert(disc)
+        .insert_price("SPX-SPOT", MarketScalar::Unitless(100.0));
+
+    let mut trs = TestEquityTrsBuilder::new()
+        .notional(Money::new(1.0, USD))
+        .initial_level(100.0)
+        .build();
+    trs.financing.discount_curve_id = CurveId::new("DISC");
+    trs.underlying.div_yield_id = None;
+    trs.discrete_dividends = vec![
+        (d(2025, 1, 10), 1e16),
+        (d(2025, 1, 11), 1.0),
+        (d(2025, 1, 12), 1.0),
+    ];
+
+    // Act
+    let tr_pv = trs.pv_total_return_leg(&market, as_of).unwrap();
+
+    // Assert
+    let expected = neumaier_sum([1e16, 1.0, 1.0]) / 100.0;
+    assert_eq!(tr_pv.amount(), expected);
 }
 
 #[test]

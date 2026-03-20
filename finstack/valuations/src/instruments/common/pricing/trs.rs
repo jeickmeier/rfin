@@ -17,6 +17,7 @@ use crate::instruments::common_impl::parameters::legs::FinancingLegSpec;
 use crate::instruments::common_impl::parameters::trs_common::TrsScheduleSpec;
 use finstack_core::dates::{Date, DayCountCtx};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::NeumaierAccumulator;
 use finstack_core::money::Money;
 use rust_decimal::prelude::ToPrimitive;
 
@@ -145,7 +146,7 @@ impl TrsEngine {
         let disc = context.get_discount(params.discount_curve_id)?;
         let period_schedule = params.schedule.period_schedule()?;
 
-        let mut total_pv = 0.0;
+        let mut total_pv = NeumaierAccumulator::new();
         let currency = params.notional.currency();
         let ctx = DayCountCtx::default();
 
@@ -192,10 +193,10 @@ impl TrsEngine {
             // any separate accrual addition.
             let payment_date = params.schedule.payment_date_for(period_end)?;
             let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
-            total_pv += payment * df;
+            total_pv.add(payment * df);
         }
 
-        Ok(Money::new(total_pv, currency))
+        Ok(Money::new(total_pv.total(), currency))
     }
 
     /// Calculates the present value of the financing leg.
@@ -228,7 +229,7 @@ impl TrsEngine {
         let fwd = context.get_forward(financing.forward_curve_id.as_str())?;
         let period_schedule = schedule.period_schedule()?;
 
-        let mut total_pv = 0.0;
+        let mut total_pv = NeumaierAccumulator::new();
         let currency = notional.currency();
         let ctx = DayCountCtx::default();
         let spread_decimal = financing.spread_bp.to_f64().unwrap_or_default() / 10_000.0;
@@ -256,10 +257,10 @@ impl TrsEngine {
             // the entire cashflow to as_of gives the correct dirty PV.
             let payment_date = schedule.payment_date_for(period_end)?;
             let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
-            total_pv += payment * df;
+            total_pv.add(payment * df);
         }
 
-        Ok(Money::new(total_pv, currency))
+        Ok(Money::new(total_pv.total(), currency))
     }
 
     /// Calculates the financing annuity for par spread calculation.
@@ -298,7 +299,7 @@ impl TrsEngine {
         let disc = context.get_discount(financing.discount_curve_id.as_str())?;
         let period_schedule = schedule.period_schedule()?;
 
-        let mut annuity = 0.0;
+        let mut annuity = NeumaierAccumulator::new();
         let ctx = DayCountCtx::default();
 
         for i in 1..period_schedule.dates.len() {
@@ -318,10 +319,10 @@ impl TrsEngine {
             let payment_date = schedule.payment_date_for(period_end)?;
             let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
 
-            annuity += df * yf;
+            annuity.add(df * yf);
         }
 
-        let result = annuity * notional.amount();
+        let result = annuity.total() * notional.amount();
 
         if result.abs() < super::swap_legs::ANNUITY_EPSILON {
             return Err(finstack_core::Error::Validation(format!(
@@ -360,7 +361,7 @@ impl TrsEngine {
         let fwd = context.get_forward(financing.forward_curve_id.as_str())?;
         let period_schedule = schedule.period_schedule()?;
 
-        let mut total_pv = 0.0;
+        let mut total_pv = NeumaierAccumulator::new();
         let ctx = DayCountCtx::default();
 
         for i in 1..period_schedule.dates.len() {
@@ -380,10 +381,10 @@ impl TrsEngine {
 
             let payment_date = schedule.payment_date_for(period_end)?;
             let df = relative_df_discount_curve(disc.as_ref(), as_of, payment_date)?;
-            total_pv += payment * df;
+            total_pv.add(payment * df);
         }
 
-        Ok(total_pv)
+        Ok(total_pv.total())
     }
 }
 
@@ -407,6 +408,7 @@ mod tests {
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use rust_decimal::Decimal;
+    use std::cell::Cell;
     use time::Month;
 
     fn date(y: i32, m: u8, d: u8) -> Date {
@@ -415,6 +417,11 @@ mod tests {
 
     struct FlatReturnModel {
         rate: f64,
+    }
+
+    struct SequencedReturnModel {
+        returns: [f64; 3],
+        next_idx: Cell<usize>,
     }
 
     impl TrsReturnModel for FlatReturnModel {
@@ -428,6 +435,22 @@ mod tests {
             _context: &MarketContext,
         ) -> finstack_core::Result<f64> {
             Ok(self.rate)
+        }
+    }
+
+    impl TrsReturnModel for SequencedReturnModel {
+        fn period_return(
+            &self,
+            _period_start: Date,
+            _period_end: Date,
+            _t_start: f64,
+            _t_end: f64,
+            _initial_level: f64,
+            _context: &MarketContext,
+        ) -> finstack_core::Result<f64> {
+            let idx = self.next_idx.get();
+            self.next_idx.set(idx + 1);
+            Ok(self.returns[idx])
         }
     }
 
@@ -445,6 +468,50 @@ mod tests {
             typical_annuity > eps,
             "Typical annuity should be above threshold"
         );
+    }
+
+    #[test]
+    fn trs_total_return_leg_preserves_small_residual_after_large_cancelling_periods() {
+        let as_of = date(2025, 1, 1);
+        let end = date(2025, 4, 1);
+        let schedule = TrsScheduleSpec::from_params(
+            as_of,
+            end,
+            ScheduleParams {
+                freq: Tenor::monthly(),
+                dc: DayCount::Act365F,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                calendar_id: "weekends_only".to_string(),
+                stub: StubKind::None,
+                end_of_month: false,
+                payment_lag_days: 0,
+            },
+        );
+
+        let disc = DiscountCurve::builder(CurveId::new("DISC"))
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, 1.0)])
+            .build()
+            .expect("discount curve");
+
+        let ctx = MarketContext::new().insert(disc);
+        let params = TotalReturnLegParams {
+            schedule: &schedule,
+            notional: Money::new(1.0, Currency::USD),
+            discount_curve_id: "DISC",
+            contract_size: 1.0,
+            initial_level: Some(1.0),
+        };
+        let model = SequencedReturnModel {
+            returns: [1e16, 1.0, -1e16],
+            next_idx: Cell::new(0),
+        };
+
+        let pv =
+            TrsEngine::pv_total_return_leg_with_model(params, &ctx, as_of, &model).expect("pv");
+
+        assert_eq!(pv.amount(), 1.0);
     }
 
     #[test]

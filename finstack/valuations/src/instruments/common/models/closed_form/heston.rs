@@ -159,6 +159,222 @@ impl HestonFourierSettings {
     }
 }
 
+/// Cached Heston Fourier data for pricing multiple strikes with shared parameters.
+///
+/// The characteristic function portion of the Gil-Pelaez integrand is independent
+/// of strike, so it can be precomputed once on the composite Gauss-Legendre grid
+/// and reused across a strike strip.
+#[derive(Debug, Clone)]
+pub struct HestonStripPricer {
+    spot: f64,
+    time: f64,
+    params: HestonParams,
+    /// Composite quadrature grid as `(phi, weight)` pairs.
+    grid: Vec<(f64, f64)>,
+    /// Cached `psi_1(phi) / (i * phi)` values on the grid.
+    psi1_over_iphi: Vec<Complex<f64>>,
+    /// Cached `psi_2(phi) / (i * phi)` values on the grid.
+    psi2_over_iphi: Vec<Complex<f64>>,
+}
+
+impl HestonStripPricer {
+    /// Build a strip pricer with characteristic-function values cached on the
+    /// composite Gauss-Legendre integration grid.
+    #[must_use]
+    pub fn new(
+        spot: f64,
+        time: f64,
+        params: &HestonParams,
+        settings: &HestonFourierSettings,
+    ) -> Option<Self> {
+        let grid =
+            composite_gauss_legendre_grid(0.0, settings.u_max, settings.gl_order, settings.panels)?;
+        let i = Complex::new(0.0, 1.0);
+        let log_spot = spot.ln();
+        let mut psi1_over_iphi = Vec::with_capacity(grid.len());
+        let mut psi2_over_iphi = Vec::with_capacity(grid.len());
+
+        for (phi, _) in &grid {
+            if phi.abs() < settings.phi_eps {
+                psi1_over_iphi.push(Complex::new(0.0, 0.0));
+                psi2_over_iphi.push(Complex::new(0.0, 0.0));
+                continue;
+            }
+
+            let denom = i * *phi;
+            let psi1 = heston_pj_characteristic_function(1, *phi, time, log_spot, params);
+            let psi2 = heston_pj_characteristic_function(2, *phi, time, log_spot, params);
+            psi1_over_iphi.push(if psi1.is_finite() {
+                psi1 / denom
+            } else {
+                Complex::new(0.0, 0.0)
+            });
+            psi2_over_iphi.push(if psi2.is_finite() {
+                psi2 / denom
+            } else {
+                Complex::new(0.0, 0.0)
+            });
+        }
+
+        Some(Self {
+            spot,
+            time,
+            params: *params,
+            grid,
+            psi1_over_iphi,
+            psi2_over_iphi,
+        })
+    }
+
+    fn probability(&self, log_strike: f64, cached_values: &[Complex<f64>]) -> f64 {
+        let i = Complex::new(0.0, 1.0);
+        let mut integral = 0.0;
+
+        for ((phi, weight), cached) in self.grid.iter().zip(cached_values.iter()) {
+            let exp_term = (-i * *phi * log_strike).exp();
+            let value = (exp_term * *cached).re;
+            if value.is_finite() {
+                integral += *weight * value;
+            }
+        }
+
+        (0.5 + integral / PI).clamp(0.0, 1.0)
+    }
+
+    /// Price a single European call using the cached strip pricer.
+    #[must_use]
+    pub fn price_call(&self, strike: f64) -> f64 {
+        let log_strike = strike.ln();
+        let p1 = self.probability(log_strike, &self.psi1_over_iphi);
+        let p2 = self.probability(log_strike, &self.psi2_over_iphi);
+        let call_price = self.spot * (-self.params.q * self.time).exp() * p1
+            - strike * (-self.params.r * self.time).exp() * p2;
+
+        call_price.max(0.0)
+    }
+
+    /// Price a strip of European calls using the cached strip pricer.
+    #[must_use]
+    pub fn price_calls(&self, strikes: &[f64]) -> Vec<f64> {
+        strikes
+            .iter()
+            .map(|&strike| self.price_call(strike))
+            .collect()
+    }
+}
+
+fn gl_nodes_weights(order: usize) -> Option<(&'static [f64], &'static [f64])> {
+    match order {
+        2 => Some((
+            &[-0.577_350_269_189_625_7, 0.577_350_269_189_625_7],
+            &[1.0, 1.0],
+        )),
+        4 => Some((
+            &[
+                -0.861_136_311_594_052_6,
+                -0.339_981_043_584_856_3,
+                0.339_981_043_584_856_3,
+                0.861_136_311_594_052_6,
+            ],
+            &[
+                0.347_854_845_137_453_85,
+                0.652_145_154_862_546_1,
+                0.652_145_154_862_546_1,
+                0.347_854_845_137_453_85,
+            ],
+        )),
+        8 => Some((
+            &[
+                -0.960_289_856_497_536_3,
+                -0.796_666_477_413_626_7,
+                -0.525_532_409_916_329,
+                -0.183_434_642_495_649_8,
+                0.183_434_642_495_649_8,
+                0.525_532_409_916_329,
+                0.796_666_477_413_626_7,
+                0.960_289_856_497_536_3,
+            ],
+            &[
+                0.101_228_536_290_376_26,
+                0.222_381_034_453_374_48,
+                0.313_706_645_877_887_27,
+                0.362_683_783_378_361_96,
+                0.362_683_783_378_361_96,
+                0.313_706_645_877_887_27,
+                0.222_381_034_453_374_48,
+                0.101_228_536_290_376_26,
+            ],
+        )),
+        16 => Some((
+            &[
+                -0.989_400_934_991_649_9,
+                -0.944_575_023_073_232_6,
+                -0.865_631_202_387_831_8,
+                -0.755_404_408_355_003,
+                -0.617_876_244_402_643_8,
+                -0.458_016_777_657_227_37,
+                -0.281_603_550_779_258_9,
+                -0.095_012_509_837_637_44,
+                0.095_012_509_837_637_44,
+                0.281_603_550_779_258_9,
+                0.458_016_777_657_227_37,
+                0.617_876_244_402_643_8,
+                0.755_404_408_355_003,
+                0.865_631_202_387_831_8,
+                0.944_575_023_073_232_6,
+                0.989_400_934_991_649_9,
+            ],
+            &[
+                0.027_152_459_411_754_095,
+                0.062_253_523_938_647_894,
+                0.095_158_511_682_492_78,
+                0.124_628_971_255_533_88,
+                0.149_595_988_816_576_73,
+                0.169_156_519_395_002_54,
+                0.182_603_415_044_923_58,
+                0.189_450_610_455_068_5,
+                0.189_450_610_455_068_5,
+                0.182_603_415_044_923_58,
+                0.169_156_519_395_002_54,
+                0.149_595_988_816_576_73,
+                0.124_628_971_255_533_88,
+                0.095_158_511_682_492_78,
+                0.062_253_523_938_647_894,
+                0.027_152_459_411_754_095,
+            ],
+        )),
+        _ => None,
+    }
+}
+
+fn composite_gauss_legendre_grid(
+    a: f64,
+    b: f64,
+    order: usize,
+    panels: usize,
+) -> Option<Vec<(f64, f64)>> {
+    if panels == 0 || !(a.is_finite() && b.is_finite()) || b <= a {
+        return None;
+    }
+
+    let (xs, ws) = gl_nodes_weights(order)?;
+    let h = (b - a) / panels as f64;
+    let mut grid = Vec::with_capacity(xs.len() * panels);
+
+    for panel_idx in 0..panels {
+        let panel_start = a + panel_idx as f64 * h;
+        let panel_end = panel_start + h;
+        let half = 0.5 * (panel_end - panel_start);
+        let mid = panel_start + half;
+
+        for (x, w) in xs.iter().zip(ws.iter()) {
+            grid.push((mid + half * x, half * w));
+        }
+    }
+
+    Some(grid)
+}
+
 /// Heston probability characteristic function ψ_j(φ) for j ∈ {1, 2}.
 ///
 /// Uses the "Little Heston Trap" formulation from Albrecher et al. (2007)
@@ -351,6 +567,108 @@ pub fn heston_call_price_fourier(spot: f64, strike: f64, time: f64, params: &Hes
         params,
         &HestonFourierSettings::for_maturity(time),
     )
+}
+
+/// Price a strip of European call options under the Heston model using shared
+/// characteristic-function precomputation.
+#[must_use]
+pub fn heston_call_prices_fourier(
+    spot: f64,
+    strikes: &[f64],
+    time: f64,
+    params: &HestonParams,
+) -> Vec<f64> {
+    heston_call_prices_fourier_with_settings(
+        spot,
+        strikes,
+        time,
+        params,
+        &HestonFourierSettings::for_maturity(time),
+    )
+}
+
+/// Price a strip of European call options with custom integration settings.
+#[must_use]
+pub fn heston_call_prices_fourier_with_settings(
+    spot: f64,
+    strikes: &[f64],
+    time: f64,
+    params: &HestonParams,
+    settings: &HestonFourierSettings,
+) -> Vec<f64> {
+    if time <= 0.0 {
+        return strikes
+            .iter()
+            .map(|&strike| (spot - strike).max(0.0))
+            .collect();
+    }
+
+    if params.sigma_v < 1e-10 {
+        return strikes
+            .iter()
+            .map(|&strike| {
+                black_scholes_call(spot, strike, time, params.r, params.q, params.v0.sqrt())
+            })
+            .collect();
+    }
+
+    if let Some(pricer) = HestonStripPricer::new(spot, time, params, settings) {
+        pricer.price_calls(strikes)
+    } else {
+        strikes
+            .iter()
+            .map(|&strike| {
+                heston_call_price_fourier_with_settings(spot, strike, time, params, settings)
+            })
+            .collect()
+    }
+}
+
+/// Price a strip of European put options under the Heston model using shared
+/// characteristic-function precomputation.
+#[must_use]
+pub fn heston_put_prices_fourier(
+    spot: f64,
+    strikes: &[f64],
+    time: f64,
+    params: &HestonParams,
+) -> Vec<f64> {
+    heston_put_prices_fourier_with_settings(
+        spot,
+        strikes,
+        time,
+        params,
+        &HestonFourierSettings::for_maturity(time),
+    )
+}
+
+/// Price a strip of European put options with custom integration settings.
+#[must_use]
+pub fn heston_put_prices_fourier_with_settings(
+    spot: f64,
+    strikes: &[f64],
+    time: f64,
+    params: &HestonParams,
+    settings: &HestonFourierSettings,
+) -> Vec<f64> {
+    if time <= 0.0 {
+        return strikes
+            .iter()
+            .map(|&strike| (strike - spot).max(0.0))
+            .collect();
+    }
+
+    let call_prices =
+        heston_call_prices_fourier_with_settings(spot, strikes, time, params, settings);
+    call_prices
+        .into_iter()
+        .zip(strikes.iter())
+        .map(|(call_price, strike)| {
+            let forward = spot * (-params.q * time).exp();
+            let discount_k = *strike * (-params.r * time).exp();
+            (call_price - forward + discount_k).max(0.0)
+        })
+        .collect()
 }
 
 /// Price a European call option with custom integration settings.
@@ -797,6 +1115,92 @@ mod tests {
                 "Put-call parity violated for T={}: residual={}",
                 time,
                 parity
+            );
+        }
+    }
+
+    /// Test multi-strike pricing matches the existing single-strike API.
+    #[test]
+    fn test_heston_call_strip_matches_single_strike_prices() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+
+        let strip_prices = heston_call_prices_fourier(100.0, &strikes, 0.5, &params);
+
+        assert_eq!(strip_prices.len(), strikes.len());
+        for (idx, &strike) in strikes.iter().enumerate() {
+            let single_price = heston_call_price_fourier(100.0, strike, 0.5, &params);
+            assert!(
+                (strip_prices[idx] - single_price).abs() < 1e-12,
+                "strip price {} should match single-strike price {} for K={}",
+                strip_prices[idx],
+                single_price,
+                strike
+            );
+        }
+    }
+
+    /// Test multi-strike put pricing matches the existing single-strike API.
+    #[test]
+    fn test_heston_put_strip_matches_single_strike_prices() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let strikes = [80.0, 90.0, 100.0, 110.0, 120.0];
+
+        let strip_prices = heston_put_prices_fourier(100.0, &strikes, 0.5, &params);
+
+        assert_eq!(strip_prices.len(), strikes.len());
+        for (idx, &strike) in strikes.iter().enumerate() {
+            let single_price = heston_put_price_fourier(100.0, strike, 0.5, &params);
+            assert!(
+                (strip_prices[idx] - single_price).abs() < 1e-12,
+                "strip put price {} should match single-strike put price {} for K={}",
+                strip_prices[idx],
+                single_price,
+                strike
+            );
+        }
+    }
+
+    /// Test multi-strike pricing preserves expected call ordering across a strip.
+    #[test]
+    fn test_heston_call_strip_monotonic_in_strike() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let strikes: Vec<f64> = (75..=124).map(f64::from).collect();
+
+        let strip_prices = heston_call_prices_fourier(100.0, &strikes, 1.0, &params);
+
+        assert_eq!(strip_prices.len(), strikes.len());
+        for window in strip_prices.windows(2) {
+            assert!(
+                window[0] >= window[1],
+                "call strip should be non-increasing in strike: {:?}",
+                window
+            );
+        }
+    }
+
+    /// Test strip pricing remains positive and respects put-call parity.
+    #[test]
+    fn test_heston_call_strip_consistency_across_many_strikes() {
+        let params = HestonParams::new(0.05, 0.02, 2.0, 0.04, 0.3, -0.7, 0.04);
+        let spot: f64 = 100.0;
+        let time: f64 = 1.0;
+        let strikes: Vec<f64> = (75..=124).map(f64::from).collect();
+
+        let strip_prices = heston_call_prices_fourier(spot, &strikes, time, &params);
+
+        for (&strike, &call) in strikes.iter().zip(strip_prices.iter()) {
+            assert!(
+                call.is_finite() && call >= 0.0,
+                "call strip price should be finite and non-negative"
+            );
+
+            let put = heston_put_price_fourier(spot, strike, time, &params);
+            let parity =
+                call - put - (spot * (-params.q * time).exp() - strike * (-params.r * time).exp());
+            assert!(
+                parity.abs() < 1e-10,
+                "put-call parity should hold across strip for K={strike}: residual={parity}"
             );
         }
     }

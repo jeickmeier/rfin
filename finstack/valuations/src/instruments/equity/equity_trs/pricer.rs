@@ -8,6 +8,7 @@ use crate::instruments::common_impl::pricing::{TotalReturnLegParams, TrsEngine, 
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
+use finstack_core::math::neumaier_sum;
 use finstack_core::money::Money;
 use finstack_core::Result;
 
@@ -102,18 +103,18 @@ impl TrsReturnModel for EquityReturnModel<'_> {
         let tax_rate = self.trs.dividend_tax_rate.clamp(0.0, 1.0);
         let dividend_return = if uses_discrete_dividends {
             // Sum discrete dividends paid in the period, normalized by start forward level.
-            let gross_divs: f64 = self
-                .trs
-                .discrete_dividends
-                .iter()
-                .filter(|(div_date, amount)| {
-                    *div_date > period_start
-                        && *div_date <= period_end
-                        && amount.is_finite()
-                        && *amount > 0.0
-                })
-                .map(|(_, amount)| *amount)
-                .sum();
+            let gross_divs = neumaier_sum(
+                self.trs
+                    .discrete_dividends
+                    .iter()
+                    .filter(|(div_date, amount)| {
+                        *div_date > period_start
+                            && *div_date <= period_end
+                            && amount.is_finite()
+                            && *amount > 0.0
+                    })
+                    .map(|(_, amount)| *amount),
+            );
             if fwd_start.abs() > 1e-12 {
                 (gross_divs / fwd_start) * (1.0 - tax_rate)
             } else {
@@ -172,4 +173,57 @@ pub fn pv_total_return_leg(
 
     let model = EquityReturnModel { trs, div_yield };
     TrsEngine::pv_total_return_leg_with_model(params, context, as_of, &model)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::{EquityReturnModel, TrsReturnModel};
+    use crate::instruments::equity::equity_trs::types::EquityTotalReturnSwap;
+    use finstack_core::dates::{Date, DayCount};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::math::neumaier_sum;
+    use finstack_core::types::CurveId;
+    use time::Month;
+
+    fn date(y: i32, m: u8, d: u8) -> Date {
+        Date::from_calendar_date(y, Month::try_from(m).expect("month"), d).expect("date")
+    }
+
+    #[test]
+    fn discrete_dividends_preserve_small_amounts_after_large_amounts() {
+        let period_start = date(2025, 1, 1);
+        let period_end = date(2025, 2, 1);
+
+        let disc = DiscountCurve::builder(CurveId::new("DISC"))
+            .base_date(period_start)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, 1.0)])
+            .build()
+            .expect("discount curve");
+        let context = MarketContext::new().insert(disc);
+
+        let mut trs = EquityTotalReturnSwap::example().expect("example TRS");
+        trs.financing.discount_curve_id = CurveId::new("DISC");
+        trs.underlying.div_yield_id = None;
+        trs.dividend_tax_rate = 0.0;
+        trs.discrete_dividends = vec![
+            (date(2025, 1, 10), 1e16),
+            (date(2025, 1, 11), 1.0),
+            (date(2025, 1, 12), 1.0),
+        ];
+
+        let model = EquityReturnModel {
+            trs: &trs,
+            div_yield: 0.0,
+        };
+
+        let period_return = model
+            .period_return(period_start, period_end, 0.0, 1.0, 100.0, &context)
+            .expect("period return");
+
+        let expected = neumaier_sum([1e16, 1.0, 1.0]) / 100.0;
+        assert_eq!(period_return, expected);
+    }
 }
