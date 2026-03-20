@@ -91,10 +91,10 @@ fn test_instrument_type_price_shock_matching() {
         // Bond supports scenario_overrides_mut(), so check there
         if let Some(overrides) = instrument.scenario_overrides() {
             assert!(
-                overrides.scenario.scenario_price_shock_pct.is_some(),
+                overrides.scenario_price_shock_pct.is_some(),
                 "scenario_price_shock_pct should be set in pricing_overrides"
             );
-            let shock = overrides.scenario.scenario_price_shock_pct.unwrap();
+            let shock = overrides.scenario_price_shock_pct.unwrap();
             assert!(
                 (shock - (-0.05)).abs() < 1e-6,
                 "Expected -0.05 decimal, got {}",
@@ -163,10 +163,10 @@ fn test_instrument_type_spread_shock_matching() {
     // Bond supports scenario_overrides_mut(), so check there
     if let Some(overrides) = instruments[0].scenario_overrides() {
         assert!(
-            overrides.scenario.scenario_spread_shock_bp.is_some(),
+            overrides.scenario_spread_shock_bp.is_some(),
             "scenario_spread_shock_bp should be set in pricing_overrides"
         );
-        let shock = overrides.scenario.scenario_spread_shock_bp.unwrap();
+        let shock = overrides.scenario_spread_shock_bp.unwrap();
         assert!(
             (shock - 100.0).abs() < 1e-6,
             "Expected 100.0 bp, got {}",
@@ -262,12 +262,12 @@ fn test_instrument_attr_price_shock_matching() {
 
     let first_overrides = instruments[0]
         .scenario_overrides()
-        .and_then(|o| o.scenario.scenario_price_shock_pct);
+        .and_then(|o| o.scenario_price_shock_pct);
     assert_eq!(first_overrides, Some(-0.04));
 
     let second_overrides = instruments[1]
         .scenario_overrides()
-        .and_then(|o| o.scenario.scenario_price_shock_pct);
+        .and_then(|o| o.scenario_price_shock_pct);
     assert_eq!(second_overrides, None);
 }
 

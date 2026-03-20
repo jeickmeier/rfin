@@ -193,7 +193,9 @@ pub(crate) fn build_with_metrics_dyn(
         instrument.clone(),
         curves,
         as_of,
-        base_value,
+        instrument
+            .scenario_overrides()
+            .map_or(base_value, |overrides| overrides.apply_to_value(base_value)),
         finstack_config,
     );
 
@@ -202,8 +204,18 @@ pub(crate) fn build_with_metrics_dyn(
         context = context.with_market_history(history);
     }
 
-    // Preserve per-instrument pricing overrides (e.g., bump sizes, scenario shocks) for metrics.
-    context.set_pricing_overrides(instrument.scenario_overrides().cloned());
+    // Preserve only the subsets consumed by the metric layer.
+    context.set_instrument_overrides(
+        instrument
+            .pricing_overrides()
+            .map(crate::instruments::InstrumentPricingOverrides::from_pricing_overrides),
+    );
+    context.set_metric_overrides(
+        instrument
+            .pricing_overrides()
+            .map(crate::instruments::MetricPricingOverrides::from_pricing_overrides),
+    );
+    context.set_scenario_overrides(instrument.scenario_overrides().cloned());
 
     // Allow instruments to pre-seed the metric context with cached data (e.g., pre-computed
     // cashflows) to avoid redundant computation during metric calculation.
@@ -257,7 +269,7 @@ pub(crate) fn build_with_metrics_dyn(
     let mut result = crate::results::ValuationResult::stamped_with_meta(
         context.instrument.id(),
         as_of,
-        base_value,
+        context.base_value,
         meta,
     );
     result.measures = measures;
@@ -284,6 +296,7 @@ mod tests {
     struct StubInstrument {
         id: String,
         attrs: Attributes,
+        pricing_overrides: crate::instruments::pricing_overrides::PricingOverrides,
     }
 
     impl StubInstrument {
@@ -291,6 +304,7 @@ mod tests {
             Self {
                 id: id.to_string(),
                 attrs: Attributes::default(),
+                pricing_overrides: crate::instruments::pricing_overrides::PricingOverrides::default(),
             }
         }
     }
@@ -327,6 +341,18 @@ mod tests {
         fn clone_box(&self) -> Box<dyn Instrument> {
             Box::new(self.clone())
         }
+
+        fn pricing_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&mut self.pricing_overrides)
+    }
+
+    fn pricing_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+        Some(&self.pricing_overrides)
+    }
 
         fn price_with_metrics(
             &self,
@@ -376,6 +402,19 @@ mod tests {
             .get(&Currency::USD)
             .copied();
         assert_eq!(usd_scale, Some(4), "meta should reflect provided config");
+        Ok(())
+    }
+
+    #[test]
+    fn build_with_metrics_applies_scenario_price_shock_to_base_value() -> finstack_core::Result<()>
+    {
+        let mut instrument = StubInstrument::new("STUB-SHOCK");
+        instrument.pricing_overrides = instrument.pricing_overrides.with_price_shock_pct(-0.10);
+
+        let market = MarketContext::new();
+        let result = instrument.price_with_metrics(&market, date!(2024 - 01 - 01), &[])?;
+
+        assert!((result.value.amount() - 111.105).abs() < 1e-9);
         Ok(())
     }
 

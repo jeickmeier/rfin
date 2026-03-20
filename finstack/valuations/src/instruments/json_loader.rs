@@ -563,7 +563,7 @@ impl InstrumentEnvelope {
         }
 
         let instrument = envelope.instrument.into_boxed()?;
-        if let Some(overrides) = instrument.scenario_overrides() {
+        if let Some(overrides) = instrument.pricing_overrides() {
             overrides.validate()?;
         }
         Ok(instrument)

@@ -25,9 +25,9 @@ impl Default for CarryDecompositionCalculator {
 impl MetricCalculator for CarryDecompositionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let period_str = context
-            .pricing_overrides
+            .metric_overrides
             .as_ref()
-            .and_then(|po| po.scenario.theta_period.as_deref())
+            .and_then(|po| po.theta_period.as_deref())
             .unwrap_or("1D");
 
         let expiry_date = context.instrument.expiry();
@@ -53,8 +53,7 @@ impl MetricCalculator for CarryDecompositionCalculator {
         )?;
 
         let curved_pv = context
-            .instrument
-            .value(context.curves.as_ref(), rolled_date)?
+            .instrument_value_with_scenario(context.curves.as_ref(), rolled_date)?
             .amount();
         let total_pv_change = curved_pv - base_pv;
 
@@ -167,7 +166,7 @@ fn compute_funding_cost(
 mod tests {
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
-    use crate::instruments::{Bond, PricingOverrides};
+    use crate::instruments::Bond;
     use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
     use finstack_core::dates::{DayCount, DayCountCtx};
@@ -228,9 +227,9 @@ mod tests {
             base_value,
             Arc::new(FinstackConfig::default()),
         );
-        let mut overrides = PricingOverrides::default();
-        overrides.scenario.theta_period = Some(theta_period.to_string());
-        context.set_pricing_overrides(Some(overrides));
+        let overrides = crate::instruments::MetricPricingOverrides::default()
+            .with_theta_period(theta_period.to_string());
+        context.set_metric_overrides(Some(overrides));
         if let Some(ytm) = ytm {
             context.computed.insert(MetricId::Ytm, ytm);
         }

@@ -300,7 +300,7 @@ mod tests {
             Some(98.5)
         );
         assert_eq!(
-            bond.pricing_overrides.bump_config.ytm_bump_decimal,
+            bond.pricing_overrides.metrics.bump_config.ytm_bump_decimal,
             Some(1e-4)
         );
     }

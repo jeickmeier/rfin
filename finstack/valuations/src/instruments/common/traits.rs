@@ -602,50 +602,62 @@ pub trait Instrument: Send + Sync {
     /// Mutable reference to `Attributes`
     fn attributes_mut(&mut self) -> &mut Attributes;
 
-    /// Get mutable reference to pricing overrides for scenario shocks.
+    /// Get mutable reference to the full pricing overrides bag.
     ///
-    /// Returns a mutable reference to the instrument's `PricingOverrides`,
-    /// allowing scenarios to apply price and spread shocks that affect
-    /// actual pricing calculations.
-    ///
-    /// # Returns
-    ///
-    /// `Some(&mut PricingOverrides)` if the instrument supports pricing overrides,
-    /// `None` otherwise.
-    ///
-    /// # Default Implementation
-    ///
-    /// Returns `None`. Instrument types that support scenario shocks should
-    /// override this method to return their internal `PricingOverrides`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust,no_run
-    /// use finstack_valuations::instruments::Instrument;
-    /// use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
-    ///
-    /// fn apply_price_shock(instrument: &mut dyn Instrument, shock_pct: f64) {
-    ///     if let Some(overrides) = instrument.scenario_overrides_mut() {
-    ///         overrides.scenario.scenario_price_shock_pct = Some(shock_pct);
-    ///     }
-    /// }
-    /// ```
-    fn scenario_overrides_mut(
+    /// This remains available as a compatibility hook while the public surface
+    /// transitions away from a single catch-all overrides struct.
+    fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
         None
     }
 
-    /// Get immutable reference to pricing overrides for scenario shocks.
-    ///
-    /// # Returns
-    ///
-    /// `Some(&PricingOverrides)` if the instrument supports pricing overrides,
-    /// `None` otherwise.
-    fn scenario_overrides(
+    /// Get immutable reference to the full pricing overrides bag.
+    fn pricing_overrides(
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         None
+    }
+
+    /// Get mutable reference to scenario-only pricing adjustments.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&mut ScenarioPricingOverrides)` if the instrument supports scenario adjustments,
+    /// `None` otherwise.
+    ///
+    /// # Default Implementation
+    ///
+    /// Returns a mutable view into [`PricingOverrides::scenario`] when the
+    /// instrument exposes the compatibility overrides wrapper.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::Instrument;
+    /// fn apply_price_shock(instrument: &mut dyn Instrument, shock_pct: f64) {
+    ///     if let Some(overrides) = instrument.scenario_overrides_mut() {
+    ///         overrides.scenario_price_shock_pct = Some(shock_pct);
+    ///     }
+    /// }
+    /// ```
+    fn scenario_overrides_mut(
+        &mut self,
+    ) -> Option<&mut crate::instruments::pricing_overrides::ScenarioPricingOverrides> {
+        self.pricing_overrides_mut()
+            .map(|overrides| &mut overrides.scenario)
+    }
+
+    /// Get immutable reference to scenario-only pricing adjustments.
+    ///
+    /// # Returns
+    ///
+    /// `Some(&ScenarioPricingOverrides)` if the instrument supports scenario adjustments,
+    /// `None` otherwise.
+    fn scenario_overrides(
+        &self,
+    ) -> Option<&crate::instruments::pricing_overrides::ScenarioPricingOverrides> {
+        self.pricing_overrides().map(|overrides| &overrides.scenario)
     }
 
     /// Clone this instrument as a boxed trait object.

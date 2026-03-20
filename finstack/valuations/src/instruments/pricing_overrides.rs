@@ -300,42 +300,77 @@ impl ModelConfig {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-struct: Scenario configuration
+// Sub-struct: Instrument-owned pricing inputs
 // ---------------------------------------------------------------------------
 
-/// Scenario shocks, theta period, and MC seed overrides.
+/// Instrument-owned pricing inputs that can materially change valuation.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
-pub struct ScenarioConfig {
-    /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
-    ///
-    /// When set, the model price is multiplied by (1 + scenario_price_shock_pct).
-    /// This allows scenario analysis to apply uniform price shocks to instruments.
+pub struct InstrumentPricingOverrides {
+    /// Market-quoted values (prices, implied vol, spreads, upfront payments).
+    #[serde(flatten)]
+    pub market_quotes: MarketQuoteOverrides,
+    /// Model selection and tree pricing parameters.
+    #[serde(flatten)]
+    pub model_config: ModelConfig,
+    /// Term loan specific overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub scenario_price_shock_pct: Option<f64>,
+    pub term_loan: Option<TermLoanOverrides>,
+}
 
-    /// Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).
-    ///
-    /// When set, this spread shock is added to the instrument's pricing spread.
-    /// For credit instruments, this translates to a wider/tighter spread.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub scenario_spread_shock_bp: Option<f64>,
+impl InstrumentPricingOverrides {
+    /// Build instrument-owned pricing inputs from the compatibility wrapper.
+    pub fn from_pricing_overrides(pricing_overrides: &PricingOverrides) -> Self {
+        Self {
+            market_quotes: pricing_overrides.market_quotes.clone(),
+            model_config: pricing_overrides.model_config.clone(),
+            term_loan: pricing_overrides.term_loan.clone(),
+        }
+    }
 
-    /// MC seed scenario override for deterministic greek calculations
+    /// Validate instrument-owned override fields.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        self.market_quotes.validate()?;
+        self.model_config.validate()?;
+        Ok(())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sub-struct: Metric configuration
+// ---------------------------------------------------------------------------
+
+/// Metric-time overrides derived from an instrument's pricing metadata.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct MetricPricingOverrides {
+    /// Bump sizes for finite-difference sensitivities.
+    #[serde(flatten)]
+    pub bump_config: BumpConfig,
+    /// MC seed scenario override for deterministic greek calculations.
     ///
     /// When computing greeks via finite differences, this allows specifying
     /// a scenario name (e.g., "delta_up", "vega_down") to derive deterministic
-    /// seeds. If None, uses default seed or derives from instrument ID + "base".
+    /// seeds. If `None`, the pricer derives a stable default seed.
     pub mc_seed_scenario: Option<String>,
-
-    /// Theta period for time decay calculations (e.g., "1D", "1W", "1M", "3M")
+    /// Theta period for time decay calculations (e.g., "1D", "1W", "1M", "3M").
     pub theta_period: Option<String>,
 }
 
-impl ScenarioConfig {
-    /// Validate scenario config (theta period format sanity).
+impl MetricPricingOverrides {
+    /// Build metric-only overrides from the compatibility `PricingOverrides` wrapper.
+    pub fn from_pricing_overrides(pricing_overrides: &PricingOverrides) -> Self {
+        Self {
+            bump_config: pricing_overrides.metrics.bump_config.clone(),
+            mc_seed_scenario: pricing_overrides.metrics.mc_seed_scenario.clone(),
+            theta_period: pricing_overrides.metrics.theta_period.clone(),
+        }
+    }
+
+    /// Validate metric override fields.
     pub fn validate(&self) -> finstack_core::Result<()> {
         use finstack_core::InputError;
+        self.bump_config.validate()?;
         if let Some(ref s) = self.theta_period {
             let ok = s.len() >= 2
                 && s[..s.len() - 1].chars().all(|c| c.is_ascii_digit())
@@ -346,7 +381,83 @@ impl ScenarioConfig {
         }
         Ok(())
     }
+
+    /// Set custom spot bump size (as percentage, e.g., 0.01 for 1%).
+    pub fn with_spot_bump(mut self, bump_pct: f64) -> Self {
+        self.bump_config.spot_bump_pct = Some(bump_pct);
+        self
+    }
+
+    /// Set custom volatility bump size (as absolute vol, e.g., 0.01 for 1% vol).
+    pub fn with_vol_bump(mut self, bump_pct: f64) -> Self {
+        self.bump_config.vol_bump_pct = Some(bump_pct);
+        self
+    }
+
+    /// Set custom rate bump size (in basis points, e.g., 1.0 for 1bp).
+    pub fn with_rate_bump(mut self, bump_bp: f64) -> Self {
+        self.bump_config.rate_bump_bp = Some(bump_bp);
+        self
+    }
+
+    /// Set custom credit spread bump size (in basis points, e.g., 1.0 for 1bp).
+    pub fn with_credit_spread_bump(mut self, bump_bp: f64) -> Self {
+        self.bump_config.credit_spread_bump_bp = Some(bump_bp);
+        self
+    }
+
+    /// Set theta period for time decay calculations.
+    pub fn with_theta_period(mut self, period: impl Into<String>) -> Self {
+        self.theta_period = Some(period.into());
+        self
+    }
+
+    /// Set MC seed scenario for deterministic greek calculations.
+    pub fn with_mc_seed_scenario(mut self, scenario: impl Into<String>) -> Self {
+        self.mc_seed_scenario = Some(scenario.into());
+        self
+    }
 }
+
+// ---------------------------------------------------------------------------
+// Sub-struct: Scenario adjustments
+// ---------------------------------------------------------------------------
+
+/// Scenario-only valuation adjustments.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
+pub struct ScenarioPricingOverrides {
+    /// Scenario price shock as decimal percentage (e.g., -0.05 for -5% price shock).
+    ///
+    /// When set, valuation helpers apply it as a multiplier: `price * (1 + shock_pct)`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scenario_price_shock_pct: Option<f64>,
+
+    /// Scenario spread shock in basis points (e.g., 50.0 for +50bp spread shock).
+    ///
+    /// This is carried separately from instrument-owned pricing inputs so spread-aware
+    /// scenario engines can apply it without implying it is a static instrument setting.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scenario_spread_shock_bp: Option<f64>,
+}
+
+impl ScenarioPricingOverrides {
+    /// Build scenario-only adjustments from the compatibility `PricingOverrides` wrapper.
+    pub fn from_pricing_overrides(pricing_overrides: &PricingOverrides) -> Self {
+        pricing_overrides.scenario.clone()
+    }
+
+    /// Apply the configured price shock to a present value.
+    pub fn apply_to_value(&self, value: Money) -> Money {
+        let Some(shock) = self.scenario_price_shock_pct else {
+            return value;
+        };
+        Money::new(value.amount() * (1.0 + shock), value.currency())
+    }
+}
+
+/// Backwards-compatible alias for legacy imports.
+pub type ScenarioConfig = ScenarioPricingOverrides;
 
 // ---------------------------------------------------------------------------
 // Main struct: PricingOverrides (composed from focused sub-structs)
@@ -356,9 +467,9 @@ impl ScenarioConfig {
 ///
 /// Fields are organized into focused sub-structs:
 /// - [`market_quotes`](MarketQuoteOverrides): quoted prices, implied vol, spreads, upfront payments
-/// - [`bump_config`](BumpConfig): all bump sizes for finite-difference sensitivities
+/// - [`metrics`](MetricPricingOverrides): bump sizes, theta period, deterministic MC seeds
 /// - [`model_config`](ModelConfig): vol model selection, tree pricing, exercise friction
-/// - [`scenario`](ScenarioConfig): scenario shocks, MC seeds, theta period
+/// - [`scenario`](ScenarioPricingOverrides): scenario-only revaluation adjustments
 ///
 /// # Serde Compatibility
 ///
@@ -370,15 +481,15 @@ pub struct PricingOverrides {
     /// Market-quoted values (prices, implied vol, spreads).
     #[serde(flatten)]
     pub market_quotes: MarketQuoteOverrides,
-    /// Bump sizes for finite-difference sensitivities.
+    /// Metric-time controls (bumps, theta horizon, deterministic MC seeds).
     #[serde(flatten)]
-    pub bump_config: BumpConfig,
+    pub metrics: MetricPricingOverrides,
     /// Model selection and tree pricing parameters.
     #[serde(flatten)]
     pub model_config: ModelConfig,
-    /// Scenario shocks, theta period, and MC seed overrides.
+    /// Scenario-only price and spread adjustments.
     #[serde(flatten)]
-    pub scenario: ScenarioConfig,
+    pub scenario: ScenarioPricingOverrides,
     /// Term loan specific overrides
     #[serde(skip_serializing_if = "Option::is_none")]
     pub term_loan: Option<TermLoanOverrides>,
@@ -394,7 +505,7 @@ impl PricingOverrides {
     /// This helper exists to prevent accidental \(10{,}000\times\) unit errors when
     /// calling APIs that expect bp units.
     pub fn rho_bump_bp(&self) -> f64 {
-        self.bump_config.rho_bump_decimal.unwrap_or(0.0001) * 10000.0
+        self.metrics.bump_config.rho_bump_decimal.unwrap_or(0.0001) * 10000.0
     }
 }
 
@@ -505,13 +616,13 @@ impl PricingOverrides {
 
     /// Set custom YTM bump size (decimal). For 1 bp, pass 1e-4.
     pub fn with_ytm_bump_decimal(mut self, bump: f64) -> Self {
-        self.bump_config.ytm_bump_decimal = Some(bump);
+        self.metrics.bump_config.ytm_bump_decimal = Some(bump);
         self
     }
 
     /// Set custom YTM bump size using basis points.
     pub fn with_ytm_bump_bps(mut self, bump: Bps) -> Self {
-        self.bump_config.ytm_bump_decimal = Some(bump.as_decimal());
+        self.metrics.bump_config.ytm_bump_decimal = Some(bump.as_decimal());
         self
     }
 
@@ -520,7 +631,7 @@ impl PricingOverrides {
     /// Adaptive bumps scale based on volatility, time to expiry, and moneyness
     /// to improve numerical stability for extreme parameter values.
     pub fn with_adaptive_bumps(mut self, enable: bool) -> Self {
-        self.bump_config.adaptive_bumps = enable;
+        self.metrics.bump_config.adaptive_bumps = enable;
         self
     }
 
@@ -528,13 +639,13 @@ impl PricingOverrides {
     ///
     /// Overrides both standard and adaptive calculations when set.
     pub fn with_spot_bump(mut self, bump_pct: f64) -> Self {
-        self.bump_config.spot_bump_pct = Some(bump_pct);
+        self.metrics.bump_config.spot_bump_pct = Some(bump_pct);
         self
     }
 
     /// Set custom spot bump size using a typed percentage.
     pub fn with_spot_bump_pct(mut self, bump_pct: Percentage) -> Self {
-        self.bump_config.spot_bump_pct = Some(bump_pct.as_decimal());
+        self.metrics.bump_config.spot_bump_pct = Some(bump_pct.as_decimal());
         self
     }
 
@@ -542,13 +653,13 @@ impl PricingOverrides {
     ///
     /// Overrides both standard and adaptive calculations when set.
     pub fn with_vol_bump(mut self, bump_pct: f64) -> Self {
-        self.bump_config.vol_bump_pct = Some(bump_pct);
+        self.metrics.bump_config.vol_bump_pct = Some(bump_pct);
         self
     }
 
     /// Set custom volatility bump size using a typed percentage.
     pub fn with_vol_bump_pct(mut self, bump_pct: Percentage) -> Self {
-        self.bump_config.vol_bump_pct = Some(bump_pct.as_decimal());
+        self.metrics.bump_config.vol_bump_pct = Some(bump_pct.as_decimal());
         self
     }
 
@@ -556,25 +667,25 @@ impl PricingOverrides {
     ///
     /// Overrides both standard and adaptive calculations when set.
     pub fn with_rate_bump(mut self, bump_bp: f64) -> Self {
-        self.bump_config.rate_bump_bp = Some(bump_bp);
+        self.metrics.bump_config.rate_bump_bp = Some(bump_bp);
         self
     }
 
     /// Set custom rate bump size using a typed basis-point value.
     pub fn with_rate_bump_bps(mut self, bump_bp: Bps) -> Self {
-        self.bump_config.rate_bump_bp = Some(bump_bp.as_bps() as f64);
+        self.metrics.bump_config.rate_bump_bp = Some(bump_bp.as_bps() as f64);
         self
     }
 
     /// Set custom credit spread bump size (in basis points, e.g., 1.0 for 1bp).
     pub fn with_credit_spread_bump(mut self, bump_bp: f64) -> Self {
-        self.bump_config.credit_spread_bump_bp = Some(bump_bp);
+        self.metrics.bump_config.credit_spread_bump_bp = Some(bump_bp);
         self
     }
 
     /// Set custom credit spread bump size using a typed basis-point value.
     pub fn with_credit_spread_bump_bps(mut self, bump_bp: Bps) -> Self {
-        self.bump_config.credit_spread_bump_bp = Some(bump_bp.as_bps() as f64);
+        self.metrics.bump_config.credit_spread_bump_bp = Some(bump_bp.as_bps() as f64);
         self
     }
 
@@ -582,7 +693,7 @@ impl PricingOverrides {
 
     /// Set theta period for time decay calculations.
     pub fn with_theta_period(mut self, period: impl Into<String>) -> Self {
-        self.scenario.theta_period = Some(period.into());
+        self.metrics.theta_period = Some(period.into());
         self
     }
 
@@ -591,7 +702,7 @@ impl PricingOverrides {
     /// The scenario name (e.g., "delta_up", "vega_down") is used to derive
     /// a deterministic seed from the instrument ID, ensuring reproducibility.
     pub fn with_mc_seed_scenario(mut self, scenario: impl Into<String>) -> Self {
-        self.scenario.mc_seed_scenario = Some(scenario.into());
+        self.metrics.mc_seed_scenario = Some(scenario.into());
         self
     }
 
@@ -654,9 +765,8 @@ impl PricingOverrides {
     /// Validate override values for finiteness and non-negativity; basic `theta_period` sanity.
     pub fn validate(&self) -> finstack_core::Result<()> {
         self.market_quotes.validate()?;
-        self.bump_config.validate()?;
+        self.metrics.validate()?;
         self.model_config.validate()?;
-        self.scenario.validate()?;
         Ok(())
     }
 }
@@ -765,10 +875,10 @@ mod tests {
         let po: PricingOverrides = serde_json::from_str(json).expect("deserialize flat fields");
         assert_eq!(po.market_quotes.quoted_clean_price, Some(99.5));
         assert_eq!(po.market_quotes.implied_volatility, Some(0.2));
-        assert_eq!(po.bump_config.rate_bump_bp, Some(1.0));
+        assert_eq!(po.metrics.bump_config.rate_bump_bp, Some(1.0));
         assert_eq!(po.model_config.tree_steps, Some(100));
         assert_eq!(po.scenario.scenario_price_shock_pct, Some(-0.05));
-        assert_eq!(po.scenario.theta_period.as_deref(), Some("1D"));
+        assert_eq!(po.metrics.theta_period.as_deref(), Some("1D"));
     }
 
     #[test]
@@ -790,11 +900,48 @@ mod tests {
         assert_eq!(rt.market_quotes.quoted_clean_price, Some(100.0));
         assert_eq!(rt.market_quotes.implied_volatility, Some(0.25));
         assert_eq!(rt.market_quotes.quoted_spread_bp, Some(50.0));
-        assert_eq!(rt.bump_config.rate_bump_bp, Some(2.0));
-        assert_eq!(rt.bump_config.spot_bump_pct, Some(0.01));
+        assert_eq!(rt.metrics.bump_config.rate_bump_bp, Some(2.0));
+        assert_eq!(rt.metrics.bump_config.spot_bump_pct, Some(0.01));
         assert_eq!(rt.model_config.tree_steps, Some(200));
         assert_eq!(rt.model_config.tree_volatility, Some(0.15));
         assert_eq!(rt.scenario.scenario_price_shock_pct, Some(-0.10));
-        assert_eq!(rt.scenario.theta_period.as_deref(), Some("1W"));
+        assert_eq!(rt.metrics.theta_period.as_deref(), Some("1W"));
+    }
+
+    #[test]
+    fn metric_overrides_extract_theta_and_bumps_without_scenario_shocks() {
+        let po = PricingOverrides::none()
+            .with_theta_period("1W")
+            .with_mc_seed_scenario("theta_roll")
+            .with_rate_bump(2.0)
+            .with_spot_bump(0.01)
+            .with_price_shock_pct(-0.10)
+            .with_spread_shock_bp(25.0);
+
+        let metric_overrides = MetricPricingOverrides::from_pricing_overrides(&po);
+
+        assert_eq!(metric_overrides.theta_period.as_deref(), Some("1W"));
+        assert_eq!(
+            metric_overrides.mc_seed_scenario.as_deref(),
+            Some("theta_roll")
+        );
+        assert_eq!(metric_overrides.bump_config.rate_bump_bp, Some(2.0));
+        assert_eq!(metric_overrides.bump_config.spot_bump_pct, Some(0.01));
+    }
+
+    #[test]
+    fn scenario_overrides_extract_only_price_and_spread_shocks() {
+        let mut po = PricingOverrides::none()
+            .with_theta_period("1W")
+            .with_mc_seed_scenario("theta_roll")
+            .with_price_shock_pct(-0.10)
+            .with_spread_shock_bp(25.0);
+
+        po.model_config.use_gobet_miri = true;
+
+        let scenario_overrides = ScenarioPricingOverrides::from_pricing_overrides(&po);
+
+        assert_eq!(scenario_overrides.scenario_price_shock_pct, Some(-0.10));
+        assert_eq!(scenario_overrides.scenario_spread_shock_bp, Some(25.0));
     }
 }

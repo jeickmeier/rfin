@@ -388,13 +388,13 @@ impl crate::instruments::common_impl::traits::Instrument for VolatilityIndexOpti
         Some(self)
     }
 
-    fn scenario_overrides_mut(
+    fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&mut self.pricing_overrides)
     }
 
-    fn scenario_overrides(
+    fn pricing_overrides(
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)

@@ -270,7 +270,7 @@ pub trait HasPricingOverrides {
     ///
     /// // Set deterministic MC seed for greek calculation
     /// # let instrument: &mut dyn HasPricingOverrides = todo!("a Monte Carlo priced instrument");
-    /// instrument.pricing_overrides_mut().scenario.mc_seed_scenario = Some("delta_up".to_string());
+    /// instrument.pricing_overrides_mut().metrics.mc_seed_scenario = Some("delta_up".to_string());
     /// ```
     fn pricing_overrides_mut(&mut self) -> &mut crate::instruments::PricingOverrides;
 }
@@ -344,7 +344,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.pricing_overrides.as_ref(),
+            context.metric_overrides.as_ref(),
         )?;
 
         // Get equity dependencies
@@ -440,7 +440,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.pricing_overrides.as_ref(),
+            context.metric_overrides.as_ref(),
         )?;
 
         // Get equity dependencies
@@ -539,7 +539,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.pricing_overrides.as_ref(),
+            context.metric_overrides.as_ref(),
         )?;
 
         // Get equity dependencies
@@ -568,10 +568,10 @@ where
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_up.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_down = instrument.clone();
-        inst_down.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_down.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
 
         let mut scratch = context.curves.as_ref().clone();
@@ -621,7 +621,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.pricing_overrides.as_ref(),
+            context.metric_overrides.as_ref(),
         )?;
 
         // Get equity dependencies
@@ -658,10 +658,10 @@ where
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_up.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_down = instrument.clone();
-        inst_down.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_down.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
 
         let pv_up = eval_raw_with_scratch_bumps(
@@ -713,7 +713,7 @@ where
         let as_of = context.as_of;
         let defaults = sens_config::from_context_or_default(
             context.config(),
-            context.pricing_overrides.as_ref(),
+            context.metric_overrides.as_ref(),
         )?;
 
         // If expired, vanna is zero (avoid bumping / repricing beyond expiry).
@@ -756,16 +756,16 @@ where
         let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
         let mut inst_pp = instrument.clone();
-        inst_pp.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_pp.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_pm = instrument.clone();
-        inst_pm.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_pm.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_mp = instrument.clone();
-        inst_mp.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_mp.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_mm = instrument.clone();
-        inst_mm.pricing_overrides_mut().scenario.mc_seed_scenario =
+        inst_mm.pricing_overrides_mut().metrics.mc_seed_scenario =
             Some(CRN_SEED_SCENARIO.to_string());
 
         let mut scratch = context.curves.as_ref().clone();
