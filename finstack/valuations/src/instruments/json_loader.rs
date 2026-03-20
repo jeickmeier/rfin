@@ -204,6 +204,135 @@ pub enum InstrumentJson {
     DiscountedCashFlow(DiscountedCashFlow),
 }
 
+macro_rules! with_instrument_json_registry {
+    ($callback:ident $(, $extra:expr )* $(,)?) => {
+        $callback!(
+            [$($extra),*]
+            plain: Bond(Bond) => "bond";
+            plain: ConvertibleBond(ConvertibleBond) => "convertible_bond";
+            plain: InflationLinkedBond(InflationLinkedBond) => "inflation_linked_bond";
+            plain: TermLoan(TermLoan) => "term_loan";
+            plain: RevolvingCredit(RevolvingCredit) => "revolving_credit";
+            plain: AgencyMbsPassthrough(AgencyMbsPassthrough) => "agency_mbs_passthrough";
+            plain: AgencyTba(AgencyTba) => "agency_tba";
+            plain: AgencyCmo(AgencyCmo) => "agency_cmo";
+            plain: DollarRoll(DollarRoll) => "dollar_roll";
+            plain: InterestRateSwap(InterestRateSwap) => "interest_rate_swap";
+            plain: BasisSwap(BasisSwap) => "basis_swap";
+            plain: XccySwap(XccySwap) => "xccy_swap";
+            plain: InflationSwap(InflationSwap) => "inflation_swap";
+            plain: YoYInflationSwap(YoYInflationSwap) => "yoy_inflation_swap", "yo_y_inflation_swap";
+            plain: InflationCapFloor(InflationCapFloor) => "inflation_cap_floor";
+            plain: ForwardRateAgreement(ForwardRateAgreement) => "forward_rate_agreement";
+            plain: Swaption(Swaption) => "swaption";
+            plain: InterestRateFuture(InterestRateFuture) => "interest_rate_future";
+            plain: InterestRateOption(InterestRateOption) => "interest_rate_option";
+            plain: CmsSwap(CmsSwap) => "cms_swap";
+            plain: CmsOption(CmsOption) => "cms_option";
+            plain: IrFutureOption(IrFutureOption) => "ir_future_option";
+            plain: Deposit(Deposit) => "deposit";
+            plain: Repo(Repo) => "repo";
+            plain: CreditDefaultSwap(CreditDefaultSwap) => "credit_default_swap";
+            plain: CDSIndex(CDSIndex) => "cds_index";
+            plain: CDSTranche(CDSTranche) => "cds_tranche";
+            plain: CDSOption(CDSOption) => "cds_option";
+            plain: Equity(Equity) => "equity";
+            plain: EquityOption(EquityOption) => "equity_option";
+            plain: AsianOption(AsianOption) => "asian_option";
+            plain: BarrierOption(BarrierOption) => "barrier_option";
+            plain: LookbackOption(LookbackOption) => "lookback_option";
+            plain: VarianceSwap(VarianceSwap) => "variance_swap";
+            plain: EquityIndexFuture(EquityIndexFuture) => "equity_index_future";
+            plain: VolatilityIndexFuture(VolatilityIndexFuture) => "volatility_index_future";
+            plain: VolatilityIndexOption(VolatilityIndexOption) => "volatility_index_option";
+            plain: FxSpot(FxSpot) => "fx_spot";
+            plain: FxSwap(FxSwap) => "fx_swap";
+            plain: FxForward(FxForward) => "fx_forward";
+            plain: Ndf(Ndf) => "ndf";
+            plain: FxOption(FxOption) => "fx_option";
+            plain: FxDigitalOption(FxDigitalOption) => "fx_digital_option";
+            plain: FxTouchOption(FxTouchOption) => "fx_touch_option";
+            plain: FxBarrierOption(FxBarrierOption) => "fx_barrier_option";
+            plain: FxVarianceSwap(FxVarianceSwap) => "fx_variance_swap";
+            plain: QuantoOption(QuantoOption) => "quanto_option";
+            plain: CommodityOption(CommodityOption) => "commodity_option";
+            plain: CommodityAsianOption(CommodityAsianOption) => "commodity_asian_option";
+            plain: CommodityForward(CommodityForward) => "commodity_forward";
+            plain: CommoditySwap(CommoditySwap) => "commodity_swap";
+            plain: CommoditySwaption(CommoditySwaption) => "commodity_swaption";
+            plain: CommoditySpreadOption(CommoditySpreadOption) => "commodity_spread_option";
+            plain: Autocallable(Autocallable) => "autocallable";
+            plain: CliquetOption(CliquetOption) => "cliquet_option";
+            plain: RangeAccrual(RangeAccrual) => "range_accrual";
+            plain: TrsEquity(EquityTotalReturnSwap) => "trs_equity", "equity_trs";
+            plain: TrsFixedIncomeIndex(FIIndexTotalReturnSwap) => "trs_fixed_income_index", "fi_trs", "fixed_income_trs";
+            plain: Basket(Basket) => "basket";
+            plain: PrivateMarketsFund(PrivateMarketsFund) => "private_markets_fund";
+            plain: RealEstateAsset(RealEstateAsset) => "real_estate_asset";
+            plain: DiscountedCashFlow(DiscountedCashFlow) => "discounted_cash_flow";
+            boxed: BondFuture(BondFuture) => "bond_future";
+            boxed: StructuredCredit(StructuredCredit) => "structured_credit";
+            boxed: LeveredRealEstateEquity(crate::instruments::equity::real_estate::LeveredRealEstateEquity) => "levered_real_estate_equity";
+        )
+    };
+}
+
+macro_rules! instrument_json_into_boxed_match {
+    (
+        [$instrument_json:expr]
+        $(plain: $variant:ident($ty:ty) => $tag:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+    ) => {
+        match $instrument_json {
+            $(InstrumentJson::$variant(instrument) => Ok(Box::new(instrument)),)*
+            $(InstrumentJson::$boxed_variant(instrument) => Ok(Box::new(*instrument)),)*
+        }
+    };
+}
+
+macro_rules! instrument_json_deserialize_match {
+    (
+        [$spec_str:expr, $ty:expr]
+        $(plain: $variant:ident($value_ty:ty) => $tag:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_value_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+    ) => {
+        match $ty.as_str() {
+            $(
+                $tag $(| $alias)* => serde_json::from_str::<$value_ty>($spec_str)
+                    .map(Self::$variant)
+                    .map_err(D::Error::custom),
+            )*
+            $(
+                $boxed_tag $(| $boxed_alias)* => serde_json::from_str::<$boxed_value_ty>($spec_str)
+                    .map(Box::new)
+                    .map(Self::$boxed_variant)
+                    .map_err(D::Error::custom),
+            )*
+            other => Err(D::Error::unknown_variant(
+                other,
+                &[
+                    $($tag, $($alias,)* )*
+                    $($boxed_tag, $($boxed_alias,)* )*
+                ],
+            )),
+        }
+    };
+}
+
+#[cfg(test)]
+macro_rules! instrument_json_canonical_types {
+    (
+        []
+        $(plain: $variant:ident($ty:ty) => $tag:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+    ) => {
+        &[
+            $($tag,)*
+            $($boxed_tag,)*
+        ]
+    };
+}
+
 impl InstrumentJson {
     /// Convert this JSON representation into a boxed instrument trait object.
     ///
@@ -215,94 +344,7 @@ impl InstrumentJson {
     ///
     /// Returns an error if spec validation fails during conversion.
     pub fn into_boxed(self) -> Result<Box<dyn Instrument>> {
-        match self {
-            // Fixed Income
-            InstrumentJson::Bond(i) => Ok(Box::new(i)),
-            InstrumentJson::ConvertibleBond(i) => Ok(Box::new(i)),
-            InstrumentJson::InflationLinkedBond(i) => Ok(Box::new(i)),
-            InstrumentJson::TermLoan(i) => Ok(Box::new(i)),
-            InstrumentJson::BondFuture(i) => Ok(Box::new(*i)),
-            InstrumentJson::AgencyMbsPassthrough(i) => Ok(Box::new(i)),
-            InstrumentJson::AgencyTba(i) => Ok(Box::new(i)),
-            InstrumentJson::AgencyCmo(i) => Ok(Box::new(i)),
-            InstrumentJson::DollarRoll(i) => Ok(Box::new(i)),
-
-            // Swaps
-            InstrumentJson::InterestRateSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::BasisSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::XccySwap(i) => Ok(Box::new(i)),
-            InstrumentJson::InflationSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::YoYInflationSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::InflationCapFloor(i) => Ok(Box::new(i)),
-            InstrumentJson::FxSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::VarianceSwap(i) => Ok(Box::new(i)),
-
-            // Rates Derivatives
-            InstrumentJson::ForwardRateAgreement(i) => Ok(Box::new(i)),
-            InstrumentJson::Swaption(i) => Ok(Box::new(i)),
-            InstrumentJson::InterestRateFuture(i) => Ok(Box::new(i)),
-            InstrumentJson::InterestRateOption(i) => Ok(Box::new(i)),
-            InstrumentJson::CmsSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::CmsOption(i) => Ok(Box::new(i)),
-            InstrumentJson::IrFutureOption(i) => Ok(Box::new(i)),
-
-            // Credit
-            InstrumentJson::CreditDefaultSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::CDSIndex(i) => Ok(Box::new(i)),
-            InstrumentJson::CDSTranche(i) => Ok(Box::new(i)),
-            InstrumentJson::CDSOption(i) => Ok(Box::new(i)),
-
-            // Equity
-            InstrumentJson::Equity(i) => Ok(Box::new(i)),
-            InstrumentJson::EquityOption(i) => Ok(Box::new(i)),
-            InstrumentJson::AsianOption(i) => Ok(Box::new(i)),
-            InstrumentJson::BarrierOption(i) => Ok(Box::new(i)),
-            InstrumentJson::LookbackOption(i) => Ok(Box::new(i)),
-            InstrumentJson::EquityIndexFuture(i) => Ok(Box::new(i)),
-            InstrumentJson::VolatilityIndexFuture(i) => Ok(Box::new(i)),
-            InstrumentJson::VolatilityIndexOption(i) => Ok(Box::new(i)),
-
-            // FX
-            InstrumentJson::FxSpot(i) => Ok(Box::new(i)),
-            InstrumentJson::FxForward(i) => Ok(Box::new(i)),
-            InstrumentJson::Ndf(i) => Ok(Box::new(i)),
-            InstrumentJson::FxOption(i) => Ok(Box::new(i)),
-            InstrumentJson::FxDigitalOption(i) => Ok(Box::new(i)),
-            InstrumentJson::FxTouchOption(i) => Ok(Box::new(i)),
-            InstrumentJson::FxBarrierOption(i) => Ok(Box::new(i)),
-            InstrumentJson::FxVarianceSwap(i) => Ok(Box::new(i)),
-            InstrumentJson::QuantoOption(i) => Ok(Box::new(i)),
-
-            // Commodity
-            InstrumentJson::CommodityOption(i) => Ok(Box::new(i)),
-            InstrumentJson::CommodityAsianOption(i) => Ok(Box::new(i)),
-            InstrumentJson::CommodityForward(i) => Ok(Box::new(i)),
-            InstrumentJson::CommoditySwap(i) => Ok(Box::new(i)),
-            InstrumentJson::CommoditySwaption(i) => Ok(Box::new(i)),
-            InstrumentJson::CommoditySpreadOption(i) => Ok(Box::new(i)),
-
-            // Exotic Options
-            InstrumentJson::Autocallable(i) => Ok(Box::new(i)),
-            InstrumentJson::CliquetOption(i) => Ok(Box::new(i)),
-            InstrumentJson::RangeAccrual(i) => Ok(Box::new(i)),
-
-            // Total Return Swaps
-            InstrumentJson::TrsEquity(i) => Ok(Box::new(i)),
-            InstrumentJson::TrsFixedIncomeIndex(i) => Ok(Box::new(i)),
-
-            // Structured Credit
-            InstrumentJson::StructuredCredit(i) => Ok(Box::new(*i)),
-
-            // Other
-            InstrumentJson::Basket(i) => Ok(Box::new(i)),
-            InstrumentJson::Deposit(i) => Ok(Box::new(i)),
-            InstrumentJson::Repo(i) => Ok(Box::new(i)),
-            InstrumentJson::PrivateMarketsFund(i) => Ok(Box::new(i)),
-            InstrumentJson::RealEstateAsset(i) => Ok(Box::new(i)),
-            InstrumentJson::LeveredRealEstateEquity(i) => Ok(Box::new(*i)),
-            InstrumentJson::RevolvingCredit(i) => Ok(Box::new(i)),
-            InstrumentJson::DiscountedCashFlow(i) => Ok(Box::new(i)),
-        }
+        with_instrument_json_registry!(instrument_json_into_boxed_match, self)
     }
 }
 
@@ -331,308 +373,7 @@ impl<'de> Deserialize<'de> for InstrumentJson {
 
         // Now parse spec into the appropriate type based on the tag
         // Using from_str on a fresh string to avoid lifetime issues
-        match ty.as_str() {
-            // Fixed Income
-            "bond" => serde_json::from_str(&spec_str)
-                .map(Self::Bond)
-                .map_err(D::Error::custom),
-            "convertible_bond" => serde_json::from_str(&spec_str)
-                .map(Self::ConvertibleBond)
-                .map_err(D::Error::custom),
-            "inflation_linked_bond" => serde_json::from_str(&spec_str)
-                .map(Self::InflationLinkedBond)
-                .map_err(D::Error::custom),
-            "term_loan" => serde_json::from_str(&spec_str)
-                .map(Self::TermLoan)
-                .map_err(D::Error::custom),
-            "bond_future" => serde_json::from_str::<BondFuture>(&spec_str)
-                .map(Box::new)
-                .map(Self::BondFuture)
-                .map_err(D::Error::custom),
-            "agency_mbs_passthrough" => serde_json::from_str(&spec_str)
-                .map(Self::AgencyMbsPassthrough)
-                .map_err(D::Error::custom),
-            "agency_tba" => serde_json::from_str(&spec_str)
-                .map(Self::AgencyTba)
-                .map_err(D::Error::custom),
-            "agency_cmo" => serde_json::from_str(&spec_str)
-                .map(Self::AgencyCmo)
-                .map_err(D::Error::custom),
-            "dollar_roll" => serde_json::from_str(&spec_str)
-                .map(Self::DollarRoll)
-                .map_err(D::Error::custom),
-
-            // Swaps
-            "interest_rate_swap" => serde_json::from_str(&spec_str)
-                .map(Self::InterestRateSwap)
-                .map_err(D::Error::custom),
-            "basis_swap" => serde_json::from_str(&spec_str)
-                .map(Self::BasisSwap)
-                .map_err(D::Error::custom),
-            "xccy_swap" => serde_json::from_str(&spec_str)
-                .map(Self::XccySwap)
-                .map_err(D::Error::custom),
-            "inflation_swap" => serde_json::from_str(&spec_str)
-                .map(Self::InflationSwap)
-                .map_err(D::Error::custom),
-            "yoy_inflation_swap" | "yo_y_inflation_swap" => serde_json::from_str(&spec_str)
-                .map(Self::YoYInflationSwap)
-                .map_err(D::Error::custom),
-            "inflation_cap_floor" => serde_json::from_str(&spec_str)
-                .map(Self::InflationCapFloor)
-                .map_err(D::Error::custom),
-            "fx_swap" => serde_json::from_str(&spec_str)
-                .map(Self::FxSwap)
-                .map_err(D::Error::custom),
-            "variance_swap" => serde_json::from_str(&spec_str)
-                .map(Self::VarianceSwap)
-                .map_err(D::Error::custom),
-
-            // Rates Derivatives
-            "forward_rate_agreement" => serde_json::from_str(&spec_str)
-                .map(Self::ForwardRateAgreement)
-                .map_err(D::Error::custom),
-            "swaption" => serde_json::from_str(&spec_str)
-                .map(Self::Swaption)
-                .map_err(D::Error::custom),
-            "interest_rate_future" => serde_json::from_str(&spec_str)
-                .map(Self::InterestRateFuture)
-                .map_err(D::Error::custom),
-            "interest_rate_option" => serde_json::from_str(&spec_str)
-                .map(Self::InterestRateOption)
-                .map_err(D::Error::custom),
-            "cms_swap" => serde_json::from_str(&spec_str)
-                .map(Self::CmsSwap)
-                .map_err(D::Error::custom),
-            "cms_option" => serde_json::from_str(&spec_str)
-                .map(Self::CmsOption)
-                .map_err(D::Error::custom),
-            "ir_future_option" => serde_json::from_str(&spec_str)
-                .map(Self::IrFutureOption)
-                .map_err(D::Error::custom),
-
-            // Credit
-            "credit_default_swap" => serde_json::from_str(&spec_str)
-                .map(Self::CreditDefaultSwap)
-                .map_err(D::Error::custom),
-            "cds_index" => serde_json::from_str(&spec_str)
-                .map(Self::CDSIndex)
-                .map_err(D::Error::custom),
-            "cds_tranche" => serde_json::from_str(&spec_str)
-                .map(Self::CDSTranche)
-                .map_err(D::Error::custom),
-            "cds_option" => serde_json::from_str(&spec_str)
-                .map(Self::CDSOption)
-                .map_err(D::Error::custom),
-
-            // Equity
-            "equity" => serde_json::from_str(&spec_str)
-                .map(Self::Equity)
-                .map_err(D::Error::custom),
-            "equity_option" => serde_json::from_str(&spec_str)
-                .map(Self::EquityOption)
-                .map_err(D::Error::custom),
-            "asian_option" => serde_json::from_str(&spec_str)
-                .map(Self::AsianOption)
-                .map_err(D::Error::custom),
-            "barrier_option" => serde_json::from_str(&spec_str)
-                .map(Self::BarrierOption)
-                .map_err(D::Error::custom),
-            "lookback_option" => serde_json::from_str(&spec_str)
-                .map(Self::LookbackOption)
-                .map_err(D::Error::custom),
-            "equity_index_future" => serde_json::from_str(&spec_str)
-                .map(Self::EquityIndexFuture)
-                .map_err(D::Error::custom),
-            "volatility_index_future" => serde_json::from_str(&spec_str)
-                .map(Self::VolatilityIndexFuture)
-                .map_err(D::Error::custom),
-            "volatility_index_option" => serde_json::from_str(&spec_str)
-                .map(Self::VolatilityIndexOption)
-                .map_err(D::Error::custom),
-
-            // FX
-            "fx_spot" => serde_json::from_str(&spec_str)
-                .map(Self::FxSpot)
-                .map_err(D::Error::custom),
-            "fx_forward" => serde_json::from_str(&spec_str)
-                .map(Self::FxForward)
-                .map_err(D::Error::custom),
-            "ndf" => serde_json::from_str(&spec_str)
-                .map(Self::Ndf)
-                .map_err(D::Error::custom),
-            "fx_option" => serde_json::from_str(&spec_str)
-                .map(Self::FxOption)
-                .map_err(D::Error::custom),
-            "fx_digital_option" => serde_json::from_str(&spec_str)
-                .map(Self::FxDigitalOption)
-                .map_err(D::Error::custom),
-            "fx_touch_option" => serde_json::from_str(&spec_str)
-                .map(Self::FxTouchOption)
-                .map_err(D::Error::custom),
-            "fx_barrier_option" => serde_json::from_str(&spec_str)
-                .map(Self::FxBarrierOption)
-                .map_err(D::Error::custom),
-            "fx_variance_swap" => serde_json::from_str(&spec_str)
-                .map(Self::FxVarianceSwap)
-                .map_err(D::Error::custom),
-            "quanto_option" => serde_json::from_str(&spec_str)
-                .map(Self::QuantoOption)
-                .map_err(D::Error::custom),
-
-            // Commodity
-            "commodity_option" => serde_json::from_str(&spec_str)
-                .map(Self::CommodityOption)
-                .map_err(D::Error::custom),
-            "commodity_asian_option" => serde_json::from_str(&spec_str)
-                .map(Self::CommodityAsianOption)
-                .map_err(D::Error::custom),
-            "commodity_forward" => serde_json::from_str(&spec_str)
-                .map(Self::CommodityForward)
-                .map_err(D::Error::custom),
-            "commodity_swap" => serde_json::from_str(&spec_str)
-                .map(Self::CommoditySwap)
-                .map_err(D::Error::custom),
-            "commodity_swaption" => serde_json::from_str(&spec_str)
-                .map(Self::CommoditySwaption)
-                .map_err(D::Error::custom),
-            "commodity_spread_option" => serde_json::from_str(&spec_str)
-                .map(Self::CommoditySpreadOption)
-                .map_err(D::Error::custom),
-
-            // Exotic Options
-            "autocallable" => serde_json::from_str(&spec_str)
-                .map(Self::Autocallable)
-                .map_err(D::Error::custom),
-            "cliquet_option" => serde_json::from_str(&spec_str)
-                .map(Self::CliquetOption)
-                .map_err(D::Error::custom),
-            "range_accrual" => serde_json::from_str(&spec_str)
-                .map(Self::RangeAccrual)
-                .map_err(D::Error::custom),
-
-            // Total Return Swaps
-            "trs_equity" | "equity_trs" => serde_json::from_str(&spec_str)
-                .map(Self::TrsEquity)
-                .map_err(D::Error::custom),
-            "trs_fixed_income_index" | "fi_trs" | "fixed_income_trs" => {
-                serde_json::from_str(&spec_str)
-                    .map(Self::TrsFixedIncomeIndex)
-                    .map_err(D::Error::custom)
-            }
-
-            // Structured Credit
-            "structured_credit" => serde_json::from_str(&spec_str)
-                .map(|sc| Self::StructuredCredit(Box::new(sc)))
-                .map_err(D::Error::custom),
-
-            // Other
-            "basket" => serde_json::from_str(&spec_str)
-                .map(Self::Basket)
-                .map_err(D::Error::custom),
-            "deposit" => serde_json::from_str(&spec_str)
-                .map(Self::Deposit)
-                .map_err(D::Error::custom),
-            "repo" => serde_json::from_str(&spec_str)
-                .map(Self::Repo)
-                .map_err(D::Error::custom),
-            "private_markets_fund" => serde_json::from_str(&spec_str)
-                .map(Self::PrivateMarketsFund)
-                .map_err(D::Error::custom),
-            "real_estate_asset" => serde_json::from_str(&spec_str)
-                .map(Self::RealEstateAsset)
-                .map_err(D::Error::custom),
-            "levered_real_estate_equity" => serde_json::from_str(&spec_str)
-                .map(|i| Self::LeveredRealEstateEquity(Box::new(i)))
-                .map_err(D::Error::custom),
-            "revolving_credit" => serde_json::from_str(&spec_str)
-                .map(Self::RevolvingCredit)
-                .map_err(D::Error::custom),
-            "discounted_cash_flow" => serde_json::from_str(&spec_str)
-                .map(Self::DiscountedCashFlow)
-                .map_err(D::Error::custom),
-
-            other => Err(D::Error::unknown_variant(
-                other,
-                &[
-                    // Fixed Income
-                    "bond",
-                    "convertible_bond",
-                    "inflation_linked_bond",
-                    "term_loan",
-                    "bond_future",
-                    "agency_mbs_passthrough",
-                    "agency_tba",
-                    "agency_cmo",
-                    "dollar_roll",
-                    // Swaps
-                    "interest_rate_swap",
-                    "basis_swap",
-                    "xccy_swap",
-                    "inflation_swap",
-                    "yoy_inflation_swap",
-                    "yo_y_inflation_swap",
-                    "inflation_cap_floor",
-                    "fx_swap",
-                    "variance_swap",
-                    // Rates Derivatives
-                    "forward_rate_agreement",
-                    "swaption",
-                    "interest_rate_future",
-                    "interest_rate_option",
-                    "cms_swap",
-                    "cms_option",
-                    "ir_future_option",
-                    // Credit
-                    "credit_default_swap",
-                    "cds_index",
-                    "cds_tranche",
-                    "cds_option",
-                    // Equity
-                    "equity",
-                    "equity_option",
-                    "asian_option",
-                    "barrier_option",
-                    "lookback_option",
-                    "equity_index_future",
-                    "volatility_index_future",
-                    "volatility_index_option",
-                    // FX
-                    "fx_spot",
-                    "fx_forward",
-                    "ndf",
-                    "fx_option",
-                    "fx_digital_option",
-                    "fx_touch_option",
-                    "fx_barrier_option",
-                    "fx_variance_swap",
-                    "quanto_option",
-                    // Commodity
-                    "commodity_option",
-                    "commodity_asian_option",
-                    "commodity_forward",
-                    "commodity_swap",
-                    // Exotics
-                    "autocallable",
-                    "cliquet_option",
-                    "range_accrual",
-                    // TRS
-                    "trs_equity",
-                    "trs_fixed_income_index",
-                    // Structured
-                    "structured_credit",
-                    // Other
-                    "basket",
-                    "deposit",
-                    "repo",
-                    "private_markets_fund",
-                    "real_estate_asset",
-                    "levered_real_estate_equity",
-                    "revolving_credit",
-                    "discounted_cash_flow",
-                ],
-            )),
-        }
+        with_instrument_json_registry!(instrument_json_deserialize_match, &spec_str, ty)
     }
 }
 
@@ -943,6 +684,92 @@ mod tests {
 
         let result = InstrumentEnvelope::from_str(json);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_unknown_variant_error_lists_all_supported_dispatch_tags() {
+        let err = serde_json::from_value::<InstrumentJson>(serde_json::json!({
+            "type": "totally_unknown_instrument",
+            "spec": {}
+        }))
+        .expect_err("unknown type should fail");
+        let message = err.to_string();
+
+        assert!(
+            message.contains("commodity_swaption"),
+            "unknown variant message should list commodity_swaption, got: {message}"
+        );
+        assert!(
+            message.contains("commodity_spread_option"),
+            "unknown variant message should list commodity_spread_option, got: {message}"
+        );
+        assert!(
+            message.contains("equity_trs"),
+            "unknown variant message should list equity_trs alias, got: {message}"
+        );
+        assert!(
+            message.contains("fi_trs"),
+            "unknown variant message should list fi_trs alias, got: {message}"
+        );
+        assert!(
+            message.contains("fixed_income_trs"),
+            "unknown variant message should list fixed_income_trs alias, got: {message}"
+        );
+    }
+
+    #[test]
+    fn test_trs_alias_tags_deserialize_to_expected_variants() {
+        let equity_trs =
+            EquityTotalReturnSwap::example().expect("Equity TRS example should be valid");
+        let equity_trs_id = equity_trs.id.clone();
+        let mut equity_trs_json = serde_json::to_value(InstrumentJson::TrsEquity(equity_trs))
+            .expect("Equity TRS JSON serialization should succeed");
+        equity_trs_json["type"] = serde_json::Value::String("equity_trs".to_string());
+
+        match serde_json::from_value::<InstrumentJson>(equity_trs_json)
+            .expect("equity_trs alias should deserialize")
+        {
+            InstrumentJson::TrsEquity(instrument) => assert_eq!(instrument.id, equity_trs_id),
+            _ => panic!("Expected TrsEquity variant"),
+        }
+
+        let fi_trs = FIIndexTotalReturnSwap::example().expect("FI TRS example should be valid");
+        let fi_trs_id = fi_trs.id.clone();
+        let fi_trs_json = serde_json::to_value(InstrumentJson::TrsFixedIncomeIndex(fi_trs))
+            .expect("FI TRS JSON serialization should succeed");
+
+        for alias in ["fi_trs", "fixed_income_trs"] {
+            let mut alias_json = fi_trs_json.clone();
+            alias_json["type"] = serde_json::Value::String(alias.to_string());
+
+            match serde_json::from_value::<InstrumentJson>(alias_json)
+                .expect("FI TRS alias should deserialize")
+            {
+                InstrumentJson::TrsFixedIncomeIndex(instrument) => {
+                    assert_eq!(instrument.id, fi_trs_id)
+                }
+                _ => panic!("Expected TrsFixedIncomeIndex variant"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_structured_credit_deserializes_into_boxed_variant() {
+        let structured_credit = StructuredCredit::example();
+        let structured_credit_id = structured_credit.id.clone();
+        let json = serde_json::to_value(InstrumentJson::StructuredCredit(Box::new(
+            structured_credit,
+        )))
+        .expect("StructuredCredit JSON serialization should succeed");
+
+        match serde_json::from_value::<InstrumentJson>(json)
+            .expect("StructuredCredit JSON deserialization should succeed")
+        {
+            InstrumentJson::StructuredCredit(instrument) => {
+                assert_eq!(instrument.id, structured_credit_id)
+            }
+            _ => panic!("Expected StructuredCredit variant"),
+        }
     }
 
     // Note: IRS and TermLoan tests skipped - complex builder patterns
@@ -1332,82 +1159,13 @@ mod tests {
         }
     }
 
-    /// Canonical list of all instrument type discriminators.
+    /// Canonical list of primary instrument type discriminators.
     ///
-    /// This list MUST be kept in sync with:
-    /// 1. The `InstrumentJson` enum variants (with `#[serde(rename_all = "snake_case")]`)
-    /// 2. The JSON schema at `schemas/instruments/1/instrument.schema.json`
-    ///
-    /// When adding a new instrument type:
-    /// 1. Add the variant to `InstrumentJson` enum
-    /// 2. Add the snake_case name here (alphabetically sorted)
-    /// 3. Update the JSON schema file
-    /// 4. Run this test to verify parity
-    const CANONICAL_INSTRUMENT_TYPES: &[&str] = &[
-        "agency_cmo",
-        "agency_mbs_passthrough",
-        "agency_tba",
-        "asian_option",
-        "autocallable",
-        "barrier_option",
-        "basis_swap",
-        "basket",
-        "bond",
-        "bond_future",
-        "cds_index",
-        "cds_option",
-        "cds_tranche",
-        "cliquet_option",
-        "cms_option",
-        "cms_swap",
-        "commodity_asian_option",
-        "commodity_forward",
-        "commodity_option",
-        "commodity_swap",
-        "convertible_bond",
-        "credit_default_swap",
-        "deposit",
-        "discounted_cash_flow",
-        "dollar_roll",
-        "equity",
-        "equity_index_future",
-        "equity_option",
-        "forward_rate_agreement",
-        "fx_barrier_option",
-        "fx_digital_option",
-        "fx_forward",
-        "fx_option",
-        "fx_spot",
-        "fx_swap",
-        "fx_touch_option",
-        "fx_variance_swap",
-        "inflation_cap_floor",
-        "inflation_linked_bond",
-        "inflation_swap",
-        "interest_rate_future",
-        "interest_rate_option",
-        "interest_rate_swap",
-        "ir_future_option",
-        "lookback_option",
-        "ndf",
-        "private_markets_fund",
-        "quanto_option",
-        "range_accrual",
-        "real_estate_asset",
-        "levered_real_estate_equity",
-        "repo",
-        "revolving_credit",
-        "structured_credit",
-        "swaption",
-        "term_loan",
-        "trs_equity",
-        "trs_fixed_income_index",
-        "variance_swap",
-        "volatility_index_future",
-        "volatility_index_option",
-        "xccy_swap",
-        "yoy_inflation_swap",
-    ];
+    /// This list is derived from the same registry that powers manual
+    /// `InstrumentJson` deserialization, so the schema parity test validates the
+    /// public primary tags without duplicating that inventory again.
+    const CANONICAL_INSTRUMENT_TYPES: &[&str] =
+        with_instrument_json_registry!(instrument_json_canonical_types);
 
     /// Verifies that the instrument.schema.json enum matches the canonical list.
     ///
