@@ -77,7 +77,8 @@
 //! # See Also
 //!
 //! - [`HolidayCalendar`] for the core trait
-//! - `get_calendar` for calendar lookup by name
+//! - [`CalendarRegistry`] for calendar lookup by code
+//! - [`available_calendars`] for discovery of supported calendar identifiers
 //! - `BusinessDayConvention` for adjustment conventions
 //! - `CompositeCalendar` for combining calendars
 

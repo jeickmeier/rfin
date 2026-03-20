@@ -342,7 +342,8 @@ pub trait FxProvider: Send + Sync {
 /// Note: `FxMatrix` cannot be directly serialized due to the trait object
 /// `Arc<dyn FxProvider>`. To persist FX state, use
 /// [`FxMatrix::get_serializable_state`] to extract the config and quotes, then
-/// recreate the matrix with [`FxMatrix::with_config`] and [`FxMatrix::load_from_state`].
+/// recreate the matrix with [`FxMatrix::try_with_config`] and
+/// [`FxMatrix::load_from_state`].
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
     /// Explicit quotes inserted by callers or restored from serialized state.

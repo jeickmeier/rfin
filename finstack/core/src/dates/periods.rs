@@ -344,25 +344,82 @@ pub struct Period {
 }
 
 /// Builder/plan for a contiguous sequence of periods and their actual/forecast split.
+///
+/// Periods are returned in ascending order and are intended to form a contiguous
+/// run of model periods. Each [`Period`] uses the crate-wide `[start, end)`
+/// interval convention, so the `end` of one period naturally aligns with the
+/// `start` of the next.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PeriodPlan {
+    /// Ordered periods produced by the parser.
     pub periods: Vec<Period>,
 }
 
 impl PeriodPlan {
+    /// Iterate over periods in ascending order.
     pub fn iter(&self) -> impl Iterator<Item = &Period> {
         self.periods.iter()
     }
 }
 
 /// Build periods from a range expression (e.g., "2025Q1..Q4" or "2024Q4..2025Q2").
-/// If `actuals_until` is Some(id string), periods <= that id are marked actual, rest forecast.
+///
+/// The `range` string may stay within a single year (`"2025Q1..Q4"`) or cross
+/// years (`"2024M10..2025M03"`). The start and end identifiers must use the
+/// same frequency family.
+///
+/// If `actuals_until` is provided, every period with an identifier less than or
+/// equal to that boundary is marked actual and later periods are marked forecast.
+///
+/// # Arguments
+///
+/// * `range` - Period range expression using the crate's calendar-period syntax
+/// * `actuals_until` - Optional inclusive boundary separating actuals from forecasts
+///
+/// # Returns
+///
+/// A `PeriodPlan` containing periods in ascending order.
+///
+/// # Errors
+///
+/// Returns an error if the range cannot be parsed, the start and end identifiers
+/// are incompatible, or the `actuals_until` boundary cannot be parsed.
+///
+/// # Examples
+///
+/// ```rust
+/// use finstack_core::dates::build_periods;
+///
+/// let plan = build_periods("2025Q1..Q4", Some("2025Q2"))?;
+/// assert_eq!(plan.periods.len(), 4);
+/// assert!(plan.periods[1].is_actual);
+/// assert!(!plan.periods[2].is_actual);
+/// # Ok::<(), finstack_core::Error>(())
+/// ```
 pub fn build_periods(range: &str, actuals_until: Option<&str>) -> crate::Result<PeriodPlan> {
     build_periods_with_calendar(range, Gregorian, actuals_until)
 }
 
 /// Build fiscal periods from a range expression with custom fiscal year configuration.
-/// The period IDs (e.g., "FY2025Q1") refer to fiscal periods, not calendar periods.
+///
+/// The period IDs (for example `"FY2025Q1"`) refer to fiscal periods, not
+/// Gregorian calendar quarters. The returned `start`/`end` dates are mapped onto
+/// calendar dates using `fiscal_config`.
+///
+/// # Arguments
+///
+/// * `range` - Fiscal period range expression
+/// * `fiscal_config` - Fiscal-year start-month configuration
+/// * `actuals_until` - Optional inclusive fiscal-period boundary for actual results
+///
+/// # Returns
+///
+/// A `PeriodPlan` expressed in fiscal-period identifiers and calendar dates.
+///
+/// # Errors
+///
+/// Returns an error if the fiscal identifiers cannot be parsed or if the fiscal
+/// configuration produces invalid calendar boundaries.
 pub fn build_fiscal_periods(
     range: &str,
     fiscal_config: FiscalConfig,

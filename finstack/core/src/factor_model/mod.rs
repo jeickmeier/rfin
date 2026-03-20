@@ -1,3 +1,41 @@
+//! Factor-model primitives for portfolio risk decomposition.
+//!
+//! This module provides the lightweight building blocks needed to map market
+//! objects onto risk factors, attach covariance data, and choose how a pricing
+//! engine turns factor shocks into portfolio risk measures.
+//!
+//! # Workflow
+//!
+//! A typical factor-model workflow is:
+//!
+//! 1. Describe factors with [`crate::factor_model::FactorDefinition`] and
+//!    [`crate::factor_model::FactorType`].
+//! 2. Express dependencies such as curves, surfaces, or scalars with
+//!    [`crate::factor_model::MarketDependency`].
+//! 3. Map dependencies to factors with one of the matcher implementations in
+//!    [`crate::factor_model::matching`].
+//! 4. Supply a validated covariance matrix via
+//!    [`crate::factor_model::FactorCovarianceMatrix`].
+//! 5. Choose risk interpretation and repricing behavior with
+//!    [`crate::factor_model::FactorModelConfig`],
+//!    [`crate::factor_model::RiskMeasure`], and
+//!    [`crate::factor_model::PricingMode`].
+//!
+//! # Design Notes
+//!
+//! - Matching stays deterministic and configuration-driven.
+//! - This module defines factor-model metadata and matching primitives; actual
+//!   portfolio aggregation lives in downstream crates.
+//! - The public types are serialization-friendly so risk configurations can be
+//!   persisted and reused across pricing runs.
+//!
+//! # References
+//!
+//! - Factor-model and covariance conventions:
+//!   `docs/REFERENCES.md#meucci-risk-and-asset-allocation`
+//! - VaR / Expected Shortfall interpretation:
+//!   `docs/REFERENCES.md#mcneil-frey-embrechts-qrm`
+
 mod config;
 mod covariance;
 mod definition;

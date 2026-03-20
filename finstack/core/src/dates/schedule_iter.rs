@@ -106,7 +106,7 @@
 //! # See Also
 //!
 //! - [`ScheduleBuilder`] for the main builder API
-//! - [`Frequency`] for payment frequency options
+//! - [`Tenor`] for payment frequency options
 //! - [`StubKind`] for stub period handling
 //! - [`BusinessDayConvention`] for date adjustment rules
 //!
@@ -123,14 +123,18 @@ use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 
 /// Payment or coupon frequency for schedule generation.
 ///
-/// Specifies how often payments occur in a financial instrument schedule.
-/// Supports both calendar-month-based frequencies (e.g., quarterly, monthly)
-/// and day-based frequencies (e.g., weekly, biweekly).
+/// This is a re-export of [`crate::dates::Tenor`] documented here because it is
+/// the canonical schedule frequency type used by [`ScheduleBuilder`].
 ///
-/// # Variants
+/// Month-based tenors (for example monthly or quarterly) advance by calendar
+/// months and therefore interact with end-of-month rules. Day-based tenors
+/// (for example weekly) advance by a fixed number of days.
 ///
-/// - **`Months(n)`**: Period advances by `n` calendar months (1-12)
-/// - **`Days(n)`**: Period advances by `n` calendar days (1+)
+/// # Common usages
+///
+/// - Month-based coupon schedules such as monthly, quarterly, or semi-annual
+/// - Day-based operational schedules such as weekly or biweekly
+/// - ACT/ACT (ICMA) frequency metadata via [`crate::dates::DayCountCtx`]
 ///
 /// # Examples
 ///
@@ -161,10 +165,8 @@ use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 ///
 /// # See Also
 ///
-/// See Also
-///
 /// - [`ScheduleBuilder::frequency`] to use with schedule builder
-/// - [`Tenor`] for the underlying time interval type
+/// - [`crate::dates::DayCountCtx`] for conventions that also require frequency metadata
 pub use crate::dates::Tenor;
 
 /// Stub period handling when start/end dates don't align with payment frequency.

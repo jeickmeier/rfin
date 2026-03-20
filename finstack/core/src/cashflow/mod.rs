@@ -4,6 +4,16 @@
 //! including present value (NPV), internal rate of return (IRR/XIRR), and
 //! discounting operations commonly used in fixed income and derivatives pricing.
 //!
+//! # When to use which API
+//!
+//! - Use [`crate::cashflow::npv`] / [`crate::cashflow::npv_with_ctx`] when discounting dated cashflows from a
+//!   market curve. This is the pricing-oriented path used by most instruments.
+//! - Use [`crate::cashflow::npv_amounts`] / [`crate::cashflow::npv_amounts_with_ctx`] for scalar cashflow studies
+//!   driven by a single continuously compounded annual rate.
+//! - Use [`crate::cashflow::InternalRateOfReturn`] or [`crate::cashflow::xirr_with_daycount_ctx`] for investment
+//!   analytics where the unknown quantity is the rate that makes NPV equal to
+//!   zero.
+//!
 //! # Components
 //!
 //! - **Primitives** (`primitives`): Core types (`CashFlow`, `Notional`, `CFKind`)
@@ -15,8 +25,15 @@
 //!
 //! ## Net Present Value (NPV)
 //!
-//! The present value of a stream of future cashflows, discounted at an
-//! appropriate rate:
+//! The present value of a stream of future cashflows. In this module there are
+//! two closely related conventions:
+//!
+//! - Curve-based NPV uses discount factors supplied by a market curve.
+//! - Scalar `npv_amounts*` helpers convert a quoted annual rate into a
+//!   continuously compounded discount factor over the chosen year-fraction
+//!   basis.
+//!
+//! A generic scalar-rate form is:
 //! ```text
 //! NPV = Σ CF_i / (1 + r)^t_i
 //! ```
@@ -89,15 +106,9 @@
 //!
 //! # References
 //!
-//! - **Textbooks**:
-//!   - Brealey, R. A., Myers, S. C., & Allen, F. (2020). *Principles of Corporate Finance*
-//!     (13th ed.). McGraw-Hill. Chapters 5-6 (NPV and IRR).
-//!   - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.).
-//!     Pearson. Chapter 4 (Interest Rates and Present Value).
-//!
-//! - **IRR Algorithm**:
-//!   - Lin, S. A. (1976). "The Modified Internal Rate of Return and Investment Criterion."
-//!     *The Engineering Economist*, 21(4), 237-247.
+//! - Present value and discounting: `docs/REFERENCES.md#hull-options-futures`
+//! - Fixed-income risk and rate interpretation:
+//!   `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 
 mod discounting;
 mod primitives;

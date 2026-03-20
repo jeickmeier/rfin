@@ -699,6 +699,32 @@ const MAX_ACT_ACT_ISMA_RECURSION_DEPTH: usize = 512;
 /// coupon period cannot be inferred from `start`, `end`, and `frequency` alone.
 /// The `reference_start`/`reference_end` pair must describe one regular coupon
 /// period from the underlying schedule.
+///
+/// Use this helper when you already know the surrounding regular coupon period
+/// from the bond schedule. For regular coupons, prefer
+/// [`DayCount::ActActIsma`](DayCount::ActActIsma) with a [`DayCountCtx`] that
+/// supplies only the coupon frequency.
+///
+/// # Arguments
+///
+/// * `start` - Accrual start date of the coupon being measured
+/// * `end` - Accrual end date of the coupon being measured
+/// * `reference_start` - Start of the corresponding regular coupon period
+/// * `reference_end` - End of the corresponding regular coupon period
+///
+/// # Returns
+///
+/// The ICMA/ISMA year fraction for the irregular coupon period.
+///
+/// # Errors
+///
+/// Returns an error if the accrual dates are reversed, the reference period is
+/// invalid, or the algorithm would need an implausibly deep recursion to align
+/// the supplied reference period.
+///
+/// # References
+///
+/// - ICMA convention background: `docs/REFERENCES.md#icma-rule-book`
 pub fn act_act_isma_year_fraction_with_reference_period(
     start: Date,
     end: Date,

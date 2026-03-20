@@ -174,7 +174,7 @@ These types are stored inside `MarketContext` under `prices`, `series`, and `inf
   - Introspection: `curve_ids`, `curves_of_type`, `count_by_type`, `stats`, `is_empty`, `total_objects`.
 - **Scenario support**
   - `bump` for curve/surface/price/time-series bumps keyed by `CurveId`.
-  - `apply_bumps` for heterogeneous `MarketBump` lists (including FX and bucket-level shifts).
+  - `bump` is also the heterogeneous entry point for `MarketBump` lists (including FX and bucket-level shifts).
   - `roll_forward(days)` for constant-curve roll-down scenarios.
   - `bump_fx_spot` for FX-specific percentage bumps (via `FxMatrix`).
 - **Serialization**
@@ -315,7 +315,7 @@ assert_eq!(bumped_curve.id(), &CurveId::from("USD-OIS"));
 # Ok::<(), finstack_core::Error>(())
 ```
 
-For heterogeneous scenarios (curves, FX, vol buckets, base correlation), build a list of `MarketBump` and call `MarketContext::apply_bumps`.
+For heterogeneous scenarios (curves, FX, vol buckets, base correlation), build a list of `MarketBump` and call `MarketContext::bump`.
 
 ### Measure Market Shifts Between Contexts
 

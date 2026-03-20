@@ -3,6 +3,21 @@
 //! Provides types and traits for applying parallel shocks and bumps to market
 //! data. Used for risk metrics (DV01, CS01), scenario analysis, and regulatory
 //! stress tests.
+//!
+//! # Conventions
+//!
+//! - Additive rate bumps are normalized into decimal form before application.
+//!   For example, `1bp = 0.0001` and `2% = 0.02`.
+//! - Inflation bumps are interpreted in annualized inflation-rate space rather
+//!   than as direct CPI-level multipliers.
+//! - FX percentage bumps are quoted in percent (`5.0 = +5%`) and strengthen the
+//!   base currency against the quote currency.
+//! - Bucketed rate bumps use market-standard triangular key-rate weights so the
+//!   sum of bucketed DV01s matches the parallel DV01.
+//!
+//! # References
+//!
+//! - Key-rate risk methodology: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
 
 use super::scalars::{MarketScalar, ScalarTimeSeries};
 use super::term_structures::{
@@ -225,6 +240,9 @@ impl BumpSpec {
 }
 
 /// Unified bump description spanning curves, surfaces, FX, and scalar prices.
+///
+/// This enum is the heterogeneous input consumed by
+/// [`MarketContext::bump`](crate::market_data::context::MarketContext::bump).
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum MarketBump {

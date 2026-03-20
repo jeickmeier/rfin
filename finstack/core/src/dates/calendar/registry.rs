@@ -10,10 +10,19 @@ use core::marker::PhantomData;
 use std::sync::OnceLock;
 
 /// Strongly-typed calendar identifier to avoid stringly-typed lookups.
+///
+/// The wrapped string is the canonical lowercase calendar code used by
+/// [`CalendarRegistry::resolve_str`], such as `"target2"` or `"nyse"`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct CalendarId(pub &'static str);
+pub struct CalendarId(
+    /// Canonical lowercase calendar code understood by the global registry.
+    pub &'static str,
+);
 
 /// Global, immutable registry for resolving calendars by typed ID.
+///
+/// The registry is process-wide, lock-free after initialization, and contains
+/// only built-in calendars generated at build time or registered by the crate.
 pub struct CalendarRegistry<'a> {
     _marker: PhantomData<&'a ()>,
 }

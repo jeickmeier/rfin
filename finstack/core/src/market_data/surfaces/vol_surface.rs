@@ -99,9 +99,17 @@ impl std::fmt::Display for VolSurfaceAxis {
 #[serde(rename_all = "snake_case")]
 pub enum VolInterpolationMode {
     /// Interpolate implied volatility directly.
+    ///
+    /// This is the most literal choice when market quotes are already given as
+    /// implied volatilities on the stored grid and you want local interpolation
+    /// in quote space.
     #[default]
     Vol,
     /// Interpolate total variance `sigma^2 * t`, then convert back to implied vol.
+    ///
+    /// This is often preferred when blending across expiries because total
+    /// variance tends to behave more linearly in time and better preserves
+    /// no-arbitrage intuition for variance accumulation.
     TotalVariance,
 }
 
@@ -323,6 +331,10 @@ impl VolSurface {
     }
 
     /// Return a copy of this surface with an explicit interpolation contract.
+    ///
+    /// Use [`VolInterpolationMode::TotalVariance`] when the surface should
+    /// interpolate linearly in total variance rather than directly in implied
+    /// volatility.
     #[must_use]
     pub fn with_interpolation_mode(mut self, interpolation_mode: VolInterpolationMode) -> Self {
         self.interpolation_mode = interpolation_mode;

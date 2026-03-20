@@ -235,7 +235,7 @@ impl DiscountCurveBuilder {
     /// - Knots are sorted in ascending order
     ///
     /// This is an internal optimization for calibration solvers.
-    /// For general use, prefer [`build`] which includes full validation.
+    /// For general use, prefer [`Self::build`] which includes full validation.
     #[doc(hidden)]
     pub fn build_for_solver(self) -> crate::Result<DiscountCurve> {
         if self.points.len() < 2 {

@@ -1,4 +1,21 @@
 //! FX date utilities for joint calendar adjustments and spot rolls.
+//!
+//! These helpers implement the common two-calendar rule used in FX settlement:
+//! a date is valid only if it is a business day in both the base-currency and
+//! quote-currency calendars. They intentionally model only that joint-calendar
+//! rule; additional settlement calendars such as USD must be supplied
+//! explicitly by the caller when market convention requires them.
+//!
+//! # Typical usage
+//!
+//! - [`adjust_joint_calendar`] for applying a business-day convention on a joint calendar
+//! - [`add_joint_business_days`] for T+n style spot-lag counting
+//! - [`roll_spot_date`] for trade-date to spot-date rolling
+//!
+//! # References
+//!
+//! - Business-day conventions:
+//!   `docs/REFERENCES.md#isda-2006-definitions`
 
 use crate::dates::calendar::registry::CalendarRegistry;
 use crate::dates::calendar::types::Calendar;
@@ -14,7 +31,7 @@ fn weekends_only() -> Calendar {
 ///
 /// # Errors
 ///
-/// Returns `Error::CalendarNotFound` if the calendar ID is not recognized.
+/// Returns an error if the calendar ID is not recognized.
 /// If `cal_id` is `None`, returns the weekends-only calendar (does not error).
 ///
 /// # Examples

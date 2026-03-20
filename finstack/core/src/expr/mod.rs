@@ -21,6 +21,19 @@
 //! - Deterministic execution
 //! - Metadata stamping for results
 //!
+//! # Execution model
+//!
+//! Expressions operate over column-oriented numeric arrays. A
+//! [`crate::expr::SimpleContext`] maps column names to column positions,
+//! [`crate::expr::CompiledExpr`] plans the expression, and evaluation returns an
+//! [`crate::expr::EvaluationResult`] containing both values and
+//! metadata describing the run.
+//!
+//! Windowed functions in this module use row-count windows rather than
+//! calendar-time windows. Reducers such as `quantile` broadcast a single scalar
+//! back across the output vector unless the function name explicitly says
+//! `rolling_*`.
+//!
 //! # Quick Example
 //!
 //! ```rust
@@ -47,6 +60,11 @@
 //! 2. Use vectorized patterns where beneficial (e.g., rolling windows)
 //! 3. Provide deterministic results across platforms
 //! 4. Support WASM compilation without external dependencies
+//!
+//! # References
+//!
+//! - Exponential-weighted semantics are intended to be compatible with common
+//!   pandas-style usage when parameters match.
 
 mod ast;
 pub(crate) mod cache;

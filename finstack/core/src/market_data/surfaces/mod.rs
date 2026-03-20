@@ -7,6 +7,22 @@
 //! # Surface Types
 //!
 //! - `VolSurface`: Implied volatility by strike and maturity (bilinear interpolation)
+//! - `FxDeltaVolSurface`: FX smile representation quoted in delta space and
+//!   converted to strikes for interpolation and pricing
+//! - `FxDeltaVolSurfaceBuilder`: Builder for market-standard FX ATM / risk-reversal
+//!   / butterfly inputs
+//!
+//! # When to use which surface
+//!
+//! - Use [`crate::market_data::surfaces::VolSurface`] when market data is already quoted on a strike grid.
+//! - Use [`crate::market_data::surfaces::FxDeltaVolSurface`] when FX options are quoted in ATM, risk-reversal,
+//!   and butterfly form at standard deltas.
+//!
+//! # Conventions
+//!
+//! Surface expiries are expressed as year fractions. Equity-style surfaces are
+//! typically indexed by strike, while FX smile inputs may begin in forward-delta
+//! space before being mapped onto strikes.
 //!
 //! # Examples
 //! ```rust
@@ -25,6 +41,15 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # References
+//!
+//! - General volatility-surface conventions:
+//!   `docs/REFERENCES.md#gatheral-volatility-surface`
+//! - FX volatility quoting:
+//!   `docs/REFERENCES.md#clark-fx-options`
+//! - FX volatility quoting:
+//!   `docs/REFERENCES.md#wystup-fx-options`
 
 mod delta_vol_surface;
 pub mod fx_delta_vol_surface;

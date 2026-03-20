@@ -34,9 +34,10 @@
 //! # Industry Standards
 //!
 //! Market data handling follows conventions from:
-//! - **ISDA**: Interest rate and credit curve definitions
-//! - **Bloomberg**: Standard curve naming and interpolation
-//! - **OpenGamma**: Open source curve construction methodologies
+//! - **ISDA** for day-count, business-day, and credit-market terminology
+//! - **Andersen / Piterbarg** for modern term-structure construction context
+//! - **Gatheral** and standard practitioner texts for volatility-surface
+//!   interpretation
 //!
 //! # Examples
 //!
@@ -60,12 +61,12 @@
 //!
 //! # References
 //!
-//! - Hull, J. C. (2018). *Options, Futures, and Other Derivatives* (10th ed.).
-//!   Chapters 4-9 (Market data and curve construction).
-//! - Andersen, L., & Piterbarg, V. (2010). *Interest Rate Modeling*.
-//!   Volume 1, Chapters 2-4 (Term structure construction).
-//! - Rebonato, R. (2004). *Volatility and Correlation* (2nd ed.). Wiley.
-//!   (Volatility surface construction and arbitrage)
+//! - Term structures and discounting:
+//!   `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+//! - Core derivatives and market-data context:
+//!   `docs/REFERENCES.md#hull-options-futures`
+//! - Volatility surfaces:
+//!   `docs/REFERENCES.md#gatheral-volatility-surface`
 
 /// Bump functionality for scenario analysis and stress testing.
 pub mod bumps;
@@ -89,6 +90,12 @@ pub mod term_structures;
 /// Useful for generic programming and custom curve implementations.
 pub mod traits;
 // Re-export selected helpers for convenience at `market_data::*` level.
+///
+/// Validates a knot set used by curve builders.
+///
+/// The helper checks that times are sorted, finite, and structurally valid for
+/// interpolation. Curves may impose additional domain-specific constraints
+/// beyond these generic knot checks.
 pub use crate::math::interp::utils::validate_knots;
 // Re-export dividend schedule types for convenience
 pub use dividends::*;

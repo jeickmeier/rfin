@@ -101,14 +101,6 @@
 //! - [`crate::Result`] - Type alias for `Result<T, Error>`
 //! - [`InputError`] - Specific validation failure modes
 //!
-//! # Naming Convention
-//!
-//! This crate uses plain `Error` for the root error enum (re-exported at crate
-//! root as `finstack_core::Error`), following the Rust convention for a crate's
-//! primary error type. The sub-error `InputError` uses a domain prefix to avoid
-//! ambiguity when both are imported together. See
-//! `docs/CONVENTIONS_ERROR_NAMING.md` for the cross-crate naming rationale.
-//!
 //! # References
 //!
 //! The fuzzy matching algorithm uses Levenshtein edit distance:

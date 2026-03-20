@@ -4,6 +4,21 @@
 //! rate helpers (`Rate`, `Bps`), credit ratings, and convenient aliases used
 //! throughout the platform.
 //!
+//! # Components
+//!
+//! - `id`: strongly typed identifiers used to avoid mixing unrelated IDs.
+//! - `rates`: wrappers for decimal rates, percentages, and basis points.
+//! - `ratings`: credit-rating enums and lookup helpers.
+//! - `attributes`: lightweight attribute bags used by matching and metadata flows.
+//!
+//! # Conventions
+//!
+//! - [`crate::types::Rate`] stores decimal rates, so 5% is represented as `0.05`.
+//! - [`crate::types::Bps`] stores basis points, so 25 bp is represented as `25.0`.
+//! - [`crate::types::Percentage`] stores whole-percent values, so 25% is represented as `25.0`.
+//! - Typed IDs preserve semantic meaning without changing the runtime string
+//!   representation used in serialization or logs.
+//!
 //! # Examples
 //! ```rust
 //! use finstack_core::types::{CurveId, Rate, Percentage};

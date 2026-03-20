@@ -80,6 +80,15 @@ impl MarketContext {
     // -----------------------------------------------------------------------------
 
     /// Get a discount curve by identifier.
+    ///
+    /// Returns an [`Arc`] clone of the stored curve so callers can retain the
+    /// curve independently of the context. The identifier should match the
+    /// curve's logical market-data key such as `"USD-OIS"`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or exists under a different
+    /// curve type.
     pub fn get_discount(&self, id: impl AsRef<str>) -> Result<Arc<DiscountCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Discount", |storage| {
@@ -88,6 +97,13 @@ impl MarketContext {
     }
 
     /// Get a forward curve by identifier.
+    ///
+    /// Forward-curve identifiers usually encode both the market and tenor, such
+    /// as `"USD-SOFR3M"` or `"EUR-EURIBOR6M"`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a non-forward curve.
     pub fn get_forward(&self, id: impl AsRef<str>) -> Result<Arc<ForwardCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Forward", |storage| {
@@ -96,12 +112,27 @@ impl MarketContext {
     }
 
     /// Get a hazard curve by identifier.
+    ///
+    /// Hazard curves are stored as annualized default intensities keyed by a
+    /// credit-specific identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a different curve type.
     pub fn get_hazard(&self, id: impl AsRef<str>) -> Result<Arc<HazardCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Hazard", |storage| storage.hazard().map(Arc::clone))
     }
 
     /// Get an inflation curve by identifier.
+    ///
+    /// Inflation curves are typically keyed by an index family such as
+    /// `"US-CPI"` or `"UK-RPI"` and represent CPI-linked term structures rather
+    /// than spot index observations.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a different curve type.
     pub fn get_inflation_curve(&self, id: impl AsRef<str>) -> Result<Arc<InflationCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Inflation", |storage| {
@@ -110,6 +141,13 @@ impl MarketContext {
     }
 
     /// Get a base correlation curve by identifier.
+    ///
+    /// Use this for tranche-style credit workflows where correlation is quoted
+    /// by detachment point.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a different curve type.
     pub fn get_base_correlation(&self, id: impl AsRef<str>) -> Result<Arc<BaseCorrelationCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "BaseCorrelation", |storage| {
@@ -118,6 +156,12 @@ impl MarketContext {
     }
 
     /// Get a volatility index curve by identifier.
+    ///
+    /// These curves typically store forward levels for instruments such as VIX futures.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a different curve type.
     pub fn get_vol_index_curve(&self, id: impl AsRef<str>) -> Result<Arc<VolatilityIndexCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "VolIndex", |storage| {
@@ -151,6 +195,13 @@ impl MarketContext {
 
     /// Clone a volatility surface by identifier.
     ///
+    /// Returns the strike-grid surface stored under `id`. Use
+    /// [`Self::get_fx_delta_vol_surface`] for FX smiles quoted in delta space.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is not present.
+    ///
     /// # Examples
     /// ```rust
     /// # use finstack_core::market_data::context::MarketContext;
@@ -172,6 +223,13 @@ impl MarketContext {
 
     /// Borrow a market price/scalar by identifier.
     ///
+    /// Scalars are borrowed rather than cloned because they are typically small
+    /// immutable values already owned by the context.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is not present.
+    ///
     /// # Examples
     /// ```rust
     /// use finstack_core::market_data::context::MarketContext;
@@ -190,6 +248,13 @@ impl MarketContext {
     }
 
     /// Borrow a scalar time series by identifier.
+    ///
+    /// Time series remain borrowed so callers can inspect them without copying
+    /// the stored observation history.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is not present.
     ///
     /// # Examples
     /// ```rust
@@ -214,6 +279,13 @@ impl MarketContext {
     }
 
     /// Clone an inflation index by identifier.
+    ///
+    /// Inflation indices represent historical CPI-style observations, not
+    /// forward-looking inflation curves.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is not present.
     ///
     /// # Examples
     /// ```rust
@@ -260,6 +332,10 @@ impl MarketContext {
     }
 
     /// Clone a dividend schedule by identifier.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is not present.
     pub fn get_dividend_schedule(&self, id: impl AsRef<str>) -> Result<Arc<DividendSchedule>> {
         self.get_cloned(&self.dividends, id.as_ref())
     }
@@ -298,6 +374,15 @@ impl MarketContext {
     }
 
     /// Resolve a collateral discount curve for a CSA code.
+    ///
+    /// This performs the indirection from a CSA or collateral agreement code to
+    /// the discount curve configured for that collateral set. The returned trait
+    /// object exposes the generic [`Discounting`] interface rather than the
+    /// concrete [`DiscountCurve`] type.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the CSA code is not mapped or if the mapped curve is missing.
     ///
     /// # Examples
     /// ```rust

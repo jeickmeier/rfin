@@ -3,6 +3,11 @@ use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashMap;
 
 /// User-supplied factor covariance matrix with row-major storage.
+///
+/// Entries are expected to be on a consistent variance scale, typically annual
+/// variance/covariance for the factor returns used by the risk engine. The
+/// factor ID order is part of the contract: row `i`, column `j` corresponds to
+/// `factor_ids[i]` and `factor_ids[j]`.
 #[derive(Debug, Clone, Serialize)]
 pub struct FactorCovarianceMatrix {
     factor_ids: Vec<FactorId>,
@@ -14,6 +19,12 @@ pub struct FactorCovarianceMatrix {
 
 impl FactorCovarianceMatrix {
     /// Construct a covariance matrix with full validation.
+    ///
+    /// Validation checks:
+    /// - `data.len() == n * n`
+    /// - factor identifiers are unique
+    /// - the matrix is symmetric within a small floating-point tolerance
+    /// - the matrix is positive semi-definite according to a Cholesky-style test
     pub fn new(factor_ids: Vec<FactorId>, data: Vec<f64>) -> crate::Result<Self> {
         let n = factor_ids.len();
         if data.len() != n * n {
@@ -49,6 +60,9 @@ impl FactorCovarianceMatrix {
     }
 
     /// Construct a covariance matrix without validation.
+    ///
+    /// Use this only when the caller has already validated symmetry, PSD, and
+    /// factor ordering externally.
     #[must_use]
     pub fn new_unchecked(factor_ids: Vec<FactorId>, data: Vec<f64>) -> Self {
         let n = factor_ids.len();

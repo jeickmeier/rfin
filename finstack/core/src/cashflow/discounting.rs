@@ -6,7 +6,7 @@
 //!
 //! # Approach
 //!
-//! Unlike constant-rate discounting (see [`xirr`](super::xirr)),
+//! Unlike IRR/XIRR analysis (see [`xirr`](super::xirr)),
 //! this module uses term structures of discount factors from market data:
 //! ```text
 //! PV = Σ CF_i * DF(t_i)
@@ -252,7 +252,7 @@ pub fn npv_with_ctx<D: Discounting + ?Sized>(
 /// This is a convenience helper for performance analytics and bindings that work in
 /// scalar amounts (e.g. `[(date, f64)]`) rather than typed [`Money`] cashflows.
 ///
-/// The discounting convention matches `npv_constant`:
+/// The discounting convention for this helper is:
 /// - `discount_rate` is an annually-compounded rate expressed as a decimal (0.05 = 5%)
 /// - Internally this is converted to continuous compounding via `ln(1 + r)` for stability.
 ///

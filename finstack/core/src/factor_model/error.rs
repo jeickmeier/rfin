@@ -96,11 +96,20 @@ impl std::error::Error for FactorModelError {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum UnmatchedPolicy {
     /// Fail immediately when any dependency is unmatched.
+    ///
+    /// Use this in production risk runs where dropping unmapped risk would be a
+    /// control failure.
     Strict,
     /// Roll unmatched risk into a residual bucket.
+    ///
+    /// Use this when the engine should preserve total exposure while making the
+    /// unmatched component explicit as residual risk.
     #[default]
     Residual,
     /// Continue but surface a warning to the caller.
+    ///
+    /// Suitable for exploratory workflows where visibility matters but a hard
+    /// failure would be too disruptive.
     Warn,
 }
 

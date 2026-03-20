@@ -11,8 +11,15 @@ use std::collections::BTreeMap;
 #[serde(rename_all = "snake_case")]
 pub enum PricingMode {
     /// Use central finite differences to approximate linear deltas.
+    ///
+    /// This is the lightweight choice when a downstream engine can reprice under
+    /// small symmetric bumps and the risk report only needs first-order factor
+    /// sensitivities.
     DeltaBased,
     /// Reprice across a scenario grid and derive deltas from the P&L profile.
+    ///
+    /// Use this when the portfolio workflow needs richer scenario behavior than
+    /// a single small bump can capture, at the cost of more repricing work.
     FullRepricing,
 }
 
@@ -27,12 +34,19 @@ pub enum RiskMeasure {
     /// Aggregate exposures using portfolio volatility.
     Volatility,
     /// Aggregate exposures using Value at Risk at a fixed one-sided loss confidence level.
+    ///
+    /// This assumes the downstream aggregation engine is interpreting the factor
+    /// model as a parametric, one-period loss distribution rather than a full
+    /// historical or Monte Carlo simulation.
     #[serde(rename = "var")]
     VaR {
         /// Confidence level in the open interval `(0.5, 1)`.
         confidence: f64,
     },
     /// Aggregate exposures using expected shortfall at a fixed one-sided loss confidence level.
+    ///
+    /// As with [`Self::VaR`], this is intended for parametric factor-model
+    /// aggregation rather than full-path simulation.
     ExpectedShortfall {
         /// Confidence level in the open interval `(0.5, 1)`.
         confidence: f64,
@@ -153,6 +167,10 @@ impl BumpSizeConfig {
 }
 
 /// Serializable configuration bundle for constructing a factor-model workflow.
+///
+/// The `factors` vector defines the canonical factor ordering. The covariance
+/// matrix must use the same factor IDs and ordering, and the matching
+/// configuration is expected to emit exposures against that same universe.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct FactorModelConfig {

@@ -44,16 +44,24 @@
 //!
 //! | Struct                        | Domain  | Specialised trait |
 //! |-------------------------------|---------|-------------------|
-//! | `DiscountCurve`               | Rates   | `Discount`        |
+//! | `DiscountCurve`               | Rates   | `Discounting`     |
 //! | `ForwardCurve`                | Rates   | `Forward`         |
 //! | `HazardCurve`                 | Credit  | `Survival`        |
 //! | `BaseCorrelationCurve`        | Credit  | (none)            |
-//! | `InflationCurve`              | CPI     | `Inflation`       |
+//! | `InflationCurve`              | CPI     | `TermStructure`   |
 //!
 //! ## Choosing an interpolation style
 //! All curves are bootstrapped from knot points and allow selecting an
-//! [`crate::math::interp::InterpStyle`] via a single `interp(...)`
-//! method on their builders.
+//! [`crate::math::interp::InterpStyle`] via a builder method such as
+//! `interp(...)` or `set_interp(...)`, depending on the curve type.
+//!
+//! # Conventions
+//!
+//! - Time is expressed as a year fraction from a base date.
+//! - Rate-like curves should document whether stored values are discount
+//!   factors, simple forward rates, hazard intensities, or CPI-derived levels.
+//! - Builder validation is part of the public contract; prefer calling
+//!   `build()` rather than bypassing validation paths.
 //!
 //! ## Example – assembling curves inside a `MarketContext`
 //! ```rust
@@ -90,6 +98,13 @@
 //! assert!(curves.get_discount("USD-OIS").is_ok());
 //! # Ok::<(), finstack_core::Error>(())
 //! ```
+//!
+//! # References
+//!
+//! - Discounting and term-structure context:
+//!   `docs/REFERENCES.md#andersen-piterbarg-interest-rate-modeling`
+//! - Curve interpolation:
+//!   `docs/REFERENCES.md#hagan-west-monotone-convex`
 
 /// Base correlation curves for CDS tranche pricing.
 mod base_correlation;

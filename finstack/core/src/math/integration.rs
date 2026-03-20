@@ -522,7 +522,7 @@ where
 ///
 /// # Errors
 ///
-/// Returns [`Error::Input`] wrapping `InputError::SolverConvergenceFailed` if the
+/// Returns [`Error::Input`] wrapping [`InputError::SolverConvergenceFailed`] if the
 /// tolerance cannot be met within `max_depth` recursion levels. The error payload
 /// includes the error estimate, the interval midpoint, and the depth reached. Callers
 /// handling pathological integrands should increase `max_depth` or switch to a
@@ -536,7 +536,7 @@ where
 ///    extrapolation: `error ≈ |total - whole| / 15`
 /// 3. If `error ≤ tol`, accept the composite estimate and return it
 /// 4. If the error budget is not met and `depth == max_depth`, return
-///    [`InputError::SolverConvergenceFailed`](crate::error::InputError) with the
+///    [`InputError::SolverConvergenceFailed`] with the
 ///    residual, interval, and tolerance in the error message
 /// 5. Otherwise, recursively refine each half with `tol/2`
 ///

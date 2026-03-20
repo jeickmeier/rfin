@@ -21,6 +21,10 @@ pub enum MarketMapping {
         /// Curve receiving the bucketed bump.
         curve_id: CurveId,
         /// `(tenor_years, weight)` pairs describing the bucketed shift.
+        ///
+        /// Weights are typically chosen to sum to `1.0` across the buckets used
+        /// by the factor so that the factor move preserves the intended overall
+        /// shock size while localizing it along the tenor axis.
         tenor_weights: Vec<(f64, f64)>,
     },
     /// Equity spot move.

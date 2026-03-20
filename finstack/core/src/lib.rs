@@ -67,6 +67,12 @@
 //! # Cargo features
 //! Serde support is always enabled in this crate; no feature flags are required.
 //!
+//! # Documentation conventions
+//! Public APIs in `finstack-core` follow the workspace documentation standard in
+//! `docs/DOCUMENTATION_STANDARD.md`. Financial and numerical APIs link canonical
+//! sources from `docs/REFERENCES.md` when they encode a market convention,
+//! algorithm, or pricing model with a standard reference.
+//!
 //! # Minimum Supported Rust Version (MSRV)
 //! This crate targets **Rust 1.90**.  It is tested in CI and follows the
 //! standard *cargo-semver* guideline: MSRV may only bump in a **minor** release.
