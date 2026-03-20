@@ -6,7 +6,7 @@
 use super::*;
 use finstack_core::Result;
 use serde::{
-    de::{Deserializer, Error as DeError},
+    de::{DeserializeOwned, Deserializer, Error as DeError},
     Deserialize, Serialize,
 };
 use std::io::Read;
@@ -290,35 +290,6 @@ macro_rules! instrument_json_into_boxed_match {
     };
 }
 
-macro_rules! instrument_json_deserialize_match {
-    (
-        [$spec_str:expr, $ty:expr]
-        $(plain: $variant:ident($value_ty:ty) => $tag:literal $(, $alias:literal)*;)*
-        $(boxed: $boxed_variant:ident($boxed_value_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
-    ) => {
-        match $ty.as_str() {
-            $(
-                $tag $(| $alias)* => serde_json::from_str::<$value_ty>($spec_str)
-                    .map(Self::$variant)
-                    .map_err(D::Error::custom),
-            )*
-            $(
-                $boxed_tag $(| $boxed_alias)* => serde_json::from_str::<$boxed_value_ty>($spec_str)
-                    .map(Box::new)
-                    .map(Self::$boxed_variant)
-                    .map_err(D::Error::custom),
-            )*
-            other => Err(D::Error::unknown_variant(
-                other,
-                &[
-                    $($tag, $($alias,)* )*
-                    $($boxed_tag, $($boxed_alias,)* )*
-                ],
-            )),
-        }
-    };
-}
-
 #[cfg(test)]
 macro_rules! instrument_json_canonical_types {
     (
@@ -348,32 +319,218 @@ impl InstrumentJson {
     }
 }
 
-// Manual Deserialize implementation to avoid serde lifetime inference issues
+#[derive(Deserialize)]
+struct TaggedInstrumentValue {
+    #[serde(rename = "type")]
+    ty: String,
+    spec: serde_json::Value,
+}
+
+fn parse_spec<T>(
+    spec: serde_json::Value,
+    wrap: impl FnOnce(T) -> InstrumentJson,
+) -> serde_json::Result<InstrumentJson>
+where
+    T: DeserializeOwned,
+{
+    serde_json::from_value(spec).map(wrap)
+}
+
+fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<InstrumentJson> {
+    let TaggedInstrumentValue { ty, spec } = serde_json::from_value(value)?;
+
+    match ty.as_str() {
+        // Fixed Income
+        "bond" => parse_spec(spec, InstrumentJson::Bond),
+        "convertible_bond" => parse_spec(spec, InstrumentJson::ConvertibleBond),
+        "inflation_linked_bond" => parse_spec(spec, InstrumentJson::InflationLinkedBond),
+        "term_loan" => parse_spec(spec, InstrumentJson::TermLoan),
+        "bond_future" => {
+            parse_spec::<BondFuture>(spec, |i| InstrumentJson::BondFuture(Box::new(i)))
+        }
+        "agency_mbs_passthrough" => parse_spec(spec, InstrumentJson::AgencyMbsPassthrough),
+        "agency_tba" => parse_spec(spec, InstrumentJson::AgencyTba),
+        "agency_cmo" => parse_spec(spec, InstrumentJson::AgencyCmo),
+        "dollar_roll" => parse_spec(spec, InstrumentJson::DollarRoll),
+
+        // Swaps
+        "interest_rate_swap" => parse_spec(spec, InstrumentJson::InterestRateSwap),
+        "basis_swap" => parse_spec(spec, InstrumentJson::BasisSwap),
+        "xccy_swap" => parse_spec(spec, InstrumentJson::XccySwap),
+        "inflation_swap" => parse_spec(spec, InstrumentJson::InflationSwap),
+        "yoy_inflation_swap" | "yo_y_inflation_swap" => {
+            parse_spec(spec, InstrumentJson::YoYInflationSwap)
+        }
+        "inflation_cap_floor" => parse_spec(spec, InstrumentJson::InflationCapFloor),
+        "fx_swap" => parse_spec(spec, InstrumentJson::FxSwap),
+        "variance_swap" => parse_spec(spec, InstrumentJson::VarianceSwap),
+
+        // Rates Derivatives
+        "forward_rate_agreement" => parse_spec(spec, InstrumentJson::ForwardRateAgreement),
+        "swaption" => parse_spec(spec, InstrumentJson::Swaption),
+        "interest_rate_future" => parse_spec(spec, InstrumentJson::InterestRateFuture),
+        "interest_rate_option" => parse_spec(spec, InstrumentJson::InterestRateOption),
+        "cms_swap" => parse_spec(spec, InstrumentJson::CmsSwap),
+        "cms_option" => parse_spec(spec, InstrumentJson::CmsOption),
+        "ir_future_option" => parse_spec(spec, InstrumentJson::IrFutureOption),
+
+        // Credit
+        "credit_default_swap" => parse_spec(spec, InstrumentJson::CreditDefaultSwap),
+        "cds_index" => parse_spec(spec, InstrumentJson::CDSIndex),
+        "cds_tranche" => parse_spec(spec, InstrumentJson::CDSTranche),
+        "cds_option" => parse_spec(spec, InstrumentJson::CDSOption),
+
+        // Equity
+        "equity" => parse_spec(spec, InstrumentJson::Equity),
+        "equity_option" => parse_spec(spec, InstrumentJson::EquityOption),
+        "asian_option" => parse_spec(spec, InstrumentJson::AsianOption),
+        "barrier_option" => parse_spec(spec, InstrumentJson::BarrierOption),
+        "lookback_option" => parse_spec(spec, InstrumentJson::LookbackOption),
+        "equity_index_future" => parse_spec(spec, InstrumentJson::EquityIndexFuture),
+        "volatility_index_future" => parse_spec(spec, InstrumentJson::VolatilityIndexFuture),
+        "volatility_index_option" => parse_spec(spec, InstrumentJson::VolatilityIndexOption),
+
+        // FX
+        "fx_spot" => parse_spec(spec, InstrumentJson::FxSpot),
+        "fx_forward" => parse_spec(spec, InstrumentJson::FxForward),
+        "ndf" => parse_spec(spec, InstrumentJson::Ndf),
+        "fx_option" => parse_spec(spec, InstrumentJson::FxOption),
+        "fx_digital_option" => parse_spec(spec, InstrumentJson::FxDigitalOption),
+        "fx_touch_option" => parse_spec(spec, InstrumentJson::FxTouchOption),
+        "fx_barrier_option" => parse_spec(spec, InstrumentJson::FxBarrierOption),
+        "fx_variance_swap" => parse_spec(spec, InstrumentJson::FxVarianceSwap),
+        "quanto_option" => parse_spec(spec, InstrumentJson::QuantoOption),
+
+        // Commodity
+        "commodity_option" => parse_spec(spec, InstrumentJson::CommodityOption),
+        "commodity_asian_option" => parse_spec(spec, InstrumentJson::CommodityAsianOption),
+        "commodity_forward" => parse_spec(spec, InstrumentJson::CommodityForward),
+        "commodity_swap" => parse_spec(spec, InstrumentJson::CommoditySwap),
+        "commodity_swaption" => parse_spec(spec, InstrumentJson::CommoditySwaption),
+        "commodity_spread_option" => parse_spec(spec, InstrumentJson::CommoditySpreadOption),
+
+        // Exotic Options
+        "autocallable" => parse_spec(spec, InstrumentJson::Autocallable),
+        "cliquet_option" => parse_spec(spec, InstrumentJson::CliquetOption),
+        "range_accrual" => parse_spec(spec, InstrumentJson::RangeAccrual),
+
+        // Total Return Swaps
+        "trs_equity" | "equity_trs" => parse_spec(spec, InstrumentJson::TrsEquity),
+        "trs_fixed_income_index" | "fi_trs" | "fixed_income_trs" => {
+            parse_spec(spec, InstrumentJson::TrsFixedIncomeIndex)
+        }
+
+        // Structured Credit
+        "structured_credit" => parse_spec::<StructuredCredit>(spec, |sc| {
+            InstrumentJson::StructuredCredit(Box::new(sc))
+        }),
+
+        // Other
+        "basket" => parse_spec(spec, InstrumentJson::Basket),
+        "deposit" => parse_spec(spec, InstrumentJson::Deposit),
+        "repo" => parse_spec(spec, InstrumentJson::Repo),
+        "private_markets_fund" => parse_spec(spec, InstrumentJson::PrivateMarketsFund),
+        "real_estate_asset" => parse_spec(spec, InstrumentJson::RealEstateAsset),
+        "levered_real_estate_equity" => parse_spec::<
+            crate::instruments::equity::real_estate::LeveredRealEstateEquity,
+        >(spec, |i| {
+            InstrumentJson::LeveredRealEstateEquity(Box::new(i))
+        }),
+        "revolving_credit" => parse_spec(spec, InstrumentJson::RevolvingCredit),
+        "discounted_cash_flow" => parse_spec(spec, InstrumentJson::DiscountedCashFlow),
+
+        other => Err(<serde_json::Error as serde::de::Error>::unknown_variant(
+            other,
+            &[
+                // Fixed Income
+                "bond",
+                "convertible_bond",
+                "inflation_linked_bond",
+                "term_loan",
+                "bond_future",
+                "agency_mbs_passthrough",
+                "agency_tba",
+                "agency_cmo",
+                "dollar_roll",
+                // Swaps
+                "interest_rate_swap",
+                "basis_swap",
+                "xccy_swap",
+                "inflation_swap",
+                "yoy_inflation_swap",
+                "yo_y_inflation_swap",
+                "inflation_cap_floor",
+                "fx_swap",
+                "variance_swap",
+                // Rates Derivatives
+                "forward_rate_agreement",
+                "swaption",
+                "interest_rate_future",
+                "interest_rate_option",
+                "cms_swap",
+                "cms_option",
+                "ir_future_option",
+                // Credit
+                "credit_default_swap",
+                "cds_index",
+                "cds_tranche",
+                "cds_option",
+                // Equity
+                "equity",
+                "equity_option",
+                "asian_option",
+                "barrier_option",
+                "lookback_option",
+                "equity_index_future",
+                "volatility_index_future",
+                "volatility_index_option",
+                // FX
+                "fx_spot",
+                "fx_forward",
+                "ndf",
+                "fx_option",
+                "fx_digital_option",
+                "fx_touch_option",
+                "fx_barrier_option",
+                "fx_variance_swap",
+                "quanto_option",
+                // Commodity
+                "commodity_option",
+                "commodity_asian_option",
+                "commodity_forward",
+                "commodity_swap",
+                // Exotics
+                "autocallable",
+                "cliquet_option",
+                "range_accrual",
+                // TRS
+                "trs_equity",
+                "trs_fixed_income_index",
+                // Structured
+                "structured_credit",
+                // Other
+                "basket",
+                "deposit",
+                "repo",
+                "private_markets_fund",
+                "real_estate_asset",
+                "levered_real_estate_equity",
+                "revolving_credit",
+                "discounted_cash_flow",
+            ],
+        )),
+    }
+}
+
+// Manual Deserialize implementation keeps the explicit tag/alias map while
+// avoiding Value -> String -> from_str round-trips in bulk ingestion paths.
 impl<'de> Deserialize<'de> for InstrumentJson {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        // First deserialize to an owned serde_json::Value
         let value = serde_json::Value::deserialize(deserializer)?;
-
-        // Convert back to string and re-parse to break lifetime connection
-        let json_str = serde_json::to_string(&value).map_err(D::Error::custom)?;
-
-        #[derive(Deserialize)]
-        struct Tagged {
-            #[serde(rename = "type")]
-            ty: String,
-            spec: serde_json::Value,
-        }
-
-        let tagged: Tagged = serde_json::from_str(&json_str).map_err(D::Error::custom)?;
-        let ty = tagged.ty;
-        let spec_str = serde_json::to_string(&tagged.spec).map_err(D::Error::custom)?;
-
-        // Now parse spec into the appropriate type based on the tag
-        // Using from_str on a fresh string to avoid lifetime issues
-        with_instrument_json_registry!(instrument_json_deserialize_match, &spec_str, ty)
+        parse_tagged_value(value).map_err(D::Error::custom)
     }
 }
 
@@ -937,6 +1094,51 @@ mod tests {
             .and_then(serde_json::Value::as_object_mut)
             .expect("InstrumentJson should serialize with an object spec")
             .remove(key);
+    }
+
+    #[test]
+    fn test_parse_tagged_value_accepts_yoy_alias() {
+        use finstack_core::dates::{BusinessDayConvention, DayCount, Tenor};
+
+        let instrument = YoYInflationSwap::builder()
+            .id("YOY-ALIAS".into())
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"))
+            .maturity(Date::from_calendar_date(2027, Month::January, 1).expect("Valid test date"))
+            .fixed_rate(rust_decimal::Decimal::new(250, 4))
+            .frequency(Tenor::annual())
+            .inflation_index_id("US-CPI".into())
+            .discount_curve_id("USD-OIS".into())
+            .day_count(DayCount::Act365F)
+            .side(PayReceive::Pay)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .attributes(Attributes::new())
+            .build()
+            .expect("YoYInflationSwap builder should succeed");
+        let value = serde_json::json!({
+            "type": "yo_y_inflation_swap",
+            "spec": serde_json::to_value(&instrument)
+                .expect("YoYInflationSwap JSON serialization should succeed"),
+        });
+
+        let parsed = parse_tagged_value(value).expect("alias should deserialize");
+        match parsed {
+            InstrumentJson::YoYInflationSwap(i) => {
+                assert_eq!(i.id, instrument.id);
+            }
+            _ => panic!("Expected YoYInflationSwap variant"),
+        }
+    }
+
+    #[test]
+    fn test_parse_tagged_value_rejects_unknown_type() {
+        let err = parse_tagged_value(serde_json::json!({
+            "type": "definitely_not_real",
+            "spec": {}
+        }))
+        .expect_err("unknown type should fail");
+
+        assert!(err.is_data(), "expected data error, got {err}");
     }
 
     #[test]
