@@ -328,24 +328,46 @@ In `finstack/core/src/math/interp/strategies.rs`, add to the import block at the
 use super::utils::{validate_knot_spacing, MIN_RELATIVE_KNOT_GAP};
 ```
 
-Then add `validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;` as the first validation call in `from_raw()` for these strategies:
+Then add `validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;` in `from_raw()` for these strategies:
 
-1. **`PiecewiseQuadraticForwardStrategy::from_raw()`** (line ~342): Add after `validate_positive_series(values)?;` (line 348):
+1. **`LinearStrategy::from_raw()`** (line ~26): Although `from_raw()` currently returns `Ok(Self)` with no precomputation, `LinearStrategy::interp()` calls `segment_slope()` (line 143) which divides by `(x1 - x0)`. Add the validation to catch near-zero gaps at construction time. Change:
+   ```rust
+   fn from_raw(
+       _knots: &[f64],
+       _values: &[f64],
+       _extrapolation: ExtrapolationPolicy,
+   ) -> crate::Result<Self> {
+       // Linear strategy has no precomputed state
+       Ok(Self)
+   }
+   ```
+   To:
+   ```rust
+   fn from_raw(
+       knots: &[f64],
+       _values: &[f64],
+       _extrapolation: ExtrapolationPolicy,
+   ) -> crate::Result<Self> {
+       validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
+       Ok(Self)
+   }
+   ```
+   Note: rename `_knots` to `knots` (remove underscore prefix).
+
+2. **`PiecewiseQuadraticForwardStrategy::from_raw()`** (line ~342): Add after `validate_positive_series(values)?;` (line 348):
    ```rust
    validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
    ```
 
-2. **`CubicHermiteStrategy::from_raw()`** (line ~563): Add after the opening brace:
+3. **`CubicHermiteStrategy::from_raw()`** (line ~563): Add after the opening brace:
    ```rust
    validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
    ```
 
-3. **`MonotoneConvexStrategy::from_raw()`** (line ~832): Add after `validate_monotone_nonincreasing(values)?;` (line 838):
+4. **`MonotoneConvexStrategy::from_raw()`** (line ~832): Add after `validate_monotone_nonincreasing(values)?;` (line 838):
    ```rust
    validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
    ```
-
-Do NOT add to `LinearStrategy` (line ~25) — its `from_raw()` returns `Ok(Self)` with no precomputation and doesn't use knots. The knot spacing check runs during `Interpolator::new()` → strategy `from_raw()`, so it will be checked for any strategy that actually needs it.
 
 Do NOT add to `LogLinearStrategy` (line ~161) — it uses log-value interpolation and does not divide by knot gaps directly.
 
@@ -367,7 +389,7 @@ git commit -m "feat(core): add minimum knot spacing validation for interpolators
 
 Prevents numerical instability from near-zero knot gaps in strategies
 that compute slopes/derivatives (Linear, PiecewiseQuadraticForward,
-CubicHermite). Uses relative threshold with absolute floor."
+CubicHermite, MonotoneConvex). Uses relative threshold with absolute floor."
 ```
 
 ---
