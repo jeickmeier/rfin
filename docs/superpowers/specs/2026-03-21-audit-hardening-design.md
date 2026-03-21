@@ -130,6 +130,7 @@ pub fn validate_knot_spacing(knots: &[f64], min_relative_gap: f64) -> crate::Res
 
 ```rust
 /// Consecutive knots are too close together for stable interpolation.
+#[error("Consecutive knots are too close together for stable interpolation")]
 KnotSpacingTooSmall,
 ```
 
