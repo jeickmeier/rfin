@@ -2,7 +2,7 @@
 //!
 //! These presets encode standard covenant packages used across different
 //! lending markets. Each function returns a `Vec<CovenantSpec>` ready for
-//! insertion into a [`CovenantEngine`](super::CovenantEngine).
+//! insertion into a [`crate::covenants::CovenantEngine`].
 
 use super::engine::{
     Covenant, CovenantConsequence, CovenantScope, CovenantSpec, CovenantType, ThresholdTest,

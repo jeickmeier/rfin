@@ -6,7 +6,8 @@ pub struct CovenantReport {
     /// Type of covenant being checked
     pub covenant_type: String,
 
-    /// Stable machine-readable identifier (from [`CovenantType::covenant_id`]).
+    /// Stable machine-readable identifier (from
+    /// [`crate::covenants::CovenantType::covenant_id`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub covenant_id: Option<String>,
 

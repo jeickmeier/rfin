@@ -1,8 +1,11 @@
 //! Merton Monte Carlo engine for PIK bonds with structural credit risk.
 //!
-//! Orchestrates [`MertonModel`], [`EndogenousHazardSpec`], [`DynamicRecoverySpec`],
-//! and [`ToggleExerciseModel`] into a unified Monte Carlo simulation for pricing
-//! bonds with PIK (payment-in-kind) features.
+//! Orchestrates [`crate::instruments::common::models::credit::MertonModel`],
+//! [`crate::instruments::common::models::credit::EndogenousHazardSpec`],
+//! [`crate::instruments::common::models::credit::DynamicRecoverySpec`], and
+//! [`crate::instruments::common::models::credit::ToggleExerciseModel`] into a
+//! unified Monte Carlo simulation for pricing bonds with PIK (payment-in-kind)
+//! features.
 //!
 //! # Algorithm
 //!

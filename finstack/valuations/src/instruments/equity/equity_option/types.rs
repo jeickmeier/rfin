@@ -76,7 +76,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId, PriceId};
 use time::macros::date;
 
-use super::parameters::EquityOptionParams;
+use super::parameters::{EquityOptionMarketData, EquityOptionParams};
 use crate::impl_instrument_base;
 
 /// Equity option instrument
@@ -185,6 +185,31 @@ impl crate::instruments::common_impl::traits::EquityDependencies for EquityOptio
 }
 
 impl EquityOption {
+    fn build_vanilla_with_market_data(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        option_params: EquityOptionParams,
+        market_data: EquityOptionMarketData,
+    ) -> finstack_core::Result<Self> {
+        Self::builder()
+            .id(InstrumentId::new(id.into()))
+            .underlying_ticker(ticker.into())
+            .strike(option_params.strike)
+            .option_type(option_params.option_type)
+            .exercise_style(option_params.exercise_style)
+            .expiry(option_params.expiry)
+            .notional(option_params.notional)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .settlement(option_params.settlement)
+            .discount_curve_id(market_data.discount_curve_id)
+            .spot_id(market_data.spot_id)
+            .vol_surface_id(market_data.vol_surface_id)
+            .div_yield_id_opt(market_data.div_yield_id)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+    }
+
     /// Validate structural invariants.
     ///
     /// Checks that the strike price is positive and the notional is non-zero.
@@ -203,27 +228,17 @@ impl EquityOption {
     ///
     /// Returns an at-the-money SPX call option with 6 months to expiry.
     pub fn example() -> finstack_core::Result<Self> {
-        let underlying = EquityUnderlyingParams::new("SPX", "EQUITY-SPOT", Currency::USD)
+        let market_data = EquityOptionMarketData::new("USD-OIS", "EQUITY-SPOT", "EQUITY-VOL")
             .with_dividend_yield("EQUITY-DIVYIELD");
 
-        // SAFETY: All inputs are compile-time validated constants
-        Self::builder()
-            .id(InstrumentId::new("SPX-CALL-4500"))
-            .underlying_ticker(underlying.ticker)
-            .strike(4500.0)
-            .option_type(OptionType::Call)
-            .exercise_style(ExerciseStyle::European)
-            .expiry(date!(2024 - 06 - 21))
-            .notional(Money::new(100.0, underlying.currency))
-            .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(SettlementType::Cash)
-            .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id(underlying.spot_id)
-            .vol_surface_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.div_yield_id)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
+        Self::european_call_with_market_data(
+            "SPX-CALL-4500",
+            "SPX",
+            4500.0,
+            date!(2024 - 06 - 21),
+            Money::new(100.0, Currency::USD),
+            market_data,
+        )
     }
 
     /// Create a European call option with standard conventions.
@@ -240,27 +255,33 @@ impl EquityOption {
         expiry: Date,
         notional: Money,
     ) -> finstack_core::Result<Self> {
-        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD");
+        Self::european_call_with_market_data(
+            id,
+            ticker,
+            strike,
+            expiry,
+            notional,
+            EquityOptionMarketData::new("USD-OIS", "EQUITY-SPOT", "EQUITY-VOL")
+                .with_dividend_yield("EQUITY-DIVYIELD"),
+        )
+    }
 
-        // Build directly using derive-generated builder setters
-        Self::builder()
-            .id(InstrumentId::new(id.into()))
-            .underlying_ticker(underlying.ticker)
-            .strike(strike)
-            .option_type(OptionType::Call)
-            .exercise_style(ExerciseStyle::European)
-            .expiry(expiry)
-            .notional(notional)
-            .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(SettlementType::Cash)
-            .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id(underlying.spot_id)
-            .vol_surface_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.div_yield_id)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
+    /// Create a European call option with explicit market-data identifiers.
+    ///
+    /// Use this constructor when you want the concise API of [`Self::european_call`]
+    /// without hard-coding the discount curve, spot id, volatility surface, or
+    /// dividend-yield source.
+    pub fn european_call_with_market_data(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        strike: f64,
+        expiry: Date,
+        notional: Money,
+        market_data: EquityOptionMarketData,
+    ) -> finstack_core::Result<Self> {
+        let option_params = EquityOptionParams::european_call(strike, expiry, notional)
+            .with_settlement(SettlementType::Cash);
+        Self::build_vanilla_with_market_data(id, ticker, option_params, market_data)
     }
 
     /// Create a European put option with standard conventions.
@@ -275,26 +296,29 @@ impl EquityOption {
         expiry: Date,
         notional: Money,
     ) -> finstack_core::Result<Self> {
-        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD");
+        Self::european_put_with_market_data(
+            id,
+            ticker,
+            strike,
+            expiry,
+            notional,
+            EquityOptionMarketData::new("USD-OIS", "EQUITY-SPOT", "EQUITY-VOL")
+                .with_dividend_yield("EQUITY-DIVYIELD"),
+        )
+    }
 
-        Self::builder()
-            .id(InstrumentId::new(id.into()))
-            .underlying_ticker(underlying.ticker)
-            .strike(strike)
-            .option_type(OptionType::Put)
-            .exercise_style(ExerciseStyle::European)
-            .expiry(expiry)
-            .notional(notional)
-            .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(SettlementType::Cash)
-            .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id(underlying.spot_id)
-            .vol_surface_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.div_yield_id)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
+    /// Create a European put option with explicit market-data identifiers.
+    pub fn european_put_with_market_data(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        strike: f64,
+        expiry: Date,
+        notional: Money,
+        market_data: EquityOptionMarketData,
+    ) -> finstack_core::Result<Self> {
+        let option_params = EquityOptionParams::european_put(strike, expiry, notional)
+            .with_settlement(SettlementType::Cash);
+        Self::build_vanilla_with_market_data(id, ticker, option_params, market_data)
     }
 
     /// Create an American call option with standard conventions.
@@ -309,26 +333,30 @@ impl EquityOption {
         expiry: Date,
         notional: Money,
     ) -> finstack_core::Result<Self> {
-        let underlying = EquityUnderlyingParams::new(ticker, "EQUITY-SPOT", Currency::USD)
-            .with_dividend_yield("EQUITY-DIVYIELD");
+        Self::american_call_with_market_data(
+            id,
+            ticker,
+            strike,
+            expiry,
+            notional,
+            EquityOptionMarketData::new("USD-OIS", "EQUITY-SPOT", "EQUITY-VOL")
+                .with_dividend_yield("EQUITY-DIVYIELD"),
+        )
+    }
 
-        Self::builder()
-            .id(InstrumentId::new(id.into()))
-            .underlying_ticker(underlying.ticker)
-            .strike(strike)
-            .option_type(OptionType::Call)
-            .exercise_style(ExerciseStyle::American)
-            .expiry(expiry)
-            .notional(notional)
-            .day_count(finstack_core::dates::DayCount::Act365F)
-            .settlement(SettlementType::Cash)
-            .discount_curve_id(CurveId::new("USD-OIS"))
-            .spot_id(underlying.spot_id)
-            .vol_surface_id(CurveId::new("EQUITY-VOL"))
-            .div_yield_id_opt(underlying.div_yield_id)
-            .pricing_overrides(PricingOverrides::default())
-            .attributes(Attributes::new())
-            .build()
+    /// Create an American call option with explicit market-data identifiers.
+    pub fn american_call_with_market_data(
+        id: impl Into<String>,
+        ticker: impl Into<String>,
+        strike: f64,
+        expiry: Date,
+        notional: Money,
+        market_data: EquityOptionMarketData,
+    ) -> finstack_core::Result<Self> {
+        let option_params = EquityOptionParams::european_call(strike, expiry, notional)
+            .with_exercise_style(ExerciseStyle::American)
+            .with_settlement(SettlementType::Cash);
+        Self::build_vanilla_with_market_data(id, ticker, option_params, market_data)
     }
 
     /// Create a new equity option using parameter structs
@@ -818,6 +846,38 @@ mod tests {
                 .unwrap();
         assert_eq!(american.exercise_style, ExerciseStyle::American);
         assert_eq!(american.notional.amount(), 75.0);
+    }
+
+    #[test]
+    fn market_data_constructor_preserves_explicit_market_ids() {
+        let expiry = date(2025, 12, 31);
+        let market_data =
+            EquityOptionMarketData::new(CurveId::new(DISC_ID), SPOT_ID, CurveId::new(VOL_ID))
+                .with_dividend_yield(CurveId::new(DIV_ID));
+
+        let option = EquityOption::european_call_with_market_data(
+            "SPX-CALL-CUSTOM",
+            "SPX",
+            100.0,
+            expiry,
+            Money::new(100.0, Currency::USD),
+            market_data,
+        )
+        .expect("custom market-data constructor should succeed");
+
+        assert_eq!(option.id, InstrumentId::new("SPX-CALL-CUSTOM"));
+        assert_eq!(option.underlying_ticker, "SPX");
+        assert_eq!(option.strike, 100.0);
+        assert_eq!(option.option_type, OptionType::Call);
+        assert_eq!(option.exercise_style, ExerciseStyle::European);
+        assert_eq!(option.expiry, expiry);
+        assert_eq!(option.notional, Money::new(100.0, Currency::USD));
+        assert_eq!(option.discount_curve_id, CurveId::new(DISC_ID));
+        assert_eq!(option.spot_id.as_str(), SPOT_ID);
+        assert_eq!(option.vol_surface_id, CurveId::new(VOL_ID));
+        assert_eq!(option.div_yield_id, Some(CurveId::new(DIV_ID)));
+        assert_eq!(option.settlement, SettlementType::Cash);
+        assert_eq!(option.day_count, DayCount::Act365F);
     }
 
     #[test]

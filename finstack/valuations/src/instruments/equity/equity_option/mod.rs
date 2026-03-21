@@ -89,5 +89,5 @@ pub(crate) mod parameters;
 pub(crate) mod pricer;
 mod types;
 
-pub use parameters::EquityOptionParams;
+pub use parameters::{EquityOptionMarketData, EquityOptionParams};
 pub use types::EquityOption;

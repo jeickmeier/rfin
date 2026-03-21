@@ -820,7 +820,7 @@ impl PnlAttribution {
     ///
     /// Creates a human-readable tree showing the total P&L broken down by factor.
     /// Zero-valued factors are omitted for a clean presentation. Use
-    /// [`explain_verbose`] to include all factors regardless of value.
+    /// [`Self::explain_verbose`] to include all factors regardless of value.
     ///
     /// # Returns
     ///
@@ -845,9 +845,9 @@ impl PnlAttribution {
 
     /// Generate a verbose tree explanation showing all factors including zeros.
     ///
-    /// Unlike [`explain`], this method shows every attribution factor regardless
-    /// of whether its value is zero. Useful for debugging and verifying that all
-    /// factors are being computed.
+    /// Unlike [`Self::explain`], this method shows every attribution factor
+    /// regardless of whether its value is zero. Useful for debugging and
+    /// verifying that all factors are being computed.
     pub fn explain_verbose(&self) -> String {
         self.explain_impl(true)
     }

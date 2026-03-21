@@ -503,7 +503,7 @@ impl CashflowSpec {
     /// - `end_of_month`: `false`
     /// - `payment_lag_days`: `0`
     /// - `overnight_compounding`: `None`
-    /// - `fallback`: [`FloatingRateFallback::Error`]
+    /// - `fallback`: `FloatingRateFallback::Error`
     pub fn floating_with_conventions(params: FloatingConventionParams) -> Self {
         Self::Floating(FloatingCouponSpec {
             rate_spec: FloatingRateSpec {

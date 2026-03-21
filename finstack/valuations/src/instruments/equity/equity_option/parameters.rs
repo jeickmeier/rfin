@@ -3,6 +3,7 @@
 use crate::instruments::{ExerciseStyle, OptionType, SettlementType};
 use finstack_core::dates::Date;
 use finstack_core::money::Money;
+use finstack_core::types::{CurveId, PriceId};
 
 /// Equity option specific parameters.
 ///
@@ -21,6 +22,19 @@ pub struct EquityOptionParams {
     pub settlement: SettlementType,
     /// Notional amount for valuation scaling.
     pub notional: Money,
+}
+
+/// Explicit market data identifiers for pricing an equity option.
+#[derive(Debug, Clone)]
+pub struct EquityOptionMarketData {
+    /// Discount curve used for present value calculations.
+    pub discount_curve_id: CurveId,
+    /// Spot identifier for the underlying equity.
+    pub spot_id: PriceId,
+    /// Volatility surface used for option pricing.
+    pub vol_surface_id: CurveId,
+    /// Optional continuous dividend-yield curve identifier.
+    pub div_yield_id: Option<CurveId>,
 }
 
 impl EquityOptionParams {
@@ -55,6 +69,28 @@ impl EquityOptionParams {
     /// Set settlement type
     pub fn with_settlement(mut self, settlement: SettlementType) -> Self {
         self.settlement = settlement;
+        self
+    }
+}
+
+impl EquityOptionMarketData {
+    /// Create explicit market-data identifiers for an equity option.
+    pub fn new(
+        discount_curve_id: impl Into<CurveId>,
+        spot_id: impl Into<PriceId>,
+        vol_surface_id: impl Into<CurveId>,
+    ) -> Self {
+        Self {
+            discount_curve_id: discount_curve_id.into(),
+            spot_id: spot_id.into(),
+            vol_surface_id: vol_surface_id.into(),
+            div_yield_id: None,
+        }
+    }
+
+    /// Attach a continuous dividend-yield curve identifier.
+    pub fn with_dividend_yield(mut self, div_yield_id: impl Into<CurveId>) -> Self {
+        self.div_yield_id = Some(div_yield_id.into());
         self
     }
 }

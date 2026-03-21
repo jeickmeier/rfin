@@ -109,7 +109,8 @@ pub struct DollarRoll {
     /// Optional repo/financing curve identifier (carry-only).
     ///
     /// Used exclusively for implied financing rate and roll specialness
-    /// calculations (see [`carry`] module). Does **not** affect
+    /// calculations (see [`crate::instruments::fixed_income::dollar_roll::carry`]
+    /// module). Does **not** affect
     /// the mark-to-market PV, which always discounts both legs at
     /// `discount_curve_id`.
     ///

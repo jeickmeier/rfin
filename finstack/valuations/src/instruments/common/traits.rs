@@ -660,8 +660,9 @@ pub trait Instrument: Send + Sync {
     ///
     /// # Default Implementation
     ///
-    /// Returns a mutable view into [`PricingOverrides::scenario`] when the
-    /// instrument exposes the compatibility overrides wrapper.
+    /// Returns a mutable view into
+    /// [`crate::instruments::pricing_overrides::PricingOverrides::scenario`] when
+    /// the instrument exposes the compatibility overrides wrapper.
     ///
     /// # Examples
     ///

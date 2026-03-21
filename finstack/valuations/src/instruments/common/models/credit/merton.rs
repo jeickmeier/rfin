@@ -705,7 +705,7 @@ impl MertonModel {
 pub struct SimulatedPaths {
     /// Time grid from 0 to T.
     pub times: Vec<f64>,
-    /// Asset values: paths[path_idx][time_idx].
+    /// Asset values indexed as `asset_values[path_idx][time_idx]`.
     pub asset_values: Vec<Vec<f64>>,
     /// Number of paths simulated.
     pub num_paths: usize,

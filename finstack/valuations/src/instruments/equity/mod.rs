@@ -26,31 +26,29 @@
 //! # Quick Example
 //!
 //! ```rust
-//! use finstack_valuations::instruments::{Attributes, EquityOption, ExerciseStyle, OptionType, PricingOverrides, SettlementType};
+//! use finstack_valuations::instruments::equity::EquityOptionMarketData;
+//! use finstack_valuations::instruments::EquityOption;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
-//! use finstack_core::types::{CurveId, InstrumentId};
+//! use finstack_core::types::CurveId;
 //! use time::macros::date;
 //!
 //! // Create a 6-month ATM call option
-//! let option = EquityOption::builder()
-//!     .id(InstrumentId::new("SPX-CALL-4500"))
-//!     .underlying_ticker("SPX".to_string())
-//!     .strike(4500.0)
-//!     .option_type(OptionType::Call)
-//!     .exercise_style(ExerciseStyle::European)
-//!     .expiry(date!(2025 - 07 - 15))
-//!     .notional(Money::new(100.0, Currency::USD))
-//!     .day_count(finstack_core::dates::DayCount::Act365F)
-//!     .settlement(SettlementType::Cash)
-//!     .discount_curve_id(CurveId::new("USD-OIS"))
-//!     .spot_id("EQUITY-SPOT".into())
-//!     .vol_surface_id(CurveId::new("EQUITY-VOL"))
-//!     .div_yield_id_opt(Some(CurveId::new("EQUITY-DIVYIELD")))
-//!     .pricing_overrides(PricingOverrides::default())
-//!     .attributes(Attributes::new())
-//!     .build()
-//!     .expect("valid option");
+//! let market_data = EquityOptionMarketData::new(
+//!     CurveId::new("USD-OIS"),
+//!     "EQUITY-SPOT",
+//!     CurveId::new("EQUITY-VOL"),
+//! )
+//! .with_dividend_yield(CurveId::new("EQUITY-DIVYIELD"));
+//! let option = EquityOption::european_call_with_market_data(
+//!     "SPX-CALL-4500",
+//!     "SPX",
+//!     4500.0,
+//!     date!(2025 - 07 - 15),
+//!     Money::new(100.0, Currency::USD),
+//!     market_data,
+//! )
+//! .expect("valid option");
 //! ```
 //!
 //! # Greeks
@@ -104,7 +102,7 @@ pub use autocallable::{Autocallable, FinalPayoffType};
 pub use cliquet_option::CliquetOption;
 pub use dcf_equity::{DiscountedCashFlow, TerminalValueSpec};
 pub use equity_index_future::{EquityFutureSpecs, EquityIndexFuture};
-pub use equity_option::EquityOption;
+pub use equity_option::{EquityOption, EquityOptionMarketData};
 pub use equity_trs::EquityTotalReturnSwap;
 pub use pe_fund::PrivateMarketsFund;
 pub use real_estate::{LeveredRealEstateEquity, RealEstateAsset, RealEstateValuationMethod};

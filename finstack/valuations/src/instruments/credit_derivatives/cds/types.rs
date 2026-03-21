@@ -522,6 +522,31 @@ pub struct CreditDefaultSwap {
     pub attributes: Attributes,
 }
 
+/// Parameters for building a CDS with standard ISDA conventions.
+#[derive(Debug, Clone)]
+pub struct IsdaCdsParams<'a> {
+    /// Unique CDS identifier.
+    pub id: InstrumentId,
+    /// CDS notional.
+    pub notional: Money,
+    /// Direction of the premium leg.
+    pub side: PayReceive,
+    /// ISDA market convention family to apply.
+    pub convention: CDSConvention,
+    /// Running spread in basis points.
+    pub spread_bp: f64,
+    /// Premium-leg start date.
+    pub start: Date,
+    /// Premium-leg end date.
+    pub end: Date,
+    /// Assumed recovery rate in decimal form.
+    pub recovery_rate: f64,
+    /// Discount curve identifier for premium-leg discounting.
+    pub discount_curve_id: &'a str,
+    /// Credit curve identifier for hazard-rate / survival lookup.
+    pub credit_curve_id: &'a str,
+}
+
 impl CreditDefaultSwap {
     /// Create a canonical example CDS for testing and documentation.
     ///
@@ -577,6 +602,42 @@ impl CreditDefaultSwap {
     /// # Arguments
     ///
     /// * `spread_bp` - Spread in basis points as Decimal
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if validation fails (e.g., recovery rate out of bounds).
+    pub fn from_isda(params: IsdaCdsParams<'_>) -> finstack_core::Result<Self> {
+        let IsdaCdsParams {
+            id,
+            notional,
+            side,
+            convention,
+            spread_bp,
+            start,
+            end,
+            recovery_rate,
+            discount_curve_id,
+            credit_curve_id,
+        } = params;
+
+        Self::new_isda(
+            id,
+            notional,
+            side,
+            convention,
+            crate::utils::decimal::f64_to_decimal(spread_bp, "spread_bp")?,
+            start,
+            end,
+            recovery_rate,
+            discount_curve_id,
+            credit_curve_id,
+        )
+    }
+
+    /// Create a new CDS with standard ISDA conventions using explicit inputs.
+    ///
+    /// Prefer [`Self::from_isda`] in public code. This helper remains available
+    /// for internal call sites that already hold a decimal spread.
     ///
     /// # Errors
     ///
@@ -972,5 +1033,56 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
             self.notional(),
             self.premium.day_count,
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::types::CurveId;
+    use time::macros::date;
+
+    #[test]
+    fn from_isda_applies_standard_convention_fields() {
+        let cds = CreditDefaultSwap::from_isda(IsdaCdsParams {
+            id: InstrumentId::new("CDS-CORP-5Y"),
+            notional: Money::new(10_000_000.0, Currency::USD),
+            side: PayReceive::PayFixed,
+            convention: CDSConvention::IsdaNa,
+            spread_bp: 100.0,
+            start: date!(2025 - 03 - 20),
+            end: date!(2030 - 03 - 20),
+            recovery_rate: 0.40,
+            discount_curve_id: "USD-OIS",
+            credit_curve_id: "CORP-HAZARD",
+        })
+        .expect("ISDA CDS constructor should succeed");
+
+        assert_eq!(cds.id, InstrumentId::new("CDS-CORP-5Y"));
+        assert_eq!(cds.notional, Money::new(10_000_000.0, Currency::USD));
+        assert_eq!(cds.side, PayReceive::PayFixed);
+        assert_eq!(cds.convention, CDSConvention::IsdaNa);
+        assert_eq!(cds.premium.start, date!(2025 - 03 - 20));
+        assert_eq!(cds.premium.end, date!(2030 - 03 - 20));
+        assert_eq!(cds.premium.day_count, CDSConvention::IsdaNa.day_count());
+        assert_eq!(cds.premium.frequency, CDSConvention::IsdaNa.frequency());
+        assert_eq!(
+            cds.premium.bdc,
+            CDSConvention::IsdaNa.business_day_convention()
+        );
+        assert_eq!(
+            cds.premium.calendar_id.as_deref(),
+            Some(CDSConvention::IsdaNa.default_calendar())
+        );
+        assert_eq!(cds.premium.spread_bp.to_f64(), Some(100.0));
+        assert_eq!(cds.premium.discount_curve_id, CurveId::new("USD-OIS"));
+        assert_eq!(cds.protection.credit_curve_id, CurveId::new("CORP-HAZARD"));
+        assert_eq!(cds.protection.recovery_rate, 0.40);
+        assert_eq!(
+            cds.protection.settlement_delay,
+            CDSConvention::IsdaNa.settlement_delay()
+        );
     }
 }

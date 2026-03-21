@@ -203,8 +203,10 @@ impl BumpConfig {
 
 /// Merton Monte Carlo configuration stored on the bond for registry-based pricing.
 ///
-/// This is an opaque wrapper around [`MertonMcConfig`] that allows the pricer
-/// registry to access the MC configuration from `PricingOverrides`.
+/// This is an opaque wrapper around
+/// [`crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig`]
+/// that allows the pricer registry to access the MC configuration from
+/// `PricingOverrides`.
 /// Not serializable (set programmatically, not from JSON).
 #[cfg(feature = "mc")]
 #[derive(Debug, Clone)]
