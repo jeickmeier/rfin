@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Any
 from datetime import date
+from .metrics import MetricId
 from ..core.money import Money
 
 class CovenantReport:
@@ -608,6 +609,33 @@ class ValuationResult:
         :class:`MetricId`: Standard metric identifiers
         :class:`MetricRegistry`: Metric availability checker
         :meth:`PricerRegistry.price_with_metrics`: Request metrics during pricing
+        """
+        ...
+
+    def get_metric(self, metric: MetricId | str) -> float | None:
+        """Look up a computed metric by typed identifier or metric name.
+
+        Parameters
+        ----------
+        metric : MetricId | str
+            Metric identifier to retrieve. Accepts either a ``MetricId`` instance
+            or the snake-case metric name used in ``result.measures``.
+
+        Returns
+        -------
+        float | None
+            The computed metric value, or ``None`` when that metric was not requested
+            or is unavailable for this result.
+        """
+        ...
+
+    def available_metrics(self) -> list[MetricId]:
+        """Return the computed metric identifiers attached to this result.
+
+        Returns
+        -------
+        list[MetricId]
+            Computed metric identifiers in result order.
         """
         ...
 

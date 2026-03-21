@@ -3,6 +3,8 @@ pub(crate) mod dataframe;
 use crate::core::config::PyRoundingMode;
 use crate::core::dates::utils as core_utils;
 use crate::core::money::PyMoney;
+use crate::valuations::metrics::ids::PyMetricId;
+use crate::valuations::metrics::MetricIdArg;
 use finstack_core::config::RoundingContext;
 use finstack_valuations::covenants::CovenantReport;
 use finstack_valuations::results::{ResultsMeta, ValuationResult};
@@ -287,6 +289,17 @@ impl PyValuationResult {
         Ok(dict)
     }
 
+    fn metric_ids_list<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
+        let metric_ids: Vec<PyMetricId> = self
+            .inner
+            .measures
+            .keys()
+            .cloned()
+            .map(PyMetricId::new)
+            .collect();
+        PyList::new(py, metric_ids)
+    }
+
     fn covenants_dict<'py>(&self, py: Python<'py>) -> PyResult<Option<Py<PyAny>>> {
         if let Some(reports) = &self.inner.covenants {
             let dict = PyDict::new(py);
@@ -336,6 +349,35 @@ impl PyValuationResult {
     #[getter]
     fn measures<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
         Ok(self.measures_dict(py)?.into())
+    }
+
+    #[pyo3(text_signature = "(self, metric)")]
+    /// Look up a computed measure by ``MetricId`` or metric name.
+    ///
+    /// Args:
+    ///     metric: Metric identifier instance or snake-case string.
+    ///
+    /// Returns:
+    ///     float | None: Measure value when present, else ``None``.
+    ///
+    /// Examples:
+    ///     >>> result.get_metric("dv01")
+    ///     -1250.4
+    fn get_metric(&self, metric: MetricIdArg) -> Option<f64> {
+        self.inner.measures.get(&metric.0).copied()
+    }
+
+    #[pyo3(text_signature = "(self)")]
+    /// List metric identifiers available on this result in result order.
+    ///
+    /// Returns:
+    ///     list[MetricId]: Computed metric identifiers for this valuation.
+    ///
+    /// Examples:
+    ///     >>> [metric.name for metric in result.available_metrics()]
+    ///     ['dv01', 'ytm']
+    fn available_metrics<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
+        Ok(self.metric_ids_list(py)?.into())
     }
 
     /// Metadata describing numeric mode, rounding context, and FX policy.

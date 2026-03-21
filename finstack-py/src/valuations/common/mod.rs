@@ -523,8 +523,7 @@ pub(crate) fn pricing_error_to_py(err: PricingError) -> PyErr {
             instrument_type_label(expected),
             instrument_type_label(got)
         )),
-        PricingError::ModelFailure { message, .. } => PyRuntimeError::new_err(message),
-        other => PyRuntimeError::new_err(format!("Pricing error: {other:?}")),
+        other => PyRuntimeError::new_err(other.to_string()),
     }
 }
 

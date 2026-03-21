@@ -9,7 +9,9 @@ use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{shared_standard_registry, ModelKey, PricerRegistry};
+use finstack_valuations::pricer::{
+    shared_standard_registry, ModelKey, PricerRegistry, PricingError,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyIterator, PyList, PyModule};
@@ -102,6 +104,16 @@ fn extract_instrument_handles(
     Ok(handles)
 }
 
+fn enrich_pricing_error(
+    err: PricingError,
+    handle: &InstrumentHandle,
+    model_key: ModelKey,
+) -> PricingError {
+    err.with_instrument_id(handle.instrument.id().to_string())
+        .with_instrument_type(handle.instrument_type)
+        .with_model(model_key)
+}
+
 fn price_instrument_handles(
     py: Python<'_>,
     registry: Arc<PricerRegistry>,
@@ -115,7 +127,7 @@ fn price_instrument_handles(
         handles
             .par_iter()
             .map(|handle| {
-                if metric_ids.is_empty() {
+                let result = if metric_ids.is_empty() {
                     registry.price(
                         handle.instrument.as_ref(),
                         model_key,
@@ -132,7 +144,8 @@ fn price_instrument_handles(
                         metric_ids,
                         finstack_valuations::instruments::PricingOptions::default(),
                     )
-                }
+                };
+                result.map_err(|err| enrich_pricing_error(err, handle, model_key))
             })
             .collect()
     });
@@ -247,15 +260,20 @@ impl PyPricerRegistry {
         market: &PyMarketContext,
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<PyValuationResult> {
-        let InstrumentHandle {
-            instrument: inst, ..
-        } = extract_instrument(&instrument)?;
+        let handle = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
         let as_of_date = py_to_date(&as_of)?;
 
         py.detach(|| {
             self.inner
-                .price(inst.as_ref(), model_key, &market.inner, as_of_date, None)
+                .price(
+                    handle.instrument.as_ref(),
+                    model_key,
+                    &market.inner,
+                    as_of_date,
+                    None,
+                )
+                .map_err(|err| enrich_pricing_error(err, &handle, model_key))
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)
         })
@@ -349,22 +367,21 @@ impl PyPricerRegistry {
         as_of: Bound<'_, PyAny>,
         metrics: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyValuationResult> {
-        let InstrumentHandle {
-            instrument: inst, ..
-        } = extract_instrument(&instrument)?;
+        let handle = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
         let (as_of_date, metric_ids) = parse_metrics_request(as_of, metrics)?;
 
         py.detach(|| {
             self.inner
                 .price_with_metrics(
-                    inst.as_ref(),
+                    handle.instrument.as_ref(),
                     model_key,
                     &market.inner,
                     as_of_date,
                     &metric_ids,
                     finstack_valuations::instruments::PricingOptions::default(),
                 )
+                .map_err(|err| enrich_pricing_error(err, &handle, model_key))
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)
         })
