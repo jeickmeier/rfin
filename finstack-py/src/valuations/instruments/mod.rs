@@ -345,6 +345,33 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     ))
 }
 
+/// Downcast a Python instrument wrapper or deserialize a dict/JSON payload.
+pub(crate) fn extract_instrument_or_payload(
+    value: &Bound<'_, PyAny>,
+) -> PyResult<InstrumentHandle> {
+    if let Ok(handle) = extract_instrument(value) {
+        return Ok(handle);
+    }
+
+    if let Ok(payload) = value.extract::<&str>() {
+        let json_value: serde_json::Value = serde_json::from_str(payload)
+            .map_err(|e| PyValueError::new_err(format!("Invalid instrument JSON: {e}")))?;
+        let instrument = instrument_envelope_from_value(json_value)?;
+        return Ok(InstrumentHandle {
+            instrument_type: instrument.key(),
+            instrument,
+        });
+    }
+
+    let json_value: serde_json::Value = depythonize(value)
+        .map_err(|e| PyValueError::new_err(format!("Failed to convert instrument payload: {e}")))?;
+    let instrument = instrument_envelope_from_value(json_value)?;
+    Ok(InstrumentHandle {
+        instrument_type: instrument.key(),
+        instrument,
+    })
+}
+
 fn instrument_envelope_from_value(value: serde_json::Value) -> PyResult<Arc<dyn Instrument>> {
     InstrumentEnvelope::from_value(value)
         .map(Arc::from)

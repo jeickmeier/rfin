@@ -137,6 +137,22 @@ impl PyMarketContext {
     }
 }
 
+pub(crate) fn market_context_from_value(value: &Bound<'_, PyAny>) -> PyResult<PyMarketContext> {
+    if let Ok(context) = value.extract::<PyRef<'_, PyMarketContext>>() {
+        return Ok(context.clone());
+    }
+
+    if let Ok(payload) = value.extract::<&str>() {
+        return serde_json::from_str(payload)
+            .map(|inner| PyMarketContext { inner })
+            .map_err(|e| {
+                PyValueError::new_err(format!("failed to deserialize MarketContext: {e}"))
+            });
+    }
+
+    PyMarketContext::dict_to_market_context(value).map(|inner| PyMarketContext { inner })
+}
+
 #[pymethods]
 impl PyMarketContext {
     #[new]

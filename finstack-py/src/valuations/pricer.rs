@@ -1,8 +1,11 @@
 use crate::core::dates::utils::py_to_date;
+use crate::core::market_data::context::market_context_from_value;
 use crate::core::market_data::PyMarketContext;
 use crate::errors::core_to_py;
 use crate::valuations::common::{pricing_error_to_py, ModelKeyArg, PyPricerKey};
-use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
+use crate::valuations::instruments::{
+    extract_instrument, extract_instrument_or_payload, InstrumentHandle,
+};
 use crate::valuations::metrics::MetricIdArg;
 use crate::valuations::results::PyValuationResult;
 use finstack_valuations::instruments::fixed_income::bond::{
@@ -18,6 +21,7 @@ use pyo3::types::{PyIterator, PyList, PyModule};
 use pyo3::Bound;
 use rayon::prelude::*;
 use std::sync::Arc;
+use time::Month;
 
 /// Registry dispatching (instrument, model) pairs to pricing engines.
 ///
@@ -70,12 +74,12 @@ or use the legacy positional order price_with_metrics(..., metrics, as_of)",
         )
     })?;
 
-    if let Ok(as_of_date) = py_to_date(&as_of) {
+    if let Ok(as_of_date) = resolve_as_of_date(&as_of) {
         return Ok((as_of_date, extract_metric_ids(metrics)?));
     }
 
     let metric_ids = extract_metric_ids(as_of)?;
-    let as_of_date = py_to_date(&metrics).map_err(|_| {
+    let as_of_date = resolve_as_of_date(&metrics).map_err(|_| {
         PyValueError::new_err(
             "expected (instrument, model, market, as_of, metrics=...) or \
 (instrument, model, market, metrics, as_of)",
@@ -94,12 +98,48 @@ fn resolve_model_key(model: Option<Bound<'_, PyAny>>) -> PyResult<ModelKey> {
     }
 }
 
+fn resolve_as_of_date(value: &Bound<'_, PyAny>) -> PyResult<finstack_core::dates::Date> {
+    if let Ok(as_of_date) = py_to_date(value) {
+        return Ok(as_of_date);
+    }
+
+    if let Ok(date_str) = value.extract::<&str>() {
+        let mut parts = date_str.split('-');
+        let year = parts
+            .next()
+            .ok_or_else(|| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?
+            .parse::<i32>()
+            .map_err(|_| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?;
+        let month = parts
+            .next()
+            .ok_or_else(|| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?
+            .parse::<u8>()
+            .map_err(|_| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?;
+        let day = parts
+            .next()
+            .ok_or_else(|| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?
+            .parse::<u8>()
+            .map_err(|_| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?;
+        if parts.next().is_some() {
+            return Err(PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"));
+        }
+        let month = Month::try_from(month)
+            .map_err(|_| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"))?;
+        return time::Date::from_calendar_date(year, month, day)
+            .map_err(|_| PyValueError::new_err("as_of must be ISO date YYYY-MM-DD"));
+    }
+
+    Err(PyValueError::new_err(
+        "as_of must be datetime.date, datetime.datetime, or ISO date string",
+    ))
+}
+
 fn extract_instrument_handles(
     instruments: Vec<Bound<'_, PyAny>>,
 ) -> PyResult<Vec<InstrumentHandle>> {
     let mut handles = Vec::with_capacity(instruments.len());
     for inst in instruments {
-        handles.push(extract_instrument(&inst)?);
+        handles.push(extract_instrument_or_payload(&inst)?);
     }
     Ok(handles)
 }
@@ -164,9 +204,10 @@ fn price_instrument_handles(
 /// Price a list of instruments using a single service-friendly helper.
 ///
 /// Args:
-///     instruments: List of instrument instances to price.
-///     market: Market context supplying curves, spreads, spots, and FX data.
-///     as_of: Valuation date (datetime.date).
+///     instruments: List of instrument instances, instrument dictionaries, or
+///         instrument JSON payloads to price.
+///     market: Market context object, market dictionary, or market JSON payload.
+///     as_of: Valuation date (datetime.date) or ISO ``YYYY-MM-DD`` string.
 ///     metrics: Optional iterable of metric identifiers to compute for every instrument.
 ///     model: Optional pricing model key or name. Defaults to ``"discounting"``.
 ///     registry: Optional registry to use. Defaults to the shared standard registry.
@@ -177,20 +218,21 @@ fn price_instrument_handles(
 fn price_portfolio<'py>(
     py: Python<'py>,
     instruments: Vec<Bound<'py, PyAny>>,
-    market: &PyMarketContext,
+    market: Bound<'py, PyAny>,
     as_of: Bound<'py, PyAny>,
     metrics: Option<Bound<'py, PyAny>>,
     model: Option<Bound<'py, PyAny>>,
     registry: Option<PyRef<'py, PyPricerRegistry>>,
     return_dicts: bool,
 ) -> PyResult<Py<PyAny>> {
-    let as_of_date = py_to_date(&as_of)?;
+    let as_of_date = resolve_as_of_date(&as_of)?;
     let model_key = resolve_model_key(model)?;
     let metric_ids = match metrics {
         Some(metrics) => extract_metric_ids(metrics)?,
         None => Vec::new(),
     };
     let handles = extract_instrument_handles(instruments)?;
+    let market = market_context_from_value(&market)?;
     let registry_inner = registry
         .map(|registry| registry.inner.clone())
         .unwrap_or_else(shared_standard_registry);
@@ -199,7 +241,7 @@ fn price_portfolio<'py>(
         registry_inner,
         handles,
         model_key,
-        market,
+        &market,
         as_of_date,
         &metric_ids,
     )?;
@@ -262,7 +304,7 @@ impl PyPricerRegistry {
     ) -> PyResult<PyValuationResult> {
         let handle = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
-        let as_of_date = py_to_date(&as_of)?;
+        let as_of_date = resolve_as_of_date(&as_of)?;
 
         py.detach(|| {
             self.inner
@@ -316,7 +358,7 @@ impl PyPricerRegistry {
         as_of: Bound<'_, PyAny>,
     ) -> PyResult<Vec<PyValuationResult>> {
         let ModelKeyArg(model_key) = model.extract()?;
-        let as_of_date = py_to_date(&as_of)?;
+        let as_of_date = resolve_as_of_date(&as_of)?;
         let handles = extract_instrument_handles(instruments)?;
         price_instrument_handles(
             py,

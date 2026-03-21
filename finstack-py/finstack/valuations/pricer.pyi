@@ -130,8 +130,8 @@ class PricerRegistry:
 @overload
 def price_portfolio(
     instruments: list[Any],
-    market: MarketContext,
-    as_of: dt.date,
+    market: MarketContext | dict[str, Any] | str,
+    as_of: dt.date | str,
     metrics: list[Any] | None = None,
     model: Any = "discounting",
     registry: PricerRegistry | None = None,
@@ -140,8 +140,8 @@ def price_portfolio(
 @overload
 def price_portfolio(
     instruments: list[Any],
-    market: MarketContext,
-    as_of: dt.date,
+    market: MarketContext | dict[str, Any] | str,
+    as_of: dt.date | str,
     metrics: list[Any] | None = None,
     model: Any = "discounting",
     registry: PricerRegistry | None = None,
@@ -149,8 +149,8 @@ def price_portfolio(
 ) -> list[dict[str, Any]]: ...
 def price_portfolio(
     instruments: list[Any],
-    market: MarketContext,
-    as_of: dt.date,
+    market: MarketContext | dict[str, Any] | str,
+    as_of: dt.date | str,
     metrics: list[Any] | None = None,
     model: Any = "discounting",
     registry: PricerRegistry | None = None,
@@ -166,11 +166,14 @@ def price_portfolio(
     Parameters
     ----------
     instruments : list[Any]
-        Instruments to price.
-    market : MarketContext
-        Market data container with the required curves, surfaces, and FX data.
-    as_of : dt.date
-        Valuation date for the pricing run.
+        Instruments to price. Each item may be an instrument wrapper, an
+        instrument envelope dictionary, or an instrument JSON string.
+    market : MarketContext | dict[str, Any] | str
+        Market data container, serialized market dictionary, or serialized
+        market JSON payload.
+    as_of : dt.date | str
+        Valuation date for the pricing run as a ``datetime.date`` or ISO
+        ``YYYY-MM-DD`` string.
     metrics : list[Any] | None, optional
         Metrics to compute for every instrument. When omitted, pricing runs
         without additional risk metrics.
