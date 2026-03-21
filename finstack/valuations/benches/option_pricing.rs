@@ -174,6 +174,7 @@ fn bench_option_greeks(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&greeks),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -196,7 +197,12 @@ fn bench_barrier_option_fd_greeks(c: &mut Criterion) {
 
     c.bench_function("barrier_option_fd_greeks_5_metrics", |b| {
         b.iter(|| {
-            option.price_with_metrics(black_box(&market), black_box(as_of), black_box(&greeks))
+            option.price_with_metrics(
+                black_box(&market),
+                black_box(as_of),
+                black_box(&greeks),
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
         });
     });
 }

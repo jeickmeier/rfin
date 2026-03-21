@@ -11,7 +11,14 @@ use finstack_valuations::instruments::Instrument;
 fn test_quote_amount_basic() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Quote amount is the PV in result.value
     let amount = result.value.amount();
@@ -22,7 +29,14 @@ fn test_quote_amount_basic() {
 fn test_quote_amount_equals_npv() {
     let fx = eurusd_with_notional(2_000_000.0, 1.22);
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
     let direct_npv = fx.value(&market, test_date()).unwrap();
 
     let quote_amt = result.value.amount();
@@ -33,7 +47,14 @@ fn test_quote_amount_equals_npv() {
 fn test_quote_amount_default_notional() {
     let fx = sample_eurusd().with_rate(1.18).expect("test rate");
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let amount = result.value.amount();
     assert_approx_eq(amount, 1.18, EPSILON, "Default notional quote amount");
@@ -47,7 +68,14 @@ fn test_quote_amount_various_rates() {
 
     for rate in rates {
         let fx = eurusd_with_notional(notional, rate);
-        let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+        let result = fx
+            .price_with_metrics(
+                &market,
+                test_date(),
+                &[],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap();
 
         let quote_amt = result.value.amount();
         let expected = notional * rate;
@@ -72,7 +100,12 @@ fn test_quote_amount_various_currencies() {
         .with_rate(1.40)
         .expect("test rate");
     let gbp_result = gbp_fx
-        .price_with_metrics(&market, test_date(), &[])
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     assert_approx_eq(
         gbp_result.value.amount(),
@@ -88,7 +121,12 @@ fn test_quote_amount_various_currencies() {
         .with_rate(110.0)
         .expect("test rate");
     let jpy_result = jpy_fx
-        .price_with_metrics(&market, test_date(), &[])
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     assert_approx_eq(
         jpy_result.value.amount(),
@@ -106,7 +144,14 @@ fn test_quote_amount_zero_notional() {
         .with_rate(1.20)
         .expect("test rate");
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let amount = result.value.amount();
     assert_approx_eq(amount, 0.0, EPSILON, "Zero notional");
@@ -116,7 +161,14 @@ fn test_quote_amount_zero_notional() {
 fn test_quote_amount_large_notional() {
     let fx = eurusd_with_notional(1_000_000_000.0, 1.20);
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let amount = result.value.amount();
     assert_approx_eq(amount, 1_200_000_000.0, 1.0, "Large notional");
@@ -127,9 +179,30 @@ fn test_quote_amount_independence_from_date() {
     let market = MarketContext::new();
     let fx = eurusd_with_notional(1_000_000.0, 1.20);
 
-    let result1 = fx.price_with_metrics(&market, d(2025, 1, 15), &[]).unwrap();
-    let result2 = fx.price_with_metrics(&market, d(2025, 6, 15), &[]).unwrap();
-    let result3 = fx.price_with_metrics(&market, d(2026, 1, 15), &[]).unwrap();
+    let result1 = fx
+        .price_with_metrics(
+            &market,
+            d(2025, 1, 15),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let result2 = fx
+        .price_with_metrics(
+            &market,
+            d(2025, 6, 15),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
+    let result3 = fx
+        .price_with_metrics(
+            &market,
+            d(2026, 1, 15),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let amount1 = result1.value.amount();
     let amount2 = result2.value.amount();
@@ -146,7 +219,14 @@ fn test_quote_amount_conversion_relationship() {
     // Verify: quote_amount = base_amount * spot_rate
     let fx = eurusd_with_notional(1_234_567.0, 1.23456);
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let quote_amt = result.value.amount();
     let spot_rate = fx.spot_rate.unwrap();

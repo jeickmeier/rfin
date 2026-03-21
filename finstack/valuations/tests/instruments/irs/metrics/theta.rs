@@ -99,7 +99,12 @@ fn test_theta_computes() {
     let market = build_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -117,7 +122,12 @@ fn test_theta_reasonable_magnitude() {
     let market = build_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -140,7 +150,12 @@ fn test_theta_at_par_near_zero() {
     let market = build_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -163,7 +178,12 @@ fn test_theta_off_market_swap() {
     let market = build_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -188,7 +208,12 @@ fn test_theta_direction_for_underwater_swap() {
     let market = build_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let npv = result.value.amount();
@@ -229,14 +254,24 @@ fn test_theta_opposite_sides() {
     swap_pay.side = PayReceive::PayFixed;
 
     let theta_receive = *swap_receive
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("theta")
         .unwrap();
 
     let theta_pay = *swap_pay
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("theta")

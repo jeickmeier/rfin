@@ -124,7 +124,12 @@ fn normal_cap_delta_positive() {
     let ctx = normal_market(as_of, 0.05);
 
     let result = cap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
@@ -143,7 +148,12 @@ fn normal_floor_delta_negative() {
     let ctx = normal_market(as_of, 0.05);
 
     let result = floor
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
@@ -162,14 +172,24 @@ fn normal_gamma_non_negative() {
     let ctx = normal_market(as_of, 0.05);
 
     let cap_gamma = *cap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
         .unwrap();
 
     let floor_gamma = *floor
-        .price_with_metrics(&ctx, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -194,7 +214,12 @@ fn normal_vega_positive() {
     let ctx = normal_market(as_of, 0.05);
 
     let vega = *cap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -246,7 +271,12 @@ fn normal_delta_matches_finite_difference() {
     let fd_delta = (pv_up - pv_down) / (2.0 * bump);
 
     let analytic_delta = *caplet
-        .price_with_metrics(&ctx_base, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx_base,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -320,7 +350,12 @@ fn normal_vega_matches_finite_difference() {
     let fd_vega = (pv_up - pv_down) / (2.0 * vol_bump * 100.0);
 
     let analytic_vega = *caplet
-        .price_with_metrics(&ctx_mid, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &ctx_mid,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -384,7 +419,12 @@ fn normal_greeks_with_negative_forward() {
 
     let metrics = [MetricId::Delta, MetricId::Gamma, MetricId::Vega];
     for metric in &metrics {
-        let result = cap.price_with_metrics(&ctx, as_of, std::slice::from_ref(metric));
+        let result = cap.price_with_metrics(
+            &ctx,
+            as_of,
+            std::slice::from_ref(metric),
+            finstack_valuations::instruments::PricingOptions::default(),
+        );
         assert!(
             result.is_ok(),
             "Normal {:?} should succeed with negative fwd",
@@ -413,19 +453,34 @@ fn normal_delta_increases_with_moneyness() {
     let itm_cap = create_normal_cap(as_of, end, 0.02);
 
     let otm_delta = *otm_cap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
         .unwrap();
     let atm_delta = *atm_cap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
         .unwrap();
     let itm_delta = *itm_cap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")

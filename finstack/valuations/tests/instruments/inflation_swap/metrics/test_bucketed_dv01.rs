@@ -30,7 +30,12 @@ fn test_bucketed_dv01_computed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Check that bucketed_dv01 is present
@@ -72,7 +77,12 @@ fn test_bucketed_dv01_reasonable_magnitude() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let bucketed_dv01_raw = *result.measures.get("bucketed_dv01").unwrap();
@@ -131,7 +141,12 @@ fn test_bucketed_dv01_zero_for_matured() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let bucketed_dv01 = result.measures.get("bucketed_dv01").unwrap().abs();

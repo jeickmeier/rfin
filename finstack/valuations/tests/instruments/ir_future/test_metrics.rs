@@ -12,7 +12,14 @@ fn test_pv_value() {
     let market = build_standard_market(as_of, 0.05);
 
     // PV is available directly in result.value (not in measures)
-    let result = future.price_with_metrics(&market, as_of, &[]).unwrap();
+    let result = future
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let pv_result = result.value.amount();
 
@@ -33,7 +40,12 @@ fn test_dv01_metric() {
     let market = build_standard_market(as_of, 0.05);
 
     let result = future
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -72,10 +84,20 @@ fn test_dv01_long_vs_short() {
     );
 
     let result_long = long
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_short = short
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_long = *result_long.measures.get("dv01").unwrap();
@@ -115,10 +137,20 @@ fn test_dv01_multiple_contracts() {
     );
 
     let result_single = single
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_double = double
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_single = *result_single.measures.get("dv01").unwrap();
@@ -161,10 +193,20 @@ fn test_dv01_near_vs_far() {
     );
 
     let result_near = near
-        .price_with_metrics(&market, market_as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            market_as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_far = far
-        .price_with_metrics(&market, market_as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            market_as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_near = *result_near.measures.get("dv01").unwrap();
@@ -182,7 +224,12 @@ fn test_theta_metric() {
     let market = build_standard_market(as_of, 0.05);
 
     let result = future
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -216,10 +263,20 @@ fn test_theta_long_vs_short() {
     );
 
     let result_long = long
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_short = short
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta_long = *result_long.measures.get("theta").unwrap();
@@ -242,7 +299,14 @@ fn test_all_metrics_together() {
 
     let metrics = vec![MetricId::Dv01, MetricId::Theta];
 
-    let result = future.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = future
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // All metrics should be present
     assert!(result.measures.contains_key("dv01"));
@@ -258,7 +322,12 @@ fn test_bucketed_dv01_metric() {
     let market = build_standard_market(as_of, 0.05);
 
     let result = future
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // BucketedDv01 should be present
@@ -274,7 +343,14 @@ fn test_empty_metrics() {
     let future = create_standard_future(start, end);
     let market = build_standard_market(as_of, 0.05);
 
-    let result = future.price_with_metrics(&market, as_of, &[]).unwrap();
+    let result = future
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Should still have value
     assert!(result.value.amount().is_finite());
@@ -300,7 +376,12 @@ fn test_metrics_with_very_short_tau() {
     );
 
     let result = future
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -316,14 +397,31 @@ fn test_metrics_consistency() {
     let market = build_standard_market(as_of, 0.05);
 
     // Request metrics separately
-    let result_basic = future.price_with_metrics(&market, as_of, &[]).unwrap();
+    let result_basic = future
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
     let result_dv01 = future
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Request together with theta
     let result_both = future
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01, MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01, MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // PV should be consistent (in result.value, not measures)

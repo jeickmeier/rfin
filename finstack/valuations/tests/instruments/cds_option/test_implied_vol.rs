@@ -45,7 +45,12 @@ fn test_implied_vol_metric() {
     let option = CDSOptionBuilder::new().implied_vol(target_vol).build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let iv_metric = *result.measures.get("implied_vol").unwrap();

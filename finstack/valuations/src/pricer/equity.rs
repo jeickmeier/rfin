@@ -1,7 +1,8 @@
 //! Pricer registrations for equity instruments.
 //!
 //! Covers: Equity, EquityOption, EquityTotalReturnSwap, VarianceSwap,
-//! EquityIndexFuture, RealEstateAsset, LeveredRealEstateEquity, PrivateMarketsFund.
+//! EquityIndexFuture, VolatilityIndexFuture, VolatilityIndexOption,
+//! RealEstateAsset, LeveredRealEstateEquity, PrivateMarketsFund.
 
 use super::{InstrumentType, ModelKey, PricerRegistry};
 
@@ -57,6 +58,20 @@ pub fn register_equity_pricers(registry: &mut PricerRegistry) {
         crate::instruments::common_impl::GenericInstrumentPricer::<
             crate::instruments::EquityIndexFuture,
         >::discounting(InstrumentType::EquityIndexFuture),
+    );
+
+    // Volatility Index Future
+    registry.register(
+        InstrumentType::VolatilityIndexFuture,
+        ModelKey::Discounting,
+        crate::instruments::equity::vol_index_future::pricer::VolIndexFutureDiscountingPricer,
+    );
+
+    // Volatility Index Option
+    registry.register(
+        InstrumentType::VolatilityIndexOption,
+        ModelKey::Discounting,
+        crate::instruments::equity::vol_index_option::pricer::VolIndexOptionDiscountingPricer,
     );
 
     // Real Estate Asset - uses GenericInstrumentPricer (curve dependencies)

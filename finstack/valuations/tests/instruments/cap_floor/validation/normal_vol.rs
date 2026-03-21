@@ -132,7 +132,12 @@ fn normal_caplet_delta_is_positive() {
     let ctx = context_from(as_of, 0.02, 0.005);
 
     let result = caplet
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing should succeed");
     let delta = *result.measures.get("delta").unwrap();
     assert!(
@@ -160,7 +165,12 @@ fn normal_floorlet_delta_is_negative() {
     let ctx = context_from(as_of, 0.02, 0.005);
 
     let result = floorlet
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing should succeed");
     let delta = *result.measures.get("delta").unwrap();
     assert!(
@@ -188,7 +198,12 @@ fn normal_gamma_non_negative() {
             is_cap,
         );
         let result = inst
-            .price_with_metrics(&ctx, as_of, &[MetricId::Gamma])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::Gamma],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .expect("pricing should succeed");
         let gamma = *result.measures.get("gamma").unwrap();
         assert!(
@@ -217,7 +232,12 @@ fn normal_vega_positive() {
             is_cap,
         );
         let result = inst
-            .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::Vega],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .expect("pricing should succeed");
         let vega = *result.measures.get("vega").unwrap();
         assert!(
@@ -250,7 +270,12 @@ fn normal_model_prices_negative_forward() {
     let ctx = context_from(as_of, -0.005, 0.003);
 
     let result = caplet
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta, MetricId::Vega])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("normal model must handle negative forward");
 
     let pv = result.value.amount();
@@ -314,7 +339,12 @@ fn normal_delta_matches_finite_difference() {
     let fd_delta = (pv_up - pv_down) / (2.0 * bump);
 
     let result = caplet
-        .price_with_metrics(&ctx_base, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx_base,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let analytic_delta = *result.measures.get("delta").unwrap();
 
@@ -369,7 +399,12 @@ fn normal_vega_matches_finite_difference() {
     let fd_vega = (pv_up - pv_down) / (2.0 * vol_bump) * 0.01;
 
     let result = caplet
-        .price_with_metrics(&ctx_base, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &ctx_base,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let analytic_vega = *result.measures.get("vega").unwrap();
 
@@ -418,10 +453,20 @@ fn normal_caplet_floorlet_delta_parity() {
     );
 
     let cap_result = cap_inst
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let floor_result = floor_inst
-        .price_with_metrics(&ctx, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cap_delta = *cap_result.measures.get("delta").unwrap();

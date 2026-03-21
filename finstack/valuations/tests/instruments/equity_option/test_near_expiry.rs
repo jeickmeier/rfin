@@ -24,7 +24,12 @@ fn test_near_expiry_gamma_stability() {
         let market = build_standard_market(as_of, 100.0, 0.25, 0.05, 0.0);
 
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Gamma],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let gamma = *result.measures.get("gamma").unwrap();
@@ -54,14 +59,24 @@ fn test_gamma_increases_near_expiry_atm() {
     let expiry_30d = as_of + Duration::days(30);
     let call_30d = create_call(as_of, expiry_30d, 100.0);
     let result_30d = call_30d
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let gamma_30d = *result_30d.measures.get("gamma").unwrap();
 
     let expiry_7d = as_of + Duration::days(7);
     let call_7d = create_call(as_of, expiry_7d, 100.0);
     let result_7d = call_7d
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let gamma_7d = *result_7d.measures.get("gamma").unwrap();
 
@@ -83,7 +98,12 @@ fn test_near_expiry_theta_stability() {
         let market = build_standard_market(as_of, 100.0, 0.25, 0.05, 0.0);
 
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Theta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Theta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let theta = *result.measures.get("theta").unwrap();
@@ -107,14 +127,24 @@ fn test_theta_magnitude_increases_near_expiry_atm() {
     let expiry_30d = as_of + Duration::days(30);
     let call_30d = create_call(as_of, expiry_30d, 100.0);
     let result_30d = call_30d
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_30d = *result_30d.measures.get("theta").unwrap();
 
     let expiry_7d = as_of + Duration::days(7);
     let call_7d = create_call(as_of, expiry_7d, 100.0);
     let result_7d = call_7d
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_7d = *result_7d.measures.get("theta").unwrap();
 
@@ -146,7 +176,12 @@ fn test_near_expiry_delta_stability() {
         // ATM call
         let call = create_call(as_of, expiry, 100.0);
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         let delta = *result.measures.get("delta").unwrap();
 
@@ -184,14 +219,24 @@ fn test_delta_approaches_step_function() {
     // Deep ITM call (S >> K)
     let itm_call = create_call(as_of, expiry, 80.0);
     let result_itm = itm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta_itm = *result_itm.measures.get("delta").unwrap();
 
     // Deep OTM call (S << K)
     let otm_call = create_call(as_of, expiry, 120.0);
     let result_otm = otm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta_otm = *result_otm.measures.get("delta").unwrap();
 
@@ -254,6 +299,7 @@ fn test_expired_option_greeks() {
             &market,
             as_of,
             &[MetricId::Delta, MetricId::Gamma, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -295,14 +341,24 @@ fn test_vega_decreases_near_expiry() {
     let expiry_30d = as_of + Duration::days(30);
     let call_30d = create_call(as_of, expiry_30d, 100.0);
     let result_30d = call_30d
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let vega_30d = *result_30d.measures.get("vega").unwrap();
 
     let expiry_7d = as_of + Duration::days(7);
     let call_7d = create_call(as_of, expiry_7d, 100.0);
     let result_7d = call_7d
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let vega_7d = *result_7d.measures.get("vega").unwrap();
 

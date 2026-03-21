@@ -316,7 +316,12 @@ fn test_metrics_with_missing_implied_vol_falls_back_to_strike() {
     let as_of = date(2024, 12, 1);
 
     // Act
-    let result = swap.price_with_metrics(&ctx, as_of, &[MetricId::ExpectedVariance]);
+    let result = swap.price_with_metrics(
+        &ctx,
+        as_of,
+        &[MetricId::ExpectedVariance],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -407,10 +412,20 @@ fn test_metrics_are_stable_under_repeated_calculations() {
 
     // Act
     let result1 = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Vega, MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Vega, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result2 = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Vega, MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Vega, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -474,7 +489,12 @@ fn test_price_with_metrics_fails_when_as_of_before_discount_curve_base() {
     let as_of = date(2024, 11, 30);
 
     // Act
-    let result = swap.price_with_metrics(&ctx, as_of, &[MetricId::Vega]);
+    let result = swap.price_with_metrics(
+        &ctx,
+        as_of,
+        &[MetricId::Vega],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_err());

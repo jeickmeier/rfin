@@ -20,7 +20,12 @@ fn test_fx_spot_bucketed_dv01_computed() {
     let market = market_full();
 
     let result = fx_spot
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // BucketedDv01 should be present

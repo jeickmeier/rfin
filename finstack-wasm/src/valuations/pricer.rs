@@ -1,5 +1,4 @@
 use crate::core::dates::date::JsDate;
-use crate::core::error::core_to_js;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::extract_instrument;
@@ -30,10 +29,6 @@ fn pricing_error_to_js(err: finstack_valuations::pricer::PricingError) -> JsValu
     js_error(err.to_string())
 }
 
-fn core_error_to_js(err: finstack_core::Error) -> JsValue {
-    core_to_js(err)
-}
-
 fn price_with_optional_metrics(
     registry: &PricerRegistry,
     instrument: &dyn Instrument,
@@ -47,16 +42,23 @@ fn price_with_optional_metrics(
     // If metrics requested, use the canonical price_with_metrics path
     if let Some(metric_ids) = metrics {
         if !metric_ids.is_empty() {
-            return instrument
-                .price_with_metrics(market.inner(), as_of_date, &metric_ids)
+            return registry
+                .price_with_metrics(
+                    instrument,
+                    model_key,
+                    market.inner(),
+                    as_of_date,
+                    &metric_ids,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .map(JsValuationResult::new)
-                .map_err(core_error_to_js);
+                .map_err(pricing_error_to_js);
         }
     }
 
     // Otherwise just get base price via registry
     registry
-        .price_with_registry(instrument, model_key, market.inner(), as_of_date, None)
+        .price(instrument, model_key, market.inner(), as_of_date, None)
         .map(JsValuationResult::new)
         .map_err(pricing_error_to_js)
 }

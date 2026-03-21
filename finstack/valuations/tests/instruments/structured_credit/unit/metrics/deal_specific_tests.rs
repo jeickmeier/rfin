@@ -148,7 +148,10 @@ fn test_cmbs_metrics_require_cmbs_deal_type() {
 #[test]
 fn test_cmbs_dscr_calculator_returns_configured_noi_multiple() {
     let dscr = CmbsDscrCalculator::new(1.35)
-        .calculate(&mut metric_context(cmbs_instrument(), Date::from_calendar_date(2025, Month::January, 1).unwrap()))
+        .calculate(&mut metric_context(
+            cmbs_instrument(),
+            Date::from_calendar_date(2025, Month::January, 1).unwrap(),
+        ))
         .unwrap();
 
     assert!(

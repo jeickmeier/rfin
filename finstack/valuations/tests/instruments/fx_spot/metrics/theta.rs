@@ -10,7 +10,12 @@ use finstack_valuations::{
 
 fn theta_for(fx: FxSpot, market: &MarketContext, as_of: Date) -> f64 {
     let result = fx
-        .price_with_metrics(market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing with theta should succeed");
     *result
         .measures

@@ -98,7 +98,12 @@ fn test_cds_cs01_determinism() {
     let cs01s: Vec<f64> = (0..50)
         .map(|_| {
             let result = cds
-                .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Cs01],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Cs01.as_str()]
         })
@@ -124,7 +129,12 @@ fn test_cds_par_spread_determinism() {
     let spreads: Vec<f64> = (0..50)
         .map(|_| {
             let result = cds
-                .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::ParSpread],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::ParSpread.as_str()]
         })
@@ -164,7 +174,12 @@ fn test_cds_risky_annuity_determinism() {
     let pv01s: Vec<f64> = (0..50)
         .map(|_| {
             let result = cds
-                .price_with_metrics(&market, as_of, &[MetricId::RiskyPv01])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::RiskyPv01],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::RiskyPv01.as_str()]
         })
@@ -196,7 +211,15 @@ fn test_cds_all_metrics_determinism() {
 
     // Calculate all metrics 30 times
     let results: Vec<_> = (0..30)
-        .map(|_| cds.price_with_metrics(&market, as_of, &metrics).unwrap())
+        .map(|_| {
+            cds.price_with_metrics(
+                &market,
+                as_of,
+                &metrics,
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap()
+        })
         .collect();
 
     // Verify each metric is deterministic

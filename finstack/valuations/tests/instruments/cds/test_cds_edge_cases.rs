@@ -36,7 +36,12 @@ fn metric_value<I: Instrument>(
     metric: MetricId,
 ) -> f64 {
     let result = instrument
-        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .price_with_metrics(
+            market,
+            as_of,
+            std::slice::from_ref(&metric),
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("metric should compute");
     result.measures[&metric]
 }
@@ -432,6 +437,7 @@ fn test_metrics_with_zero_notional() {
                 MetricId::ExpectedLoss,
                 MetricId::JumpToDefault,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -484,7 +490,12 @@ fn test_par_spread_with_mismatched_curves_errors() {
     .expect("CDS construction should succeed");
 
     // With mismatched curve IDs, valuation must error (missing curve dependency).
-    let result = cds.price_with_metrics(&market, as_of, &[MetricId::ParSpread]);
+    let result = cds.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ParSpread],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(
         result.is_err(),
         "Expected error when instrument curve IDs are missing from the market"
@@ -537,7 +548,12 @@ fn test_integration_fallback_with_invalid_params() {
     )
     .expect("CDS construction should succeed");
 
-    let result = cds.price_with_metrics(&market, as_of, &[MetricId::ProtectionLegPv]);
+    let result = cds.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ProtectionLegPv],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(result.is_ok(), "Protection leg PV should compute");
 }
 

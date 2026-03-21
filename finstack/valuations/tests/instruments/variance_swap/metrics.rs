@@ -20,7 +20,12 @@ fn test_variance_notional_returns_correct_amount() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceNotional])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::VarianceNotional],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let notional = *result
         .measures
@@ -40,7 +45,12 @@ fn test_strike_vol_is_square_root_of_strike_variance() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceStrikeVol])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::VarianceStrikeVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let strike_vol = *result
         .measures
@@ -60,7 +70,12 @@ fn test_time_to_maturity_before_maturity_is_positive() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceTimeToMaturity])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::VarianceTimeToMaturity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ttm = *result
         .measures
@@ -79,7 +94,12 @@ fn test_time_to_maturity_at_maturity_is_zero() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, swap.maturity, &[MetricId::VarianceTimeToMaturity])
+        .price_with_metrics(
+            &ctx,
+            swap.maturity,
+            &[MetricId::VarianceTimeToMaturity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ttm = *result
         .measures
@@ -107,9 +127,14 @@ fn test_time_to_maturity_decreases_over_time() {
     let ttms: Vec<f64> = dates
         .iter()
         .map(|&d| {
-            swap.price_with_metrics(&ctx, d, &[MetricId::VarianceTimeToMaturity])
-                .unwrap()
-                .measures[MetricId::VarianceTimeToMaturity.as_str()]
+            swap.price_with_metrics(
+                &ctx,
+                d,
+                &[MetricId::VarianceTimeToMaturity],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap()
+            .measures[MetricId::VarianceTimeToMaturity.as_str()]
         })
         .collect();
 
@@ -132,7 +157,12 @@ fn test_realized_variance_before_start_is_zero() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealizedVariance])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealizedVariance],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let rv = *result
         .measures
@@ -157,7 +187,12 @@ fn test_realized_variance_matches_series_calculation() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealizedVariance])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealizedVariance],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let rv = *result
         .measures
@@ -191,7 +226,12 @@ fn test_expected_variance_before_start_uses_implied_vol() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedVariance])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedVariance],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ev = *result
         .measures
@@ -221,7 +261,12 @@ fn test_expected_variance_blends_realized_and_forward_mid_period() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedVariance])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedVariance],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ev = *result
         .measures
@@ -259,7 +304,12 @@ fn test_vega_matches_formula() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let vega = *result.measures.get(MetricId::Vega.as_str()).unwrap();
 
@@ -286,11 +336,21 @@ fn test_vega_sign_matches_swap_side() {
 
     // Act
     let vega_receive = receive
-        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures[MetricId::Vega.as_str()];
     let vega_pay = pay
-        .price_with_metrics(&ctx, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures[MetricId::Vega.as_str()];
 
@@ -309,7 +369,12 @@ fn test_variance_vega_matches_formula() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::VarianceVega])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::VarianceVega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let var_vega = *result
         .measures
@@ -340,9 +405,14 @@ fn test_vega_decreases_as_maturity_approaches() {
     let vegas: Vec<f64> = dates
         .iter()
         .map(|&d| {
-            swap.price_with_metrics(&ctx, d, &[MetricId::Vega])
-                .unwrap()
-                .measures[MetricId::Vega.as_str()]
+            swap.price_with_metrics(
+                &ctx,
+                d,
+                &[MetricId::Vega],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap()
+            .measures[MetricId::Vega.as_str()]
         })
         .collect();
 
@@ -368,7 +438,12 @@ fn test_dv01_matches_bump_and_reprice() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get(MetricId::Dv01.as_str()).unwrap();
 
@@ -400,7 +475,12 @@ fn test_dv01_at_maturity_is_zero() {
 
     // Act
     let result = swap
-        .price_with_metrics(&ctx, swap.maturity, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            swap.maturity,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get(MetricId::Dv01.as_str()).unwrap();
 
@@ -424,9 +504,14 @@ fn test_dv01_decreases_as_maturity_approaches() {
     let dv01s: Vec<f64> = dates
         .iter()
         .map(|&d| {
-            swap.price_with_metrics(&ctx, d, &[MetricId::Dv01])
-                .unwrap()
-                .measures[MetricId::Dv01.as_str()]
+            swap.price_with_metrics(
+                &ctx,
+                d,
+                &[MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap()
+            .measures[MetricId::Dv01.as_str()]
         })
         .collect();
 
@@ -465,6 +550,7 @@ fn test_all_metrics_pre_start() {
                 MetricId::VarianceStrikeVol,
                 MetricId::VarianceTimeToMaturity,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -523,6 +609,7 @@ fn test_all_metrics_mid_period() {
                 MetricId::VarianceStrikeVol,
                 MetricId::VarianceTimeToMaturity,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

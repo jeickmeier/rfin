@@ -36,7 +36,12 @@ fn test_dv01_sensitivity() {
     let market = MarketContext::new().insert(disc_curve);
 
     // Act
-    let result = facility.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
+    let result = facility.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Dv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());

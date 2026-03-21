@@ -102,6 +102,7 @@ fn bench_bond_ytm(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::Ytm]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -126,6 +127,7 @@ fn bench_bond_duration(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::DurationMod, MetricId::Convexity]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -150,6 +152,7 @@ fn bench_bond_dv01(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::Dv01]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -175,6 +178,7 @@ fn bench_bond_yield_dv01(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::YieldDv01]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -391,6 +395,7 @@ fn bench_spread_metrics(c: &mut Criterion) {
                             black_box(market_ref),
                             black_box(as_of),
                             black_box(metrics_slice),
+                            finstack_valuations::instruments::PricingOptions::default(),
                         )
                         .expect(label),
                     )
@@ -409,6 +414,7 @@ fn bench_spread_metrics(c: &mut Criterion) {
                     black_box(market_ref),
                     black_box(as_of),
                     black_box(metrics_slice),
+                    finstack_valuations::instruments::PricingOptions::default(),
                 )
                 .expect("discount margin"),
             )

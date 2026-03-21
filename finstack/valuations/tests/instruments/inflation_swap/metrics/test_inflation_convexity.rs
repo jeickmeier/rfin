@@ -61,7 +61,12 @@ fn test_inflation_convexity_par_swap_nonzero() {
 
     // Get inflation convexity
     let result = par_swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::InflationConvexity])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::InflationConvexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let convexity = *result.measures.get("inflation_convexity").unwrap();
@@ -106,7 +111,12 @@ fn test_inflation_convexity_finite_and_nonzero() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::InflationConvexity])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::InflationConvexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let convexity = *result.measures.get("inflation_convexity").unwrap();
@@ -150,7 +160,12 @@ fn test_inflation_convexity_varies_with_maturity() {
             .unwrap();
 
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::InflationConvexity])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::InflationConvexity],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let convexity = *result.measures.get("inflation_convexity").unwrap();
@@ -221,10 +236,20 @@ fn test_inflation_convexity_scales_with_notional() {
         .unwrap();
 
     let result1 = swap1
-        .price_with_metrics(&ctx, as_of, &[MetricId::InflationConvexity])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::InflationConvexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result2 = swap2
-        .price_with_metrics(&ctx, as_of, &[MetricId::InflationConvexity])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::InflationConvexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let conv1 = result1.measures.get("inflation_convexity").unwrap().abs();
@@ -273,7 +298,12 @@ fn test_inflation_convexity_finite_for_edge_cases() {
             .unwrap();
 
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::InflationConvexity])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::InflationConvexity],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let convexity = *result.measures.get("inflation_convexity").unwrap();

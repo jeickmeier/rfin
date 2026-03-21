@@ -217,6 +217,10 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CommodityAsi
 impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CommodityAsianOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::AsianTurnbullWakeman
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>

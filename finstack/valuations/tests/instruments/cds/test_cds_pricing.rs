@@ -51,7 +51,12 @@ fn metric_value<I: Instrument>(
     metric: MetricId,
 ) -> f64 {
     let result = instrument
-        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .price_with_metrics(
+            market,
+            as_of,
+            std::slice::from_ref(&metric),
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("metric should compute");
     result.measures[&metric]
 }
@@ -191,7 +196,12 @@ fn test_par_spread_errors_when_expired() {
     .expect("CDS construction should succeed");
 
     let err = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect_err("expired CDS should error");
     let msg = err.to_string();
     assert!(

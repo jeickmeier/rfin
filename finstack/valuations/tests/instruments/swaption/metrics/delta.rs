@@ -12,7 +12,12 @@ fn test_atm_delta_positive() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -31,7 +36,12 @@ fn test_itm_delta_higher_than_atm() {
     let itm = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.03);
 
     let delta_atm = atm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -39,7 +49,12 @@ fn test_itm_delta_higher_than_atm() {
         .unwrap();
 
     let delta_itm = itm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -63,7 +78,12 @@ fn test_otm_delta_lower_than_atm() {
     let otm = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.08);
 
     let delta_atm = atm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -71,7 +91,12 @@ fn test_otm_delta_lower_than_atm() {
         .unwrap();
 
     let delta_otm = otm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -93,7 +118,12 @@ fn test_delta_finite_difference_validation() {
 
     // Analytical delta
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta_analytical = *result.measures.get("delta").unwrap();
 
@@ -121,7 +151,12 @@ fn test_receiver_delta_sign() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let delta_payer = payer
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -129,7 +164,12 @@ fn test_receiver_delta_sign() {
         .unwrap();
 
     let delta_receiver = receiver
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -150,7 +190,12 @@ fn test_delta_volatility_independence() {
     let market_high_vol = create_flat_market(as_of, 0.05, 0.50);
 
     let delta_low = swaption
-        .price_with_metrics(&market_low_vol, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market_low_vol,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -158,7 +203,12 @@ fn test_delta_volatility_independence() {
         .unwrap();
 
     let delta_high = swaption
-        .price_with_metrics(&market_high_vol, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market_high_vol,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -184,7 +234,12 @@ fn test_delta_errors_for_invalid_black_domain() {
         .insert_surface(build_flat_vol_surface(0.30, as_of, "USD_SWAPTION_VOL"));
 
     let err = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect_err("delta should error for invalid unshifted Black domain");
     assert!(
         err.to_string().contains("Black"),

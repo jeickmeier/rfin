@@ -9,8 +9,8 @@ use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{extract_instrument, JsBond};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::risk::{
-    calculate_var, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
-    VarMethod, VarResult,
+    calculate_var_with_pricing, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType,
+    VarConfig, VarMethod, VarResult,
 };
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use js_sys::{Array, Object, Reflect};
@@ -353,12 +353,14 @@ pub fn calculate_var_js(
         .map(|h| h.as_ref() as &dyn Instrument)
         .collect();
 
-    calculate_var(
+    calculate_var_with_pricing(
         &refs,
         market.inner(),
         history.inner(),
         as_of.inner(),
         config.inner(),
+        None,
+        None,
     )
     .map(|inner| JsVarResult { inner })
     .map_err(|e| js_error(format!("VaR calculation failed: {}", e)))

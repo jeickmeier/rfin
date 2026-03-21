@@ -73,7 +73,12 @@ fn test_delta_signs_opposite() {
     let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, strike);
 
     let delta_payer = payer
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -81,7 +86,12 @@ fn test_delta_signs_opposite() {
         .unwrap();
 
     let delta_receiver = receiver
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -103,7 +113,12 @@ fn test_vega_same_sign() {
     let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, strike);
 
     let vega_payer = payer
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -111,7 +126,12 @@ fn test_vega_same_sign() {
         .unwrap();
 
     let vega_receiver = receiver
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -141,7 +161,12 @@ fn test_gamma_same_sign() {
     let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, strike);
 
     let gamma_payer = payer
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -149,7 +174,12 @@ fn test_gamma_same_sign() {
         .unwrap();
 
     let gamma_receiver = receiver
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")

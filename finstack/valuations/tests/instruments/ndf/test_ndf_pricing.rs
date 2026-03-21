@@ -194,7 +194,7 @@ fn test_ndf_registry_pricer() {
 
     // Price through registry
     let result = registry
-        .price_with_registry(&ndf, ModelKey::Discounting, &market, as_of, None)
+        .price(&ndf, ModelKey::Discounting, &market, as_of, None)
         .expect("should price through registry");
 
     assert_eq!(result.value.currency(), Currency::USD);

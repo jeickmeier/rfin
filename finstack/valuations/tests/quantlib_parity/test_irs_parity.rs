@@ -117,7 +117,12 @@ fn test_irs_dv01_magnitude() {
 
     let metrics = vec![MetricId::Dv01];
     let result = swap
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing with metrics should succeed");
 
     let dv01 = result
@@ -146,7 +151,12 @@ fn test_irs_par_rate_flat_curve() {
 
     let metrics = vec![MetricId::ParRate];
     let result = swap
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing with metrics should succeed");
 
     if let Some(&par_rate) = result.measures.get(MetricId::ParRate.as_str()) {

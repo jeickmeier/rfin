@@ -93,7 +93,12 @@ fn test_cap_vega_positive() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();
@@ -141,7 +146,12 @@ fn test_floor_vega_positive() {
         .insert_surface(vol_surface);
 
     let result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();
@@ -168,14 +178,24 @@ fn test_atm_vega_higher_than_otm() {
         .insert_surface(vol_surface);
 
     let otm_vega = *otm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
         .unwrap();
 
     let atm_vega = *atm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -207,14 +227,24 @@ fn test_vega_scales_with_maturity() {
         .insert_surface(vol_surface);
 
     let short_vega = *short_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
         .unwrap();
 
     let long_vega = *long_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -246,7 +276,12 @@ fn test_vega_reasonable_magnitude() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();

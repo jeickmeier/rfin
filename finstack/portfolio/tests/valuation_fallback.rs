@@ -66,6 +66,7 @@ impl Instrument for ValueOnlyInstrument {
         _curves: &MarketContext,
         _as_of: Date,
         _metrics: &[finstack_valuations::metrics::MetricId],
+        _options: finstack_valuations::instruments::PricingOptions,
     ) -> finstack_core::Result<ValuationResult> {
         Err(Error::Input(InputError::Invalid))
     }

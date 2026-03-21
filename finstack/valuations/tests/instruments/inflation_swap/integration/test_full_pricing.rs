@@ -42,7 +42,14 @@ fn test_complete_pricing_workflow() {
         MetricId::custom("inflation_leg_pv"),
     ];
 
-    let result = swap.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = swap
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Verify all metrics are present
     assert!(result.measures.contains_key("dv01"));
@@ -146,7 +153,12 @@ fn test_portfolio_of_swaps() {
 
     for swap in &swaps {
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01, MetricId::Dv01])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::Dv01, MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         total_pv += result.value.amount();
@@ -273,7 +285,12 @@ fn test_realistic_market_workflow() {
 
     // Get par rate
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_rate = *result.measures.get("par_rate").unwrap();
 
@@ -303,6 +320,7 @@ fn test_realistic_market_workflow() {
                 MetricId::Theta,
                 MetricId::Inflation01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

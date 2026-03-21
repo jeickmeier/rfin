@@ -296,6 +296,10 @@ impl RangeAccrualBuilder {
 impl crate::instruments::common_impl::traits::Instrument for RangeAccrual {
     impl_instrument_base!(crate::pricer::InstrumentType::RangeAccrual);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::MonteCarloGBM
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
@@ -349,5 +353,35 @@ impl crate::instruments::common_impl::traits::CurveDependencies for RangeAccrual
         crate::instruments::common_impl::traits::InstrumentCurves::builder()
             .discount(self.discount_curve_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn canonical_pricing_path_mentions_mc_requirement() {
+        use crate::instruments::common_impl::traits::Instrument;
+
+        let instrument = super::RangeAccrual::example();
+        let as_of = instrument
+            .observation_dates
+            .first()
+            .copied()
+            .expect("RangeAccrual example should have observation dates");
+        let err = instrument
+            .price_with_metrics(
+                &finstack_core::market_data::context::MarketContext::new(),
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect_err("canonical pricing path should fail without mc feature");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("`mc`"),
+            "Error should mention mc feature: {msg}"
+        );
     }
 }

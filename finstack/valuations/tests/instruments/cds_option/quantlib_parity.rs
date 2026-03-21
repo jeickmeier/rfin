@@ -112,7 +112,12 @@ fn test_quantlib_black76_atf_call_put_parity() {
     .expect("underlying CDS should build");
     underlying.protection.recovery_rate = temp_option.recovery_rate;
     let forward = underlying
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("par spread should compute")
         .measures[&MetricId::ParSpread];
 
@@ -338,6 +343,7 @@ fn test_quantlib_greeks_finite() {
                 MetricId::Theta,
                 MetricId::Rho,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -481,7 +487,12 @@ fn test_quantlib_forward_spread_positive() {
     .expect("underlying CDS should build");
     underlying.protection.recovery_rate = option.recovery_rate;
     let forward = underlying
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("par spread should compute")
         .measures[&MetricId::ParSpread];
 
@@ -508,7 +519,12 @@ fn test_quantlib_forward_spread_atf_parity() {
     .expect("underlying CDS should build");
     underlying.protection.recovery_rate = temp.recovery_rate;
     let forward = underlying
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("par spread should compute")
         .measures[&MetricId::ParSpread];
 
@@ -777,6 +793,7 @@ fn test_quantlib_comprehensive_properties() {
                 MetricId::Rho,
                 MetricId::ImpliedVol,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

@@ -447,6 +447,23 @@ impl ScenarioPricingOverrides {
         pricing_overrides.scenario.clone()
     }
 
+    /// Validate scenario shocks for finiteness.
+    pub fn validate(&self) -> finstack_core::Result<()> {
+        use finstack_core::InputError;
+
+        if let Some(v) = self.scenario_price_shock_pct {
+            if !v.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        if let Some(v) = self.scenario_spread_shock_bp {
+            if !v.is_finite() {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        Ok(())
+    }
+
     /// Apply the configured price shock to a present value.
     pub fn apply_to_value(&self, value: Money) -> Money {
         let Some(shock) = self.scenario_price_shock_pct else {
@@ -767,6 +784,7 @@ impl PricingOverrides {
         self.market_quotes.validate()?;
         self.metrics.validate()?;
         self.model_config.validate()?;
+        self.scenario.validate()?;
         Ok(())
     }
 }

@@ -37,6 +37,7 @@ fn test_full_metrics_suite() {
                 MetricId::Theta,
                 MetricId::BucketedDv01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -170,7 +171,12 @@ fn test_portfolio_of_swaps() {
 
     for swap in swaps {
         let result = swap
-            .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01])
+            .price_with_metrics(
+                &market,
+                dates.as_of,
+                &[MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         total_pv += result.value.amount();
@@ -194,11 +200,21 @@ fn test_hedge_ratio_calculation() {
     let swap2 = create_standard_fx_swap("HEDGE_2", dates.near_date, dates.far_date_1y, 2_000_000.0);
 
     let result1 = swap1
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Fx01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let result2 = swap2
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Fx01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let fx01_1 = *result1.measures.get("fx01").unwrap();
@@ -255,6 +271,7 @@ fn test_metric_consistency() {
                 MetricId::Fx01,
                 MetricId::Dv01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

@@ -41,6 +41,8 @@ mod fx;
 mod inflation;
 mod rates;
 
+use std::sync::{Arc, OnceLock};
+
 /// Register all standard pricers explicitly.
 ///
 /// This function registers all instrument pricers in a single, visible location.
@@ -114,4 +116,16 @@ pub fn create_standard_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_all_pricers(&mut registry);
     registry
+}
+
+static STANDARD_PRICER_REGISTRY: OnceLock<Arc<PricerRegistry>> = OnceLock::new();
+
+/// Return the shared standard pricer registry.
+///
+/// The registry is initialized once and then cloned via `Arc` for cheap reuse
+/// across instrument-side pricing calls.
+pub fn shared_standard_registry() -> Arc<PricerRegistry> {
+    STANDARD_PRICER_REGISTRY
+        .get_or_init(|| Arc::new(create_standard_registry()))
+        .clone()
 }

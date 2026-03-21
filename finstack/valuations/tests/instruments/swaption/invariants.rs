@@ -330,7 +330,7 @@ proptest! {
         let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
         let market = create_flat_market(as_of, 0.05, vol);
 
-        let result = swaption.price_with_metrics(&market, as_of, &[MetricId::Delta]).unwrap();
+        let result = swaption.price_with_metrics(&market, as_of, &[MetricId::Delta], finstack_valuations::instruments::PricingOptions::default()).unwrap();
         let delta = *result.measures.get("delta").unwrap();
 
         // Payer delta should be positive and bounded

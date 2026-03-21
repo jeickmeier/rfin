@@ -47,7 +47,7 @@
 //!
 //! // Request metrics
 //! let metrics = vec![MetricId::Ytm, MetricId::Dv01, MetricId::custom("ytw")];
-//! // let result = loan.price_with_metrics(&market, as_of, &metrics)?;
+//! // let result = loan.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //! # Ok(())
 //! # }
 //! ```

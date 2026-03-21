@@ -99,7 +99,12 @@ fn test_annuity_positive() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -117,7 +122,12 @@ fn test_annuity_less_than_maturity() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -147,7 +157,12 @@ fn test_annuity_five_year_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -174,21 +189,36 @@ fn test_annuity_scales_with_maturity() {
     let swap_10y = create_standard_swap(as_of, date!(2034 - 01 - 01));
 
     let annuity_2y = *swap_2y
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
         .unwrap();
 
     let annuity_5y = *swap_5y
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
         .unwrap();
 
     let annuity_10y = *swap_10y
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
@@ -209,14 +239,24 @@ fn test_annuity_higher_rates_lower_annuity() {
     let market_7pct = build_market(0.07, as_of);
 
     let annuity_3pct = *swap
-        .price_with_metrics(&market_3pct, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market_3pct,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
         .unwrap();
 
     let annuity_7pct = *swap
-        .price_with_metrics(&market_7pct, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market_7pct,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
@@ -240,7 +280,12 @@ fn test_annuity_short_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -266,14 +311,24 @@ fn test_annuity_semiannual_vs_quarterly() {
     swap_semiannual.fixed.frequency = Tenor::semi_annual();
 
     let annuity_quarterly = *swap_quarterly
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
         .unwrap();
 
     let annuity_semiannual = *swap_semiannual
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
@@ -299,14 +354,24 @@ fn test_annuity_independent_of_side() {
     swap_pay.side = PayReceive::PayFixed;
 
     let annuity_receive = *swap_receive
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
         .unwrap();
 
     let annuity_pay = *swap_pay
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("annuity")
@@ -330,7 +395,12 @@ fn test_annuity_zero_rate_equals_maturity() {
     let market = build_market(0.0, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();

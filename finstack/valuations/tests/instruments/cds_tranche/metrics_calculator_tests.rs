@@ -18,7 +18,12 @@ fn test_upfront_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::custom("upfront")]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::custom("upfront")],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Upfront calculation should succeed");
@@ -38,7 +43,12 @@ fn test_spread_dv01_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::SpreadDv01]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::SpreadDv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Spread DV01 calculation should succeed");
@@ -62,7 +72,12 @@ fn test_correlation_delta_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::Correlation01]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Correlation01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(
@@ -85,7 +100,12 @@ fn test_cs01_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::Cs01]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Cs01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(
@@ -109,7 +129,12 @@ fn test_par_spread_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::ParSpread]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ParSpread],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Par spread calculation should succeed");
@@ -129,7 +154,12 @@ fn test_expected_loss_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ExpectedLoss],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Expected loss calculation should succeed");
@@ -149,7 +179,12 @@ fn test_jump_to_default_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::JumpToDefault]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::JumpToDefault],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Jump-to-default calculation should succeed");
@@ -169,7 +204,12 @@ fn test_dv01_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Dv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "DV01 calculation should succeed");
@@ -190,7 +230,12 @@ fn test_theta_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::Theta]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Theta],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Theta calculation should succeed");
@@ -210,7 +255,12 @@ fn test_bucketed_dv01_metric_via_price_with_metrics() {
     let as_of = base_date();
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &[MetricId::BucketedDv01]);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::BucketedDv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok(), "Bucketed DV01 calculation should succeed");
@@ -239,7 +289,12 @@ fn test_calculate_multiple_metrics_simultaneously() {
     ];
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &metrics);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(
@@ -283,7 +338,12 @@ fn test_all_standard_metrics_calculable() {
     ];
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &all_metrics);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &all_metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(
@@ -324,7 +384,12 @@ fn test_metrics_with_missing_credit_index() {
     ];
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &fallback_metrics);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &fallback_metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert: Should either succeed with 0.0 values or fail gracefully
     if let Ok(valuation) = result {
@@ -353,10 +418,20 @@ fn test_metrics_order_independence() {
 
     // Act
     let result_1 = tranche
-        .price_with_metrics(&market, as_of, &metrics_order_1)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics_order_1,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_2 = tranche
-        .price_with_metrics(&market, as_of, &metrics_order_2)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics_order_2,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert: Results should be consistent regardless of order
@@ -390,7 +465,12 @@ fn test_price_with_metrics_returns_pv_and_metrics() {
     let metrics = vec![MetricId::Cs01, MetricId::ParSpread];
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &metrics);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(
@@ -418,7 +498,12 @@ fn test_equity_tranche_metrics() {
     let metrics = vec![MetricId::ParSpread, MetricId::ExpectedLoss];
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &metrics);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -441,7 +526,12 @@ fn test_senior_tranche_metrics() {
     let metrics = vec![MetricId::ParSpread, MetricId::ExpectedLoss];
 
     // Act
-    let result = tranche.price_with_metrics(&market, as_of, &metrics);
+    let result = tranche.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -477,10 +567,20 @@ fn test_metrics_scale_with_notional() {
 
     // Act
     let result_10 = tranche_10mm
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_20 = tranche_20mm
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert: Dollar metrics should scale with notional

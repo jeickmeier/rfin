@@ -10,6 +10,7 @@ use crate::instruments::common_impl::traits::Instrument as Priceable;
 use finstack_core::config::{results_meta_now, FinstackConfig};
 use finstack_core::market_data::context::MarketContext as Market;
 use finstack_core::HashMap;
+use std::sync::Arc;
 
 /// Helper function to safely downcast a trait object to a concrete instrument type.
 ///
@@ -43,6 +44,20 @@ pub trait Pricer: Send + Sync {
         market: &Market,
         as_of: finstack_core::dates::Date,
     ) -> PricingResult<crate::results::ValuationResult>;
+
+    /// Price an instrument as an unrounded scalar when the pricer can provide one.
+    ///
+    /// The default implementation falls back to [`Self::price_dyn`] and extracts the
+    /// rounded `Money` amount. Pricers with a true raw-f64 path should override this
+    /// so finite-difference risk calculations do not inherit currency rounding noise.
+    fn price_raw_dyn(
+        &self,
+        instrument: &dyn Priceable,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+    ) -> PricingResult<f64> {
+        Ok(self.price_dyn(instrument, market, as_of)?.value.amount())
+    }
 }
 
 /// Registry mapping (instrument type, model) pairs to pricer implementations.
@@ -50,9 +65,9 @@ pub trait Pricer: Send + Sync {
 /// Provides type-safe pricing dispatch without string comparisons or runtime
 /// registration errors. Pricers are registered at compile time and looked up
 /// via strongly-typed keys.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct PricerRegistry {
-    pricers: HashMap<PricerKey, Box<dyn Pricer>>,
+    pricers: HashMap<PricerKey, Arc<dyn Pricer>>,
 }
 
 impl PricerRegistry {
@@ -72,7 +87,7 @@ impl PricerRegistry {
     ///
     /// * `key` - Pricer key identifying the (instrument type, model) pair
     /// * `pricer` - Pricer implementation for this combination
-    pub fn register_pricer(&mut self, key: PricerKey, pricer: Box<dyn Pricer>) {
+    pub fn register_pricer(&mut self, key: PricerKey, pricer: Arc<dyn Pricer>) {
         debug_assert!(
             !self.pricers.contains_key(&key),
             "Duplicate pricer registration for {key:?} -- this overwrites the existing pricer"
@@ -88,7 +103,7 @@ impl PricerRegistry {
         model: ModelKey,
         pricer: impl Pricer + 'static,
     ) {
-        self.register_pricer(PricerKey::new(inst, model), Box::new(pricer));
+        self.register_pricer(PricerKey::new(inst, model), Arc::new(pricer));
     }
 
     /// Look up a pricer for a specific (instrument type, model) combination.
@@ -146,7 +161,7 @@ impl PricerRegistry {
         skip(self, instrument, market, cfg),
         fields(instrument_id = %instrument.id(), model = %model)
     )]
-    pub fn price_with_registry(
+    pub fn price(
         &self,
         instrument: &dyn Priceable,
         model: ModelKey,
@@ -165,15 +180,42 @@ impl PricerRegistry {
         Ok(result)
     }
 
+    /// Price an instrument as an unrounded scalar for internal risk repricing.
+    pub(crate) fn price_raw(
+        &self,
+        instrument: &dyn Priceable,
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+    ) -> PricingResult<f64> {
+        let key = PricerKey::new(instrument.key(), model);
+        let Some(pricer) = self.get_pricer(key) else {
+            return Err(PricingError::UnknownPricer(key));
+        };
+        pricer.price_raw_dyn(instrument, market, as_of)
+    }
+
+    /// Deprecated alias for [`Self::price`].
+    #[deprecated(note = "use `PricerRegistry::price(...)` instead")]
+    pub fn price_with_registry(
+        &self,
+        instrument: &dyn Priceable,
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        cfg: Option<&FinstackConfig>,
+    ) -> PricingResult<crate::results::ValuationResult> {
+        self.price(instrument, model, market, as_of, cfg)
+    }
+
     /// Price an instrument and compute standard metrics using any registered model.
     ///
     /// Chains `price_dyn` (model PV + model-specific measures) into the standard
     /// metrics pipeline (`build_with_metrics_dyn`) so that all bond metric
     /// calculators (YTM, z-spread, durations, etc.) solve against the model price.
     ///
-    /// This generalizes the `Instrument::price_with_metrics` path (which only
-    /// works with the discount engine) to work with any registered model --
-    /// hazard-rate, tree/OAS, Monte Carlo, etc.
+    /// This generalizes the instrument-side `price_with_metrics` path to work
+    /// with any registered model -- hazard-rate, tree/OAS, Monte Carlo, etc.
     ///
     /// For non-discounting models, spread/yield metrics (z-spread, YTM, ASW, etc.)
     /// are computed on the instrument's `metrics_equivalent()` — a version with
@@ -201,7 +243,7 @@ impl PricerRegistry {
     /// * `metrics` - Standard metrics to compute (e.g., `MetricId::Ytm`, `MetricId::ZSpread`)
     /// * `cfg` - Optional FinstackConfig for rounding/tolerance policy
     #[tracing::instrument(
-        skip(self, instrument, market, metrics, cfg),
+        skip(self, instrument, market, metrics, options),
         fields(instrument_id = %instrument.id(), model = %model, num_metrics = metrics.len())
     )]
     pub fn price_with_metrics(
@@ -211,11 +253,16 @@ impl PricerRegistry {
         market: &Market,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
-        cfg: Option<&FinstackConfig>,
+        options: crate::instruments::PricingOptions,
     ) -> PricingResult<crate::results::ValuationResult> {
         use crate::metrics::MetricId;
+        let crate::instruments::PricingOptions {
+            config: cfg,
+            market_history,
+            ..
+        } = options;
 
-        let base_result = self.price_with_registry(instrument, model, market, as_of, cfg)?;
+        let base_result = self.price(instrument, model, market, as_of, cfg.as_deref())?;
 
         if metrics.is_empty() {
             return Ok(base_result);
@@ -223,6 +270,7 @@ impl PricerRegistry {
 
         let err_ctx = PricingErrorContext::from_instrument(instrument).model(model);
         let needs_split = model != ModelKey::Discounting;
+        let pricer_registry = Arc::new(self.clone());
 
         if !needs_split {
             let mut enriched = crate::instruments::common_impl::helpers::build_with_metrics_dyn(
@@ -231,8 +279,12 @@ impl PricerRegistry {
                 as_of,
                 base_result.value,
                 metrics,
-                cfg.map(|c| std::sync::Arc::new(c.clone())),
-                None,
+                crate::instruments::common_impl::helpers::MetricBuildOptions {
+                    cfg: cfg.clone(),
+                    market_history: market_history.clone(),
+                    pricing_model: Some(model),
+                    pricer_registry: Some(pricer_registry.clone()),
+                },
             )
             .map_err(|e| {
                 PricingError::model_failure_with_context(e.to_string(), err_ctx.clone())
@@ -258,7 +310,7 @@ impl PricerRegistry {
             }
         }
 
-        let cfg_arc = cfg.map(|c| std::sync::Arc::new(c.clone()));
+        let cfg_arc = cfg;
         let market_arc = std::sync::Arc::new(market.clone());
 
         // Spread metrics: cash-equivalent cashflows via metrics_equivalent()
@@ -269,12 +321,20 @@ impl PricerRegistry {
                 as_of,
                 base_result.value,
                 &spread_metrics,
-                cfg_arc.clone(),
-                None,
+                crate::instruments::common_impl::helpers::MetricBuildOptions {
+                    cfg: cfg_arc.clone(),
+                    market_history: market_history.clone(),
+                    ..crate::instruments::common_impl::helpers::MetricBuildOptions::default()
+                },
             )
             .map_err(|e| PricingError::model_failure_with_context(e.to_string(), err_ctx.clone()))?
         } else {
-            crate::results::ValuationResult::stamped(instrument.id(), as_of, base_result.value)
+            crate::results::ValuationResult::stamped_with_meta(
+                instrument.id(),
+                as_of,
+                base_result.value,
+                base_result.meta.clone(),
+            )
         };
 
         // Risk metrics: actual instrument cashflows
@@ -285,8 +345,12 @@ impl PricerRegistry {
                 as_of,
                 base_result.value,
                 &risk_metrics,
-                cfg_arc,
-                None,
+                crate::instruments::common_impl::helpers::MetricBuildOptions {
+                    cfg: cfg_arc,
+                    market_history,
+                    pricing_model: Some(model),
+                    pricer_registry: Some(pricer_registry),
+                },
             )
             .map_err(|e| {
                 PricingError::model_failure_with_context(e.to_string(), err_ctx.clone())
@@ -330,14 +394,14 @@ impl PricerRegistry {
             use rayon::prelude::*;
             instruments
                 .par_iter()
-                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of, cfg))
+                .map(|&instrument| self.price(instrument, model, market, as_of, cfg))
                 .collect()
         }
         #[cfg(not(feature = "parallel"))]
         {
             instruments
                 .iter()
-                .map(|&instrument| self.price_with_registry(instrument, model, market, as_of, cfg))
+                .map(|&instrument| self.price(instrument, model, market, as_of, cfg))
                 .collect()
         }
     }
@@ -405,11 +469,74 @@ mod tests {
             .expect("HazardCurve should build with valid test data")
     }
 
+    fn flat_vol_surface(id: &str, vol: f64) -> finstack_core::market_data::surfaces::VolSurface {
+        let expiries = [0.25, 0.5, 1.0, 2.0];
+        let strikes = [2.5, 3.0, 3.5, 4.0, 4.5];
+        let mut builder = finstack_core::market_data::surfaces::VolSurface::builder(id)
+            .expiries(&expiries)
+            .strikes(&strikes);
+        for _ in &expiries {
+            builder = builder.row(&vec![vol; strikes.len()]);
+        }
+        builder.build().expect("vol surface should build in tests")
+    }
+
+    fn commodity_swaption_market(
+        as_of: finstack_core::dates::Date,
+        flat_fwd: f64,
+        vol: f64,
+        rate: f64,
+    ) -> finstack_core::market_data::context::MarketContext {
+        let disc = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
+            .build()
+            .expect("discount curve");
+        let price_curve =
+            finstack_core::market_data::term_structures::PriceCurve::builder("NG-FORWARD")
+                .base_date(as_of)
+                .spot_price(flat_fwd)
+                .knots([(0.0, flat_fwd), (2.0, flat_fwd)])
+                .build()
+                .expect("price curve");
+
+        finstack_core::market_data::context::MarketContext::new()
+            .insert(disc)
+            .insert(price_curve)
+            .insert_surface(flat_vol_surface("NG-VOL", vol))
+    }
+
+    struct FixedBondPricer {
+        amount: f64,
+    }
+
+    impl Pricer for FixedBondPricer {
+        fn key(&self) -> PricerKey {
+            PricerKey::new(InstrumentType::Bond, ModelKey::Discounting)
+        }
+
+        fn price_dyn(
+            &self,
+            instrument: &dyn Priceable,
+            _market: &Market,
+            as_of: finstack_core::dates::Date,
+        ) -> PricingResult<crate::results::ValuationResult> {
+            Ok(crate::results::ValuationResult::stamped(
+                instrument.id(),
+                as_of,
+                finstack_core::money::Money::new(
+                    self.amount,
+                    finstack_core::currency::Currency::USD,
+                ),
+            ))
+        }
+    }
+
     // ─── Parity tests: instrument trait path vs registry path ────────────────
 
     /// Default discounting path parity:
     /// `Bond::price_with_metrics` (trait default, discount engine) and
-    /// `registry.price_with_metrics(..., ModelKey::Discounting, ...)` must
+    /// `registry.price_with_metrics(..., ModelKey::Discounting, ..., crate::instruments::PricingOptions::default())` must
     /// produce the same PV.
     #[test]
     fn bond_discounting_parity_instrument_vs_registry() {
@@ -426,11 +553,23 @@ mod tests {
         let registry = super::super::create_standard_registry();
 
         let trait_result = bond
-            .price_with_metrics(&market, as_of, &[])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
             .expect("trait price_with_metrics should succeed");
 
         let registry_result = registry
-            .price_with_metrics(&bond, ModelKey::Discounting, &market, as_of, &[], None)
+            .price_with_metrics(
+                &bond,
+                ModelKey::Discounting,
+                &market,
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
             .expect("registry price_with_metrics should succeed");
 
         let trait_pv = trait_result.value.amount();
@@ -468,7 +607,7 @@ mod tests {
                 &market,
                 as_of,
                 &[crate::metrics::MetricId::Dv01],
-                None,
+                crate::instruments::PricingOptions::default(),
             )
             .expect("registry price_with_metrics (HazardRate) should succeed");
 
@@ -481,6 +620,254 @@ mod tests {
         assert!(
             result.measures.contains_key("dv01"),
             "DV01 measure should be present after non-discounting path"
+        );
+        assert!(
+            result
+                .measures
+                .get("dv01")
+                .copied()
+                .unwrap_or_default()
+                .is_finite(),
+            "HazardRate DV01 should be finite"
+        );
+    }
+
+    #[test]
+    fn bond_hazard_rate_instrument_override_matches_registry() {
+        use crate::instruments::common_impl::traits::Instrument;
+        use finstack_core::dates::Date;
+        use finstack_core::market_data::context::MarketContext;
+        use time::macros::date;
+
+        let as_of: Date = date!(2025 - 01 - 15);
+        let bond = crate::instruments::fixed_income::bond::Bond::example()
+            .expect("Bond::example should succeed");
+        let disc = flat_discount_curve("USD-TREASURY", as_of);
+        let hazard = flat_hazard_curve("USD-CREDIT", as_of);
+        let mut bond_with_credit = bond.clone();
+        bond_with_credit.credit_curve_id =
+            Some(finstack_core::types::CurveId::new("USD-CREDIT".to_string()));
+        let market = MarketContext::new().insert(disc).insert(hazard);
+        let registry = super::super::create_standard_registry();
+
+        let instrument_result = bond_with_credit
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default().with_model(ModelKey::HazardRate),
+            )
+            .expect("instrument override path should succeed");
+
+        let registry_result = registry
+            .price_with_metrics(
+                &bond_with_credit,
+                ModelKey::HazardRate,
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect("registry hazard-rate path should succeed");
+
+        assert!(
+            (instrument_result.value.amount() - registry_result.value.amount()).abs() < 1.0,
+            "instrument override PV should match registry PV",
+        );
+        assert_eq!(
+            instrument_result.measures.get("dv01"),
+            registry_result.measures.get("dv01"),
+            "instrument override metrics should match registry metrics",
+        );
+    }
+
+    #[test]
+    fn commodity_swaption_default_model_matches_registry() {
+        use crate::instruments::common_impl::traits::Instrument;
+        use time::macros::date;
+
+        let as_of = date!(2025 - 01 - 15);
+        let swaption =
+            crate::instruments::commodity::commodity_swaption::CommoditySwaption::example();
+        let market = commodity_swaption_market(as_of, 3.75, 0.30, 0.05);
+        let registry = super::super::create_standard_registry();
+
+        let instrument_result = swaption
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect("instrument default-model path should succeed");
+        let registry_result = registry
+            .price_with_metrics(
+                &swaption,
+                ModelKey::Black76,
+                &market,
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect("registry Black76 path should succeed");
+
+        assert!(
+            (instrument_result.value.amount() - registry_result.value.amount()).abs() < 1e-9,
+            "commodity swaption default model should match explicit Black76 registry pricing",
+        );
+    }
+
+    #[test]
+    fn instrument_can_use_custom_registry_override() {
+        use crate::instruments::common_impl::traits::Instrument;
+        use std::sync::Arc;
+        use time::macros::date;
+
+        let as_of = date!(2025 - 01 - 15);
+        let bond = crate::instruments::fixed_income::bond::Bond::example()
+            .expect("Bond::example should succeed");
+        let market = finstack_core::market_data::context::MarketContext::new()
+            .insert(flat_discount_curve("USD-TREASURY", as_of));
+
+        let default_result = bond
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect("default pricing path should succeed");
+
+        let mut registry = PricerRegistry::new();
+        registry.register_pricer(
+            PricerKey::new(InstrumentType::Bond, ModelKey::Discounting),
+            Arc::new(FixedBondPricer { amount: 123_456.0 }),
+        );
+
+        let result = bond
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default().with_registry(Arc::new(registry)),
+            )
+            .expect("custom registry override should succeed");
+
+        assert_eq!(result.value.amount(), 123_456.0);
+        assert!(
+            default_result
+                .measures
+                .get("dv01")
+                .copied()
+                .unwrap_or_default()
+                .abs()
+                > 1e-9,
+            "control path should have non-zero DV01 so the override test is meaningful",
+        );
+        assert_eq!(
+            result.measures.get("dv01").copied(),
+            Some(0.0),
+            "custom registry must also drive metric repricing, not just base PV",
+        );
+    }
+
+    #[test]
+    fn instrument_model_override_controls_metric_repricing() {
+        use crate::instruments::common_impl::traits::Instrument;
+        use std::sync::Arc;
+        use time::macros::date;
+
+        let as_of = date!(2025 - 01 - 15);
+        let bond = crate::instruments::fixed_income::bond::Bond::example()
+            .expect("Bond::example should succeed");
+        let market = finstack_core::market_data::context::MarketContext::new()
+            .insert(flat_discount_curve("USD-TREASURY", as_of));
+
+        let default_result = bond
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect("default pricing path should succeed");
+
+        let mut registry = PricerRegistry::new();
+        registry.register_pricer(
+            PricerKey::new(InstrumentType::Bond, ModelKey::HazardRate),
+            Arc::new(FixedBondPricer { amount: 654_321.0 }),
+        );
+
+        let result = bond
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default()
+                    .with_model(ModelKey::HazardRate)
+                    .with_registry(Arc::new(registry)),
+            )
+            .expect("model override path should succeed");
+
+        assert_eq!(result.value.amount(), 654_321.0);
+        assert!(
+            default_result
+                .measures
+                .get("dv01")
+                .copied()
+                .unwrap_or_default()
+                .abs()
+                > 1e-9,
+            "control path should have non-zero DV01 so the override test is meaningful",
+        );
+        assert_eq!(
+            result.measures.get("dv01").copied(),
+            Some(0.0),
+            "explicit model override must control metric repricing as well",
+        );
+    }
+
+    #[test]
+    fn non_discounting_risk_only_metrics_preserve_config_metadata() {
+        use finstack_core::config::FinstackConfig;
+        use finstack_core::currency::Currency;
+        use time::macros::date;
+
+        let as_of = date!(2025 - 01 - 15);
+        let bond = crate::instruments::fixed_income::bond::Bond::example()
+            .expect("Bond::example should succeed");
+        let mut bond_with_credit = bond.clone();
+        bond_with_credit.credit_curve_id =
+            Some(finstack_core::types::CurveId::new("USD-CREDIT".to_string()));
+
+        let market = finstack_core::market_data::context::MarketContext::new()
+            .insert(flat_discount_curve("USD-TREASURY", as_of))
+            .insert(flat_hazard_curve("USD-CREDIT", as_of));
+        let registry = super::super::create_standard_registry();
+
+        let mut cfg = FinstackConfig::default();
+        cfg.rounding.output_scale.overrides.insert(Currency::USD, 4);
+
+        let result = registry
+            .price_with_metrics(
+                &bond_with_credit,
+                ModelKey::HazardRate,
+                &market,
+                as_of,
+                &[crate::metrics::MetricId::Dv01],
+                crate::instruments::PricingOptions::default().with_config(&cfg),
+            )
+            .expect("hazard-rate pricing with config should succeed");
+
+        assert_eq!(
+            result
+                .meta
+                .rounding
+                .output_scale_by_ccy
+                .get(&Currency::USD)
+                .copied(),
+            Some(4),
+            "risk-only split path should preserve caller config metadata",
         );
     }
 
@@ -505,9 +892,20 @@ mod tests {
         let market = MarketContext::new().insert(disc);
         let registry = super::super::create_standard_registry();
 
-        let trait_result = clo.price_with_metrics(&market, as_of, &[]);
-        let registry_result =
-            registry.price_with_metrics(&clo, ModelKey::Discounting, &market, as_of, &[], None);
+        let trait_result = clo.price_with_metrics(
+            &market,
+            as_of,
+            &[],
+            crate::instruments::PricingOptions::default(),
+        );
+        let registry_result = registry.price_with_metrics(
+            &clo,
+            ModelKey::Discounting,
+            &market,
+            as_of,
+            &[],
+            crate::instruments::PricingOptions::default(),
+        );
 
         match (trait_result, registry_result) {
             (Ok(t), Ok(r)) => {
@@ -568,7 +966,14 @@ mod tests {
             .expect("bond.value should succeed");
 
         let with_metrics = registry
-            .price_with_metrics(&bond, ModelKey::Discounting, &market, as_of, &[], None)
+            .price_with_metrics(
+                &bond,
+                ModelKey::Discounting,
+                &market,
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
             .expect("registry price_with_metrics should succeed");
 
         assert!(

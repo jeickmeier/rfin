@@ -46,7 +46,12 @@ fn test_dv01_positive_for_asset() {
     let market = MarketContext::new().insert(disc_curve);
 
     // Act
-    let result = loan.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
+    let result = loan.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Dv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -121,10 +126,20 @@ fn test_dv01_increases_with_maturity() {
 
     // Act
     let result_short = loan_short
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_long = loan_long
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_short = *result_short.measures.get("dv01").unwrap();

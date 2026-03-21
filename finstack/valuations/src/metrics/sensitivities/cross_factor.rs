@@ -6,7 +6,6 @@
 //! a four-corner central mixed difference.
 
 use crate::instruments::common_impl::dependencies::FxPair;
-use crate::instruments::common_impl::traits::Instrument;
 use crate::metrics::core::finite_difference::{
     bump_scalar_price, bump_surface_vol_absolute, central_mixed,
 };
@@ -432,43 +431,12 @@ impl MetricCalculator for CrossFactorCalculator {
 
         let h_abs = bumper_a.bump_size();
         let k_abs = bumper_b.bump_size();
-        let instrument = Arc::clone(&context.instrument);
 
         central_mixed(
-            || reprice_corner(&instrument, market, as_of, &*bumper_a, &*bumper_b, 1.0, 1.0),
-            || {
-                reprice_corner(
-                    &instrument,
-                    market,
-                    as_of,
-                    &*bumper_a,
-                    &*bumper_b,
-                    1.0,
-                    -1.0,
-                )
-            },
-            || {
-                reprice_corner(
-                    &instrument,
-                    market,
-                    as_of,
-                    &*bumper_a,
-                    &*bumper_b,
-                    -1.0,
-                    1.0,
-                )
-            },
-            || {
-                reprice_corner(
-                    &instrument,
-                    market,
-                    as_of,
-                    &*bumper_a,
-                    &*bumper_b,
-                    -1.0,
-                    -1.0,
-                )
-            },
+            || reprice_corner(context, market, as_of, &*bumper_a, &*bumper_b, 1.0, 1.0),
+            || reprice_corner(context, market, as_of, &*bumper_a, &*bumper_b, 1.0, -1.0),
+            || reprice_corner(context, market, as_of, &*bumper_a, &*bumper_b, -1.0, 1.0),
+            || reprice_corner(context, market, as_of, &*bumper_a, &*bumper_b, -1.0, -1.0),
             h_abs,
             k_abs,
         )
@@ -483,7 +451,7 @@ impl MetricCalculator for CrossFactorCalculator {
 }
 
 fn reprice_corner(
-    instrument: &Arc<dyn Instrument>,
+    context: &MetricContext,
     market: &MarketContext,
     as_of: Date,
     bumper_a: &dyn FactorBumper,
@@ -493,8 +461,7 @@ fn reprice_corner(
 ) -> Result<f64> {
     let bumped_a = bumper_a.bump_market(market, as_of, direction_a)?;
     let bumped_ab = bumper_b.bump_market(&bumped_a, as_of, direction_b)?;
-    let bumped_market = Arc::new(bumped_ab);
-    Ok(instrument.value(&bumped_market, as_of)?.amount())
+    Ok(context.reprice_money(&bumped_ab, as_of)?.amount())
 }
 
 #[cfg(test)]

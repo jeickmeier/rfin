@@ -384,7 +384,12 @@ fn bench_metrics_suite(c: &mut Criterion) {
 
     group.bench_function("full_suite", |b| {
         b.iter(|| {
-            bond.price_with_metrics(black_box(&market), black_box(as_of), black_box(&metrics))
+            bond.price_with_metrics(
+                black_box(&market),
+                black_box(as_of),
+                black_box(&metrics),
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
         });
     });
 

@@ -88,7 +88,12 @@ fn test_dm_non_callable_succeeds() {
     let as_of = date!(2025 - 01 - 01);
 
     let result = loan
-        .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DiscountMargin],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("DM should succeed for non-callable loan");
 
     let dm = *result.measures.get("discount_margin").unwrap();
@@ -109,7 +114,12 @@ fn test_dm_callable_without_price_rejects() {
     let market = build_market();
     let as_of = date!(2025 - 01 - 01);
 
-    let result = loan.price_with_metrics(&market, as_of, &[MetricId::DiscountMargin]);
+    let result = loan.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::DiscountMargin],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     match result {
         Err(e) => {
@@ -153,7 +163,12 @@ fn test_dm_callable_with_quoted_price_succeeds() {
     let as_of = date!(2025 - 01 - 01);
 
     let result = loan
-        .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DiscountMargin],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("DM should succeed when quoted_clean_price is set");
 
     let dm = *result.measures.get("discount_margin").unwrap();

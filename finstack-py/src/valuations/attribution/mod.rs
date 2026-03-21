@@ -1401,11 +1401,21 @@ pub fn attribute_pnl(
         AttributionMethod::MetricsBased => {
             let metrics = method_inner.required_metrics();
             let val_t0 = instrument_arc
-                .price_with_metrics(&market_t0.inner, date_t0, &metrics)
+                .price_with_metrics(
+                    &market_t0.inner,
+                    date_t0,
+                    &metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .map_err(core_to_py)?;
 
             let val_t1 = instrument_arc
-                .price_with_metrics(&market_t1.inner, date_t1, &metrics)
+                .price_with_metrics(
+                    &market_t1.inner,
+                    date_t1,
+                    &metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .map_err(core_to_py)?;
 
             attribute_pnl_metrics_based(

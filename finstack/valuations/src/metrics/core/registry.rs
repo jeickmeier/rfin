@@ -541,6 +541,7 @@ mod tests {
             _market: &MarketContext,
             _as_of: Date,
             _metrics: &[MetricId],
+            _options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> finstack_core::Result<ValuationResult> {
             unimplemented!()
         }

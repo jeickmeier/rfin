@@ -15,7 +15,12 @@ fn test_theta_standard_fra() {
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -30,7 +35,12 @@ fn test_theta_at_market_fra_near_zero() {
     let fra = TestFraBuilder::new().fixed_rate(0.05).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -45,7 +55,12 @@ fn test_theta_off_market_fra() {
     let fra = TestFraBuilder::new().fixed_rate(0.06).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -68,12 +83,22 @@ fn test_theta_scales_with_notional() {
         .build();
 
     let result_1m = fra_1m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_1m = *result_1m.measures.get("theta").unwrap();
 
     let result_10m = fra_10m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_10m = *result_10m.measures.get("theta").unwrap();
 
@@ -95,7 +120,12 @@ fn test_theta_sign_convention() {
         .build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -116,7 +146,12 @@ fn test_theta_short_period() {
         .build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -136,7 +171,12 @@ fn test_theta_long_period() {
         .build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -154,6 +194,7 @@ fn test_theta_with_other_metrics() {
             &market,
             BASE_DATE,
             &[MetricId::Theta, MetricId::Dv01, MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

@@ -17,7 +17,12 @@ fn test_parity_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::custom("parity")]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::custom("parity")],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_ok(),
@@ -53,7 +58,12 @@ fn test_conversion_premium_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::custom("conversion_premium")]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::custom("conversion_premium")],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_ok(),
@@ -83,7 +93,12 @@ fn test_delta_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::Delta]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Delta],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "Delta metric should calculate successfully");
 
@@ -112,7 +127,12 @@ fn test_gamma_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::Gamma]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Gamma],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "Gamma metric should calculate successfully");
 
@@ -134,7 +154,12 @@ fn test_vega_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::Vega]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Vega],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "Vega metric should calculate successfully");
 
@@ -156,7 +181,12 @@ fn test_rho_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::Rho]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Rho],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "Rho metric should calculate successfully");
 
@@ -178,7 +208,12 @@ fn test_theta_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::Theta]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Theta],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "Theta metric should calculate successfully");
 
@@ -208,7 +243,12 @@ fn test_multiple_metrics() {
         MetricId::Vega,
     ];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_ok(),
@@ -239,7 +279,12 @@ fn test_all_greeks_together() {
         MetricId::Theta,
     ];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "All Greeks should calculate successfully");
 
@@ -268,7 +313,12 @@ fn test_metrics_with_callable_bond() {
 
     let metrics = vec![MetricId::custom("parity"), MetricId::Delta, MetricId::Gamma];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_ok(),
@@ -285,7 +335,12 @@ fn test_metrics_with_puttable_bond() {
 
     let metrics = vec![MetricId::custom("parity"), MetricId::Delta, MetricId::Vega];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_ok(),
@@ -301,7 +356,12 @@ fn test_metrics_with_zero_coupon() {
 
     let metrics = vec![MetricId::custom("parity"), MetricId::Delta];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_ok(),
@@ -316,7 +376,12 @@ fn test_valuation_result_structure() {
     let as_of = dates::base_date();
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Check valuation result structure
@@ -336,7 +401,12 @@ fn test_empty_metrics_request() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_ok(), "Should work with empty metrics request");
 
@@ -356,7 +426,12 @@ fn test_metrics_consistency_with_direct_calculation() {
 
     // Calculate via metrics framework
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::custom("parity")])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::custom("parity")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let metric_parity = *result.measures.get("parity").unwrap();
@@ -379,7 +454,12 @@ fn test_bucketed_dv01_metric() {
     let market = create_market_context();
     let as_of = dates::base_date();
 
-    let result = bond.price_with_metrics(&market, as_of, &[MetricId::BucketedDv01]);
+    let result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::BucketedDv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // BucketedDv01 should work for convertibles
     assert!(
@@ -399,7 +479,14 @@ fn test_custom_metrics_only() {
         MetricId::custom("conversion_premium"),
     ];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = bond
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert_eq!(
         result.measures.len(),
@@ -416,7 +503,14 @@ fn test_standard_metrics_only() {
 
     let metrics = vec![MetricId::Delta, MetricId::Gamma, MetricId::Vega];
 
-    let result = bond.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = bond
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert_eq!(
         result.measures.len(),

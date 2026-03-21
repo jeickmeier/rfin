@@ -319,7 +319,12 @@ fn test_price_with_metrics_matches_value() {
     // Act
     let pv = call.value(&market, as_of).unwrap();
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert: price_with_metrics returns the same PV

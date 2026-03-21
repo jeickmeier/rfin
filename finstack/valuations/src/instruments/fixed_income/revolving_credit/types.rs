@@ -769,6 +769,15 @@ impl RevolvingCredit {
 impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
     impl_instrument_base!(crate::pricer::InstrumentType::RevolvingCredit);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        self.attributes()
+            .get_meta("pricing_model")
+            .and_then(|model_str| {
+                <crate::pricer::ModelKey as ::std::str::FromStr>::from_str(model_str).ok()
+            })
+            .unwrap_or(crate::pricer::ModelKey::Discounting)
+    }
+
     fn value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
@@ -780,7 +789,7 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
             {
                 let registry = crate::pricer::create_standard_registry();
                 let result = registry
-                    .price_with_registry(self, model, curves, as_of, None)
+                    .price(self, model, curves, as_of, None)
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;
                 return Ok(result.value);
             }

@@ -91,7 +91,12 @@ fn dv01_per_curve_breakdown() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_total = res.measures[MetricId::Dv01.as_str()];
@@ -142,7 +147,12 @@ fn dv01_scales_with_notional() {
         .expect("valid basis swap");
 
         let res = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let dv01 = res
@@ -181,7 +191,12 @@ fn dv01_sign_convention() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_primary = res
@@ -219,7 +234,12 @@ fn dv01_vs_numerical_bump() {
     .expect("swap construction");
 
     let res_base = swap
-        .price_with_metrics(&ctx_base, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx_base,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_metric = res_base
         .measures
@@ -252,7 +272,12 @@ fn annuity_positive_and_increasing() {
         .expect("valid basis swap");
 
         let res = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::AnnuityPrimary],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         annuities.push(res.measures[MetricId::AnnuityPrimary.as_str()]);
     }
@@ -278,7 +303,12 @@ fn bucketed_dv01_sums_to_total() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01, MetricId::BucketedDv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01, MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_total = res.measures[MetricId::Dv01.as_str()];
@@ -308,6 +338,7 @@ fn dv01_leg_components_reasonable() {
                 MetricId::AnnuityPrimary,
                 MetricId::AnnuityReference,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -444,10 +475,20 @@ fn annuity_with_payment_lag_differs_from_no_lag() {
     .expect("swap construction");
 
     let res_no_lag = swap_no_lag
-        .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::AnnuityPrimary],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let res_with_lag = swap_with_lag
-        .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::AnnuityPrimary],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity_no_lag = res_no_lag.measures[MetricId::AnnuityPrimary.as_str()];
@@ -486,7 +527,12 @@ fn test_bucketed_dv01_per_curve() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(

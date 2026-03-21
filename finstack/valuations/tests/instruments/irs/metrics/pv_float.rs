@@ -102,7 +102,12 @@ fn test_pv_float_positive() {
     let market = build_curves(0.05, 0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_float = *result.measures.get("pv_float").unwrap();
@@ -121,14 +126,24 @@ fn test_pv_float_scales_with_forward_rate() {
     let market_6pct = build_curves(0.05, 0.06, as_of);
 
     let pv_float_3pct = *swap
-        .price_with_metrics(&market_3pct, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market_3pct,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_float")
         .unwrap();
 
     let pv_float_6pct = *swap
-        .price_with_metrics(&market_6pct, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market_6pct,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_float")
@@ -154,14 +169,24 @@ fn test_pv_float_with_spread() {
     swap_with_spread.float.spread_bp = dec!(50.0);
 
     let pv_float_no_spread = *swap_no_spread
-        .price_with_metrics(&market, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_float")
         .unwrap();
 
     let pv_float_with_spread = *swap_with_spread
-        .price_with_metrics(&market, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_float")
@@ -183,7 +208,12 @@ fn test_pv_float_equals_fixed_at_par() {
     let market = build_curves(0.05, 0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed, MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed, MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
@@ -210,7 +240,12 @@ fn test_swap_npv_matches_leg_pvs() {
 
     // Leg PVs from metrics should recombine to the same NPV
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed, MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed, MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
@@ -245,14 +280,24 @@ fn test_pv_float_independent_of_side() {
     swap_pay.side = PayReceive::PayFixed;
 
     let pv_float_receive = *swap_receive
-        .price_with_metrics(&market, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_float")
         .unwrap();
 
     let pv_float_pay = *swap_pay
-        .price_with_metrics(&market, as_of, &[MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_float")

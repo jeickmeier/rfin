@@ -62,7 +62,10 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
-use crate::pricer::InstrumentType;
+use crate::pricer::{
+    actionable_unknown_pricer_message, shared_standard_registry, InstrumentType, ModelKey,
+    PricerRegistry, PricingError,
+};
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
 pub use finstack_core::types::Attributes;
@@ -85,21 +88,26 @@ use std::sync::Arc;
 /// ## Basic usage (no options)
 ///
 /// ```ignore
-/// let result = instrument.price_with_metrics(&market, as_of, &metrics, None)?;
+/// let result = instrument.price_with_metrics(
+///     &market,
+///     as_of,
+///     &metrics,
+///     PricingOptions::default(),
+/// )?;
 /// ```
 ///
 /// ## With custom config
 ///
 /// ```ignore
 /// let opts = PricingOptions::default().with_config(&my_config);
-/// let result = instrument.price_with_metrics(&market, as_of, &metrics, Some(opts))?;
+/// let result = instrument.price_with_metrics(&market, as_of, &metrics, opts)?;
 /// ```
 ///
 /// ## With market history for VaR
 ///
 /// ```ignore
 /// let opts = PricingOptions::default().with_market_history(history);
-/// let result = instrument.price_with_metrics(&market, as_of, &metrics, Some(opts))?;
+/// let result = instrument.price_with_metrics(&market, as_of, &metrics, opts)?;
 /// ```
 #[derive(Clone, Default)]
 pub struct PricingOptions {
@@ -107,6 +115,10 @@ pub struct PricingOptions {
     pub config: Option<Arc<FinstackConfig>>,
     /// Optional market history for Historical VaR / Expected Shortfall metrics
     pub market_history: Option<Arc<MarketHistory>>,
+    /// Optional explicit pricing model override.
+    pub model: Option<ModelKey>,
+    /// Optional explicit pricer registry override.
+    pub registry: Option<Arc<PricerRegistry>>,
 }
 
 impl PricingOptions {
@@ -128,6 +140,18 @@ impl PricingOptions {
     /// Required for computing `MetricId::HVAR` and `MetricId::EXPECTED_SHORTFALL`.
     pub fn with_market_history(mut self, history: Arc<MarketHistory>) -> Self {
         self.market_history = Some(history);
+        self
+    }
+
+    /// Set the pricing model for this pricing request.
+    pub fn with_model(mut self, model: ModelKey) -> Self {
+        self.model = Some(model);
+        self
+    }
+
+    /// Set an explicit pricer registry override for this pricing request.
+    pub fn with_registry(mut self, registry: Arc<PricerRegistry>) -> Self {
+        self.registry = Some(registry);
         self
     }
 }
@@ -657,7 +681,8 @@ pub trait Instrument: Send + Sync {
     fn scenario_overrides(
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::ScenarioPricingOverrides> {
-        self.pricing_overrides().map(|overrides| &overrides.scenario)
+        self.pricing_overrides()
+            .map(|overrides| &overrides.scenario)
     }
 
     /// Clone this instrument as a boxed trait object.
@@ -831,6 +856,15 @@ pub trait Instrument: Send + Sync {
         Ok(self.value(market, as_of)?.amount())
     }
 
+    /// Return the default pricing model for this instrument.
+    ///
+    /// Most instruments use [`ModelKey::Discounting`]. Instruments whose native
+    /// pricing path uses a different model should override this method so the
+    /// canonical pricing API preserves existing behavior.
+    fn default_model(&self) -> ModelKey {
+        ModelKey::Discounting
+    }
+
     /// Compute present value with specified risk metrics.
     ///
     /// This method computes NPV plus any requested risk metrics (duration, DV01,
@@ -900,53 +934,39 @@ pub trait Instrument: Send + Sync {
         market: &MarketContext,
         as_of: Date,
         metrics: &[MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
-        self.price_with_options(market, as_of, metrics, PricingOptions::default())
-    }
-
-    /// Compute present value with specified risk metrics and optional pricing options.
-    ///
-    /// This is the canonical method for pricing with additional configuration such as
-    /// custom sensitivity bump sizes or market history for VaR calculations.
-    ///
-    /// # Arguments
-    ///
-    /// * `market` - Market data context
-    /// * `as_of` - Valuation date
-    /// * `metrics` - Metrics to compute
-    /// * `options` - Optional pricing configuration (config, market history)
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// // Basic usage - no options
-    /// let result = instrument.price_with_metrics(&market, as_of, &metrics)?;
-    ///
-    /// // With custom config for sensitivity bump sizes
-    /// let opts = PricingOptions::default().with_config(&my_config);
-    /// let result = instrument.price_with_options(&market, as_of, &metrics, opts)?;
-    ///
-    /// // With market history for VaR
-    /// let opts = PricingOptions::default().with_market_history(history);
-    /// let result = instrument.price_with_options(&market, as_of, &metrics, opts)?;
-    /// ```
-    fn price_with_options(
-        &self,
-        market: &MarketContext,
-        as_of: Date,
-        metrics: &[MetricId],
         options: PricingOptions,
     ) -> finstack_core::Result<crate::results::ValuationResult> {
-        let base_value = self.value(market, as_of)?;
-        crate::instruments::common_impl::helpers::build_with_metrics_dyn(
-            Arc::from(self.clone_box()),
-            Arc::new(market.clone()),
-            as_of,
-            base_value,
-            metrics,
-            options.config,
-            options.market_history,
-        )
+        let PricingOptions {
+            config,
+            market_history,
+            model,
+            registry,
+        } = options;
+        let model = model.unwrap_or_else(|| self.default_model());
+        let registry = registry.unwrap_or_else(shared_standard_registry);
+        let instrument = self.clone_box();
+        let registry_options = PricingOptions {
+            config,
+            market_history,
+            model: None,
+            registry: None,
+        };
+
+        registry
+            .price_with_metrics(
+                instrument.as_ref(),
+                model,
+                market,
+                as_of,
+                metrics,
+                registry_options,
+            )
+            .map_err(|e| match e {
+                PricingError::UnknownPricer(key) => actionable_unknown_pricer_message(key)
+                    .map(finstack_core::Error::Validation)
+                    .unwrap_or_else(|| PricingError::UnknownPricer(key).into()),
+                other => other.into(),
+            })
     }
 
     // === Market Data Introspection (for Attribution) ===

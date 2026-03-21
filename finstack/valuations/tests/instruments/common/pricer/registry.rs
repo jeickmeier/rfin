@@ -495,7 +495,7 @@ fn test_registry_price_with_unknown_pricer() {
     // Try to price with an unregistered model
     let as_of =
         finstack_core::dates::Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let result = registry.price_with_registry(&bond, ModelKey::HazardRate, &market, as_of, None);
+    let result = registry.price(&bond, ModelKey::HazardRate, &market, as_of, None);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -633,7 +633,7 @@ fn test_price_batch_matches_serial_results() {
     let serial_results: Vec<_> = instruments
         .iter()
         .map(|&instrument| {
-            registry.price_with_registry(instrument, ModelKey::Discounting, &market, as_of, None)
+            registry.price(instrument, ModelKey::Discounting, &market, as_of, None)
         })
         .collect();
     let batch_results =

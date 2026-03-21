@@ -777,7 +777,12 @@ fn test_fi_index_trs_duration_dv01_errors_on_missing_configured_duration() {
         .duration_id(Some("MISSING-DURATION".into()))
         .build();
 
-    let result = trs.price_with_metrics(&market, as_of, &[MetricId::DurationDv01]);
+    let result = trs.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::DurationDv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(
         result.is_err(),
         "Should fail when duration_id is configured but missing from market data"
@@ -803,7 +808,12 @@ fn test_fi_index_trs_duration_dv01_defaults_when_duration_id_is_none() {
     let trs = TestFIIndexTrsBuilder::new().duration_id(None).build();
 
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::DurationDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("duration_dv01").unwrap();
@@ -860,7 +870,12 @@ fn test_fi_index_trs_errors_on_price_scalar_for_duration() {
         .duration_id(Some("BAD-DURATION".into()))
         .build();
 
-    let result = trs.price_with_metrics(&market, as_of, &[MetricId::DurationDv01]);
+    let result = trs.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::DurationDv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(
         result.is_err(),
         "Should fail when duration is provided as Price scalar"

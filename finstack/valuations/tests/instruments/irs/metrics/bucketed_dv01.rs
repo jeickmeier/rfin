@@ -110,7 +110,12 @@ fn test_bucketed_dv01_computes() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // BucketedDv01 metric should be present
@@ -129,7 +134,12 @@ fn test_bucketed_dv01_reasonable_values() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let bucketed_dv01 = result.measures.get("bucketed_dv01");
@@ -147,7 +157,12 @@ fn test_bucketed_dv01_five_year_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Verify metric was computed
@@ -164,7 +179,12 @@ fn test_bucketed_dv01_short_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(result.measures.contains_key("bucketed_dv01"));
@@ -180,7 +200,12 @@ fn test_bucketed_dv01_long_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(result.measures.contains_key("bucketed_dv01"));
@@ -204,7 +229,12 @@ fn test_bucketed_vs_parallel_dv01_sanity() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let mut sum_bucketed = 0.0;
@@ -247,7 +277,12 @@ fn test_bucketed_dv01_per_curve() {
     let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Verify backward-compatible primary discount curve series exists under standard key

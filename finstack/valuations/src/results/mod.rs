@@ -42,7 +42,7 @@
 //! let market = MarketContext::new();
 //! let as_of = date!(2025-01-15);
 //!
-//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Dv01])?;
+//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Dv01], crate::instruments::PricingOptions::default())?;
 //!
 //! // Access results
 //! println!("PV: {}", result.value);

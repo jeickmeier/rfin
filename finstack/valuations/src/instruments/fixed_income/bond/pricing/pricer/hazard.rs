@@ -55,4 +55,25 @@ impl Pricer for SimpleBondHazardPricer {
 
         Ok(ValuationResult::stamped(bond.id(), as_of, pv))
     }
+
+    fn price_raw_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<f64, PricingError> {
+        let bond = instrument
+            .as_any()
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Bond, instrument.key()))?;
+
+        let ctx = PricingErrorContext::new()
+            .instrument_id(bond.id())
+            .instrument_type(InstrumentType::Bond)
+            .model(ModelKey::HazardRate)
+            .curve_id(bond.discount_curve_id.as_str());
+
+        HazardBondEngine::price_raw(bond, market, as_of)
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx))
+    }
 }

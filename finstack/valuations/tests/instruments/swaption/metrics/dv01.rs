@@ -13,7 +13,12 @@ fn test_dv01_finite_and_reasonable() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -29,7 +34,12 @@ fn test_dv01_vs_rho_relationship() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01, MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01, MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -47,7 +57,12 @@ fn test_dv01_bump_reprice() {
 
     // Analytical DV01
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_analytical = *result.measures.get("dv01").unwrap();
 
@@ -71,7 +86,12 @@ fn test_dv01_scales_with_notional() {
         finstack_core::money::Money::new(10_000_000.0, finstack_core::currency::Currency::USD);
 
     let dv01_1 = swaption1
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -79,7 +99,12 @@ fn test_dv01_scales_with_notional() {
         .unwrap();
 
     let dv01_10 = swaption10
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -105,7 +130,12 @@ fn test_dv01_increases_with_tenor() {
     let swaption_10y = create_standard_payer_swaption(expiry, swap_start, swap_end_10y, 0.05);
 
     let dv01_2y = swaption_2y
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -113,7 +143,12 @@ fn test_dv01_increases_with_tenor() {
         .unwrap();
 
     let dv01_10y = swaption_10y
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")

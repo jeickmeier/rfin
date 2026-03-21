@@ -11,7 +11,12 @@ fn test_rho_finite_and_reasonable() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rho = *result.measures.get("rho").unwrap();
@@ -31,7 +36,12 @@ fn test_rho_parallel_bump_validation() {
 
     // Analytical rho (per 1bp)
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let rho_analytical = *result.measures.get("rho").unwrap();
 
@@ -49,7 +59,12 @@ fn test_rho_sign_depends_on_moneyness() {
     // Payer swaption
     let payer = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     let rho_payer = payer
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")
@@ -59,7 +74,12 @@ fn test_rho_sign_depends_on_moneyness() {
     // Receiver swaption
     let receiver = create_standard_receiver_swaption(expiry, swap_start, swap_end, 0.05);
     let rho_receiver = receiver
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")
@@ -90,7 +110,12 @@ fn test_rho_magnitude_scales_with_tenor() {
     let swaption_long = create_standard_payer_swaption(expiry, swap_start, swap_end_long, 0.05);
 
     let rho_short = swaption_short
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")
@@ -98,7 +123,12 @@ fn test_rho_magnitude_scales_with_tenor() {
         .unwrap();
 
     let rho_long = swaption_long
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")

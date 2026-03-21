@@ -16,7 +16,12 @@ use finstack_valuations::{
 fn dv01_for(fx: FxSpot, as_of: Date) -> f64 {
     let market = MarketContext::new();
     let result = fx
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing with dv01 should succeed");
     *result.measures.get(MetricId::Dv01.as_str()).unwrap_or(&0.0)
 }

@@ -153,7 +153,12 @@ fn test_forward_rate_matches_par_rate() {
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -229,12 +234,22 @@ fn test_dv01_sign_convention() {
     let pay_fixed = TestFraBuilder::new().receive_fixed(false).build(); // false = pay fixed
 
     let result_receive = receive_fixed
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_receive = *result_receive.measures.get("dv01").unwrap();
 
     let result_pay = pay_fixed
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_pay = *result_pay.measures.get("dv01").unwrap();
 

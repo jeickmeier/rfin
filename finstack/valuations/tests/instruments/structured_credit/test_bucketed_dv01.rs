@@ -72,7 +72,12 @@ fn test_structured_credit_bucketed_dv01_computed() {
     let market = MarketContext::new().insert(flat_discount_curve(0.04, as_of));
 
     let result = sc
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // BucketedDv01 should be present

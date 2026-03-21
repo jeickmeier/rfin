@@ -35,7 +35,12 @@ fn test_ytm_par_bond() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
 
@@ -102,7 +107,12 @@ fn test_ytm_floating_bond_is_finite_from_price() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
 
@@ -171,7 +181,12 @@ fn test_ytm_amortizing_bond_is_finite_from_price() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
 

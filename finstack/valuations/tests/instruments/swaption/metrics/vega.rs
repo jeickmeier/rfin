@@ -12,7 +12,12 @@ fn test_vega_positive_for_long_option() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();
@@ -30,7 +35,12 @@ fn test_vega_finite_difference() {
 
     // Analytical vega
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let vega_analytical = *result.measures.get("vega").unwrap();
 
@@ -60,7 +70,12 @@ fn test_atm_vega_highest() {
     let otm = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.08);
 
     let vega_atm = atm
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -68,7 +83,12 @@ fn test_atm_vega_highest() {
         .unwrap();
 
     let vega_itm = itm
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -76,7 +96,12 @@ fn test_atm_vega_highest() {
         .unwrap();
 
     let vega_otm = otm
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -107,7 +132,12 @@ fn test_vega_increases_with_time() {
     let swaption_long = create_standard_payer_swaption(expiry_long, swap_start, swap_end, 0.05);
 
     let vega_short = swaption_short
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -115,7 +145,12 @@ fn test_vega_increases_with_time() {
         .unwrap();
 
     let vega_long = swaption_long
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -143,7 +178,12 @@ fn test_vega_scales_with_notional() {
         finstack_core::money::Money::new(5_000_000.0, finstack_core::currency::Currency::USD);
 
     let vega1 = swaption1
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -151,7 +191,12 @@ fn test_vega_scales_with_notional() {
         .unwrap();
 
     let vega5 = swaption5
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")

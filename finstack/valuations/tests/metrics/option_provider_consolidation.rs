@@ -34,7 +34,12 @@ fn equity_option_provider_matches_registered_metrics_and_omits_foreign_rho() {
         MetricId::Volga,
     ];
     let priced = option
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("equity metrics should compute");
 
     let delta = option
@@ -84,7 +89,12 @@ fn fx_option_provider_matches_registered_foreign_rho_and_volga() {
 
     let metrics = [MetricId::Rho, MetricId::ForeignRho, MetricId::Volga];
     let priced = option
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("fx metrics should compute");
 
     let foreign_rho = option

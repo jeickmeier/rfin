@@ -47,7 +47,7 @@
 //! let metrics = vec![MetricId::BucketedDv01];
 //!
 //! // Price with metrics
-//! let result = bond.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = bond.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! // Access results
 //! let pv = result.value.amount();
@@ -75,7 +75,7 @@
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Dv01]; // Parallel DV01
 //!
-//! let result = swap.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = swap.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! if let Some(dv01) = result.measures.get(MetricId::Dv01.as_str()) {
 //!     println!("Swap DV01: ${:.2} per bp", dv01);
@@ -119,7 +119,7 @@
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Theta];
 //!
-//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Option theta per day: ${:.2}", theta);
@@ -166,7 +166,7 @@
 //!     MetricId::Rho,
 //! ];
 //!
-//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! println!("Option Greeks:");
 //! println!("  PV:    ${:.2}", result.value.amount());

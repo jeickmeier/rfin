@@ -179,15 +179,28 @@ pub fn resolve_optional_dividend_yield(
 ///
 /// The `instrument` parameter is also `Arc`-wrapped. Instruments are generally immutable
 /// after construction, so this is safe for concurrent reads.
+#[derive(Default)]
+pub(crate) struct MetricBuildOptions {
+    pub(crate) cfg: Option<Arc<FinstackConfig>>,
+    pub(crate) market_history: Option<Arc<MarketHistory>>,
+    pub(crate) pricing_model: Option<crate::pricer::ModelKey>,
+    pub(crate) pricer_registry: Option<Arc<crate::pricer::PricerRegistry>>,
+}
+
 pub(crate) fn build_with_metrics_dyn(
     instrument: Arc<dyn crate::instruments::common_impl::traits::Instrument>,
     curves: Arc<MarketContext>,
     as_of: Date,
     base_value: Money,
     metrics: &[crate::metrics::MetricId],
-    cfg: Option<Arc<FinstackConfig>>,
-    market_history: Option<Arc<MarketHistory>>,
+    options: MetricBuildOptions,
 ) -> finstack_core::Result<crate::results::ValuationResult> {
+    let MetricBuildOptions {
+        cfg,
+        market_history,
+        pricing_model,
+        pricer_registry,
+    } = options;
     let finstack_config = cfg.unwrap_or_else(MetricContext::default_config);
     let mut context = MetricContext::new(
         instrument.clone(),
@@ -203,6 +216,7 @@ pub(crate) fn build_with_metrics_dyn(
     if let Some(history) = market_history {
         context = context.with_market_history(history);
     }
+    context.set_pricer_dispatch(pricing_model, pricer_registry);
 
     // Preserve only the subsets consumed by the metric layer.
     context.set_instrument_overrides(
@@ -304,7 +318,8 @@ mod tests {
             Self {
                 id: id.to_string(),
                 attrs: Attributes::default(),
-                pricing_overrides: crate::instruments::pricing_overrides::PricingOverrides::default(),
+                pricing_overrides: crate::instruments::pricing_overrides::PricingOverrides::default(
+                ),
             }
         }
     }
@@ -343,22 +358,23 @@ mod tests {
         }
 
         fn pricing_overrides_mut(
-        &mut self,
-    ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
-        Some(&mut self.pricing_overrides)
-    }
+            &mut self,
+        ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
+            Some(&mut self.pricing_overrides)
+        }
 
-    fn pricing_overrides(
-        &self,
-    ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
-        Some(&self.pricing_overrides)
-    }
+        fn pricing_overrides(
+            &self,
+        ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
+            Some(&self.pricing_overrides)
+        }
 
         fn price_with_metrics(
             &self,
             market: &MarketContext,
             as_of: Date,
             metrics: &[MetricId],
+            options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base = self.value(market, as_of)?;
             build_with_metrics_dyn(
@@ -367,8 +383,11 @@ mod tests {
                 as_of,
                 base,
                 metrics,
-                None,
-                None,
+                MetricBuildOptions {
+                    cfg: options.config,
+                    market_history: options.market_history,
+                    ..MetricBuildOptions::default()
+                },
             )
         }
     }
@@ -391,8 +410,10 @@ mod tests {
             as_of,
             base_value,
             &[],
-            Some(cfg.clone()),
-            None,
+            MetricBuildOptions {
+                cfg: Some(cfg.clone()),
+                ..MetricBuildOptions::default()
+            },
         )?;
 
         let usd_scale = result
@@ -412,7 +433,12 @@ mod tests {
         instrument.pricing_overrides = instrument.pricing_overrides.with_price_shock_pct(-0.10);
 
         let market = MarketContext::new();
-        let result = instrument.price_with_metrics(&market, date!(2024 - 01 - 01), &[])?;
+        let result = instrument.price_with_metrics(
+            &market,
+            date!(2024 - 01 - 01),
+            &[],
+            crate::instruments::PricingOptions::default(),
+        )?;
 
         assert!((result.value.amount() - 111.105).abs() < 1e-9);
         Ok(())

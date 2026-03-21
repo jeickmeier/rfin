@@ -93,7 +93,12 @@ fn test_cap_dv01_signed_negative() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -148,7 +153,12 @@ fn test_floor_dv01_signed_negative() {
         .insert_surface(vol_surface);
 
     let result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -174,14 +184,24 @@ fn test_dv01_scales_with_maturity() {
         .insert_surface(vol_surface);
 
     let short_dv01 = *short_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let long_dv01 = *long_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -215,14 +235,24 @@ fn test_dv01_scales_with_notional() {
         .insert_surface(vol_surface);
 
     let small_dv01 = *small_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let large_dv01 = *large_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")

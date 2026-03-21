@@ -23,7 +23,12 @@ fn test_forward_points_calculation() {
     );
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("forward_points")])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::custom("forward_points")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let forward_points = *result.measures.get("forward_points").unwrap();
@@ -54,7 +59,12 @@ fn test_forward_points_with_contract_rates() {
     );
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("forward_points")])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::custom("forward_points")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let forward_points = *result.measures.get("forward_points").unwrap();
@@ -77,7 +87,12 @@ fn test_ir01_domestic_sign() {
     let swap = create_standard_fx_swap("IR01_DOM", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01Domestic],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_domestic = *result.measures.get("dv01_domestic").unwrap();
@@ -106,7 +121,12 @@ fn test_ir01_foreign_sign() {
     let swap = create_standard_fx_swap("IR01_FOR", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Foreign])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01Foreign],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_foreign = *result.measures.get("dv01_foreign").unwrap();
@@ -134,11 +154,21 @@ fn test_ir01_sensitivity_scales_with_tenor() {
         create_standard_fx_swap("IR01_1Y", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result_1m = swap_1m
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01Domestic],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let result_1y = swap_1y
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01Domestic])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01Domestic],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_1m = result_1m.measures.get("dv01_domestic").unwrap().abs();
@@ -159,7 +189,12 @@ fn test_fx01_calculation() {
     let swap = create_standard_fx_swap("FX01", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Fx01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let fx01 = *result.measures.get("fx01").unwrap();
@@ -182,11 +217,21 @@ fn test_fx01_scales_with_notional() {
         create_standard_fx_swap("FX01_5M", dates.near_date, dates.far_date_1y, 5_000_000.0);
 
     let result_1m = swap_1m
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Fx01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let result_5m = swap_5m
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Fx01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Fx01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let fx01_1m = *result_1m.measures.get("fx01").unwrap();
@@ -209,7 +254,12 @@ fn test_dv01_calculation() {
     let swap = create_standard_fx_swap("DV01", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -240,7 +290,12 @@ fn test_dv01_combined_bumps_both_curves() {
 
     // Compute DV01 using Combined mode (default via generic calculator)
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_combined = *result.measures.get("dv01").unwrap();
@@ -254,6 +309,7 @@ fn test_dv01_combined_bumps_both_curves() {
             &market,
             dates.as_of,
             &[MetricId::Dv01Domestic, MetricId::Dv01Foreign],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -293,7 +349,12 @@ fn test_dv01_zero_after_maturity() {
     // Value after far date
     let as_of_after = Date::from_calendar_date(2024, Month::March, 1).unwrap();
     let result = swap
-        .price_with_metrics(&market, as_of_after, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of_after,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -315,7 +376,12 @@ fn test_theta_calculation() {
     let swap = create_standard_fx_swap("THETA", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -333,7 +399,12 @@ fn test_carry_pv_calculation() {
     let swap = create_standard_fx_swap("CARRY_PV", dates.near_date, dates.far_date_1y, 1_000_000.0);
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::custom("carry_pv")])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::custom("carry_pv")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let carry_pv = *result.measures.get("carry_pv").unwrap();
@@ -356,7 +427,12 @@ fn test_bucketed_dv01() {
     );
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Check that bucketed_dv01 is present
@@ -391,6 +467,7 @@ fn test_multiple_metrics_together() {
                 MetricId::Dv01,
                 MetricId::Theta,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -417,7 +494,12 @@ fn test_bucketed_dv01_per_curve() {
     );
 
     let result = swap
-        .price_with_metrics(&market, dates.as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            dates.as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Verify backward-compatible primary discount curve series exists under standard key

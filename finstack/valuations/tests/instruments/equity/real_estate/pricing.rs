@@ -286,7 +286,12 @@ fn test_real_estate_custom_metrics_compute() {
         MetricId::custom("real_estate::unlevered_multiple"),
     ];
     let result = asset
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("price_with_metrics");
 
     assert!(result
@@ -329,7 +334,12 @@ fn test_real_estate_unlevered_metrics_include_acquisition_cost_line_items() {
         MetricId::custom("real_estate::unlevered_cash_on_cash_first"),
     ];
     let result = asset
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("price_with_metrics");
 
     let multiple = *result
@@ -426,7 +436,12 @@ fn test_real_estate_sensitivities_metrics_compute_and_have_expected_signs() {
         MetricId::custom("real_estate::discount_rate_sensitivity"),
     ];
     let result = asset
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("price_with_metrics");
 
     let d_v_d_cap = *result
@@ -593,7 +608,12 @@ fn test_levered_real_estate_equity_custom_metrics_compute() {
     ];
 
     let result = levered
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("price_with_metrics");
 
     for m in metrics {
@@ -669,7 +689,12 @@ fn test_levered_real_estate_sensitivities_metrics_compute() {
         MetricId::custom("real_estate::discount_rate_sensitivity"),
     ];
     let result = levered
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("price_with_metrics");
 
     for m in metrics {

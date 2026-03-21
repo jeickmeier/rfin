@@ -205,9 +205,21 @@ fn test_metrics_based_bond_attribution_populates_carry_decomposition() {
         MetricId::FundingCost,
     ];
     let val_t0 = bond
-        .price_with_metrics(&market_t0, as_of_t0, &metrics)
+        .price_with_metrics(
+            &market_t0,
+            as_of_t0,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
-    let val_t1 = bond.price_with_metrics(&market_t1, as_of_t1, &[]).unwrap();
+    let val_t1 = bond
+        .price_with_metrics(
+            &market_t1,
+            as_of_t1,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let instrument: Arc<dyn Instrument> = Arc::new(bond);
     let attribution = attribute_pnl_metrics_based(
@@ -258,9 +270,21 @@ fn test_metrics_based_bond_attribution_without_carry_metrics_keeps_legacy_shape(
     let market_t1 = MarketContext::new().insert(flat_curve("USD-OIS", as_of_t1, 0.05));
 
     let val_t0 = bond
-        .price_with_metrics(&market_t0, as_of_t0, &[MetricId::Theta])
+        .price_with_metrics(
+            &market_t0,
+            as_of_t0,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
-    let val_t1 = bond.price_with_metrics(&market_t1, as_of_t1, &[]).unwrap();
+    let val_t1 = bond
+        .price_with_metrics(
+            &market_t1,
+            as_of_t1,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let instrument: Arc<dyn Instrument> = Arc::new(bond);
     let attribution = attribute_pnl_metrics_based(

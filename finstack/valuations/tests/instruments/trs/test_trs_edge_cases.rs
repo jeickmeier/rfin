@@ -496,6 +496,7 @@ fn test_par_spread_with_tiny_annuity() {
         &market,
         as_of,
         &[finstack_valuations::metrics::MetricId::ParSpread],
+        finstack_valuations::instruments::PricingOptions::default(),
     );
 
     let valuation = result.expect("Tiny annuity should still return par spread");
@@ -516,6 +517,7 @@ fn test_index_delta_with_very_small_spot() {
         &market,
         as_of_date(),
         &[finstack_valuations::metrics::MetricId::IndexDelta],
+        finstack_valuations::instruments::PricingOptions::default(),
     );
 
     let valuation = result.expect("Tiny but positive spot should still compute delta");

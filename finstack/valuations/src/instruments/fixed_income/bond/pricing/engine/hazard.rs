@@ -41,9 +41,9 @@ use finstack_core::Result;
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::traits::CashflowProvider;
+use crate::instruments::common_impl::traits::Instrument;
 
 use super::super::super::types::Bond;
-use super::discount::BondEngine;
 
 /// Hazard-rate bond pricing engine using FRP and `HazardCurve`.
 ///
@@ -159,8 +159,16 @@ impl HazardBondEngine {
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub(crate) fn price(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<Money> {
+        Ok(Money::new(
+            Self::price_raw(bond, market, as_of)?,
+            bond.notional.currency(),
+        ))
+    }
+
+    /// Price a bond using a hazard curve and return the unrounded PV.
+    pub(crate) fn price_raw(bond: &Bond, market: &MarketContext, as_of: Date) -> Result<f64> {
         if as_of >= bond.maturity {
-            return Ok(Money::new(0.0, bond.notional.currency()));
+            return Ok(0.0);
         }
 
         // Resolve discount curve
@@ -169,7 +177,7 @@ impl HazardBondEngine {
         // Resolve hazard curve; if not found, fall back to risk-free pricing.
         let hazard = match Self::resolve_hazard_curve(bond, market) {
             Some(h) => h,
-            None => return BondEngine::price(bond, market, as_of),
+            None => return bond.value_raw(market, as_of),
         };
         let recovery = hazard.recovery_rate().clamp(0.0, 1.0);
 
@@ -199,7 +207,7 @@ impl HazardBondEngine {
 
         // No future cashflows after as_of → PV is zero.
         if dates.is_empty() {
-            return Ok(Money::new(0.0, bond.notional.currency()));
+            return Ok(0.0);
         }
 
         dates.insert(0, as_of);
@@ -223,14 +231,13 @@ impl HazardBondEngine {
         let s0 = surv_raw[0].clamp(0.0, 1.0);
         if s0 <= 0.0 {
             // Already defaulted by as_of; no future value.
-            return Ok(Money::new(0.0, bond.notional.currency()));
+            return Ok(0.0);
         }
         // Conditional survival: Q(as_of, T_i) = S(T_i) / S(as_of)
         let surv: Vec<f64> = surv_raw.iter().map(|s| (s / s0).clamp(0.0, 1.0)).collect();
 
         // Alive leg: survival-weighted PV of holder-view coupons and principal.
         // Use Kahan summation from finstack-core for numerical stability.
-        let ccy = bond.notional.currency();
         let pv_values: Vec<f64> = flows
             .iter()
             .filter(|(d, amt)| *d > as_of && amt.amount() != 0.0)
@@ -243,7 +250,7 @@ impl HazardBondEngine {
                 })
             })
             .collect();
-        let pv_cf = Money::new(kahan_sum(pv_values), ccy);
+        let pv_cf = kahan_sum(pv_values);
 
         // Recovery leg: FRP on outstanding notional.
         // Outstanding tracks amortization (down) and PIK capitalizations (up)
@@ -302,9 +309,7 @@ impl HazardBondEngine {
             }
         }
 
-        let pv_rec_money = Money::new(pv_rec, ccy);
-        let total = pv_cf.checked_add(pv_rec_money)?;
-        Ok(total)
+        Ok(pv_cf + pv_rec)
     }
 }
 
@@ -316,6 +321,7 @@ mod tests {
     use crate::instruments::common_impl::traits::Attributes;
     use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::fixed_income::bond::CashflowSpec;
+    use crate::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
     use crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
     use crate::metrics::{standard_registry, MetricContext, MetricId};
     use finstack_core::currency::Currency;

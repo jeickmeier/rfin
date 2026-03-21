@@ -1,7 +1,7 @@
 //! Pricer registrations for commodity instruments.
 //!
 //! Covers: CommodityForward, CommoditySwap, CommodityOption,
-//! CommoditySwaption, CommoditySpreadOption.
+//! CommodityAsianOption, CommoditySwaption, CommoditySpreadOption.
 
 use super::{InstrumentType, ModelKey, PricerRegistry};
 
@@ -37,6 +37,13 @@ pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
         crate::instruments::commodity::commodity_option::pricer::CommodityOptionBlackPricer::with_model(
             ModelKey::Discounting,
         ),
+    );
+
+    // Commodity Asian Option
+    registry.register(
+        InstrumentType::CommodityAsianOption,
+        ModelKey::AsianTurnbullWakeman,
+        crate::instruments::commodity::commodity_asian_option::pricer::CommodityAsianOptionAnalyticalPricer,
     );
 
     // Commodity Swaption

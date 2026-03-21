@@ -259,7 +259,12 @@ fn term_loan_oid_eir_amortization_schedule() {
 
     let market = mc();
     let result = loan
-        .price_with_metrics(&market, issue, &[MetricId::custom("oid_eir_amortization")])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::custom("oid_eir_amortization")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let eir = *result
@@ -380,7 +385,14 @@ fn term_loan_golden_pv_and_metrics() {
 
     // Compute metrics (YTM and DV01)
     let metrics = vec![MetricId::Ytm, MetricId::Dv01];
-    let result = loan.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = loan
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Verify YTM is computed and reasonable for a 5% fixed-rate loan
     let ytm = result.measures.get("ytm").expect("YTM should be computed");

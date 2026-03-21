@@ -113,7 +113,12 @@ mod tests {
             .value(&MarketContext::new(), as_of)
             .expect("should succeed");
         let result = fx
-            .price_with_metrics(&MarketContext::new(), as_of, &[])
+            .price_with_metrics(
+                &MarketContext::new(),
+                as_of,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
             .expect("should succeed");
         // Quote amount is just the result.value (PV in quote currency)
         assert!((result.value.amount() - base_value.amount()).abs() < 1e-6);

@@ -117,7 +117,12 @@ fn test_irs_dv01_negative_discount_rate() {
     )
     .unwrap();
 
-    let result = swap.price_with_metrics(&market, as_of, &[MetricId::Dv01]);
+    let result = swap.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Dv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(result.is_ok(), "DV01 calculation should succeed");
 
     let result = result.unwrap();
@@ -195,7 +200,12 @@ fn test_irs_par_rate_with_negative_rates() {
     )
     .unwrap();
 
-    let result = swap.price_with_metrics(&market, as_of, &[MetricId::ParRate]);
+    let result = swap.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ParRate],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(result.is_ok(), "Par rate calculation should succeed");
 
     let par_rate = *result.unwrap().measures.get("par_rate").unwrap();
@@ -238,6 +248,7 @@ fn test_irs_deep_negative_rates() {
         &market,
         as_of,
         &[MetricId::Pv01, MetricId::Dv01, MetricId::ParRate],
+        finstack_valuations::instruments::PricingOptions::default(),
     );
 
     assert!(
@@ -330,7 +341,12 @@ fn test_annuity_positive_with_negative_rates() {
     )
     .unwrap();
 
-    let result = swap.price_with_metrics(&market, as_of, &[MetricId::Annuity]);
+    let result = swap.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Annuity],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(result.is_ok());
 
     let annuity = *result.unwrap().measures.get("annuity").unwrap();

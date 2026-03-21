@@ -200,7 +200,12 @@ pub fn compute_greeks(option: &FxOption, market: &MarketContext, as_of: Date) ->
         MetricId::ForeignRho,
     ];
     let result = option
-        .price_with_metrics(market, as_of, &metrics)
+        .price_with_metrics(
+            market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("metrics should compute");
     let measures = &result.measures;
     GreeksSnapshot {

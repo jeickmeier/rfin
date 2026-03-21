@@ -466,6 +466,21 @@ pub enum ModelKey {
     StaticReplication = 32,
 }
 
+impl ModelKey {
+    /// Returns true when the model is only available in builds with the `mc` feature.
+    pub const fn requires_mc_feature(self) -> bool {
+        matches!(
+            self,
+            Self::MonteCarloGBM
+                | Self::MonteCarloHeston
+                | Self::MonteCarloHullWhite1F
+                | Self::HestonFourier
+                | Self::MertonMc
+                | Self::MonteCarloSchwartzSmith
+        )
+    }
+}
+
 impl std::fmt::Display for ModelKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let label = match self {

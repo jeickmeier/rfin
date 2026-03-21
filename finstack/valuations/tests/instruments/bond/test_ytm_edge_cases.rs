@@ -65,7 +65,12 @@ fn test_deep_discount_bond_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -115,7 +120,12 @@ fn test_zero_coupon_bond_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -177,7 +187,12 @@ fn test_odd_first_coupon_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -229,7 +244,12 @@ fn test_eom_february_maturity_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -286,7 +306,12 @@ fn test_long_first_coupon_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -322,7 +347,12 @@ fn test_premium_bond_ytm_solver_convergence() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -366,7 +396,12 @@ fn test_ytm_price_roundtrip() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(original_price);
 
     let result1 = bond
-        .price_with_metrics(&market, issue, &[MetricId::Ytm, MetricId::CleanPrice])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm, MetricId::CleanPrice],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result1.measures[MetricId::Ytm.as_str()];
@@ -376,7 +411,12 @@ fn test_ytm_price_roundtrip() {
     bond.pricing_overrides = PricingOverrides::default();
 
     let result2 = bond
-        .price_with_metrics(&market, issue, &[MetricId::DirtyPrice])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::DirtyPrice],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let calculated_dirty = result2.measures[MetricId::DirtyPrice.as_str()];
@@ -418,7 +458,12 @@ fn test_very_long_maturity_bond() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, issue, &[MetricId::Ytm, MetricId::DurationMod])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm, MetricId::DurationMod],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -462,7 +507,12 @@ fn test_near_maturity_bond_ytm() {
     let bond_with_quote = bond;
 
     let result = bond_with_quote
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Accrued])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::Accrued],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];
@@ -503,7 +553,12 @@ fn test_negative_ytm_extreme_premium() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(103.0);
 
     let result = bond
-        .price_with_metrics(&market, issue, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            issue,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = result.measures[MetricId::Ytm.as_str()];

@@ -26,7 +26,12 @@ fn test_risky_pv01_positive() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let rpv01 = *result.measures.get("risky_pv01").unwrap();
 
@@ -45,7 +50,12 @@ fn test_cs01_positive() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let cs01 = *result.measures.get("cs01").unwrap();
 
@@ -63,7 +73,12 @@ fn test_dv01_calculation() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
@@ -82,7 +97,12 @@ fn test_hazard_cs01_calculation() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // CS01 should be present
@@ -102,10 +122,20 @@ fn test_risky_pv01_scales_with_notional() {
     let idx_20mm = standard_single_curve_index("CDX-20MM", start, end, 20_000_000.0);
 
     let result_10mm = idx_10mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_20mm = idx_20mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rpv01_10mm = *result_10mm.measures.get("risky_pv01").unwrap();
@@ -133,10 +163,20 @@ fn test_cs01_scales_with_notional() {
     let idx_20mm = standard_single_curve_index("CDX-20MM", start, end, 20_000_000.0);
 
     let result_10mm = idx_10mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_20mm = idx_20mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cs01_10mm = *result_10mm.measures.get("cs01").unwrap();
@@ -164,10 +204,20 @@ fn test_dv01_scales_with_notional() {
     let idx_20mm = standard_single_curve_index("CDX-20MM", start, end, 20_000_000.0);
 
     let result_10mm = idx_10mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_20mm = idx_20mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_10mm = *result_10mm.measures.get("dv01").unwrap();
@@ -194,10 +244,20 @@ fn test_risky_pv01_increases_with_maturity() {
     let idx_5y = standard_single_curve_index("CDX-5Y", start, date!(2030 - 01 - 01), 10_000_000.0);
 
     let result_3y = idx_3y
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_5y = idx_5y
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rpv01_3y = *result_3y.measures.get("risky_pv01").unwrap();
@@ -222,10 +282,20 @@ fn test_cs01_increases_with_maturity() {
     let idx_5y = standard_single_curve_index("CDX-5Y", start, date!(2030 - 01 - 01), 10_000_000.0);
 
     let result_3y = idx_3y
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_5y = idx_5y
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cs01_3y = *result_3y.measures.get("cs01").unwrap();
@@ -250,7 +320,12 @@ fn test_risky_pv01_matches_pv01_alias() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01, MetricId::Pv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01, MetricId::Pv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let metric_rpv01 = *result.measures.get("risky_pv01").unwrap();
     let metric_pv01 = *result.measures.get("pv01").unwrap();
@@ -276,7 +351,12 @@ fn test_cs01_matches_direct_method() {
     let direct_cs01 = idx.cs01(&ctx, as_of).unwrap();
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let metric_cs01 = *result.measures.get("cs01").unwrap();
 
@@ -295,10 +375,20 @@ fn test_risky_pv01_single_vs_constituents() {
     let idx_const = standard_constituents_index("CDX-CONST", start, end, 10_000_000.0, 5);
 
     let result_single = idx_single
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_const = idx_const
-        .price_with_metrics(&ctx, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rpv01_single = *result_single.measures.get("risky_pv01").unwrap();
@@ -326,10 +416,20 @@ fn test_cs01_single_vs_constituents() {
     let idx_const = standard_constituents_index("CDX-CONST", start, end, 10_000_000.0, 5);
 
     let result_single = idx_single
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_const = idx_const
-        .price_with_metrics(&ctx, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cs01_single = *result_single.measures.get("cs01").unwrap();
@@ -351,7 +451,14 @@ fn test_all_risk_metrics_together() {
 
     let metrics = vec![MetricId::RiskyPv01, MetricId::Cs01, MetricId::Dv01];
 
-    let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert!(result.measures.contains_key("risky_pv01"));
     assert!(result.measures.contains_key("cs01"));
@@ -373,6 +480,7 @@ fn test_pv01_alias() {
             &ctx,
             as_of,
             &[MetricId::RiskyPv01, MetricId::custom("pv01")],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -395,7 +503,12 @@ fn test_dv01_reasonable_magnitude() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
@@ -420,7 +533,14 @@ fn test_risk_metrics_finite() {
 
     let metrics = vec![MetricId::RiskyPv01, MetricId::Cs01, MetricId::Dv01];
 
-    let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     for (name, value) in &result.measures {
         assert!(

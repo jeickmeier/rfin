@@ -46,7 +46,12 @@ fn test_theta_reflects_time_decay() {
     let market = MarketContext::new().insert(disc_curve);
 
     // Act
-    let result = loan.price_with_metrics(&market, as_of, &[MetricId::Theta]);
+    let result = loan.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Theta],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());

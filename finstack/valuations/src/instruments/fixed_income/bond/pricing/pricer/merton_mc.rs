@@ -196,4 +196,88 @@ impl Pricer for SimpleBondMertonMcPricer {
         let result = ValuationResult::stamped(bond.id(), as_of, pv);
         Ok(result.with_measures(measures))
     }
+
+    fn price_raw_dyn(
+        &self,
+        instrument: &dyn Instrument,
+        market: &MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<f64, PricingError> {
+        let bond = instrument
+            .as_any()
+            .downcast_ref::<Bond>()
+            .ok_or_else(|| PricingError::type_mismatch(InstrumentType::Bond, instrument.key()))?;
+
+        let ctx = PricingErrorContext::new()
+            .instrument_id(bond.id())
+            .instrument_type(InstrumentType::Bond)
+            .model(ModelKey::MertonMc)
+            .curve_id(bond.discount_curve_id.as_str());
+
+        let mc_override = bond
+            .pricing_overrides
+            .model_config
+            .merton_mc_config
+            .as_ref()
+            .ok_or_else(|| {
+                PricingError::invalid_input_with_context(
+                    "MertonMc pricer requires merton_mc_config on pricing_overrides",
+                    ctx.clone(),
+                )
+            })?;
+
+        let disc = market
+            .get_discount(bond.discount_curve_id.as_str())
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx.clone()))?;
+
+        let mat_years = (bond.maturity - as_of).whole_days() as f64 / 365.25;
+        let discount_rate = if mat_years > 0.0 {
+            let df = disc.df(mat_years);
+            if df > 0.0 {
+                -df.ln() / mat_years
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        };
+
+        let mut effective_config = if let Some(ref cal_spec) = mc_override.0.calibration {
+            use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::calibration::calibrate_parameter_to_market;
+            let cal_output = calibrate_parameter_to_market(
+                bond,
+                market,
+                as_of,
+                discount_rate,
+                &mc_override.0,
+                cal_spec,
+            )
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx.clone()))?;
+
+            let mut cfg = mc_override.0.clone();
+            cfg.merton = cal_output.calibrated_merton;
+            cfg.calibration = None;
+            cfg
+        } else {
+            mc_override.0.clone()
+        };
+
+        if effective_config.cashflow_dfs.is_none() && mat_years > 0.0 {
+            let steps = effective_config.time_steps_per_year;
+            let n = (mat_years * steps as f64).round() as usize;
+            let dfs: Vec<(f64, f64)> = (1..=n)
+                .map(|i| {
+                    let t = i as f64 / steps as f64;
+                    (t, disc.df(t))
+                })
+                .collect();
+            effective_config.cashflow_dfs = Some(dfs);
+        }
+
+        let mc_result = bond
+            .price_merton_mc(&effective_config, discount_rate, as_of)
+            .map_err(|e| PricingError::model_failure_with_context(e.to_string(), ctx))?;
+
+        Ok(mc_result.clean_price_pct / 100.0 * bond.notional.amount())
+    }
 }

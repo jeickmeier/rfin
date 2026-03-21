@@ -26,7 +26,12 @@ fn test_equity_trs_par_spread_is_finite() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -43,7 +48,12 @@ fn test_equity_trs_par_spread_calculation() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert - Par spread should be finite and reasonable
@@ -65,7 +75,12 @@ fn test_fi_index_trs_par_spread_calculation() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -111,10 +126,20 @@ fn test_par_spread_sign_based_on_side() {
 
     // Act
     let result_receive = trs_receive
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_pay = trs_pay
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert - Par spreads should be opposite for receive vs pay
@@ -144,7 +169,12 @@ fn test_equity_trs_financing_annuity_positive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -161,7 +191,12 @@ fn test_fi_index_trs_financing_annuity_positive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -184,7 +219,12 @@ fn test_financing_annuity_bounded_by_notional_times_tenor() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -210,10 +250,20 @@ fn test_financing_annuity_increases_with_tenor() {
 
     // Act
     let result_1y = trs_1y
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_2y = trs_2y
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -242,10 +292,20 @@ fn test_financing_annuity_scales_with_notional() {
 
     // Act
     let result_1m = trs_1m
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_10m = trs_10m
-        .price_with_metrics(&market, as_of, &[MetricId::FinancingAnnuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -275,7 +335,12 @@ fn test_equity_trs_ir01_positive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -296,7 +361,12 @@ fn test_fi_index_trs_ir01_positive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -320,10 +390,20 @@ fn test_ir01_scales_with_notional() {
 
     // Act
     let result_5m = trs_5m
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_25m = trs_25m
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -353,7 +433,12 @@ fn test_equity_trs_index_delta_positive_for_receive() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::IndexDelta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::IndexDelta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -372,7 +457,12 @@ fn test_equity_trs_index_delta_negative_for_pay() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::IndexDelta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::IndexDelta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -394,7 +484,12 @@ fn test_equity_trs_delta_magnitude_check() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::IndexDelta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::IndexDelta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("index_delta").unwrap();
@@ -434,7 +529,12 @@ fn test_fi_index_trs_duration_dv01_based_on_duration() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::DurationDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -456,7 +556,12 @@ fn test_equity_trs_theta_calculation() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -473,7 +578,12 @@ fn test_fi_index_trs_theta_calculation() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -490,7 +600,12 @@ fn test_theta_is_finite() {
 
     // Act - Calculate theta via metric
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_metric = *result.measures.get("theta").unwrap();
 
@@ -511,7 +626,12 @@ fn test_equity_trs_bucketed_dv01_calculation() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -528,7 +648,12 @@ fn test_fi_index_trs_bucketed_dv01_calculation() {
 
     // Act
     let result = trs
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -560,6 +685,7 @@ fn test_equity_trs_all_metrics_together() {
                 MetricId::Theta,
                 MetricId::BucketedDv01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -596,6 +722,7 @@ fn test_fi_index_trs_all_metrics_together() {
                 MetricId::Theta,
                 MetricId::BucketedDv01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -629,6 +756,7 @@ fn test_par_spread_annuity_relationship() {
             &market,
             as_of,
             &[MetricId::ParSpread, MetricId::FinancingAnnuity],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

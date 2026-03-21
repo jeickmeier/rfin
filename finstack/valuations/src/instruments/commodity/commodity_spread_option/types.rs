@@ -160,6 +160,10 @@ impl CurveDependencies for CommoditySpreadOption {
 impl Instrument for CommoditySpreadOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CommoditySpreadOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>

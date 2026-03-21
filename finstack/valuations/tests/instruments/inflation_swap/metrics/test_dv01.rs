@@ -30,7 +30,12 @@ fn test_dv01_positive_for_positive_pv_swap() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -67,7 +72,12 @@ fn test_dv01_scales_with_time_to_maturity() {
             .unwrap();
 
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let dv01 = result.measures.get("dv01").unwrap().abs();
@@ -121,10 +131,20 @@ fn test_dv01_scales_with_notional() {
         .unwrap();
 
     let result1 = swap1
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result2 = swap2
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01_1 = result1.measures.get("dv01").unwrap().abs();
@@ -163,7 +183,12 @@ fn test_dv01_zero_for_matured_swap() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -194,7 +219,12 @@ fn test_dv01_reasonable_magnitude() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = result.measures.get("dv01").unwrap().abs();

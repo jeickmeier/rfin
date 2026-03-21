@@ -93,7 +93,12 @@ fn test_par_rate_flat_curve() {
     let market = build_flat_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -115,7 +120,12 @@ fn test_par_rate_makes_npv_zero() {
     let market = build_flat_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -144,7 +154,12 @@ fn test_par_rate_positive() {
     let market = build_flat_curves(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -163,14 +178,24 @@ fn test_par_rate_independent_of_fixed_rate() {
     let swap_7pct = create_standard_swap(as_of, end, dec!(0.07));
 
     let par_rate_3pct = *swap_3pct
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
         .unwrap();
 
     let par_rate_7pct = *swap_7pct
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
@@ -198,14 +223,24 @@ fn test_par_rate_independent_of_side() {
     swap_pay.side = PayReceive::PayFixed;
 
     let par_rate_receive = *swap_receive
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
         .unwrap();
 
     let par_rate_pay = *swap_pay
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
@@ -229,14 +264,24 @@ fn test_par_rate_increases_with_forward_curve() {
     let market_7pct = build_flat_curves(0.07, as_of);
 
     let par_rate_3pct = *swap
-        .price_with_metrics(&market_3pct, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market_3pct,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
         .unwrap();
 
     let par_rate_7pct = *swap
-        .price_with_metrics(&market_7pct, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market_7pct,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
@@ -263,14 +308,24 @@ fn test_par_rate_with_spread() {
     swap_with_spread.float.spread_bp = dec!(50.0);
 
     let par_rate_no_spread = *swap_no_spread
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
         .unwrap();
 
     let par_rate_with_spread = *swap_with_spread
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
@@ -294,14 +349,24 @@ fn test_par_rate_short_vs_long() {
     let swap_10y = create_standard_swap(as_of, date!(2034 - 01 - 01), dec!(0.05));
 
     let par_rate_2y = *swap_2y
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")
         .unwrap();
 
     let par_rate_10y = *swap_10y
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("par_rate")

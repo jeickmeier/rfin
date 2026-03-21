@@ -119,7 +119,12 @@ fn test_cap_delta_finite() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -151,7 +156,12 @@ fn test_itm_cap_high_delta() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -178,7 +188,12 @@ fn test_otm_cap_lower_delta() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -204,7 +219,12 @@ fn test_floor_delta_negative() {
         .insert_surface(vol_surface);
 
     let result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -235,7 +255,12 @@ fn test_atm_cap_delta_around_half() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -264,21 +289,36 @@ fn test_delta_increases_with_moneyness() {
         .insert_surface(vol_surface);
 
     let otm_delta = *otm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
         .unwrap();
 
     let atm_delta = *atm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
         .unwrap();
 
     let itm_delta = *itm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("delta")
@@ -339,7 +379,12 @@ fn test_caplet_delta() {
         .insert_surface(vol_surface);
 
     let result = caplet
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();

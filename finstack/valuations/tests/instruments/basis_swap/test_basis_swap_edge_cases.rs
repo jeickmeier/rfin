@@ -78,6 +78,7 @@ fn zero_notional() {
             &ctx,
             as_of,
             &[MetricId::Dv01, MetricId::PvPrimary, MetricId::PvReference],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -85,7 +86,12 @@ fn zero_notional() {
     assert_eq!(res.measures[MetricId::PvPrimary.as_str()], 0.0);
     assert_eq!(res.measures[MetricId::PvReference.as_str()], 0.0);
 
-    let par_spread_result = swap.price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread]);
+    let par_spread_result = swap.price_with_metrics(
+        &ctx,
+        as_of,
+        &[MetricId::BasisParSpread],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
     assert!(
         par_spread_result.is_err(),
         "BasisParSpread should error for zero notional"
@@ -124,7 +130,12 @@ fn very_large_notional() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = res
@@ -172,7 +183,12 @@ fn very_long_maturity() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::AnnuityPrimary])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::AnnuityPrimary],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let annuity = res.measures[MetricId::AnnuityPrimary.as_str()];
 
@@ -299,6 +315,7 @@ fn negative_rates() {
             &ctx,
             d(2025, 1, 2),
             &[MetricId::PvPrimary, MetricId::PvReference],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -376,6 +393,7 @@ fn identical_forward_curves() {
                 MetricId::PvReference,
                 MetricId::BasisParSpread,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -425,7 +443,12 @@ fn steep_curve() {
     .expect("swap construction");
 
     let res = swap
-        .price_with_metrics(&ctx, d(2025, 1, 2), &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            d(2025, 1, 2),
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(res.measures[MetricId::Dv01.as_str()].is_finite());

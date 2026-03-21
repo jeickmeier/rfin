@@ -87,11 +87,21 @@ fn test_ytm_uses_bond_daycount() {
     bond_30360_quoted.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
 
     let result_act365 = bond_act365_quoted
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let result_30360 = bond_30360_quoted
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm_act365 = *result_act365.measures.get("ytm").unwrap();
@@ -138,7 +148,12 @@ fn test_ytm_par_equals_coupon_for_matching_daycount() {
         bond_at_par.pricing_overrides = PricingOverrides::default().with_clean_price(100.0);
 
         let result = bond_at_par
-            .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Ytm],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let ytm = *result.measures.get("ytm").unwrap();
@@ -177,6 +192,7 @@ fn test_duration_consistent_with_ytm() {
             &market,
             as_of,
             &[MetricId::Ytm, MetricId::DurationMod, MetricId::DurationMac],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -218,11 +234,21 @@ fn test_accrued_interest_uses_bond_daycount() {
     let market = MarketContext::new().insert(disc);
 
     let result_act365 = bond_act365
-        .price_with_metrics(&market, as_of, &[MetricId::Accrued])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Accrued],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let result_30360 = bond_30360
-        .price_with_metrics(&market, as_of, &[MetricId::Accrued])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Accrued],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let accrued_act365 = *result_act365.measures.get("accrued").unwrap();
@@ -274,6 +300,7 @@ fn test_dirty_clean_price_consistency() {
                     MetricId::DirtyPrice,
                     MetricId::Accrued,
                 ],
+                finstack_valuations::instruments::PricingOptions::default(),
             )
             .unwrap();
 

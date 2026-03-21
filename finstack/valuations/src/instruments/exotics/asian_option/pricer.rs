@@ -1172,7 +1172,8 @@ mod tests {
             .day_count
             .year_fraction(as_of, expiry, DayCountCtx::default())
             .expect("year fraction");
-        let expected = geometric_asian_call(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
+        let expected =
+            geometric_asian_call(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
         let expected_money = Money::new(expected, Currency::USD).amount();
 
         assert!((pv - expected_money).abs() < 1e-12);
@@ -1205,7 +1206,8 @@ mod tests {
             .day_count
             .year_fraction(as_of, expiry, DayCountCtx::default())
             .expect("year fraction");
-        let expected = geometric_asian_put(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
+        let expected =
+            geometric_asian_put(spot, strike, t, rate, div_yield, vol, fixing_dates.len());
         let expected_money = Money::new(expected, Currency::USD).amount();
 
         assert!((pv - expected_money).abs() < 1e-12);
@@ -1245,15 +1247,10 @@ mod tests {
             .sum::<f64>()
             / fixing_dates.len() as f64;
         let payoff = (average - 100.0).max(0.0);
-        let df = market
-            .get_discount("USD-OIS")
-            .expect("discount")
-            .df(
-                option
-                    .day_count
-                    .year_fraction(as_of, expiry, DayCountCtx::default())
-                    .expect("year fraction"),
-            );
+        let df = market.get_discount("USD-OIS").expect("discount").df(option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction"));
         let expected_money = Money::new(payoff * df, Currency::USD).amount();
 
         assert!((pv - expected_money).abs() < 1e-12);

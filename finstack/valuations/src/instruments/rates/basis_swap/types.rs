@@ -1024,6 +1024,7 @@ mod tests {
                 &context,
                 base_date,
                 &[MetricId::BasisParSpread, MetricId::AnnuityPrimary],
+                crate::instruments::PricingOptions::default(),
             )
             .expect("should succeed");
 

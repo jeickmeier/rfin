@@ -25,7 +25,12 @@ fn test_jump_to_default_positive_for_protection_buyer() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 
@@ -57,7 +62,12 @@ fn test_jump_to_default_negative_for_protection_seller() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 
@@ -79,7 +89,12 @@ fn test_jump_to_default_with_constituents() {
     let ctx = multi_constituent_market_context(as_of, 5);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 
@@ -99,10 +114,20 @@ fn test_jump_to_default_scales_with_notional() {
     let idx_20mm = standard_single_curve_index("CDX-20MM", start, end, 20_000_000.0);
 
     let result_10mm = idx_10mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_20mm = idx_20mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let jtd_10mm = *result_10mm.measures.get("jump_to_default").unwrap();
@@ -124,7 +149,12 @@ fn test_jump_to_default_reasonable_magnitude() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 
@@ -143,7 +173,12 @@ fn test_expected_loss_positive() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let el = *result.measures.get("expected_loss").unwrap();
 
@@ -162,10 +197,20 @@ fn test_expected_loss_scales_with_notional() {
     let idx_20mm = standard_single_curve_index("CDX-20MM", start, end, 20_000_000.0);
 
     let result_10mm = idx_10mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_20mm = idx_20mm
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let el_10mm = *result_10mm.measures.get("expected_loss").unwrap();
@@ -193,10 +238,20 @@ fn test_expected_loss_increases_with_maturity() {
     let idx_5y = standard_single_curve_index("CDX-5Y", start, date!(2030 - 01 - 01), 10_000_000.0);
 
     let result_3y = idx_3y
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_5y = idx_5y
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let el_3y = *result_3y.measures.get("expected_loss").unwrap();
@@ -221,7 +276,12 @@ fn test_theta_calculation() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Theta may or may not be present depending on implementation
@@ -241,7 +301,12 @@ fn test_bucketed_dv01_calculation() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Bucketed DV01 may be present
@@ -266,7 +331,14 @@ fn test_all_advanced_metrics_together() {
         MetricId::Theta,
     ];
 
-    let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert!(result.measures.contains_key("jump_to_default"));
     assert!(result.measures.contains_key("expected_loss"));
@@ -286,7 +358,12 @@ fn test_expected_loss_reasonable_magnitude() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let el = *result.measures.get("expected_loss").unwrap();
 
@@ -306,10 +383,20 @@ fn test_jump_to_default_constituents_vs_single() {
     let idx_const = standard_constituents_index("CDX-CONST", start, end, 10_000_000.0, 5);
 
     let result_single = idx_single
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_const = idx_const
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let jtd_single = *result_single.measures.get("jump_to_default").unwrap();
@@ -339,10 +426,20 @@ fn test_expected_loss_constituents_vs_single() {
     let idx_const = standard_constituents_index("CDX-CONST", start, end, 10_000_000.0, 5);
 
     let result_single = idx_single
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_const = idx_const
-        .price_with_metrics(&ctx, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let el_single = *result_single.measures.get("expected_loss").unwrap();
@@ -365,7 +462,14 @@ fn test_advanced_metrics_finite() {
 
     let metrics = vec![MetricId::JumpToDefault, MetricId::ExpectedLoss];
 
-    let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     for (name, value) in &result.measures {
         assert!(
@@ -395,7 +499,12 @@ fn test_jtd_per_name_basis() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 

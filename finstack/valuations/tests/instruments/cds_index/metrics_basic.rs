@@ -24,7 +24,14 @@ fn test_metric_npv_matches_direct_value() {
     let ctx = standard_market_context(as_of);
 
     let direct_npv = idx.value(&ctx, as_of).unwrap();
-    let result = idx.price_with_metrics(&ctx, as_of, &[]).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert_money_approx_eq(result.value, direct_npv, 0.01, "Direct NPV vs metrics NPV");
 }
@@ -40,7 +47,12 @@ fn test_metric_par_spread() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_spread = *result.measures.get("par_spread").unwrap();
@@ -66,7 +78,12 @@ fn test_metric_protection_leg_pv() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ProtectionLegPv])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ProtectionLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let prot_pv = *result.measures.get("protection_leg_pv").unwrap();
@@ -85,7 +102,12 @@ fn test_metric_premium_leg_pv() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::PremiumLegPv])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let prem_pv = *result.measures.get("premium_leg_pv").unwrap();
@@ -108,6 +130,7 @@ fn test_metric_legs_npv_consistency() {
             &ctx,
             as_of,
             &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -135,7 +158,14 @@ fn test_multiple_metrics_single_call() {
         MetricId::PremiumLegPv,
     ];
 
-    let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert!(result.measures.contains_key("par_spread"));
     assert!(result.measures.contains_key("protection_leg_pv"));
@@ -153,7 +183,12 @@ fn test_metrics_single_curve_mode() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(result.measures.get("par_spread").is_some());
@@ -170,7 +205,12 @@ fn test_metrics_constituents_mode() {
     let ctx = multi_constituent_market_context(as_of, 5);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(result.measures.get("par_spread").is_some());
@@ -187,7 +227,12 @@ fn test_par_spread_metric_positive() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let metric_par = *result.measures.get("par_spread").unwrap();
 
@@ -205,7 +250,12 @@ fn test_protection_pv_metric_positive() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ProtectionLegPv])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ProtectionLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let metric_prot = *result.measures.get("protection_leg_pv").unwrap();
 
@@ -223,7 +273,12 @@ fn test_premium_pv_metric_positive() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::PremiumLegPv])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let metric_prem = *result.measures.get("premium_leg_pv").unwrap();
 
@@ -240,7 +295,14 @@ fn test_empty_metrics_request() {
     let idx = standard_single_curve_index("CDX-EMPTY", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let result = idx.price_with_metrics(&ctx, as_of, &[]).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     assert!(result.value.amount().is_finite());
     // Measures may be empty or contain default metrics
@@ -262,7 +324,14 @@ fn test_metric_values_are_finite() {
         MetricId::PremiumLegPv,
     ];
 
-    let result = idx.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = idx
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     for (name, value) in &result.measures {
         assert!(
@@ -285,7 +354,12 @@ fn test_par_spread_reasonable_range() {
     let ctx = standard_market_context(as_of);
 
     let result = idx
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread = *result.measures.get("par_spread").unwrap();
 

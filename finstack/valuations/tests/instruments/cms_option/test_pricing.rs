@@ -94,7 +94,12 @@ fn test_convexity_value() {
 
     // Calculate Convexity Adjustment Risk
     let result = inst
-        .price_with_metrics(&market, as_of, &[MetricId::ConvexityAdjustmentRisk])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ConvexityAdjustmentRisk],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Metric calc failed");
 
     let convexity_val = result
@@ -223,11 +228,21 @@ fn test_long_tenor_cms_convexity_larger_than_short_tenor() {
 
     // Calculate Convexity Adjustment Risk for both
     let long_result = long_tenor_inst
-        .price_with_metrics(&market, as_of, &[MetricId::ConvexityAdjustmentRisk])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ConvexityAdjustmentRisk],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Long tenor pricing failed");
 
     let short_result = short_tenor_inst
-        .price_with_metrics(&market, as_of, &[MetricId::ConvexityAdjustmentRisk])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ConvexityAdjustmentRisk],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Short tenor pricing failed");
 
     let long_convexity = long_result
@@ -313,7 +328,12 @@ fn test_vanna_computable() {
 
     // Get analytical vanna and vega
     let result = inst
-        .price_with_metrics(&market, as_of, &[MetricId::Vanna, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vanna, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Metrics calc failed");
 
     let analytical_vanna = result
@@ -368,10 +388,20 @@ fn test_vanna_changes_with_moneyness() {
     };
 
     let result_itm = itm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vanna])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vanna],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("ITM metrics calc failed");
     let result_otm = otm_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vanna])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vanna],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("OTM metrics calc failed");
 
     let vanna_itm = result_itm

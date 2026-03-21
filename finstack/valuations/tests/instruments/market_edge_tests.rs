@@ -165,7 +165,12 @@ mod cds_market_edge {
             .expect("CDS construction should succeed");
 
             let premium_pv = cds
-                .price_with_metrics(&market, as_of, &[MetricId::PremiumLegPv])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::PremiumLegPv],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap()
                 .measures[&MetricId::PremiumLegPv];
             premium_pvs.push((h, premium_pv));

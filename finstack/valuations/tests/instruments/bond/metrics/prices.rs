@@ -30,7 +30,12 @@ fn test_clean_price_from_quoted() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::CleanPrice])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::CleanPrice],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let clean = *result.measures.get("clean_price").unwrap();
     assert!((clean - 98.5).abs() < 0.1);

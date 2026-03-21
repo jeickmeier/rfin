@@ -19,7 +19,12 @@ fn test_par_rate_matches_forward_curve() {
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -39,7 +44,12 @@ fn test_par_rate_at_market_fra_is_fixed_rate() {
     let fra = TestFraBuilder::new().fixed_rate(0.05).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -61,12 +71,22 @@ fn test_par_rate_independent_of_fixed_rate() {
     let fra_6pct = TestFraBuilder::new().fixed_rate(0.06).build();
 
     let result_4 = fra_4pct
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_4 = *result_4.measures.get("par_rate").unwrap();
 
     let result_6 = fra_6pct
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_6 = *result_6.measures.get("par_rate").unwrap();
 
@@ -87,7 +107,12 @@ fn test_par_rate_upward_sloping_curve() {
 
     let fra = create_standard_fra();
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -110,7 +135,12 @@ fn test_par_rate_inverted_curve() {
 
     let fra = create_standard_fra();
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -127,7 +157,12 @@ fn test_par_rate_short_period() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -144,7 +179,12 @@ fn test_par_rate_long_period() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -163,7 +203,12 @@ fn test_par_rate_zero_tau_returns_error() {
 
     // Zero-length period should now return an error (not 0.0)
     // because a zero-length FRA has undefined par rate
-    let result = fra.price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate]);
+    let result = fra.price_with_metrics(
+        &market,
+        BASE_DATE,
+        &[MetricId::ParRate],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(
         result.is_err(),
@@ -186,12 +231,22 @@ fn test_par_rate_different_day_counts() {
     let fra_365 = TestFraBuilder::new().day_count(DayCount::Act365F).build();
 
     let result_360 = fra_360
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_360 = *result_360.measures.get("par_rate").unwrap();
 
     let result_365 = fra_365
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_365 = *result_365.measures.get("par_rate").unwrap();
 
@@ -212,7 +267,12 @@ fn test_par_rate_negative_rate_environment() {
 
     let fra = create_standard_fra();
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_rate = *result.measures.get("par_rate").unwrap();
 

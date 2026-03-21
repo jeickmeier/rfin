@@ -289,6 +289,7 @@ fn bench_swap_dv01(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::Dv01]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -313,6 +314,7 @@ fn bench_swap_par_rate(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::ParRate, MetricId::Annuity]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },

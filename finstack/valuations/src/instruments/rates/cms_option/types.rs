@@ -264,6 +264,10 @@ impl CmsOptionBuilder {
 impl crate::instruments::common_impl::traits::Instrument for CmsOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CmsOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,

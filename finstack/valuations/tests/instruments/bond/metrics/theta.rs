@@ -28,7 +28,12 @@ fn test_theta_finite() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = *result.measures.get("theta").unwrap();
     assert!(theta.is_finite());

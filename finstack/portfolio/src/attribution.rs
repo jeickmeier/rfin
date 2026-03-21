@@ -218,7 +218,12 @@ fn attribute_single_position(
 
             let val_t0 = position
                 .instrument
-                .price_with_metrics(market_t0, as_of_t0, &metrics)
+                .price_with_metrics(
+                    market_t0,
+                    as_of_t0,
+                    &metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .map_err(|e: finstack_core::Error| Error::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution T0 valuation failed: {}", e),
@@ -226,7 +231,12 @@ fn attribute_single_position(
 
             let val_t1 = position
                 .instrument
-                .price_with_metrics(market_t1, as_of_t1, &metrics)
+                .price_with_metrics(
+                    market_t1,
+                    as_of_t1,
+                    &metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .map_err(|e: finstack_core::Error| Error::ValuationError {
                     position_id: position.position_id.clone(),
                     message: format!("Attribution T1 valuation failed: {}", e),

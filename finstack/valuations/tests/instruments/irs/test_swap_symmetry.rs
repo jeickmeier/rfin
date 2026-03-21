@@ -81,8 +81,8 @@ proptest! {
         // Create market with reasonable rates
         let market = create_test_market(base_date, 0.03, 0.05);
 
-        let result_pay = swap_pay.price_with_metrics(&market, base_date, &[MetricId::Dv01]).unwrap();
-        let result_rec = swap_rec.price_with_metrics(&market, base_date, &[MetricId::Dv01]).unwrap();
+        let result_pay = swap_pay.price_with_metrics(&market, base_date, &[MetricId::Dv01], finstack_valuations::instruments::PricingOptions::default()).unwrap();
+        let result_rec = swap_rec.price_with_metrics(&market, base_date, &[MetricId::Dv01], finstack_valuations::instruments::PricingOptions::default()).unwrap();
 
         let dv01_pay = result_pay.measures[MetricId::Dv01.as_str()];
         let dv01_rec = result_rec.measures[MetricId::Dv01.as_str()];
@@ -120,7 +120,7 @@ proptest! {
         .expect("Valid swap construction");
 
         let par_result = temp_swap
-            .price_with_metrics(&market, base_date, &[MetricId::ParRate])
+            .price_with_metrics(&market, base_date, &[MetricId::ParRate], finstack_valuations::instruments::PricingOptions::default())
             .unwrap();
         let par_rate = par_result.measures[MetricId::ParRate.as_str()];
 
@@ -183,7 +183,7 @@ proptest! {
 
         let market = create_test_market(base_date, 0.03, 0.05);
 
-        let result = swap.price_with_metrics(&market, base_date, &[MetricId::Annuity]).unwrap();
+        let result = swap.price_with_metrics(&market, base_date, &[MetricId::Annuity], finstack_valuations::instruments::PricingOptions::default()).unwrap();
         let annuity = result.measures[MetricId::Annuity.as_str()];
 
         // Property: Annuity must always be positive

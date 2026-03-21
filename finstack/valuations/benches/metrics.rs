@@ -89,6 +89,7 @@ fn bench_metrics_bond_standard(c: &mut Criterion) {
                 black_box(&market),
                 black_box(base_date),
                 black_box(&metric_ids),
+                finstack_valuations::instruments::PricingOptions::default(),
             )
         })
     });
@@ -113,6 +114,7 @@ fn bench_metrics_pricing_only(c: &mut Criterion) {
                 black_box(&market),
                 black_box(base_date),
                 black_box(&metric_ids),
+                finstack_valuations::instruments::PricingOptions::default(),
             )
         })
     });
@@ -152,6 +154,7 @@ fn bench_metrics_scaling(c: &mut Criterion) {
                         black_box(&market),
                         black_box(base_date),
                         black_box(ids),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 })
             },
@@ -196,6 +199,7 @@ fn bench_metrics_portfolio(c: &mut Criterion) {
                         black_box(&market),
                         black_box(base_date),
                         black_box(&metric_ids),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 })
                 .collect::<Result<Vec<_>, _>>()

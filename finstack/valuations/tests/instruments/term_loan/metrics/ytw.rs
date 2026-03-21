@@ -58,6 +58,7 @@ fn test_ytw_is_minimum_of_ytm_and_ytc() {
         &market,
         as_of,
         &[MetricId::Ytm, MetricId::Ytw, MetricId::custom("ytc")],
+        finstack_valuations::instruments::PricingOptions::default(),
     );
 
     // Assert
@@ -125,6 +126,7 @@ fn test_ytw_callable_amortizing_loan_coupon_on_call_date() {
             &market,
             as_of,
             &[MetricId::Ytm, MetricId::Ytw, MetricId::custom("ytc")],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("pricing should succeed");
 
@@ -189,13 +191,23 @@ fn test_ytw_uses_quoted_clean_price_when_present() {
     let market = MarketContext::new().insert(disc_curve);
 
     let base = loan
-        .price_with_metrics(&market, as_of, &[MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytw_base = *base.measures.get("ytw").unwrap();
 
     loan.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
     let quoted = loan
-        .price_with_metrics(&market, as_of, &[MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytw_quoted = *quoted.measures.get("ytw").unwrap();
 

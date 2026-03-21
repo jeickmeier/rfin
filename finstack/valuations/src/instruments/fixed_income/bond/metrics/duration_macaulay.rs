@@ -140,7 +140,12 @@ mod tests {
         let market = MarketContext::new().insert(curve);
 
         let result = bond
-            .price_with_metrics(&market, as_of, &[MetricId::DurationMac])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::DurationMac],
+                crate::instruments::PricingOptions::default(),
+            )
             .expect("duration result");
         assert_eq!(
             *result.measures.get("duration_mac").expect("duration_mac"),

@@ -91,7 +91,12 @@ fn test_option_delta_determinism() {
     let deltas: Vec<f64> = (0..50)
         .map(|_| {
             let result = option
-                .price_with_metrics(&market, as_of, &[MetricId::Delta])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Delta],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Delta.as_str()]
         })
@@ -128,7 +133,12 @@ fn test_option_gamma_determinism() {
     let gammas: Vec<f64> = (0..50)
         .map(|_| {
             let result = option
-                .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Gamma],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Gamma.as_str()]
         })
@@ -157,7 +167,12 @@ fn test_option_vega_determinism() {
     let vegas: Vec<f64> = (0..50)
         .map(|_| {
             let result = option
-                .price_with_metrics(&market, as_of, &[MetricId::Vega])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Vega],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Vega.as_str()]
         })
@@ -190,7 +205,12 @@ fn test_option_theta_determinism() {
     let thetas: Vec<f64> = (0..50)
         .map(|_| {
             let result = option
-                .price_with_metrics(&market, as_of, &[MetricId::Theta])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Theta],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Theta.as_str()]
         })
@@ -229,7 +249,16 @@ fn test_option_all_greeks_determinism() {
 
     // Calculate all greeks 30 times
     let results: Vec<_> = (0..30)
-        .map(|_| option.price_with_metrics(&market, as_of, &metrics).unwrap())
+        .map(|_| {
+            option
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
+                .unwrap()
+        })
         .collect();
 
     // Verify each metric is deterministic

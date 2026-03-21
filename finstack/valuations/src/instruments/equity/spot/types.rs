@@ -476,6 +476,7 @@ mod tests {
                     crate::metrics::MetricId::EquityPricePerShare,
                     crate::metrics::MetricId::EquityShares,
                 ],
+                crate::instruments::PricingOptions::default(),
             )
             .expect("should succeed");
         assert_eq!(result.value.amount(), 10_000.0); // This is the market value (PV)

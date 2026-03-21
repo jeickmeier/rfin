@@ -83,7 +83,12 @@ fn delta_based_engine_matches_bond_dv01_metric() -> Result<()> {
     let as_of = make_date(2025, Month::January, 15)?;
     let market = create_test_market(as_of)?;
 
-    let metric_result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01])?;
+    let metric_result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Dv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    )?;
     let expected_dv01 = metric_result.measures[MetricId::Dv01.as_str()];
 
     let positions = vec![("bond-pos".to_string(), &bond as &dyn Instrument, 1.0)];
@@ -107,7 +112,12 @@ fn full_repricing_engine_matches_bond_dv01_metric() -> Result<()> {
     let as_of = make_date(2025, Month::January, 15)?;
     let market = create_test_market(as_of)?;
 
-    let metric_result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01])?;
+    let metric_result = bond.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Dv01],
+        finstack_valuations::instruments::PricingOptions::default(),
+    )?;
     let expected_dv01 = metric_result.measures[MetricId::Dv01.as_str()];
 
     let positions = vec![("bond-pos".to_string(), &bond as &dyn Instrument, 1.0)];

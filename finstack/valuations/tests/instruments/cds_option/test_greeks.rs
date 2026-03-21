@@ -12,7 +12,12 @@ fn test_delta_call_positive() {
     let option = CDSOptionBuilder::new().call().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
@@ -27,7 +32,12 @@ fn test_delta_put_negative() {
     let option = CDSOptionBuilder::new().put().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
@@ -42,7 +52,12 @@ fn test_gamma_positive() {
     let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let gamma = *result.measures.get("gamma").unwrap();
 
@@ -57,7 +72,12 @@ fn test_vega_positive() {
     let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let vega = *result.measures.get("vega").unwrap();
 
@@ -72,7 +92,12 @@ fn test_theta_exists() {
     let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = *result.measures.get("theta").unwrap();
 
@@ -87,7 +112,12 @@ fn test_rho_exists() {
     let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let rho = *result.measures.get("rho").unwrap();
 
@@ -101,7 +131,12 @@ fn test_cs01_call_positive() {
     let option = CDSOptionBuilder::new().call().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let cs01 = *result.measures.get("cs01").unwrap();
 
@@ -116,7 +151,12 @@ fn test_dv01_positive() {
     let option = CDSOptionBuilder::new().build(as_of);
 
     let result = option
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
@@ -143,6 +183,7 @@ fn test_all_greeks_together() {
                 MetricId::Cs01,
                 MetricId::Dv01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -167,7 +208,12 @@ fn test_delta_moneyness_effect() {
     for strike in [50.0, 100.0, 200.0, 300.0, 500.0] {
         let option = CDSOptionBuilder::new().call().strike(strike).build(as_of);
         let result = option
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         let delta = *result.measures.get("delta").unwrap();
         deltas.push((strike, delta));
@@ -186,7 +232,12 @@ fn test_gamma_peaks_atm() {
     for strike in [50.0, 100.0, 150.0, 200.0, 250.0, 300.0] {
         let option = CDSOptionBuilder::new().strike(strike).build(as_of);
         let result = option
-            .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Gamma],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         let gamma = *result.measures.get("gamma").unwrap();
         gammas.push((strike, gamma));
@@ -209,7 +260,12 @@ fn test_vega_time_decay() {
             .cds_maturity_months(months + 48)
             .build(as_of);
         let result = option
-            .price_with_metrics(&market, as_of, &[MetricId::Vega])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Vega],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         let vega = *result.measures.get("vega").unwrap();
         vegas.push((months as f64, vega));

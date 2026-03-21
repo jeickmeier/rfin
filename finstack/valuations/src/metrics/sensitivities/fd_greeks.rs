@@ -88,6 +88,7 @@ fn ensure_finite(value: f64, metric_name: &str) -> finstack_core::Result<f64> {
 }
 
 fn eval_raw_with_scratch_bumps<I>(
+    context: &MetricContext,
     scratch: &mut finstack_core::market_data::context::MarketContext,
     instrument: &I,
     as_of: Date,
@@ -126,7 +127,7 @@ where
         None => None,
     };
 
-    let value = instrument.value_raw(scratch, as_of);
+    let value = context.reprice_instrument_raw(instrument, scratch, as_of);
     if let Some(token) = surface_token {
         scratch.revert_scratch_bump(token)?;
     }
@@ -377,17 +378,16 @@ where
         let mut instrument_down = instrument.clone();
 
         // Common Random Numbers: same seed for all scenarios ensures variance reduction
-        instrument_up
-            .pricing_overrides_mut()
-            .scenario
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_up)
+            .metrics
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
-        instrument_down
-            .pricing_overrides_mut()
-            .scenario
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_down)
+            .metrics
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         let mut scratch = context.curves.as_ref().clone();
         let pv_up = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &instrument_up,
             as_of,
@@ -395,6 +395,7 @@ where
             None,
         )?;
         let pv_down = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &instrument_down,
             as_of,
@@ -476,19 +477,18 @@ where
 
         // Clone instruments and set CRN seed for variance reduction
         let mut instrument_base = instrument.clone();
-        instrument_base
-            .pricing_overrides_mut()
-            .scenario
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_base)
+            .metrics
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut scratch = context.curves.as_ref().clone();
-        let base_pv = instrument_base.value_raw(&scratch, as_of)?;
+        let base_pv = context.reprice_instrument_raw(&instrument_base, &scratch, as_of)?;
 
         let mut instrument_up = instrument.clone();
-        instrument_up
-            .pricing_overrides_mut()
-            .scenario
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_up)
+            .metrics
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let pv_up = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &instrument_up,
             as_of,
@@ -497,11 +497,11 @@ where
         )?;
 
         let mut instrument_down = instrument.clone();
-        instrument_down
-            .pricing_overrides_mut()
-            .scenario
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_down)
+            .metrics
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let pv_down = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &instrument_down,
             as_of,
@@ -568,14 +568,17 @@ where
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_up)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_down = instrument.clone();
-        inst_down.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_down)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         let mut scratch = context.curves.as_ref().clone();
         let pv_up = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_up,
             as_of,
@@ -583,6 +586,7 @@ where
             Some((vol_surface_id.as_str(), bump_abs)),
         )?;
         let pv_down = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_down,
             as_of,
@@ -647,24 +651,26 @@ where
 
         // Clone instruments and set CRN seed for variance reduction
         let mut instrument_base = instrument.clone();
-        instrument_base
-            .pricing_overrides_mut()
-            .scenario
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut instrument_base)
+            .metrics
             .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut scratch = context.curves.as_ref().clone();
-        let base_pv = instrument_base.value_raw(&scratch, as_of)?;
+        let base_pv = context.reprice_instrument_raw(&instrument_base, &scratch, as_of)?;
 
         // Absolute implied vol bump (vol points).
         let bump_abs = defaults.vol_bump_pct;
 
         let mut inst_up = instrument.clone();
-        inst_up.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_up)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_down = instrument.clone();
-        inst_down.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_down)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         let pv_up = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_up,
             as_of,
@@ -672,6 +678,7 @@ where
             Some((vol_surface_id.as_str(), bump_abs)),
         )?;
         let pv_down = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_down,
             as_of,
@@ -756,20 +763,25 @@ where
         let k_abs = vol_bump_abs; // absolute vol change (vol points)
 
         let mut inst_pp = instrument.clone();
-        inst_pp.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_pp)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_pm = instrument.clone();
-        inst_pm.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_pm)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_mp = instrument.clone();
-        inst_mp.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_mp)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
         let mut inst_mm = instrument.clone();
-        inst_mm.pricing_overrides_mut().metrics.mc_seed_scenario =
-            Some(CRN_SEED_SCENARIO.to_string());
+        <I as HasPricingOverrides>::pricing_overrides_mut(&mut inst_mm)
+            .metrics
+            .mc_seed_scenario = Some(CRN_SEED_SCENARIO.to_string());
 
         let mut scratch = context.curves.as_ref().clone();
         let v_pp = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_pp,
             as_of,
@@ -777,6 +789,7 @@ where
             Some((vol_surface_id.as_str(), k_abs)),
         )?;
         let v_pm = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_pm,
             as_of,
@@ -784,6 +797,7 @@ where
             Some((vol_surface_id.as_str(), -k_abs)),
         )?;
         let v_mp = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_mp,
             as_of,
@@ -791,6 +805,7 @@ where
             Some((vol_surface_id.as_str(), k_abs)),
         )?;
         let v_mm = eval_raw_with_scratch_bumps(
+            context,
             &mut scratch,
             &inst_mm,
             as_of,
@@ -983,6 +998,7 @@ mod tests {
             market: &MarketContext,
             as_of: Date,
             metrics: &[MetricId],
+            options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base_value = self.value(market, as_of)?;
             crate::instruments::common_impl::helpers::build_with_metrics_dyn(
@@ -991,8 +1007,11 @@ mod tests {
                 as_of,
                 base_value,
                 metrics,
-                None,
-                None,
+                crate::instruments::common_impl::helpers::MetricBuildOptions {
+                    cfg: options.config,
+                    market_history: options.market_history,
+                    ..crate::instruments::common_impl::helpers::MetricBuildOptions::default()
+                },
             )
         }
     }
@@ -1041,6 +1060,7 @@ mod tests {
             market: &MarketContext,
             as_of: Date,
             metrics: &[MetricId],
+            options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base_value = self.value(market, as_of)?;
             crate::instruments::common_impl::helpers::build_with_metrics_dyn(
@@ -1049,8 +1069,11 @@ mod tests {
                 as_of,
                 base_value,
                 metrics,
-                None,
-                None,
+                crate::instruments::common_impl::helpers::MetricBuildOptions {
+                    cfg: options.config,
+                    market_history: options.market_history,
+                    ..crate::instruments::common_impl::helpers::MetricBuildOptions::default()
+                },
             )
         }
     }

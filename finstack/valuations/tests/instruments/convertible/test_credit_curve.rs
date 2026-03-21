@@ -151,7 +151,12 @@ fn test_cs01_nonzero_with_credit_curve() {
     let market = create_market_context_with_credit(200.0);
 
     let result = bond
-        .price_with_metrics(&market, dates::base_date(), &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            dates::base_date(),
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("should compute CS01");
 
     let cs01 = *result.measures.get("cs01").expect("CS01 should be present");
@@ -177,7 +182,12 @@ fn test_cs01_zero_without_credit_curve() {
     let market = create_market_context();
 
     let result = bond
-        .price_with_metrics(&market, dates::base_date(), &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            dates::base_date(),
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("should compute CS01");
 
     let cs01 = *result.measures.get("cs01").expect("CS01 should be present");
@@ -200,6 +210,7 @@ fn test_dv01_and_cs01_are_distinct() {
             &market,
             dates::base_date(),
             &[MetricId::Dv01, MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("should compute DV01 and CS01");
 
@@ -321,6 +332,7 @@ fn test_greeks_with_credit_curve() {
                 MetricId::Vega,
                 MetricId::Rho,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("should compute Greeks with credit curve");
 

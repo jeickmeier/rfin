@@ -367,7 +367,12 @@ fn test_zero_notional() {
 
     let pv = cap.value(&market, as_of).unwrap().amount();
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Zero notional should result in zero PV and zero Greeks

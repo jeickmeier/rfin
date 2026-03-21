@@ -32,7 +32,12 @@ fn test_duration_zero_coupon() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DurationMac])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationMac],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let mac_dur = *result.measures.get("duration_mac").unwrap();
     assert!((mac_dur - 5.0).abs() < 0.2); // Zero coupon duration ≈ maturity
@@ -70,6 +75,7 @@ fn test_modified_duration_matches_macaulay_over_yield() {
             &market,
             as_of,
             &[MetricId::Ytm, MetricId::DurationMac, MetricId::DurationMod],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
     let ytm = *res.measures.get("ytm").unwrap();
@@ -106,7 +112,12 @@ fn test_convexity_matches_numerical_second_derivative() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let res = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Convexity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::Convexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *res.measures.get("ytm").unwrap();
     let conv_closed = *res.measures.get("convexity").unwrap();

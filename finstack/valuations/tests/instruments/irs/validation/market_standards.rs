@@ -81,7 +81,12 @@ fn test_irs_par_rate_market_standard() {
     .unwrap();
     // Compute par rate under current curves
     let par = swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["par_rate"];
     // Rebuild swap at par and assert PV ~ 0
@@ -128,12 +133,22 @@ fn test_par_rate_discount_ratio_matches_forward_for_new_swap() {
     swap_discount.fixed.par_method = Some(ParRateMethod::DiscountRatio);
 
     let par_forward = swap_forward
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["par_rate"];
 
     let par_discount = swap_discount
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["par_rate"];
 
@@ -186,12 +201,22 @@ fn test_par_rate_discount_ratio_rejects_seasoned_swap() {
 
     let par_forward = swap
         .clone()
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["par_rate"];
 
     let par_discount = swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["par_rate"];
 
@@ -231,7 +256,12 @@ fn test_irs_annuity_calculation() {
     .unwrap();
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -277,7 +307,12 @@ fn test_irs_dv01_market_standard() {
     .unwrap();
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -552,7 +587,12 @@ fn test_irs_leg_pvs_consistency() {
     };
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed, MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed, MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
@@ -661,12 +701,22 @@ fn test_daycount_convention_impact_on_annuity() {
         .unwrap();
 
     let annuity_act360 = swap_act360
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["annuity"];
 
     let annuity_30360 = swap_30360
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["annuity"];
 
@@ -806,6 +856,7 @@ fn test_irs_t_minus_2_fixing_calendar_isda_standard() {
                 MetricId::ParRate,
                 MetricId::Dv01,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
     let elapsed = timer.elapsed();
@@ -1110,7 +1161,12 @@ fn test_sofr_ois_par_rate_matches_quantlib_identity() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("metrics");
     let par_rate = result
         .measures
@@ -1324,7 +1380,12 @@ fn test_eom_pricer_cashflow_consistency() {
     // Verify that the EOM swap's par rate calculation also works
     let metrics = vec![MetricId::ParRate, MetricId::Annuity];
     let result = swap_eom
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("EOM metrics should compute");
     let par_rate = result.measures.get(MetricId::ParRate.as_str()).copied();
     assert!(

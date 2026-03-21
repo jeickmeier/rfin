@@ -11,7 +11,12 @@ fn test_theta_finite() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -27,7 +32,12 @@ fn test_theta_time_decay_validation() {
 
     // Analytical theta
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = *result.measures.get("theta").unwrap();
 
@@ -57,7 +67,12 @@ fn test_theta_reasonable_magnitude() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -83,7 +98,12 @@ fn test_theta_increases_near_expiry() {
     let swaption_near = create_standard_payer_swaption(expiry_near, swap_start, swap_end, 0.05);
 
     let theta_far = swaption_far
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("theta")
@@ -91,7 +111,12 @@ fn test_theta_increases_near_expiry() {
         .unwrap();
 
     let theta_near = swaption_near
-        .price_with_metrics(&market, as_of_later, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of_later,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("theta")

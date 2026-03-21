@@ -8,6 +8,7 @@ use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::structured_credit::TrancheCashflows;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::MetricId;
+use crate::pricer::{ModelKey, PricerRegistry};
 use finstack_core::cashflow::CashFlow;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::money::Money;
@@ -152,6 +153,12 @@ pub struct MetricContext {
     /// the core market container strongly typed and fully serializable.
     pub(crate) market_history: Option<Arc<MarketHistory>>,
 
+    /// Pricing model to reuse for bump-and-reprice metrics.
+    pub(crate) pricing_model: Option<ModelKey>,
+
+    /// Pricer registry to reuse for bump-and-reprice metrics.
+    pub(crate) pricer_registry: Option<Arc<PricerRegistry>>,
+
     /// Valuation date.
     pub as_of: Date,
 
@@ -247,6 +254,8 @@ impl MetricContext {
             instrument,
             curves,
             market_history: None,
+            pricing_model: None,
+            pricer_registry: None,
             as_of,
             base_value,
             computed: finstack_core::HashMap::default(),
@@ -273,10 +282,26 @@ impl MetricContext {
         &self.finstack_config
     }
 
+    /// Clone the shared finstack configuration.
+    #[inline]
+    pub fn config_arc(&self) -> Arc<FinstackConfig> {
+        Arc::clone(&self.finstack_config)
+    }
+
     /// Attach market history to this context (used by Historical VaR metrics).
     pub fn with_market_history(mut self, history: Arc<MarketHistory>) -> Self {
         self.market_history = Some(history);
         self
+    }
+
+    /// Reuse a specific pricer registry/model pair for metric repricing.
+    pub fn set_pricer_dispatch(
+        &mut self,
+        pricing_model: Option<ModelKey>,
+        pricer_registry: Option<Arc<PricerRegistry>>,
+    ) {
+        self.pricing_model = pricing_model;
+        self.pricer_registry = pricer_registry;
     }
 
     /// Set a custom bucket key resolver.
@@ -314,11 +339,59 @@ impl MetricContext {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<Money> {
-        let value = self.instrument.value(market, as_of)?;
+        let value = self.reprice_money(market, as_of)?;
         Ok(self
             .scenario_overrides
             .as_ref()
             .map_or(value, |overrides| overrides.apply_to_value(value)))
+    }
+
+    /// Reprice the context instrument using the active dispatch path.
+    pub fn reprice_money(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        self.reprice_instrument_money(self.instrument.as_ref(), market, as_of)
+    }
+
+    /// Reprice the context instrument as a raw amount using the active dispatch path.
+    pub fn reprice_raw(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<f64> {
+        self.reprice_instrument_raw(self.instrument.as_ref(), market, as_of)
+    }
+
+    /// Reprice an arbitrary instrument using the active dispatch path.
+    pub fn reprice_instrument_money(
+        &self,
+        instrument: &dyn Instrument,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        if let (Some(model), Some(registry)) = (self.pricing_model, self.pricer_registry.as_ref()) {
+            return Ok(registry
+                .price(instrument, model, market, as_of, Some(self.config()))?
+                .value);
+        }
+        instrument.value(market, as_of)
+    }
+
+    /// Reprice an arbitrary instrument as a raw amount using the active dispatch path.
+    pub fn reprice_instrument_raw(
+        &self,
+        instrument: &dyn Instrument,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<f64> {
+        if let (Some(model), Some(registry)) = (self.pricing_model, self.pricer_registry.as_ref()) {
+            return registry
+                .price_raw(instrument, model, market, as_of)
+                .map_err(Into::into);
+        }
+        instrument.value_raw(market, as_of)
     }
 
     /// Downcast the instrument to a specific concrete type.

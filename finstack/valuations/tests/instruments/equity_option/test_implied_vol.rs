@@ -81,7 +81,12 @@ fn test_implied_vol_recovers_surface_vol() {
 
     // Calculate implied vol
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -126,7 +131,12 @@ fn test_implied_vol_atm_option() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -166,7 +176,12 @@ fn test_implied_vol_itm_option() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -206,7 +221,12 @@ fn test_implied_vol_otm_option() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -246,7 +266,12 @@ fn test_implied_vol_short_dated() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -286,7 +311,12 @@ fn test_implied_vol_long_dated() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -326,7 +356,12 @@ fn test_implied_vol_high_volatility() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -367,7 +402,12 @@ fn test_implied_vol_low_volatility() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -407,7 +447,12 @@ fn test_implied_vol_returns_zero_for_expired() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -443,7 +488,12 @@ fn test_implied_vol_with_dividends() {
         .insert("market_price".to_string(), market_price.to_string());
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();

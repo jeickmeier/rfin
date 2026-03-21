@@ -499,13 +499,18 @@ fn parse_tagged_value(value: serde_json::Value) -> serde_json::Result<Instrument
                 "commodity_asian_option",
                 "commodity_forward",
                 "commodity_swap",
+                "commodity_swaption",
+                "commodity_spread_option",
                 // Exotics
                 "autocallable",
                 "cliquet_option",
                 "range_accrual",
                 // TRS
                 "trs_equity",
+                "equity_trs",
                 "trs_fixed_income_index",
+                "fi_trs",
+                "fixed_income_trs",
                 // Structured
                 "structured_credit",
                 // Other
@@ -563,7 +568,7 @@ impl InstrumentEnvelope {
         }
 
         let instrument = envelope.instrument.into_boxed()?;
-        if let Some(overrides) = instrument.pricing_overrides() {
+        if let Some(overrides) = instrument.scenario_overrides() {
             overrides.validate()?;
         }
         Ok(instrument)

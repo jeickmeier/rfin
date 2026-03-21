@@ -175,10 +175,20 @@ fn test_delta_values() {
     let put_metrics = vec![MetricId::Delta];
 
     let call_result = call
-        .price_with_metrics(&market, as_of, &call_metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &call_metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("call metrics should succeed");
     let put_result = put
-        .price_with_metrics(&market, as_of, &put_metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &put_metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("put metrics should succeed");
 
     if let Some(&call_delta) = call_result.measures.get(MetricId::Delta.as_str()) {
@@ -231,10 +241,20 @@ fn test_gamma_call_equals_put() {
     let metrics = vec![MetricId::Gamma];
 
     let call_result = call
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("call metrics should succeed");
     let put_result = put
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("put metrics should succeed");
 
     if let (Some(&call_gamma), Some(&put_gamma)) = (

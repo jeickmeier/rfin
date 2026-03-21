@@ -480,6 +480,10 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for QuantoOpt
 impl crate::instruments::common_impl::traits::Instrument for QuantoOption {
     impl_instrument_base!(crate::pricer::InstrumentType::QuantoOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::QuantoBS
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>

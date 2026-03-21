@@ -98,7 +98,14 @@ fn test_expired_option_greeks_are_static() {
         MetricId::Rho,
     ];
 
-    let result = call.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = call
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
     let gamma = *result.measures.get("gamma").unwrap();
@@ -248,7 +255,12 @@ fn test_very_long_maturity() {
     assert_positive(pv.amount(), "Long dated call PV");
     // Vega should be high for long dated
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let vega = *result.measures.get("vega").unwrap();
     assert_positive(vega, "Long dated vega");

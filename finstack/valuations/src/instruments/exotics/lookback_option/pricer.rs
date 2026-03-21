@@ -689,14 +689,8 @@ mod tests {
             .day_count
             .year_fraction(as_of, expiry, DayCountCtx::default())
             .expect("year fraction");
-        let expected = floating_strike_lookback_put(
-            spot,
-            t,
-            rate,
-            div_yield,
-            vol,
-            observed_max.max(spot),
-        );
+        let expected =
+            floating_strike_lookback_put(spot, t, rate, div_yield, vol, observed_max.max(spot));
 
         assert!((pv - expected).abs() < 1e-12);
     }

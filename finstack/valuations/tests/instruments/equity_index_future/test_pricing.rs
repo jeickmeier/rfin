@@ -177,7 +177,7 @@ fn test_registry_pricing() {
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
     let result = registry
-        .price_with_registry(&future, ModelKey::Discounting, &market, as_of, None)
+        .price(&future, ModelKey::Discounting, &market, as_of, None)
         .expect("should price");
 
     assert_eq!(result.instrument_id, "ES-QUOTED");

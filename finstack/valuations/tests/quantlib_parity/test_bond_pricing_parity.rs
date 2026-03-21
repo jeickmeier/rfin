@@ -95,7 +95,12 @@ fn test_bond_ytm_round_trip() {
 
     let metrics = vec![MetricId::Ytm];
     let result = bond
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing with metrics should succeed");
 
     let pv = result.value.amount();
@@ -141,7 +146,12 @@ fn test_bond_dv01_vs_duration() {
 
     let metrics = vec![MetricId::Dv01, MetricId::DurationMod];
     let result = bond
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing with metrics should succeed");
 
     let price = result.value.amount();

@@ -176,6 +176,14 @@ impl LookbackOption {
 impl crate::instruments::common_impl::traits::Instrument for LookbackOption {
     impl_instrument_base!(crate::pricer::InstrumentType::LookbackOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        if self.use_gobet_miri {
+            crate::pricer::ModelKey::MonteCarloGBM
+        } else {
+            crate::pricer::ModelKey::LookbackBSContinuous
+        }
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>

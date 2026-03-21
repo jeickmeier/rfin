@@ -75,7 +75,12 @@ fn test_bond_ytm_benchmark_1() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = *result.measures.get("ytm").unwrap();
@@ -152,7 +157,12 @@ fn test_bond_ytm_benchmark_2_par_bond() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let ytm = *result.measures.get("ytm").unwrap();
@@ -201,7 +211,12 @@ fn test_bond_macaulay_duration_benchmark() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DurationMac])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationMac],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let mac_duration = *result.measures.get("duration_mac").unwrap();
@@ -250,7 +265,12 @@ fn test_bond_modified_duration_benchmark() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DurationMod])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationMod],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let mod_duration = *result.measures.get("duration_mod").unwrap();
@@ -307,6 +327,7 @@ fn test_bond_yield_dv01_market_standard() {
             &market,
             as_of,
             &[MetricId::DurationMod, MetricId::YieldDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -418,7 +439,12 @@ fn test_bond_zero_coupon_duration() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DurationMac])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DurationMac],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let mac_duration = *result.measures.get("duration_mac").unwrap();
@@ -462,7 +488,12 @@ fn test_bond_convexity_positive() {
     let market = MarketContext::new().insert(disc_curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Convexity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Convexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let convexity = *result.measures.get("convexity").unwrap();

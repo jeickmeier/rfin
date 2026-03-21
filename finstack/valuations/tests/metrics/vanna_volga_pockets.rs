@@ -277,8 +277,18 @@ fn fx_vanna_and_volga_match_reference_fd() -> finstack_core::Result<()> {
     };
 
     let metrics = [MetricId::Delta, MetricId::Vega];
-    let result_up = opt.price_with_metrics(&curves_up, as_of, &metrics)?;
-    let result_dn = opt.price_with_metrics(&curves_dn, as_of, &metrics)?;
+    let result_up = opt.price_with_metrics(
+        &curves_up,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    )?;
+    let result_dn = opt.price_with_metrics(
+        &curves_dn,
+        as_of,
+        &metrics,
+        finstack_valuations::instruments::PricingOptions::default(),
+    )?;
     let delta_up = result_up.measures[&MetricId::Delta];
     let delta_dn = result_dn.measures[&MetricId::Delta];
     let vanna_ref = (delta_up - delta_dn) / (2.0 * delta_sigma);

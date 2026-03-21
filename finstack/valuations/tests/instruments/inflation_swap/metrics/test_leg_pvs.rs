@@ -30,7 +30,12 @@ fn test_fixed_leg_pv_metric() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("fixed_leg_pv")])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::custom("fixed_leg_pv")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let fixed_leg_pv = *result.measures.get("fixed_leg_pv").unwrap();
@@ -65,7 +70,12 @@ fn test_inflation_leg_pv_metric() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("inflation_leg_pv")])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::custom("inflation_leg_pv")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let inflation_leg_pv = *result.measures.get("inflation_leg_pv").unwrap();
@@ -110,6 +120,7 @@ fn test_leg_pvs_sum_to_npv() {
                 MetricId::custom("fixed_leg_pv"),
                 MetricId::custom("inflation_leg_pv"),
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -171,6 +182,7 @@ fn test_leg_pvs_scale_with_notional() {
                 MetricId::custom("fixed_leg_pv"),
                 MetricId::custom("inflation_leg_pv"),
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -182,6 +194,7 @@ fn test_leg_pvs_scale_with_notional() {
                 MetricId::custom("fixed_leg_pv"),
                 MetricId::custom("inflation_leg_pv"),
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

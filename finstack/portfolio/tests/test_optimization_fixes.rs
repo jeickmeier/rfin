@@ -136,6 +136,7 @@ impl Instrument for MetricInstrument {
         _curves: &MarketContext,
         as_of: Date,
         _metrics: &[MetricId],
+        _options: finstack_valuations::instruments::PricingOptions,
     ) -> finstack_core::Result<ValuationResult> {
         Ok(ValuationResult::stamped(self.id(), as_of, self.value)
             .with_measures(self.measures.clone()))

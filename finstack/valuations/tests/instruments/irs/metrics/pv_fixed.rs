@@ -94,7 +94,12 @@ fn test_pv_fixed_positive() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
@@ -112,14 +117,24 @@ fn test_pv_fixed_scales_with_rate() {
     let swap_6pct = create_swap(as_of, end, dec!(0.06));
 
     let pv_fixed_3pct = *swap_3pct
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_fixed")
         .unwrap();
 
     let pv_fixed_6pct = *swap_6pct
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_fixed")
@@ -146,14 +161,24 @@ fn test_pv_fixed_scales_with_notional() {
     swap_5m.notional = Money::new(5_000_000.0, Currency::USD);
 
     let pv_fixed_1m = *swap_1m
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_fixed")
         .unwrap();
 
     let pv_fixed_5m = *swap_5m
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_fixed")
@@ -177,7 +202,12 @@ fn test_pv_fixed_reasonable_magnitude() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
@@ -203,14 +233,24 @@ fn test_pv_fixed_independent_of_side() {
     swap_pay.side = PayReceive::PayFixed;
 
     let pv_fixed_receive = *swap_receive
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_fixed")
         .unwrap();
 
     let pv_fixed_pay = *swap_pay
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("pv_fixed")

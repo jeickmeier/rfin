@@ -5,7 +5,7 @@
 //! risk metrics like DV01, Theta, etc.
 
 use crate::metrics::core::traits::{MetricCalculator, MetricContext};
-use crate::metrics::risk::{calculate_var, VarConfig};
+use crate::metrics::risk::{calculate_var_with_pricing, VarConfig};
 use crate::metrics::MetricId;
 use finstack_core::Result;
 
@@ -13,7 +13,7 @@ use finstack_core::Result;
 ///
 /// This calculator integrates Historical VaR into the standard metrics
 /// framework. It requires a `MarketHistory` to be provided at the pricing
-/// boundary (see [`crate::instruments::common::traits::Instrument::price_with_options`]).
+/// boundary (see [`crate::instruments::common::traits::Instrument::price_with_metrics`]).
 ///
 /// # Examples
 ///
@@ -49,17 +49,19 @@ impl MetricCalculator for GenericHVar {
 
         let history = context.market_history.as_deref().ok_or_else(|| {
             finstack_core::Error::Validation(
-                "Market history required for VaR calculation. Provide it via Instrument::price_with_options(...) with PricingOptions::with_market_history(...)"
+                "Market history required for VaR calculation. Provide it via Instrument::price_with_metrics(...) with PricingOptions::with_market_history(...)"
                     .to_string(),
             )
         })?;
 
-        let result = calculate_var(
+        let result = calculate_var_with_pricing(
             &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
             &self.config,
+            context.pricing_model,
+            context.pricer_registry.clone(),
         )?;
 
         context
@@ -99,17 +101,19 @@ impl MetricCalculator for GenericExpectedShortfall {
 
         let history = context.market_history.as_deref().ok_or_else(|| {
             finstack_core::Error::Validation(
-                "Market history required for VaR/ES calculation. Provide it via Instrument::price_with_options(...) with PricingOptions::with_market_history(...)"
+                "Market history required for VaR/ES calculation. Provide it via Instrument::price_with_metrics(...) with PricingOptions::with_market_history(...)"
                     .to_string(),
             )
         })?;
 
-        let result = calculate_var(
+        let result = calculate_var_with_pricing(
             &[context.instrument.as_ref()],
             &context.curves,
             history,
             context.as_of,
             &self.config,
+            context.pricing_model,
+            context.pricer_registry.clone(),
         )?;
 
         context.computed.insert(MetricId::HVAR, result.var);
@@ -131,6 +135,7 @@ mod tests {
 
     use super::*;
     use crate::instruments::common_impl::traits::Instrument;
+    use crate::metrics::risk::calculate_var;
     use std::sync::Arc;
     use test_utils::{history_from_rate_shifts, sample_as_of, standard_bond, usd_ois_market};
     use time::Duration;
@@ -181,7 +186,7 @@ mod tests {
         // Calculate VaR + ES via metrics framework
         use crate::instruments::PricingOptions;
         let opts = PricingOptions::default().with_market_history(history);
-        let result_ordered = bond.price_with_options(
+        let result_ordered = bond.price_with_metrics(
             market.as_ref(),
             as_of,
             &[MetricId::HVAR, MetricId::EXPECTED_SHORTFALL],
@@ -212,7 +217,7 @@ mod tests {
         // Also verify reversed ordering doesn't break ES vs VaR wiring.
         let history2 = Arc::new(history_from_rate_shifts(as_of, &shifts));
         let opts2 = PricingOptions::default().with_market_history(history2);
-        let result_reversed = bond.price_with_options(
+        let result_reversed = bond.price_with_metrics(
             market.as_ref(),
             as_of,
             &[MetricId::EXPECTED_SHORTFALL, MetricId::HVAR],

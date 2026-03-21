@@ -101,7 +101,7 @@
 //! // let as_of = create_date(2025, Month::January, 1)?;
 //!
 //! // Price the bond (requires populated market context)
-//! // let result = registry.price_with_registry(&bond, ModelKey::Discounting, &market, as_of, None)?;
+//! // let result = registry.price(&bond, ModelKey::Discounting, &market, as_of, None)?;
 //! # Ok(())
 //! # }
 //! ```
@@ -136,7 +136,7 @@
 //! ];
 //!
 //! // Note: Requires populated market context with "USD-OIS" discount curve
-//! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute)?;
+//! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, crate::instruments::PricingOptions::default())?;
 //! // println!("YTM: {:.2}%", result.measures.get("ytm").expect("should succeed") * 100.0);
 //! // println!("DV01: ${:.2}", result.measures.get("dv01").expect("should succeed"));
 //! # Ok(())

@@ -45,12 +45,21 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 /// Convexity-adjusted Black pricer for CMS options.
-pub struct CmsOptionPricer;
+pub struct CmsOptionPricer {
+    model: ModelKey,
+}
 
 impl CmsOptionPricer {
     /// Create a new CMS option pricer.
     pub fn new() -> Self {
-        Self
+        Self {
+            model: ModelKey::Black76,
+        }
+    }
+
+    /// Create a CMS option pricer registered under a specific model key.
+    pub fn with_model(model: ModelKey) -> Self {
+        Self { model }
     }
 
     /// Internal pricing logic
@@ -230,7 +239,7 @@ impl Default for CmsOptionPricer {
 
 impl Pricer for CmsOptionPricer {
     fn key(&self) -> PricerKey {
-        PricerKey::new(InstrumentType::CmsOption, ModelKey::Black76) // Or ConvexityAdjustedBlack
+        PricerKey::new(InstrumentType::CmsOption, self.model)
     }
 
     fn price_dyn(

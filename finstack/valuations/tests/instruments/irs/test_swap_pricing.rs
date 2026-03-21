@@ -109,7 +109,12 @@ fn test_swap_dv01_determinism() {
     let dv01s: Vec<f64> = (0..50)
         .map(|_| {
             let result = swap
-                .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Dv01],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Dv01.as_str()]
         })
@@ -135,7 +140,12 @@ fn test_swap_annuity_determinism() {
     let annuities: Vec<f64> = (0..50)
         .map(|_| {
             let result = swap
-                .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Annuity],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Annuity.as_str()]
         })
@@ -161,7 +171,12 @@ fn test_swap_par_rate_determinism() {
     let par_rates: Vec<f64> = (0..50)
         .map(|_| {
             let result = swap
-                .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::ParRate],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::ParRate.as_str()]
         })
@@ -200,7 +215,15 @@ fn test_swap_multiple_metrics_determinism() {
 
     // Calculate all metrics 30 times
     let results: Vec<_> = (0..30)
-        .map(|_| swap.price_with_metrics(&market, as_of, &metrics).unwrap())
+        .map(|_| {
+            swap.price_with_metrics(
+                &market,
+                as_of,
+                &metrics,
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap()
+        })
         .collect();
 
     // Verify each metric is deterministic

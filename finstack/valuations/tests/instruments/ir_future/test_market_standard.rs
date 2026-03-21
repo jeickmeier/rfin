@@ -43,7 +43,12 @@ fn test_pnl_attribution_rate_move() {
 
     // P&L should be approximately related to DV01
     let result = future
-        .price_with_metrics(&market_5pct, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market_5pct,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
@@ -80,7 +85,12 @@ fn test_dv01_finite_difference() {
 
     // Analytical DV01
     let result = future
-        .price_with_metrics(&market_base, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market_base,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_analytical = *result.measures.get("dv01").unwrap();
 
@@ -270,7 +280,12 @@ fn test_basis_point_value() {
 
     // DV01 should match 1bp move magnitude
     let result = future
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01 = *result.measures.get("dv01").unwrap();
 
@@ -327,7 +342,12 @@ fn test_theta_time_decay() {
 
     // Get theta and PV at T
     let result = future
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = *result.measures.get("theta").unwrap();
     let pv_t0 = future.value(&market, as_of).unwrap().amount();

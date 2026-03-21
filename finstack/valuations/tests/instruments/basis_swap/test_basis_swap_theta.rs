@@ -149,7 +149,12 @@ fn theta_is_finite() {
     let swap = make_swap("THETA-FINITE", d(2025, 1, 2), d(2026, 1, 2), Decimal::ZERO);
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = res.measures[MetricId::Theta.as_str()];
 
@@ -171,7 +176,12 @@ fn theta_matches_pv_change() {
 
     // Get theta
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = res.measures[MetricId::Theta.as_str()];
 
@@ -209,7 +219,12 @@ fn theta_sign_convention() {
     );
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = res.measures[MetricId::Theta.as_str()];
 
@@ -235,13 +250,23 @@ fn theta_decreases_near_maturity() {
 
     // Theta early in life
     let res_early = swap
-        .price_with_metrics(&ctx, d(2025, 1, 2), &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            d(2025, 1, 2),
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_early = res_early.measures[MetricId::Theta.as_str()].abs();
 
     // Theta near maturity
     let res_late = swap
-        .price_with_metrics(&ctx, d(2025, 12, 2), &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            d(2025, 12, 2),
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_late = res_late.measures[MetricId::Theta.as_str()].abs();
 
@@ -269,7 +294,12 @@ fn theta_at_par() {
     );
 
     let res = swap_zero
-        .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BasisParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
@@ -282,7 +312,12 @@ fn theta_at_par() {
     );
 
     let res_par = swap_at_par
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = res_par.measures[MetricId::Theta.as_str()];
 
@@ -298,7 +333,12 @@ fn theta_with_long_maturity() {
     let swap = make_swap("THETA-LONG", d(2025, 1, 2), d(2028, 1, 2), Decimal::ZERO);
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = res.measures[MetricId::Theta.as_str()];
 
@@ -320,7 +360,12 @@ fn theta_consistency_across_dates() {
 
     for date in dates {
         let res = swap
-            .price_with_metrics(&ctx, date, &[MetricId::Theta])
+            .price_with_metrics(
+                &ctx,
+                date,
+                &[MetricId::Theta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         let theta = res.measures[MetricId::Theta.as_str()];
         assert!(theta.is_finite(), "Theta should be finite at date {}", date);
@@ -359,7 +404,12 @@ fn theta_multi_year() {
 
     for (today, tomorrow) in test_dates {
         let res = swap
-            .price_with_metrics(&ctx, today, &[MetricId::Theta])
+            .price_with_metrics(
+                &ctx,
+                today,
+                &[MetricId::Theta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         let theta = res.measures[MetricId::Theta.as_str()];
 
@@ -394,7 +444,12 @@ fn theta_zero_at_maturity() {
     let swap = make_swap("THETA-AT-MAT", d(2025, 1, 2), maturity, Decimal::ZERO);
 
     let res = swap
-        .price_with_metrics(&ctx, maturity, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            maturity,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta = res.measures[MetricId::Theta.as_str()];
 

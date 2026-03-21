@@ -775,7 +775,12 @@ fn quantlib_parity_conversion_premium() {
 
     let as_of = base;
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::custom("conversion_premium")])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::custom("conversion_premium")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let premium = *result.measures.get("conversion_premium").unwrap();

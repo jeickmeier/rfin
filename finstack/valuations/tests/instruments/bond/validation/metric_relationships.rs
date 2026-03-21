@@ -69,6 +69,7 @@ fn test_modified_macaulay_duration_relationship() {
             &market,
             as_of,
             &[MetricId::DurationMac, MetricId::DurationMod, MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -122,6 +123,7 @@ fn test_yield_dv01_duration_price_relationship() {
             &market,
             as_of,
             &[MetricId::DurationMod, MetricId::YieldDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

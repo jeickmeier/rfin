@@ -97,7 +97,12 @@ fn test_dv01_formula_consistency() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = *result.measures.get("annuity").unwrap();
@@ -123,7 +128,12 @@ fn test_dv01_five_year_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -148,14 +158,24 @@ fn test_dv01_scales_with_notional() {
     swap_10m.notional = Money::new(10_000_000.0, Currency::USD);
 
     let dv01_1m = *swap_1m
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let dv01_10m = *swap_10m
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -181,14 +201,24 @@ fn test_dv01_receive_vs_pay_opposite_signs() {
     let swap_pay = create_standard_swap(as_of, end, PayReceive::PayFixed);
 
     let dv01_receive = *swap_receive
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let dv01_pay = *swap_pay
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -220,21 +250,36 @@ fn test_dv01_longer_maturity_higher_dv01() {
     let swap_10y = create_standard_swap(as_of, date!(2034 - 01 - 01), PayReceive::ReceiveFixed);
 
     let dv01_2y = *swap_2y
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let dv01_5y = *swap_5y
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let dv01_10y = *swap_10y
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -254,7 +299,12 @@ fn test_dv01_short_swap() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -277,14 +327,24 @@ fn test_dv01_higher_rates_lower_dv01() {
     let market_7pct = build_market(0.07, as_of);
 
     let dv01_3pct = *swap
-        .price_with_metrics(&market_3pct, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market_3pct,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
         .unwrap();
 
     let dv01_7pct = *swap
-        .price_with_metrics(&market_7pct, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market_7pct,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -310,7 +370,12 @@ fn test_dv01_receive_fixed_negative() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -334,7 +399,12 @@ fn test_dv01_pay_fixed_positive() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -356,7 +426,12 @@ fn test_dv01_typical_range() {
     let market = build_market(0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();

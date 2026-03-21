@@ -424,7 +424,12 @@ fn test_commodity_forward_delta_analytical() {
     // Get delta from metric calculation
     use finstack_valuations::instruments::Instrument;
     let result = forward
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("should price with delta");
 
     let delta = result

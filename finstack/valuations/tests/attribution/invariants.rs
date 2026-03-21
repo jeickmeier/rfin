@@ -104,6 +104,7 @@ impl Instrument for ScaledInstrument {
         market: &MarketContext,
         as_of: Date,
         _metrics: &[finstack_valuations::metrics::MetricId],
+        _options: finstack_valuations::instruments::PricingOptions,
     ) -> Result<ValuationResult> {
         let value = self.value(market, as_of)?;
         Ok(ValuationResult::stamped(self.id(), as_of, value))
@@ -176,6 +177,7 @@ impl Instrument for CompositeInstrument {
         market: &MarketContext,
         as_of: Date,
         _metrics: &[finstack_valuations::metrics::MetricId],
+        _options: finstack_valuations::instruments::PricingOptions,
     ) -> Result<ValuationResult> {
         let value = self.value(market, as_of)?;
         Ok(ValuationResult::stamped(self.id(), as_of, value))

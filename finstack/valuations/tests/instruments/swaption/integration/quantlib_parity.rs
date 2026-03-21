@@ -354,7 +354,12 @@ fn test_quantlib_parity_vega() {
     let market = create_flat_market(as_of, 0.05, 0.20);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();
@@ -392,7 +397,12 @@ fn test_quantlib_parity_delta() {
     let market = create_flat_market(as_of, 0.05, 0.20);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -418,7 +428,12 @@ fn test_quantlib_parity_gamma() {
     let market = create_flat_market(as_of, 0.05, 0.20);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let gamma = *result.measures.get("gamma").unwrap();
@@ -430,7 +445,12 @@ fn test_quantlib_parity_gamma() {
     // ATM options have highest gamma
     let itm = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.03);
     let gamma_itm = itm
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -456,7 +476,12 @@ fn test_quantlib_parity_rho() {
     let market = create_flat_market(as_of, 0.05, 0.20);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rho = *result.measures.get("rho").unwrap();
@@ -480,7 +505,12 @@ fn test_quantlib_parity_theta() {
     let market = create_flat_market(as_of, 0.05, 0.20);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -521,7 +551,12 @@ fn test_quantlib_parity_implied_vol_recovery() {
     let market = create_flat_market(as_of, 0.05, input_vol);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -550,7 +585,12 @@ fn test_quantlib_parity_implied_vol_stability() {
         let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
 
         let result = swaption
-            .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ImpliedVol],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -623,7 +663,12 @@ fn test_quantlib_parity_deep_itm() {
 
     // Delta should be close to 1.0 * notional * annuity
     let result = deep_itm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let delta = *result.measures.get("delta").unwrap();
 
@@ -809,7 +854,12 @@ fn test_quantlib_parity_full_greeks_suite() {
     ];
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &all_metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &all_metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Verify all metrics computed successfully

@@ -448,6 +448,14 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxBarrier
 impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
     impl_instrument_base!(crate::pricer::InstrumentType::FxBarrierOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        if self.use_gobet_miri {
+            crate::pricer::ModelKey::MonteCarloGBM
+        } else {
+            crate::pricer::ModelKey::FxBarrierBSContinuous
+        }
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
@@ -566,6 +574,32 @@ mod tests {
             option.notional.currency(),
             option.base_currency,
             "Notional should be in base currency"
+        );
+    }
+
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn canonical_pricing_path_mentions_mc_for_discrete_mode() {
+        use crate::instruments::common_impl::traits::Instrument;
+
+        let mut option = FxBarrierOption::example();
+        option.use_gobet_miri = true;
+        let err = option
+            .price_with_metrics(
+                &finstack_core::market_data::context::MarketContext::new(),
+                option.expiry,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect_err("canonical pricing path should fail without mc feature");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("`mc`"),
+            "Error should mention mc feature: {msg}"
+        );
+        assert!(
+            msg.contains("continuous-monitoring"),
+            "Error should mention the continuous-monitoring fallback: {msg}"
         );
     }
 

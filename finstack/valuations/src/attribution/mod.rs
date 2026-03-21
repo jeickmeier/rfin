@@ -195,8 +195,8 @@
 //!         .expect("deposit builder should succeed"),
 //! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 //!
-//! let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics)?;
-//! let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics)?;
+//! let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics, crate::instruments::PricingOptions::default())?;
+//! let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! let attribution = attribute_pnl_metrics_based(
 //!     &instrument,

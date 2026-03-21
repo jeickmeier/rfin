@@ -24,7 +24,12 @@ fn test_atm_call_delta_near_fifty() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -47,7 +52,12 @@ fn test_call_delta_always_positive() {
     for strike in strikes {
         let call = create_call(as_of, expiry, strike);
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let delta = *result.measures.get("delta").unwrap();
@@ -79,7 +89,12 @@ fn test_put_delta_always_negative() {
     for strike in strikes {
         let put = create_put(as_of, expiry, strike);
         let result = put
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let delta = *result.measures.get("delta").unwrap();
@@ -109,7 +124,12 @@ fn test_itm_call_delta_approaches_one() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -130,7 +150,12 @@ fn test_otm_call_delta_approaches_zero() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -154,7 +179,12 @@ fn test_delta_increases_with_spot() {
     for spot in spots {
         let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let delta = *result.measures.get("delta").unwrap();
@@ -187,7 +217,12 @@ fn test_gamma_always_positive() {
     for strike in strikes {
         let call = create_call(as_of, expiry, strike);
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Gamma],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let gamma = *result.measures.get("gamma").unwrap();
@@ -211,21 +246,36 @@ fn test_atm_gamma_highest() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let atm_gamma = *atm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
         .unwrap();
 
     let itm_gamma = *itm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
         .unwrap();
 
     let otm_gamma = *otm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -258,14 +308,24 @@ fn test_gamma_same_for_call_and_put() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let call_gamma = *call
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
         .unwrap();
 
     let put_gamma = *put
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -289,7 +349,12 @@ fn test_vega_always_positive() {
     for strike in strikes {
         let call = create_call(as_of, expiry, strike);
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Vega])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Vega],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let vega = *result.measures.get("vega").unwrap();
@@ -313,21 +378,36 @@ fn test_atm_vega_highest() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let atm_vega = *atm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
         .unwrap();
 
     let itm_vega = *itm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
         .unwrap();
 
     let otm_vega = *otm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -360,14 +440,24 @@ fn test_vega_same_for_call_and_put() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let call_vega = *call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
         .unwrap();
 
     let put_vega = *put
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -388,14 +478,24 @@ fn test_vega_increases_with_maturity() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let short_vega = *short_call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
         .unwrap();
 
     let long_vega = *long_call
-        .price_with_metrics(&market, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("vega")
@@ -422,7 +522,12 @@ fn test_theta_negative_for_long_options() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -447,14 +552,24 @@ fn test_atm_theta_magnitude_highest() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let atm_theta = *atm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("theta")
         .unwrap();
 
     let otm_theta = *otm_call
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("theta")
@@ -482,7 +597,12 @@ fn test_call_rho_positive() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let result = call
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rho = *result.measures.get("rho").unwrap();
@@ -501,7 +621,12 @@ fn test_put_rho_negative() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let result = put
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rho = *result.measures.get("rho").unwrap();
@@ -521,14 +646,24 @@ fn test_rho_increases_with_maturity() {
     let market = build_standard_market(as_of, spot, 0.25, 0.05, 0.0);
 
     let short_rho = *short_call
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")
         .unwrap();
 
     let long_rho = *long_call
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")
@@ -562,7 +697,14 @@ fn test_all_greeks_computed_together() {
         MetricId::Rho,
     ];
 
-    let result = call.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = call
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Verify all Greeks are present
     assert!(result.measures.contains_key("delta"));

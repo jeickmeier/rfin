@@ -88,7 +88,12 @@ fn test_recovery01_at_lower_boundary() {
         .insert(create_hazard_curve(base, recovery));
 
     let result = cds_test
-        .price_with_metrics(&market, base, &[MetricId::Recovery01])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::Recovery01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Recovery01 should compute at low recovery boundary");
 
     let recovery01 = result.measures[MetricId::Recovery01.as_str()];
@@ -130,7 +135,12 @@ fn test_recovery01_at_upper_boundary() {
         .insert(create_hazard_curve(base, recovery));
 
     let result = cds_test
-        .price_with_metrics(&market, base, &[MetricId::Recovery01])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::Recovery01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Recovery01 should compute at high recovery boundary");
 
     let recovery01 = result.measures[MetricId::Recovery01.as_str()];
@@ -170,7 +180,12 @@ fn test_recovery01_symmetry() {
         .insert(create_hazard_curve(base, recovery));
 
     let result = cds_test
-        .price_with_metrics(&market, base, &[MetricId::Recovery01])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::Recovery01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Recovery01 should compute for standard recovery");
 
     let recovery01 = result.measures[MetricId::Recovery01.as_str()];
@@ -211,7 +226,12 @@ fn test_expected_loss_distressed_credit() {
         .insert(create_distressed_hazard_curve(base, recovery));
 
     let result = cds_test
-        .price_with_metrics(&market, base, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("ExpectedLoss should compute for distressed credit");
 
     let expected_loss = result.measures[MetricId::ExpectedLoss.as_str()];
@@ -273,6 +293,7 @@ fn test_par_spread_npv_consistency() {
             &market,
             base,
             &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("ParSpread inputs should compute");
     let protection_pv = result.measures[&MetricId::ProtectionLegPv];
@@ -328,7 +349,12 @@ fn test_jtd_recovery_sensitivity() {
             .insert(create_hazard_curve(base, recovery));
 
         let result = cds_test
-            .price_with_metrics(&market, base, &[MetricId::JumpToDefault])
+            .price_with_metrics(
+                &market,
+                base,
+                &[MetricId::JumpToDefault],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .expect("JTD should compute");
 
         let jtd = result.measures[MetricId::JumpToDefault.as_str()];

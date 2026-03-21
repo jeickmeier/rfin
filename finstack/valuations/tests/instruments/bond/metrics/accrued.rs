@@ -38,7 +38,12 @@ fn test_accrued_at_issue() {
     .unwrap();
     let market = create_curve(as_of);
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Accrued])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Accrued],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let accrued = *result.measures.get("accrued").unwrap();
     assert_eq!(accrued, 0.0);
@@ -59,7 +64,12 @@ fn test_accrued_mid_period() {
     .unwrap();
     let market = create_curve(mid);
     let result = bond
-        .price_with_metrics(&market, mid, &[MetricId::Accrued])
+        .price_with_metrics(
+            &market,
+            mid,
+            &[MetricId::Accrued],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let accrued = *result.measures.get("accrued").unwrap();
     assert!(accrued > 0.0 && accrued < 3.0); // Semi-annual 6% = 3% per period
@@ -113,7 +123,12 @@ fn test_accrued_frn_uses_forward_rate() {
         .unwrap();
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Accrued])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Accrued],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let accrued = *result.measures.get("accrued").unwrap();
 
@@ -159,6 +174,7 @@ fn test_clean_dirty_ex_coupon_parity() {
                 MetricId::DirtyPrice,
                 MetricId::CleanPrice,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
     let acc_before = *res_before.measures.get("accrued").unwrap();
@@ -173,6 +189,7 @@ fn test_clean_dirty_ex_coupon_parity() {
             &market,
             as_of_after,
             &[MetricId::Accrued, MetricId::CleanPrice],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
     let acc_after = *res_after.measures.get("accrued").unwrap();

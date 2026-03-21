@@ -88,7 +88,12 @@ fn cross_gamma_rates_credit_matches_manual_four_corner_repricing() {
     let market = build_market(as_of, 0.04, 0.02);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::CrossGammaRatesCredit])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::CrossGammaRatesCredit],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("cross gamma metric should compute");
     let metric_value = result.measures[&MetricId::CrossGammaRatesCredit];
 

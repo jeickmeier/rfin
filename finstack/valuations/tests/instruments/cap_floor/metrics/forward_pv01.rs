@@ -94,7 +94,12 @@ fn test_cap_forward_pv01() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::ForwardPv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ForwardPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let forward_pv01 = *result.measures.get("forward_pv01").unwrap();
@@ -152,7 +157,12 @@ fn test_floor_forward_pv01() {
         .insert_surface(vol_surface);
 
     let result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::ForwardPv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ForwardPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let forward_pv01 = *result.measures.get("forward_pv01").unwrap();
@@ -183,14 +193,24 @@ fn test_forward_pv01_scales_with_maturity() {
         .insert_surface(vol_surface);
 
     let short_fpv01 = *short_cap
-        .price_with_metrics(&market, as_of, &[MetricId::ForwardPv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ForwardPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("forward_pv01")
         .unwrap();
 
     let long_fpv01 = *long_cap
-        .price_with_metrics(&market, as_of, &[MetricId::ForwardPv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ForwardPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("forward_pv01")

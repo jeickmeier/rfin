@@ -12,7 +12,14 @@ fn test_pv_result_matches_value() {
     let fra = TestFraBuilder::new().fixed_rate(0.06).build();
 
     let direct_pv = fra.value(&market, BASE_DATE).unwrap();
-    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
+    let result = fra
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let result_pv = result.value.amount();
 
@@ -29,7 +36,14 @@ fn test_pv_at_market() {
     let market = standard_market();
     let fra = create_standard_fra();
 
-    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
+    let result = fra
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let pv = result.value.amount();
 
@@ -44,7 +58,14 @@ fn test_pv_off_market_positive() {
         .receive_fixed(true) // true = receive fixed
         .build();
 
-    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
+    let result = fra
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let pv = result.value.amount();
 
@@ -59,7 +80,14 @@ fn test_pv_off_market_negative() {
         .receive_fixed(true) // true = receive fixed
         .build();
 
-    let result = fra.price_with_metrics(&market, BASE_DATE, &[]).unwrap();
+    let result = fra
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let pv = result.value.amount();
 
@@ -76,6 +104,7 @@ fn test_pv_with_other_metrics() {
             &market,
             BASE_DATE,
             &[finstack_valuations::metrics::MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

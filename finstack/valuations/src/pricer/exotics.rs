@@ -77,11 +77,17 @@ pub fn register_exotic_pricers(registry: &mut PricerRegistry) {
     );
 
     // CMS Option
-    #[cfg(feature = "mc")]
     registry.register(
         InstrumentType::CmsOption,
-        ModelKey::MonteCarloHullWhite1F,
+        ModelKey::Black76,
         crate::instruments::rates::cms_option::pricer::CmsOptionPricer::new(),
+    );
+    registry.register(
+        InstrumentType::CmsOption,
+        ModelKey::Discounting,
+        crate::instruments::rates::cms_option::pricer::CmsOptionPricer::with_model(
+            ModelKey::Discounting,
+        ),
     );
 
     // CMS Swap

@@ -33,7 +33,12 @@ fn test_z_spread_discount_bond() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::ZSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ZSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let z = *result.measures.get("z_spread").unwrap();
     assert!(z > 0.0); // Discount bond has positive spread
@@ -185,7 +190,12 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
 
         // Run Z-spread metric via the normal pipeline.
         let result = bond
-            .price_with_metrics(&market, as_of, &[MetricId::ZSpread])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ZSpread],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .expect("Z-spread metric should converge for realistic spreads");
         let z = *result
             .measures

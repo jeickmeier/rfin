@@ -31,7 +31,12 @@ fn test_theta_finite_difference_validation() {
 
     // Get analytic theta
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let theta_analytic = *result.measures.get("theta").unwrap();
 
@@ -76,7 +81,12 @@ fn test_theta_reasonable_magnitude() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -112,7 +122,12 @@ fn test_theta_zero_for_matured_swap() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = result.measures.get("theta").unwrap().abs();

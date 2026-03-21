@@ -234,7 +234,12 @@ fn quantlib_parity_fra_implied_rate() {
 
     // Calculate par rate
     let result = fra
-        .price_with_metrics(&market, base, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_rate = *result.measures.get("par_rate").unwrap();
 
@@ -560,12 +565,22 @@ fn quantlib_parity_fra_dv01_sign_convention() {
     let market = create_flat_market(base, 0.05);
 
     let result_receive = fra_receive
-        .price_with_metrics(&market, base, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_receive = *result_receive.measures.get("dv01").unwrap();
 
     let result_pay = fra_pay
-        .price_with_metrics(&market, base, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            base,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_pay = *result_pay.measures.get("dv01").unwrap();
 

@@ -227,10 +227,20 @@ fn test_fx_delta_conventions() {
     let metrics = vec![MetricId::Delta];
 
     let call_result = call
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("call metrics");
     let put_result = put
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("put metrics");
 
     if let (Some(&call_delta), Some(&put_delta)) = (

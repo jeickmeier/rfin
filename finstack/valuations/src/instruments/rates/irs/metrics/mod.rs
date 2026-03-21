@@ -40,7 +40,7 @@
 //!
 //! // Compute par rate and DV01
 //! let metrics = vec![MetricId::ParRate, MetricId::Dv01];
-//! let result = irs.price_with_metrics(&context, as_of, &metrics)?;
+//! let result = irs.price_with_metrics(&context, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! let par_rate = result.measures.get(MetricId::ParRate.as_str()).copied();
 //! let dv01 = result.measures.get(MetricId::Dv01.as_str()).copied();

@@ -121,7 +121,14 @@ fn test_off_market_swap_all_metrics() {
         MetricId::Theta,
     ];
 
-    let result = swap.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = swap
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Verify all metrics computed
     assert!(result.measures.contains_key("annuity"));
@@ -262,7 +269,12 @@ fn test_swap_portfolio_aggregation() {
 
     for swap in swaps {
         let result = swap
-            .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         total_npv += result.value.amount();
@@ -286,7 +298,12 @@ fn test_swap_with_large_spread() {
     let market = build_flat_curves(0.05, 0.05, as_of);
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::PvFixed, MetricId::PvFloat])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PvFixed, MetricId::PvFloat],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
@@ -399,6 +416,7 @@ fn test_swap_risk_attribution() {
             &market,
             as_of,
             &[MetricId::Dv01, MetricId::Annuity, MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

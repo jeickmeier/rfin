@@ -12,8 +12,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::CreditRating;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    calculate_pool_stats, CloWarfCalculator, DealType, Pool, PoolAsset, Seniority, StructuredCredit,
-    Tranche, TrancheCoupon, TrancheStructure,
+    calculate_pool_stats, CloWarfCalculator, DealType, Pool, PoolAsset, Seniority,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
 };
 use finstack_valuations::metrics::{MetricCalculator, MetricContext};
 use std::sync::Arc;

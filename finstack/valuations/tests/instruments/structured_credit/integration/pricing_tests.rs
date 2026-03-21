@@ -150,7 +150,12 @@ fn test_structured_credit_dirty_price() {
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act
-    let result = sc.price_with_metrics(&market, test_date(), &[MetricId::DirtyPrice]);
+    let result = sc.price_with_metrics(
+        &market,
+        test_date(),
+        &[MetricId::DirtyPrice],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     let result = result.expect("Structured credit clean/dirty pricing should succeed");
@@ -188,6 +193,7 @@ fn test_structured_credit_clean_price() {
             MetricId::CleanPrice,
             MetricId::Accrued,
         ],
+        finstack_valuations::instruments::PricingOptions::default(),
     );
 
     // Assert
@@ -286,6 +292,7 @@ fn test_structured_credit_full_metric_suite() {
             MetricId::CPR,
             MetricId::CDR,
         ],
+        finstack_valuations::instruments::PricingOptions::default(),
     );
 
     // Assert
@@ -319,7 +326,12 @@ fn test_structured_credit_registry_exposes_clo_warf() {
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     let result = sc
-        .price_with_metrics(&market, test_date(), &[MetricId::CloWarf])
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[MetricId::CloWarf],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("CLO metric request should succeed");
 
     assert!(
@@ -343,7 +355,12 @@ fn test_structured_credit_registry_exposes_cmbs_dscr() {
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     let result = sc
-        .price_with_metrics(&market, test_date(), &[MetricId::CmbsDscr])
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[MetricId::CmbsDscr],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("CMBS metric request should succeed");
 
     assert!(
@@ -366,7 +383,12 @@ fn test_structured_credit_registry_wal_matches_cashflow_wal() {
 
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
     let valuation = sc
-        .price_with_metrics(&market, test_date(), &[MetricId::WAL])
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[MetricId::WAL],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("WAL metric request should succeed");
     let expected = 2.209_178_398_160_473_f64;
     let actual = valuation.measures["wal"];
@@ -395,7 +417,12 @@ fn test_structured_credit_empty_metrics_request() {
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act: Request NO metrics
-    let result = sc.price_with_metrics(&market, test_date(), &[]);
+    let result = sc.price_with_metrics(
+        &market,
+        test_date(),
+        &[],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -419,7 +446,12 @@ fn test_structured_credit_metric_dependency_resolution() {
     let market = MarketContext::new().insert(flat_discount_curve(0.04, test_date()));
 
     // Act: Request only CleanPrice (dependencies should auto-compute)
-    let result = sc.price_with_metrics(&market, test_date(), &[MetricId::CleanPrice]);
+    let result = sc.price_with_metrics(
+        &market,
+        test_date(),
+        &[MetricId::CleanPrice],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());

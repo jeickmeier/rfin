@@ -9,6 +9,7 @@ use crate::metrics::core::registry::StrictMode;
 use crate::metrics::risk::MarketHistory;
 use crate::metrics::sensitivities::config::format_bucket_label_cow;
 use crate::metrics::{standard_registry, MetricContext, MetricId};
+use crate::pricer::{ModelKey, PricerRegistry};
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
@@ -250,20 +251,74 @@ pub fn calculate_var<I>(
     config: &VarConfig,
 ) -> Result<VarResult>
 where
-    I: Instrument + ?Sized,
+    I: Instrument,
 {
+    let instrument_refs: Vec<&dyn Instrument> = instruments
+        .iter()
+        .map(|inst| *inst as &dyn Instrument)
+        .collect();
+    calculate_var_dyn(&instrument_refs, base_market, history, as_of, config)
+}
+
+fn calculate_var_dyn(
+    instruments: &[&dyn Instrument],
+    base_market: &MarketContext,
+    history: &MarketHistory,
+    as_of: Date,
+    config: &VarConfig,
+) -> Result<VarResult> {
+    calculate_var_with_pricing(instruments, base_market, history, as_of, config, None, None)
+}
+
+/// Variant of [`calculate_var`] that reuses a caller-selected pricing engine.
+pub fn calculate_var_with_pricing(
+    instruments: &[&dyn Instrument],
+    base_market: &MarketContext,
+    history: &MarketHistory,
+    as_of: Date,
+    config: &VarConfig,
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
+) -> Result<VarResult> {
     if instruments.is_empty() {
         return VarResult::from_distribution(Vec::new(), config.confidence_level);
     }
 
     match config.method {
-        VarMethod::FullRevaluation => {
-            calculate_var_full_revaluation(instruments, base_market, history, as_of, config)
-        }
-        VarMethod::TaylorApproximation => {
-            calculate_var_taylor(instruments, base_market, history, as_of, config)
-        }
+        VarMethod::FullRevaluation => calculate_var_full_revaluation(
+            instruments,
+            base_market,
+            history,
+            as_of,
+            config,
+            pricing_model,
+            pricer_registry,
+        ),
+        VarMethod::TaylorApproximation => calculate_var_taylor(
+            instruments,
+            base_market,
+            history,
+            as_of,
+            config,
+            pricing_model,
+            pricer_registry,
+        ),
     }
+}
+
+fn reprice_with_dispatch(
+    instrument: &dyn Instrument,
+    market: &MarketContext,
+    as_of: Date,
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<&Arc<PricerRegistry>>,
+) -> Result<Money> {
+    if let (Some(model), Some(registry)) = (pricing_model, pricer_registry) {
+        return Ok(registry
+            .price(instrument, model, market, as_of, None)?
+            .value);
+    }
+    instrument.value(market, as_of)
 }
 
 /// Utility helper to aggregate scenario P&Ls for both single-instrument and portfolio VaR.
@@ -315,20 +370,27 @@ where
 }
 
 /// Calculate VaR using full revaluation method.
-fn calculate_var_full_revaluation<I>(
-    instruments: &[&I],
+fn calculate_var_full_revaluation(
+    instruments: &[&dyn Instrument],
     base_market: &MarketContext,
     history: &MarketHistory,
     as_of: Date,
     config: &VarConfig,
-) -> Result<VarResult>
-where
-    I: Instrument + ?Sized,
-{
-    let instrument_refs: Vec<&I> = instruments.to_vec();
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
+) -> Result<VarResult> {
+    let instrument_refs: Vec<&dyn Instrument> = instruments.to_vec();
     let base_values_money: Vec<Money> = instrument_refs
         .iter()
-        .map(|inst| inst.value(base_market, as_of))
+        .map(|inst| {
+            reprice_with_dispatch(
+                *inst,
+                base_market,
+                as_of,
+                pricing_model,
+                pricer_registry.as_ref(),
+            )
+        })
         .collect::<Result<_>>()?;
     let reporting_currency = resolve_reporting_currency_from_values(
         &base_values_money,
@@ -352,7 +414,13 @@ where
         let mut acc = NeumaierAccumulator::new();
         for (inst, base_amount) in instrument_refs.iter().zip(base_values.iter()) {
             let scenario_amount = convert_money_to_reporting(
-                inst.value(scenario_market, as_of)?,
+                reprice_with_dispatch(
+                    *inst,
+                    scenario_market,
+                    as_of,
+                    pricing_model,
+                    pricer_registry.as_ref(),
+                )?,
                 reporting_currency,
                 scenario_market,
                 as_of,
@@ -373,25 +441,40 @@ where
     VarResult::from_distribution(pnls, config.confidence_level)
 }
 
-fn calculate_var_taylor<I>(
-    instruments: &[&I],
+fn calculate_var_taylor(
+    instruments: &[&dyn Instrument],
     base_market: &MarketContext,
     history: &MarketHistory,
     as_of: Date,
     config: &VarConfig,
-) -> Result<VarResult>
-where
-    I: Instrument + ?Sized,
-{
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
+) -> Result<VarResult> {
     if instruments.len() == 1 {
         // Use clone_box to get a sized type for Taylor approximation
         let boxed = instruments[0].clone_box();
-        return calculate_var_taylor_approximation(&*boxed, base_market, history, as_of, config);
+        return calculate_var_taylor_approximation(
+            &*boxed,
+            base_market,
+            history,
+            as_of,
+            config,
+            pricing_model,
+            pricer_registry,
+        );
     }
 
     let boxed: Vec<Box<dyn Instrument>> = instruments.iter().map(|inst| inst.clone_box()).collect();
     let refs: Vec<&dyn Instrument> = boxed.iter().map(|b| b.as_ref()).collect();
-    calculate_portfolio_var_taylor(&refs, base_market, history, as_of, config)
+    calculate_portfolio_var_taylor(
+        &refs,
+        base_market,
+        history,
+        as_of,
+        config,
+        pricing_model,
+        pricer_registry,
+    )
 }
 
 // =============================================================================
@@ -507,14 +590,29 @@ fn calculate_var_taylor_approximation(
     history: &MarketHistory,
     as_of: Date,
     config: &VarConfig,
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<VarResult> {
-    let base_value = instrument.value(base_market, as_of)?;
+    let base_value = reprice_with_dispatch(
+        instrument,
+        base_market,
+        as_of,
+        pricing_model,
+        pricer_registry.as_ref(),
+    )?;
     let reporting_currency = resolve_reporting_currency_from_values(
         &[base_value],
         config.reporting_currency,
         "Historical VaR",
     )?;
-    let sensitivities = compute_taylor_sensitivities(instrument, base_market, as_of, base_value)?;
+    let sensitivities = compute_taylor_sensitivities(
+        instrument,
+        base_market,
+        as_of,
+        base_value,
+        pricing_model,
+        pricer_registry,
+    )?;
 
     let mut spot_cache: HashMap<String, f64> = HashMap::default();
     let mut pnls = Vec::with_capacity(history.len());
@@ -539,6 +637,8 @@ fn compute_taylor_sensitivities(
     base_market: &MarketContext,
     as_of: Date,
     base_value: Money,
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<TaylorSensitivities> {
     let instrument_type = instrument.key();
     let registry = standard_registry();
@@ -561,6 +661,7 @@ fn compute_taylor_sensitivities(
             .map(crate::instruments::MetricPricingOverrides::from_pricing_overrides),
     );
     context.set_scenario_overrides(instrument.scenario_overrides().cloned());
+    context.set_pricer_dispatch(pricing_model, pricer_registry);
 
     let metrics = [
         MetricId::BucketedDv01,
@@ -755,6 +856,8 @@ fn calculate_portfolio_var_taylor(
     history: &MarketHistory,
     as_of: Date,
     config: &VarConfig,
+    pricing_model: Option<ModelKey>,
+    pricer_registry: Option<Arc<PricerRegistry>>,
 ) -> Result<VarResult> {
     if instruments.is_empty() {
         return Ok(VarResult {
@@ -769,13 +872,21 @@ fn calculate_portfolio_var_taylor(
     let mut sensitivities: Vec<TaylorSensitivities> = Vec::with_capacity(instruments.len());
     let mut base_values: Vec<Money> = Vec::with_capacity(instruments.len());
     for instrument in instruments {
-        let base_value = instrument.value(base_market, as_of)?;
+        let base_value = reprice_with_dispatch(
+            *instrument,
+            base_market,
+            as_of,
+            pricing_model,
+            pricer_registry.as_ref(),
+        )?;
         base_values.push(base_value);
         sensitivities.push(compute_taylor_sensitivities(
             *instrument,
             base_market,
             as_of,
             base_value,
+            pricing_model,
+            pricer_registry.clone(),
         )?);
     }
     let reporting_currency = resolve_reporting_currency_from_values(
@@ -936,7 +1047,7 @@ mod tests {
         );
         let history = MarketHistory::new(as_of, 1, vec![scenario]);
 
-        let err = calculate_var(
+        let err = calculate_var_dyn(
             &[&usd as &dyn Instrument, &eur as &dyn Instrument],
             &base_market,
             &history,
@@ -994,7 +1105,7 @@ mod tests {
         );
         let history = MarketHistory::new(as_of, 1, vec![scenario]);
 
-        let result = calculate_var(
+        let result = calculate_var_dyn(
             &[&usd as &dyn Instrument, &eur as &dyn Instrument],
             &base_market,
             &history,
@@ -1243,14 +1354,14 @@ mod tests {
         );
         let history = MarketHistory::new(as_of, 1, vec![scenario]);
 
-        let full = calculate_var(
+        let full = calculate_var_dyn(
             &[&option as &dyn Instrument],
             &base_market,
             &history,
             as_of,
             &VarConfig::var_95(),
         )?;
-        let taylor = calculate_var(
+        let taylor = calculate_var_dyn(
             &[&option as &dyn Instrument],
             &base_market,
             &history,
@@ -1397,7 +1508,8 @@ mod tests {
 
         // Calculate portfolio VaR
         let instruments: Vec<&dyn Instrument> = vec![&bond1, &bond2];
-        let portfolio_var = calculate_var(&instruments, market.as_ref(), &history, as_of, &config)?;
+        let portfolio_var =
+            calculate_var_dyn(&instruments, market.as_ref(), &history, as_of, &config)?;
 
         // Verify portfolio VaR <= sum of individual VaRs
         // With only a few scenarios and both bonds having similar rate sensitivity,

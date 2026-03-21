@@ -194,6 +194,7 @@ fn test_30y_swap_numerical_stability() {
             &market,
             as_of,
             &[MetricId::Annuity, MetricId::ParRate, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("30Y swap should price successfully");
 
@@ -247,7 +248,12 @@ fn test_annuity_deterministic_across_runs() {
     let mut annuities = Vec::with_capacity(10);
     for _ in 0..10 {
         let result = swap
-            .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Annuity],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         annuities.push(result.measures["annuity"]);
     }
@@ -334,7 +340,12 @@ fn test_expired_swap_handling() {
 
     // Annuity should be zero for expired swap
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("Expired swap should price");
     let annuity = result.measures["annuity"];
     assert!(
@@ -482,7 +493,12 @@ fn test_golden_5y_usd_swap_par_npv() {
     .unwrap();
 
     let par_rate = temp_swap
-        .price_with_metrics(&market, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures["par_rate"];
 
@@ -534,7 +550,12 @@ fn test_golden_annuity_5y_at_5pct() {
     .unwrap();
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = result.measures["annuity"];
@@ -571,7 +592,12 @@ fn test_golden_dv01_approximation() {
     .unwrap();
 
     let result = swap
-        .price_with_metrics(&market, as_of, &[MetricId::Annuity, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Annuity, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let annuity = result.measures["annuity"];

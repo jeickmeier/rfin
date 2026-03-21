@@ -31,7 +31,7 @@
 //! use finstack_valuations::metrics::MetricId;
 //!
 //! let bond = Bond::example().unwrap();
-//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01])?;
+//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01], crate::instruments::PricingOptions::default())?;
 //! // DV01 is in currency units per 1bp rate move
 //! ```
 
@@ -289,8 +289,8 @@ where
 
         let ctx_up = base_ctx.bump(bumps_up)?;
         let ctx_down = base_ctx.bump(bumps_down)?;
-        let pv_up = context.instrument.value_raw(&ctx_up, as_of)?;
-        let pv_down = context.instrument.value_raw(&ctx_down, as_of)?;
+        let pv_up = context.reprice_raw(&ctx_up, as_of)?;
+        let pv_down = context.reprice_raw(&ctx_down, as_of)?;
 
         let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
         Ok(dv01)
@@ -322,8 +322,8 @@ where
                 id: curve_id.clone(),
                 spec: BumpSpec::parallel_bp(-bump_bp),
             }])?;
-            let pv_up = context.instrument.value_raw(&ctx_up, as_of)?;
-            let pv_down = context.instrument.value_raw(&ctx_down, as_of)?;
+            let pv_up = context.reprice_raw(&ctx_up, as_of)?;
+            let pv_down = context.reprice_raw(&ctx_down, as_of)?;
             let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
 
             series.push((curve_id.as_str().to_string(), dv01));
@@ -407,8 +407,8 @@ where
                     -bump_bp,
                 ),
             }])?;
-            let pv_up = context.instrument.value_raw(&ctx_up, as_of)?;
-            let pv_down = context.instrument.value_raw(&ctx_down, as_of)?;
+            let pv_up = context.reprice_raw(&ctx_up, as_of)?;
+            let pv_down = context.reprice_raw(&ctx_down, as_of)?;
             let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
 
             series.push((label, dv01));

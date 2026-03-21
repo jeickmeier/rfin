@@ -26,7 +26,12 @@ fn test_price_with_metrics_real_yield() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealYield])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealYield],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -45,7 +50,12 @@ fn test_price_with_metrics_index_ratio() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::IndexRatio])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::IndexRatio],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -63,7 +73,12 @@ fn test_price_with_metrics_real_duration() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealDuration])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealDuration],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -83,7 +98,12 @@ fn test_price_with_metrics_breakeven_inflation() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::BreakevenInflation])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BreakevenInflation],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -103,7 +123,12 @@ fn test_price_with_metrics_dv01() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -122,7 +147,12 @@ fn test_price_with_metrics_theta() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -148,7 +178,14 @@ fn test_price_with_multiple_metrics() {
     ];
 
     // Act
-    let result = ilb.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = ilb
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Assert - all requested metrics should be present
     for metric in &metrics {
@@ -171,7 +208,12 @@ fn test_price_with_metrics_includes_base_value() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealYield])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealYield],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert - result should include the base present value
@@ -186,7 +228,14 @@ fn test_price_with_no_metrics() {
     let as_of = d(2025, 1, 2);
 
     // Act
-    let result = ilb.price_with_metrics(&ctx, as_of, &[]).unwrap();
+    let result = ilb
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Assert - should still return base value, but no metrics
     assert!(result.value.amount() > 0.0);
@@ -202,7 +251,12 @@ fn test_metrics_consistency_with_direct_calls() {
 
     // Act - calculate via metrics framework
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealDuration])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealDuration],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let duration_via_framework = result.measures[MetricId::RealDuration.as_str()];
 
@@ -228,7 +282,12 @@ fn test_metrics_real_yield_consistency() {
 
     // Act - calculate via metrics framework
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::RealYield])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::RealYield],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let yield_via_framework = result.measures[MetricId::RealYield.as_str()];
 
@@ -254,7 +313,12 @@ fn test_metrics_index_ratio_consistency() {
 
     // Act - calculate via metrics framework
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::IndexRatio])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::IndexRatio],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ratio_via_framework = result.measures[MetricId::IndexRatio.as_str()];
 
@@ -288,7 +352,14 @@ fn test_price_with_metrics_uk_gilt() {
     ];
 
     // Act
-    let result = ilb.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = ilb
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Assert
     for metric in &metrics {
@@ -322,7 +393,14 @@ fn test_price_with_metrics_performance() {
     // Act
     let start = std::time::Instant::now();
     for _ in 0..10 {
-        let _ = ilb.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+        let _ = ilb
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &metrics,
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap();
     }
     let elapsed = start.elapsed();
 
@@ -350,7 +428,12 @@ fn test_bucketed_dv01_metric() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Assert
@@ -375,7 +458,14 @@ fn test_metrics_with_deflation_protection() {
     let metrics = [MetricId::RealYield, MetricId::IndexRatio];
 
     // Act
-    let result = ilb.price_with_metrics(&ctx, as_of, &metrics).unwrap();
+    let result = ilb
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Assert - all metrics should calculate successfully
     for metric in &metrics {
@@ -394,7 +484,12 @@ fn test_breakeven_inflation_metric_consistency() {
 
     // Act
     let result = ilb
-        .price_with_metrics(&ctx, as_of, &[MetricId::BreakevenInflation])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BreakevenInflation],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let breakeven_via_framework = result.measures[MetricId::BreakevenInflation.as_str()];
 

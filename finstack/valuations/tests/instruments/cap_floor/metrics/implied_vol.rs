@@ -90,7 +90,12 @@ fn test_implied_vol_requires_market_price() {
         .insert(fwd_curve)
         .insert_surface(vol_surface);
 
-    let result = caplet.price_with_metrics(&market, as_of, &[MetricId::ImpliedVol]);
+    let result = caplet.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ImpliedVol],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Should either fail or return zero without market price
     if let Ok(res) = result {
@@ -149,7 +154,12 @@ fn test_implied_vol_fails_without_market_price_override() {
     // InterestRateOption does not carry pricing_overrides, so implied vol
     // requires the market price to be provided through the MetricContext.
     // Without it, the metric should fail.
-    let result = caplet.price_with_metrics(&market, as_of, &[MetricId::ImpliedVol]);
+    let result = caplet.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::ImpliedVol],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Should fail because no market price is available
     assert!(

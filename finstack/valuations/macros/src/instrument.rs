@@ -96,24 +96,6 @@ pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
                 self.#price_fn_ident(market, as_of)
             }
 
-            fn price_with_metrics(
-                &self,
-                market: &finstack_core::market_data::context::MarketContext,
-                as_of: finstack_core::dates::Date,
-                metrics: &[crate::metrics::MetricId],
-            ) -> finstack_core::Result<crate::results::ValuationResult> {
-                let base_value = self.value(market, as_of)?;
-                crate::instruments::common::helpers::build_with_metrics_dyn(
-                    std::sync::Arc::new(self.clone()),
-                    std::sync::Arc::new(market.clone()),
-                    as_of,
-                    base_value,
-                    metrics,
-                    None,
-                    None,
-                )
-            }
-
             #market_deps_impl
         }
     };

@@ -30,7 +30,12 @@ fn metric_value(
     metric: MetricId,
 ) -> f64 {
     let result = index
-        .price_with_metrics(market, as_of, std::slice::from_ref(&metric))
+        .price_with_metrics(
+            market,
+            as_of,
+            std::slice::from_ref(&metric),
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("metric should compute");
     result.measures[&metric]
 }

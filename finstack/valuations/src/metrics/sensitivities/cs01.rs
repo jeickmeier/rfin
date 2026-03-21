@@ -305,9 +305,24 @@ where
         .credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
+        let cfg = context.config_arc();
+        let model = context.pricing_model;
+        let registry = context.pricer_registry.clone();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
+            if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
+                return Ok(registry
+                    .price(
+                        inst_arc.as_ref(),
+                        model,
+                        temp_ctx,
+                        as_of,
+                        Some(cfg.as_ref()),
+                    )?
+                    .value
+                    .amount());
+            }
             inst_arc.value_raw(temp_ctx, as_of)
         };
 
@@ -352,9 +367,24 @@ where
         let bump_bp = defaults.credit_spread_bump_bp;
 
         let inst_arc = Arc::clone(&context.instrument);
+        let cfg = context.config_arc();
+        let model = context.pricing_model;
+        let registry = context.pricer_registry.clone();
         let as_of = context.as_of;
 
         let reval = move |temp_ctx: &finstack_core::market_data::context::MarketContext| {
+            if let (Some(model), Some(registry)) = (model, registry.as_ref()) {
+                return Ok(registry
+                    .price(
+                        inst_arc.as_ref(),
+                        model,
+                        temp_ctx,
+                        as_of,
+                        Some(cfg.as_ref()),
+                    )?
+                    .value
+                    .amount());
+            }
             inst_arc.value_raw(temp_ctx, as_of)
         };
 
@@ -410,14 +440,13 @@ where
         let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
         let hazard_ref = hazard.as_ref();
 
-        let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
         let bumped_up = bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(bump_bp))?;
         let bumped_down = bump_hazard_shift(hazard_ref, &BumpRequest::Parallel(-bump_bp))?;
 
-        let pv_up = inst_arc.value_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
-        let pv_down = inst_arc.value_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
+        let pv_up = context.reprice_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
+        let pv_down = context.reprice_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
 
         let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
 
@@ -466,7 +495,6 @@ where
         let hazard = base_ctx.get_hazard(hazard_id.as_str())?;
         let hazard_ref = hazard.as_ref();
 
-        let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
         let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
@@ -480,8 +508,8 @@ where
             let bumped_down =
                 bump_hazard_shift(hazard_ref, &BumpRequest::Tenors(vec![(t, -bump_bp)]))?;
 
-            let pv_up = inst_arc.value_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
-            let pv_down = inst_arc.value_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
+            let pv_up = context.reprice_raw(&base_ctx.clone().insert(bumped_up), as_of)?;
+            let pv_down = context.reprice_raw(&base_ctx.clone().insert(bumped_down), as_of)?;
 
             let cs01 = sensitivity_central_diff(pv_up, pv_down, bump_bp);
             series.push((label, cs01));

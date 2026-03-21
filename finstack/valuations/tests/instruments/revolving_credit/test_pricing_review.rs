@@ -238,7 +238,12 @@ fn test_floating_rcf_dv01_bumps_forward_curve() {
     let market = MarketContext::new().insert(disc_curve).insert(fwd_curve);
 
     let result = facility
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();

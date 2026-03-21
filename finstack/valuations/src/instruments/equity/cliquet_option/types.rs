@@ -108,6 +108,10 @@ impl CliquetOption {
 impl crate::instruments::common_impl::traits::Instrument for CliquetOption {
     impl_instrument_base!(crate::pricer::InstrumentType::CliquetOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::MonteCarloGBM
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
@@ -154,5 +158,30 @@ impl crate::instruments::common_impl::traits::Instrument for CliquetOption {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn canonical_pricing_path_mentions_mc_requirement() {
+        use crate::instruments::common_impl::traits::Instrument;
+
+        let instrument = super::CliquetOption::example().expect("CliquetOption example is valid");
+        let err = instrument
+            .price_with_metrics(
+                &finstack_core::market_data::context::MarketContext::new(),
+                instrument.expiry,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect_err("canonical pricing path should fail without mc feature");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("`mc`"),
+            "Error should mention mc feature: {msg}"
+        );
     }
 }

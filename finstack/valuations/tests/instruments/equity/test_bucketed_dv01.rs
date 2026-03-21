@@ -59,7 +59,12 @@ fn test_equity_bucketed_dv01_computed() {
     );
 
     let result = equity
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // BucketedDv01 should be present
@@ -96,7 +101,12 @@ fn test_equity_bucketed_dv01_with_market_price() {
     );
 
     let result = equity
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let bucketed_dv01 = *result.measures.get("bucketed_dv01").unwrap();

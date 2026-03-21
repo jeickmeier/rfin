@@ -46,7 +46,7 @@
 //! let _registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
-//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Option value: ${:.2}", result.value.amount());
@@ -101,7 +101,7 @@
 //! // "1W", "2W", ... (weeks)
 //! // "1M", "3M", "6M", ... (months)
 //! // "1Y", "2Y", ... (years)
-//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("1-week theta: ${:.2}", theta);
@@ -132,7 +132,7 @@
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Measure 1-month carry
-//! let result = bond.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = bond.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Bond value: ${:.2}", result.value.amount());
@@ -190,7 +190,7 @@
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Request 1-week theta, but only 6 days remain
-//! let result = option.price_with_metrics(&market, as_of, &metrics)?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Theta to expiry (6 days): ${:.2}", theta);

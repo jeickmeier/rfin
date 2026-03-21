@@ -33,7 +33,12 @@ fn test_ir01_finite_difference_validation() {
 
     // Get analytic DV01
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_analytic = *result.measures.get("dv01").unwrap();
 
@@ -95,7 +100,12 @@ fn test_ir01_scales_with_maturity() {
             .unwrap();
 
         let result = swap
-            .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+            .price_with_metrics(
+                &ctx,
+                as_of,
+                &[MetricId::Dv01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let dv01 = result.measures.get("dv01").unwrap().abs();
@@ -133,7 +143,12 @@ fn test_ir01_sign_pay_fixed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -164,7 +179,12 @@ fn test_ir01_sign_receive_fixed() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -195,7 +215,12 @@ fn test_ir01_zero_for_matured_swap() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = result.measures.get("dv01").unwrap().abs();

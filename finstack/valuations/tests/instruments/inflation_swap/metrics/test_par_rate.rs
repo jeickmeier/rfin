@@ -30,7 +30,12 @@ fn test_par_rate_gives_zero_pv() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -83,10 +88,20 @@ fn test_par_rate_increases_with_inflation() {
         .unwrap();
 
     let result_low = swap
-        .price_with_metrics(&ctx_low, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx_low,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_high = swap
-        .price_with_metrics(&ctx_high, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx_high,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_low = *result_low.measures.get("par_rate").unwrap();
@@ -122,7 +137,12 @@ fn test_par_rate_reasonable_range() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_rate = *result.measures.get("par_rate").unwrap();
@@ -171,10 +191,20 @@ fn test_par_rate_independent_of_side() {
         .unwrap();
 
     let result_pay = swap_pay
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_receive = swap_receive
-        .price_with_metrics(&ctx, as_of, &[MetricId::ParRate])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_pay = *result_pay.measures.get("par_rate").unwrap();

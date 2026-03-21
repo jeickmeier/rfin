@@ -14,7 +14,12 @@ fn test_deep_itm_stability() {
 
     let pv = deep_itm.value(&market, as_of).unwrap().amount();
     let result = deep_itm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(
@@ -41,7 +46,12 @@ fn test_deep_otm_stability() {
 
     let pv = deep_otm.value(&market, as_of).unwrap().amount();
     let result = deep_otm
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(
@@ -138,7 +148,12 @@ fn test_large_notional_scaling() {
 
     let pv = swaption.value(&market, as_of).unwrap().amount();
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Should scale properly
@@ -164,7 +179,12 @@ fn test_small_notional_scaling() {
 
     let pv = swaption.value(&market, as_of).unwrap().amount();
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Should scale properly

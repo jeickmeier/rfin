@@ -126,7 +126,12 @@ fn test_par_spread_approximation() {
     cds.protection.recovery_rate = recovery;
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_spread = *result.measures.get("par_spread").unwrap();
@@ -190,6 +195,7 @@ fn test_clean_upfront_adjustment_changes_npv_not_leg_pvs() {
             &market,
             as_of,
             &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("base cds metrics");
     let base_npv = base.value;
@@ -202,6 +208,7 @@ fn test_clean_upfront_adjustment_changes_npv_not_leg_pvs() {
             &market,
             as_of,
             &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("dirty cds metrics");
 
@@ -252,7 +259,12 @@ fn test_risky_pv01_market_standard() {
     cds.protection.recovery_rate = 0.40;
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let risky_pv01 = *result.measures.get("risky_pv01").unwrap();
@@ -340,7 +352,12 @@ fn test_cs01_positive_for_protection_buyer() {
     cds.protection.recovery_rate = 0.40;
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cs01 = *result.measures.get("cs01").unwrap();
@@ -486,7 +503,12 @@ fn test_expected_loss_formula_validation() {
     cds.protection.recovery_rate = recovery;
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let expected_loss = *result.measures.get("expected_loss").unwrap();
@@ -545,7 +567,12 @@ fn test_jump_to_default_equals_lgd_times_notional() {
     cds.protection.recovery_rate = recovery;
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let jtd = *result.measures.get("jump_to_default").unwrap();
@@ -586,7 +613,12 @@ fn test_survival_probability_decreases_over_time() {
     cds.protection.recovery_rate = 0.40;
 
     let result_t0 = cds
-        .price_with_metrics(&market, start, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &market,
+            start,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let risky_pv01_t0 = *result_t0.measures.get("risky_pv01").unwrap();
@@ -638,7 +670,12 @@ fn test_standard_tenors_reasonable_par_spreads() {
         cds.protection.recovery_rate = recovery;
 
         let result = cds
-            .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ParSpread],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let par_spread = *result.measures.get("par_spread").unwrap();
@@ -683,7 +720,12 @@ fn test_term_structure_upward_sloping_spreads() {
         cds.protection.recovery_rate = recovery;
 
         let result = cds
-            .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ParSpread],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let par_spread = *result.measures.get("par_spread").unwrap();

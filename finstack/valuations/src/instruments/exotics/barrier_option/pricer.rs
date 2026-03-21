@@ -627,10 +627,7 @@ mod tests {
         MarketContext::new()
             .insert(discount)
             .insert_surface(surface)
-            .insert_price(
-                "SPX",
-                MarketScalar::Price(Money::new(spot, Currency::USD)),
-            )
+            .insert_price("SPX", MarketScalar::Price(Money::new(spot, Currency::USD)))
             .insert_price("SPX_DIV", MarketScalar::Unitless(div_yield))
     }
 
@@ -707,7 +704,10 @@ mod tests {
         };
 
         let base_pv = base.value(&market, as_of).expect("base pv").amount();
-        let rebate_pv = with_rebate.value(&market, as_of).expect("rebate pv").amount();
+        let rebate_pv = with_rebate
+            .value(&market, as_of)
+            .expect("rebate pv")
+            .amount();
 
         let t = with_rebate
             .day_count

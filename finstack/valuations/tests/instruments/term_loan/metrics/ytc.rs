@@ -54,7 +54,12 @@ fn test_ytc_callable_loan() {
     let market = MarketContext::new().insert(disc_curve);
 
     // Act
-    let result = loan.price_with_metrics(&market, as_of, &[MetricId::custom("ytc")]);
+    let result = loan.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::custom("ytc")],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -102,13 +107,23 @@ fn test_ytc_uses_quoted_clean_price_when_present() {
     let market = MarketContext::new().insert(disc_curve);
 
     let base = loan
-        .price_with_metrics(&market, as_of, &[MetricId::custom("ytc")])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::custom("ytc")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytc_base = *base.measures.get("ytc").unwrap();
 
     loan.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
     let quoted = loan
-        .price_with_metrics(&market, as_of, &[MetricId::custom("ytc")])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::custom("ytc")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytc_quoted = *quoted.measures.get("ytc").unwrap();
 

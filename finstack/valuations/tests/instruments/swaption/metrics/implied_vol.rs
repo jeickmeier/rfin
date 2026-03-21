@@ -24,7 +24,12 @@ fn test_implied_vol_matches_surface() {
     let market = create_flat_market(as_of, 0.05, vol_input);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -45,7 +50,12 @@ fn test_implied_vol_positive() {
     let market = create_flat_market(as_of, 0.05, 0.25);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -68,7 +78,12 @@ fn test_implied_vol_inversion() {
     // where target_pv is the base_value computed by the same pricing function.
     // Since both use identical pricing paths, inversion should be very precise.
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ImpliedVol],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let implied_vol = *result.measures.get("implied_vol").unwrap();
@@ -92,7 +107,12 @@ fn test_implied_vol_consistency_across_strikes() {
         let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, strike);
 
         let result = swaption
-            .price_with_metrics(&market, as_of, &[MetricId::ImpliedVol])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ImpliedVol],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let implied_vol = *result.measures.get("implied_vol").unwrap();

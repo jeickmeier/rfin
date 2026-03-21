@@ -509,6 +509,19 @@ fn validate_currency(expected: Currency, money: Money) -> Result<(), finstack_co
 impl crate::instruments::common_impl::traits::Instrument for TermLoan {
     impl_instrument_base!(crate::pricer::InstrumentType::TermLoan);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        if let Some(ref cs) = self.call_schedule {
+            let has_exercisable = cs
+                .calls
+                .iter()
+                .any(|c| !matches!(c.call_type, super::spec::LoanCallType::MakeWhole { .. }));
+            if has_exercisable {
+                return crate::pricer::ModelKey::Tree;
+            }
+        }
+        crate::pricer::ModelKey::Discounting
+    }
+
     fn value(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,

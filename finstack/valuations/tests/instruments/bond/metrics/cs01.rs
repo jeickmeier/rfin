@@ -44,7 +44,12 @@ fn test_cs01_positive() {
         .insert(hazard);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let cs01 = *result.measures.get("cs01").unwrap();
     assert!(cs01.abs() < 10.0); // Should be reasonable

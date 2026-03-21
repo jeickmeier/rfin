@@ -306,6 +306,7 @@ fn test_put_call_parity() {
                 &market,
                 as_of,
                 &[MetricId::ParSpread, MetricId::RiskyAnnuity],
+                finstack_valuations::instruments::PricingOptions::default(),
             )
             .expect("metrics should compute");
         let forward = result.measures[&MetricId::ParSpread];
@@ -353,7 +354,12 @@ fn test_put_call_parity_at_forward() {
     .expect("underlying CDS should build");
     underlying.protection.recovery_rate = temp_option.recovery_rate;
     let forward = underlying
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("par spread should compute")
         .measures[&MetricId::ParSpread];
 

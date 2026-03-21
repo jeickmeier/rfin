@@ -171,6 +171,7 @@ fn bench_swaption_greeks(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&greeks),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },

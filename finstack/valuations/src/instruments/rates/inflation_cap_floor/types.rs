@@ -436,6 +436,10 @@ impl InflationCapFloorBuilder {
 impl crate::instruments::common_impl::traits::Instrument for InflationCapFloor {
     impl_instrument_base!(crate::pricer::InstrumentType::InflationCapFloor);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn value(&self, curves: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         self.npv_with_model(curves, as_of, crate::pricer::ModelKey::Black76)
     }

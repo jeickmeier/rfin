@@ -339,7 +339,7 @@ impl PyRevolvingCredit {
     ///     ValueError: If required curves are missing or valuation fails.
     ///
     /// Examples:
-    ///     >>> result = rc.price_with_metrics(market, date.today(), ["DV01", "CS01"])
+    ///     >>> result = rc.price_with_metrics(market, date.today(), ["DV01", "CS01"], finstack_valuations::instruments::PricingOptions::default())
     ///     >>> print(f"PV: {result.value}")
     ///     >>> print(f"DV01: {result.metrics['DV01']}")
     fn price_with_metrics(
@@ -359,7 +359,12 @@ impl PyRevolvingCredit {
             .collect();
 
         self.inner
-            .price_with_metrics(&market.inner, as_of_date, &metric_ids)
+            .price_with_metrics(
+                &market.inner,
+                as_of_date,
+                &metric_ids,
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .map(PyValuationResult::new)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }

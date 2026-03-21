@@ -16,7 +16,12 @@ fn test_complete_pricing_workflow() {
 
     // 2. Pricing with single metric
     let result_delta = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     assert!(
         result_delta.measures.contains_key("delta"),
@@ -34,7 +39,12 @@ fn test_complete_pricing_workflow() {
         MetricId::ImpliedVol,
     ];
     let result_all = swaption
-        .price_with_metrics(&market, as_of, &all_metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &all_metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert_eq!(result_all.measures.len(), 7, "Step 3: All metrics computed");
@@ -65,7 +75,12 @@ fn test_portfolio_of_swaptions() {
 
     for swaption in &swaptions {
         let result = swaption
-            .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta, MetricId::Vega],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         total_pv += result.value.amount();

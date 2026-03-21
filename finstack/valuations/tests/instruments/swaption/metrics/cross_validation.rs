@@ -21,7 +21,12 @@ fn test_all_greeks_run_together() {
     ];
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Verify all metrics computed
@@ -73,7 +78,12 @@ fn test_delta_gamma_consistency() {
     // Compute delta and gamma
     let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let delta = *result.measures.get("delta").unwrap();
@@ -95,7 +105,12 @@ fn test_vega_theta_tradeoff() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Vega, MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega, MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();
@@ -126,7 +141,12 @@ fn test_metric_stability_across_maturities() {
             let swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05);
 
             let result = swaption
-                .price_with_metrics(&market, as_of, &metrics)
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
 
             // All metrics should be finite and reasonable

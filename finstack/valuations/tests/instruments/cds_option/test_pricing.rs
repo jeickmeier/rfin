@@ -180,7 +180,12 @@ fn test_forward_spread_calculation() {
     .expect("underlying CDS should build");
     underlying.protection.recovery_rate = option.recovery_rate;
     let forward = underlying
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("par spread should compute")
         .measures[&MetricId::ParSpread];
 
@@ -202,6 +207,7 @@ fn test_price_with_metrics() {
                 finstack_valuations::metrics::MetricId::Delta,
                 finstack_valuations::metrics::MetricId::Vega,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

@@ -92,7 +92,12 @@ fn test_bond_ytm_determinism() {
     let ytms: Vec<f64> = (0..50)
         .map(|_| {
             let result = bond
-                .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Ytm],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Ytm.as_str()]
         })
@@ -128,7 +133,12 @@ fn test_bond_duration_determinism() {
     let durations: Vec<f64> = (0..50)
         .map(|_| {
             let result = bond
-                .price_with_metrics(&market, as_of, &[MetricId::DurationMod])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::DurationMod],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::DurationMod.as_str()]
         })
@@ -161,7 +171,12 @@ fn test_bond_convexity_determinism() {
     let convexities: Vec<f64> = (0..50)
         .map(|_| {
             let result = bond
-                .price_with_metrics(&market, as_of, &[MetricId::Convexity])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Convexity],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Convexity.as_str()]
         })
@@ -194,7 +209,12 @@ fn test_bond_dv01_determinism() {
     let dv01s: Vec<f64> = (0..50)
         .map(|_| {
             let result = bond
-                .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Dv01],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Dv01.as_str()]
         })
@@ -220,7 +240,12 @@ fn test_bond_accrued_determinism() {
     let accrueds: Vec<f64> = (0..100)
         .map(|_| {
             let result = bond
-                .price_with_metrics(&market, as_of, &[MetricId::Accrued])
+                .price_with_metrics(
+                    &market,
+                    as_of,
+                    &[MetricId::Accrued],
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .unwrap();
             result.measures[MetricId::Accrued.as_str()]
         })
@@ -254,7 +279,15 @@ fn test_bond_multiple_metrics_determinism() {
 
     // Calculate all metrics 20 times
     let results: Vec<_> = (0..20)
-        .map(|_| bond.price_with_metrics(&market, as_of, &metrics).unwrap())
+        .map(|_| {
+            bond.price_with_metrics(
+                &market,
+                as_of,
+                &metrics,
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
+            .unwrap()
+        })
         .collect();
 
     // Verify each metric is deterministic

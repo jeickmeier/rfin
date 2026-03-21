@@ -346,6 +346,7 @@ fn test_upfront_affects_dirty_npv_not_leg_pvs() {
             &ctx,
             as_of,
             &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("base metrics");
 
@@ -358,6 +359,7 @@ fn test_upfront_affects_dirty_npv_not_leg_pvs() {
             &ctx,
             as_of,
             &[MetricId::ProtectionLegPv, MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("dirty metrics");
 

@@ -1761,23 +1761,16 @@ impl BermudanSwaption {
 impl crate::instruments::common_impl::traits::Instrument for BermudanSwaption {
     impl_instrument_base!(crate::pricer::InstrumentType::BermudanSwaption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::MonteCarloHullWhite1F
+    }
+
     fn value(
         &self,
         _curves: &finstack_core::market_data::context::MarketContext,
         _as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         // Bermudan swaptions require tree or MC pricing - delegate to pricer
-        Err(Error::Validation(
-            "BermudanSwaption requires tree or LSMC pricing via BermudanSwaptionPricer".into(),
-        ))
-    }
-
-    fn price_with_metrics(
-        &self,
-        _curves: &finstack_core::market_data::context::MarketContext,
-        _as_of: finstack_core::dates::Date,
-        _metrics: &[crate::metrics::MetricId],
-    ) -> finstack_core::Result<crate::results::ValuationResult> {
         Err(Error::Validation(
             "BermudanSwaption requires tree or LSMC pricing via BermudanSwaptionPricer".into(),
         ))
@@ -1922,6 +1915,8 @@ mod tests {
     //! 3. Convergence: as K → F, the formula converges to the ATM limit
 
     use super::lognormal_to_normal_vol;
+    #[cfg(not(feature = "mc"))]
+    use super::BermudanSwaption;
 
     /// Test the lognormal-to-normal vol conversion formula at ATM.
     ///
@@ -1993,6 +1988,31 @@ mod tests {
                 diff
             );
         }
+    }
+
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn bermudan_canonical_pricing_path_mentions_mc_requirement() {
+        use crate::instruments::common_impl::traits::Instrument;
+
+        let instrument = BermudanSwaption::example();
+        let err = instrument
+            .price_with_metrics(
+                &finstack_core::market_data::context::MarketContext::new(),
+                instrument.swap_start,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect_err("canonical pricing path should fail without mc feature");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("`mc`"),
+            "Error should mention mc feature: {msg}"
+        );
+        assert!(
+            msg.contains("non-LSMC") || msg.contains("LSMC"),
+            "Error should mention the non-LSMC fallback: {msg}"
+        );
     }
 
     /// Test that the correction factor stays in reasonable bounds.

@@ -395,7 +395,12 @@ fn test_metrics_with_price_with_metrics() {
     ];
 
     let result = repo
-        .price_with_metrics(&context, date(2025, 1, 10), &metrics)
+        .price_with_metrics(
+            &context,
+            date(2025, 1, 10),
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // Check base valuation

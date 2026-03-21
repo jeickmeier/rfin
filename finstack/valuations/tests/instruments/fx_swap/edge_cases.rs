@@ -374,8 +374,12 @@ fn test_metric_error_handling() {
     );
 
     // Should return error when trying to calculate metrics without market data
-    let result =
-        swap.price_with_metrics(&market, dates.as_of, &[MetricId::custom("forward_points")]);
+    let result = swap.price_with_metrics(
+        &market,
+        dates.as_of,
+        &[MetricId::custom("forward_points")],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     assert!(result.is_err(), "Metrics should error without market data");
 }

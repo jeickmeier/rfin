@@ -11,7 +11,12 @@ fn test_gamma_positive_for_long_option() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let gamma = *result.measures.get("gamma").unwrap();
@@ -31,7 +36,12 @@ fn test_atm_gamma_highest() {
     let otm = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.07);
 
     let gamma_atm = atm
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -39,7 +49,12 @@ fn test_atm_gamma_highest() {
         .unwrap();
 
     let gamma_itm = itm
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -47,7 +62,12 @@ fn test_atm_gamma_highest() {
         .unwrap();
 
     let gamma_otm = otm
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -73,7 +93,12 @@ fn test_gamma_reasonable_magnitude() {
     let market = create_flat_market(as_of, 0.05, 0.30);
 
     let result = swaption
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let gamma = *result.measures.get("gamma").unwrap();
@@ -98,7 +123,12 @@ fn test_gamma_decreases_with_time_to_expiry() {
     let swaption_long = create_standard_payer_swaption(expiry_long, swap_start, swap_end, 0.05);
 
     let gamma_short = swaption_short
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")
@@ -106,7 +136,12 @@ fn test_gamma_decreases_with_time_to_expiry() {
         .unwrap();
 
     let gamma_long = swaption_long
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("gamma")

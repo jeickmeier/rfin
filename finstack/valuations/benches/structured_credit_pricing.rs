@@ -193,6 +193,7 @@ fn bench_wal_calculation(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::WAL]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -211,7 +212,12 @@ fn bench_duration_metrics(c: &mut Criterion) {
 
     group.bench_function("duration_suite", |b| {
         b.iter(|| {
-            deal.price_with_metrics(black_box(&market), black_box(as_of), black_box(&metrics))
+            deal.price_with_metrics(
+                black_box(&market),
+                black_box(as_of),
+                black_box(&metrics),
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
         });
     });
     group.finish();
@@ -233,6 +239,7 @@ fn bench_cs01(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::Cs01]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -268,6 +275,7 @@ fn bench_pool_metrics(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&pool_metrics),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -292,6 +300,7 @@ fn bench_warf_calculation(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::CloWarf]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -322,6 +331,7 @@ fn bench_price_metrics(c: &mut Criterion) {
                 black_box(&market),
                 black_box(as_of),
                 black_box(&price_metrics),
+                finstack_valuations::instruments::PricingOptions::default(),
             )
         });
     });
@@ -359,6 +369,7 @@ fn bench_full_metrics_suite(c: &mut Criterion) {
                 black_box(&market),
                 black_box(as_of),
                 black_box(&all_metrics),
+                finstack_valuations::instruments::PricingOptions::default(),
             )
         });
     });

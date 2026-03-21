@@ -200,6 +200,13 @@ impl AsianOption {
 impl crate::instruments::common_impl::traits::Instrument for AsianOption {
     impl_instrument_base!(crate::pricer::InstrumentType::AsianOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        match self.averaging_method {
+            AveragingMethod::Geometric => crate::pricer::ModelKey::AsianGeometricBS,
+            AveragingMethod::Arithmetic => crate::pricer::ModelKey::AsianTurnbullWakeman,
+        }
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>

@@ -225,7 +225,12 @@ mod tests {
         let market = MarketContext::new().insert(curve);
 
         let result = bond
-            .price_with_metrics(&market, as_of, &[MetricId::Convexity])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Convexity],
+                crate::instruments::PricingOptions::default(),
+            )
             .expect("convexity result");
         assert_eq!(*result.measures.get("convexity").expect("convexity"), 0.0);
     }

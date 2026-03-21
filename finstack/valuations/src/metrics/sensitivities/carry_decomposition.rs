@@ -59,10 +59,7 @@ impl MetricCalculator for CarryDecompositionCalculator {
 
         let pull_to_par = if let Some(&ytm) = context.computed.get(&MetricId::Ytm) {
             let flat_market = build_flat_curve_market(context, ytm)?;
-            let flat_pv = context
-                .instrument
-                .value(&flat_market, rolled_date)?
-                .amount();
+            let flat_pv = context.reprice_money(&flat_market, rolled_date)?.amount();
             flat_pv - base_pv
         } else {
             0.0
@@ -333,6 +330,7 @@ mod tests {
                     MetricId::RollDown,
                     MetricId::FundingCost,
                 ],
+                crate::instruments::PricingOptions::default(),
             )
             .expect("carry metrics should be registered in the standard registry");
 

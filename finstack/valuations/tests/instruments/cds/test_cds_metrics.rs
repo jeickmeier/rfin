@@ -73,7 +73,12 @@ fn test_cs01_positive_for_buyer() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cs01 = *result.measures.get("cs01").unwrap();
@@ -129,7 +134,12 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
     let expected_cs01 = (pv_up - pv_down) / 2.0; // per 1bp central difference
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let cs01 = *result.measures.get("cs01").unwrap();
 
@@ -155,7 +165,12 @@ fn test_risky_pv01_positive() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::RiskyPv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::RiskyPv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let risky_pv01 = *result.measures.get("risky_pv01").unwrap();
@@ -179,7 +194,12 @@ fn test_par_spread_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ParSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let par_spread = *result.measures.get("par_spread").unwrap();
@@ -204,7 +224,12 @@ fn test_protection_leg_pv_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ProtectionLegPv])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ProtectionLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let prot_pv = *result.measures.get("protection_leg_pv").unwrap();
@@ -221,7 +246,12 @@ fn test_premium_leg_pv_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::PremiumLegPv])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::PremiumLegPv],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let prem_pv = *result.measures.get("premium_leg_pv").unwrap();
@@ -241,7 +271,12 @@ fn test_expected_loss_positive() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let expected_loss = *result.measures.get("expected_loss").unwrap();
@@ -273,7 +308,12 @@ fn test_expected_loss_formula() {
         .insert(build_test_hazard(hazard_rate, recovery, as_of, "CORP"));
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let expected_loss = *result.measures.get("expected_loss").unwrap();
@@ -308,7 +348,12 @@ fn test_expected_loss_conditions_on_as_of() {
         .insert(build_test_hazard(hazard_rate, recovery, base, "CORP"));
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ExpectedLoss],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let expected_loss = *result.measures.get("expected_loss").unwrap();
 
@@ -343,7 +388,12 @@ fn test_jump_to_default_positive_for_buyer() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let jtd = *result.measures.get("jump_to_default").unwrap();
@@ -371,7 +421,12 @@ fn test_jump_to_default_negative_for_seller() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let jtd = *result.measures.get("jump_to_default").unwrap();
@@ -391,7 +446,12 @@ fn test_jump_to_default_magnitude() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let jtd = *result.measures.get("jump_to_default").unwrap();
@@ -428,7 +488,12 @@ fn test_jump_to_default_uses_adjusted_coupon_schedule_for_accrued() {
     // is curve-independent.
     let market = create_test_market(as_of);
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::JumpToDefault])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::JumpToDefault],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let jtd = *result.measures.get("jump_to_default").unwrap();
 
@@ -472,7 +537,12 @@ fn test_dv01_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -491,7 +561,12 @@ fn test_theta_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::Theta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Theta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let theta = *result.measures.get("theta").unwrap();
@@ -508,7 +583,12 @@ fn test_hazard_cs01_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Cs01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cs01 = *result.measures.get("cs01").unwrap();
@@ -538,7 +618,14 @@ fn test_multiple_metrics_simultaneously() {
         MetricId::Cs01,
     ];
 
-    let result = cds.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = cds
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // All metrics should be present
     assert!(result.measures.contains_key("cs01"));
@@ -565,6 +652,7 @@ fn test_pv01_alias_matches_risky_pv01() {
             &market,
             as_of,
             &[MetricId::RiskyPv01, MetricId::custom("pv01")],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -610,10 +698,20 @@ fn test_metrics_scale_with_notional() {
     ];
 
     let result_small = cds_small
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_large = cds_large
-        .price_with_metrics(&market, as_of, &metrics)
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     for metric in ["risky_pv01", "expected_loss", "jump_to_default"] {
@@ -642,7 +740,12 @@ fn test_cs01_increases_with_tenor() {
         let cds = create_test_cds(as_of, maturity);
 
         let result = cds
-            .price_with_metrics(&market, as_of, &[MetricId::Cs01])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Cs01],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let cs01 = *result.measures.get("cs01").unwrap();
@@ -674,7 +777,12 @@ fn test_expected_loss_increases_with_tenor() {
         let cds = create_test_cds(as_of, maturity);
 
         let result = cds
-            .price_with_metrics(&market, as_of, &[MetricId::ExpectedLoss])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::ExpectedLoss],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
 
         let el = *result.measures.get("expected_loss").unwrap();
@@ -699,7 +807,12 @@ fn test_bucketed_dv01_metric() {
     let market = create_test_market(as_of);
 
     let result = cds
-        .price_with_metrics(&market, as_of, &[MetricId::BucketedDv01, MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let bucket_total = *result.measures.get("bucketed_dv01").unwrap();

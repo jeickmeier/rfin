@@ -172,6 +172,14 @@ impl BarrierOption {
 impl crate::instruments::common_impl::traits::Instrument for BarrierOption {
     impl_instrument_base!(crate::pricer::InstrumentType::BarrierOption);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        if self.use_gobet_miri {
+            crate::pricer::ModelKey::MonteCarloGBM
+        } else {
+            crate::pricer::ModelKey::BarrierBSContinuous
+        }
+    }
+
     fn market_dependencies(
         &self,
     ) -> finstack_core::Result<crate::instruments::common_impl::dependencies::MarketDependencies>
@@ -260,6 +268,31 @@ mod tests {
         assert!(
             format!("{err}").contains("use_gobet_miri=true"),
             "Error should explain explicit discrete-mode requirement"
+        );
+    }
+
+    #[cfg(not(feature = "mc"))]
+    #[test]
+    fn canonical_pricing_path_rejects_discrete_mode_when_mc_disabled() {
+        use crate::instruments::common_impl::traits::Instrument;
+
+        let option = super::BarrierOption::example().expect("BarrierOption example is valid");
+        let err = option
+            .price_with_metrics(
+                &finstack_core::market_data::context::MarketContext::new(),
+                option.expiry,
+                &[],
+                crate::instruments::PricingOptions::default(),
+            )
+            .expect_err("canonical pricing path should fail without mc feature");
+        let msg = format!("{err}");
+        assert!(
+            msg.contains("`mc`"),
+            "Error should mention mc feature: {msg}"
+        );
+        assert!(
+            msg.contains("continuous-monitoring"),
+            "Error should mention the continuous-monitoring fallback: {msg}"
         );
     }
 

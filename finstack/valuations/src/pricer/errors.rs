@@ -171,6 +171,32 @@ fn format_context(ctx: &PricingErrorContext) -> String {
     }
 }
 
+/// Provide a more actionable error for MC-gated pricers in non-MC builds.
+pub(crate) fn actionable_unknown_pricer_message(_key: PricerKey) -> Option<String> {
+    #[cfg(not(feature = "mc"))]
+    {
+        if _key.model.requires_mc_feature() {
+            let extra_hint = match (_key.instrument, _key.model) {
+                (InstrumentType::BarrierOption, ModelKey::MonteCarloGBM)
+                | (InstrumentType::LookbackOption, ModelKey::MonteCarloGBM)
+                | (InstrumentType::FxBarrierOption, ModelKey::MonteCarloGBM) => {
+                    " Rebuild with feature `mc` or switch the instrument back to its continuous-monitoring configuration."
+                }
+                (InstrumentType::BermudanSwaption, ModelKey::MonteCarloHullWhite1F) => {
+                    " Rebuild with feature `mc` or select a non-LSMC pricing model."
+                }
+                _ => " Rebuild with feature `mc` to enable this pricing model.",
+            };
+            return Some(format!(
+                "No pricer found for instrument={} model={}.{}",
+                _key.instrument, _key.model, extra_hint
+            ));
+        }
+    }
+
+    None
+}
+
 /// Lossy conversion from [`PricingError`] into [`finstack_core::Error`].
 ///
 /// This mapping is intentionally lossy — pricing-specific context (instrument ID,

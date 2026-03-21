@@ -85,7 +85,12 @@ fn test_delta_increases_with_moneyness_call() {
     for strike in strikes {
         let call = create_call(as_of, expiry, strike);
         let result = call
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         deltas.push(*result.measures.get("delta").unwrap());
     }
@@ -114,7 +119,12 @@ fn test_delta_behavior_put() {
     for strike in strikes {
         let put = create_put(as_of, expiry, strike);
         let result = put
-            .price_with_metrics(&market, as_of, &[MetricId::Delta])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .unwrap();
         deltas.push(*result.measures.get("delta").unwrap());
     }

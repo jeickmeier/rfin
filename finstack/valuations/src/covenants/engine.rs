@@ -1272,6 +1272,7 @@ mod tests {
             curves: &MarketContext,
             as_of: Date,
             metrics: &[crate::metrics::MetricId],
+            options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> finstack_core::Result<crate::results::ValuationResult> {
             let base_value = self.value(curves, as_of)?;
             helpers::build_with_metrics_dyn(
@@ -1280,8 +1281,11 @@ mod tests {
                 as_of,
                 base_value,
                 metrics,
-                None,
-                None,
+                helpers::MetricBuildOptions {
+                    cfg: options.config,
+                    market_history: options.market_history,
+                    ..helpers::MetricBuildOptions::default()
+                },
             )
         }
     }

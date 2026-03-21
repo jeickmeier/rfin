@@ -72,6 +72,7 @@ fn test_term_loan_yields_with_callability() {
             &market,
             as_of,
             &[MetricId::Ytm, MetricId::Ytw, MetricId::custom("ytc")],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -109,6 +110,7 @@ fn test_term_loan_yields_to_horizons() {
                 MetricId::custom("yt3y"),
                 MetricId::custom("yt4y"),
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -199,7 +201,12 @@ fn test_floating_rate_term_loan_yield_and_dm() {
 
     // Act: compute PV, YTM, and Discount Margin
     let result = loan
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::DiscountMargin])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::DiscountMargin],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect("pricing should succeed");
 
     let pv = result.value.amount();

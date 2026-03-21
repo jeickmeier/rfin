@@ -93,7 +93,12 @@ fn test_cap_rho_finite() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rho = *result.measures.get("rho").unwrap();
@@ -142,7 +147,12 @@ fn test_floor_rho_finite() {
         .insert_surface(vol_surface);
 
     let result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let rho = *result.measures.get("rho").unwrap();
@@ -167,14 +177,24 @@ fn test_rho_scales_with_maturity() {
         .insert_surface(vol_surface);
 
     let short_rho = *short_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")
         .unwrap();
 
     let long_rho = *long_cap
-        .price_with_metrics(&market, as_of, &[MetricId::Rho])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Rho],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("rho")

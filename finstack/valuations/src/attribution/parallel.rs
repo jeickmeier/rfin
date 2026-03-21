@@ -678,6 +678,7 @@ mod tests {
             market: &MarketContext,
             as_of: Date,
             _metrics: &[crate::metrics::MetricId],
+            _options: crate::instruments::common_impl::traits::PricingOptions,
         ) -> Result<crate::results::ValuationResult> {
             Ok(crate::results::ValuationResult::stamped(
                 self.id(),

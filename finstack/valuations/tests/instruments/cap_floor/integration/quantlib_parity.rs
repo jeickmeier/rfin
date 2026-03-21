@@ -479,10 +479,20 @@ fn test_quantlib_parity_delta_sign() {
         .insert_surface(vol_surface);
 
     let cap_result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let floor_result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cap_delta = *cap_result.measures.get("delta").unwrap();
@@ -568,10 +578,20 @@ fn test_quantlib_parity_gamma_positive() {
         .insert_surface(vol_surface);
 
     let cap_result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let floor_result = floor
-        .price_with_metrics(&market, as_of, &[MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let cap_gamma = *cap_result.measures.get("gamma").unwrap();

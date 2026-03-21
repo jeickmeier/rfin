@@ -255,6 +255,7 @@ fn bench_cds_index_metrics(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&metrics),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },

@@ -18,7 +18,12 @@ fn test_dv01_standard_fra() {
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -45,12 +50,22 @@ fn test_dv01_scales_with_notional() {
         .build();
 
     let result_1m = fra_1m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_1m = *result_1m.measures.get("dv01").unwrap();
 
     let result_10m = fra_10m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dv01_10m = *result_10m.measures.get("dv01").unwrap();
 
@@ -81,7 +96,12 @@ fn test_dv01_scales_with_tenor() {
         .build();
 
     let dv01_1m = fra_1m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -89,7 +109,12 @@ fn test_dv01_scales_with_tenor() {
         .abs();
 
     let dv01_6m = fra_6m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -110,7 +135,12 @@ fn test_dv01_receive_fixed_negative() {
     let fra = TestFraBuilder::new().receive_fixed(true).build(); // true = receive fixed
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -125,7 +155,12 @@ fn test_dv01_pay_fixed_positive() {
     let fra = TestFraBuilder::new().receive_fixed(false).build(); // false = pay fixed
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -143,7 +178,12 @@ fn test_dv01_short_period() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -161,7 +201,12 @@ fn test_dv01_long_period() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -179,7 +224,12 @@ fn test_dv01_zero_tau() {
         .build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let dv01 = *result.measures.get("dv01").unwrap();
@@ -195,7 +245,12 @@ fn test_dv01_different_day_counts() {
     let fra_365 = TestFraBuilder::new().day_count(DayCount::Act365F).build();
 
     let dv01_360 = fra_360
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -203,7 +258,12 @@ fn test_dv01_different_day_counts() {
         .abs();
 
     let dv01_365 = fra_365
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::Dv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap()
         .measures
         .get("dv01")
@@ -223,7 +283,12 @@ fn test_pv01_alias() {
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::custom("pv01")])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::custom("pv01")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let pv01 = *result.measures.get("pv01").unwrap();

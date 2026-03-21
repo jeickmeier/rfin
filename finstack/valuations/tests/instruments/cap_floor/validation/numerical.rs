@@ -151,7 +151,12 @@ fn test_vega_gamma_relation() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Vega, MetricId::Gamma])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vega, MetricId::Gamma],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let vega = *result.measures.get("vega").unwrap();
@@ -234,7 +239,12 @@ fn test_delta_by_finite_difference() {
 
     // Analytical delta
     let result = caplet
-        .price_with_metrics(&market_base, as_of, &[MetricId::Delta])
+        .price_with_metrics(
+            &market_base,
+            as_of,
+            &[MetricId::Delta],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let analytic_delta = *result.measures.get("delta").unwrap();
 
@@ -322,7 +332,12 @@ fn test_vega_by_finite_difference() {
 
     // Analytical vega (per 1% vol change)
     let result = caplet
-        .price_with_metrics(&market_mid, as_of, &[MetricId::Vega])
+        .price_with_metrics(
+            &market_mid,
+            as_of,
+            &[MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let analytic_vega = *result.measures.get("vega").unwrap();
 
@@ -383,7 +398,12 @@ fn test_numerical_stability_extreme_params() {
         .insert_surface(vol_surface);
 
     let result = cap
-        .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Delta, MetricId::Vega],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     // All values should be finite

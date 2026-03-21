@@ -29,6 +29,7 @@ fn test_bucketed_dv01_standard_fra() {
             &market,
             BASE_DATE,
             &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -54,7 +55,12 @@ fn test_bucketed_dv01_finite() {
     let fra = create_standard_fra();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let bucketed_dv01 = *result.measures.get("bucketed_dv01").unwrap();
@@ -70,7 +76,12 @@ fn test_bucketed_dv01_short_period() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(result.measures.contains_key("bucketed_dv01"));
@@ -85,7 +96,12 @@ fn test_bucketed_dv01_long_period() {
     let fra = TestFraBuilder::new().dates(start, start, end).build();
 
     let result = fra
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     assert!(result.measures.contains_key("bucketed_dv01"));
@@ -103,12 +119,22 @@ fn test_bucketed_dv01_scales_with_notional() {
         .build();
 
     let result_1m = fra_1m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let bdv01_1m = *result_1m.measures.get("bucketed_dv01").unwrap();
 
     let result_10m = fra_10m
-        .price_with_metrics(&market, BASE_DATE, &[MetricId::BucketedDv01])
+        .price_with_metrics(
+            &market,
+            BASE_DATE,
+            &[MetricId::BucketedDv01],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let bdv01_10m = *result_10m.measures.get("bucketed_dv01").unwrap();
 
@@ -126,6 +152,7 @@ fn test_bucketed_dv01_with_other_metrics() {
             &market,
             BASE_DATE,
             &[MetricId::BucketedDv01, MetricId::Dv01],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

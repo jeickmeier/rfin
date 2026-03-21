@@ -9,7 +9,6 @@ use crate::metrics::{MetricContext, MetricId};
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::math::{neumaier_sum, NeumaierAccumulator};
 use std::marker::PhantomData;
-use std::sync::Arc;
 
 /// Standard expiry buckets in years for equity options.
 pub fn standard_equity_expiry_buckets() -> Vec<f64> {
@@ -132,7 +131,6 @@ where
         let base_ctx = context.curves.as_ref();
         let vol_surface = base_ctx.get_surface(vol_surface_id.as_str())?;
 
-        let inst_arc = Arc::clone(&context.instrument);
         let as_of = context.as_of;
 
         let bump_pct = defaults.vol_bump_pct;
@@ -143,7 +141,7 @@ where
         } else {
             let parallel_surface = vol_surface.scaled(1.0 + bump_pct);
             let parallel_ctx = base_ctx.clone().insert_surface(parallel_surface);
-            let pv_parallel = inst_arc.value(&parallel_ctx, as_of)?;
+            let pv_parallel = context.reprice_money(&parallel_ctx, as_of)?;
             (pv_parallel.amount() - base_pv.amount()) / bump_pct
         };
 
@@ -179,7 +177,7 @@ where
                 // Bump vol at this specific (expiry, strike) point
                 let bumped_surface = vol_surface.bump_point(expiry, strike, bump_pct)?;
                 let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
-                let pv_bumped = inst_arc.value(&temp_ctx, as_of)?;
+                let pv_bumped = context.reprice_money(&temp_ctx, as_of)?;
 
                 // Vega = (PV_bumped - PV_base) / bump_pct
                 let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;

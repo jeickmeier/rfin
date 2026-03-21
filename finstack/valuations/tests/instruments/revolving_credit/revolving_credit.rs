@@ -155,7 +155,7 @@ fn test_revolving_credit_utilization_metrics() {
                 MetricId::custom("utilization_rate"),
                 MetricId::custom("available_capacity"),
                 MetricId::custom("weighted_average_cost"),
-            ],
+            ], finstack_valuations::instruments::PricingOptions::default()
         )
         .unwrap();
 
@@ -226,7 +226,7 @@ fn test_revolving_credit_standard_metrics() {
         .price_with_metrics(
             &market,
             val_date,
-            &[MetricId::Dv01, MetricId::Cs01, MetricId::Theta],
+            &[MetricId::Dv01, MetricId::Cs01, MetricId::Theta], finstack_valuations::instruments::PricingOptions::default()
         )
         .unwrap();
 
@@ -307,7 +307,7 @@ fn test_revolving_credit_bucketed_dv01() {
 
     // Test bucketed DV01
     let result = facility
-        .price_with_metrics(&market, val_date, &[MetricId::BucketedDv01])
+        .price_with_metrics(&market, val_date, &[MetricId::BucketedDv01], finstack_valuations::instruments::PricingOptions::default())
         .unwrap();
 
     // Should have bucketed DV01 metric

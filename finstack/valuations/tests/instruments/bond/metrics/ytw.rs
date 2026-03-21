@@ -34,7 +34,12 @@ fn test_ytw_equals_ytm_for_non_callable_bond_from_price() {
 
     // Request both YTM and YTW so they are computed off the same quoted price
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
     let ytw = *result.measures.get("ytw").unwrap();
@@ -76,13 +81,23 @@ fn test_ytw_tracks_quoted_price_not_model_pv() {
     // Two different quoted clean prices with the same curves
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
     let result_low = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytw_low = *result_low.measures.get("ytw").unwrap();
 
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(105.0);
     let result_high = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytw_high = *result_high.measures.get("ytw").unwrap();
 
@@ -157,7 +172,12 @@ fn test_ytw_floating_bond_matches_ytm_from_price() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
     let ytw = *result.measures.get("ytw").unwrap();
@@ -238,7 +258,12 @@ fn test_ytw_amortizing_bond_matches_ytm_from_price() {
     bond.pricing_overrides = PricingOverrides::default().with_clean_price(clean_px);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Ytw])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::Ytw],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
     let ytw = *result.measures.get("ytw").unwrap();

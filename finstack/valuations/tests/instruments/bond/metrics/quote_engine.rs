@@ -60,7 +60,12 @@ fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
         .market_quotes
         .quoted_clean_price = Some(clean_pct);
     let res = bond_with_price
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::ZSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm, MetricId::ZSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm_metric = *res.measures.get("ytm").unwrap();
 
@@ -84,7 +89,12 @@ fn test_quote_engine_roundtrip_ytm_and_zspread_fixed_bond() {
         .market_quotes
         .quoted_clean_price = Some(clean_pct_z);
     let res_z = bond_with_price_z
-        .price_with_metrics(&market, as_of, &[MetricId::ZSpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ZSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let z_metric = *res_z.measures.get("z_spread").unwrap();
 
@@ -148,7 +158,12 @@ fn test_quote_engine_roundtrip_dm_for_frn() {
     frn_with_price.pricing_overrides = PricingOverrides::default().with_clean_price(clean_pct);
 
     let res = frn_with_price
-        .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DiscountMargin],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let dm_metric = *res.measures.get("discount_margin").unwrap();
 
@@ -202,7 +217,12 @@ fn test_quote_engine_roundtrip_oas_and_asw_market_fixed_bond() {
     bond_with_oas_price.pricing_overrides =
         PricingOverrides::default().with_clean_price(clean_pct_oas);
     let res_oas = bond_with_oas_price
-        .price_with_metrics(&market, as_of, &[MetricId::Oas])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Oas],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let oas_metric = *res_oas.measures.get("oas").unwrap();
 
@@ -229,7 +249,12 @@ fn test_quote_engine_roundtrip_oas_and_asw_market_fixed_bond() {
     bond_with_asw_price.pricing_overrides =
         PricingOverrides::default().with_clean_price(clean_pct_asw);
     let res_asw = bond_with_asw_price
-        .price_with_metrics(&market, as_of, &[MetricId::ASWMarket])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ASWMarket],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let asw_metric = *res_asw.measures.get("asw_market").unwrap();
 
@@ -268,7 +293,12 @@ fn test_quote_engine_roundtrip_i_spread_fixed_bond() {
     let mut bond_with_price = bond.clone();
     bond_with_price.pricing_overrides = PricingOverrides::default().with_clean_price(clean_pct);
     let res = bond_with_price
-        .price_with_metrics(&market, as_of, &[MetricId::ISpread])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::ISpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ispr_metric = *res.measures.get("i_spread").unwrap();
 

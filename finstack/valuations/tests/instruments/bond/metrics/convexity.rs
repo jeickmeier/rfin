@@ -36,7 +36,12 @@ fn test_convexity_positive() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let result = bond
-        .price_with_metrics(&market, as_of, &[MetricId::Convexity])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Convexity],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let cvx = *result.measures.get("convexity").unwrap();
 

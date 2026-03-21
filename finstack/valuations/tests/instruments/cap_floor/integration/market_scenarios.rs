@@ -203,7 +203,14 @@ fn test_all_greeks_with_realistic_market() {
         MetricId::ForwardPv01,
     ];
 
-    let result = cap.price_with_metrics(&market, as_of, &metrics).unwrap();
+    let result = cap
+        .price_with_metrics(
+            &market,
+            as_of,
+            &metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     // Verify all metrics computed successfully
     assert!(result.measures.contains_key("delta"));

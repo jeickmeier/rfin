@@ -244,10 +244,10 @@ mod tests {
             mc_seed_scenario: None,
             theta_period: None,
         }
-            .with_rate_bump(2.0)
-            .with_credit_spread_bump(3.0)
-            .with_spot_bump(0.02)
-            .with_vol_bump(0.03);
+        .with_rate_bump(2.0)
+        .with_credit_spread_bump(3.0)
+        .with_spot_bump(0.02)
+        .with_vol_bump(0.03);
 
         let resolved = apply_pricing_overrides(base, Some(&po)).expect("valid overrides");
         assert_eq!(resolved.rate_bump_bp, 2.0);

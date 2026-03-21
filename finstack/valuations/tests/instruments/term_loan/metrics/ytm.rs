@@ -46,7 +46,12 @@ fn test_ytm_par_loan() {
     let market = MarketContext::new().insert(disc_curve);
 
     // Act
-    let result = loan.price_with_metrics(&market, as_of, &[MetricId::Ytm]);
+    let result = loan.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Ytm],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -105,7 +110,12 @@ fn test_ytm_discount_loan() {
     let market = MarketContext::new().insert(disc_curve);
 
     // Act
-    let result = loan.price_with_metrics(&market, as_of, &[MetricId::Ytm]);
+    let result = loan.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Ytm],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Assert
     assert!(result.is_ok());
@@ -146,13 +156,23 @@ fn test_ytm_uses_quoted_clean_price_when_present() {
     let market = MarketContext::new().insert(disc_curve);
 
     let base = loan
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm_base = *base.measures.get("ytm").unwrap();
 
     loan.pricing_overrides = PricingOverrides::default().with_clean_price(95.0);
     let quoted = loan
-        .price_with_metrics(&market, as_of, &[MetricId::Ytm])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Ytm],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let ytm_quoted = *quoted.measures.get("ytm").unwrap();
 

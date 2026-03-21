@@ -113,6 +113,7 @@ fn bench_cds_cs01(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::Cs01]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },
@@ -137,6 +138,7 @@ fn bench_cds_par_spread(c: &mut Criterion) {
                         black_box(&market),
                         black_box(as_of),
                         black_box(&[MetricId::ParSpread]),
+                        finstack_valuations::instruments::PricingOptions::default(),
                     )
                 });
             },

@@ -215,10 +215,18 @@ impl AttributionSpec {
                 };
 
                 // Compute valuations with metrics
-                let val_t0 =
-                    instrument_arc.price_with_metrics(&market_t0, self.as_of_t0, &metrics)?;
-                let val_t1 =
-                    instrument_arc.price_with_metrics(&market_t1, self.as_of_t1, &metrics)?;
+                let val_t0 = instrument_arc.price_with_metrics(
+                    &market_t0,
+                    self.as_of_t0,
+                    &metrics,
+                    crate::instruments::PricingOptions::default(),
+                )?;
+                let val_t1 = instrument_arc.price_with_metrics(
+                    &market_t1,
+                    self.as_of_t1,
+                    &metrics,
+                    crate::instruments::PricingOptions::default(),
+                )?;
 
                 attribute_pnl_metrics_based(
                     &instrument_arc,

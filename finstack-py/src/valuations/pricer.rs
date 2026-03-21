@@ -95,7 +95,7 @@ impl PyPricerRegistry {
 
         py.detach(|| {
             self.inner
-                .price_with_registry(inst.as_ref(), model_key, &market.inner, as_of_date, None)
+                .price(inst.as_ref(), model_key, &market.inner, as_of_date, None)
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)
         })
@@ -153,7 +153,7 @@ impl PyPricerRegistry {
             handles
                 .par_iter()
                 .map(|handle| {
-                    self.inner.price_with_registry(
+                    self.inner.price(
                         handle.instrument.as_ref(),
                         model_key,
                         &market.inner,
@@ -223,7 +223,7 @@ impl PyPricerRegistry {
                     &market.inner,
                     as_of_date,
                     &metric_ids,
-                    None,
+                    finstack_valuations::instruments::PricingOptions::default(),
                 )
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)

@@ -69,6 +69,7 @@ fn test_term_loan_yields_with_callability() {
             &market,
             as_of,
             &[MetricId::Ytm, MetricId::Ytw, MetricId::custom("ytc")],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -106,6 +107,7 @@ fn test_term_loan_yields_to_horizons() {
                 MetricId::custom("yt3y"),
                 MetricId::custom("yt4y"),
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 

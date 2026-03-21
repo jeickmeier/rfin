@@ -343,7 +343,12 @@ fn value_single_position(
         (
             position
                 .instrument
-                .price_with_metrics(market, portfolio.as_of, metrics)
+                .price_with_metrics(
+                    market,
+                    portfolio.as_of,
+                    metrics,
+                    finstack_valuations::instruments::PricingOptions::default(),
+                )
                 .map_err(|e: finstack_core::Error| Error::ValuationError {
                     position_id: position.position_id.clone(),
                     message: e.to_string(),
@@ -352,10 +357,12 @@ fn value_single_position(
             None,
         )
     } else {
-        match position
-            .instrument
-            .price_with_metrics(market, portfolio.as_of, metrics)
-        {
+        match position.instrument.price_with_metrics(
+            market,
+            portfolio.as_of,
+            metrics,
+            finstack_valuations::instruments::PricingOptions::default(),
+        ) {
             Ok(result) => (result, true, None),
             Err(metric_error) => {
                 let value = position.instrument.value(market, portfolio.as_of).map_err(

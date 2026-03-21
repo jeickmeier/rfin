@@ -35,6 +35,7 @@ fn test_breakeven_equals_par_rate() {
             &ctx,
             as_of,
             &[MetricId::custom("breakeven"), MetricId::ParRate],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -71,7 +72,12 @@ fn test_breakeven_gives_zero_pv() {
         .unwrap();
 
     let result = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::custom("breakeven")])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::custom("breakeven")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let breakeven = *result.measures.get("breakeven").unwrap();
@@ -124,10 +130,20 @@ fn test_breakeven_increases_with_inflation() {
         .unwrap();
 
     let result_low = swap
-        .price_with_metrics(&ctx_low, as_of, &[MetricId::custom("breakeven")])
+        .price_with_metrics(
+            &ctx_low,
+            as_of,
+            &[MetricId::custom("breakeven")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let result_high = swap
-        .price_with_metrics(&ctx_high, as_of, &[MetricId::custom("breakeven")])
+        .price_with_metrics(
+            &ctx_high,
+            as_of,
+            &[MetricId::custom("breakeven")],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
 
     let be_low = *result_low.measures.get("breakeven").unwrap();

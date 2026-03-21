@@ -176,7 +176,14 @@ fn test_spot_rate_relationship_with_amounts() {
     let fx = eurusd_with_notional(1_500_000.0, 1.25);
     let mut ctx = create_context(fx.clone(), test_date());
     let market = MarketContext::new();
-    let result = fx.price_with_metrics(&market, test_date(), &[]).unwrap();
+    let result = fx
+        .price_with_metrics(
+            &market,
+            test_date(),
+            &[],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
+        .unwrap();
 
     let base_calc = BaseAmountCalculator;
     let rate_calc = SpotRateCalculator;

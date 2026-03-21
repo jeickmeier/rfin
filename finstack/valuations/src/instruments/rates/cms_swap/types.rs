@@ -369,6 +369,10 @@ pub enum FundingLegSpec {
 impl crate::instruments::common_impl::traits::Instrument for CmsSwap {
     impl_instrument_base!(crate::pricer::InstrumentType::CmsSwap);
 
+    fn default_model(&self) -> crate::pricer::ModelKey {
+        crate::pricer::ModelKey::Black76
+    }
+
     fn value(
         &self,
         market: &finstack_core::market_data::context::MarketContext,

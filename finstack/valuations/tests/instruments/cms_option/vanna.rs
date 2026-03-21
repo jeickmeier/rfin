@@ -76,7 +76,12 @@ mod cms_vanna_test {
 
         // 3. Calculate Vanna
         // We expect Vanna to be non-zero
-        let result = cms.price_with_metrics(&market, as_of, &[MetricId::Vanna])?;
+        let result = cms.price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::Vanna],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )?;
 
         let vanna = result
             .measures
@@ -166,7 +171,12 @@ fn test_cms_option_vanna() -> finstack_core::Result<()> {
 
     // 3. Calculate Vanna
     // We expect Vanna to be non-zero
-    let result = cms.price_with_metrics(&market, as_of, &[MetricId::Vanna])?;
+    let result = cms.price_with_metrics(
+        &market,
+        as_of,
+        &[MetricId::Vanna],
+        finstack_valuations::instruments::PricingOptions::default(),
+    )?;
 
     let vanna = result
         .measures

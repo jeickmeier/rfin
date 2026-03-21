@@ -31,12 +31,27 @@ fn test_dm_fixed_bond_is_rejected_in_strict_mode() {
     let market = finstack_core::market_data::context::MarketContext::new().insert(curve);
 
     let err = bond
-        .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
+        .price_with_metrics(
+            &market,
+            as_of,
+            &[MetricId::DiscountMargin],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .expect_err("discount margin should not be available for fixed-rate bonds");
 
     match err {
         Error::MetricCalculationFailed { metric_id, .. } => {
             assert_eq!(metric_id, "discount_margin");
+        }
+        Error::Calibration { message, .. } => {
+            assert!(
+                message.contains("discount_margin"),
+                "wrapped calibration error should mention discount_margin, got: {message}"
+            );
+            assert!(
+                message.contains("DM1"),
+                "wrapped calibration error should preserve instrument context, got: {message}"
+            );
         }
         other => panic!("unexpected error type: {}", other),
     }
@@ -199,7 +214,12 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 
         // Run DM metric via the normal metrics pipeline.
         let result = bond
-            .price_with_metrics(&market, as_of, &[MetricId::DiscountMargin])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::DiscountMargin],
+                finstack_valuations::instruments::PricingOptions::default(),
+            )
             .expect("DM metric should converge for realistic spreads");
         let dm = *result
             .measures

@@ -86,7 +86,12 @@ fn par_spread_zeros_npv() {
 
     // Compute par spread
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BasisParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread_bp = res.measures[MetricId::BasisParSpread.as_str()];
 
@@ -185,6 +190,7 @@ fn par_spread_formula_validation() {
                 MetricId::PvPrimary,
                 MetricId::PvReference,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -248,7 +254,12 @@ fn par_spread_with_existing_spread() {
     .expect("valid basis swap");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BasisParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
@@ -316,7 +327,12 @@ fn par_spread_inverted_curves() {
     .expect("valid basis swap");
 
     let res = swap
-        .price_with_metrics(&ctx, d(2025, 1, 2), &[MetricId::BasisParSpread])
+        .price_with_metrics(
+            &ctx,
+            d(2025, 1, 2),
+            &[MetricId::BasisParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
@@ -370,6 +386,7 @@ fn par_spread_long_maturity() {
             &ctx,
             as_of,
             &[MetricId::BasisParSpread, MetricId::AnnuityPrimary],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
@@ -422,7 +439,12 @@ fn par_spread_different_frequencies() {
     .expect("valid basis swap");
 
     let res = swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BasisParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread = res.measures[MetricId::BasisParSpread.as_str()];
 
@@ -480,6 +502,7 @@ fn par_spread_sign_convention() {
                 MetricId::PvPrimary,
                 MetricId::PvReference,
             ],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .unwrap();
 
@@ -547,7 +570,12 @@ fn incremental_par_spread_sign_convention() {
     .expect("valid basis swap");
 
     let res = zero_spread_swap
-        .price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::BasisParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let par_spread_bp = res.measures[MetricId::BasisParSpread.as_str()];
 
@@ -589,7 +617,12 @@ fn incremental_par_spread_sign_convention() {
     .expect("valid basis swap");
 
     let res_below = swap_below_par
-        .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::IncrementalParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let inc_spread_below = res_below.measures[MetricId::IncrementalParSpread.as_str()];
 
@@ -643,7 +676,12 @@ fn incremental_par_spread_sign_convention() {
     .expect("valid basis swap");
 
     let res_above = swap_above_par
-        .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::IncrementalParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let inc_spread_above = res_above.measures[MetricId::IncrementalParSpread.as_str()];
 
@@ -695,7 +733,12 @@ fn incremental_par_spread_sign_convention() {
     .expect("valid basis swap");
 
     let res_at_par = swap_at_par
-        .price_with_metrics(&ctx, as_of, &[MetricId::IncrementalParSpread])
+        .price_with_metrics(
+            &ctx,
+            as_of,
+            &[MetricId::IncrementalParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
+        )
         .unwrap();
     let inc_spread_at_par = res_at_par.measures[MetricId::IncrementalParSpread.as_str()];
 
@@ -748,7 +791,12 @@ fn zero_notional_par_spread_returns_error() {
     .unwrap();
 
     // Par spread calculation should return an error, not NaN/Inf
-    let result = swap.price_with_metrics(&ctx, as_of, &[MetricId::BasisParSpread]);
+    let result = swap.price_with_metrics(
+        &ctx,
+        as_of,
+        &[MetricId::BasisParSpread],
+        finstack_valuations::instruments::PricingOptions::default(),
+    );
 
     // Either it returns an error (preferred) or returns a finite value
     // It should NOT return Ok with NaN or Inf

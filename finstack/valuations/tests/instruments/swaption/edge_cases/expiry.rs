@@ -39,7 +39,12 @@ fn test_expired_swaption_zero_greeks() {
     // Should return an error for expired swaptions
     assert!(
         swaption
-            .price_with_metrics(&market, as_of, &[MetricId::Delta, MetricId::Vega])
+            .price_with_metrics(
+                &market,
+                as_of,
+                &[MetricId::Delta, MetricId::Vega],
+                finstack_valuations::instruments::PricingOptions::default()
+            )
             .is_err(),
         "Expired swaption should return error"
     );

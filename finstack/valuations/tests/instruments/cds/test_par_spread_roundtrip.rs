@@ -289,6 +289,7 @@ fn test_cds_par_spread_calculation_consistency() {
             &market_price,
             base,
             &[finstack_valuations::metrics::MetricId::ParSpread],
+            finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("CDS pricing with metrics should succeed with correctly configured market");
 
