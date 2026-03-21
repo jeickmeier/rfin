@@ -19,10 +19,11 @@ use finstack_core::market_data::context::{
 };
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyIterator, PyList, PyModule};
+use pyo3::types::{PyAny, PyDict, PyIterator, PyList, PyModule, PyType};
 use pyo3::Bound;
+use pythonize::{depythonize, pythonize};
 
 /// Aggregates curves, surfaces, FX matrices, and scalar data for pricing.
 ///
@@ -128,6 +129,12 @@ impl PyMarketContext {
             }
         }
     }
+
+    fn dict_to_market_context(data: &Bound<'_, PyAny>) -> PyResult<MarketContext> {
+        depythonize(data).map_err(|e| {
+            PyValueError::new_err(format!("failed to convert MarketContext data: {e}"))
+        })
+    }
 }
 
 #[pymethods]
@@ -156,6 +163,65 @@ impl PyMarketContext {
         Self {
             inner: self.inner.clone(),
         }
+    }
+
+    /// Serialize the market context to a Python dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// dict[str, Any]
+    ///     Versioned, JSON-compatible market snapshot.
+    fn to_dict(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        pythonize(py, &self.inner)
+            .map(|obj| obj.unbind())
+            .map_err(|e| {
+                PyValueError::new_err(format!("failed to convert MarketContext to dict: {e}"))
+            })
+    }
+
+    /// Serialize the market context to a JSON string.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     Versioned market snapshot JSON.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("failed to serialize MarketContext: {e}")))
+    }
+
+    /// Construct a market context from a Python dictionary.
+    ///
+    /// Parameters
+    /// ----------
+    /// data : dict[str, Any]
+    ///     Versioned market snapshot dictionary.
+    ///
+    /// Returns
+    /// -------
+    /// MarketContext
+    ///     Restored market context.
+    #[classmethod]
+    fn from_dict(_cls: &Bound<'_, PyType>, data: &Bound<'_, PyAny>) -> PyResult<Self> {
+        Self::dict_to_market_context(data).map(|inner| Self { inner })
+    }
+
+    /// Construct a market context from a JSON string.
+    ///
+    /// Parameters
+    /// ----------
+    /// payload : str
+    ///     Versioned market snapshot JSON.
+    ///
+    /// Returns
+    /// -------
+    /// MarketContext
+    ///     Restored market context.
+    #[classmethod]
+    fn from_json(_cls: &Bound<'_, PyType>, payload: &str) -> PyResult<Self> {
+        serde_json::from_str(payload)
+            .map(|inner| Self { inner })
+            .map_err(|e| PyValueError::new_err(format!("failed to deserialize MarketContext: {e}")))
     }
 
     #[pyo3(text_signature = "(self, bumps)")]

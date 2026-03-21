@@ -89,6 +89,24 @@ class MarketContext:
         """
         ...
 
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the market context to a Python dictionary."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize the market context to a JSON string."""
+        ...
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> MarketContext:
+        """Construct a market context from a Python dictionary."""
+        ...
+
+    @classmethod
+    def from_json(cls, payload: str) -> MarketContext:
+        """Construct a market context from a JSON string."""
+        ...
+
     def insert(
         self,
         curve: DiscountCurve
