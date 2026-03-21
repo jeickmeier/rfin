@@ -18,10 +18,7 @@ OUTPUT_DIR = Path(__file__).parent.parent.parent.parent / "outputs"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
 try:
-    import numpy as np
-    import pandas as pd
-
-    from finstack.valuations import (
+    from finstack.valuations.common.monte_carlo import (
         MonteCarloPathGenerator,
         MonteCarloResult,
         PathDataset,
@@ -29,6 +26,8 @@ try:
         ProcessParams,
         SimulatedPath,
     )
+    import numpy as np
+    import pandas as pd
 
     HAS_FINSTACK = True
 except ImportError:

@@ -258,8 +258,8 @@ def create_simple_pricer_registry() -> "finstack.valuations.pricer.PricerRegistr
     """Create a simple PricerRegistry for testing."""
     import finstack
 
-    # Use the standard registry
-    return finstack.valuations.pricer.standard_registry()
+    # Use the explicit shared-registry helper
+    return finstack.valuations.pricer.get_standard_registry()
 
 
 # Collect all examples
@@ -326,6 +326,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 namespace["PortfolioMetrics"] = finstack.portfolio.metrics.PortfolioMetrics
                 namespace["PricerRegistry"] = finstack.valuations.pricer.PricerRegistry
                 namespace["standard_registry"] = finstack.valuations.pricer.standard_registry
+                namespace["get_standard_registry"] = finstack.valuations.pricer.get_standard_registry
                 namespace["ValuationResult"] = finstack.valuations.results.ValuationResult
                 namespace["ResultsMeta"] = finstack.valuations.results.ResultsMeta
                 namespace["CovenantReport"] = finstack.valuations.results.CovenantReport
@@ -350,52 +351,48 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 namespace["ExplainOpts"] = finstack.core.explain.ExplainOpts
                 namespace["ExplanationTrace"] = finstack.core.explain.ExplanationTrace
                 # Instrument types
-                namespace["Bond"] = finstack.valuations.instruments.bond.Bond
-                namespace["InterestRateSwap"] = finstack.valuations.instruments.irs.InterestRateSwap
-                namespace["EquityOption"] = finstack.valuations.instruments.equity_option.EquityOption
-                namespace["Swaption"] = finstack.valuations.instruments.swaption.Swaption
-                namespace["InterestRateOption"] = finstack.valuations.instruments.cap_floor.InterestRateOption
-                namespace["CreditDefaultSwap"] = finstack.valuations.instruments.cds.CreditDefaultSwap
-                namespace["ForwardRateAgreement"] = finstack.valuations.instruments.fra.ForwardRateAgreement
-                namespace["Deposit"] = finstack.valuations.instruments.deposit.Deposit
-                namespace["InflationLinkedBond"] = (
-                    finstack.valuations.instruments.inflation_linked_bond.InflationLinkedBond
-                )
-                namespace["FxSpot"] = finstack.valuations.instruments.fx.FxSpot
-                namespace["FxOption"] = finstack.valuations.instruments.fx.FxOption
-                namespace["FxSwap"] = finstack.valuations.instruments.fx.FxSwap
-                namespace["Equity"] = finstack.valuations.instruments.equity.Equity
-                namespace["CDSIndex"] = finstack.valuations.instruments.cds_index.CDSIndex
-                namespace["CDSOption"] = finstack.valuations.instruments.cds_option.CDSOption
-                namespace["CDSTranche"] = finstack.valuations.instruments.cds_tranche.CDSTranche
-                namespace["BarrierOption"] = finstack.valuations.instruments.barrier_option.BarrierOption
-                namespace["BarrierType"] = finstack.valuations.instruments.barrier_option.BarrierType
-                namespace["AsianOption"] = finstack.valuations.instruments.asian_option.AsianOption
-                namespace["AveragingMethod"] = finstack.valuations.instruments.asian_option.AveragingMethod
-                namespace["ConvertibleBond"] = finstack.valuations.instruments.convertible.ConvertibleBond
-                namespace["ConversionSpec"] = finstack.valuations.instruments.convertible.ConversionSpec
-                namespace["VarianceSwap"] = finstack.valuations.instruments.variance_swap.VarianceSwap
-                namespace["Repo"] = finstack.valuations.instruments.repo.Repo
-                namespace["RepoCollateral"] = finstack.valuations.instruments.repo.RepoCollateral
-                namespace["LookbackOption"] = finstack.valuations.instruments.lookback_option.LookbackOption
-                namespace["QuantoOption"] = finstack.valuations.instruments.quanto_option.QuantoOption
-                namespace["CmsOption"] = finstack.valuations.instruments.cms_option.CmsOption
-                namespace["CliquetOption"] = finstack.valuations.instruments.cliquet_option.CliquetOption
-                namespace["FxBarrierOption"] = finstack.valuations.instruments.fx_barrier_option.FxBarrierOption
-                namespace["RangeAccrual"] = finstack.valuations.instruments.range_accrual.RangeAccrual
-                namespace["StructuredCredit"] = finstack.valuations.instruments.structured_credit.StructuredCredit
-                namespace["Autocallable"] = finstack.valuations.instruments.autocallable.Autocallable
-                namespace["Basket"] = finstack.valuations.instruments.basket.Basket
-                namespace["TermLoan"] = finstack.valuations.instruments.term_loan.TermLoan
-                namespace["RevolvingCredit"] = finstack.valuations.instruments.revolving_credit.RevolvingCredit
-                namespace["PrivateMarketsFund"] = (
-                    finstack.valuations.instruments.private_markets_fund.PrivateMarketsFund
-                )
-                namespace["BasisSwap"] = finstack.valuations.instruments.basis_swap.BasisSwap
-                namespace["InflationSwap"] = finstack.valuations.instruments.inflation_swap.InflationSwap
-                namespace["InterestRateFuture"] = finstack.valuations.instruments.ir_future.InterestRateFuture
-                namespace["EquityTotalReturnSwap"] = finstack.valuations.instruments.trs.EquityTotalReturnSwap
-                namespace["FiIndexTotalReturnSwap"] = finstack.valuations.instruments.trs.FiIndexTotalReturnSwap
+                namespace["Bond"] = finstack.valuations.instruments.Bond
+                namespace["InterestRateSwap"] = finstack.valuations.instruments.InterestRateSwap
+                namespace["EquityOption"] = finstack.valuations.instruments.EquityOption
+                namespace["Swaption"] = finstack.valuations.instruments.Swaption
+                namespace["InterestRateOption"] = finstack.valuations.instruments.InterestRateOption
+                namespace["CreditDefaultSwap"] = finstack.valuations.instruments.CreditDefaultSwap
+                namespace["ForwardRateAgreement"] = finstack.valuations.instruments.ForwardRateAgreement
+                namespace["Deposit"] = finstack.valuations.instruments.Deposit
+                namespace["InflationLinkedBond"] = finstack.valuations.instruments.InflationLinkedBond
+                namespace["FxSpot"] = finstack.valuations.instruments.FxSpot
+                namespace["FxOption"] = finstack.valuations.instruments.FxOption
+                namespace["FxSwap"] = finstack.valuations.instruments.FxSwap
+                namespace["Equity"] = finstack.valuations.instruments.Equity
+                namespace["CDSIndex"] = finstack.valuations.instruments.CDSIndex
+                namespace["CDSOption"] = finstack.valuations.instruments.CDSOption
+                namespace["CDSTranche"] = finstack.valuations.instruments.CDSTranche
+                namespace["BarrierOption"] = finstack.valuations.instruments.BarrierOption
+                namespace["BarrierType"] = finstack.valuations.instruments.BarrierType
+                namespace["AsianOption"] = finstack.valuations.instruments.AsianOption
+                namespace["AveragingMethod"] = finstack.valuations.instruments.AveragingMethod
+                namespace["ConvertibleBond"] = finstack.valuations.instruments.ConvertibleBond
+                namespace["ConversionSpec"] = finstack.valuations.instruments.ConversionSpec
+                namespace["VarianceSwap"] = finstack.valuations.instruments.VarianceSwap
+                namespace["Repo"] = finstack.valuations.instruments.Repo
+                namespace["RepoCollateral"] = finstack.valuations.instruments.RepoCollateral
+                namespace["LookbackOption"] = finstack.valuations.instruments.LookbackOption
+                namespace["QuantoOption"] = finstack.valuations.instruments.QuantoOption
+                namespace["CmsOption"] = finstack.valuations.instruments.CmsOption
+                namespace["CliquetOption"] = finstack.valuations.instruments.CliquetOption
+                namespace["FxBarrierOption"] = finstack.valuations.instruments.FxBarrierOption
+                namespace["RangeAccrual"] = finstack.valuations.instruments.RangeAccrual
+                namespace["StructuredCredit"] = finstack.valuations.instruments.StructuredCredit
+                namespace["Autocallable"] = finstack.valuations.instruments.Autocallable
+                namespace["Basket"] = finstack.valuations.instruments.Basket
+                namespace["TermLoan"] = finstack.valuations.instruments.TermLoan
+                namespace["RevolvingCredit"] = finstack.valuations.instruments.RevolvingCredit
+                namespace["PrivateMarketsFund"] = finstack.valuations.instruments.PrivateMarketsFund
+                namespace["BasisSwap"] = finstack.valuations.instruments.BasisSwap
+                namespace["InflationSwap"] = finstack.valuations.instruments.InflationSwap
+                namespace["InterestRateFuture"] = finstack.valuations.instruments.InterestRateFuture
+                namespace["EquityTotalReturnSwap"] = finstack.valuations.instruments.EquityTotalReturnSwap
+                namespace["FiIndexTotalReturnSwap"] = finstack.valuations.instruments.FiIndexTotalReturnSwap
                 namespace["attribute_pnl"] = finstack.valuations.attribution.attribute_pnl
                 namespace["attribute_portfolio_pnl"] = finstack.valuations.attribution.attribute_portfolio_pnl
                 namespace["attribute_pnl_from_json"] = finstack.valuations.attribution.attribute_pnl_from_json
