@@ -21,7 +21,7 @@ Add a pre-flight size check in `CompiledExpr::eval()` before the arena allocatio
 **New field in `EvalOpts`:**
 
 ```rust
-// In finstack/core/src/expr/types.rs (or wherever EvalOpts lives)
+// In finstack/core/src/expr/eval.rs (EvalOpts is defined at line 55)
 pub struct EvalOpts {
     // ... existing fields ...
     /// Maximum arena allocation in bytes. Defaults to 1GB.
@@ -74,9 +74,8 @@ let mut arena = vec![0.0; arena_elements];
 
 ### Files
 
-- `finstack/core/src/expr/eval.rs` — bounds check before allocation
-- `finstack/core/src/expr/types.rs` — `max_arena_bytes` field on `EvalOpts`
-- `finstack/core/src/error.rs` — `InputError::TooLarge` variant
+- `finstack/core/src/expr/eval.rs` — bounds check before allocation + `max_arena_bytes` field on `EvalOpts` (defined at line 55)
+- `finstack/core/src/error/inputs.rs` — `InputError::TooLarge` variant
 
 ### Breaking Changes
 
@@ -144,7 +143,7 @@ Strategies that do not compute slopes (e.g., `FlatForwardStrategy`, `LogLinearSt
 ### Files
 
 - `finstack/core/src/math/interp/utils.rs` — new function + constant
-- `finstack/core/src/error.rs` — `InputError::KnotSpacingTooSmall` variant
+- `finstack/core/src/error/inputs.rs` — `InputError::KnotSpacingTooSmall` variant
 - `finstack/core/src/math/interp/strategies.rs` (or per-strategy files) — call in `from_raw()`
 
 ### Breaking Changes
@@ -156,11 +155,11 @@ None in the public API. Internally, previously-accepted pathological knot sets (
 - Test that knots with gap < threshold are rejected
 - Test that knots with gap >= threshold are accepted
 - Test with real-world curve tenors (1D, 1W, 1M, 3M, ..., 30Y) — must pass
-- Test with knots near zero (e.g., 0.001, 0.002) — gap is absolute, not relative to tiny knots
+- Test with knots near zero (e.g., 0.001, 0.002) — the `max(|k[i]|, 1.0)` floor ensures the threshold does not shrink below `min_relative_gap`, so near-zero knots use an effectively absolute minimum gap
 
 ---
 
-## Change 3: CashflowBreakdown `.expect()` → `Result`
+## Change 3: CashflowBreakdown `.expect()` → Validated Construction
 
 ### Problem
 
@@ -168,7 +167,13 @@ None in the public API. Internally, previously-accepted pathological knot sets (
 
 ### Design
 
-Change `interest_expense_total()` (and any similar methods on `CashflowBreakdown`) to return `Result<Money>`.
+Changing the return type to `Result<Money>` is impractical because `interest_expense_total()` is called inside closures passed to `get_instrument_field()` and `reporting_total()`, both of which take `Fn(&CashflowBreakdown) -> f64`. Changing those closure signatures would cascade through the entire capital structure API.
+
+Instead, take a two-pronged approach:
+
+1. **Add a `validate()` method** to `CashflowBreakdown` that checks the currency invariant and returns `Result<()>`. Call it at construction boundaries (the `with_currency()` constructor already guarantees this, but also call it after any waterfall mutation that sets fields).
+
+2. **Replace `.expect()` with `debug_assert!` + unchecked arithmetic** in `interest_expense_total()`. In debug builds, a currency mismatch is caught immediately with a clear assertion message. In release builds, the operation proceeds (producing a potentially incorrect result rather than panicking). This trades a subtle bug for avoiding a production crash.
 
 **Before:**
 
@@ -184,31 +189,64 @@ pub fn interest_expense_total(&self) -> Money {
 **After:**
 
 ```rust
-pub fn interest_expense_total(&self) -> crate::Result<Money> {
+pub fn interest_expense_total(&self) -> Money {
+    debug_assert_eq!(
+        self.interest_expense_cash.currency(),
+        self.interest_expense_pik.currency(),
+        "CashflowBreakdown currency invariant violated: cash={}, pik={}",
+        self.interest_expense_cash.currency(),
+        self.interest_expense_pik.currency(),
+    );
+    // SAFETY: Currency invariant enforced by with_currency() constructor
+    // and validated at construction boundaries. In release builds, if the
+    // invariant is violated, this returns the sum treating both as the
+    // same currency (incorrect but non-panicking).
     self.interest_expense_cash
         .checked_add(self.interest_expense_pik)
-        .ok_or_else(|| Error::CurrencyMismatch {
-            expected: self.interest_expense_cash.currency(),
-            got: self.interest_expense_pik.currency(),
-        })
+        .unwrap_or(self.interest_expense_cash)
+}
+
+/// Validate that all Money fields share the same currency.
+///
+/// Call after any mutation that sets Money fields to catch invariant
+/// violations early (in tests and debug builds).
+pub fn validate_currency_invariant(&self) -> crate::Result<()> {
+    let expected = self.interest_expense_cash.currency();
+    let fields = [
+        ("interest_expense_pik", self.interest_expense_pik.currency()),
+        ("principal_payment", self.principal_payment.currency()),
+        ("debt_balance", self.debt_balance.currency()),
+        ("fees", self.fees.currency()),
+        ("accrued_interest", self.accrued_interest.currency()),
+    ];
+    for (name, actual) in fields {
+        if actual != expected {
+            return Err(crate::error::Error::capital_structure(format!(
+                "Currency mismatch in CashflowBreakdown: {name} is {actual}, expected {expected}"
+            )));
+        }
+    }
+    Ok(())
 }
 ```
 
-Audit all methods on `CashflowBreakdown` for the same pattern and convert any others found.
+3. **Call `validate_currency_invariant()?`** at key mutation points in `waterfall.rs` where `CashflowBreakdown` fields are set (after sweep calculations, PIK toggle, etc.).
 
 ### Files
 
-- `finstack/statements/src/capital_structure/types.rs` — method signature change
-- Call sites in `capital_structure/waterfall.rs`, `capital_structure/integration.rs` — add `?` propagation
+- `finstack/statements/src/capital_structure/types.rs` — replace `.expect()`, add `validate_currency_invariant()`
+- `finstack/statements/src/capital_structure/waterfall.rs` — add validation calls after mutations
+- No changes to `get_instrument_field` or `reporting_total` closure signatures
 
 ### Breaking Changes
 
-Yes — `interest_expense_total()` return type changes from `Money` to `Result<Money>`. This is internal to the statements crate; no public Python/WASM API change. Callers within the crate add `?`.
+None. The method signature stays `-> Money`. The `#[allow(clippy::expect_used)]` annotation is removed. New `validate_currency_invariant()` is additive.
 
 ### Tests
 
-- Existing tests should continue to pass (they use valid currency combinations)
-- Add a test that constructs a `CashflowBreakdown` with mismatched currencies and verifies `interest_expense_total()` returns `Err`
+- Existing tests should continue to pass unchanged
+- Add a test that constructs a `CashflowBreakdown` with mismatched currencies and verifies `validate_currency_invariant()` returns `Err`
+- Add a test that `interest_expense_total()` fires `debug_assert` in debug mode with mismatched currencies
 
 ---
 
@@ -220,7 +258,9 @@ Yes — `interest_expense_total()` return type changes from `Money` to `Result<M
 
 ### Design
 
-Add an `IrrResult` struct and `irr_detailed()` method. The existing `irr()` is unchanged.
+Add an `IrrResult` struct and standalone `irr_detailed()` free functions. The existing `InternalRateOfReturn` trait and `irr()` method are unchanged — no new required methods on the trait.
+
+**Note:** The codebase already has `has_sign_change()` and `has_multiple_sign_changes()` helper functions (lines 421-469 of `xirr.rs`) that count sign changes using `u8`. We'll build on these existing helpers.
 
 **New types in `cashflow/xirr.rs`:**
 
@@ -244,37 +284,54 @@ pub struct IrrResult {
 }
 ```
 
-**New trait methods (with default impls):**
+**New free function (not a trait method):**
 
 ```rust
-pub trait InternalRateOfReturn {
-    // ... existing methods unchanged ...
-
-    /// Calculate IRR with root-ambiguity metadata.
-    fn irr_detailed(&self, guess: Option<f64>) -> crate::Result<IrrResult> {
-        let rate = self.irr(guess)?;
-        let sign_changes = self.count_sign_changes();
-        Ok(IrrResult {
-            rate,
-            sign_changes,
-            multiple_roots_possible: sign_changes > 1,
-        })
+/// Count the number of sign changes in a cashflow sequence.
+///
+/// Builds on the existing `has_multiple_sign_changes()` helper but returns
+/// the exact count instead of a boolean. Zeros are skipped.
+pub fn count_sign_changes<I>(iter: I) -> usize
+where
+    I: IntoIterator<Item = f64>,
+{
+    let mut prev_sign = 0i8;
+    let mut changes = 0usize;
+    for value in iter {
+        let sign = if value > 0.0 { 1 } else if value < 0.0 { -1 } else { 0 };
+        if sign == 0 { continue; }
+        if prev_sign != 0 && sign != prev_sign { changes += 1; }
+        prev_sign = sign;
     }
+    changes
+}
 
-    /// Count the number of sign changes in the cashflow sequence.
-    fn count_sign_changes(&self) -> usize;
+/// Calculate IRR with root-ambiguity metadata for periodic cashflows.
+pub fn irr_detailed(cashflows: &[f64], guess: Option<f64>) -> crate::Result<IrrResult> {
+    let rate = cashflows.irr(guess)?;
+    let sign_changes = count_sign_changes(cashflows.iter().copied());
+    Ok(IrrResult { rate, sign_changes, multiple_roots_possible: sign_changes > 1 })
+}
+
+/// Calculate XIRR with root-ambiguity metadata for dated cashflows.
+pub fn xirr_detailed(
+    cashflows: &[(Date, f64)],
+    day_count: DayCount,
+    guess: Option<f64>,
+) -> crate::Result<IrrResult> {
+    let rate = cashflows.irr_with_daycount(day_count, guess)?;
+    let sign_changes = count_sign_changes(cashflows.iter().map(|(_, v)| *v));
+    Ok(IrrResult { rate, sign_changes, multiple_roots_possible: sign_changes > 1 })
 }
 ```
 
-Sign change counting is O(n), filters out zero-valued cashflows, and counts transitions between positive and negative values.
-
 ### Files
 
-- `finstack/core/src/cashflow/xirr.rs` — `IrrResult` struct, `irr_detailed()` + `count_sign_changes()` methods, impls for `[f64]` and `[(Date, f64)]`
+- `finstack/core/src/cashflow/xirr.rs` — `IrrResult` struct, `count_sign_changes()`, `irr_detailed()`, `xirr_detailed()` free functions
 
 ### Breaking Changes
 
-None. Additive methods with default implementations. Existing trait implementors may need to implement `count_sign_changes()` (it's a required method), but the only implementors are `[f64]` and `[(Date, f64)]` in this file, so no external breakage.
+None. All additions are new public items. The `InternalRateOfReturn` trait is unchanged — no new required methods, no breakage for downstream implementors.
 
 ### Tests
 
@@ -289,11 +346,11 @@ None. Additive methods with default implementations. Existing trait implementors
 
 ### Problem
 
-In `pricer/registry.rs`, `price_with_metrics()` wraps `market` in `Arc::new(market.clone())` on every call (lines 266, 302). For portfolio pricing of N instruments, this clones the entire `MarketContext` N times. `MarketContext` contains HashMaps of curves, surfaces, and scalar data — non-trivial to clone.
+In `pricer/registry.rs`, `price_with_metrics()` wraps `market` in `Arc::new(market.clone())` once per call (line 266 or 302, depending on the discounting/non-discounting branch). For portfolio pricing of N instruments, this clones the entire `MarketContext` N times. `MarketContext` contains HashMaps of curves, surfaces, and scalar data — non-trivial to clone.
 
 ### Design
 
-Add a `price_with_metrics_arc()` variant that accepts pre-wrapped `Arc<MarketContext>`, and have the existing method delegate to it.
+Add a `price_with_metrics_arc()` variant that accepts pre-wrapped `Arc<Market>`, and have the existing method delegate to it. The actual method signature must match the current `price_with_metrics` parameters.
 
 **New method on `PricerRegistry`:**
 
@@ -304,35 +361,35 @@ Add a `price_with_metrics_arc()` variant that accepts pre-wrapped `Arc<MarketCon
 /// against the same market to avoid redundant cloning.
 pub fn price_with_metrics_arc(
     &self,
-    instrument: &dyn Instrument,
-    market: &Arc<MarketContext>,
-    as_of: Date,
-    metrics: &[MetricId],
-    cfg: Option<&FinstackConfig>,
-    market_history: Option<&MarketHistory>,
-) -> Result<ValuationResult> {
+    instrument: &dyn Priceable,
+    model: ModelKey,
+    market: &Arc<Market>,
+    as_of: finstack_core::dates::Date,
+    metrics: &[crate::metrics::MetricId],
+    options: crate::instruments::PricingOptions,
+) -> PricingResult<crate::results::ValuationResult> {
     // ... same logic as price_with_metrics, but uses Arc::clone(market) instead of Arc::new(market.clone())
 }
 ```
 
-**Refactor existing method:**
+**Refactor existing method to delegate:**
 
 ```rust
 pub fn price_with_metrics(
     &self,
-    instrument: &dyn Instrument,
-    market: &MarketContext,
-    as_of: Date,
-    metrics: &[MetricId],
-    cfg: Option<&FinstackConfig>,
-    market_history: Option<&MarketHistory>,
-) -> Result<ValuationResult> {
-    let market_arc = Arc::new(market.clone()); // single clone
-    self.price_with_metrics_arc(instrument, &market_arc, as_of, metrics, cfg, market_history)
+    instrument: &dyn Priceable,
+    model: ModelKey,
+    market: &Market,
+    as_of: finstack_core::dates::Date,
+    metrics: &[crate::metrics::MetricId],
+    options: crate::instruments::PricingOptions,
+) -> PricingResult<crate::results::ValuationResult> {
+    let market_arc = Arc::new(market.clone()); // single clone per call
+    self.price_with_metrics_arc(instrument, model, &market_arc, as_of, metrics, options)
 }
 ```
 
-The internal `build_with_metrics_dyn()` already accepts `Arc<MarketContext>`, so this just lifts the `Arc::new()` up. Portfolio-level callers can wrap once and reuse.
+The internal `build_with_metrics_dyn()` already accepts `Arc<Market>`, so this just lifts the `Arc::new()` call up one level. Portfolio-level callers can wrap once and share the `Arc` across all instrument pricings, saving N-1 clones.
 
 ### Files
 
@@ -366,7 +423,7 @@ Add targeted doc comments (no code changes) to 5 files:
 
 3. **`finstack/portfolio/src/portfolio.rs`** — doc on `positions` field: "Instruments behind `Arc` must be immutable after construction. The portfolio assumes no interior mutability — concurrent reads are safe, but modifying an instrument after adding it to a portfolio is undefined behavior at the application level."
 
-4. **`finstack/core/src/expr/compiled.rs`** (or wherever `CompiledExpr` is defined) — doc: "CompiledExpr is `Send` but not `Sync`. Each instance holds a `Mutex<ScratchArena>` for single-threaded evaluation. For parallel evaluation, clone the expression — each clone gets an independent scratch buffer."
+4. **`finstack/core/src/expr/eval.rs`** (line 89, `CompiledExpr` struct definition) — doc: "CompiledExpr is `Send` but not `Sync`. Each instance holds a `Mutex<ScratchArena>` for single-threaded evaluation. For parallel evaluation, clone the expression — each clone gets an independent scratch buffer."
 
 5. **`finstack/core/src/money/fx.rs`** — doc on `FxMatrix`: "Uses interior `Mutex` for rate caching. Under high concurrency, cache lookups serialize through the lock. For performance-critical parallel pricing, consider pre-fetching rates or using one `FxMatrix` per thread."
 
