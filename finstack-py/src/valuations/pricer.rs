@@ -9,7 +9,7 @@ use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{shared_standard_registry, PricerRegistry};
+use finstack_valuations::pricer::{shared_standard_registry, ModelKey, PricerRegistry};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyIterator, PyList, PyModule};
@@ -80,6 +80,126 @@ or use the legacy positional order price_with_metrics(..., metrics, as_of)",
         )
     })?;
     Ok((as_of_date, metric_ids))
+}
+
+fn resolve_model_key(model: Option<Bound<'_, PyAny>>) -> PyResult<ModelKey> {
+    match model {
+        Some(model) => {
+            let ModelKeyArg(model_key) = model.extract()?;
+            Ok(model_key)
+        }
+        None => Ok(ModelKey::Discounting),
+    }
+}
+
+fn extract_instrument_handles(
+    instruments: Vec<Bound<'_, PyAny>>,
+) -> PyResult<Vec<InstrumentHandle>> {
+    let mut handles = Vec::with_capacity(instruments.len());
+    for inst in instruments {
+        handles.push(extract_instrument(&inst)?);
+    }
+    Ok(handles)
+}
+
+fn price_instrument_handles(
+    py: Python<'_>,
+    registry: Arc<PricerRegistry>,
+    handles: Vec<InstrumentHandle>,
+    model_key: ModelKey,
+    market: &PyMarketContext,
+    as_of_date: finstack_core::dates::Date,
+    metric_ids: &[MetricId],
+) -> PyResult<Vec<PyValuationResult>> {
+    let results: Result<Vec<_>, _> = py.detach(|| {
+        handles
+            .par_iter()
+            .map(|handle| {
+                if metric_ids.is_empty() {
+                    registry.price(
+                        handle.instrument.as_ref(),
+                        model_key,
+                        &market.inner,
+                        as_of_date,
+                        None,
+                    )
+                } else {
+                    registry.price_with_metrics(
+                        handle.instrument.as_ref(),
+                        model_key,
+                        &market.inner,
+                        as_of_date,
+                        metric_ids,
+                        finstack_valuations::instruments::PricingOptions::default(),
+                    )
+                }
+            })
+            .collect()
+    });
+
+    match results {
+        Ok(vec) => Ok(vec.into_iter().map(PyValuationResult::new).collect()),
+        Err(e) => Err(pricing_error_to_py(e)),
+    }
+}
+
+#[pyfunction]
+#[pyo3(
+    signature = (instruments, market, as_of, metrics=None, model=None, registry=None, return_dicts=false),
+    text_signature = "(instruments, market, as_of, metrics=None, model='discounting', registry=None, return_dicts=False)"
+)]
+/// Price a list of instruments using a single service-friendly helper.
+///
+/// Args:
+///     instruments: List of instrument instances to price.
+///     market: Market context supplying curves, spreads, spots, and FX data.
+///     as_of: Valuation date (datetime.date).
+///     metrics: Optional iterable of metric identifiers to compute for every instrument.
+///     model: Optional pricing model key or name. Defaults to ``"discounting"``.
+///     registry: Optional registry to use. Defaults to the shared standard registry.
+///     return_dicts: When true, return ``list[dict]`` via ``ValuationResult.to_dict()``.
+///
+/// Returns:
+///     list[ValuationResult] | list[dict]: Results in the same order as *instruments*.
+fn price_portfolio<'py>(
+    py: Python<'py>,
+    instruments: Vec<Bound<'py, PyAny>>,
+    market: &PyMarketContext,
+    as_of: Bound<'py, PyAny>,
+    metrics: Option<Bound<'py, PyAny>>,
+    model: Option<Bound<'py, PyAny>>,
+    registry: Option<PyRef<'py, PyPricerRegistry>>,
+    return_dicts: bool,
+) -> PyResult<Py<PyAny>> {
+    let as_of_date = py_to_date(&as_of)?;
+    let model_key = resolve_model_key(model)?;
+    let metric_ids = match metrics {
+        Some(metrics) => extract_metric_ids(metrics)?,
+        None => Vec::new(),
+    };
+    let handles = extract_instrument_handles(instruments)?;
+    let registry_inner = registry
+        .map(|registry| registry.inner.clone())
+        .unwrap_or_else(shared_standard_registry);
+    let results = price_instrument_handles(
+        py,
+        registry_inner,
+        handles,
+        model_key,
+        market,
+        as_of_date,
+        &metric_ids,
+    )?;
+
+    if return_dicts {
+        let dicts = results
+            .iter()
+            .map(|result| result.to_dict_py(py))
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok(PyList::new(py, dicts)?.into())
+    } else {
+        Ok(PyList::new(py, results)?.into())
+    }
 }
 
 #[pymethods]
@@ -179,35 +299,16 @@ impl PyPricerRegistry {
     ) -> PyResult<Vec<PyValuationResult>> {
         let ModelKeyArg(model_key) = model.extract()?;
         let as_of_date = py_to_date(&as_of)?;
-
-        // Extract all instruments to Rust types (InstrumentHandle)
-        // This must be done while holding GIL
-        let mut handles = Vec::with_capacity(instruments.len());
-        for inst in instruments {
-            let handle = extract_instrument(&inst)?;
-            handles.push(handle);
-        }
-
-        // Release GIL and process in parallel
-        let results: Result<Vec<_>, _> = py.detach(|| {
-            handles
-                .par_iter()
-                .map(|handle| {
-                    self.inner.price(
-                        handle.instrument.as_ref(),
-                        model_key,
-                        &market.inner,
-                        as_of_date,
-                        None,
-                    )
-                })
-                .collect()
-        });
-
-        match results {
-            Ok(vec) => Ok(vec.into_iter().map(PyValuationResult::new).collect()),
-            Err(e) => Err(pricing_error_to_py(e)),
-        }
+        let handles = extract_instrument_handles(instruments)?;
+        price_instrument_handles(
+            py,
+            self.inner.clone(),
+            handles,
+            model_key,
+            market,
+            as_of_date,
+            &[],
+        )
     }
 
     #[pyo3(signature = (instrument, model, market, as_of, metrics=None), text_signature = "(self, instrument, model, market, as_of, metrics=None)")]
@@ -286,33 +387,16 @@ impl PyPricerRegistry {
     ) -> PyResult<Vec<PyValuationResult>> {
         let ModelKeyArg(model_key) = model.extract()?;
         let (as_of_date, metric_ids) = parse_metrics_request(as_of, metrics)?;
-
-        let mut handles = Vec::with_capacity(instruments.len());
-        for inst in instruments {
-            let handle = extract_instrument(&inst)?;
-            handles.push(handle);
-        }
-
-        let results: Result<Vec<_>, _> = py.detach(|| {
-            handles
-                .par_iter()
-                .map(|handle| {
-                    self.inner.price_with_metrics(
-                        handle.instrument.as_ref(),
-                        model_key,
-                        &market.inner,
-                        as_of_date,
-                        &metric_ids,
-                        finstack_valuations::instruments::PricingOptions::default(),
-                    )
-                })
-                .collect()
-        });
-
-        match results {
-            Ok(vec) => Ok(vec.into_iter().map(PyValuationResult::new).collect()),
-            Err(e) => Err(pricing_error_to_py(e)),
-        }
+        let handles = extract_instrument_handles(instruments)?;
+        price_instrument_handles(
+            py,
+            self.inner.clone(),
+            handles,
+            model_key,
+            market,
+            as_of_date,
+            &metric_ids,
+        )
     }
 
     #[pyo3(
@@ -474,7 +558,8 @@ pub(crate) fn register<'py>(
     )?;
     module.add_class::<PyPricerRegistry>()?;
     module.add_function(pyo3::wrap_pyfunction!(standard_registry_py, &module)?)?;
-    let exports = ["PricerRegistry", "standard_registry"];
+    module.add_function(pyo3::wrap_pyfunction!(price_portfolio, &module)?)?;
+    let exports = ["PricerRegistry", "standard_registry", "price_portfolio"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

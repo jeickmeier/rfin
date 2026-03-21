@@ -265,6 +265,20 @@ impl PyValuationResult {
         Self { inner }
     }
 
+    pub(crate) fn to_dict_py<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
+        let dict = PyDict::new(py);
+        dict.set_item("instrument_id", &self.inner.instrument_id)?;
+        dict.set_item("as_of", self.as_of(py)?)?;
+        dict.set_item("value", PyMoney::new(self.inner.value))?;
+        dict.set_item("measures", self.measures_dict(py)?)?;
+        dict.set_item("meta", self.meta().to_dict(py)?)?;
+        match self.covenants_dict(py)? {
+            Some(obj) => dict.set_item("covenants", obj)?,
+            None => dict.set_item("covenants", py.None())?,
+        }
+        Ok(dict.into())
+    }
+
     fn measures_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         for (key, value) in &self.inner.measures {
@@ -420,17 +434,7 @@ impl PyValuationResult {
     ///     >>> sorted(data.keys())
     ///     ['as_of', 'covenants', 'instrument_id', 'measures', 'meta', 'value']
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Py<PyAny>> {
-        let dict = PyDict::new(py);
-        dict.set_item("instrument_id", &self.inner.instrument_id)?;
-        dict.set_item("as_of", self.as_of(py)?)?;
-        dict.set_item("value", PyMoney::new(self.inner.value))?;
-        dict.set_item("measures", self.measures_dict(py)?)?;
-        dict.set_item("meta", self.meta().to_dict(py)?)?;
-        match self.covenants_dict(py)? {
-            Some(obj) => dict.set_item("covenants", obj)?,
-            None => dict.set_item("covenants", py.None())?,
-        }
-        Ok(dict.into())
+        self.to_dict_py(py)
     }
 
     #[pyo3(text_signature = "(self)")]

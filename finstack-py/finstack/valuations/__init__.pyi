@@ -37,7 +37,7 @@ from .instruments import (
     instrument_to_dict,
     instrument_to_json,
 )
-from .pricer import PricerRegistry, standard_registry
+from .pricer import PricerRegistry, price_portfolio, standard_registry
 from .results import ValuationResult, ResultsMeta, CovenantReport
 from .metrics import MetricId, MetricRegistry
 from .performance import xirr, npv, irr_periodic
@@ -219,6 +219,7 @@ __all__ = [
     "instrument_to_json",
     # Pricer
     "PricerRegistry",
+    "price_portfolio",
     "standard_registry",
     # Results
     "ValuationResult",

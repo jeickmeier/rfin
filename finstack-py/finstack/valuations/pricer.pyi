@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 import datetime as dt
-from typing import Any
+from typing import Any, Literal, overload
 from .common import ModelKey, PricerKey
 from .results import ValuationResult
 from ..core.market_data.context import MarketContext
@@ -126,6 +126,67 @@ class PricerRegistry:
         :class:`ValuationResult`: Result structure
         """
         ...
+
+@overload
+def price_portfolio(
+    instruments: list[Any],
+    market: MarketContext,
+    as_of: dt.date,
+    metrics: list[Any] | None = None,
+    model: Any = "discounting",
+    registry: PricerRegistry | None = None,
+    return_dicts: Literal[False] = False,
+) -> list[ValuationResult]: ...
+@overload
+def price_portfolio(
+    instruments: list[Any],
+    market: MarketContext,
+    as_of: dt.date,
+    metrics: list[Any] | None = None,
+    model: Any = "discounting",
+    registry: PricerRegistry | None = None,
+    return_dicts: Literal[True] = True,
+) -> list[dict[str, Any]]: ...
+def price_portfolio(
+    instruments: list[Any],
+    market: MarketContext,
+    as_of: dt.date,
+    metrics: list[Any] | None = None,
+    model: Any = "discounting",
+    registry: PricerRegistry | None = None,
+    return_dicts: bool = False,
+) -> list[ValuationResult] | list[dict[str, Any]]:
+    """Price a list of instruments with a single REST/MCP-friendly helper.
+
+    This helper is designed for service-style workloads where you already have
+    a list of instruments and market data and want JSON-ready outputs with
+    minimal glue code. It reuses a registry under the hood and preserves input
+    order in the returned results.
+
+    Parameters
+    ----------
+    instruments : list[Any]
+        Instruments to price.
+    market : MarketContext
+        Market data container with the required curves, surfaces, and FX data.
+    as_of : dt.date
+        Valuation date for the pricing run.
+    metrics : list[Any] | None, optional
+        Metrics to compute for every instrument. When omitted, pricing runs
+        without additional risk metrics.
+    model : Any, default="discounting"
+        Pricing model key or name to use for all instruments.
+    registry : PricerRegistry | None, optional
+        Registry to use for pricing. When omitted, uses the shared standard registry.
+    return_dicts : bool, default=False
+        When True, return ``list[dict[str, Any]]`` via ``ValuationResult.to_dict()``.
+
+    Returns
+    -------
+    list[ValuationResult] | list[dict[str, Any]]
+        Results in the same order as *instruments*.
+    """
+    ...
 
     def get_price(
         self,
