@@ -320,8 +320,8 @@ mod tests {
     use crate::cashflow::builder::CouponType;
     use crate::instruments::common_impl::traits::Attributes;
     use crate::instruments::common_impl::traits::Instrument;
-    use crate::instruments::fixed_income::bond::CashflowSpec;
     use crate::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
+    use crate::instruments::fixed_income::bond::CashflowSpec;
     use crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
     use crate::metrics::{standard_registry, MetricContext, MetricId};
     use finstack_core::currency::Currency;
