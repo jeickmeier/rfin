@@ -32,7 +32,7 @@
 //! # Quick Example
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
@@ -42,7 +42,7 @@
 //! let market = MarketContext::new();
 //! let as_of = date!(2025-01-15);
 //!
-//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Dv01], crate::instruments::PricingOptions::default())?;
+//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Ytm, MetricId::Dv01], PricingOptions::default())?;
 //!
 //! // Access results
 //! println!("PV: {}", result.value);

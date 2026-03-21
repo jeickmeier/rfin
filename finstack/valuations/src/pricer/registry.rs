@@ -195,19 +195,6 @@ impl PricerRegistry {
         pricer.price_raw_dyn(instrument, market, as_of)
     }
 
-    /// Deprecated alias for [`Self::price`].
-    #[deprecated(note = "use `PricerRegistry::price(...)` instead")]
-    pub fn price_with_registry(
-        &self,
-        instrument: &dyn Priceable,
-        model: ModelKey,
-        market: &Market,
-        as_of: finstack_core::dates::Date,
-        cfg: Option<&FinstackConfig>,
-    ) -> PricingResult<crate::results::ValuationResult> {
-        self.price(instrument, model, market, as_of, cfg)
-    }
-
     /// Price an instrument and compute standard metrics using any registered model.
     ///
     /// Chains `price_dyn` (model PV + model-specific measures) into the standard

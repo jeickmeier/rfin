@@ -8,8 +8,7 @@
 //! ## Example 1: Computing 1-Day Theta for an Equity Option
 //!
 //! ```rust,ignore
-//! use finstack_valuations::instruments::EquityOption;
-//! use finstack_valuations::instruments::Instrument;
+//! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
@@ -46,7 +45,7 @@
 //! let _registry = standard_registry();
 //! let metrics = vec![MetricId::Theta];
 //!
-//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Option value: ${:.2}", result.value.amount());
@@ -60,8 +59,7 @@
 //! ## Example 2: Computing Custom Period Theta (1 Week)
 //!
 //! ```rust,ignore
-//! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
-//! use finstack_valuations::instruments::Instrument;
+//! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions, PricingOverrides};
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
@@ -101,7 +99,7 @@
 //! // "1W", "2W", ... (weeks)
 //! // "1M", "3M", "6M", ... (months)
 //! // "1Y", "2Y", ... (years)
-//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("1-week theta: ${:.2}", theta);
@@ -114,8 +112,7 @@
 //! ## Example 3: Bond Carry (Theta with Coupon Accrual)
 //!
 //! ```rust,ignore
-//! use finstack_valuations::instruments::{Bond, PricingOverrides};
-//! use finstack_valuations::instruments::Instrument;
+//! use finstack_valuations::instruments::{Bond, Instrument, PricingOptions, PricingOverrides};
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
@@ -132,7 +129,7 @@
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Measure 1-month carry
-//! let result = bond.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = bond.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Bond value: ${:.2}", result.value.amount());
@@ -151,8 +148,7 @@
 //! capped at the expiry date:
 //!
 //! ```rust,ignore
-//! use finstack_valuations::instruments::{EquityOption, PricingOverrides};
-//! use finstack_valuations::instruments::Instrument;
+//! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions, PricingOverrides};
 //! use finstack_valuations::metrics::{standard_registry, MetricId};
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
@@ -190,7 +186,7 @@
 //! let metrics = vec![MetricId::Theta];
 //!
 //! // Request 1-week theta, but only 6 days remain
-//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Theta to expiry (6 days): ${:.2}", theta);

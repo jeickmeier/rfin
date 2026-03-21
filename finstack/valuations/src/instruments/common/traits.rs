@@ -78,7 +78,7 @@ use std::sync::Arc;
 // Pricing Options
 // =============================================================================
 
-/// Options for pricing with metrics.
+/// Optional overrides for a pricing-and-metrics request.
 ///
 /// This struct consolidates optional parameters for `Instrument::price_with_metrics`,
 /// replacing the proliferation of `_with_config`, `_with_market_history` variants.
@@ -116,6 +116,11 @@ pub struct PricingOptions {
     /// Optional market history for Historical VaR / Expected Shortfall metrics
     pub market_history: Option<Arc<MarketHistory>>,
     /// Optional explicit pricing model override.
+    ///
+    /// When `None`, [`Instrument::price_with_metrics`] uses
+    /// [`Instrument::default_model`]. Set this to select a different registered
+    /// pricing path, such as hazard-rate or tree/OAS pricing, without dropping
+    /// down to [`crate::pricer::PricerRegistry`] directly.
     pub model: Option<ModelKey>,
     /// Optional explicit pricer registry override.
     pub registry: Option<Arc<PricerRegistry>>,
@@ -144,6 +149,9 @@ impl PricingOptions {
     }
 
     /// Set the pricing model for this pricing request.
+    ///
+    /// Most callers can stay on [`Instrument::price_with_metrics`] and use this
+    /// override only when they need a non-default registered model.
     pub fn with_model(mut self, model: ModelKey) -> Self {
         self.model = Some(model);
         self
@@ -782,7 +790,7 @@ pub trait Instrument: Send + Sync {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS")?;
     ///
     /// let market = MarketContext::new();
     /// let as_of = create_date(2025, Month::January, 1)?;
@@ -871,6 +879,10 @@ pub trait Instrument: Send + Sync {
     /// Greeks, etc.). Metrics are computed on-demand based on the provided list,
     /// enabling efficient calculation of only the required sensitivities.
     ///
+    /// This is the canonical pricing entry point for most callers. By default,
+    /// it prices with [`Instrument::default_model`]. To force a different
+    /// registered pricing path, pass [`PricingOptions::with_model`].
+    ///
     /// PV is always returned in [`crate::results::ValuationResult::value`].
     /// Requested metrics are stored in `ValuationResult::measures` and must be
     /// interpreted using their [`crate::metrics::MetricId`] contracts.
@@ -880,6 +892,8 @@ pub trait Instrument: Send + Sync {
     /// * `market` - Market data context containing all pricing inputs
     /// * `as_of` - Valuation date (T+0)
     /// * `metrics` - List of metric IDs to compute (e.g., `MetricId::Dv01`)
+    /// * `options` - Optional overrides for config, market history, registry,
+    ///   or explicit model selection
     ///
     /// # Returns
     ///
@@ -897,8 +911,8 @@ pub trait Instrument: Send + Sync {
     ///
     /// # Examples
     ///
-    /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
     /// use finstack_valuations::metrics::MetricId;
     /// use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::currency::Currency;
@@ -911,7 +925,7 @@ pub trait Instrument: Send + Sync {
     /// # let issue = create_date(2025, Month::January, 15)?;
     /// # let maturity = create_date(2030, Month::January, 15)?;
     /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
-    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS");
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS")?;
     ///
     /// let market = MarketContext::new();
     /// let as_of = create_date(2025, Month::January, 1)?;
@@ -923,9 +937,46 @@ pub trait Instrument: Send + Sync {
     ///     MetricId::Dv01,
     /// ];
     ///
-    /// // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute)?;
-    /// // println!("NPV: {}", result.value);
-    /// // println!("DV01: {}", result.measures.get("dv01").expect("should succeed"));
+    /// let result = bond.price_with_metrics(
+    ///     &market,
+    ///     as_of,
+    ///     &metrics_to_compute,
+    ///     PricingOptions::default(),
+    /// )?;
+    /// println!("NPV: {}", result.value);
+    /// println!("DV01: {}", result.measures.get("dv01").expect("should succeed"));
+    /// # let _ = result;
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// ```rust,no_run
+    /// use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
+    /// use finstack_valuations::metrics::MetricId;
+    /// use finstack_valuations::pricer::ModelKey;
+    /// use finstack_core::market_data::context::MarketContext;
+    /// # use finstack_core::currency::Currency;
+    /// # use finstack_core::money::Money;
+    /// # use finstack_core::dates::create_date;
+    /// # use finstack_core::types::Rate;
+    /// # use time::Month;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// # let issue = create_date(2025, Month::January, 15)?;
+    /// # let maturity = create_date(2030, Month::January, 15)?;
+    /// let bond = Bond::fixed("BOND-001", Money::new(1_000_000.0, Currency::USD),
+    ///     Rate::from_percent(5.0), issue, maturity, "USD-OIS")?;
+    ///
+    /// let market = MarketContext::new();
+    /// let as_of = create_date(2025, Month::January, 1)?;
+    ///
+    /// let result = bond.price_with_metrics(
+    ///     &market,
+    ///     as_of,
+    ///     &[MetricId::Dv01],
+    ///     PricingOptions::default().with_model(ModelKey::HazardRate),
+    /// )?;
+    /// # let _ = result;
     /// # Ok(())
     /// # }
     /// ```

@@ -168,6 +168,7 @@
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_metrics_based;
 //! use finstack_valuations::attribution::default_attribution_metrics;
+//! use finstack_valuations::instruments::PricingOptions;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::market_data::context::MarketContext;
@@ -195,8 +196,8 @@
 //!         .expect("deposit builder should succeed"),
 //! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
 //!
-//! let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics, crate::instruments::PricingOptions::default())?;
-//! let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics, crate::instruments::PricingOptions::default())?;
+//! let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics, PricingOptions::default())?;
+//! let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics, PricingOptions::default())?;
 //!
 //! let attribution = attribute_pnl_metrics_based(
 //!     &instrument,

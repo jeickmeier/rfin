@@ -27,11 +27,11 @@
 //! metrics via the [`Instrument::price_with_metrics`] method:
 //!
 //! ```rust,ignore
-//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //!
 //! let bond = Bond::example().unwrap();
-//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01], crate::instruments::PricingOptions::default())?;
+//! let result = bond.price_with_metrics(&market, as_of, &[MetricId::Dv01], PricingOptions::default())?;
 //! // DV01 is in currency units per 1bp rate move
 //! ```
 

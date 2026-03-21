@@ -33,7 +33,7 @@
 //! ## Example 1: Computing Bucketed DV01 for a Bond
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
@@ -47,7 +47,7 @@
 //! let metrics = vec![MetricId::BucketedDv01];
 //!
 //! // Price with metrics
-//! let result = bond.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = bond.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! // Access results
 //! let pv = result.value.amount();
@@ -64,7 +64,7 @@
 //! ## Example 2: Computing Parallel DV01 for an Interest Rate Swap
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::{Instrument, InterestRateSwap};
+//! use finstack_valuations::instruments::{Instrument, InterestRateSwap, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::market_data::context::MarketContext;
 //! use time::macros::date;
@@ -75,7 +75,7 @@
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Dv01]; // Parallel DV01
 //!
-//! let result = swap.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = swap.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! if let Some(dv01) = result.measures.get(MetricId::Dv01.as_str()) {
 //!     println!("Swap DV01: ${:.2} per bp", dv01);
@@ -89,7 +89,7 @@
 //! ## Example 3: Computing Theta (Time Decay) for an Option
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::{EquityOption, Instrument};
+//! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
@@ -119,7 +119,7 @@
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Theta];
 //!
-//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! if let Some(theta) = result.measures.get(MetricId::Theta.as_str()) {
 //!     println!("Option theta per day: ${:.2}", theta);
@@ -132,7 +132,7 @@
 //! ## Example 4: Computing Multiple Greeks for an Option
 //!
 //! ```rust,no_run
-//! use finstack_valuations::instruments::{EquityOption, Instrument};
+//! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
@@ -166,7 +166,7 @@
 //!     MetricId::Rho,
 //! ];
 //!
-//! let result = option.price_with_metrics(&market, as_of, &metrics, crate::instruments::PricingOptions::default())?;
+//! let result = option.price_with_metrics(&market, as_of, &metrics, PricingOptions::default())?;
 //!
 //! println!("Option Greeks:");
 //! println!("  PV:    ${:.2}", result.value.amount());

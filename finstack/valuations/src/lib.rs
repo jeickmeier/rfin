@@ -109,8 +109,9 @@
 //! ## Risk Metrics
 //!
 //! ```rust
-//! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::metrics::{MetricId, standard_registry};
+//! use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
+//! use finstack_valuations::metrics::MetricId;
+//! use finstack_valuations::pricer::ModelKey;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::types::Rate;
 //! # use finstack_core::currency::Currency;
@@ -126,8 +127,6 @@
 //! # let market = MarketContext::new();
 //! # let as_of = create_date(2025, Month::January, 1)?;
 //!
-//! // Compute risk metrics
-//! use finstack_valuations::instruments::Instrument;
 //! let metrics_to_compute = vec![
 //!     MetricId::Ytm,
 //!     MetricId::DurationMod,  // Modified duration
@@ -135,8 +134,13 @@
 //!     MetricId::Dv01,
 //! ];
 //!
-//! // Note: Requires populated market context with "USD-OIS" discount curve
-//! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, crate::instruments::PricingOptions::default())?;
+//! let default_opts = PricingOptions::default();
+//! let hazard_rate_opts = PricingOptions::default().with_model(ModelKey::HazardRate);
+//!
+//! // Note: Requires populated market context with the curves needed by the
+//! // selected pricing path.
+//! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, default_opts)?;
+//! // let hazard_result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, hazard_rate_opts)?;
 //! // println!("YTM: {:.2}%", result.measures.get("ytm").expect("should succeed") * 100.0);
 //! // println!("DV01: ${:.2}", result.measures.get("dv01").expect("should succeed"));
 //! # Ok(())
