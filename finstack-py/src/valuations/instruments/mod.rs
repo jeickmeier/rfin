@@ -15,6 +15,7 @@ mod fixed_income;
 mod fx;
 mod rates;
 
+use crate::errors::core_to_py;
 use commodity::commodity_asian_option::PyCommodityAsianOption;
 use commodity::commodity_forward::PyCommodityForward;
 use commodity::commodity_option::PyCommodityOption;
@@ -79,11 +80,13 @@ use rates::swaption::{PyBermudanSwaption, PySwaption};
 use rates::xccy_swap::PyCrossCurrencySwap;
 
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::InstrumentEnvelope;
 use finstack_valuations::pricer::InstrumentType;
-use pyo3::exceptions::PyTypeError;
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyAny, PyList, PyModule};
 use pyo3::{Bound, PyRef};
+use pythonize::{depythonize, pythonize};
 use std::sync::Arc;
 
 macro_rules! try_downcast_to_py {
@@ -342,6 +345,69 @@ pub(crate) fn extract_instrument<'py>(value: &Bound<'py, PyAny>) -> PyResult<Ins
     ))
 }
 
+fn instrument_envelope_from_value(value: serde_json::Value) -> PyResult<Arc<dyn Instrument>> {
+    InstrumentEnvelope::from_value(value)
+        .map(Arc::from)
+        .map_err(core_to_py)
+}
+
+fn serialize_instrument_envelope(value: &Bound<'_, PyAny>) -> PyResult<InstrumentEnvelope> {
+    let handle = extract_instrument(value)?;
+    InstrumentEnvelope::from_instrument(handle.instrument.as_ref()).ok_or_else(|| {
+        PyTypeError::new_err(format!(
+            "Instrument '{}' does not support generic JSON serialization",
+            handle.instrument.id()
+        ))
+    })
+}
+
+/// Construct any supported instrument from a JSON string.
+///
+/// Accepts either a versioned instrument envelope:
+/// ``{"schema": "finstack.instrument/1", "instrument": {...}}``
+/// or the bare tagged instrument form:
+/// ``{"type": "bond", "spec": {...}}``.
+#[pyfunction]
+#[pyo3(text_signature = "(data)")]
+fn instrument_from_json(py: Python<'_>, data: &str) -> PyResult<Py<PyAny>> {
+    let json_value: serde_json::Value = serde_json::from_str(data)
+        .map_err(|e| PyValueError::new_err(format!("Invalid JSON: {e}")))?;
+    let instrument = instrument_envelope_from_value(json_value)?;
+    instrument_to_py(py, &instrument)
+}
+
+/// Construct any supported instrument from a Python dictionary.
+///
+/// The dictionary may be either a versioned instrument envelope or a bare tagged
+/// instrument payload.
+#[pyfunction]
+#[pyo3(text_signature = "(data)")]
+fn instrument_from_dict(py: Python<'_>, data: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let json_value: serde_json::Value = depythonize(&data)
+        .map_err(|e| PyValueError::new_err(format!("Failed to convert Python data: {e}")))?;
+    let instrument = instrument_envelope_from_value(json_value)?;
+    instrument_to_py(py, &instrument)
+}
+
+/// Serialize any supported instrument to a versioned Python dictionary.
+#[pyfunction]
+#[pyo3(text_signature = "(instrument)")]
+fn instrument_to_dict(py: Python<'_>, instrument: Bound<'_, PyAny>) -> PyResult<Py<PyAny>> {
+    let envelope = serialize_instrument_envelope(&instrument)?;
+    pythonize(py, &envelope)
+        .map(|obj| obj.unbind())
+        .map_err(|e| PyValueError::new_err(format!("Failed to convert instrument to dict: {e}")))
+}
+
+/// Serialize any supported instrument to a versioned JSON string.
+#[pyfunction]
+#[pyo3(text_signature = "(instrument)")]
+fn instrument_to_json(instrument: Bound<'_, PyAny>) -> PyResult<String> {
+    let envelope = serialize_instrument_envelope(&instrument)?;
+    serde_json::to_string(&envelope)
+        .map_err(|e| PyValueError::new_err(format!("Failed to serialize instrument: {e}")))
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -353,6 +419,17 @@ pub(crate) fn register<'py>(
     )?;
 
     let mut exports: Vec<&str> = Vec::new();
+
+    module.add_function(wrap_pyfunction!(instrument_from_json, &module)?)?;
+    module.add_function(wrap_pyfunction!(instrument_from_dict, &module)?)?;
+    module.add_function(wrap_pyfunction!(instrument_to_dict, &module)?)?;
+    module.add_function(wrap_pyfunction!(instrument_to_json, &module)?)?;
+    exports.extend([
+        "instrument_from_json",
+        "instrument_from_dict",
+        "instrument_to_dict",
+        "instrument_to_json",
+    ]);
 
     let fixed_income_exports = fixed_income::register(py, &module)?;
     exports.extend(fixed_income_exports.iter().copied());

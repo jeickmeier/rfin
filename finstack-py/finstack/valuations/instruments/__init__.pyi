@@ -1,6 +1,7 @@
 """Instrument wrappers for finstack-valuations (rates, FX, credit, equity)."""
 
 from __future__ import annotations
+from typing import Any
 
 # Re-export category subpackages
 from . import commodity as commodity
@@ -10,6 +11,22 @@ from . import exotics as exotics
 from . import fixed_income as fixed_income
 from . import fx as fx
 from . import rates as rates
+
+def instrument_from_json(data: str) -> Any:
+    """Construct any supported instrument from a JSON string."""
+    ...
+
+def instrument_from_dict(data: dict[str, Any]) -> Any:
+    """Construct any supported instrument from a Python dictionary."""
+    ...
+
+def instrument_to_dict(instrument: Any) -> dict[str, Any]:
+    """Serialize an instrument to a versioned Python dictionary."""
+    ...
+
+def instrument_to_json(instrument: Any) -> str:
+    """Serialize an instrument to a versioned JSON string."""
+    ...
 
 # Fixed Income
 from .fixed_income.mbs_passthrough import (
@@ -346,6 +363,10 @@ from .exotics.basket import (
 from .exotics.lookback_option import LookbackOption as LookbackOption, LookbackType as LookbackType
 
 __all__ = [
+    "instrument_from_json",
+    "instrument_from_dict",
+    "instrument_to_dict",
+    "instrument_to_json",
     # Agency MBS
     "AgencyCmo",
     "AgencyCmoBuilder",

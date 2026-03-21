@@ -31,6 +31,12 @@ from .common.monte_carlo import (
     MonteCarloPathGenerator,
 )
 from .common import parse
+from .instruments import (
+    instrument_from_dict,
+    instrument_from_json,
+    instrument_to_dict,
+    instrument_to_json,
+)
 from .pricer import PricerRegistry, standard_registry
 from .results import ValuationResult, ResultsMeta, CovenantReport
 from .metrics import MetricId, MetricRegistry
@@ -207,6 +213,10 @@ __all__ = [
     "ModelKey",
     "PricerKey",
     "parse",
+    "instrument_from_json",
+    "instrument_from_dict",
+    "instrument_to_dict",
+    "instrument_to_json",
     # Pricer
     "PricerRegistry",
     "standard_registry",

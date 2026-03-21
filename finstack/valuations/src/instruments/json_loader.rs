@@ -290,6 +290,31 @@ macro_rules! instrument_json_into_boxed_match {
     };
 }
 
+macro_rules! instrument_json_from_dyn_match {
+    (
+        [$instrument:expr]
+        $(plain: $variant:ident($ty:ty) => $tag:literal $(, $alias:literal)*;)*
+        $(boxed: $boxed_variant:ident($boxed_ty:ty) => $boxed_tag:literal $(, $boxed_alias:literal)*;)*
+    ) => {{
+        let instrument = $instrument;
+        'match_instrument: {
+            $(
+                if let Some(concrete) = instrument.as_any().downcast_ref::<$ty>() {
+                    break 'match_instrument Some(InstrumentJson::$variant(concrete.clone()));
+                }
+            )*
+            $(
+                if let Some(concrete) = instrument.as_any().downcast_ref::<$boxed_ty>() {
+                    break 'match_instrument Some(InstrumentJson::$boxed_variant(Box::new(
+                        concrete.clone(),
+                    )));
+                }
+            )*
+            None
+        }
+    }};
+}
+
 #[cfg(test)]
 macro_rules! instrument_json_canonical_types {
     (
@@ -316,6 +341,15 @@ impl InstrumentJson {
     /// Returns an error if spec validation fails during conversion.
     pub fn into_boxed(self) -> Result<Box<DynInstrument>> {
         with_instrument_json_registry!(instrument_json_into_boxed_match, self)
+    }
+
+    /// Convert a concrete instrument trait object into its tagged JSON form.
+    ///
+    /// Returns `None` when the instrument is not part of the JSON registry.
+    pub fn from_instrument(
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
+    ) -> Option<Self> {
+        with_instrument_json_registry!(instrument_json_from_dyn_match, instrument)
     }
 }
 
@@ -540,6 +574,65 @@ impl<'de> Deserialize<'de> for InstrumentJson {
 }
 
 impl InstrumentEnvelope {
+    /// Current schema version emitted by Finstack instrument envelopes.
+    pub const CURRENT_SCHEMA: &'static str = "finstack.instrument/1";
+
+    /// Create a versioned envelope from an instrument JSON payload.
+    pub fn new(instrument: InstrumentJson) -> Self {
+        Self {
+            schema: Self::CURRENT_SCHEMA.to_string(),
+            instrument,
+        }
+    }
+
+    fn validate_schema(&self) -> Result<()> {
+        if !self.schema.starts_with(Self::CURRENT_SCHEMA) {
+            return Err(finstack_core::InputError::Invalid.into());
+        }
+        Ok(())
+    }
+
+    fn finalize_loaded_instrument(instrument: Box<DynInstrument>) -> Result<Box<DynInstrument>> {
+        if let Some(overrides) = instrument.scenario_overrides() {
+            overrides.validate()?;
+        }
+        Ok(instrument)
+    }
+
+    /// Convert a concrete instrument into a versioned JSON envelope.
+    ///
+    /// Returns `None` when the instrument does not participate in the JSON
+    /// registry.
+    pub fn from_instrument(
+        instrument: &dyn crate::instruments::common_impl::traits::Instrument,
+    ) -> Option<Self> {
+        InstrumentJson::from_instrument(instrument).map(Self::new)
+    }
+
+    /// Load an instrument from a JSON value.
+    ///
+    /// Accepts either the versioned envelope form:
+    ///
+    /// ```json
+    /// { "schema": "finstack.instrument/1", "instrument": { ... } }
+    /// ```
+    ///
+    /// or the bare tagged instrument form:
+    ///
+    /// ```json
+    /// { "type": "bond", "spec": { ... } }
+    /// ```
+    pub fn from_value(value: serde_json::Value) -> Result<Box<DynInstrument>> {
+        if let Ok(envelope) = serde_json::from_value::<Self>(value.clone()) {
+            envelope.validate_schema()?;
+            return Self::finalize_loaded_instrument(envelope.instrument.into_boxed()?);
+        }
+
+        let instrument_json: InstrumentJson =
+            serde_json::from_value(value).map_err(|_| finstack_core::InputError::Invalid)?;
+        Self::finalize_loaded_instrument(instrument_json.into_boxed()?)
+    }
+
     /// Load an instrument from a JSON reader.
     ///
     /// # Arguments
@@ -559,19 +652,9 @@ impl InstrumentEnvelope {
     /// - Unknown fields are present (strict mode)
     /// - Spec validation fails
     pub fn from_reader<R: Read>(reader: R) -> Result<Box<DynInstrument>> {
-        let envelope: Self =
+        let value =
             serde_json::from_reader(reader).map_err(|_| finstack_core::InputError::Invalid)?;
-
-        // Validate schema version (currently we only support version 1)
-        if !envelope.schema.starts_with("finstack.instrument/1") {
-            return Err(finstack_core::InputError::Invalid.into());
-        }
-
-        let instrument = envelope.instrument.into_boxed()?;
-        if let Some(overrides) = instrument.scenario_overrides() {
-            overrides.validate()?;
-        }
-        Ok(instrument)
+        Self::from_value(value)
     }
 
     /// Load an instrument from a JSON string.
@@ -728,6 +811,48 @@ mod tests {
         let instrument = InstrumentEnvelope::from_str(json)
             .expect("Instrument envelope parsing should succeed in test");
         assert_eq!(instrument.id(), "BOND-FROM-STR");
+    }
+
+    #[test]
+    fn test_envelope_from_value_accepts_bare_tagged_instrument() {
+        let bond = Bond::fixed(
+            "TEST-BARE",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2034, Month::January, 1).expect("Valid test date"),
+            "USD-OIS",
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
+
+        let value =
+            serde_json::to_value(InstrumentJson::Bond(bond)).expect("serialize tagged instrument");
+        let instrument = InstrumentEnvelope::from_value(value)
+            .expect("Tagged instrument payload should deserialize without envelope");
+
+        assert_eq!(instrument.id(), "TEST-BARE");
+    }
+
+    #[test]
+    fn test_envelope_from_instrument_serializes_supported_types() {
+        let bond = Bond::fixed(
+            "TEST-ENVELOPE",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            Date::from_calendar_date(2024, Month::January, 1).expect("Valid test date"),
+            Date::from_calendar_date(2034, Month::January, 1).expect("Valid test date"),
+            "USD-OIS",
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
+
+        let envelope = InstrumentEnvelope::from_instrument(&bond)
+            .expect("Bond should participate in the instrument JSON registry");
+
+        assert_eq!(envelope.schema, InstrumentEnvelope::CURRENT_SCHEMA);
+        match envelope.instrument {
+            InstrumentJson::Bond(serialized) => assert_eq!(serialized.id, bond.id),
+            _ => panic!("Expected Bond variant"),
+        }
     }
 
     #[test]

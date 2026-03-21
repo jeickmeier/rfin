@@ -6,6 +6,7 @@ import datetime as dt
 
 from finstack.core.currency import USD, Currency
 from finstack.core.dates.daycount import DayCount
+from finstack.core.dates.schedule import Frequency
 from finstack.valuations.cashflow import CouponType, FixedCouponSpec, ScheduleParams
 from finstack.valuations.instruments import (
     AgencyCmo,
@@ -17,25 +18,24 @@ from finstack.valuations.instruments import (
     ConversionPolicy,
     ConversionSpec,
     ConvertibleBond,
-    DollarRoll,
     Deposit,
+    DollarRoll,
     EquityTotalReturnSwap,
     EquityUnderlying,
     FiIndexTotalReturnSwap,
     FxOption,
     FxSpot,
     FxSwap,
-    InterestRateSwap,
     IndexUnderlying,
     InflationLinkedBond,
     InflationSwap,
+    InterestRateSwap,
     PoolType,
     TbaTerm,
     TrsFinancingLegSpec,
     TrsScheduleSpec,
     TrsSide,
 )
-from finstack.core.dates.schedule import Frequency
 
 from finstack import Money
 
