@@ -22,17 +22,14 @@ Add a pre-flight size check in `CompiledExpr::eval()` before the arena allocatio
 
 ```rust
 // In finstack/core/src/expr/eval.rs (EvalOpts is defined at line 55)
-pub struct EvalOpts {
-    // ... existing fields ...
-    /// Maximum arena allocation in bytes. Defaults to 1GB.
-    /// Set to 0 to disable the check.
-    pub max_arena_bytes: usize,
-}
-
+// NOTE: EvalOpts currently uses #[derive(Default)]. Adding max_arena_bytes
+// requires switching to a manual Default impl so we can set 1GB instead of 0.
+// Remove `Default` from the derive list and add:
 impl Default for EvalOpts {
     fn default() -> Self {
         Self {
-            // ... existing defaults ...
+            plan: None,
+            cache_budget_mb: None,
             max_arena_bytes: 1_073_741_824, // 1 GB
         }
     }
@@ -41,9 +38,13 @@ impl Default for EvalOpts {
 
 **New error variant in `InputError`:**
 
+Note: `InputError` derives `serde::Deserialize`, so field types must be owned. Use `String` (not `&'static str`).
+
 ```rust
+/// Requested allocation exceeds configured limit.
+#[error("Allocation too large for {what}: requested {requested_bytes} bytes, limit {limit_bytes} bytes")]
 TooLarge {
-    what: &'static str,
+    what: String,
     requested_bytes: usize,
     limit_bytes: usize,
 },
@@ -55,7 +56,7 @@ TooLarge {
 let node_count = plan_to_use.nodes.len();
 let arena_elements = len.checked_mul(node_count).ok_or_else(|| {
     Error::from(InputError::TooLarge {
-        what: "expression arena",
+        what: "expression arena".into(),
         requested_bytes: usize::MAX,
         limit_bytes: opts.max_arena_bytes,
     })
@@ -63,7 +64,7 @@ let arena_elements = len.checked_mul(node_count).ok_or_else(|| {
 let arena_bytes = arena_elements.checked_mul(std::mem::size_of::<f64>()).unwrap_or(usize::MAX);
 if opts.max_arena_bytes > 0 && arena_bytes > opts.max_arena_bytes {
     return Err(InputError::TooLarge {
-        what: "expression arena",
+        what: "expression arena".into(),
         requested_bytes: arena_bytes,
         limit_bytes: opts.max_arena_bytes,
     }
@@ -79,7 +80,7 @@ let mut arena = vec![0.0; arena_elements];
 
 ### Breaking Changes
 
-None. `EvalOpts` gains a new field with a default value. Existing callers using `EvalOpts::default()` get the 1GB cap automatically.
+Minor structural change: `EvalOpts` currently uses `#[derive(Default)]`. Adding `max_arena_bytes` with a non-zero default requires switching to a manual `Default` impl. This is source-compatible — `EvalOpts::default()` callers are unaffected — but it changes the derive list. Existing callers using `EvalOpts::default()` get the 1GB cap automatically. Callers constructing `EvalOpts { plan: None, cache_budget_mb: None }` without `..Default::default()` will get a compile error until they add the new field.
 
 ### Tests
 
@@ -391,6 +392,8 @@ pub fn price_with_metrics(
 
 The internal `build_with_metrics_dyn()` already accepts `Arc<Market>`, so this just lifts the `Arc::new()` call up one level. Portfolio-level callers can wrap once and share the `Arc` across all instrument pricings, saving N-1 clones.
 
+**Note:** Line 261 also does `Arc::new(self.clone())` — cloning the `PricerRegistry` itself on every call. This is a separate concern (the registry is typically lightweight — a HashMap of function pointers). If profiling shows it's significant, the same `Arc`-lifting pattern can be applied, but it's out of scope for this change.
+
 ### Files
 
 - `finstack/valuations/src/pricer/registry.rs` — new method, refactor existing
@@ -423,7 +426,7 @@ Add targeted doc comments (no code changes) to 5 files:
 
 3. **`finstack/portfolio/src/portfolio.rs`** — doc on `positions` field: "Instruments behind `Arc` must be immutable after construction. The portfolio assumes no interior mutability — concurrent reads are safe, but modifying an instrument after adding it to a portfolio is undefined behavior at the application level."
 
-4. **`finstack/core/src/expr/eval.rs`** (line 89, `CompiledExpr` struct definition) — doc: "CompiledExpr is `Send` but not `Sync`. Each instance holds a `Mutex<ScratchArena>` for single-threaded evaluation. For parallel evaluation, clone the expression — each clone gets an independent scratch buffer."
+4. **`finstack/core/src/expr/eval.rs`** (line 87-89, `CompiledExpr` struct definition) — **Fix existing incorrect doc.** The current doc says "Not `Sync` due to mutable scratch buffers" but this is wrong: `CompiledExpr` holds `Mutex<ScratchArena>`, `Arc<Mutex<ExpressionCache>>`, and `OnceLock<ExecutionPlan>` — all `Sync`. Replace with: "`CompiledExpr` is both `Send` and `Sync`. Internal scratch buffers and caches are protected by `Mutex`. For parallel evaluation, either share a single instance (concurrent `eval()` calls will serialize on the scratch `Mutex`) or clone for independent scratch buffers per thread."
 
 5. **`finstack/core/src/money/fx.rs`** — doc on `FxMatrix`: "Uses interior `Mutex` for rate caching. Under high concurrency, cache lookups serialize through the lock. For performance-critical parallel pricing, consider pre-fetching rates or using one `FxMatrix` per thread."
 
