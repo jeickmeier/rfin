@@ -32,21 +32,6 @@ dependencies = [
     "python-dotenv>=1.0.0",
 ]
 
-[tool.uv]
-dev-dependencies = [
-    "maturin>=1.10.2,<2.0",
-    "pytest>=9.0.2",
-    "pytest-benchmark>=5.2.3",
-    "hypothesis>=6.122.4",
-    "ty>=0.0.18",
-    "pyright>=1.1.400",
-    "ruff>=0.14.8",
-    "ipython>=9.8.0",
-    "jupyter>=1.1.1",
-    "bandit>=1.8.2",
-    "pre-commit>=4.0.1",
-]
-
 [tool.maturin]
 # Path to the Cargo manifest of the bindings crate
 manifest-path = "finstack-py/Cargo.toml"
@@ -107,6 +92,17 @@ filterwarnings = [
 
 [dependency-groups]
 dev = [
+    "maturin>=1.10.2,<2.0",
+    "pytest>=9.0.2",
+    "pytest-benchmark>=5.2.3",
+    "hypothesis>=6.122.4",
+    "ty>=0.0.18",
+    "pyright>=1.1.400",
+    "ruff>=0.14.8",
+    "ipython>=9.8.0",
+    "jupyter>=1.1.1",
+    "bandit>=1.8.2",
+    "pre-commit>=4.0.1",
     "pytest-randomly>=4.0.1",
     "quantlib>=1.41",
     "types-python-dateutil>=2.9.0.20251115",
