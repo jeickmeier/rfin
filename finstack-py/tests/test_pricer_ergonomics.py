@@ -3,13 +3,15 @@
 from datetime import date
 
 from finstack.valuations.metrics import MetricId
-from finstack.valuations.pricer import standard_registry
+from finstack.valuations.pricer import get_standard_registry, standard_registry
 import pytest
 from tests.fixtures.strategies import (
     TOLERANCE_DETERMINISTIC,
     create_flat_market_context,
     create_test_bond,
 )
+
+from finstack.valuations import get_standard_registry as top_level_get_standard_registry
 
 
 def test_price_with_metrics_accepts_documented_argument_order() -> None:
@@ -131,3 +133,24 @@ def test_price_batch_with_metrics_error_includes_instrument_context() -> None:
 
     assert "USD-MISSING" in str(exc_info.value)
     assert "model=Discounting" in str(exc_info.value)
+
+
+def test_get_standard_registry_aliases_are_usable() -> None:
+    """Singleton-style aliases should expose the standard registry surface."""
+    market = create_flat_market_context(discount_rate=0.05)
+    bond = create_test_bond(bond_id="ALIAS-BOND")
+
+    from_pricer_module = get_standard_registry()
+    from_top_level = top_level_get_standard_registry()
+    from_standard_name = standard_registry()
+
+    baseline = from_standard_name.price(bond, "discounting", market, date(2024, 1, 1))
+    alias_result = from_pricer_module.price(bond, "discounting", market, date(2024, 1, 1))
+    top_level_result = from_top_level.price(bond, "discounting", market, date(2024, 1, 1))
+
+    assert alias_result.instrument_id == baseline.instrument_id
+    assert alias_result.value.amount == pytest.approx(baseline.value.amount, abs=TOLERANCE_DETERMINISTIC)
+    assert top_level_result.value.amount == pytest.approx(
+        baseline.value.amount,
+        abs=TOLERANCE_DETERMINISTIC,
+    )

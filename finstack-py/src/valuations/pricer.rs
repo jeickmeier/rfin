@@ -606,6 +606,14 @@ fn standard_registry_py() -> PyResult<PyPricerRegistry> {
     Ok(PyPricerRegistry::from_arc(shared_standard_registry()))
 }
 
+/// Return the shared standard pricer registry.
+///
+/// This is an explicit singleton-style alias for :func:`standard_registry`.
+#[pyfunction(name = "get_standard_registry")]
+fn get_standard_registry_py() -> PyResult<PyPricerRegistry> {
+    standard_registry_py()
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -617,8 +625,14 @@ pub(crate) fn register<'py>(
     )?;
     module.add_class::<PyPricerRegistry>()?;
     module.add_function(pyo3::wrap_pyfunction!(standard_registry_py, &module)?)?;
+    module.add_function(pyo3::wrap_pyfunction!(get_standard_registry_py, &module)?)?;
     module.add_function(pyo3::wrap_pyfunction!(price_portfolio, &module)?)?;
-    let exports = ["PricerRegistry", "standard_registry", "price_portfolio"];
+    let exports = [
+        "PricerRegistry",
+        "standard_registry",
+        "get_standard_registry",
+        "price_portfolio",
+    ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

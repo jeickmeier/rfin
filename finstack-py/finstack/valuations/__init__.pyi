@@ -1,4 +1,14 @@
-"""Valuations bindings mirroring finstack-valuations: instruments, pricers, metrics, and result envelopes."""
+"""Valuations bindings mirroring finstack-valuations: instruments, pricers, metrics, and result envelopes.
+
+Canonical imports
+-----------------
+- ``finstack.valuations.instruments`` for instrument classes and JSON helpers
+- ``finstack.valuations.pricer`` for registry helpers and portfolio pricing
+- ``finstack.valuations.metrics`` for ``MetricId`` and metric discovery
+
+Top-level re-exports are preserved for convenience, but the submodule imports
+above are the preferred paths for IDE discovery, service code, and examples.
+"""
 
 from __future__ import annotations
 from . import common
@@ -37,7 +47,12 @@ from .instruments import (
     instrument_to_dict,
     instrument_to_json,
 )
-from .pricer import PricerRegistry, price_portfolio, standard_registry
+from .pricer import (
+    PricerRegistry,
+    get_standard_registry,
+    price_portfolio,
+    standard_registry,
+)
 from .results import ValuationResult, ResultsMeta, CovenantReport
 from .metrics import MetricId, MetricRegistry
 from .performance import xirr, npv, irr_periodic
@@ -220,6 +235,7 @@ __all__ = [
     # Pricer
     "PricerRegistry",
     "price_portfolio",
+    "get_standard_registry",
     "standard_registry",
     # Results
     "ValuationResult",

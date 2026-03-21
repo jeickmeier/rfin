@@ -1,4 +1,14 @@
-"""Pricer registry bridging instruments and pricing models to valuation engines."""
+"""Pricer registry bridging instruments and pricing models to valuation engines.
+
+Canonical imports
+-----------------
+- Import instrument classes from ``finstack.valuations.instruments``
+- Import registry helpers from ``finstack.valuations.pricer``
+- Import metric types from ``finstack.valuations.metrics``
+
+Top-level ``finstack.valuations`` re-exports remain available for convenience,
+but the submodule paths above are the preferred imports for service code and docs.
+"""
 
 from __future__ import annotations
 import datetime as dt
@@ -49,6 +59,8 @@ class PricerRegistry:
     Notes
     -----
     - Use :func:`standard_registry` for most use cases
+    - ``standard_registry()`` and ``get_standard_registry()`` both return wrappers
+      over the shared Rust standard registry singleton
     - The registry is thread-safe and can be cloned for parallel pricing
     - Pricing models are specified by string (e.g., "discounting", "credit")
     - MarketContext must contain all required curves/surfaces for the instrument
@@ -188,6 +200,13 @@ def price_portfolio(
     -------
     list[ValuationResult] | list[dict[str, Any]]
         Results in the same order as *instruments*.
+
+    Async Service Usage
+    -------------------
+    This helper releases the Python GIL during pricing work, but it is still a
+    synchronous call from Python's perspective. In async frameworks such as
+    FastAPI or Starlette, call it via ``await asyncio.to_thread(...)`` so the
+    event loop remains responsive.
     """
     ...
 
@@ -481,7 +500,8 @@ def standard_registry() -> PricerRegistry:
     Returns
     -------
     PricerRegistry
-        Shared registry instance with all standard pricers loaded and ready to use.
+        Wrapper around the shared standard registry singleton with all standard
+        pricers loaded and ready to use.
 
     Examples
     --------
@@ -507,12 +527,23 @@ def standard_registry() -> PricerRegistry:
     - All standard instrument types are supported
     - Custom pricers can be added to an empty registry if needed
     - The registry is thread-safe and can be cloned for parallel execution
+    - Repeated calls reuse the same underlying Rust standard registry singleton
     - Reuse the returned registry across requests in service applications
     - Use this function rather than creating an empty PricerRegistry() for
       standard instruments
+    - In async web servers, run pricing calls via ``await asyncio.to_thread(...)``
+      to avoid blocking the event loop
 
     See Also
     --------
     :class:`PricerRegistry`: Registry class for custom configurations
+    """
+    ...
+
+def get_standard_registry() -> PricerRegistry:
+    """Explicit singleton-style alias for :func:`standard_registry`.
+
+    This alias exists for service code that prefers a getter name to emphasize
+    that the returned wrapper uses the shared standard registry singleton.
     """
     ...
