@@ -7,7 +7,8 @@
 //! # Metric Contract
 //!
 //! Metric values are returned as raw `f64` values, but they are not unitless.
-//! The authoritative semantic contract for each measure lives on [`MetricId`],
+//! The authoritative semantic contract for each measure lives on
+//! [`crate::metrics::MetricId`],
 //! including:
 //!
 //! - units such as currency, currency per bp, decimal rate, or vol point
@@ -17,8 +18,9 @@
 //!   `YieldDv01`, and `Cs01Hazard`
 //!
 //! Consumers should interpret values from
-//! [`crate::results::ValuationResult::measures`] through [`MetricId`] rather than
-//! assuming every `f64` is a currency amount.
+//! [`crate::results::ValuationResult::measures`] through
+//! [`crate::metrics::MetricId`] rather than assuming every `f64` is a currency
+//! amount.
 //!
 //! # Key Features
 //!

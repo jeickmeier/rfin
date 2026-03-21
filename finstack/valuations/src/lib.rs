@@ -35,8 +35,9 @@
 //!   [`finstack_core::types::Rate`] and related typed constructors such as
 //!   `Rate::from_percent(5.0)` or `Rate::from_decimal(0.05)`.
 //! - **Treat metrics as explicit contracts**: values stored in
-//!   [`results::ValuationResult::measures`] are not all currency amounts. Their units,
-//!   sign conventions, and bump conventions are defined by [`metrics::MetricId`].
+//!   [`crate::results::ValuationResult::measures`] are not all currency amounts. Their
+//!   units, sign conventions, and bump conventions are defined by
+//!   [`crate::metrics::MetricId`].
 //! - **State market conventions near the API**: when behavior depends on day count,
 //!   calendars, compounding, settlement, quote style, or curve-role assumptions, the
 //!   rustdoc for that public API should say so directly.
@@ -176,51 +177,55 @@
 //!
 //! # Module Organization
 //!
-//! - [`calibration`]: Curve and surface calibration from market quotes
-//! - [`cashflow`]: Cashflow schedule generation and aggregation
-//! - [`instruments`]: Financial instrument definitions (bonds, swaps, options, etc.)
-//! - [`metrics`]: Risk metric calculators and registry
-//! - [`pricer`]: Pricing dispatch and registry infrastructure
-//! - [`results`]: Valuation result envelopes and metadata
-//! - [`constants`]: Common numerical constants (basis points, etc.)
-//! - [`covenants`]: Covenant checking for structured products
-//! - [`schema`]: JSON Schema generation for API contracts
+//! - [`crate::calibration`]: Curve and surface calibration from market quotes
+//! - [`crate::cashflow`]: Cashflow schedule generation and aggregation
+//! - [`crate::instruments`]: Financial instrument definitions (bonds, swaps, options, etc.)
+//! - [`crate::metrics`]: Risk metric calculators and registry
+//! - [`crate::pricer`]: Pricing dispatch and registry infrastructure
+//! - [`crate::results`]: Valuation result envelopes and metadata
+//! - [`crate::constants`]: Common numerical constants (basis points, etc.)
+//! - [`crate::covenants`]: Covenant checking for structured products
+//! - [`crate::schema`]: JSON Schema generation for API contracts
 //!
 //! # Semantic Contracts
 //!
 //! The main user-facing semantic contracts are:
 //!
-//! - [`metrics::MetricId`]: the authoritative glossary for metric meanings, units,
-//!   and bump/sign conventions.
-//! - [`results::ValuationResult`]: the canonical result envelope for PV, metrics,
-//!   and metadata.
-//! - [`instruments::Instrument`]: the common pricing and dependency contract for
-//!   all supported instruments.
+//! - [`crate::metrics::MetricId`]: the authoritative glossary for metric meanings,
+//!   units, and bump/sign conventions.
+//! - [`crate::results::ValuationResult`]: the canonical result envelope for PV,
+//!   metrics, and metadata.
+//! - [`crate::instruments::Instrument`]: the common pricing and dependency
+//!   contract for all supported instruments.
 //!
 //! # API Layers
 //!
 //! The public API is organized into three layers:
 //!
 //! ## Layer 1: Core API (Most Common)
-//! - [`instruments`]: Financial instrument types (bonds, swaps, options, etc.)
-//! - [`pricer`]: Pricing registry and dispatch ([`pricer::PricerRegistry`], [`pricer::create_standard_registry`])
-//! - [`metrics`]: Risk metric calculation ([`metrics::MetricId`], [`metrics::standard_registry`])
-//! - [`results`]: Valuation result envelopes ([`results::ValuationResult`])
-//! - [`calibration::api`]: Calibration schema and execution engine
-//! - [`prelude`]: Convenient re-exports of commonly used types
+//! - [`crate::instruments`]: Financial instrument types (bonds, swaps, options, etc.)
+//! - [`crate::pricer`]: Pricing registry and dispatch
+//!   ([`crate::pricer::PricerRegistry`], [`crate::pricer::create_standard_registry`])
+//! - [`crate::metrics`]: Risk metric calculation
+//!   ([`crate::metrics::MetricId`], [`crate::metrics::standard_registry`])
+//! - [`crate::results`]: Valuation result envelopes
+//!   ([`crate::results::ValuationResult`])
+//! - [`crate::calibration::api`]: Calibration schema and execution engine
+//! - [`crate::prelude`]: Convenient re-exports of commonly used types
 //!
 //! ## Layer 2: Extended API (Less Common)
-//! - [`margin`]: Margin calculations (VM/IM/CSA) for collateralized derivatives
-//! - [`attribution`]: P&L attribution analysis
-//! - [`covenants`]: Covenant checking for structured products
-//! - [`cashflow`]: Advanced cashflow schedule builders
-//! - [`instruments::common`]: Shared traits, parameters, schedules, models, and MC primitives
-//! - [`market`]: Market quote schemas and conventions
-//! - [`calibration::bumps`]: Shared re-calibration helpers for scenarios
+//! - [`crate::margin`]: Margin calculations (VM/IM/CSA) for collateralized derivatives
+//! - [`crate::attribution`]: P&L attribution analysis
+//! - [`crate::covenants`]: Covenant checking for structured products
+//! - [`crate::cashflow`]: Advanced cashflow schedule builders
+//! - [`crate::instruments::common`]: Shared traits, parameters, schedules, models,
+//!   and MC primitives
+//! - [`crate::market`]: Market quote schemas and conventions
+//! - [`crate::calibration::bumps`]: Shared re-calibration helpers for scenarios
 //!
 //! ## Layer 3: Internal API (Use with Caution)
-//! - Individual pricer implementations (use via [`pricer::PricerRegistry`] instead)
-//! - Calibration solvers (use via [`calibration::api`] instead)
+//! - Individual pricer implementations (use via [`crate::pricer::PricerRegistry`] instead)
+//! - Calibration solvers (use via [`crate::calibration::api`] instead)
 //! - Low-level market data helpers
 //!
 //! For most users, Layer 1 + `prelude` imports are sufficient.

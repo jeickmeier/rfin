@@ -1026,15 +1026,17 @@ impl Bond {
     ///
     /// Builds the bond's cashflow schedule via [`get_full_schedule`](Self::get_full_schedule)
     /// and computes per-cashflow discount factors and (when a credit curve is configured)
-    /// survival probabilities, returning a [`PeriodDataFrame`] that is ready for
-    /// tabular export or further analysis.
+    /// survival probabilities, returning a
+    /// [`crate::cashflow::builder::PeriodDataFrame`] that is ready for tabular
+    /// export or further analysis.
     ///
     /// # Arguments
     /// * `market` - Market context containing discount and optional hazard curves
     /// * `as_of` - Valuation date; defaults to the discount curve's base date when `None`
     ///
     /// # Returns
-    /// A [`PeriodDataFrame`] with `discount_factors`, optional `survival_probs`, and `pvs`.
+    /// A [`crate::cashflow::builder::PeriodDataFrame`] with `discount_factors`,
+    /// optional `survival_probs`, and `pvs`.
     pub fn pricing_cashflows(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
@@ -1407,8 +1409,9 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Bond {
 impl Bond {
     /// Price this bond using the Merton Monte Carlo structural credit model.
     ///
-    /// Extracts coupon rate and frequency from the bond's `CashflowSpec`,
-    /// then delegates to [`MertonMcEngine::price`].
+    /// Extracts coupon rate and frequency from the bond's `CashflowSpec`, then
+    /// delegates to
+    /// [`crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcEngine::price`].
     ///
     /// If the config's `pik_schedule` is `Uniform(Cash)` (the default),
     /// this method overrides it based on the bond's `CouponType`:

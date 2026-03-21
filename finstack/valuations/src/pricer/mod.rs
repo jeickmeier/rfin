@@ -8,19 +8,23 @@
 //! # Module structure
 //!
 //! Core types are split into focused submodules:
-//! - [`keys`]: `InstrumentType`, `ModelKey`, `PricerKey`
-//! - [`errors`]: `PricingError`, `PricingErrorContext`, `PricingResult`, `PricingContextExt`
-//! - [`registry`]: `Pricer` trait, `PricerRegistry`, `expect_inst`
+//! - `keys`: [`crate::pricer::InstrumentType`], [`crate::pricer::ModelKey`],
+//!   [`crate::pricer::PricerKey`]
+//! - `errors`: [`crate::pricer::PricingError`],
+//!   [`crate::pricer::PricingErrorContext`], [`crate::pricer::PricingResult`],
+//!   [`crate::pricer::PricingContextExt`]
+//! - `registry`: [`crate::pricer::Pricer`], [`crate::pricer::PricerRegistry`],
+//!   `expect_inst`
 //!
 //! The registration logic is split into asset-class submodules:
-//! - [`rates`]: Bond, IRS, FRA, BasisSwap, Deposit, CapFloor, Swaption, Repo, DCF, IR futures
-//! - [`credit`]: CDS, CDSIndex, CDSTranche, CDSOption, StructuredCredit
-//! - [`equity`]: Equity, EquityOption, EquityTRS, VarianceSwap, EquityIndexFuture, RealEstate, PE fund
-//! - [`fx`]: FxSpot, FxSwap, XccySwap, FxOption, FxVarianceSwap, FxForward, NDF, FX barrier/digital/touch
-//! - [`fixed_income`]: FIIndexTRS, Convertible, InflationLinkedBond, RevolvingCredit, TermLoan, MBS, TBA, CMO
-//! - [`inflation`]: InflationSwap, YoYInflationSwap, InflationCapFloor
-//! - [`exotics`]: Basket, Asian, Barrier, Lookback, Quanto, Autocallable, CMS, Cliquet, RangeAccrual, BermudanSwaption
-//! - [`commodity`]: CommodityForward, CommoditySwap, CommodityOption, CommoditySwaption, CommoditySpreadOption
+//! - `rates`: Bond, IRS, FRA, BasisSwap, Deposit, CapFloor, Swaption, Repo, DCF, IR futures
+//! - `credit`: CDS, CDSIndex, CDSTranche, CDSOption, StructuredCredit
+//! - `equity`: Equity, EquityOption, EquityTRS, VarianceSwap, EquityIndexFuture, RealEstate, PE fund
+//! - `fx`: FxSpot, FxSwap, XccySwap, FxOption, FxVarianceSwap, FxForward, NDF, FX barrier/digital/touch
+//! - `fixed_income`: FIIndexTRS, Convertible, InflationLinkedBond, RevolvingCredit, TermLoan, MBS, TBA, CMO
+//! - `inflation`: InflationSwap, YoYInflationSwap, InflationCapFloor
+//! - `exotics`: Basket, Asian, Barrier, Lookback, Quanto, Autocallable, CMS, Cliquet, RangeAccrual, BermudanSwaption
+//! - `commodity`: CommodityForward, CommoditySwap, CommodityOption, CommoditySwaption, CommoditySpreadOption
 
 // Core submodules
 mod errors;

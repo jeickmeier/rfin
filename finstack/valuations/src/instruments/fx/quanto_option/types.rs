@@ -121,8 +121,8 @@ impl QuantoOption {
     ///
     /// **Note:** Monte Carlo pricing is intentionally unsupported for quanto options.
     /// The analytical quanto model uses a drift adjustment that doesn't translate
-    /// directly to an MC payoff without a 2D correlated process. Use [`Self::npv`]
-    /// for analytical pricing instead.
+    /// directly to an MC payoff without a 2D correlated process. Use
+    /// [`crate::instruments::Instrument::value`] for analytical pricing instead.
     ///
     /// # Errors
     ///
