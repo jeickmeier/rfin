@@ -142,7 +142,7 @@ impl PricingOptions {
 
     /// Set the market history for Historical VaR / Expected Shortfall.
     ///
-    /// Required for computing `MetricId::HVAR` and `MetricId::EXPECTED_SHORTFALL`.
+    /// Required for computing `MetricId::HVar` and `MetricId::ExpectedShortfall`.
     pub fn with_market_history(mut self, history: Arc<MarketHistory>) -> Self {
         self.market_history = Some(history);
         self
@@ -168,6 +168,9 @@ impl PricingOptions {
 /// Most instruments depend on 1-2 curves. Using SmallVec avoids heap allocation
 /// for the common case while still supporting instruments with more curve dependencies.
 pub type CurveIdVec = SmallVec<[CurveId; 2]>;
+
+/// Trait-object alias for instrument values used by portfolio/scenario plumbing.
+pub type DynInstrument = dyn Instrument;
 
 /// Metadata for instrument categorization, tagging, and scenario selection.
 ///
@@ -408,7 +411,7 @@ macro_rules! impl_instrument_base {
             &mut self.attributes
         }
 
-        fn clone_box(&self) -> Box<dyn $crate::instruments::common_impl::traits::Instrument> {
+        fn clone_box(&self) -> Box<$crate::instruments::DynInstrument> {
             Box::new(self.clone())
         }
     };
@@ -667,7 +670,7 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use finstack_valuations::instruments::Instrument;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// fn apply_price_shock(instrument: &mut dyn Instrument, shock_pct: f64) {
     ///     if let Some(overrides) = instrument.scenario_overrides_mut() {
     ///         overrides.scenario_price_shock_pct = Some(shock_pct);
@@ -725,7 +728,7 @@ pub trait Instrument: Send + Sync {
     /// # Ok(())
     /// # }
     /// ```
-    fn clone_box(&self) -> Box<dyn Instrument>;
+    fn clone_box(&self) -> Box<DynInstrument>;
 
     /// Returns a normalized instrument for computing spread/yield metrics.
     ///
@@ -743,7 +746,7 @@ pub trait Instrument: Send + Sync {
     ///
     /// This method affects spread- and yield-style metrics only. It should not be
     /// used to change the economic basis of PV itself or unrelated risk measures.
-    fn metrics_equivalent(&self) -> Box<dyn Instrument> {
+    fn metrics_equivalent(&self) -> Box<DynInstrument> {
         self.clone_box()
     }
 
@@ -1128,6 +1131,7 @@ pub trait Instrument: Send + Sync {
         None
     }
 }
+
 // Note: Methods formerly on the `Attributable` trait are now default methods on `Instrument`.
 
 // -----------------------------------------------------------------------------

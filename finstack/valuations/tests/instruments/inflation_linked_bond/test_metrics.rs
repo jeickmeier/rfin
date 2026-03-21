@@ -8,7 +8,7 @@
 //! - Multiple metrics in single call
 
 use super::common::*;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 
 fn running_under_coverage() -> bool {

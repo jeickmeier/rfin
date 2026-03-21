@@ -63,7 +63,7 @@ pub use agency_mbs::{
     JsDollarRoll as DollarRoll,
 };
 
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use js_sys::Reflect;
 use wasm_bindgen::JsValue;
 use wasm_bindgen::__rt::WasmRefCell;

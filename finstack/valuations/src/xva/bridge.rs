@@ -2,26 +2,26 @@
 
 use std::sync::Arc;
 
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::DynInstrument;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_margin::xva::Valuable;
 
-impl Valuable for dyn Instrument {
+impl Valuable for DynInstrument {
     fn id(&self) -> &str {
-        Instrument::id(self)
+        crate::instruments::internal::InstrumentExt::id(self)
     }
 
     fn value(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        Instrument::value(self, market, as_of)
+        crate::instruments::internal::InstrumentExt::value(self, market, as_of)
     }
 }
 
 #[derive(Clone)]
 struct InstrumentValuable {
-    inner: Arc<dyn Instrument>,
+    inner: Arc<DynInstrument>,
 }
 
 impl Valuable for InstrumentValuable {
@@ -34,7 +34,7 @@ impl Valuable for InstrumentValuable {
     }
 }
 
-pub(crate) fn wrap_instruments(instruments: &[Arc<dyn Instrument>]) -> Vec<Arc<dyn Valuable>> {
+pub(crate) fn wrap_instruments(instruments: &[Arc<DynInstrument>]) -> Vec<Arc<dyn Valuable>> {
     instruments
         .iter()
         .cloned()
@@ -47,8 +47,7 @@ pub(crate) fn wrap_instruments(instruments: &[Arc<dyn Instrument>]) -> Vec<Arc<d
 mod tests {
     use std::sync::Arc;
 
-    use crate::instruments::common::traits::Instrument;
-    use crate::instruments::Repo;
+    use crate::instruments::{DynInstrument, Instrument, Repo};
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
@@ -63,7 +62,7 @@ mod tests {
     #[test]
     fn valuations_xva_root_reexports_support_instrument_bridge() {
         let repo = Repo::example();
-        let instrument: &dyn Instrument = &repo;
+        let instrument: &DynInstrument = &repo;
 
         let _config = XvaConfig::default();
         let _netting_set = NettingSet {
@@ -78,7 +77,7 @@ mod tests {
 
     #[test]
     fn valuations_xva_wrapper_accepts_instrument_portfolios() {
-        let repo: Arc<dyn Instrument> = Arc::new(Repo::example());
+        let repo: Arc<DynInstrument> = Arc::new(Repo::example());
         let instruments = vec![repo];
         let market = MarketContext::new();
         let as_of = Date::from_calendar_date(2024, time::Month::January, 1).expect("valid date");

@@ -14,7 +14,7 @@ from datetime import date
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import TermLoan
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 
 def build_market(as_of: date) -> MarketContext:
@@ -280,7 +280,7 @@ def main() -> None:
 
     as_of = date(2024, 1, 16)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     # Run examples
     example_fixed_rate_term_loan(registry, market, as_of)

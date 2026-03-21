@@ -8,8 +8,7 @@ use finstack_scenarios::{
 };
 use finstack_statements::FinancialModelSpec;
 use finstack_valuations::instruments::pricing_overrides::PricingOverrides;
-use finstack_valuations::instruments::Bond;
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, Bond, DynInstrument};
 use indexmap::IndexMap;
 use time::Month;
 
@@ -21,7 +20,7 @@ fn test_instrument_type_price_shock_matching() {
 
     use finstack_valuations::instruments::fixed_income::bond::CashflowSpec;
     // Create test instruments
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
+    let mut instruments: Vec<Box<DynInstrument>> = vec![
         Box::new(
             Bond::builder()
                 .id("BOND1".into())
@@ -115,7 +114,7 @@ fn test_instrument_type_spread_shock_matching() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+    let mut instruments: Vec<Box<DynInstrument>> = vec![Box::new(
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
@@ -187,7 +186,7 @@ fn test_instrument_attr_price_shock_matching() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
+    let mut instruments: Vec<Box<DynInstrument>> = vec![
         Box::new(
             Bond::builder()
                 .id("ENERGY_BBB".into())
@@ -278,7 +277,7 @@ fn test_instrument_attr_price_shock_no_matches() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+    let mut instruments: Vec<Box<DynInstrument>> = vec![Box::new(
         Bond::builder()
             .id("ENERGY_BBB".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
@@ -331,7 +330,7 @@ fn test_instrument_shock_empty_list() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![];
+    let mut instruments: Vec<Box<DynInstrument>> = vec![];
 
     let scenario = ScenarioSpec {
         id: "empty_shock".into(),
@@ -366,7 +365,7 @@ fn test_instrument_shock_no_matching_types() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+    let mut instruments: Vec<Box<DynInstrument>> = vec![Box::new(
         Bond::builder()
             .id("BOND1".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))
@@ -452,7 +451,7 @@ fn test_instrument_shock_multiple_types() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
+    let mut instruments: Vec<Box<DynInstrument>> = vec![
         Box::new(
             Bond::builder()
                 .id("BOND1".into())
@@ -524,7 +523,7 @@ fn test_empty_attr_filter_matches_all_instruments() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![
+    let mut instruments: Vec<Box<DynInstrument>> = vec![
         Box::new(
             Bond::builder()
                 .id("B1".into())
@@ -596,7 +595,7 @@ fn test_attr_filter_ignores_tags_uses_meta_only() {
     let mut market = MarketContext::new();
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let mut instruments: Vec<Box<dyn Instrument>> = vec![Box::new(
+    let mut instruments: Vec<Box<DynInstrument>> = vec![Box::new(
         Bond::builder()
             .id("TAGONLY".into())
             .notional(finstack_core::money::Money::new(100.0, Currency::USD))

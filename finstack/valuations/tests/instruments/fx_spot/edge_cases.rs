@@ -7,7 +7,7 @@ use finstack_core::{
 };
 use finstack_valuations::{
     cashflow::CashflowProvider,
-    instruments::{FxSpot, Instrument},
+    instruments::{internal::InstrumentExt as Instrument, FxSpot},
     pricer::InstrumentType,
 };
 

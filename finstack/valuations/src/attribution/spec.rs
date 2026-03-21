@@ -7,8 +7,7 @@ use super::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor_compat,
     attribute_pnl_waterfall, AttributionMethod, JsonEnvelope, ModelParamsSnapshot, PnlAttribution,
 };
-use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::json_loader::InstrumentJson;
+use crate::instruments::{DynInstrument, InstrumentJson};
 use crate::metrics::MetricId;
 use finstack_core::{
     config::{FinstackConfig, ResultsMeta},
@@ -130,7 +129,7 @@ impl AttributionSpec {
     pub fn execute(&self) -> Result<AttributionResult> {
         // Reconstruct instrument from JSON
         let instrument = self.instrument.clone().into_boxed()?;
-        let instrument_arc: std::sync::Arc<dyn Instrument> = std::sync::Arc::from(instrument);
+        let instrument_arc: std::sync::Arc<DynInstrument> = std::sync::Arc::from(instrument);
 
         // Reconstruct market contexts
         let market_t0 = MarketContext::try_from(self.market_t0.clone())?;

@@ -1,7 +1,7 @@
 use super::delta_engine::mapping_to_market_bumps;
 use super::matrix::SensitivityMatrix;
 use super::traits::FactorSensitivityEngine;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::internal::InstrumentExt as Instrument;
 use finstack_core::dates::Date;
 use finstack_core::factor_model::{BumpSizeConfig, FactorDefinition, FactorId};
 use finstack_core::market_data::context::MarketContext;

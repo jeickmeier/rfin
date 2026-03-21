@@ -7,10 +7,10 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::PyMarketContext;
 use crate::valuations::instruments::{extract_instrument, InstrumentHandle};
 use finstack_core::dates::Date;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::risk::{
-    calculate_var, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType, VarConfig,
-    VarMethod, VarResult,
+    calculate_var_with_pricing, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType,
+    VarConfig, VarMethod, VarResult,
 };
 use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
 use pyo3::exceptions::PyValueError;
@@ -450,12 +450,14 @@ fn py_calculate_var(
                 .iter()
                 .map(|arc| arc.as_ref() as &dyn Instrument)
                 .collect();
-            calculate_var(
+            calculate_var_with_pricing(
                 &inst_refs,
                 &market_data,
                 &history_data,
                 as_of_date,
                 &config_data,
+                None,
+                None,
             )
         })
         .map_err(|e| PyValueError::new_err(format!("VaR calculation failed: {}", e)))?;

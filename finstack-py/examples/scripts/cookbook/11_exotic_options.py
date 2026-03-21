@@ -31,7 +31,7 @@ from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import BarrierOption
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -64,7 +64,7 @@ def main() -> None:
     """Construct and price a simple barrier option."""
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     barrier_call = BarrierOption.builder(
         instrument_id="SPY.UAO.CALL",

@@ -12,7 +12,7 @@ use finstack_valuations::instruments::common::models::{
     NodeState, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel, TreeValuator,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::macros::date;
 
 /// Helper: Create a flat discount curve

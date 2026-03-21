@@ -17,7 +17,7 @@ use finstack_core::money::fx::{FxConversionPolicy, FxMatrix, FxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::{
-    Attributes, FxOption, Instrument, PricingOverrides, SettlementType,
+    internal::InstrumentExt as Instrument, Attributes, FxOption, PricingOverrides, SettlementType,
 };
 use finstack_valuations::instruments::{ExerciseStyle, OptionType};
 use finstack_valuations::metrics::MetricId;

@@ -9,7 +9,7 @@ use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{create_standard_registry, PricerRegistry};
+use finstack_valuations::pricer::{standard_registry, PricerRegistry};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -20,7 +20,7 @@ use std::sync::Arc;
 /// Registry dispatching (instrument, model) pairs to pricing engines.
 ///
 /// Examples:
-///     >>> registry = create_standard_registry()
+///     >>> registry = standard_registry()
 ///     >>> result = registry.get_price(bond, "discounting", market)
 ///     >>> result.present_value
 #[pyclass(
@@ -77,7 +77,7 @@ impl PyPricerRegistry {
     ///
     /// Examples:
     ///     >>> from datetime import date
-    ///     >>> registry = create_standard_registry()
+    ///     >>> registry = standard_registry()
     ///     >>> result = registry.price(bond, "discounting", market, date(2024, 6, 15))
     fn price(
         &self,
@@ -189,7 +189,7 @@ impl PyPricerRegistry {
     ///
     /// Examples:
     ///     >>> from datetime import date
-    ///     >>> registry = create_standard_registry()
+    ///     >>> registry = standard_registry()
     ///     >>> result = registry.price_with_metrics(bond, "discounting", market, ["dv01"], date(2024, 6, 15))
     ///     >>> result.metrics["dv01"].value
     ///     -415.2
@@ -256,7 +256,7 @@ impl PyPricerRegistry {
     ///     RuntimeError: If the underlying calculation fails.
     ///
     /// Examples:
-    ///     >>> registry = create_standard_registry()
+    ///     >>> registry = standard_registry()
     ///     >>> registry.asw_forward(bond, market, "usd_libor_3m", 25.0, bond.notional.amount)
     ///     (23.4, 27.1)
     fn asw_forward(
@@ -327,7 +327,7 @@ pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
     ///     ValueError: If the arguments cannot be converted.
     ///
     /// Examples:
-    ///     >>> registry = create_standard_registry()
+    ///     >>> registry = standard_registry()
     ///     >>> registry.key(bond, "discounting").instrument
     ///     InstrumentType.BOND
     fn key(&self, instrument: Bound<'_, PyAny>, model: Bound<'_, PyAny>) -> PyResult<PyPricerKey> {
@@ -345,7 +345,7 @@ pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
     ///     PricerRegistry: A shallow clone sharing the same (immutable) registry.
     ///
     /// Examples:
-    ///     >>> registry = create_standard_registry()
+    ///     >>> registry = standard_registry()
     ///     >>> cloned = registry.clone()
     ///     >>> isinstance(cloned, PricerRegistry)
     ///     True
@@ -370,12 +370,12 @@ pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
 ///     PricerRegistry: Registry with all built-in pricers loaded.
 ///
 /// Examples:
-///     >>> registry = create_standard_registry()
+///     >>> registry = standard_registry()
 ///     >>> registry.get_price(bond, "discounting", market)
 ///     <ValuationResult ...>
-#[pyfunction(name = "create_standard_registry")]
-fn create_standard_registry_py() -> PyResult<PyPricerRegistry> {
-    Ok(PyPricerRegistry::new(create_standard_registry()))
+#[pyfunction(name = "standard_registry")]
+fn standard_registry_py() -> PyResult<PyPricerRegistry> {
+    Ok(PyPricerRegistry::new(standard_registry().clone()))
 }
 
 pub(crate) fn register<'py>(
@@ -388,11 +388,8 @@ pub(crate) fn register<'py>(
         "Pricer registry bridging instruments and pricing models to valuation engines.",
     )?;
     module.add_class::<PyPricerRegistry>()?;
-    module.add_function(pyo3::wrap_pyfunction!(
-        create_standard_registry_py,
-        &module
-    )?)?;
-    let exports = ["PricerRegistry", "create_standard_registry"];
+    module.add_function(pyo3::wrap_pyfunction!(standard_registry_py, &module)?)?;
+    let exports = ["PricerRegistry", "standard_registry"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

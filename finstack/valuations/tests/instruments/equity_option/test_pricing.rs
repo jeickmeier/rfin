@@ -2,7 +2,7 @@
 //! Tests for Black-Scholes pricing implementation.
 
 use super::helpers::*;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::macros::date;
 
 #[test]

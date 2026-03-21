@@ -23,7 +23,7 @@ mod cds_market_edge {
     use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
     use finstack_core::money::Money;
 
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::metrics::MetricId;
     use time::macros::date;
 
@@ -279,7 +279,7 @@ mod bond_market_edge {
     use finstack_core::money::Money;
     use finstack_valuations::cashflow::accrued_interest_amount;
     use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
     use std::sync::Arc;
     use time::macros::date;

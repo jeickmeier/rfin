@@ -9,8 +9,8 @@
 use super::test_utils::*;
 use finstack_valuations::instruments::credit_derivatives::cds::PayReceive;
 use finstack_valuations::instruments::credit_derivatives::cds_index::CDSIndex;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::CreditParams;
-use finstack_valuations::instruments::Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

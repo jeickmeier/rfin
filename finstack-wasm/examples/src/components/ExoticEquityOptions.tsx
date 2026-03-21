@@ -11,7 +11,7 @@ import {
   Money,
   PricingRequest,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { ExoticEquityOptionsProps, DEFAULT_EXOTIC_EQUITY_PROPS } from './data/exotic-equity';
 
@@ -89,7 +89,7 @@ export const ExoticEquityOptionsExample: React.FC<ExoticEquityOptionsProps> = (p
           marketCtx.insertPrice(divYield.id, MarketScalar.unitless(divYield.value));
         }
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         // Process barrier options

@@ -5,10 +5,10 @@ use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
+pub use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::ir_future::{
     FutureContractSpecs, InterestRateFuture, Position,
 };
-pub use finstack_valuations::instruments::Instrument;
 use time::macros::date;
 
 /// Build a flat forward curve with constant rate

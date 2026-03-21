@@ -11,7 +11,7 @@ use finstack_core::Result;
 use finstack_valuations::attribution::{attribute_pnl_metrics_based, attribute_pnl_parallel};
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use finstack_valuations::instruments::{
-    Attributes, Instrument, InstrumentCurves, MarketDependencies,
+    internal::InstrumentExt as Instrument, Attributes, InstrumentCurves, MarketDependencies,
 };
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::InstrumentType;

@@ -10,7 +10,7 @@ from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.cashflow import CouponType, FixedCouponSpec, ScheduleParams
 from finstack.valuations.instruments import ConversionEvent, ConversionPolicy, ConversionSpec, ConvertibleBond
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -87,7 +87,7 @@ def build_convertible(issue: date) -> ConvertibleBond:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     convertible = build_convertible(as_of)
 

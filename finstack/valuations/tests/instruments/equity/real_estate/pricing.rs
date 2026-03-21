@@ -15,7 +15,9 @@ use finstack_valuations::instruments::equity::real_estate::{
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, RateSpec, TermLoan,
 };
-use finstack_valuations::instruments::{Attributes, Bond, Instrument, InstrumentJson};
+use finstack_valuations::instruments::{
+    internal::InstrumentExt as Instrument, Attributes, Bond, InstrumentJson,
+};
 
 fn build_flat_discount_curve(
     id: &str,

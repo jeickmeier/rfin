@@ -682,7 +682,7 @@ impl FxBarrierOptionVannaVolgaPricer {
 mod tests {
     use super::*;
     use crate::instruments::exotics::barrier_option::types::BarrierType;
-    use crate::instruments::Instrument;
+    use crate::instruments::internal::InstrumentExt as Instrument;
     use crate::instruments::OptionType;
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;

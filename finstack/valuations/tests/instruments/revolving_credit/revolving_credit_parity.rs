@@ -17,7 +17,7 @@ mod tests {
         BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
         StochasticUtilizationSpec, UtilizationProcess,
     };
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use time::Month;
 
     /// Helper to create test dates

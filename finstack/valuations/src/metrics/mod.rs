@@ -492,12 +492,12 @@ fn register_universal_metrics(registry: &mut MetricRegistry) {
         &[],
     );
     registry.register_metric(
-        MetricId::HVAR,
+        MetricId::HVar,
         std::sync::Arc::new(GenericHVar::new(VarConfig::var_95())),
         &[],
     );
     registry.register_metric(
-        MetricId::EXPECTED_SHORTFALL,
+        MetricId::ExpectedShortfall,
         std::sync::Arc::new(GenericExpectedShortfall::new(VarConfig::var_95())),
         &[],
     );

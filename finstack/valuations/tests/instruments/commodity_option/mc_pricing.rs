@@ -74,7 +74,7 @@ fn test_schwartz_smith_gbm_limit_converges_to_black76() {
 
     // Black-76 analytical price
     let analytical_pv = {
-        use finstack_valuations::instruments::Instrument;
+        use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
         call.value(&market, as_of).expect("analytical price")
     };
 
@@ -291,7 +291,7 @@ fn test_schwartz_smith_positive_option_values() {
 /// Verify that the BlackScholes model variant falls back to analytical pricing.
 #[test]
 fn test_mc_black_scholes_fallback() {
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 
     let as_of = date(2025, 1, 1);
     let market = build_market(as_of);

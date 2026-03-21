@@ -1,6 +1,6 @@
 use super::matrix::SensitivityMatrix;
 use super::traits::FactorSensitivityEngine;
-use crate::instruments::common::traits::Instrument;
+use crate::instruments::internal::InstrumentExt as Instrument;
 use finstack_core::dates::Date;
 use finstack_core::factor_model::{BumpSizeConfig, FactorDefinition, MarketMapping};
 use finstack_core::market_data::bumps::{BumpMode, BumpSpec, BumpType, MarketBump};

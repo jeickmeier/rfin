@@ -17,7 +17,8 @@ use finstack_valuations::instruments::common::parameters::legs::{FixedLegSpec, F
 use finstack_valuations::instruments::common::parameters::{
     EquityUnderlyingParams, FxUnderlyingParams,
 };
-use finstack_valuations::instruments::common::traits::{CurveIdVec, Instrument};
+use finstack_valuations::instruments::common::traits::CurveIdVec;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::credit_derivatives::cds::{
     CDSConvention, CreditDefaultSwap, CreditDefaultSwapBuilder, PayReceive, PremiumLegSpec,
     ProtectionLegSpec, RECOVERY_SENIOR_UNSECURED,

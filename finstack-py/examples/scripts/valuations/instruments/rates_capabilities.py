@@ -18,7 +18,7 @@ from finstack.valuations.instruments import (
     InterestRateOption,
     Swaption,
 )
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -99,7 +99,7 @@ def build_rate_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_rate_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     # Deposit example: 3M USD term deposit priced off OIS curve
     deposit = (

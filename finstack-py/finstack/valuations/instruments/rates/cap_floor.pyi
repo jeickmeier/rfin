@@ -96,7 +96,7 @@ class InterestRateOption:
         >>> from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateOption
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> as_of = date(2026, 12, 1)
         >>> cap = (
         ...     InterestRateOption
@@ -124,7 +124,7 @@ class InterestRateOption:
         ...     [0.19, 0.18, 0.19],
         ... ]
         >>> ctx.insert_surface(VolSurface("USD-CAP-VOL", expiries, strikes, grid))
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> pv = registry.price(cap, "black76", ctx, as_of=as_of).value
         >>> pv.currency.code
         'USD'

@@ -194,6 +194,12 @@ impl PyDepositBuilder {
         slf
     }
 
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve_id = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
     #[pyo3(text_signature = "($self, quote_rate=None)", signature = (quote_rate=None))]
     fn quote_rate(mut slf: PyRefMut<'_, Self>, quote_rate: Option<f64>) -> PyRefMut<'_, Self> {
         slf.quote_rate = quote_rate;

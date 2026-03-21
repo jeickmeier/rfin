@@ -6,9 +6,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_forward::{CommodityForward, Position};
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
-use finstack_valuations::instruments::Instrument;
 use time::Month;
 
 /// Helper to create a test market with discount and price curves.
@@ -123,7 +123,7 @@ fn test_commodity_forward_pricing_expired() {
 
 #[test]
 fn test_commodity_forward_instrument_trait() {
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let forward = CommodityForward::example();
@@ -422,7 +422,7 @@ fn test_commodity_forward_delta_analytical() {
         .expect("should build");
 
     // Get delta from metric calculation
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     let result = forward
         .price_with_metrics(
             &market,

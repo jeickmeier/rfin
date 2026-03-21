@@ -75,7 +75,7 @@ impl PricerRegistry {
     /// Create a new empty pricer registry.
     ///
     /// For pre-configured registries with all standard pricers, use
-    /// [`create_standard_registry()`](super::create_standard_registry).
+    /// [`standard_registry()`](super::standard_registry).
     pub fn new() -> Self {
         Self::default()
     }
@@ -538,7 +538,7 @@ mod tests {
             .expect("Bond::example should succeed");
         let disc = flat_discount_curve("USD-TREASURY", as_of);
         let market = MarketContext::new().insert(disc);
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let trait_result = bond
             .price_with_metrics(
@@ -586,7 +586,7 @@ mod tests {
         bond_with_credit.credit_curve_id =
             Some(finstack_core::types::CurveId::new("USD-CREDIT".to_string()));
         let market = MarketContext::new().insert(disc).insert(hazard);
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let result = registry
             .price_with_metrics(
@@ -636,7 +636,7 @@ mod tests {
         bond_with_credit.credit_curve_id =
             Some(finstack_core::types::CurveId::new("USD-CREDIT".to_string()));
         let market = MarketContext::new().insert(disc).insert(hazard);
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let instrument_result = bond_with_credit
             .price_with_metrics(
@@ -678,7 +678,7 @@ mod tests {
         let swaption =
             crate::instruments::commodity::commodity_swaption::CommoditySwaption::example();
         let market = commodity_swaption_market(as_of, 3.75, 0.30, 0.05);
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let instrument_result = swaption
             .price_with_metrics(
@@ -831,7 +831,7 @@ mod tests {
         let market = finstack_core::market_data::context::MarketContext::new()
             .insert(flat_discount_curve("USD-TREASURY", as_of))
             .insert(flat_hazard_curve("USD-CREDIT", as_of));
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let mut cfg = FinstackConfig::default();
         cfg.rounding.output_scale.overrides.insert(Currency::USD, 4);
@@ -878,7 +878,7 @@ mod tests {
         let clo = crate::instruments::fixed_income::structured_credit::StructuredCredit::example();
         let disc = multi_knot_discount_curve("USD-OIS", as_of);
         let market = MarketContext::new().insert(disc);
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let trait_result = clo.price_with_metrics(
             &market,
@@ -947,7 +947,7 @@ mod tests {
             .expect("Bond::example should succeed");
         let disc = flat_discount_curve("USD-TREASURY", as_of);
         let market = MarketContext::new().insert(disc);
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let baseline = bond
             .value(&market, as_of)
@@ -976,7 +976,7 @@ mod tests {
 
     #[test]
     fn registry_creation_test() {
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         let key = PricerKey::new(InstrumentType::Bond, ModelKey::Discounting);
         assert!(registry.get_pricer(key).is_some());
@@ -988,7 +988,7 @@ mod tests {
 
     #[test]
     fn registration_covers_all_pricers() {
-        let registry = super::super::create_standard_registry();
+        let registry = super::super::standard_registry();
 
         // Bond pricers
         assert!(

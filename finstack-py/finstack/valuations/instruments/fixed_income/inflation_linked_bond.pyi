@@ -68,7 +68,7 @@ class InflationLinkedBond:
         >>> from finstack.core.market_data.term_structures import DiscountCurve, InflationCurve
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InflationLinkedBond
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> bond = (
         ...     InflationLinkedBond
         ...     .builder("TIPS-2030")
@@ -84,7 +84,7 @@ class InflationLinkedBond:
         >>> ctx = MarketContext()
         >>> ctx.insert(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (6.0, 0.92)]))
         >>> ctx.insert(InflationCurve("US-CPI", date(2024, 1, 1), 300.0, [(1.0, 304.5), (6.0, 330.0)]))
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> pv = registry.price(bond, "discounting", ctx, date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'

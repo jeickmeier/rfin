@@ -13,7 +13,7 @@ use crate::valuations::common::PyInstrumentType;
 use crate::valuations::market::conventions::PyCdsConventionKey;
 use finstack_core::dates::Tenor;
 use finstack_core::types::CurveId;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::market::conventions::ids::{IndexId, IrFutureContractId};
 use finstack_valuations::market::quotes::cds::CdsQuote;
 use finstack_valuations::market::quotes::cds_tranche::CDSTrancheQuote;

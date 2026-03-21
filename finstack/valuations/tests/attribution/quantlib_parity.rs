@@ -36,7 +36,7 @@ use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_valuations::attribution::{attribute_pnl_parallel, AttributionMethod};
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use std::sync::Arc;
 use time::Month;
 

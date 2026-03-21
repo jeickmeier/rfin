@@ -25,7 +25,7 @@ from finstack.statements.types import AmountOrScalar
 from finstack.valuations.attribution import reprice_instrument
 import finstack.valuations.instruments as _ins
 from finstack.valuations.instruments import Bond, FxForward, FxSpot, InterestRateSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 import pytest
 
 from finstack.core import get_calendar
@@ -296,7 +296,7 @@ class TestPricingRoundtrips:
         )
 
         # Price
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(bond, "discounting", market, as_of=dt.date(2024, 1, 2))
 
         # Verify result is accessible

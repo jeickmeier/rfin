@@ -174,3 +174,27 @@ impl Error {
         Self::ScenarioError(msg.into())
     }
 }
+
+impl From<Error> for finstack_core::Error {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::Core(core) => core,
+            Error::FxConversionFailed { from, to } => {
+                finstack_core::Error::Validation(format!("FX conversion failed: {from} to {to}"))
+            }
+            other => finstack_core::Error::Validation(other.to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+    use finstack_core::currency::Currency;
+
+    #[test]
+    fn converts_portfolio_errors_to_core_error() {
+        let core: finstack_core::Error = Error::fx_conversion(Currency::USD, Currency::EUR).into();
+        assert!(matches!(core, finstack_core::Error::Validation(_)));
+    }
+}

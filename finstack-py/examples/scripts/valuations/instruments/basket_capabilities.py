@@ -9,7 +9,7 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import Basket
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -75,7 +75,7 @@ def build_basket_definition() -> str:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     basket_json = build_basket_definition()
     basket = Basket.from_json(basket_json)

@@ -9,7 +9,7 @@ import {
   MarketScalar,
   Money,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { ExoticRatesDerivativesProps, DEFAULT_EXOTIC_RATES_PROPS } from './data/exotic-rates';
 
@@ -99,7 +99,7 @@ export const ExoticRatesDerivativesExample: React.FC<ExoticRatesDerivativesProps
           );
         }
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         // Process CMS options

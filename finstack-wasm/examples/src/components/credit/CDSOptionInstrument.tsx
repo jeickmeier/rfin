@@ -2,7 +2,7 @@
  * CDS Option instrument component with interactive form.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { CdsOption, FsDate, MarketContext, Money, createStandardRegistry } from 'finstack-wasm';
+import { CdsOption, FsDate, MarketContext, Money, standardRegistry } from 'finstack-wasm';
 import type { CdsOptionData } from '../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
 
@@ -51,7 +51,7 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
 
   const calculateOption = useCallback(() => {
     try {
-      const registry = createStandardRegistry();
+      const registry = standardRegistry();
       const notional = Money.fromCode(formState.notional, formState.currency);
 
       // Calculate expiry date from months
@@ -109,7 +109,7 @@ export const CDSOptionInstrument: React.FC<CDSOptionInstrumentProps> = ({
 
     (async () => {
       try {
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const optionData of cdsOptions) {

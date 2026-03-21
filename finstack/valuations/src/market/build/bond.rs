@@ -5,7 +5,7 @@ use crate::instruments::fixed_income::bond::pricing::quote_engine::{
     df_from_yield, YieldCompounding,
 };
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
-use crate::instruments::{Bond, PricingOverrides};
+use crate::instruments::{Bond, DynInstrument, PricingOverrides};
 use crate::market::quotes::bond::BondQuote;
 use crate::market::BuildCtx;
 use finstack_core::currency::Currency;
@@ -25,7 +25,7 @@ pub fn build_bond_instrument(
     quote: &BondQuote,
     ctx: &BuildCtx,
     market: Option<&MarketContext>,
-) -> Result<Box<dyn crate::instruments::Instrument>> {
+) -> Result<Box<DynInstrument>> {
     tracing::debug!(quote_id = %quote.id(), "building bond instrument");
     match quote {
         BondQuote::FixedRateBulletCleanPrice {

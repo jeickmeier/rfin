@@ -89,7 +89,7 @@ class InterestRateSwap:
         >>> from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import InterestRateSwap
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> swap = (
         ...     InterestRateSwap
         ...     .builder("SWAP-EXAMPLE")
@@ -105,7 +105,7 @@ class InterestRateSwap:
         >>> ctx = MarketContext()
         >>> ctx.insert(DiscountCurve("USD-OIS", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
         >>> ctx.insert(ForwardCurve("USD-SOFR-3M", 0.25, [(0.0, 0.03), (5.0, 0.032)], base_date=date(2024, 1, 1)))
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> pv = registry.price(swap, "discounting", ctx, date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'

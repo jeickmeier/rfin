@@ -9,7 +9,7 @@ use crate::adapters::traits::{ScenarioAdapter, ScenarioEffect};
 use crate::engine::ExecutionContext;
 use crate::error::Result;
 use crate::spec::OperationSpec;
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{Attributes, DynInstrument};
 use finstack_valuations::pricer::InstrumentType;
 
 fn accumulate_optional_shock(current: Option<f64>, delta: f64) -> f64 {
@@ -91,7 +91,7 @@ impl ScenarioAdapter for InstrumentAdapter {
 ///
 /// The number of matched instruments that were updated.
 pub fn apply_instrument_type_price_shock(
-    instruments: &mut [Box<dyn Instrument>],
+    instruments: &mut [Box<DynInstrument>],
     instrument_types: &[InstrumentType],
     pct: f64,
 ) -> Result<usize> {
@@ -140,7 +140,7 @@ pub fn apply_instrument_type_price_shock(
 ///
 /// The number of matched instruments that were updated.
 pub fn apply_instrument_type_spread_shock(
-    instruments: &mut [Box<dyn Instrument>],
+    instruments: &mut [Box<DynInstrument>],
     instrument_types: &[InstrumentType],
     bp: f64,
 ) -> Result<usize> {
@@ -190,7 +190,7 @@ pub fn apply_instrument_type_spread_shock(
 /// A tuple `(matched_count, warnings)`. `warnings` contains a single message if
 /// no instruments matched the attribute filter.
 pub fn apply_instrument_attr_price_shock(
-    instruments: &mut [Box<dyn Instrument>],
+    instruments: &mut [Box<DynInstrument>],
     attrs: &indexmap::IndexMap<String, String>,
     pct: f64,
 ) -> Result<(usize, Vec<String>)> {
@@ -245,7 +245,7 @@ pub fn apply_instrument_attr_price_shock(
 /// A tuple `(matched_count, warnings)`. `warnings` contains a single message if
 /// no instruments matched the attribute filter.
 pub fn apply_instrument_attr_spread_shock(
-    instruments: &mut [Box<dyn Instrument>],
+    instruments: &mut [Box<DynInstrument>],
     attrs: &indexmap::IndexMap<String, String>,
     bp: f64,
 ) -> Result<(usize, Vec<String>)> {

@@ -8,7 +8,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::equity::spot::{EquityPricer, SimpleEquityDiscountingPricer};
 use finstack_valuations::instruments::equity::Equity;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::pricer::{InstrumentType, ModelKey, Pricer};
 
 fn build_flat_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {

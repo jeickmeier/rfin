@@ -71,17 +71,17 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::pricer::{create_standard_registry, ModelKey};
+//! use finstack_valuations::pricer::{standard_registry, ModelKey};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
-//! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::market_data::MarketContext;
 //! use finstack_core::types::Rate;
 //! use time::Month;
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create pricing registry
-//! let registry = create_standard_registry();
+//! let registry = standard_registry();
 //!
 //! // Build a fixed-rate bond
 //! let issue = create_date(2025, Month::January, 15)?;
@@ -113,7 +113,7 @@
 //! use finstack_valuations::instruments::{Bond, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
 //! use finstack_valuations::pricer::ModelKey;
-//! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::market_data::MarketContext;
 //! use finstack_core::types::Rate;
 //! # use finstack_core::currency::Currency;
 //! # use finstack_core::money::Money;
@@ -142,8 +142,8 @@
 //! // selected pricing path.
 //! // let result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, default_opts)?;
 //! // let hazard_result = bond.price_with_metrics(&market, as_of, &metrics_to_compute, hazard_rate_opts)?;
-//! // println!("YTM: {:.2}%", result.measures.get("ytm").expect("should succeed") * 100.0);
-//! // println!("DV01: ${:.2}", result.measures.get("dv01").expect("should succeed"));
+//! // println!("YTM: {:.2}%", result[MetricId::Ytm] * 100.0);
+//! // println!("DV01: ${:.2}", result[MetricId::Dv01]);
 //! # Ok(())
 //! # }
 //! ```
@@ -205,7 +205,7 @@
 //! ## Layer 1: Core API (Most Common)
 //! - [`crate::instruments`]: Financial instrument types (bonds, swaps, options, etc.)
 //! - [`crate::pricer`]: Pricing registry and dispatch
-//!   ([`crate::pricer::PricerRegistry`], [`crate::pricer::create_standard_registry`])
+//!   ([`crate::pricer::PricerRegistry`], [`crate::pricer::standard_registry`])
 //! - [`crate::metrics`]: Risk metric calculation
 //!   ([`crate::metrics::MetricId`], [`crate::metrics::standard_registry`])
 //! - [`crate::results`]: Valuation result envelopes
@@ -314,7 +314,7 @@
 //! - `CurveNotFound`: Missing discount or forward curve
 //! - `InvalidInstrument`: Inconsistent instrument parameters
 //! - `CalibrationFailed`: Calibration did not converge
-//! - `PricingError`: Pricing calculation failed
+//! - `error::PricingError`: Pricing calculation failed
 //!
 //! # Feature Flags
 //!
@@ -383,9 +383,6 @@ pub mod metrics;
 /// Provides credit valuation adjustment (CVA) and exposure simulation
 /// for OTC derivative portfolios under ISDA netting and CSA collateral.
 pub mod xva;
-
-// Re-export pricing error for convenience.
-pub use pricer::PricingError;
 
 // Re-export unified valuations error type.
 pub use error::{Error, Result};

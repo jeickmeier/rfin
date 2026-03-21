@@ -10,7 +10,7 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import CmsOption
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -76,7 +76,7 @@ def example_cms_cap():
     # Price the CMS cap
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(cms_cap, "monte_carlo_hull_white_1f", market, as_of=val_date)
 
     return cms_cap, result
@@ -117,7 +117,7 @@ def example_cms_floor():
     # Price the CMS floor
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(cms_floor, "monte_carlo_hull_white_1f", market, as_of=val_date)
 
     return cms_floor, result
@@ -166,7 +166,7 @@ def example_cms_spread_option():
     # Price both positions
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result_long = registry.get_price(cms_long, "monte_carlo_hull_white_1f", market, as_of=val_date)
     result_short = registry.get_price(cms_short, "monte_carlo_hull_white_1f", market, as_of=val_date)
 

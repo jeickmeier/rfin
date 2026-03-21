@@ -1,9 +1,9 @@
 //! Builders for CDS Tranche instruments from market quotes.
 
 use crate::cashflow::builder::ScheduleParams;
-use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::parameters::CDSTrancheParams;
 use crate::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
+use crate::instruments::DynInstrument;
 use crate::market::build::helpers::{resolve_calendar, resolve_spot_date};
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::cds_tranche::CDSTrancheQuote;
@@ -111,7 +111,7 @@ impl CDSTrancheBuildOverrides {
 ///
 /// # Returns
 ///
-/// `Ok(Box<dyn Instrument>)` with the constructed CDS tranche instrument, or `Err` if:
+/// `Ok(Box<DynInstrument>)` with the constructed CDS tranche instrument, or `Err` if:
 /// - Convention lookup fails (missing CDS convention key)
 /// - Calendar resolution fails
 /// - Invalid tranche width (detachment <= attachment or non-finite values)
@@ -179,7 +179,7 @@ pub fn build_cds_tranche_instrument(
     quote: &CDSTrancheQuote,
     ctx: &BuildCtx,
     overrides: &CDSTrancheBuildOverrides,
-) -> Result<Box<dyn Instrument>> {
+) -> Result<Box<DynInstrument>> {
     tracing::debug!(quote_id = %quote.id(), "building CDS tranche instrument");
     let registry = ConventionRegistry::try_global()?;
     let missing_role = |role: &str| {

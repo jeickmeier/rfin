@@ -97,5 +97,7 @@ pub mod traits;
 /// interpolation. Curves may impose additional domain-specific constraints
 /// beyond these generic knot checks.
 pub use crate::math::interp::utils::validate_knots;
+pub use context::MarketContext;
 // Re-export dividend schedule types for convenience
 pub use dividends::*;
+pub use term_structures::DiscountCurve;

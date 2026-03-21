@@ -169,9 +169,9 @@ Example:
        >>> print(f"PV: {pv.amount:,.2f}")
        PV: 1,024,567.89
        """
-       from finstack.valuations.pricer import create_standard_registry
+       from finstack.valuations.pricer import standard_registry
 
-       registry = create_standard_registry()
+       registry = standard_registry()
        result = registry.price(bond, "discounting", market)
        return result.value
 

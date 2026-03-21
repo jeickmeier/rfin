@@ -10,7 +10,7 @@ from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurv
 from finstack.valuations.cashflow import CashFlowBuilder, CouponType, FixedCouponSpec, ScheduleParams
 from finstack.valuations.instruments import Bond
 from finstack.valuations.metrics import MetricId, MetricRegistry
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -98,7 +98,7 @@ def main() -> None:
     )
 
     # Price examples
-    reg = create_standard_registry()
+    reg = standard_registry()
     reg.get_price(bond_custom, "discounting", market, as_of=as_of)
     reg.get_price(bond_from_sched, "discounting", market, as_of=as_of)
     reg.get_price(bond_frn, "discounting", market, as_of=as_of)

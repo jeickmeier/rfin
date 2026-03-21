@@ -31,7 +31,7 @@ from .common.monte_carlo import (
     MonteCarloPathGenerator,
 )
 from .common import parse
-from .pricer import PricerRegistry, create_standard_registry
+from .pricer import PricerRegistry, standard_registry
 from .results import ValuationResult, ResultsMeta, CovenantReport
 from .metrics import MetricId, MetricRegistry
 from .performance import xirr, npv, irr_periodic
@@ -209,7 +209,7 @@ __all__ = [
     "parse",
     # Pricer
     "PricerRegistry",
-    "create_standard_registry",
+    "standard_registry",
     # Results
     "ValuationResult",
     "ResultsMeta",

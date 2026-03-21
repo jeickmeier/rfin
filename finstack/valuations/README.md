@@ -46,7 +46,7 @@ See examples below for updated API usage patterns.
 
 - **Canonical imports**: use the root modules for supported APIs:
   - `finstack_valuations::instruments::{Instrument, Attributes, PricingOptions, Bond, InterestRateSwap, ...}`
-  - `finstack_valuations::pricer::{PricerRegistry, ModelKey, InstrumentType, create_standard_registry}`
+  - `finstack_valuations::pricer::{PricerRegistry, ModelKey, InstrumentType, standard_registry}`
   - `finstack_valuations::metrics::{MetricId, MetricRegistry, MetricContext, standard_registry}` (plus VaR via `metrics::risk`)
   - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, GenericCovenantForecast, CovenantForecastConfig}`
   - `finstack_valuations::attribution::{AttributionMethod, AttributionEnvelope, attribute_pnl_parallel, attribute_pnl_waterfall, attribute_pnl_metrics_based, JsonEnvelope}`
@@ -336,7 +336,7 @@ Standardized result envelopes with metadata stamping:
 
 ```rust
 use finstack_valuations::instruments::Bond;
-use finstack_valuations::pricer::create_standard_registry;
+use finstack_valuations::pricer::standard_registry;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::dates::create_date;
@@ -344,7 +344,7 @@ use finstack_core::market_data::context::MarketContext;
 use time::Month;
 
 // Create pricing registry
-let registry = create_standard_registry();
+let registry = standard_registry();
 
 // Build a fixed-rate bond
 let issue = create_date(2025, Month::January, 15)?;

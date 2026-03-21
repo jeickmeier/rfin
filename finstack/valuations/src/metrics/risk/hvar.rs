@@ -27,7 +27,7 @@ use finstack_core::Result;
 ///
 /// // Register in metric registry
 /// let mut registry = MetricRegistry::new();
-/// registry.register_metric(MetricId::HVAR, Arc::new(var_calc), &[]);
+/// registry.register_metric(MetricId::HVar, Arc::new(var_calc), &[]);
 /// ```
 pub struct GenericHVar {
     config: VarConfig,
@@ -42,8 +42,8 @@ impl GenericHVar {
 
 impl MetricCalculator for GenericHVar {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // If ES already computed (it populates HVAR), return the cached value.
-        if let Some(&var) = context.computed.get(&MetricId::HVAR) {
+        // If ES already computed (it populates HVar), return the cached value.
+        if let Some(&var) = context.computed.get(&MetricId::HVar) {
             return Ok(var);
         }
 
@@ -66,7 +66,7 @@ impl MetricCalculator for GenericHVar {
 
         context
             .computed
-            .insert(MetricId::EXPECTED_SHORTFALL, result.expected_shortfall);
+            .insert(MetricId::ExpectedShortfall, result.expected_shortfall);
 
         Ok(result.var)
     }
@@ -78,7 +78,7 @@ impl MetricCalculator for GenericHVar {
 /// distribution but returns **Expected Shortfall** as the primary metric value.
 ///
 /// Notes:
-/// - If both `MetricId::HVAR` and `MetricId::EXPECTED_SHORTFALL` are requested, whichever is
+/// - If both `MetricId::HVar` and `MetricId::ExpectedShortfall` are requested, whichever is
 ///   computed first will populate the other in `context.computed` so the second computation
 ///   will be skipped by the registry (deterministic and avoids duplicated repricing).
 pub struct GenericExpectedShortfall {
@@ -94,8 +94,8 @@ impl GenericExpectedShortfall {
 
 impl MetricCalculator for GenericExpectedShortfall {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
-        // If HVAR already computed (it populates ES), return the cached value.
-        if let Some(&es) = context.computed.get(&MetricId::EXPECTED_SHORTFALL) {
+        // If HVar already computed (it populates ES), return the cached value.
+        if let Some(&es) = context.computed.get(&MetricId::ExpectedShortfall) {
             return Ok(es);
         }
 
@@ -116,7 +116,7 @@ impl MetricCalculator for GenericExpectedShortfall {
             context.pricer_registry.clone(),
         )?;
 
-        context.computed.insert(MetricId::HVAR, result.var);
+        context.computed.insert(MetricId::HVar, result.var);
 
         Ok(result.expected_shortfall)
     }
@@ -189,7 +189,7 @@ mod tests {
         let result_ordered = bond.price_with_metrics(
             market.as_ref(),
             as_of,
-            &[MetricId::HVAR, MetricId::EXPECTED_SHORTFALL],
+            &[MetricId::HVar, MetricId::ExpectedShortfall],
             opts,
         )?;
 
@@ -220,7 +220,7 @@ mod tests {
         let result_reversed = bond.price_with_metrics(
             market.as_ref(),
             as_of,
-            &[MetricId::EXPECTED_SHORTFALL, MetricId::HVAR],
+            &[MetricId::ExpectedShortfall, MetricId::HVar],
             opts2,
         )?;
         let var2 = *result_reversed

@@ -5,7 +5,7 @@ import {
   DiscountCurve,
   HazardCurve,
   MarketContext,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 
 const currencyFormatter = new Intl.NumberFormat('en-US', {
@@ -81,7 +81,7 @@ export const StructuredCreditExample: React.FC = () => {
         market.insertDiscount(discountCurve);
         market.insertHazard(hazardCurve);
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: StructuredCreditRow[] = [];
 
         // ===================================================================

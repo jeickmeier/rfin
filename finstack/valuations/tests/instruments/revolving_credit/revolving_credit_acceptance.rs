@@ -17,7 +17,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::Month;
 
 /// Helper function to generate deterministic cashflows with curves using the new engine

@@ -13,8 +13,8 @@ use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, DayCount, StubKind, Tenor};
 use finstack_core::money::Money;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
-use finstack_valuations::instruments::Instrument;
 use rust_decimal_macros::dec;
 
 #[test]

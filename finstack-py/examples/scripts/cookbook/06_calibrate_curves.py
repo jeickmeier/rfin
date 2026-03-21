@@ -30,7 +30,7 @@ from finstack.core.dates.tenor import Tenor
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.core.money import Money
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 from finstack.valuations.instruments import CreditDefaultSwap
 
 
@@ -70,7 +70,7 @@ def main() -> None:
 
     # 4. Validation: reprice input instruments
 
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     # A small set of CDS repricing checks (spreads in bps).
     cds_points = [("6M", 80.0), ("1Y", 120.0), ("3Y", 180.0), ("5Y", 200.0), ("10Y", 250.0)]

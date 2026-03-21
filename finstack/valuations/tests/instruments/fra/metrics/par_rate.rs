@@ -8,7 +8,7 @@
 use crate::fra::common::*;
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::context::MarketContext;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;

@@ -12,7 +12,7 @@ import {
   Money,
   PricingRequest,
   StubKind,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { BondsValuationProps, DEFAULT_BONDS_PROPS, BondData } from './data/bonds';
 
@@ -101,7 +101,7 @@ export const BondsValuationExample: React.FC<BondsValuationProps> = (props) => {
         market.insertDiscount(discCurve);
         market.insertForward(fwdCurve);
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
 
         // Store market context for cashflow generation
         if (!cancelled) {

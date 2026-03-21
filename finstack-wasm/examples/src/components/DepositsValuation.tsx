@@ -6,7 +6,7 @@ import {
   DiscountCurve,
   MarketContext,
   Money,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { DepositValuationProps, DEFAULT_DEPOSIT_PROPS } from './data/deposits';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,7 +110,7 @@ export const DepositValuationExample: React.FC<DepositValuationProps> = (props) 
           quoteRate
         );
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const result = registry.priceInstrument(depositInst, 'discounting', market, valDate, null);
 
         const presentValue = result.presentValue.amount;

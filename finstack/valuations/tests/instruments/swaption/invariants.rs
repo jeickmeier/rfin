@@ -19,7 +19,7 @@
 
 use super::common::*;
 use crate::common::test_helpers::tolerances;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use proptest::prelude::*;
 use time::macros::date;

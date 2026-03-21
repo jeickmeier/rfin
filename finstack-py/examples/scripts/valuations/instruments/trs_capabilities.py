@@ -20,7 +20,7 @@ from finstack.valuations.instruments import (
     TrsScheduleSpec,
     TrsSide,
 )
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -74,7 +74,7 @@ def build_schedule(start: date, end: date) -> TrsScheduleSpec:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     schedule = build_schedule(as_of, date(as_of.year + 1, as_of.month, as_of.day))
     financing = TrsFinancingLegSpec.new(

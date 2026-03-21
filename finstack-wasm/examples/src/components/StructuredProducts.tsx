@@ -9,7 +9,7 @@ import {
   Money,
   PrivateMarketsFund,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import {
   StructuredProductsProps,
@@ -83,7 +83,7 @@ export const StructuredProductsExample: React.FC<StructuredProductsProps> = (pro
         );
         marketCtx.insertSurface(equityVol);
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         // Process baskets

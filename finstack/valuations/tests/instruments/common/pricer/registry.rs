@@ -14,7 +14,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::rates::deposit::Deposit;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::pricer::*;
 use finstack_valuations::results::ValuationResult;
 use std::str::FromStr;
@@ -509,7 +509,7 @@ fn test_registry_price_with_unknown_pricer() {
 
 #[test]
 fn test_standard_registry_has_all_bond_pricers() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     assert!(registry
         .get_pricer(PricerKey::new(InstrumentType::Bond, ModelKey::Discounting))
@@ -521,7 +521,7 @@ fn test_standard_registry_has_all_bond_pricers() {
 
 #[test]
 fn test_standard_registry_has_all_rates_pricers() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     // IRS
     assert!(registry
@@ -560,7 +560,7 @@ fn test_standard_registry_has_all_rates_pricers() {
 
 #[test]
 fn test_price_batch_preserves_order() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
     let as_of = date!(2024 - 01 - 01);
     let market = test_market(as_of);
 
@@ -605,7 +605,7 @@ fn test_price_batch_preserves_order() {
 #[cfg(feature = "parallel")]
 #[test]
 fn test_price_batch_matches_serial_results() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
     let as_of = date!(2024 - 01 - 01);
     let market = test_market(as_of);
 
@@ -647,7 +647,7 @@ fn test_price_batch_matches_serial_results() {
 
 #[test]
 fn test_standard_registry_has_all_options_pricers() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     // CapFloor
     assert!(registry
@@ -710,7 +710,7 @@ fn test_standard_registry_has_all_options_pricers() {
 
 #[test]
 fn test_standard_registry_has_all_credit_pricers() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     // CDS
     assert!(registry
@@ -751,7 +751,7 @@ fn test_standard_registry_has_all_credit_pricers() {
 
 #[test]
 fn test_standard_registry_has_all_fx_pricers() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     assert!(registry
         .get_pricer(PricerKey::new(
@@ -769,7 +769,7 @@ fn test_standard_registry_has_all_fx_pricers() {
 
 #[test]
 fn test_standard_registry_has_other_pricers() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     // Equity
     assert!(registry

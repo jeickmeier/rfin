@@ -11,7 +11,7 @@ from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import AsianOption, AveragingMethod
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -76,7 +76,7 @@ def example_arithmetic_asian_call():
 
     # Price the option
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
@@ -114,7 +114,7 @@ def example_geometric_asian_put():
 
     # Price the option
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result

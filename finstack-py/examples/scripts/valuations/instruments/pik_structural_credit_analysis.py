@@ -36,7 +36,7 @@ from finstack.valuations.instruments import (
     ToggleExerciseModel,
     MertonMcConfig,
 )
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 # ── Global parameters ──────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ AS_OF = date(2025, 6, 15)
 MATURITY_DATE = AS_OF + timedelta(days=int(MATURITY_YEARS * 365.25))
 NUM_PATHS = 25_000
 SEED = 42
-REGISTRY = create_standard_registry()
+REGISTRY = standard_registry()
 
 # ── h0 calibration ────────────────────────────────────────────────────────
 

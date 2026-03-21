@@ -9,7 +9,7 @@
 //! **Market Standards Review (Finding 9)**
 
 use super::helpers::*;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 use time::Duration;

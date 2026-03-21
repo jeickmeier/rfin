@@ -3,11 +3,11 @@ use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::extract_instrument;
 use crate::valuations::results::JsValuationResult;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::{
-    create_standard_registry, register_credit_pricers, register_equity_pricers,
-    register_fx_pricers, register_rates_pricers, ModelKey, PricerRegistry,
+    register_credit_pricers, register_equity_pricers, register_fx_pricers, register_rates_pricers,
+    standard_registry, ModelKey, PricerRegistry,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -137,14 +137,14 @@ impl JsPricerRegistry {
 
 #[wasm_bindgen(js_class = PricerRegistry)]
 impl JsPricerRegistry {
-    /// Create an empty pricing registry (use createStandardRegistry() for pre-loaded engines).
+    /// Create an empty pricing registry (use standardRegistry() for pre-loaded engines).
     ///
     /// @returns {PricerRegistry} Registry without any registered pricing engines
     ///
     /// @example
     /// ```javascript
     /// // Typically use the standard registry instead:
-    /// const registry = createStandardRegistry();
+    /// const registry = standardRegistry();
     ///
     /// // But you can create an empty one for custom engines:
     /// const custom = new PricerRegistry();
@@ -203,9 +203,9 @@ impl JsPricerRegistry {
     ///
     /// @example
     /// ```javascript
-    /// import { createStandardRegistry, Bond, InterestRateSwap, EquityOption, MarketContext, FsDate, Money, PricingRequest } from 'finstack-wasm';
+    /// import { standardRegistry, Bond, InterestRateSwap, EquityOption, MarketContext, FsDate, Money, PricingRequest } from 'finstack-wasm';
     ///
-    /// const registry = createStandardRegistry();
+    /// const registry = standardRegistry();
     /// const market = new MarketContext();
     /// market.insertDiscount(discountCurve);
     /// const asOf = new FsDate(2024, 1, 2);
@@ -265,9 +265,9 @@ impl JsPricerRegistry {
 ///
 /// @example
 /// ```javascript
-/// import { createStandardRegistry, Bond, InterestRateSwap, MarketContext, FsDate, Money, PricingRequest } from 'finstack-wasm';
+/// import { standardRegistry, Bond, InterestRateSwap, MarketContext, FsDate, Money, PricingRequest } from 'finstack-wasm';
 ///
-/// const registry = createStandardRegistry();
+/// const registry = standardRegistry();
 ///
 /// // Create market data
 /// const asOf = new FsDate(2024, 1, 2);
@@ -288,15 +288,15 @@ impl JsPricerRegistry {
 /// console.log(`Swap PV: ${swapResult.presentValue.format()}`);
 /// console.log(`Swap DV01: ${swapResult.metric("dv01")}`);
 /// ```
-#[wasm_bindgen(js_name = createStandardRegistry)]
-pub fn create_standard_registry_js() -> JsPricerRegistry {
-    JsPricerRegistry::new(create_standard_registry())
+#[wasm_bindgen(js_name = standardRegistry)]
+pub fn standard_registry_js() -> JsPricerRegistry {
+    JsPricerRegistry::new(standard_registry().clone())
 }
 
 /// Create a pricing registry populated with *rates* pricers.
 ///
 /// This is intended for memory-constrained environments (like WASM) where
-/// `createStandardRegistry()` may be too large.
+/// `standardRegistry()` may be too large.
 #[wasm_bindgen(js_name = createRatesRegistry)]
 pub fn create_rates_registry_js() -> JsPricerRegistry {
     let mut registry = PricerRegistry::new();

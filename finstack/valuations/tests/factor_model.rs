@@ -16,7 +16,7 @@ use finstack_valuations::factor_model::{
     DeltaBasedEngine, FactorSensitivityEngine, FullRepricingEngine,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

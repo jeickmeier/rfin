@@ -1,5 +1,6 @@
 use crate::position::PositionUnit;
 use crate::types::{EntityId, PositionId};
+use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -41,7 +42,7 @@ pub struct CandidatePosition {
     pub entity_id: EntityId,
 
     /// The instrument that could be traded.
-    pub instrument: Arc<dyn finstack_valuations::instruments::Instrument>,
+    pub instrument: Arc<DynInstrument>,
 
     /// Unit type for quantity interpretation.
     pub unit: PositionUnit,
@@ -74,7 +75,7 @@ impl CandidatePosition {
     pub fn new(
         id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
-        instrument: Arc<dyn finstack_valuations::instruments::Instrument>,
+        instrument: Arc<DynInstrument>,
         unit: PositionUnit,
     ) -> Self {
         Self {

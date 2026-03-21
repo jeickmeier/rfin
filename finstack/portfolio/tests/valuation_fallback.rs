@@ -9,7 +9,7 @@ use finstack_core::money::Money;
 use finstack_core::{Error, InputError};
 use finstack_portfolio::types::Entity;
 use finstack_portfolio::{PortfolioBuilder, Position, PositionUnit};
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
 use finstack_valuations::pricer::InstrumentType;
 use finstack_valuations::results::ValuationResult;
 use std::any::Any;

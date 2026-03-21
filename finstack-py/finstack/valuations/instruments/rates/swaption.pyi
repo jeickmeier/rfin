@@ -123,7 +123,7 @@ class Swaption:
         >>> from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import Swaption
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> swaption = Swaption.payer(
         ...     "SWAPTION-5Y10Y",
         ...     Money(10_000_000, Currency("USD")),
@@ -147,7 +147,7 @@ class Swaption:
         ...     [0.22, 0.23, 0.24],
         ... ]
         >>> ctx.insert_surface(VolSurface("USD-SWAPTION-VOL", expiries, strikes, grid))
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> pv = registry.price(swaption, "discounting", ctx, as_of=date(2024, 1, 1)).value
         >>> pv.currency.code
         'USD'

@@ -8,7 +8,7 @@ from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import BaseCorrelationCurve, CreditIndexData, DiscountCurve, HazardCurve
 from finstack.valuations.instruments import CDSIndex, CDSOption, CDSTranche, CreditDefaultSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -93,7 +93,7 @@ def build_credit_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_credit_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     start = as_of + timedelta(days=1)
     maturity = date(as_of.year + 5, as_of.month, as_of.day)

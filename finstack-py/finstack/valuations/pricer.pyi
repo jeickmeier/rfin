@@ -15,7 +15,7 @@ class PricerRegistry:
     engines and manages the lifecycle of pricing calculations.
 
     The registry maintains a mapping of instrument types and pricing models to
-    their corresponding pricers. Use :func:`create_standard_registry` to get
+    their corresponding pricers. Use :func:`standard_registry` to get
     a registry pre-populated with all standard finstack pricers, or create an
     empty registry and register custom pricers.
 
@@ -27,8 +27,8 @@ class PricerRegistry:
         >>> from finstack.core.market_data.context import MarketContext
         >>> from finstack.core.market_data.term_structures import DiscountCurve
         >>> from finstack.valuations.instruments import Bond
-        >>> from finstack.valuations.pricer import create_standard_registry
-        >>> registry = create_standard_registry()
+        >>> from finstack.valuations.pricer import standard_registry
+        >>> registry = standard_registry()
         >>> bond = (
         ...     Bond
         ...     .builder("BOND-001")
@@ -48,7 +48,7 @@ class PricerRegistry:
 
     Notes
     -----
-    - Use :func:`create_standard_registry` for most use cases
+    - Use :func:`standard_registry` for most use cases
     - The registry is thread-safe and can be cloned for parallel pricing
     - Pricing models are specified by string (e.g., "discounting", "credit")
     - MarketContext must contain all required curves/surfaces for the instrument
@@ -56,7 +56,7 @@ class PricerRegistry:
 
     See Also
     --------
-    :func:`create_standard_registry`: Factory for standard registry
+    :func:`standard_registry`: Factory for standard registry
     :class:`ValuationResult`: Pricing result envelope
     :class:`MarketContext`: Market data container
     """
@@ -326,8 +326,8 @@ class PricerRegistry:
             >>> from finstack.core.currency import Currency
             >>> from finstack.core.money import Money
             >>> from finstack.valuations.instruments import Bond
-            >>> from finstack.valuations.pricer import create_standard_registry
-            >>> registry = create_standard_registry()
+            >>> from finstack.valuations.pricer import standard_registry
+            >>> registry = standard_registry()
             >>> bond = (
             ...     Bond
             ...     .builder("EXAMPLE")
@@ -351,15 +351,15 @@ class PricerRegistry:
             PricerRegistry: A shallow clone sharing the same (immutable) registry.
 
         Examples:
-            >>> from finstack.valuations.pricer import create_standard_registry
-            >>> registry = create_standard_registry()
+            >>> from finstack.valuations.pricer import standard_registry
+            >>> registry = standard_registry()
             >>> cloned = registry.clone()
             >>> isinstance(cloned, type(registry))
             True
         """
         ...
 
-def create_standard_registry() -> PricerRegistry:
+def standard_registry() -> PricerRegistry:
     """Create a registry pre-populated with all standard finstack pricers.
 
     This factory function creates a PricerRegistry with all built-in pricing
@@ -383,9 +383,9 @@ def create_standard_registry() -> PricerRegistry:
     --------
     Create and use the standard registry:
 
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> from finstack.valuations.instruments import Bond
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> # Price any standard instrument
         >>> result = registry.price(bond, "discounting", market_ctx, as_of)
         >>> result = registry.price(swap, "discounting", market_ctx, as_of)
@@ -393,7 +393,7 @@ def create_standard_registry() -> PricerRegistry:
 
     Clone for parallel pricing:
 
-        >>> base_registry = create_standard_registry()
+        >>> base_registry = standard_registry()
         >>> # Clone for each thread
         >>> thread_registry = base_registry.clone()
 

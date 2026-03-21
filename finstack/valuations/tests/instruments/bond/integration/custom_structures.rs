@@ -10,7 +10,7 @@ use finstack_valuations::cashflow::builder::{
     CashFlowSchedule, CouponType, FixedCouponSpec, ScheduleParams,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::macros::date;
 
 fn create_curve() -> MarketContext {

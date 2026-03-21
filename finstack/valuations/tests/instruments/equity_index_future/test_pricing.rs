@@ -11,8 +11,8 @@ use finstack_valuations::instruments::equity::equity_index_future::{
     EquityFutureSpecs, EquityIndexFuture,
 };
 use finstack_valuations::instruments::rates::ir_future::Position;
-use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::pricer::{create_standard_registry, ModelKey};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::pricer::{standard_registry, ModelKey};
 use time::Month;
 
 /// Create a test market with discount curve and spot prices.
@@ -171,7 +171,7 @@ fn test_fair_forward_calculation() {
 
 #[test]
 fn test_registry_pricing() {
-    let registry = create_standard_registry();
+    let registry = standard_registry();
     let market = create_test_market();
     let future = create_long_es_future_with_quoted();
     let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");

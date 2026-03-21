@@ -10,7 +10,7 @@ import {
   MarketScalar,
   Money,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { ExoticFxDerivativesProps, DEFAULT_EXOTIC_FX_PROPS } from './data/exotic-fx';
 
@@ -109,7 +109,7 @@ export const ExoticFxDerivativesExample: React.FC<ExoticFxDerivativesProps> = (p
           );
         }
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         // Process FX barrier options

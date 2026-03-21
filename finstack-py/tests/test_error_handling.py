@@ -11,7 +11,7 @@ from finstack.core.dates import BusinessDayConvention, DayCount, adjust, get_cal
 from finstack.core.market_data import DiscountCurve, FxMatrix, MarketContext, VolSurface
 from finstack.core.money import Money
 from finstack.valuations.instruments import Bond, CDSOption, CDSTranche
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 import pytest
 
 import finstack
@@ -245,7 +245,7 @@ class TestPricingErrors:
 
     def test_unknown_pricer_error(self) -> None:
         """Pricing with unknown instrument/model combo should raise PricingError."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         market = MarketContext()
 
         # Add minimal market data

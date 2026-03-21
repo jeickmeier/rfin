@@ -225,7 +225,7 @@ import init, {
   PrivateMarketsFund,
 
   // Pricing
-  createStandardRegistry,
+  standardRegistry,
   PricerRegistry,
   ValuationResult,
 
@@ -318,7 +318,7 @@ async function run() {
   console.log('Day count:', cashflowSchedule.dayCount.name);
 
   // Price instruments using the registry
-  const registry = createStandardRegistry();
+  const registry = standardRegistry();
 
   // Example: Price an interest rate swap (explicit inputs, no defaults)
   const swap = new InterestRateSwap(

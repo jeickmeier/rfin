@@ -2,7 +2,7 @@
 //!
 //! Bridges the raw market data schema with the instrument-based calibration solvers.
 
-use crate::instruments::common_impl::traits::Instrument;
+use crate::instruments::DynInstrument;
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::quotes::cds::CdsQuote;
 use crate::market::quotes::cds_tranche::CDSTrancheQuote;
@@ -40,7 +40,7 @@ pub enum CalibrationQuote {
 
 impl CalibrationQuote {
     /// Get reference to the underlying instrument.
-    pub fn get_instrument(&self) -> &dyn Instrument {
+    pub fn get_instrument(&self) -> &DynInstrument {
         match self {
             CalibrationQuote::Rates(q) => q.instrument.as_ref(),
             CalibrationQuote::Cds(q) => q.instrument.as_ref(),

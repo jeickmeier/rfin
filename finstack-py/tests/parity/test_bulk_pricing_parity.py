@@ -7,7 +7,7 @@ across multiple invocations and verifies consistency with Rust implementation.
 from datetime import date
 
 from finstack.core.market_data import MarketContext
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 import pytest
 from tests.fixtures.strategies import (
     TOLERANCE_DETERMINISTIC,
@@ -50,7 +50,7 @@ class TestBulkBondPricingParity:
 
     def test_bulk_pricing_deterministic(self, bond_portfolio: list, market: MarketContext) -> None:
         """Price portfolio twice, verify identical results."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         results1 = [registry.get_price(b, "discounting", market, as_of) for b in bond_portfolio]
@@ -64,7 +64,7 @@ class TestBulkBondPricingParity:
 
     def test_bulk_pricing_order_independent(self, bond_portfolio: list, market: MarketContext) -> None:
         """Pricing order should not affect individual results."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         # Price in original order
@@ -81,7 +81,7 @@ class TestBulkBondPricingParity:
 
     def test_bulk_pricing_with_varying_curves(self, bond_portfolio: list) -> None:
         """Same bonds priced against different curves produce consistent results."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         # Two different market scenarios
@@ -99,7 +99,7 @@ class TestBulkBondPricingParity:
 
     def test_bulk_pricing_stability_multiple_runs(self, bond_portfolio: list, market: MarketContext) -> None:
         """Price portfolio 5 times, all results should match."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         all_results = []
@@ -145,7 +145,7 @@ class TestBulkSwapPricingParity:
 
     def test_bulk_swap_pricing_deterministic(self, swap_portfolio: list, market: MarketContext) -> None:
         """Price swap portfolio twice, verify identical results."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         results1 = [registry.get_price(s, "discounting", market, as_of) for s in swap_portfolio]
@@ -158,7 +158,7 @@ class TestBulkSwapPricingParity:
 
     def test_bulk_swap_with_forward_curve_bumps(self, swap_portfolio: list) -> None:
         """Verify swap NPVs respond consistently to forward curve changes."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         # Base market
@@ -221,7 +221,7 @@ class TestBulkDepositPricingParity:
 
     def test_bulk_deposit_pricing_deterministic(self, deposit_portfolio: list, market: MarketContext) -> None:
         """Price deposit portfolio twice, verify identical results."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         results1 = [registry.get_price(d, "discounting", market, as_of) for d in deposit_portfolio]
@@ -288,7 +288,7 @@ class TestMixedPortfolioParity:
 
     def test_mixed_portfolio_pricing_stable(self, mixed_portfolio: list, market: MarketContext) -> None:
         """Price mixed portfolio multiple times, verify stability."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         # Price 3 times
@@ -309,7 +309,7 @@ class TestMixedPortfolioParity:
 
     def test_portfolio_individual_vs_batch_order(self, mixed_portfolio: list, market: MarketContext) -> None:
         """Verify individual pricing matches regardless of portfolio order."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         as_of = date(2024, 1, 1)
 
         # Price each instrument

@@ -9,7 +9,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, HazardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 
@@ -117,7 +117,7 @@ fn test_cs01_hazard_vs_risky_pv01_consistency() {
     };
 
     // Use value_raw for high-precision comparison (matches how CS01 metric is now computed)
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     // Manually compute the same central finite-difference CS01 definition used by the metric.
     use finstack_valuations::calibration::bumps::{bump_hazard_shift, BumpRequest};
     let hazard = market

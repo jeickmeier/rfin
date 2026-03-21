@@ -6,7 +6,7 @@ use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
 };
-use finstack_valuations::instruments::{CurveDependencies, Instrument};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, CurveDependencies};
 use finstack_valuations::metrics::MetricId;
 use time::Month;
 

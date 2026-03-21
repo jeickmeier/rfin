@@ -10,7 +10,7 @@ from finstack.core.dates import DayCount
 from finstack.core.market_data import DiscountCurve, ForwardCurve, MarketContext
 from finstack.core.money import Money
 from finstack.valuations.instruments import Bond
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 import pytest
 
 
@@ -56,7 +56,7 @@ class TestAswForward:
     def test_missing_dirty_price_raises_value_error(self) -> None:
         """Calling asw_forward without dirty_price_ccy must not silently assume par."""
         bond, market = _build_market_and_bond()
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         with pytest.raises(ValueError, match=r"dirty_price_ccy"):
             registry.asw_forward(
@@ -69,7 +69,7 @@ class TestAswForward:
     def test_asw_forward_returns_finite_spreads_with_dirty_price(self) -> None:
         """With an explicit dirty price, par and market ASW spreads should be finite."""
         bond, market = _build_market_and_bond()
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Market dirty price slightly above par (e.g. 101.25%)
         dirty_price_ccy = 1.0125 * bond.notional.amount

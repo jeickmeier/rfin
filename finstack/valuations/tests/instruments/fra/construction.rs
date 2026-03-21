@@ -6,7 +6,7 @@
 use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use rust_decimal::Decimal;
 use time::macros::date;
 

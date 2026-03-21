@@ -1,6 +1,6 @@
 //! Prepared quote envelopes for calibration pipelines.
 
-use crate::instruments::Instrument;
+use crate::instruments::DynInstrument;
 use crate::market::build::cds::build_cds_instrument;
 use crate::market::build::rates::build_rate_instrument;
 use crate::market::quotes::cds::CdsQuote;
@@ -38,7 +38,7 @@ use std::sync::Arc;
 /// # use finstack_valuations::market::quotes::ids::QuoteId;
 /// # use finstack_core::dates::Date;
 /// # use std::sync::Arc;
-/// # use finstack_valuations::instruments::Instrument;
+/// # use finstack_valuations::instruments::DynInstrument;
 /// #
 /// # fn example() -> finstack_core::Result<()> {
 /// // In practice, this would be created by a builder function
@@ -56,7 +56,7 @@ pub struct PreparedQuote<Q> {
     ///
     /// The instrument is ready to be priced and includes all necessary curve references,
     /// dates, and market conventions resolved from the quote.
-    pub instrument: Arc<dyn Instrument>,
+    pub instrument: Arc<DynInstrument>,
     /// The maturity date of the pillar (used for sorting / time axis).
     ///
     /// This is the resolved maturity date from the quote's pillar (either from a tenor
@@ -100,9 +100,9 @@ impl<Q> PreparedQuote<Q> {
     /// # use finstack_valuations::market::build::prepared::PreparedQuote;
     /// # use finstack_core::dates::Date;
     /// # use std::sync::Arc;
-    /// # use finstack_valuations::instruments::Instrument;
+    /// # use finstack_valuations::instruments::DynInstrument;
     /// #
-    /// # fn example(quote: Arc<String>, instrument: Arc<dyn Instrument>) -> finstack_core::Result<()> {
+    /// # fn example(quote: Arc<String>, instrument: Arc<DynInstrument>) -> finstack_core::Result<()> {
     /// let pillar_date = Date::from_calendar_date(2025, time::Month::January, 2).unwrap();
     /// let as_of = Date::from_calendar_date(2024, time::Month::January, 2).unwrap();
     /// let pillar_time = (pillar_date - as_of).whole_days() as f64 / 365.25;
@@ -113,7 +113,7 @@ impl<Q> PreparedQuote<Q> {
     /// ```
     pub fn new(
         quote: Arc<Q>,
-        instrument: Arc<dyn Instrument>,
+        instrument: Arc<DynInstrument>,
         pillar_date: Date,
         pillar_time: f64,
     ) -> Self {
@@ -150,7 +150,7 @@ pub fn prepare_rate_quote(
     policy: &PillarPolicy,
 ) -> Result<PreparedQuote<RateQuote>> {
     let instrument = build_rate_instrument(&quote, build_ctx)?;
-    let instrument: Arc<dyn Instrument> = instrument.into();
+    let instrument: Arc<DynInstrument> = instrument.into();
 
     let maturity_date = if let Some(dep) = instrument
         .as_any()
@@ -207,7 +207,7 @@ pub fn prepare_cds_quote(
     base_date: Date,
 ) -> Result<PreparedQuote<CdsQuote>> {
     let instrument = build_cds_instrument(&quote, build_ctx)?;
-    let instrument: Arc<dyn Instrument> = instrument.into();
+    let instrument: Arc<DynInstrument> = instrument.into();
 
     let maturity_date = instrument
         .as_any()

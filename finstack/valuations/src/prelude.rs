@@ -16,7 +16,7 @@
 //! ```rust
 //! use finstack_valuations::prelude::*;
 //!
-//! let registry = create_standard_registry();
+//! let registry = finstack_valuations::pricer::standard_registry();
 //! let bond = Bond::fixed(
 //!     "BOND-001",
 //!     Money::new(1_000_000.0, Currency::USD),
@@ -35,9 +35,7 @@
 
 pub use crate::instruments::{Attributes, Instrument};
 
-pub use crate::pricer::{
-    create_standard_registry, InstrumentType, ModelKey, PricerRegistry, PricingError,
-};
+pub use crate::pricer::{InstrumentType, ModelKey, PricerRegistry};
 
 pub use crate::Result;
 
@@ -46,9 +44,11 @@ pub use crate::metrics::{standard_registry, MetricContext, MetricId, MetricRegis
 pub use crate::results::{ResultsMeta, ValuationResult};
 
 pub use crate::instruments::{
-    Bond, BondConvention, CreditDefaultSwap, Deposit, EquityOption, ExerciseStyle, FixedLegSpec,
-    FloatLegSpec, FxForward, FxOption, FxSwap, InterestRateSwap, OptionType, PayReceive,
-    PricingOptions, PricingOverrides, Repo, SettlementType, Swaption,
+    AsianOption, BarrierOption, BasisSwap, Bond, BondConvention, CDSIndex, CDSTranche,
+    ConvertibleBond, CreditDefaultSwap, Deposit, EquityOption, ExerciseStyle, FixedLegSpec,
+    FloatLegSpec, FxForward, FxOption, FxSwap, InflationLinkedBond, InterestRateSwap, OptionType,
+    PayReceive, PricingOptions, PricingOverrides, Repo, RevolvingCredit, SettlementType,
+    StructuredCredit, Swaption, TermLoan, VarianceSwap,
 };
 
 pub use finstack_core::prelude::*;

@@ -11,7 +11,7 @@ use crate::TimeRollMode;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 
 /// Report from time roll-forward operation.
@@ -190,7 +190,7 @@ pub fn apply_time_roll_forward(
 /// This is consistent with the theta metric definition in valuations.
 #[allow(clippy::type_complexity)]
 fn calculate_instrument_pnl(
-    instruments: &[Box<dyn Instrument>],
+    instruments: &[Box<DynInstrument>],
     market: &finstack_core::market_data::context::MarketContext,
     old_date: finstack_core::dates::Date,
     new_date: finstack_core::dates::Date,
@@ -252,7 +252,7 @@ fn calculate_instrument_pnl(
 
 /// Collect cashflows for an instrument during a period, grouped by currency.
 fn collect_instrument_cashflows(
-    instrument: &dyn Instrument,
+    instrument: &DynInstrument,
     market: &finstack_core::market_data::context::MarketContext,
     start_date: finstack_core::dates::Date,
     end_date: finstack_core::dates::Date,

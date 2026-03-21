@@ -787,7 +787,7 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
         if let Some(model_str) = self.attributes().get_meta("pricing_model") {
             if let Ok(model) = <crate::pricer::ModelKey as ::std::str::FromStr>::from_str(model_str)
             {
-                let registry = crate::pricer::create_standard_registry();
+                let registry = crate::pricer::standard_registry();
                 let result = registry
                     .price(self, model, curves, as_of, None)
                     .map_err(|e| finstack_core::Error::Validation(e.to_string()))?;

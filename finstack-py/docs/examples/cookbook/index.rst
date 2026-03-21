@@ -106,9 +106,9 @@ Generate Risk Report
 .. code-block:: python
 
    # Price with metrics
-   from finstack.valuations.pricer import create_standard_registry
+   from finstack.valuations.pricer import standard_registry
 
-   registry = create_standard_registry()
+   registry = standard_registry()
    results = []
 
    for position in portfolio.positions:

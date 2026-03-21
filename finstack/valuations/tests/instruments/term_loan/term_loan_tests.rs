@@ -9,7 +9,7 @@ use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     self, CommitmentStepDown, DdtlSpec, DrawEvent, OidEirSpec, OidPolicy, TermLoan,
 };
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::pricer::Pricer;
 
@@ -339,7 +339,7 @@ fn term_loan_pik_toggle_and_cash_sweep() {
 fn term_loan_golden_pv_and_metrics() {
     use finstack_core::dates::BusinessDayConvention;
     use finstack_core::dates::StubKind;
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::metrics::MetricId;
 
     let issue = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();

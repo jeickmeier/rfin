@@ -185,7 +185,7 @@ impl PyLeveredRealEstateEquity {
 
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
-        use finstack_valuations::instruments::Instrument;
+        use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
         PyInstrumentType::new(self.inner.key())
     }
 

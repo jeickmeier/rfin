@@ -8,7 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::exotics::lookback_option::{
     LookbackOption, LookbackOptionBuilder, LookbackType,
 };
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::Month;
 
 // Helper to avoid clone issues with builder

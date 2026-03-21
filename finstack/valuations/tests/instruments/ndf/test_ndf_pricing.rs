@@ -9,8 +9,8 @@ use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::fx::ndf::{Ndf, NdfQuoteConvention};
-use finstack_valuations::instruments::{Attributes, Instrument};
-use finstack_valuations::pricer::{create_standard_registry, InstrumentType, ModelKey};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
+use finstack_valuations::pricer::{standard_registry, InstrumentType, ModelKey};
 use std::sync::Arc;
 use time::Month;
 
@@ -182,7 +182,7 @@ fn test_ndf_registry_pricer() {
         .build()
         .expect("should build");
 
-    let registry = create_standard_registry();
+    let registry = standard_registry();
 
     // Verify pricer is registered
     assert!(

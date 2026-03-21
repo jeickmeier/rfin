@@ -2,7 +2,7 @@
  * Revolving Credit instrument component with interactive form.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { FsDate, MarketContext, RevolvingCredit, createStandardRegistry } from 'finstack-wasm';
+import { FsDate, MarketContext, RevolvingCredit, standardRegistry } from 'finstack-wasm';
 import type { RevolvingCreditData } from '../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
 
@@ -47,7 +47,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
 
   const calculateRevolvingCredit = useCallback(() => {
     try {
-      const registry = createStandardRegistry();
+      const registry = standardRegistry();
 
       const commitmentDate = `${asOf.year}-${String(asOf.month).padStart(2, '0')}-${String(asOf.day).padStart(2, '0')}`;
       const maturityDate = `${asOf.year + formState.tenorYears}-${String(asOf.month).padStart(2, '0')}-${String(asOf.day).padStart(2, '0')}`;
@@ -107,7 +107,7 @@ export const RevolvingCreditInstrument: React.FC<RevolvingCreditInstrumentProps>
 
     (async () => {
       try {
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const rcData of revolvingCredits) {

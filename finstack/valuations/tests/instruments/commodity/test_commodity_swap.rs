@@ -6,10 +6,10 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::irs::PayReceive;
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
-use finstack_valuations::instruments::Instrument;
 use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::Month;
@@ -161,7 +161,7 @@ fn test_commodity_swap_payment_schedule() {
 
 #[test]
 fn test_commodity_swap_instrument_trait() {
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::pricer::InstrumentType;
 
     let swap = CommoditySwap::example();
@@ -406,7 +406,7 @@ fn test_commodity_swap_delta_analytical() {
         .expect("should build");
 
     // Get delta from metric calculation
-    use finstack_valuations::instruments::Instrument;
+    use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     let result = swap
         .price_with_metrics(
             &market,

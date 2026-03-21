@@ -5,8 +5,7 @@ use crate::error::{Error, Result};
 use crate::types::{EntityId, PositionId};
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
-use finstack_valuations::instruments::InstrumentJson;
+use finstack_valuations::instruments::{DynInstrument, InstrumentJson};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -53,7 +52,7 @@ pub struct Position {
     pub instrument_id: String,
 
     /// The actual instrument being held
-    pub instrument: Arc<dyn Instrument>,
+    pub instrument: Arc<DynInstrument>,
 
     /// Signed quantity (positive=long, negative=short)
     pub quantity: f64,
@@ -71,7 +70,7 @@ pub struct Position {
     pub meta: IndexMap<String, serde_json::Value>,
 }
 
-/// Serializable position specification (without `Arc<dyn Instrument>`).
+/// Serializable position specification (without `Arc<DynInstrument>`).
 ///
 /// This struct allows positions to be serialized and deserialized by storing
 /// the instrument definition as JSON rather than a trait object.
@@ -161,7 +160,7 @@ impl Position {
         position_id: impl Into<PositionId>,
         entity_id: impl Into<EntityId>,
         instrument_id: impl Into<String>,
-        instrument: Arc<dyn Instrument>,
+        instrument: Arc<DynInstrument>,
         quantity: f64,
         unit: PositionUnit,
     ) -> Result<Self> {

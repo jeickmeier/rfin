@@ -10,7 +10,7 @@ from datetime import date
 from typing import Any
 
 from finstack.core.market_data import MarketContext
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 from hypothesis import assume, given, settings, strategies as st
 import pytest
 from tests.fixtures.strategies import (
@@ -38,7 +38,7 @@ class TestCrossLanguageBondPricing:
         market = MarketContext()
         market.insert(curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         try:
             result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
@@ -55,7 +55,7 @@ class TestCrossLanguageBondPricing:
         market = MarketContext()
         market.insert(curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         try:
             r1 = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
@@ -86,7 +86,7 @@ class TestCrossLanguageBondPricing:
         market1 = create_flat_market_context(discount_rate=rate1)
         market2 = create_flat_market_context(discount_rate=rate2)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         npv1 = registry.get_price(bond, "discounting", market1, date(2024, 1, 1)).value.amount
         npv2 = registry.get_price(bond, "discounting", market2, date(2024, 1, 1)).value.amount
 
@@ -116,7 +116,7 @@ class TestCrossLanguageBondPricing:
         )
 
         market = create_flat_market_context(discount_rate=0.05)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         npv1 = registry.get_price(bond1, "discounting", market, date(2024, 1, 1)).value.amount
         npv2 = registry.get_price(bond2, "discounting", market, date(2024, 1, 1)).value.amount
@@ -151,7 +151,7 @@ class TestCrossLanguageSwapPricing:
         # Create market with matching forward curve
         market = create_flat_market_context(discount_rate=market_rate, forward_rate=market_rate)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
 
         # Near-ATM swap should have small absolute value relative to notional
@@ -180,7 +180,7 @@ class TestCrossLanguageSwapPricing:
         )
         market.insert(forward_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         try:
             r1 = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
@@ -208,7 +208,7 @@ class TestCrossLanguageSwapPricing:
         )
 
         market = create_flat_market_context(discount_rate=0.05, forward_rate=forward_rate)
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
 
         # For a payer swap (pay fixed, receive floating):
@@ -235,7 +235,7 @@ class TestCrossLanguageDepositPricing:
         market = MarketContext()
         market.insert(curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         try:
             r1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
@@ -272,7 +272,7 @@ class TestCrossLanguageDepositPricing:
         )
 
         market = create_flat_market_context(discount_rate=0.05)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price twice and verify consistency
         result1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
@@ -303,7 +303,7 @@ class TestCrossLanguageCurveBumping:
         market_base = create_flat_market_context(discount_rate=0.05)
         market_bumped = create_flat_market_context(discount_rate=0.05 + bump_bp / 10000)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         npv_base = registry.get_price(bond, "discounting", market_base, date(2024, 1, 1)).value.amount
         npv_bumped = registry.get_price(bond, "discounting", market_bumped, date(2024, 1, 1)).value.amount
 
@@ -328,7 +328,7 @@ class TestCrossLanguageCurveBumping:
         market_bumped_up = create_flat_market_context(discount_rate=base_rate + bump_bp / 10000)
         market_bumped_down = create_flat_market_context(discount_rate=base_rate)  # Back to original
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         npv_base = registry.get_price(bond, "discounting", market_base, date(2024, 1, 1)).value.amount
         npv_bumped = registry.get_price(bond, "discounting", market_bumped_up, date(2024, 1, 1)).value.amount
         npv_restored = registry.get_price(bond, "discounting", market_bumped_down, date(2024, 1, 1)).value.amount

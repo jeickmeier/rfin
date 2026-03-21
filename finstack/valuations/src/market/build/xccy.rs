@@ -1,8 +1,8 @@
 //! Builders for cross-currency swap instruments from market quotes.
 
 use crate::instruments::common_impl::fx_dates::{adjust_joint_calendar, roll_spot_date};
-use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::xccy_swap::{LegSide, NotionalExchange, XccySwap, XccySwapLeg};
+use crate::instruments::DynInstrument;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::ids::Pillar;
 use crate::market::quotes::xccy::XccyQuote;
@@ -14,7 +14,7 @@ use finstack_core::Result;
 use rust_decimal::Decimal;
 
 /// Build a cross-currency swap instrument from an [`XccyQuote`].
-pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
+pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<DynInstrument>> {
     tracing::debug!(quote_id = %quote.id(), "building XCCY instrument");
     let registry = ConventionRegistry::try_global()?;
 

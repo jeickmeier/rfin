@@ -28,7 +28,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::{DatedFlow, DatedFlows};
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 
@@ -106,7 +106,7 @@ pub struct PortfolioCashflowBuckets {
 /// schedules from instruments that implement `CashflowProvider`. This approach
 /// automatically supports new instruments as they implement the trait.
 fn instrument_holder_flows(
-    instrument: &dyn Instrument,
+    instrument: &DynInstrument,
     market: &MarketContext,
     as_of: Date,
 ) -> finstack_core::Result<Option<DatedFlows>> {

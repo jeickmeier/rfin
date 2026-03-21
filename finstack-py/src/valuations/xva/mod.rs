@@ -679,7 +679,8 @@ fn compute_exposure_profile<'py>(
     netting_set: &PyNettingSet,
 ) -> PyResult<PyExposureProfile> {
     let as_of_date = py_to_date(as_of)?;
-    let mut arcs: Vec<Arc<dyn finstack_valuations::instruments::Instrument>> = Vec::new();
+    let mut arcs: Vec<Arc<dyn finstack_valuations::instruments::internal::InstrumentExt>> =
+        Vec::new();
     for item in instruments.iter() {
         let handle = extract_instrument(&item)?;
         arcs.push(handle.instrument);

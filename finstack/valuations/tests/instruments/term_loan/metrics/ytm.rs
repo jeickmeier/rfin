@@ -9,7 +9,7 @@ use finstack_valuations::cashflow::builder::specs::CouponType;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, RateSpec, TermLoan,
 };
-use finstack_valuations::instruments::{Instrument, PricingOverrides};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, PricingOverrides};
 use finstack_valuations::metrics::MetricId;
 use time::macros::date;
 

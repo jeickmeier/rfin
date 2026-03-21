@@ -6,6 +6,7 @@ use finstack_core::explain::ExplanationTrace;
 use finstack_core::money::Money;
 
 use indexmap::IndexMap;
+use std::ops::Index;
 
 /// Complete valuation result envelope with NPV, risk metrics, and metadata.
 ///
@@ -426,11 +427,9 @@ impl ValuationResult {
         self.measures.get(&id).copied()
     }
 
-    /// Get a metric by string identifier (strict parse with custom fallback).
+    /// Get a metric by its exact string identifier.
     pub fn metric_str(&self, id: &str) -> Option<f64> {
-        let metric_id =
-            MetricId::parse_strict(id).unwrap_or_else(|_| MetricId::custom(id.to_owned()));
-        self.metric(metric_id)
+        self.measures.get(id).copied()
     }
 
     /// Attach multiple covenant reports to the result.
@@ -636,5 +635,50 @@ impl ValuationResult {
                     .collect()
             })
             .unwrap_or_default()
+    }
+}
+
+impl Index<MetricId> for ValuationResult {
+    type Output = f64;
+
+    fn index(&self, index: MetricId) -> &Self::Output {
+        &self.measures[&index]
+    }
+}
+
+impl Index<&MetricId> for ValuationResult {
+    type Output = f64;
+
+    fn index(&self, index: &MetricId) -> &Self::Output {
+        &self.measures[index]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+    use indexmap::IndexMap;
+    use time::macros::date;
+
+    #[test]
+    fn metric_str_is_exact_and_indexing_is_typed() {
+        let mut measures = IndexMap::new();
+        measures.insert(MetricId::Dv01, 12.5);
+        measures.insert(MetricId::custom("dv01_extra"), 99.0);
+
+        let result = ValuationResult::stamped(
+            "TEST",
+            date!(2025 - 01 - 02),
+            Money::new(1.0, Currency::USD),
+        )
+        .with_measures(measures);
+
+        assert_eq!(result.metric_str("dv01"), Some(12.5));
+        assert_eq!(result.metric_str("dv01_extra"), Some(99.0));
+        assert_eq!(result.metric_str("dv"), None);
+        assert_eq!(result[MetricId::Dv01], 12.5);
+        assert_eq!(result[&MetricId::Dv01], 12.5);
     }
 }

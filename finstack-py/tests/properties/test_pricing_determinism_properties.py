@@ -16,7 +16,7 @@ from finstack.core.dates import DayCount
 from finstack.core.market_data import DiscountCurve, MarketContext
 from finstack.core.money import Money
 from finstack.valuations.instruments import Bond, Deposit
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 from hypothesis import assume, given, settings, strategies as st
 import pytest
 
@@ -120,7 +120,7 @@ class TestPricingDeterminism:
         market.insert(curve)
 
         # Create pricer registry
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price twice
         result1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
@@ -139,7 +139,7 @@ class TestPricingDeterminism:
         market.insert(curve)
 
         # Create pricer registry
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price twice
         try:
@@ -160,7 +160,7 @@ class TestPricingDeterminism:
         """Pricing multiple times yields stable results."""
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price 5 times
         results = []
@@ -181,7 +181,7 @@ class TestPricingDeterminism:
 
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price in original order
         results_forward = []
@@ -209,7 +209,7 @@ class TestMarketContextImmutability:
         """Market context can be reused for multiple pricings."""
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Use same market context multiple times
         result1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
@@ -258,7 +258,7 @@ class TestPricingReproducibility:
 
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Collect results from multiple iterations
         results = []
@@ -277,7 +277,7 @@ class TestPricingReproducibility:
         """Bond pricing is stable across multiple calls."""
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price 3 times and check stability
         try:
@@ -303,7 +303,7 @@ class TestMetricsDeterminism:
         """Metrics computation is deterministic."""
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Compute metrics twice - use metrics applicable to bonds
         result1 = registry.price_with_metrics(bond, "discounting", market, ["accrued", "ytm"], date(2024, 1, 1))
@@ -325,7 +325,7 @@ class TestMetricsDeterminism:
         """Bond metrics are stable across repeated computations."""
         market = MarketContext()
         market.insert(curve)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         try:
             # Compute metrics multiple times

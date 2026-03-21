@@ -4,7 +4,8 @@ use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::Result;
 use finstack_valuations::instruments::{
-    Attributes, CurveIdVec, Instrument, InstrumentCurves, MarketDependencies,
+    internal::InstrumentExt as Instrument, Attributes, CurveIdVec, InstrumentCurves,
+    MarketDependencies,
 };
 use finstack_valuations::metrics::MetricId;
 use finstack_valuations::results::ValuationResult;

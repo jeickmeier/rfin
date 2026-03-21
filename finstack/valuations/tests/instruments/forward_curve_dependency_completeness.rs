@@ -11,7 +11,7 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::fra::ForwardRateAgreement;
 use finstack_valuations::instruments::rates::irs::PayReceive;
-use finstack_valuations::instruments::{CurveDependencies, Instrument};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, CurveDependencies};
 use time::macros::date;
 
 fn build_discount_curve(id: &str, rate: f64) -> DiscountCurve {

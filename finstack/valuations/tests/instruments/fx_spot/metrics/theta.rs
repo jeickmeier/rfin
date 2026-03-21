@@ -4,7 +4,7 @@ use super::super::common::*;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::{currency::Currency, dates::Date, money::Money};
 use finstack_valuations::{
-    instruments::{FxSpot, Instrument},
+    instruments::{internal::InstrumentExt as Instrument, FxSpot},
     metrics::MetricId,
 };
 

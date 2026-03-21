@@ -14,7 +14,7 @@ use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, AttributionMethod,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use std::sync::Arc;
 use time::Month;

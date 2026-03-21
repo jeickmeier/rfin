@@ -9,7 +9,7 @@ from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import Equity, EquityOption
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -56,7 +56,7 @@ def build_equity_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_equity_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     equity = (
         Equity.builder("ACME-SPOT")

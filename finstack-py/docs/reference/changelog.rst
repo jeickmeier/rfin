@@ -46,7 +46,7 @@ The following functions are deprecated in favour of
 
 Before::
 
-    use finstack_valuations::pricer::{create_rates_registry, create_standard_registry};
+    use finstack_valuations::pricer::{create_rates_registry, standard_registry};
 
     let registry = create_rates_registry();
 
@@ -57,7 +57,7 @@ After::
     let mut registry = PricerRegistry::new();
     register_rates_pricers(&mut registry);
     // or simply:
-    let registry = create_standard_registry(); // all asset classes
+    let registry = standard_registry(); // all asset classes
 
 .. rubric:: 3. ``BondFuture`` high-arity convenience constructors
 

@@ -108,15 +108,15 @@ pub fn register_commodity_pricers(registry: &mut PricerRegistry) {
     commodity::register_commodity_pricers(registry);
 }
 
-/// Create a standard pricer registry with all registered pricers.
+/// Build a standard pricer registry with all registered pricers.
 ///
-/// This function creates a registry and explicitly registers all instrument pricers.
+/// This helper explicitly registers all instrument pricers into a fresh registry.
 /// The explicit registration approach provides better visibility, IDE support, and
 /// debugging capabilities compared to the previous auto-registration system.
 ///
 /// All 40+ instrument pricers are registered in the `register_all_pricers` function.
 /// Note: All pricers now use standardized parameter ordering: (instrument, market, as_of).
-pub fn create_standard_registry() -> PricerRegistry {
+fn build_standard_registry() -> PricerRegistry {
     let mut registry = PricerRegistry::new();
     register_all_pricers(&mut registry);
     registry
@@ -124,12 +124,73 @@ pub fn create_standard_registry() -> PricerRegistry {
 
 static STANDARD_PRICER_REGISTRY: OnceLock<Arc<PricerRegistry>> = OnceLock::new();
 
+/// Return the shared standard pricer registry by reference.
+///
+/// This is the primary public entry point for accessing the built-in pricer set.
+/// Callers that need to mutate a registry should start from `standard_registry().clone()`.
+pub fn standard_registry() -> &'static PricerRegistry {
+    STANDARD_PRICER_REGISTRY
+        .get_or_init(|| Arc::new(build_standard_registry()))
+        .as_ref()
+}
+
 /// Return the shared standard pricer registry.
 ///
 /// The registry is initialized once and then cloned via `Arc` for cheap reuse
 /// across instrument-side pricing calls.
 pub fn shared_standard_registry() -> Arc<PricerRegistry> {
     STANDARD_PRICER_REGISTRY
-        .get_or_init(|| Arc::new(create_standard_registry()))
+        .get_or_init(|| Arc::new(build_standard_registry()))
         .clone()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::results::ValuationResult;
+    use finstack_core::currency::Currency;
+    use finstack_core::money::Money;
+    use std::ptr;
+
+    struct DummyPricer;
+
+    impl Pricer for DummyPricer {
+        fn key(&self) -> PricerKey {
+            PricerKey::new(InstrumentType::Deposit, ModelKey::Tree)
+        }
+
+        fn price_dyn(
+            &self,
+            _instrument: &dyn crate::instruments::internal::InstrumentExt,
+            _market: &finstack_core::market_data::MarketContext,
+            as_of: finstack_core::dates::Date,
+        ) -> PricingResult<ValuationResult> {
+            Ok(ValuationResult::stamped(
+                "dummy",
+                as_of,
+                Money::new(0.0, Currency::USD),
+            ))
+        }
+    }
+
+    #[test]
+    fn standard_registry_returns_shared_singleton() {
+        assert!(ptr::eq(standard_registry(), standard_registry()));
+        assert!(ptr::eq(
+            standard_registry(),
+            shared_standard_registry().as_ref(),
+        ));
+    }
+
+    #[test]
+    fn cloned_standard_registry_is_independently_mutable() {
+        let key = PricerKey::new(InstrumentType::Deposit, ModelKey::Tree);
+        assert!(standard_registry().get_pricer(key).is_none());
+
+        let mut cloned = standard_registry().clone();
+        cloned.register_pricer(key, Arc::new(DummyPricer));
+
+        assert!(cloned.get_pricer(key).is_some());
+        assert!(standard_registry().get_pricer(key).is_none());
+    }
 }

@@ -16,9 +16,9 @@ finstack guarantees **bit-for-bit reproducible results**:
 
 .. code-block:: python
 
-   from finstack.valuations.pricer import create_standard_registry
+   from finstack.valuations.pricer import standard_registry
 
-   registry = create_standard_registry()
+   registry = standard_registry()
 
    # Same instrument, market, config → always same result
    result1 = registry.price(bond, "discounting", market)
@@ -158,9 +158,9 @@ The **PricerRegistry** maps (InstrumentType, ModelKey) → pricer:
 .. code-block:: python
 
    from finstack.valuations.common import ModelKey
-   from finstack.valuations.pricer import create_standard_registry
+   from finstack.valuations.pricer import standard_registry
 
-   registry = create_standard_registry()
+   registry = standard_registry()
 
    # Analytical pricing (default)
    result_analytical = registry.price_barrier_option(

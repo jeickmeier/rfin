@@ -4,6 +4,7 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::attribution::{attribute_pnl_parallel, AttributionMethod, PnlAttribution};
 use crate::common::test_utils::TestInstrument;
 use std::sync::Arc;
@@ -14,7 +15,7 @@ fn parallel_stamps_configured_rounding_context() {
     let as_of_t0 = date!(2025 - 01 - 01);
     let as_of_t1 = date!(2025 - 01 - 02);
 
-    let instrument: Arc<dyn finstack_valuations::instruments::Instrument> =
+    let instrument: Arc<dyn Instrument> =
         Arc::new(TestInstrument::new("TEST-ROUND", Money::new(1_000.0, Currency::USD)));
     let market_t0 = MarketContext::new();
     let market_t1 = MarketContext::new();

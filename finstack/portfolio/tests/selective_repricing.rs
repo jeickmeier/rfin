@@ -13,6 +13,7 @@ use finstack_portfolio::dependencies::MarketFactorKey;
 use finstack_portfolio::valuation::{revalue_affected, value_portfolio, PortfolioValuationOptions};
 use finstack_portfolio::{Entity, Portfolio, PortfolioBuilder, Position, PositionUnit};
 use finstack_valuations::instruments::common::traits::RatesCurveKind;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::deposit::Deposit;
 use std::sync::Arc;
 
@@ -367,7 +368,7 @@ impl UnresolvableInstrument {
     }
 }
 
-impl finstack_valuations::instruments::Instrument for UnresolvableInstrument {
+impl Instrument for UnresolvableInstrument {
     fn id(&self) -> &str {
         "UNRESOLVABLE"
     }
@@ -388,7 +389,7 @@ impl finstack_valuations::instruments::Instrument for UnresolvableInstrument {
     ) -> &mut finstack_valuations::instruments::common::traits::Attributes {
         &mut self.attributes
     }
-    fn clone_box(&self) -> Box<dyn finstack_valuations::instruments::Instrument> {
+    fn clone_box(&self) -> Box<dyn Instrument> {
         Box::new(self.clone())
     }
     fn value(

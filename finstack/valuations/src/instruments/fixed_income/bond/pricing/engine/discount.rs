@@ -40,7 +40,7 @@ use super::super::super::types::Bond;
 ///
 /// ```rust,ignore
 /// use finstack_valuations::instruments::Bond;
-/// use finstack_valuations::instruments::common::traits::Instrument;
+/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 /// use finstack_core::market_data::context::MarketContext;
 /// use time::macros::date;
 ///

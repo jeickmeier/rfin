@@ -259,7 +259,7 @@ def create_simple_pricer_registry() -> "finstack.valuations.pricer.PricerRegistr
     import finstack
 
     # Use the standard registry
-    return finstack.valuations.pricer.create_standard_registry()
+    return finstack.valuations.pricer.standard_registry()
 
 
 # Collect all examples
@@ -325,7 +325,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 namespace["aggregate_metrics"] = finstack.portfolio.metrics.aggregate_metrics
                 namespace["PortfolioMetrics"] = finstack.portfolio.metrics.PortfolioMetrics
                 namespace["PricerRegistry"] = finstack.valuations.pricer.PricerRegistry
-                namespace["create_standard_registry"] = finstack.valuations.pricer.create_standard_registry
+                namespace["standard_registry"] = finstack.valuations.pricer.standard_registry
                 namespace["ValuationResult"] = finstack.valuations.results.ValuationResult
                 namespace["ResultsMeta"] = finstack.valuations.results.ResultsMeta
                 namespace["CovenantReport"] = finstack.valuations.results.CovenantReport
@@ -416,7 +416,7 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 # Instrument imports (commonly used)
                 namespace["Deposit"] = finstack.valuations.instruments.Deposit
                 # Market context and registry (commonly used)
-                namespace["create_standard_registry"] = finstack.valuations.pricer.create_standard_registry
+                namespace["standard_registry"] = finstack.valuations.pricer.standard_registry
                 # InstrumentType for metric examples
                 namespace["InstrumentType"] = finstack.valuations.common.InstrumentType
             except (AttributeError, ImportError):

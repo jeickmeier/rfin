@@ -49,7 +49,7 @@
 use super::common::*;
 use crate::finstack_test_utils as test_utils;
 use finstack_core::currency::Currency;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::MetricId;
 use rust_decimal::prelude::ToPrimitive;
 use time::macros::date;

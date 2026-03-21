@@ -7,7 +7,7 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::valuations::instruments::{extract_instrument, JsBond};
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::metrics::risk::{
     calculate_var_with_pricing, MarketHistory, MarketScenario, RiskFactorShift, RiskFactorType,
     VarConfig, VarMethod, VarResult,

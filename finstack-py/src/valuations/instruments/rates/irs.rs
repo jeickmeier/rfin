@@ -460,7 +460,19 @@ impl PyInterestRateSwapBuilder {
     }
 
     #[pyo3(text_signature = "($self, curve_id)")]
+    fn disc_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.discount_curve = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
     fn forward_curve(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
+        slf.forward_curve = Some(CurveId::new(curve_id.as_str()));
+        slf
+    }
+
+    #[pyo3(text_signature = "($self, curve_id)")]
+    fn fwd_id(mut slf: PyRefMut<'_, Self>, curve_id: String) -> PyRefMut<'_, Self> {
         slf.forward_curve = Some(CurveId::new(curve_id.as_str()));
         slf
     }

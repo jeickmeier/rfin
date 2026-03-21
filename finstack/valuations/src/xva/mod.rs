@@ -13,7 +13,7 @@ pub mod exposure {
 
     use std::sync::Arc;
 
-    use crate::instruments::common::traits::Instrument;
+    use crate::instruments::DynInstrument;
     use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use finstack_margin::xva::types::{ExposureProfile, NettingSet, XvaConfig};
@@ -23,7 +23,7 @@ pub mod exposure {
     /// Preserve the historical valuations-side exposure API while the
     /// standalone margin crate transitions callers onto `Valuable`.
     pub fn compute_exposure_profile(
-        instruments: &[Arc<dyn Instrument>],
+        instruments: &[Arc<DynInstrument>],
         market: &MarketContext,
         as_of: Date,
         config: &XvaConfig,

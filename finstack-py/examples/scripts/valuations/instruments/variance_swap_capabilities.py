@@ -11,7 +11,7 @@ from finstack.core.market_data.scalars import MarketScalar, ScalarTimeSeries, Se
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import VarianceSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -64,7 +64,7 @@ def build_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 7, 1)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     variance_swap = (
         VarianceSwap.builder("SPX-VAR-SWAP")

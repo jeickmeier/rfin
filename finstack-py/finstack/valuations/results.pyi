@@ -149,9 +149,9 @@ class ResultsMeta:
         >>> from finstack.core.market_data.term_structures import DiscountCurve
         >>> from finstack.core.money import Money
         >>> from finstack.valuations.instruments import Bond
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> def _meta_example():
-        ...     registry = create_standard_registry()
+        ...     registry = standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (5.0, 0.95)]))
         ...     bond = (
@@ -269,9 +269,9 @@ class ValuationResult:
         >>> from finstack.core.money import Money
         >>> from finstack.core.market_data.context import MarketContext
         >>> from finstack.core.market_data.term_structures import DiscountCurve
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> from finstack.valuations.instruments import Bond
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> market_ctx = MarketContext()
         >>> market_ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> bond = (
@@ -295,9 +295,9 @@ class ValuationResult:
         >>> from finstack.core.money import Money
         >>> from finstack.core.market_data.context import MarketContext
         >>> from finstack.core.market_data.term_structures import DiscountCurve
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> from finstack.valuations.instruments import Bond
-        >>> registry = create_standard_registry()
+        >>> registry = standard_registry()
         >>> market_ctx = MarketContext()
         >>> market_ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         >>> bond = (
@@ -321,10 +321,10 @@ class ValuationResult:
         >>> from finstack.core.money import Money
         >>> from finstack.core.market_data.context import MarketContext
         >>> from finstack.core.market_data.term_structures import DiscountCurve
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> from finstack.valuations.instruments import Bond
         >>> def _example_result():
-        ...     registry = create_standard_registry()
+        ...     registry = standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
@@ -349,10 +349,10 @@ class ValuationResult:
         >>> from finstack.core.money import Money
         >>> from finstack.core.market_data.context import MarketContext
         >>> from finstack.core.market_data.term_structures import DiscountCurve
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> from finstack.valuations.instruments import Bond
         >>> def _example_result():
-        ...     registry = create_standard_registry()
+        ...     registry = standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
@@ -379,10 +379,10 @@ class ValuationResult:
         >>> from finstack.core.money import Money
         >>> from finstack.core.market_data.context import MarketContext
         >>> from finstack.core.market_data.term_structures import DiscountCurve
-        >>> from finstack.valuations.pricer import create_standard_registry
+        >>> from finstack.valuations.pricer import standard_registry
         >>> from finstack.valuations.instruments import Bond
         >>> def _example_result():
-        ...     registry = create_standard_registry()
+        ...     registry = standard_registry()
         ...     ctx = MarketContext()
         ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
         ...     bond = (
@@ -433,10 +433,10 @@ class ValuationResult:
             >>> from finstack.core.money import Money
             >>> from finstack.core.market_data.context import MarketContext
             >>> from finstack.core.market_data.term_structures import DiscountCurve
-            >>> from finstack.valuations.pricer import create_standard_registry
+            >>> from finstack.valuations.pricer import standard_registry
             >>> from finstack.valuations.instruments import Bond
             >>> def _example_result():
-            ...     registry = create_standard_registry()
+            ...     registry = standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
@@ -473,10 +473,10 @@ class ValuationResult:
             >>> from finstack.core.money import Money
             >>> from finstack.core.market_data.context import MarketContext
             >>> from finstack.core.market_data.term_structures import DiscountCurve
-            >>> from finstack.valuations.pricer import create_standard_registry
+            >>> from finstack.valuations.pricer import standard_registry
             >>> from finstack.valuations.instruments import Bond
             >>> def _example_result():
-            ...     registry = create_standard_registry()
+            ...     registry = standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
@@ -515,10 +515,10 @@ class ValuationResult:
             >>> from finstack.core.money import Money
             >>> from finstack.core.market_data.context import MarketContext
             >>> from finstack.core.market_data.term_structures import DiscountCurve
-            >>> from finstack.valuations.pricer import create_standard_registry
+            >>> from finstack.valuations.pricer import standard_registry
             >>> from finstack.valuations.instruments import Bond
             >>> def _example_result():
-            ...     registry = create_standard_registry()
+            ...     registry = standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (
@@ -576,10 +576,10 @@ class ValuationResult:
             >>> from finstack.core.money import Money
             >>> from finstack.core.market_data.context import MarketContext
             >>> from finstack.core.market_data.term_structures import DiscountCurve
-            >>> from finstack.valuations.pricer import create_standard_registry
+            >>> from finstack.valuations.pricer import standard_registry
             >>> from finstack.valuations.instruments import Bond
             >>> def _metrics_result():
-            ...     registry = create_standard_registry()
+            ...     registry = standard_registry()
             ...     ctx = MarketContext()
             ...     ctx.insert(DiscountCurve("USD", date(2024, 1, 1), [(0.0, 1.0), (1.0, 0.99)]))
             ...     bond = (

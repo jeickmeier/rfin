@@ -25,6 +25,7 @@ use finstack_valuations::attribution::{
     ScalarsSnapshot, TaylorAttributionConfig, TaylorAttributionResult, TaylorFactorResult,
     VolAttribution, VolatilitySnapshot,
 };
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use indexmap::IndexMap;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyString, PyType};
@@ -1360,7 +1361,7 @@ pub fn attribute_pnl(
 
     // Extract instrument using existing pattern
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
+    let instrument_arc: Arc<dyn Instrument> = handle.instrument;
 
     // Get attribution method (default to Parallel)
     let method_inner = method
@@ -1458,7 +1459,7 @@ pub fn attribute_pnl_taylor_py(
     let date_t0 = py_to_date(&as_of_t0)?;
     let date_t1 = py_to_date(&as_of_t1)?;
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
+    let instrument_arc: Arc<dyn Instrument> = handle.instrument;
     let taylor_config = config.map(|value| value.inner.clone()).unwrap_or_default();
     let result = py.detach(|| {
         attribute_pnl_taylor(
@@ -1483,7 +1484,7 @@ fn reprice_instrument_py(
 ) -> PyResult<crate::core::money::PyMoney> {
     let date = py_to_date(&as_of)?;
     let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
-    let instrument_arc: Arc<dyn finstack_valuations::instruments::Instrument> = handle.instrument;
+    let instrument_arc: Arc<dyn Instrument> = handle.instrument;
     let value = reprice_instrument(&instrument_arc, &market.inner, date).map_err(core_to_py)?;
     Ok(crate::core::money::PyMoney { inner: value })
 }

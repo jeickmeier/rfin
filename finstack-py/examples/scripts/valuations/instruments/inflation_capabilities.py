@@ -7,7 +7,7 @@ from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, InflationCurve
 from finstack.valuations.instruments import InflationLinkedBond, InflationSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -48,7 +48,7 @@ def build_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     ilb = (
         InflationLinkedBond.builder("US-TIPS-2033")

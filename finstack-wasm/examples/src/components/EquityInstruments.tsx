@@ -10,7 +10,7 @@ import {
   Money,
   PricingRequest,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { EquityInstrumentsProps, DEFAULT_EQUITY_PROPS } from './data/equity';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -98,7 +98,7 @@ export const EquityInstrumentsExample: React.FC<EquityInstrumentsProps> = (props
           market.insertPrice('EQUITY-DIVYIELD', MarketScalar.unitless(data.dividendYield));
         }
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const pos of positions) {

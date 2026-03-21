@@ -31,7 +31,7 @@ from finstack.core.market_data.term_structures import DiscountCurve, HazardCurve
 from finstack.core.money import Money
 from finstack.portfolio import Entity, PortfolioBuilder, Position, PositionUnit
 from finstack.valuations.instruments import Bond, CreditDefaultSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 
 def create_market_data():
@@ -123,7 +123,7 @@ def create_diversified_portfolio():
 
 def compute_risk_metrics(portfolio, instruments_by_position_id, market, *, as_of: date):
     """Compute risk metrics for each instrument."""
-    registry = create_standard_registry()
+    registry = standard_registry()
     risk_data = []
 
     for pos_id, instrument in instruments_by_position_id.items():

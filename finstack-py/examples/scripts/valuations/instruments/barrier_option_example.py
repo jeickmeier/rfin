@@ -11,7 +11,7 @@ from finstack.core.market_data.scalars import MarketScalar
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import BarrierOption, BarrierType
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -70,7 +70,7 @@ def example_up_and_out_call():
 
     # Price the option
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
@@ -99,7 +99,7 @@ def example_down_and_in_put():
 
     # Price the option
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
@@ -128,7 +128,7 @@ def example_down_and_out_put():
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
@@ -157,7 +157,7 @@ def example_up_and_in_call():
     # Price the option
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result

@@ -7,7 +7,7 @@ import {
   InflationSwap,
   MarketContext,
   Money,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { InflationInstrumentsProps, DEFAULT_INFLATION_PROPS } from './data/inflation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -84,7 +84,7 @@ export const InflationInstrumentsExample: React.FC<InflationInstrumentsProps> = 
         market.insertDiscount(curve);
         market.insertInflation(infCurve);
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const bond of bonds) {

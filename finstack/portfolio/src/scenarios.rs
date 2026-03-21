@@ -17,7 +17,7 @@ use finstack_scenarios::spec::ScenarioSpec;
 #[cfg(feature = "scenarios")]
 use finstack_statements::types::FinancialModelSpec;
 #[cfg(feature = "scenarios")]
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::DynInstrument;
 #[cfg(feature = "scenarios")]
 use std::sync::Arc;
 
@@ -71,7 +71,7 @@ pub fn apply_scenario(
     let mut portfolio_copy = portfolio.clone();
 
     // Extract instruments into a mutable vector
-    let mut instruments: Vec<Box<dyn Instrument>> = portfolio_copy
+    let mut instruments: Vec<Box<DynInstrument>> = portfolio_copy
         .positions
         .iter()
         .map(|pos| {

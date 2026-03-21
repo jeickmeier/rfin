@@ -2,7 +2,7 @@
  * CDS Tranche instrument component with interactive form.
  */
 import React, { useEffect, useState, useCallback } from 'react';
-import { CdsTranche, FsDate, MarketContext, Money, createStandardRegistry } from 'finstack-wasm';
+import { CdsTranche, FsDate, MarketContext, Money, standardRegistry } from 'finstack-wasm';
 import type { CdsTrancheData } from '../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
 
@@ -47,7 +47,7 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
 
   const calculateTranche = useCallback(() => {
     try {
-      const registry = createStandardRegistry();
+      const registry = standardRegistry();
       const notional = Money.fromCode(formState.notional, formState.currency);
       const maturityDate = new FsDate(asOf.year + 5, asOf.month, asOf.day);
 
@@ -96,7 +96,7 @@ export const CDSTrancheInstrument: React.FC<CDSTrancheInstrumentProps> = ({
 
     (async () => {
       try {
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const trancheData of cdsTranches) {

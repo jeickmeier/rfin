@@ -210,10 +210,10 @@ bond = Bond.fixed_semiannual(
 ### 3. **Pricing and Metrics**
 
 ```python
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 # Create pricer registry
-registry = create_standard_registry()
+registry = standard_registry()
 
 # Price with metrics
 result = registry.price_with_metrics(

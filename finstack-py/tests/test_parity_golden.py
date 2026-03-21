@@ -173,7 +173,7 @@ def test_bond_pricing_treasury() -> None:
     from finstack.core.dates.schedule import Frequency
     from finstack.core.market_data import MarketContext
     from finstack.valuations.instruments import Bond
-    from finstack.valuations.pricer import create_standard_registry
+    from finstack.valuations.pricer import standard_registry
 
     test_case = GOLDEN_VALUES["test_cases"]["bond_pricing_treasury"]
     inputs = test_case["inputs"]
@@ -203,7 +203,7 @@ def test_bond_pricing_treasury() -> None:
         )
     )
 
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(bond, "discounting", market, date.fromisoformat(inputs["as_of"]))
 
     assert result.value.amount == pytest.approx(expected["pv"], abs=expected["tolerance"])
@@ -217,7 +217,7 @@ def test_irs_valuation() -> None:
     from finstack.core.market_data import MarketContext
     from finstack.core.market_data.term_structures import ForwardCurve
     from finstack.valuations.instruments import InterestRateSwap
-    from finstack.valuations.pricer import create_standard_registry
+    from finstack.valuations.pricer import standard_registry
 
     test_case = GOLDEN_VALUES["test_cases"]["irs_valuation"]
     inputs = test_case["inputs"]
@@ -256,7 +256,7 @@ def test_irs_valuation() -> None:
         )
     )
 
-    registry = create_standard_registry()
+    registry = standard_registry()
     result = registry.get_price(irs, "discounting", market, as_of)
 
     assert result.value.amount == pytest.approx(expected["pv"], abs=expected["tolerance"])

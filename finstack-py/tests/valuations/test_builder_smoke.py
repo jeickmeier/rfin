@@ -18,12 +18,14 @@ from finstack.valuations.instruments import (
     ConversionSpec,
     ConvertibleBond,
     DollarRoll,
+    Deposit,
     EquityTotalReturnSwap,
     EquityUnderlying,
     FiIndexTotalReturnSwap,
     FxOption,
     FxSpot,
     FxSwap,
+    InterestRateSwap,
     IndexUnderlying,
     InflationLinkedBond,
     InflationSwap,
@@ -33,6 +35,7 @@ from finstack.valuations.instruments import (
     TrsScheduleSpec,
     TrsSide,
 )
+from finstack.core.dates.schedule import Frequency
 
 from finstack import Money
 
@@ -125,6 +128,52 @@ def test_inflation_builders_smoke() -> None:
     )
     assert zciis.instrument_id == "ZCIIS-5Y"
     assert zciis.fixed_rate == 0.025
+
+
+def test_builder_aliases_remain_available() -> None:
+    """Legacy builder aliases should remain available for compatibility."""
+    deposit = (
+        Deposit
+        .builder("DEP-ALIAS")
+        .notional(1_000_000.0)
+        .currency("USD")
+        .start(dt.date(2024, 1, 1))
+        .maturity(dt.date(2024, 4, 1))
+        .day_count(DayCount.ACT_360)
+        .disc_id("USD-OIS")
+        .quote_rate(0.045)
+        .build()
+    )
+    assert deposit.discount_curve == "USD-OIS"
+
+    irs = (
+        InterestRateSwap
+        .builder("IRS-ALIAS")
+        .notional(10_000_000.0)
+        .currency("USD")
+        .fixed_rate(0.05)
+        .frequency(Frequency.SEMI_ANNUAL)
+        .maturity(dt.date(2029, 1, 1))
+        .disc_id("USD-OIS")
+        .fwd_id("USD-SOFR")
+        .build()
+    )
+    assert irs.discount_curve == "USD-OIS"
+    assert irs.forward_curve == "USD-SOFR"
+
+    zciis = (
+        InflationSwap
+        .builder("ZCIIS-ALIAS")
+        .notional(Money(10_000_000, USD))
+        .fixed_rate(0.025)
+        .start_date(dt.date(2024, 1, 1))
+        .maturity(dt.date(2029, 1, 1))
+        .discount_curve("USD-OIS")
+        .inflation_curve("US-CPI")
+        .side("pay_fixed")
+        .build()
+    )
+    assert zciis.instrument_id == "ZCIIS-ALIAS"
 
 
 def test_trs_builders_smoke() -> None:

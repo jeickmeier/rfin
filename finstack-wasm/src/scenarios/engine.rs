@@ -11,7 +11,7 @@ use finstack_scenarios::engine::ScenarioEngine;
 use finstack_scenarios::spec::RateBindingSpec;
 use finstack_scenarios::ExecutionContext;
 use finstack_scenarios::NodeId;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use indexmap::IndexMap;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;

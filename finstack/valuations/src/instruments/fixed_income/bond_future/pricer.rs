@@ -945,7 +945,7 @@ mod tests {
     #[test]
     fn test_pricer_registration() {
         // Test that BondFuturePricer is registered in the standard registry
-        let registry = crate::pricer::create_standard_registry();
+        let registry = crate::pricer::standard_registry();
         let key = crate::pricer::PricerKey::new(
             crate::pricer::InstrumentType::BondFuture,
             crate::pricer::ModelKey::Discounting,

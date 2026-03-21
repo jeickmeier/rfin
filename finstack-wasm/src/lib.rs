@@ -21,10 +21,10 @@
 //!
 //! @example
 //! ```javascript
-//! import init, { createStandardRegistry, MarketContext, FsDate } from "finstack-wasm";
+//! import init, { standardRegistry, MarketContext, FsDate } from "finstack-wasm";
 //!
 //! await init();
-//! const registry = createStandardRegistry();
+//! const registry = standardRegistry();
 //! const market = new MarketContext();
 //! const asOf = new FsDate(2024, 1, 2);
 //! // ... build curves and instruments, then price ...
@@ -198,8 +198,8 @@ pub use valuations::performance::{
 pub use valuations::pricer::{
     create_credit_registry_js as createCreditRegistry,
     create_equity_registry_js as createEquityRegistry, create_fx_registry_js as createFxRegistry,
-    create_rates_registry_js as createRatesRegistry,
-    create_standard_registry_js as createStandardRegistry, JsPricerRegistry as PricerRegistry,
+    create_rates_registry_js as createRatesRegistry, standard_registry_js as standardRegistry,
+    JsPricerRegistry as PricerRegistry,
 };
 pub use valuations::results::JsValuationResult as ValuationResult;
 // Note: ResultsMeta already exported from statements evaluator

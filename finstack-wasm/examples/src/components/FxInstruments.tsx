@@ -11,7 +11,7 @@ import {
   Money,
   PricingRequest,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { FxInstrumentsProps, DEFAULT_FX_PROPS } from './data/fx';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -99,7 +99,7 @@ export const FxInstrumentsExample: React.FC<FxInstrumentsProps> = (props) => {
         );
         market.insertSurface(fxVol);
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const spot of spots) {

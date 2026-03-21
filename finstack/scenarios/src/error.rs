@@ -232,3 +232,25 @@ impl Error {
         Self::InstrumentNotFound(instrument.into())
     }
 }
+
+impl From<Error> for finstack_core::Error {
+    fn from(err: Error) -> Self {
+        match err {
+            Error::Core(core) => core,
+            Error::Statements(statements) => statements.into(),
+            Error::Internal(message) => finstack_core::Error::Internal(message),
+            other => finstack_core::Error::Validation(other.to_string()),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Error;
+
+    #[test]
+    fn converts_scenarios_errors_to_core_error() {
+        let core: finstack_core::Error = Error::invalid_period("1X").into();
+        assert!(matches!(core, finstack_core::Error::Validation(_)));
+    }
+}

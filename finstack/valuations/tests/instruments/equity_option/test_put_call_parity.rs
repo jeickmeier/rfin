@@ -24,7 +24,7 @@
 //! - Long-dated (2Y+): Looser tolerance due to accumulated numerical drift
 
 use super::helpers::*;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use time::macros::date;
 
 /// Tolerance for put-call parity tests.

@@ -8,7 +8,7 @@ import {
   MarketContext,
   Money,
   PricingRequest,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import type { CdsIndexInstrumentData } from '../../data/credit';
 import { currencyFormatter, type InstrumentRow } from './useCreditMarket';
@@ -76,7 +76,7 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
 
   const calculateIndex = useCallback(() => {
     try {
-      const registry = createStandardRegistry();
+      const registry = standardRegistry();
       const notional = Money.fromCode(formState.notional, formState.currency);
 
       const effectiveDate = asOf;
@@ -138,7 +138,7 @@ export const CDSIndexInstrument: React.FC<CDSIndexInstrumentProps> = ({
 
     (async () => {
       try {
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         for (const indexInstrData of cdsIndices) {

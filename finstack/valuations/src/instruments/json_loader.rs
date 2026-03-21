@@ -314,7 +314,7 @@ impl InstrumentJson {
     /// # Errors
     ///
     /// Returns an error if spec validation fails during conversion.
-    pub fn into_boxed(self) -> Result<Box<dyn Instrument>> {
+    pub fn into_boxed(self) -> Result<Box<DynInstrument>> {
         with_instrument_json_registry!(instrument_json_into_boxed_match, self)
     }
 }
@@ -558,7 +558,7 @@ impl InstrumentEnvelope {
     /// - Required fields are missing
     /// - Unknown fields are present (strict mode)
     /// - Spec validation fails
-    pub fn from_reader<R: Read>(reader: R) -> Result<Box<dyn Instrument>> {
+    pub fn from_reader<R: Read>(reader: R) -> Result<Box<DynInstrument>> {
         let envelope: Self =
             serde_json::from_reader(reader).map_err(|_| finstack_core::InputError::Invalid)?;
 
@@ -578,7 +578,7 @@ impl InstrumentEnvelope {
     ///
     /// Convenience wrapper around `from_reader`.
     #[allow(clippy::should_implement_trait)]
-    pub fn from_str(s: &str) -> Result<Box<dyn Instrument>> {
+    pub fn from_str(s: &str) -> Result<Box<DynInstrument>> {
         Self::from_reader(s.as_bytes())
     }
 
@@ -591,7 +591,7 @@ impl InstrumentEnvelope {
     /// # Returns
     ///
     /// A boxed instrument trait object ready for pricing.
-    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Box<dyn Instrument>> {
+    pub fn from_path(path: impl AsRef<std::path::Path>) -> Result<Box<DynInstrument>> {
         let file =
             std::fs::File::open(path.as_ref()).map_err(|_| finstack_core::InputError::Invalid)?;
         Self::from_reader(file)

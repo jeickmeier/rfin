@@ -10,7 +10,7 @@ import json
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import StructuredCredit
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 CURRENCY = "USD"
 
@@ -330,7 +330,7 @@ def build_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     deals = {
         "ABS": StructuredCredit.from_json(json.dumps(build_abs_payload())),

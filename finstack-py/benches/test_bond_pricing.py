@@ -13,7 +13,7 @@ import pytest
 from pytest_benchmark.fixture import BenchmarkFixture
 
 from finstack import Money
-from finstack.valuations import create_standard_registry
+from finstack.valuations import standard_registry
 
 
 def create_market_data() -> MarketContext:
@@ -77,7 +77,7 @@ class TestBondPricingBenchmarks:
         """Benchmark (slow path): Price 1000 bonds sequentially (Python loop)."""
         market = create_market_data()
         bonds = create_bond_portfolio(1000)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         def price_all_bonds() -> list[float]:
             results = []
@@ -98,7 +98,7 @@ class TestBondPricingBenchmarks:
         """Benchmark (fast path): Price 1000 bonds via a single batch call."""
         market = create_market_data()
         bonds = create_bond_portfolio(1000)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         def price_batch() -> list[float]:
             results = registry.price_batch(bonds, "discounting", market)
@@ -112,7 +112,7 @@ class TestBondPricingBenchmarks:
         """Benchmark: Price 100 bonds with full metrics (slower but more realistic)."""
         market = create_market_data()
         bonds = create_bond_portfolio(100)
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Request common metrics
         metrics = ["clean_price", "accrued", "duration_mod", "dv01", "theta"]
@@ -176,7 +176,7 @@ class TestBondPricingBenchmarks:
             maturity_date,
             "USD.OIS",
         )
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         def price_bond() -> float:
             result = registry.price(bond, "discounting", market)

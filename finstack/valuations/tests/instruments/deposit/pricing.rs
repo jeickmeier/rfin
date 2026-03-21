@@ -7,7 +7,7 @@ use super::common::*;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 
 #[test]
 fn test_zero_rate_deposit_negative_pv() {

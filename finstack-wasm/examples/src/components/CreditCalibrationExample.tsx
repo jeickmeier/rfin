@@ -13,7 +13,7 @@ import {
   MarketContext,
   Money,
   PricingRequest,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -49,7 +49,7 @@ export const CreditCalibrationExample: React.FC = () => {
 
     // Price sample CDS instruments using the calibrated market
     try {
-      const registry = createStandardRegistry();
+      const registry = standardRegistry();
       const results: PricingResult[] = [];
 
       // Price 3Y, 5Y, 7Y CDS

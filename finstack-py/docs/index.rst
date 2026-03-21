@@ -90,9 +90,9 @@ Quick Example
    market.insert(curve)
 
    # Price the bond
-   from finstack.valuations.pricer import create_standard_registry
+   from finstack.valuations.pricer import standard_registry
 
-   registry = create_standard_registry()
+   registry = standard_registry()
    result = registry.price_with_metrics(
        bond,
        "discounting",

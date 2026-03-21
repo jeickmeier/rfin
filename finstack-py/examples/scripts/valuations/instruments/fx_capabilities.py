@@ -9,7 +9,7 @@ from finstack.core.market_data.fx import FxMatrix
 from finstack.core.market_data.surfaces import VolSurface
 from finstack.core.market_data.term_structures import DiscountCurve
 from finstack.valuations.instruments import FxOption, FxSpot, FxSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -82,7 +82,7 @@ def build_fx_market(as_of: date) -> MarketContext:
 def main() -> None:
     as_of = date(2024, 1, 2)
     market = build_fx_market(as_of)
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     # FX spot trade settling T+2 with explicit notional
     spot = (

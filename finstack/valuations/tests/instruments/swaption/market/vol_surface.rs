@@ -1,7 +1,7 @@
 //! Volatility surface tests
 
 use crate::swaption::common::*;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 
 #[test]
 fn test_flat_surface_pricing_consistency() {

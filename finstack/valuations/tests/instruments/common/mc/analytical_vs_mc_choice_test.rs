@@ -9,7 +9,7 @@ mod choice_tests {
     use finstack_valuations::instruments::exotics::asian_option::{AsianOption, AveragingMethod};
     use finstack_valuations::instruments::OptionType;
     use finstack_valuations::pricer::{
-        create_standard_registry, InstrumentType, ModelKey, PricerKey,
+        standard_registry, InstrumentType, ModelKey, PricerKey,
     };
 
     #[test]
@@ -48,7 +48,7 @@ mod choice_tests {
 
     #[test]
     fn test_can_choose_analytical_or_mc_via_registry() {
-        let registry = create_standard_registry();
+        let registry = standard_registry();
 
         // Users can get different pricers for the same instrument type
 
@@ -80,7 +80,7 @@ mod choice_tests {
 
     #[test]
     fn test_all_instruments_have_both_analytical_and_mc() {
-        let registry = create_standard_registry();
+        let registry = standard_registry();
 
         // Asian: 2 analytical + 1 MC
         assert!(registry

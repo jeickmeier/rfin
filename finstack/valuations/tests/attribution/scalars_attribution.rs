@@ -9,7 +9,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_valuations::instruments::equity::spot::Equity;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 
 #[test]
 fn test_scalars_snapshot_extraction() {

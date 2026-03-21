@@ -16,6 +16,7 @@ use finstack_core::market_data::hierarchy::{
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_statements::NodeId;
+use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
 
 fn rounding_stamp() -> Option<String> {
@@ -71,7 +72,7 @@ pub struct ExecutionContext<'a> {
     pub model: &'a mut finstack_statements::FinancialModelSpec,
 
     /// Optional vector of instruments for price/spread shocks and carry calculations.
-    pub instruments: Option<&'a mut Vec<Box<dyn finstack_valuations::instruments::Instrument>>>,
+    pub instruments: Option<&'a mut Vec<Box<DynInstrument>>>,
 
     /// Optional mapping from statement node IDs to binding specs for automatic rate updates.
     pub rate_bindings: Option<IndexMap<NodeId, RateBindingSpec>>,
@@ -782,14 +783,14 @@ impl ScenarioEngine {
 
 /// Function that applies an instrument shock filtered by instrument type.
 type TypeShockFn = fn(
-    &mut [Box<dyn finstack_valuations::instruments::Instrument>],
+    &mut [Box<DynInstrument>],
     &[finstack_valuations::pricer::InstrumentType],
     f64,
 ) -> crate::error::Result<usize>;
 
 /// Function that applies an instrument shock filtered by attributes.
 type AttrShockFn = fn(
-    &mut [Box<dyn finstack_valuations::instruments::Instrument>],
+    &mut [Box<DynInstrument>],
     &indexmap::IndexMap<String, String>,
     f64,
 ) -> crate::error::Result<(usize, Vec<String>)>;
@@ -800,7 +801,7 @@ fn apply_instrument_shock(
     attrs: Option<&indexmap::IndexMap<String, String>>,
     value: f64,
     kind: &str,
-    instruments: &mut Option<&mut Vec<Box<dyn finstack_valuations::instruments::Instrument>>>,
+    instruments: &mut Option<&mut Vec<Box<DynInstrument>>>,
     type_fn: TypeShockFn,
     attr_fn: AttrShockFn,
 ) -> (usize, Vec<String>) {

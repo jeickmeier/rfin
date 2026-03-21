@@ -8,7 +8,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::variance_swap::{
     PayReceive, RealizedVarMethod, VarianceSwap,
 };
-use finstack_valuations::instruments::{Attributes, Instrument};
+use finstack_valuations::instruments::{internal::InstrumentExt as Instrument, Attributes};
 
 #[test]
 fn test_builder_creates_valid_swap_with_all_required_fields() {

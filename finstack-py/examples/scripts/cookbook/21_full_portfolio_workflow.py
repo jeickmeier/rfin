@@ -39,7 +39,7 @@ from finstack.portfolio import optimize_max_yield_with_ccc_limit
 from finstack.scenarios import CurveKind, ExecutionContext, OperationSpec, ScenarioEngine, ScenarioSpec
 from finstack.statements.types import FinancialModelSpec
 from finstack.valuations.instruments import Bond, CreditDefaultSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 
 def step1_build_market_data(as_of: date) -> MarketContext:

@@ -78,7 +78,7 @@ use rates::repo::PyRepo;
 use rates::swaption::{PyBermudanSwaption, PySwaption};
 use rates::xccy_swap::PyCrossCurrencySwap;
 
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::pricer::InstrumentType;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;

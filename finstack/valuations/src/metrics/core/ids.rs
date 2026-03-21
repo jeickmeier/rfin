@@ -1043,10 +1043,10 @@ impl MetricId {
     pub const ThetaGamma: Self = Self(Cow::Borrowed("theta_gamma"));
 
     /// Historical Value-at-Risk (95% confidence by default)
-    pub const HVAR: Self = Self(Cow::Borrowed("hvar"));
+    pub const HVar: Self = Self(Cow::Borrowed("hvar"));
 
     /// Expected Shortfall / Conditional VaR (CVaR)
-    pub const EXPECTED_SHORTFALL: Self = Self(Cow::Borrowed("expected_shortfall"));
+    pub const ExpectedShortfall: Self = Self(Cow::Borrowed("expected_shortfall"));
 
     // ========================================================================
     // Dollar Roll / TBA Carry Metrics
@@ -1265,8 +1265,8 @@ impl MetricId {
         MetricId::EquityValue,
         MetricId::TerminalValuePV,
         MetricId::ThetaGamma,
-        MetricId::HVAR,
-        MetricId::EXPECTED_SHORTFALL,
+        MetricId::HVar,
+        MetricId::ExpectedShortfall,
         MetricId::ImpliedFinancingRate,
         MetricId::RollSpecialness,
     ];

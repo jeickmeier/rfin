@@ -1,9 +1,9 @@
 //! Builders for FX instruments from market quotes.
 
-use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fx::fx_forward::FxForward;
 use crate::instruments::fx::fx_option::FxOption;
 use crate::instruments::fx::fx_swap::FxSwap;
+use crate::instruments::DynInstrument;
 use crate::market::conventions::registry::ConventionRegistry;
 use crate::market::quotes::fx::FxQuote;
 use crate::market::quotes::ids::Pillar;
@@ -14,7 +14,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
 /// Build an FX instrument from an [`FxQuote`].
-pub fn build_fx_instrument(quote: &FxQuote, ctx: &BuildCtx) -> Result<Box<dyn Instrument>> {
+pub fn build_fx_instrument(quote: &FxQuote, ctx: &BuildCtx) -> Result<Box<DynInstrument>> {
     tracing::debug!(quote_id = %quote.id(), "building FX instrument");
     let registry = ConventionRegistry::try_global()?;
 

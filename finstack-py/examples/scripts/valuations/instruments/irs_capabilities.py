@@ -7,7 +7,7 @@ from finstack.core.currency import USD
 from finstack.core.market_data.context import MarketContext
 from finstack.core.market_data.term_structures import DiscountCurve, ForwardCurve
 from finstack.valuations.instruments import InterestRateSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 
 from finstack import Money
 
@@ -66,7 +66,7 @@ def main() -> None:
     market = build_market(as_of)
     swap = build_swap(as_of, notional)
 
-    registry = create_standard_registry()
+    registry = standard_registry()
 
     # Price with metrics - now supports working metrics
     result = registry.price_with_metrics(

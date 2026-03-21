@@ -12,7 +12,7 @@ from finstack.core.dates.schedule import Frequency
 from finstack.core.market_data import DiscountCurve, ForwardCurve, MarketContext
 from finstack.core.money import Money
 from finstack.valuations.instruments import Bond, Deposit, InterestRateSwap
-from finstack.valuations.pricer import create_standard_registry
+from finstack.valuations.pricer import standard_registry
 import pytest
 
 
@@ -277,7 +277,7 @@ class TestDiscountedCashFlowParity:
             )
         )
 
-        result = create_standard_registry().get_price(dcf, "discounting", market, date(2025, 1, 1))
+        result = standard_registry().get_price(dcf, "discounting", market, date(2025, 1, 1))
 
         assert dcf.instrument_id == "DCF-001"
         assert dcf.terminal_value.name == "gordon_growth"
@@ -736,7 +736,7 @@ class TestValuationsRootParity:
         market.insert(discount_curve)
 
         # Price bond
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
         # Bond should have positive value
@@ -776,7 +776,7 @@ class TestValuationsRootParity:
         market.insert(discount_curve)
 
         # Price bond
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
         # Bond should be approximately at par (1,000,000)
@@ -810,7 +810,7 @@ class TestValuationsRootParity:
         market.insert(discount_curve)
 
         # Price with metrics
-        registry = create_standard_registry()
+        registry = standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm"]
         result = registry.price_with_metrics(bond, "discounting", market, metric_keys, date(2024, 1, 1))
 
@@ -876,7 +876,7 @@ class TestSwapPricingParity:
         market.insert(forward_curve)
 
         # Price swap
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
 
         # Swap should have a value (could be positive or negative)
@@ -917,7 +917,7 @@ class TestSwapPricingParity:
         )
         market.insert(forward_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
 
         # Swap should be close to zero value (at-market swap)
@@ -973,7 +973,7 @@ class TestDepositPricingParity:
         )
         market.insert(discount_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
 
         # Deposit PV can be positive or negative depending on quote vs curve.
@@ -1007,7 +1007,7 @@ class TestDepositPricingParity:
         )
         market.insert(discount_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
 
         # For a deposit quoted at the same rate implied by the curve, PV should be close to zero
@@ -1020,7 +1020,7 @@ class TestPricerRegistryParity:
 
     def test_registry_creation(self) -> None:
         """Test standard registry creation."""
-        registry = create_standard_registry()
+        registry = standard_registry()
         assert registry is not None
 
     def test_registry_multiple_model_keys(self) -> None:
@@ -1048,7 +1048,7 @@ class TestPricerRegistryParity:
         )
         market.insert(discount_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
 
         # Price with discounting model
         result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
@@ -1083,7 +1083,7 @@ class TestMetricsParity:
         )
         market.insert(discount_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         metric_keys = ["clean_price", "accrued", "ytm", "duration_mod", "dv01"]
         result = registry.price_with_metrics(bond, "discounting", market, metric_keys, date(2024, 1, 1))
 
@@ -1169,7 +1169,7 @@ class TestEdgeCases:
         )
         market.insert(discount_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
 
         # Zero-coupon bond NPV should be notional * df(maturity)
@@ -1200,7 +1200,7 @@ class TestEdgeCases:
         )
         market.insert(discount_curve)
 
-        registry = create_standard_registry()
+        registry = standard_registry()
         result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
 
         # At (roughly) market rates, a deposit should have PV close to zero (no value over par).

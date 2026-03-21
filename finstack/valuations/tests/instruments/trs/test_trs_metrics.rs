@@ -7,7 +7,7 @@ use super::test_utils::*;
 use finstack_core::currency::Currency::*;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::TrsSide;
 use finstack_valuations::metrics::MetricId;
 

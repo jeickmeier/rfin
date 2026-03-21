@@ -13,7 +13,7 @@ import {
   PricingRequest,
   Swaption,
   VolSurface,
-  createStandardRegistry,
+  standardRegistry,
 } from 'finstack-wasm';
 import { RatesInstrumentsProps, DEFAULT_RATES_PROPS } from './data/rates';
 
@@ -115,7 +115,7 @@ export const RatesInstrumentsExample: React.FC<RatesInstrumentsProps> = (props) 
 
         console.debug('FsDate checks (rates)', asOf instanceof FsDate);
 
-        const registry = createStandardRegistry();
+        const registry = standardRegistry();
         const results: InstrumentRow[] = [];
 
         // Process Interest Rate Swaps

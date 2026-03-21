@@ -44,7 +44,7 @@
 //!
 //! ```rust
 //! use finstack_valuations::instruments::Bond;
-//! use finstack_valuations::instruments::common::traits::Instrument;
+//! use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
@@ -147,6 +147,7 @@
 #[macro_use]
 #[path = "common/mod.rs"]
 pub(crate) mod common_impl;
+mod public_traits;
 
 /// Shared functionality used across multiple instruments.
 ///
@@ -162,9 +163,12 @@ pub mod common {
     pub use super::common_impl::helpers::validate_currency_consistency;
     pub use super::common_impl::period_pv::PeriodizedPvExt;
     pub use super::common_impl::traits::{
-        Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps,
-        Instrument, InstrumentCurves, PricingOptions,
+        Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,
+        EquityInstrumentDeps, EquityInstrumentDepsBuilder, InstrumentCurves,
+        InstrumentCurvesBuilder, OptionGreekKind, OptionGreeks, OptionGreeksProvider,
+        OptionGreeksRequest, PricingOptions, RatesCurveKind,
     };
+    pub use super::public_traits::Instrument;
     pub use finstack_core::dates::fx::resolve_calendar;
 
     /// Market dependency types (curves, FX pairs, etc.).
@@ -204,7 +208,13 @@ pub mod common {
 
     /// Core instrument traits and metadata (`Instrument`, `Attributes`, dependencies).
     pub mod traits {
-        pub use super::super::common_impl::traits::*;
+        pub use super::super::common_impl::traits::{
+            Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,
+            EquityInstrumentDeps, EquityInstrumentDepsBuilder, InstrumentCurves,
+            InstrumentCurvesBuilder, OptionGreekKind, OptionGreeks, OptionGreeksProvider,
+            OptionGreeksRequest, PricingOptions, RatesCurveKind,
+        };
+        pub use super::super::public_traits::Instrument;
     }
 
     /// Pricing models (closed-form, trees, volatility, Monte Carlo, etc.).
@@ -282,9 +292,15 @@ pub use common_impl::discountable::Discountable;
 pub use common_impl::period_pv::PeriodizedPvExt;
 pub use common_impl::pricing::{TotalReturnLegParams, TrsEngine, TrsReturnModel};
 pub use common_impl::traits::{
-    Attributes, CurveDependencies, CurveIdVec, EquityDependencies, EquityInstrumentDeps,
-    Instrument, InstrumentCurves, PricingOptions,
+    Attributes, CurveDependencies, CurveIdVec, DynInstrument, EquityDependencies,
+    EquityInstrumentDeps, InstrumentCurves, PricingOptions, RatesCurveKind,
 };
+pub use public_traits::Instrument;
+
+/// Internal extension traits and plumbing hooks.
+pub mod internal {
+    pub use super::common_impl::traits::Instrument as InstrumentExt;
+}
 
 // === Parameter Types ===
 pub use common_impl::parameters::{
