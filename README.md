@@ -1,64 +1,109 @@
 # Finstack
 
-A high-performance quantitative finance library written in Rust with bindings for Python (PyO3) and WebAssembly (wasm-bindgen).
+Finstack is a Rust-first quantitative finance workspace with Python and WebAssembly bindings.
+The repository combines reusable financial primitives, pricing and risk engines, statement
+modeling, scenario analysis, portfolio tooling, and binding layers that keep the core logic in
+Rust.
 
-## Project Structure
+## Workspace Layout
 
-```
+```text
 rfin/
-├── finstack/                  # Rust library (workspace)
-│   ├── core/                  # Dates, calendars, currencies, curves, surfaces, math
-│   ├── statements/            # Financial statement modeling, cashflows, DSL
-│   ├── valuations/            # Instrument pricing, risk, calibration, Monte Carlo
-│   ├── portfolio/             # Portfolio valuation, attribution, optimization
-│   └── scenarios/             # Scenario modeling and stress testing
-├── finstack-py/               # Python bindings (PyO3 / Maturin)
-├── finstack-wasm/             # WebAssembly bindings (wasm-bindgen / wasm-pack)
-├── docs/                      # Design documents and specs
-└── scripts/                   # Developer tooling scripts
+├── finstack/                    # Rust workspace and umbrella crate
+│   ├── core/                    # Dates, calendars, currencies, market data, math
+│   ├── cashflows/               # Cashflow schedule construction and projection
+│   ├── correlation/             # Copula, factor, and recovery models
+│   ├── monte_carlo/             # Monte Carlo simulation engine
+│   ├── analytics/               # Shared analytics utilities
+│   ├── margin/                  # Margin, collateral, and XVA primitives
+│   ├── statements/              # Financial statement modeling and forecasting
+│   ├── valuations/              # Instrument pricing, calibration, and risk
+│   ├── portfolio/               # Portfolio valuation, grouping, and optimization
+│   ├── scenarios/               # Scenario modeling and stress testing
+│   └── src/                     # `finstack` umbrella crate re-exports
+├── finstack-py/                 # Python bindings built with PyO3 + maturin
+├── finstack-wasm/               # WebAssembly bindings built with wasm-bindgen
+├── docs/                        # Project references and documentation standards
+├── scripts/                     # Audits and developer automation
+├── pyproject.toml               # Python tooling and dependency configuration
+├── Cargo.toml                   # Workspace configuration and shared profiles
+└── Makefile                     # Common build, test, lint, and packaging commands
 ```
 
-## Instrument Coverage
+## What The Project Covers
 
-50+ instruments across seven asset classes:
+The current workspace is organized around a few major areas:
 
-| Asset Class | Instruments |
-|---|---|
-| **Fixed Income** | Bond, Inflation-Linked Bond, Convertible, Term Loan, Revolving Credit, Structured Credit, Agency MBS, Agency CMO, Bond Future, Dollar Roll, TBA |
-| **Rates** | IRS, Basis Swap, Swaption, Cap/Floor, Deposit, FRA, Repo, Inflation Swap, Inflation Cap/Floor, Range Accrual, Cross-Currency Swap, CMS Option, IR Future |
-| **Credit** | CDS, CDS Index, CDS Tranche, CDS Option |
-| **Equity** | Equity Option, Variance Swap, Equity TRS, Equity Index Future, Vol Index Future/Option, Autocallable, Cliquet, DCF, Real Estate, Private Markets Fund |
-| **FX** | Spot, Forward, FX Swap, Vanilla Option, Barrier, Digital, Touch, FX Variance Swap, NDF, Quanto |
-| **Commodity** | Forward, Swap, Option, Asian Option |
-| **Exotics** | Asian Option, Barrier Option, Lookback Option, Basket Option |
+- `finstack-core` for shared financial primitives, market data containers, interpolation, solvers,
+  and numerical utilities.
+- `finstack-cashflows`, `finstack-correlation`, and `finstack-monte-carlo` for specialized
+  modeling engines used by higher-level crates.
+- `finstack-valuations` for instruments, pricers, calibration, and risk analytics across rates,
+  credit, equity, FX, structured products, and more.
+- `finstack-statements` for financial statement modeling, formulas, forecasting, and extensions.
+- `finstack-scenarios` and `finstack-portfolio` for stress testing, portfolio aggregation, and
+  multi-position workflows.
+- `finstack-py` and `finstack-wasm` for Python and TypeScript/browser consumers.
 
-### Pricing Models
+## Rust Workspace
 
-- **Closed-form** -- Black-Scholes, SABR, Heston, Asian (Turnbull-Wakeman), Barrier, Lookback, Quanto, implied vol solvers
-- **Trees** -- Binomial, Trinomial, Hull-White, short-rate, two-factor (rates/credit)
-- **Monte Carlo** -- GBM, Heston, CIR, Jump Diffusion, Bates, Schwartz-Smith; variance reduction (antithetic, control variate, moment matching); LSM for early exercise
-- **Volatility** -- Black vol, Normal vol, SABR, Local vol, Heston
+The top-level Rust crate is `finstack`, an umbrella crate that re-exports the major sub-crates
+behind feature flags so downstream users can opt into only the parts they need.
 
-## Tech Stack
+```toml
+[dependencies]
+finstack = { path = "finstack", features = ["valuations", "portfolio", "scenarios"] }
+```
 
-| Layer | Technology |
-|---|---|
-| Core library | Rust 1.90, edition 2021 |
-| Python bindings | PyO3, Maturin, Python >= 3.12 |
-| WASM bindings | wasm-bindgen, wasm-pack, TypeScript definitions |
-| Build/CI | GitHub Actions, cargo-nextest, pre-commit, cargo-deny |
-| Package mgmt | uv (Python), npm (WASM/JS) |
-| Code quality | clippy (strict), ruff, prettier, ty, pyright, bandit |
+Available umbrella features include:
+
+- `core`
+- `analytics`
+- `margin`
+- `statements`
+- `valuations`
+- `portfolio`
+- `scenarios`
+- `all`
+
+Default workspace builds exclude the Python and WASM binding crates, which keeps the normal Rust
+edit-test loop fast.
+
+## Python Bindings
+
+`finstack-py` exposes the Rust functionality through PyO3 bindings and is built with `maturin`.
+The Python package is configured from the repository root `pyproject.toml`, uses `uv` for package
+management, and includes manually maintained `.pyi` stubs plus example scripts and notebooks.
+
+Useful paths:
+
+- `finstack-py/finstack/` for the package and type stubs
+- `finstack-py/tests/` for Python and parity tests
+- `finstack-py/examples/scripts/` for runnable examples
+- `finstack-py/examples/notebooks/` for notebooks
+- `finstack-py/docs/` for Python-focused documentation
+
+## WASM Bindings
+
+`finstack-wasm` provides browser and Node.js bindings via `wasm-bindgen` and `wasm-pack`. The
+package emits TypeScript definitions and also includes an example app workflow for local
+development.
+
+Useful paths:
+
+- `finstack-wasm/src/` for bindings
+- `finstack-wasm/examples/` for the example app
+- `finstack-wasm/package.json` for JS tooling commands
 
 ## Development Setup
 
 ### Prerequisites
 
-- [Rust 1.90+](https://rustup.rs/) (pinned via `rust-toolchain.toml`)
+- [Rust 1.90+](https://rustup.rs/)
 - [Python 3.12+](https://www.python.org/)
-- [uv](https://github.com/astral-sh/uv) (Python package manager)
-- [Node.js 20+](https://nodejs.org/) (for WASM examples)
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/) (for WASM builds)
+- [uv](https://github.com/astral-sh/uv)
+- [Node.js](https://nodejs.org/) for WASM tooling
+- [wasm-pack](https://rustwasm.github.io/wasm-pack/) for WASM builds
 
 ### Quick Start
 
@@ -66,162 +111,65 @@ rfin/
 git clone https://github.com/rustfin/rfin.git
 cd rfin
 
-# Build core Rust crates
-cargo build
+# Build the default Rust workspace
+make build
 
-# Run all Rust tests
-make test-rust
+# Run Rust, Python, and WASM tests
+make test
 
-# Set up Python environment + build bindings
+# Build Python bindings for local development
 make python-dev
 
-# Run Python tests
-make test-python
-```
-
-### Makefile Targets
-
-Run `make help` for the full list. Key targets:
-
-| Target | Description |
-|---|---|
-| `make build` | Build all core Rust crates |
-| `make test` | Run all tests (Rust + Python + WASM) |
-| `make test-rust` | Rust tests via cargo-nextest |
-| `make test-python` | Python tests via pytest |
-| `make test-wasm` | WASM tests via wasm-pack |
-| `make fmt` | Format all code (Rust, Python, JS) |
-| `make lint` | Lint core Rust crates (fast) |
-| `make lint-full` | Lint everything including bindings and all features |
-| `make ci-test` | Run the full CI pipeline locally |
-| `make coverage` | Code coverage (cargo-llvm-cov) |
-| `make python-dev` | Set up Python env and build bindings |
-| `make wasm-examples-dev` | Build WASM and launch Vite dev server |
-
-## Build Profiles
-
-| Profile | Use Case | Command |
-|---|---|---|
-| `dev` | Fast compilation, full debug info | `cargo build` |
-| `release` | Speed-optimized (thin LTO, 16 CGUs) | `cargo build --release` |
-| `release-size` | Size-optimized for WASM (`opt-level = "z"`, full LTO) | `cargo build --profile release-size` |
-| `release-perf` | Max speed (thin LTO, 8 CGUs) | `cargo build --profile release-perf` |
-| `bench` | Benchmarking with profiling symbols | `cargo bench` |
-
-## Python Development
-
-```bash
-# Install uv
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# One-command setup (creates venv, installs deps, builds bindings)
-make python-dev
-
-# Or manual setup
-uv venv && source .venv/bin/activate
-uv pip install -e ".[dev]"
-cd finstack-py && maturin develop --release
-
-# Run tests
-uv run pytest
-
-# Format and lint
-uv run ruff format .
-uv run ruff check .
-```
-
-### Python Package
-
-The `finstack` Python package includes:
-
-- Full `.pyi` type stubs and `py.typed` marker
-- Pydantic v2 integration
-- Polars DataFrame exports
-- Example scripts and Jupyter notebooks in `finstack-py/examples/`
-
-## WASM Development
-
-```bash
-# Install wasm-pack
-curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
-# Build for web and Node.js
+# Build the WASM packages
 make wasm-pkg
-
-# Run the React example app with live reload
-make wasm-examples-dev
 ```
 
-The WASM package ships with auto-generated TypeScript definitions.
+## Common Commands
 
-## Feature Flags
+Run `make help` for the full command list. These are the targets used most often:
 
-| Feature | Default | Description | Size |
-|---|---|---|---|
-| `serde` | Yes | Serialization (JSON, CBOR, MessagePack). Required for bindings. | +150 KB |
-| `parallel` | Yes | Multi-threaded computation via Rayon. 2-10x speedup on multi-core. | +200 KB |
-| `dataframes` | No | Polars DataFrame exports, CSV/Parquet/Arrow interop. | +2-3 MB |
-| `stochastic` | No | Monte Carlo and stochastic models (reserved, planned for 0.5.x). | +100 KB |
-
-```toml
-# Default (serde + parallel)
-finstack = "0.4"
-
-# With DataFrames
-finstack = { version = "0.4", features = ["dataframes"] }
-
-# Minimal build
-finstack = { version = "0.4", default-features = false, features = ["serde"] }
-```
-
-## CI/CD
-
-### Build Workflow (on push/PR to `master`)
-
-- **Lint** -- pre-commit hooks (rustfmt, clippy, ruff, prettier, markdownlint)
-- **Test Rust** -- cargo-nextest with `mc` and `test-utils` features
-- **Test Python** -- uv + maturin develop + pytest
-- **Test WASM** -- wasm-pack test
-- **Supply chain** -- cargo-deny
-- **Semver checks** -- cargo-semver-checks on `finstack-core` (PRs only)
-
-### Release Workflow (on version tag `v*`)
-
-- Builds Python wheels for Linux (x64/arm64), macOS (arm64), Windows (x64) targeting Python 3.12, 3.13, 3.14
-- Builds WASM packages (web + Node.js targets)
-- Publishes artifacts to GitHub Releases
+| Command | Purpose |
+|---|---|
+| `make build` | Build the Rust workspace excluding `finstack-py` and `finstack-wasm` |
+| `make test` | Run Rust, Python, and WASM tests |
+| `make test-rust` | Run Rust tests with `cargo nextest` |
+| `make test-python` | Run Python tests with `pytest` |
+| `make test-wasm` | Run WASM tests |
+| `make fmt` | Format Rust, Python, and WASM code |
+| `make lint` | Run the fast lint pass across Rust, Python, and WASM |
+| `make lint-full` | Run the slower full Rust lint pass including bindings and all features |
+| `make python-dev` | Create the Python environment and build bindings in release mode |
+| `make python-dev-debug` | Build Python bindings in debug mode for a faster compile loop |
+| `make wasm-examples-dev` | Build WASM and start the example app |
+| `make coverage` | Run Rust and Python coverage reports |
+| `make wheel-local` | Build a wheel for the current platform |
+| `make wheel-all` | Build wheels for all locally available Python interpreters |
+| `make audit` | Run Rust and Python security audits |
 
 ## Code Quality
 
-The workspace enforces strict Clippy lints including:
+The workspace is set up for a strict development workflow:
 
-- **No panics** -- `unwrap`, `expect`, `panic!`, and `unreachable!` are denied in library code
-- **Numerical soundness** -- lossy float literals denied, float comparisons warned
-- **Modern Rust** -- manual pattern lints enforced (`let-else`, `ok_or`, etc.)
+- Rust formatting via `cargo fmt`
+- Rust linting via `cargo clippy`
+- Python formatting and linting via `ruff`
+- Python typing via `ty` and `pyright`
+- Python security checks via `bandit`
+- WASM and frontend formatting via `prettier`
+- WASM and frontend linting via `eslint`
 
-## Code Coverage
+For day-to-day development, `make fmt`, `make lint`, and `make test` are the main entry points.
 
-```bash
-make coverage           # Quick summary
-make coverage-html      # Detailed HTML report in target/llvm-cov/
-make coverage-lcov      # LCOV report for CI integration
-```
+## Examples And Documentation
 
-Coverage analysis runs on core Rust crates only (Python and WASM bindings are excluded).
+The repo already includes several documentation surfaces:
 
-## Packaging & Distribution
-
-```bash
-make wheel-all          # Build wheels for all local Python versions
-make wheel-local        # Build wheel for current platform
-make wheel-docker       # Build manylinux wheel via Docker
-make wasm-pkg           # Build WASM packages (web + node)
-```
+- Root-level standards and references in `docs/`
+- Python package docs in `finstack-py/docs/`
+- Python example scripts in `finstack-py/examples/scripts/`
+- Python notebooks in `finstack-py/examples/notebooks/`
+- Audit and parity tooling in `scripts/audits/`
 
 ## License
 
 MIT OR Apache-2.0
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.

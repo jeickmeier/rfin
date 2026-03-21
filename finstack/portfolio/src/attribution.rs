@@ -648,6 +648,26 @@ impl PortfolioAttribution {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use time::macros::date;
+
+    fn sample_position_attr(
+        position_id: &str,
+        total: f64,
+        carry: f64,
+        residual: f64,
+    ) -> PnlAttribution {
+        let mut attr = PnlAttribution::new(
+            Money::new(total, Currency::USD),
+            position_id,
+            date!(2026 - 01 - 02),
+            date!(2026 - 01 - 03),
+            AttributionMethod::Parallel,
+        );
+        attr.carry = Money::new(carry, Currency::USD);
+        attr.rates_curves_pnl = Money::new(total - carry - residual, Currency::USD);
+        attr.residual = Money::new(residual, Currency::USD);
+        attr
+    }
 
     #[test]
     fn test_portfolio_attribution_structure() {
@@ -685,5 +705,105 @@ mod tests {
     #[test]
     fn test_default_metrics_nonempty() {
         assert!(!default_attribution_metrics().is_empty());
+    }
+
+    #[test]
+    fn test_position_detail_to_csv_includes_each_position_breakdown() {
+        let mut by_position = IndexMap::new();
+        by_position.insert(
+            PositionId::from("POS_A"),
+            sample_position_attr("POS_A", 120.0, 10.0, 5.0),
+        );
+        by_position.insert(
+            PositionId::from("POS_B"),
+            sample_position_attr("POS_B", -20.0, -2.0, 1.0),
+        );
+
+        let zero = Money::new(0.0, Currency::USD);
+        let portfolio_attr = PortfolioAttribution {
+            total_pnl: Money::new(100.0, Currency::USD),
+            carry: Money::new(8.0, Currency::USD),
+            rates_curves_pnl: Money::new(87.0, Currency::USD),
+            credit_curves_pnl: zero,
+            inflation_curves_pnl: zero,
+            correlations_pnl: zero,
+            fx_pnl: zero,
+            fx_translation_pnl: zero,
+            vol_pnl: zero,
+            model_params_pnl: zero,
+            market_scalars_pnl: zero,
+            residual: Money::new(5.0, Currency::USD),
+            by_position,
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        };
+
+        let csv = portfolio_attr.position_detail_to_csv();
+        assert!(csv.contains("position_id,total,carry"));
+        assert!(csv.contains("POS_A,120"));
+        assert!(csv.contains("POS_B,-20"));
+    }
+
+    #[test]
+    fn test_explain_formats_percentages_and_zero_total_safely() {
+        let zero = Money::new(0.0, Currency::USD);
+        let explained = PortfolioAttribution {
+            total_pnl: Money::new(200.0, Currency::USD),
+            carry: Money::new(20.0, Currency::USD),
+            rates_curves_pnl: Money::new(100.0, Currency::USD),
+            credit_curves_pnl: Money::new(10.0, Currency::USD),
+            inflation_curves_pnl: Money::new(5.0, Currency::USD),
+            correlations_pnl: Money::new(15.0, Currency::USD),
+            fx_pnl: Money::new(25.0, Currency::USD),
+            fx_translation_pnl: Money::new(10.0, Currency::USD),
+            vol_pnl: Money::new(5.0, Currency::USD),
+            model_params_pnl: Money::new(5.0, Currency::USD),
+            market_scalars_pnl: Money::new(3.0, Currency::USD),
+            residual: Money::new(2.0, Currency::USD),
+            by_position: IndexMap::new(),
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        };
+        let rendered = explained.explain();
+        assert!(rendered.contains("Portfolio P&L: USD 200.00"));
+        assert!(rendered.contains("Carry: USD 20.00 (10.0%)"));
+        assert!(rendered.contains("FX Translation: USD 10.00 (5.0%)"));
+        assert!(rendered.contains("Residual: USD 2.00 (1.0%)"));
+
+        let zero_total = PortfolioAttribution {
+            total_pnl: zero,
+            carry: Money::new(5.0, Currency::USD),
+            rates_curves_pnl: zero,
+            credit_curves_pnl: zero,
+            inflation_curves_pnl: zero,
+            correlations_pnl: zero,
+            fx_pnl: zero,
+            fx_translation_pnl: zero,
+            vol_pnl: zero,
+            model_params_pnl: zero,
+            market_scalars_pnl: zero,
+            residual: Money::new(-5.0, Currency::USD),
+            by_position: IndexMap::new(),
+            rates_detail: None,
+            credit_detail: None,
+            inflation_detail: None,
+            correlations_detail: None,
+            fx_detail: None,
+            vol_detail: None,
+            scalars_detail: None,
+        };
+        let zero_rendered = zero_total.explain();
+        assert!(zero_rendered.contains("Carry: USD 5.00 (0.0%)"));
+        assert!(zero_rendered.contains("Residual: USD -5.00 (0.0%)"));
     }
 }

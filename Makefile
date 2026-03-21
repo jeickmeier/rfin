@@ -266,7 +266,7 @@ list: ## Generate API parity report
 	@printf "Done: PARITY_AUDIT.md\n"
 
 COV_IGNORE := '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-COV_BASE := CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --ignore-filename-regex $(COV_IGNORE)
+COV_BASE := CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --features mc,test-utils --ignore-filename-regex $(COV_IGNORE)
 
 .PHONY: coverage coverage-rust coverage-python coverage-html coverage-lcov
 coverage: coverage-rust coverage-python ## Run all coverage reports
@@ -277,7 +277,7 @@ coverage-rust:
 
 coverage-python:
 	@printf "Running Python code coverage...\n"
-	@$(call py_run,pytest --cov=finstack --cov-report=html)
+	@$(call py_run,pytest --cov=finstack-py --cov-report=html)
 
 coverage-html: ## Generate Rust HTML coverage report (pass OPEN=1 to auto-open)
 	$(COV_BASE) --html $(if $(OPEN),--open,)

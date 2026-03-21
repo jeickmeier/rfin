@@ -13,7 +13,7 @@ use finstack_core::types::UnderlyingId;
 use finstack_valuations::instruments::OptionType;
 use finstack_valuations::market::conventions::ids::{
     BondConventionId, CdsConventionKey, CdsDocClause, FxConventionId, FxOptionConventionId,
-    InflationSwapConventionId, OptionConventionId,
+    InflationSwapConventionId, OptionConventionId, XccyConventionId,
 };
 use finstack_valuations::market::quotes::bond::BondQuote;
 use finstack_valuations::market::quotes::cds::CdsQuote;
@@ -22,6 +22,8 @@ use finstack_valuations::market::quotes::fx::FxQuote;
 use finstack_valuations::market::quotes::ids::{Pillar, QuoteId};
 use finstack_valuations::market::quotes::inflation::InflationQuote;
 use finstack_valuations::market::quotes::vol::VolQuote;
+use finstack_valuations::market::quotes::xccy::XccyQuote;
+use std::str::FromStr;
 
 fn d(y: i32, m: time::Month, day: u8) -> Date {
     Date::from_calendar_date(y, m, day).expect("valid date")
@@ -637,4 +639,91 @@ fn quote_denies_unknown_fields() {
       }
     }"#;
     assert!(serde_json::from_str::<VolQuote>(vol_bad).is_err());
+}
+
+#[test]
+fn bond_fx_and_xccy_quote_helpers_preserve_ids_and_bumps() {
+    let bond = BondQuote::FixedRateBulletCleanPrice {
+        id: QuoteId::new("BOND-HELPER"),
+        currency: Currency::USD,
+        issue_date: d(2025, time::Month::January, 15),
+        maturity: d(2030, time::Month::January, 15),
+        coupon_rate: 0.045,
+        convention: BondConventionId::new("USD-UST"),
+        clean_price_pct: 99.25,
+    };
+    assert_eq!(bond.id().as_str(), "BOND-HELPER");
+    assert!((bond.value() - 99.25).abs() < tolerances::TIGHT);
+    match bond.bump_value_bp(10.0) {
+        BondQuote::FixedRateBulletCleanPrice {
+            clean_price_pct, ..
+        } => assert!((clean_price_pct - 99.251).abs() < tolerances::TIGHT),
+        other => panic!("expected clean-price bond quote, got {other:?}"),
+    }
+
+    let fx = FxQuote::SwapOutright {
+        id: QuoteId::new("EURUSD-SWAP"),
+        convention: FxConventionId::new("EUR/USD"),
+        far_pillar: Pillar::Tenor("3M".parse().expect("valid tenor")),
+        near_rate: 1.10,
+        far_rate: 1.105,
+    };
+    assert_eq!(fx.id().as_str(), "EURUSD-SWAP");
+    assert!((fx.value() - 1.105).abs() < tolerances::TIGHT);
+    match fx.bump_rate_decimal(0.0025) {
+        FxQuote::SwapOutright {
+            near_rate,
+            far_rate,
+            ..
+        } => {
+            assert!((near_rate - 1.1025).abs() < tolerances::TIGHT);
+            assert!((far_rate - 1.1075).abs() < tolerances::TIGHT);
+        }
+        other => panic!("expected FX swap quote, got {other:?}"),
+    }
+
+    let xccy = XccyQuote::BasisSwap {
+        id: QuoteId::new("EURUSD-XCCY-5Y"),
+        convention: XccyConventionId::new("EUR/USD-XCCY"),
+        far_pillar: Pillar::Tenor("5Y".parse().expect("valid tenor")),
+        basis_spread_bp: 12.5,
+        spot_fx: Some(1.08),
+    };
+    assert_eq!(xccy.id().as_str(), "EURUSD-XCCY-5Y");
+    assert!((xccy.value() - 12.5).abs() < tolerances::TIGHT);
+    match xccy.bump_spread_decimal(0.0002) {
+        XccyQuote::BasisSwap {
+            basis_spread_bp,
+            spot_fx,
+            ..
+        } => {
+            assert!((basis_spread_bp - 14.5).abs() < tolerances::TIGHT);
+            assert_eq!(spot_fx, Some(1.08));
+        }
+    }
+}
+
+#[test]
+fn convention_ids_and_doc_clause_aliases_roundtrip() {
+    let bond = BondConventionId::from("USD-CORP");
+    let fx = FxConventionId::new("EUR/USD");
+    let xccy = XccyConventionId::new("EUR/USD-XCCY");
+
+    assert_eq!(bond.as_str(), "USD-CORP");
+    assert_eq!(bond.to_string(), "USD-CORP");
+    assert_eq!(fx.as_str(), "EUR/USD");
+    assert_eq!(xccy.to_string(), "EUR/USD-XCCY");
+
+    let clause = CdsDocClause::from_str("isda_na").expect("alias should parse");
+    assert_eq!(clause, CdsDocClause::IsdaNa);
+    let short_alias = CdsDocClause::from_str("xr").expect("short alias should parse");
+    assert_eq!(short_alias, CdsDocClause::Xr14);
+    let err = CdsDocClause::from_str("bad_clause").expect_err("unknown alias should fail");
+    assert!(err.contains("Unknown CDS doc clause"));
+
+    let key = CdsConventionKey {
+        currency: Currency::USD,
+        doc_clause: CdsDocClause::Cr14,
+    };
+    assert_eq!(key.to_string(), "USD:Cr14");
 }

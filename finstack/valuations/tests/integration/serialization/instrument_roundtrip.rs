@@ -1,12 +1,13 @@
-//! Round-trip all instrument examples through JSON.
+//! Round-trip instrument examples through the JSON envelope path.
 //!
-//! For each instrument with an example(), we:
-//! - Wrap it in InstrumentEnvelope
+//! For each instrument example we:
+//! - Wrap it in `InstrumentEnvelope`
 //! - Serialize to JSON
-//! - Deserialize back via InstrumentEnvelope::from_str (using the manual enum deserializer)
-//! - Assert the resulting boxed instrument has the same id
+//! - Deserialize back via the manual enum deserializer
+//! - Assert the resulting boxed instrument preserves the expected runtime ID
 //!
-//! This confirms that our JSON format is lossless for construction.
+//! This confirms that the envelope format reconstructs each instrument shape
+//! without losing the identity needed for runtime dispatch.
 //
 use finstack_valuations::instruments::*;
 //
@@ -42,6 +43,21 @@ fn all_examples_roundtrip() {
     let ex = TermLoan::example().unwrap();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::TermLoan(ex));
+    let ex = RevolvingCredit::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::RevolvingCredit(ex));
+    let ex = AgencyMbsPassthrough::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::AgencyMbsPassthrough(ex));
+    let ex = AgencyTba::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::AgencyTba(ex));
+    let ex = AgencyCmo::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::AgencyCmo(ex));
+    let ex = DollarRoll::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::DollarRoll(ex));
     //
     // Rates
     let ex = InterestRateSwap::example().expect("Example should construct");
@@ -102,20 +118,61 @@ fn all_examples_roundtrip() {
     let ex = VarianceSwap::example().unwrap();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::VarianceSwap(ex));
+    let ex = EquityIndexFuture::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::EquityIndexFuture(ex));
+    let ex = VolatilityIndexFuture::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::VolatilityIndexFuture(ex));
+    let ex = VolatilityIndexOption::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::VolatilityIndexOption(ex));
     //
     // FX
     let ex = FxSwap::example();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::FxSwap(ex));
+    let ex = FxForward::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::FxForward(ex));
+    let ex = Ndf::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::Ndf(ex));
     let ex = FxOption::example().unwrap();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::FxOption(ex));
+    let ex = FxDigitalOption::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::FxDigitalOption(ex));
+    let ex = FxTouchOption::example().unwrap();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::FxTouchOption(ex));
     let ex = FxBarrierOption::example();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::FxBarrierOption(ex));
+    let ex = FxVarianceSwap::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::FxVarianceSwap(ex));
     let ex = QuantoOption::example();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::QuantoOption(ex));
+    //
+    // Commodity
+    let ex = CommodityOption::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::CommodityOption(ex));
+    let ex = CommodityAsianOption::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::CommodityAsianOption(ex));
+    let ex = CommodityForward::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::CommodityForward(ex));
+    let ex = CommoditySwap::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::CommoditySwap(ex));
+    let ex = CommoditySwaption::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::CommoditySwaption(ex));
     //
     // Exotic Options
     let ex = Autocallable::example().unwrap();
@@ -135,6 +192,11 @@ fn all_examples_roundtrip() {
     let ex = FIIndexTotalReturnSwap::example().unwrap();
     let id = ex.id.as_str().to_string();
     assert_roundtrip(&id, json_loader::InstrumentJson::TrsFixedIncomeIndex(ex));
+    //
+    // Structured Credit
+    let ex = StructuredCredit::example();
+    let id = ex.id.as_str().to_string();
+    assert_roundtrip(&id, json_loader::InstrumentJson::StructuredCredit(Box::new(ex)));
     //
     // Other
     let ex = Basket::example().unwrap();

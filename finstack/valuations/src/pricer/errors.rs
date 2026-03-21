@@ -724,4 +724,120 @@ mod tests {
             other => panic!("expected ModelFailure, got {other:?}"),
         }
     }
+
+    #[test]
+    fn pricing_error_context_display_covers_empty_and_populated_forms() {
+        let empty = PricingErrorContext::new();
+        assert_eq!(empty.to_string(), "<no context>");
+
+        let populated = PricingErrorContext::new()
+            .instrument_id("BOND-007")
+            .instrument_type(InstrumentType::Bond)
+            .model(ModelKey::Discounting)
+            .curve_id("USD-OIS")
+            .curve_ids(["USD-SOFR", "USD-CREDIT"]);
+
+        let rendered = populated.to_string();
+        assert!(rendered.contains("instrument=BOND-007"));
+        assert!(rendered.contains("type=Bond"));
+        assert!(rendered.contains("model=Discounting"));
+        assert!(rendered.contains("curves=[USD-OIS, USD-SOFR, USD-CREDIT]"));
+    }
+
+    #[test]
+    fn from_core_maps_missing_curve_wrong_curve_type_and_fallback_inputs() {
+        let ctx = PricingErrorContext::new()
+            .instrument_id("TEST-002")
+            .instrument_type(InstrumentType::IRS)
+            .model(ModelKey::Discounting);
+
+        let missing_curve = PricingError::from_core(
+            finstack_core::InputError::MissingCurve {
+                requested: "USD-OIS".into(),
+                suggestions: vec!["USD-SOFR".into()],
+            }
+            .into(),
+            ctx.clone(),
+        );
+        match missing_curve {
+            PricingError::MissingMarketData {
+                missing_id,
+                context,
+            } => {
+                assert_eq!(missing_id, "USD-OIS");
+                assert_eq!(context.instrument_id.as_deref(), Some("TEST-002"));
+            }
+            other => panic!("expected MissingMarketData, got {other:?}"),
+        }
+
+        let wrong_curve_type = PricingError::from_core(
+            finstack_core::InputError::WrongCurveType {
+                id: "USD-OIS".into(),
+                expected: "DiscountCurve".into(),
+                actual: "HazardCurve".into(),
+            }
+            .into(),
+            ctx.clone(),
+        );
+        match wrong_curve_type {
+            PricingError::InvalidInput { message, context } => {
+                assert!(message.contains("Curve type mismatch"));
+                assert!(message.contains("DiscountCurve"));
+                assert!(message.contains("HazardCurve"));
+                assert_eq!(context.instrument_type, Some(InstrumentType::IRS));
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+
+        let fallback_input = PricingError::from_core(
+            finstack_core::InputError::Invalid.into(),
+            ctx,
+        );
+        match fallback_input {
+            PricingError::InvalidInput { message, .. } => {
+                assert!(message.contains("Invalid input data"));
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn error_builder_helpers_and_context_mutators_preserve_payloads() {
+        let base_context = PricingErrorContext::new().curve_id("USD-OIS");
+        let invalid = PricingError::invalid_input_with_context("bad fixing", base_context.clone())
+            .with_instrument_id("BOND-123")
+            .with_instrument_type(InstrumentType::Bond)
+            .with_model(ModelKey::Discounting);
+
+        match invalid {
+            PricingError::InvalidInput { message, context } => {
+                assert_eq!(message, "bad fixing");
+                assert_eq!(context.instrument_id.as_deref(), Some("BOND-123"));
+                assert_eq!(context.instrument_type, Some(InstrumentType::Bond));
+                assert_eq!(context.model, Some(ModelKey::Discounting));
+                assert_eq!(context.curve_ids, vec!["USD-OIS".to_string()]);
+            }
+            other => panic!("expected InvalidInput, got {other:?}"),
+        }
+
+        let missing = PricingError::missing_market_data_with_context(
+            "EUR-OIS",
+            PricingErrorContext::new(),
+        )
+        .with_instrument_id("SWAP-1");
+        match missing {
+            PricingError::MissingMarketData {
+                missing_id,
+                context,
+            } => {
+                assert_eq!(missing_id, "EUR-OIS");
+                assert_eq!(context.instrument_id.as_deref(), Some("SWAP-1"));
+            }
+            other => panic!("expected MissingMarketData, got {other:?}"),
+        }
+
+        let untouched = PricingError::type_mismatch(InstrumentType::Bond, InstrumentType::IRS)
+            .with_context(PricingErrorContext::new().instrument_id("IGNORED"));
+        assert!(matches!(untouched, PricingError::TypeMismatch { .. }));
+    }
 }
