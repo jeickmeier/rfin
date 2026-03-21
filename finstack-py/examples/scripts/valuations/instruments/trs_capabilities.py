@@ -105,8 +105,8 @@ def main() -> None:
         equity_trs,
         "discounting",
         market,
-        ["index_delta", "financing_annuity"],
-        as_of=as_of,
+        as_of,
+        metrics=["index_delta", "financing_annuity"],
     )
 
     index_underlying = IndexUnderlying.new(
@@ -131,8 +131,8 @@ def main() -> None:
         index_trs,
         "discounting",
         market,
-        ["par_spread", "dv01"],
-        as_of=as_of,
+        as_of,
+        metrics=["par_spread", "dv01"],
     )
 
 

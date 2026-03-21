@@ -194,8 +194,8 @@ def main() -> None:
         fixed_for_metrics,
         "discounting",
         market,
-        [m.name for m in metrics_core],
-        as_of=as_of,
+        as_of,
+        metrics=[m.name for m in metrics_core],
     )
     measures = res_custom_metrics.measures
     for m in metrics_core:

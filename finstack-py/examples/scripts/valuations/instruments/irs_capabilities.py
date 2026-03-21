@@ -73,8 +73,8 @@ def main() -> None:
         swap,
         "discounting",
         market,
-        ["annuity", "dv01", "par_rate"],  # Start with metrics that work
-        as_of=as_of,
+        as_of,
+        metrics=["annuity", "dv01", "par_rate"],  # Start with metrics that work
     )
 
     measures = result.measures

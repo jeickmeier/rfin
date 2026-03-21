@@ -84,8 +84,8 @@ def main() -> None:
         basket,
         "discounting",
         market,
-        ["constituent_count", "expense_ratio"],
-        as_of=as_of,
+        as_of,
+        metrics=["constituent_count", "expense_ratio"],
     )
 
 

@@ -67,8 +67,8 @@ def main() -> None:
         ilb,
         "discounting",
         market,
-        ["real_duration", "breakeven_inflation"],
-        as_of=as_of,
+        as_of,
+        metrics=["real_duration", "breakeven_inflation"],
     )
 
     inf_swap = (
@@ -86,8 +86,8 @@ def main() -> None:
         inf_swap,
         "discounting",
         market,
-        ["par_rate", "npv01"],
-        as_of=as_of,
+        as_of,
+        metrics=["par_rate", "npv01"],
     )
 
 

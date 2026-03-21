@@ -87,8 +87,8 @@ def main() -> None:
         call,
         "discounting",
         market,
-        ["delta", "gamma", "vega"],
-        as_of=as_of,
+        as_of,
+        metrics=["delta", "gamma", "vega"],
     )
 
     put = (

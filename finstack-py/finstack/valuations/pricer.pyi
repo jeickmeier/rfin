@@ -122,6 +122,7 @@ class PricerRegistry:
         --------
         :meth:`price_with_metrics`: Price with risk metrics
         :meth:`price_batch`: Batch pricing for multiple instruments
+        :meth:`price_batch_with_metrics`: Batch pricing with risk metrics
         :class:`ValuationResult`: Result structure
         """
         ...
@@ -170,8 +171,8 @@ class PricerRegistry:
         instrument: Any,
         model: Any,
         market: MarketContext,
-        metrics: list[Any],
         as_of: dt.date,
+        metrics: list[Any] | None = None,
     ) -> ValuationResult:
         """Price an instrument and compute the requested risk and return metrics.
 
@@ -189,11 +190,16 @@ class PricerRegistry:
             Pricing model identifier (e.g., "discounting", "credit", "black_scholes").
         market : MarketContext
             Market data container with all required curves, surfaces, and FX rates.
-        metrics : list[Any]
+        as_of : dt.date
+            Valuation date for the pricing run.
+        metrics : list[Any] | None, optional
             List of metric identifiers to compute. Can be:
             - MetricId instances: MetricId.from_name("dv01")
             - Strings: "dv01", "cs01", "ytm", "z_spread"
             - Mixed list of both
+            The documented call shape is ``price_with_metrics(..., as_of, metrics=[...])``.
+            The legacy positional order ``price_with_metrics(..., metrics, as_of)``
+            remains supported for backward compatibility.
 
         Returns
         -------
@@ -237,6 +243,40 @@ class PricerRegistry:
         :class:`MetricId`: Metric identifiers
         :class:`MetricRegistry`: Check metric availability
         :class:`ValuationResult`: Result structure with measures
+        """
+        ...
+
+    def price_batch_with_metrics(
+        self,
+        instruments: list[Any],
+        model: Any,
+        market: MarketContext,
+        as_of: dt.date,
+        metrics: list[Any] | None = None,
+    ) -> list[ValuationResult]:
+        """Price a batch of instruments in parallel and compute requested metrics.
+
+        Parameters
+        ----------
+        instruments : list[Any]
+            List of instruments to price. Results preserve this input order.
+        model : str
+            Pricing model key or name (e.g., "discounting", "credit").
+        market : MarketContext
+            Market data container with all required curves for every
+            instrument in the batch.
+        as_of : dt.date
+            Valuation date for the pricing run.
+        metrics : list[Any] | None, optional
+            Metric identifiers to compute for each instrument. The documented call
+            shape is ``price_batch_with_metrics(..., as_of, metrics=[...])``.
+            The legacy positional order ``price_batch_with_metrics(..., metrics, as_of)``
+            remains supported for backward compatibility.
+
+        Returns
+        -------
+        list[ValuationResult]
+            List of results in the same order as *instruments*.
         """
         ...
 
@@ -360,9 +400,9 @@ class PricerRegistry:
         ...
 
 def standard_registry() -> PricerRegistry:
-    """Create a registry pre-populated with all standard finstack pricers.
+    """Return the shared registry pre-populated with all standard finstack pricers.
 
-    This factory function creates a PricerRegistry with all built-in pricing
+    This factory function returns a shared PricerRegistry with all built-in pricing
     engines registered. It supports pricing for bonds, swaps, options, credit
     instruments, and other standard financial instruments.
 
@@ -377,7 +417,7 @@ def standard_registry() -> PricerRegistry:
     Returns
     -------
     PricerRegistry
-        Registry instance with all standard pricers loaded and ready to use.
+        Shared registry instance with all standard pricers loaded and ready to use.
 
     Examples
     --------
@@ -403,6 +443,7 @@ def standard_registry() -> PricerRegistry:
     - All standard instrument types are supported
     - Custom pricers can be added to an empty registry if needed
     - The registry is thread-safe and can be cloned for parallel execution
+    - Reuse the returned registry across requests in service applications
     - Use this function rather than creating an empty PricerRegistry() for
       standard instruments
 

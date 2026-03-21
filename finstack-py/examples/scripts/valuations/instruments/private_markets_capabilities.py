@@ -91,8 +91,8 @@ def main() -> None:
         fund,
         "discounting",
         market,
-        ["lp_irr", "tvpi_lp"],
-        as_of=as_of,
+        as_of,
+        metrics=["lp_irr", "tvpi_lp"],
     )
 
     ledger = fund.lp_cashflows()

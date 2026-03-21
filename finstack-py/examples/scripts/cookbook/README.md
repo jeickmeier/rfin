@@ -220,7 +220,8 @@ result = registry.price_with_metrics(
     bond,
     "discounting",
     market,
-    ["clean_price", "accrued_interest", "duration_modified", "dv01", "convexity"],
+    as_of,
+    metrics=["clean_price", "accrued_interest", "duration_modified", "dv01", "convexity"],
 )
 
 # Extract results

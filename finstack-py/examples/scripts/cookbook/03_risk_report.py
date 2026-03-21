@@ -143,7 +143,13 @@ def compute_risk_metrics(portfolio, instruments_by_position_id, market, *, as_of
 
         # Price with metrics
         try:
-            result = registry.price_with_metrics(instrument, "discounting", market, metrics, as_of=as_of)
+            result = registry.price_with_metrics(
+                instrument,
+                "discounting",
+                market,
+                as_of,
+                metrics=metrics,
+            )
 
             # Extract metrics
             metrics_dict = {

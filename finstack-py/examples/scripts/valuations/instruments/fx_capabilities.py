@@ -116,8 +116,8 @@ def main() -> None:
         fx_swap,
         "discounting",
         market,
-        ["carry_pv"],
-        as_of=as_of,
+        as_of,
+        metrics=["carry_pv"],
     )
 
     # European FX option (call on EURUSD)
@@ -138,8 +138,8 @@ def main() -> None:
         fx_call,
         "discounting",
         market,
-        ["delta", "gamma"],
-        as_of=as_of,
+        as_of,
+        metrics=["delta", "gamma"],
     )
 
     # Put option via helper for completeness

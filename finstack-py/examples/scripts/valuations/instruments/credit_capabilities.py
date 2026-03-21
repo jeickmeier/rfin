@@ -111,8 +111,8 @@ def main() -> None:
         cds,
         "discounting",
         market,
-        ["par_spread", "pv01"],
-        as_of=as_of,
+        as_of,
+        metrics=["par_spread", "pv01"],
     )
 
     index = (
@@ -132,8 +132,8 @@ def main() -> None:
         index,
         "discounting",
         market,
-        ["par_spread"],
-        as_of=as_of,
+        as_of,
+        metrics=["par_spread"],
     )
 
     option = (
@@ -152,8 +152,8 @@ def main() -> None:
         option,
         "discounting",
         market,
-        ["vega"],
-        as_of=as_of,
+        as_of,
+        metrics=["vega"],
     )
 
     tranche = (
@@ -175,8 +175,8 @@ def main() -> None:
         tranche,
         "discounting",
         market,
-        ["par_spread", "expected_loss"],
-        as_of=as_of,
+        as_of,
+        metrics=["par_spread", "expected_loss"],
     )
 
 

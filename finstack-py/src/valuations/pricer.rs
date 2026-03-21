@@ -9,10 +9,10 @@ use finstack_valuations::instruments::fixed_income::bond::{
     asw_market_with_forward, asw_par_with_forward,
 };
 use finstack_valuations::metrics::MetricId;
-use finstack_valuations::pricer::{standard_registry, PricerRegistry};
+use finstack_valuations::pricer::{shared_standard_registry, PricerRegistry};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyList, PyModule};
+use pyo3::types::{PyIterator, PyList, PyModule};
 use pyo3::Bound;
 use rayon::prelude::*;
 use std::sync::Arc;
@@ -40,6 +40,46 @@ impl PyPricerRegistry {
             inner: Arc::new(inner),
         }
     }
+
+    pub(crate) fn from_arc(inner: Arc<PricerRegistry>) -> Self {
+        Self { inner }
+    }
+}
+
+fn extract_metric_ids(metrics: Bound<'_, PyAny>) -> PyResult<Vec<MetricId>> {
+    let iter = PyIterator::from_object(&metrics)
+        .map_err(|_| PyValueError::new_err("metrics must be an iterable of metric identifiers"))?;
+    let mut metric_ids = Vec::new();
+    for item in iter {
+        let MetricIdArg(id) = item?.extract()?;
+        metric_ids.push(id);
+    }
+    Ok(metric_ids)
+}
+
+fn parse_metrics_request(
+    as_of: Bound<'_, PyAny>,
+    metrics: Option<Bound<'_, PyAny>>,
+) -> PyResult<(finstack_core::dates::Date, Vec<MetricId>)> {
+    let metrics = metrics.ok_or_else(|| {
+        PyValueError::new_err(
+            "metrics are required; call price_with_metrics(..., as_of, metrics=[...]) \
+or use the legacy positional order price_with_metrics(..., metrics, as_of)",
+        )
+    })?;
+
+    if let Ok(as_of_date) = py_to_date(&as_of) {
+        return Ok((as_of_date, extract_metric_ids(metrics)?));
+    }
+
+    let metric_ids = extract_metric_ids(as_of)?;
+    let as_of_date = py_to_date(&metrics).map_err(|_| {
+        PyValueError::new_err(
+            "expected (instrument, model, market, as_of, metrics=...) or \
+(instrument, model, market, metrics, as_of)",
+        )
+    })?;
+    Ok((as_of_date, metric_ids))
 }
 
 #[pymethods]
@@ -170,15 +210,15 @@ impl PyPricerRegistry {
         }
     }
 
-    #[pyo3(signature = (instrument, model, market, metrics, as_of), text_signature = "(self, instrument, model, market, metrics, as_of)")]
+    #[pyo3(signature = (instrument, model, market, as_of, metrics=None), text_signature = "(self, instrument, model, market, as_of, metrics=None)")]
     /// Price an instrument and compute the requested metrics.
     ///
     /// Args:
     ///     instrument: Instrument instance created from the bindings.
     ///     model: Pricing model key or name.
     ///     market: Market context with the necessary curve data.
-    ///     metrics: Iterable of metric identifiers or names to evaluate.
     ///     as_of: Valuation date (datetime.date).
+    ///     metrics: Iterable of metric identifiers or names to evaluate.
     ///
     /// Returns:
     ///     ValuationResult: Pricing result enriched with computed metrics.
@@ -190,7 +230,13 @@ impl PyPricerRegistry {
     /// Examples:
     ///     >>> from datetime import date
     ///     >>> registry = standard_registry()
-    ///     >>> result = registry.price_with_metrics(bond, "discounting", market, ["dv01"], date(2024, 6, 15))
+    ///     >>> result = registry.price_with_metrics(
+    ///     ...     bond,
+    ///     ...     "discounting",
+    ///     ...     market,
+    ///     ...     date(2024, 6, 15),
+    ///     ...     metrics=["dv01"],
+    ///     ... )
     ///     >>> result.metrics["dv01"].value
     ///     -415.2
     fn price_with_metrics(
@@ -199,21 +245,14 @@ impl PyPricerRegistry {
         instrument: Bound<'_, PyAny>,
         model: Bound<'_, PyAny>,
         market: &PyMarketContext,
-        metrics: Vec<Bound<'_, PyAny>>,
         as_of: Bound<'_, PyAny>,
+        metrics: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyValuationResult> {
         let InstrumentHandle {
             instrument: inst, ..
         } = extract_instrument(&instrument)?;
         let ModelKeyArg(model_key) = model.extract()?;
-
-        let mut metric_ids: Vec<MetricId> = Vec::with_capacity(metrics.len());
-        for m in metrics {
-            let MetricIdArg(id) = m.extract()?;
-            metric_ids.push(id);
-        }
-
-        let as_of_date = py_to_date(&as_of)?;
+        let (as_of_date, metric_ids) = parse_metrics_request(as_of, metrics)?;
 
         py.detach(|| {
             self.inner
@@ -228,6 +267,52 @@ impl PyPricerRegistry {
                 .map(PyValuationResult::new)
                 .map_err(pricing_error_to_py)
         })
+    }
+
+    #[pyo3(signature = (instruments, model, market, as_of, metrics=None), text_signature = "(self, instruments, model, market, as_of, metrics=None)")]
+    /// Price a batch of instruments in parallel and compute requested metrics.
+    ///
+    /// The documented call shape is ``(instruments, model, market, as_of, metrics=...)``.
+    /// The legacy positional order ``(..., metrics, as_of)`` remains supported for
+    /// compatibility with older callers.
+    fn price_batch_with_metrics(
+        &self,
+        py: Python<'_>,
+        instruments: Vec<Bound<'_, PyAny>>,
+        model: Bound<'_, PyAny>,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+        metrics: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Vec<PyValuationResult>> {
+        let ModelKeyArg(model_key) = model.extract()?;
+        let (as_of_date, metric_ids) = parse_metrics_request(as_of, metrics)?;
+
+        let mut handles = Vec::with_capacity(instruments.len());
+        for inst in instruments {
+            let handle = extract_instrument(&inst)?;
+            handles.push(handle);
+        }
+
+        let results: Result<Vec<_>, _> = py.detach(|| {
+            handles
+                .par_iter()
+                .map(|handle| {
+                    self.inner.price_with_metrics(
+                        handle.instrument.as_ref(),
+                        model_key,
+                        &market.inner,
+                        as_of_date,
+                        &metric_ids,
+                        finstack_valuations::instruments::PricingOptions::default(),
+                    )
+                })
+                .collect()
+        });
+
+        match results {
+            Ok(vec) => Ok(vec.into_iter().map(PyValuationResult::new).collect()),
+            Err(e) => Err(pricing_error_to_py(e)),
+        }
     }
 
     #[pyo3(
@@ -375,7 +460,7 @@ pass an explicit dirty price (e.g. 1.0125 * bond.notional.amount)",
 ///     <ValuationResult ...>
 #[pyfunction(name = "standard_registry")]
 fn standard_registry_py() -> PyResult<PyPricerRegistry> {
-    Ok(PyPricerRegistry::new(standard_registry().clone()))
+    Ok(PyPricerRegistry::from_arc(shared_standard_registry()))
 }
 
 pub(crate) fn register<'py>(

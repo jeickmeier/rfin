@@ -87,7 +87,13 @@ def main() -> None:
         )
 
         # Price with curves
-        registry.price_with_metrics(cds, "discounting", market_ctx, ["par_spread", "pv01"], as_of=base_date)
+        registry.price_with_metrics(
+            cds,
+            "discounting",
+            market_ctx,
+            base_date,
+            metrics=["par_spread", "pv01"],
+        )
 
         # For par CDS, PV should be close to zero
 

@@ -84,8 +84,8 @@ def main() -> None:
         variance_swap,
         "discounting",
         market,
-        ["variance_vega", "variance_expected"],
-        as_of=as_of,
+        as_of,
+        metrics=["variance_vega", "variance_expected"],
     )
 
 

@@ -131,8 +131,8 @@ def main() -> None:
         fra,
         "discounting",
         market,
-        ["par_rate", "pv01"],
-        as_of=as_of,
+        as_of,
+        metrics=["par_rate", "pv01"],
     )
 
     # Basis swap: SOFR 3M vs 6M with small spread
@@ -171,8 +171,8 @@ def main() -> None:
         basis_swap,
         "discounting",
         market,
-        ["dv01"],
-        as_of=as_of,
+        as_of,
+        metrics=["dv01"],
     )
 
     # Interest-rate cap and floor built via helper constructors
@@ -194,8 +194,8 @@ def main() -> None:
         cap,
         "discounting",
         market,
-        ["vega", "delta"],
-        as_of=as_of,
+        as_of,
+        metrics=["vega", "delta"],
     )
 
     floor = (
@@ -233,8 +233,8 @@ def main() -> None:
         future,
         "discounting",
         market,
-        ["dv01"],
-        as_of=as_of,
+        as_of,
+        metrics=["dv01"],
     )
 
     # Swaption: payer on 5y underlying swap starting in 1y
@@ -255,8 +255,8 @@ def main() -> None:
         swaption,
         "discounting",
         market,
-        ["vega", "delta"],
-        as_of=as_of,
+        as_of,
+        metrics=["vega", "delta"],
     )
 
 
