@@ -376,11 +376,12 @@ impl ValuationResult {
     /// Attach computed risk metrics to the result.
     ///
     /// Replaces any existing measures with the provided map. Metrics
-    /// are keyed by their string identifier (e.g., "ytm", "dv01").
+    /// are keyed by [`MetricId`] values (for example `MetricId::Ytm`,
+    /// `MetricId::Dv01`).
     ///
     /// # Arguments
     ///
-    /// * `measures` - Map of metric name to computed value
+    /// * `measures` - Map of metric identifier to computed value
     ///
     /// # Returns
     ///

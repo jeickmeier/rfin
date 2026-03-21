@@ -17,6 +17,7 @@ mod trs;
 pub mod variance_replication;
 
 // Re-export generic pricer types
+#[doc(hidden)]
 pub use generic::GenericInstrumentPricer;
 
 // Re-export TRS types

@@ -361,6 +361,7 @@ pub mod results;
 pub mod schema;
 pub(crate) mod serde_defaults;
 /// Internal utility helpers.
+#[doc(hidden)]
 pub mod utils;
 
 #[macro_use]

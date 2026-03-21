@@ -16,6 +16,7 @@ use std::sync::Arc;
 ///
 /// This performs both enum-based type checking and actual type downcasting,
 /// ensuring type safety at both levels.
+#[doc(hidden)]
 pub fn expect_inst<T: Priceable + 'static>(
     inst: &dyn Priceable,
     expected: InstrumentType,

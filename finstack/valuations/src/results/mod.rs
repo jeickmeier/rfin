@@ -16,7 +16,7 @@
 //! ```text
 //! ValuationResult {
 //!     value: Money,              // Present value in instrument currency
-//!     measures: HashMap<String, f64>,  // Computed metrics (DV01, Greeks, etc.)
+//!     measures: IndexMap<MetricId, f64>,  // Computed metrics (DV01, Greeks, etc.)
 //!     meta: ResultsMeta,         // Execution metadata
 //! }
 //! ```
@@ -46,7 +46,7 @@
 //!
 //! // Access results
 //! println!("PV: {}", result.value);
-//! if let Some(dv01) = result.measures.get("dv01") {
+//! if let Some(dv01) = result.metric(MetricId::Dv01) {
 //!     println!("DV01: ${:.2}", dv01);
 //! }
 //! # Ok(())

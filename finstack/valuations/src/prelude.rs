@@ -46,8 +46,9 @@ pub use crate::metrics::{standard_registry, MetricContext, MetricId, MetricRegis
 pub use crate::results::{ResultsMeta, ValuationResult};
 
 pub use crate::instruments::{
-    Bond, CreditDefaultSwap, Deposit, EquityOption, FxForward, FxOption, FxSwap, InterestRateSwap,
-    Repo, Swaption,
+    Bond, BondConvention, CreditDefaultSwap, Deposit, EquityOption, ExerciseStyle, FixedLegSpec,
+    FloatLegSpec, FxForward, FxOption, FxSwap, InterestRateSwap, OptionType, PayReceive,
+    PricingOptions, PricingOverrides, Repo, SettlementType, Swaption,
 };
 
 pub use finstack_core::prelude::*;
