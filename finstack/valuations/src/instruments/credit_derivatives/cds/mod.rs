@@ -141,6 +141,7 @@ pub use parameters::{
 pub use types::CDSConvention;
 pub use types::CreditDefaultSwap;
 pub use types::CreditDefaultSwapBuilder;
+pub use types::IsdaCdsParams;
 pub use types::PayReceive;
 pub use types::PremiumLegSpec;
 pub use types::ProtectionLegSpec;

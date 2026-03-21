@@ -91,31 +91,23 @@
 //! ```rust,no_run
 //! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
+//! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::money::Money;
 //! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
 //! let expiry = create_date(2024, Month::July, 1)?; // 6-month option
 //!
-//! let option = EquityOption::builder()
-//!     .id(finstack_core::types::InstrumentId::new("OPT-001"))
-//!     .underlying_ticker("SPX".to_string())
-//!     .strike(4500.0)
-//!     .option_type(finstack_valuations::instruments::OptionType::Call)
-//!     .exercise_style(finstack_valuations::instruments::ExerciseStyle::European)
-//!     .expiry(expiry)
-//!     .notional(finstack_core::money::Money::new(100.0, finstack_core::currency::Currency::USD))
-//!     .day_count(finstack_core::dates::DayCount::Act365F)
-//!     .settlement(finstack_valuations::instruments::SettlementType::Cash)
-//!     .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-//!     .spot_id("EQUITY-SPOT".into())
-//!     .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
-//!     .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
-//!     .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-//!     .attributes(finstack_valuations::instruments::Attributes::new())
-//!     .build()?;
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     expiry,
+//!     Money::new(100.0, Currency::USD),
+//! )?;
 //! let market = MarketContext::new();
 //! let metrics = vec![MetricId::Theta];
 //!
@@ -134,29 +126,21 @@
 //! ```rust,no_run
 //! use finstack_valuations::instruments::{EquityOption, Instrument, PricingOptions};
 //! use finstack_valuations::metrics::MetricId;
+//! use finstack_core::currency::Currency;
 //! use finstack_core::dates::create_date;
 //! use finstack_core::market_data::context::MarketContext;
+//! use finstack_core::money::Money;
 //! use time::Month;
 //!
 //! # fn main() -> finstack_core::Result<()> {
 //! let as_of = create_date(2024, Month::January, 1)?;
-//! let option = EquityOption::builder()
-//!     .id(finstack_core::types::InstrumentId::new("OPT-001"))
-//!     .underlying_ticker("SPX".to_string())
-//!     .strike(4500.0)
-//!     .option_type(finstack_valuations::instruments::OptionType::Call)
-//!     .exercise_style(finstack_valuations::instruments::ExerciseStyle::European)
-//!     .expiry(create_date(2024, Month::July, 1)?)
-//!     .notional(finstack_core::money::Money::new(100.0, finstack_core::currency::Currency::USD))
-//!     .day_count(finstack_core::dates::DayCount::Act365F)
-//!     .settlement(finstack_valuations::instruments::SettlementType::Cash)
-//!     .discount_curve_id(finstack_core::types::CurveId::new("USD-OIS"))
-//!     .spot_id("EQUITY-SPOT".into())
-//!     .vol_surface_id(finstack_core::types::CurveId::new("EQUITY-VOL"))
-//!     .div_yield_id_opt(Some(finstack_core::types::CurveId::new("EQUITY-DIVYIELD")))
-//!     .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
-//!     .attributes(finstack_valuations::instruments::Attributes::new())
-//!     .build()?;
+//! let option = EquityOption::european_call(
+//!     "OPT-001",
+//!     "SPX",
+//!     4500.0,
+//!     create_date(2024, Month::July, 1)?,
+//!     Money::new(100.0, Currency::USD),
+//! )?;
 //! let market = MarketContext::new();
 //! let metrics = vec![
 //!     MetricId::Delta,

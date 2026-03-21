@@ -63,4 +63,4 @@ pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
 
-pub use types::ForwardRateAgreement;
+pub use types::{ConventionFraParams, ForwardRateAgreement};

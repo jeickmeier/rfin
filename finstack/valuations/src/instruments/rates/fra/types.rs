@@ -105,6 +105,31 @@ pub struct ForwardRateAgreement {
     pub attributes: Attributes,
 }
 
+/// Parameters for building an FRA from registered rate-index conventions.
+#[derive(Debug, Clone)]
+pub struct ConventionFraParams<'a> {
+    /// Unique FRA identifier.
+    pub id: InstrumentId,
+    /// FRA notional.
+    pub notional: Money,
+    /// Start date of the accrual period.
+    pub start_date: Date,
+    /// End date of the accrual period.
+    pub maturity: Date,
+    /// Fixed FRA rate in decimal form.
+    pub fixed_rate: f64,
+    /// Rate index used to resolve FRA conventions.
+    pub index_id: &'a str,
+    /// Discount curve used for settlement discounting.
+    pub discount_curve_id: &'a str,
+    /// Forward curve used to project the realized floating rate.
+    pub forward_curve_id: &'a str,
+    /// FRA direction for the fixed leg.
+    pub side: PayReceive,
+    /// Scenario-selection and tagging attributes.
+    pub attributes: Attributes,
+}
+
 /// Custom deserializer for ForwardRateAgreement that accepts either `side`
 /// (PayReceive enum) or the legacy `receive_fixed` (bool) field.
 impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
@@ -252,6 +277,57 @@ impl ForwardRateAgreement {
             .side(PayReceive::ReceiveFixed)
             .attributes(Attributes::new())
             .build()
+    }
+
+    /// Create an FRA using market conventions resolved from `ConventionRegistry`.
+    ///
+    /// This is the concise path for standard forward-rate agreements when the
+    /// caller knows the accrual dates, fixed rate, and curve identifiers.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the global `ConventionRegistry` is unavailable or if
+    /// the requested `index_id` is not present in the registry.
+    pub fn from_conventions(params: ConventionFraParams<'_>) -> finstack_core::Result<Self> {
+        let ConventionFraParams {
+            id,
+            notional,
+            start_date,
+            maturity,
+            fixed_rate,
+            index_id,
+            discount_curve_id,
+            forward_curve_id,
+            side,
+            attributes,
+        } = params;
+
+        let registry = ConventionRegistry::try_global().map_err(|_| {
+            finstack_core::Error::Validation("ConventionRegistry not initialized.".into())
+        })?;
+        let conv = registry.require_rate_index(&IndexId::new(index_id))?;
+
+        let fra = Self::builder()
+            .id(id)
+            .notional(notional)
+            .start_date(start_date)
+            .maturity(maturity)
+            .fixed_rate(crate::utils::decimal::f64_to_decimal(
+                fixed_rate,
+                "fixed_rate",
+            )?)
+            .day_count(conv.day_count)
+            .reset_lag(conv.default_reset_lag_days)
+            .discount_curve_id(CurveId::new(discount_curve_id))
+            .forward_curve_id(CurveId::new(forward_curve_id))
+            .side(side)
+            .fixing_calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
+            .fixing_bdc_opt(Some(conv.market_business_day_convention))
+            .attributes(attributes)
+            .build()?;
+
+        fra.validate()?;
+        Ok(fra)
     }
 
     /// Settlement amount at period start (undiscounted).
@@ -722,5 +798,38 @@ mod serde_tests {
         let fra: ForwardRateAgreement = serde_json::from_value(json).expect("deserialize FRA");
         assert_eq!(fra.side, PayReceive::PayFixed);
         assert_eq!(fra.notional.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn from_conventions_applies_rate_index_defaults() {
+        let fra = ForwardRateAgreement::from_conventions(ConventionFraParams {
+            id: InstrumentId::new("FRA-USD-SOFR-3X6"),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            start_date: Date::from_calendar_date(2025, time::Month::April, 3)
+                .expect("valid start date"),
+            maturity: Date::from_calendar_date(2025, time::Month::July, 3)
+                .expect("valid maturity date"),
+            fixed_rate: 0.045,
+            index_id: "USD-SOFR-3M",
+            discount_curve_id: "USD-OIS",
+            forward_curve_id: "USD-SOFR-3M",
+            side: PayReceive::ReceiveFixed,
+            attributes: Attributes::new(),
+        })
+        .expect("FRA conventions constructor should succeed");
+
+        assert_eq!(fra.id, InstrumentId::new("FRA-USD-SOFR-3X6"));
+        assert_eq!(fra.notional, Money::new(1_000_000.0, Currency::USD));
+        assert_eq!(fra.day_count, DayCount::Act360);
+        assert_eq!(fra.reset_lag, 2);
+        assert_eq!(fra.discount_curve_id, CurveId::new("USD-OIS"));
+        assert_eq!(fra.forward_curve_id, CurveId::new("USD-SOFR-3M"));
+        assert_eq!(fra.fixed_rate.to_f64(), Some(0.045));
+        assert_eq!(fra.side, PayReceive::ReceiveFixed);
+        assert_eq!(fra.fixing_calendar_id.as_deref(), Some("usny"));
+        assert_eq!(
+            fra.fixing_bdc,
+            Some(BusinessDayConvention::ModifiedFollowing)
+        );
     }
 }

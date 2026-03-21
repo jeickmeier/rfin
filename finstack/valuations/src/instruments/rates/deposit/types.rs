@@ -29,6 +29,8 @@ use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
+use crate::market::conventions::ids::IndexId;
+use crate::market::conventions::ConventionRegistry;
 
 /// Simple deposit instrument with optional quoted rate.
 ///
@@ -103,6 +105,27 @@ pub struct Deposit {
     pub calendar_id: Option<CalendarId>,
 }
 
+/// Parameters for building a deposit from registered rate-index conventions.
+#[derive(Debug, Clone)]
+pub struct ConventionDepositParams<'a> {
+    /// Unique deposit identifier.
+    pub id: InstrumentId,
+    /// Deposit notional.
+    pub notional: Money,
+    /// Trade date used as the raw start date before spot-lag adjustment.
+    pub trade_date: Date,
+    /// Deposit maturity date.
+    pub maturity: Date,
+    /// Quoted simple annualized rate in decimal form.
+    pub quote_rate: f64,
+    /// Rate index used to resolve market conventions.
+    pub index_id: &'a str,
+    /// Discount curve used for valuation and par extraction.
+    pub discount_curve_id: &'a str,
+    /// Scenario-selection and tagging attributes.
+    pub attributes: Attributes,
+}
+
 impl Deposit {
     /// Create a canonical example deposit for testing and documentation.
     ///
@@ -122,6 +145,53 @@ impl Deposit {
             .spot_lag_days_opt(Some(2))
             .bdc(BusinessDayConvention::ModifiedFollowing)
             .build()
+    }
+
+    /// Create a deposit using market conventions resolved from `ConventionRegistry`.
+    ///
+    /// This constructor is the preferred shortcut for standard money-market
+    /// deposits when the caller knows the trade date, maturity, and quoted rate.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the global `ConventionRegistry` is unavailable or if
+    /// the requested `index_id` is not present in the registry.
+    pub fn from_conventions(params: ConventionDepositParams<'_>) -> finstack_core::Result<Self> {
+        let ConventionDepositParams {
+            id,
+            notional,
+            trade_date,
+            maturity,
+            quote_rate,
+            index_id,
+            discount_curve_id,
+            attributes,
+        } = params;
+
+        let registry = ConventionRegistry::try_global().map_err(|_| {
+            finstack_core::Error::Validation("ConventionRegistry not initialized.".into())
+        })?;
+        let conv = registry.require_rate_index(&IndexId::new(index_id))?;
+
+        let deposit = Self::builder()
+            .id(id)
+            .notional(notional)
+            .start_date(trade_date)
+            .maturity(maturity)
+            .day_count(conv.day_count)
+            .quote_rate_opt(Some(crate::utils::decimal::f64_to_decimal(
+                quote_rate,
+                "quote_rate",
+            )?))
+            .discount_curve_id(CurveId::new(discount_curve_id))
+            .attributes(attributes)
+            .spot_lag_days_opt(Some(conv.market_settlement_days))
+            .bdc(conv.market_business_day_convention)
+            .calendar_id_opt(Some(conv.market_calendar_id.clone().into()))
+            .build()?;
+
+        deposit.validate()?;
+        Ok(deposit)
     }
 
     /// Calculate the raw (unrounded) net present value of this deposit.
@@ -418,5 +488,43 @@ impl CashflowProvider for Deposit {
             self.notional(),
             self.day_count,
         ))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::common_impl::traits::Attributes;
+    use finstack_core::currency::Currency;
+    use time::macros::date;
+
+    #[test]
+    fn from_conventions_applies_rate_index_defaults() {
+        let deposit = Deposit::from_conventions(ConventionDepositParams {
+            id: InstrumentId::new("DEP-USD-SOFR-6M"),
+            notional: Money::new(1_000_000.0, Currency::USD),
+            trade_date: date!(2025 - 01 - 02),
+            maturity: date!(2025 - 07 - 02),
+            quote_rate: 0.045,
+            index_id: "USD-SOFR-OIS",
+            discount_curve_id: "USD-OIS",
+            attributes: Attributes::new(),
+        })
+        .expect("deposit conventions constructor should succeed");
+
+        assert_eq!(deposit.id, InstrumentId::new("DEP-USD-SOFR-6M"));
+        assert_eq!(deposit.notional, Money::new(1_000_000.0, Currency::USD));
+        assert_eq!(deposit.start_date, date!(2025 - 01 - 02));
+        assert_eq!(deposit.maturity, date!(2025 - 07 - 02));
+        assert_eq!(deposit.day_count, DayCount::Act360);
+        assert_eq!(
+            deposit.quote_rate.and_then(|rate| rate.to_f64()),
+            Some(0.045)
+        );
+        assert_eq!(deposit.discount_curve_id, CurveId::new("USD-OIS"));
+        assert_eq!(deposit.spot_lag_days, Some(2));
+        assert_eq!(deposit.bdc, BusinessDayConvention::ModifiedFollowing);
+        assert_eq!(deposit.calendar_id.as_deref(), Some("usny"));
     }
 }

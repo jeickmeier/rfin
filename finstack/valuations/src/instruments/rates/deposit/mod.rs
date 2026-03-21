@@ -48,4 +48,4 @@ pub(crate) mod pricer;
 mod types;
 
 pub use metrics::register_deposit_metrics;
-pub use types::Deposit;
+pub use types::{ConventionDepositParams, Deposit};
