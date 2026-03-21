@@ -166,7 +166,7 @@ from .bumps import (
 )
 
 # Schema exports
-from .schema import bond_schema, valuation_result_schema
+from .schema import bond_schema, instrument_schema, instrument_types, valuation_result_schema
 
 # XVA exports
 from .xva import (
@@ -333,6 +333,8 @@ __all__ = [
     "bump_inflation_rates",
     # Schema
     "bond_schema",
+    "instrument_schema",
+    "instrument_types",
     "valuation_result_schema",
     # XVA
     "FundingConfig",

@@ -20,6 +20,38 @@ fn bond_schema(py: Python<'_>) -> PyResult<Py<PyAny>> {
         .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
 }
 
+/// Return the JSON Schema for the instrument envelope or a specific instrument type.
+///
+/// Parameters:
+///     instrument_type: Optional canonical instrument discriminator. When omitted,
+///         returns the versioned instrument envelope schema.
+///
+/// Returns:
+///     dict: JSON Schema document (draft-07) describing the requested schema.
+///
+/// Raises:
+///     FinstackError: If the embedded schema JSON is malformed.
+#[pyfunction(signature = (instrument_type=None))]
+fn instrument_schema(py: Python<'_>, instrument_type: Option<&str>) -> PyResult<Py<PyAny>> {
+    let schema = match instrument_type {
+        Some(instrument_type) => {
+            finstack_valuations::schema::instrument_schema(instrument_type).map_err(core_to_py)?
+        }
+        None => finstack_valuations::schema::instrument_envelope_schema()
+            .map_err(core_to_py)?
+            .clone(),
+    };
+    pythonize::pythonize(py, &schema)
+        .map(|obj| obj.unbind())
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+}
+
+/// Return the canonical instrument discriminators supported by the envelope schema.
+#[pyfunction]
+fn instrument_types() -> PyResult<Vec<String>> {
+    finstack_valuations::schema::instrument_types().map_err(core_to_py)
+}
+
 /// Return the JSON Schema for the ValuationResult envelope.
 ///
 /// Returns:
@@ -46,9 +78,16 @@ pub(crate) fn register<'py>(
     )?;
 
     module.add_function(wrap_pyfunction!(bond_schema, &module)?)?;
+    module.add_function(wrap_pyfunction!(instrument_schema, &module)?)?;
+    module.add_function(wrap_pyfunction!(instrument_types, &module)?)?;
     module.add_function(wrap_pyfunction!(valuation_result_schema, &module)?)?;
 
-    let exports = vec!["bond_schema", "valuation_result_schema"];
+    let exports = vec![
+        "bond_schema",
+        "instrument_schema",
+        "instrument_types",
+        "valuation_result_schema",
+    ];
     module.setattr("__all__", PyList::new(py, &exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports)
