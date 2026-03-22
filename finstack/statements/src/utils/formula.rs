@@ -74,8 +74,8 @@ pub fn is_standalone_identifier(
 ///
 /// # Example
 ///
-/// ```rust,compile_fail
-/// // Internal helper (crate-private module); not part of the public API.
+/// ```rust,ignore
+/// // Low-level helper; prefer higher-level APIs when possible.
 /// use finstack_statements::utils::formula::extract_all_identifiers;
 /// ```
 pub fn extract_all_identifiers(formula: &str) -> crate::error::Result<IndexSet<String>> {
@@ -187,8 +187,8 @@ fn collect_identifiers_from_ast(
 ///
 /// # Example
 ///
-/// ```rust,compile_fail
-/// // Internal helper (crate-private module); not part of the public API.
+/// ```rust,ignore
+/// // Low-level helper; prefer higher-level APIs when possible.
 /// use finstack_statements::utils::formula::extract_identifiers;
 /// ```
 pub fn extract_identifiers(
@@ -262,8 +262,8 @@ fn extract_identifiers_by_scanning(
 ///
 /// # Example
 ///
-/// ```rust,compile_fail
-/// // Internal helper (crate-private module); not part of the public API.
+/// ```rust,ignore
+/// // Low-level helper; prefer higher-level APIs when possible.
 /// use finstack_statements::utils::formula::qualify_identifiers;
 /// ```
 pub fn qualify_identifiers(

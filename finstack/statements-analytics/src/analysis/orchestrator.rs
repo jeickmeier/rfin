@@ -59,7 +59,7 @@ enum EquityMode {
 /// # Example
 ///
 /// ```rust,no_run
-/// use finstack_statements::analysis::orchestrator::CorporateAnalysisBuilder;
+/// use finstack_statements_analytics::analysis::orchestrator::CorporateAnalysisBuilder;
 /// use finstack_statements::builder::ModelBuilder;
 /// use finstack_core::dates::PeriodId;
 /// use finstack_statements::types::AmountOrScalar;

@@ -105,7 +105,7 @@ pub(crate) struct DcfEvalContext<'a> {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use finstack_statements::analysis::{evaluate_dcf_with_market, DcfOptions};
+/// use finstack_statements_analytics::analysis::{evaluate_dcf_with_market, DcfOptions};
 /// use finstack_statements::builder::ModelBuilder;
 /// use finstack_statements::types::AmountOrScalar;
 /// use finstack_core::dates::PeriodId;

@@ -14,7 +14,7 @@ use finstack_statements::utils::constants::EPSILON;
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::analysis::backtest_forecast;
+/// # use finstack_statements_analytics::analysis::backtest_forecast;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let actual = vec![100.0, 110.0, 105.0, 115.0];
 /// let forecast = vec![98.0, 112.0, 104.0, 116.0];
@@ -57,7 +57,7 @@ impl ForecastMetrics {
     /// # Example
     ///
     /// ```rust
-    /// # use finstack_statements::analysis::ForecastMetrics;
+    /// # use finstack_statements_analytics::analysis::ForecastMetrics;
     /// let metrics = ForecastMetrics {
     ///     mae: 2.5,
     ///     mape: 3.7,
@@ -96,7 +96,7 @@ impl ForecastMetrics {
 /// # Example
 ///
 /// ```rust
-/// # use finstack_statements::analysis::backtest_forecast;
+/// # use finstack_statements_analytics::analysis::backtest_forecast;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let actual = vec![100.0, 110.0, 105.0, 115.0];
 /// let forecast = vec![98.0, 112.0, 104.0, 116.0];

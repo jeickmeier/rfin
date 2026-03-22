@@ -16,7 +16,7 @@ use indexmap::IndexMap;
 ///
 /// ```rust
 /// use finstack_statements::prelude::*;
-/// use finstack_statements::analysis::{SensitivityAnalyzer, SensitivityConfig, SensitivityMode, ParameterSpec};
+/// use finstack_statements_analytics::analysis::{SensitivityAnalyzer, SensitivityConfig, SensitivityMode, ParameterSpec};
 ///
 /// # fn main() -> Result<()> {
 /// let model = ModelBuilder::new("sensitivity_test")

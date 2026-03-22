@@ -49,7 +49,7 @@ pub struct CreditContextMetrics {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_statements::analysis::compute_credit_context;
+/// use finstack_statements_analytics::analysis::compute_credit_context;
 /// use finstack_statements::capital_structure::{CapitalStructureCashflows, CashflowBreakdown};
 /// use finstack_statements::evaluator::StatementResult;
 /// use finstack_core::currency::Currency;

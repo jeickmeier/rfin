@@ -12,7 +12,7 @@
 //! # Examples
 //!
 //! ```rust,no_run
-//! use finstack_statements::analysis::{Report, PLSummaryReport};
+//! use finstack_statements_analytics::analysis::{Report, PLSummaryReport};
 //! use finstack_statements::evaluator::StatementResult;
 //! use finstack_core::dates::PeriodId;
 //!
@@ -70,7 +70,7 @@ pub enum Alignment {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_statements::analysis::{TableBuilder, Alignment};
+/// use finstack_statements_analytics::analysis::{TableBuilder, Alignment};
 ///
 /// let mut table = TableBuilder::new();
 /// table.add_header("Name");
@@ -316,7 +316,7 @@ impl Default for TableBuilder {
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::Evaluator;
-/// # use finstack_statements::analysis::{Report, PLSummaryReport};
+/// # use finstack_statements_analytics::analysis::{Report, PLSummaryReport};
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let period = PeriodId::quarter(2025, 1);
@@ -394,7 +394,7 @@ impl Report for PLSummaryReport<'_> {
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::Evaluator;
-/// # use finstack_statements::analysis::{Report, CreditAssessmentReport};
+/// # use finstack_statements_analytics::analysis::{Report, CreditAssessmentReport};
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let period = PeriodId::quarter(2025, 1);

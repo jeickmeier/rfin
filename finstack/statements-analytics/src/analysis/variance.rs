@@ -15,7 +15,7 @@
 //! Basic usage with two `StatementResult`:
 //!
 //! ```rust
-//! use finstack_statements::analysis::{VarianceAnalyzer, VarianceConfig};
+//! use finstack_statements_analytics::analysis::{VarianceAnalyzer, VarianceConfig};
 //! use finstack_statements::prelude::*;
 //!
 //! # fn main() -> finstack_statements::Result<()> {

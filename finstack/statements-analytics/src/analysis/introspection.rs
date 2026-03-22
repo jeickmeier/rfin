@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::DependencyGraph;
-/// # use finstack_statements::analysis::DependencyTracer;
+/// # use finstack_statements_analytics::analysis::DependencyTracer;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = ModelBuilder::new("demo")
 ///     .periods("2025Q1..Q2", None)?
@@ -112,7 +112,7 @@ impl<'a> DependencyTracer<'a> {
     /// ```rust
     /// # use finstack_statements::builder::ModelBuilder;
     /// # use finstack_statements::evaluator::DependencyGraph;
-    /// # use finstack_statements::analysis::DependencyTracer;
+    /// # use finstack_statements_analytics::analysis::DependencyTracer;
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
     /// # let model = ModelBuilder::new("demo")
     /// #     .periods("2025Q1..Q2", None)?
@@ -276,7 +276,7 @@ impl DependencyTree {
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::DependencyGraph;
-/// # use finstack_statements::analysis::{DependencyTracer, render_tree_ascii};
+/// # use finstack_statements_analytics::analysis::{DependencyTracer, render_tree_ascii};
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let model = ModelBuilder::new("demo")
 /// #     .periods("2025Q1..Q2", None)?
@@ -321,7 +321,7 @@ pub fn render_tree_ascii(tree: &DependencyTree) -> String {
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::{DependencyGraph, Evaluator};
-/// # use finstack_statements::analysis::{DependencyTracer, render_tree_detailed};
+/// # use finstack_statements_analytics::analysis::{DependencyTracer, render_tree_detailed};
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # let model = ModelBuilder::new("demo")
@@ -440,7 +440,7 @@ fn render_tree_with_values(
 /// ```rust
 /// # use finstack_statements::builder::ModelBuilder;
 /// # use finstack_statements::evaluator::Evaluator;
-/// # use finstack_statements::analysis::FormulaExplainer;
+/// # use finstack_statements_analytics::analysis::FormulaExplainer;
 /// # use finstack_core::dates::PeriodId;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let model = ModelBuilder::new("demo")

@@ -8,7 +8,7 @@
 //!
 //! ```rust
 //! use finstack_statements::prelude::*;
-//! use finstack_statements::analysis::goal_seek;
+//! use finstack_statements_analytics::analysis::goal_seek;
 //! use finstack_core::dates::PeriodId;
 //!
 //! # fn main() -> Result<()> {
@@ -79,7 +79,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 ///
 /// ```rust,no_run
 /// use finstack_statements::prelude::*;
-/// use finstack_statements::analysis::goal_seek;
+/// use finstack_statements_analytics::analysis::goal_seek;
 /// use finstack_core::dates::PeriodId;
 ///
 /// # fn main() -> Result<()> {
