@@ -19,6 +19,13 @@ struct DistributionParams {
     seed: u64,
 }
 
+fn build_rng(seed: u64, stream_id: Option<u64>) -> Pcg64Rng {
+    match stream_id {
+        Some(stream_id) => Pcg64Rng::new_with_stream(seed, stream_id),
+        None => Pcg64Rng::new(seed),
+    }
+}
+
 /// Deterministic 64-bit mix of a node identifier for Monte Carlo seeding.
 ///
 /// Used to decorrelate independent stochastic forecasts across nodes while
@@ -132,16 +139,6 @@ fn extract_distribution_params(
     })
 }
 
-/// Box-Muller transform for generating a standard normal sample.
-///
-/// Uses two uniform samples to produce a normally distributed value.
-/// Guards against u1=0.0 which would cause ln(0) = -infinity.
-fn box_muller_sample(rng: &mut Pcg64Rng) -> f64 {
-    let u1 = rng.uniform().max(f64::MIN_POSITIVE);
-    let u2 = rng.uniform();
-    (-2.0_f64 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos()
-}
-
 /// Normal distribution forecast (deterministic with seed).
 ///
 /// Samples from a normal distribution N(mean, std_dev^2) for each forecast period.
@@ -198,13 +195,22 @@ pub fn normal_forecast(
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
+    normal_forecast_with_stream(_base_value, forecast_periods, params, None)
+}
+
+pub(crate) fn normal_forecast_with_stream(
+    _base_value: f64,
+    forecast_periods: &[PeriodId],
+    params: &IndexMap<String, serde_json::Value>,
+    stream_id: Option<u64>,
+) -> Result<IndexMap<PeriodId, f64>> {
     let p = extract_distribution_params(params, "Normal")?;
 
-    let mut rng = Pcg64Rng::new(p.seed);
+    let mut rng = build_rng(p.seed, stream_id);
     let mut results = IndexMap::new();
 
     for period_id in forecast_periods {
-        let z = box_muller_sample(&mut rng);
+        let z = rng.normal(0.0, 1.0);
         let value = p.mean + p.std_dev * z;
         if !value.is_finite() {
             return Err(Error::forecast(format!(
@@ -272,6 +278,15 @@ pub fn lognormal_forecast(
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
+    lognormal_forecast_with_stream(_base_value, forecast_periods, params, None)
+}
+
+pub(crate) fn lognormal_forecast_with_stream(
+    _base_value: f64,
+    forecast_periods: &[PeriodId],
+    params: &IndexMap<String, serde_json::Value>,
+    stream_id: Option<u64>,
+) -> Result<IndexMap<PeriodId, f64>> {
     let p = extract_distribution_params(params, "LogNormal")?;
 
     // Warn on degenerate distribution (all values will be identical)
@@ -281,11 +296,11 @@ pub fn lognormal_forecast(
         );
     }
 
-    let mut rng = Pcg64Rng::new(p.seed);
+    let mut rng = build_rng(p.seed, stream_id);
     let mut results = IndexMap::new();
 
     for period_id in forecast_periods {
-        let z = box_muller_sample(&mut rng);
+        let z = rng.normal(0.0, 1.0);
         let normal_value = p.mean + p.std_dev * z;
         // Exponentiate to get log-normal
         let value = normal_value.exp();
@@ -403,7 +418,7 @@ pub(crate) fn monte_carlo_correlated_series(
         }
     };
 
-    let mut rng = Pcg64Rng::new(p.seed ^ seed_offset ^ stable_hash_u64(node_id));
+    let mut rng = Pcg64Rng::new_with_stream(p.seed ^ stable_hash_u64(node_id), seed_offset);
     let mut values = IndexMap::new();
     let mut z_out = IndexMap::new();
 
@@ -416,7 +431,7 @@ pub(crate) fn monte_carlo_correlated_series(
             ))
         })?;
 
-        let z_indep = box_muller_sample(&mut rng);
+        let z_indep = rng.normal(0.0, 1.0);
         let z = rho * z_peer + (1.0 - rho * rho).sqrt() * z_indep;
         z_out.insert(*period_id, z);
 

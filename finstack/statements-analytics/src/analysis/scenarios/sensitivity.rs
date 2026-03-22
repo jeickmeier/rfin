@@ -164,9 +164,7 @@ impl<'a> SensitivityAnalyzer<'a> {
         result.scenarios.sort_by(|lhs, rhs| {
             let rhs_impact = max_target_impact(&baseline, &rhs.results, &config.target_metrics);
             let lhs_impact = max_target_impact(&baseline, &lhs.results, &config.target_metrics);
-            rhs_impact
-                .partial_cmp(&lhs_impact)
-                .unwrap_or(std::cmp::Ordering::Equal)
+            descending_f64(lhs_impact, rhs_impact)
         });
         Ok(result)
     }
@@ -235,10 +233,25 @@ fn max_target_impact(
                             scenario
                                 .get(metric, period_id)
                                 .map(|scenario_value| (scenario_value - baseline_value).abs())
+                                .filter(|delta| delta.is_finite())
                         })
                 })
         })
         .fold(0.0, f64::max)
+}
+
+fn descending_f64(lhs: f64, rhs: f64) -> std::cmp::Ordering {
+    let lhs = if lhs.is_finite() {
+        lhs
+    } else {
+        f64::NEG_INFINITY
+    };
+    let rhs = if rhs.is_finite() {
+        rhs
+    } else {
+        f64::NEG_INFINITY
+    };
+    rhs.total_cmp(&lhs)
 }
 
 // ── Tornado chart generation ──
@@ -268,12 +281,7 @@ pub fn generate_tornado_entries(
         }
     }
 
-    entries.sort_by(|a, b| {
-        b.swing()
-            .abs()
-            .partial_cmp(&a.swing().abs())
-            .unwrap_or(std::cmp::Ordering::Equal)
-    });
+    entries.sort_by(|a, b| descending_f64(a.swing().abs(), b.swing().abs()));
 
     entries
 }
@@ -520,5 +528,58 @@ mod tests {
             scenario.parameter_values.contains_key("revenue@2025Q1")
                 && scenario.parameter_values.contains_key("revenue@2025Q2")
         }));
+    }
+
+    #[test]
+    fn test_generate_tornado_entries_sorts_nan_swings_last() {
+        let period = PeriodId::quarter(2025, 1);
+        let metric = "gross_profit".to_string();
+        let mut config = SensitivityConfig::new(SensitivityMode::Tornado);
+        config.add_parameter(ParameterSpec::new(
+            "revenue",
+            period,
+            100.0,
+            vec![90.0, 110.0],
+        ));
+        config.add_parameter(ParameterSpec::new("cogs", period, 40.0, vec![30.0, 50.0]));
+        config.add_target_metric(metric.clone());
+
+        let make_results = |value: f64| {
+            let mut results = StatementResult::new();
+            results
+                .nodes
+                .entry(metric.clone())
+                .or_default()
+                .insert(period, value);
+            results
+        };
+
+        let scenarios = vec![
+            SensitivityScenario {
+                parameter_values: [("revenue@2025Q1".to_string(), 90.0)].into_iter().collect(),
+                results: make_results(80.0),
+            },
+            SensitivityScenario {
+                parameter_values: [("revenue@2025Q1".to_string(), 110.0)]
+                    .into_iter()
+                    .collect(),
+                results: make_results(120.0),
+            },
+            SensitivityScenario {
+                parameter_values: [("cogs@2025Q1".to_string(), 30.0)].into_iter().collect(),
+                results: make_results(f64::NAN),
+            },
+            SensitivityScenario {
+                parameter_values: [("cogs@2025Q1".to_string(), 50.0)].into_iter().collect(),
+                results: make_results(f64::NAN),
+            },
+        ];
+
+        let result = SensitivityResult { config, scenarios };
+        let entries = generate_tornado_entries(&result, &metric, Some(period));
+
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].parameter_id, "revenue");
+        assert_eq!(entries[1].parameter_id, "cogs");
     }
 }

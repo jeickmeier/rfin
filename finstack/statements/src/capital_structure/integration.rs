@@ -115,26 +115,27 @@ pub fn calculate_period_flows(
     // Extract flows that fall within this period
     for cf in &full_schedule.flows {
         if cf.date >= period.start && cf.date < period.end {
-            let scaled_value = Money::new(cf.amount.amount() * scale, cf.amount.currency());
+            let scaled_abs_value =
+                Money::new(cf.amount.amount().abs() * scale, cf.amount.currency());
 
             match cf.kind {
                 CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => {
-                    breakdown.interest_expense_cash += scaled_value;
+                    breakdown.interest_expense_cash += scaled_abs_value;
                 }
                 CFKind::Amortization => {
-                    breakdown.principal_payment += scaled_value;
+                    breakdown.principal_payment += scaled_abs_value;
                 }
                 CFKind::PrePayment | CFKind::RevolvingRepayment => {
-                    breakdown.principal_payment += scaled_value;
+                    breakdown.principal_payment += scaled_abs_value;
                 }
                 CFKind::Notional if cf.amount.amount() > 0.0 => {
-                    breakdown.principal_payment += scaled_value;
+                    breakdown.principal_payment += scaled_abs_value;
                 }
                 CFKind::Fee | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee => {
-                    breakdown.fees += scaled_value;
+                    breakdown.fees += scaled_abs_value;
                 }
                 CFKind::PIK => {
-                    breakdown.interest_expense_pik += scaled_value;
+                    breakdown.interest_expense_pik += scaled_abs_value;
                 }
                 CFKind::Notional | CFKind::RevolvingDraw => {
                     // Funding / draw events are not treated as scheduled principal payments in statements.
@@ -801,7 +802,7 @@ mod tests {
     }
 
     #[test]
-    fn calculate_period_flows_preserves_signed_interest_economics() {
+    fn calculate_period_flows_normalizes_interest_to_issuer_outflow() {
         let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let end = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
         let period = Period {
@@ -838,7 +839,7 @@ mod tests {
         .expect("period flow calculation should succeed");
 
         assert!(warnings.is_empty());
-        assert_eq!(breakdown.interest_expense_cash.amount(), -50_000.0);
+        assert_eq!(breakdown.interest_expense_cash.amount(), 50_000.0);
     }
 
     #[test]

@@ -371,7 +371,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
 
     let ev_wacc_down = {
         let mut dcf_down = dcf.clone();
-        dcf_down.wacc = (wacc - 0.01).max(0.0);
+        dcf_down.wacc = (wacc - 0.01).max(0.0001);
         let pv_exp = dcf_down.calculate_pv_explicit_flows();
         let tv_down = dcf_down
             .calculate_terminal_value()

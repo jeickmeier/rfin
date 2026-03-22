@@ -635,8 +635,9 @@ pub enum PaymentPriority {
 /// ECF = EBITDA - Taxes - CapEx - ΔWC - Cash Interest Paid
 /// ```
 ///
-/// Set `cash_interest_node` to include cash interest in the deduction (recommended
-/// for LBO models). If omitted, cash interest is not deducted (legacy behavior).
+/// Set `cash_interest_node` to override the cash-interest input. If omitted,
+/// contractual cash interest is deducted automatically using the period's
+/// debt-service magnitude.
 ///
 /// # References
 ///
@@ -662,7 +663,7 @@ pub struct EcfSweepSpec {
     /// Formula or node reference for cash interest paid (e.g., "cs.interest_expense_cash.total").
     ///
     /// Per S&P LCD / standard LPA definitions, ECF should deduct cash interest paid.
-    /// If omitted, cash interest is NOT deducted (legacy behavior).
+    /// If omitted, contractual cash interest is deducted automatically.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cash_interest_node: Option<String>,
 

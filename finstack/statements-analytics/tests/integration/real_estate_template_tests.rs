@@ -222,6 +222,65 @@ fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
 }
 
 #[test]
+fn real_estate_rent_roll_rejects_non_finite_growth_output() {
+    let leases = vec![LeaseSpec {
+        node_id: "lease_overflow_rent".into(),
+        start: PeriodId::quarter(2025, 1),
+        end: Some(PeriodId::quarter(2025, 4)),
+        base_rent: 1.0e308,
+        growth_rate: 1.0,
+        free_rent_periods: 0,
+        occupancy: 1.0,
+    }];
+
+    let builder = ModelBuilder::new("re_rent_roll_overflow")
+        .periods("2025Q1..Q4", None)
+        .expect("periods should parse");
+    let result = real_estate::add_rent_roll_rental_revenue(builder, &leases, "rent_total");
+
+    assert!(result.is_err());
+    assert!(result
+        .expect_err("overflowing rent growth should fail")
+        .to_string()
+        .contains("rent growth overflow"));
+}
+
+#[test]
+fn real_estate_rent_roll_v2_rejects_non_finite_growth_output() {
+    let nodes = RentRollOutputNodes {
+        rent_pgi_node: "rent_pgi".into(),
+        free_rent_node: "free_rent".into(),
+        vacancy_loss_node: "vacancy_loss".into(),
+        rent_effective_node: "rent_effective".into(),
+    };
+
+    let leases = vec![LeaseSpecV2 {
+        node_id: "lease_overflow".into(),
+        start: PeriodId::quarter(2025, 1),
+        end: Some(PeriodId::quarter(2025, 4)),
+        base_rent: 1.0e308,
+        growth_rate: 1.0,
+        growth_convention: LeaseGrowthConvention::PerPeriod,
+        rent_steps: vec![],
+        free_rent_periods: 0,
+        free_rent_windows: vec![],
+        occupancy: 1.0,
+        renewal: None,
+    }];
+
+    let result = ModelBuilder::new("re_rent_roll_v2_overflow")
+        .periods("2025Q1..Q4", None)
+        .expect("periods should parse")
+        .add_rent_roll(&leases, &nodes);
+
+    assert!(result.is_err());
+    assert!(result
+        .expect_err("overflowing rent growth should fail")
+        .to_string()
+        .contains("rent growth overflow"));
+}
+
+#[test]
 fn real_estate_full_property_template_computes_egi_noi_ncf() {
     let leases = vec![
         LeaseSpecV2 {

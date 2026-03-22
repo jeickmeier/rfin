@@ -120,7 +120,9 @@ pub fn compute_credit_context(
     let mut ltv = Vec::new();
 
     for period in periods {
-        let coverage_val = statement.get(coverage_node, &period.id).unwrap_or(0.0);
+        let Some(coverage_val) = statement.get(coverage_node, &period.id) else {
+            continue;
+        };
         if let Some(cf) = inst_data.get(&period.id) {
             let interest = cf.interest_expense_total().amount();
             let principal = cf.principal_payment.amount();
@@ -251,5 +253,22 @@ mod tests {
         assert!(metrics.dscr.is_empty());
         assert!(metrics.interest_coverage.is_empty());
         assert!(metrics.dscr_min.is_none());
+    }
+
+    #[test]
+    fn test_missing_coverage_period_is_skipped_not_treated_as_zero() {
+        let (mut result, cs, periods) = make_result_and_cs();
+        if let Some(ebitda) = result.nodes.get_mut("ebitda") {
+            ebitda.shift_remove(&PeriodId::quarter(2025, 2));
+        }
+
+        let metrics = compute_credit_context(&result, &cs, "BOND-001", "ebitda", &periods, None);
+
+        assert_eq!(metrics.dscr.len(), 1);
+        assert_eq!(metrics.interest_coverage.len(), 1);
+        assert_eq!(metrics.dscr[0].0, PeriodId::quarter(2025, 1));
+        assert!(
+            (metrics.dscr_min.expect("dscr_min should be set") - metrics.dscr[0].1).abs() < 1e-12
+        );
     }
 }

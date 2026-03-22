@@ -11,6 +11,14 @@ use finstack_core::dates::PeriodId;
 use finstack_core::math::kahan_sum;
 use std::collections::BTreeMap;
 
+/// Coerce a numeric value into DSL boolean semantics.
+///
+/// Non-zero finite values are truthy; zero and non-finite values are falsey.
+#[inline]
+pub(crate) fn is_truthy(value: f64) -> bool {
+    value.is_finite() && value != 0.0
+}
+
 /// Decode an internal `__cs__<component>__<instrument>` reference.
 pub(crate) fn decode_cs_reference(name: &str) -> Option<(&str, &str)> {
     if name.starts_with("__cs__") {

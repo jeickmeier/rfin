@@ -131,6 +131,10 @@ fn get_moodys_scale() -> &'static RatingScale {
 }
 
 /// Default score when no threshold matches.
+///
+/// A mid-scale fallback keeps scorecard execution usable for partially specified
+/// threshold grids, but the extension emits a warning so callers can fix the
+/// configuration rather than silently relying on this value.
 const DEFAULT_SCORECARD_SCORE: f64 = 50.0;
 
 /// Get the appropriate rating scale based on name.
@@ -370,6 +374,12 @@ impl CreditScorecardExtension {
         }
 
         // Default score if no threshold matches
+        tracing::warn!(
+            rating_scale,
+            value,
+            default_score = DEFAULT_SCORECARD_SCORE,
+            "credit scorecard thresholds did not match metric value; using fallback score"
+        );
         DEFAULT_SCORECARD_SCORE
     }
 
@@ -380,7 +390,7 @@ impl CreditScorecardExtension {
         }
 
         let total_weight: f64 = scores.iter().map(|s| s.weight).sum();
-        if total_weight == 0.0 {
+        if total_weight.abs() < f64::EPSILON {
             return 0.0;
         }
 
@@ -610,5 +620,37 @@ impl Extension for CreditScorecardExtension {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculate_metric_score_falls_back_when_thresholds_miss() {
+        let extension = CreditScorecardExtension::new();
+        let mut thresholds = indexmap::IndexMap::new();
+        thresholds.insert("AAA".to_string(), (0.0, 1.0));
+
+        let score = extension.calculate_metric_score(2.5, &thresholds, "S&P");
+
+        assert_eq!(score, DEFAULT_SCORECARD_SCORE);
+    }
+
+    #[test]
+    fn calculate_weighted_score_treats_sub_epsilon_weights_as_zero() {
+        let extension = CreditScorecardExtension::new();
+        let scores = vec![MetricScore {
+            metric_name: "leverage".to_string(),
+            value: 2.5,
+            score: 80.0,
+            weight: f64::EPSILON / 4.0,
+        }];
+
+        let weighted = extension.calculate_weighted_score(&scores);
+
+        assert_eq!(weighted, 0.0);
     }
 }

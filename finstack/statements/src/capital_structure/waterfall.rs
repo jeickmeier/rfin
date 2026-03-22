@@ -537,7 +537,8 @@ fn calculate_ecf_sweep(
             .values()
             .map(|cf| cf.interest_expense_cash.amount())
             .sum()
-    };
+    }
+    .abs();
 
     // Calculate ECF: EBITDA - Taxes - Capex - Working Capital Change - Cash Interest
     let ecf = ebitda - taxes - capex - wc_change - cash_interest;
@@ -1064,6 +1065,58 @@ mod tests {
         let tl = results.get("TL-1").expect("TL-1");
         // ECF = 1000 - 100 - 50 - 200 (auto cash interest) = 650
         // Sweep = 650 * 0.5 = 325
+        assert_eq!(tl.principal_payment.amount(), 325.0);
+    }
+
+    #[test]
+    fn test_ecf_deducts_cash_interest_by_magnitude() {
+        let period = PeriodId::quarter(2025, 1);
+        let context = build_context(
+            period,
+            &[("ebitda", 1_000.0), ("taxes", 100.0), ("capex", 50.0)],
+        );
+
+        let mut contractual_flows: IndexMap<String, CashflowBreakdown> = IndexMap::new();
+        let mut breakdown = CashflowBreakdown::with_currency(Currency::USD);
+        breakdown.interest_expense_cash = Money::new(-200.0, Currency::USD);
+        contractual_flows.insert("TL-1".to_string(), breakdown);
+
+        let mut state = CapitalStructureState::new();
+        state
+            .opening_balances
+            .insert("TL-1".to_string(), Money::new(10_000.0, Currency::USD));
+
+        let waterfall = WaterfallSpec {
+            priority_of_payments: vec![
+                PaymentPriority::Fees,
+                PaymentPriority::Interest,
+                PaymentPriority::Amortization,
+                PaymentPriority::Sweep,
+                PaymentPriority::Equity,
+            ],
+            available_cash_node: None,
+            ecf_sweep: Some(EcfSweepSpec {
+                ebitda_node: "ebitda".into(),
+                taxes_node: Some("taxes".into()),
+                capex_node: Some("capex".into()),
+                working_capital_node: None,
+                cash_interest_node: None,
+                sweep_percentage: 0.5,
+                target_instrument_id: Some("TL-1".into()),
+            }),
+            pik_toggle: None,
+        };
+
+        let results = execute_waterfall(
+            &period,
+            &context,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        let tl = results.get("TL-1").expect("TL-1");
         assert_eq!(tl.principal_payment.amount(), 325.0);
     }
 }

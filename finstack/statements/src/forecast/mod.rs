@@ -107,7 +107,10 @@ pub(crate) fn apply_forecast_with_seed_offset(
     node_id: &str,
 ) -> Result<indexmap::IndexMap<PeriodId, f64>> {
     use crate::types::ForecastMethod;
-    use statistical::{parse_seed_json, stable_hash_u64};
+    use statistical::{
+        lognormal_forecast_with_stream, normal_forecast_with_stream, parse_seed_json,
+        stable_hash_u64,
+    };
 
     match spec.method {
         ForecastMethod::Normal => {
@@ -115,21 +118,21 @@ pub(crate) fn apply_forecast_with_seed_offset(
             let mut params = spec.params.clone();
             if let Some(seed_val) = params.get_mut("seed") {
                 if let Some(seed) = parse_seed_json(seed_val) {
-                    let effective_seed = seed ^ seed_offset ^ stable_hash_u64(node_id);
+                    let effective_seed = seed ^ stable_hash_u64(node_id);
                     *seed_val = serde_json::json!(effective_seed);
                 }
             }
-            normal_forecast(base_value, forecast_periods, &params)
+            normal_forecast_with_stream(base_value, forecast_periods, &params, Some(seed_offset))
         }
         ForecastMethod::LogNormal => {
             let mut params = spec.params.clone();
             if let Some(seed_val) = params.get_mut("seed") {
                 if let Some(seed) = parse_seed_json(seed_val) {
-                    let effective_seed = seed ^ seed_offset ^ stable_hash_u64(node_id);
+                    let effective_seed = seed ^ stable_hash_u64(node_id);
                     *seed_val = serde_json::json!(effective_seed);
                 }
             }
-            lognormal_forecast(base_value, forecast_periods, &params)
+            lognormal_forecast_with_stream(base_value, forecast_periods, &params, Some(seed_offset))
         }
         // Deterministic methods ignore the seed offset and reuse the
         // standard apply_forecast implementation.

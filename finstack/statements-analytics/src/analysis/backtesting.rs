@@ -37,6 +37,10 @@ pub struct ForecastMetrics {
     ///
     /// Interpretation: Average error as a percentage. Scale-independent.
     /// Be cautious when actual values are near zero (can produce extreme values).
+    /// The implementation treats `|actual| < EPSILON` as a zero-weight term to
+    /// avoid infinities, but very small non-zero actuals can still dominate the
+    /// metric. For series with many near-zero observations, prefer a more robust
+    /// alternative such as sMAPE or MASE.
     /// Lower is better.
     pub mape: f64,
 

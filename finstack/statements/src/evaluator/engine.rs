@@ -6,6 +6,7 @@ use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::dag::{evaluate_order, DependencyGraph};
 use crate::evaluator::forecast_eval;
 use crate::evaluator::formula::evaluate_formula;
+use crate::evaluator::formula_helpers::is_truthy;
 use crate::evaluator::monte_carlo::{
     MonteCarloAccumulator, MonteCarloConfig, MonteCarloResults, PathResult,
 };
@@ -596,7 +597,7 @@ impl Evaluator {
                 let where_key = NodeId::new(format!("__where__{}", node_id));
                 if let Some(where_expr) = self.compiled_cache.get(&where_key) {
                     let where_result = evaluate_formula(where_expr, context, None)?;
-                    if where_result == 0.0 {
+                    if !is_truthy(where_result) {
                         context.set_value(node_id.as_str(), 0.0)?;
                         continue;
                     }
@@ -774,5 +775,35 @@ impl EvaluatorWithContext {
     pub fn evaluate(&mut self, model: &FinancialModelSpec) -> Result<StatementResult> {
         self.evaluator
             .evaluate_with_market_context(model, Some(&self.market_ctx), Some(self.as_of))
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::*;
+    use crate::builder::ModelBuilder;
+    use finstack_core::dates::PeriodId;
+
+    #[test]
+    fn where_clause_treats_nan_as_false() {
+        let model = ModelBuilder::new("nan-where")
+            .periods("2025Q1..Q1", None)
+            .expect("valid period range")
+            .compute("guarded_metric", "42")
+            .expect("valid formula")
+            .where_clause("0 / 0")
+            .build()
+            .expect("valid model");
+
+        let mut evaluator = Evaluator::new();
+        let results = evaluator
+            .evaluate(&model)
+            .expect("evaluation should succeed");
+
+        assert_eq!(
+            results.get("guarded_metric", &PeriodId::quarter(2025, 1)),
+            Some(0.0)
+        );
     }
 }

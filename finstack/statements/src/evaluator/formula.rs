@@ -25,7 +25,7 @@ use crate::error::{Error, Result};
 use crate::evaluator::context::EvaluationContext;
 use crate::evaluator::formula_aggregates::evaluate_historical_function;
 use crate::evaluator::formula_helpers::{
-    collect_historical_values_sorted, get_historical_column_value,
+    collect_historical_values_sorted, get_historical_column_value, is_truthy,
 };
 use crate::evaluator::results::EvalWarning;
 use crate::utils::constants::EPSILON;
@@ -376,8 +376,8 @@ pub(crate) fn evaluate_expr(
                 BinOp::Ge => bool_to_f64(left_val >= right_val),
 
                 // Logical operations
-                BinOp::And => bool_to_f64(left_val != 0.0 && right_val != 0.0),
-                BinOp::Or => bool_to_f64(left_val != 0.0 || right_val != 0.0),
+                BinOp::And => bool_to_f64(is_truthy(left_val) && is_truthy(right_val)),
+                BinOp::Or => bool_to_f64(is_truthy(left_val) || is_truthy(right_val)),
             };
             Ok(result)
         }
@@ -385,7 +385,7 @@ pub(crate) fn evaluate_expr(
             let val = evaluate_expr(operand, context, node_id)?;
             let result = match op {
                 UnaryOp::Neg => -val,
-                UnaryOp::Not => bool_to_f64(val == 0.0),
+                UnaryOp::Not => bool_to_f64(!is_truthy(val)),
             };
             Ok(result)
         }
@@ -395,7 +395,7 @@ pub(crate) fn evaluate_expr(
             else_expr,
         } => {
             let cond_val = evaluate_expr(condition, context, node_id)?;
-            if cond_val != 0.0 {
+            if is_truthy(cond_val) {
                 evaluate_expr(then_expr, context, node_id)
             } else {
                 evaluate_expr(else_expr, context, node_id)
@@ -1336,6 +1336,31 @@ mod tests {
         )
         .expect("sign nan");
         assert!(sign_nan.is_nan());
+    }
+
+    #[test]
+    fn nan_conditions_are_falsey_in_formula_logic() {
+        let period = PeriodId::quarter(2025, 1);
+        let mut context = EvaluationContext::new(
+            period,
+            std::sync::Arc::new(IndexMap::new()),
+            std::sync::Arc::new(IndexMap::new()),
+        );
+
+        let if_expr = crate::dsl::parse_and_compile("if(0 / 0, 1, 2)").expect("compile if expr");
+        let if_value =
+            evaluate_formula(&if_expr, &mut context, Some("if_nan")).expect("evaluate if expr");
+        assert_eq!(if_value, 2.0);
+
+        let and_expr = crate::dsl::parse_and_compile("(0 / 0) and 1").expect("compile and expr");
+        let and_value =
+            evaluate_formula(&and_expr, &mut context, Some("and_nan")).expect("evaluate and expr");
+        assert_eq!(and_value, 0.0);
+
+        let not_expr = crate::dsl::parse_and_compile("not (0 / 0)").expect("compile not expr");
+        let not_value =
+            evaluate_formula(&not_expr, &mut context, Some("not_nan")).expect("evaluate not expr");
+        assert_eq!(not_value, 1.0);
     }
 
     #[test]

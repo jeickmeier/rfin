@@ -968,6 +968,15 @@ impl BrentSolver {
                 b += tol1.copysign(xm);
             }
             fb = f(b);
+            if !fb.is_finite() {
+                return Err(InputError::SolverConvergenceFailed {
+                    iterations: self.max_iterations,
+                    residual: fa.abs(),
+                    last_x: b,
+                    reason: format!("iteration produced non-finite value: f({b:.6e}) = {fb}"),
+                }
+                .into());
+            }
         }
 
         // Max iterations reached without convergence - return error
@@ -1330,5 +1339,25 @@ mod tests {
         assert_eq!(BracketHint::Ytm.to_bracket_size(), 0.02);
         assert_eq!(BracketHint::Xirr.to_bracket_size(), 0.5);
         assert_eq!(BracketHint::Custom(0.123).to_bracket_size(), 0.123);
+    }
+
+    #[test]
+    fn test_brent_rejects_non_finite_inner_iteration() {
+        let solver = BrentSolver::new();
+        let f = |x: f64| {
+            if x == 0.0 {
+                -1.0
+            } else if x == 2.0 {
+                1.0
+            } else {
+                f64::NAN
+            }
+        };
+
+        let result = solver.brent_method(f, 0.0, 2.0);
+        assert!(
+            result.is_err(),
+            "Brent should reject non-finite values encountered during iteration"
+        );
     }
 }

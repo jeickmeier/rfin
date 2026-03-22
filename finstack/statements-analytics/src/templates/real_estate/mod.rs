@@ -237,6 +237,11 @@ pub fn add_rent_roll_rental_revenue(
             let rent = if active {
                 let rent_before_free =
                     lease.base_rent * (1.0 + lease.growth_rate).powi(periods_since_start as i32);
+                if !rent_before_free.is_finite() {
+                    return Err(Error::build(
+                        "add_rent_roll_rental_revenue: rent growth overflow (base_rent * (1+g)^n is not finite)",
+                    ));
+                }
                 let rent_after_free = if periods_since_start < lease.free_rent_periods {
                     0.0
                 } else {
@@ -628,7 +633,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
         }
         step_points.sort_by_key(|(i, _)| *i);
 
-        let rent_at = |idx: usize, phase_start: usize, phase_base_rent: f64| -> f64 {
+        let rent_at = |idx: usize, phase_start: usize, phase_base_rent: f64| -> Result<f64> {
             // Find last step <= idx within the same phase.
             let mut base_idx = phase_start;
             let mut base_rent = phase_base_rent;
@@ -648,11 +653,17 @@ fn add_rent_roll_rental_revenue_v2_impl(
                 LeaseGrowthConvention::PerPeriod => periods_elapsed as i32,
                 LeaseGrowthConvention::AnnualEscalator => (periods_elapsed / ppy) as i32,
             };
-            base_rent * (1.0 + lease.growth_rate).powi(n)
+            let contractual = base_rent * (1.0 + lease.growth_rate).powi(n);
+            if !contractual.is_finite() {
+                return Err(Error::build(
+                    "add_rent_roll_rental_revenue_v2: rent growth overflow (base_rent * (1+g)^n is not finite)",
+                ));
+            }
+            Ok(contractual)
         };
 
         // Compute contractual rent at end of initial phase (for renewal base).
-        let last_initial_contractual = rent_at(end_idx, start_idx, lease.base_rent);
+        let last_initial_contractual = rent_at(end_idx, start_idx, lease.base_rent)?;
         let renewal_base_rent = lease
             .renewal
             .as_ref()
@@ -675,24 +686,22 @@ fn add_rent_roll_rental_revenue_v2_impl(
             let pid = p.id;
 
             let (contractual, occupancy, renewal_p) = if i >= start_idx && i <= end_idx {
-                (rent_at(i, start_idx, lease.base_rent), lease.occupancy, 1.0)
+                (
+                    rent_at(i, start_idx, lease.base_rent)?,
+                    lease.occupancy,
+                    1.0,
+                )
             } else if let (Some(r_start), Some(r_end), Some(r_base)) =
                 (renewal_start_idx, renewal_end_idx, renewal_base_rent)
             {
                 if i >= r_start && i < r_end {
-                    let contractual = rent_at(i, r_start, r_base);
+                    let contractual = rent_at(i, r_start, r_base)?;
                     (contractual, lease.occupancy, renewal_prob)
                 } else {
                     (0.0, 0.0, 1.0)
                 }
             } else {
                 (0.0, 0.0, 1.0)
-            };
-
-            let contractual = if contractual.is_finite() {
-                contractual
-            } else {
-                0.0
             };
             let is_free_here = contractual != 0.0 && is_free.get(i).copied().unwrap_or(false);
             let free = if is_free_here { contractual } else { 0.0 };

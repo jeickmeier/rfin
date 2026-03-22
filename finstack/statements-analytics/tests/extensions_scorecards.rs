@@ -223,3 +223,56 @@ fn test_scorecard_ttm_formula_uses_full_history() {
     );
     let _ = score_data;
 }
+
+#[test]
+fn test_scorecard_warns_when_thresholds_do_not_cover_metric_value() {
+    use finstack_core::dates::PeriodId;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::evaluator::Evaluator;
+    use finstack_statements::types::AmountOrScalar;
+
+    let model = ModelBuilder::new("scorecard-threshold-gap")
+        .periods("2025Q1..Q1", None)
+        .expect("valid periods")
+        .value(
+            "ebitda",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0))],
+        )
+        .value(
+            "total_debt",
+            &[(PeriodId::quarter(2025, 1), AmountOrScalar::scalar(250.0))],
+        )
+        .build()
+        .expect("valid model");
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator
+        .evaluate(&model)
+        .expect("evaluation should succeed");
+    let context = ExtensionContext::new(&model, &results);
+
+    let mut thresholds = indexmap::IndexMap::new();
+    thresholds.insert("AAA".into(), (0.0, 1.0));
+
+    let config = ScorecardConfig {
+        rating_scale: "S&P".into(),
+        metrics: vec![ScorecardMetric {
+            name: "leverage".into(),
+            formula: "total_debt / ebitda".into(),
+            weight: 1.0,
+            thresholds,
+            description: None,
+        }],
+        min_rating: None,
+    };
+
+    let mut extension = CreditScorecardExtension::with_config(config);
+    let result = extension
+        .execute(&context)
+        .expect("scorecard should succeed");
+
+    assert_eq!(
+        result.data.get("total_score").and_then(|v| v.as_f64()),
+        Some(50.0)
+    );
+}

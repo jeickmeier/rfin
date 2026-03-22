@@ -197,16 +197,10 @@ pub fn goal_seek(
                 // Get the target value
                 match results.get(target_node, &target_period) {
                     Some(actual_value) => actual_value - target_value,
-                    None => {
-                        // If we can't get the value, return a large error
-                        1e10
-                    }
+                    None => f64::NAN,
                 }
             }
-            Err(_) => {
-                // If evaluation fails, return a large error
-                1e10
-            }
+            Err(_) => f64::NAN,
         }
     };
 
@@ -285,10 +279,10 @@ where
         ));
     }
 
-    if flo == 0.0 {
+    if flo.abs() < TOLERANCE {
         return Ok(lo);
     }
-    if fhi == 0.0 {
+    if fhi.abs() < TOLERANCE {
         return Ok(hi);
     }
 
@@ -328,4 +322,28 @@ where
     Err(Error::eval(
         "Goal seek failed to converge within provided bounds",
     ))
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used)]
+mod tests {
+    use super::solve_with_bounds;
+
+    #[test]
+    fn solve_with_bounds_accepts_endpoint_within_tolerance() {
+        let solution = solve_with_bounds(
+            &|x| {
+                if (x - 1.0).abs() < f64::EPSILON {
+                    5e-10
+                } else {
+                    1.0
+                }
+            },
+            1.0,
+            2.0,
+        )
+        .expect("near-zero endpoint should be accepted as converged");
+
+        assert!((solution - 1.0).abs() < f64::EPSILON);
+    }
 }

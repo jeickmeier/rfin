@@ -360,12 +360,6 @@ fn seasonal_forecast_with_decomposition(
         )));
     }
 
-    // Decompose the series
-    let (trend, seasonal, _residual) = decompose_series(&hist_data, season_length);
-
-    // Get growth rate for trend projection
-    let growth = params.get("growth").and_then(|v| v.as_f64()).unwrap_or(0.0);
-
     // Get mode (type-safe enum)
     let mode = params.get("mode").ok_or_else(|| {
         Error::forecast(
@@ -376,6 +370,12 @@ fn seasonal_forecast_with_decomposition(
     let mode: SeasonalMode = serde_json::from_value(mode.clone()).map_err(|_| {
         Error::forecast("Invalid 'mode' parameter. Must be 'additive' or 'multiplicative'.")
     })?;
+
+    // Decompose the series using the requested seasonal semantics.
+    let (trend, seasonal, _residual) = decompose_series_with_mode(&hist_data, season_length, mode);
+
+    // Get growth rate for trend projection
+    let growth = params.get("growth").and_then(|v| v.as_f64()).unwrap_or(0.0);
 
     // Project forward
     let mut results = IndexMap::new();
@@ -395,25 +395,7 @@ fn seasonal_forecast_with_decomposition(
         // Combine based on mode (type-safe match)
         let value = match mode {
             SeasonalMode::Additive => trend_value + seasonal_value,
-            SeasonalMode::Multiplicative => {
-                // For multiplicative decomposition, the seasonal component should be
-                // relative to the period-specific trend, not trend[0].
-                // We use the last available trend value as the reference level,
-                // matching classical seasonal decomposition (X-11, STL).
-                let ref_trend = last_trend;
-                let seasonal_factor = if ref_trend.abs() < EPSILON {
-                    tracing::warn!(
-                        "Near-zero reference trend ({:.2e}) in multiplicative seasonal decomposition at period {:?}; \
-                         using seasonal_factor=1.0 to avoid division instability",
-                        ref_trend,
-                        period_id
-                    );
-                    1.0
-                } else {
-                    1.0 + seasonal_value / ref_trend
-                };
-                trend_value * seasonal_factor
-            }
+            SeasonalMode::Multiplicative => trend_value * seasonal_value,
         };
 
         if !value.is_finite() {
@@ -432,10 +414,26 @@ fn seasonal_forecast_with_decomposition(
 
 /// Decompose a time series into trend, seasonal, and residual components.
 /// Uses a simple moving average approach.
+#[cfg(test)]
 fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
-    let n = data.len();
+    decompose_series_with_mode(data, season_length, SeasonalMode::Additive)
+}
 
-    // Calculate trend using centered moving average
+fn decompose_series_with_mode(
+    data: &[f64],
+    season_length: usize,
+    mode: SeasonalMode,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let trend = calculate_trend_component(data, season_length);
+
+    match mode {
+        SeasonalMode::Additive => decompose_additive(data, season_length, trend),
+        SeasonalMode::Multiplicative => decompose_multiplicative(data, season_length, trend),
+    }
+}
+
+fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
+    let n = data.len();
     let mut trend = vec![0.0; n];
     let half_season = season_length / 2;
 
@@ -484,6 +482,16 @@ fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, 
         }
     }
 
+    trend
+}
+
+fn decompose_additive(
+    data: &[f64],
+    season_length: usize,
+    trend: Vec<f64>,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let n = data.len();
+
     // Calculate detrended series
     let detrended: Vec<f64> = data.iter().zip(&trend).map(|(d, t)| d - t).collect();
 
@@ -516,6 +524,67 @@ fn decompose_series(data: &[f64], season_length: usize) -> (Vec<f64>, Vec<f64>, 
     for i in 0..n {
         let season_idx = i % season_length;
         residual[i] = data[i] - trend[i] - seasonal[season_idx];
+    }
+
+    (trend, seasonal, residual)
+}
+
+fn decompose_multiplicative(
+    data: &[f64],
+    season_length: usize,
+    _trend: Vec<f64>,
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let n = data.len();
+    let cycle_levels: Vec<f64> = data
+        .chunks(season_length)
+        .map(|chunk| chunk.iter().sum::<f64>() / chunk.len() as f64)
+        .collect();
+
+    let trend: Vec<f64> = cycle_levels
+        .iter()
+        .flat_map(|level| std::iter::repeat_n(*level, season_length))
+        .take(n)
+        .collect();
+
+    let detrended: Vec<f64> = data
+        .iter()
+        .zip(&trend)
+        .map(|(d, t)| if t.abs() < EPSILON { 1.0 } else { d / t })
+        .collect();
+
+    let mut seasonal = vec![1.0; season_length];
+    for (season, seasonal_val) in seasonal.iter_mut().enumerate().take(season_length) {
+        let mut sum = 0.0;
+        let mut count = 0;
+
+        let mut idx = season;
+        while idx < n {
+            sum += detrended[idx];
+            count += 1;
+            idx += season_length;
+        }
+
+        if count > 0 {
+            *seasonal_val = sum / count as f64;
+        }
+    }
+
+    let seasonal_mean = seasonal.iter().sum::<f64>() / season_length as f64;
+    if seasonal_mean.abs() >= EPSILON {
+        for s in &mut seasonal {
+            *s /= seasonal_mean;
+        }
+    }
+
+    let mut residual = vec![1.0; n];
+    for i in 0..n {
+        let season_idx = i % season_length;
+        let denom = trend[i] * seasonal[season_idx];
+        residual[i] = if denom.abs() < EPSILON {
+            1.0
+        } else {
+            data[i] / denom
+        };
     }
 
     (trend, seasonal, residual)
@@ -660,5 +729,36 @@ mod tests {
             result.is_err(),
             "malformed historical series should fail instead of being compacted"
         );
+    }
+
+    #[test]
+    fn test_multiplicative_seasonal_forecast_preserves_relative_factors() {
+        let params = indexmap! {
+            "historical".into() => serde_json::json!([
+                100.0, 80.0, 120.0, 90.0,
+                200.0, 160.0, 240.0, 180.0
+            ]),
+            "season_length".into() => serde_json::json!(4),
+            "mode".into() => serde_json::json!("multiplicative"),
+            "growth".into() => serde_json::json!(0.0),
+        };
+        let periods = vec![
+            PeriodId::quarter(2025, 1),
+            PeriodId::quarter(2025, 2),
+            PeriodId::quarter(2025, 3),
+            PeriodId::quarter(2025, 4),
+        ];
+
+        let result =
+            seasonal_forecast(100.0, &periods, &params).expect("seasonal_forecast should succeed");
+
+        let q1 = result[&PeriodId::quarter(2025, 1)];
+        let q2 = result[&PeriodId::quarter(2025, 2)];
+        let q3 = result[&PeriodId::quarter(2025, 3)];
+        let q4 = result[&PeriodId::quarter(2025, 4)];
+
+        assert!((q2 / q1 - 0.8).abs() < 0.05, "q2/q1={}", q2 / q1);
+        assert!((q3 / q1 - 1.2).abs() < 0.05, "q3/q1={}", q3 / q1);
+        assert!((q4 / q1 - 0.9).abs() < 0.05, "q4/q1={}", q4 / q1);
     }
 }
