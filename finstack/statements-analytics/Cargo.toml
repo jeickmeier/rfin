@@ -1,0 +1,27 @@
+[package]
+name = "finstack-statements-analytics"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+finstack-core = { path = "../core", features = ["golden"] }
+finstack-statements = { path = "../statements" }
+finstack-valuations = { path = "../valuations" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+indexmap = { workspace = true, features = ["serde"] }
+thiserror = { workspace = true }
+rust_decimal = { workspace = true }
+
+[dev-dependencies]
+time = { workspace = true, features = ["macros"] }
+rust_decimal_macros = { workspace = true }
+
+[features]
+default = []
+dataframes = ["finstack-statements/dataframes"]
+parallel = ["finstack-statements/parallel"]
