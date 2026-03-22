@@ -38,7 +38,12 @@ pub struct Portfolio {
     /// Entities that own positions
     pub entities: IndexMap<EntityId, Entity>,
 
-    /// Flat list of positions (not serialized directly due to Instrument trait)
+    /// Flat list of positions (not serialized directly due to Instrument trait).
+    ///
+    /// Instruments behind `Arc` must be immutable after construction. The
+    /// portfolio assumes no interior mutability: concurrent reads are safe, but
+    /// mutating an instrument after adding it to a portfolio is undefined at
+    /// the application level.
     #[serde(skip)]
     pub(crate) positions: Vec<Position>,
 

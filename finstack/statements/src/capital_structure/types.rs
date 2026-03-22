@@ -140,12 +140,39 @@ impl CashflowBreakdown {
     /// };
     /// assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
     /// ```
-    #[allow(clippy::expect_used)] // Type invariant: all Money fields have same currency
     pub fn interest_expense_total(&self) -> Money {
-        // SAFETY: Both values in a CashflowBreakdown have the same currency by construction
+        debug_assert_eq!(
+            self.interest_expense_cash.currency(),
+            self.interest_expense_pik.currency(),
+            "CashflowBreakdown currency invariant violated: cash={}, pik={}",
+            self.interest_expense_cash.currency(),
+            self.interest_expense_pik.currency(),
+        );
+        // Currency invariant enforced by with_currency() and validated at
+        // mutation boundaries. Fall back to the cash component if violated.
         self.interest_expense_cash
             .checked_add(self.interest_expense_pik)
-            .expect("CashflowBreakdown values should have same currency")
+            .unwrap_or(self.interest_expense_cash)
+    }
+
+    /// Validate that all `Money` fields share the same currency.
+    pub fn validate_currency_invariant(&self) -> crate::Result<()> {
+        let expected = self.interest_expense_cash.currency();
+        let fields = [
+            ("interest_expense_pik", self.interest_expense_pik.currency()),
+            ("principal_payment", self.principal_payment.currency()),
+            ("debt_balance", self.debt_balance.currency()),
+            ("fees", self.fees.currency()),
+            ("accrued_interest", self.accrued_interest.currency()),
+        ];
+        for (name, actual) in fields {
+            if actual != expected {
+                return Err(crate::error::Error::capital_structure(format!(
+                    "Currency mismatch in CashflowBreakdown: {name} is {actual}, expected {expected}"
+                )));
+            }
+        }
+        Ok(())
     }
 }
 
@@ -408,6 +435,25 @@ mod tests {
             ..CashflowBreakdown::with_currency(Currency::USD)
         };
         assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
+    }
+
+    #[test]
+    fn validate_currency_invariant_catches_mismatch() {
+        let mut cf = CashflowBreakdown::with_currency(Currency::USD);
+        cf.interest_expense_pik = Money::new(100.0, Currency::EUR);
+        let result = cf.validate_currency_invariant();
+        assert!(result.is_err());
+        let err_str = result.expect_err("expected mismatch error").to_string();
+        assert!(
+            err_str.contains("Currency mismatch"),
+            "Expected currency mismatch error, got: {err_str}"
+        );
+    }
+
+    #[test]
+    fn validate_currency_invariant_passes_for_valid() {
+        let cf = CashflowBreakdown::with_currency(Currency::USD);
+        assert!(cf.validate_currency_invariant().is_ok());
     }
 
     #[test]

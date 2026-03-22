@@ -62,6 +62,31 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
     Ok(())
 }
 
+/// Default minimum relative gap between consecutive knots.
+///
+/// Knots closer than `gap < MIN_RELATIVE_KNOT_GAP * max(|k[i]|, 1.0)` are
+/// rejected to prevent numerical instability in slope/derivative calculations.
+pub const MIN_RELATIVE_KNOT_GAP: f64 = 1e-10;
+
+/// Validate that consecutive knots have sufficient spacing for stable interpolation.
+///
+/// The minimum gap is relative to knot magnitude:
+/// `gap >= min_relative_gap * max(|k[i]|, 1.0)`.
+/// This prevents division-by-near-zero in slope calculations while allowing
+/// tight spacing for small-magnitude knots. The `max(|k[i]|, 1.0)` floor
+/// ensures the threshold never shrinks below `min_relative_gap` for knots near
+/// zero.
+pub fn validate_knot_spacing(knots: &[f64], min_relative_gap: f64) -> crate::Result<()> {
+    for w in knots.windows(2) {
+        let gap = w[1] - w[0];
+        let scale = w[0].abs().max(1.0);
+        if gap < min_relative_gap * scale {
+            return Err(InputError::KnotSpacingTooSmall.into());
+        }
+    }
+    Ok(())
+}
+
 /// Locate segment index `i` such that `xs[i] <= x <= xs[i+1]`.
 ///
 /// # Performance Note
@@ -127,4 +152,37 @@ pub fn find_monotone_violation(values: &[f64], base_tol: f64) -> Option<(usize, 
             None
         }
     })
+}
+
+#[cfg(test)]
+mod knot_spacing_tests {
+    use super::*;
+
+    #[test]
+    fn rejects_knots_too_close() {
+        let knots = [1.0, 1.0 + 1e-16];
+        let result = validate_knot_spacing(&knots, MIN_RELATIVE_KNOT_GAP);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn accepts_knots_with_sufficient_spacing() {
+        let knots = [0.0, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0];
+        let result = validate_knot_spacing(&knots, MIN_RELATIVE_KNOT_GAP);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn near_zero_knots_use_absolute_floor() {
+        let knots = [0.001, 0.002];
+        let result = validate_knot_spacing(&knots, MIN_RELATIVE_KNOT_GAP);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn large_knots_use_relative_threshold() {
+        let knots = [1_000_000.0, 1_000_000.00001];
+        let result = validate_knot_spacing(&knots, MIN_RELATIVE_KNOT_GAP);
+        assert!(result.is_err());
+    }
 }

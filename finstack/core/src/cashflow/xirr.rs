@@ -442,9 +442,33 @@ pub(crate) fn has_multiple_sign_changes<I>(iter: I) -> bool
 where
     I: IntoIterator<Item = f64>,
 {
-    let mut prev_sign = 0i8;
-    let mut sign_changes = 0u8;
+    count_sign_changes(iter) > 1
+}
 
+/// Extended result from IRR calculation with root-ambiguity metadata.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IrrResult {
+    /// The computed internal rate of return.
+    pub rate: f64,
+    /// Number of sign changes in the cashflow sequence.
+    ///
+    /// By Descartes' rule of signs, this is an upper bound on the number of
+    /// positive real roots of the NPV polynomial.
+    pub sign_changes: usize,
+    /// Whether multiple roots are possible (`sign_changes > 1`).
+    pub multiple_roots_possible: bool,
+}
+
+/// Count the number of sign changes in a numeric sequence.
+///
+/// Zero values are skipped. This count is used by Descartes' rule of signs
+/// to bound the number of positive real roots.
+pub fn count_sign_changes<I>(iter: I) -> usize
+where
+    I: IntoIterator<Item = f64>,
+{
+    let mut prev_sign = 0i8;
+    let mut changes = 0usize;
     for value in iter {
         let sign = if value > 0.0 {
             1
@@ -457,15 +481,37 @@ where
             continue;
         }
         if prev_sign != 0 && sign != prev_sign {
-            sign_changes += 1;
-            if sign_changes > 1 {
-                return true;
-            }
+            changes += 1;
         }
         prev_sign = sign;
     }
+    changes
+}
 
-    false
+/// Calculate IRR with root-ambiguity metadata for periodic cashflows.
+pub fn irr_detailed(cashflows: &[f64], guess: Option<f64>) -> crate::Result<IrrResult> {
+    let rate = cashflows.irr(guess)?;
+    let sign_changes = count_sign_changes(cashflows.iter().copied());
+    Ok(IrrResult {
+        rate,
+        sign_changes,
+        multiple_roots_possible: sign_changes > 1,
+    })
+}
+
+/// Calculate XIRR with root-ambiguity metadata for dated cashflows.
+pub fn xirr_detailed(
+    cashflows: &[(Date, f64)],
+    day_count: DayCount,
+    guess: Option<f64>,
+) -> crate::Result<IrrResult> {
+    let rate = cashflows.irr_with_daycount(day_count, guess)?;
+    let sign_changes = count_sign_changes(cashflows.iter().map(|(_, value)| *value));
+    Ok(IrrResult {
+        rate,
+        sign_changes,
+        multiple_roots_possible: sign_changes > 1,
+    })
 }
 
 #[cfg(test)]
@@ -474,6 +520,38 @@ mod tests {
     use super::*;
     use crate::dates::create_date;
     use time::Month;
+
+    #[test]
+    fn irr_detailed_simple_cashflow() {
+        let flows = [-100.0, 110.0];
+        let result = irr_detailed(&flows, None).expect("should converge");
+        assert!((result.rate - 0.1).abs() < 1e-6, "rate={}", result.rate);
+        assert_eq!(result.sign_changes, 1);
+        assert!(!result.multiple_roots_possible);
+    }
+
+    #[test]
+    fn irr_detailed_multiple_sign_changes() {
+        let flows = [-100.0, 230.0, -132.0, 5.0];
+        let result = irr_detailed(&flows, None).expect("should converge");
+        assert!(result.sign_changes >= 3);
+        assert!(result.multiple_roots_possible);
+    }
+
+    #[test]
+    fn count_sign_changes_skips_zeros() {
+        assert_eq!(count_sign_changes([1.0, 0.0, -1.0].iter().copied()), 1);
+        assert_eq!(count_sign_changes([1.0, -1.0, 0.0, 1.0].iter().copied()), 2);
+        assert_eq!(count_sign_changes([0.0, 0.0, 1.0].iter().copied()), 0);
+    }
+
+    #[test]
+    fn irr_detailed_matches_irr() {
+        let flows = [-1000.0, 100.0, 100.0, 100.0, 1100.0];
+        let irr_simple = flows.as_slice().irr(None).expect("should converge");
+        let detailed = irr_detailed(&flows, None).expect("should converge");
+        assert!((irr_simple - detailed.rate).abs() < 1e-12);
+    }
 
     /// Helper to compute NPV for periodic cashflows at a given rate
     fn compute_periodic_npv(amounts: &[f64], rate: f64) -> f64 {

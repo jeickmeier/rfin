@@ -294,7 +294,12 @@ pub trait Solver: Send + Sync {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct NewtonSolver {
-    /// Convergence tolerance
+    /// Convergence tolerance.
+    ///
+    /// Convergence uses dual tolerances: the residual (`|f(x)| < tol`) and the
+    /// step size (`|x_new - x_old| < tol`). The default `1e-12` is stricter
+    /// than the `1e-8` commonly used for market-standard pricing helpers and is
+    /// intended for generic numerical root-finding inside core math routines.
     pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,
@@ -609,7 +614,12 @@ impl NewtonSolver {
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
 pub struct BrentSolver {
-    /// Convergence tolerance
+    /// Convergence tolerance.
+    ///
+    /// Convergence uses dual tolerances: the residual (`|f(x)| < tol`) and the
+    /// bracket/step size. The default `1e-12` is stricter than the `1e-8`
+    /// commonly used by market-facing wrappers such as IRR/XIRR and is intended
+    /// for generic core numerical solving.
     pub tolerance: f64,
     /// Maximum iterations
     pub max_iterations: usize,

@@ -24,6 +24,13 @@
 //! Day count conventions define how interest accrues between two dates. Different
 //! markets and instruments use different conventions:
 //!
+//! # Precision
+//!
+//! Year fractions are computed as `f64` with typical precision around `1e-9`
+//! for standard tenors under roughly 50 years. Precision degrades for very
+//! long tenors due to floating-point accumulation, but for most bond and swap
+//! applications this remains well within market convention tolerances.
+//!
 //! ## ISDA Standard Conventions
 //!
 //! - **Actual/360** (Act/360): Money market standard for USD, EUR short-term rates

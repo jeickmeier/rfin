@@ -234,11 +234,11 @@ impl PricerRegistry {
         skip(self, instrument, market, metrics, options),
         fields(instrument_id = %instrument.id(), model = %model, num_metrics = metrics.len())
     )]
-    pub fn price_with_metrics(
+    pub fn price_with_metrics_arc(
         &self,
         instrument: &dyn Priceable,
         model: ModelKey,
-        market: &Market,
+        market: &Arc<Market>,
         as_of: finstack_core::dates::Date,
         metrics: &[crate::metrics::MetricId],
         options: crate::instruments::PricingOptions,
@@ -250,7 +250,7 @@ impl PricerRegistry {
             ..
         } = options;
 
-        let base_result = self.price(instrument, model, market, as_of, cfg.as_deref())?;
+        let base_result = self.price(instrument, model, market.as_ref(), as_of, cfg.as_deref())?;
 
         if metrics.is_empty() {
             return Ok(base_result);
@@ -263,7 +263,7 @@ impl PricerRegistry {
         if !needs_split {
             let mut enriched = crate::instruments::common_impl::helpers::build_with_metrics_dyn(
                 std::sync::Arc::from(instrument.clone_box()),
-                std::sync::Arc::new(market.clone()),
+                Arc::clone(market),
                 as_of,
                 base_result.value,
                 metrics,
@@ -299,7 +299,7 @@ impl PricerRegistry {
         }
 
         let cfg_arc = cfg;
-        let market_arc = std::sync::Arc::new(market.clone());
+        let market_arc = Arc::clone(market);
 
         // Spread metrics: cash-equivalent cashflows via metrics_equivalent()
         let mut result = if !spread_metrics.is_empty() {
@@ -354,6 +354,24 @@ impl PricerRegistry {
         }
 
         Ok(result)
+    }
+
+    /// Price an instrument and compute standard metrics using any registered model.
+    ///
+    /// This convenience overload wraps `market` in an `Arc` and delegates to
+    /// [`Self::price_with_metrics_arc`]. Use the `_arc` variant when pricing
+    /// multiple instruments against the same market to avoid repeated cloning.
+    pub fn price_with_metrics(
+        &self,
+        instrument: &dyn Priceable,
+        model: ModelKey,
+        market: &Market,
+        as_of: finstack_core::dates::Date,
+        metrics: &[crate::metrics::MetricId],
+        options: crate::instruments::PricingOptions,
+    ) -> PricingResult<crate::results::ValuationResult> {
+        let market_arc = Arc::new(market.clone());
+        self.price_with_metrics_arc(instrument, model, &market_arc, as_of, metrics, options)
     }
 
     /// Price a batch of instruments using the registry dispatch system.

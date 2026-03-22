@@ -344,6 +344,12 @@ pub trait FxProvider: Send + Sync {
 /// [`FxMatrix::get_serializable_state`] to extract the config and quotes, then
 /// recreate the matrix with [`FxMatrix::try_with_config`] and
 /// [`FxMatrix::load_from_state`].
+///
+/// # Thread Safety
+///
+/// Uses interior `Mutex` values for rate caching. Under high concurrency, cache
+/// lookups serialize through those locks. For performance-critical parallel
+/// pricing, consider pre-fetching rates or using one `FxMatrix` per thread.
 pub struct FxMatrix {
     provider: Arc<dyn FxProvider>,
     /// Explicit quotes inserted by callers or restored from serialized state.
