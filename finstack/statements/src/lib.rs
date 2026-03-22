@@ -78,8 +78,6 @@ pub mod forecast;
 pub mod prelude;
 /// Metric registry and namespace management.
 pub mod registry;
-/// Templates for common models and schemas.
-pub mod templates;
 /// Core statement model types.
 pub mod types;
 /// Internal utilities (constants, formula helpers, graph traversal).

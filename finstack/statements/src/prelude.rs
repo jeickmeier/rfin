@@ -19,7 +19,6 @@ pub use crate::extensions::{
     ExtensionStatus,
 };
 pub use crate::registry::Registry;
-pub use crate::templates::{RealEstateExtension, TemplatesExtension, VintageExtension};
 pub use crate::types::{
     AmountOrScalar, FinancialModelSpec, ForecastMethod, ForecastSpec, NodeId, NodeSpec, NodeType,
     NodeValueType, SeasonalMode,

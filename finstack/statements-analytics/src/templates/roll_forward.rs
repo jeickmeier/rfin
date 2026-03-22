@@ -1,8 +1,8 @@
 //! Roll-forward pattern implementation.
 
-use crate::builder::ModelBuilder;
-use crate::error::Result;
-use crate::types::{NodeId, NodeSpec, NodeType};
+use finstack_statements::builder::ModelBuilder;
+use finstack_statements::error::Result;
+use finstack_statements::types::{NodeId, NodeSpec, NodeType};
 
 /// Add a roll-forward structure to the model.
 ///

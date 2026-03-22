@@ -1,9 +1,9 @@
 //! Vintage/Cohort pattern implementation.
 
-use crate::builder::{ModelBuilder, Ready};
-use crate::error::Result;
-use crate::types::{NodeId, NodeSpec, NodeType};
-use crate::utils::constants::EPSILON;
+use finstack_statements::builder::{ModelBuilder, Ready};
+use finstack_statements::error::Result;
+use finstack_statements::types::{NodeId, NodeSpec, NodeType};
+use finstack_statements::utils::constants::EPSILON;
 
 /// Add a vintage buildup (cohort analysis) structure.
 ///

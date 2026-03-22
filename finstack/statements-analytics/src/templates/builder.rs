@@ -3,8 +3,8 @@
 use super::real_estate;
 use super::roll_forward;
 use super::vintage;
-use crate::builder::{ModelBuilder, Ready};
-use crate::error::Result;
+use finstack_statements::builder::{ModelBuilder, Ready};
+use finstack_statements::error::Result;
 
 /// Extension methods for `ModelBuilder` to support high-level modeling templates.
 pub trait TemplatesExtension<State> {

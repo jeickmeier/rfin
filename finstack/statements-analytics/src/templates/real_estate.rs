@@ -10,9 +10,9 @@
 //! The richer rent-roll APIs generate both aggregated property nodes and
 //! per-lease detail nodes so that underwriting outputs remain explainable.
 
-use crate::builder::{ModelBuilder, Ready};
-use crate::error::{Error, Result};
-use crate::types::AmountOrScalar;
+use finstack_statements::builder::{ModelBuilder, Ready};
+use finstack_statements::error::{Error, Result};
+use finstack_statements::types::AmountOrScalar;
 use finstack_core::dates::PeriodId;
 
 fn sum_expr(nodes: &[&str]) -> Result<String> {
@@ -227,10 +227,10 @@ pub fn add_rent_roll_rental_revenue(
             ));
         }
 
-        let mut values: Vec<(PeriodId, AmountOrScalar)> = Vec::with_capacity(builder.periods.len());
+        let mut values: Vec<(PeriodId, AmountOrScalar)> = Vec::with_capacity(builder.periods_slice().len());
         let mut periods_since_start: u32 = 0;
 
-        for p in &builder.periods {
+        for p in builder.periods_slice() {
             let pid = p.id;
             let active = pid >= lease.start && lease.end.is_none_or(|e| pid <= e);
             let rent = if active {
@@ -538,7 +538,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
 
     // Periods-per-year for annual escalator calculation.
     let ppy = builder
-        .periods
+        .periods_slice()
         .first()
         .map(|p| p.id.periods_per_year() as usize)
         .unwrap_or(4); // defensive fallback; periods is non-empty after builder.periods()
@@ -565,11 +565,11 @@ fn add_rent_roll_rental_revenue_v2_impl(
             ));
         }
 
-        let start_idx = find_period_idx(&builder.periods, lease.start)?;
+        let start_idx = find_period_idx(builder.periods_slice(), lease.start)?;
         let end_idx = if let Some(e) = lease.end {
-            find_period_idx(&builder.periods, e)?
+            find_period_idx(builder.periods_slice(), e)?
         } else {
-            builder.periods.len().saturating_sub(1)
+            builder.periods_slice().len().saturating_sub(1)
         };
         if end_idx < start_idx {
             return Err(Error::build(
@@ -578,13 +578,13 @@ fn add_rent_roll_rental_revenue_v2_impl(
         }
 
         // Build free-rent mask across all model periods.
-        let mut is_free = vec![false; builder.periods.len()];
+        let mut is_free = vec![false; builder.periods_slice().len()];
         apply_free_window(&mut is_free, start_idx, lease.free_rent_periods)?;
         for w in &lease.free_rent_windows {
             if w.periods == 0 {
                 continue;
             }
-            let w_start = find_period_idx(&builder.periods, w.start)?;
+            let w_start = find_period_idx(builder.periods_slice(), w.start)?;
             apply_free_window(&mut is_free, w_start, w.periods)?;
         }
 
@@ -605,7 +605,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
                 let end = start + r.term_periods as usize;
                 (
                     Some(start),
-                    Some(end.min(builder.periods.len())),
+                    Some(end.min(builder.periods_slice().len())),
                     r.probability,
                     r.free_rent_periods,
                 )
@@ -622,7 +622,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
                     "add_rent_roll_rental_revenue_v2: rent_steps rent must be finite",
                 ));
             }
-            let idx = find_period_idx(&builder.periods, s.start)?;
+            let idx = find_period_idx(builder.periods_slice(), s.start)?;
             step_points.push((idx, s.rent));
         }
         step_points.sort_by_key(|(i, _)| *i);
@@ -663,14 +663,14 @@ fn add_rent_roll_rental_revenue_v2_impl(
         }
 
         // Generate per-period series.
-        let mut pgi_vals = Vec::with_capacity(builder.periods.len());
-        let mut free_vals = Vec::with_capacity(builder.periods.len());
-        let mut vac_vals = Vec::with_capacity(builder.periods.len());
-        let mut vac_physical_vals = Vec::with_capacity(builder.periods.len());
-        let mut renewal_loss_vals = Vec::with_capacity(builder.periods.len());
-        let mut eff_vals = Vec::with_capacity(builder.periods.len());
+        let mut pgi_vals = Vec::with_capacity(builder.periods_slice().len());
+        let mut free_vals = Vec::with_capacity(builder.periods_slice().len());
+        let mut vac_vals = Vec::with_capacity(builder.periods_slice().len());
+        let mut vac_physical_vals = Vec::with_capacity(builder.periods_slice().len());
+        let mut renewal_loss_vals = Vec::with_capacity(builder.periods_slice().len());
+        let mut eff_vals = Vec::with_capacity(builder.periods_slice().len());
 
-        for (i, p) in builder.periods.iter().enumerate() {
+        for (i, p) in builder.periods_slice().iter().enumerate() {
             let pid = p.id;
 
             let (contractual, occupancy, renewal_p) = if i >= start_idx && i <= end_idx {

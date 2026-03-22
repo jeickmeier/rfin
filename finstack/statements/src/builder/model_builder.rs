@@ -128,6 +128,14 @@ impl<State> ModelBuilder<State> {
         self.nodes.insert(id, spec);
         self
     }
+
+    /// Return a read-only slice of the model's periods.
+    ///
+    /// This is an advanced API primarily for template builders in external crates
+    /// that need to iterate over periods to generate per-period value nodes.
+    pub fn periods_slice(&self) -> &[Period] {
+        &self.periods
+    }
 }
 
 impl ModelBuilder<NeedPeriods> {

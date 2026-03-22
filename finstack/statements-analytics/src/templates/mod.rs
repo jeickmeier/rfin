@@ -10,13 +10,14 @@
 //!
 //! # Build-time vs Runtime
 //!
-//! These templates are **build-time** helpers that extend [`ModelBuilder`](crate::builder::ModelBuilder)
+//! These templates are **build-time** helpers that extend
+//! [`ModelBuilder`](finstack_statements::builder::ModelBuilder)
 //! to create properly connected node structures. For **runtime validation** of these
-//! structures after evaluation, see `CorkscrewExtension` in `finstack-statements-analytics`.
+//! structures after evaluation, see [`crate::extensions::CorkscrewExtension`].
 //!
 //! | Template | Build-time | Runtime Validation |
 //! |----------|------------|-------------------|
-//! | Roll-forward | [`TemplatesExtension::add_roll_forward`](crate::templates::TemplatesExtension::add_roll_forward) | `CorkscrewExtension` (from `finstack-statements-analytics`) |
+//! | Roll-forward | [`TemplatesExtension::add_roll_forward`](crate::templates::TemplatesExtension::add_roll_forward) | [`crate::extensions::CorkscrewExtension`] |
 //! | Vintage | [`VintageExtension::add_vintage_buildup`](crate::templates::VintageExtension::add_vintage_buildup) | N/A |
 //! | Real estate | [`RealEstateExtension::add_property_operating_statement`](crate::templates::RealEstateExtension::add_property_operating_statement) | Model-specific |
 //!
@@ -33,7 +34,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_statements::prelude::*;
-//! use finstack_statements::templates::TemplatesExtension;
+//! use finstack_statements_analytics::templates::TemplatesExtension;
 //!
 //! # fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 //! # let values: &[(PeriodId, AmountOrScalar)] = &[];
