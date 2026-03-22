@@ -7,7 +7,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_statements::analysis::orchestrator::CorporateAnalysisBuilder;
+use finstack_statements_analytics::analysis::orchestrator::CorporateAnalysisBuilder;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::AmountOrScalar;

@@ -1,5 +1,6 @@
 use finstack_core::dates::PeriodId;
 use finstack_statements::prelude::*;
+use finstack_statements_analytics::templates::{TemplatesExtension, VintageExtension};
 
 #[test]
 fn test_roll_forward_pattern_arr() -> Result<()> {

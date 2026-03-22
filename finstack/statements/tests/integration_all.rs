@@ -6,14 +6,8 @@
 #[path = "integration/dated_cashflow_export_tests.rs"]
 mod dated_cashflow_export_tests;
 
-#[path = "integration/real_estate_template_tests.rs"]
-mod real_estate_template_tests;
-
 #[path = "integration/money_integration_tests.rs"]
 mod money_integration_tests;
-
-#[path = "integration/patterns_tests.rs"]
-mod patterns_tests;
 
 #[path = "integration/term_loan_integration_tests.rs"]
 mod term_loan_integration_tests;

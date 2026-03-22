@@ -1,11 +1,11 @@
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
-use finstack_statements::templates::real_estate::{
+use finstack_statements_analytics::templates::real_estate::{
     self, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase, ManagementFeeSpec,
     PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
 };
-use finstack_statements::templates::RealEstateExtension;
+use finstack_statements_analytics::templates::RealEstateExtension;
 use finstack_statements::types::AmountOrScalar;
 
 #[test]
@@ -499,7 +499,7 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
 
 #[test]
 fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
-    use finstack_statements::templates::real_estate::{
+    use finstack_statements_analytics::templates::real_estate::{
         LeaseSpec, LeaseSpecV2, RentRollOutputNodes,
     };
 
@@ -524,7 +524,7 @@ fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
         base_rent: 100.0,
         growth_rate: 0.05,
         growth_convention:
-            finstack_statements::templates::real_estate::LeaseGrowthConvention::PerPeriod,
+            finstack_statements_analytics::templates::real_estate::LeaseGrowthConvention::PerPeriod,
         rent_steps: vec![],
         free_rent_periods: 0,
         free_rent_windows: vec![],

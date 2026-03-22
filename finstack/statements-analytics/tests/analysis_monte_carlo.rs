@@ -2,7 +2,7 @@
 #![allow(clippy::expect_used)]
 
 use finstack_core::dates::PeriodId;
-use finstack_statements::analysis::monte_carlo::MonteCarloConfig;
+use finstack_statements_analytics::analysis::monte_carlo::MonteCarloConfig;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::types::{AmountOrScalar, ForecastSpec};
 
