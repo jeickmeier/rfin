@@ -1,7 +1,7 @@
 //! Sensitivity analysis types.
 
-use finstack_statements::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
+use finstack_statements::evaluator::StatementResult;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 

@@ -6,11 +6,11 @@
 
 use crate::analysis::corporate::{CorporateValuationResult, DcfOptions};
 use crate::analysis::credit_context::{compute_credit_context, CreditContextMetrics};
+use finstack_core::dates::Date;
+use finstack_core::market_data::context::MarketContext;
 use finstack_statements::error::Result;
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::types::FinancialModelSpec;
-use finstack_core::dates::Date;
-use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -288,12 +288,12 @@ impl CorporateAnalysisBuilder {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use finstack_statements::builder::ModelBuilder;
-    use finstack_statements::types::AmountOrScalar;
     use finstack_core::dates::PeriodId;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::money::Money;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::types::AmountOrScalar;
     use time::macros::date;
 
     fn flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {

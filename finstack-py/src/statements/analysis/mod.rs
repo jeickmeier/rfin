@@ -20,7 +20,9 @@ mod variance;
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements_analytics::analysis::types::{SensitivityScenario, TornadoEntry as CoreTornadoEntry};
+use finstack_statements_analytics::analysis::types::{
+    SensitivityScenario, TornadoEntry as CoreTornadoEntry,
+};
 use finstack_statements_analytics::analysis::MonteCarloConfig;
 use finstack_statements_analytics::analysis::{
     generate_tornado_entries, ParameterSpec, SensitivityAnalyzer, SensitivityConfig,

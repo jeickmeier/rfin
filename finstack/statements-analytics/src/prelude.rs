@@ -7,10 +7,9 @@
 //! ```
 
 pub use crate::analysis::{
-    BridgeChart, BridgeStep, CorporateAnalysis, CorporateAnalysisBuilder,
-    CreditInstrumentAnalysis, MonteCarloConfig, MonteCarloResults,
-    ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet,
-    VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
+    BridgeChart, BridgeStep, CorporateAnalysis, CorporateAnalysisBuilder, CreditInstrumentAnalysis,
+    MonteCarloConfig, MonteCarloResults, ScenarioDefinition, ScenarioDiff, ScenarioResults,
+    ScenarioSet, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
 };
 pub use crate::extensions::{CorkscrewExtension, CreditScorecardExtension};
 pub use crate::templates::{RealEstateExtension, TemplatesExtension, VintageExtension};

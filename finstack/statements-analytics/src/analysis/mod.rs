@@ -1,15 +1,14 @@
 //! Analysis tools for financial statement models.
 //!
 //! This module provides tools for:
-//! - **Sensitivity analysis** - Parameter sweeps and tornado charts
-//! - **Goal seeking** - Find input values that achieve target outputs
-//! - **Corporate valuation** - DCF and enterprise value calculations
-//! - **Reports** - Formatted output for P&L summaries and credit assessment
-//! - **Dependency tracing** - Identify direct and transitive dependencies
-//! - **Formula explanation** - Break down calculations step-by-step
-//! - **Forecast backtesting** - Evaluate forecast accuracy
-//! - **Covenant analysis** - Detect covenant breaches
-//! - **Scenario management** - Named scenario sets with diff/comparison helpers
+//!
+//! - **[`valuation`]** — DCF corporate valuation and the orchestrated analysis pipeline
+//! - **[`credit`]** — Covenant forecasting and credit coverage metrics
+//! - **[`scenarios`]** — Scenario sets, sensitivity sweeps, variance, and Monte Carlo
+//! - **[`introspection`]** — Dependency tracing and formula explanation
+//! - **[`reports`]** — Formatted P&L summaries and credit assessment reports
+//! - **[`goal_seek`]** — Root-finding for target metric values
+//! - **[`backtesting`]** — Forecast accuracy metrics
 //!
 //! ## Where To Start
 //!
@@ -31,19 +30,41 @@
 //! - Scenario overrides are deterministic full-period scalar overrides unless a
 //!   lower-level API states otherwise.
 
+// ---- Grouped submodules ----
+
+/// Corporate valuation and orchestration.
+pub mod valuation;
+
+/// Credit analysis (covenants, coverage ratios).
+pub mod credit;
+
+/// Scenario, sensitivity, variance, and Monte Carlo analysis.
+pub mod scenarios;
+
+// ---- Flat submodules ----
+
 pub mod backtesting;
-pub mod corporate;
-pub mod covenants;
-pub mod credit_context;
 pub mod goal_seek;
 pub mod introspection;
-pub mod monte_carlo;
-pub mod orchestrator;
 pub mod reports;
-pub mod scenario_set;
-pub mod sensitivity;
-pub mod types;
-pub mod variance;
+
+// ---- Backward-compatible module re-exports ----
+// These preserve `analysis::corporate::*`, `analysis::covenants::*`, etc.
+// so that existing downstream consumers continue to compile.
+
+pub use valuation::corporate;
+pub use valuation::orchestrator;
+
+pub use credit::covenants;
+pub use credit::credit_context;
+
+pub use scenarios::monte_carlo;
+pub use scenarios::scenario_set;
+pub use scenarios::sensitivity;
+pub use scenarios::types;
+pub use scenarios::variance;
+
+// ---- Type-level re-exports (unchanged public API) ----
 
 pub use backtesting::{backtest_forecast, ForecastMetrics};
 pub use corporate::{evaluate_dcf_with_market, CorporateValuationResult, DcfOptions};

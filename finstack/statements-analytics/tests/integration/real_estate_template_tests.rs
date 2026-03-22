@@ -1,12 +1,12 @@
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
+use finstack_statements::types::AmountOrScalar;
 use finstack_statements_analytics::templates::real_estate::{
     self, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase, ManagementFeeSpec,
     PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
 };
 use finstack_statements_analytics::templates::RealEstateExtension;
-use finstack_statements::types::AmountOrScalar;
 
 #[test]
 fn real_estate_noi_and_ncf_templates_compute_expected_values() {

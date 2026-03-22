@@ -795,6 +795,7 @@ rm finstack/statements/tests/forecast/forecast_backtesting_tests.rs
 - [ ] **Step 7: Update core harness files**
 
 **`extensions_all.rs`:** Both extension test modules moved. Remove the file entirely:
+
 ```bash
 rm finstack/statements/tests/extensions_all.rs
 rm -r finstack/statements/tests/extensions/

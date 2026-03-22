@@ -1,10 +1,14 @@
 //! Concrete extension implementations.
 //!
-//! These extensions implement the [`finstack_statements::extensions::Extension`] trait
-//! to provide analysis and validation capabilities.
+//! Each extension lives in its own submodule and implements the
+//! [`finstack_statements::extensions::Extension`] trait. To add a new extension,
+//! create a directory under `extensions/` with a `mod.rs` and register it here.
+//!
+//! - [`corkscrew`] — roll-forward validation for balance-sheet accounts
+//! - [`scorecards`] — credit scorecard rating assignment
 
-mod corkscrew;
-mod scorecards;
+pub mod corkscrew;
+pub mod scorecards;
 
 pub use corkscrew::{AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension};
 pub use scorecards::{CreditScorecardExtension, ScorecardConfig, ScorecardMetric};

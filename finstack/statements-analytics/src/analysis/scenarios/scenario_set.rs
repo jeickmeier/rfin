@@ -36,10 +36,10 @@
 //! in a deterministic way without introducing new forecast semantics.
 
 use crate::analysis::{VarianceAnalyzer, VarianceConfig, VarianceReport};
+use finstack_core::dates::PeriodId;
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
-use finstack_core::dates::PeriodId;
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 

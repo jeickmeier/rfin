@@ -6,10 +6,10 @@ use finstack_core::dates::{Date, PeriodId};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_statements_analytics::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::AmountOrScalar;
+use finstack_statements_analytics::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
 use finstack_valuations::instruments::TerminalValueSpec;
 use time::Month;
 
@@ -166,32 +166,34 @@ fn test_dcf_with_market_context() {
         .expect("valid model");
 
     // Test with None market context (backward compat)
-    let result_no_market = finstack_statements_analytics::analysis::corporate::evaluate_dcf_with_market(
-        &model,
-        0.10,
-        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
-        "ufcf",
-        Some(0.0),
-        &finstack_statements_analytics::analysis::corporate::DcfOptions::default(),
-        None,
-    )
-    .expect("should succeed without market context");
+    let result_no_market =
+        finstack_statements_analytics::analysis::corporate::evaluate_dcf_with_market(
+            &model,
+            0.10,
+            TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+            "ufcf",
+            Some(0.0),
+            &finstack_statements_analytics::analysis::corporate::DcfOptions::default(),
+            None,
+        )
+        .expect("should succeed without market context");
 
     assert!(result_no_market.equity_value.amount() > 0.0);
     assert_eq!(result_no_market.equity_value.currency(), Currency::USD);
 
     // Test with explicit market context
     let market = MarketContext::new();
-    let result_with_market = finstack_statements_analytics::analysis::corporate::evaluate_dcf_with_market(
-        &model,
-        0.10,
-        TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
-        "ufcf",
-        Some(0.0),
-        &finstack_statements_analytics::analysis::corporate::DcfOptions::default(),
-        Some(&market),
-    )
-    .expect("should succeed with market context");
+    let result_with_market =
+        finstack_statements_analytics::analysis::corporate::evaluate_dcf_with_market(
+            &model,
+            0.10,
+            TerminalValueSpec::GordonGrowth { growth_rate: 0.02 },
+            "ufcf",
+            Some(0.0),
+            &finstack_statements_analytics::analysis::corporate::DcfOptions::default(),
+            Some(&market),
+        )
+        .expect("should succeed with market context");
 
     assert!(result_with_market.equity_value.amount() > 0.0);
     // With empty market, results should be the same

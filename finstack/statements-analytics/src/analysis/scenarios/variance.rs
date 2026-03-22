@@ -44,10 +44,10 @@
 //! # }
 //! ```
 
+use finstack_core::dates::PeriodId;
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::StatementResult;
 use finstack_statements::utils::constants::EPSILON;
-use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 

@@ -5,9 +5,7 @@ use crate::statements::types::JsFinancialModelSpec;
 use finstack_statements::extensions::{
     ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
 };
-use finstack_statements_analytics::extensions::{
-    CorkscrewExtension, CreditScorecardExtension,
-};
+use finstack_statements_analytics::extensions::{CorkscrewExtension, CreditScorecardExtension};
 use wasm_bindgen::prelude::*;
 
 /// Extension metadata.

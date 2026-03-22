@@ -1,8 +1,8 @@
 //! Credit context metrics — coverage ratios derived from statement + capital structure data.
 
+use finstack_core::dates::{Period, PeriodId};
 use finstack_statements::capital_structure::CapitalStructureCashflows;
 use finstack_statements::evaluator::StatementResult;
-use finstack_core::dates::{Period, PeriodId};
 use serde::{Deserialize, Serialize};
 
 /// Per-instrument credit context metrics derived from statement data.
@@ -157,9 +157,9 @@ pub fn compute_credit_context(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use finstack_statements::capital_structure::CashflowBreakdown;
     use finstack_core::currency::Currency;
     use finstack_core::money::Money;
+    use finstack_statements::capital_structure::CashflowBreakdown;
     use indexmap::IndexMap;
 
     fn make_result_and_cs() -> (StatementResult, CapitalStructureCashflows, Vec<Period>) {

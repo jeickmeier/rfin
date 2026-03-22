@@ -53,7 +53,9 @@
 //! # }
 //! ```
 
-use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
+use finstack_statements::extensions::{
+    Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,
+};
 use finstack_statements::Result;
 use serde::{Deserialize, Serialize};
 
@@ -173,7 +175,9 @@ impl CorkscrewExtension {
             })
         } else {
             self.config.clone().ok_or_else(|| {
-                finstack_statements::error::Error::registry("Corkscrew extension requires configuration")
+                finstack_statements::error::Error::registry(
+                    "Corkscrew extension requires configuration",
+                )
             })
         }
     }
@@ -458,7 +462,10 @@ impl Extension for CorkscrewExtension {
     fn validate_config(&self, config: &serde_json::Value) -> Result<()> {
         // Validate configuration structure
         let _: CorkscrewConfig = serde_json::from_value(config.clone()).map_err(|e| {
-            finstack_statements::error::Error::invalid_input(format!("Invalid corkscrew configuration: {}", e))
+            finstack_statements::error::Error::invalid_input(format!(
+                "Invalid corkscrew configuration: {}",
+                e
+            ))
         })?;
 
         Ok(())
@@ -469,11 +476,11 @@ impl Extension for CorkscrewExtension {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use finstack_core::dates::PeriodId;
     use finstack_statements::builder::ModelBuilder;
     use finstack_statements::evaluator::Evaluator;
     use finstack_statements::extensions::ExtensionStatus;
     use finstack_statements::types::AmountOrScalar;
-    use finstack_core::dates::PeriodId;
 
     #[test]
     fn test_corkscrew_extension_creation() {

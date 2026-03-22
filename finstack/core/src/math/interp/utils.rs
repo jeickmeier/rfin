@@ -181,7 +181,7 @@ mod knot_spacing_tests {
 
     #[test]
     fn large_knots_use_relative_threshold() {
-        let knots = [1_000_000.0, 1_000_000.00001];
+        let knots = [1_000_000.0, 1_000_000.000_01];
         let result = validate_knot_spacing(&knots, MIN_RELATIVE_KNOT_GAP);
         assert!(result.is_err());
     }

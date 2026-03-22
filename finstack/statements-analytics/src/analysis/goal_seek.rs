@@ -41,11 +41,11 @@
 //! # }
 //! ```
 
+use finstack_core::dates::PeriodId;
+use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
-use finstack_core::dates::PeriodId;
-use finstack_core::math::solver::{BrentSolver, Solver};
 
 /// Perform goal seek on a financial model.
 ///

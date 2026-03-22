@@ -8,10 +8,10 @@ use crate::statements::types::value::PyAmountOrScalar;
 use crate::statements::types::waterfall::PyWaterfallSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, NeedPeriods, Ready};
+use finstack_statements::types::AmountOrScalar;
 use finstack_statements_analytics::templates::{
     real_estate, RealEstateExtension, TemplatesExtension, VintageExtension,
 };
-use finstack_statements::types::AmountOrScalar;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;

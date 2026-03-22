@@ -213,9 +213,7 @@ fn test_extension_execution_order() {
 
     let mut registry = ExtensionRegistry::new();
 
-    registry
-        .register(Box::new(AnotherExtension))
-        .unwrap();
+    registry.register(Box::new(AnotherExtension)).unwrap();
     registry
         .register(Box::new(SimpleValidationExtension::new()))
         .unwrap();

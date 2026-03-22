@@ -76,7 +76,9 @@
 //! # }
 //! ```
 
-use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
+use finstack_statements::extensions::{
+    Extension, ExtensionContext, ExtensionMetadata, ExtensionResult,
+};
 use finstack_statements::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
@@ -114,7 +116,7 @@ static MOODYS_SCALE: OnceLock<RatingScale> = OnceLock::new();
 #[allow(clippy::expect_used)] // Embedded JSON validated at compile time; parse failure is a build bug
 fn get_sp_scale() -> &'static RatingScale {
     SP_SCALE.get_or_init(|| {
-        let json = include_str!("../../data/rating_scales/sp.json");
+        let json = include_str!("../../../data/rating_scales/sp.json");
         serde_json::from_str(json).expect("Failed to parse embedded S&P rating scale")
     })
 }
@@ -123,7 +125,7 @@ fn get_sp_scale() -> &'static RatingScale {
 #[allow(clippy::expect_used)] // Embedded JSON validated at compile time; parse failure is a build bug
 fn get_moodys_scale() -> &'static RatingScale {
     MOODYS_SCALE.get_or_init(|| {
-        let json = include_str!("../../data/rating_scales/moodys.json");
+        let json = include_str!("../../../data/rating_scales/moodys.json");
         serde_json::from_str(json).expect("Failed to parse embedded Moody's rating scale")
     })
 }
@@ -263,7 +265,9 @@ impl CreditScorecardExtension {
             })
         } else {
             self.config.clone().ok_or_else(|| {
-                finstack_statements::error::Error::registry("Credit scorecard extension requires configuration")
+                finstack_statements::error::Error::registry(
+                    "Credit scorecard extension requires configuration",
+                )
             })
         }
     }
@@ -279,11 +283,10 @@ impl CreditScorecardExtension {
         let expr = finstack_statements::dsl::parse_and_compile(&metric.formula)?;
 
         // Create evaluation context for the last period (or average across all)
-        let last_period = context
-            .model
-            .periods
-            .last()
-            .ok_or_else(|| finstack_statements::error::Error::registry("No periods in model"))?;
+        let last_period =
+            context.model.periods.last().ok_or_else(|| {
+                finstack_statements::error::Error::registry("No periods in model")
+            })?;
 
         let node_to_column: indexmap::IndexMap<finstack_statements::types::NodeId, usize> = context
             .model

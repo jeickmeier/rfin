@@ -4,10 +4,10 @@ use super::types::{
     ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult, SensitivityScenario,
     TornadoEntry,
 };
+use finstack_core::dates::PeriodId;
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::{Evaluator, StatementResult};
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
-use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
 /// Sensitivity analyzer for financial models.
@@ -363,8 +363,8 @@ fn approx_equal(lhs: f64, rhs: f64) -> bool {
 mod tests {
     use super::*;
     use crate::analysis::types::ParameterSpec;
-    use finstack_statements::builder::ModelBuilder;
     use finstack_core::dates::PeriodId;
+    use finstack_statements::builder::ModelBuilder;
 
     #[test]
     fn test_diagonal_sensitivity() {

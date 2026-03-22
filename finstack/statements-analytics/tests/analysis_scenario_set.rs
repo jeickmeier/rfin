@@ -2,9 +2,9 @@
 #![allow(clippy::expect_used)]
 
 use finstack_core::dates::PeriodId;
-use finstack_statements_analytics::analysis::scenario_set::{ScenarioDefinition, ScenarioSet};
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
+use finstack_statements_analytics::analysis::scenario_set::{ScenarioDefinition, ScenarioSet};
 use indexmap::IndexMap;
 
 fn build_simple_model() -> FinancialModelSpec {

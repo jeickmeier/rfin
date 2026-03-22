@@ -4,8 +4,8 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::{node_to_dated_schedule, Evaluator, PeriodDateConvention};
-use finstack_statements_analytics::templates::RealEstateExtension;
 use finstack_statements::types::AmountOrScalar;
+use finstack_statements_analytics::templates::RealEstateExtension;
 use finstack_valuations::instruments::equity::real_estate::{
     RealEstateAsset, RealEstateValuationMethod,
 };

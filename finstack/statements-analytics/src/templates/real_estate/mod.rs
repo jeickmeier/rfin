@@ -10,10 +10,10 @@
 //! The richer rent-roll APIs generate both aggregated property nodes and
 //! per-lease detail nodes so that underwriting outputs remain explainable.
 
+use finstack_core::dates::PeriodId;
 use finstack_statements::builder::{ModelBuilder, Ready};
 use finstack_statements::error::{Error, Result};
 use finstack_statements::types::AmountOrScalar;
-use finstack_core::dates::PeriodId;
 
 fn sum_expr(nodes: &[&str]) -> Result<String> {
     if nodes.is_empty() {
@@ -227,7 +227,8 @@ pub fn add_rent_roll_rental_revenue(
             ));
         }
 
-        let mut values: Vec<(PeriodId, AmountOrScalar)> = Vec::with_capacity(builder.periods_slice().len());
+        let mut values: Vec<(PeriodId, AmountOrScalar)> =
+            Vec::with_capacity(builder.periods_slice().len());
         let mut periods_since_start: u32 = 0;
 
         for p in builder.periods_slice() {

@@ -23,8 +23,8 @@
 //! println!("{}", report.to_string());
 //! ```
 
-use finstack_statements::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
+use finstack_statements::evaluator::StatementResult;
 use std::fmt::Write as FmtWrite;
 
 // ============================================================================

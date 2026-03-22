@@ -4,14 +4,14 @@
 //! DCF (Discounted Cash Flow) valuation, allowing direct valuation of companies
 //! from forecast models.
 
-use finstack_statements::error::Result;
-use finstack_statements::evaluator::{Evaluator, StatementResult};
-use finstack_statements::types::FinancialModelSpec;
 use finstack_core::currency::Currency;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_statements::error::Result;
+use finstack_statements::evaluator::{Evaluator, StatementResult};
+use finstack_statements::types::FinancialModelSpec;
 use finstack_valuations::instruments::equity::dcf_equity::{
     DiscountedCashFlow, EquityBridge, TerminalValueSpec, ValuationDiscounts,
 };
@@ -482,7 +482,10 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
     if let Some(currency_meta) = model.meta.get("currency") {
         if let Some(currency_str) = currency_meta.as_str() {
             return currency_str.parse::<Currency>().map_err(|_| {
-                finstack_statements::error::Error::Eval(format!("Invalid currency: {}", currency_str))
+                finstack_statements::error::Error::Eval(format!(
+                    "Invalid currency: {}",
+                    currency_str
+                ))
             });
         }
         return Err(finstack_statements::error::Error::Eval(
@@ -550,9 +553,9 @@ fn calculate_net_debt_from_model(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use finstack_core::dates::PeriodId;
     use finstack_statements::builder::ModelBuilder;
     use finstack_statements::types::AmountOrScalar;
-    use finstack_core::dates::PeriodId;
 
     #[test]
     fn evaluate_dcf_requires_explicit_currency_metadata() {

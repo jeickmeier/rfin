@@ -1,9 +1,9 @@
 //! Model introspection: dependency tracing, formula explanation, and tree visualization.
 
+use finstack_core::dates::PeriodId;
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::{DependencyGraph, StatementResult};
 use finstack_statements::types::{FinancialModelSpec, NodeType};
-use finstack_core::dates::PeriodId;
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
 
@@ -526,7 +526,8 @@ impl<'a> FormulaExplainer<'a> {
         let mut breakdown = Vec::new();
 
         if let Some(formula_text) = formula {
-            let identifiers = finstack_statements::utils::formula::extract_all_identifiers(formula_text)?;
+            let identifiers =
+                finstack_statements::utils::formula::extract_all_identifiers(formula_text)?;
 
             for identifier in identifiers {
                 if identifier.starts_with("cs.") {

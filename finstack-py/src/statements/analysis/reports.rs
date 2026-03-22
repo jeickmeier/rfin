@@ -3,10 +3,10 @@
 use crate::core::dates::periods::PyPeriodId;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
+use finstack_statements::types::DebtInstrumentSpec;
 use finstack_statements_analytics::analysis::{
     Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder,
 };
-use finstack_statements::types::DebtInstrumentSpec;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::{wrap_pyfunction, Bound};

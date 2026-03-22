@@ -2,10 +2,10 @@
 #![allow(clippy::expect_used, clippy::panic)]
 
 use finstack_core::dates::PeriodId;
-use finstack_statements_analytics::analysis::goal_seek::goal_seek;
 use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::{AmountOrScalar, ForecastSpec};
+use finstack_statements_analytics::analysis::goal_seek::goal_seek;
 
 #[test]
 fn test_goal_seek_simple_linear() {

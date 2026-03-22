@@ -5,11 +5,11 @@ use crate::core::dates::utils::py_to_date;
 use crate::core::market_data::context::PyMarketContext;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
+use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
 use finstack_statements_analytics::analysis::{
     MonteCarloConfig, MonteCarloResults as RsMonteCarloResults,
     PercentileSeries as RsPercentileSeries,
 };
-use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyAnyMethods, PyDict, PyList, PyModule, PyType};
