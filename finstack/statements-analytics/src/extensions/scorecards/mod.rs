@@ -282,7 +282,7 @@ impl CreditScorecardExtension {
         metric: &ScorecardMetric,
         context: &ExtensionContext,
         config: &ScorecardConfig,
-    ) -> Result<MetricScore> {
+    ) -> Result<MetricEvaluation> {
         // Parse and evaluate the formula
         let expr = finstack_statements::dsl::parse_and_compile(&metric.formula)?;
 
@@ -343,12 +343,45 @@ impl CreditScorecardExtension {
 
         // Calculate score based on thresholds
         let score = self.calculate_metric_score(value, &metric.thresholds, &config.rating_scale);
+        let warning = if self
+            .matching_threshold_score(value, &metric.thresholds, &config.rating_scale)
+            .is_none()
+        {
+            Some(format!(
+                "Credit scorecard metric '{}' thresholds did not match value {} for {}; using fallback score {}",
+                metric.name, value, config.rating_scale, DEFAULT_SCORECARD_SCORE
+            ))
+        } else {
+            None
+        };
 
-        Ok(MetricScore {
-            metric_name: metric.name.clone(),
-            value,
-            score,
-            weight: metric.weight,
+        Ok(MetricEvaluation {
+            score: MetricScore {
+                metric_name: metric.name.clone(),
+                value,
+                score,
+                weight: metric.weight,
+            },
+            warning,
+        })
+    }
+
+    fn matching_threshold_score(
+        &self,
+        value: f64,
+        thresholds: &indexmap::IndexMap<String, (f64, f64)>,
+        rating_scale: &str,
+    ) -> Option<f64> {
+        let scale = get_rating_scale(rating_scale);
+
+        scale.ratings.iter().find_map(|level| {
+            thresholds.get(&level.name).and_then(|(min, max)| {
+                if value >= *min && value <= *max {
+                    Some(level.score)
+                } else {
+                    None
+                }
+            })
         })
     }
 
@@ -362,15 +395,8 @@ impl CreditScorecardExtension {
         thresholds: &indexmap::IndexMap<String, (f64, f64)>,
         rating_scale: &str,
     ) -> f64 {
-        let scale = get_rating_scale(rating_scale);
-
-        // Find which threshold range the value falls into
-        for level in &scale.ratings {
-            if let Some((min, max)) = thresholds.get(&level.name) {
-                if value >= *min && value <= *max {
-                    return level.score;
-                }
-            }
+        if let Some(score) = self.matching_threshold_score(value, thresholds, rating_scale) {
+            return score;
         }
 
         // Default score if no threshold matches
@@ -446,6 +472,11 @@ struct MetricScore {
     weight: f64,
 }
 
+struct MetricEvaluation {
+    score: MetricScore,
+    warning: Option<String>,
+}
+
 impl Default for CreditScorecardExtension {
     fn default() -> Self {
         Self::new()
@@ -473,7 +504,12 @@ impl Extension for CreditScorecardExtension {
         // Evaluate each metric
         for metric_config in &config.metrics {
             match self.evaluate_metric(metric_config, context, &config) {
-                Ok(score) => scores.push(score),
+                Ok(evaluation) => {
+                    if let Some(warning) = evaluation.warning {
+                        warnings.push(warning);
+                    }
+                    scores.push(evaluation.score);
+                }
                 Err(e) => errors.push(format!("Metric '{}': {}", metric_config.name, e)),
             }
         }

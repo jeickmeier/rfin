@@ -275,4 +275,7 @@ fn test_scorecard_warns_when_thresholds_do_not_cover_metric_value() {
         result.data.get("total_score").and_then(|v| v.as_f64()),
         Some(50.0)
     );
+    assert_eq!(result.warnings.len(), 1);
+    assert!(result.warnings[0].contains("thresholds did not match"));
+    assert!(result.warnings[0].contains("using fallback score"));
 }

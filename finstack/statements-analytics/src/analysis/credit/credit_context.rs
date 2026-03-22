@@ -120,25 +120,27 @@ pub fn compute_credit_context(
     let mut ltv = Vec::new();
 
     for period in periods {
-        let Some(coverage_val) = statement.get(coverage_node, &period.id) else {
-            continue;
-        };
         if let Some(cf) = inst_data.get(&period.id) {
             let interest = cf.interest_expense_total().amount();
             let principal = cf.principal_payment.amount();
-            let debt_service = interest + principal;
             let balance = cf.debt_balance.amount();
 
+            if let Some(ref_val) = reference_value {
+                if ref_val > 0.0 {
+                    ltv.push((period.id, balance / ref_val));
+                }
+            }
+
+            let Some(coverage_val) = statement.get(coverage_node, &period.id) else {
+                continue;
+            };
+
+            let debt_service = interest + principal;
             if debt_service > 0.0 {
                 dscr.push((period.id, coverage_val / debt_service));
             }
             if interest > 0.0 {
                 interest_coverage.push((period.id, coverage_val / interest));
-            }
-            if let Some(ref_val) = reference_value {
-                if ref_val > 0.0 {
-                    ltv.push((period.id, balance / ref_val));
-                }
             }
         }
     }
@@ -270,5 +272,28 @@ mod tests {
         assert!(
             (metrics.dscr_min.expect("dscr_min should be set") - metrics.dscr[0].1).abs() < 1e-12
         );
+    }
+
+    #[test]
+    fn test_missing_coverage_period_still_computes_ltv() {
+        let (mut result, cs, periods) = make_result_and_cs();
+        if let Some(ebitda) = result.nodes.get_mut("ebitda") {
+            ebitda.shift_remove(&PeriodId::quarter(2025, 2));
+        }
+
+        let metrics = compute_credit_context(
+            &result,
+            &cs,
+            "BOND-001",
+            "ebitda",
+            &periods,
+            Some(10_000_000.0),
+        );
+
+        assert_eq!(metrics.ltv.len(), 2);
+        assert_eq!(metrics.ltv[0].0, PeriodId::quarter(2025, 1));
+        assert_eq!(metrics.ltv[1].0, PeriodId::quarter(2025, 2));
+        assert!((metrics.ltv[0].1 - 0.4).abs() < 0.01);
+        assert!((metrics.ltv[1].1 - 0.4).abs() < 0.01);
     }
 }

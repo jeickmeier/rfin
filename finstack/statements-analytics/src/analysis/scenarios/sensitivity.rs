@@ -233,7 +233,7 @@ fn max_target_impact(
                             scenario
                                 .get(metric, period_id)
                                 .map(|scenario_value| (scenario_value - baseline_value).abs())
-                                .filter(|delta| delta.is_finite())
+                                .filter(|delta| !delta.is_nan())
                         })
                 })
         })
@@ -241,16 +241,8 @@ fn max_target_impact(
 }
 
 fn descending_f64(lhs: f64, rhs: f64) -> std::cmp::Ordering {
-    let lhs = if lhs.is_finite() {
-        lhs
-    } else {
-        f64::NEG_INFINITY
-    };
-    let rhs = if rhs.is_finite() {
-        rhs
-    } else {
-        f64::NEG_INFINITY
-    };
+    let lhs = if lhs.is_nan() { f64::NEG_INFINITY } else { lhs };
+    let rhs = if rhs.is_nan() { f64::NEG_INFINITY } else { rhs };
     rhs.total_cmp(&lhs)
 }
 
@@ -581,5 +573,41 @@ mod tests {
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].parameter_id, "revenue");
         assert_eq!(entries[1].parameter_id, "cogs");
+    }
+
+    #[test]
+    fn test_max_target_impact_preserves_infinite_deltas() {
+        let period = PeriodId::quarter(2025, 1);
+        let metric = "gross_profit".to_string();
+
+        let mut baseline = StatementResult::new();
+        baseline
+            .nodes
+            .entry(metric.clone())
+            .or_default()
+            .insert(period, 100.0);
+
+        let mut scenario = StatementResult::new();
+        scenario
+            .nodes
+            .entry(metric)
+            .or_default()
+            .insert(period, f64::INFINITY);
+
+        let impact = max_target_impact(&baseline, &scenario, &["gross_profit".to_string()]);
+
+        assert!(impact.is_infinite());
+        assert!(impact.is_sign_positive());
+    }
+
+    #[test]
+    fn test_descending_f64_orders_infinite_before_finite_and_nan_last() {
+        let mut values = [10.0, f64::INFINITY, f64::NAN];
+
+        values.sort_by(|lhs, rhs| descending_f64(*lhs, *rhs));
+
+        assert!(values[0].is_infinite());
+        assert_eq!(values[1], 10.0);
+        assert!(values[2].is_nan());
     }
 }
