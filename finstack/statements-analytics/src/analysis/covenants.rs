@@ -3,8 +3,8 @@
 //! This module provides the integration between financial statement forecasts
 //! and the covenant engine, allowing for future compliance checking.
 
-use crate::evaluator::StatementResult;
-use crate::types::{FinancialModelSpec, ForecastMethod};
+use finstack_statements::evaluator::StatementResult;
+use finstack_statements::types::{FinancialModelSpec, ForecastMethod};
 use finstack_core::dates::{Date, PeriodId, PeriodKind};
 use finstack_core::Result;
 use finstack_valuations::covenants::GenericCovenantForecast as ValuationCovenantForecast;
@@ -294,7 +294,7 @@ pub fn to_polars(forecast: &CovenantForecast) -> polars::prelude::DataFrame {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::evaluator::{ResultsMeta, StatementResult};
+    use finstack_statements::evaluator::{ResultsMeta, StatementResult};
     use finstack_core::dates::{Date, Tenor};
     use finstack_valuations::covenants::CovenantType;
     use finstack_valuations::covenants::{Covenant, CovenantEngine, CovenantSpec};

@@ -23,7 +23,7 @@
 //! println!("{}", report.to_string());
 //! ```
 
-use crate::evaluator::StatementResult;
+use finstack_statements::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
 use std::fmt::Write as FmtWrite;
 

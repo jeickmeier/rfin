@@ -44,7 +44,7 @@
 //! - std_dev = 0.0 in LogNormal (degenerate distribution)
 //!
 //! For forecast analysis tools (backtesting, covenant breach detection), see
-//! [`crate::analysis::backtesting`] and [`crate::analysis::covenants`].
+//! the `finstack-statements-analytics` crate.
 
 mod deterministic;
 mod override_method;

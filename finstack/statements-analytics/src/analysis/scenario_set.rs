@@ -36,15 +36,15 @@
 //! in a deterministic way without introducing new forecast semantics.
 
 use crate::analysis::{VarianceAnalyzer, VarianceConfig, VarianceReport};
-use crate::error::{Error, Result};
-use crate::evaluator::StatementResult;
-use crate::types::{AmountOrScalar, FinancialModelSpec};
+use finstack_statements::error::{Error, Result};
+use finstack_statements::evaluator::StatementResult;
+use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
 use finstack_core::dates::PeriodId;
 use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dataframes")]
-use crate::utils::constants::EPSILON;
+use finstack_statements::utils::constants::EPSILON;
 #[cfg(feature = "dataframes")]
 use polars::prelude::*;
 
@@ -159,7 +159,7 @@ impl ScenarioSet {
             let mut model = base_model.clone();
             apply_overrides(&mut model, &merged_overrides)?;
 
-            let mut evaluator = crate::evaluator::Evaluator::new();
+            let mut evaluator = finstack_statements::evaluator::Evaluator::new();
             let results = evaluator.evaluate(&model)?;
             out.insert(name.clone(), results);
         }
@@ -481,7 +481,7 @@ impl ScenarioResults {
 /// Apply a resolved override map to a financial model.
 ///
 /// For each `(node_id, value)` pair, this function:
-/// - Looks up the corresponding [`NodeSpec`](crate::types::NodeSpec).
+/// - Looks up the corresponding [`NodeSpec`](finstack_statements::types::NodeSpec).
 /// - Clones or creates the `values` map.
 /// - Inserts `AmountOrScalar::scalar(value)` for **all** model periods.
 fn apply_overrides(

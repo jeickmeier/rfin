@@ -5,4 +5,4 @@
 //! the historical analysis-facing import path stable by re-exporting those
 //! evaluator types.
 
-pub use crate::evaluator::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
+pub use finstack_statements::evaluator::{MonteCarloConfig, MonteCarloResults, PercentileSeries};

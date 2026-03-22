@@ -9,9 +9,8 @@
 //! - **Corkscrew** - Balance sheet roll-forward validation
 //! - **CreditScorecard** - Credit rating assignment based on metrics
 //!
-//! For sensitivity analysis and explanation functionality, use the dedicated modules:
-//! - [`crate::analysis`] - Sensitivity analysis, goal seek, DCF valuation
-//! - `crate::analysis::explain` - Dependency tracing and formula explanation
+//! For sensitivity analysis and explanation functionality, use the dedicated modules
+//! in the `finstack-statements-analytics` crate.
 //!
 //! # Examples
 //!

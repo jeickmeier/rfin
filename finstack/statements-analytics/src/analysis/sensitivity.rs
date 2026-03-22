@@ -4,9 +4,9 @@ use super::types::{
     ParameterSpec, SensitivityConfig, SensitivityMode, SensitivityResult, SensitivityScenario,
     TornadoEntry,
 };
-use crate::error::{Error, Result};
-use crate::evaluator::{Evaluator, StatementResult};
-use crate::types::{AmountOrScalar, FinancialModelSpec};
+use finstack_statements::error::{Error, Result};
+use finstack_statements::evaluator::{Evaluator, StatementResult};
+use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
 use finstack_core::dates::PeriodId;
 use indexmap::IndexMap;
 
@@ -217,8 +217,8 @@ fn build_parameter_grid(
 }
 
 fn max_target_impact(
-    baseline: &crate::evaluator::StatementResult,
-    scenario: &crate::evaluator::StatementResult,
+    baseline: &finstack_statements::evaluator::StatementResult,
+    scenario: &finstack_statements::evaluator::StatementResult,
     target_metrics: &[String],
 ) -> f64 {
     target_metrics
@@ -363,7 +363,7 @@ fn approx_equal(lhs: f64, rhs: f64) -> bool {
 mod tests {
     use super::*;
     use crate::analysis::types::ParameterSpec;
-    use crate::builder::ModelBuilder;
+    use finstack_statements::builder::ModelBuilder;
     use finstack_core::dates::PeriodId;
 
     #[test]

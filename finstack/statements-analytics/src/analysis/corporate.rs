@@ -4,9 +4,9 @@
 //! DCF (Discounted Cash Flow) valuation, allowing direct valuation of companies
 //! from forecast models.
 
-use crate::error::Result;
-use crate::evaluator::{Evaluator, StatementResult};
-use crate::types::FinancialModelSpec;
+use finstack_statements::error::Result;
+use finstack_statements::evaluator::{Evaluator, StatementResult};
+use finstack_statements::types::FinancialModelSpec;
 use finstack_core::currency::Currency;
 use finstack_core::explain::{ExplanationTrace, TraceEntry};
 use finstack_core::market_data::context::MarketContext;
@@ -225,7 +225,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
     }
 
     if flows.is_empty() {
-        return Err(crate::error::Error::Eval(format!(
+        return Err(finstack_statements::error::Error::Eval(format!(
             "No UFCF values found for node '{}'",
             ufcf_node
         )));
@@ -234,7 +234,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
     // Validate terminal value constraints.
     match &terminal_value {
         TerminalValueSpec::GordonGrowth { growth_rate } if *growth_rate >= wacc => {
-            return Err(crate::error::Error::Eval(format!(
+            return Err(finstack_statements::error::Error::Eval(format!(
                 "Gordon Growth terminal value requires growth_rate ({:.4}) < WACC ({:.4}). \
                  A growth rate >= WACC produces an infinite terminal value.",
                 growth_rate, wacc
@@ -246,19 +246,19 @@ pub(crate) fn evaluate_dcf_from_results_impl(
             half_life_years,
         } => {
             if *stable_growth_rate >= wacc {
-                return Err(crate::error::Error::Eval(format!(
+                return Err(finstack_statements::error::Error::Eval(format!(
                     "H-Model terminal value requires stable_growth_rate ({:.4}) < WACC ({:.4}).",
                     stable_growth_rate, wacc
                 )));
             }
             if *high_growth_rate < *stable_growth_rate {
-                return Err(crate::error::Error::Eval(format!(
+                return Err(finstack_statements::error::Error::Eval(format!(
                     "H-Model requires high_growth_rate ({:.4}) >= stable_growth_rate ({:.4}).",
                     high_growth_rate, stable_growth_rate
                 )));
             }
             if *half_life_years <= 0.0 {
-                return Err(crate::error::Error::Eval(format!(
+                return Err(finstack_statements::error::Error::Eval(format!(
                     "H-Model requires half_life_years > 0, got {:.4}.",
                     half_life_years
                 )));
@@ -285,7 +285,7 @@ pub(crate) fn evaluate_dcf_from_results_impl(
         model
             .periods
             .first()
-            .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?
+            .ok_or_else(|| finstack_statements::error::Error::Eval("Model has no periods".into()))?
             .start
     };
 
@@ -316,23 +316,23 @@ pub(crate) fn evaluate_dcf_from_results_impl(
 
     let dcf = builder
         .build()
-        .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+        .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
 
     // Calculate valuation
     let default_market = MarketContext::default();
     let market_ref = context.market.unwrap_or(&default_market);
     let equity_value = dcf
         .value(market_ref, valuation_date)
-        .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+        .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
 
     // Calculate components for result
     let pv_explicit = dcf.calculate_pv_explicit_flows();
     let tv = dcf
         .calculate_terminal_value()
-        .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+        .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
     let pv_terminal = dcf
         .discount_terminal_value(tv)
-        .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+        .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
     let enterprise_value = pv_explicit + pv_terminal;
 
     // Record base valuation in the explanation trace
@@ -362,10 +362,10 @@ pub(crate) fn evaluate_dcf_from_results_impl(
         let pv_exp = dcf_up.calculate_pv_explicit_flows();
         let tv_up = dcf_up
             .calculate_terminal_value()
-            .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+            .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
         let pv_tv = dcf_up
             .discount_terminal_value(tv_up)
-            .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+            .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
         pv_exp + pv_tv
     };
 
@@ -375,10 +375,10 @@ pub(crate) fn evaluate_dcf_from_results_impl(
         let pv_exp = dcf_down.calculate_pv_explicit_flows();
         let tv_down = dcf_down
             .calculate_terminal_value()
-            .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+            .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
         let pv_tv = dcf_down
             .discount_terminal_value(tv_down)
-            .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+            .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
         pv_exp + pv_tv
     };
 
@@ -413,10 +413,10 @@ pub(crate) fn evaluate_dcf_from_results_impl(
             let pv_explicit_up = dcf_up.calculate_pv_explicit_flows();
             let tv_up = dcf_up
                 .calculate_terminal_value()
-                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+                .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
             let pv_tv_up = dcf_up
                 .discount_terminal_value(tv_up)
-                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+                .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
             pv_explicit_up + pv_tv_up
         };
 
@@ -429,10 +429,10 @@ pub(crate) fn evaluate_dcf_from_results_impl(
             let pv_explicit_down = dcf_down.calculate_pv_explicit_flows();
             let tv_down = dcf_down
                 .calculate_terminal_value()
-                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+                .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
             let pv_tv_down = dcf_down
                 .discount_terminal_value(tv_down)
-                .map_err(|e| crate::error::Error::Eval(e.to_string()))?;
+                .map_err(|e| finstack_statements::error::Error::Eval(e.to_string()))?;
             pv_explicit_down + pv_tv_down
         };
 
@@ -482,15 +482,15 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
     if let Some(currency_meta) = model.meta.get("currency") {
         if let Some(currency_str) = currency_meta.as_str() {
             return currency_str.parse::<Currency>().map_err(|_| {
-                crate::error::Error::Eval(format!("Invalid currency: {}", currency_str))
+                finstack_statements::error::Error::Eval(format!("Invalid currency: {}", currency_str))
             });
         }
-        return Err(crate::error::Error::Eval(
+        return Err(finstack_statements::error::Error::Eval(
             "Model metadata key 'currency' must be a string ISO currency code".into(),
         ));
     }
 
-    Err(crate::error::Error::Eval(format!(
+    Err(finstack_statements::error::Error::Eval(format!(
         "Model '{}' is missing required metadata key 'currency'. \
          Set model.meta[\"currency\"] to an ISO currency code such as 'USD'.",
         model.id
@@ -504,7 +504,7 @@ fn extract_currency_from_model(model: &FinancialModelSpec) -> Result<Currency> {
 /// This function attempts to find debt and cash nodes in the model results.
 fn calculate_net_debt_from_model(
     model: &FinancialModelSpec,
-    results: &crate::evaluator::StatementResult,
+    results: &finstack_statements::evaluator::StatementResult,
     balance_sheet_period: Option<finstack_core::dates::PeriodId>,
 ) -> Result<f64> {
     // Use the valuation boundary balance sheet when available; otherwise fall back
@@ -515,7 +515,7 @@ fn calculate_net_debt_from_model(
         model
             .periods
             .last()
-            .ok_or_else(|| crate::error::Error::Eval("Model has no periods".into()))?
+            .ok_or_else(|| finstack_statements::error::Error::Eval("Model has no periods".into()))?
             .id
     };
 
@@ -529,14 +529,14 @@ fn calculate_net_debt_from_model(
         .or_else(|| results.get("cash_and_equivalents", &selected_period_id));
 
     let total_debt = total_debt.ok_or_else(|| {
-        crate::error::Error::Eval(format!(
+        finstack_statements::error::Error::Eval(format!(
             "Net debt calculation requires a 'total_debt' or 'debt' node at period {}. \
              Provide the balance-sheet node or use net_debt_override.",
             selected_period_id
         ))
     })?;
     let cash = cash.ok_or_else(|| {
-        crate::error::Error::Eval(format!(
+        finstack_statements::error::Error::Eval(format!(
             "Net debt calculation requires a 'cash' or 'cash_and_equivalents' node at period {}. \
              Provide the balance-sheet node or use net_debt_override.",
             selected_period_id
@@ -550,8 +550,8 @@ fn calculate_net_debt_from_model(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::builder::ModelBuilder;
-    use crate::types::AmountOrScalar;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::types::AmountOrScalar;
     use finstack_core::dates::PeriodId;
 
     #[test]

@@ -57,12 +57,9 @@
 //! - **forecast**: Deterministic and statistical forecast methods (growth, seasonal, Monte Carlo)
 //! - **registry**: Dynamic metric registry with namespace management and built-in `fin.*` metrics
 //! - **extensions**: Corkscrew, credit scorecard, and custom plugin support
-//! - **analysis**: Sensitivity, scenario, variance, DCF, goal seek, covenants, backtesting, and introspection tools
 
 /// Normalization engine and add-back tracking for adjusted metrics.
 pub mod adjustments;
-/// Analysis helpers and post-processing utilities.
-pub mod analysis;
 /// Type-safe model builder API.
 pub mod builder;
 /// Debt and equity structure modeling.
@@ -85,7 +82,8 @@ pub mod registry;
 pub mod templates;
 /// Core statement model types.
 pub mod types;
-pub(crate) mod utils;
+/// Internal utilities (constants, formula helpers, graph traversal).
+pub mod utils;
 
 // Re-export core types at crate root for ergonomic imports
 pub use error::{Error, Result};

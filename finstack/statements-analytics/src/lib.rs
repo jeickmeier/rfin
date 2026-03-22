@@ -18,5 +18,8 @@
 //!   credit scorecard)
 //! - **Templates** — real estate, roll-forward, and vintage model builders
 
+/// Analysis tools for financial statement models.
+pub mod analysis;
+
 /// Convenient re-exports for common analytics types.
 pub mod prelude;

@@ -41,9 +41,9 @@
 //! # }
 //! ```
 
-use crate::error::{Error, Result};
-use crate::evaluator::Evaluator;
-use crate::types::{AmountOrScalar, FinancialModelSpec};
+use finstack_statements::error::{Error, Result};
+use finstack_statements::evaluator::Evaluator;
+use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
 use finstack_core::dates::PeriodId;
 use finstack_core::math::solver::{BrentSolver, Solver};
 

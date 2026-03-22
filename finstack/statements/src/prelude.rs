@@ -11,11 +11,6 @@
 //! Prefer importing from the source module directly when you want a narrower API
 //! boundary in libraries or examples aimed at teaching a specific subsystem.
 
-pub use crate::analysis::{
-    BridgeChart, BridgeStep, CorporateAnalysis, CorporateAnalysisBuilder, CreditInstrumentAnalysis,
-    MonteCarloConfig, MonteCarloResults, ScenarioDefinition, ScenarioDiff, ScenarioResults,
-    ScenarioSet, VarianceAnalyzer, VarianceConfig, VarianceReport, VarianceRow,
-};
 pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
 pub use crate::error::{Error, Result};
 pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, StatementResult};

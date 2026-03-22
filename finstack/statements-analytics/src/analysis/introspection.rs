@@ -1,8 +1,8 @@
 //! Model introspection: dependency tracing, formula explanation, and tree visualization.
 
-use crate::error::{Error, Result};
-use crate::evaluator::{DependencyGraph, StatementResult};
-use crate::types::{FinancialModelSpec, NodeType};
+use finstack_statements::error::{Error, Result};
+use finstack_statements::evaluator::{DependencyGraph, StatementResult};
+use finstack_statements::types::{FinancialModelSpec, NodeType};
 use finstack_core::dates::PeriodId;
 use indexmap::IndexSet;
 use serde::{Deserialize, Serialize};
@@ -526,7 +526,7 @@ impl<'a> FormulaExplainer<'a> {
         let mut breakdown = Vec::new();
 
         if let Some(formula_text) = formula {
-            let identifiers = crate::utils::formula::extract_all_identifiers(formula_text)?;
+            let identifiers = finstack_statements::utils::formula::extract_all_identifiers(formula_text)?;
 
             for identifier in identifiers {
                 if identifier.starts_with("cs.") {
@@ -641,9 +641,9 @@ pub struct ExplanationStep {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::builder::ModelBuilder;
-    use crate::evaluator::Evaluator;
-    use crate::types::AmountOrScalar;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::evaluator::Evaluator;
+    use finstack_statements::types::AmountOrScalar;
 
     #[test]
     fn test_direct_dependencies() {

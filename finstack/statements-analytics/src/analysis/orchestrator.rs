@@ -6,9 +6,9 @@
 
 use crate::analysis::corporate::{CorporateValuationResult, DcfOptions};
 use crate::analysis::credit_context::{compute_credit_context, CreditContextMetrics};
-use crate::error::Result;
-use crate::evaluator::StatementResult;
-use crate::types::FinancialModelSpec;
+use finstack_statements::error::Result;
+use finstack_statements::evaluator::StatementResult;
+use finstack_statements::types::FinancialModelSpec;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_valuations::instruments::equity::dcf_equity::TerminalValueSpec;
@@ -216,7 +216,7 @@ impl CorporateAnalysisBuilder {
     /// - Coverage and leverage interpretation: `docs/REFERENCES.md#tuckman-serrat-fixed-income`
     pub fn analyze(self) -> Result<CorporateAnalysis> {
         // Step 1: Evaluate statement
-        let mut evaluator = crate::evaluator::Evaluator::new();
+        let mut evaluator = finstack_statements::evaluator::Evaluator::new();
         let statement = evaluator.evaluate_with_market_context(
             &self.model,
             self.market.as_ref(),
@@ -245,7 +245,7 @@ impl CorporateAnalysisBuilder {
                     },
                 )
                 .map_err(|e| {
-                    crate::error::Error::Eval(format!(
+                    finstack_statements::error::Error::Eval(format!(
                         "DCF equity valuation failed in corporate analysis pipeline: {e}"
                     ))
                 })?;
@@ -288,8 +288,8 @@ impl CorporateAnalysisBuilder {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::builder::ModelBuilder;
-    use crate::types::AmountOrScalar;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::types::AmountOrScalar;
     use finstack_core::dates::PeriodId;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
