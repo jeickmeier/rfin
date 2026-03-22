@@ -3,7 +3,7 @@
 use crate::core::money::PyMoney;
 use crate::statements::error::stmt_to_py;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::analysis::corporate::{
+use finstack_statements_analytics::analysis::corporate::{
     evaluate_dcf_with_market as rs_evaluate_dcf_with_market, CorporateValuationResult, DcfOptions,
 };
 use pyo3::prelude::*;

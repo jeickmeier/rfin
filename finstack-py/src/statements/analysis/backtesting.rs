@@ -1,7 +1,7 @@
 //! Forecast backtesting bindings.
 
 use crate::statements::error::stmt_to_py;
-use finstack_statements::analysis::{backtest_forecast as rs_backtest_forecast, ForecastMetrics};
+use finstack_statements_analytics::analysis::{backtest_forecast as rs_backtest_forecast, ForecastMetrics};
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::{wrap_pyfunction, Bound};

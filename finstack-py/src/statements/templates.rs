@@ -9,7 +9,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
-use finstack_statements::templates::real_estate::{
+use finstack_statements_analytics::templates::real_estate::{
     FreeRentWindowSpec, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase,
     ManagementFeeSpec, PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
 };

@@ -10,7 +10,7 @@ use crate::statements::types::model::PyFinancialModelSpec;
 use crate::valuations::covenants::{
     PyCovenantForecast, PyCovenantForecastConfig, PyCovenantSpec, PyFutureBreach,
 };
-use finstack_statements::analysis::covenants as rs_covenants;
+use finstack_statements_analytics::analysis::covenants as rs_covenants;
 use finstack_valuations::covenants::CovenantEngine;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;

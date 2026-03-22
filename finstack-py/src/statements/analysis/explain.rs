@@ -4,7 +4,7 @@ use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::{PyDependencyGraph, PyStatementResult};
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::statements::types::node::PyNodeType;
-use finstack_statements::analysis::{
+use finstack_statements_analytics::analysis::{
     render_tree_ascii, render_tree_detailed, DependencyTracer, DependencyTree, Explanation,
     ExplanationStep, FormulaExplainer,
 };

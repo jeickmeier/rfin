@@ -20,9 +20,9 @@ mod variance;
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::analysis::types::{SensitivityScenario, TornadoEntry as CoreTornadoEntry};
-use finstack_statements::analysis::MonteCarloConfig;
-use finstack_statements::analysis::{
+use finstack_statements_analytics::analysis::types::{SensitivityScenario, TornadoEntry as CoreTornadoEntry};
+use finstack_statements_analytics::analysis::MonteCarloConfig;
+use finstack_statements_analytics::analysis::{
     generate_tornado_entries, ParameterSpec, SensitivityAnalyzer, SensitivityConfig,
     SensitivityMode, SensitivityResult,
 };
@@ -422,7 +422,7 @@ fn goal_seek(
                 driver_period_str, e
             ))
         })?;
-    finstack_statements::analysis::goal_seek(
+    finstack_statements_analytics::analysis::goal_seek(
         &mut model.inner,
         target_node,
         target_period_id,

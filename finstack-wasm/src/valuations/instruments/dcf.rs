@@ -1,6 +1,6 @@
 use crate::core::money::JsMoney;
 use crate::statements::types::JsFinancialModelSpec;
-use finstack_statements::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
+use finstack_statements_analytics::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
 use finstack_valuations::instruments::equity::dcf_equity::{TerminalValueSpec, ValuationDiscounts};
 use js_sys::{Object, Reflect};
 use wasm_bindgen::prelude::*;

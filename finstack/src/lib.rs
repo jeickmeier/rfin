@@ -40,6 +40,9 @@ pub use finstack_valuations as valuations;
 #[cfg(feature = "statements")]
 pub use finstack_statements as statements;
 
+#[cfg(feature = "statements")]
+pub use finstack_statements_analytics as statements_analytics;
+
 #[cfg(feature = "portfolio")]
 pub use finstack_portfolio as portfolio;
 
@@ -48,4 +51,4 @@ pub use finstack_scenarios as scenarios;
 
 // Bridge modules that wire multiple subcrates together
 #[cfg(all(feature = "valuations", feature = "statements"))]
-pub use finstack_statements::analysis::covenants;
+pub use finstack_statements_analytics::analysis::covenants;

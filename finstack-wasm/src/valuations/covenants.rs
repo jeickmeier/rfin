@@ -198,7 +198,7 @@ pub fn forecast_covenant(
         ps.push(pid);
     }
     let cfg = config.map(|c| c.inner).unwrap_or_default();
-    finstack_statements::analysis::covenants::forecast_covenant(
+    finstack_statements_analytics::analysis::covenants::forecast_covenant(
         &spec.inner,
         &model.inner,
         &base_case.inner,

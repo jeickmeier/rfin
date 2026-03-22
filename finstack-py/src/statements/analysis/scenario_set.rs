@@ -2,7 +2,7 @@ use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use finstack_core::dates::PeriodId;
-use finstack_statements::analysis::{
+use finstack_statements_analytics::analysis::{
     ScenarioDefinition, ScenarioDiff, ScenarioResults, ScenarioSet,
 };
 use indexmap::IndexMap;

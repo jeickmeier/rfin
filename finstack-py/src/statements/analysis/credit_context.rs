@@ -3,7 +3,7 @@
 use crate::core::dates::periods::{PyPeriod, PyPeriodId};
 use crate::statements::capital_structure::PyCapitalStructureCashflows;
 use crate::statements::evaluator::PyStatementResult;
-use finstack_statements::analysis::credit_context::{
+use finstack_statements_analytics::analysis::credit_context::{
     compute_credit_context as rs_compute_credit_context, CreditContextMetrics,
 };
 use pyo3::prelude::*;

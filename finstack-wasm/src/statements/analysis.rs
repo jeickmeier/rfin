@@ -5,7 +5,7 @@
 use crate::core::error::js_error;
 use crate::statements::types::JsFinancialModelSpec;
 use crate::utils::json::to_js_value;
-use finstack_statements::analysis::{DependencyTracer, DependencyTree};
+use finstack_statements_analytics::analysis::{DependencyTracer, DependencyTree};
 use finstack_statements::evaluator::DependencyGraph;
 use wasm_bindgen::prelude::*;
 

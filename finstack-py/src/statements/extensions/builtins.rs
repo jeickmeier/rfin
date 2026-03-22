@@ -1,6 +1,6 @@
 //! Built-in extension implementations.
 
-use finstack_statements::extensions::{
+use finstack_statements_analytics::extensions::{
     AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CreditScorecardExtension,
     ScorecardConfig, ScorecardMetric,
 };

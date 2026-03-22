@@ -12,7 +12,7 @@ use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
 use crate::valuations::instruments::equity::dcf::PyTerminalValueSpec;
-use finstack_statements::analysis::orchestrator::{
+use finstack_statements_analytics::analysis::orchestrator::{
     CorporateAnalysis, CorporateAnalysisBuilder, CreditInstrumentAnalysis,
 };
 use pyo3::prelude::*;

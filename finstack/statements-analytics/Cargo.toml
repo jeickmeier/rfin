@@ -17,6 +17,7 @@ indexmap = { workspace = true, features = ["serde"] }
 thiserror = { workspace = true }
 rust_decimal = { workspace = true }
 time = { workspace = true }
+polars = { version = "0.53", optional = true, default-features = false }
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }
@@ -24,5 +25,5 @@ rust_decimal_macros = { workspace = true }
 
 [features]
 default = []
-dataframes = ["finstack-statements/dataframes"]
+dataframes = ["finstack-statements/dataframes", "dep:polars"]
 parallel = ["finstack-statements/parallel"]

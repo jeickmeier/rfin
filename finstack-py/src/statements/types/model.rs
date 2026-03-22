@@ -567,7 +567,7 @@ impl PyFinancialModelSpec {
                 ))
             })?;
 
-        finstack_statements::analysis::goal_seek(
+        finstack_statements_analytics::analysis::goal_seek(
             &mut self.inner,
             target_node,
             target_period_id,

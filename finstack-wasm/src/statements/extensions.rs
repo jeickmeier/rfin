@@ -3,8 +3,10 @@
 use crate::statements::evaluator::JsStatementResult;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_statements::extensions::{
-    CorkscrewExtension, CreditScorecardExtension, ExtensionContext, ExtensionMetadata,
-    ExtensionRegistry, ExtensionResult, ExtensionStatus,
+    ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult, ExtensionStatus,
+};
+use finstack_statements_analytics::extensions::{
+    CorkscrewExtension, CreditScorecardExtension,
 };
 use wasm_bindgen::prelude::*;
 

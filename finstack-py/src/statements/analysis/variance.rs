@@ -1,7 +1,7 @@
 use crate::statements::error::stmt_to_py;
 use crate::statements::evaluator::PyStatementResult;
 use finstack_core::dates::PeriodId;
-use finstack_statements::analysis::{
+use finstack_statements_analytics::analysis::{
     BridgeChart, BridgeStep, VarianceAnalyzer, VarianceConfig, VarianceReport,
 };
 use pyo3::prelude::*;
@@ -89,7 +89,7 @@ impl PyVarianceConfig {
 )]
 #[derive(Clone)]
 pub struct PyVarianceRow {
-    pub(crate) inner: finstack_statements::analysis::VarianceRow,
+    pub(crate) inner: finstack_statements_analytics::analysis::VarianceRow,
 }
 
 #[pymethods]

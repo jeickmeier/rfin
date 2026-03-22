@@ -3,7 +3,7 @@
 use crate::core::dates::periods::PyPeriodId;
 use crate::statements::evaluator::PyStatementResult;
 use crate::statements::types::model::PyFinancialModelSpec;
-use finstack_statements::analysis::{
+use finstack_statements_analytics::analysis::{
     Alignment, CreditAssessmentReport, PLSummaryReport, Report, TableBuilder,
 };
 use finstack_statements::types::DebtInstrumentSpec;
