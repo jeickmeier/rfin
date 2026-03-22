@@ -208,6 +208,7 @@ fn add_cross_factor_term(
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::money::Money;
 /// use finstack_valuations::attribution::attribute_pnl_metrics_based;
+/// use finstack_valuations::instruments::internal::InstrumentExt;
 /// use finstack_valuations::instruments::rates::deposit::Deposit;
 /// use finstack_valuations::instruments::PricingOptions;
 /// use finstack_valuations::metrics::MetricId;
@@ -231,7 +232,7 @@ fn add_cross_factor_term(
 ///         .discount_curve_id("USD-OIS".into())
 ///         .build()
 ///         .expect("deposit builder should succeed"),
-/// ) as Arc<dyn finstack_valuations::instruments::Instrument>;
+/// ) as Arc<dyn InstrumentExt>;
 ///
 /// // Compute valuations with bucketed metrics for best accuracy
 /// let metrics = vec![

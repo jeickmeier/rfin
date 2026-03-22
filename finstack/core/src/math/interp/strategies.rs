@@ -6,7 +6,10 @@
 use super::{
     traits::InterpolationStrategy,
     types::ExtrapolationPolicy,
-    utils::{locate_segment, validate_monotone_nonincreasing, validate_positive_series},
+    utils::{
+        locate_segment, validate_knot_spacing, validate_monotone_nonincreasing,
+        validate_positive_series, MIN_RELATIVE_KNOT_GAP,
+    },
 };
 use std::vec::Vec;
 
@@ -24,11 +27,11 @@ pub struct LinearStrategy;
 
 impl InterpolationStrategy for LinearStrategy {
     fn from_raw(
-        _knots: &[f64],
+        knots: &[f64],
         _values: &[f64],
         _extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
-        // Linear strategy has no precomputed state
+        validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
         Ok(Self)
     }
 
@@ -346,6 +349,7 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
     ) -> crate::Result<Self> {
         // Enforce positivity (log transform requires DF > 0)
         validate_positive_series(values)?;
+        validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
 
         let n = knots.len();
         debug_assert!(n >= 2);
@@ -565,6 +569,7 @@ impl InterpolationStrategy for CubicHermiteStrategy {
         values: &[f64],
         _extrapolation: ExtrapolationPolicy,
     ) -> crate::Result<Self> {
+        validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
         // Pre-compute monotone slopes (PCHIP / Fritsch-Carlson)
         let ms = compute_monotone_slopes(knots, values);
         Ok(Self { ms })
@@ -836,6 +841,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
     ) -> crate::Result<Self> {
         // Validate monotone non-increasing (arbitrage-free)
         validate_monotone_nonincreasing(values)?;
+        validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
 
         // Build using default epsilon
         let epsilon = DEFAULT_MONOTONE_CONVEX_EPSILON;

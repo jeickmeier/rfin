@@ -368,6 +368,10 @@ pub fn execute_waterfall(
         let closing_balance = post_sweep_balance.checked_add(breakdown.interest_expense_pik)?;
         state.set_closing_balance(instrument_id.to_string(), closing_balance);
         breakdown.debt_balance = closing_balance;
+        debug_assert!(
+            breakdown.validate_currency_invariant().is_ok(),
+            "Currency invariant violated after waterfall mutation"
+        );
 
         // Update cumulative metrics
         update_cumulative_metrics(state, &instrument_id, &breakdown, currency)?;

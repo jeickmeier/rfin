@@ -13,7 +13,8 @@
 //! ## Basic Instrument Usage
 //!
 //! ```rust
-//! use finstack_valuations::instruments::{Bond, Instrument};
+//! use finstack_valuations::instruments::Bond;
+//! use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_core::dates::create_date;
@@ -265,7 +266,8 @@ pub type DynInstrument = dyn Instrument;
 /// ## Basic Pricing
 ///
 /// ```rust
-/// use finstack_valuations::instruments::{Bond, Instrument};
+/// use finstack_valuations::instruments::Bond;
+/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 /// use finstack_core::currency::Currency;
 /// use finstack_core::money::Money;
 /// use finstack_core::dates::create_date;
@@ -298,7 +300,8 @@ pub type DynInstrument = dyn Instrument;
 /// ## Pricing with Metrics
 ///
 /// ```rust
-/// use finstack_valuations::instruments::{Bond, Instrument};
+/// use finstack_valuations::instruments::Bond;
+/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 /// use finstack_valuations::metrics::MetricId;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
@@ -329,7 +332,8 @@ pub type DynInstrument = dyn Instrument;
 /// ## Trait Object Usage
 ///
 /// ```rust
-/// use finstack_valuations::instruments::{Bond, Instrument};
+/// use finstack_valuations::instruments::Bond;
+/// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 /// # use finstack_core::currency::Currency;
 /// # use finstack_core::money::Money;
 /// # use finstack_core::dates::create_date;
@@ -436,7 +440,8 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -474,7 +479,8 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// use finstack_valuations::pricer::InstrumentType;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
@@ -506,7 +512,8 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -549,7 +556,8 @@ pub trait Instrument: Send + Sync {
     ///
     /// ```rust
     /// use finstack_valuations::cashflow::CashflowProvider;
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -709,7 +717,8 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
     /// # use finstack_core::dates::create_date;
@@ -782,7 +791,8 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// use finstack_core::market_data::context::MarketContext;
     /// # use finstack_core::currency::Currency;
     /// # use finstack_core::money::Money;
@@ -840,7 +850,8 @@ pub trait Instrument: Send + Sync {
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::money::Money;
     /// use finstack_core::types::Rate;
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     /// use time::macros::date;
     ///
     /// # fn main() -> finstack_core::Result<()> {
@@ -984,9 +995,13 @@ pub trait Instrument: Send + Sync {
     /// # Ok(())
     /// # }
     /// ```
-    fn price_with_metrics(
+    /// Compute present value with specified risk metrics using a shared market context.
+    ///
+    /// Prefer this overload when pricing many instruments against the same
+    /// market snapshot to avoid cloning `MarketContext` on every call.
+    fn price_with_metrics_arc(
         &self,
-        market: &MarketContext,
+        market: &Arc<MarketContext>,
         as_of: Date,
         metrics: &[MetricId],
         options: PricingOptions,
@@ -1008,7 +1023,7 @@ pub trait Instrument: Send + Sync {
         };
 
         registry
-            .price_with_metrics(
+            .price_with_metrics_arc(
                 instrument.as_ref(),
                 model,
                 market,
@@ -1022,6 +1037,21 @@ pub trait Instrument: Send + Sync {
                     .unwrap_or_else(|| PricingError::UnknownPricer(key).into()),
                 other => other.into(),
             })
+    }
+
+    /// Compute present value with specified risk metrics.
+    ///
+    /// This convenience overload clones `market` into an `Arc` and delegates to
+    /// [`Instrument::price_with_metrics_arc`]. Use the `_arc` variant when
+    /// repeatedly pricing against the same market snapshot.
+    fn price_with_metrics(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+        options: PricingOptions,
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        self.price_with_metrics_arc(&Arc::new(market.clone()), as_of, metrics, options)
     }
 
     // === Market Data Introspection (for Attribution) ===
@@ -1106,7 +1136,8 @@ pub trait Instrument: Send + Sync {
     /// # Examples
     ///
     /// ```rust,ignore
-    /// use finstack_valuations::instruments::{Bond, Instrument};
+    /// use finstack_valuations::instruments::Bond;
+    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     ///
     /// let bond = Bond::example().unwrap();
     /// if let Some(maturity) = bond.expiry() {

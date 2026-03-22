@@ -279,6 +279,7 @@ fn with_cache_configuration() {
             EvalOpts {
                 plan: None,
                 cache_budget_mb: Some(1),
+                max_arena_bytes: 1_073_741_824,
             },
         )
         .unwrap()

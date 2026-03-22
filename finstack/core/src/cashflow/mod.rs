@@ -116,4 +116,7 @@ mod xirr;
 
 pub use discounting::{npv, npv_amounts, npv_amounts_with_ctx, npv_with_ctx, Discountable};
 pub use primitives::{CFKind, CashFlow};
-pub use xirr::{xirr_with_daycount_ctx, InternalRateOfReturn};
+pub use xirr::{
+    count_sign_changes, irr_detailed, xirr_detailed, xirr_with_daycount_ctx, InternalRateOfReturn,
+    IrrResult,
+};

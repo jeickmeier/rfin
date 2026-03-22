@@ -394,6 +394,7 @@ impl PyEvalOpts {
         let opts = EvalOpts {
             plan: plan.map(|p| p.inner.clone()),
             cache_budget_mb,
+            max_arena_bytes: EvalOpts::default().max_arena_bytes,
         };
         Self::new(opts)
     }

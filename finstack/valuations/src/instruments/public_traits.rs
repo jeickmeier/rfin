@@ -3,6 +3,7 @@ use crate::metrics::MetricId;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
+use std::sync::Arc;
 
 /// Lean user-facing instrument trait for desk-quant pricing workflows.
 ///
@@ -21,6 +22,15 @@ pub trait Instrument: Send + Sync {
     fn price_with_metrics(
         &self,
         market: &MarketContext,
+        as_of: Date,
+        metrics: &[MetricId],
+        options: crate::instruments::PricingOptions,
+    ) -> finstack_core::Result<crate::results::ValuationResult>;
+
+    /// Compute present value with requested risk metrics using a shared market context.
+    fn price_with_metrics_arc(
+        &self,
+        market: &Arc<MarketContext>,
         as_of: Date,
         metrics: &[MetricId],
         options: crate::instruments::PricingOptions,
@@ -47,6 +57,16 @@ impl<T: internal_traits::Instrument + ?Sized> Instrument for T {
         options: crate::instruments::PricingOptions,
     ) -> finstack_core::Result<crate::results::ValuationResult> {
         internal_traits::Instrument::price_with_metrics(self, market, as_of, metrics, options)
+    }
+
+    fn price_with_metrics_arc(
+        &self,
+        market: &Arc<MarketContext>,
+        as_of: Date,
+        metrics: &[MetricId],
+        options: crate::instruments::PricingOptions,
+    ) -> finstack_core::Result<crate::results::ValuationResult> {
+        internal_traits::Instrument::price_with_metrics_arc(self, market, as_of, metrics, options)
     }
 
     fn expiry(&self) -> Option<Date> {

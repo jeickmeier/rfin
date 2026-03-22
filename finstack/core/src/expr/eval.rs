@@ -47,11 +47,12 @@ use std::vec::Vec;
 /// let opts = EvalOpts {
 ///     plan: None,
 ///     cache_budget_mb: Some(16),
+///     max_arena_bytes: 1_073_741_824,
 /// };
 /// let out = expr.eval(&ctx, &cols, opts).expect("column lookup should succeed");
 /// assert_eq!(out.values, vec![1.0, 2.0, 3.0]);
 /// ```
-#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct EvalOpts {
     /// Optional pre-built execution plan to follow. If not provided, the
     /// evaluator will either use the internal plan (if present) or fallback to
@@ -61,6 +62,24 @@ pub struct EvalOpts {
     /// instantiated (and sized for the plan when available) and cache stats
     /// will be embedded in the returned metadata.
     pub cache_budget_mb: Option<usize>,
+    /// Maximum arena allocation in bytes. Defaults to 1 GB.
+    /// Set to 0 to disable the check.
+    #[serde(default = "default_max_arena_bytes")]
+    pub max_arena_bytes: usize,
+}
+
+fn default_max_arena_bytes() -> usize {
+    1_073_741_824
+}
+
+impl Default for EvalOpts {
+    fn default() -> Self {
+        Self {
+            plan: None,
+            cache_budget_mb: None,
+            max_arena_bytes: default_max_arena_bytes(),
+        }
+    }
 }
 
 /// Compiled expression with optimized evaluation and caching.
@@ -84,7 +103,10 @@ pub struct EvalOpts {
 ///
 /// # Thread Safety
 ///
-/// Not `Sync` due to mutable scratch buffers. Clone to share across threads.
+/// `CompiledExpr` is both `Send` and `Sync`. Internal scratch buffers and
+/// caches are protected by `Mutex`. For parallel evaluation, either share a
+/// single instance (concurrent `eval()` calls will serialize on the scratch
+/// `Mutex`) or clone for independent scratch buffers per thread.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct CompiledExpr {
     /// Underlying expression AST.
@@ -209,9 +231,26 @@ impl CompiledExpr {
         let values: Vec<f64> = {
             // Execute nodes in topological order using arena allocation
             let len = cols.first().map(|c| c.len()).unwrap_or(0);
+            let node_count = plan_to_use.nodes.len();
+            let arena_elements = len.checked_mul(node_count).ok_or_else(|| {
+                crate::Error::from(crate::InputError::TooLarge {
+                    what: "expression arena".into(),
+                    requested_bytes: usize::MAX,
+                    limit_bytes: opts.max_arena_bytes,
+                })
+            })?;
+            let arena_bytes = arena_elements.saturating_mul(std::mem::size_of::<f64>());
+            if opts.max_arena_bytes > 0 && arena_bytes > opts.max_arena_bytes {
+                return Err(crate::InputError::TooLarge {
+                    what: "expression arena".into(),
+                    requested_bytes: arena_bytes,
+                    limit_bytes: opts.max_arena_bytes,
+                }
+                .into());
+            }
 
             // Pre-allocate arena for all node results to avoid per-node Vec allocations
-            let mut arena = vec![0.0; len * plan_to_use.nodes.len()];
+            let mut arena = vec![0.0; arena_elements];
             let mut offsets: HashMap<u64, (usize, usize)> = HashMap::default();
             let mut cursor = 0;
 
@@ -620,6 +659,7 @@ mod tests {
                 EvalOpts {
                     plan: None,
                     cache_budget_mb: Some(1),
+                    max_arena_bytes: default_max_arena_bytes(),
                 },
             )
             .unwrap()
@@ -647,6 +687,7 @@ mod tests {
                 EvalOpts {
                     plan: external_plan,
                     cache_budget_mb: None,
+                    max_arena_bytes: default_max_arena_bytes(),
                 },
             )
             .unwrap()
@@ -656,5 +697,54 @@ mod tests {
         assert!((result[1] - 0.3).abs() < 1e-12);
         assert!((result[2] - 2.5).abs() < 1e-12);
         assert!((result[3] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn arena_rejects_oversized_allocation() {
+        let ast = Expr::bin_op(BinOp::Add, Expr::column("x"), Expr::column("y"));
+        let expr = CompiledExpr::new(ast);
+
+        let col: Vec<f64> = vec![1.0; 1000];
+        let cols: Vec<&[f64]> = vec![&col, &col];
+        let ctx = SimpleContext::new(["x", "y"]);
+
+        let opts = EvalOpts {
+            max_arena_bytes: 100,
+            ..EvalOpts::default()
+        };
+        let result = expr.eval(&ctx, &cols, opts);
+        assert!(result.is_err());
+        let err_str = result.unwrap_err().to_string();
+        assert!(
+            err_str.contains("too large") || err_str.contains("TooLarge"),
+            "Expected TooLarge error, got: {err_str}"
+        );
+    }
+
+    #[test]
+    fn arena_accepts_normal_allocation() {
+        let ast = Expr::column("x");
+        let expr = CompiledExpr::new(ast);
+        let col = vec![1.0, 2.0, 3.0];
+        let cols: Vec<&[f64]> = vec![&col];
+        let ctx = SimpleContext::new(["x"]);
+        let opts = EvalOpts::default();
+        let result = expr.eval(&ctx, &cols, opts);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn arena_check_disabled_when_zero() {
+        let ast = Expr::column("x");
+        let expr = CompiledExpr::new(ast);
+        let col = vec![1.0, 2.0, 3.0];
+        let cols: Vec<&[f64]> = vec![&col];
+        let ctx = SimpleContext::new(["x"]);
+        let opts = EvalOpts {
+            max_arena_bytes: 0,
+            ..EvalOpts::default()
+        };
+        let result = expr.eval(&ctx, &cols, opts);
+        assert!(result.is_ok());
     }
 }

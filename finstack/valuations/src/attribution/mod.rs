@@ -58,6 +58,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_parallel;
+//! use finstack_valuations::instruments::internal::InstrumentExt;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::config::FinstackConfig;
 //! use finstack_core::currency::Currency;
@@ -83,7 +84,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
+//! ) as Arc<dyn InstrumentExt>;
 //!
 //! let attribution = attribute_pnl_parallel(
 //!     &instrument,
@@ -112,6 +113,7 @@
 //! use finstack_valuations::attribution::{
 //!     attribute_pnl_waterfall, AttributionFactor
 //! };
+//! use finstack_valuations::instruments::internal::InstrumentExt;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::config::FinstackConfig;
 //! use finstack_core::currency::Currency;
@@ -143,7 +145,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
+//! ) as Arc<dyn InstrumentExt>;
 //!
 //! let attribution = attribute_pnl_waterfall(
 //!     &instrument,
@@ -168,6 +170,7 @@
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_metrics_based;
 //! use finstack_valuations::attribution::default_attribution_metrics;
+//! use finstack_valuations::instruments::internal::InstrumentExt;
 //! use finstack_valuations::instruments::PricingOptions;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::currency::Currency;
@@ -194,7 +197,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
+//! ) as Arc<dyn InstrumentExt>;
 //!
 //! let val_t0 = instrument.price_with_metrics(&market_t0, as_of_t0, &metrics, PricingOptions::default())?;
 //! let val_t1 = instrument.price_with_metrics(&market_t1, as_of_t1, &metrics, PricingOptions::default())?;
@@ -217,6 +220,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::attribution::attribute_pnl_parallel;
+//! use finstack_valuations::instruments::internal::InstrumentExt;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
 //! use finstack_core::config::FinstackConfig;
 //! use finstack_core::currency::Currency;
@@ -242,7 +246,7 @@
 //!         .discount_curve_id("USD-OIS".into())
 //!         .build()
 //!         .expect("deposit builder should succeed"),
-//! ) as Arc<dyn finstack_valuations::instruments::Instrument>;
+//! ) as Arc<dyn InstrumentExt>;
 //!
 //! let attribution = attribute_pnl_parallel(
 //!     &instrument,

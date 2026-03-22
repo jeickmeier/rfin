@@ -235,6 +235,7 @@ fn test_eval_opts_serde() {
     let opts = EvalOpts {
         plan: None,
         cache_budget_mb: Some(256),
+        max_arena_bytes: 1_073_741_824,
     };
 
     let json = serde_json::to_string(&opts).expect("Failed to serialize EvalOpts");
@@ -242,6 +243,7 @@ fn test_eval_opts_serde() {
         serde_json::from_str(&json).expect("Failed to deserialize EvalOpts");
 
     assert_eq!(opts.cache_budget_mb, deserialized.cache_budget_mb);
+    assert_eq!(opts.max_arena_bytes, deserialized.max_arena_bytes);
     assert!(deserialized.plan.is_none());
 }
 
