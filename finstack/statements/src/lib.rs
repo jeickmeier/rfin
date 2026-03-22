@@ -56,7 +56,13 @@
 //! - **evaluator**: DAG-based evaluation with topological sort, precedence resolution, and capital structure integration
 //! - **forecast**: Deterministic and statistical forecast methods (growth, seasonal, Monte Carlo)
 //! - **registry**: Dynamic metric registry with namespace management and built-in `fin.*` metrics
-//! - **extensions**: Corkscrew, credit scorecard, and custom plugin support
+//! - **extensions**: Extension trait and registry for custom plugin support
+//!
+//! ## Analytics
+//!
+//! Higher-level analysis tools (sensitivity, scenario sets, DCF, etc.) and
+//! concrete extension implementations are in the
+//! [`finstack-statements-analytics`](finstack_statements_analytics) crate.
 
 /// Normalization engine and add-back tracking for adjusted metrics.
 pub mod adjustments;
