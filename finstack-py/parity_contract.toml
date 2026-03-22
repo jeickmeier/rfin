@@ -54,7 +54,7 @@ rust_crate = "finstack-analytics"
 rust_lib   = "finstack/analytics/src/lib.rs"
 python_package = "finstack.analytics"
 visibility = "pub"
-status = "missing"  # Currently nested at finstack.core.analytics — needs new package
+status = "exists"   # Wave 2: finstack/analytics/ canonical package created
 
 [crates.analytics.modules]
 aggregation  = { python = "finstack.analytics.aggregation",  status = "missing" }
@@ -74,7 +74,7 @@ rust_crate = "finstack-margin"
 rust_lib   = "finstack/margin/src/lib.rs"
 python_package = "finstack.margin"
 visibility = "pub"
-status = "missing"  # No dedicated Python package — margin types scattered in portfolio/valuations
+status = "missing"  # Deferred to Wave 3 — margin types scattered in portfolio/valuations
 
 [crates.margin.modules]
 calculators = { python = "finstack.margin.calculators", status = "missing" }
@@ -135,11 +135,11 @@ rust_crate = "finstack-statements-analytics"
 rust_lib   = "finstack/statements-analytics/src/lib.rs"
 python_package = "finstack.statements_analytics"
 visibility = "pub"
-status = "missing"  # Currently flattened into finstack.statements — highest-risk move (Wave 2)
+status = "exists"   # Wave 2: finstack/statements_analytics/ Python package created (aliases Rust modules)
 
 [crates.statements_analytics.modules]
 # analysis submodules (from finstack/statements-analytics/src/analysis/mod.rs)
-analysis                    = { python = "finstack.statements_analytics.analysis",                    status = "missing" }
+analysis                    = { python = "finstack.statements_analytics.analysis",                    status = "exists", note = "Wave 2: aliases finstack.statements.analysis" }
 analysis_valuation          = { python = "finstack.statements_analytics.analysis.valuation",          status = "missing" }
 analysis_credit             = { python = "finstack.statements_analytics.analysis.credit",             status = "missing" }
 analysis_scenarios          = { python = "finstack.statements_analytics.analysis.scenarios",          status = "missing" }
@@ -152,12 +152,12 @@ analysis_covenants          = { python = "finstack.statements_analytics.analysis
 analysis_credit_context     = { python = "finstack.statements_analytics.analysis.credit_context",     status = "missing" }
 
 # extensions submodules (from finstack/statements-analytics/src/extensions/mod.rs)
-extensions                  = { python = "finstack.statements_analytics.extensions",                  status = "missing" }
+extensions                  = { python = "finstack.statements_analytics.extensions",                  status = "exists", note = "Wave 2: aliases finstack.statements.extensions" }
 extensions_corkscrew        = { python = "finstack.statements_analytics.extensions.corkscrew",        status = "missing" }
 extensions_scorecards       = { python = "finstack.statements_analytics.extensions.scorecards",       status = "missing" }
 
 # templates submodules (from finstack/statements-analytics/src/templates/mod.rs)
-templates                   = { python = "finstack.statements_analytics.templates",                   status = "missing" }
+templates                   = { python = "finstack.statements_analytics.templates",                   status = "exists", note = "Wave 2: aliases finstack.statements.templates" }
 templates_roll_forward      = { python = "finstack.statements_analytics.templates.roll_forward",      status = "missing" }
 templates_real_estate       = { python = "finstack.statements_analytics.templates.real_estate",       status = "missing" }
 templates_vintage           = { python = "finstack.statements_analytics.templates.vintage",           status = "missing" }

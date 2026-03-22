@@ -118,10 +118,16 @@ _rust_portfolio = _finstack.portfolio
 _portfolio = _setup_hybrid_module(_rust_portfolio, "portfolio", _pkg_path / "portfolio")
 globals()["portfolio"] = _portfolio
 
-# Analytics lives under core; re-export at root for convenience
-_analytics = _importlib.import_module("finstack.core.analytics")
-_sys.modules[f"{__name__}.analytics"] = _analytics
+# Analytics — canonical top-level package (finstack-analytics crate).
+# finstack.core.analytics remains available as a compatibility shim via core's __init__.
+_rust_analytics = _finstack.analytics
+_analytics = _setup_hybrid_module(_rust_analytics, "analytics", _pkg_path / "analytics")
 globals()["analytics"] = _analytics
+
+# statements_analytics — Python-only canonical package.
+# Symbols live in finstack.statements.{analysis,extensions,templates} at Rust level.
+_statements_analytics = _importlib.import_module(".statements_analytics", __name__)
+globals()["statements_analytics"] = _statements_analytics
 
 del (
     _finstack,
@@ -136,8 +142,10 @@ del (
     _statements,
     _rust_portfolio,
     _portfolio,
-    _importlib,
+    _rust_analytics,
     _analytics,
+    _statements_analytics,
+    _importlib,
     _types,
     _setup_hybrid_module,
     _Any,
