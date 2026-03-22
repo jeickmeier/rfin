@@ -444,3 +444,117 @@ pub fn npv_analytic(inst: &RangeAccrual, curves: &MarketContext, as_of: Date) ->
 
     Ok(Money::new(pv, inst.notional.currency()))
 }
+
+#[cfg(all(test, feature = "mc"))]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::rates::range_accrual::types::RangeAccrual;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use time::Month;
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    fn market(as_of: Date) -> MarketContext {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94)])
+            .build()
+            .expect("curve");
+        let surface = VolSurface::builder("SPX-VOL")
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[80.0, 100.0, 120.0, 140.0])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .build()
+            .expect("surface");
+
+        MarketContext::new()
+            .insert(curve)
+            .insert_surface(surface)
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(100.0))
+            .insert_price("SPX-DIV", MarketScalar::Unitless(0.02))
+    }
+
+    #[test]
+    fn analytic_range_accrual_returns_zero_when_all_observations_are_past_and_no_history_is_supplied(
+    ) {
+        let as_of = date(2024, 4, 30);
+        let mut inst = RangeAccrual::example();
+        inst.observation_dates = vec![as_of];
+        inst.payment_date = Some(as_of);
+        inst.past_fixings_in_range = None;
+        inst.total_past_observations = None;
+
+        let pv = npv_analytic(&inst, &market(as_of), as_of).expect("pv");
+        assert_eq!(pv.amount(), 0.0);
+    }
+
+    #[test]
+    fn analytic_range_accrual_payment_date_changes_discounting_only() {
+        let as_of = date(2024, 1, 1);
+        let base = RangeAccrual::example();
+        let mut delayed = base.clone();
+        delayed.payment_date = Some(date(2025, 12, 31));
+
+        let curves = market(as_of);
+        let base_pv = npv_analytic(&base, &curves, as_of).expect("base pv");
+        let delayed_pv = npv_analytic(&delayed, &curves, as_of).expect("delayed pv");
+
+        assert!(base_pv.amount() > 0.0);
+        assert!(delayed_pv.amount() > 0.0);
+        assert!(delayed_pv.amount() < base_pv.amount());
+    }
+
+    #[test]
+    fn analytic_range_accrual_treats_missing_or_price_dividend_scalar_as_zero_yield() {
+        let as_of = date(2024, 1, 1);
+        let inst = RangeAccrual::example();
+        let base_market = market(as_of);
+        let no_div_market = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of)
+                    .day_count(finstack_core::dates::DayCount::Act365F)
+                    .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94)])
+                    .build()
+                    .expect("curve"),
+            )
+            .insert_surface(
+                VolSurface::builder("SPX-VOL")
+                    .expiries(&[0.25, 0.5, 1.0, 2.0])
+                    .strikes(&[80.0, 100.0, 120.0, 140.0])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .build()
+                    .expect("surface"),
+            )
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(100.0));
+        let price_div_market = market(as_of).insert_price(
+            "SPX-DIV",
+            MarketScalar::Price(Money::new(2.0, Currency::USD)),
+        );
+
+        let pv_missing = npv_analytic(&inst, &no_div_market, as_of).expect("missing div pv");
+        let pv_price = npv_analytic(&inst, &price_div_market, as_of).expect("price div pv");
+        let mut no_div_inst = inst.clone();
+        no_div_inst.div_yield_id = None;
+        let pv_explicit_none =
+            npv_analytic(&no_div_inst, &base_market, as_of).expect("none div pv");
+
+        assert!((pv_missing.amount() - pv_explicit_none.amount()).abs() < 1e-12);
+        assert!((pv_price.amount() - pv_explicit_none.amount()).abs() < 1e-12);
+    }
+}

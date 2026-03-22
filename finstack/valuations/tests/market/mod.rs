@@ -11,5 +11,6 @@
 //! - `quote_schemas` - Schema validation and serialization tests for quote types
 
 pub mod build;
+mod market_quote;
 mod quote_bumps;
 mod quote_schemas;

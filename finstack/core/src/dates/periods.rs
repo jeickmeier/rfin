@@ -1125,4 +1125,135 @@ mod tests {
         let prev = PeriodId::week(2022, 1).prev().expect("previous week");
         assert_eq!(prev, PeriodId::week(2021, 52));
     }
+
+    #[test]
+    fn period_kind_display_parse_and_counts() {
+        assert_eq!(PeriodKind::SemiAnnual.to_string(), "semiannual");
+        assert_eq!(
+            PeriodKind::from_str("semi_annual"),
+            Ok(PeriodKind::SemiAnnual)
+        );
+        assert_eq!(PeriodKind::from_str("Y"), Ok(PeriodKind::Annual));
+        assert!(PeriodKind::from_str("unknown").is_err());
+
+        assert_eq!(PeriodKind::Daily.periods_per_year(), 252);
+        assert_eq!(PeriodKind::Quarterly.annualization_factor(), 4.0);
+    }
+
+    #[test]
+    fn period_id_display_parse_and_serde_roundtrip() {
+        let q = PeriodId::from_str("2025Q3").expect("quarter");
+        assert_eq!(q.to_string(), "2025Q3");
+        let m = PeriodId::from_str("2025m06").expect("month lowercase");
+        assert_eq!(m, PeriodId::month(2025, 6));
+        let d = PeriodId::from_str("2025D059").expect("ordinal day");
+        assert_eq!(d, PeriodId::day(2025, 59));
+
+        let json = serde_json::to_string(&q).expect("serialize");
+        let back: PeriodId = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, q);
+    }
+
+    #[test]
+    fn period_id_ordering_mixed_frequencies_same_year() {
+        let q1 = PeriodId::quarter(2025, 1);
+        let m1 = PeriodId::month(2025, 1);
+        assert!(q1 > m1);
+    }
+
+    #[test]
+    fn build_periods_quarterly_monthly_daily_and_annual() {
+        let q = build_periods("2025Q1..Q4", None).expect("quarters");
+        assert_eq!(q.periods.len(), 4);
+        assert_eq!(q.periods[0].start, d(2025, Month::January, 1));
+
+        let cross = build_periods("2024M11..2025M02", None).expect("cross-year months");
+        assert_eq!(cross.periods.len(), 4);
+
+        let rel_m = build_periods("2025M01..M03", None).expect("relative months");
+        assert_eq!(rel_m.periods.len(), 3);
+
+        let rel_q = build_periods("2025Q1..Q3", Some("2025Q2")).expect("actuals boundary");
+        assert!(rel_q.periods[0].is_actual);
+        assert!(rel_q.periods[1].is_actual);
+        assert!(!rel_q.periods[2].is_actual);
+
+        let days = build_periods("2025D001..D003", None).expect("daily");
+        assert_eq!(days.periods.len(), 3);
+
+        let halves = build_periods("2025H1..H2", None).expect("halves");
+        assert_eq!(halves.periods.len(), 2);
+
+        let years = build_periods("2024..2026", None).expect("annual range");
+        assert_eq!(years.periods.len(), 3);
+    }
+
+    #[test]
+    fn build_periods_rejects_mixed_kinds_or_inverted_ranges() {
+        assert!(build_periods("2025Q1..2025M01", None).is_err());
+        assert!(build_periods("2025Q2..2025Q1", None).is_err());
+    }
+
+    #[test]
+    fn fiscal_config_constructors_and_validation() {
+        assert!(FiscalConfig::new(13, 1).is_err());
+        assert!(FiscalConfig::new(1, 32).is_err());
+        let uk = FiscalConfig::uk();
+        assert_eq!(uk.start_month, 4);
+        let feb_edge = FiscalConfig::new(2, 30).expect("feb clamp path");
+        let plan = build_fiscal_periods("2025Q1..Q1", feb_edge, None).expect("fiscal quarter");
+        assert_eq!(plan.periods.len(), 1);
+    }
+
+    #[test]
+    fn build_fiscal_periods_us_federal_and_monthly() {
+        let cfg = FiscalConfig::us_federal();
+        let qs = build_fiscal_periods("2025Q1..Q2", cfg, None).expect("FY quarters");
+        assert_eq!(qs.periods.len(), 2);
+
+        let jp = FiscalConfig::japan();
+        let ms = build_fiscal_periods("2025M01..M02", jp, None).expect("FY months");
+        assert_eq!(ms.periods.len(), 2);
+    }
+
+    #[test]
+    fn period_plan_iter_and_serde_roundtrip() {
+        let plan = build_periods("2025Q1..Q2", None).expect("plan");
+        let count = plan.iter().count();
+        assert_eq!(count, 2);
+        let json = serde_json::to_string(&plan).expect("serialize plan");
+        let back: PeriodPlan = serde_json::from_str(&json).expect("deserialize plan");
+        assert_eq!(back.periods.len(), plan.periods.len());
+    }
+
+    #[test]
+    fn daily_next_rolls_year_on_last_ordinal() {
+        let last = PeriodId::day(2023, 365);
+        let next = last.next().expect("next day");
+        assert_eq!(next, PeriodId::day(2024, 1));
+    }
+
+    #[test]
+    fn quarterly_semi_and_annual_stepping() {
+        assert_eq!(
+            PeriodId::quarter(2025, 4).next().expect("nq"),
+            PeriodId::quarter(2026, 1)
+        );
+        assert_eq!(
+            PeriodId::half(2025, 2).prev().expect("ph"),
+            PeriodId::half(2025, 1)
+        );
+        assert_eq!(
+            PeriodId::annual(2025).next().expect("na"),
+            PeriodId::annual(2026)
+        );
+    }
+
+    #[test]
+    fn parse_id_rejects_bad_ranges() {
+        assert!(PeriodId::from_str("2025Q5").is_err());
+        assert!(PeriodId::from_str("2025M13").is_err());
+        assert!(PeriodId::from_str("2025W99").is_err());
+        assert!(PeriodId::from_str("2025D500").is_err());
+    }
 }

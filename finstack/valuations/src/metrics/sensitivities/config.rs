@@ -235,6 +235,7 @@ pub fn apply_pricing_overrides(
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn apply_pricing_overrides_prefers_explicit_fields() {
@@ -278,5 +279,119 @@ mod tests {
             err.to_string().contains("must be finite and > 0"),
             "unexpected error: {err}"
         );
+    }
+
+    #[test]
+    fn format_bucket_label_covers_standard_and_dynamic_values() {
+        assert_eq!(format_bucket_label(0.25), "3m");
+        assert_eq!(format_bucket_label(10.0), "10y");
+        assert_eq!(format_bucket_label(0.75), "9m");
+        assert_eq!(format_bucket_label(1.4), "1y");
+        assert_eq!(
+            format_bucket_label_cow(5.0),
+            std::borrow::Cow::Borrowed("5y")
+        );
+        assert_eq!(format_bucket_label_cow(1.25).into_owned(), "1y");
+    }
+
+    #[test]
+    fn from_finstack_config_or_default_uses_defaults_without_extension() {
+        let cfg = FinstackConfig::default();
+        let resolved = from_finstack_config_or_default(&cfg).expect("default config should parse");
+
+        assert_eq!(resolved, SensitivitiesConfig::default());
+    }
+
+    #[test]
+    fn from_finstack_config_or_default_applies_valid_overrides() {
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            SENSITIVITIES_CONFIG_KEY_V1,
+            json!({
+                "rate_bump_bp": 2.5,
+                "credit_spread_bump_bp": 3.0,
+                "spot_bump_pct": 0.02,
+                "vol_bump_pct": 0.03,
+                "dv01_buckets_years": [0.5, 1.0, 5.0],
+                "cs01_buckets_years": [1.0, 3.0, 7.0]
+            }),
+        );
+
+        let resolved = from_finstack_config_or_default(&cfg).expect("overrides should parse");
+        assert_eq!(resolved.rate_bump_bp, 2.5);
+        assert_eq!(resolved.credit_spread_bump_bp, 3.0);
+        assert_eq!(resolved.spot_bump_pct, 0.02);
+        assert_eq!(resolved.vol_bump_pct, 0.03);
+        assert_eq!(resolved.dv01_buckets_years, vec![0.5, 1.0, 5.0]);
+        assert_eq!(resolved.cs01_buckets_years, vec![1.0, 3.0, 7.0]);
+    }
+
+    #[test]
+    fn from_finstack_config_or_default_rejects_parse_and_grid_errors() {
+        let mut bad_shape = FinstackConfig::default();
+        bad_shape
+            .extensions
+            .insert(SENSITIVITIES_CONFIG_KEY_V1, json!({"unexpected": 1}));
+        let parse_err =
+            from_finstack_config_or_default(&bad_shape).expect_err("must reject unknown fields");
+        assert!(
+            parse_err.to_string().contains("Failed to parse extension"),
+            "unexpected error: {parse_err}"
+        );
+
+        let mut empty_grid = FinstackConfig::default();
+        empty_grid.extensions.insert(
+            SENSITIVITIES_CONFIG_KEY_V1,
+            json!({"dv01_buckets_years": []}),
+        );
+        let empty_err = from_finstack_config_or_default(&empty_grid)
+            .expect_err("must reject empty bucket grid");
+        assert!(
+            empty_err.to_string().contains("must be non-empty"),
+            "unexpected error: {empty_err}"
+        );
+
+        let mut unsorted_grid = FinstackConfig::default();
+        unsorted_grid.extensions.insert(
+            SENSITIVITIES_CONFIG_KEY_V1,
+            json!({"cs01_buckets_years": [1.0, 1.0]}),
+        );
+        let unsorted_err =
+            from_finstack_config_or_default(&unsorted_grid).expect_err("must reject unsorted grid");
+        assert!(
+            unsorted_err
+                .to_string()
+                .contains("must be strictly increasing"),
+            "unexpected error: {unsorted_err}"
+        );
+    }
+
+    #[test]
+    fn from_context_or_default_layers_metric_overrides_on_top_of_config() {
+        let mut cfg = FinstackConfig::default();
+        cfg.extensions.insert(
+            SENSITIVITIES_CONFIG_KEY_V1,
+            json!({
+                "rate_bump_bp": 2.5,
+                "vol_bump_pct": 0.03
+            }),
+        );
+        let pricing_overrides = crate::instruments::MetricPricingOverrides::default()
+            .with_rate_bump(4.0)
+            .with_vol_bump(0.05);
+
+        let resolved = from_context_or_default(&cfg, Some(&pricing_overrides))
+            .expect("layered config should parse");
+        assert_eq!(resolved.rate_bump_bp, 4.0);
+        assert_eq!(resolved.vol_bump_pct, 0.05);
+        assert_eq!(resolved.credit_spread_bump_bp, 1.0);
+    }
+
+    #[test]
+    fn apply_pricing_overrides_returns_base_when_missing() {
+        let base = SensitivitiesConfig::default();
+        let resolved =
+            apply_pricing_overrides(base.clone(), None).expect("missing overrides should be ok");
+        assert_eq!(resolved, base);
     }
 }

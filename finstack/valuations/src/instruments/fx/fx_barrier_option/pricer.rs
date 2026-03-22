@@ -690,7 +690,9 @@ mod tests {
     use finstack_core::market_data::scalars::MarketScalar;
     use finstack_core::market_data::surfaces::VolSurface;
     use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
     use finstack_core::money::Money;
+    use std::sync::Arc;
     use time::Month;
 
     #[test]
@@ -857,5 +859,74 @@ mod tests {
             pv.amount()
         );
         assert_eq!(pv.currency(), Currency::USD);
+    }
+
+    #[test]
+    fn validation_rejects_currency_mismatch_and_invalid_numeric_fields() {
+        let mut mismatched = FxBarrierOption::example();
+        mismatched.notional = Money::new(1_000_000.0, Currency::USD);
+        let err = validate_fx_barrier_currencies(&mismatched).expect_err("currency mismatch");
+        assert!(err.to_string().contains("Currency mismatch"));
+
+        let mut bad_strike = FxBarrierOption::example();
+        bad_strike.strike = 0.0;
+        assert!(validate_fx_barrier_currencies(&bad_strike)
+            .expect_err("bad strike")
+            .to_string()
+            .contains("strike"));
+
+        let mut bad_barrier = FxBarrierOption::example();
+        bad_barrier.barrier = f64::NAN;
+        assert!(validate_fx_barrier_currencies(&bad_barrier)
+            .expect_err("bad barrier")
+            .to_string()
+            .contains("barrier"));
+
+        let mut bad_notional = FxBarrierOption::example();
+        bad_notional.notional = Money::new(0.0, Currency::EUR);
+        assert!(validate_fx_barrier_currencies(&bad_notional)
+            .expect_err("bad notional")
+            .to_string()
+            .contains("notional"));
+    }
+
+    #[test]
+    fn resolve_fx_spot_uses_fx_matrix_when_spot_id_is_absent() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let mut inst = FxBarrierOption::example();
+        inst.fx_spot_id = None;
+
+        let provider = Arc::new(SimpleFxProvider::new());
+        provider
+            .set_quote(Currency::EUR, Currency::USD, 1.15)
+            .expect("valid quote");
+        let market = MarketContext::new().insert_fx(FxMatrix::new(provider));
+
+        let spot = resolve_fx_spot(&inst, &market, as_of).expect("fx matrix spot");
+        assert!((spot - 1.15).abs() < 1e-12);
+    }
+
+    #[test]
+    fn resolve_fx_spot_requires_valid_spot_source() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let mut no_matrix = FxBarrierOption::example();
+        no_matrix.fx_spot_id = None;
+        let err =
+            resolve_fx_spot(&no_matrix, &MarketContext::new(), as_of).expect_err("missing matrix");
+        assert!(err.to_string().contains("fx_matrix"));
+
+        let mut price_scalar = FxBarrierOption::example();
+        price_scalar.fx_spot_id = Some("EURUSD-SPOT".into());
+        let price_market = MarketContext::new().insert_price(
+            "EURUSD-SPOT",
+            MarketScalar::Price(Money::new(1.10, Currency::USD)),
+        );
+        let spot = resolve_fx_spot(&price_scalar, &price_market, as_of).expect("price scalar spot");
+        assert!((spot - 1.10).abs() < 1e-12);
+
+        let bad_market =
+            MarketContext::new().insert_price("EURUSD-SPOT", MarketScalar::Unitless(0.0));
+        let err = resolve_fx_spot(&price_scalar, &bad_market, as_of).expect_err("bad scalar");
+        assert!(err.to_string().contains("spot must be finite and > 0"));
     }
 }

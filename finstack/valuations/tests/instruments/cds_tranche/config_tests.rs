@@ -10,8 +10,10 @@
 
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_core::types::Percentage;
 use finstack_valuations::instruments::credit_derivatives::cds_tranche::{
-    CDSTrancheParams, CDSTranchePricerConfig, Cs01BumpUnits, HeteroMethod,
+    CDSTrancheParams, CDSTranchePricer, CDSTranchePricerConfig, CopulaSpec, Cs01BumpUnits,
+    HeteroMethod,
 };
 use time::macros::date;
 
@@ -211,6 +213,83 @@ fn test_custom_config_quadrature_orders() {
         // Assert
         assert_eq!(config.quadrature_order, order);
     }
+}
+
+#[test]
+fn test_pricer_config_builder_methods_wire_copula_and_numerical_settings() {
+    let student_t = CDSTranchePricerConfig::default().with_student_t_copula(6.0);
+    assert!(matches!(
+        student_t.copula_spec,
+        CopulaSpec::StudentT {
+            degrees_of_freedom
+        } if (degrees_of_freedom - 6.0).abs() < 1e-12
+    ));
+
+    let rfl = CDSTranchePricerConfig::default().with_rfl_copula(0.15);
+    assert!(matches!(
+        rfl.copula_spec,
+        CopulaSpec::RandomFactorLoading {
+            loading_volatility
+        } if (loading_volatility - 0.15).abs() < 1e-12
+    ));
+
+    let rfl_pct = CDSTranchePricerConfig::default().with_rfl_copula_pct(Percentage::new(12.5));
+    assert!(matches!(
+        rfl_pct.copula_spec,
+        CopulaSpec::RandomFactorLoading {
+            loading_volatility
+        } if (loading_volatility - 0.125).abs() < 1e-12
+    ));
+
+    let multi_factor = CDSTranchePricerConfig::default().with_multi_factor_copula(3);
+    assert!(matches!(
+        multi_factor.copula_spec,
+        CopulaSpec::MultiFactor { num_factors } if num_factors == 3
+    ));
+
+    let config = CDSTranchePricerConfig::default()
+        .with_arbitrage_validation(false)
+        .with_quadrature_order(7);
+    let pricer = CDSTranchePricer::with_params(config.clone());
+    assert!(!config.validate_arbitrage_free);
+    assert_eq!(config.quadrature_order, 7);
+    assert_eq!(pricer.config().quadrature_order, 7);
+    assert!(!pricer.config().validate_arbitrage_free);
+}
+
+#[test]
+fn test_pricer_config_recovery_builders_populate_recovery_spec() {
+    let stochastic = CDSTranchePricerConfig::default().with_stochastic_recovery();
+    assert!(stochastic.recovery_spec.is_some());
+
+    let custom =
+        CDSTranchePricerConfig::default().with_custom_stochastic_recovery(0.35, 0.20, -0.4);
+    let custom_debug = format!("{:?}", custom.recovery_spec);
+    assert!(custom.recovery_spec.is_some());
+    assert!(custom_debug.contains("0.35"));
+    assert!(custom_debug.contains("0.2"));
+    assert!(custom_debug.contains("-0.4"));
+
+    let custom_pct = CDSTranchePricerConfig::default().with_custom_stochastic_recovery_pct(
+        Percentage::new(45.0),
+        Percentage::new(25.0),
+        -0.3,
+    );
+    let custom_pct_debug = format!("{:?}", custom_pct.recovery_spec);
+    assert!(custom_pct.recovery_spec.is_some());
+    assert!(custom_pct_debug.contains("0.45"));
+    assert!(custom_pct_debug.contains("0.25"));
+
+    let constant = CDSTranchePricerConfig::default().with_constant_recovery(0.42);
+    let constant_debug = format!("{:?}", constant.recovery_spec);
+    assert!(constant.recovery_spec.is_some());
+    assert!(constant_debug.contains("0.42"));
+
+    let constant_pct =
+        CDSTranchePricerConfig::default().with_constant_recovery_pct(Percentage::new(38.0));
+    let constant_pct_debug = format!("{:?}", constant_pct.recovery_spec);
+    assert!(constant_pct.recovery_spec.is_some());
+    assert!(constant_pct_debug.contains("0.38"));
 }
 
 #[test]

@@ -142,3 +142,122 @@ pub fn bump_inflation_rates(
         .as_ref()
         .clone())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::Date;
+    use finstack_core::types::CurveId;
+    use time::macros::date;
+
+    fn sample_date() -> Date {
+        date!(2025 - 01 - 01)
+    }
+
+    fn sample_curve(id: &str, lag_months: u32) -> finstack_core::Result<InflationCurve> {
+        InflationCurve::builder(id)
+            .base_date(sample_date())
+            .base_cpi(300.0)
+            .indexation_lag_months(lag_months)
+            .knots([(0.0, 300.0), (1.0, 306.0)])
+            .build()
+    }
+
+    fn non_positive_knot_curve(id: &str, lag_months: u32) -> finstack_core::Result<InflationCurve> {
+        InflationCurve::builder(id)
+            .base_date(sample_date())
+            .base_cpi(300.0)
+            .indexation_lag_months(lag_months)
+            .knots([(-1.0, 294.0), (0.0, 300.0)])
+            .build()
+    }
+
+    #[test]
+    fn infer_currency_prefers_known_curve_id_markers() {
+        let usd_curve = sample_curve("USD-CPI", 3);
+        let eur_curve = sample_curve("EUR-HICP", 3);
+        let gbp_curve = sample_curve("GBP-RPI", 3);
+
+        assert!(usd_curve.is_ok(), "USD sample curve should build");
+        assert!(eur_curve.is_ok(), "EUR sample curve should build");
+        assert!(gbp_curve.is_ok(), "GBP sample curve should build");
+
+        if let Ok(curve) = usd_curve {
+            assert_eq!(infer_currency_from_curve_id(&curve), Currency::USD);
+        }
+        if let Ok(curve) = eur_curve {
+            assert_eq!(infer_currency_from_curve_id(&curve), Currency::EUR);
+        }
+        if let Ok(curve) = gbp_curve {
+            assert_eq!(infer_currency_from_curve_id(&curve), Currency::GBP);
+        }
+    }
+
+    #[test]
+    fn infer_currency_defaults_to_usd_for_unknown_ids() {
+        let curve = sample_curve("CA-CPI", 3);
+        assert!(curve.is_ok(), "fallback sample curve should build");
+        if let Ok(curve) = curve {
+            assert_eq!(infer_currency_from_curve_id(&curve), Currency::USD);
+        }
+    }
+
+    #[test]
+    fn observation_lag_formats_zero_and_non_zero_months() {
+        let no_lag_curve = sample_curve("USD-CPI", 0);
+        let three_month_curve = sample_curve("USD-CPI", 3);
+        let one_year_curve = sample_curve("USD-CPI", 12);
+
+        assert!(no_lag_curve.is_ok(), "zero-lag sample curve should build");
+        assert!(
+            three_month_curve.is_ok(),
+            "three-month lag sample curve should build"
+        );
+        assert!(
+            one_year_curve.is_ok(),
+            "twelve-month lag sample curve should build"
+        );
+
+        if let Ok(curve) = no_lag_curve {
+            assert_eq!(observation_lag_from_curve(&curve), "NONE");
+        }
+        if let Ok(curve) = three_month_curve {
+            assert_eq!(observation_lag_from_curve(&curve), "3M");
+        }
+        if let Ok(curve) = one_year_curve {
+            assert_eq!(observation_lag_from_curve(&curve), "12M");
+        }
+    }
+
+    #[test]
+    fn bump_inflation_rates_returns_clone_when_curve_has_only_base_knot() {
+        let curve = non_positive_knot_curve("USD-CPI", 3);
+        assert!(curve.is_ok(), "base-knot-only sample curve should build");
+
+        if let Ok(curve) = curve {
+            let bumped = bump_inflation_rates(
+                &curve,
+                &MarketContext::new(),
+                &BumpRequest::Parallel(10.0),
+                &CurveId::new("USD-OIS"),
+                sample_date(),
+                Currency::USD,
+                "3M",
+            );
+            assert!(
+                bumped.is_ok(),
+                "base-knot-only curve should bypass recalibration"
+            );
+
+            if let Ok(bumped) = bumped {
+                assert_eq!(bumped.id(), curve.id());
+                assert_eq!(bumped.base_cpi(), curve.base_cpi());
+                assert_eq!(bumped.knots(), curve.knots());
+                assert_eq!(
+                    bumped.indexation_lag_months(),
+                    curve.indexation_lag_months()
+                );
+            }
+        }
+    }
+}

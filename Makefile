@@ -74,6 +74,7 @@ help: ## Display this help message
 	@printf "Analysis & Coverage:\n"
 	@printf "  \033[36mcoverage\033[0m            Run coverage for all components\n"
 	@printf "  \033[36mcoverage-rust\033[0m       Run Rust code coverage\n"
+	@printf "  \033[36mcoverage-rust-gate\033[0m  Enforce Rust workspace and touched-file coverage gates\n"
 	@printf "  \033[36mcoverage-python\033[0m     Run Python code coverage\n"
 	@printf "  \033[36mlist\033[0m                Generate API parity report\n"
 	@printf "  \033[36msize-all\033[0m            Analyze binary sizes\n\n"
@@ -266,23 +267,41 @@ list: ## Generate API parity report
 	@printf "Done: PARITY_AUDIT.md\n"
 
 COV_IGNORE := '(tests?/|target/|\.cargo/|.*finstack-py/.*|.*finstack-wasm/.*)'
-COV_BASE := CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --features mc,test-utils --ignore-filename-regex $(COV_IGNORE)
+COV_OUTPUT_DIR := target/llvm-cov
+COV_JSON_SUMMARY := $(COV_OUTPUT_DIR)/rust-summary.json
+COV_MIN_LINES := 75.0
+COV_PROFILE_DIR := $(abspath $(COV_OUTPUT_DIR))/profraw
+COV_PROFILE_PATTERN := $(COV_PROFILE_DIR)/default_%m_%p.profraw
+COV_BASE := LLVM_PROFILE_FILE="$(COV_PROFILE_PATTERN)" CARGO_INCREMENTAL=1 cargo llvm-cov --workspace --exclude finstack-py --exclude finstack-wasm --features mc,test-utils --ignore-filename-regex $(COV_IGNORE)
 
-.PHONY: coverage coverage-rust coverage-python coverage-html coverage-lcov
+.PHONY: coverage coverage-rust coverage-rust-json coverage-rust-gate coverage-python coverage-html coverage-lcov
 coverage: coverage-rust coverage-python ## Run all coverage reports
 
 coverage-rust:
 	@printf "Running Rust code coverage...\n"
+	@mkdir -p $(COV_PROFILE_DIR)
 	$(COV_BASE)
+
+coverage-rust-json:
+	@mkdir -p $(COV_OUTPUT_DIR)
+	@mkdir -p $(COV_PROFILE_DIR)
+	$(COV_BASE) --summary-only --json --output-path $(COV_JSON_SUMMARY)
+
+coverage-rust-gate:
+	@printf "Running Rust coverage gate...\n"
+	@$(MAKE) coverage-rust-json
+	@$(call py_run,python scripts/check_rust_coverage_gate.py --coverage-json $(COV_JSON_SUMMARY) --workspace-threshold $(COV_MIN_LINES) --touched-threshold $(COV_MIN_LINES))
 
 coverage-python:
 	@printf "Running Python code coverage...\n"
 	@$(call py_run,pytest --cov=finstack-py --cov-report=html)
 
 coverage-html: ## Generate Rust HTML coverage report (pass OPEN=1 to auto-open)
+	@mkdir -p $(COV_PROFILE_DIR)
 	$(COV_BASE) --html $(if $(OPEN),--open,)
 
 coverage-lcov:
+	@mkdir -p $(COV_PROFILE_DIR)
 	$(COV_BASE) --lcov --output-path coverage.lcov
 
 .PHONY: check-schemas

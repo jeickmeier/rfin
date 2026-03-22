@@ -847,8 +847,71 @@ impl crate::pricer::Pricer for EquityOptionHestonFourierPricer {
 }
 
 #[cfg(test)]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::equity::equity_option::types::EquityOption;
+    use crate::instruments::{Attributes, PricingOverrides, SettlementType};
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use time::Month;
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    fn market(as_of: Date, spot: f64, vol: f64, rate: f64, div_yield: f64) -> MarketContext {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (10.0, (-rate * 10.0).exp())])
+            .build()
+            .expect("curve");
+        let surface = VolSurface::builder("SPX-VOL")
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[80.0, 100.0, 120.0, 150.0])
+            .row(&[vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol])
+            .row(&[vol, vol, vol, vol])
+            .build()
+            .expect("surface");
+
+        MarketContext::new()
+            .insert(curve)
+            .insert_surface(surface)
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(spot))
+            .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
+    }
+
+    fn option(
+        expiry: Date,
+        option_type: OptionType,
+        exercise_style: ExerciseStyle,
+    ) -> EquityOption {
+        EquityOption::builder()
+            .id(InstrumentId::new("EQ-OPT-TEST"))
+            .underlying_ticker("SPX".to_string())
+            .strike(100.0)
+            .option_type(option_type)
+            .exercise_style(exercise_style)
+            .expiry(expiry)
+            .notional(Money::new(100.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .settlement(SettlementType::Cash)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("equity option")
+    }
 
     #[test]
     fn test_adjust_spot_for_discrete_dividends_single() {
@@ -883,5 +946,66 @@ mod tests {
         // Dividend at t=0 or negative should be skipped
         let s_adj = adjust_spot_for_discrete_dividends(100.0, 0.05, &[(0.0, 5.0), (-0.1, 3.0)]);
         assert!((s_adj - 100.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_expired_atm_delta_convention_matches_compute_greeks_and_unit_greeks() {
+        let as_of = date(2025, 1, 1);
+        let call = option(as_of, OptionType::Call, ExerciseStyle::European);
+        let put = option(as_of, OptionType::Put, ExerciseStyle::European);
+        let curves = market(as_of, 100.0, 0.20, 0.03, 0.01);
+
+        let call_greeks = compute_greeks(&call, &curves, as_of).expect("call greeks");
+        let put_greeks = compute_greeks(&put, &curves, as_of).expect("put greeks");
+        let call_unit = greeks_unit(100.0, 100.0, 0.03, 0.01, 0.20, 0.0, OptionType::Call);
+        let put_unit = greeks_unit(100.0, 100.0, 0.03, 0.01, 0.20, 0.0, OptionType::Put);
+
+        assert_eq!(call_greeks.delta, 50.0);
+        assert_eq!(put_greeks.delta, -50.0);
+        assert_eq!(call_unit.delta, 0.5);
+        assert_eq!(put_unit.delta, -0.5);
+        assert_eq!(call_greeks.gamma, 0.0);
+        assert_eq!(put_greeks.gamma, 0.0);
+    }
+
+    #[test]
+    fn test_american_call_tree_path_prices_above_european() {
+        let as_of = date(2025, 1, 1);
+        let expiry = date(2025, 7, 1);
+        let mut european = option(expiry, OptionType::Call, ExerciseStyle::European);
+        let mut american = option(expiry, OptionType::Call, ExerciseStyle::American);
+        european.pricing_overrides.model_config.tree_steps = Some(51);
+        american.pricing_overrides.model_config.tree_steps = Some(51);
+        let curves = market(as_of, 105.0, 0.22, 0.03, 0.01);
+
+        let european_pv = compute_pv(&european, &curves, as_of).expect("european pv");
+        let american_pv = compute_pv(&american, &curves, as_of).expect("american pv");
+
+        assert!(american_pv.amount().is_finite());
+        assert!(american_pv.amount() >= european_pv.amount());
+    }
+
+    #[test]
+    fn test_bermudan_schedule_filters_invalid_dates_before_tree_pricing() {
+        let as_of = date(2025, 1, 1);
+        let expiry = date(2025, 7, 1);
+        let mut filtered = option(expiry, OptionType::Put, ExerciseStyle::Bermudan);
+        let mut noisy = option(expiry, OptionType::Put, ExerciseStyle::Bermudan);
+        filtered.pricing_overrides.model_config.tree_steps = Some(51);
+        noisy.pricing_overrides.model_config.tree_steps = Some(51);
+        filtered.exercise_schedule = Some(vec![date(2025, 3, 1), date(2025, 5, 1)]);
+        noisy.exercise_schedule = Some(vec![
+            as_of,
+            date(2024, 12, 15),
+            date(2025, 3, 1),
+            date(2025, 5, 1),
+            date(2025, 8, 1),
+        ]);
+        let curves = market(as_of, 95.0, 0.25, 0.03, 0.0);
+
+        let filtered_pv = compute_pv(&filtered, &curves, as_of).expect("filtered bermudan pv");
+        let noisy_pv = compute_pv(&noisy, &curves, as_of).expect("noisy bermudan pv");
+
+        assert!((filtered_pv.amount() - noisy_pv.amount()).abs() < 1e-10);
     }
 }

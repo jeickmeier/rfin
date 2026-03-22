@@ -196,7 +196,10 @@ fn all_examples_roundtrip() {
     // Structured Credit
     let ex = StructuredCredit::example();
     let id = ex.id.as_str().to_string();
-    assert_roundtrip(&id, json_loader::InstrumentJson::StructuredCredit(Box::new(ex)));
+    assert_roundtrip(
+        &id,
+        json_loader::InstrumentJson::StructuredCredit(Box::new(ex)),
+    );
     //
     // Other
     let ex = Basket::example().unwrap();

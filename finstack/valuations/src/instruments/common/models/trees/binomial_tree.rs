@@ -1184,4 +1184,86 @@ mod tests {
             error
         );
     }
+
+    #[test]
+    fn test_binomial_greeks_richardson_extrapolation_matches_formula() {
+        let coarse = BinomialGreeks {
+            price: 10.0,
+            delta: 0.4,
+            gamma: 0.03,
+            theta: -1.2,
+        };
+        let fine = BinomialGreeks {
+            price: 10.9,
+            delta: 0.46,
+            gamma: 0.035,
+            theta: -1.0,
+        };
+
+        let improved = BinomialGreeks::richardson_extrapolate(&coarse, &fine);
+        assert!((improved.price - ((4.0 * 10.9 - 10.0) / 3.0)).abs() < 1e-12);
+        assert!((improved.delta - ((4.0 * 0.46 - 0.4) / 3.0)).abs() < 1e-12);
+        assert!((improved.gamma - ((4.0 * 0.035 - 0.03) / 3.0)).abs() < 1e-12);
+        assert!((improved.theta - ((-4.0 + 1.2) / 3.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_calculate_parameters_rejects_non_positive_time_or_volatility() {
+        let tree = BinomialTree::crr(100);
+
+        let time_err = tree
+            .calculate_parameters(100.0, 100.0, 0.05, 0.2, 0.0, 0.0)
+            .expect_err("zero maturity should fail");
+        assert!(time_err.to_string().contains("positive time_to_maturity"));
+
+        let vol_err = tree
+            .calculate_parameters(100.0, 100.0, 0.05, 0.0, 1.0, 0.0)
+            .expect_err("zero volatility should fail");
+        assert!(vol_err.to_string().contains("positive time_to_maturity"));
+    }
+
+    #[test]
+    fn test_leisen_reimer_falls_back_to_crr_when_spot_or_strike_non_positive() {
+        let tree = BinomialTree::leisen_reimer(51);
+
+        for (spot, strike) in [(0.0, 100.0), (100.0, 0.0), (-1.0, 100.0)] {
+            let (u, d, p) = tree
+                .calculate_parameters(spot, strike, 0.03, 0.25, 1.0, 0.01)
+                .expect("fallback parameters should succeed");
+            assert!(u > 1.0 && d < 1.0 && u > d);
+            assert!((0.0..=1.0).contains(&p));
+        }
+    }
+
+    #[test]
+    fn test_jarrow_rudd_tree_prices_european_option_reasonably() {
+        let market_params = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
+        let tree = BinomialTree::new(400, TreeType::JR);
+
+        let price = tree
+            .price_european(&market_params)
+            .expect("JR tree should price successfully");
+
+        assert!(price.is_finite());
+        assert!((price - 10.4506).abs() < 0.25);
+    }
+
+    #[test]
+    fn test_option_greeks_reject_unsupported_exercise_and_zero_theta_near_expiry() {
+        let tree = BinomialTree::crr(100);
+        let params = OptionMarketParams::put(100.0, 100.0, 0.05, 0.20, 0.5);
+
+        let err = tree
+            .calculate_greeks(&params, ExerciseStyle::Bermudan)
+            .expect_err("bermudan binomial greeks should be rejected");
+        assert!(err
+            .to_string()
+            .contains("only support American and European"));
+
+        let near_expiry = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 0.5 / 365.25);
+        let greeks = tree
+            .calculate_greeks(&near_expiry, ExerciseStyle::European)
+            .expect("near-expiry greeks should compute");
+        assert_eq!(greeks.theta, 0.0);
+    }
 }

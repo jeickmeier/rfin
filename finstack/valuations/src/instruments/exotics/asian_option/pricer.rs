@@ -1113,6 +1113,21 @@ mod tests {
             .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
     }
 
+    fn market_without_vol(as_of: Date, spot: f64, rate: f64, div_yield: f64) -> MarketContext {
+        let discount = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(DayCount::Act365F)
+            .knots([(0.0, 1.0), (5.0, (-rate * 5.0).exp())])
+            .interp(InterpStyle::LogLinear)
+            .build()
+            .expect("discount curve");
+
+        MarketContext::new()
+            .insert(discount)
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(spot))
+            .insert_price("SPX-DIV", MarketScalar::Unitless(div_yield))
+    }
+
     fn asian_option(
         averaging: AveragingMethod,
         option_type: OptionType,
@@ -1254,5 +1269,361 @@ mod tests {
         let expected_money = Money::new(payoff * df, Currency::USD).amount();
 
         assert!((pv - expected_money).abs() < 1e-12);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn mc_pricer_expired_uses_realized_arithmetic_average() {
+        let as_of = date(2025, 6, 30);
+        let fixing_dates = vec![date(2025, 4, 30), date(2025, 5, 31), date(2025, 6, 30)];
+        let mut option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Call,
+            as_of,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates
+            .iter()
+            .copied()
+            .zip([90.0, 110.0, 120.0])
+            .collect();
+
+        let pv = AsianOptionMcPricer::new()
+            .price_internal(&option, &market(as_of, 999.0, 0.20, 0.05, 0.0), as_of)
+            .expect("expired MC price")
+            .amount();
+
+        let expected = ((90.0_f64 + 110.0 + 120.0) / 3.0 - 100.0).max(0.0);
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn mc_pricer_expired_without_fixings_falls_back_to_spot() {
+        let as_of = date(2025, 6, 30);
+        let option = asian_option(
+            AveragingMethod::Geometric,
+            OptionType::Put,
+            as_of,
+            100.0,
+            vec![date(2025, 3, 31), date(2025, 6, 30)],
+        );
+
+        let pv = AsianOptionMcPricer::new()
+            .price_internal(&option, &market(as_of, 80.0, 0.20, 0.05, 0.0), as_of)
+            .expect("expired MC price")
+            .amount();
+
+        assert!((pv - 20.0).abs() < 1e-12);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn expired_lrm_wrapper_returns_intrinsic_and_no_greeks() {
+        let as_of = date(2025, 6, 30);
+        let fixing_dates = vec![date(2025, 5, 31), date(2025, 6, 30)];
+        let mut option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Put,
+            as_of,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates.iter().copied().zip([95.0, 85.0]).collect();
+
+        let (pv, greeks) =
+            npv_with_lrm_greeks(&option, &market(as_of, 999.0, 0.20, 0.05, 0.0), as_of)
+                .expect("expired lrm price");
+
+        assert!((pv.amount() - 10.0).abs() < 1e-12);
+        assert_eq!(greeks, None);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn mc_price_dyn_wraps_market_data_errors() {
+        let as_of = date(2025, 1, 2);
+        let expiry = date(2025, 7, 2);
+        let option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Call,
+            expiry,
+            100.0,
+            vec![date(2025, 3, 2), expiry],
+        );
+
+        let err = AsianOptionMcPricer::new()
+            .price_dyn(&option, &market_without_vol(as_of, 100.0, 0.05, 0.0), as_of)
+            .expect_err("missing vol surface should be wrapped");
+        assert!(err.to_string().contains("SPX-VOL"));
+    }
+
+    #[test]
+    fn analytical_geometric_expired_without_fixings_falls_back_to_spot() {
+        let as_of = date(2025, 6, 30);
+        let option = asian_option(
+            AveragingMethod::Geometric,
+            OptionType::Call,
+            as_of,
+            100.0,
+            vec![date(2025, 3, 31), date(2025, 6, 30)],
+        );
+
+        let pv = AsianOptionAnalyticalGeometricPricer::new()
+            .price_dyn(&option, &market(as_of, 125.0, 0.20, 0.05, 0.0), as_of)
+            .expect("expired analytical price")
+            .value
+            .amount();
+
+        assert!((pv - 25.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analytical_geometric_price_dyn_wraps_market_data_errors() {
+        let as_of = date(2025, 1, 2);
+        let expiry = date(2025, 7, 2);
+        let option = asian_option(
+            AveragingMethod::Geometric,
+            OptionType::Call,
+            expiry,
+            100.0,
+            vec![date(2025, 3, 2), expiry],
+        );
+
+        let err = AsianOptionAnalyticalGeometricPricer::new()
+            .price_dyn(&option, &market_without_vol(as_of, 100.0, 0.05, 0.0), as_of)
+            .expect_err("missing vol surface should be wrapped");
+        assert!(err.to_string().contains("SPX-VOL"));
+    }
+
+    #[test]
+    fn analytical_geometric_rejects_seasoned_option() {
+        let as_of = date(2025, 7, 1);
+        let expiry = date(2025, 12, 31);
+        let fixing_dates = vec![
+            date(2025, 1, 31),
+            date(2025, 3, 31),
+            date(2025, 6, 30),
+            date(2025, 9, 30),
+            expiry,
+        ];
+
+        let mut option = asian_option(
+            AveragingMethod::Geometric,
+            OptionType::Call,
+            expiry,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates
+            .iter()
+            .take(2)
+            .copied()
+            .zip([101.0, 103.0])
+            .collect();
+
+        let err = AsianOptionAnalyticalGeometricPricer::new()
+            .price_dyn(&option, &market(as_of, 100.0, 0.20, 0.05, 0.0), as_of)
+            .expect_err("seasoned geometric analytical pricing should be rejected");
+        assert!(err
+            .to_string()
+            .contains("Seasoned Geometric Asian analytical pricing not supported"));
+    }
+
+    #[test]
+    fn turnbull_wakeman_all_fixings_past_put_discounts_deterministic_payoff() {
+        let as_of = date(2025, 7, 1);
+        let expiry = date(2025, 12, 31);
+        let fixing_dates = vec![
+            date(2025, 1, 31),
+            date(2025, 2, 28),
+            date(2025, 3, 31),
+            date(2025, 4, 30),
+            date(2025, 5, 31),
+            date(2025, 6, 30),
+        ];
+
+        let mut option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Put,
+            expiry,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates
+            .iter()
+            .copied()
+            .zip([92.0, 95.0, 97.0, 96.0, 94.0, 98.0])
+            .collect();
+
+        let market = market(as_of, 100.0, 0.20, 0.05, 0.0);
+        let pv = AsianOptionSemiAnalyticalTwPricer::new()
+            .price_dyn(&option, &market, as_of)
+            .expect("deterministic TW price")
+            .value
+            .amount();
+
+        let average =
+            [92.0, 95.0, 97.0, 96.0, 94.0, 98.0].iter().sum::<f64>() / fixing_dates.len() as f64;
+        let payoff = (100.0 - average).max(0.0);
+        let df = market.get_discount("USD-OIS").expect("discount").df(option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction"));
+        let expected = Money::new(payoff * df, Currency::USD).amount();
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn turnbull_wakeman_negative_effective_strike_call_uses_forward_average_branch() {
+        let as_of = date(2025, 4, 2);
+        let expiry = date(2025, 10, 2);
+        let fixing_dates = vec![
+            date(2025, 1, 2),
+            date(2025, 2, 2),
+            date(2025, 3, 2),
+            date(2025, 4, 2),
+            date(2025, 5, 2),
+            date(2025, 6, 2),
+            date(2025, 7, 2),
+            date(2025, 8, 2),
+            date(2025, 9, 2),
+            date(2025, 10, 2),
+        ];
+
+        let mut option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Call,
+            expiry,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates
+            .iter()
+            .take(4)
+            .copied()
+            .zip([250.0, 240.0, 260.0, 255.0])
+            .collect();
+
+        let market = market(as_of, 100.0, 0.20, 0.05, 0.01);
+        let pv = AsianOptionSemiAnalyticalTwPricer::new()
+            .price_dyn(&option, &market, as_of)
+            .expect("deep ITM TW price")
+            .value
+            .amount();
+
+        let disc_curve = market.get_discount("USD-OIS").expect("discount");
+        let df_expiry = disc_curve.df(option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction"));
+        let spot = 100.0;
+        let q = 0.01;
+        let sum_past = [250.0, 240.0, 260.0, 255.0].iter().sum::<f64>();
+        let n = fixing_dates.len() as f64;
+        let mut sum_fwd = 0.0;
+        for date in fixing_dates.iter().copied().filter(|d| *d > as_of) {
+            let t_i = option
+                .day_count
+                .year_fraction(as_of, date, DayCountCtx::default())
+                .expect("fixing year fraction");
+            let df_i = disc_curve
+                .df_between_dates(as_of, date)
+                .expect("date-based discount factor");
+            sum_fwd += spot * (-q * t_i).exp() / df_i;
+        }
+        let expected_avg = (sum_past + sum_fwd) / n;
+        let expected = Money::new(
+            (expected_avg - option.strike).max(0.0) * df_expiry,
+            Currency::USD,
+        )
+        .amount();
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn turnbull_wakeman_negative_effective_strike_put_clamps_to_zero() {
+        let as_of = date(2025, 4, 2);
+        let expiry = date(2025, 10, 2);
+        let fixing_dates = vec![
+            date(2025, 1, 2),
+            date(2025, 2, 2),
+            date(2025, 3, 2),
+            date(2025, 4, 2),
+            date(2025, 5, 2),
+            date(2025, 6, 2),
+            date(2025, 7, 2),
+            date(2025, 8, 2),
+            date(2025, 9, 2),
+            date(2025, 10, 2),
+        ];
+
+        let mut option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Put,
+            expiry,
+            100.0,
+            fixing_dates.clone(),
+        );
+        option.past_fixings = fixing_dates
+            .iter()
+            .take(4)
+            .copied()
+            .zip([250.0, 240.0, 260.0, 255.0])
+            .collect();
+
+        let pv = AsianOptionSemiAnalyticalTwPricer::new()
+            .price_dyn(&option, &market(as_of, 100.0, 0.20, 0.05, 0.01), as_of)
+            .expect("deep OTM TW put should price")
+            .value
+            .amount();
+
+        assert_eq!(pv, 0.0);
+    }
+
+    #[cfg(feature = "mc")]
+    #[test]
+    fn mc_pricer_expired_without_fixings_uses_price_scalar_spot_fallback() {
+        let as_of = date(2025, 6, 30);
+        let option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Call,
+            as_of,
+            100.0,
+            vec![date(2025, 3, 31), date(2025, 6, 30)],
+        );
+
+        let market = market(as_of, 80.0, 0.20, 0.05, 0.0).insert_price(
+            "SPX-SPOT",
+            MarketScalar::Price(Money::new(125.0, Currency::USD)),
+        );
+
+        let pv = AsianOptionMcPricer::new()
+            .price_internal(&option, &market, as_of)
+            .expect("expired MC price")
+            .amount();
+
+        assert!((pv - 25.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn turnbull_wakeman_price_dyn_wraps_market_data_errors() {
+        let as_of = date(2025, 1, 2);
+        let expiry = date(2025, 7, 2);
+        let option = asian_option(
+            AveragingMethod::Arithmetic,
+            OptionType::Put,
+            expiry,
+            100.0,
+            vec![date(2025, 3, 2), expiry],
+        );
+
+        let err = AsianOptionSemiAnalyticalTwPricer::new()
+            .price_dyn(&option, &market_without_vol(as_of, 100.0, 0.05, 0.0), as_of)
+            .expect_err("missing vol surface should be wrapped");
+        assert!(err.to_string().contains("SPX-VOL"));
     }
 }

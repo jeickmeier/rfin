@@ -542,3 +542,132 @@ impl BootstrapTarget for BaseCorrelationTarget {
         Ok(())
     }
 }
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::dates::{BusinessDayConvention, Date};
+    use time::Month;
+
+    fn test_params() -> BaseCorrelationParams {
+        BaseCorrelationParams {
+            index_id: "CDX.NA.IG".to_string(),
+            series: 42,
+            maturity_years: 5.0,
+            base_date: Date::from_calendar_date(2025, Month::January, 2).expect("base date"),
+            discount_curve_id: "USD-OIS".into(),
+            currency: Currency::USD,
+            notional: 1_000_000.0,
+            frequency: None,
+            day_count: Some(DayCount::Act365F),
+            bdc: Some(BusinessDayConvention::Following),
+            calendar_id: None,
+            detachment_points: vec![3.0, 7.0],
+            use_imm_dates: false,
+        }
+    }
+
+    fn test_target() -> BaseCorrelationTarget {
+        BaseCorrelationTarget::new(test_params(), MarketContext::new())
+    }
+
+    #[test]
+    fn normalize_pct_and_upfront_money_follow_tranche_width() {
+        assert_eq!(normalize_pct(0.03), 3.0);
+        assert_eq!(normalize_pct(7.0), 7.0);
+
+        let upfront = compute_upfront_money(0.03, 0.07, -2.0, 1_000_000.0, Currency::USD);
+        assert_eq!(upfront.currency(), Currency::USD);
+        assert!((upfront.amount() - (-800.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn detachment_and_maturity_validators_cover_boundary_cases() {
+        assert!(validate_detachment_points(&[3.0, 7.0, 10.0]).is_ok());
+        assert!(validate_detachment_points(&[0.0]).is_err());
+        assert!(validate_detachment_points(&[101.0]).is_err());
+
+        let base_date = Date::from_calendar_date(2025, Month::January, 2).expect("base date");
+        let expected = base_date.add_months(60);
+        let within_tol = expected + time::Duration::days(7);
+        let beyond_tol = expected + time::Duration::days(8);
+
+        assert!(validate_maturity_tolerance(within_tol, base_date, 5.0, 7).is_ok());
+        assert!(validate_maturity_tolerance(beyond_tol, base_date, 5.0, 7).is_err());
+        assert!(
+            validate_maturity_tolerance(
+                Date::from_calendar_date(2035, Month::January, 2).expect("date"),
+                base_date,
+                0.0,
+                7
+            )
+            .is_ok(),
+            "non-positive maturity_years should bypass date validation"
+        );
+    }
+
+    #[test]
+    fn validate_monotone_and_bounds_rejects_invalid_knots() {
+        assert!(
+            BaseCorrelationTarget::validate_monotone_and_bounds(&[(3.0, 0.25), (7.0, 0.45)])
+                .is_ok()
+        );
+        assert!(
+            BaseCorrelationTarget::validate_monotone_and_bounds(&[(7.0, 0.45), (3.0, 0.25)])
+                .is_err()
+        );
+        assert!(
+            BaseCorrelationTarget::validate_monotone_and_bounds(&[(0.0, 0.25), (7.0, 0.45)])
+                .is_err()
+        );
+        assert!(
+            BaseCorrelationTarget::validate_monotone_and_bounds(&[(3.0, 1.2), (7.0, 0.45)])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn build_curve_sorts_dedups_and_synthesizes_single_knot() {
+        let target = test_target();
+
+        let single = target
+            .build_curve(&[(7.0, 0.25)])
+            .expect("single knot should be expanded");
+        assert_eq!(single.detachment_points(), &[7.0, 17.0]);
+        assert_eq!(single.correlations(), &[0.25, 0.25]);
+
+        let unsorted = target
+            .build_curve(&[(10.0, 0.4), (3.0, 0.2), (10.0 + 1e-13, 0.4)])
+            .expect("unsorted near-duplicate knots should normalize");
+        assert_eq!(unsorted.detachment_points(), &[3.0, 10.0]);
+        assert_eq!(unsorted.correlations(), &[0.2, 0.4]);
+    }
+
+    #[test]
+    fn build_curve_final_rejects_non_arbitrage_free_shape() {
+        let err = test_target()
+            .build_curve_final(&[(3.0, 0.7), (7.0, 0.4)])
+            .expect_err("decreasing base correlation should fail final validation");
+        assert!(err.to_string().contains("not arbitrage-free"));
+    }
+
+    #[test]
+    fn helper_accessors_and_validate_knot_respect_bounds() {
+        let target = test_target();
+
+        assert_eq!(target.normalized_expected_detachments(), vec![3.0, 7.0]);
+        let ctx = target.build_ctx();
+        assert_eq!(ctx.as_of(), target.params.base_date);
+        assert!((ctx.notional() - 1_000_000.0).abs() < 1e-12);
+
+        let overrides = target.build_overrides();
+        assert_eq!(overrides.day_count, target.params.day_count);
+        assert_eq!(overrides.bdc, target.params.bdc);
+        assert_eq!(overrides.use_imm_dates, target.params.use_imm_dates);
+
+        assert!(target.validate_knot(7.0, 0.5).is_ok());
+        assert!(target.validate_knot(7.0, 1.1).is_err());
+    }
+}

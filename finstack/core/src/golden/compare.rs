@@ -612,6 +612,8 @@ impl<'a> GoldenAssert<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::golden::types::{Expectation, ExpectedValue};
+    use std::collections::HashMap;
 
     #[test]
     fn test_assert_abs_pass() {
@@ -693,5 +695,134 @@ mod tests {
             result.is_err(),
             "golden money assertions should reject matching amounts with mismatched currencies"
         );
+    }
+
+    #[test]
+    fn comparison_result_pass_and_fail_range_format() {
+        let pass =
+            ComparisonResult::pass("suite", "case", "m", 1.0, 1.0, Some(Tolerance::Abs(0.01)));
+        assert!(pass.passed);
+        assert!(pass.format_error().contains("suite/case"));
+
+        let fail_range = ComparisonResult::fail_range(
+            "suite",
+            "case",
+            "m",
+            3.0,
+            Some(0.0),
+            Some(2.0),
+            "outside range".to_string(),
+        );
+        let msg = fail_range.format_error();
+        assert!(msg.contains("range=[Some(0.0), Some(2.0)]"));
+        assert!(msg.contains("outside range"));
+    }
+
+    #[test]
+    fn assert_expected_f64_and_expected_value_branches() {
+        let exact = Expectation::Exact {
+            value: 1.0,
+            tolerance: Some(Tolerance::Abs(0.05)),
+            notes: None,
+        };
+        assert!(assert_expected_f64("s", "c", "m", 1.02, &exact).is_ok());
+        assert!(assert_expected_f64("s", "c", "m", 2.0, &exact).is_err());
+
+        let range = Expectation::Range {
+            min: Some(0.0),
+            max: Some(1.0),
+            notes: None,
+        };
+        assert!(assert_expected_f64("s", "c", "m", 0.5, &range).is_ok());
+        assert!(assert_expected_f64("s", "c", "m", 2.0, &range).is_err());
+
+        let ev = ExpectedValue {
+            value: 10.0,
+            tolerance_abs: Some(0.1),
+            tolerance_bp: None,
+            tolerance_pct: None,
+            tolerance_rel: None,
+            notes: None,
+        };
+        assert!(assert_expected_value("s", "c", "k", 10.05, &ev).is_ok());
+        assert!(assert_expected_value("s", "c", "k", 12.0, &ev).is_err());
+    }
+
+    #[test]
+    fn assert_within_bp_pct_and_map_helpers() {
+        assert!(assert_within_tolerance("s", "c", "m", 1.0, 1.0, Tolerance::Abs(0.01),).is_ok());
+        assert!(assert_bp("s", "c", "m", 1.0001, 1.0, 1.0).is_ok());
+        assert!(assert_pct("s", "c", "m", 1.005, 1.0, 1.0).is_ok());
+
+        let mut actual = HashMap::new();
+        actual.insert("a".to_string(), 1.0);
+        let mut expected = HashMap::new();
+        expected.insert(
+            "a".to_string(),
+            ExpectedValue {
+                value: 1.0,
+                tolerance_abs: Some(0.01),
+                tolerance_bp: None,
+                tolerance_pct: None,
+                tolerance_rel: None,
+                notes: None,
+            },
+        );
+        assert!(assert_map_f64("s", "c", &actual, &expected).is_ok());
+        expected.insert(
+            "missing".to_string(),
+            ExpectedValue {
+                value: 0.0,
+                tolerance_abs: None,
+                tolerance_bp: None,
+                tolerance_pct: None,
+                tolerance_rel: None,
+                notes: None,
+            },
+        );
+        assert!(assert_map_f64("s", "c", &actual, &expected).is_err());
+
+        let mut inner_a = HashMap::new();
+        inner_a.insert("p1".to_string(), 2.0);
+        let mut outer = HashMap::new();
+        outer.insert("n1".to_string(), inner_a.clone());
+        let mut inner_e = HashMap::new();
+        inner_e.insert("p1".to_string(), 2.0);
+        let mut outer_e = HashMap::new();
+        outer_e.insert("n1".to_string(), inner_e);
+        assert!(assert_nested_map_f64("s", "c", &outer, &outer_e, 1e-9).is_ok());
+    }
+
+    #[test]
+    fn golden_assert_with_ids_covers_bp_pct_range_expected_money() {
+        let ga = GoldenAssert::with_ids("suite", "case");
+        assert!(ga.bp("x", 1.0, 1.0, 1.0).is_ok());
+        assert!(ga.pct("x", 100.0, 100.0, 0.1).is_ok());
+        assert!(ga.range("x", 5.0, Some(0.0), Some(10.0)).is_ok());
+        let ev = ExpectedValue {
+            value: 3.0,
+            tolerance_abs: Some(0.1),
+            tolerance_bp: None,
+            tolerance_pct: None,
+            tolerance_rel: None,
+            notes: None,
+        };
+        assert!(ga.expected("x", 3.01, &ev).is_ok());
+        assert!(ga
+            .money(
+                "pv",
+                Money::new(10.0, crate::currency::Currency::USD),
+                Money::new(10.0, crate::currency::Currency::USD),
+                0.01,
+            )
+            .is_ok());
+    }
+
+    #[test]
+    fn golden_check_macro_collects_errors() {
+        let mut errors = Vec::new();
+        crate::golden_check!(errors, assert_abs("s", "c", "m", 1.0, 1.0, 0.01));
+        crate::golden_check!(errors, assert_abs("s", "c", "m", 2.0, 1.0, 0.01));
+        assert_eq!(errors.len(), 1);
     }
 }

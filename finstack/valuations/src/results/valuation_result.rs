@@ -657,7 +657,9 @@ impl Index<&MetricId> for ValuationResult {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use finstack_core::config::FinstackConfig;
     use finstack_core::currency::Currency;
+    use finstack_core::explain::ExplanationTrace;
     use finstack_core::money::Money;
     use indexmap::IndexMap;
     use time::macros::date;
@@ -680,5 +682,51 @@ mod tests {
         assert_eq!(result.metric_str("dv"), None);
         assert_eq!(result[MetricId::Dv01], 12.5);
         assert_eq!(result[&MetricId::Dv01], 12.5);
+    }
+
+    #[test]
+    fn stamped_with_config_round_trips_metadata_fields() {
+        let as_of = date!(2025 - 01 - 15);
+        let pv = Money::new(1.0, Currency::USD);
+        let cfg = FinstackConfig::default();
+        let stamped = ValuationResult::stamped_with_config("CFG-1", as_of, pv, &cfg);
+        assert_eq!(stamped.instrument_id, "CFG-1");
+        assert_eq!(
+            stamped.meta.numeric_mode,
+            finstack_core::config::NUMERIC_MODE
+        );
+    }
+
+    #[test]
+    fn serde_roundtrip_keeps_covenant_and_explanation() {
+        let as_of = date!(2025 - 02 - 01);
+        let pv = Money::new(10.0, Currency::EUR);
+        let mut covenants = IndexMap::new();
+        covenants.insert(
+            "dscr".to_string(),
+            CovenantReport {
+                covenant_type: "dscr".to_string(),
+                covenant_id: None,
+                passed: false,
+                actual_value: Some(1.0),
+                threshold: Some(1.2),
+                details: None,
+                headroom: None,
+            },
+        );
+        let trace = ExplanationTrace::new("unit");
+        let original = ValuationResult::stamped("TR", as_of, pv)
+            .with_covenants(covenants)
+            .with_explanation(trace);
+        let json = serde_json::to_string(&original);
+        assert!(json.is_ok(), "valuation result should serialize");
+        if let Ok(json) = json {
+            let back = serde_json::from_str::<ValuationResult>(&json);
+            assert!(back.is_ok(), "valuation result should deserialize");
+            if let Ok(back) = back {
+                assert_eq!(back.failed_covenants(), vec!["dscr"]);
+                assert!(back.explanation.is_some());
+            }
+        }
     }
 }

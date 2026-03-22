@@ -212,3 +212,173 @@ impl BondQuote {
         self.bump_value_decimal(bump_bp / 10_000.0)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use time::macros::date;
+
+    fn sample_clean_price() -> BondQuote {
+        BondQuote::FixedRateBulletCleanPrice {
+            id: QuoteId::new("UST-5Y"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2029 - 01 - 01),
+            coupon_rate: 0.04,
+            convention: BondConventionId::new("USD-UST"),
+            clean_price_pct: 99.25,
+        }
+    }
+
+    #[test]
+    fn id_and_value_accessors_match_active_variant() {
+        let clean = sample_clean_price();
+        let z = BondQuote::FixedRateBulletZSpread {
+            id: QuoteId::new("CORP-Z"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2030 - 01 - 01),
+            coupon_rate: 0.055,
+            convention: BondConventionId::new("USD-UST"),
+            z_spread: 0.012,
+        };
+        let oas = BondQuote::FixedRateBulletOas {
+            id: QuoteId::new("CORP-OAS"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2030 - 01 - 01),
+            coupon_rate: 0.055,
+            convention: BondConventionId::new("USD-UST"),
+            oas: 0.0095,
+        };
+        let ytm = BondQuote::FixedRateBulletYtm {
+            id: QuoteId::new("CORP-YTM"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2030 - 01 - 01),
+            coupon_rate: 0.055,
+            convention: BondConventionId::new("USD-UST"),
+            ytm: 0.0475,
+        };
+
+        assert_eq!(clean.id().as_str(), "UST-5Y");
+        assert_eq!(clean.value(), 99.25);
+        assert_eq!(z.value(), 0.012);
+        assert_eq!(oas.value(), 0.0095);
+        assert_eq!(ytm.value(), 0.0475);
+    }
+
+    #[test]
+    fn decimal_and_bp_bumps_only_change_primary_quote_field() {
+        let bumped_price = sample_clean_price().bump_value_decimal(0.5);
+        let bumped_ytm = BondQuote::FixedRateBulletYtm {
+            id: QuoteId::new("CORP-YTM"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2030 - 01 - 01),
+            coupon_rate: 0.055,
+            convention: BondConventionId::new("USD-UST"),
+            ytm: 0.0475,
+        }
+        .bump_value_bp(5.0);
+
+        assert!(matches!(
+            bumped_price,
+            BondQuote::FixedRateBulletCleanPrice {
+                clean_price_pct,
+                coupon_rate,
+                ..
+            } if (clean_price_pct - 99.75).abs() < 1e-12 && (coupon_rate - 0.04).abs() < 1e-12
+        ));
+        assert!(matches!(
+            bumped_ytm,
+            BondQuote::FixedRateBulletYtm {
+                ytm,
+                coupon_rate,
+                ..
+            } if (ytm - 0.048).abs() < 1e-12 && (coupon_rate - 0.055).abs() < 1e-12
+        ));
+    }
+
+    #[test]
+    fn z_spread_and_oas_bp_bumps_scale_in_decimal_units() {
+        let z = BondQuote::FixedRateBulletZSpread {
+            id: QuoteId::new("CORP-Z"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2030 - 01 - 01),
+            coupon_rate: 0.055,
+            convention: BondConventionId::new("USD-UST"),
+            z_spread: 0.012,
+        }
+        .bump_value_bp(10.0);
+        let oas = BondQuote::FixedRateBulletOas {
+            id: QuoteId::new("CORP-OAS"),
+            currency: Currency::USD,
+            issue_date: date!(2024 - 01 - 01),
+            maturity: date!(2030 - 01 - 01),
+            coupon_rate: 0.055,
+            convention: BondConventionId::new("USD-UST"),
+            oas: 0.0095,
+        }
+        .bump_value_bp(-5.0);
+
+        assert!(matches!(
+            z,
+            BondQuote::FixedRateBulletZSpread { z_spread, .. }
+                if (z_spread - 0.013).abs() < 1e-12
+        ));
+        assert!(matches!(
+            oas,
+            BondQuote::FixedRateBulletOas { oas, .. }
+                if (oas - 0.009).abs() < 1e-12
+        ));
+    }
+
+    #[test]
+    fn serde_roundtrip_preserves_each_bond_quote_variant() {
+        let quotes = vec![
+            sample_clean_price(),
+            BondQuote::FixedRateBulletZSpread {
+                id: QuoteId::new("CORP-Z"),
+                currency: Currency::USD,
+                issue_date: date!(2024 - 01 - 01),
+                maturity: date!(2030 - 01 - 01),
+                coupon_rate: 0.055,
+                convention: BondConventionId::new("USD-UST"),
+                z_spread: 0.012,
+            },
+            BondQuote::FixedRateBulletOas {
+                id: QuoteId::new("CORP-OAS"),
+                currency: Currency::USD,
+                issue_date: date!(2024 - 01 - 01),
+                maturity: date!(2030 - 01 - 01),
+                coupon_rate: 0.055,
+                convention: BondConventionId::new("USD-UST"),
+                oas: 0.0095,
+            },
+            BondQuote::FixedRateBulletYtm {
+                id: QuoteId::new("CORP-YTM"),
+                currency: Currency::USD,
+                issue_date: date!(2024 - 01 - 01),
+                maturity: date!(2030 - 01 - 01),
+                coupon_rate: 0.055,
+                convention: BondConventionId::new("USD-UST"),
+                ytm: 0.0475,
+            },
+        ];
+
+        for quote in quotes {
+            let encoded = serde_json::to_string(&quote);
+            assert!(encoded.is_ok(), "quote should serialize");
+            if let Ok(json) = encoded {
+                let decoded = serde_json::from_str::<BondQuote>(&json);
+                assert!(decoded.is_ok(), "quote should deserialize");
+                if let Ok(roundtrip) = decoded {
+                    assert_eq!(roundtrip.id(), quote.id());
+                    assert!((roundtrip.value() - quote.value()).abs() < 1e-12);
+                }
+            }
+        }
+    }
+}

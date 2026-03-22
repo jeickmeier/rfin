@@ -1098,6 +1098,7 @@ pub mod short_rate_keys {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::instruments::common_impl::models::trees::tree_framework::NodeState;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use finstack_core::math::volatility::{convert_atm_volatility, VolatilityConvention};
@@ -1113,6 +1114,23 @@ mod tests {
             .interp(InterpStyle::LogLinear)
             .build()
             .expect("should succeed")
+    }
+
+    struct ConstantValuator;
+
+    impl TreeValuator for ConstantValuator {
+        fn value_at_maturity(&self, _state: &NodeState) -> Result<f64> {
+            Ok(1.0)
+        }
+
+        fn value_at_node(
+            &self,
+            _state: &NodeState,
+            continuation_value: f64,
+            _dt: f64,
+        ) -> Result<f64> {
+            Ok(continuation_value)
+        }
     }
 
     #[test]
@@ -1162,6 +1180,21 @@ mod tests {
         assert_eq!(tree.config.model, ShortRateModel::BlackDermanToy);
         assert_eq!(tree.config.volatility, 0.20);
         assert_eq!(tree.config.mean_reversion, Some(0.03));
+    }
+
+    #[test]
+    fn test_bdt_calibration_populates_quality_metrics() {
+        let mut tree = ShortRateTree::black_derman_toy(6, 0.20, 0.03);
+        let curve = create_test_curve();
+
+        tree.calibrate(&curve, 2.0).expect("should succeed");
+
+        assert_eq!(tree.rates.len(), 7);
+        assert_eq!(tree.probs.len(), 6);
+        assert!(tree.probabilities(0).expect("probabilities").0.is_finite());
+        let quality = tree.calibration_result().expect("calibration result");
+        assert!(quality.converged);
+        assert!(quality.max_error_bps.is_finite());
     }
 
     // ========================================================================
@@ -1294,6 +1327,36 @@ mod tests {
         assert!(!err.to_string().is_empty());
     }
 
+    #[test]
+    fn test_calibration_result_quality_helpers_cover_thresholds() {
+        let good = CalibrationResult {
+            max_error_bps: 0.05,
+            max_error_step: 2,
+            fallback_count: 0,
+            converged: true,
+        };
+        assert!(good.is_good());
+        assert!(good.is_acceptable());
+
+        let acceptable_only = CalibrationResult {
+            max_error_bps: 0.5,
+            max_error_step: 3,
+            fallback_count: 0,
+            converged: true,
+        };
+        assert!(!acceptable_only.is_good());
+        assert!(acceptable_only.is_acceptable());
+
+        let poor = CalibrationResult {
+            max_error_bps: 2.0,
+            max_error_step: 1,
+            fallback_count: 1,
+            converged: true,
+        };
+        assert!(!poor.is_good());
+        assert!(!poor.is_acceptable());
+    }
+
     // ========================================================================
     // Config Factory Tests
     // ========================================================================
@@ -1368,6 +1431,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn test_config_branching_helpers_and_normal_vol_boundary() {
+        let binomial = ShortRateTreeConfig::bdt(50, 0.20, 0.03).with_binomial();
+        assert_eq!(binomial.branching, TreeBranching::Binomial);
+
+        let trinomial = ShortRateTreeConfig::ho_lee(50, 0.01).with_trinomial();
+        assert_eq!(trinomial.branching, TreeBranching::Trinomial);
+
+        let boundary = ShortRateTreeConfig::from_normal_vol(50, 0.01, 0.01).expect("valid config");
+        assert_eq!(boundary.model, ShortRateModel::BlackDermanToy);
+    }
+
     // ========================================================================
     // Tree Factory Tests
     // ========================================================================
@@ -1386,5 +1461,32 @@ mod tests {
         assert_eq!(tree.config.steps, 75);
         assert_eq!(tree.config.model, ShortRateModel::BlackDermanToy);
         assert_eq!(tree.config.volatility, DEFAULT_LOGNORMAL_VOL);
+    }
+
+    #[test]
+    fn test_probability_and_time_accessors_validate_bounds() {
+        let mut tree = ShortRateTree::ho_lee(5, 0.01);
+        let curve = create_test_curve();
+        tree.calibrate(&curve, 1.0).expect("should succeed");
+
+        assert_eq!(tree.probabilities(0).expect("probabilities"), (0.5, 0.5));
+        assert_eq!(tree.time_at_step(0).expect("time"), 0.0);
+        assert!(tree.time_at_step(5).expect("time").is_finite());
+        assert!(tree.probabilities(10).is_err());
+        assert!(tree.time_at_step(10).is_err());
+    }
+
+    #[test]
+    fn test_price_rejects_uncalibrated_tree() {
+        let tree = ShortRateTree::ho_lee(5, 0.01);
+        let err = tree
+            .price(
+                StateVariables::default(),
+                1.0,
+                &MarketContext::new(),
+                &ConstantValuator,
+            )
+            .expect_err("uncalibrated tree should error");
+        assert!(err.to_string().contains("must be calibrated"));
     }
 }

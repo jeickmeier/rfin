@@ -1,13 +1,17 @@
 //! Tests for swaption pricers.
 
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use crate::swaption::common::*;
+use finstack_core::currency::Currency;
 use finstack_core::money::Money;
+use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
+use finstack_valuations::instruments::pricing_overrides::VolSurfaceExtrapolation;
 use finstack_valuations::instruments::rates::swaption::{BermudanSchedule, BermudanSwaption};
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams, SimpleSwaptionBlackPricer,
+    BermudanSwaptionPricer, CalibratedHullWhiteModel, HullWhiteParams, SABRParameters,
+    SimpleSwaptionBlackPricer,
 };
 use finstack_valuations::pricer::{ModelKey, Pricer};
 use time::macros::date;
@@ -50,6 +54,73 @@ fn test_simple_swaption_pricer_fallback_uses_instrument_value() {
         1e-10,
         "pricer fallback result",
     );
+}
+
+#[test]
+fn test_simple_swaption_black_pricer_uses_sabr_dispatch_when_present() {
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let sabr_params = SABRParameters {
+        alpha: 0.20,
+        beta: 0.5,
+        rho: -0.3,
+        nu: 0.4,
+        shift: None,
+    };
+    let swaption =
+        create_standard_payer_swaption(expiry, swap_start, swap_end, 0.05).with_sabr(sabr_params);
+    let market = create_flat_market(as_of, 0.05, 0.30);
+
+    let expected = swaption.price_sabr(&market, as_of).unwrap();
+    let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
+    let result = pricer.price_dyn(&swaption, &market, as_of).unwrap().value;
+
+    assert_approx_eq(
+        result.amount(),
+        expected.amount(),
+        1e-10,
+        "sabr dispatch result",
+    );
+}
+
+#[test]
+fn test_simple_swaption_black_pricer_rejects_out_of_grid_strike_when_error_extrapolation_selected()
+{
+    let (as_of, expiry, swap_start, swap_end) = standard_dates();
+    let mut swaption = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.15);
+    swaption.pricing_overrides = swaption
+        .pricing_overrides
+        .clone()
+        .with_vol_surface_extrapolation(VolSurfaceExtrapolation::Error);
+
+    let market = create_flat_market(as_of, 0.03, 0.20);
+    let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
+    let err = pricer
+        .price_dyn(&swaption, &market, as_of)
+        .expect_err("strict extrapolation should reject OTM strike");
+
+    assert!(!err.to_string().is_empty());
+}
+
+#[test]
+fn test_simple_swaption_black_pricer_type_mismatch() {
+    let (as_of, _, _, _) = standard_dates();
+    let market = create_flat_market(as_of, 0.03, 0.20);
+    let bond = Bond::fixed(
+        "TEST-BOND",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        as_of,
+        date!(2030 - 01 - 01),
+        "USD_OIS",
+    )
+    .unwrap();
+
+    let pricer = SimpleSwaptionBlackPricer::with_model(ModelKey::Black76);
+    let err = pricer
+        .price_dyn(&bond, &market, as_of)
+        .expect_err("wrong instrument should fail");
+
+    assert!(!err.to_string().is_empty());
 }
 
 #[test]

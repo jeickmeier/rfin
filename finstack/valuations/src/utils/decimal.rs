@@ -47,3 +47,56 @@ pub fn f64_to_decimal(value: f64, _field: &str) -> finstack_core::Result<Decimal
     }
     Decimal::try_from(value).map_err(|_| finstack_core::Error::from(InputError::ConversionOverflow))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::InputError;
+
+    #[test]
+    fn f64_to_decimal_accepts_typical_financial_values() {
+        let decimal = f64_to_decimal(0.0525, "coupon");
+        assert!(decimal.is_ok(), "finite rate should convert");
+        if let Ok(decimal) = decimal {
+            assert!(decimal > rust_decimal::Decimal::ZERO);
+        }
+    }
+
+    #[test]
+    fn f64_to_decimal_rejects_nan() {
+        let err = f64_to_decimal(f64::NAN, "field");
+        assert!(matches!(
+            err,
+            Err(finstack_core::Error::Input(InputError::NonFiniteValue {
+                kind: finstack_core::NonFiniteKind::NaN
+            }))
+        ));
+    }
+
+    #[test]
+    fn f64_to_decimal_rejects_positive_and_negative_infinity() {
+        let pos = f64_to_decimal(f64::INFINITY, "x");
+        let neg = f64_to_decimal(f64::NEG_INFINITY, "x");
+        assert!(matches!(
+            pos,
+            Err(finstack_core::Error::Input(InputError::NonFiniteValue {
+                kind: finstack_core::NonFiniteKind::PosInfinity
+            }))
+        ));
+        assert!(matches!(
+            neg,
+            Err(finstack_core::Error::Input(InputError::NonFiniteValue {
+                kind: finstack_core::NonFiniteKind::NegInfinity
+            }))
+        ));
+    }
+
+    #[test]
+    fn f64_to_decimal_rejects_unrepresentable_magnitude() {
+        let err = f64_to_decimal(1e100, "huge");
+        assert!(matches!(
+            err,
+            Err(finstack_core::Error::Input(InputError::ConversionOverflow))
+        ));
+    }
+}

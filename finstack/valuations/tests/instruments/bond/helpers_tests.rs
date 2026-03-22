@@ -1,10 +1,13 @@
 //! Bond pricing helper function tests
+#![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor, TenorUnit};
+use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::{
-    df_from_yield, periods_per_year, price_from_ytm_compounded_params, YieldCompounding,
+    df_from_yield, fixed_leg_annuity, par_rate_and_annuity_from_discount, periods_per_year,
+    price_from_ytm_compounded_params, YieldCompounding,
 };
 
 #[test]
@@ -49,6 +52,28 @@ fn test_periods_per_year_zero_months_error() {
 fn test_periods_per_year_zero_days_error() {
     // 0 days should be an error
     assert!(periods_per_year(Tenor::new(0, TenorUnit::Days)).is_err());
+}
+
+#[test]
+fn test_periods_per_year_years_and_weeks() {
+    assert_eq!(
+        periods_per_year(Tenor::new(2, TenorUnit::Years)).unwrap(),
+        0.5
+    );
+    assert_eq!(
+        periods_per_year(Tenor::new(1, TenorUnit::Weeks)).unwrap(),
+        52.0
+    );
+    assert_eq!(
+        periods_per_year(Tenor::new(2, TenorUnit::Weeks)).unwrap(),
+        26.0
+    );
+}
+
+#[test]
+fn test_periods_per_year_zero_years_and_weeks_error() {
+    assert!(periods_per_year(Tenor::new(0, TenorUnit::Years)).is_err());
+    assert!(periods_per_year(Tenor::new(0, TenorUnit::Weeks)).is_err());
 }
 
 #[test]
@@ -127,6 +152,41 @@ fn test_df_from_yield_street() {
     // Should be same as Periodic(2)
     let expected = (1.0_f64 + 0.06 / 2.0).powf(-2.0 * 1.0);
     assert!((df - expected).abs() < 0.0001);
+}
+
+#[test]
+fn test_df_from_yield_treasury_actual_short_and_long_paths() {
+    let freq = Tenor::semi_annual();
+
+    let short_df = df_from_yield(0.06, 0.25, YieldCompounding::TreasuryActual, freq).unwrap();
+    let short_expected = 1.0 / (1.0 + 0.06 * 0.25);
+    assert!((short_df - short_expected).abs() < 1e-12);
+
+    let stub_df = df_from_yield(0.06, 1.3, YieldCompounding::TreasuryActual, freq).unwrap();
+    let m = 2.0_f64;
+    let n_full_periods = (1.3_f64 * m).floor();
+    let stub_time = 1.3 - n_full_periods / m;
+    let stub_expected = (1.0_f64 / (1.0_f64 + 0.06_f64 * stub_time))
+        * (1.0_f64 + 0.06_f64 / m).powf(-n_full_periods);
+    assert!((stub_df - stub_expected).abs() < 1e-12);
+
+    let no_stub_df = df_from_yield(0.06, 1.5, YieldCompounding::TreasuryActual, freq).unwrap();
+    let no_stub_expected = (1.0_f64 + 0.06_f64 / m).powf(-m * 1.5_f64);
+    assert!((no_stub_df - no_stub_expected).abs() < 1e-12);
+}
+
+#[test]
+fn test_df_from_yield_validation_errors_cover_multiple_compounding_modes() {
+    assert!(df_from_yield(-2.0, 1.0, YieldCompounding::Simple, Tenor::annual()).is_err());
+    assert!(df_from_yield(-1.5, 1.0, YieldCompounding::Annual, Tenor::annual()).is_err());
+    assert!(df_from_yield(-5.0, 1.0, YieldCompounding::Street, Tenor::semi_annual()).is_err());
+    assert!(df_from_yield(
+        -5.0,
+        0.75,
+        YieldCompounding::TreasuryActual,
+        Tenor::semi_annual()
+    )
+    .is_err());
 }
 
 #[test]
@@ -438,4 +498,35 @@ fn test_df_from_yield_street_with_quarterly() {
     // Should use quarterly compounding (4 periods per year)
     let expected = (1.0_f64 + 0.08 / 4.0).powf(-4.0 * 1.0);
     assert!((df - expected).abs() < 0.0001);
+}
+
+#[test]
+fn test_fixed_leg_annuity_and_par_rate_discount_helpers_cover_edge_cases() {
+    let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let curve = DiscountCurve::builder("USD-OIS")
+        .base_date(as_of)
+        .day_count(DayCount::Act365F)
+        .knots([(0.0, 1.0), (2.0, 1.0)])
+        .build()
+        .unwrap();
+
+    let short_schedule = vec![as_of];
+    assert_eq!(
+        fixed_leg_annuity(&curve, DayCount::Act365F, &short_schedule).unwrap(),
+        0.0
+    );
+    assert_eq!(
+        par_rate_and_annuity_from_discount(&curve, DayCount::Act365F, &short_schedule).unwrap(),
+        (0.0, 0.0)
+    );
+
+    let end = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let schedule = vec![as_of, end];
+    let annuity = fixed_leg_annuity(&curve, DayCount::Act365F, &schedule).unwrap();
+    assert!((annuity - 1.002739726).abs() < 1e-9);
+
+    let (par_rate, par_annuity) =
+        par_rate_and_annuity_from_discount(&curve, DayCount::Act365F, &schedule).unwrap();
+    assert_eq!(par_rate, 0.0);
+    assert!((par_annuity - annuity).abs() < 1e-12);
 }

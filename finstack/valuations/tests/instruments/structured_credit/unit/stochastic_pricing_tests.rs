@@ -7,7 +7,8 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_valuations::instruments::fixed_income::structured_credit::PricingMode;
 use finstack_valuations::instruments::fixed_income::structured_credit::{
-    DealType, Pool, PoolAsset, StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
+    CorrelationStructure, DealType, Pool, PoolAsset, StochasticDefaultSpec, StochasticPrepaySpec,
+    StructuredCredit, Tranche, TrancheCoupon, TrancheStructure,
 };
 use time::Month;
 
@@ -122,4 +123,114 @@ fn current_loss_percentage_respects_defaults_and_recoveries() {
         (loss_pct - expected).abs() < 1e-9,
         "expected {expected}%, got {loss_pct}"
     );
+}
+
+#[test]
+fn stochastic_helper_methods_toggle_flags_and_preserve_chainability() {
+    let mut sc = build_sc("ABS-STOCHASTIC", 1_000_000.0);
+    assert!(!sc.is_stochastic());
+
+    let chained = sc
+        .with_stochastic_prepay(StochasticPrepaySpec::clo_standard())
+        .with_stochastic_default(StochasticDefaultSpec::clo_standard())
+        .with_correlation(CorrelationStructure::clo_standard());
+
+    assert!(std::ptr::eq(chained, &sc));
+    assert!(sc.is_stochastic());
+    assert!(sc.credit_model.stochastic_prepay_spec.is_some());
+    assert!(sc.credit_model.stochastic_default_spec.is_some());
+    assert!(sc.credit_model.correlation_structure.is_some());
+
+    sc.disable_stochastic();
+    assert!(!sc.is_stochastic());
+    assert!(sc.credit_model.stochastic_prepay_spec.is_none());
+    assert!(sc.credit_model.stochastic_default_spec.is_none());
+    assert!(sc.credit_model.correlation_structure.is_none());
+}
+
+#[test]
+fn enable_stochastic_defaults_populates_specs_for_each_deal_family() {
+    let mut abs = build_sc("ABS-DEFAULTS", 1_000_000.0);
+    abs.enable_stochastic_defaults();
+    assert!(abs.is_stochastic());
+
+    let make = |deal_type| {
+        let pool = Pool::new("POOL", deal_type, Currency::USD);
+        let tranches = single_tranche_structure(1_000_000.0);
+        StructuredCredit::apply_deal_defaults(
+            format!("TEST-{deal_type:?}"),
+            deal_type,
+            pool,
+            tranches,
+            closing_date(),
+            legal_maturity(),
+            "USD-OIS",
+        )
+    };
+
+    for mut sc in [
+        make(DealType::RMBS),
+        make(DealType::CLO),
+        make(DealType::CMBS),
+        make(DealType::Card),
+    ] {
+        sc.enable_stochastic_defaults();
+        assert!(sc.credit_model.stochastic_prepay_spec.is_some());
+        assert!(sc.credit_model.stochastic_default_spec.is_some());
+        assert!(sc.credit_model.correlation_structure.is_some());
+    }
+}
+
+#[test]
+fn price_with_metrics_standalone_returns_base_value_when_no_metrics_or_hedges() {
+    let sc = build_sc("ABS-STANDALONE", 1_000_000.0).with_payment_calendar("nyse");
+    let mut market = MarketContext::new();
+    market = market.insert(discount_curve(closing_date()));
+
+    let result = sc
+        .price_with_metrics_standalone(&market, closing_date(), &[])
+        .expect("standalone pricing");
+
+    assert_eq!(result.instrument_id, "ABS-STANDALONE");
+    assert!(result.value.amount().is_finite());
+    assert_eq!(result.value.currency(), Currency::USD);
+    assert!(result.measures.is_empty());
+}
+
+#[test]
+fn hedge_helpers_track_attached_swaps() {
+    let swap = finstack_valuations::instruments::rates::irs::InterestRateSwap::example()
+        .expect("example hedge swap");
+    let mut sc = build_sc("ABS-HEDGED", 1_000_000.0);
+    assert!(!sc.has_hedges());
+    assert_eq!(sc.hedge_count(), 0);
+
+    sc.add_hedge_swap(swap.clone());
+    assert!(sc.has_hedges());
+    assert_eq!(sc.hedge_count(), 1);
+
+    sc.add_hedge_swaps(vec![swap.clone()]);
+    assert_eq!(sc.hedge_count(), 2);
+
+    let chained = build_sc("ABS-HEDGED-BUILDER", 1_000_000.0)
+        .with_hedge_swap(swap.clone())
+        .with_hedge_swaps(vec![swap]);
+    assert!(chained.has_hedges());
+    assert_eq!(chained.hedge_count(), 2);
+}
+
+#[test]
+fn hedge_valuation_helpers_return_zero_when_no_swaps_are_attached() {
+    let sc = build_sc("ABS-UNHEDGED", 1_000_000.0).with_payment_calendar("nyse");
+    let mut market = MarketContext::new();
+    market = market.insert(discount_curve(closing_date()));
+
+    let hedge_npv = sc.hedge_npv(&market, closing_date()).expect("hedge npv");
+    let (deal_npv, hedges, total) = sc
+        .price_with_hedges(&market, closing_date())
+        .expect("combined hedge pricing");
+
+    assert_eq!(hedge_npv.amount(), 0.0);
+    assert_eq!(hedges.amount(), 0.0);
+    assert_eq!(deal_npv, total);
 }

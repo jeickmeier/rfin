@@ -306,4 +306,22 @@ mod tests {
             .expect("fallback schema should include description")
             .contains("Dedicated schema is not yet available"));
     }
+
+    #[test]
+    fn test_instrument_schema_rejects_unknown_discriminator() {
+        let err = instrument_schema("not_a_supported_instrument_type").expect_err("unknown type");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("unknown instrument type"),
+            "unexpected message: {msg}"
+        );
+    }
+
+    #[test]
+    fn test_instrument_schema_cache_covers_registered_aliases() {
+        let bond = instrument_schema("bond").expect("bond");
+        assert_eq!(bond["title"], "Bond");
+        let swap = instrument_schema("interest_rate_swap").expect("irs");
+        assert_eq!(swap["title"], "Interest Rate Swap");
+    }
 }

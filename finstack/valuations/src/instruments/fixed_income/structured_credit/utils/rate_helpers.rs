@@ -202,3 +202,128 @@ pub fn try_asset_all_in_rate(
     let spread = spread_bps.unwrap_or(0.0) / 10_000.0;
     Ok(idx_rate + spread)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cashflow::builder::FloatingRateSpec;
+    use finstack_core::dates::{BusinessDayConvention, Tenor};
+    use finstack_core::market_data::term_structures::ForwardCurve;
+    use finstack_core::types::CurveId;
+    use rust_decimal::Decimal;
+    use time::macros::date;
+
+    fn sample_market() -> MarketContext {
+        let curve_result = ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(date!(2025 - 01 - 01))
+            .day_count(DayCount::Act360)
+            .knots([(0.0, 0.03), (0.25, 0.032), (1.0, 0.035)])
+            .build();
+        assert!(curve_result.is_ok(), "forward curve should build");
+        match curve_result {
+            Ok(curve) => MarketContext::new().insert(curve),
+            Err(_) => unreachable!(),
+        }
+    }
+
+    fn floating_coupon() -> TrancheCoupon {
+        TrancheCoupon::Floating(FloatingRateSpec {
+            index_id: CurveId::new("USD-SOFR-3M"),
+            spread_bp: Decimal::new(150, 0),
+            gearing: Decimal::ONE,
+            gearing_includes_spread: true,
+            floor_bp: Some(Decimal::ZERO),
+            all_in_floor_bp: None,
+            cap_bp: None,
+            index_cap_bp: None,
+            reset_freq: Tenor::quarterly(),
+            reset_lag_days: 2,
+            dc: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: "weekends_only".to_string(),
+            fixing_calendar_id: None,
+            end_of_month: false,
+            payment_lag_days: 0,
+            overnight_compounding: None,
+            fallback: Default::default(),
+        })
+    }
+
+    #[test]
+    fn tenor_helpers_roll_standard_periods() {
+        let start = date!(2025 - 01 - 31);
+        assert_eq!(
+            tenor_to_period_end(start, 0.25, DayCount::Act360),
+            date!(2025 - 04 - 30)
+        );
+        assert_eq!(
+            try_tenor_to_period_end(start, 1.0, DayCount::Act365F),
+            Ok(date!(2026 - 01 - 31))
+        );
+    }
+
+    #[test]
+    fn tranche_all_in_rate_handles_fixed_and_missing_forward_cases() {
+        let fixed = tranche_all_in_rate(
+            &TrancheCoupon::Fixed { rate: 0.045 },
+            date!(2025 - 02 - 01),
+            &MarketContext::new(),
+        );
+        assert_eq!(fixed, 0.045);
+
+        let missing_curve = tranche_all_in_rate(
+            &floating_coupon(),
+            date!(2025 - 02 - 01),
+            &MarketContext::new(),
+        );
+        assert!((missing_curve - 0.015).abs() < 1e-12);
+
+        let try_missing = try_tranche_all_in_rate(
+            &floating_coupon(),
+            date!(2025 - 02 - 01),
+            &MarketContext::new(),
+        );
+        assert!(try_missing.is_err(), "missing forward curve should error");
+    }
+
+    #[test]
+    fn tranche_all_in_rate_uses_forward_curve_when_available() {
+        let market = sample_market();
+        let rate = tranche_all_in_rate(&floating_coupon(), date!(2025 - 02 - 01), &market);
+        let try_rate = try_tranche_all_in_rate(&floating_coupon(), date!(2025 - 02 - 01), &market);
+
+        assert!(
+            rate > 0.015,
+            "forward projection should exceed pure spread fallback"
+        );
+        assert!(
+            try_rate.is_ok(),
+            "fallible helper should succeed with market data"
+        );
+        if let Ok(value) = try_rate {
+            assert!((value - rate).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn asset_all_in_rate_falls_back_or_errors_as_documented() {
+        let market = sample_market();
+        let date = date!(2025 - 04 - 01);
+
+        let projected = asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), 0.08, date, &market);
+        let fallback_no_index = asset_all_in_rate(None, Some(50.0), 0.08, date, &market);
+        let fallback_missing_curve =
+            asset_all_in_rate(Some("MISSING"), Some(50.0), 0.08, date, &market);
+        let try_projected = try_asset_all_in_rate(Some("USD-SOFR-3M"), Some(50.0), date, &market);
+        let try_missing_id = try_asset_all_in_rate(None, Some(50.0), date, &market);
+
+        assert!(projected > 0.0);
+        assert_eq!(fallback_no_index, 0.08);
+        assert_eq!(fallback_missing_curve, 0.08);
+        assert!(try_projected.is_ok(), "valid forward lookup should succeed");
+        if let Ok(value) = try_projected {
+            assert!((value - projected).abs() < 1e-12);
+        }
+        assert!(try_missing_id.is_err(), "missing index id should error");
+    }
+}

@@ -136,3 +136,97 @@ fn find_surrounding_dates(flows: &[(Date, Money)], as_of: Date) -> Result<(Date,
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::instruments::fixed_income::structured_credit::{StructuredCredit, TrancheCashflows};
+    use crate::instruments::internal::InstrumentExt as Instrument;
+    use crate::metrics::MetricContext;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use std::sync::Arc;
+    use time::macros::date;
+
+    fn context(as_of: Date) -> MetricContext {
+        MetricContext::new(
+            Arc::new(StructuredCredit::example()) as Arc<dyn Instrument>,
+            Arc::new(MarketContext::new()),
+            as_of,
+            Money::new(0.0, Currency::USD),
+            MetricContext::default_config(),
+        )
+    }
+
+    #[test]
+    fn accrued_returns_zero_without_cashflow_inputs() {
+        let mut ctx = context(date!(2025 - 02 - 15));
+        let calc = AccruedCalculator;
+
+        let result = calc.calculate(&mut ctx);
+        assert!(result.is_err(), "missing cashflows should error");
+    }
+
+    #[test]
+    fn accrued_from_aggregated_cashflows_scales_period_interest() {
+        let mut ctx = context(date!(2025 - 02 - 15));
+        ctx.cashflows = Some(vec![
+            (date!(2025 - 01 - 01), Money::new(0.0, Currency::USD)),
+            (date!(2025 - 04 - 01), Money::new(90.0, Currency::USD)),
+            (date!(2025 - 07 - 01), Money::new(90.0, Currency::USD)),
+        ]);
+        ctx.day_count = Some(DayCount::Act360);
+
+        let accrued = AccruedCalculator.calculate(&mut ctx);
+        assert!(accrued.is_ok(), "aggregated accrual should succeed");
+        if let Ok(value) = accrued {
+            assert!((value - 45.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn detailed_interest_flows_take_priority_over_aggregated_flows() {
+        let mut ctx = context(date!(2025 - 02 - 15));
+        ctx.cashflows = Some(vec![
+            (date!(2025 - 01 - 01), Money::new(0.0, Currency::USD)),
+            (date!(2025 - 04 - 01), Money::new(120.0, Currency::USD)),
+        ]);
+        ctx.detailed_tranche_cashflows = Some(TrancheCashflows {
+            tranche_id: "A".to_string(),
+            cashflows: vec![],
+            detailed_flows: vec![],
+            interest_flows: vec![
+                (date!(2025 - 01 - 01), Money::new(0.0, Currency::USD)),
+                (date!(2025 - 04 - 01), Money::new(30.0, Currency::USD)),
+            ],
+            principal_flows: vec![],
+            pik_flows: vec![],
+            writedown_flows: vec![],
+            final_balance: Money::new(0.0, Currency::USD),
+            total_interest: Money::new(30.0, Currency::USD),
+            total_principal: Money::new(0.0, Currency::USD),
+            total_pik: Money::new(0.0, Currency::USD),
+            total_writedown: Money::new(0.0, Currency::USD),
+        });
+        ctx.day_count = Some(DayCount::Act360);
+
+        let accrued = AccruedCalculator.calculate(&mut ctx);
+        assert!(accrued.is_ok(), "detailed interest accrual should succeed");
+        if let Ok(value) = accrued {
+            assert!((value - 15.0).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn accrued_returns_zero_outside_cashflow_window() {
+        let mut ctx = context(date!(2025 - 08 - 01));
+        ctx.cashflows = Some(vec![
+            (date!(2025 - 01 - 01), Money::new(0.0, Currency::USD)),
+            (date!(2025 - 04 - 01), Money::new(90.0, Currency::USD)),
+            (date!(2025 - 07 - 01), Money::new(90.0, Currency::USD)),
+        ]);
+
+        let accrued = AccruedCalculator.calculate(&mut ctx);
+        assert_eq!(accrued, Ok(0.0));
+    }
+}

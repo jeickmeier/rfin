@@ -1,0 +1,168 @@
+//! Exercise the `Performance` facade to improve coverage of `performance.rs`.
+//!
+//! This is intentionally a broad API smoke test: it wires realistic inputs and
+//! invokes most public methods with valid parameters.
+
+use finstack_analytics::performance::Performance;
+use finstack_analytics::returns::{clean_returns, simple_returns};
+use finstack_analytics::{RuinDefinition, RuinModel};
+use finstack_core::dates::{Date, FiscalConfig, Month, PeriodKind};
+
+fn calendar_days(start: Date, n: usize) -> Vec<Date> {
+    let mut out = Vec::with_capacity(n);
+    let mut d = start;
+    for _ in 0..n {
+        out.push(d);
+        d = d.next_day().expect("finite calendar");
+    }
+    out
+}
+
+fn ramp(len: usize, start: f64, step: f64) -> Vec<f64> {
+    (0..len).map(|i| start + step * i as f64).collect()
+}
+
+#[test]
+fn performance_facade_exercises_broad_api_surface() {
+    let dates = calendar_days(
+        Date::from_calendar_date(2025, Month::January, 1).expect("d0"),
+        140,
+    );
+    let col_a = ramp(dates.len(), 100.0, 0.04);
+    let col_b = ramp(dates.len(), 50.0, -0.02);
+    let prices = vec![col_a, col_b.clone()];
+
+    let mut perf = Performance::new(
+        dates.clone(),
+        prices,
+        vec!["AAA".to_string(), "BBB".to_string()],
+        Some("BBB"),
+        PeriodKind::Daily,
+        false,
+    )
+    .expect("perf");
+
+    assert_eq!(perf.benchmark_idx(), 1);
+    assert_eq!(perf.freq(), PeriodKind::Daily);
+    assert!(!perf.uses_log_returns());
+
+    let _ = perf.cagr();
+    let _ = perf.mean_return(true);
+    let _ = perf.mean_return(false);
+    let _ = perf.volatility(true);
+    let _ = perf.sharpe(0.02);
+    let _ = perf.sortino();
+    let _ = perf.calmar();
+    let _ = perf.max_drawdown();
+    let _ = perf.value_at_risk(0.95);
+    let _ = perf.expected_shortfall(0.95);
+    let _ = perf.tail_ratio(0.95);
+    let _ = perf.ulcer_index();
+    let ruin_model = RuinModel {
+        horizon_periods: 60,
+        n_paths: 800,
+        block_size: 1,
+        seed: 11,
+        confidence_level: 0.95,
+    };
+    let _ = perf.estimate_ruin(
+        RuinDefinition::WealthFloor {
+            floor_fraction: 0.5,
+        },
+        &ruin_model,
+    );
+    let _ = perf.skewness();
+    let _ = perf.kurtosis();
+    let _ = perf.geometric_mean();
+    let _ = perf.downside_deviation(0.0);
+    let _ = perf.max_drawdown_duration();
+    let _ = perf.up_capture();
+    let _ = perf.down_capture();
+    let _ = perf.capture_ratio();
+    let _ = perf.rolling_volatility(0, 20);
+    let _ = perf.omega_ratio(0.0);
+    let _ = perf.treynor(0.02);
+    let _ = perf.gain_to_pain();
+    let _ = perf.martin_ratio();
+    let _ = perf.parametric_var(0.95);
+    let _ = perf.cornish_fisher_var(0.95);
+    let _ = perf.rolling_sortino(0, 25);
+    let _ = perf.recovery_factor();
+    let _ = perf.sterling_ratio(0.02, 3);
+    let _ = perf.burke_ratio(0.02, 3);
+    let _ = perf.pain_index();
+    let _ = perf.pain_ratio(0.02);
+
+    let mut bench_series = simple_returns(&col_b);
+    bench_series = bench_series[1..].to_vec();
+    clean_returns(&mut bench_series);
+    let _ = perf
+        .multi_factor_greeks(0, &[&bench_series])
+        .expect("multi-factor regression");
+
+    let _ = perf.cdar(0.95);
+    let _ = perf.cumulative_returns();
+    let _ = perf.drawdown_series();
+    let _ = perf.drawdown_details(0, 3);
+    let _ = perf.tracking_error();
+    let _ = perf.information_ratio();
+    let _ = perf.r_squared();
+    let _ = perf.beta();
+    let _ = perf.greeks();
+    let _ = perf.rolling_greeks(0, 30);
+    let _ = perf.batting_average();
+    let _ = perf.m_squared(0.02);
+    let _ = perf.modified_sharpe(0.02, 0.95);
+    let _ = perf.rolling_sharpe(0, 30, 0.02);
+
+    let ref_date = *perf.active_dates().last().expect("last active date");
+    let _ = perf.lookback_returns(ref_date, Some(FiscalConfig::us_federal()));
+
+    let _ = perf.period_stats(0, PeriodKind::Monthly, None);
+    let _ = perf.correlation_matrix();
+    let _ = perf.cumulative_returns_outperformance();
+    let _ = perf.drawdown_outperformance();
+    let _ = perf.stats_during_bench_drawdowns(2);
+
+    let rf = vec![0.0; perf.active_dates().len()];
+    let _ = perf.excess_returns(&rf, Some(252.0));
+
+    let d = perf.dates().to_vec();
+    perf.reset_date_range(d[15], d[d.len() - 1]);
+    let _ = perf.ulcer_index();
+    perf.reset_date_range(d[0], d[d.len() - 1]);
+
+    perf.reset_bench_ticker("AAA").expect("bench switch");
+    assert_eq!(perf.benchmark_idx(), 0);
+    perf.reset_bench_ticker("BBB").expect("restore bench");
+
+    assert!(Performance::new(
+        dates.clone(),
+        vec![ramp(dates.len(), 1.0, 0.01)],
+        vec!["X".to_string()],
+        Some("missing"),
+        PeriodKind::Daily,
+        false,
+    )
+    .is_err());
+}
+
+#[test]
+fn performance_accepts_log_returns_path() {
+    let dates = calendar_days(
+        Date::from_calendar_date(2025, Month::June, 1).expect("d0"),
+        90,
+    );
+    let p = ramp(dates.len(), 50.0, 0.1);
+    let perf = Performance::new(
+        dates,
+        vec![p],
+        vec!["P".to_string()],
+        None,
+        PeriodKind::Daily,
+        true,
+    )
+    .expect("log perf");
+    assert!(perf.uses_log_returns());
+    let _ = perf.sharpe(0.0);
+}

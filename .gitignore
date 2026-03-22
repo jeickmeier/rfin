@@ -87,6 +87,8 @@ repo.md
 
 # Build artifacts (should not be committed)
 libverification_test.rlib
+*.profraw
+*.profdata
 
 # Script Outputs
 finstack-py/examples/outputs/

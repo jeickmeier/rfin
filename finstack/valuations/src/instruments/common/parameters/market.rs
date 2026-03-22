@@ -372,3 +372,145 @@ impl InterestRateOptionParams {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use finstack_core::currency::Currency;
+    use time::macros::date;
+
+    #[test]
+    fn enum_parsing_display_and_position_sign_cover_aliases() {
+        assert_eq!(OptionType::Call.to_string(), "call");
+        assert_eq!("buy".parse::<OptionType>(), Ok(OptionType::Call));
+        assert_eq!("sell_protection".parse::<OptionType>(), Ok(OptionType::Put));
+        assert!("weird".parse::<OptionType>().is_err());
+
+        assert_eq!(ExerciseStyle::default(), ExerciseStyle::European);
+        assert_eq!(
+            "american".parse::<ExerciseStyle>(),
+            Ok(ExerciseStyle::American)
+        );
+        assert_eq!(ExerciseStyle::Bermudan.to_string(), "bermudan");
+        assert!("odd".parse::<ExerciseStyle>().is_err());
+
+        assert_eq!(SettlementType::Cash.to_string(), "cash");
+        assert_eq!(
+            "physical".parse::<SettlementType>(),
+            Ok(SettlementType::Physical)
+        );
+        assert!("gross".parse::<SettlementType>().is_err());
+
+        assert_eq!(Position::default(), Position::Long);
+        assert_eq!(Position::Long.sign(), 1.0);
+        assert_eq!(Position::Short.sign(), -1.0);
+        assert_eq!("buyer".parse::<Position>(), Ok(Position::Long));
+        assert_eq!("sell".parse::<Position>(), Ok(Position::Short));
+        assert!("flat".parse::<Position>().is_err());
+    }
+
+    #[test]
+    fn equity_and_fx_option_builders_apply_defaults_and_overrides() {
+        let expiry = date!(2026 - 06 - 15);
+        let notional = Money::new(1_000_000.0, Currency::USD);
+
+        let equity = EquityOptionParams::european_call(100.0, expiry, notional)
+            .with_exercise_style(ExerciseStyle::American)
+            .with_settlement(SettlementType::Cash);
+        assert_eq!(equity.option_type, OptionType::Call);
+        assert_eq!(equity.exercise_style, ExerciseStyle::American);
+        assert_eq!(equity.settlement, SettlementType::Cash);
+
+        let fx = FxOptionParams::european_put(1.12, expiry, notional)
+            .with_exercise_style(ExerciseStyle::Bermudan)
+            .with_settlement(SettlementType::Physical);
+        assert_eq!(fx.option_type, OptionType::Put);
+        assert_eq!(fx.exercise_style, ExerciseStyle::Bermudan);
+        assert_eq!(fx.settlement, SettlementType::Physical);
+    }
+
+    #[test]
+    fn credit_and_ir_option_typed_constructors_preserve_typed_inputs() {
+        let credit = CreditParams::new_pct("ACME", Percentage::new(35.0), "ACME-CDS");
+        assert_eq!(credit.reference_entity, "ACME");
+        assert!((credit.recovery_rate - 0.35).abs() < 1e-12);
+        assert_eq!(credit.credit_curve_id.as_str(), "ACME-CDS");
+
+        let corp = CreditParams::corporate_standard("CORP", "CORP-CDS");
+        let sov = CreditParams::sovereign_standard("UST", "UST-CDS");
+        assert!((corp.recovery_rate - 0.40).abs() < 1e-12);
+        assert!((sov.recovery_rate - 0.30).abs() < 1e-12);
+
+        let ir = InterestRateOptionParams::new_rate(
+            Rate::from_bps(325),
+            date!(2027 - 01 - 01),
+            OptionType::Put,
+            "6M",
+            Money::new(5_000_000.0, Currency::USD),
+        );
+        assert!((ir.strike - 0.0325).abs() < 1e-12);
+        assert_eq!(ir.option_type, OptionType::Put);
+        assert_eq!(ir.tenor, "6M");
+        assert_eq!(ir.day_count, DayCount::Act360);
+    }
+
+    #[test]
+    fn base_constructors_and_serde_roundtrip_preserve_defaults() {
+        let expiry = date!(2026 - 06 - 15);
+        let notional = Money::new(2_000_000.0, Currency::USD);
+
+        let equity = EquityOptionParams::new(95.0, expiry, OptionType::Put, notional);
+        let fx = FxOptionParams::new(1.05, expiry, OptionType::Call, notional);
+        let credit = CreditParams::new("Issuer", 0.4, "ISSUER-CDS");
+        let ir = InterestRateOptionParams::new(0.03, expiry, OptionType::Call, "3M", notional);
+
+        assert_eq!(equity.exercise_style, ExerciseStyle::European);
+        assert_eq!(equity.settlement, SettlementType::Physical);
+        assert_eq!(fx.exercise_style, ExerciseStyle::European);
+        assert_eq!(fx.settlement, SettlementType::Physical);
+        assert_eq!(credit.recovery_rate, 0.4);
+        assert_eq!(ir.day_count, DayCount::Act360);
+
+        let equity_json = serde_json::to_string(&equity);
+        let fx_json = serde_json::to_string(&fx);
+        let credit_json = serde_json::to_string(&credit);
+        let ir_json = serde_json::to_string(&ir);
+        assert!(equity_json.is_ok());
+        assert!(fx_json.is_ok());
+        assert!(credit_json.is_ok());
+        assert!(ir_json.is_ok());
+
+        if let Ok(json) = equity_json {
+            let roundtrip = serde_json::from_str::<EquityOptionParams>(&json);
+            assert!(roundtrip.is_ok());
+            if let Ok(back) = roundtrip {
+                assert_eq!(back.option_type, OptionType::Put);
+                assert_eq!(back.exercise_style, ExerciseStyle::European);
+            }
+        }
+        if let Ok(json) = fx_json {
+            let roundtrip = serde_json::from_str::<FxOptionParams>(&json);
+            assert!(roundtrip.is_ok());
+            if let Ok(back) = roundtrip {
+                assert_eq!(back.option_type, OptionType::Call);
+                assert_eq!(back.settlement, SettlementType::Physical);
+            }
+        }
+        if let Ok(json) = credit_json {
+            let roundtrip = serde_json::from_str::<CreditParams>(&json);
+            assert!(roundtrip.is_ok());
+            if let Ok(back) = roundtrip {
+                assert_eq!(back.reference_entity, "Issuer");
+                assert_eq!(back.credit_curve_id.as_str(), "ISSUER-CDS");
+            }
+        }
+        if let Ok(json) = ir_json {
+            let roundtrip = serde_json::from_str::<InterestRateOptionParams>(&json);
+            assert!(roundtrip.is_ok());
+            if let Ok(back) = roundtrip {
+                assert_eq!(back.tenor, "3M");
+                assert_eq!(back.option_type, OptionType::Call);
+            }
+        }
+    }
+}

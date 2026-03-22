@@ -146,12 +146,14 @@ Expected: FAIL — `max_arena_bytes` field doesn't exist yet.
 In `finstack/core/src/expr/eval.rs`, modify `EvalOpts` (line 54):
 
 1. Remove `Default` from the derive list on line 54:
+
 ```rust
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct EvalOpts {
 ```
 
 2. Add the new field after `cache_budget_mb`:
+
 ```rust
     /// Maximum arena allocation in bytes. Defaults to 1 GB.
     /// Set to 0 to disable the check.
@@ -160,6 +162,7 @@ pub struct EvalOpts {
 ```
 
 3. Add the default function and manual `Default` impl after the struct:
+
 ```rust
 fn default_max_arena_bytes() -> usize {
     1_073_741_824 // 1 GB
@@ -204,10 +207,13 @@ In `finstack/core/src/expr/eval.rs`, insert before line 214 (`let mut arena = ve
 ```
 
 Then change the existing allocation line from:
+
 ```rust
             let mut arena = vec![0.0; len * plan_to_use.nodes.len()];
 ```
+
 to:
+
 ```rust
             let mut arena = vec![0.0; arena_elements];
 ```
@@ -331,6 +337,7 @@ use super::utils::{validate_knot_spacing, MIN_RELATIVE_KNOT_GAP};
 Then add `validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;` in `from_raw()` for these strategies:
 
 1. **`LinearStrategy::from_raw()`** (line ~26): Although `from_raw()` currently returns `Ok(Self)` with no precomputation, `LinearStrategy::interp()` calls `segment_slope()` (line 143) which divides by `(x1 - x0)`. Add the validation to catch near-zero gaps at construction time. Change:
+
    ```rust
    fn from_raw(
        _knots: &[f64],
@@ -341,7 +348,9 @@ Then add `validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;` in `from_raw()`
        Ok(Self)
    }
    ```
+
    To:
+
    ```rust
    fn from_raw(
        knots: &[f64],
@@ -352,19 +361,23 @@ Then add `validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;` in `from_raw()`
        Ok(Self)
    }
    ```
+
    Note: rename `_knots` to `knots` (remove underscore prefix).
 
 2. **`PiecewiseQuadraticForwardStrategy::from_raw()`** (line ~342): Add after `validate_positive_series(values)?;` (line 348):
+
    ```rust
    validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
    ```
 
 3. **`CubicHermiteStrategy::from_raw()`** (line ~563): Add after the opening brace:
+
    ```rust
    validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
    ```
 
 4. **`MonotoneConvexStrategy::from_raw()`** (line ~832): Add after `validate_monotone_nonincreasing(values)?;` (line 838):
+
    ```rust
    validate_knot_spacing(knots, MIN_RELATIVE_KNOT_GAP)?;
    ```
@@ -435,6 +448,7 @@ Expected: FAIL — `validate_currency_invariant` doesn't exist.
 In `finstack/statements/src/capital_structure/types.rs`, replace lines 143-149:
 
 **Before:**
+
 ```rust
     #[allow(clippy::expect_used)] // Type invariant: all Money fields have same currency
     pub fn interest_expense_total(&self) -> Money {
@@ -446,6 +460,7 @@ In `finstack/statements/src/capital_structure/types.rs`, replace lines 143-149:
 ```
 
 **After:**
+
 ```rust
     pub fn interest_expense_total(&self) -> Money {
         debug_assert_eq!(
@@ -851,6 +866,7 @@ In `finstack/core/src/math/solver.rs`, find the `SOLVER_TOLERANCE` constant (or 
 In `finstack/core/src/expr/eval.rs`, replace lines 85-87:
 
 **Before:**
+
 ```rust
 /// # Thread Safety
 ///
@@ -858,6 +874,7 @@ In `finstack/core/src/expr/eval.rs`, replace lines 85-87:
 ```
 
 **After:**
+
 ```rust
 /// # Thread Safety
 ///

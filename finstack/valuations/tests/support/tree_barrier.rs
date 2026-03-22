@@ -49,3 +49,35 @@ fn test_american_knock_in_put_ge_european() {
         "American knock-in should not be less than European"
     );
 }
+
+#[test]
+fn test_knock_in_requires_exactly_one_barrier_level() {
+    let market = OptionMarketParams::call(100.0, 100.0, 0.05, 0.20, 1.0);
+    let tree = BinomialTree::crr(100);
+
+    let neither = tree.price_barrier_in(&market, None, None, 0.0);
+    let both = tree.price_barrier_in(&market, Some(120.0), Some(80.0), 0.0);
+
+    assert!(neither.is_err(), "knock-in without a barrier should fail");
+    assert!(both.is_err(), "knock-in with two barriers should fail");
+}
+
+#[test]
+fn test_bermudan_knock_in_lies_between_european_and_american() {
+    let market = OptionMarketParams::put(100.0, 105.0, 0.03, 0.25, 1.0);
+    let tree = BinomialTree::crr(200);
+    let exercise_dates = vec![0.25, 0.5, 0.75, 1.0];
+
+    let european = tree
+        .price_barrier_in(&market, None, Some(95.0), 0.0)
+        .unwrap();
+    let bermudan = tree
+        .price_barrier_in_bermudan(&market, None, Some(95.0), 0.0, &exercise_dates)
+        .unwrap();
+    let american = tree
+        .price_barrier_in_american(&market, None, Some(95.0), 0.0)
+        .unwrap();
+
+    assert!(bermudan + 1e-8 >= european);
+    assert!(american + 1e-8 >= bermudan);
+}

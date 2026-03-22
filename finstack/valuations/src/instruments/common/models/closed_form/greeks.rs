@@ -563,4 +563,63 @@ mod tests {
             rhs
         );
     }
+
+    #[test]
+    fn expiry_and_invalid_inputs_return_documented_boundary_values() {
+        assert_eq!(bs_call_delta(110.0, 100.0, 0.0, 0.05, 0.0, 0.2), 1.0);
+        assert_eq!(bs_call_delta(90.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_put_delta(90.0, 100.0, 0.0, 0.05, 0.0, 0.2), -1.0);
+        assert_eq!(bs_put_delta(110.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+
+        assert_eq!(bs_gamma(100.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_gamma(0.0, 100.0, 1.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_gamma(100.0, 100.0, 1.0, 0.05, 0.0, 0.0), 0.0);
+        assert_eq!(bs_vega(100.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_call_theta(100.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_put_theta(100.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_call_rho(100.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+        assert_eq!(bs_put_rho(100.0, 100.0, 0.0, 0.05, 0.0, 0.2), 0.0);
+    }
+
+    #[test]
+    fn put_and_call_share_gamma_and_vega_but_have_opposite_rho_signs() {
+        let gamma = bs_gamma(100.0, 100.0, 1.0, 0.05, 0.01, 0.2);
+        let vega = bs_vega(100.0, 100.0, 1.0, 0.05, 0.01, 0.2);
+        let call = bs_call_greeks(100.0, 100.0, 1.0, 0.05, 0.01, 0.2);
+        let put = bs_put_greeks(100.0, 100.0, 1.0, 0.05, 0.01, 0.2);
+
+        assert!((call.gamma - gamma).abs() < 1e-12);
+        assert!((put.gamma - gamma).abs() < 1e-12);
+        assert!((call.vega - vega).abs() < 1e-12);
+        assert!((put.vega - vega).abs() < 1e-12);
+        assert!(call.rho_r > 0.0);
+        assert!(put.rho_r < 0.0);
+    }
+
+    #[test]
+    fn theta_and_vega_follow_expected_maturity_monotonicity() {
+        let near_call_theta = bs_call_theta(100.0, 100.0, 0.25, 0.05, 0.0, 0.2);
+        let far_call_theta = bs_call_theta(100.0, 100.0, 1.0, 0.05, 0.0, 0.2);
+        let near_vega = bs_vega(100.0, 100.0, 0.25, 0.05, 0.0, 0.2);
+        let far_vega = bs_vega(100.0, 100.0, 1.0, 0.05, 0.0, 0.2);
+
+        assert!(near_call_theta < far_call_theta);
+        assert!(far_vega > near_vega);
+    }
+
+    #[test]
+    fn greek_aggregators_match_individual_components() {
+        let call = bs_call_greeks(105.0, 100.0, 0.75, 0.04, 0.01, 0.25);
+        let put = bs_put_greeks(105.0, 100.0, 0.75, 0.04, 0.01, 0.25);
+
+        assert!((call.delta - bs_call_delta(105.0, 100.0, 0.75, 0.04, 0.01, 0.25)).abs() < 1e-12);
+        assert!((call.theta - bs_call_theta(105.0, 100.0, 0.75, 0.04, 0.01, 0.25)).abs() < 1e-12);
+        assert!((call.rho_r - bs_call_rho(105.0, 100.0, 0.75, 0.04, 0.01, 0.25)).abs() < 1e-12);
+        assert!(call.rho_q < 0.0);
+
+        assert!((put.delta - bs_put_delta(105.0, 100.0, 0.75, 0.04, 0.01, 0.25)).abs() < 1e-12);
+        assert!((put.theta - bs_put_theta(105.0, 100.0, 0.75, 0.04, 0.01, 0.25)).abs() < 1e-12);
+        assert!((put.rho_r - bs_put_rho(105.0, 100.0, 0.75, 0.04, 0.01, 0.25)).abs() < 1e-12);
+        assert!(put.rho_q > 0.0);
+    }
 }

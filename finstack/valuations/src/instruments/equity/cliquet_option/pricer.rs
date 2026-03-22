@@ -467,3 +467,143 @@ pub(crate) fn compute_pv(
     let pricer = CliquetOptionMcPricer::new();
     pricer.price_internal(inst, curves, as_of)
 }
+
+#[cfg(all(test, feature = "mc"))]
+#[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::instruments::equity::cliquet_option::types::{CliquetOption, CliquetPayoffType};
+    use crate::instruments::{Attributes, PricingOverrides};
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::market_data::surfaces::VolSurface;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::Money;
+    use finstack_core::types::{CurveId, InstrumentId};
+    use time::Month;
+
+    fn date(year: i32, month: u8, day: u8) -> Date {
+        Date::from_calendar_date(year, Month::try_from(month).expect("valid month"), day)
+            .expect("valid date")
+    }
+
+    fn market(as_of: Date) -> MarketContext {
+        let curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94)])
+            .build()
+            .expect("curve");
+        let surface = VolSurface::builder("SPX-VOL")
+            .expiries(&[0.25, 0.5, 1.0, 2.0])
+            .strikes(&[80.0, 100.0, 120.0, 140.0])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .row(&[0.20, 0.20, 0.20, 0.20])
+            .build()
+            .expect("surface");
+
+        MarketContext::new()
+            .insert(curve)
+            .insert_surface(surface)
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(100.0))
+            .insert_price("SPX-DIV", MarketScalar::Unitless(0.01))
+    }
+
+    fn live_option() -> CliquetOption {
+        CliquetOption::builder()
+            .id(InstrumentId::new("CLIQ-TEST"))
+            .underlying_ticker("SPX".to_string())
+            .reset_dates(vec![date(2024, 6, 30), date(2024, 12, 31)])
+            .expiry(date(2024, 12, 31))
+            .local_cap(0.05)
+            .local_floor(0.0)
+            .global_cap(0.20)
+            .global_floor(0.0)
+            .notional(Money::new(100_000.0, Currency::USD))
+            .day_count(finstack_core::dates::DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("cliquet option")
+    }
+
+    #[test]
+    fn expired_cliquet_returns_zero_for_price_and_unitless_spot() {
+        let as_of = date(2025, 1, 1);
+        let mut option = CliquetOption::example().expect("example");
+        option.reset_dates.clear();
+        option.expiry = as_of;
+
+        let unitless_market = market(as_of);
+        let price_market = unitless_market.clone().insert_price(
+            "SPX-SPOT",
+            MarketScalar::Price(Money::new(100.0, Currency::USD)),
+        );
+
+        let pv_unitless = compute_pv(&option, &unitless_market, as_of).expect("unitless pv");
+        let pv_price = compute_pv(&option, &price_market, as_of).expect("price pv");
+
+        assert_eq!(pv_unitless.amount(), 0.0);
+        assert_eq!(pv_price.amount(), 0.0);
+    }
+
+    #[test]
+    fn cliquet_rejects_missing_dividend_yield_when_id_is_configured() {
+        let as_of = date(2024, 1, 1);
+        let option = live_option();
+        let err =
+            compute_pv(&option, &market(as_of).clone(), as_of).expect("base case should succeed");
+        assert!(err.amount().is_finite());
+
+        let missing_div_market = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of)
+                    .day_count(finstack_core::dates::DayCount::Act365F)
+                    .knots([(0.0, 1.0), (1.0, 0.97), (2.0, 0.94)])
+                    .build()
+                    .expect("curve"),
+            )
+            .insert_surface(
+                VolSurface::builder("SPX-VOL")
+                    .expiries(&[0.25, 0.5, 1.0, 2.0])
+                    .strikes(&[80.0, 100.0, 120.0, 140.0])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .row(&[0.20, 0.20, 0.20, 0.20])
+                    .build()
+                    .expect("surface"),
+            )
+            .insert_price("SPX-SPOT", MarketScalar::Unitless(100.0));
+
+        let err =
+            compute_pv(&option, &missing_div_market, as_of).expect_err("missing div should error");
+        assert!(err.to_string().contains("Failed to fetch dividend yield"));
+    }
+
+    #[test]
+    fn cliquet_rejects_price_scalar_dividend_yield_and_keeps_multiplicative_seeded() {
+        let as_of = date(2024, 1, 1);
+        let mut option = live_option();
+        option.payoff_type = CliquetPayoffType::Multiplicative;
+
+        let bad_market = market(as_of).insert_price(
+            "SPX-DIV",
+            MarketScalar::Price(Money::new(1.0, Currency::USD)),
+        );
+        let err = compute_pv(&option, &bad_market, as_of).expect_err("price div should error");
+        assert!(err.to_string().contains("unitless scalar"));
+
+        let good_market = market(as_of);
+        let pv1 = compute_pv(&option, &good_market, as_of).expect("pv1");
+        let pv2 = compute_pv(&option, &good_market, as_of).expect("pv2");
+        assert_eq!(pv1.amount(), pv2.amount());
+    }
+}

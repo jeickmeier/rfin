@@ -83,6 +83,13 @@ repos:
         types: [rust]
         pass_filenames: false
 
+      - id: rust-coverage-gate
+        name: Rust coverage gate (>75% workspace and touched files)
+        entry: make coverage-rust-gate
+        language: system
+        types: [rust]
+        pass_filenames: false
+
       - id: ruff-lint
         name: Python lint (ruff)
         entry: uv run ruff check . --fix --unsafe-fixes

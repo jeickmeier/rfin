@@ -789,10 +789,8 @@ mod tests {
             other => panic!("expected InvalidInput, got {other:?}"),
         }
 
-        let fallback_input = PricingError::from_core(
-            finstack_core::InputError::Invalid.into(),
-            ctx,
-        );
+        let fallback_input =
+            PricingError::from_core(finstack_core::InputError::Invalid.into(), ctx);
         match fallback_input {
             PricingError::InvalidInput { message, .. } => {
                 assert!(message.contains("Invalid input data"));
@@ -820,11 +818,9 @@ mod tests {
             other => panic!("expected InvalidInput, got {other:?}"),
         }
 
-        let missing = PricingError::missing_market_data_with_context(
-            "EUR-OIS",
-            PricingErrorContext::new(),
-        )
-        .with_instrument_id("SWAP-1");
+        let missing =
+            PricingError::missing_market_data_with_context("EUR-OIS", PricingErrorContext::new())
+                .with_instrument_id("SWAP-1");
         match missing {
             PricingError::MissingMarketData {
                 missing_id,

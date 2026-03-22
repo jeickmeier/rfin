@@ -2215,4 +2215,217 @@ mod tests {
         let result = smile.validate_no_arbitrage(&strikes, 0.05, 0.02);
         assert!(result.is_ok(), "Validation should complete without error");
     }
+
+    #[test]
+    fn test_sabr_new_with_shift_rejects_non_positive_shift() {
+        let zero_shift = SABRParameters::new_with_shift(0.2, 0.5, 0.3, -0.2, 0.0);
+        let negative_shift = SABRParameters::new_with_shift(0.2, 0.5, 0.3, -0.2, -0.01);
+
+        for result in [zero_shift, negative_shift] {
+            let err = result.expect_err("non-positive shifts should fail");
+            let err_text = err.to_string();
+            assert!(
+                err_text.contains("shift parameter must be positive"),
+                "unexpected error: {err_text}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_sabr_validate_inputs_covers_standard_and_shifted_branches() {
+        let standard = SABRModel::new(
+            SABRParameters::new(0.2, 0.5, 0.3, -0.2).expect("valid standard params"),
+        );
+        assert!(standard.validate_inputs(100.0, 110.0, 1.0).is_ok());
+
+        let time_err = standard
+            .validate_inputs(100.0, 110.0, 0.0)
+            .expect_err("non-positive expiry should fail");
+        assert!(time_err.to_string().contains("time_to_expiry"));
+
+        let standard_rate_err = standard
+            .validate_inputs(-0.01, 0.02, 1.0)
+            .expect_err("unshifted SABR should reject non-positive rates");
+        assert!(standard_rate_err.to_string().contains("positive rates"));
+
+        let shifted = SABRModel::new(
+            SABRParameters::new_with_shift(0.2, 0.5, 0.3, -0.2, 0.02)
+                .expect("valid shifted params"),
+        );
+        assert!(shifted.validate_inputs(-0.005, 0.0, 1.0).is_ok());
+
+        let shifted_rate_err = shifted
+            .validate_inputs(-0.03, -0.02, 1.0)
+            .expect_err("effective non-positive shifted rates should fail");
+        assert!(shifted_rate_err
+            .to_string()
+            .contains("effective rates must be positive"));
+    }
+
+    #[test]
+    fn test_sabr_nu_zero_short_circuit_matches_atm_vol_off_atm() {
+        let params = SABRParameters::new(0.24, 0.6, 0.0, -0.35).expect("valid params");
+        let model = SABRModel::new(params);
+
+        let forward = 100.0;
+        let strike = 120.0;
+        let expiry = 1.5;
+
+        let off_atm = model
+            .implied_volatility(forward, strike, expiry)
+            .expect("vol should compute");
+        let atm = model
+            .atm_volatility(forward, expiry)
+            .expect("ATM vol should compute");
+
+        assert!(
+            (off_atm - atm).abs() < 1e-12,
+            "nu == 0 path should fall back to ATM volatility"
+        );
+    }
+
+    #[test]
+    fn test_solve_alpha_for_atm_round_trips_target_vol() {
+        let forward = 100.0;
+        let time_to_expiry = 2.0;
+        let beta = 0.55;
+        let nu = 0.42;
+        let rho = -0.18;
+        let original_alpha = 0.28;
+
+        let original = SABRModel::new(
+            SABRParameters::new(original_alpha, beta, nu, rho).expect("valid params"),
+        );
+        let target_atm = original
+            .atm_volatility(forward, time_to_expiry)
+            .expect("ATM vol should compute");
+
+        let solved_alpha =
+            solve_alpha_for_atm(forward, target_atm, time_to_expiry, beta, nu, rho, 1e-12)
+                .expect("alpha solve should succeed");
+
+        let solved = SABRModel::new(
+            SABRParameters::new(solved_alpha, beta, nu, rho)
+                .expect("solved params should be valid"),
+        );
+        let solved_atm = solved
+            .atm_volatility(forward, time_to_expiry)
+            .expect("ATM vol should compute");
+
+        assert!((solved_alpha - original_alpha).abs() < 1e-8);
+        assert!((solved_atm - target_atm).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_sabr_calibrate_with_atm_pinning_matches_synthetic_smile() {
+        let true_params = SABRParameters::new(0.22, 0.6, 0.35, -0.25).expect("valid params");
+        let true_model = SABRModel::new(true_params);
+
+        let forward = 100.0;
+        let expiry = 1.25;
+        let beta = 0.6;
+        let strikes = vec![80.0, 90.0, 100.0, 110.0, 120.0];
+        let market_vols: Vec<f64> = strikes
+            .iter()
+            .map(|&strike| {
+                true_model
+                    .implied_volatility(forward, strike, expiry)
+                    .expect("synthetic vol should compute")
+            })
+            .collect();
+
+        let calibrated = SABRCalibrator::new()
+            .with_tolerance(1e-10)
+            .with_max_iterations(200)
+            .calibrate_with_atm_pinning(forward, &strikes, &market_vols, expiry, beta)
+            .expect("ATM-pinned calibration should succeed");
+        let calibrated_model = SABRModel::new(calibrated);
+
+        let atm_idx = strikes
+            .iter()
+            .position(|&strike| strike == forward)
+            .expect("ATM strike should be present");
+        let atm_market = market_vols[atm_idx];
+        let calibrated_atm = calibrated_model
+            .atm_volatility(forward, expiry)
+            .expect("ATM vol should compute");
+        assert!((calibrated_atm - atm_market).abs() < 1e-8);
+
+        for (strike, market_vol) in strikes.iter().zip(market_vols.iter()) {
+            let fitted = calibrated_model
+                .implied_volatility(forward, *strike, expiry)
+                .expect("fitted vol should compute");
+            assert!(
+                (fitted - market_vol).abs() < 1e-3,
+                "bad fit at strike {strike}: fitted={fitted}, market={market_vol}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_sabr_calibrate_with_derivatives_tracks_fd_gradient_solution() {
+        let true_params = SABRParameters::new(0.25, 0.5, 0.45, -0.3).expect("valid params");
+        let true_model = SABRModel::new(true_params);
+
+        let forward = 100.0;
+        let expiry = 0.75;
+        let beta = 0.5;
+        let strikes = vec![85.0, 95.0, 100.0, 105.0, 115.0];
+        let market_vols: Vec<f64> = strikes
+            .iter()
+            .map(|&strike| {
+                true_model
+                    .implied_volatility(forward, strike, expiry)
+                    .expect("synthetic vol should compute")
+            })
+            .collect();
+
+        let fd_params = SABRCalibrator::new()
+            .with_fd_gradients(true)
+            .with_tolerance(1e-9)
+            .with_max_iterations(200)
+            .calibrate_with_derivatives(forward, &strikes, &market_vols, expiry, beta)
+            .expect("FD-derivative calibration should succeed");
+        let analytic_params = SABRCalibrator::new()
+            .with_fd_gradients(false)
+            .with_tolerance(1e-9)
+            .with_max_iterations(200)
+            .calibrate_with_derivatives(forward, &strikes, &market_vols, expiry, beta)
+            .expect("analytical-derivative calibration should succeed");
+
+        let fd_model = SABRModel::new(fd_params);
+        let analytic_model = SABRModel::new(analytic_params);
+        for (strike, market_vol) in strikes.into_iter().zip(market_vols.into_iter()) {
+            let fd_vol = fd_model
+                .implied_volatility(forward, strike, expiry)
+                .expect("FD model vol should compute");
+            let analytic_vol = analytic_model
+                .implied_volatility(forward, strike, expiry)
+                .expect("analytic model vol should compute");
+            assert!(
+                (fd_vol - market_vol).abs() < 2e-2,
+                "FD fit too loose at strike {strike}: fitted={fd_vol}, market={market_vol}"
+            );
+            assert!(
+                (analytic_vol - market_vol).abs() < 2e-2,
+                "analytical fit too loose at strike {strike}: fitted={analytic_vol}, market={market_vol}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_sabr_strike_from_delta_half_delta_returns_forward() {
+        let params = SABRParameters::new(0.2, 0.5, 0.3, -0.2).expect("valid params");
+        let smile = SABRSmile::new(SABRModel::new(params), 100.0, 1.0);
+
+        let call_strike = smile
+            .strike_from_delta(0.5, true)
+            .expect("call strike should compute");
+        let put_strike = smile
+            .strike_from_delta(0.5, false)
+            .expect("put strike should compute");
+
+        assert!((call_strike - 100.0).abs() < 1e-12);
+        assert!((put_strike - 100.0).abs() < 1e-12);
+    }
 }

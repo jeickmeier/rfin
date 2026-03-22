@@ -553,7 +553,8 @@ impl Pricer for LookbackOptionAnalyticalPricer {
 mod tests {
     use super::*;
     use crate::instruments::common_impl::models::closed_form::lookback::{
-        fixed_strike_lookback_call, floating_strike_lookback_put,
+        fixed_strike_lookback_call, fixed_strike_lookback_put, floating_strike_lookback_call,
+        floating_strike_lookback_put,
     };
     use crate::instruments::exotics::lookback_option::{LookbackOption, LookbackType};
     use crate::instruments::{Attributes, OptionType, PricingOverrides};
@@ -613,6 +614,48 @@ mod tests {
             .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
             .pricing_overrides(PricingOverrides::default())
             .observed_max_opt(observed_max.map(|value| Money::new(value, Currency::USD)))
+            .attributes(Attributes::new())
+            .build()
+            .expect("lookback option")
+    }
+
+    fn fixed_strike_put(expiry: Date, strike: f64, observed_min: Option<f64>) -> LookbackOption {
+        LookbackOption::builder()
+            .id(InstrumentId::new("LOOKBACK-FIXED-PUT"))
+            .underlying_ticker("SPX".to_string())
+            .strike_opt(Some(strike))
+            .option_type(OptionType::Put)
+            .lookback_type(LookbackType::FixedStrike)
+            .expiry(expiry)
+            .notional(Money::new(1.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .observed_min_opt(observed_min.map(|value| Money::new(value, Currency::USD)))
+            .attributes(Attributes::new())
+            .build()
+            .expect("lookback option")
+    }
+
+    fn floating_strike_call(expiry: Date, observed_min: Option<f64>) -> LookbackOption {
+        LookbackOption::builder()
+            .id(InstrumentId::new("LOOKBACK-FLOAT-CALL"))
+            .underlying_ticker("SPX".to_string())
+            .strike_opt(None)
+            .option_type(OptionType::Call)
+            .lookback_type(LookbackType::FloatingStrike)
+            .expiry(expiry)
+            .notional(Money::new(1.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .observed_min_opt(observed_min.map(|value| Money::new(value, Currency::USD)))
             .attributes(Attributes::new())
             .build()
             .expect("lookback option")
@@ -693,5 +736,104 @@ mod tests {
             floating_strike_lookback_put(spot, t, rate, div_yield, vol, observed_max.max(spot));
 
         assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analytical_pricer_matches_fixed_strike_lookback_put_benchmark() {
+        let as_of = date(2025, 1, 1);
+        let expiry = date(2026, 1, 1);
+        let spot = 100.0;
+        let strike = 100.0;
+        let observed_min = 82.0;
+        let rate = 0.03;
+        let div_yield = 0.01;
+        let vol = 0.25;
+
+        let option = fixed_strike_put(expiry, strike, Some(observed_min));
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("lookback pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected = fixed_strike_lookback_put(
+            spot,
+            strike,
+            t,
+            rate,
+            div_yield,
+            vol,
+            observed_min.min(spot),
+        );
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analytical_pricer_matches_floating_strike_lookback_call_benchmark() {
+        let as_of = date(2025, 1, 1);
+        let expiry = date(2026, 1, 1);
+        let spot = 100.0;
+        let observed_min = 85.0;
+        let rate = 0.04;
+        let div_yield = 0.0;
+        let vol = 0.18;
+
+        let option = floating_strike_call(expiry, Some(observed_min));
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("lookback pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let expected =
+            floating_strike_lookback_call(spot, t, rate, div_yield, vol, observed_min.min(spot));
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn expired_lookback_payoff_covers_remaining_option_shapes() {
+        let expiry = date(2025, 1, 1);
+
+        let fixed_put = fixed_strike_put(expiry, 100.0, Some(82.0));
+        let floating_call = floating_strike_call(expiry, Some(84.0));
+        let floating_put = floating_strike_put(expiry, Some(130.0));
+
+        let fixed_put_payoff = expired_lookback_payoff(&fixed_put, 95.0).expect("fixed put payoff");
+        let floating_call_payoff =
+            expired_lookback_payoff(&floating_call, 96.0).expect("floating call payoff");
+        let floating_put_payoff =
+            expired_lookback_payoff(&floating_put, 96.0).expect("floating put payoff");
+
+        assert!((fixed_put_payoff - 18.0).abs() < 1e-12);
+        assert!((floating_call_payoff - 12.0).abs() < 1e-12);
+        assert!((floating_put_payoff - 34.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn expired_lookback_payoff_requires_strike_for_fixed_strike_options() {
+        let option = LookbackOption::builder()
+            .id(InstrumentId::new("LOOKBACK-MISSING-STRIKE"))
+            .underlying_ticker("SPX".to_string())
+            .strike_opt(None)
+            .option_type(OptionType::Put)
+            .lookback_type(LookbackType::FixedStrike)
+            .expiry(date(2025, 1, 1))
+            .notional(Money::new(1.0, Currency::USD))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .spot_id("SPX-SPOT".into())
+            .vol_surface_id(CurveId::new("SPX-VOL"))
+            .div_yield_id_opt(Some(CurveId::new("SPX-DIV")))
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("lookback option");
+
+        let err = expired_lookback_payoff(&option, 100.0).expect_err("missing strike should error");
+        assert!(err.to_string().contains("requires a strike"));
     }
 }

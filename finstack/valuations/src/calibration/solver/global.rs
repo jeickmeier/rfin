@@ -1383,4 +1383,134 @@ mod tests {
 
         assert_eq!(report.residuals.len(), quotes.len());
     }
+
+    #[test]
+    fn rejects_empty_active_quotes() {
+        let target = TestTarget::from_len(1, vec![0.0]);
+        let quotes: Vec<usize> = Vec::new();
+        let config = CalibrationConfig::default().with_tolerance(1.0);
+
+        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config, None)
+            .expect_err("empty active quotes should fail");
+        assert!(matches!(
+            err,
+            Error::Input(finstack_core::InputError::TooFewPoints)
+        ));
+    }
+
+    #[test]
+    fn rejects_underdetermined_least_squares_system() {
+        let target = TestTarget::new(vec![1.0, 2.0, 3.0], vec![0.0, 0.0, 0.0], vec![0.01, 0.02]);
+        let quotes = vec![0usize, 1usize];
+        let config = CalibrationConfig::default().with_tolerance(1.0);
+
+        let err = GlobalFitOptimizer::optimize(&target, &quotes, &config, None)
+            .expect_err("n_residuals < n_params should fail");
+        match err {
+            Error::Calibration { message, .. } => {
+                assert!(
+                    message.contains("n_residuals >= n_params"),
+                    "unexpected message: {message}"
+                );
+            }
+            other => panic!("unexpected error type: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn rejects_invalid_and_zero_residual_weights() {
+        let quotes = vec![0usize, 1usize];
+        let config = CalibrationConfig::default().with_tolerance(1.0);
+
+        for weights in [vec![-1.0, 1.0], vec![f64::NAN, 1.0]] {
+            let target = TestTarget::from_len(2, vec![0.01, 0.02]).with_weights(weights);
+            let err = GlobalFitOptimizer::optimize(&target, &quotes, &config, None)
+                .expect_err("invalid weights should fail");
+            match err {
+                Error::Calibration { message, .. } => {
+                    assert!(
+                        message.contains("non-negative finite residual weights"),
+                        "unexpected message: {message}"
+                    );
+                }
+                other => panic!("unexpected error type: {other:?}"),
+            }
+        }
+
+        let zero_target = TestTarget::from_len(2, vec![0.01, 0.02]).with_weights(vec![0.0, 0.0]);
+        let zero_err = GlobalFitOptimizer::optimize(&zero_target, &quotes, &config, None)
+            .expect_err("all-zero weights should fail");
+        match zero_err {
+            Error::Calibration { message, .. } => {
+                assert!(
+                    message.contains("at least one positive residual weight"),
+                    "unexpected message: {message}"
+                );
+            }
+            other => panic!("unexpected error type: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn success_tolerance_override_controls_report_success() {
+        let target = TestTarget::from_len(1, vec![0.15]);
+        let quotes = vec![0usize];
+        let config = CalibrationConfig::default().with_tolerance(1.0);
+
+        let (_curve, report) = GlobalFitOptimizer::optimize(&target, &quotes, &config, Some(0.1))
+            .expect("optimization should still complete");
+
+        assert!(
+            !report.success,
+            "explicit success tolerance should be enforced"
+        );
+        assert_eq!(
+            report.metadata.get("success_tolerance"),
+            Some(&format!("{:.2e}", 0.1))
+        );
+        assert!(
+            (report.objective_value - 0.15).abs() < 1e-12,
+            "objective_value should be weighted L2 norm"
+        );
+    }
+
+    #[test]
+    fn compute_diagnostics_populates_report_when_enabled() {
+        let target = TestTarget::from_len(1, vec![0.01]);
+        let quotes = vec![0usize];
+        let config = CalibrationConfig::default()
+            .with_tolerance(1.0)
+            .with_compute_diagnostics(true);
+
+        let (_curve, report) =
+            GlobalFitOptimizer::optimize(&target, &quotes, &config, None).expect("should succeed");
+
+        let diagnostics = report
+            .diagnostics
+            .as_ref()
+            .expect("diagnostics should be populated");
+        assert_eq!(diagnostics.per_quote.len(), 1);
+        assert!((diagnostics.max_residual - 0.01).abs() < 1e-12);
+        assert!(diagnostics.condition_number.is_none());
+    }
+
+    #[test]
+    fn perturb_initial_guess_is_deterministic_and_respects_bounds() {
+        let initials = vec![1.0, 2.0];
+        let lb = Some(vec![0.9, 1.7]);
+        let ub = Some(vec![1.1, 2.5]);
+
+        let first = perturb_initial_guess(&initials, 0.5, 0, &lb, &ub);
+        let second = perturb_initial_guess(&initials, 0.5, 0, &lb, &ub);
+
+        assert_eq!(
+            first, second,
+            "Halton-based perturbations should be deterministic"
+        );
+        assert!((first[0] - 1.0).abs() < 1e-12);
+        assert!(
+            (first[1] - 1.7).abs() < 1e-12,
+            "second coordinate should clamp to lower bound"
+        );
+    }
 }

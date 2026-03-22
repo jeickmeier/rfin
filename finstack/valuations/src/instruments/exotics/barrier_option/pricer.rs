@@ -590,7 +590,8 @@ impl Pricer for BarrierOptionAnalyticalPricer {
 mod tests {
     use super::*;
     use crate::instruments::common_impl::models::closed_form::barrier::{
-        barrier_rebate_continuous, down_out_call,
+        barrier_call_continuous_df, barrier_put_continuous_df, barrier_rebate_continuous,
+        down_out_call, BarrierType as AnalyticalBarrierType,
     };
     use crate::instruments::exotics::barrier_option::types::{BarrierOption, BarrierType};
     use crate::instruments::{Attributes, OptionType, PricingOverrides};
@@ -725,5 +726,135 @@ mod tests {
         );
 
         assert!(((rebate_pv - base_pv) - expected_rebate).abs() < 1e-12);
+    }
+
+    #[test]
+    fn expired_barrier_paths_cover_knock_in_and_knock_out_matrix() {
+        let curves = MarketContext::new().insert_price("SPX", MarketScalar::Unitless(120.0));
+        let base = down_and_out_call(date(2024, 7, 1), 100.0, 80.0);
+
+        let knocked_out = BarrierOption {
+            rebate: Some(Money::new(3.0, Currency::USD)),
+            observed_barrier_breached: Some(true),
+            ..base.clone()
+        };
+        let alive_knock_out = BarrierOption {
+            observed_barrier_breached: Some(false),
+            ..base.clone()
+        };
+        let knocked_in = BarrierOption {
+            barrier_type: BarrierType::UpAndIn,
+            observed_barrier_breached: Some(true),
+            ..base.clone()
+        };
+        let no_hit_knock_in = BarrierOption {
+            barrier_type: BarrierType::UpAndIn,
+            rebate: Some(Money::new(2.5, Currency::USD)),
+            observed_barrier_breached: Some(false),
+            ..base
+        };
+
+        assert_eq!(
+            price_expired_barrier(&knocked_out, &curves)
+                .expect("ko")
+                .amount(),
+            3.0
+        );
+        assert_eq!(
+            price_expired_barrier(&alive_knock_out, &curves)
+                .expect("alive ko")
+                .amount(),
+            20.0
+        );
+        assert_eq!(
+            price_expired_barrier(&knocked_in, &curves)
+                .expect("ki")
+                .amount(),
+            20.0
+        );
+        assert_eq!(
+            price_expired_barrier(&no_hit_knock_in, &curves)
+                .expect("no hit ki")
+                .amount(),
+            2.5
+        );
+    }
+
+    #[test]
+    fn analytical_pricer_applies_monitoring_frequency_shift_for_down_barrier() {
+        let as_of = date(2024, 1, 1);
+        let expiry = date(2024, 7, 1);
+        let spot = 100.0;
+        let strike = 100.0;
+        let barrier = 80.0;
+        let vol = 0.20;
+        let rate = 0.05;
+        let div_yield = 0.0;
+        let monitoring_dt = 1.0 / 252.0;
+
+        let option = BarrierOption {
+            monitoring_frequency: Some(monitoring_dt),
+            ..down_and_out_call(expiry, strike, barrier)
+        };
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("barrier pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let df = (-rate * t).exp();
+        let shifted_barrier = barrier * (-(BG_BETA * vol * monitoring_dt.sqrt())).exp();
+        let expected = barrier_call_continuous_df(
+            spot,
+            strike,
+            shifted_barrier,
+            t,
+            df,
+            div_yield,
+            vol,
+            AnalyticalBarrierType::DownOut,
+        );
+
+        assert!((pv - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn analytical_pricer_matches_put_reference_branch() {
+        let as_of = date(2024, 1, 1);
+        let expiry = date(2024, 9, 1);
+        let spot = 100.0;
+        let strike = 95.0;
+        let barrier = 120.0;
+        let vol = 0.22;
+        let rate = 0.04;
+        let div_yield = 0.01;
+
+        let option = BarrierOption {
+            barrier_type: BarrierType::UpAndOut,
+            option_type: OptionType::Put,
+            barrier: Money::new(barrier, Currency::USD),
+            ..down_and_out_call(expiry, strike, barrier)
+        };
+        let market = market(as_of, spot, vol, rate, div_yield);
+        let pv = option.value(&market, as_of).expect("put pv").amount();
+
+        let t = option
+            .day_count
+            .year_fraction(as_of, expiry, DayCountCtx::default())
+            .expect("year fraction");
+        let df = (-rate * t).exp();
+        let expected = barrier_put_continuous_df(
+            spot,
+            strike,
+            barrier,
+            t,
+            df,
+            div_yield,
+            vol,
+            AnalyticalBarrierType::UpOut,
+        );
+
+        assert!((pv - expected).abs() < 1e-12);
     }
 }
