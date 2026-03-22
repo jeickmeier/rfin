@@ -52,8 +52,8 @@ pub fn add_roll_forward<State>(
         .with_formula(end_formula);
 
     // 3. Add nodes to builder
-    builder.nodes.insert(NodeId::from(beg_node_id), beg_node);
-    builder.nodes.insert(NodeId::from(end_node_id), end_node);
+    builder.insert_node(NodeId::from(beg_node_id), beg_node);
+    builder.insert_node(NodeId::from(end_node_id), end_node);
 
     Ok(builder)
 }

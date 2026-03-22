@@ -118,6 +118,18 @@ pub struct ModelBuilder<State> {
     _state: PhantomData<State>,
 }
 
+impl<State> ModelBuilder<State> {
+    /// Insert a pre-built node into the model.
+    ///
+    /// This is an advanced API for template builders that need to construct
+    /// nodes programmatically. Prefer `.compute()` and `.value()` for
+    /// standard model construction.
+    pub fn insert_node(&mut self, id: NodeId, spec: NodeSpec) -> &mut Self {
+        self.nodes.insert(id, spec);
+        self
+    }
+}
+
 impl ModelBuilder<NeedPeriods> {
     /// Create a new model builder.
     ///

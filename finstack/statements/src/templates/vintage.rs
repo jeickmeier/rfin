@@ -61,7 +61,7 @@ pub fn add_vintage_buildup(
         .with_name(format!("{} (Total)", name))
         .with_formula(formula);
 
-    builder.nodes.insert(NodeId::from(name), node);
+    builder.insert_node(NodeId::from(name), node);
 
     Ok(builder)
 }
