@@ -193,10 +193,13 @@ impl<State> ModelBuilder<State> {
 ```
 
 The templates code then changes from:
+
 ```rust
 builder.nodes.insert(NodeId::from(name), node);
 ```
+
 to:
+
 ```rust
 builder.insert_node(NodeId::from(name), node);
 ```
@@ -281,6 +284,7 @@ Concrete implementations move to `finstack-statements-analytics`:
 - `scorecards.rs`: `CreditScorecardExtension`, `ScorecardConfig`, `ScorecardMetric`
 
 The analytics crate imports the trait from core:
+
 ```rust
 use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionResult};
 ```
@@ -317,6 +321,7 @@ This automatically makes analytics available to all consumers that use the aggre
 ## Import Path Changes
 
 For consumers using the re-export feature (default for all current consumers), no changes needed:
+
 ```rust
 // Still works with analytics feature enabled
 use finstack_statements::analysis::CorporateAnalysisBuilder;
@@ -326,6 +331,7 @@ use finstack_statements::prelude::*;
 ```
 
 For consumers importing directly from the new crate:
+
 ```rust
 use finstack_statements_analytics::analysis::CorporateAnalysisBuilder;
 ```
