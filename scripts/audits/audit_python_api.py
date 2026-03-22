@@ -249,8 +249,10 @@ def main() -> int:
     extractor = PythonAPIExtractor(py_src)
     api_data = extractor.extract_all()
 
-    # Write to output file
-    output_file = script_dir / "python_api.json"
+    # Write to .audit/ (gitignored) — never write to tracked repo files
+    audit_dir = project_root / ".audit"
+    audit_dir.mkdir(exist_ok=True)
+    output_file = audit_dir / "python_api.json"
     with output_file.open("w") as f:
         json.dump(api_data, f, indent=2)
 

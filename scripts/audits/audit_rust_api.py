@@ -421,6 +421,8 @@ def main() -> int:
     # Find project root
     script_dir = Path(__file__).parent
     project_root = script_dir.parent.parent
+    audit_dir = project_root / ".audit"
+    audit_dir.mkdir(exist_ok=True)
     rust_src = project_root / "finstack"
 
     if not rust_src.exists():
@@ -429,8 +431,8 @@ def main() -> int:
     extractor = RustAPIExtractor(rust_src)
     api_data = extractor.extract_all()
 
-    # Write to output file
-    output_file = script_dir / "rust_api.json"
+    # Write to .audit/ (gitignored) — never write to tracked repo files
+    output_file = audit_dir / "rust_api.json"
     with output_file.open("w") as f:
         json.dump(api_data, f, indent=2)
 
