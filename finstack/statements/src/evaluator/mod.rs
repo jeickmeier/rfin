@@ -34,7 +34,7 @@ mod engine;
 #[cfg(feature = "dataframes")]
 mod export;
 mod forecast_eval;
-pub(crate) mod formula;
+pub mod formula;
 mod formula_aggregates;
 pub(crate) mod formula_helpers;
 pub(crate) mod monte_carlo;

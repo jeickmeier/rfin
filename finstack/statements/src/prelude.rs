@@ -15,8 +15,8 @@ pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
 pub use crate::error::{Error, Result};
 pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, StatementResult};
 pub use crate::extensions::{
-    CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext, ExtensionMetadata,
-    ExtensionRegistry, ExtensionResult, ExtensionStatus,
+    Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,
+    ExtensionStatus,
 };
 pub use crate::registry::Registry;
 pub use crate::templates::{RealEstateExtension, TemplatesExtension, VintageExtension};

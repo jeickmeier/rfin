@@ -55,8 +55,8 @@
 //! # Example Usage
 //!
 //! ```rust,no_run
-//! use finstack_statements::extensions::{CreditScorecardExtension, ExtensionRegistry};
-//! use finstack_statements::extensions::ExtensionContext;
+//! use finstack_statements_analytics::extensions::CreditScorecardExtension;
+//! use finstack_statements::extensions::{ExtensionRegistry, ExtensionContext};
 //!
 //! # fn main() -> finstack_statements::Result<()> {
 //! let config = serde_json::json!({
@@ -76,8 +76,8 @@
 //! # }
 //! ```
 
-use super::plugin::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
-use crate::error::Result;
+use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
+use finstack_statements::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
@@ -222,7 +222,7 @@ impl CreditScorecardExtension {
     ///
     /// # Example
     /// ```rust
-    /// # use finstack_statements::extensions::CreditScorecardExtension;
+    /// # use finstack_statements_analytics::extensions::CreditScorecardExtension;
     /// let extension = CreditScorecardExtension::new();
     /// assert!(extension.config().is_none());
     /// ```
@@ -256,14 +256,14 @@ impl CreditScorecardExtension {
     fn resolve_config<'a>(&'a self, context: &'a ExtensionContext) -> Result<ScorecardConfig> {
         if let Some(config) = context.config {
             serde_json::from_value(config.clone()).map_err(|e| {
-                crate::error::Error::invalid_input(format!(
+                finstack_statements::error::Error::invalid_input(format!(
                     "Invalid scorecard configuration: {}",
                     e
                 ))
             })
         } else {
             self.config.clone().ok_or_else(|| {
-                crate::error::Error::registry("Credit scorecard extension requires configuration")
+                finstack_statements::error::Error::registry("Credit scorecard extension requires configuration")
             })
         }
     }
@@ -276,16 +276,16 @@ impl CreditScorecardExtension {
         config: &ScorecardConfig,
     ) -> Result<MetricScore> {
         // Parse and evaluate the formula
-        let expr = crate::dsl::parse_and_compile(&metric.formula)?;
+        let expr = finstack_statements::dsl::parse_and_compile(&metric.formula)?;
 
         // Create evaluation context for the last period (or average across all)
         let last_period = context
             .model
             .periods
             .last()
-            .ok_or_else(|| crate::error::Error::registry("No periods in model"))?;
+            .ok_or_else(|| finstack_statements::error::Error::registry("No periods in model"))?;
 
-        let node_to_column: indexmap::IndexMap<crate::types::NodeId, usize> = context
+        let node_to_column: indexmap::IndexMap<finstack_statements::types::NodeId, usize> = context
             .model
             .nodes
             .keys()
@@ -309,7 +309,7 @@ impl CreditScorecardExtension {
             }
         }
 
-        let mut eval_context = crate::evaluator::EvaluationContext::new(
+        let mut eval_context = finstack_statements::evaluator::EvaluationContext::new(
             last_period.id,
             std::sync::Arc::new(node_to_column),
             std::sync::Arc::new(historical_results),
@@ -328,7 +328,7 @@ impl CreditScorecardExtension {
         }
 
         // Evaluate the formula
-        let value = crate::evaluator::formula::evaluate_formula(
+        let value = finstack_statements::evaluator::formula::evaluate_formula(
             &expr,
             &mut eval_context,
             Some(metric.name.as_str()),
@@ -584,14 +584,14 @@ impl Extension for CreditScorecardExtension {
         // Validate configuration structure
         let scorecard_config: ScorecardConfig =
             serde_json::from_value(config.clone()).map_err(|e| {
-                crate::error::Error::invalid_input(format!(
+                finstack_statements::error::Error::invalid_input(format!(
                     "Invalid scorecard configuration: {}",
                     e
                 ))
             })?;
 
         if !is_supported_rating_scale(&scorecard_config.rating_scale) {
-            return Err(crate::error::Error::invalid_input(format!(
+            return Err(finstack_statements::error::Error::invalid_input(format!(
                 "Unsupported rating_scale '{}'. Expected one of: S&P, Moody's, Fitch",
                 scorecard_config.rating_scale
             )));
@@ -600,7 +600,7 @@ impl Extension for CreditScorecardExtension {
         // Validate metric weights sum to reasonable values
         let total_weight: f64 = scorecard_config.metrics.iter().map(|m| m.weight).sum();
         if total_weight > 0.0 && !(0.01..=100.0).contains(&total_weight) {
-            return Err(crate::error::Error::invalid_input(format!(
+            return Err(finstack_statements::error::Error::invalid_input(format!(
                 "Total metric weights ({}) should be between 0.01 and 100.0",
                 total_weight
             )));

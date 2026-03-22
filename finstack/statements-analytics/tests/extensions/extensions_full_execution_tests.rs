@@ -3,11 +3,12 @@
 //! These tests provide full coverage of the extension system by executing
 //! extensions with properly configured parameters.
 
-use finstack_statements::extensions::{
-    AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CreditScorecardExtension,
-    Extension, ExtensionContext, ExtensionStatus, ScorecardConfig, ScorecardMetric,
-};
+use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionStatus};
 use finstack_statements::prelude::*;
+use finstack_statements_analytics::extensions::{
+    AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension, CreditScorecardExtension,
+    ScorecardConfig, ScorecardMetric,
+};
 
 // ============================================================================
 // Corkscrew Extension Full Execution Tests

@@ -5,6 +5,7 @@ use finstack_statements::extensions::{
     ExtensionStatus,
 };
 use finstack_statements::prelude::*;
+use finstack_statements_analytics::extensions::{CorkscrewExtension, CreditScorecardExtension};
 use indexmap::indexmap;
 
 // ============================================================================
@@ -90,10 +91,14 @@ fn test_extension_registry_list() {
     registry
         .register(Box::new(SimpleValidationExtension::new()))
         .unwrap();
+    registry
+        .register(Box::new(CorkscrewExtension::new()))
+        .unwrap();
 
     let names = registry.list();
-    assert_eq!(names.len(), 1);
+    assert_eq!(names.len(), 2);
     assert!(names.contains(&"simple_validator".to_string()));
+    assert!(names.contains(&"corkscrew".to_string()));
 }
 
 #[test]
@@ -168,6 +173,9 @@ fn test_extension_execute_all() {
     registry
         .register(Box::new(SimpleValidationExtension::new()))
         .unwrap();
+    registry
+        .register(Box::new(CorkscrewExtension::new()))
+        .unwrap();
 
     // Create a simple model
     let model = ModelBuilder::new("test_model")
@@ -181,40 +189,32 @@ fn test_extension_execute_all() {
 
     let context = ExtensionContext::new(&model, &results);
 
-    // Execute all extensions
+    // Execute all extensions (use safe version since corkscrew lacks config)
     let extension_results = registry.execute_all_safe(&context);
 
-    assert_eq!(extension_results.len(), 1);
+    assert_eq!(extension_results.len(), 2);
     assert!(extension_results.contains_key("simple_validator"));
+    assert!(extension_results.contains_key("corkscrew"));
 
     // Verify simple_validator succeeded
     let validator_result = extension_results["simple_validator"].as_ref().unwrap();
     assert_eq!(validator_result.status, ExtensionStatus::Success);
+
+    // Verify corkscrew errors due to missing config
+    assert!(extension_results["corkscrew"].is_err());
+    assert!(extension_results["corkscrew"]
+        .as_ref()
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
 }
 
 #[test]
 fn test_extension_execution_order() {
-    struct AnotherExtension;
-
-    impl Extension for AnotherExtension {
-        fn metadata(&self) -> ExtensionMetadata {
-            ExtensionMetadata {
-                name: "another_ext".into(),
-                version: "1.0.0".into(),
-                description: None,
-                author: None,
-            }
-        }
-
-        fn execute(&mut self, _context: &ExtensionContext) -> Result<ExtensionResult> {
-            Ok(ExtensionResult::success("done"))
-        }
-    }
-
     let mut registry = ExtensionRegistry::new();
 
     registry
-        .register(Box::new(AnotherExtension))
+        .register(Box::new(CorkscrewExtension::new()))
         .unwrap();
     registry
         .register(Box::new(SimpleValidationExtension::new()))
@@ -222,7 +222,7 @@ fn test_extension_execution_order() {
 
     // Set custom execution order
     registry
-        .set_execution_order(vec!["simple_validator".into(), "another_ext".into()])
+        .set_execution_order(vec!["simple_validator".into(), "corkscrew".into()])
         .unwrap();
 
     let model = ModelBuilder::new("test_model")
@@ -240,7 +240,7 @@ fn test_extension_execution_order() {
 
     // Verify execution order (keys are still in order even with safe execution)
     let keys: Vec<_> = extension_results.keys().cloned().collect();
-    assert_eq!(keys, vec!["simple_validator", "another_ext"]);
+    assert_eq!(keys, vec!["simple_validator", "corkscrew"]);
 }
 
 #[test]
@@ -257,6 +257,115 @@ fn test_extension_execution_order_invalid() {
 
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains("not registered"));
+}
+
+// ============================================================================
+// Corkscrew Extension Tests
+// ============================================================================
+
+#[test]
+fn test_corkscrew_extension_placeholder() {
+    let model = ModelBuilder::new("test_model")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let context = ExtensionContext::new(&model, &results);
+
+    let mut extension = CorkscrewExtension::new();
+    // Extension requires config, should error without it
+    let result = extension.execute(&context);
+
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
+}
+
+#[test]
+fn test_corkscrew_extension_metadata() {
+    let extension = CorkscrewExtension::new();
+    let metadata = extension.metadata();
+
+    assert_eq!(metadata.name, "corkscrew");
+    assert_eq!(metadata.version, "0.1.0");
+    assert!(metadata.description.is_some());
+    assert!(extension.is_enabled());
+}
+
+#[test]
+fn test_corkscrew_config_schema() {
+    let extension = CorkscrewExtension::new();
+    let schema = extension.config_schema();
+
+    assert!(schema.is_some());
+    let schema_value = schema.unwrap();
+
+    // Verify schema has expected properties
+    assert!(schema_value.get("properties").is_some());
+    let properties = schema_value.get("properties").unwrap();
+    assert!(properties.get("accounts").is_some());
+    assert!(properties.get("tolerance").is_some());
+}
+
+// ============================================================================
+// Credit Scorecard Extension Tests
+// ============================================================================
+
+#[test]
+fn test_scorecard_extension_placeholder() {
+    let model = ModelBuilder::new("test_model")
+        .periods("2025Q1..2025Q2", None)
+        .unwrap()
+        .build()
+        .unwrap();
+
+    let mut evaluator = Evaluator::new();
+    let results = evaluator.evaluate(&model).unwrap();
+
+    let context = ExtensionContext::new(&model, &results);
+
+    let mut extension = CreditScorecardExtension::new();
+    // Extension requires config, should error without it
+    let result = extension.execute(&context);
+
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
+}
+
+#[test]
+fn test_scorecard_extension_metadata() {
+    let extension = CreditScorecardExtension::new();
+    let metadata = extension.metadata();
+
+    assert_eq!(metadata.name, "credit_scorecard");
+    assert_eq!(metadata.version, "0.1.0");
+    assert!(metadata.description.is_some());
+    assert!(extension.is_enabled());
+}
+
+#[test]
+fn test_scorecard_config_schema() {
+    let extension = CreditScorecardExtension::new();
+    let schema = extension.config_schema();
+
+    assert!(schema.is_some());
+    let schema_value = schema.unwrap();
+
+    // Verify schema has expected properties
+    assert!(schema_value.get("properties").is_some());
+    let properties = schema_value.get("properties").unwrap();
+    assert!(properties.get("rating_scale").is_some());
+    assert!(properties.get("metrics").is_some());
+    assert!(properties.get("min_rating").is_some());
 }
 
 // ============================================================================
@@ -419,18 +528,24 @@ fn test_complete_workflow_with_extensions() {
     // Verify results
     assert_eq!(results.nodes.len(), 3);
 
-    // Set up extension registry with custom extension only
+    // Set up extension registry
     let mut registry = ExtensionRegistry::new();
     registry
         .register(Box::new(SimpleValidationExtension::new()))
         .unwrap();
+    registry
+        .register(Box::new(CorkscrewExtension::new()))
+        .unwrap();
+    registry
+        .register(Box::new(CreditScorecardExtension::new()))
+        .unwrap();
 
-    // Create context and execute extensions
+    // Create context and execute extensions (use safe version since some lack config)
     let context = ExtensionContext::new(&model, &results);
     let extension_results = registry.execute_all_safe(&context);
 
     // Verify all extensions attempted
-    assert_eq!(extension_results.len(), 1);
+    assert_eq!(extension_results.len(), 3);
 
     // Verify simple validator succeeded
     let validator_result = extension_results["simple_validator"].as_ref().unwrap();
@@ -439,4 +554,19 @@ fn test_complete_workflow_with_extensions() {
         validator_result.data.get("node_count").unwrap(),
         &serde_json::json!(3)
     );
+
+    // Verify extensions without config error out
+    assert!(extension_results["corkscrew"].is_err());
+    assert!(extension_results["corkscrew"]
+        .as_ref()
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
+
+    assert!(extension_results["credit_scorecard"].is_err());
+    assert!(extension_results["credit_scorecard"]
+        .as_ref()
+        .unwrap_err()
+        .to_string()
+        .contains("requires configuration"));
 }

@@ -2,8 +2,8 @@
 //!
 //! This module contains tests for:
 //! - Custom function registration and execution
-//! - Statement extension behavior
-//! - Full execution integration tests
+//! - Statement extension behavior (trait + registry)
+//!
+//! Full execution tests (corkscrew, scorecards) live in finstack-statements-analytics/tests/.
 
 mod extensions_tests;
-mod extensions_full_execution_tests;

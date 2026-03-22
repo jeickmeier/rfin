@@ -12,11 +12,11 @@
 //!
 //! These templates are **build-time** helpers that extend [`ModelBuilder`](crate::builder::ModelBuilder)
 //! to create properly connected node structures. For **runtime validation** of these
-//! structures after evaluation, see [`CorkscrewExtension`](crate::extensions::CorkscrewExtension).
+//! structures after evaluation, see `CorkscrewExtension` in `finstack-statements-analytics`.
 //!
 //! | Template | Build-time | Runtime Validation |
 //! |----------|------------|-------------------|
-//! | Roll-forward | [`TemplatesExtension::add_roll_forward`](crate::templates::TemplatesExtension::add_roll_forward) | [`CorkscrewExtension`](crate::extensions::CorkscrewExtension) |
+//! | Roll-forward | [`TemplatesExtension::add_roll_forward`](crate::templates::TemplatesExtension::add_roll_forward) | `CorkscrewExtension` (from `finstack-statements-analytics`) |
 //! | Vintage | [`VintageExtension::add_vintage_buildup`](crate::templates::VintageExtension::add_vintage_buildup) | N/A |
 //! | Real estate | [`RealEstateExtension::add_property_operating_statement`](crate::templates::RealEstateExtension::add_property_operating_statement) | Model-specific |
 //!

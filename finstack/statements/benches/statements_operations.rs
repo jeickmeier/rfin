@@ -525,6 +525,29 @@ fn bench_forecast_methods(c: &mut Criterion) {
 // Extension Benchmarks
 // ============================================================================
 
+/// Minimal extension used only to measure framework overhead.
+struct NoopExtension;
+
+impl finstack_statements::extensions::Extension for NoopExtension {
+    fn metadata(&self) -> finstack_statements::extensions::ExtensionMetadata {
+        finstack_statements::extensions::ExtensionMetadata {
+            name: "noop".into(),
+            version: "0.0.0".into(),
+            description: None,
+            author: None,
+        }
+    }
+
+    fn execute(
+        &mut self,
+        _context: &finstack_statements::extensions::ExtensionContext,
+    ) -> finstack_statements::Result<finstack_statements::extensions::ExtensionResult> {
+        Ok(finstack_statements::extensions::ExtensionResult::success(
+            "noop",
+        ))
+    }
+}
+
 fn bench_extensions(c: &mut Criterion) {
     let mut group = c.benchmark_group("extensions");
 
@@ -565,9 +588,9 @@ fn bench_extensions(c: &mut Criterion) {
 
             // Test extension context creation (core overhead)
             let context = ExtensionContext::new(&extension_model, &results);
-            let mut extension = CorkscrewExtension::new();
+            let mut extension = NoopExtension;
 
-            // Execute without config (will fail but tests the framework overhead)
+            // Execute the noop extension to measure framework overhead
             let _ = extension.execute(&context);
 
             black_box(())

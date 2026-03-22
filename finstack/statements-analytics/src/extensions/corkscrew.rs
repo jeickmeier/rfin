@@ -37,8 +37,8 @@
 //! # Example Usage
 //!
 //! ```rust,no_run
-//! use finstack_statements::extensions::{CorkscrewExtension, ExtensionRegistry};
-//! use finstack_statements::extensions::ExtensionContext;
+//! use finstack_statements_analytics::extensions::CorkscrewExtension;
+//! use finstack_statements::extensions::{ExtensionRegistry, ExtensionContext};
 //!
 //! # fn main() -> finstack_statements::Result<()> {
 //! # let context: ExtensionContext = unimplemented!("build ExtensionContext from a model and StatementResult");
@@ -53,8 +53,8 @@
 //! # }
 //! ```
 
-use super::plugin::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
-use crate::error::Result;
+use finstack_statements::extensions::{Extension, ExtensionContext, ExtensionMetadata, ExtensionResult};
+use finstack_statements::Result;
 use serde::{Deserialize, Serialize};
 
 /// Corkscrew analysis extension for balance sheet roll-forward validation.
@@ -132,7 +132,7 @@ impl CorkscrewExtension {
     ///
     /// # Example
     /// ```rust
-    /// # use finstack_statements::extensions::CorkscrewExtension;
+    /// # use finstack_statements_analytics::extensions::CorkscrewExtension;
     /// let extension = CorkscrewExtension::new();
     /// assert!(extension.config().is_none());
     /// ```
@@ -166,14 +166,14 @@ impl CorkscrewExtension {
     fn resolve_config<'a>(&'a self, context: &'a ExtensionContext) -> Result<CorkscrewConfig> {
         if let Some(config) = context.config {
             serde_json::from_value(config.clone()).map_err(|e| {
-                crate::error::Error::invalid_input(format!(
+                finstack_statements::error::Error::invalid_input(format!(
                     "Invalid corkscrew configuration: {}",
                     e
                 ))
             })
         } else {
             self.config.clone().ok_or_else(|| {
-                crate::error::Error::registry("Corkscrew extension requires configuration")
+                finstack_statements::error::Error::registry("Corkscrew extension requires configuration")
             })
         }
     }
@@ -195,7 +195,7 @@ impl CorkscrewExtension {
 
         // Get balance values from results
         let balance_values = context.results.nodes.get(&account.node_id).ok_or_else(|| {
-            crate::error::Error::registry(format!(
+            finstack_statements::error::Error::registry(format!(
                 "Balance account '{}' not found in results",
                 account.node_id
             ))
@@ -458,7 +458,7 @@ impl Extension for CorkscrewExtension {
     fn validate_config(&self, config: &serde_json::Value) -> Result<()> {
         // Validate configuration structure
         let _: CorkscrewConfig = serde_json::from_value(config.clone()).map_err(|e| {
-            crate::error::Error::invalid_input(format!("Invalid corkscrew configuration: {}", e))
+            finstack_statements::error::Error::invalid_input(format!("Invalid corkscrew configuration: {}", e))
         })?;
 
         Ok(())
@@ -469,10 +469,10 @@ impl Extension for CorkscrewExtension {
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::builder::ModelBuilder;
-    use crate::evaluator::Evaluator;
-    use crate::extensions::ExtensionStatus;
-    use crate::types::AmountOrScalar;
+    use finstack_statements::builder::ModelBuilder;
+    use finstack_statements::evaluator::Evaluator;
+    use finstack_statements::extensions::ExtensionStatus;
+    use finstack_statements::types::AmountOrScalar;
     use finstack_core::dates::PeriodId;
 
     #[test]
@@ -512,8 +512,8 @@ mod tests {
 
     #[test]
     fn test_corkscrew_execute_requires_config() {
-        use crate::evaluator::StatementResult;
-        use crate::types::FinancialModelSpec;
+        use finstack_statements::evaluator::StatementResult;
+        use finstack_statements::types::FinancialModelSpec;
 
         let model = FinancialModelSpec::new("test", Vec::new());
         let results = StatementResult::new();

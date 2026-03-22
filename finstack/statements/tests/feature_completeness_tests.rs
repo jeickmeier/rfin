@@ -1,9 +1,6 @@
 //! Tests to verify that all previously incomplete features are now fully functional.
 
 use finstack_core::dates::PeriodId;
-use finstack_statements::extensions::{
-    CorkscrewExtension, CreditScorecardExtension, Extension, ExtensionContext,
-};
 use finstack_statements::prelude::*;
 use indexmap::indexmap;
 
@@ -192,105 +189,6 @@ fn test_seasonal_forecast_with_decomposition() {
     assert!(
         q1 > 0.0 && q2 > 0.0 && q3 > 0.0 && q4 > 0.0,
         "All values should be positive"
-    );
-}
-
-#[test]
-fn test_corkscrew_extension_validates() {
-    // Build a model with balance sheet accounts
-    let model = ModelBuilder::new("balance_sheet")
-        .periods("2025Q1..2025Q2", None)
-        .unwrap()
-        .value(
-            "cash",
-            &[
-                (
-                    PeriodId::quarter(2025, 1),
-                    AmountOrScalar::scalar(100_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 2),
-                    AmountOrScalar::scalar(120_000.0),
-                ),
-            ],
-        )
-        .build()
-        .unwrap();
-
-    let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model).unwrap();
-
-    // Create extension without config
-    let mut extension = CorkscrewExtension::new();
-    let context = ExtensionContext::new(&model, &results);
-
-    // Execute should fail without config (expected behavior)
-    let result = extension.execute(&context);
-
-    // Should return an error about missing configuration
-    assert!(
-        result.is_err()
-            || matches!(
-                result.unwrap().status,
-                finstack_statements::extensions::ExtensionStatus::Failed
-            )
-    );
-}
-
-#[test]
-fn test_scorecard_extension_calculates() {
-    // Build a model with credit metrics
-    let model = ModelBuilder::new("credit_model")
-        .periods("2025Q1..2025Q2", None)
-        .unwrap()
-        .value(
-            "total_debt",
-            &[
-                (
-                    PeriodId::quarter(2025, 1),
-                    AmountOrScalar::scalar(500_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 2),
-                    AmountOrScalar::scalar(480_000.0),
-                ),
-            ],
-        )
-        .value(
-            "ebitda",
-            &[
-                (
-                    PeriodId::quarter(2025, 1),
-                    AmountOrScalar::scalar(100_000.0),
-                ),
-                (
-                    PeriodId::quarter(2025, 2),
-                    AmountOrScalar::scalar(120_000.0),
-                ),
-            ],
-        )
-        .compute("leverage", "total_debt / ebitda")
-        .unwrap()
-        .build()
-        .unwrap();
-
-    let mut evaluator = Evaluator::new();
-    let results = evaluator.evaluate(&model).unwrap();
-
-    // Create extension without config
-    let mut extension = CreditScorecardExtension::new();
-    let context = ExtensionContext::new(&model, &results);
-
-    // Execute should fail without config (expected behavior)
-    let result = extension.execute(&context);
-
-    // Should return an error about missing configuration
-    assert!(
-        result.is_err()
-            || matches!(
-                result.unwrap().status,
-                finstack_statements::extensions::ExtensionStatus::Failed
-            )
     );
 }
 

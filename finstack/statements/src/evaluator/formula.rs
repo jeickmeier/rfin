@@ -176,7 +176,7 @@ fn evaluate_integer_arg(
 ///
 /// Handles both basic arithmetic operations (evaluated directly) and
 /// advanced financial/statistical functions (delegated to specialized handlers).
-pub(crate) fn evaluate_formula(
+pub fn evaluate_formula(
     expr: &Expr,
     context: &mut EvaluationContext,
     node_id: Option<&str>,

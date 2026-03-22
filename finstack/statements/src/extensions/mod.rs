@@ -1,59 +1,15 @@
-//! Extension plugin system for statements crate.
+//! Extension plugin system for the statements engine.
 //!
-//! This module provides a plugin system for extending the statements engine with custom
-//! analysis capabilities. Extensions can process models and results to provide additional
-//! insights, validations, or transformations.
+//! This module provides the [`Extension`] trait and [`ExtensionRegistry`] for
+//! building custom analysis and validation plugins.
 //!
-//! # Built-in Extensions
-//!
-//! - **Corkscrew** - Balance sheet roll-forward validation
-//! - **CreditScorecard** - Credit rating assignment based on metrics
-//!
-//! For sensitivity analysis and explanation functionality, use the dedicated modules
-//! in the `finstack-statements-analytics` crate.
-//!
-//! # Examples
-//!
-//! ```rust,no_run
-//! use finstack_statements::extensions::{
-//!     Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,
-//! };
-//!
-//! // Create an extension
-//! struct MyExtension;
-//!
-//! impl Extension for MyExtension {
-//!     fn metadata(&self) -> ExtensionMetadata {
-//!         ExtensionMetadata {
-//!             name: "my_extension".into(),
-//!             version: "0.1.0".into(),
-//!             description: Some("My custom extension".into()),
-//!             author: None,
-//!         }
-//!     }
-//!
-//!     fn execute(&mut self, _context: &ExtensionContext) -> finstack_statements::Result<ExtensionResult> {
-//!         // Process the model and results
-//!         Ok(ExtensionResult::success("Analysis complete"))
-//!     }
-//! }
-//!
-//! // Register and execute
-//! # fn main() -> finstack_statements::Result<()> {
-//! let mut registry = ExtensionRegistry::new();
-//! registry.register(Box::new(MyExtension))?;
-//! # Ok(())
-//! # }
-//! ```
+//! For built-in extensions (corkscrew, credit scorecard), enable the `analytics`
+//! feature or depend on `finstack-statements-analytics` directly.
 
-mod corkscrew;
 mod plugin;
 mod registry;
-mod scorecards;
 
-pub use corkscrew::{AccountType, CorkscrewAccount, CorkscrewConfig, CorkscrewExtension};
 pub use plugin::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionResult, ExtensionStatus,
 };
 pub use registry::ExtensionRegistry;
-pub use scorecards::{CreditScorecardExtension, ScorecardConfig, ScorecardMetric};

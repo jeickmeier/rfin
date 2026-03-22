@@ -21,5 +21,8 @@
 /// Analysis tools for financial statement models.
 pub mod analysis;
 
+/// Concrete extension implementations (corkscrew, credit scorecard).
+pub mod extensions;
+
 /// Convenient re-exports for common analytics types.
 pub mod prelude;
