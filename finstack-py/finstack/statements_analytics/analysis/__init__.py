@@ -11,5 +11,5 @@ from finstack import finstack as _finstack  # type: ignore[reportAttributeAccess
 
 # Resolve directly from the Rust extension — avoids triggering the deprecated
 # finstack.statements.analysis compatibility shim.
-_rust_analysis = _finstack.statements.analysis
+_rust_analysis = _finstack.statements.analysis  # type: ignore[unresolved-attribute]
 _sys.modules[__name__] = _rust_analysis

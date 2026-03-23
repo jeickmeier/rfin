@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Topology parity audit — validates Python package structure against parity_contract.toml.
 
 Reads finstack-py/parity_contract.toml as the source of truth and checks:
@@ -25,8 +24,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from pathlib import Path
+import sys
 
 try:
     import tomllib  # Python 3.11+
@@ -35,8 +34,7 @@ except ImportError:
         import tomli as tomllib  # type: ignore[no-redef]
     except ImportError:
         print(
-            "Error: tomllib not available. Use Python 3.11+ or install tomli:\n"
-            "  pip install tomli",
+            "Error: tomllib not available. Use Python 3.11+ or install tomli:\n  pip install tomli",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -95,7 +93,7 @@ def run_audit(
 
     crates = contract.get("crates", {})
     aliases = contract.get("aliases", {})
-    exclusions = contract.get("exclusions", {})
+    contract.get("exclusions", {})
 
     results: dict = {
         "meta": {
@@ -243,8 +241,9 @@ def _rust_names_for_module(python_module: str) -> set[str] | None:
     Returns None if the module is not accessible in the Rust layer.
     """
     try:
-        from finstack import finstack as _fs  # type: ignore[reportMissingModuleSource]
         import types
+
+        from finstack import finstack as _fs  # type: ignore[reportMissingModuleSource]
 
         parts = python_module.split(".")[1:]  # strip leading 'finstack'
         mod: object = _fs
@@ -252,7 +251,9 @@ def _rust_names_for_module(python_module: str) -> set[str] | None:
             mod = getattr(mod, part, None)
             if mod is None:
                 return None
-        return {n for n in dir(mod) if not n.startswith("_") and not isinstance(getattr(mod, n, None), types.ModuleType)}
+        return {
+            n for n in dir(mod) if not n.startswith("_") and not isinstance(getattr(mod, n, None), types.ModuleType)
+        }
     except Exception:
         return None
 
@@ -265,6 +266,7 @@ def _python_all_for_module(python_module: str) -> set[str] | None:
     """
     try:
         import importlib
+
         m = importlib.import_module(python_module)
         if hasattr(m, "__all__"):
             return set(m.__all__)
@@ -352,6 +354,7 @@ def run_symbol_audit(
 
 
 def main() -> int:
+    """Run the CLI entrypoint for the topology parity audit."""
     parser = argparse.ArgumentParser(description="Topology parity audit")
     parser.add_argument(
         "--strict",

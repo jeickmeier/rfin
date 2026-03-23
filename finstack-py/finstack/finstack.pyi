@@ -9,9 +9,18 @@ Pylance/pyright needs a `.pyi` for this module so attribute access like
 
 from __future__ import annotations
 
-from . import core, portfolio, scenarios, statements, valuations
+from typing import Any
+
+from . import analytics, core, portfolio, scenarios, statements, valuations
 from .core.currency import Currency
 from .core.market_data.term_structures import DiscountCurve
 from .core.money import Money
+
+analytics: Any
+core: Any
+portfolio: Any
+scenarios: Any
+statements: Any
+valuations: Any
 
 __all__: list[str]

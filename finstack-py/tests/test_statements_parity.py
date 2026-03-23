@@ -1235,8 +1235,9 @@ def test_corporate_analysis_builder_basic() -> None:
 
 def test_report_import_and_virtual_subclassing() -> None:
     """Concrete statement report types should satisfy the shared Report surface."""
-    from finstack.statements import PLSummaryReport, Report
     from finstack.statements_analytics import analysis
+
+    from finstack.statements import PLSummaryReport, Report
 
     assert Report is not None
     assert issubclass(PLSummaryReport, Report)

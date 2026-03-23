@@ -15,8 +15,8 @@ They will progressively be removed as Waves 2-4 land.
 from __future__ import annotations
 
 import importlib
-import sys
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -62,6 +62,7 @@ def _module_exists(python_module: str) -> bool:
 # Test 1: each crate has a Python package
 # ---------------------------------------------------------------------------
 
+
 def _root_package_cases() -> list[tuple[str, str, str]]:
     """Return (crate_key, python_package, declared_status) tuples."""
     contract = _load_contract()
@@ -73,16 +74,12 @@ def _root_package_cases() -> list[tuple[str, str, str]]:
     return cases
 
 
-@pytest.mark.parametrize("crate_key,python_package,declared_status", _root_package_cases())
-def test_all_crates_have_python_packages(
-    crate_key: str, python_package: str, declared_status: str
-) -> None:
+@pytest.mark.parametrize(("crate_key", "python_package", "declared_status"), _root_package_cases())
+def test_all_crates_have_python_packages(crate_key: str, python_package: str, declared_status: str) -> None:
     """Each crate in the contract must have a corresponding Python package."""
     present = _package_exists(python_package)
     if declared_status == "missing":
-        pytest.xfail(
-            reason=f"Wave 2: {python_package} (crate: {crate_key}) is a planned new package"
-        )
+        pytest.xfail(reason=f"Wave 2: {python_package} (crate: {crate_key}) is a planned new package")
     assert present, (
         f"Python package '{python_package}' (crate: {crate_key}) does not exist. "
         f"Expected one of: {python_package.replace('.', '/')}/__init__.py or __init__.pyi"
@@ -92,6 +89,7 @@ def test_all_crates_have_python_packages(
 # ---------------------------------------------------------------------------
 # Test 2: each module in the contract exists
 # ---------------------------------------------------------------------------
+
 
 def _module_cases() -> list[tuple[str, str, str, str]]:
     """Return (crate_key, module_key, python_module, declared_status) tuples."""
@@ -105,24 +103,19 @@ def _module_cases() -> list[tuple[str, str, str, str]]:
     return cases
 
 
-@pytest.mark.parametrize("crate_key,module_key,python_module,declared_status", _module_cases())
-def test_all_modules_exist(
-    crate_key: str, module_key: str, python_module: str, declared_status: str
-) -> None:
+@pytest.mark.parametrize(("crate_key", "module_key", "python_module", "declared_status"), _module_cases())
+def test_all_modules_exist(crate_key: str, module_key: str, python_module: str, declared_status: str) -> None:
     """Each module listed in the contract must exist as a Python package or module file."""
     present = _module_exists(python_module)
     if declared_status == "missing":
-        pytest.xfail(
-            reason=f"Wave 2/3: {python_module} (crate: {crate_key}, key: {module_key}) is a planned module"
-        )
-    assert present, (
-        f"Python module '{python_module}' (crate: {crate_key}, key: {module_key}) does not exist."
-    )
+        pytest.xfail(reason=f"Wave 2/3: {python_module} (crate: {crate_key}, key: {module_key}) is a planned module")
+    assert present, f"Python module '{python_module}' (crate: {crate_key}, key: {module_key}) does not exist."
 
 
 # ---------------------------------------------------------------------------
 # Test 3: topology audit exits clean (no unexpected FAIL-level gaps)
 # ---------------------------------------------------------------------------
+
 
 def test_no_unexpected_structural_gaps() -> None:
     """The topology audit script must report zero unexpected failures."""
@@ -132,7 +125,8 @@ def test_no_unexpected_structural_gaps() -> None:
 
     # Run the audit inline using the shared run_audit function
     spec = importlib.util.spec_from_file_location("audit_topology", audit_script)
-    assert spec is not None and spec.loader is not None
+    assert spec is not None
+    assert spec.loader is not None
     audit_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(audit_mod)  # type: ignore[union-attr]
 
@@ -158,13 +152,14 @@ def test_no_unexpected_structural_gaps() -> None:
 # Test 4: alias old-paths are structurally resolvable
 # ---------------------------------------------------------------------------
 
+
 def _alias_cases() -> list[tuple[str, str]]:
     """Return (old_path, canonical_path) tuples."""
     contract = _load_contract()
     return list(contract.get("aliases", {}).items())
 
 
-@pytest.mark.parametrize("old_path,canonical_path", _alias_cases())
+@pytest.mark.parametrize(("old_path", "canonical_path"), _alias_cases())
 def test_alias_paths_resolvable(old_path: str, canonical_path: str) -> None:
     """All alias old-paths must resolve to a package or module (structure check)."""
     # Check the module portion (strip trailing class name if present)
@@ -214,9 +209,7 @@ def test_no_leaked_helpers_in_all(package: str) -> None:
         return  # No __all__ defined — nothing to check
 
     leaked = [name for name in all_exports if name.startswith("_")]
-    assert not leaked, (
-        f"Package '{package}' leaks private names through __all__: {leaked}"
-    )
+    assert not leaked, f"Package '{package}' leaks private names through __all__: {leaked}"
 
 
 # ---------------------------------------------------------------------------
@@ -224,13 +217,13 @@ def test_no_leaked_helpers_in_all(package: str) -> None:
 # ---------------------------------------------------------------------------
 
 _DEPRECATED_PATHS = [
-    ("finstack.core.analytics",    "finstack.analytics"),
-    ("finstack.statements.analysis",   "finstack.statements_analytics.analysis"),
-    ("finstack.statements.templates",  "finstack.statements_analytics.templates"),
+    ("finstack.core.analytics", "finstack.analytics"),
+    ("finstack.statements.analysis", "finstack.statements_analytics.analysis"),
+    ("finstack.statements.templates", "finstack.statements_analytics.templates"),
 ]
 
 
-@pytest.mark.parametrize("old_path,canonical_path", _DEPRECATED_PATHS, ids=[p[0] for p in _DEPRECATED_PATHS])
+@pytest.mark.parametrize(("old_path", "canonical_path"), _DEPRECATED_PATHS, ids=[p[0] for p in _DEPRECATED_PATHS])
 def test_deprecated_path_emits_warning(old_path: str, canonical_path: str) -> None:
     """Importing from a deprecated alias path must emit exactly one DeprecationWarning."""
     import warnings
@@ -253,8 +246,7 @@ def test_deprecated_path_emits_warning(old_path: str, canonical_path: str) -> No
         f"{[str(x.message) for x in dep_warnings]}"
     )
     assert canonical_path in str(dep_warnings[0].message), (
-        f"Warning message should mention canonical path {canonical_path!r}: "
-        f"{dep_warnings[0].message}"
+        f"Warning message should mention canonical path {canonical_path!r}: {dep_warnings[0].message}"
     )
 
 

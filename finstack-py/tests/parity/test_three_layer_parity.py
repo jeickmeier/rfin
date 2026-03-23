@@ -18,9 +18,8 @@ modules are added.
 from __future__ import annotations
 
 import importlib
-import sys
-import types
 from pathlib import Path
+import types
 
 import pytest
 
@@ -90,10 +89,9 @@ def _rust_layer_names(python_module: str) -> set[str] | None:
             if mod is None:
                 return None
         return {
-            n for n in dir(mod)
-            if not n.startswith("_") and not isinstance(getattr(mod, n, None), types.ModuleType)
+            n for n in dir(mod) if not n.startswith("_") and not isinstance(getattr(mod, n, None), types.ModuleType)
         }
-    except Exception:
+    except (AttributeError, ImportError):
         return None
 
 
@@ -113,19 +111,20 @@ _INTENTIONALLY_LIMITED_ALL = frozenset({
 _ITERATOR_SUFFIX_PATTERNS = ("Iterator",)
 
 # Stdlib builtins that should never appear in __all__
-_STDLIB_LEAKS = frozenset(dir(__builtins__)) if isinstance(__builtins__, dict) else frozenset(dir(__builtins__))  # type: ignore[arg-type]
+_STDLIB_LEAKS = frozenset(dir(__builtins__))  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------
 # Test 1: Every present module can be imported
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "crate,mod_key,python_module",
+    ("crate", "mod_key", "python_module"),
     _iter_present_modules(),
     ids=[m[2] for m in _iter_present_modules()],
 )
 def test_present_module_is_importable(crate: str, mod_key: str, python_module: str) -> None:
     """Modules declared status=exists in the contract must be importable at runtime."""
+    del crate, mod_key
     try:
         mod = importlib.import_module(python_module)
     except ImportError as exc:
@@ -137,17 +136,18 @@ def test_present_module_is_importable(crate: str, mod_key: str, python_module: s
 # Test 2: Every present module has a stub (.pyi)
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "crate,mod_key,python_module",
+    ("crate", "mod_key", "python_module"),
     _iter_present_modules(),
     ids=[m[2] for m in _iter_present_modules()],
 )
 def test_present_module_has_stub(crate: str, mod_key: str, python_module: str) -> None:
     """Every module with status=exists must have a corresponding .pyi stub."""
+    del crate, mod_key
     assert _module_has_stub(python_module), (
         f"No .pyi stub found for {python_module}. "
         f"Expected one of:\n"
         f"  {FINSTACK_PY_ROOT / python_module.replace('.', '/')}/__init__.pyi\n"
-        f"  {FINSTACK_PY_ROOT / '/'.join(python_module.split('.')[:-1])}/{python_module.split('.')[-1]}.pyi"
+        f"  {FINSTACK_PY_ROOT / '/'.join(python_module.split('.')[:-1])}/{python_module.rsplit('.', maxsplit=1)[-1]}.pyi"
     )
 
 
@@ -155,12 +155,13 @@ def test_present_module_has_stub(crate: str, mod_key: str, python_module: str) -
 # Test 3: No stdlib builtins in __all__
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "crate,python_package",
+    ("crate", "python_package"),
     _iter_present_packages(),
     ids=[p[1] for p in _iter_present_packages()],
 )
 def test_no_stdlib_leakage_in_all(crate: str, python_package: str) -> None:
     """__all__ must not contain bare stdlib builtin names."""
+    del crate
     try:
         mod = importlib.import_module(python_package)
     except ImportError:
@@ -169,32 +170,26 @@ def test_no_stdlib_leakage_in_all(crate: str, python_package: str) -> None:
     if not hasattr(mod, "__all__"):
         pytest.skip(f"{python_package} has no __all__")
 
-    leaked = [
-        n for n in mod.__all__
-        if n in _STDLIB_LEAKS and n not in _ALLOWED_NON_API
-    ]
-    assert not leaked, (
-        f"{python_package}.__all__ contains stdlib names: {leaked}"
-    )
+    leaked = [n for n in mod.__all__ if n in _STDLIB_LEAKS and n not in _ALLOWED_NON_API]
+    assert not leaked, f"{python_package}.__all__ contains stdlib names: {leaked}"
 
 
 # ---------------------------------------------------------------------------
 # Test 4: Runtime __all__ vs Rust layer — no unexposed names
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "crate,mod_key,python_module",
+    ("crate", "mod_key", "python_module"),
     [
         (crate, key, mod)
         for crate, key, mod in _iter_present_modules()
         # Only test modules where the Rust layer is the source of truth
         # (not pure-Python alias packages like statements_analytics.*)
-        if not mod.startswith("finstack.statements_analytics")
-        and not mod.startswith("finstack.analytics")
+        if not mod.startswith("finstack.statements_analytics") and not mod.startswith("finstack.analytics")
     ],
     ids=[
-        m[2] for m in _iter_present_modules()
-        if not m[2].startswith("finstack.statements_analytics")
-        and not m[2].startswith("finstack.analytics")
+        m[2]
+        for m in _iter_present_modules()
+        if not m[2].startswith("finstack.statements_analytics") and not m[2].startswith("finstack.analytics")
     ],
 )
 def test_rust_symbols_accessible_from_python(crate: str, mod_key: str, python_module: str) -> None:
@@ -203,6 +198,7 @@ def test_rust_symbols_accessible_from_python(crate: str, mod_key: str, python_mo
     This catches cases where PyO3 binds a class but the Python __all__ or
     package __init__.py fails to re-export it.
     """
+    del crate, mod_key
     rust_names = _rust_layer_names(python_module)
     if rust_names is None:
         pytest.skip(f"Rust layer not accessible for {python_module}")
@@ -222,10 +218,7 @@ def test_rust_symbols_accessible_from_python(crate: str, mod_key: str, python_mo
     # Submodule names are deliberately excluded from comparison (they are
     # modules, not symbols, and are filtered in _rust_layer_names already).
     # Also exclude PyO3 iterator proxy types (implementation artifacts).
-    effective_rust = {
-        n for n in rust_names
-        if not any(n.endswith(pat) for pat in _ITERATOR_SUFFIX_PATTERNS)
-    }
+    effective_rust = {n for n in rust_names if not any(n.endswith(pat) for pat in _ITERATOR_SUFFIX_PATTERNS)}
     missing_from_python = effective_rust - py_names - _ALLOWED_NON_API
     assert not missing_from_python, (
         f"{python_module}: {len(missing_from_python)} Rust symbol(s) not in Python __all__: "
@@ -237,13 +230,12 @@ def test_rust_symbols_accessible_from_python(crate: str, mod_key: str, python_mo
 # Test 5: Root package stubs exist
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
-    "crate,python_package",
+    ("crate", "python_package"),
     _iter_present_packages(),
     ids=[p[1] for p in _iter_present_packages()],
 )
 def test_root_package_has_stub(crate: str, python_package: str) -> None:
     """Root packages (crate-level) must have an __init__.pyi stub."""
+    del crate
     stub = FINSTACK_PY_ROOT / python_package.replace(".", "/") / "__init__.pyi"
-    assert stub.exists(), (
-        f"No __init__.pyi found for root package {python_package} at {stub}"
-    )
+    assert stub.exists(), f"No __init__.pyi found for root package {python_package} at {stub}"

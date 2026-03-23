@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
 import warnings as _warnings
 
 _warnings.warn(
@@ -14,8 +15,6 @@ _warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-
-from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .performance import (
@@ -27,8 +26,7 @@ if TYPE_CHECKING:
         PeriodStatsResult as PeriodStatsResult,
     )
 
-from finstack import finstack as _finstack  # type: ignore[reportAttributeAccessIssue]
-
+from finstack import finstack as _finstack  # noqa: E402  # type: ignore[reportAttributeAccessIssue]
 from finstack.analytics import expr as expr  # noqa: E402  # canonical path
 
 _rust_analytics = _finstack.core.analytics  # type: ignore[unresolved-attribute]

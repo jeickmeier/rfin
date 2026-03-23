@@ -31,7 +31,7 @@ from finstack import finstack as _finstack  # type: ignore[reportAttributeAccess
 # Import the Polars expression plugin submodule from the canonical location.
 # finstack.analytics.expr is the canonical path.
 # finstack.core.analytics.expr is a compatibility shim pointing here.
-from . import expr as expr  # noqa: E402
+from . import expr as expr
 
 Performance = _finstack.analytics.Performance
 
