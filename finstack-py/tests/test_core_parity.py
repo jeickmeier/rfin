@@ -43,3 +43,38 @@ def test_top_level_stub_declares_exception_hierarchy() -> None:
     assert "class ParameterError(ValidationError):" in stub_text
     assert "class ConstraintValidationError(ParameterError):" in stub_text
     assert "class CholeskyError(ParameterError):" in stub_text
+
+
+def test_statements_extensions_stub_reexports_runtime_config_types() -> None:
+    """The statements extensions stub should re-export the same helper types as runtime."""
+    stub_path = Path(__file__).resolve().parent.parent / "finstack" / "statements" / "extensions" / "__init__.pyi"
+
+    stub_text = stub_path.read_text()
+
+    assert '"AccountType"' in stub_text
+    assert '"CorkscrewAccount"' in stub_text
+    assert '"CorkscrewConfig"' in stub_text
+    assert '"ScorecardMetric"' in stub_text
+    assert '"ScorecardConfig"' in stub_text
+
+
+def test_statements_templates_stub_advertises_validate_helpers() -> None:
+    """The published templates stub should expose Rust-backed validate methods."""
+    stub_path = Path(__file__).resolve().parent.parent / "finstack" / "statements" / "templates.pyi"
+
+    stub_text = stub_path.read_text()
+
+    assert "class LeaseSpec:" in stub_text
+    assert "def validate(self) -> None: ..." in stub_text
+    assert "class RenewalSpec:" in stub_text
+    assert "class LeaseSpecV2:" in stub_text
+
+
+def test_statements_builder_stub_does_not_claim_fluent_returns_for_in_place_methods() -> None:
+    """Builder stub docs should describe in-place mutation instead of stale fluent returns."""
+    stub_path = Path(__file__).resolve().parent.parent / "finstack" / "statements" / "builder" / "builder.pyi"
+
+    stub_text = stub_path.read_text()
+
+    assert "ModelBuilder: Builder instance ready for node definitions" not in stub_text
+    assert "ModelBuilder: Builder instance for chaining" not in stub_text

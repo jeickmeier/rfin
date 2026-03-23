@@ -1,10 +1,13 @@
 """Test goal seek functionality in Python bindings."""
 
 from finstack.core.dates.periods import PeriodId
+from finstack.statements.analysis import goal_seek as analysis_goal_seek
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
 from finstack.statements.types import AmountOrScalar, ForecastSpec
 import pytest
+
+import finstack
 
 
 def test_goal_seek_simple_linear() -> None:
@@ -145,7 +148,39 @@ def test_goal_seek_invalid_target_node() -> None:
 
     model = builder.build()
 
-    with pytest.raises(ValueError, match="Target node"):
+    with pytest.raises(finstack.ParameterError, match="Target node"):
+        model.goal_seek(
+            target_node="nonexistent",
+            target_period="2025Q1",
+            target_value=1000.0,
+            driver_node="revenue",
+            update_model=False,
+        )
+
+
+def test_goal_seek_method_uses_shared_validation_error_hierarchy() -> None:
+    """The bound method should surface the same typed validation error as the module helper."""
+    builder = ModelBuilder.new("test")
+    builder.periods("2025Q1..Q1", None)
+
+    period = PeriodId.quarter(2025, 1)
+    builder.value("revenue", [(period, AmountOrScalar.scalar(100_000.0))])
+    model = builder.build()
+
+    with pytest.raises(finstack.FinstackError) as helper_exc:
+        analysis_goal_seek(
+            model=model,
+            target_node="nonexistent",
+            target_period="2025Q1",
+            target_value=1000.0,
+            driver_node="revenue",
+            update_model=False,
+        )
+
+    expected_type = type(helper_exc.value)
+    expected_message = str(helper_exc.value)
+
+    with pytest.raises(expected_type, match=expected_message):
         model.goal_seek(
             target_node="nonexistent",
             target_period="2025Q1",
@@ -165,7 +200,7 @@ def test_goal_seek_invalid_driver_node() -> None:
 
     model = builder.build()
 
-    with pytest.raises(ValueError, match="Driver node"):
+    with pytest.raises(finstack.ParameterError, match="Driver node"):
         model.goal_seek(
             target_node="revenue",
             target_period="2025Q1",

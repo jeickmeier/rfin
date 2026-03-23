@@ -3,6 +3,8 @@
 use super::node::PyNodeSpec;
 use super::waterfall::PyWaterfallSpec;
 use crate::core::dates::periods::PyPeriod;
+use crate::errors::ParameterError;
+use crate::statements::error::stmt_to_py;
 use crate::statements::utils::json_to_py;
 use finstack_statements::types::{CapitalStructureSpec, DebtInstrumentSpec, FinancialModelSpec};
 use indexmap::IndexMap;
@@ -33,6 +35,7 @@ impl PyCapitalStructureSpec {
 #[pymethods]
 impl PyCapitalStructureSpec {
     #[new]
+    #[pyo3(signature = (debt_instruments=None, equity_instruments=None, waterfall=None))]
     #[pyo3(text_signature = "(debt_instruments=None, equity_instruments=None, waterfall=None)")]
     /// Create a capital structure specification.
     ///
@@ -41,7 +44,7 @@ impl PyCapitalStructureSpec {
     /// debt_instruments : list[DebtInstrumentSpec], optional
     ///     Debt instruments
     /// equity_instruments : list, optional
-    ///     Equity instruments (future expansion)
+    ///     Reserved for future expansion and currently unsupported
     /// waterfall : WaterfallSpec, optional
     ///     Waterfall configuration for dynamic cash flow allocation
     ///
@@ -53,25 +56,25 @@ impl PyCapitalStructureSpec {
         debt_instruments: Option<Vec<PyDebtInstrumentSpec>>,
         equity_instruments: Option<Vec<Py<PyAny>>>,
         waterfall: Option<PyWaterfallSpec>,
-    ) -> Self {
+    ) -> PyResult<Self> {
         let debt_instruments = debt_instruments
             .map(|v| v.into_iter().map(|d| d.inner).collect())
             .unwrap_or_default();
 
-        let equity_instruments: Vec<serde_json::Value> = equity_instruments
-            .unwrap_or_default()
-            .into_iter()
-            .filter_map(|_| None) // Placeholder for future
-            .collect();
+        if equity_instruments.is_some_and(|items| !items.is_empty()) {
+            return Err(ParameterError::new_err(
+                "CapitalStructureSpec.equity_instruments is not supported yet",
+            ));
+        }
 
-        Self::new(CapitalStructureSpec {
+        Ok(Self::new(CapitalStructureSpec {
             debt_instruments,
-            equity_instruments,
+            equity_instruments: Vec::new(),
             meta: IndexMap::new(),
             reporting_currency: None,
             fx_policy: None,
             waterfall: waterfall.map(|w| w.inner),
-        })
+        }))
     }
 
     #[getter]
@@ -577,7 +580,7 @@ impl PyFinancialModelSpec {
             update_model,
             bounds,
         )
-        .map_err(|e| PyValueError::new_err(format!("Goal seek failed: {}", e)))
+        .map_err(stmt_to_py)
     }
 }
 

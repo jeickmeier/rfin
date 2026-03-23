@@ -114,7 +114,7 @@ class ModelBuilder:
             actuals_until: Optional cutoff for actuals (e.g., "2025Q2")
 
         Returns:
-            ModelBuilder: Builder instance ready for node definitions
+            None: Mutates the builder in place.
         """
         ...
 
@@ -125,7 +125,7 @@ class ModelBuilder:
             periods: Explicit list of periods
 
         Returns:
-            ModelBuilder: Builder instance ready for node definitions
+            None: Mutates the builder in place.
         """
         ...
 
@@ -139,7 +139,7 @@ class ModelBuilder:
             values: Period values (list of tuples or dict)
 
         Returns:
-            ModelBuilder: Builder instance for chaining
+            None: Mutates the builder in place.
         """
         ...
 
@@ -154,7 +154,7 @@ class ModelBuilder:
             values: Period values as Money objects (list of tuples or dict)
 
         Returns:
-            ModelBuilder: Builder instance for chaining
+            None: Mutates the builder in place.
         """
         ...
 
@@ -169,7 +169,7 @@ class ModelBuilder:
             values: Period values as floats (list of tuples or dict)
 
         Returns:
-            ModelBuilder: Builder instance for chaining
+            None: Mutates the builder in place.
         """
         ...
 
@@ -183,7 +183,7 @@ class ModelBuilder:
             formula: Formula text in statement DSL
 
         Returns:
-            ModelBuilder: Builder instance for chaining
+            None: Mutates the builder in place.
         """
         ...
 
@@ -210,7 +210,7 @@ class ModelBuilder:
             forecast_spec: Forecast specification
 
         Returns:
-            ModelBuilder: Builder instance for chaining
+            None: Mutates the builder in place.
         """
         ...
 
@@ -222,7 +222,7 @@ class ModelBuilder:
             value: Metadata value (must be JSON-serializable)
 
         Returns:
-            ModelBuilder: Builder instance for chaining
+            None: Mutates the builder in place.
         """
         ...
 

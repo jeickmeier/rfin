@@ -13,6 +13,7 @@ from finstack.statements.extensions import (
 from finstack.statements.registry import Registry
 from finstack.statements.types import (
     AmountOrScalar,
+    CapitalStructureSpec,
     FinancialModelSpec,
     ForecastMethod,
     ForecastSpec,
@@ -20,6 +21,8 @@ from finstack.statements.types import (
     NodeType,
 )
 import pytest
+
+import finstack
 
 
 class TestNodeTypes:
@@ -181,6 +184,15 @@ class TestModelBuilder:
         meta = model.meta
         assert meta["author"] == "Test User"
         assert meta["version"] == 1
+
+
+class TestCapitalStructureSpec:
+    """Test capital structure specification bindings."""
+
+    def test_rejects_equity_instruments_until_supported(self) -> None:
+        """The constructor should fail fast instead of silently dropping equity inputs."""
+        with pytest.raises(finstack.ParameterError, match="equity_instruments"):
+            CapitalStructureSpec(equity_instruments=[{"id": "common_equity"}])
 
 
 class TestEvaluator:

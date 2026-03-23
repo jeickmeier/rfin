@@ -81,8 +81,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance ready for node definitions
+    /// None
+    ///     Mutates the builder in place
     fn periods(&mut self, range: &str, actuals_until: Option<&str>) -> PyResult<()> {
         let builder = match &mut self.state {
             BuilderState::NeedPeriods(b) => b
@@ -113,8 +113,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance ready for node definitions
+    /// None
+    ///     Mutates the builder in place
     fn periods_explicit(&mut self, periods: Vec<PyPeriod>) -> PyResult<()> {
         let builder = match &mut self.state {
             BuilderState::NeedPeriods(b) => b
@@ -150,8 +150,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn value(&mut self, node_id: String, values: &Bound<'_, PyAny>) -> PyResult<()> {
         let values_vec = parse_period_values(values)?;
 
@@ -276,8 +276,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn compute(&mut self, node_id: String, formula: String) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
         let builder = builder.compute(node_id, formula).map_err(stmt_to_py)?;
@@ -329,8 +329,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn forecast(&mut self, node_id: String, forecast_spec: &PyForecastSpec) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
         let builder = builder.forecast(node_id, forecast_spec.inner.clone());
@@ -353,8 +353,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn with_meta(&mut self, key: String, value: &Bound<'_, PyAny>) -> PyResult<()> {
         let json_value = crate::statements::utils::py_to_json(value)?;
 
@@ -374,8 +374,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn waterfall(&mut self, waterfall_spec: PyWaterfallSpec) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
         let builder = builder.waterfall(waterfall_spec.inner);
@@ -848,8 +848,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn add_roll_forward(
         &mut self,
         name: String,
@@ -889,8 +889,8 @@ impl PyModelBuilder {
     ///
     /// Returns
     /// -------
-    /// ModelBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the builder in place
     fn add_vintage_buildup(
         &mut self,
         name: String,
@@ -1135,8 +1135,8 @@ impl PyMixedNodeBuilder {
     ///
     /// Returns
     /// -------
-    /// MixedNodeBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the mixed builder in place
     fn values(&mut self, values: &Bound<'_, PyAny>) -> PyResult<()> {
         let values_vec = parse_period_values(values)?;
         self.values = Some(values_vec);
@@ -1153,8 +1153,8 @@ impl PyMixedNodeBuilder {
     ///
     /// Returns
     /// -------
-    /// MixedNodeBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the mixed builder in place
     fn forecast(&mut self, forecast_spec: &PyForecastSpec) -> PyResult<()> {
         self.forecast = Some(forecast_spec.inner.clone());
         Ok(())
@@ -1170,8 +1170,8 @@ impl PyMixedNodeBuilder {
     ///
     /// Returns
     /// -------
-    /// MixedNodeBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the mixed builder in place
     fn formula(&mut self, formula: String) -> PyResult<()> {
         self.formula = Some(formula);
         Ok(())
@@ -1187,8 +1187,8 @@ impl PyMixedNodeBuilder {
     ///
     /// Returns
     /// -------
-    /// MixedNodeBuilder
-    ///     Builder instance for chaining
+    /// None
+    ///     Mutates the mixed builder in place
     fn name(&mut self, name: String) -> PyResult<()> {
         self.name = Some(name);
         Ok(())

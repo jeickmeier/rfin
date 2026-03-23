@@ -43,6 +43,11 @@ from .extensions import (
     ExtensionResult,
     ExtensionContext,
     ExtensionRegistry,
+    AccountType,
+    CorkscrewAccount,
+    CorkscrewConfig,
+    ScorecardMetric,
+    ScorecardConfig,
     CorkscrewExtension,
     CreditScorecardExtension,
 )
@@ -165,6 +170,11 @@ __all__ = [
     "ExtensionResult",
     "ExtensionContext",
     "ExtensionRegistry",
+    "AccountType",
+    "CorkscrewAccount",
+    "CorkscrewConfig",
+    "ScorecardMetric",
+    "ScorecardConfig",
     "CorkscrewExtension",
     "CreditScorecardExtension",
     # Registry

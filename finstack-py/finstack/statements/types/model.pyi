@@ -22,7 +22,7 @@ class CapitalStructureSpec:
 
         Args:
             debt_instruments: Debt instruments
-            equity_instruments: Equity instruments (future expansion)
+            equity_instruments: Reserved for future expansion and currently unsupported
             waterfall: Waterfall configuration for dynamic cash flow allocation
 
         Returns:
