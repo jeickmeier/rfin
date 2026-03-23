@@ -30,4 +30,8 @@ _sys.modules.pop(f"{__name__}.calibration", None)
 calibration = _importlib.import_module(f"{__name__}.calibration")
 globals()["calibration"] = calibration
 
-__all__ = [name for name in globals() if not name.startswith("_")]  # pyright: ignore[reportUnsupportedDunderAll]
+_HELPER_NAMES = frozenset({"annotations"})  # __future__ annotations feature flag
+__all__ = [  # pyright: ignore[reportUnsupportedDunderAll]
+    name for name in globals() if not name.startswith("_") and name not in _HELPER_NAMES
+]
+del _HELPER_NAMES

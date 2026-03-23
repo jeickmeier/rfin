@@ -489,15 +489,18 @@ def main() -> int:
     generator = ParityManifestGenerator(pyi_root)
     manifest = generator.generate_manifest()
 
-    # Write manifest
-    manifest_file = script_dir / "parity_manifest.json"
+    # Write to .audit/ (gitignored) — never write to tracked repo files
+    audit_dir = project_root / ".audit"
+    audit_dir.mkdir(exist_ok=True)
+
+    manifest_file = audit_dir / "parity_manifest.json"
     with manifest_file.open("w") as f:
         json.dump(manifest, f, indent=2)
     print(f"Generated manifest: {manifest_file}")
 
     # Generate WASM checklist
     checklist = generate_wasm_checklist(manifest)
-    checklist_file = script_dir / "wasm_parity_checklist.json"
+    checklist_file = audit_dir / "wasm_parity_checklist.json"
     with checklist_file.open("w") as f:
         json.dump(checklist, f, indent=2)
     print(f"Generated WASM checklist: {checklist_file}")

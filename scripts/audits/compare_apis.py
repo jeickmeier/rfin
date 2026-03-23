@@ -510,18 +510,22 @@ def main() -> int:
     script_dir = Path(__file__).parent
     project_root = script_dir.parent.parent
 
-    # Load API data
-    rust_api_file = script_dir / "rust_api.json"
-    python_api_file = script_dir / "python_api.json"
-    wasm_api_file = script_dir / "wasm_api.json"
+    # Load API data from .audit/ (gitignored build artifacts)
+    audit_dir = project_root / ".audit"
+    rust_api_file = audit_dir / "rust_api.json"
+    python_api_file = audit_dir / "python_api.json"
+    wasm_api_file = audit_dir / "wasm_api.json"
 
     if not rust_api_file.exists():
+        print(f"Missing {rust_api_file} — run audit_rust_api.py first", file=sys.stderr)
         return 1
 
     if not python_api_file.exists():
+        print(f"Missing {python_api_file} — run audit_python_api.py first", file=sys.stderr)
         return 1
 
     if not wasm_api_file.exists():
+        print(f"Missing {wasm_api_file} — run audit_wasm_api.py first", file=sys.stderr)
         return 1
 
     with rust_api_file.open() as f:
@@ -537,9 +541,11 @@ def main() -> int:
     comparator = APIComparator(rust_api, python_api, wasm_api)
     report = comparator.generate_report()
 
-    # Write report
-    output_file = project_root / "PARITY_AUDIT.md"
+    # Write report to .audit/ (gitignored) — never write to tracked repo files
+    audit_dir.mkdir(exist_ok=True)
+    output_file = audit_dir / "PARITY_AUDIT.md"
     output_file.write_text(report)
+    print(f"Report written to {output_file}")
 
     return 0
 

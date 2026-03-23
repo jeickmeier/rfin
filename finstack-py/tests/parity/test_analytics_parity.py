@@ -13,7 +13,7 @@ import polars as pl
 import pytest
 
 if TYPE_CHECKING:
-    from finstack.core.analytics import Performance
+    from finstack.analytics import Performance
 
 
 def _build_price_df(n: int = 100) -> pl.DataFrame:
@@ -50,7 +50,7 @@ def price_df() -> pl.DataFrame:
 
 
 def _make_perf(price_df: pl.DataFrame) -> Performance:
-    from finstack.core.analytics import Performance as _Perf
+    from finstack.analytics import Performance as _Perf
 
     return _Perf(price_df, benchmark_ticker="bench", freq="daily")
 
@@ -63,13 +63,13 @@ class TestPerformanceConstruction:
         assert repr(perf).startswith("Performance(")
 
     def test_invalid_freq(self, price_df: pl.DataFrame) -> None:
-        from finstack.core.analytics import Performance
+        from finstack.analytics import Performance
 
         with pytest.raises(ValueError, match="Unknown frequency"):
             Performance(price_df, freq="invalid")
 
     def test_null_prices_rejected(self) -> None:
-        from finstack.core.analytics import Performance
+        from finstack.analytics import Performance
 
         df = pl.DataFrame({
             "date": [date(2024, 1, 1), date(2024, 1, 2), date(2024, 1, 3)],

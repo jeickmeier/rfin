@@ -1,7 +1,9 @@
 """Statements bindings (Rust).
 
-This package is a thin re-export of the Rust extension module.
-No runtime monkeypatching or compatibility shims are applied.
+This package re-exports the Rust extension module.  Two submodules —
+``analysis`` and ``templates`` — are deprecated; use
+``finstack.statements_analytics.*`` instead.  A :class:`DeprecationWarning`
+is emitted on first import of either deprecated path.
 """
 
 from __future__ import annotations
@@ -15,8 +17,12 @@ from finstack import finstack as _finstack
 
 _rust_statements = _finstack.statements
 
+# Submodules that have a Python shim with DeprecationWarning — exclude from
+# the Rust-registration loop so the Python import machinery finds the shim.
+_DEPRECATED_SUBMODULES = frozenset({"analysis", "templates"})
+
 for _name in dir(_rust_statements):
-    if _name.startswith("_"):
+    if _name.startswith("_") or _name in _DEPRECATED_SUBMODULES:
         continue
     _attr = getattr(_rust_statements, _name)
     globals()[_name] = _attr
@@ -44,11 +50,16 @@ for _report_name in ("PLSummaryReport", "CreditAssessmentReport", "DebtSummaryRe
 
 globals()["Report"] = Report
 
-_analysis_mod = globals().get("analysis")
-if isinstance(_analysis_mod, _types.ModuleType):
-    _analysis_mod.__dict__["Report"] = Report
-    _analysis_all = _analysis_mod.__dict__.get("__all__")
-    if isinstance(_analysis_all, list) and "Report" not in _analysis_all:
-        _analysis_mod.__dict__["__all__"] = [*cast(list[str], _analysis_all), "Report"]
+# Inject Report into the Rust analysis module directly so that canonical
+# callers (finstack.statements_analytics.analysis) can also access it.
+_rust_analysis = _finstack.statements.analysis
+_rust_analysis.__dict__["Report"] = Report
+_rust_analysis_all = _rust_analysis.__dict__.get("__all__")
+if isinstance(_rust_analysis_all, list) and "Report" not in _rust_analysis_all:
+    _rust_analysis.__dict__["__all__"] = [*cast(list[str], _rust_analysis_all), "Report"]
 
-__all__ = [name for name in globals() if not name.startswith("_")]  # pyright: ignore[reportUnsupportedDunderAll]
+_HELPER_NAMES = frozenset({"ABC", "abstractmethod", "cast", "annotations"})
+__all__ = [  # pyright: ignore[reportUnsupportedDunderAll]
+    name for name in globals() if not name.startswith("_") and name not in _HELPER_NAMES
+]
+del _HELPER_NAMES

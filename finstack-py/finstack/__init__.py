@@ -102,6 +102,10 @@ _rust_core = _finstack.core
 _core = _setup_hybrid_module(_rust_core, "core", _pkg_path / "core")
 globals()["core"] = _core
 
+# Ensure the deprecated finstack.core.analytics shim is NOT pre-registered so
+# that Python's import machinery hits the Python file (with DeprecationWarning).
+_sys.modules.pop("finstack.core.analytics", None)
+
 _rust_scenarios = _finstack.scenarios
 _scenarios = _setup_hybrid_module(_rust_scenarios, "scenarios", _pkg_path / "scenarios")
 globals()["scenarios"] = _scenarios
@@ -114,14 +118,26 @@ _rust_statements = _finstack.statements
 _statements = _setup_hybrid_module(_rust_statements, "statements", _pkg_path / "statements")
 globals()["statements"] = _statements
 
+# Remove deprecated submodule entries so Python's import machinery falls through
+# to the Python shim files (finstack/statements/analysis/ and templates.py)
+# which emit DeprecationWarning on first import.
+_sys.modules.pop("finstack.statements.analysis", None)
+_sys.modules.pop("finstack.statements.templates", None)
+
 _rust_portfolio = _finstack.portfolio
 _portfolio = _setup_hybrid_module(_rust_portfolio, "portfolio", _pkg_path / "portfolio")
 globals()["portfolio"] = _portfolio
 
-# Analytics lives under core; re-export at root for convenience
-_analytics = _importlib.import_module("finstack.core.analytics")
-_sys.modules[f"{__name__}.analytics"] = _analytics
+# Analytics — canonical top-level package (finstack-analytics crate).
+# finstack.core.analytics remains available as a compatibility shim via core's __init__.
+_rust_analytics = _finstack.analytics
+_analytics = _setup_hybrid_module(_rust_analytics, "analytics", _pkg_path / "analytics")
 globals()["analytics"] = _analytics
+
+# statements_analytics — Python-only canonical package.
+# Symbols live in finstack.statements.{analysis,extensions,templates} at Rust level.
+_statements_analytics = _importlib.import_module(".statements_analytics", __name__)
+globals()["statements_analytics"] = _statements_analytics
 
 del (
     _finstack,
@@ -136,8 +152,10 @@ del (
     _statements,
     _rust_portfolio,
     _portfolio,
-    _importlib,
+    _rust_analytics,
     _analytics,
+    _statements_analytics,
+    _importlib,
     _types,
     _setup_hybrid_module,
     _Any,
