@@ -1,13 +1,13 @@
-"""Canonical path for financial statement templates.
+"""Canonical Python path for statements-analytics templates.
 
-This module is a structural alias for ``finstack.statements.templates``.
-Both paths resolve to the same underlying Rust module.
+Maps to the ``finstack_statements_analytics::templates`` Rust module.
 """
+
+from __future__ import annotations
 
 import sys as _sys
 
-from finstack.statements import templates as _templates
+from finstack import finstack as _finstack  # type: ignore[reportAttributeAccessIssue]
 
-# Alias: make this module identical to the Rust module so that
-# ``finstack.statements_analytics.templates is finstack.statements.templates``
-_sys.modules[__name__] = _templates
+_rust_templates = _finstack.statements.templates
+_sys.modules[__name__] = _rust_templates

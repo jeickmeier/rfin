@@ -217,3 +217,61 @@ def test_no_leaked_helpers_in_all(package: str) -> None:
     assert not leaked, (
         f"Package '{package}' leaks private names through __all__: {leaked}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Wave 4: Deprecation warning tests
+# ---------------------------------------------------------------------------
+
+_DEPRECATED_PATHS = [
+    ("finstack.core.analytics",    "finstack.analytics"),
+    ("finstack.statements.analysis",   "finstack.statements_analytics.analysis"),
+    ("finstack.statements.templates",  "finstack.statements_analytics.templates"),
+]
+
+
+@pytest.mark.parametrize("old_path,canonical_path", _DEPRECATED_PATHS, ids=[p[0] for p in _DEPRECATED_PATHS])
+def test_deprecated_path_emits_warning(old_path: str, canonical_path: str) -> None:
+    """Importing from a deprecated alias path must emit exactly one DeprecationWarning."""
+    import warnings
+
+    # Evict any cached module so the import fires fresh
+    for key in list(sys.modules.keys()):
+        if old_path in key:
+            del sys.modules[key]
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        try:
+            importlib.import_module(old_path)
+        except ImportError:
+            pytest.skip(f"Cannot import {old_path} — bindings not built in this environment")
+
+    dep_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert len(dep_warnings) == 1, (
+        f"Expected exactly 1 DeprecationWarning from {old_path!r}, got {len(dep_warnings)}: "
+        f"{[str(x.message) for x in dep_warnings]}"
+    )
+    assert canonical_path in str(dep_warnings[0].message), (
+        f"Warning message should mention canonical path {canonical_path!r}: "
+        f"{dep_warnings[0].message}"
+    )
+
+
+@pytest.mark.parametrize("canonical_path", [p[1] for p in _DEPRECATED_PATHS], ids=[p[1] for p in _DEPRECATED_PATHS])
+def test_canonical_path_emits_no_warning(canonical_path: str) -> None:
+    """Importing from a canonical path must NOT emit DeprecationWarning."""
+    import warnings
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        try:
+            importlib.import_module(canonical_path)
+        except ImportError:
+            pytest.skip(f"Cannot import {canonical_path}")
+
+    dep_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+    assert not dep_warnings, (
+        f"Canonical path {canonical_path!r} should not emit DeprecationWarning, "
+        f"got: {[str(x.message) for x in dep_warnings]}"
+    )

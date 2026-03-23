@@ -28,10 +28,10 @@ if TYPE_CHECKING:
 
 from finstack import finstack as _finstack  # type: ignore[reportAttributeAccessIssue]
 
-# Re-export the Polars expression plugin submodule from its current location.
-# finstack.analytics.expr is the canonical path; finstack.core.analytics.expr
-# is a compatibility shim that points here.
-from finstack.core.analytics import expr as expr  # noqa: E402
+# Import the Polars expression plugin submodule from the canonical location.
+# finstack.analytics.expr is the canonical path.
+# finstack.core.analytics.expr is a compatibility shim pointing here.
+from . import expr as expr  # noqa: E402
 
 Performance = _finstack.analytics.Performance
 

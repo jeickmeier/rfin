@@ -1,13 +1,15 @@
-"""Canonical path for statements analysis tools.
+"""Canonical Python path for statements-analytics analysis tools.
 
-This module is a structural alias for ``finstack.statements.analysis``.
-Both paths resolve to the same underlying Rust module.
+Maps to the ``finstack_statements_analytics::analysis`` Rust module.
 """
+
+from __future__ import annotations
 
 import sys as _sys
 
-from finstack.statements import analysis as _analysis
+from finstack import finstack as _finstack  # type: ignore[reportAttributeAccessIssue]
 
-# Alias: make this module identical to the Rust module so that
-# ``finstack.statements_analytics.analysis is finstack.statements.analysis``
-_sys.modules[__name__] = _analysis
+# Resolve directly from the Rust extension — avoids triggering the deprecated
+# finstack.statements.analysis compatibility shim.
+_rust_analysis = _finstack.statements.analysis
+_sys.modules[__name__] = _rust_analysis

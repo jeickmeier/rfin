@@ -7,7 +7,7 @@ Each function returns a ``pl.Expr`` that can be used inside ``.select()``,
 Example::
 
     import polars as pl
-    from finstack.core.analytics.expr import sharpe, simple_returns
+    from finstack.analytics.expr import sharpe, simple_returns
 
     returns = prices.select(simple_returns("AAPL").alias("aapl_ret"))
     risk = returns.select(sharpe("aapl_ret", freq="daily").alias("sharpe"))

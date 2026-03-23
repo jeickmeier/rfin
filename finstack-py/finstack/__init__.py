@@ -102,6 +102,10 @@ _rust_core = _finstack.core
 _core = _setup_hybrid_module(_rust_core, "core", _pkg_path / "core")
 globals()["core"] = _core
 
+# Ensure the deprecated finstack.core.analytics shim is NOT pre-registered so
+# that Python's import machinery hits the Python file (with DeprecationWarning).
+_sys.modules.pop("finstack.core.analytics", None)
+
 _rust_scenarios = _finstack.scenarios
 _scenarios = _setup_hybrid_module(_rust_scenarios, "scenarios", _pkg_path / "scenarios")
 globals()["scenarios"] = _scenarios
@@ -113,6 +117,12 @@ globals()["valuations"] = _valuations
 _rust_statements = _finstack.statements
 _statements = _setup_hybrid_module(_rust_statements, "statements", _pkg_path / "statements")
 globals()["statements"] = _statements
+
+# Remove deprecated submodule entries so Python's import machinery falls through
+# to the Python shim files (finstack/statements/analysis/ and templates.py)
+# which emit DeprecationWarning on first import.
+_sys.modules.pop("finstack.statements.analysis", None)
+_sys.modules.pop("finstack.statements.templates", None)
 
 _rust_portfolio = _finstack.portfolio
 _portfolio = _setup_hybrid_module(_rust_portfolio, "portfolio", _pkg_path / "portfolio")
