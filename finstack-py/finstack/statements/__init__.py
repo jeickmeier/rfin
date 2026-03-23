@@ -51,7 +51,7 @@ if isinstance(_analysis_mod, _types.ModuleType):
     if isinstance(_analysis_all, list) and "Report" not in _analysis_all:
         _analysis_mod.__dict__["__all__"] = [*cast(list[str], _analysis_all), "Report"]
 
-_HELPER_NAMES = frozenset({"ABC", "abstractmethod", "cast"})
+_HELPER_NAMES = frozenset({"ABC", "abstractmethod", "cast", "annotations"})
 __all__ = [  # pyright: ignore[reportUnsupportedDunderAll]
     name for name in globals() if not name.startswith("_") and name not in _HELPER_NAMES
 ]

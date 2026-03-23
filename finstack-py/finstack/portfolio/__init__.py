@@ -21,4 +21,8 @@ for _name in dir(_rust_portfolio):
     if isinstance(_attr, _types.ModuleType):
         _sys.modules[f"{__name__}.{_name}"] = _attr
 
-__all__ = [name for name in globals() if not name.startswith("_")]  # pyright: ignore[reportUnsupportedDunderAll]
+_HELPER_NAMES = frozenset({"annotations"})  # __future__ annotations feature flag
+__all__ = [  # pyright: ignore[reportUnsupportedDunderAll]
+    name for name in globals() if not name.startswith("_") and name not in _HELPER_NAMES
+]
+del _HELPER_NAMES

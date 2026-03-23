@@ -114,14 +114,14 @@ visibility = "pub"
 status = "exists"
 
 [crates.statements.modules]
-adjustments      = { python = "finstack.statements.adjustments",       status = "missing" }
+adjustments      = { python = "finstack.statements.adjustments",       status = "exists" }
 builder          = { python = "finstack.statements.builder",           status = "exists" }
-capital_structure = { python = "finstack.statements.capital_structure", status = "missing" }
-dsl              = { python = "finstack.statements.dsl",               status = "missing" }
+capital_structure = { python = "finstack.statements.capital_structure", status = "exists" }
+dsl              = { python = "finstack.statements.dsl",               status = "exists" }
 error            = { python = "finstack.statements.error",             status = "missing" }
 evaluator        = { python = "finstack.statements.evaluator",         status = "exists" }
 extensions       = { python = "finstack.statements.extensions",        status = "exists",  note = "Only statements-owned extension types live here; statements_analytics types must move" }
-forecast         = { python = "finstack.statements.forecast",          status = "missing" }
+forecast         = { python = "finstack.statements.forecast",          status = "exists" }
 prelude          = { python = "finstack.statements.prelude",           status = "missing" }
 registry         = { python = "finstack.statements.registry",          status = "exists" }
 types            = { python = "finstack.statements.types",             status = "exists" }
@@ -175,25 +175,25 @@ visibility = "pub"
 status = "exists"
 
 [crates.portfolio.modules]
-attribution  = { python = "finstack.portfolio.attribution",  status = "missing" }
-book         = { python = "finstack.portfolio.book",         status = "missing" }
-builder      = { python = "finstack.portfolio.builder",      status = "missing" }
-cashflows    = { python = "finstack.portfolio.cashflows",    status = "missing" }
-dataframe    = { python = "finstack.portfolio.dataframe",    status = "missing", note = "Feature-gated: dataframes" }
+attribution  = { python = "finstack.portfolio.attribution",  status = "exists" }
+book         = { python = "finstack.portfolio.book",         status = "exists" }
+builder      = { python = "finstack.portfolio.builder",      status = "exists" }
+cashflows    = { python = "finstack.portfolio.cashflows",    status = "exists" }
+dataframe    = { python = "finstack.portfolio.dataframe",    status = "exists",  note = "Feature-gated: dataframes" }
 dependencies = { python = "finstack.portfolio.dependencies", status = "missing" }
 error        = { python = "finstack.portfolio.error",        status = "missing" }
-factor_model = { python = "finstack.portfolio.factor_model", status = "missing" }
-grouping     = { python = "finstack.portfolio.grouping",     status = "missing" }
-margin       = { python = "finstack.portfolio.margin",       status = "missing", note = "Shim → finstack.margin after Wave 2" }
-metrics      = { python = "finstack.portfolio.metrics",      status = "missing" }
-optimization = { python = "finstack.portfolio.optimization", status = "missing" }
-portfolio    = { python = "finstack.portfolio.portfolio",    status = "missing" }
+factor_model = { python = "finstack.portfolio.factor_model", status = "exists" }
+grouping     = { python = "finstack.portfolio.grouping",     status = "exists" }
+margin       = { python = "finstack.portfolio.margin",       status = "exists",  note = "Shim → finstack.margin after Wave 3" }
+metrics      = { python = "finstack.portfolio.metrics",      status = "exists" }
+optimization = { python = "finstack.portfolio.optimization", status = "exists" }
+portfolio    = { python = "finstack.portfolio.portfolio",    status = "exists" }
 position     = { python = "finstack.portfolio.position",     status = "missing" }
 prelude      = { python = "finstack.portfolio.prelude",      status = "missing" }
-results      = { python = "finstack.portfolio.results",      status = "missing" }
-types        = { python = "finstack.portfolio.types",        status = "missing" }
-valuation    = { python = "finstack.portfolio.valuation",    status = "missing" }
-scenarios    = { python = "finstack.portfolio.scenarios",    status = "missing", note = "Feature-gated: scenarios" }
+results      = { python = "finstack.portfolio.results",      status = "exists" }
+types        = { python = "finstack.portfolio.types",        status = "exists" }
+valuation    = { python = "finstack.portfolio.valuation",    status = "exists" }
+scenarios    = { python = "finstack.portfolio.scenarios",    status = "exists",  note = "Feature-gated: scenarios" }
 
 # ---------------------------------------------------------------------------
 # finstack-scenarios  →  finstack.scenarios
@@ -207,9 +207,9 @@ status = "exists"
 
 [crates.scenarios.modules]
 adapters  = { python = "finstack.scenarios.adapters",  status = "missing" }
-engine    = { python = "finstack.scenarios.engine",    status = "missing" }
+engine    = { python = "finstack.scenarios.engine",    status = "exists" }
 error     = { python = "finstack.scenarios.error",     status = "exists" }
-spec      = { python = "finstack.scenarios.spec",      status = "missing" }
+spec      = { python = "finstack.scenarios.spec",      status = "exists" }
 templates = { python = "finstack.scenarios.templates", status = "missing" }
 utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 
