@@ -339,7 +339,7 @@ impl PyVolatilityIndexFuture {
         match self.inner.position {
             Position::Long => "long",
             Position::Short => "short",
-            _ => unreachable!("unknown Position variant"),
+            _ => "unknown",
         }
     }
 

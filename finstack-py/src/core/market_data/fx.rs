@@ -410,12 +410,6 @@ impl PyFxMatrix {
         to_currency: &PyCurrency,
         rate: f64,
     ) -> PyResult<()> {
-        if !rate.is_finite() || rate <= 0.0 {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "FxMatrix.set_quote requires finite, positive rate (got {}->{}={rate})",
-                from_currency.inner, to_currency.inner
-            )));
-        }
         self.provider
             .set_quote(from_currency.inner, to_currency.inner, rate)
             .map_err(core_to_py)?;
@@ -439,12 +433,6 @@ impl PyFxMatrix {
     fn set_quotes(&self, quotes: Vec<(PyCurrency, PyCurrency, f64)>) -> PyResult<()> {
         let mut converted = Vec::with_capacity(quotes.len());
         for (from, to, rate) in &quotes {
-            if !rate.is_finite() || *rate <= 0.0 {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "FxMatrix.set_quotes requires finite, positive rates (got {}->{}={})",
-                    from.inner, to.inner, rate
-                )));
-            }
             converted.push((from.inner, to.inner, *rate));
         }
         self.provider.set_quotes(&converted).map_err(core_to_py)?;
@@ -592,5 +580,26 @@ mod tests {
         assert!(fx.__contains__((eur, usd)));
         // reciprocal presence counts as "contains"
         assert!(fx.__contains__((usd, eur)));
+    }
+
+    #[test]
+    fn fx_matrix_invalid_rate_maps_to_parameter_error() {
+        init_python();
+        let fx = PyFxMatrix::ctor(None);
+        let eur = PyCurrency::new(Currency::EUR);
+        let usd = PyCurrency::new(Currency::USD);
+
+        let err = fx
+            .set_quote(&eur, &usd, 0.0)
+            .expect_err("zero FX rate must fail");
+
+        Python::attach(|py| {
+            let type_name = err
+                .get_type(py)
+                .name()
+                .and_then(|name| name.to_str().map(str::to_owned))
+                .unwrap_or_else(|_| "<unknown>".to_string());
+            assert_eq!(type_name, "ParameterError");
+        });
     }
 }

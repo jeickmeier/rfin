@@ -176,18 +176,14 @@ fn expr_cagr(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series> 
 fn expr_calmar(inputs: &[Series], kwargs: FreqOnlyKwargs) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
     let ann = parse_ann_factor(&kwargs.freq)?;
-    let cagr_val = risk_metrics::cagr_from_periods(&data, ann);
-    let dd = drawdown::to_drawdown_series(&data);
-    let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
-    let result = drawdown::calmar(cagr_val, max_dd);
+    let result = drawdown::calmar_from_returns(&data, ann);
     Ok(Series::new("calmar".into(), &[result]))
 }
 
 #[polars_expr(output_type=Float64)]
 fn expr_max_drawdown(inputs: &[Series]) -> PolarsResult<Series> {
     let data = series_to_f64_vec(&inputs[0])?;
-    let dd = drawdown::to_drawdown_series(&data);
-    let result = dd.iter().copied().fold(0.0_f64, f64::min);
+    let result = drawdown::max_drawdown_from_returns(&data);
     Ok(Series::new("max_drawdown".into(), &[result]))
 }
 

@@ -53,12 +53,14 @@ impl From<PyAllocationMode> for RustAllocationMode {
     }
 }
 
-impl From<RustAllocationMode> for PyAllocationMode {
-    fn from(value: RustAllocationMode) -> Self {
+impl TryFrom<RustAllocationMode> for PyAllocationMode {
+    type Error = &'static str;
+
+    fn try_from(value: RustAllocationMode) -> Result<Self, Self::Error> {
         match value {
-            RustAllocationMode::Sequential => PyAllocationMode::Sequential,
-            RustAllocationMode::ProRata => PyAllocationMode::ProRata,
-            _ => unreachable!("unknown AllocationMode variant"),
+            RustAllocationMode::Sequential => Ok(PyAllocationMode::Sequential),
+            RustAllocationMode::ProRata => Ok(PyAllocationMode::ProRata),
+            _ => Err("unknown AllocationMode variant"),
         }
     }
 }
@@ -98,14 +100,16 @@ impl From<PyPaymentType> for RustPaymentType {
     }
 }
 
-impl From<RustPaymentType> for PyPaymentType {
-    fn from(value: RustPaymentType) -> Self {
+impl TryFrom<RustPaymentType> for PyPaymentType {
+    type Error = &'static str;
+
+    fn try_from(value: RustPaymentType) -> Result<Self, Self::Error> {
         match value {
-            RustPaymentType::Fee => PyPaymentType::Fee,
-            RustPaymentType::Interest => PyPaymentType::Interest,
-            RustPaymentType::Principal => PyPaymentType::Principal,
-            RustPaymentType::Residual => PyPaymentType::Residual,
-            _ => unreachable!("unknown PaymentType variant"),
+            RustPaymentType::Fee => Ok(PyPaymentType::Fee),
+            RustPaymentType::Interest => Ok(PyPaymentType::Interest),
+            RustPaymentType::Principal => Ok(PyPaymentType::Principal),
+            RustPaymentType::Residual => Ok(PyPaymentType::Residual),
+            _ => Err("unknown PaymentType variant"),
         }
     }
 }
@@ -290,14 +294,16 @@ impl PyWaterfallTier {
 
     /// Get payment type.
     #[getter]
-    fn payment_type(&self) -> PyPaymentType {
-        self.inner.payment_type.into()
+    fn payment_type(&self) -> PyResult<PyPaymentType> {
+        PyPaymentType::try_from(self.inner.payment_type)
+            .map_err(crate::errors::InternalError::new_err)
     }
 
     /// Get allocation mode.
     #[getter]
-    fn allocation_mode(&self) -> PyAllocationMode {
-        self.inner.allocation_mode.into()
+    fn allocation_mode(&self) -> PyResult<PyAllocationMode> {
+        PyAllocationMode::try_from(self.inner.allocation_mode)
+            .map_err(crate::errors::InternalError::new_err)
     }
 
     /// Whether this tier can be diverted.

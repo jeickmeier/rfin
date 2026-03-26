@@ -48,13 +48,15 @@ impl From<PyTbaTerm> for TbaTerm {
     }
 }
 
-impl From<TbaTerm> for PyTbaTerm {
-    fn from(rust: TbaTerm) -> Self {
+impl TryFrom<TbaTerm> for PyTbaTerm {
+    type Error = &'static str;
+
+    fn try_from(rust: TbaTerm) -> Result<Self, Self::Error> {
         match rust {
-            TbaTerm::FifteenYear => PyTbaTerm::FifteenYear,
-            TbaTerm::TwentyYear => PyTbaTerm::TwentyYear,
-            TbaTerm::ThirtyYear => PyTbaTerm::ThirtyYear,
-            _ => unreachable!("unknown TbaTerm variant"),
+            TbaTerm::FifteenYear => Ok(PyTbaTerm::FifteenYear),
+            TbaTerm::TwentyYear => Ok(PyTbaTerm::TwentyYear),
+            TbaTerm::ThirtyYear => Ok(PyTbaTerm::ThirtyYear),
+            _ => Err("unknown TbaTerm variant"),
         }
     }
 }
@@ -340,8 +342,8 @@ impl PyAgencyTba {
 
     /// Term.
     #[getter]
-    fn term(&self) -> PyTbaTerm {
-        self.inner.term.into()
+    fn term(&self) -> PyResult<PyTbaTerm> {
+        PyTbaTerm::try_from(self.inner.term).map_err(crate::errors::InternalError::new_err)
     }
 
     /// Settlement year.

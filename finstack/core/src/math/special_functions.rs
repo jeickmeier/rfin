@@ -272,6 +272,33 @@ pub fn norm_pdf(x: f64) -> f64 {
     STANDARD_NORMAL.pdf(x)
 }
 
+fn validate_finite_positive(name: &str, value: f64) -> crate::Result<()> {
+    if !value.is_finite() || value <= 0.0 {
+        return Err(crate::Error::Validation(format!(
+            "{name} must be finite and positive"
+        )));
+    }
+    Ok(())
+}
+
+/// General normal cumulative distribution function.
+///
+/// Computes the CDF of `N(mean, std_dev^2)` by standardizing into the standard
+/// normal and delegating to [`norm_cdf`].
+pub fn norm_cdf_with_params(x: f64, mean: f64, std_dev: f64) -> crate::Result<f64> {
+    validate_finite_positive("std_dev", std_dev)?;
+    Ok(norm_cdf((x - mean) / std_dev))
+}
+
+/// General normal probability density function.
+///
+/// Computes the PDF of `N(mean, std_dev^2)` by standardizing into the standard
+/// normal and applying the Jacobian scaling factor.
+pub fn norm_pdf_with_params(x: f64, mean: f64, std_dev: f64) -> crate::Result<f64> {
+    validate_finite_positive("std_dev", std_dev)?;
+    Ok(norm_pdf((x - mean) / std_dev) / std_dev)
+}
+
 /// Inverse standard normal cumulative distribution function.
 ///
 /// Computes the inverse of the standard normal CDF, returning the value x
@@ -371,6 +398,14 @@ pub fn student_t_cdf(x: f64, df: f64) -> f64 {
     }
 }
 
+/// Checked Student-t cumulative distribution function.
+///
+/// Returns a validation error when the degrees of freedom are not finite and positive.
+pub fn try_student_t_cdf(x: f64, df: f64) -> crate::Result<f64> {
+    validate_finite_positive("df", df)?;
+    Ok(student_t_cdf(x, df))
+}
+
 /// Inverse Student-t cumulative distribution function.
 ///
 /// Computes the inverse CDF (quantile function) of the Student-t distribution.
@@ -412,6 +447,18 @@ pub fn student_t_inv_cdf(p: f64, df: f64) -> f64 {
         Ok(dist) => dist.inverse_cdf(p),
         Err(_) => standard_normal_inv_cdf(p),
     }
+}
+
+/// Checked inverse Student-t cumulative distribution function.
+///
+/// Accepts probabilities in `[0, 1]` for parity with the Python binding and
+/// returns a validation error for invalid inputs.
+pub fn try_student_t_inv_cdf(p: f64, df: f64) -> crate::Result<f64> {
+    if !(0.0..=1.0).contains(&p) {
+        return Err(crate::Error::Validation("p must be in [0, 1]".to_string()));
+    }
+    validate_finite_positive("df", df)?;
+    Ok(student_t_inv_cdf(p, df))
 }
 
 #[cfg(test)]
@@ -714,5 +761,41 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_general_normal_helpers_match_standardized_formula() {
+        let x = 1.75;
+        let mean = 1.2;
+        let std_dev = 0.4;
+        let z = (x - mean) / std_dev;
+
+        let expected_cdf = norm_cdf(z);
+        let expected_pdf = norm_pdf(z) / std_dev;
+        let actual_cdf = match norm_cdf_with_params(x, mean, std_dev) {
+            Ok(value) => value,
+            Err(err) => panic!("norm_cdf_with_params should succeed for positive std_dev: {err}"),
+        };
+        let actual_pdf = match norm_pdf_with_params(x, mean, std_dev) {
+            Ok(value) => value,
+            Err(err) => panic!("norm_pdf_with_params should succeed for positive std_dev: {err}"),
+        };
+
+        assert!((actual_cdf - expected_cdf).abs() < 1e-12);
+        assert!((actual_pdf - expected_pdf).abs() < 1e-12);
+    }
+
+    #[test]
+    fn test_general_normal_helpers_reject_non_positive_std_dev() {
+        assert!(norm_cdf_with_params(0.0, 0.0, 0.0).is_err());
+        assert!(norm_pdf_with_params(0.0, 0.0, -1.0).is_err());
+    }
+
+    #[test]
+    fn test_checked_student_t_helpers_reject_invalid_inputs() {
+        assert!(try_student_t_cdf(0.0, 0.0).is_err());
+        assert!(try_student_t_inv_cdf(-0.1, 5.0).is_err());
+        assert!(try_student_t_inv_cdf(1.1, 5.0).is_err());
+        assert!(try_student_t_inv_cdf(0.95, 0.0).is_err());
     }
 }

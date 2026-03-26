@@ -38,10 +38,11 @@ pub use benchmark::{
 };
 pub use consecutive::count_consecutive;
 pub use drawdown::{
-    average_drawdown, avg_drawdown, burke_ratio, calmar, cdar, drawdown_details, martin_ratio,
-    martin_ratio_from_returns, max_drawdown_duration, pain_index, pain_ratio,
-    pain_ratio_from_returns, recovery_factor, recovery_factor_from_returns, sterling_ratio,
-    sterling_ratio_from_returns, to_drawdown_series, ulcer_index, DrawdownEpisode,
+    average_drawdown, avg_drawdown, burke_ratio, calmar, calmar_from_returns, cdar,
+    drawdown_details, martin_ratio, martin_ratio_from_returns, max_drawdown, max_drawdown_duration,
+    max_drawdown_from_returns, pain_index, pain_ratio, pain_ratio_from_returns, recovery_factor,
+    recovery_factor_from_returns, sterling_ratio, sterling_ratio_from_returns, to_drawdown_series,
+    ulcer_index, DrawdownEpisode,
 };
 pub use lookback::{fytd_select, mtd_select, qtd_select, ytd_select};
 pub use performance::{LookbackReturns, Performance};

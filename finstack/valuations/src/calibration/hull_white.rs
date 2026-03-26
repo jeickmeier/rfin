@@ -126,6 +126,38 @@ pub struct SwaptionQuote {
     pub is_normal_vol: bool,
 }
 
+impl SwaptionQuote {
+    /// Construct a validated swaption market quote.
+    pub fn try_new(
+        expiry: f64,
+        tenor: f64,
+        volatility: f64,
+        is_normal_vol: bool,
+    ) -> finstack_core::Result<Self> {
+        if !expiry.is_finite() || expiry <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Swaption expiry must be positive, got {expiry}"
+            )));
+        }
+        if !tenor.is_finite() || tenor <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Swaption tenor must be positive, got {tenor}"
+            )));
+        }
+        if !volatility.is_finite() || volatility <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Swaption volatility must be positive, got {volatility}"
+            )));
+        }
+        Ok(Self {
+            expiry,
+            tenor,
+            volatility,
+            is_normal_vol,
+        })
+    }
+}
+
 /// Number of coupon payments per year for the underlying swap in HW1F calibration.
 ///
 /// USD swaps are semi-annual (2), EUR swaps are annual (1).

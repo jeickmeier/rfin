@@ -641,7 +641,7 @@ fn parse_tenor(s: &str) -> Result<Tenor, String> {
 }
 
 /// Export module items for registration.
-pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommoditySwap>()?;
     parent.add_class::<PyCommoditySwapBuilder>()?;
     Ok(())

@@ -205,7 +205,7 @@ impl fmt::Display for PyLeveredRealEstateEquity {
 }
 
 /// Export module items for registration.
-pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyLeveredRealEstateEquity>()?;
     Ok(())
 }

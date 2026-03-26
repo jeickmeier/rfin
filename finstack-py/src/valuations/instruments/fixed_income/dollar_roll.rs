@@ -325,8 +325,8 @@ impl PyDollarRoll {
 
     /// Term.
     #[getter]
-    fn term(&self) -> PyTbaTerm {
-        self.inner.term.into()
+    fn term(&self) -> PyResult<PyTbaTerm> {
+        PyTbaTerm::try_from(self.inner.term).map_err(crate::errors::InternalError::new_err)
     }
 
     /// Notional amount.

@@ -690,7 +690,7 @@ impl fmt::Display for PyCommodityOption {
 }
 
 /// Export module items for registration.
-pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityOption>()?;
     parent.add_class::<PyCommodityOptionBuilder>()?;
     Ok(())

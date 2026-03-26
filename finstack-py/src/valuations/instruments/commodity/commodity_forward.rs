@@ -672,7 +672,7 @@ fn parse_bdc_option(bdc: Option<&str>) -> PyResult<Option<BusinessDayConvention>
 }
 
 /// Export module items for registration.
-pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityForward>()?;
     parent.add_class::<PyCommodityForwardBuilder>()?;
     Ok(())

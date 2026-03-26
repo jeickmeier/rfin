@@ -398,6 +398,29 @@ fn apply_flow_to_outstanding(
 }
 
 impl CashFlowSchedule {
+    fn require_single_currency_pv_map(
+        pv_map: IndexMap<PeriodId, IndexMap<Currency, Money>>,
+    ) -> finstack_core::Result<IndexMap<PeriodId, Money>> {
+        let mut result = IndexMap::with_capacity(pv_map.len());
+        for (period_id, currency_map) in pv_map {
+            let mut entries = currency_map.into_iter();
+            if let Some((currency, pv_money)) = entries.next() {
+                if entries.next().is_some() {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "period {period_id} has multiple currencies; single-currency PV output is not available"
+                    )));
+                }
+                if pv_money.currency() != currency {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "period {period_id} returned inconsistent currency aggregation"
+                    )));
+                }
+                result.insert(period_id, pv_money);
+            }
+        }
+        Ok(result)
+    }
+
     /// Compute pre-period present values with explicit day-count context.
     ///
     /// Like `pv_by_period`, but accepts a `DayCountCtx` for conventions
@@ -426,6 +449,21 @@ impl CashFlowSchedule {
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
         let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
         crate::cashflow::aggregation::pv_by_period_with_ctx(&flows, periods, disc, base, dc, dc_ctx)
+    }
+
+    /// Compute pre-period present values for schedules that aggregate to a single currency.
+    ///
+    /// Returns a validation error when any period contains multiple currencies.
+    pub fn pv_by_period_single_currency_with_ctx(
+        &self,
+        periods: &[Period],
+        disc: &dyn Discounting,
+        base: Date,
+        dc: DayCount,
+        dc_ctx: DayCountCtx,
+    ) -> finstack_core::Result<IndexMap<PeriodId, Money>> {
+        let pv_map = self.pv_by_period_with_ctx(periods, disc, base, dc, dc_ctx)?;
+        Self::require_single_currency_pv_map(pv_map)
     }
 
     /// Compute pre-period present values with market context and explicit day-count context.
@@ -476,6 +514,32 @@ impl CashFlowSchedule {
             curves.recovery_rate(),
             date_ctx,
         )
+    }
+
+    /// Compute market-based period PVs for schedules that aggregate to a single currency.
+    ///
+    /// Returns a validation error when any period contains multiple currencies.
+    #[allow(clippy::too_many_arguments)]
+    pub fn pv_by_period_single_currency_with_market_and_ctx(
+        &self,
+        periods: &[Period],
+        market: &MarketContext,
+        disc_curve_id: &CurveId,
+        hazard_curve_id: Option<&CurveId>,
+        base: Date,
+        dc: DayCount,
+        dc_ctx: DayCountCtx,
+    ) -> finstack_core::Result<IndexMap<PeriodId, Money>> {
+        let pv_map = self.pv_by_period_with_market_and_ctx(
+            periods,
+            market,
+            disc_curve_id,
+            hazard_curve_id,
+            base,
+            dc,
+            dc_ctx,
+        )?;
+        Self::require_single_currency_pv_map(pv_map)
     }
 
     /// Compute period PVs from resolved discount/survival curves.

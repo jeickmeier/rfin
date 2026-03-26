@@ -530,6 +530,23 @@ pub fn pain_index(drawdown: &[f64]) -> f64 {
     sum / drawdown.len() as f64
 }
 
+/// Maximum drawdown depth from a pre-computed drawdown series.
+///
+/// Returns the most negative value in `drawdown`, or `0.0` for an empty slice.
+#[must_use]
+pub fn max_drawdown(drawdown: &[f64]) -> f64 {
+    drawdown.iter().copied().fold(0.0_f64, f64::min)
+}
+
+/// Maximum drawdown computed directly from a returns series.
+///
+/// Builds the drawdown path with [`to_drawdown_series`] and returns the worst
+/// observed drawdown depth.
+#[must_use]
+pub fn max_drawdown_from_returns(returns: &[f64]) -> f64 {
+    max_drawdown(&to_drawdown_series(returns))
+}
+
 /// Average drawdown depth across all periods.
 ///
 /// Returns the arithmetic mean of the drawdown series. Since drawdown
@@ -581,6 +598,17 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
         return 0.0;
     }
     cagr_val / max_dd.abs()
+}
+
+/// Calmar ratio computed directly from a returns series.
+///
+/// Annualizes the returns with [`crate::risk_metrics::cagr_from_periods`],
+/// derives the worst drawdown from [`to_drawdown_series`], then delegates to
+/// [`calmar`].
+#[must_use]
+pub fn calmar_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
+    let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
+    calmar(cagr_val, max_drawdown_from_returns(returns))
 }
 
 /// Recovery factor: total return / |max drawdown|.
@@ -641,9 +669,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 /// ```
 pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
     let total_return = crate::returns::comp_total(returns);
-    let drawdowns = to_drawdown_series(returns);
-    let max_dd = drawdowns.iter().copied().fold(0.0_f64, f64::min);
-    recovery_factor(total_return, max_dd)
+    recovery_factor(total_return, max_drawdown_from_returns(returns))
 }
 
 /// Martin ratio (Ulcer Performance Index): CAGR / Ulcer Index.

@@ -359,18 +359,33 @@ impl PyMoney {
             CompareOp::Ne => rhs
                 .map(|v| v.amount() != self.inner.amount() || v.currency() != self.inner.currency())
                 .unwrap_or(true),
-            CompareOp::Lt | CompareOp::Le | CompareOp::Gt | CompareOp::Ge => {
+            CompareOp::Lt => {
                 let rhs = rhs.ok_or_else(|| PyValueError::new_err("Unsupported comparison"))?;
                 if rhs.currency() != self.inner.currency() {
                     return Err(PyValueError::new_err("Currency mismatch"));
                 }
-                match op {
-                    CompareOp::Lt => self.inner.amount() < rhs.amount(),
-                    CompareOp::Le => self.inner.amount() <= rhs.amount(),
-                    CompareOp::Gt => self.inner.amount() > rhs.amount(),
-                    CompareOp::Ge => self.inner.amount() >= rhs.amount(),
-                    _ => unreachable!("covered above"),
+                self.inner.amount() < rhs.amount()
+            }
+            CompareOp::Le => {
+                let rhs = rhs.ok_or_else(|| PyValueError::new_err("Unsupported comparison"))?;
+                if rhs.currency() != self.inner.currency() {
+                    return Err(PyValueError::new_err("Currency mismatch"));
                 }
+                self.inner.amount() <= rhs.amount()
+            }
+            CompareOp::Gt => {
+                let rhs = rhs.ok_or_else(|| PyValueError::new_err("Unsupported comparison"))?;
+                if rhs.currency() != self.inner.currency() {
+                    return Err(PyValueError::new_err("Currency mismatch"));
+                }
+                self.inner.amount() > rhs.amount()
+            }
+            CompareOp::Ge => {
+                let rhs = rhs.ok_or_else(|| PyValueError::new_err("Unsupported comparison"))?;
+                if rhs.currency() != self.inner.currency() {
+                    return Err(PyValueError::new_err("Currency mismatch"));
+                }
+                self.inner.amount() >= rhs.amount()
             }
         };
         let py_bool = result.into_bound_py_any(py)?;

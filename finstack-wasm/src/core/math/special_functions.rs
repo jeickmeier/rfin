@@ -1,7 +1,8 @@
 //! Special mathematical functions for WASM bindings.
 
 use finstack_core::math::special_functions::{
-    erf, norm_cdf, norm_pdf, standard_normal_inv_cdf, student_t_cdf, student_t_inv_cdf,
+    erf, norm_cdf, norm_cdf_with_params, norm_pdf, norm_pdf_with_params, standard_normal_inv_cdf,
+    try_student_t_cdf, try_student_t_inv_cdf,
 };
 use wasm_bindgen::prelude::*;
 
@@ -38,6 +39,30 @@ pub fn norm_cdf_js(x: f64) -> f64 {
 #[wasm_bindgen(js_name = normPdf)]
 pub fn norm_pdf_js(x: f64) -> f64 {
     norm_pdf(x)
+}
+
+/// General normal cumulative distribution function.
+///
+/// @param {number} x - Value to evaluate
+/// @param {number} mean - Distribution mean
+/// @param {number} stdDev - Distribution standard deviation (must be positive)
+/// @returns {number} Probability P(X ≤ x)
+/// @throws {Error} If `stdDev` is not finite and positive
+#[wasm_bindgen(js_name = normCdfWithParams)]
+pub fn norm_cdf_with_params_js(x: f64, mean: f64, std_dev: f64) -> Result<f64, JsValue> {
+    norm_cdf_with_params(x, mean, std_dev).map_err(|e| JsValue::from_str(&e.to_string()))
+}
+
+/// General normal probability density function.
+///
+/// @param {number} x - Value to evaluate
+/// @param {number} mean - Distribution mean
+/// @param {number} stdDev - Distribution standard deviation (must be positive)
+/// @returns {number} Probability density
+/// @throws {Error} If `stdDev` is not finite and positive
+#[wasm_bindgen(js_name = normPdfWithParams)]
+pub fn norm_pdf_with_params_js(x: f64, mean: f64, std_dev: f64) -> Result<f64, JsValue> {
+    norm_pdf_with_params(x, mean, std_dev).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Inverse of the standard normal CDF (quantile function).
@@ -90,10 +115,7 @@ pub fn erf_js(x: f64) -> f64 {
 /// ```
 #[wasm_bindgen(js_name = studentTCdf)]
 pub fn student_t_cdf_js(x: f64, df: f64) -> Result<f64, JsValue> {
-    if df <= 0.0 {
-        return Err(JsValue::from_str("Degrees of freedom must be positive"));
-    }
-    Ok(student_t_cdf(x, df))
+    try_student_t_cdf(x, df).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
 /// Inverse of Student's t-distribution CDF.
@@ -108,11 +130,5 @@ pub fn student_t_cdf_js(x: f64, df: f64) -> Result<f64, JsValue> {
 /// ```
 #[wasm_bindgen(js_name = studentTInvCdf)]
 pub fn student_t_inv_cdf_js(p: f64, df: f64) -> Result<f64, JsValue> {
-    if p <= 0.0 || p >= 1.0 {
-        return Err(JsValue::from_str("Probability must be in (0, 1)"));
-    }
-    if df <= 0.0 {
-        return Err(JsValue::from_str("Degrees of freedom must be positive"));
-    }
-    Ok(student_t_inv_cdf(p, df))
+    try_student_t_inv_cdf(p, df).map_err(|e| JsValue::from_str(&e.to_string()))
 }

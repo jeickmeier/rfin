@@ -52,10 +52,10 @@ pub(crate) fn register<'py>(
     let pmf_exports = private_markets_fund::register(py, module)?;
     exports.extend(pmf_exports.iter().copied());
 
-    real_estate::register_module(module)?;
+    real_estate::register(module)?;
     exports.push("RealEstateAsset");
 
-    levered_real_estate_equity::register_module(module)?;
+    levered_real_estate_equity::register(module)?;
     exports.push("LeveredRealEstateEquity");
 
     let dcf_exports = dcf::register(py, module)?;

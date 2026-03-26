@@ -908,9 +908,8 @@ impl PyCashFlowSchedule {
                 disc_arc.base_date()
             };
 
-            let pv_result = self
-                .inner
-                .pv_by_period_with_market_and_ctx(
+            self.inner
+                .pv_by_period_single_currency_with_market_and_ctx(
                     &periods_vec,
                     &market.inner,
                     &disc_curve_id,
@@ -919,8 +918,7 @@ impl PyCashFlowSchedule {
                     dc,
                     finstack_core::dates::DayCountCtx::default(),
                 )
-                .map_err(core_to_py)?;
-            pv_result
+                .map_err(core_to_py)?
         } else if let Ok(disc_curve) = market_or_curve.extract::<PyRef<PyDiscountCurve>>() {
             // Using DiscountCurve directly (backwards compat, no hazard support)
             if hazard_curve_id.is_some() {
@@ -935,30 +933,24 @@ impl PyCashFlowSchedule {
                 disc_curve.inner.base_date()
             };
 
-            let pv_map = self
-                .inner
-                .pv_by_period_with_ctx(
+            self.inner
+                .pv_by_period_single_currency_with_ctx(
                     &periods_vec,
                     disc_curve.inner.as_ref(),
                     base,
                     dc,
                     finstack_core::dates::DayCountCtx::default(),
                 )
-                .map_err(core_to_py)?;
-            pv_map
+                .map_err(core_to_py)?
         } else {
             return Err(pyo3::exceptions::PyTypeError::new_err(
                 "market_or_curve must be MarketContext or DiscountCurve",
             ));
         };
 
-        // Convert to Python dict: PeriodId.code -> PV (single currency)
         let mut result = HashMap::default();
-        for (period_id, currency_map) in pv_map {
-            // For single-currency schedules, take the first (and only) currency
-            if let Some((_currency, pv_money)) = currency_map.first() {
-                result.insert(period_id.to_string(), pv_money.amount());
-            }
+        for (period_id, pv_money) in pv_map {
+            result.insert(period_id.to_string(), pv_money.amount());
         }
 
         Ok(result)

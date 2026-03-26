@@ -659,7 +659,7 @@ impl PyBondFuture {
         match self.inner.position {
             Position::Long => "long".to_string(),
             Position::Short => "short".to_string(),
-            _ => unreachable!("unknown Position variant"),
+            _ => "unknown".to_string(),
         }
     }
 

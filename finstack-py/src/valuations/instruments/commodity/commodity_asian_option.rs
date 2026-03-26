@@ -541,7 +541,7 @@ fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<DayCount> {
     Err(PyTypeError::new_err("day_count expects DayCount or str"))
 }
 
-pub(crate) fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommodityAsianOption>()?;
     parent.add_class::<PyCommodityAsianOptionBuilder>()?;
     Ok(())

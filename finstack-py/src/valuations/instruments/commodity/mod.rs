@@ -14,27 +14,27 @@ pub(crate) fn register<'py>(
 ) -> PyResult<Vec<&'static str>> {
     let mut exports = Vec::new();
 
-    commodity_forward::register_module(module)?;
+    commodity_forward::register(module)?;
     exports.push("CommodityForward");
     exports.push("CommodityForwardBuilder");
 
-    commodity_option::register_module(module)?;
+    commodity_option::register(module)?;
     exports.push("CommodityOption");
     exports.push("CommodityOptionBuilder");
 
-    commodity_swap::register_module(module)?;
+    commodity_swap::register(module)?;
     exports.push("CommoditySwap");
     exports.push("CommoditySwapBuilder");
 
-    commodity_spread_option::register_module(module)?;
+    commodity_spread_option::register(module)?;
     exports.push("CommoditySpreadOption");
     exports.push("CommoditySpreadOptionBuilder");
 
-    commodity_swaption::register_module(module)?;
+    commodity_swaption::register(module)?;
     exports.push("CommoditySwaption");
     exports.push("CommoditySwaptionBuilder");
 
-    commodity_asian_option::register_module(module)?;
+    commodity_asian_option::register(module)?;
     exports.push("CommodityAsianOption");
     exports.push("CommodityAsianOptionBuilder");
 

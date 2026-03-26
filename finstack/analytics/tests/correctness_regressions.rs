@@ -239,6 +239,28 @@ fn benchmark_drawdown_views_follow_benchmark_switch_with_active_window() {
 }
 
 #[test]
+fn max_drawdown_and_calmar_from_returns_match_manual_composition() {
+    let returns = [0.10, -0.20, 0.05, -0.10, 0.08];
+    let ann = 12.0;
+
+    let drawdown = finstack_analytics::to_drawdown_series(&returns);
+    let expected_max_drawdown = drawdown.iter().copied().fold(0.0_f64, f64::min);
+    let expected_calmar = finstack_analytics::calmar(
+        finstack_analytics::cagr_from_periods(&returns, ann),
+        expected_max_drawdown,
+    );
+
+    assert_eq!(
+        finstack_analytics::drawdown::max_drawdown_from_returns(&returns),
+        expected_max_drawdown
+    );
+    assert_eq!(
+        finstack_analytics::drawdown::calmar_from_returns(&returns, ann),
+        expected_calmar
+    );
+}
+
+#[test]
 fn align_benchmark_policy_can_reject_missing_dates() {
     let bench_dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 3)];
     let bench_returns = vec![0.01, 0.02];

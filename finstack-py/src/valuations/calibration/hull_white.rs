@@ -170,27 +170,9 @@ impl PySwaptionQuote {
     /// Raises:
     ///     ValueError: If expiry, tenor, or volatility are not positive.
     fn ctor(expiry: f64, tenor: f64, volatility: f64, is_normal_vol: bool) -> PyResult<Self> {
-        if expiry <= 0.0 || !expiry.is_finite() {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Swaption expiry must be positive, got {expiry}"
-            )));
-        }
-        if tenor <= 0.0 || !tenor.is_finite() {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Swaption tenor must be positive, got {tenor}"
-            )));
-        }
-        if volatility <= 0.0 || !volatility.is_finite() {
-            return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                "Swaption volatility must be positive, got {volatility}"
-            )));
-        }
-        Ok(Self::new(SwaptionQuote {
-            expiry,
-            tenor,
-            volatility,
-            is_normal_vol,
-        }))
+        SwaptionQuote::try_new(expiry, tenor, volatility, is_normal_vol)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Swaption expiry in years.
@@ -310,4 +292,29 @@ pub(crate) fn register<'py>(
         "SwaptionQuote",
         "calibrate_hull_white",
     ])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn init_python() {
+        Python::initialize();
+    }
+
+    #[test]
+    fn swaption_quote_invalid_inputs_map_to_validation_error() {
+        init_python();
+        let err =
+            PySwaptionQuote::ctor(0.0, 5.0, 0.01, true).expect_err("non-positive expiry must fail");
+
+        Python::attach(|py| {
+            let type_name = err
+                .get_type(py)
+                .name()
+                .and_then(|name| name.to_str().map(str::to_owned))
+                .unwrap_or_else(|_| "<unknown>".to_string());
+            assert_eq!(type_name, "ValidationError");
+        });
+    }
 }

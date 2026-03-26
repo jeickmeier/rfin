@@ -6,6 +6,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use pyo3::{Bound, Py, PyAny, PyRef};
 use std::fmt;
+use std::str::FromStr;
 
 /// Strongly typed metric identifier mirroring ``finstack_valuations::metrics::MetricId``.
 ///
@@ -52,7 +53,9 @@ impl PyMetricId {
     ///     >>> MetricId.from_name("my_custom_metric").name
     ///     'my_custom_metric'
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        let metric: MetricId = name.parse().unwrap_or_else(|_| unreachable!());
+        let metric = MetricId::from_str(name).map_err(|_| {
+            crate::errors::InternalError::new_err("MetricId::from_str unexpectedly failed")
+        })?;
         Ok(Self::new(metric))
     }
 
@@ -171,7 +174,9 @@ impl<'a, 'py> FromPyObject<'a, 'py> for MetricIdArg {
             return Ok(MetricIdArg(wrapper.inner.clone()));
         }
         if let Ok(name) = ob.extract::<&str>() {
-            let metric: MetricId = name.parse().unwrap_or_else(|_| unreachable!());
+            let metric = MetricId::from_str(name).map_err(|_| {
+                crate::errors::InternalError::new_err("MetricId::from_str unexpectedly failed")
+            })?;
             return Ok(MetricIdArg(metric));
         }
         Err(PyTypeError::new_err(

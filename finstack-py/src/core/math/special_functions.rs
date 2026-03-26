@@ -1,9 +1,10 @@
+use crate::errors::core_to_py;
 use finstack_core::math::special_functions::{
-    erf as core_erf, norm_cdf as core_norm_cdf, norm_pdf as core_norm_pdf,
-    standard_normal_inv_cdf as core_std_norm_inv_cdf, student_t_cdf as core_student_t_cdf,
-    student_t_inv_cdf as core_student_t_inv_cdf,
+    erf as core_erf, norm_cdf_with_params as core_norm_cdf_with_params,
+    norm_pdf_with_params as core_norm_pdf_with_params,
+    standard_normal_inv_cdf as core_std_norm_inv_cdf, try_student_t_cdf as core_try_student_t_cdf,
+    try_student_t_inv_cdf as core_try_student_t_inv_cdf,
 };
-use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
@@ -11,29 +12,13 @@ use pyo3::Bound;
 #[pyfunction(name = "norm_cdf")]
 #[pyo3(text_signature = "(x, mean=0.0, std_dev=1.0)")]
 pub fn norm_cdf_py(x: f64, mean: Option<f64>, std_dev: Option<f64>) -> PyResult<f64> {
-    let m = mean.unwrap_or(0.0);
-    let s = std_dev.unwrap_or(1.0);
-    if s <= 0.0 {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "std_dev must be positive",
-        ));
-    }
-    // Standardize: z = (x - mu) / sigma
-    Ok(core_norm_cdf((x - m) / s))
+    core_norm_cdf_with_params(x, mean.unwrap_or(0.0), std_dev.unwrap_or(1.0)).map_err(core_to_py)
 }
 
 #[pyfunction(name = "norm_pdf")]
 #[pyo3(text_signature = "(x, mean=0.0, std_dev=1.0)")]
 pub fn norm_pdf_py(x: f64, mean: Option<f64>, std_dev: Option<f64>) -> PyResult<f64> {
-    let m = mean.unwrap_or(0.0);
-    let s = std_dev.unwrap_or(1.0);
-    if s <= 0.0 {
-        return Err(pyo3::exceptions::PyValueError::new_err(
-            "std_dev must be positive",
-        ));
-    }
-    // PDF(x) = (1/sigma) * phi((x - mu) / sigma)
-    Ok(core_norm_pdf((x - m) / s) / s)
+    core_norm_pdf_with_params(x, mean.unwrap_or(0.0), std_dev.unwrap_or(1.0)).map_err(core_to_py)
 }
 
 #[pyfunction(name = "standard_normal_inv_cdf")]
@@ -64,10 +49,7 @@ pub fn erf_py(x: f64) -> PyResult<f64> {
 ///     >>> student_t_cdf(0.0, 10.0)
 ///     0.5
 pub fn student_t_cdf_py(x: f64, df: f64) -> PyResult<f64> {
-    if df <= 0.0 {
-        return Err(PyValueError::new_err("df must be positive"));
-    }
-    Ok(core_student_t_cdf(x, df))
+    core_try_student_t_cdf(x, df).map_err(core_to_py)
 }
 
 #[pyfunction(name = "student_t_inv_cdf")]
@@ -85,13 +67,7 @@ pub fn student_t_cdf_py(x: f64, df: f64) -> PyResult<f64> {
 ///     >>> from finstack.core.math.special_functions import student_t_inv_cdf
 ///     >>> student_t_inv_cdf(0.975, 10.0)  # doctest: +SKIP
 pub fn student_t_inv_cdf_py(p: f64, df: f64) -> PyResult<f64> {
-    if !(0.0..=1.0).contains(&p) {
-        return Err(PyValueError::new_err("p must be in [0, 1]"));
-    }
-    if df <= 0.0 {
-        return Err(PyValueError::new_err("df must be positive"));
-    }
-    Ok(core_student_t_inv_cdf(p, df))
+    core_try_student_t_inv_cdf(p, df).map_err(core_to_py)
 }
 
 pub(crate) fn register<'py>(

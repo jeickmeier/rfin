@@ -72,7 +72,7 @@ impl PyLegSide {
         match self.inner {
             LegSide::Pay => "pay",
             LegSide::Receive => "receive",
-            _ => unreachable!("unknown LegSide variant"),
+            _ => "unknown",
         }
     }
 
@@ -142,7 +142,7 @@ impl PyNotionalExchange {
             NotionalExchange::None => "none",
             NotionalExchange::Final => "final",
             NotionalExchange::InitialAndFinal => "initial_and_final",
-            _ => unreachable!("unknown NotionalExchange variant"),
+            _ => "unknown",
         }
     }
 

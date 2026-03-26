@@ -412,7 +412,7 @@ impl fmt::Display for PyCommoditySpreadOption {
     }
 }
 
-pub fn register_module(parent: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(parent: &Bound<'_, PyModule>) -> PyResult<()> {
     parent.add_class::<PyCommoditySpreadOption>()?;
     parent.add_class::<PyCommoditySpreadOptionBuilder>()?;
     Ok(())
