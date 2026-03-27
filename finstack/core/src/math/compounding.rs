@@ -233,6 +233,79 @@ impl Compounding {
         }
     }
 
+    /// Fallible version of [`rate_from_df`](Self::rate_from_df).
+    ///
+    /// Returns `Err` instead of `NaN` for degenerate inputs (non-positive or
+    /// non-finite discount factors, non-finite time).
+    pub fn try_rate_from_df(&self, df: f64, t: f64) -> crate::Result<f64> {
+        if !df.is_finite() || !t.is_finite() {
+            return Err(crate::error::InputError::NonFiniteValue {
+                kind: if df.is_nan() || t.is_nan() {
+                    crate::error::NonFiniteKind::NaN
+                } else if df.is_sign_positive() {
+                    crate::error::NonFiniteKind::PosInfinity
+                } else {
+                    crate::error::NonFiniteKind::NegInfinity
+                },
+            }
+            .into());
+        }
+        if t == 0.0 {
+            return Ok(0.0);
+        }
+        let result = match self {
+            Compounding::Continuous => {
+                if df <= 0.0 {
+                    return Err(crate::Error::Validation(
+                        "try_rate_from_df: discount factor must be positive for Continuous compounding".into(),
+                    ));
+                }
+                -df.ln() / t
+            }
+            Compounding::Annual => {
+                if df <= 0.0 {
+                    return Err(crate::Error::Validation(
+                        "try_rate_from_df: discount factor must be positive for Annual compounding"
+                            .into(),
+                    ));
+                }
+                df.powf(-1.0 / t) - 1.0
+            }
+            Compounding::Periodic(n) => {
+                if df <= 0.0 {
+                    return Err(crate::Error::Validation(
+                        "try_rate_from_df: discount factor must be positive for Periodic compounding".into(),
+                    ));
+                }
+                let n = f64::from(n.get());
+                n * (df.powf(-1.0 / (n * t)) - 1.0)
+            }
+            Compounding::Simple => {
+                if df <= 0.0 || !df.is_finite() {
+                    return Err(crate::Error::Validation(
+                        "try_rate_from_df: discount factor must be positive and finite for Simple compounding".into(),
+                    ));
+                }
+                (1.0 / df - 1.0) / t
+            }
+        };
+        // Post-condition: output must be finite
+        if result.is_finite() {
+            Ok(result)
+        } else {
+            Err(crate::error::InputError::NonFiniteValue {
+                kind: if result.is_nan() {
+                    crate::error::NonFiniteKind::NaN
+                } else if result.is_sign_positive() {
+                    crate::error::NonFiniteKind::PosInfinity
+                } else {
+                    crate::error::NonFiniteKind::NegInfinity
+                },
+            }
+            .into())
+        }
+    }
+
     /// Convert a rate quoted under `self` to the equivalent rate under `to`.
     ///
     /// Internally this computes the discount factor from the source convention
@@ -602,6 +675,37 @@ mod tests {
             r_semi > r_cont,
             "r_semi ({r_semi}) should be > r_continuous ({r_cont})",
         );
+    }
+
+    #[test]
+    fn try_rate_from_df_normal() {
+        let c = Compounding::Continuous;
+        let rate = c.try_rate_from_df(0.95, 1.0).unwrap();
+        assert!((rate - 0.05129).abs() < 0.001);
+    }
+
+    #[test]
+    fn try_rate_from_df_zero_df_errors() {
+        let c = Compounding::Continuous;
+        assert!(c.try_rate_from_df(0.0, 1.0).is_err());
+    }
+
+    #[test]
+    fn try_rate_from_df_negative_df_errors() {
+        let c = Compounding::Annual;
+        assert!(c.try_rate_from_df(-0.5, 1.0).is_err());
+    }
+
+    #[test]
+    fn try_rate_from_df_nan_errors() {
+        let c = Compounding::Simple;
+        assert!(c.try_rate_from_df(f64::NAN, 1.0).is_err());
+    }
+
+    #[test]
+    fn try_rate_from_df_zero_time() {
+        let c = Compounding::Continuous;
+        assert_eq!(c.try_rate_from_df(0.95, 0.0).unwrap(), 0.0);
     }
 
     #[test]

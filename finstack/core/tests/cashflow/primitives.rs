@@ -216,15 +216,15 @@ fn cashflow_accepts_zero_accrual_factor() {
 }
 
 #[test]
-fn cashflow_accepts_negative_accrual_factor() {
-    // Negative accrual factor could occur in edge cases
+fn cashflow_rejects_negative_accrual_factor() {
+    // Negative accrual factor is invalid
     let cf = CashFlow {
         accrual_factor: -0.25,
         ..valid_cashflow()
     };
     assert!(
-        cf.validate().is_ok(),
-        "Negative accrual factor should be accepted"
+        cf.validate().is_err(),
+        "Negative accrual factor should be rejected"
     );
 }
 

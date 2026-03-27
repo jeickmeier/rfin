@@ -331,6 +331,20 @@ impl MarketContext {
         })
     }
 
+    /// Returns `true` if any credit index references the given curve ID
+    /// as its hazard curve, base correlation curve, or issuer curve.
+    fn curve_affects_credit_indices(&self, curve_id: &CurveId) -> bool {
+        let id_str = curve_id.as_str();
+        self.credit_indices.values().any(|data| {
+            data.index_credit_curve.id().as_str() == id_str
+                || data.base_correlation_curve.id().as_str() == id_str
+                || data
+                    .issuer_credit_curves
+                    .as_ref()
+                    .is_some_and(|curves| curves.values().any(|c| c.id().as_str() == id_str))
+        })
+    }
+
     /// Rebind all credit indices to current curves.
     ///
     /// Returns the IDs of any credit indices that were invalidated (removed)

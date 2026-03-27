@@ -32,7 +32,7 @@ rand_pcg = { version = "0.9", features = ["serde"] }
 tracing = { version = "0.1", optional = true, default-features = false }
 
 [features]
-default = []
+default = ["tracing"]
 golden = []
 tracing = ["dep:tracing"]
 

@@ -6,8 +6,8 @@ use finstack_core::money::Money;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "dataframes")]
 use crate::error::Result;
+use crate::types::FinancialModelSpec;
 
 /// Results from evaluating a financial model.
 ///
@@ -201,6 +201,66 @@ impl StatementResult {
     /// * `default` - Value to return when the datapoint is missing
     pub fn get_or(&self, node_id: &str, period: &PeriodId, default: f64) -> f64 {
         self.get(node_id, period).unwrap_or(default)
+    }
+
+    /// Infer and populate node value types and monetary node maps from a model.
+    ///
+    /// For each node, determines whether it is monetary or scalar based on:
+    /// 1. Explicit `value_type` on the node spec (highest priority)
+    /// 2. Inferred from the node's input values (currency homogeneity)
+    /// 3. Default to scalar
+    ///
+    /// Populates `node_value_types` and `monetary_nodes` on this result.
+    pub(crate) fn populate_value_types(&mut self, model: &FinancialModelSpec) -> Result<()> {
+        for (node_id, node_spec) in &model.nodes {
+            let node_id_str = node_id.as_str();
+
+            if let Some(value_type) = &node_spec.value_type {
+                self.node_value_types
+                    .insert(node_id_str.to_string(), *value_type);
+
+                if let NodeValueType::Monetary { currency } = value_type {
+                    if let Some(period_map) = self.nodes.get(node_id_str) {
+                        let money_map = period_map
+                            .iter()
+                            .map(|(period_id, &v)| (*period_id, Money::new(v, *currency)))
+                            .collect();
+                        self.monetary_nodes
+                            .insert(node_id_str.to_string(), money_map);
+                    }
+                }
+            } else if let Some(values) = &node_spec.values {
+                if let Some(inferred_type) =
+                    crate::types::infer_series_value_type(values.values())?
+                {
+                    if let NodeValueType::Monetary { currency } = inferred_type {
+                        self.node_value_types.insert(
+                            node_id_str.to_string(),
+                            NodeValueType::Monetary { currency },
+                        );
+
+                        if let Some(period_map) = self.nodes.get(node_id_str) {
+                            let money_map = period_map
+                                .iter()
+                                .map(|(period_id, &v)| (*period_id, Money::new(v, currency)))
+                                .collect();
+                            self.monetary_nodes
+                                .insert(node_id_str.to_string(), money_map);
+                        }
+                    } else {
+                        self.node_value_types
+                            .insert(node_id_str.to_string(), NodeValueType::Scalar);
+                    }
+                } else {
+                    self.node_value_types
+                        .insert(node_id_str.to_string(), NodeValueType::Scalar);
+                }
+            } else {
+                self.node_value_types
+                    .insert(node_id_str.to_string(), NodeValueType::Scalar);
+            }
+        }
+        Ok(())
     }
 
     /// Export to Polars long format DataFrame.

@@ -36,7 +36,7 @@ impl MarketContext {
     }
 
     fn missing_curve_error(&self, id: &str) -> crate::Error {
-        let available: Vec<String> = self.curves.keys().map(|k| k.to_string()).collect();
+        let available: Vec<&str> = self.curves.keys().map(|k| k.as_str()).collect();
         crate::error::Error::missing_curve_with_suggestions(id, &available)
     }
 

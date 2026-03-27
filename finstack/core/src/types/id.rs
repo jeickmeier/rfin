@@ -83,7 +83,6 @@
 //! # See Also
 //!
 //! - [`CurveId`], [`InstrumentId`], [`IndexId`], [`PriceId`] - Common ID type aliases
-//! - [`TypeTag`] - Marker trait for phantom type parameters
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -93,22 +92,6 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-/// Marker trait for types that can be used as ID tags.
-///
-/// This trait is automatically implemented for all types via a blanket
-/// implementation, but serves as documentation and bounds for the phantom
-/// type parameter of [`Id<T>`].
-///
-/// # Purpose
-///
-/// The trait exists primarily for documentation and as a constraint on `Id<T>`.
-/// It signals that a type is intended to be used as a phantom type marker
-/// for identifiers.
-pub trait TypeTag {}
-
-// Blanket implementation for all types
-impl<T> TypeTag for T {}
-
 /// A phantom-typed identifier that prevents mixing different kinds of IDs.
 ///
 /// This type wraps a string identifier with a phantom type parameter to ensure
@@ -117,8 +100,7 @@ impl<T> TypeTag for T {}
 ///
 /// # Type Parameters
 ///
-/// * `T` - Phantom type tag implementing [`TypeTag`] that distinguishes this ID
-///   from IDs with different tags
+/// * `T` - Phantom type tag that distinguishes this ID from IDs with different tags
 ///
 /// # Invariants
 ///
@@ -151,13 +133,13 @@ impl<T> TypeTag for T {}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(transparent)]
 #[serde(deny_unknown_fields)]
-pub struct Id<T: TypeTag> {
+pub struct Id<T> {
     value: Arc<str>,
     #[serde(skip)]
     _marker: PhantomData<T>,
 }
 
-impl<T: TypeTag> Id<T> {
+impl<T> Id<T> {
     /// Create a new ID with the given string value.
     ///
     /// # Arguments
@@ -295,39 +277,39 @@ impl<T: TypeTag> Id<T> {
 
 // Implement common traits
 
-impl<T: TypeTag> PartialEq for Id<T> {
+impl<T> PartialEq for Id<T> {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value
     }
 }
 
-impl<T: TypeTag> Eq for Id<T> {}
+impl<T> Eq for Id<T> {}
 
-impl<T: TypeTag> Hash for Id<T> {
+impl<T> Hash for Id<T> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.value.hash(state);
     }
 }
 
-impl<T: TypeTag> PartialOrd for Id<T> {
+impl<T> PartialOrd for Id<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<T: TypeTag> Ord for Id<T> {
+impl<T> Ord for Id<T> {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         self.value.cmp(&other.value)
     }
 }
 
-impl<T: TypeTag> fmt::Display for Id<T> {
+impl<T> fmt::Display for Id<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value)
     }
 }
 
-impl<T: TypeTag> From<String> for Id<T> {
+impl<T> From<String> for Id<T> {
     fn from(value: String) -> Self {
         Self {
             value: Arc::<str>::from(value),
@@ -336,7 +318,7 @@ impl<T: TypeTag> From<String> for Id<T> {
     }
 }
 
-impl<T: TypeTag> From<&str> for Id<T> {
+impl<T> From<&str> for Id<T> {
     fn from(value: &str) -> Self {
         Self {
             value: Arc::<str>::from(value),
@@ -345,13 +327,13 @@ impl<T: TypeTag> From<&str> for Id<T> {
     }
 }
 
-impl<T: TypeTag> AsRef<str> for Id<T> {
+impl<T> AsRef<str> for Id<T> {
     fn as_ref(&self) -> &str {
         &self.value
     }
 }
 
-impl<T: TypeTag> Deref for Id<T> {
+impl<T> Deref for Id<T> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -359,13 +341,13 @@ impl<T: TypeTag> Deref for Id<T> {
     }
 }
 
-impl<T: TypeTag> std::borrow::Borrow<str> for Id<T> {
+impl<T> std::borrow::Borrow<str> for Id<T> {
     fn borrow(&self) -> &str {
         &self.value
     }
 }
 
-impl<T: TypeTag> std::str::FromStr for Id<T> {
+impl<T> std::str::FromStr for Id<T> {
     type Err = std::convert::Infallible;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {

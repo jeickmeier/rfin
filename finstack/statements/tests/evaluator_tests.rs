@@ -411,7 +411,6 @@ fn test_precedence_formula_fallback() {
 
     // Should use formula
     assert!(source.is_formula());
-    assert_eq!(source.as_formula(), Some("revenue * 0.6"));
 }
 
 // ============================================================================

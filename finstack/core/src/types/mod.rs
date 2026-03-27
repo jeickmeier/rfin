@@ -38,7 +38,7 @@ mod ratings;
 
 pub use attributes::Attributes;
 pub use id::{
-    CalendarId, CurveId, DealId, Id, IndexId, InstrumentId, PoolId, PriceId, TypeTag, UnderlyingId,
+    CalendarId, CurveId, DealId, Id, IndexId, InstrumentId, PoolId, PriceId, UnderlyingId,
 };
 pub use rates::{Bps, Percentage, Rate};
 pub use ratings::{

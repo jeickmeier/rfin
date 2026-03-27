@@ -399,7 +399,7 @@ impl Money {
     pub fn checked_add(self, rhs: Self) -> Result<Self, Error> {
         ensure_same_currency(&self, &rhs)?;
         Ok(Self {
-            amount: repr_add(self.amount, rhs.amount),
+            amount: repr_add(self.amount, rhs.amount)?,
             currency: self.currency,
         })
     }
@@ -428,7 +428,7 @@ impl Money {
     pub fn checked_sub(self, rhs: Self) -> Result<Self, Error> {
         ensure_same_currency(&self, &rhs)?;
         Ok(Self {
-            amount: repr_sub(self.amount, rhs.amount),
+            amount: repr_sub(self.amount, rhs.amount)?,
             currency: self.currency,
         })
     }
@@ -615,8 +615,9 @@ impl AddAssign for Money {
     ///
     /// # Panics
     ///
-    /// Panics if `rhs` has a different currency. For fallible
-    /// arithmetic, use [`Money::checked_add`] which returns `Result`.
+    /// Panics if `rhs` has a different currency or if the addition
+    /// overflows `Decimal`. For fallible arithmetic, use
+    /// [`Money::checked_add`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -629,6 +630,7 @@ impl AddAssign for Money {
     /// assert_eq!(total.amount(), 150.0);
     /// ```
     #[track_caller]
+    #[allow(clippy::panic)]
     fn add_assign(&mut self, rhs: Self) {
         // Always fail loudly on currency mismatch; silent no-ops are correctness bugs.
         assert!(
@@ -637,7 +639,8 @@ impl AddAssign for Money {
             self.currency,
             rhs.currency
         );
-        self.amount = repr_add(self.amount, rhs.amount);
+        self.amount = repr_add(self.amount, rhs.amount)
+            .unwrap_or_else(|_| panic!("Decimal overflow in Money::add_assign"));
     }
 }
 
@@ -646,8 +649,9 @@ impl SubAssign for Money {
     ///
     /// # Panics
     ///
-    /// Panics if `rhs` has a different currency. For fallible
-    /// arithmetic, use [`Money::checked_sub`] which returns `Result`.
+    /// Panics if `rhs` has a different currency or if the subtraction
+    /// overflows `Decimal`. For fallible arithmetic, use
+    /// [`Money::checked_sub`] which returns `Result`.
     ///
     /// # Example
     ///
@@ -660,6 +664,7 @@ impl SubAssign for Money {
     /// assert_eq!(total.amount(), 70.0);
     /// ```
     #[track_caller]
+    #[allow(clippy::panic)]
     fn sub_assign(&mut self, rhs: Self) {
         // Always fail loudly on currency mismatch; silent no-ops are correctness bugs.
         assert!(
@@ -668,7 +673,8 @@ impl SubAssign for Money {
             self.currency,
             rhs.currency
         );
-        self.amount = repr_sub(self.amount, rhs.amount);
+        self.amount = repr_sub(self.amount, rhs.amount)
+            .unwrap_or_else(|_| panic!("Decimal overflow in Money::sub_assign"));
     }
 }
 

@@ -35,8 +35,8 @@ pub fn resolve_node_value(
     }
 
     // 3. Check for formula (lowest precedence, always available as fallback)
-    if let Some(formula) = &node_spec.formula_text {
-        return Ok(NodeValueSource::Formula(formula.clone()));
+    if node_spec.formula_text.is_some() {
+        return Ok(NodeValueSource::Formula);
     }
 
     // 4. No resolution method available
@@ -62,11 +62,11 @@ pub enum NodeValueSource {
     /// Explicit value
     Value(f64),
 
-    /// Forecast (to be evaluated in Phase 4)
+    /// Forecast (to be evaluated by the forecast engine)
     Forecast,
 
-    /// Formula to evaluate
-    Formula(String),
+    /// Formula to evaluate (looked up from the compiled cache, not stored here)
+    Formula,
 }
 
 impl NodeValueSource {
@@ -82,21 +82,13 @@ impl NodeValueSource {
 
     /// Check if this is a formula.
     pub fn is_formula(&self) -> bool {
-        matches!(self, Self::Formula(_))
+        matches!(self, Self::Formula)
     }
 
     /// Get the value if this is an explicit value.
     pub fn as_value(&self) -> Option<f64> {
         match self {
             Self::Value(v) => Some(*v),
-            _ => None,
-        }
-    }
-
-    /// Get the formula if this is a formula.
-    pub fn as_formula(&self) -> Option<&str> {
-        match self {
-            Self::Formula(f) => Some(f),
             _ => None,
         }
     }
@@ -135,7 +127,6 @@ mod tests {
 
         // Should use formula
         assert!(source.is_formula());
-        assert_eq!(source.as_formula(), Some("revenue * 0.6"));
     }
 
     #[test]

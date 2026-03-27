@@ -33,6 +33,10 @@
 //! - Lancaster, H. O. (1957). "Some properties of the bivariate normal distribution."
 //! - Demarta, S., & McNeil, A. J. (2005). "The t Copula and Related Copulas."
 
+/// Variance threshold below which a Bernoulli variable is treated as degenerate
+/// (i.e., probability is effectively 0 or 1, making correlation meaningless).
+const DEGENERATE_VARIANCE_THRESHOLD: f64 = 1e-10;
+
 /// Compute joint probabilities for two correlated Bernoulli random variables.
 ///
 /// Given marginal probabilities p1 and p2 with correlation ρ, returns
@@ -73,7 +77,7 @@ pub fn joint_probabilities(p1: f64, p2: f64, correlation: f64) -> (f64, f64, f64
     let var1 = p1 * (1.0 - p1);
     let var2 = p2 * (1.0 - p2);
 
-    if var1 < 1e-14 || var2 < 1e-14 {
+    if var1 < DEGENERATE_VARIANCE_THRESHOLD || var2 < DEGENERATE_VARIANCE_THRESHOLD {
         // Degenerate case: at least one probability is 0 or 1
         // Return independent joint probabilities (correlation is meaningless)
         return (
@@ -238,7 +242,7 @@ pub fn correlation_bounds(p1: f64, p2: f64) -> (f64, f64) {
     let var1 = p1 * (1.0 - p1);
     let var2 = p2 * (1.0 - p2);
 
-    if var1 < 1e-10 || var2 < 1e-10 {
+    if var1 < DEGENERATE_VARIANCE_THRESHOLD || var2 < DEGENERATE_VARIANCE_THRESHOLD {
         return (0.0, 0.0);
     }
 

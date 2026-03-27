@@ -80,7 +80,9 @@ impl MarketContext {
             }
         })?;
         storage.apply_bump_preserving_id(curve_id, spec)?;
-        let _invalidated = self.rebind_all_credit_indices();
+        if self.curve_affects_credit_indices(curve_id) {
+            let _invalidated = self.rebind_all_credit_indices();
+        }
         Ok(ContextScratchBump::Curve {
             id: curve_id.clone(),
             previous,
@@ -276,7 +278,9 @@ impl MarketContext {
 
             if let Some(storage) = self.curves.get_mut(cid) {
                 storage.apply_bump_preserving_id(&curve_id, bump_spec)?;
-                needs_credit_rebind = true;
+                if !needs_credit_rebind {
+                    needs_credit_rebind = self.curve_affects_credit_indices(&curve_id);
+                }
                 continue;
             }
 

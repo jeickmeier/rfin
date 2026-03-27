@@ -273,10 +273,10 @@ impl Error {
     /// ```
     pub fn missing_curve_with_suggestions(
         requested: impl Into<String>,
-        available: &[String],
+        available: &[impl AsRef<str>],
     ) -> Self {
         let requested_str = requested.into();
-        let suggestions = fuzzy_suggestions(&requested_str, available.iter().map(String::as_str));
+        let suggestions = fuzzy_suggestions(&requested_str, available.iter().map(AsRef::as_ref));
         Self::Input(InputError::MissingCurve {
             requested: requested_str,
             suggestions,

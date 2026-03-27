@@ -112,14 +112,12 @@ pub(crate) fn interp_linear_clamp(xs: &[f64], ys: &[f64], x: f64) -> f64 {
         return ys[n - 1];
     }
 
-    for i in 0..n - 1 {
-        if x >= xs[i] && x <= xs[i + 1] {
-            let t = (x - xs[i]) / (xs[i + 1] - xs[i]);
-            return ys[i] + t * (ys[i + 1] - ys[i]);
-        }
-    }
-
-    ys[n - 1]
+    let idx = xs.partition_point(|&xi| xi < x);
+    // idx is now the first index where xs[idx] >= x
+    // idx >= 1 (because we already handled x <= xs[0])
+    // idx < n (because we already handled x >= xs[n-1])
+    let t = (x - xs[idx - 1]) / (xs[idx] - xs[idx - 1]);
+    ys[idx - 1] + t * (ys[idx] - ys[idx - 1])
 }
 
 // Re-export for ergonomic access (curated list)

@@ -72,19 +72,24 @@ pub fn fuzzy_suggestions<'a>(
     let requested_lower = requested.to_lowercase();
     let requested_chars: Vec<char> = requested_lower.chars().collect();
 
-    let mut suggestions: Vec<String> = available
-        .filter(|id| {
+    let mut scored: Vec<(String, usize)> = available
+        .filter_map(|id| {
             let id_lower = id.to_lowercase();
-            id_lower.contains(&requested_lower)
+            let dist = edit_distance(&requested_chars, &id_lower);
+            if id_lower.contains(&requested_lower)
                 || requested_lower.contains(&id_lower)
-                || edit_distance(&requested_chars, &id_lower) <= 2
+                || dist <= 2
+            {
+                Some((id.to_string(), dist))
+            } else {
+                None
+            }
         })
-        .map(|s| s.to_string())
         .collect();
 
-    suggestions.sort_by_key(|s| edit_distance(&requested_chars, &s.to_lowercase()));
-    suggestions.truncate(3);
-    suggestions
+    scored.sort_by_key(|&(_, dist)| dist);
+    scored.truncate(3);
+    scored.into_iter().map(|(s, _)| s).collect()
 }
 
 /// Simple Levenshtein edit distance for fuzzy matching.
@@ -118,7 +123,8 @@ pub fn fuzzy_suggestions<'a>(
 /// - Levenshtein, V. I. (1966). "Binary codes capable of correcting deletions,
 ///   insertions, and reversals." *Soviet Physics Doklady*, 10(8), 707-710.
 pub fn edit_distance(a_chars: &[char], b: &str) -> usize {
-    let b_len = b.chars().count();
+    let b_chars: Vec<char> = b.chars().collect();
+    let b_len = b_chars.len();
     let a_len = a_chars.len();
 
     if a_len == 0 {
@@ -133,7 +139,7 @@ pub fn edit_distance(a_chars: &[char], b: &str) -> usize {
 
     for (i, &a_char) in a_chars.iter().enumerate() {
         curr_row[0] = i + 1;
-        for (j, b_char) in b.chars().enumerate() {
+        for (j, &b_char) in b_chars.iter().enumerate() {
             let cost = if a_char == b_char { 0 } else { 1 };
             curr_row[j + 1] = (curr_row[j] + 1)
                 .min(prev_row[j + 1] + 1)
