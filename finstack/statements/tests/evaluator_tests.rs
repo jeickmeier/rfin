@@ -401,7 +401,7 @@ fn test_precedence_value_over_formula() {
 
 #[test]
 fn test_precedence_formula_fallback() {
-    use finstack_statements::evaluator::{resolve_node_value, NodeValueSource};
+    use finstack_statements::evaluator::resolve_node_value;
     use finstack_statements::types::NodeSpec;
 
     let node = NodeSpec::new("cogs", NodeType::Calculated).with_formula("revenue * 0.6");
@@ -409,7 +409,7 @@ fn test_precedence_formula_fallback() {
     let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
 
     // Should use formula
-    assert_eq!(source, NodeValueSource::Formula("revenue * 0.6".into()));
+    assert!(source.is_formula());
 }
 
 // ============================================================================

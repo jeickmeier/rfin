@@ -10,7 +10,7 @@
 //! - [`CFKind`]: Cashflow type enumeration (fixed, floating, principal, etc.)
 
 use crate::dates::Date;
-use crate::error::InputError;
+use crate::error::{InputError, NonFiniteKind};
 use crate::money::Money;
 
 /// Enumeration of cash-flow kinds for classification and ordering.
@@ -279,34 +279,63 @@ impl CashFlow {
     pub fn validate(&self) -> crate::Result<()> {
         // Check for zero amount
         if self.amount.amount() == 0.0 {
-            return Err(InputError::Invalid.into());
+            return Err(crate::Error::Validation(
+                "CashFlow: amount must be non-zero".into(),
+            ));
         }
 
         // Check for non-finite amount (NaN or Infinity)
         if !self.amount.amount().is_finite() {
-            return Err(InputError::Invalid.into());
+            let kind = non_finite_kind(self.amount.amount());
+            return Err(InputError::NonFiniteValue { kind }.into());
         }
 
         // Check for non-finite accrual factor
         if !self.accrual_factor.is_finite() {
-            return Err(InputError::Invalid.into());
+            let kind = non_finite_kind(self.accrual_factor);
+            return Err(InputError::NonFiniteValue { kind }.into());
+        }
+
+        // Check for negative accrual factor
+        if self.accrual_factor < 0.0 {
+            return Err(crate::Error::Validation(
+                "CashFlow: accrual_factor must be non-negative".into(),
+            ));
         }
 
         // Check for non-finite rate (if present)
         if let Some(rate) = self.rate {
             if !rate.is_finite() {
-                return Err(InputError::Invalid.into());
+                let kind = non_finite_kind(rate);
+                return Err(InputError::NonFiniteValue { kind }.into());
             }
         }
 
         // Check that reset date is not after payment date
         if let Some(reset) = self.reset_date {
             if reset > self.date {
-                return Err(InputError::Invalid.into());
+                return Err(crate::Error::Validation(
+                    "CashFlow: reset_date must not be after payment date".into(),
+                ));
             }
         }
 
         Ok(())
+    }
+}
+
+/// Classify a non-finite f64 into a [`NonFiniteKind`].
+///
+/// # Panics
+/// The caller must ensure `x` is **not** finite before calling.
+#[inline]
+fn non_finite_kind(x: f64) -> NonFiniteKind {
+    if x.is_nan() {
+        NonFiniteKind::NaN
+    } else if x.is_sign_positive() {
+        NonFiniteKind::PosInfinity
+    } else {
+        NonFiniteKind::NegInfinity
     }
 }
 

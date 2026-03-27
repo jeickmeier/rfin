@@ -41,6 +41,7 @@
 //! Reference: Acworth et al. (1998) - "A comparison of some MC and QMC techniques"
 
 use nalgebra::{DMatrix, SymmetricEigen};
+use smallvec::SmallVec;
 
 use crate::error::InputError;
 
@@ -143,13 +144,18 @@ pub fn transform_pca_to_assets(
         return Err(InputError::DimensionMismatch.into());
     }
 
-    // z_asset = Q * z_pca (where Q is eigenvector matrix)
+    // z_temp = Q * z_pca (where Q is eigenvector matrix)
+    let mut z_temp: SmallVec<[f64; 64]> = smallvec::smallvec![0.0; n];
     for i in 0..n {
         let mut sum = 0.0;
         for j in 0..n {
             sum += eigenvectors[i + j * n] * z_pca[j];
         }
-        z_out[i] = sum;
+        z_temp[i] = sum;
+    }
+    // Apply permutation: permutation[i] = original asset index for sorted PCA dim i
+    for i in 0..n {
+        z_out[permutation[i]] = z_temp[i];
     }
 
     Ok(())
@@ -266,6 +272,36 @@ mod tests {
     fn test_pca_ordering_rejects_dimension_mismatch() {
         let result = pca_ordering(&[1.0, 0.0, 0.0], 2);
         assert!(result.is_err(), "dimension mismatch should return an error");
+    }
+
+    #[test]
+    fn test_transform_pca_to_assets_applies_permutation() {
+        // 2x2 identity eigenvector matrix with permutation [1, 0]
+        // should reverse the output
+        let z_pca = [1.0, 2.0];
+        let eigenvectors = [
+            1.0, 0.0, // column 0
+            0.0, 1.0, // column 1
+        ];
+        let permutation = [1, 0]; // swap asset indices
+        let mut z_out = [0.0; 2];
+
+        transform_pca_to_assets(&z_pca, &eigenvectors, &permutation, &mut z_out)
+            .expect("matching dimensions should succeed");
+
+        // Without permutation z_out would be [1.0, 2.0].
+        // With permutation [1,0]: z_out[permutation[0]]=z_temp[0] => z_out[1]=1.0
+        //                         z_out[permutation[1]]=z_temp[1] => z_out[0]=2.0
+        assert!(
+            (z_out[0] - 2.0).abs() < 1e-12,
+            "z_out[0] should be 2.0, got {}",
+            z_out[0]
+        );
+        assert!(
+            (z_out[1] - 1.0).abs() < 1e-12,
+            "z_out[1] should be 1.0, got {}",
+            z_out[1]
+        );
     }
 
     #[test]

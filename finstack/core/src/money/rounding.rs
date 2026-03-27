@@ -52,13 +52,15 @@ pub(crate) fn try_amount_from_repr(x: AmountRepr) -> Result<f64, Error> {
 }
 
 #[inline]
-pub(crate) fn repr_add(a: AmountRepr, b: AmountRepr) -> AmountRepr {
-    a + b
+pub(crate) fn repr_add(a: AmountRepr, b: AmountRepr) -> Result<AmountRepr, Error> {
+    a.checked_add(b)
+        .ok_or_else(|| InputError::ConversionOverflow.into())
 }
 
 #[inline]
-pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> AmountRepr {
-    a - b
+pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> Result<AmountRepr, Error> {
+    a.checked_sub(b)
+        .ok_or_else(|| InputError::ConversionOverflow.into())
 }
 
 #[inline]
@@ -257,7 +259,7 @@ mod tests {
     fn repr_add_basic() {
         let a = Decimal::from_str("100.50").expect("valid decimal");
         let b = Decimal::from_str("50.25").expect("valid decimal");
-        let result = repr_add(a, b);
+        let result = repr_add(a, b).expect("addition should succeed");
         assert_eq!(result, Decimal::from_str("150.75").expect("valid decimal"));
     }
 
@@ -265,7 +267,7 @@ mod tests {
     fn repr_add_negative() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         let b = Decimal::from_str("-25.00").expect("valid decimal");
-        let result = repr_add(a, b);
+        let result = repr_add(a, b).expect("addition should succeed");
         assert_eq!(result, Decimal::from_str("75.00").expect("valid decimal"));
     }
 
@@ -273,7 +275,7 @@ mod tests {
     fn repr_sub_basic() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         let b = Decimal::from_str("30.00").expect("valid decimal");
-        let result = repr_sub(a, b);
+        let result = repr_sub(a, b).expect("subtraction should succeed");
         assert_eq!(result, Decimal::from_str("70.00").expect("valid decimal"));
     }
 
@@ -281,7 +283,7 @@ mod tests {
     fn repr_sub_negative_result() {
         let a = Decimal::from_str("25.00").expect("valid decimal");
         let b = Decimal::from_str("100.00").expect("valid decimal");
-        let result = repr_sub(a, b);
+        let result = repr_sub(a, b).expect("subtraction should succeed");
         assert_eq!(result, Decimal::from_str("-75.00").expect("valid decimal"));
     }
 

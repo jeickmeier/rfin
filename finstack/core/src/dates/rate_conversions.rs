@@ -84,7 +84,7 @@ use crate::error::{InputError, NonFiniteKind};
 use crate::{Error, Result};
 
 #[inline]
-fn ensure_finite(function: &'static str, name: &'static str, x: f64) -> Result<()> {
+fn ensure_finite(_function: &'static str, _name: &'static str, x: f64) -> Result<()> {
     if x.is_finite() {
         return Ok(());
     }
@@ -95,14 +95,23 @@ fn ensure_finite(function: &'static str, name: &'static str, x: f64) -> Result<(
     } else {
         NonFiniteKind::NegInfinity
     };
-    let kind_str = match kind {
-        NonFiniteKind::NaN => "NaN",
-        NonFiniteKind::PosInfinity => "+Inf",
-        NonFiniteKind::NegInfinity => "-Inf",
-    };
-    Err(crate::Error::Validation(format!(
-        "{function}: {name} is {kind_str}"
-    )))
+    Err(InputError::NonFiniteValue { kind }.into())
+}
+
+#[inline]
+fn ensure_output_finite(result: f64) -> Result<f64> {
+    if result.is_finite() {
+        Ok(result)
+    } else {
+        let kind = if result.is_nan() {
+            NonFiniteKind::NaN
+        } else if result.is_sign_positive() {
+            NonFiniteKind::PosInfinity
+        } else {
+            NonFiniteKind::NegInfinity
+        };
+        Err(InputError::NonFiniteValue { kind }.into())
+    }
 }
 
 #[inline]
@@ -199,7 +208,7 @@ pub fn simple_to_periodic(
     let exponent = 1.0 / (n * year_fraction);
     let periodic_rate = n * (one_plus_simple.powf(exponent) - 1.0);
 
-    Ok(periodic_rate)
+    ensure_output_finite(periodic_rate)
 }
 
 /// Convert a periodically compounded rate to a simple (linear) rate.
@@ -273,7 +282,7 @@ pub fn periodic_to_simple(
     let future_value = one_plus_periodic.powf(n * year_fraction);
     let simple_rate = (future_value - 1.0) / year_fraction;
 
-    Ok(simple_rate)
+    ensure_output_finite(simple_rate)
 }
 
 /// Convert a periodically compounded rate to a continuously compounded rate.
@@ -345,7 +354,7 @@ pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Resu
     // ln((1 + r/n)^n) = n × ln(1 + r/n)
     let continuous_rate = n * one_plus_periodic.ln();
 
-    Ok(continuous_rate)
+    ensure_output_finite(continuous_rate)
 }
 
 /// Convert a continuously compounded rate to a periodically compounded rate.
@@ -393,7 +402,7 @@ pub fn continuous_to_periodic(continuous_rate: f64, periods_per_year: u32) -> Re
     let n = periods_per_year as f64;
     let periodic_rate = n * ((continuous_rate / n).exp() - 1.0);
 
-    Ok(periodic_rate)
+    ensure_output_finite(periodic_rate)
 }
 
 /// Convert a simple rate to a continuously compounded rate.
@@ -442,7 +451,7 @@ pub fn simple_to_continuous(simple_rate: f64, year_fraction: f64) -> Result<f64>
     }
 
     let continuous_rate = one_plus_simple.ln() / year_fraction;
-    Ok(continuous_rate)
+    ensure_output_finite(continuous_rate)
 }
 
 /// Convert a continuously compounded rate to a simple rate.
@@ -480,7 +489,7 @@ pub fn continuous_to_simple(continuous_rate: f64, year_fraction: f64) -> Result<
     }
 
     let simple_rate = ((continuous_rate * year_fraction).exp() - 1.0) / year_fraction;
-    Ok(simple_rate)
+    ensure_output_finite(simple_rate)
 }
 
 #[cfg(test)]
@@ -714,6 +723,16 @@ mod tests {
             path1,
             path2
         );
+    }
+
+    #[test]
+    fn extreme_rate_returns_error() {
+        // An extremely large continuous rate whose exp() overflows to infinity
+        let result = continuous_to_periodic(1e308, 2);
+        assert!(result.is_err());
+
+        let result2 = continuous_to_simple(1e308, 1.0);
+        assert!(result2.is_err());
     }
 
     #[test]

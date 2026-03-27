@@ -63,6 +63,9 @@ impl Attributes {
     }
 
     /// Match the attributes against a simple selector string.
+    ///
+    /// Unrecognized selector prefixes return `false` rather than erroring,
+    /// to allow forward-compatible selector syntax extension.
     #[must_use]
     pub fn matches_selector(&self, selector: &str) -> bool {
         if selector == "*" {

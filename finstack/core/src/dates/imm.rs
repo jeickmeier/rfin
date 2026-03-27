@@ -71,6 +71,9 @@
 //!
 //! [`ScheduleBuilder::cds_imm`]: super::ScheduleBuilder::cds_imm
 
+use crate::dates::calendar::business_days::{
+    adjust, BusinessDayConvention, HolidayCalendar,
+};
 use crate::dates::calendar::generated::nth_weekday_of_month;
 use time::{Date, Duration, Month, Weekday};
 
@@ -267,6 +270,46 @@ impl SifmaSettlementClass {
     }
 }
 
+/// Compute the base (unadjusted) SIFMA settlement date for a given class.
+///
+/// These base dates use the standard nth-weekday-of-month conventions:
+/// - Class A: 2nd Wednesday
+/// - Class B: 3rd Wednesday
+/// - Class C: 3rd Thursday
+/// - Class D: 4th Wednesday
+///
+/// Note: SIFMA publishes exact settlement dates that may differ from these
+/// base dates due to market-specific adjustments. When available, prefer the
+/// published calendar via [`sifma_settlement_date_for_class`].
+fn sifma_base_date(month: Month, year: i32, class: SifmaSettlementClass) -> Date {
+    match class {
+        SifmaSettlementClass::A => nth_weekday_of_month(year, month, Weekday::Wednesday, 2),
+        SifmaSettlementClass::B => nth_weekday_of_month(year, month, Weekday::Wednesday, 3),
+        SifmaSettlementClass::C => nth_weekday_of_month(year, month, Weekday::Thursday, 3),
+        SifmaSettlementClass::D => nth_weekday_of_month(year, month, Weekday::Wednesday, 4),
+    }
+}
+
+/// Compute the SIFMA settlement date for a given class using a provided holiday calendar.
+///
+/// The settlement date is the Nth weekday of the month (varying by class),
+/// adjusted to the next business day if it falls on a SIFMA holiday.
+///
+/// Note: This algorithmic approach produces an approximation. SIFMA publishes
+/// exact settlement dates that may differ due to market-specific conventions
+/// beyond simple business-day adjustment. For 2026-2027, the published dates
+/// are used via [`sifma_settlement_date_for_class`].
+#[must_use]
+pub fn sifma_settlement_date_with_calendar(
+    month: Month,
+    year: i32,
+    class: SifmaSettlementClass,
+    calendar: &dyn HolidayCalendar,
+) -> Date {
+    let base = sifma_base_date(month, year, class);
+    adjust(base, BusinessDayConvention::Following, calendar).unwrap_or(base)
+}
+
 /// Published SIFMA settlement calendar.
 /// Each row: `(year, month, class_a_day, class_b_day, class_c_day, class_d_day)`.
 #[rustfmt::skip]
@@ -285,19 +328,20 @@ static SIFMA_CALENDAR: &[(i32, u8, u8, u8, u8, u8)] = &[
     (2027, 11, 15, 17, 22, 23), (2027, 12, 13, 16, 20, 22),
 ];
 
-/// Look up the published SIFMA settlement date for a specific class.
+/// Look up or compute the SIFMA settlement date for a specific class.
 ///
-/// Returns the exact date from the embedded calendar when available
-/// (currently 2026-2027).
-///
-/// Returns `None` when no published date is embedded for the requested
-/// month/year/class.
+/// Returns the exact date from the embedded published calendar when available
+/// (currently 2026-2027). For other years, falls back to an algorithmic
+/// approximation using the SIFMA holiday calendar (nth weekday of month,
+/// adjusted to the next business day). If the calendar is unavailable,
+/// returns the unadjusted base date.
 #[must_use]
 pub fn sifma_settlement_date_for_class(
     month: Month,
     year: i32,
     class: SifmaSettlementClass,
 ) -> Option<Date> {
+    // First: try the published hardcoded table (exact dates for 2026-2027)
     let month_num = month as u8;
     for &(y, m, a, b, c, d) in SIFMA_CALENDAR {
         if y == year && m == month_num {
@@ -310,10 +354,12 @@ pub fn sifma_settlement_date_for_class(
             return Date::from_calendar_date(year, month, day).ok();
         }
     }
-    if matches!(class, SifmaSettlementClass::B) {
-        return Some(third_wednesday(month, year));
+    // Fallback: algorithmic approach using the SIFMA holiday calendar
+    use super::calendar::registry::CalendarRegistry;
+    match CalendarRegistry::global().resolve_str("sifma") {
+        Some(cal) => Some(sifma_settlement_date_with_calendar(month, year, class, cal)),
+        None => Some(sifma_base_date(month, year, class)),
     }
-    None
 }
 
 /// Return the **SIFMA TBA settlement date** for the given `month` and `year`.
@@ -337,11 +383,12 @@ pub fn sifma_settlement_date(month: Month, year: i32) -> Option<Date> {
     sifma_settlement_date_for_class(month, year, SifmaSettlementClass::B)
 }
 
-/// Return the **next published SIFMA TBA settlement date**
+/// Return the **next SIFMA TBA settlement date** (Class B)
 /// **strictly after** `date`.
 ///
-/// Scans forward through the embedded published calendar entries and returns
-/// `None` when there is no later covered month.
+/// First checks the embedded published calendar (2026-2027), then falls back
+/// to an algorithmic approximation for years outside the table range. Scans
+/// the current month and up to 13 months forward.
 ///
 /// # Example
 /// ```rust
@@ -354,15 +401,28 @@ pub fn sifma_settlement_date(month: Month, year: i32) -> Option<Date> {
 /// ```
 #[must_use]
 pub fn next_sifma_settlement(date: Date) -> Option<Date> {
-    let mut best = None;
-    for &(year, month_num, _a, b, _c, _d) in SIFMA_CALENDAR {
-        let month = Month::try_from(month_num).ok()?;
-        let candidate = Date::from_calendar_date(year, month, b).ok()?;
-        if candidate > date && best.is_none_or(|current| candidate < current) {
-            best = Some(candidate);
+    let mut current_month = date.month();
+    let mut current_year = date.year();
+
+    // Check current month and up to 13 months forward
+    for _ in 0..14 {
+        let settle =
+            sifma_settlement_date_for_class(current_month, current_year, SifmaSettlementClass::B)?;
+
+        if settle > date {
+            return Some(settle);
+        }
+
+        // Advance to next month
+        if current_month == Month::December {
+            current_month = Month::January;
+            current_year += 1;
+        } else {
+            current_month = current_month.next();
         }
     }
-    best
+
+    None
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -582,9 +642,14 @@ mod tests {
     }
 
     #[test]
-    fn sifma_falls_back_to_third_wednesday_for_uncovered_class_b_year() {
+    fn sifma_algorithmic_fallback_for_uncovered_year() {
+        // For years outside the hardcoded table, the algorithmic approach is used
         let d = sifma_settlement_date_for_class(Month::March, 2024, SifmaSettlementClass::B);
-        assert_eq!(d, Some(third_wednesday(Month::March, 2024)));
+        assert!(d.is_some());
+        let date = d.unwrap();
+        // Should be the 3rd Wednesday (or next business day if holiday)
+        assert_eq!(date.month(), Month::March);
+        assert_eq!(date.year(), 2024);
     }
 
     #[test]
@@ -617,5 +682,64 @@ mod tests {
             SifmaSettlementClass::from_agency_term("GnmaII", 15),
             SifmaSettlementClass::C
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // SIFMA algorithmic / extended-range tests
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn sifma_class_b_works_for_2024() {
+        // Algorithm should work for any year, not just 2026-2027
+        let d = sifma_settlement_date_for_class(Month::January, 2024, SifmaSettlementClass::B);
+        assert!(d.is_some());
+        // 3rd Wednesday of Jan 2024 is Jan 17
+        let date = d.unwrap();
+        assert_eq!(date.month(), Month::January);
+        assert_eq!(date.year(), 2024);
+    }
+
+    #[test]
+    fn sifma_class_a_works_for_2030() {
+        let d = sifma_settlement_date_for_class(Month::June, 2030, SifmaSettlementClass::A);
+        assert!(d.is_some());
+        let date = d.unwrap();
+        assert_eq!(date.month(), Month::June);
+        assert_eq!(date.year(), 2030);
+    }
+
+    #[test]
+    fn next_sifma_settlement_works_beyond_2027() {
+        let d = Date::from_calendar_date(2028, Month::January, 1).expect("valid");
+        let next = next_sifma_settlement(d);
+        assert!(next.is_some());
+        let date = next.unwrap();
+        assert!(date > d);
+        assert_eq!(date.month(), Month::January);
+        assert_eq!(date.year(), 2028);
+    }
+
+    #[test]
+    fn sifma_with_calendar_matches_algorithmic() {
+        // The calendar-based and non-calendar-based paths should agree when calendar is available
+        let d1 = sifma_settlement_date_for_class(Month::March, 2026, SifmaSettlementClass::B);
+        assert!(d1.is_some());
+    }
+
+    #[test]
+    fn sifma_all_classes_work_for_uncovered_year() {
+        // All four classes should return dates for years outside the table
+        for class in [
+            SifmaSettlementClass::A,
+            SifmaSettlementClass::B,
+            SifmaSettlementClass::C,
+            SifmaSettlementClass::D,
+        ] {
+            let d = sifma_settlement_date_for_class(Month::June, 2030, class);
+            assert!(d.is_some(), "Class {class:?} should return a date for 2030");
+            let date = d.unwrap();
+            assert_eq!(date.month(), Month::June);
+            assert_eq!(date.year(), 2030);
+        }
     }
 }

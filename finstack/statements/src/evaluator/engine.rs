@@ -13,7 +13,7 @@ use crate::evaluator::monte_carlo::{
 use crate::evaluator::precedence::{resolve_node_value, NodeValueSource};
 use crate::evaluator::results::{EvalWarning, ResultsMeta, StatementResult};
 use crate::evaluator::{capital_structure_runtime, capital_structure_runtime::dependent_closure};
-use crate::types::{FinancialModelSpec, NodeId, NodeValueType};
+use crate::types::{FinancialModelSpec, NodeId};
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::Expr;
 use indexmap::IndexMap;
@@ -254,29 +254,7 @@ impl Evaluator {
                         &cs_affected_nodes,
                     )?;
 
-                    // Merge this period's cs cashflows into the accumulator
-                    for (inst_id, period_map) in period_cs.by_instrument {
-                        let accum_map =
-                            cs_cashflows_accum.by_instrument.entry(inst_id).or_default();
-                        for (pid, breakdown) in period_map {
-                            accum_map.insert(pid, breakdown);
-                        }
-                    }
-                    for (pid, breakdown) in period_cs.totals {
-                        cs_cashflows_accum.totals.insert(pid, breakdown);
-                    }
-                    for (currency, period_map) in period_cs.totals_by_currency {
-                        let accum_map = cs_cashflows_accum
-                            .totals_by_currency
-                            .entry(currency)
-                            .or_default();
-                        for (pid, breakdown) in period_map {
-                            accum_map.insert(pid, breakdown);
-                        }
-                    }
-                    if cs_cashflows_accum.reporting_currency.is_none() {
-                        cs_cashflows_accum.reporting_currency = period_cs.reporting_currency;
-                    }
+                    cs_cashflows_accum.merge_period(period_cs);
                     has_cs = true;
 
                     (vals, warns)
@@ -307,8 +285,34 @@ impl Evaluator {
             // Add to historical context for next period
             std::sync::Arc::make_mut(&mut historical).insert(period.id, period_results.clone());
             if has_cs {
+                // Store only the current period's CS snapshot (not the full accumulator)
+                // to avoid O(P²×I) memory growth. Historical lookups iterate by period key.
+                let mut period_snapshot =
+                    crate::capital_structure::CapitalStructureCashflows::new();
+                for (inst_id, period_map) in &cs_cashflows_accum.by_instrument {
+                    if let Some(breakdown) = period_map.get(&period.id) {
+                        period_snapshot
+                            .by_instrument
+                            .entry(inst_id.clone())
+                            .or_default()
+                            .insert(period.id, breakdown.clone());
+                    }
+                }
+                if let Some(breakdown) = cs_cashflows_accum.totals.get(&period.id) {
+                    period_snapshot.totals.insert(period.id, breakdown.clone());
+                }
+                for (currency, period_map) in &cs_cashflows_accum.totals_by_currency {
+                    if let Some(breakdown) = period_map.get(&period.id) {
+                        period_snapshot
+                            .totals_by_currency
+                            .entry(*currency)
+                            .or_default()
+                            .insert(period.id, breakdown.clone());
+                    }
+                }
+                period_snapshot.reporting_currency = cs_cashflows_accum.reporting_currency;
                 std::sync::Arc::make_mut(&mut historical_cs)
-                    .insert(period.id, cs_cashflows_accum.clone());
+                    .insert(period.id, period_snapshot);
             }
 
             // Advance CS state for next period
@@ -323,69 +327,7 @@ impl Evaluator {
         }
 
         // Infer and populate node value types from model
-        for (node_id, node_spec) in &model.nodes {
-            let node_id_str = node_id.as_str();
-            // Check if node has explicit value_type
-            if let Some(value_type) = &node_spec.value_type {
-                results
-                    .node_value_types
-                    .insert(node_id_str.to_string(), *value_type);
-
-                // Populate monetary_nodes if this is a monetary type
-                if let NodeValueType::Monetary { currency } = value_type {
-                    if let Some(period_map) = results.nodes.get(node_id_str) {
-                        let mut money_map = IndexMap::new();
-                        for (period_id, &f64_value) in period_map {
-                            money_map.insert(
-                                *period_id,
-                                finstack_core::money::Money::new(f64_value, *currency),
-                            );
-                        }
-                        results
-                            .monetary_nodes
-                            .insert(node_id_str.to_string(), money_map);
-                    }
-                }
-            } else if let Some(values) = &node_spec.values {
-                if let Some(inferred_type) = crate::types::infer_series_value_type(values.values())?
-                {
-                    if let NodeValueType::Monetary { currency } = inferred_type {
-                        results.node_value_types.insert(
-                            node_id_str.to_string(),
-                            NodeValueType::Monetary { currency },
-                        );
-
-                        // Populate monetary_nodes from Money values
-                        if let Some(period_map) = results.nodes.get(node_id_str) {
-                            let mut money_map = IndexMap::new();
-                            for (period_id, &f64_value) in period_map {
-                                money_map.insert(
-                                    *period_id,
-                                    finstack_core::money::Money::new(f64_value, currency),
-                                );
-                            }
-                            results
-                                .monetary_nodes
-                                .insert(node_id_str.to_string(), money_map);
-                        }
-                    } else {
-                        results
-                            .node_value_types
-                            .insert(node_id_str.to_string(), NodeValueType::Scalar);
-                    }
-                } else {
-                    // No values, default to scalar
-                    results
-                        .node_value_types
-                        .insert(node_id_str.to_string(), NodeValueType::Scalar);
-                }
-            } else {
-                // No explicit value_type and no values, default to scalar
-                results
-                    .node_value_types
-                    .insert(node_id_str.to_string(), NodeValueType::Scalar);
-            }
-        }
+        results.populate_value_types(model)?;
 
         // Set metadata
         results.meta = ResultsMeta {
@@ -623,7 +565,7 @@ impl Evaluator {
                         seed_offset,
                         &mut mc_z_wrapper,
                     ),
-                    NodeValueSource::Formula(_) => {
+                    NodeValueSource::Formula => {
                         let expr = self.compiled_cache.get(node_id).ok_or_else(|| {
                             Error::eval(format!("No compiled formula for node '{}'", node_id))
                         })?;

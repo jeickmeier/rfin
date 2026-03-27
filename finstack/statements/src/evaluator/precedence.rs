@@ -35,8 +35,8 @@ pub fn resolve_node_value(
     }
 
     // 3. Check for formula (lowest precedence, always available as fallback)
-    if let Some(formula) = &node_spec.formula_text {
-        return Ok(NodeValueSource::Formula(formula.clone()));
+    if node_spec.formula_text.is_some() {
+        return Ok(NodeValueSource::Formula);
     }
 
     // 4. No resolution method available
@@ -62,13 +62,37 @@ pub enum NodeValueSource {
     /// Explicit value
     Value(f64),
 
-    /// Forecast (to be evaluated in Phase 4)
+    /// Forecast (to be evaluated by the forecast engine)
     Forecast,
 
-    /// Formula to evaluate
-    Formula(String),
+    /// Formula to evaluate (looked up from the compiled cache, not stored here)
+    Formula,
 }
 
+impl NodeValueSource {
+    /// Check if this is an explicit value.
+    pub fn is_value(&self) -> bool {
+        matches!(self, Self::Value(_))
+    }
+
+    /// Check if this is a forecast.
+    pub fn is_forecast(&self) -> bool {
+        matches!(self, Self::Forecast)
+    }
+
+    /// Check if this is a formula.
+    pub fn is_formula(&self) -> bool {
+        matches!(self, Self::Formula)
+    }
+
+    /// Get the value if this is an explicit value.
+    pub fn as_value(&self) -> Option<f64> {
+        match self {
+            Self::Value(v) => Some(*v),
+            _ => None,
+        }
+    }
+}
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -100,7 +124,7 @@ mod tests {
             .expect("test should succeed");
 
         // Should use formula
-        assert_eq!(source, NodeValueSource::Formula("revenue * 0.6".into()));
+        assert!(source.is_formula());
     }
 
     #[test]
@@ -144,6 +168,6 @@ mod tests {
         // In actual period, should use formula (not forecast)
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true)
             .expect("test should succeed");
-        assert!(matches!(source, NodeValueSource::Formula(_)));
+        assert!(source.is_formula());
     }
 }

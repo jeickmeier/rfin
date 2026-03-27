@@ -313,6 +313,8 @@ impl RoundingContext {
 }
 
 /// Numeric engine mode compiled into the crate.
+///
+/// Currently single-variant (F64); exists as `#[non_exhaustive]` for forward-compatible extension.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum NumericMode {
