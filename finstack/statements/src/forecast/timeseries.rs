@@ -2,8 +2,8 @@
 
 use crate::error::{Error, Result};
 use crate::types::SeasonalMode;
-use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
+use finstack_core::math::ZERO_TOLERANCE;
 use indexmap::IndexMap;
 
 fn parse_historical_series(historical: &[serde_json::Value], context: &str) -> Result<Vec<f64>> {
@@ -259,7 +259,7 @@ fn calculate_linear_trend(data: &[f64]) -> (f64, f64) {
     }
 
     // Guard against degenerate cases (near-zero denominator)
-    if den.abs() < EPSILON {
+    if den.abs() < ZERO_TOLERANCE {
         return (0.0, y_bar);
     }
 
@@ -464,12 +464,13 @@ fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
 
         // Back extrapolation
         let last_valid = n.saturating_sub(half_season + 1);
-        let slope_back =
-            if last_valid > 0 && (trend[last_valid] - trend[last_valid - 1]).abs() > EPSILON {
-                trend[last_valid] - trend[last_valid - 1]
-            } else {
-                0.0
-            };
+        let slope_back = if last_valid > 0
+            && (trend[last_valid] - trend[last_valid - 1]).abs() > ZERO_TOLERANCE
+        {
+            trend[last_valid] - trend[last_valid - 1]
+        } else {
+            0.0
+        };
         for i in (n.saturating_sub(half_season))..n {
             let steps = i - (n - half_season - 1);
             trend[i] = trend[n - half_season - 1] + slope_back * steps as f64;
@@ -549,7 +550,7 @@ fn decompose_multiplicative(
     let detrended: Vec<f64> = data
         .iter()
         .zip(&trend)
-        .map(|(d, t)| if t.abs() < EPSILON { 1.0 } else { d / t })
+        .map(|(d, t)| if t.abs() < ZERO_TOLERANCE { 1.0 } else { d / t })
         .collect();
 
     let mut seasonal = vec![1.0; season_length];
@@ -570,7 +571,7 @@ fn decompose_multiplicative(
     }
 
     let seasonal_mean = seasonal.iter().sum::<f64>() / season_length as f64;
-    if seasonal_mean.abs() >= EPSILON {
+    if seasonal_mean.abs() >= ZERO_TOLERANCE {
         for s in &mut seasonal {
             *s /= seasonal_mean;
         }
@@ -580,7 +581,7 @@ fn decompose_multiplicative(
     for i in 0..n {
         let season_idx = i % season_length;
         let denom = trend[i] * seasonal[season_idx];
-        residual[i] = if denom.abs() < EPSILON {
+        residual[i] = if denom.abs() < ZERO_TOLERANCE {
             1.0
         } else {
             data[i] / denom

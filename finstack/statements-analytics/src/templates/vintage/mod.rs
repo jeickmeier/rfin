@@ -1,9 +1,9 @@
 //! Vintage/Cohort pattern implementation.
 
+use finstack_core::math::ZERO_TOLERANCE;
 use finstack_statements::builder::{ModelBuilder, Ready};
 use finstack_statements::error::Result;
 use finstack_statements::types::{NodeId, NodeSpec, NodeType};
-use finstack_statements::utils::constants::EPSILON;
 
 /// Add a vintage buildup (cohort analysis) structure.
 ///
@@ -31,7 +31,7 @@ pub fn add_vintage_buildup(
 
     for (lag, &rate) in decay_curve.iter().enumerate() {
         // Skip zero rates to keep formula clean
-        if rate.abs() < EPSILON {
+        if rate.abs() < ZERO_TOLERANCE {
             continue;
         }
 

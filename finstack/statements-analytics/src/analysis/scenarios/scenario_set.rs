@@ -44,7 +44,7 @@ use indexmap::{IndexMap, IndexSet};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "dataframes")]
-use finstack_statements::utils::constants::EPSILON;
+use finstack_core::math::ZERO_TOLERANCE;
 #[cfg(feature = "dataframes")]
 use polars::prelude::*;
 
@@ -428,7 +428,7 @@ impl ScenarioResults {
 
                         let pct = match (baseline_value, value) {
                             (Some(base), Some(v)) => {
-                                if base.abs() < EPSILON {
+                                if base.abs() < ZERO_TOLERANCE {
                                     Some(0.0)
                                 } else {
                                     Some((v - base) / base)

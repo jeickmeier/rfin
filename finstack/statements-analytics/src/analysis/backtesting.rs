@@ -3,8 +3,8 @@
 //! This module provides tools to evaluate forecast accuracy by comparing
 //! predicted values against actual outcomes using standard error metrics.
 
+use finstack_core::math::ZERO_TOLERANCE;
 use finstack_statements::error::{Error, Result};
-use finstack_statements::utils::constants::EPSILON;
 
 /// Forecast accuracy metrics.
 ///
@@ -37,7 +37,7 @@ pub struct ForecastMetrics {
     ///
     /// Interpretation: Average error as a percentage. Scale-independent.
     /// Be cautious when actual values are near zero (can produce extreme values).
-    /// The implementation treats `|actual| < EPSILON` as a zero-weight term to
+    /// The implementation treats `|actual| < ZERO_TOLERANCE` as a zero-weight term to
     /// avoid infinities, but very small non-zero actuals can still dominate the
     /// metric. For series with many near-zero observations, prefer a more robust
     /// alternative such as sMAPE or MASE.
@@ -140,7 +140,7 @@ pub fn backtest_forecast(actual: &[f64], forecast: &[f64]) -> Result<ForecastMet
         .iter()
         .zip(forecast.iter())
         .map(|(a, f)| {
-            if a.abs() < EPSILON {
+            if a.abs() < ZERO_TOLERANCE {
                 // Skip near-zero actuals to avoid division by zero
                 0.0
             } else {

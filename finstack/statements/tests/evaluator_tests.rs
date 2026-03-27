@@ -382,7 +382,7 @@ fn test_self_reference_cycle() {
 
 #[test]
 fn test_precedence_value_over_formula() {
-    use finstack_statements::evaluator::resolve_node_value;
+    use finstack_statements::evaluator::{resolve_node_value, NodeValueSource};
     use finstack_statements::types::NodeSpec;
     use indexmap::IndexMap;
 
@@ -396,13 +396,12 @@ fn test_precedence_value_over_formula() {
     let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
 
     // Should use explicit value, not formula
-    assert!(source.is_value());
-    assert_eq!(source.as_value(), Some(100.0));
+    assert_eq!(source, NodeValueSource::Value(100.0));
 }
 
 #[test]
 fn test_precedence_formula_fallback() {
-    use finstack_statements::evaluator::resolve_node_value;
+    use finstack_statements::evaluator::{resolve_node_value, NodeValueSource};
     use finstack_statements::types::NodeSpec;
 
     let node = NodeSpec::new("cogs", NodeType::Calculated).with_formula("revenue * 0.6");
@@ -410,8 +409,7 @@ fn test_precedence_formula_fallback() {
     let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true).unwrap();
 
     // Should use formula
-    assert!(source.is_formula());
-    assert_eq!(source.as_formula(), Some("revenue * 0.6"));
+    assert_eq!(source, NodeValueSource::Formula("revenue * 0.6".into()));
 }
 
 // ============================================================================

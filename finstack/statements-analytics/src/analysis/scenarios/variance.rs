@@ -45,9 +45,9 @@
 //! ```
 
 use finstack_core::dates::PeriodId;
+use finstack_core::math::ZERO_TOLERANCE;
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::StatementResult;
-use finstack_statements::utils::constants::EPSILON;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 
@@ -240,7 +240,7 @@ impl<'a> VarianceAnalyzer<'a> {
                 })?;
 
                 let abs_var = comparison - baseline;
-                let pct_var = if baseline.abs() < EPSILON {
+                let pct_var = if baseline.abs() < ZERO_TOLERANCE {
                     0.0
                 } else {
                     abs_var / baseline

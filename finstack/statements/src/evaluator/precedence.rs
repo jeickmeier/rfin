@@ -69,39 +69,6 @@ pub enum NodeValueSource {
     Formula(String),
 }
 
-impl NodeValueSource {
-    /// Check if this is an explicit value.
-    pub fn is_value(&self) -> bool {
-        matches!(self, Self::Value(_))
-    }
-
-    /// Check if this is a forecast.
-    pub fn is_forecast(&self) -> bool {
-        matches!(self, Self::Forecast)
-    }
-
-    /// Check if this is a formula.
-    pub fn is_formula(&self) -> bool {
-        matches!(self, Self::Formula(_))
-    }
-
-    /// Get the value if this is an explicit value.
-    pub fn as_value(&self) -> Option<f64> {
-        match self {
-            Self::Value(v) => Some(*v),
-            _ => None,
-        }
-    }
-
-    /// Get the formula if this is a formula.
-    pub fn as_formula(&self) -> Option<&str> {
-        match self {
-            Self::Formula(f) => Some(f),
-            _ => None,
-        }
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
@@ -122,8 +89,7 @@ mod tests {
             .expect("test should succeed");
 
         // Should use explicit value, not formula
-        assert!(source.is_value());
-        assert_eq!(source.as_value(), Some(100.0));
+        assert_eq!(source, NodeValueSource::Value(100.0));
     }
 
     #[test]
@@ -134,8 +100,7 @@ mod tests {
             .expect("test should succeed");
 
         // Should use formula
-        assert!(source.is_formula());
-        assert_eq!(source.as_formula(), Some("revenue * 0.6"));
+        assert_eq!(source, NodeValueSource::Formula("revenue * 0.6".into()));
     }
 
     #[test]
@@ -162,7 +127,7 @@ mod tests {
         // In forecast period, should prefer forecast over formula
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 3), false)
             .expect("test should succeed");
-        assert!(source.is_forecast());
+        assert_eq!(source, NodeValueSource::Forecast);
     }
 
     #[test]
@@ -179,6 +144,6 @@ mod tests {
         // In actual period, should use formula (not forecast)
         let source = resolve_node_value(&node, &PeriodId::quarter(2025, 1), true)
             .expect("test should succeed");
-        assert!(source.is_formula());
+        assert!(matches!(source, NodeValueSource::Formula(_)));
     }
 }

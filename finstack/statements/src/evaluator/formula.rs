@@ -17,7 +17,7 @@
 //! - Growth rates > 100% produce warnings
 //!
 //! ## Precision
-//! - Equality comparisons use [`EPSILON`] from [`crate::utils::constants`]
+//! - Equality comparisons use [`ZERO_TOLERANCE`](finstack_core::math::ZERO_TOLERANCE)
 //! - Suitable for rate comparisons (0.01 bp precision)
 //! - Monetary comparisons should use the `Money` type for currency safety
 
@@ -28,10 +28,10 @@ use crate::evaluator::formula_helpers::{
     collect_historical_values_sorted, get_historical_column_value, is_truthy,
 };
 use crate::evaluator::results::EvalWarning;
-use crate::utils::constants::EPSILON;
 use finstack_core::dates::PeriodId;
 use finstack_core::expr::{Expr, ExprNode, Function};
 use finstack_core::math::kahan_sum;
+use finstack_core::math::ZERO_TOLERANCE;
 use indexmap::IndexMap;
 use std::collections::BTreeMap;
 
@@ -132,7 +132,7 @@ pub(crate) fn evaluate_non_negative_integer_arg(
             format!("{func_name}() requires a finite integer argument"),
         ));
     }
-    if value.fract().abs() > EPSILON {
+    if value.fract().abs() > ZERO_TOLERANCE {
         return Err(eval_error(
             node_id,
             format!("{func_name}() requires an integer argument"),
@@ -163,7 +163,7 @@ fn evaluate_integer_arg(
             format!("{func_name}() requires a finite integer argument"),
         ));
     }
-    if value.fract().abs() > EPSILON {
+    if value.fract().abs() > ZERO_TOLERANCE {
         return Err(eval_error(
             node_id,
             format!("{func_name}() requires an integer argument"),
@@ -368,8 +368,8 @@ pub(crate) fn evaluate_expr(
                 BinOp::Mod => left_val % right_val,
 
                 // Comparison operations (use approximate equality for == and !=)
-                BinOp::Eq => bool_to_f64((left_val - right_val).abs() <= EPSILON),
-                BinOp::Ne => bool_to_f64((left_val - right_val).abs() > EPSILON),
+                BinOp::Eq => bool_to_f64((left_val - right_val).abs() <= ZERO_TOLERANCE),
+                BinOp::Ne => bool_to_f64((left_val - right_val).abs() > ZERO_TOLERANCE),
                 BinOp::Lt => bool_to_f64(left_val < right_val),
                 BinOp::Le => bool_to_f64(left_val <= right_val),
                 BinOp::Gt => bool_to_f64(left_val > right_val),
@@ -526,7 +526,7 @@ fn evaluate_function(
                 return Ok(f64::NAN);
             }
 
-            if lagged_value.abs() < EPSILON {
+            if lagged_value.abs() < ZERO_TOLERANCE {
                 tracing::warn!(
                     "pct_change() division by near-zero lagged value in period {:?}",
                     context.period_id
@@ -586,7 +586,7 @@ fn evaluate_function(
                 if let Some(start_value) =
                     get_historical_column_value(context, node_name, &target_period)
                 {
-                    if start_value.abs() < EPSILON {
+                    if start_value.abs() < ZERO_TOLERANCE {
                         tracing::warn!(
                             "growth_rate() division by near-zero base value in period {:?}",
                             context.period_id
@@ -698,7 +698,7 @@ fn evaluate_function(
             // Find rank (1-based)
             let rank = all_values
                 .iter()
-                .position(|&v| (v - current_value).abs() < EPSILON)
+                .position(|&v| (v - current_value).abs() < ZERO_TOLERANCE)
                 .map(|pos| (pos + 1) as f64)
                 .unwrap_or(1.0);
 
@@ -1069,7 +1069,7 @@ fn evaluate_function(
                 // Bias correction factor: 1 / (1 - (1-alpha)^n)
                 // This accounts for the exponentially decaying weights not summing to 1
                 let weight_sum = 1.0 - (1.0 - alpha).powi(n as i32);
-                if weight_sum.abs() > EPSILON {
+                if weight_sum.abs() > ZERO_TOLERANCE {
                     ewm_var /= weight_sum;
                 }
             }
