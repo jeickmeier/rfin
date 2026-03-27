@@ -230,26 +230,21 @@ impl StatementResult {
                     }
                 }
             } else if let Some(values) = &node_spec.values {
-                if let Some(inferred_type) =
+                if let Some(NodeValueType::Monetary { currency }) =
                     crate::types::infer_series_value_type(values.values())?
                 {
-                    if let NodeValueType::Monetary { currency } = inferred_type {
-                        self.node_value_types.insert(
-                            node_id_str.to_string(),
-                            NodeValueType::Monetary { currency },
-                        );
+                    self.node_value_types.insert(
+                        node_id_str.to_string(),
+                        NodeValueType::Monetary { currency },
+                    );
 
-                        if let Some(period_map) = self.nodes.get(node_id_str) {
-                            let money_map = period_map
-                                .iter()
-                                .map(|(period_id, &v)| (*period_id, Money::new(v, currency)))
-                                .collect();
-                            self.monetary_nodes
-                                .insert(node_id_str.to_string(), money_map);
-                        }
-                    } else {
-                        self.node_value_types
-                            .insert(node_id_str.to_string(), NodeValueType::Scalar);
+                    if let Some(period_map) = self.nodes.get(node_id_str) {
+                        let money_map = period_map
+                            .iter()
+                            .map(|(period_id, &v)| (*period_id, Money::new(v, currency)))
+                            .collect();
+                        self.monetary_nodes
+                            .insert(node_id_str.to_string(), money_map);
                     }
                 } else {
                     self.node_value_types

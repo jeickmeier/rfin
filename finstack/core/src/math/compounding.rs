@@ -680,7 +680,9 @@ mod tests {
     #[test]
     fn try_rate_from_df_normal() {
         let c = Compounding::Continuous;
-        let rate = c.try_rate_from_df(0.95, 1.0).unwrap();
+        let rate = c
+            .try_rate_from_df(0.95, 1.0)
+            .expect("positive discount factor and time should produce a rate");
         assert!((rate - 0.05129).abs() < 0.001);
     }
 
@@ -705,7 +707,11 @@ mod tests {
     #[test]
     fn try_rate_from_df_zero_time() {
         let c = Compounding::Continuous;
-        assert_eq!(c.try_rate_from_df(0.95, 0.0).unwrap(), 0.0);
+        assert_eq!(
+            c.try_rate_from_df(0.95, 0.0)
+                .expect("zero time should return a zero rate"),
+            0.0
+        );
     }
 
     #[test]

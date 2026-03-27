@@ -311,8 +311,7 @@ impl Evaluator {
                     }
                 }
                 period_snapshot.reporting_currency = cs_cashflows_accum.reporting_currency;
-                std::sync::Arc::make_mut(&mut historical_cs)
-                    .insert(period.id, period_snapshot);
+                std::sync::Arc::make_mut(&mut historical_cs).insert(period.id, period_snapshot);
             }
 
             // Advance CS state for next period

@@ -71,9 +71,7 @@
 //!
 //! [`ScheduleBuilder::cds_imm`]: super::ScheduleBuilder::cds_imm
 
-use crate::dates::calendar::business_days::{
-    adjust, BusinessDayConvention, HolidayCalendar,
-};
+use crate::dates::calendar::business_days::{adjust, BusinessDayConvention, HolidayCalendar};
 use crate::dates::calendar::generated::nth_weekday_of_month;
 use time::{Date, Duration, Month, Weekday};
 
@@ -646,7 +644,7 @@ mod tests {
         // For years outside the hardcoded table, the algorithmic approach is used
         let d = sifma_settlement_date_for_class(Month::March, 2024, SifmaSettlementClass::B);
         assert!(d.is_some());
-        let date = d.unwrap();
+        let date = d.expect("SIFMA class B should produce a 2024 settlement date");
         // Should be the 3rd Wednesday (or next business day if holiday)
         assert_eq!(date.month(), Month::March);
         assert_eq!(date.year(), 2024);
@@ -694,7 +692,7 @@ mod tests {
         let d = sifma_settlement_date_for_class(Month::January, 2024, SifmaSettlementClass::B);
         assert!(d.is_some());
         // 3rd Wednesday of Jan 2024 is Jan 17
-        let date = d.unwrap();
+        let date = d.expect("SIFMA class B should produce a January 2024 settlement date");
         assert_eq!(date.month(), Month::January);
         assert_eq!(date.year(), 2024);
     }
@@ -703,7 +701,7 @@ mod tests {
     fn sifma_class_a_works_for_2030() {
         let d = sifma_settlement_date_for_class(Month::June, 2030, SifmaSettlementClass::A);
         assert!(d.is_some());
-        let date = d.unwrap();
+        let date = d.expect("SIFMA class A should produce a June 2030 settlement date");
         assert_eq!(date.month(), Month::June);
         assert_eq!(date.year(), 2030);
     }
@@ -713,7 +711,7 @@ mod tests {
         let d = Date::from_calendar_date(2028, Month::January, 1).expect("valid");
         let next = next_sifma_settlement(d);
         assert!(next.is_some());
-        let date = next.unwrap();
+        let date = next.expect("next SIFMA settlement should exist for January 2028");
         assert!(date > d);
         assert_eq!(date.month(), Month::January);
         assert_eq!(date.year(), 2028);
@@ -737,7 +735,7 @@ mod tests {
         ] {
             let d = sifma_settlement_date_for_class(Month::June, 2030, class);
             assert!(d.is_some(), "Class {class:?} should return a date for 2030");
-            let date = d.unwrap();
+            let date = d.expect("all SIFMA classes should produce a June 2030 settlement date");
             assert_eq!(date.month(), Month::June);
             assert_eq!(date.year(), 2030);
         }
