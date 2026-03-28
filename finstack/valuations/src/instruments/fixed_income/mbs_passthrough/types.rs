@@ -5,6 +5,7 @@
 //! and payment delay conventions.
 
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
+use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::PricingOverrides;
@@ -148,6 +149,25 @@ fn advance_month(year: i32, month: Month) -> (i32, Month) {
 impl std::fmt::Display for AgencyProgram {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
+    }
+}
+
+impl CashflowProvider for AgencyMbsPassthrough {
+    fn notional(&self) -> Option<Money> {
+        Some(self.current_face)
+    }
+
+    fn build_full_schedule(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
+        let _ = curves;
+        crate::instruments::fixed_income::mbs_passthrough::pricer::build_projected_schedule(
+            self,
+            as_of,
+            Some(self.wam + 12),
+        )
     }
 }
 
@@ -406,6 +426,10 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyMbsPassthroug
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         crate::instruments::fixed_income::mbs_passthrough::pricer::price_mbs(self, market, as_of)
+    }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        Some(self)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

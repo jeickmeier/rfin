@@ -659,11 +659,12 @@ impl CashflowProvider for InterestRateSwap {
     fn build_full_schedule(
         &self,
         curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves(
+        crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves_as_of(
             self,
             Some(curves),
+            Some(as_of),
         )
     }
 }

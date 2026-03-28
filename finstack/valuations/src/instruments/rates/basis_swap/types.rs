@@ -31,6 +31,11 @@ use finstack_core::{
 };
 
 // Import shared swap leg pricing utilities
+use crate::cashflow::builder::{
+    CashFlowSchedule, CouponType, FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec,
+    Notional,
+};
+use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::pricing::swap_legs::{FloatingLegParams, LegPeriod};
 use rust_decimal::prelude::ToPrimitive;
@@ -478,6 +483,49 @@ impl BasisSwap {
 
         Ok(annuity)
     }
+
+    fn floating_leg_schedule(
+        &self,
+        leg: &BasisSwapLeg,
+        market: &MarketContext,
+    ) -> Result<CashFlowSchedule> {
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(self.notional, leg.start, leg.end)
+            .floating_cf(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: leg.forward_curve_id.clone(),
+                    spread_bp: leg.spread_bp,
+                    gearing: Decimal::ONE,
+                    gearing_includes_spread: true,
+                    floor_bp: None,
+                    cap_bp: None,
+                    all_in_floor_bp: None,
+                    index_cap_bp: None,
+                    reset_freq: leg.frequency,
+                    reset_lag_days: leg.reset_lag_days,
+                    dc: leg.day_count,
+                    bdc: leg.bdc,
+                    calendar_id: leg
+                        .calendar_id
+                        .clone()
+                        .unwrap_or_else(|| "weekends_only".to_string()),
+                    fixing_calendar_id: None,
+                    end_of_month: false,
+                    payment_lag_days: leg.payment_lag_days,
+                    overnight_compounding: None,
+                    fallback: FloatingRateFallback::Error,
+                },
+                coupon_type: CouponType::Cash,
+                freq: leg.frequency,
+                stub: leg.stub,
+            });
+        let mut schedule = builder.build_with_curves(Some(market))?;
+        schedule
+            .flows
+            .retain(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset);
+        Ok(schedule)
+    }
 }
 
 // Attributable implementation is provided by the impl_instrument! macro
@@ -511,6 +559,33 @@ impl crate::instruments::common_impl::traits::Instrument for BasisSwap {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.primary_leg.start)
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+}
+
+impl CashflowProvider for BasisSwap {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        market: &MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let mut primary = self.floating_leg_schedule(&self.primary_leg, market)?;
+        let mut reference = self.floating_leg_schedule(&self.reference_leg, market)?;
+        for cf in &mut reference.flows {
+            cf.amount *= -1.0;
+        }
+        primary.flows.extend(reference.flows);
+        primary.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+        primary.notional = Notional::par(self.notional.amount(), self.notional.currency());
+        primary.day_count = self.primary_leg.day_count;
+        Ok(primary)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for BasisSwap {
@@ -530,6 +605,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for BasisSwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::dates::StubKind;
@@ -1153,5 +1229,66 @@ mod tests {
                 && format!("{err}").contains("reference leg"),
             "Expected negative reference leg reset lag error, got: {err}"
         );
+    }
+
+    #[test]
+    fn test_basis_swap_cashflow_provider_emits_signed_leg_flows() {
+        let base_date = date(2024, 1, 1);
+        let start_date = date(2024, 1, 3);
+        let maturity = date(2025, 1, 3);
+        let discount_curve = DiscountCurve::builder("OIS")
+            .base_date(base_date)
+            .knots(vec![(0.0, 1.0), (1.0, 0.98), (2.0, 0.96)])
+            .build()
+            .expect("should succeed");
+        let forward_3m = ForwardCurve::builder("3M-SOFR", 0.25)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.03), (1.0, 0.03), (2.0, 0.03)])
+            .build()
+            .expect("should succeed");
+        let forward_6m = ForwardCurve::builder("6M-SOFR", 0.5)
+            .base_date(base_date)
+            .knots(vec![(0.0, 0.031), (1.0, 0.031), (2.0, 0.031)])
+            .build()
+            .expect("should succeed");
+        let context = MarketContext::new()
+            .insert(discount_curve)
+            .insert(forward_3m)
+            .insert(forward_6m);
+
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("3M-SOFR"),
+            discount_curve_id: CurveId::new("OIS"),
+            start: start_date,
+            end: maturity,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::ZERO,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("6M-SOFR"),
+            frequency: Tenor::semi_annual(),
+            ..primary_leg.clone()
+        };
+        let swap = BasisSwap::new(
+            "BASIS-CF",
+            Money::new(1_000_000.0, Currency::USD),
+            primary_leg,
+            reference_leg,
+        )
+        .expect("should succeed");
+
+        let flows = swap
+            .build_dated_flows(&context, base_date)
+            .expect("basis swap contractual schedule should build");
+
+        assert!(!flows.is_empty(), "basis swap should emit coupon cashflows");
+        assert!(flows.iter().any(|(_, money)| money.amount() > 0.0));
+        assert!(flows.iter().any(|(_, money)| money.amount() < 0.0));
     }
 }

@@ -1,12 +1,14 @@
 //! FX Spot cashflow generation and settlement tests.
 
 use super::common::*;
+use finstack_core::cashflow::CFKind;
 use finstack_core::types::InstrumentId;
 use finstack_core::{
     currency::Currency, dates::BusinessDayConvention, market_data::context::MarketContext,
     money::Money,
 };
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::internal::InstrumentExt;
 use finstack_valuations::instruments::FxSpot;
 
 #[test]
@@ -26,6 +28,20 @@ fn test_settlement_explicit_date() {
         "Cashflow amount",
     );
     assert_eq!(cashflows[0].1.currency(), Currency::USD);
+}
+
+#[test]
+fn test_full_schedule_marks_settlement_as_notional() {
+    let settlement = d(2025, 1, 17);
+    let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(settlement);
+    let market = MarketContext::new();
+
+    let schedule = fx
+        .build_full_schedule(&market, test_date())
+        .expect("full schedule should build");
+
+    assert_eq!(schedule.flows.len(), 1);
+    assert_eq!(schedule.flows[0].kind, CFKind::Notional);
 }
 
 #[test]
@@ -208,6 +224,32 @@ fn test_settlement_without_rate_or_matrix_fails() {
 
     let result = fx.build_dated_flows(&market, test_date());
     assert!(result.is_err());
+}
+
+#[test]
+fn test_value_matches_provider_flows() {
+    let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 1, 17));
+    let market = MarketContext::new();
+    let as_of = test_date();
+
+    let value = fx.value(&market, as_of).expect("fx spot value");
+    let provider_flows = fx
+        .build_dated_flows(&market, as_of)
+        .expect("provider flows should build");
+    let provider_total = provider_flows
+        .into_iter()
+        .fold(Money::new(0.0, Currency::USD), |acc, (_, amount)| {
+            acc.checked_add(amount)
+                .expect("flow sum should remain in a single currency")
+        });
+
+    assert_approx_eq(
+        value.amount(),
+        provider_total.amount(),
+        EPSILON,
+        "Value should match provider flows",
+    );
+    assert_eq!(value.currency(), provider_total.currency());
 }
 
 #[test]

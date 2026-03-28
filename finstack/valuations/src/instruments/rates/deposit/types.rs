@@ -479,11 +479,25 @@ impl CashflowProvider for Deposit {
         })?;
         let redemption = self.notional * (1.0 + r * yf);
         let flows = vec![
-            (effective_start, self.notional * -1.0),
-            (effective_end, redemption),
+            crate::cashflow::primitives::CashFlow {
+                date: effective_start,
+                reset_date: None,
+                amount: self.notional * -1.0,
+                kind: crate::cashflow::primitives::CFKind::Notional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            crate::cashflow::primitives::CashFlow {
+                date: effective_end,
+                reset_date: None,
+                amount: redemption,
+                kind: crate::cashflow::primitives::CFKind::Fixed,
+                accrual_factor: yf,
+                rate: Some(r),
+            },
         ];
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+        Ok(crate::cashflow::traits::schedule_from_classified_flows(
             flows,
             self.notional(),
             self.day_count,
@@ -495,6 +509,8 @@ impl CashflowProvider for Deposit {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::traits::CashflowProvider;
+    use finstack_core::cashflow::CFKind;
     use crate::instruments::common_impl::traits::Attributes;
     use finstack_core::currency::Currency;
     use time::macros::date;
@@ -526,5 +542,27 @@ mod tests {
         assert_eq!(deposit.spot_lag_days, Some(2));
         assert_eq!(deposit.bdc, BusinessDayConvention::ModifiedFollowing);
         assert_eq!(deposit.calendar_id.as_deref(), Some("usny"));
+    }
+
+    #[test]
+    fn build_full_schedule_marks_initial_exchange_as_notional() {
+        let deposit = Deposit::builder()
+            .id(InstrumentId::new("DEP-KIND"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(date!(2025 - 01 - 02))
+            .maturity(date!(2025 - 07 - 02))
+            .quote_rate_rate(finstack_core::types::Rate::from_decimal(0.045))
+            .day_count(DayCount::Act360)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("deposit should build");
+
+        let schedule = deposit
+            .build_full_schedule(&MarketContext::new(), date!(2025 - 01 - 01))
+            .expect("deposit full schedule");
+
+        assert_eq!(schedule.flows.len(), 2);
+        assert_eq!(schedule.flows[0].kind, CFKind::Notional);
     }
 }

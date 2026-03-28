@@ -15,4 +15,5 @@ pub(crate) mod finstack_test_utils {
 }
 
 mod bridge_smoke;
+mod instrument_bridge;
 mod provider_contract;

@@ -4,6 +4,9 @@
 //! for different settlement months, used for financing and carry trades.
 
 use crate::impl_instrument_base;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 use crate::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
@@ -235,6 +238,10 @@ impl DollarRoll {
         }
         Ok(days)
     }
+
+    fn trade_cash_amount(&self, price: f64) -> f64 {
+        self.notional.amount() * price / 100.0
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for DollarRoll {
@@ -264,6 +271,10 @@ impl crate::instruments::common_impl::traits::Instrument for DollarRoll {
         self.trade_date
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -277,10 +288,51 @@ impl crate::instruments::common_impl::traits::Instrument for DollarRoll {
     }
 }
 
+impl CashflowProvider for DollarRoll {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        _market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let front_date = self.front_settle_date()?;
+        let back_date = self.back_settle_date()?;
+        let anchor = self.trade_date.unwrap_or_else(|| {
+            if as_of < front_date {
+                as_of
+            } else {
+                front_date - time::Duration::days(1)
+            }
+        });
+        let ccy = self.notional.currency();
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, ccy), anchor, back_date);
+        let _ = builder.add_principal_event(
+            front_date,
+            Money::new(0.0, ccy),
+            Some(Money::new(-self.trade_cash_amount(self.front_price), ccy)),
+            CFKind::Notional,
+        );
+        let _ = builder.add_principal_event(
+            back_date,
+            Money::new(0.0, ccy),
+            Some(Money::new(self.trade_cash_amount(self.back_price), ccy)),
+            CFKind::Notional,
+        );
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(self.notional.amount(), ccy);
+        Ok(schedule)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
 
     #[test]
     fn test_dollar_roll_example() {
@@ -322,5 +374,22 @@ mod tests {
 
         // One month apart should be roughly 28-31 days
         assert!((25..=35).contains(&days));
+    }
+
+    #[test]
+    fn test_cashflow_provider_emits_front_and_back_trade_flows() {
+        let as_of = Date::from_calendar_date(2024, time::Month::January, 15).expect("valid date");
+        let roll = DollarRoll::example().expect("DollarRoll example is valid");
+        let market = finstack_core::market_data::context::MarketContext::new();
+
+        let flows = roll
+            .build_dated_flows(&market, as_of)
+            .expect("contractual settlement schedule should build");
+
+        assert_eq!(flows.len(), 2, "dollar roll should emit front and back settlements");
+        assert_eq!(flows[0].0, roll.front_settle_date().expect("front settle"));
+        assert_eq!(flows[1].0, roll.back_settle_date().expect("back settle"));
+        assert!(flows[0].1.amount() > 0.0, "front sale should be a receipt");
+        assert!(flows[1].1.amount() < 0.0, "back purchase should be a payment");
     }
 }

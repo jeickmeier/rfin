@@ -1,6 +1,7 @@
 //! CDS Tranche types, builder entrypoint, and pricing impl.
 
 use crate::cashflow::builder::ScheduleParams;
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use finstack_core::dates::{is_cds_date, BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
@@ -386,6 +387,10 @@ impl Instrument for CDSTranche {
         pricer.price_tranche(self, curves, as_of)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        Some(self)
+    }
+
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.maturity)
     }
@@ -404,6 +409,21 @@ impl Instrument for CDSTranche {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for CDSTranche {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let pricer = pricer::CDSTranchePricer::new();
+        pricer.build_projected_schedule(self, curves, as_of)
     }
 }
 

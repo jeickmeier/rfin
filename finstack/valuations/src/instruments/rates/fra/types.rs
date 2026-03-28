@@ -503,17 +503,17 @@ impl ForwardRateAgreement {
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<f64> {
         self.validate()?;
+        let disc = context.get_discount(&self.discount_curve_id)?;
+        let flows = self.build_dated_flows(context, as_of)?;
 
-        // Settlement for a FRA occurs at the start of the accrual period; past
-        // settlement implies zero PV.
-        if as_of >= self.start_date {
+        if flows.is_empty() {
             return Ok(0.0);
         }
 
-        let settlement = self.settlement_amount_raw(context, as_of)?;
-        let disc = context.get_discount(&self.discount_curve_id)?;
-        let df_settlement = disc.df_between_dates(as_of, self.start_date)?;
-        Ok(settlement * df_settlement)
+        flows.into_iter().try_fold(0.0, |acc, (date, amount)| {
+            let df = disc.df_between_dates(as_of, date)?;
+            Ok(acc + amount.amount() * df)
+        })
     }
 }
 
@@ -612,8 +612,9 @@ impl CashflowProvider for ForwardRateAgreement {
             )]
         };
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             flows,
+            crate::cashflow::primitives::CFKind::Fixed,
             self.notional(),
             self.day_count,
         ))

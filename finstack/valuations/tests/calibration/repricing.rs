@@ -547,6 +547,126 @@ fn hazard_curve_cds_repricing() {
 }
 
 #[test]
+fn hazard_curve_step_report_matches_market_built_cds_repricing() {
+    let base_date = Date::from_calendar_date(2025, Month::March, 20).unwrap();
+    let currency = Currency::USD;
+
+    let disc_quotes: Vec<RateQuote> = vec![
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-1M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("1M").unwrap()),
+            rate: 0.045,
+        },
+        RateQuote::Deposit {
+            id: QuoteId::new("DEP-6M"),
+            index: IndexId::new("USD-Deposit"),
+            pillar: Pillar::Tenor(Tenor::parse("6M").unwrap()),
+            rate: 0.047,
+        },
+    ];
+
+    let quote = CdsQuote::CdsParSpread {
+        id: QuoteId::new("CDS-3Y"),
+        entity: "REPRICE-DIAG".to_string(),
+        pillar: Pillar::Date(Date::from_calendar_date(2028, Month::March, 20).unwrap()),
+        spread_bp: 100.0,
+        recovery_rate: 0.40,
+        convention: CdsConventionKey {
+            currency,
+            doc_clause: CdsDocClause::IsdaNa,
+        },
+    };
+
+    let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
+    quote_sets.insert(
+        "disc".to_string(),
+        disc_quotes.iter().cloned().map(MarketQuote::Rates).collect(),
+    );
+    quote_sets.insert("cds".to_string(), vec![MarketQuote::Cds(quote.clone())]);
+
+    let plan = CalibrationPlan {
+        id: "plan".to_string(),
+        description: None,
+        quote_sets,
+        settings: Default::default(),
+        steps: vec![
+            CalibrationStep {
+                id: "disc".to_string(),
+                quote_set: "disc".to_string(),
+                params: StepParams::Discount(DiscountCurveParams {
+                    curve_id: "USD-OIS".into(),
+                    currency,
+                    base_date,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    extrapolation: ExtrapolationPolicy::FlatForward,
+                    pricing_discount_id: None,
+                    pricing_forward_id: None,
+                    conventions: Default::default(),
+                }),
+            },
+            CalibrationStep {
+                id: "haz".to_string(),
+                quote_set: "cds".to_string(),
+                params: StepParams::Hazard(HazardCurveParams {
+                    curve_id: "REPRICE-DIAG-SENIOR".into(),
+                    entity: "REPRICE-DIAG".to_string(),
+                    seniority: Seniority::Senior,
+                    currency,
+                    base_date,
+                    discount_curve_id: "USD-OIS".into(),
+                    recovery_rate: 0.40,
+                    notional: 1.0,
+                    method: CalibrationMethod::Bootstrap,
+                    interpolation: Default::default(),
+                    par_interp: finstack_core::market_data::term_structures::ParInterp::Linear,
+                    doc_clause: None,
+                }),
+            },
+        ],
+    };
+
+    let envelope = CalibrationEnvelope {
+        schema: "finstack.calibration/2".to_string(),
+        plan,
+        initial_market: None,
+    };
+
+    let out = engine::execute(&envelope).expect("calibration should succeed");
+    let ctx = MarketContext::try_from(out.result.final_market).expect("restore context");
+    let haz_report = out.result.step_reports.get("haz").expect("hazard step report");
+
+    let mut unit_curve_ids = HashMap::default();
+    unit_curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    unit_curve_ids.insert("credit".to_string(), "REPRICE-DIAG-SENIOR".to_string());
+    let unit_build_ctx = BuildCtx::new(base_date, 1.0, unit_curve_ids);
+    let unit_inst = build_cds_instrument(&quote, &unit_build_ctx).expect("build unit cds instrument");
+    let prepared_pv = unit_inst
+        .value_raw(&ctx, base_date)
+        .expect("unit cds valuation");
+
+    let mut curve_ids = HashMap::default();
+    curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
+    curve_ids.insert("credit".to_string(), "REPRICE-DIAG-SENIOR".to_string());
+    let build_ctx = BuildCtx::new(base_date, fixtures::STANDARD_NOTIONAL, curve_ids);
+    let inst = build_cds_instrument(&quote, &build_ctx).expect("build cds instrument");
+    let pv = inst.value(&ctx, base_date).expect("cds valuation");
+
+    let report_residual_dollars = haz_report.max_residual * fixtures::STANDARD_NOTIONAL;
+    assert!(
+        report_residual_dollars.abs() <= CDS_TOLERANCE_DOLLARS
+            && prepared_pv.abs() * fixtures::STANDARD_NOTIONAL <= CDS_TOLERANCE_DOLLARS
+            && pv.amount().abs() <= CDS_TOLERANCE_DOLLARS,
+        "hazard report residual ${:.6}, unit PV ${:.6} per-unit, and repriced PV ${:.6} should all be within ${}",
+        report_residual_dollars,
+        prepared_pv,
+        pv.amount(),
+        CDS_TOLERANCE_DOLLARS,
+    );
+}
+
+#[test]
 fn hazard_curve_standard_upfront_cds_repricing() {
     let base_date = Date::from_calendar_date(2025, Month::March, 20).unwrap();
     let currency = Currency::USD;

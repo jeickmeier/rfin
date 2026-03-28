@@ -13,6 +13,9 @@
 //! Hagan, P. S. (2003). "Convexity Conundrums: Pricing CMS Swaps, Caps,
 //! and Floors." *Wilmott Magazine*, March, 38-44.
 
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::IRSConvention;
 use crate::instruments::common_impl::traits::Attributes;
@@ -344,6 +347,143 @@ impl CmsSwap {
             .build()
             .expect("Example CmsSwap construction should not fail")
     }
+
+    fn cms_leg_flows(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
+        use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
+        use crate::instruments::rates::cms_option::pricer::convexity_adjustment;
+        use finstack_core::dates::{DateExt, DayCountCtx};
+
+        let vol_surface = market.get_surface(self.vol_surface_id.as_str())?;
+        let mut flows = Vec::new();
+
+        for (i, &fixing_date) in self.cms_fixing_dates.iter().enumerate() {
+            let payment_date = self
+                .cms_payment_dates
+                .get(i)
+                .copied()
+                .unwrap_or(fixing_date);
+            let accrual_fraction = self.cms_accrual_fractions.get(i).copied().unwrap_or(0.0);
+
+            let swap_start = fixing_date;
+            let swap_tenor_months = (self.cms_tenor * 12.0).round() as i32;
+            let swap_end = swap_start.add_months(swap_tenor_months);
+            let (forward_swap_rate, _) = crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
+                crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+                    market,
+                    discount_curve_id: &self.discount_curve_id,
+                    forward_curve_id: &self.forward_curve_id,
+                    as_of,
+                    start: swap_start,
+                    end: swap_end,
+                    fixed_freq: self.resolved_swap_fixed_freq(),
+                    fixed_day_count: self.resolved_swap_day_count(),
+                    float_freq: self.resolved_swap_float_freq(),
+                    float_day_count: self.resolved_swap_float_day_count(),
+                },
+            )?;
+            if forward_swap_rate <= 0.0 {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Forward swap rate {} is non-positive for fixing date {}",
+                    forward_swap_rate, fixing_date
+                )));
+            }
+
+            let time_to_fixing =
+                self.cms_day_count
+                    .year_fraction(as_of, fixing_date, DayCountCtx::default())?;
+            let adj = if time_to_fixing > 0.0 {
+                convexity_adjustment(
+                    vol_surface.value_clamped(time_to_fixing.max(0.0), forward_swap_rate),
+                    time_to_fixing,
+                    self.cms_tenor,
+                    forward_swap_rate,
+                )
+            } else {
+                0.0
+            };
+
+            let mut adjusted_rate = forward_swap_rate + adj + self.cms_spread;
+            if let Some(cap) = self.cms_cap {
+                adjusted_rate = adjusted_rate.min(cap);
+            }
+            if let Some(floor) = self.cms_floor {
+                adjusted_rate = adjusted_rate.max(floor);
+            }
+
+            let signed_amount = match self.side {
+                crate::instruments::common_impl::parameters::legs::PayReceive::Pay => {
+                    -adjusted_rate * accrual_fraction * self.notional.amount()
+                }
+                crate::instruments::common_impl::parameters::legs::PayReceive::Receive => {
+                    adjusted_rate * accrual_fraction * self.notional.amount()
+                }
+            };
+            flows.push((payment_date, Money::new(signed_amount, self.notional.currency())));
+
+            let _ = rate_period_on_dates; // keep import path checked in sync with pricer logic
+        }
+
+        Ok(flows)
+    }
+
+    fn funding_leg_flows(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
+        use crate::instruments::common_impl::pricing::time::rate_period_on_dates;
+
+        let mut flows = Vec::new();
+        match &self.funding_leg {
+            FundingLeg::Fixed {
+                rate,
+                payment_dates,
+                accrual_fractions,
+                ..
+            } => {
+                for (i, &payment_date) in payment_dates.iter().enumerate() {
+                    let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
+                    let unsigned = rate * accrual * self.notional.amount();
+                    let signed = match self.side {
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Pay => unsigned,
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Receive => -unsigned,
+                    };
+                    flows.push((payment_date, Money::new(signed, self.notional.currency())));
+                }
+            }
+            FundingLeg::Floating {
+                spread,
+                payment_dates,
+                accrual_fractions,
+                forward_curve_id,
+                ..
+            } => {
+                let fwd_curve = market.get_forward(forward_curve_id.as_ref())?;
+                let mut prev_date = self
+                    .cms_fixing_dates
+                    .first()
+                    .copied()
+                    .unwrap_or_else(|| payment_dates.first().copied().unwrap_or(as_of));
+                for (i, &payment_date) in payment_dates.iter().enumerate() {
+                    let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
+                    let fwd_rate =
+                        rate_period_on_dates(fwd_curve.as_ref(), prev_date, payment_date)?;
+                    let unsigned = (fwd_rate + spread) * accrual * self.notional.amount();
+                    let signed = match self.side {
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Pay => unsigned,
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Receive => -unsigned,
+                    };
+                    flows.push((payment_date, Money::new(signed, self.notional.currency())));
+                    prev_date = payment_date;
+                }
+            }
+        }
+        Ok(flows)
+    }
 }
 
 /// Simplified funding leg specification for [`CmsSwap::from_schedule`].
@@ -395,6 +535,10 @@ impl crate::instruments::common_impl::traits::Instrument for CmsSwap {
         self.cms_fixing_dates.first().copied()
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -405,6 +549,52 @@ impl crate::instruments::common_impl::traits::Instrument for CmsSwap {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for CmsSwap {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let maturity = self
+            .cms_payment_dates
+            .last()
+            .copied()
+            .unwrap_or(self.cms_fixing_dates.first().copied().unwrap_or(as_of));
+        let anchor = if as_of < maturity {
+            as_of
+        } else {
+            maturity - time::Duration::days(1)
+        };
+        let mut builder = CashFlowSchedule::builder();
+        let ccy = self.notional.currency();
+        let _ = builder.principal(Money::new(0.0, ccy), anchor, maturity);
+        for (date, amount) in self.cms_leg_flows(market, as_of)? {
+            let _ = builder.add_principal_event(
+                date,
+                Money::new(0.0, ccy),
+                Some(Money::new(-amount.amount(), ccy)),
+                CFKind::Notional,
+            );
+        }
+        for (date, amount) in self.funding_leg_flows(market, as_of)? {
+            let _ = builder.add_principal_event(
+                date,
+                Money::new(0.0, ccy),
+                Some(Money::new(-amount.amount(), ccy)),
+                CFKind::Notional,
+            );
+        }
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(self.notional.amount(), ccy);
+        schedule.day_count = self.cms_day_count;
+        Ok(schedule)
     }
 }
 
@@ -422,5 +612,43 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CmsSwap {
             builder = builder.forward(forward_curve_id.clone());
         }
         builder.build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    #[allow(clippy::expect_used, clippy::unwrap_used, dead_code, unused_imports)]
+    mod test_utils {
+        include!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/support/test_utils.rs"
+        ));
+    }
+
+    use super::*;
+    use crate::cashflow::CashflowProvider;
+    use test_utils::{date, flat_discount_with_tenor, flat_forward_with_tenor, flat_vol_surface};
+
+    #[test]
+    fn cms_swap_cashflow_provider_emits_signed_modeled_flows() {
+        let as_of = date(2025, 1, 1);
+        let swap = CmsSwap::example();
+        let market = finstack_core::market_data::context::MarketContext::new()
+            .insert(flat_discount_with_tenor("USD-OIS", as_of, 0.0, 2.0))
+            .insert(flat_forward_with_tenor("USD-LIBOR-3M", as_of, 0.04, 2.0))
+            .insert_surface(flat_vol_surface("USD-CMS10Y-VOL", &[0.25, 1.0], &[0.03, 0.05], 0.20));
+
+        let flows = swap
+            .build_dated_flows(&market, as_of)
+            .expect("cms contractual schedule should build");
+
+        assert_eq!(
+            flows.len(),
+            swap.cms_payment_dates.len() + swap.cms_payment_dates.len(),
+            "cms swap should emit one cms row and one funding row per period"
+        );
+        assert!(flows.iter().any(|(_, money)| money.amount() > 0.0));
+        assert!(flows.iter().any(|(_, money)| money.amount() < 0.0));
     }
 }

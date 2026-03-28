@@ -1,6 +1,9 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
 use crate::impl_instrument_base;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
@@ -337,6 +340,20 @@ impl InflationSwap {
         Ok(fixed_payment * df)
     }
 
+    fn fixed_leg_amount(&self) -> finstack_core::Result<Money> {
+        let tau_accrual = self.day_count.year_fraction(
+            self.start_date,
+            self.maturity,
+            finstack_core::dates::DayCountCtx::default(),
+        )?;
+        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "InflationSwap fixed_rate could not be converted to f64".to_string(),
+            )
+        })?;
+        Ok(self.notional * ((1.0 + fixed_rate).powf(tau_accrual) - 1.0))
+    }
+
     /// Calculate PV of the inflation leg.
     ///
     /// The inflation leg pays `Notional × [I(T_mat - Lag) / I(T_start - Lag) - 1]`
@@ -369,6 +386,15 @@ impl InflationSwap {
         let df = disc.df(t_discount);
 
         Ok(inflation_payment * df)
+    }
+
+    fn inflation_leg_amount(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Money> {
+        let index_ratio = self.projected_index_ratio(curves, as_of)?;
+        Ok(self.notional * (index_ratio - 1.0))
     }
 
     /// Fixed rate that sets the swap's present value to zero (par real rate / breakeven).
@@ -447,6 +473,10 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
         Some(self.start_date)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -457,6 +487,50 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for InflationSwap {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let payment_date = self.adjusted_payment_date(self.maturity);
+        let anchor = if as_of < payment_date {
+            as_of
+        } else {
+            payment_date - time::Duration::days(1)
+        };
+        let fixed_amount = self.fixed_leg_amount()?;
+        let inflation_amount = self.inflation_leg_amount(curves, as_of)?;
+        let (fixed_signed, inflation_signed) = match self.side {
+            PayReceive::PayFixed => (-fixed_amount.amount(), inflation_amount.amount()),
+            PayReceive::ReceiveFixed => (fixed_amount.amount(), -inflation_amount.amount()),
+        };
+        let ccy = self.notional.currency();
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, ccy), anchor, payment_date);
+        let _ = builder.add_principal_event(
+            payment_date,
+            Money::new(0.0, ccy),
+            Some(Money::new(-fixed_signed, ccy)),
+            CFKind::Notional,
+        );
+        let _ = builder.add_principal_event(
+            payment_date,
+            Money::new(0.0, ccy),
+            Some(Money::new(-inflation_signed, ccy)),
+            CFKind::Notional,
+        );
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(self.notional.amount(), ccy);
+        schedule.day_count = self.day_count;
+        Ok(schedule)
     }
 }
 
@@ -714,6 +788,41 @@ impl YoYInflationSwap {
 
         Ok(sum_infl_pv / sum_annuity)
     }
+
+    fn signed_period_flows(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<Vec<(Date, Money)>> {
+        let mut flows = Vec::new();
+        let fixed_rate = self.fixed_rate.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "YoYInflationSwap fixed_rate could not be converted to f64".to_string(),
+            )
+        })?;
+
+        for (start, end, pay) in self.schedule()? {
+            let accrual = self
+                .day_count
+                .year_fraction(start, end, DayCountCtx::default())?;
+            let cpi_start = self.cpi_value(curves, as_of, start)?;
+            if cpi_start <= 0.0 {
+                return Err(finstack_core::InputError::NonPositiveValue.into());
+            }
+            let cpi_end = self.cpi_value(curves, as_of, end)?;
+
+            let fixed_leg = self.notional.amount() * fixed_rate * accrual;
+            let inflation_leg = self.notional.amount() * (cpi_end / cpi_start - 1.0);
+            let (fixed_signed, inflation_signed) = match self.side {
+                PayReceive::PayFixed => (-fixed_leg, inflation_leg),
+                PayReceive::ReceiveFixed => (fixed_leg, -inflation_leg),
+            };
+            flows.push((pay, Money::new(fixed_signed, self.notional.currency())));
+            flows.push((pay, Money::new(inflation_signed, self.notional.currency())));
+        }
+
+        Ok(flows)
+    }
 }
 
 impl YoYInflationSwapBuilder {
@@ -751,6 +860,10 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
         Some(self.start_date)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -761,6 +874,39 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for YoYInflationSwap {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let anchor = if as_of < self.maturity {
+            as_of
+        } else {
+            self.maturity - time::Duration::days(1)
+        };
+        let mut builder = CashFlowSchedule::builder();
+        let ccy = self.notional.currency();
+        let _ = builder.principal(Money::new(0.0, ccy), anchor, self.maturity);
+        for (pay, amount) in self.signed_period_flows(curves, as_of)? {
+            let _ = builder.add_principal_event(
+                pay,
+                Money::new(0.0, ccy),
+                Some(Money::new(-amount.amount(), ccy)),
+                CFKind::Notional,
+            );
+        }
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(self.notional.amount(), ccy);
+        schedule.day_count = self.day_count;
+        Ok(schedule)
     }
 }
 
@@ -779,6 +925,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for YoYInflation
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
@@ -864,5 +1011,68 @@ mod tests {
             pv.amount().abs() > 0.0,
             "swap should retain value between contractual maturity and adjusted payment date"
         );
+    }
+
+    #[test]
+    fn zero_coupon_swap_cashflow_provider_emits_two_maturity_flows() {
+        let as_of = d(2025, Month::January, 1);
+        let maturity = d(2027, Month::January, 1);
+        let market = MarketContext::new()
+            .insert(sample_discount_curve(as_of))
+            .insert(sample_inflation_curve(as_of));
+        let swap = InflationSwap::builder()
+            .id(InstrumentId::new("INFL-CF"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(as_of)
+            .maturity(maturity)
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
+            .inflation_index_id(CurveId::new("US-CPI"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .day_count(DayCount::Act365F)
+            .side(PayReceive::PayFixed)
+            .lag_override(InflationLag::None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("swap should build");
+
+        let flows = swap
+            .build_dated_flows(&market, as_of)
+            .expect("contractual schedule should build");
+
+        assert_eq!(flows.len(), 2, "zc inflation swap should emit both legs");
+        assert!(flows.iter().all(|(date, _)| *date == maturity));
+        assert!(flows[0].1.amount() < 0.0, "pay-fixed swap should pay fixed leg");
+        assert!(flows[1].1.amount() > 0.0, "pay-fixed swap should receive inflation leg");
+    }
+
+    #[test]
+    fn yoy_swap_cashflow_provider_emits_two_flows_per_period() {
+        let as_of = d(2025, Month::January, 1);
+        let market = MarketContext::new()
+            .insert(sample_discount_curve(as_of))
+            .insert(sample_inflation_curve(as_of));
+        let swap = YoYInflationSwap::builder()
+            .id(InstrumentId::new("YOY-CF"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(as_of)
+            .maturity(d(2027, Month::January, 1))
+            .fixed_rate(Decimal::try_from(0.02).expect("valid decimal"))
+            .frequency(Tenor::annual())
+            .inflation_index_id(CurveId::new("US-CPI"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .day_count(DayCount::Act365F)
+            .side(PayReceive::PayFixed)
+            .lag_override(InflationLag::None)
+            .attributes(Attributes::new())
+            .build()
+            .expect("yoy swap should build");
+
+        let flows = swap
+            .build_dated_flows(&market, as_of)
+            .expect("yoy contractual schedule should build");
+
+        assert_eq!(flows.len(), 4, "two annual periods should emit fixed and inflation rows");
+        assert_eq!(flows.iter().filter(|(_, money)| money.amount() < 0.0).count(), 2);
+        assert_eq!(flows.iter().filter(|(_, money)| money.amount() > 0.0).count(), 2);
     }
 }

@@ -7,9 +7,13 @@
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::{CommodityConvention, CommodityUnderlyingParams};
 use crate::instruments::common_impl::traits::Attributes;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Result;
 
@@ -381,6 +385,12 @@ impl CommodityForward {
             .or_else(|| self.convention.map(|c| c.business_day_convention()))
             .unwrap_or(BusinessDayConvention::Following)
     }
+
+    fn contractual_invoice_amount(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
+        let contract_price = self.contract_price.unwrap_or(self.forward_price(market, as_of)?);
+        let amount = -self.position.sign() * contract_price * self.quantity * self.multiplier;
+        Ok(Money::new(amount, self.underlying.currency))
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CommodityForward {
@@ -462,6 +472,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
         None
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn expiry(&self) -> Option<Date> {
         Some(self.maturity)
     }
@@ -479,10 +493,37 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
     }
 }
 
+impl CashflowProvider for CommodityForward {
+    fn build_full_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let invoice = self.contractual_invoice_amount(market, as_of)?;
+        let anchor = if as_of < self.maturity {
+            as_of
+        } else {
+            self.maturity - time::Duration::days(1)
+        };
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, invoice.currency()), anchor, self.maturity);
+        let _ = builder.add_principal_event(
+            self.maturity,
+            Money::new(0.0, invoice.currency()),
+            Some(Money::new(-invoice.amount(), invoice.currency())),
+            CFKind::Notional,
+        );
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(invoice.amount().abs(), invoice.currency());
+        Ok(schedule)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
     use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
@@ -878,5 +919,42 @@ mod tests {
         assert_eq!(forward.underlying.ticker, deserialized.underlying.ticker);
         assert_eq!(forward.quantity, deserialized.quantity);
         assert_eq!(forward.position, deserialized.position);
+    }
+
+    #[test]
+    fn test_cashflow_provider_emits_contractual_invoice_flow() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let market = test_market(as_of);
+
+        let forward = CommodityForward::builder()
+            .id(InstrumentId::new("WTI-INVOICE"))
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "CL",
+                "BBL",
+                Currency::USD,
+            ))
+            .quantity(1_000.0)
+            .multiplier(1.0)
+            .maturity(Date::from_calendar_date(2025, Month::April, 15).expect("valid date"))
+            .position(Position::Long)
+            .contract_price_opt(Some(72.0))
+            .forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let flows = forward
+            .build_dated_flows(&market, as_of)
+            .expect("contractual schedule should build");
+
+        assert_eq!(flows.len(), 1, "commodity forward should emit one invoice flow");
+        assert_eq!(flows[0].0, forward.maturity);
+        assert_eq!(flows[0].1.currency(), Currency::USD);
+        assert!(
+            (flows[0].1.amount() + 72_000.0).abs() < 1e-10,
+            "expected invoice flow of -72,000 USD, got {}",
+            flows[0].1.amount()
+        );
     }
 }

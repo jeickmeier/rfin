@@ -10,6 +10,12 @@
 //! - This is a deterministic-curve pricer (no fixings). Reset lag is therefore not modeled
 //!   separately; the forward rate is taken directly from the forward curve for the accrual period.
 
+use crate::cashflow::builder::{
+    CashFlowSchedule, CouponType, FloatingCouponSpec, FloatingRateFallback, FloatingRateSpec,
+    Notional,
+};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
 use finstack_core::currency::Currency;
@@ -244,6 +250,81 @@ impl XccySwap {
         })
     }
 
+    fn leg_coupon_schedule(
+        &self,
+        leg: &XccySwapLeg,
+        market: &MarketContext,
+    ) -> Result<CashFlowSchedule> {
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder
+            .principal(leg.notional, leg.start, leg.end)
+            .floating_cf(FloatingCouponSpec {
+                rate_spec: FloatingRateSpec {
+                    index_id: leg.forward_curve_id.clone(),
+                    spread_bp: leg.spread_bp,
+                    gearing: Decimal::ONE,
+                    gearing_includes_spread: true,
+                    floor_bp: None,
+                    cap_bp: None,
+                    all_in_floor_bp: None,
+                    index_cap_bp: None,
+                    reset_freq: leg.frequency,
+                    reset_lag_days: leg.reset_lag_days.unwrap_or_default(),
+                    dc: leg.day_count,
+                    bdc: leg.bdc,
+                    calendar_id: leg
+                        .calendar_id
+                        .clone()
+                        .unwrap_or_else(|| "weekends_only".to_string()),
+                    fixing_calendar_id: None,
+                    end_of_month: false,
+                    payment_lag_days: leg.payment_lag_days,
+                    overnight_compounding: None,
+                    fallback: FloatingRateFallback::Error,
+                },
+                coupon_type: CouponType::Cash,
+                freq: leg.frequency,
+                stub: leg.stub,
+            });
+        let mut schedule = builder.build_with_curves(Some(market))?;
+        schedule
+            .flows
+            .retain(|cf| cf.kind == crate::cashflow::primitives::CFKind::FloatReset);
+        for cf in &mut schedule.flows {
+            cf.amount *= leg.side.coupon_sign();
+        }
+        Ok(schedule)
+    }
+
+    fn leg_principal_schedule(&self, leg: &XccySwapLeg, anchor: Date) -> Result<CashFlowSchedule> {
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, leg.currency), anchor, leg.end);
+        if matches!(self.notional_exchange, NotionalExchange::InitialAndFinal) {
+            let initial_amount = leg.side.initial_principal_sign() * leg.notional.amount();
+            let _ = builder.add_principal_event(
+                leg.start,
+                Money::new(0.0, leg.currency),
+                Some(Money::new(-initial_amount, leg.currency)),
+                CFKind::Notional,
+            );
+        }
+        if matches!(
+            self.notional_exchange,
+            NotionalExchange::Final | NotionalExchange::InitialAndFinal
+        ) {
+            let final_amount = leg.side.final_principal_sign() * leg.notional.amount();
+            let _ = builder.add_principal_event(
+                leg.end,
+                Money::new(0.0, leg.currency),
+                Some(Money::new(-final_amount, leg.currency)),
+                CFKind::Notional,
+            );
+        }
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(leg.notional.amount(), leg.currency);
+        Ok(schedule)
+    }
+
     /// Calculate the present value of a leg with per-cashflow FX conversion.
     ///
     /// # Market-Standard FX Conversion
@@ -472,6 +553,40 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.leg1.start)
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+}
+
+impl CashflowProvider for XccySwap {
+    fn build_full_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        self.validate_leg(&self.leg1)?;
+        self.validate_leg(&self.leg2)?;
+
+        let anchor = if as_of < self.leg1.start {
+            as_of
+        } else {
+            self.leg1.start - time::Duration::days(1)
+        };
+        let mut leg1_schedule = self.leg_coupon_schedule(&self.leg1, market)?;
+        let leg2_schedule = self.leg_coupon_schedule(&self.leg2, market)?;
+        let leg1_principal = self.leg_principal_schedule(&self.leg1, anchor)?;
+        let leg2_principal = self.leg_principal_schedule(&self.leg2, anchor)?;
+
+        leg1_schedule.flows.extend(leg1_principal.flows);
+        leg1_schedule.flows.extend(leg2_schedule.flows);
+        leg1_schedule.flows.extend(leg2_principal.flows);
+        leg1_schedule
+            .flows
+            .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+        leg1_schedule.notional = Notional::par(0.0, self.reporting_currency);
+        Ok(leg1_schedule)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {
@@ -484,5 +599,103 @@ impl crate::instruments::common_impl::traits::CurveDependencies for XccySwap {
             .forward(self.leg1.forward_curve_id.clone())
             .forward(self.leg2.forward_curve_id.clone())
             .build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::cashflow::CashflowProvider;
+    use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+    use time::Month;
+
+    fn date(year: i32, month: Month, day: u8) -> Date {
+        Date::from_calendar_date(year, month, day).expect("valid test date")
+    }
+
+    #[test]
+    fn xccy_swap_cashflow_provider_emits_multi_currency_flows() {
+        let as_of = date(2025, Month::January, 1);
+        let market = MarketContext::new()
+            .insert(
+                DiscountCurve::builder("USD-OIS")
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 1.0), (1.0, 0.95)])
+                    .build()
+                    .expect("usd curve"),
+            )
+            .insert(
+                DiscountCurve::builder("EUR-OIS")
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 1.0), (1.0, 0.97)])
+                    .build()
+                    .expect("eur curve"),
+            )
+            .insert(
+                ForwardCurve::builder("USD-SOFR-3M", 0.25)
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 0.04), (1.0, 0.04)])
+                    .build()
+                    .expect("usd forward"),
+            )
+            .insert(
+                ForwardCurve::builder("EUR-EURIBOR-3M", 0.25)
+                    .base_date(as_of)
+                    .knots(vec![(0.0, 0.03), (1.0, 0.03)])
+                    .build()
+                    .expect("eur forward"),
+            );
+
+        let start = date(2025, Month::January, 2);
+        let end = date(2026, Month::January, 2);
+        let swap = XccySwap::new(
+            "XCCY-CF",
+            XccySwapLeg {
+                currency: Currency::USD,
+                notional: Money::new(1_000_000.0, Currency::USD),
+                side: LegSide::Receive,
+                forward_curve_id: CurveId::new("USD-SOFR-3M"),
+                discount_curve_id: CurveId::new("USD-OIS"),
+                start,
+                end,
+                frequency: Tenor::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                stub: StubKind::ShortFront,
+                spread_bp: Decimal::ZERO,
+                payment_lag_days: 0,
+                calendar_id: None,
+                reset_lag_days: None,
+                allow_calendar_fallback: true,
+            },
+            XccySwapLeg {
+                currency: Currency::EUR,
+                notional: Money::new(900_000.0, Currency::EUR),
+                side: LegSide::Pay,
+                forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
+                discount_curve_id: CurveId::new("EUR-OIS"),
+                start,
+                end,
+                frequency: Tenor::quarterly(),
+                day_count: DayCount::Act360,
+                bdc: BusinessDayConvention::ModifiedFollowing,
+                stub: StubKind::ShortFront,
+                spread_bp: Decimal::ZERO,
+                payment_lag_days: 0,
+                calendar_id: None,
+                reset_lag_days: None,
+                allow_calendar_fallback: true,
+            },
+            Currency::USD,
+        );
+
+        let flows = swap
+            .build_dated_flows(&market, as_of)
+            .expect("xccy contractual schedule should build");
+
+        assert!(flows.len() >= 6, "xccy swap should emit principal and coupon flows");
+        assert!(flows.iter().any(|(_, money)| money.currency() == Currency::USD));
+        assert!(flows.iter().any(|(_, money)| money.currency() == Currency::EUR));
     }
 }

@@ -24,16 +24,353 @@
 //! the correct payment date. Consumers who need actual payment dates should apply
 //! `add_payment_delay()` from `crate::instruments::rates::irs::dates`.
 
-use finstack_core::dates::Date;
+use finstack_core::dates::CalendarRegistry;
+use finstack_core::dates::{Date, DateExt, DayCountCtx};
+use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::ScalarTimeSeries;
+use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_core::Result;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 use crate::cashflow::builder::{
+    periods::{build_periods, BuildPeriodsParams},
     CashFlowSchedule, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional,
 };
 use crate::cashflow::traits::DatedFlows;
-use crate::instruments::rates::irs::{InterestRateSwap, PayReceive};
+use crate::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
+
+fn default_rfr_calendar(currency: finstack_core::currency::Currency) -> Option<&'static str> {
+    use finstack_core::currency::Currency;
+
+    match currency {
+        Currency::USD => Some("nyse"),
+        Currency::EUR => Some("target"),
+        Currency::GBP => Some("london"),
+        Currency::JPY => Some("tokyo"),
+        Currency::AUD => Some("sydney"),
+        Currency::CAD => Some("toronto"),
+        Currency::CHF => Some("zurich"),
+        Currency::SEK => Some("stockholm"),
+        Currency::NOK => Some("oslo"),
+        Currency::DKK => Some("copenhagen"),
+        Currency::NZD => Some("wellington"),
+        _ => None,
+    }
+}
+
+fn compounded_total_shift_days(compounding: FloatingLegCompounding) -> i32 {
+    match compounding {
+        FloatingLegCompounding::CompoundedInArrears {
+            lookback_days,
+            observation_shift,
+        } => -lookback_days + observation_shift.unwrap_or(0),
+        FloatingLegCompounding::CompoundedWithObservationShift { shift_days } => -shift_days,
+        FloatingLegCompounding::Simple => 0,
+    }
+}
+
+fn uses_observation_shift_dcf(compounding: FloatingLegCompounding) -> bool {
+    matches!(
+        compounding,
+        FloatingLegCompounding::CompoundedWithObservationShift { .. }
+    )
+}
+
+struct OvernightProjectionInputs<'a> {
+    proj: Option<&'a ForwardCurve>,
+    disc_fallback: Option<&'a DiscountCurve>,
+    fixings: Option<&'a ScalarTimeSeries>,
+    projection_base_date: Date,
+    float: &'a crate::instruments::common_impl::parameters::legs::FloatLegSpec,
+}
+
+fn builder_overnight_method(
+    compounding: FloatingLegCompounding,
+) -> Option<crate::cashflow::builder::OvernightCompoundingMethod> {
+    use crate::cashflow::builder::OvernightCompoundingMethod;
+
+    match compounding {
+        FloatingLegCompounding::Simple => None,
+        FloatingLegCompounding::CompoundedInArrears {
+            lookback_days,
+            observation_shift,
+        } => {
+            if observation_shift.unwrap_or(0) == 0 {
+                if lookback_days == 0 {
+                    Some(OvernightCompoundingMethod::CompoundedInArrears)
+                } else {
+                    Some(OvernightCompoundingMethod::CompoundedWithLookback {
+                        lookback_days: lookback_days as u32,
+                    })
+                }
+            } else if lookback_days == 0 {
+                Some(OvernightCompoundingMethod::CompoundedWithObservationShift {
+                    shift_days: observation_shift.unwrap_or(0) as u32,
+                })
+            } else {
+                // The generic builder does not yet model this hybrid convention exactly.
+                Some(OvernightCompoundingMethod::CompoundedWithLookback {
+                    lookback_days: lookback_days as u32,
+                })
+            }
+        }
+        FloatingLegCompounding::CompoundedWithObservationShift { shift_days } => {
+            Some(OvernightCompoundingMethod::CompoundedWithObservationShift {
+                shift_days: shift_days as u32,
+            })
+        }
+    }
+}
+
+fn resolve_compounded_fixing_calendar(
+    irs: &InterestRateSwap,
+) -> Result<Option<&'static dyn finstack_core::dates::HolidayCalendar>> {
+    let float = irs.resolved_float_leg();
+    let calendar_id = float
+        .fixing_calendar_id
+        .as_deref()
+        .or(float.calendar_id.as_deref());
+
+    if let Some(id) = calendar_id {
+        return Ok(Some(CalendarRegistry::global().resolve_str(id).ok_or_else(
+            || {
+                finstack_core::Error::Validation(format!(
+                    "Fixing calendar '{}' not found in registry for compounded RFR swap '{}'. \
+                     Load the calendar or remove fixing_calendar_id to use weekday stepping.",
+                    id,
+                    irs.id.as_str()
+                ))
+            },
+        )?));
+    }
+
+    Ok(default_rfr_calendar(irs.notional.currency())
+        .and_then(|id| CalendarRegistry::global().resolve_str(id)))
+}
+
+fn projected_overnight_rate(
+    obs_start: Date,
+    obs_end: Date,
+    dcf: f64,
+    inputs: &OvernightProjectionInputs<'_>,
+) -> Result<f64> {
+    if obs_start < inputs.projection_base_date {
+        let series = inputs.fixings.ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "Seasoned compounded swap requires RFR fixings for dates before as_of (missing series). \
+                 Provide ScalarTimeSeries id='FIXING:{}' with business-day observations.",
+                inputs.float.forward_curve_id.as_str()
+            ))
+        })?;
+        return series.value_on(obs_start);
+    }
+
+    if let Some(proj) = inputs.proj {
+        let t0 = if obs_start <= proj.base_date() {
+            0.0
+        } else {
+            proj.day_count()
+                .year_fraction(proj.base_date(), obs_start, DayCountCtx::default())?
+        };
+        let t1 = if obs_end <= proj.base_date() {
+            0.0
+        } else {
+            proj.day_count()
+                .year_fraction(proj.base_date(), obs_end, DayCountCtx::default())?
+        };
+        return Ok(if (t1 - t0).abs() > f64::EPSILON {
+            proj.rate_period(t0, t1)
+        } else {
+            proj.rate(t0)
+        });
+    }
+
+    if let Some(disc) = inputs.disc_fallback {
+        let df_between = disc.df_between_dates(obs_start, obs_end)?;
+        if !df_between.is_finite() || df_between <= 0.0 {
+            return Err(finstack_core::Error::Validation(format!(
+                "Invalid discount factor between observation dates ({} -> {}): df={:.3e}",
+                obs_start, obs_end, df_between
+            )));
+        }
+        const MIN_DCF_THRESHOLD: f64 = 1e-8;
+        if dcf < MIN_DCF_THRESHOLD {
+            return Err(finstack_core::Error::Validation(format!(
+                "Day-count fraction {:.2e} is below minimum threshold ({:.0e}). \
+                 This may indicate calendar misconfiguration causing same-day observations \
+                 or invalid date ordering ({} -> {}).",
+                dcf, MIN_DCF_THRESHOLD, obs_start, obs_end
+            )));
+        }
+        let comp = 1.0 / df_between;
+        return Ok((comp - 1.0) / dcf);
+    }
+
+    Err(finstack_core::Error::Input(finstack_core::InputError::NotFound {
+        id: format!(
+            "forward curve '{}' not found for reset date {} (overnight compounding)",
+            inputs.float.forward_curve_id.as_str(),
+            obs_start
+        ),
+    }))
+}
+
+pub(crate) fn projected_compounded_float_leg_schedule(
+    irs: &InterestRateSwap,
+    disc: &DiscountCurve,
+    proj: Option<&ForwardCurve>,
+    as_of: Date,
+    fixings: Option<&ScalarTimeSeries>,
+) -> Result<CashFlowSchedule> {
+    use finstack_core::cashflow::{CFKind, CashFlow};
+
+    let float = irs.resolved_float_leg();
+    let periods = build_periods(BuildPeriodsParams {
+        start: float.start,
+        end: float.end,
+        frequency: float.frequency,
+        stub: float.stub,
+        bdc: float.bdc,
+        calendar_id: float
+            .calendar_id
+            .as_deref()
+            .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
+        end_of_month: float.end_of_month,
+        day_count: float.day_count,
+        payment_lag_days: float.payment_lag_days,
+        reset_lag_days: None,
+    })?;
+    if periods.is_empty() {
+        return Ok(CashFlowSchedule::from_parts(
+            Vec::new(),
+            Notional::par(irs.notional.amount(), irs.notional.currency()),
+            float.day_count,
+            Default::default(),
+        ));
+    }
+
+    let cal = resolve_compounded_fixing_calendar(irs)?;
+    let total_shift = compounded_total_shift_days(float.compounding.clone());
+    let shift_dcf = uses_observation_shift_dcf(float.compounding.clone());
+    let disc_fallback = if proj.is_none() {
+        Some(disc)
+    } else {
+        None
+    };
+    let projection = OvernightProjectionInputs {
+        proj,
+        disc_fallback,
+        fixings,
+        projection_base_date: proj.map(ForwardCurve::base_date).unwrap_or_else(|| disc.base_date()),
+        float: &float,
+    };
+
+    let mut flows = Vec::new();
+    for period in periods {
+        if period.payment_date <= as_of {
+            continue;
+        }
+
+        let accrual_start = period.accrual_start;
+        let accrual_end = period.accrual_end;
+        let allow_fast_path = as_of <= accrual_start
+            && total_shift == 0
+            && proj.is_none_or(|p| disc.id() == p.id());
+
+        let compound_factor = if allow_fast_path {
+            1.0 / crate::instruments::common_impl::pricing::swap_legs::robust_relative_df(
+                disc,
+                accrual_start,
+                accrual_end,
+            )?
+        } else {
+            let mut acc = 1.0;
+            let mut d = accrual_start;
+            while d < accrual_end {
+                let next_d = if let Some(cal) = cal {
+                    d.add_business_days(1, cal)?
+                } else {
+                    d.add_weekdays(1)
+                };
+                let step_end = if next_d > accrual_end { accrual_end } else { next_d };
+
+                let obs_start = if total_shift == 0 {
+                    d
+                } else if let Some(cal) = cal {
+                    d.add_business_days(total_shift, cal)?
+                } else {
+                    d.add_weekdays(total_shift)
+                };
+                let obs_end = if total_shift == 0 {
+                    step_end
+                } else if let Some(cal) = cal {
+                    step_end.add_business_days(total_shift, cal)?
+                } else {
+                    step_end.add_weekdays(total_shift)
+                };
+
+                let (dcf_start, dcf_end) = if shift_dcf { (obs_start, obs_end) } else { (d, step_end) };
+                let dcf = float
+                    .day_count
+                    .year_fraction(dcf_start, dcf_end, DayCountCtx::default())?;
+
+                if obs_end <= obs_start {
+                    return Err(finstack_core::Error::Validation(format!(
+                        "Invalid observation period after applying shift: obs_start={}, obs_end={}, \
+                         total_shift={} days. This may indicate lookback exceeds the daily step size \
+                         or an invalid observation_shift configuration.",
+                        obs_start, obs_end, total_shift
+                    )));
+                }
+
+                let r = projected_overnight_rate(
+                    obs_start,
+                    obs_end,
+                    dcf,
+                    &projection,
+                )?;
+                acc *= 1.0 + r * dcf;
+                d = step_end;
+            }
+            acc
+        };
+
+        let spread_bp = float.spread_bp.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "float leg spread_bp value {} cannot be converted to f64",
+                float.spread_bp
+            ))
+        })?;
+        let interest = irs.notional.amount() * (compound_factor - 1.0);
+        let spread_contrib =
+            irs.notional.amount() * spread_bp * crate::constants::ONE_BASIS_POINT * period.accrual_year_fraction;
+        let coupon_amount = interest + spread_contrib;
+        let all_in_rate = if period.accrual_year_fraction.abs() > f64::EPSILON {
+            (compound_factor - 1.0) / period.accrual_year_fraction
+                + spread_bp * crate::constants::ONE_BASIS_POINT
+        } else {
+            spread_bp * crate::constants::ONE_BASIS_POINT
+        };
+
+        flows.push(CashFlow {
+            date: period.accrual_end,
+            reset_date: None,
+            amount: Money::new(coupon_amount, irs.notional.currency()),
+            kind: CFKind::FloatReset,
+            accrual_factor: period.accrual_year_fraction,
+            rate: Some(all_in_rate),
+        });
+    }
+
+    Ok(CashFlowSchedule::from_parts(
+        flows,
+        Notional::par(irs.notional.amount(), irs.notional.currency()),
+        float.day_count,
+        Default::default(),
+    ))
+}
 
 /// Build an unsigned fixed-leg cashflow schedule for an IRS.
 ///
@@ -150,9 +487,43 @@ pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
 /// classifications.
 pub fn float_leg_schedule_with_curves(
     irs: &InterestRateSwap,
-    curves: Option<&finstack_core::market_data::context::MarketContext>,
+    curves: Option<&MarketContext>,
+) -> Result<CashFlowSchedule> {
+    float_leg_schedule_with_curves_as_of(irs, curves, None)
+}
+
+pub(crate) fn float_leg_schedule_with_curves_as_of(
+    irs: &InterestRateSwap,
+    curves: Option<&MarketContext>,
+    as_of: Option<Date>,
 ) -> Result<CashFlowSchedule> {
     let float = irs.resolved_float_leg();
+    if matches!(
+        float.compounding,
+        FloatingLegCompounding::CompoundedInArrears { .. }
+            | FloatingLegCompounding::CompoundedWithObservationShift { .. }
+    ) {
+        if let Some(market) = curves {
+            let disc = market.get_discount(irs.fixed.discount_curve_id.as_ref())?;
+            let proj = if irs.is_single_curve_ois() {
+                market.get_forward(float.forward_curve_id.as_str()).ok()
+            } else {
+                Some(market.get_forward(float.forward_curve_id.as_str())?)
+            };
+            let fixings_id = format!("FIXING:{}", float.forward_curve_id.as_str());
+            let fixings = market.get_series(&fixings_id).ok();
+            let valuation_date =
+                as_of.unwrap_or_else(|| proj.as_ref().map(|c| c.base_date()).unwrap_or_else(|| disc.base_date()));
+            return projected_compounded_float_leg_schedule(
+                irs,
+                disc.as_ref(),
+                proj.as_deref(),
+                valuation_date,
+                fixings,
+            );
+        }
+    }
+
     let mut float_b = CashFlowSchedule::builder();
     let _ = float_b
         .principal(irs.notional, float.start, float.end)
@@ -177,7 +548,7 @@ pub fn float_leg_schedule_with_curves(
                 fixing_calendar_id: float.fixing_calendar_id.clone(),
                 end_of_month: float.end_of_month,
                 payment_lag_days: float.payment_lag_days,
-                overnight_compounding: None,
+                overnight_compounding: builder_overnight_method(float.compounding.clone()),
                 fallback: if curves.is_some() {
                     crate::cashflow::builder::FloatingRateFallback::Error
                 } else {
@@ -333,12 +704,20 @@ pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> 
 /// * `curves` - Optional market context containing forward curves
 pub fn full_signed_schedule_with_curves(
     irs: &InterestRateSwap,
-    curves: Option<&finstack_core::market_data::context::MarketContext>,
+    curves: Option<&MarketContext>,
+) -> Result<CashFlowSchedule> {
+    full_signed_schedule_with_curves_as_of(irs, curves, None)
+}
+
+pub(crate) fn full_signed_schedule_with_curves_as_of(
+    irs: &InterestRateSwap,
+    curves: Option<&MarketContext>,
+    as_of: Option<Date>,
 ) -> Result<CashFlowSchedule> {
     use finstack_core::cashflow::{CFKind, CashFlow};
 
     let fixed_sched = fixed_leg_schedule(irs)?;
-    let float_sched = float_leg_schedule_with_curves(irs, curves)?;
+    let float_sched = float_leg_schedule_with_curves_as_of(irs, curves, as_of)?;
 
     // Combine flows from both legs with proper CFKind classification
     let mut all_flows: Vec<CashFlow> = Vec::new();

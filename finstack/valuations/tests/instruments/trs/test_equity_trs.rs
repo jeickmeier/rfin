@@ -251,6 +251,67 @@ fn test_equity_trs_financing_leg_pv() {
 }
 
 #[test]
+fn test_equity_trs_cashflow_provider_emits_financing_flows() {
+    let market = create_market_context();
+    let as_of = as_of_date();
+    let trs = TestEquityTrsBuilder::new().spread_bp(50.0).build();
+
+    let schedule = trs
+        .build_full_schedule(&market, as_of)
+        .expect("financing schedule should build");
+
+    assert!(
+        schedule.flows.iter().any(|cf| cf.amount.amount().abs() > 0.0),
+        "TRS cashflow provider should emit non-zero financing cashflows"
+    );
+}
+
+#[test]
+fn test_equity_trs_financing_leg_matches_provider_schedule() {
+    let market = create_market_context();
+    let as_of = as_of_date();
+    let trs = TestEquityTrsBuilder::new().spread_bp(50.0).build();
+
+    let financing_pv = trs.pv_financing_leg(&market, as_of).unwrap();
+    let schedule = trs
+        .build_full_schedule(&market, as_of)
+        .expect("financing schedule should build");
+    let discount = market
+        .get_discount(trs.financing.discount_curve_id.as_str())
+        .expect("discount curve");
+    let payment_dates = trs.schedule.period_schedule().expect("period schedule");
+    let mut expected_pv = 0.0;
+
+    for (flow, payment_end) in schedule
+        .flows
+        .iter()
+        .zip(payment_dates.dates.iter().skip(1))
+    {
+        if *payment_end <= as_of {
+            continue;
+        }
+        let payment_date = trs
+            .schedule
+            .payment_date_for(*payment_end)
+            .expect("payment date");
+        let df = finstack_valuations::instruments::common::pricing::time::relative_df_discount_curve(
+            discount.as_ref(),
+            as_of,
+            payment_date,
+        )
+        .expect("relative df");
+        expected_pv += flow.amount.amount() * df;
+    }
+
+    assert_approx_eq(
+        financing_pv.amount(),
+        expected_pv,
+        1.0e-6,
+        "Financing PV should reconcile to provider schedule",
+    );
+}
+
+#[test]
 fn test_equity_trs_npv_equals_legs_difference() {
     // Arrange
     let market = create_market_context();

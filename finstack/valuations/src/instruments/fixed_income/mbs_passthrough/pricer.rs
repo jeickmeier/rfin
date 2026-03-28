@@ -11,6 +11,8 @@
 //! settlement and pool allocation.
 
 use super::AgencyMbsPassthrough;
+use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext, PricingResult,
 };
@@ -164,6 +166,60 @@ pub fn generate_cashflows(
     Ok(cashflows)
 }
 
+/// Build the canonical projected collateral schedule for an agency MBS.
+pub fn build_projected_schedule(
+    mbs: &AgencyMbsPassthrough,
+    as_of: Date,
+    max_periods: Option<u32>,
+) -> Result<CashFlowSchedule> {
+    let projected = generate_cashflows(mbs, as_of, max_periods)?;
+    let mut flows = Vec::with_capacity(projected.len() * 3);
+
+    for cf in projected {
+        if cf.interest.abs() > f64::EPSILON {
+            flows.push(CashFlow {
+                date: cf.payment_date,
+                reset_date: None,
+                amount: Money::new(cf.interest, mbs.current_face.currency()),
+                kind: CFKind::Fixed,
+                accrual_factor: 0.0,
+                rate: Some(mbs.pass_through_rate),
+            });
+        }
+        if cf.scheduled_principal.abs() > f64::EPSILON {
+            flows.push(CashFlow {
+                date: cf.payment_date,
+                reset_date: None,
+                amount: Money::new(cf.scheduled_principal, mbs.current_face.currency()),
+                kind: CFKind::Amortization,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+        }
+        if cf.prepayment.abs() > f64::EPSILON {
+            flows.push(CashFlow {
+                date: cf.payment_date,
+                reset_date: None,
+                amount: Money::new(cf.prepayment, mbs.current_face.currency()),
+                kind: CFKind::PrePayment,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+        }
+    }
+
+    Ok(CashFlowSchedule::from_parts(
+        flows,
+        Notional::par(mbs.current_face.amount(), mbs.current_face.currency()),
+        mbs.day_count,
+        CashFlowMeta {
+            calendar_ids: Vec::new(),
+            facility_limit: None,
+            issue_date: Some(mbs.issue_date),
+        },
+    ))
+}
+
 fn end_of_month(date: Date) -> Result<Date> {
     let year = date.year();
     let month = date.month();
@@ -183,23 +239,23 @@ fn next_month_start(date: Date) -> Result<Date> {
 ///
 /// Uses the curve's own day count for time calculation, applying an optional
 /// spread adjustment: `DF_spread = DF_base × exp(-spread × t)`.
-fn discount_cashflows(
-    cashflows: &[MbsCashflow],
+fn discount_schedule(
+    schedule: &CashFlowSchedule,
     curve: &DiscountCurve,
     as_of: Date,
     spread: f64,
 ) -> Result<f64> {
     let dc = curve.day_count();
     let mut pv = 0.0;
-    for cf in cashflows {
-        let years = dc.year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
+    for cf in &schedule.flows {
+        let years = dc.year_fraction(as_of, cf.date, DayCountCtx::default())?;
         let base_df = curve.df(years);
         let df = if spread.abs() > f64::EPSILON {
             base_df * (-spread * years).exp()
         } else {
             base_df
         };
-        pv += cf.total * df;
+        pv += cf.amount.amount() * df;
     }
     Ok(pv)
 }
@@ -209,14 +265,14 @@ fn discount_cashflows(
 /// Uses the discount curve's own day count convention for computing
 /// year fractions, ensuring consistency with the curve's interpolation.
 pub fn price_mbs(mbs: &AgencyMbsPassthrough, market: &MarketContext, as_of: Date) -> Result<Money> {
-    let cashflows = generate_cashflows(mbs, as_of, Some(mbs.wam + 12))?;
+    let schedule = build_projected_schedule(mbs, as_of, Some(mbs.wam + 12))?;
 
-    if cashflows.is_empty() {
+    if schedule.flows.is_empty() {
         return Ok(Money::new(0.0, mbs.current_face.currency()));
     }
 
     let discount_curve = market.get_discount(&mbs.discount_curve_id)?;
-    let pv = discount_cashflows(&cashflows, &discount_curve, as_of, 0.0)?;
+    let pv = discount_schedule(&schedule, &discount_curve, as_of, 0.0)?;
 
     Ok(Money::new(pv, mbs.current_face.currency()))
 }
@@ -230,14 +286,14 @@ pub fn price_with_spread(
     as_of: Date,
     spread: f64,
 ) -> Result<f64> {
-    let cashflows = generate_cashflows(mbs, as_of, Some(mbs.wam + 12))?;
+    let schedule = build_projected_schedule(mbs, as_of, Some(mbs.wam + 12))?;
 
-    if cashflows.is_empty() {
+    if schedule.flows.is_empty() {
         return Ok(0.0);
     }
 
     let discount_curve = market.get_discount(&mbs.discount_curve_id)?;
-    discount_cashflows(&cashflows, &discount_curve, as_of, spread)
+    discount_schedule(&schedule, &discount_curve, as_of, spread)
 }
 
 /// Agency MBS discounting pricer.
@@ -272,6 +328,7 @@ impl Pricer for AgencyMbsDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::primitives::CFKind;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
@@ -343,6 +400,21 @@ mod tests {
         for i in 1..cashflows.len() {
             assert!(cashflows[i].beginning_balance <= cashflows[i - 1].beginning_balance);
         }
+    }
+
+    #[test]
+    fn test_projected_schedule_preserves_classified_rows() {
+        let mbs = create_test_mbs();
+        let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
+        let schedule =
+            build_projected_schedule(&mbs, as_of, Some(3)).expect("projected schedule should build");
+
+        assert!(!schedule.flows.is_empty());
+        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::Fixed));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| matches!(cf.kind, CFKind::Amortization | CFKind::PrePayment)));
     }
 
     #[test]

@@ -4,6 +4,9 @@
 //! the deliverable basket, contract specifications, and the main BondFuture type.
 
 use crate::impl_instrument_base;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::dates::Date;
@@ -1087,6 +1090,24 @@ impl BondFuture {
 
         Ok(annualized)
     }
+
+    fn delivery_invoice_amount(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+    ) -> finstack_core::Result<Money> {
+        let ctd_bond = self.ctd_bond.as_ref().ok_or_else(|| {
+            finstack_core::Error::Validation(format!(
+                "BondFuture '{}' requires an embedded ctd_bond to build contractual delivery cashflows",
+                self.id.as_str()
+            ))
+        })?;
+        let invoice = self.invoice_price(ctd_bond, market, self.delivery_start)?;
+        let signed_amount = match self.position {
+            Position::Long => -invoice.amount(),
+            Position::Short => invoice.amount(),
+        };
+        Ok(Money::new(signed_amount, invoice.currency()))
+    }
 }
 
 // Manually implement a validated builder method
@@ -1149,6 +1170,10 @@ impl BondFutureBuilder {
 mod tests {
     use super::*;
     use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::types::CurveId;
+    use crate::cashflow::CashflowProvider;
+    use crate::instruments::fixed_income::bond::Bond;
     use time::Month;
 
     #[test]
@@ -1709,6 +1734,50 @@ mod tests {
 
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_cashflow_provider_emits_delivery_invoice_flow() {
+        let ctd_bond_id = InstrumentId::new("US912828XG33");
+        let ctd_bond = Bond::fixed(
+            ctd_bond_id.as_str(),
+            Money::new(100_000.0, Currency::USD),
+            0.05,
+            Date::from_calendar_date(2020, Month::January, 15).expect("valid date"),
+            Date::from_calendar_date(2030, Month::January, 15).expect("valid date"),
+            "USD-OIS",
+        )
+        .expect("valid bond");
+        let future = BondFuture::builder()
+            .id(InstrumentId::new("TYH5"))
+            .notional(Money::new(100_000.0, Currency::USD))
+            .expiry(Date::from_calendar_date(2025, Month::March, 20).expect("valid date"))
+            .delivery_start(Date::from_calendar_date(2025, Month::March, 21).expect("valid date"))
+            .delivery_end(Date::from_calendar_date(2025, Month::March, 31).expect("valid date"))
+            .quoted_price(125.50)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::default())
+            .deliverable_basket(vec![DeliverableBond {
+                bond_id: ctd_bond_id.clone(),
+                conversion_factor: 0.8234,
+            }])
+            .ctd_bond_id(ctd_bond_id)
+            .ctd_bond_opt(Some(ctd_bond))
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("valid future");
+
+        let flows = future
+            .build_dated_flows(&MarketContext::new(), future.expiry)
+            .expect("delivery schedule should build");
+
+        assert_eq!(flows.len(), 1, "bond future should emit one delivery invoice flow");
+        assert_eq!(flows[0].0, future.delivery_start);
+        assert!(
+            flows[0].1.amount() < 0.0,
+            "long futures delivery should require paying the invoice"
+        );
+    }
 }
 
 // Implement Instrument trait for BondFuture
@@ -1763,6 +1832,10 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
         Some(self.delivery_start)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -1789,6 +1862,36 @@ impl crate::instruments::common_impl::traits::CurveDependencies for BondFuture {
             builder
         };
         builder.build()
+    }
+}
+
+impl CashflowProvider for BondFuture {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        market: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let invoice = self.delivery_invoice_amount(market)?;
+        let anchor = if as_of < self.delivery_start {
+            as_of
+        } else {
+            self.expiry - time::Duration::days(1)
+        };
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, invoice.currency()), anchor, self.delivery_start);
+        let _ = builder.add_principal_event(
+            self.delivery_start,
+            Money::new(0.0, invoice.currency()),
+            Some(Money::new(-invoice.amount(), invoice.currency())),
+            CFKind::Notional,
+        );
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(self.notional.amount(), self.notional.currency());
+        Ok(schedule)
     }
 }
 

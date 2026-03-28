@@ -15,6 +15,10 @@ pub struct TrancheAllocation {
     pub tranche_id: String,
     /// Principal allocated
     pub principal: f64,
+    /// Scheduled principal allocated
+    pub scheduled_principal: f64,
+    /// Prepayment principal allocated
+    pub prepayment_principal: f64,
     /// Interest allocated
     pub interest: f64,
     /// Beginning balance
@@ -30,6 +34,10 @@ pub struct WaterfallPeriodResult {
     pub allocations: Vec<TrancheAllocation>,
     /// Total principal distributed
     pub total_principal: f64,
+    /// Total scheduled principal distributed
+    pub total_scheduled_principal: f64,
+    /// Total prepayment principal distributed
+    pub total_prepayment_principal: f64,
     /// Total interest distributed
     pub total_interest: f64,
     /// Residual principal (if any)
@@ -79,9 +87,28 @@ pub fn execute_waterfall_with_pac(
     available_interest: f64,
     pac_context: Option<&PacContext>,
 ) -> WaterfallPeriodResult {
+    execute_waterfall_with_principal_breakdown(
+        waterfall,
+        available_principal,
+        0.0,
+        available_interest,
+        pac_context,
+    )
+}
+
+/// Execute waterfall while preserving scheduled-principal vs prepayment buckets.
+pub fn execute_waterfall_with_principal_breakdown(
+    waterfall: &mut CmoWaterfall,
+    scheduled_principal: f64,
+    prepayment_principal: f64,
+    available_interest: f64,
+    pac_context: Option<&PacContext>,
+) -> WaterfallPeriodResult {
     let mut allocations = Vec::new();
-    let mut remaining_principal = available_principal;
+    let mut remaining_principal = scheduled_principal + prepayment_principal;
     let mut remaining_interest = available_interest;
+    let mut remaining_scheduled_principal = scheduled_principal;
+    let mut remaining_prepayment_principal = prepayment_principal;
 
     // First pass: distribute interest to interest-bearing tranches
     let _total_interest_notional: f64 = waterfall
@@ -154,6 +181,8 @@ pub fn execute_waterfall_with_pac(
 
     // Build final allocations and update tranche balances
     let mut total_principal = 0.0;
+    let mut total_scheduled_principal = 0.0;
+    let mut total_prepayment_principal = 0.0;
     let mut total_interest = 0.0;
 
     for tranche in &mut waterfall.tranches {
@@ -165,6 +194,11 @@ pub fn execute_waterfall_with_pac(
             .get(&tranche.id)
             .cloned()
             .unwrap_or(0.0);
+        let scheduled_principal = principal.min(remaining_scheduled_principal);
+        remaining_scheduled_principal -= scheduled_principal;
+        let prepayment_principal = (principal - scheduled_principal)
+            .min(remaining_prepayment_principal);
+        remaining_prepayment_principal -= prepayment_principal;
 
         let beginning = tranche.current_face.amount();
         let ending = (beginning - principal).max(0.0);
@@ -175,18 +209,24 @@ pub fn execute_waterfall_with_pac(
         allocations.push(TrancheAllocation {
             tranche_id: tranche.id.clone(),
             principal,
+            scheduled_principal,
+            prepayment_principal,
             interest,
             beginning_balance: beginning,
             ending_balance: ending,
         });
 
         total_principal += principal;
+        total_scheduled_principal += scheduled_principal;
+        total_prepayment_principal += prepayment_principal;
         total_interest += interest;
     }
 
     WaterfallPeriodResult {
         allocations,
         total_principal,
+        total_scheduled_principal,
+        total_prepayment_principal,
         total_interest,
         residual_principal: remaining_principal,
         residual_interest: remaining_interest,

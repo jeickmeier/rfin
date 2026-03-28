@@ -63,7 +63,6 @@ use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DateExt};
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::money::fx::FxProvider;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
 use finstack_core::Result;
@@ -460,56 +459,11 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.validate_economics()?;
-        // Compute effective settlement date
-        let settle_date = self.effective_settlement_date(as_of)?;
-
-        // If settlement is on or before as_of, trade has settled (end-of-day convention)
-        if settle_date <= as_of {
-            return Ok(finstack_core::money::Money::new(0.0, self.quote_currency));
-        }
-
-        if let Some(rate) = self.spot_rate {
-            let quote_amount = self.effective_notional().amount() * rate;
-            return Ok(finstack_core::money::Money::new(
-                quote_amount,
-                self.quote_currency,
-            ));
-        }
-
-        let matrix = market.fx().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "fx_matrix".to_string(),
+        self.build_dated_flows(market, as_of)?
+            .into_iter()
+            .try_fold(Money::new(0.0, self.quote_currency), |acc, (_, amount)| {
+                acc.checked_add(amount)
             })
-        })?;
-
-        struct MatrixProvider<'a> {
-            m: &'a finstack_core::money::fx::FxMatrix,
-        }
-
-        impl FxProvider for MatrixProvider<'_> {
-            fn rate(
-                &self,
-                from: finstack_core::currency::Currency,
-                to: finstack_core::currency::Currency,
-                on: finstack_core::dates::Date,
-                policy: finstack_core::money::fx::FxConversionPolicy,
-            ) -> finstack_core::Result<finstack_core::money::fx::FxRate> {
-                let result = self.m.rate(finstack_core::money::fx::FxQuery::with_policy(
-                    from, to, on, policy,
-                ))?;
-                Ok(result.rate)
-            }
-        }
-
-        let provider = MatrixProvider { m: matrix.as_ref() };
-        let policy = finstack_core::money::fx::FxConversionPolicy::CashflowDate;
-        let rate = provider.rate(self.base_currency, self.quote_currency, settle_date, policy)?;
-
-        Ok(finstack_core::money::Money::new(
-            self.effective_notional().amount() * rate,
-            self.quote_currency,
-        ))
     }
 
     fn value_raw(
@@ -592,8 +546,9 @@ impl CashflowProvider for FxSpot {
             Vec::new()
         };
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             flows,
+            crate::cashflow::primitives::CFKind::Notional,
             self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for FX spot
         ))

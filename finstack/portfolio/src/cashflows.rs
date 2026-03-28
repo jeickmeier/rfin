@@ -78,6 +78,19 @@ fn should_warn_far_future_fx_conversion(
 ///
 /// The `by_date` map preserves chronological ordering of payment dates and
 /// aggregates per-currency amounts for each date across all positions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CashflowWarning {
+    /// Position whose cashflow extraction failed.
+    pub position_id: PositionId,
+    /// Underlying instrument identifier.
+    pub instrument_id: String,
+    /// Underlying instrument type key.
+    pub instrument_type: String,
+    /// Human-readable failure detail.
+    pub message: String,
+}
+
+/// Aggregated portfolio cashflows by date and currency, plus extraction warnings.
 #[derive(Clone, Debug)]
 pub struct PortfolioCashflows {
     /// Map from payment date to per-currency totals.
@@ -88,6 +101,9 @@ pub struct PortfolioCashflows {
     /// This is keyed by position ID and contains holder-view cashflows in
     /// the instrument's native currency, scaled by position quantity.
     pub by_position: IndexMap<PositionId, DatedFlows>,
+
+    /// Cashflow extraction warnings captured during aggregation.
+    pub warnings: Vec<CashflowWarning>,
 }
 
 /// Aggregated portfolio cashflows by reporting period in base currency.
@@ -109,17 +125,9 @@ fn instrument_holder_flows(
     instrument: &DynInstrument,
     market: &MarketContext,
     as_of: Date,
-) -> finstack_core::Result<Option<DatedFlows>> {
-    use finstack_valuations::instruments::credit_derivatives::cds;
-
-    // Use the trait method instead of manual downcasting
+) -> std::result::Result<Option<DatedFlows>, finstack_core::Error> {
     if let Some(provider) = instrument.as_cashflow_provider() {
-        return Ok(provider.build_dated_flows(market, as_of).ok());
-    }
-
-    // Special case: CDS uses build_premium_schedule (not CashflowProvider)
-    if let Some(cds) = instrument.as_any().downcast_ref::<cds::CreditDefaultSwap>() {
-        return Ok(cds.build_premium_schedule(market, as_of).ok());
+        return provider.build_dated_flows(market, as_of).map(Some);
     }
 
     // Instruments without a cashflow schedule interface (options, baskets, etc.)
@@ -153,22 +161,39 @@ pub fn aggregate_cashflows(
 ) -> Result<PortfolioCashflows> {
     let mut all_flows: Vec<DatedFlow> = Vec::new();
     let mut by_position: IndexMap<PositionId, DatedFlows> = IndexMap::new();
+    let mut warnings = Vec::new();
 
     // Phase 1: collect and scale flows per position
     for position in &portfolio.positions {
-        if let Some(flows) =
-            instrument_holder_flows(position.instrument.as_ref(), market, portfolio.as_of)?
-        {
-            let mut scaled: DatedFlows = Vec::with_capacity(flows.len());
+        match instrument_holder_flows(position.instrument.as_ref(), market, portfolio.as_of) {
+            Ok(Some(flows)) => {
+                let mut scaled: DatedFlows = Vec::with_capacity(flows.len());
 
-            for (date, money) in flows {
-                let scaled_money = position.scale_value(money);
-                all_flows.push((date, scaled_money));
-                scaled.push((date, scaled_money));
+                for (date, money) in flows {
+                    let scaled_money = position.scale_value(money);
+                    all_flows.push((date, scaled_money));
+                    scaled.push((date, scaled_money));
+                }
+
+                if !scaled.is_empty() {
+                    by_position.insert(position.position_id.clone(), scaled);
+                }
             }
-
-            if !scaled.is_empty() {
-                by_position.insert(position.position_id.clone(), scaled);
+            Ok(None) => {}
+            Err(err) => {
+                tracing::warn!(
+                    position_id = %position.position_id,
+                    instrument_id = %position.instrument.id(),
+                    instrument_type = ?position.instrument.key(),
+                    error = %err,
+                    "Skipping position during portfolio cashflow aggregation because contractual cashflows could not be built"
+                );
+                warnings.push(CashflowWarning {
+                    position_id: position.position_id.clone(),
+                    instrument_id: position.instrument.id().to_string(),
+                    instrument_type: format!("{:?}", position.instrument.key()),
+                    message: err.to_string(),
+                });
             }
         }
     }
@@ -188,6 +213,7 @@ pub fn aggregate_cashflows(
     Ok(PortfolioCashflows {
         by_date,
         by_position,
+        warnings,
     })
 }
 
@@ -324,7 +350,11 @@ mod tests {
     use crate::position::{Position, PositionUnit};
     use crate::test_utils::build_test_market_at;
     use crate::types::Entity;
+    use finstack_core::market_data::term_structures::HazardCurve;
+    use finstack_valuations::instruments::credit_derivatives::CDSIndex;
+    use finstack_valuations::instruments::fixed_income::AgencyMbsPassthrough;
     use finstack_valuations::instruments::fixed_income::bond;
+    use finstack_valuations::instruments::fx::ndf::Ndf;
     use std::sync::Arc;
     use time::macros::date;
 
@@ -386,6 +416,7 @@ mod tests {
         // Position-level drill-down should have exactly one entry
         assert_eq!(ladder.by_position.len(), 1);
         assert!(ladder.by_position.contains_key("POS_001"));
+        assert!(ladder.warnings.is_empty(), "expected no aggregation warnings");
     }
 
     #[test]
@@ -462,5 +493,103 @@ mod tests {
             Currency::EUR,
             Currency::USD
         ));
+    }
+
+    #[test]
+    fn aggregate_cashflows_surfaces_provider_failures_as_warnings() {
+        let as_of = date!(2025 - 01 - 01);
+        let position = Position::new(
+            "POS_NDF",
+            "ENTITY_A",
+            "USDCNY-NDF-3M",
+            Arc::new(Ndf::example()),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("test should succeed");
+        let portfolio = PortfolioBuilder::new("WARNINGS")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .entity(Entity::new("ENTITY_A"))
+            .position(position)
+            .build()
+            .expect("test should succeed");
+
+        let ladder = aggregate_cashflows(&portfolio, &MarketContext::new())
+            .expect("aggregation should succeed with warnings");
+
+        assert!(ladder.by_date.is_empty(), "failed cashflows should be skipped");
+        assert!(ladder.by_position.is_empty(), "failed position should not emit flows");
+        assert_eq!(ladder.warnings.len(), 1, "expected one warning");
+        assert_eq!(ladder.warnings[0].position_id.as_str(), "POS_NDF");
+        assert!(
+            ladder.warnings[0]
+                .message
+                .contains("cannot build a contractual cashflow schedule before fixing"),
+            "unexpected warning message: {}",
+            ladder.warnings[0].message
+        );
+    }
+
+    #[test]
+    fn aggregate_cashflows_includes_deferred_agency_provider() {
+        let as_of = date!(2025 - 01 - 01);
+        let position = Position::new(
+            "POS_MBS",
+            "ENTITY_A",
+            "FN-MA1234",
+            Arc::new(AgencyMbsPassthrough::example().expect("agency mbs example")),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("test should succeed");
+        let portfolio = PortfolioBuilder::new("AGENCY")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .entity(Entity::new("ENTITY_A"))
+            .position(position)
+            .build()
+            .expect("test should succeed");
+
+        let ladder = aggregate_cashflows(&portfolio, &build_test_market_at(as_of))
+            .expect("agency cashflow aggregation");
+
+        assert!(!ladder.by_date.is_empty(), "agency provider should emit flows");
+        assert!(ladder.warnings.is_empty(), "agency provider should not warn");
+    }
+
+    #[test]
+    fn aggregate_cashflows_includes_deferred_credit_composite_provider() {
+        let as_of = date!(2025 - 01 - 01);
+        let position = Position::new(
+            "POS_CDX",
+            "ENTITY_A",
+            "CDX-IG-42",
+            Arc::new(CDSIndex::example()),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("test should succeed");
+        let portfolio = PortfolioBuilder::new("CDX")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .entity(Entity::new("ENTITY_A"))
+            .position(position)
+            .build()
+            .expect("test should succeed");
+        let market = build_test_market_at(as_of).insert(
+            HazardCurve::builder("CDX.NA.IG.HAZARD")
+                .base_date(as_of)
+                .currency(Currency::USD)
+                .recovery_rate(0.40)
+                .knots([(0.0, 0.02), (5.0, 0.02)])
+                .build()
+                .expect("hazard curve should build"),
+        );
+
+        let ladder = aggregate_cashflows(&portfolio, &market).expect("cdx cashflow aggregation");
+
+        assert!(!ladder.by_date.is_empty(), "credit composite provider should emit flows");
+        assert!(ladder.warnings.is_empty(), "credit composite provider should not warn");
     }
 }

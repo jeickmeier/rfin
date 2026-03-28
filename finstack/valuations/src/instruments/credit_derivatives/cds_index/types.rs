@@ -10,6 +10,7 @@
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::parameters::CreditParams;
 use crate::instruments::common_impl::traits::Attributes;
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;
@@ -499,6 +500,10 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
         pricer.npv(self, curves, as_of)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
+        Some(self)
+    }
+
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.premium.end)
     }
@@ -517,6 +522,22 @@ impl crate::instruments::common_impl::traits::Instrument for CDSIndex {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for CDSIndex {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let pricer =
+            crate::instruments::credit_derivatives::cds_index::pricer::CDSIndexPricer::new();
+        pricer.build_projected_schedule(self, curves, as_of)
     }
 }
 

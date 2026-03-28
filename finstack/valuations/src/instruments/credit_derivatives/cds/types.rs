@@ -40,7 +40,6 @@
 //! ```
 
 use crate::cashflow::traits::DatedFlows;
-use crate::constants::BASIS_POINTS_PER_UNIT;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use crate::instruments::PricingOverrides;
@@ -51,7 +50,6 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
 
@@ -820,53 +818,48 @@ impl CreditDefaultSwap {
         self.protection_effective_date.unwrap_or(self.premium.start)
     }
 
+    fn build_premium_leg_schedule(
+        &self,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let spread_decimal = self.premium.spread_bp / Decimal::from(10_000u32);
+        let mut builder = crate::cashflow::builder::CashFlowSchedule::builder();
+        let _ = builder
+            .principal(self.notional, self.premium.start, self.premium.end)
+            .fixed_cf(crate::cashflow::builder::FixedCouponSpec {
+                coupon_type: crate::cashflow::builder::CouponType::Cash,
+                rate: spread_decimal,
+                freq: self.premium.frequency,
+                dc: self.premium.day_count,
+                bdc: self.premium.bdc,
+                calendar_id: self
+                    .premium
+                    .calendar_id
+                    .clone()
+                    .unwrap_or_else(|| crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.into()),
+                stub: self.premium.stub,
+                end_of_month: false,
+                payment_lag_days: 0,
+            });
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.flows.retain(|cf| {
+            cf.kind == finstack_core::cashflow::CFKind::Fixed
+                || cf.kind == finstack_core::cashflow::CFKind::Stub
+        });
+        Ok(schedule)
+    }
+
     /// Build premium leg cashflows
     pub fn build_premium_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<DatedFlows> {
-        // Use centralized schedule builder and standard DayCount accrual
-        let sched = crate::cashflow::builder::build_dates(
-            self.premium.start,
-            self.premium.end,
-            self.premium.frequency,
-            self.premium.stub,
-            self.premium.bdc,
-            false,
-            0,
-            self.premium
-                .calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-        )?;
-        let dates = sched.dates;
-        if dates.len() < 2 {
-            return Ok(vec![]);
-        }
-
-        // Convert spread_bp to f64 for calculation (bps to decimal)
-        let spread_decimal = self.premium.spread_bp.to_f64().ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "spread_bp {} cannot be converted to f64",
-                self.premium.spread_bp
-            ))
-        })? / BASIS_POINTS_PER_UNIT;
-
-        let mut flows = Vec::with_capacity(dates.len() - 1);
-        let mut prev = dates[0];
-        for &d in &dates[1..] {
-            let year_frac = self.premium.day_count.year_fraction(
-                prev,
-                d,
-                finstack_core::dates::DayCountCtx::default(),
-            )?;
-            let amount = self.notional.amount() * spread_decimal * year_frac;
-            flows.push((d, Money::new(amount, self.notional.currency())));
-            prev = d;
-        }
-
-        Ok(flows)
+        Ok(self
+            .build_premium_leg_schedule()?
+            .flows
+            .iter()
+            .map(|cf| (cf.date, cf.amount))
+            .collect())
     }
 
     /// ISDA-standard coupon date schedule (IMM 20th dates).
@@ -994,6 +987,10 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CreditDefaultSwap {
@@ -1014,25 +1011,24 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
 
     fn build_full_schedule(
         &self,
-        curves: &MarketContext,
-        as_of: Date,
+        _curves: &MarketContext,
+        _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        // For theta calculation, we only care about premium cashflows
-        // Protection leg is continuous and doesn't have discrete cashflows
-        let mut flows = self.build_premium_schedule(curves, as_of)?;
+        let mut schedule = self.build_premium_leg_schedule()?;
 
-        // Add upfront if present
         if let Some((dt, amount)) = self.upfront {
-            flows.push((dt, amount));
-            // Sort by date to maintain schedule order
-            flows.sort_by_key(|(d, _)| *d);
+            schedule.flows.push(finstack_core::cashflow::CashFlow {
+                date: dt,
+                reset_date: None,
+                amount,
+                kind: finstack_core::cashflow::CFKind::Fee,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+            schedule.flows.sort_by_key(|cf| cf.date);
         }
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
-            flows,
-            self.notional(),
-            self.premium.day_count,
-        ))
+        Ok(schedule)
     }
 }
 
@@ -1042,6 +1038,7 @@ mod tests {
     use super::*;
     use finstack_core::currency::Currency;
     use finstack_core::types::CurveId;
+    use rust_decimal::prelude::ToPrimitive;
     use time::macros::date;
 
     #[test]

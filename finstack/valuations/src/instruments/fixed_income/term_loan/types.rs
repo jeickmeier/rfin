@@ -563,6 +563,10 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
+
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
 }
 
 impl crate::cashflow::traits::CashflowProvider for TermLoan {

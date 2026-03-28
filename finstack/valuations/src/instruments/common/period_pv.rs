@@ -10,9 +10,9 @@
 //! - `periodized_pv`: Basic discounting with discount curve only
 //! - `periodized_pv_credit_adjusted`: Optional credit adjustment via hazard curve
 //!
-//! These methods delegate to the instrument's `build_dated_flows` implementation
-//! and leverage cashflow aggregation utilities for the actual
-//! aggregation and discounting.
+//! `periodized_pv` follows the instrument's holder-view `build_dated_flows`
+//! semantics, while `periodized_pv_credit_adjusted` uses the canonical full
+//! schedule so credit adjustment can respect `CFKind`.
 //!
 //! # Example
 //!
@@ -96,7 +96,7 @@ use indexmap::IndexMap;
 ///
 /// This trait serves as a bridge between instrument-level APIs and the lower-level
 /// cashflow aggregation utilities. It handles:
-/// - Building the simplified cashflow schedule via `build_dated_flows`
+/// - Building the holder-view cashflow schedule via `build_dated_flows`
 /// - Extracting the discount curve ID from the instrument
 /// - Delegating to the aggregation utilities for periodized PV calculation
 ///
@@ -159,13 +159,9 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
         periods: &[Period],
         market: &MarketContext,
         base: Date,
-        dc: DayCount,
+        _dc: DayCount,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        use crate::cashflow::traits::schedule_from_dated_flows;
         use finstack_core::dates::DayCountCtx;
-
-        let flows = self.build_dated_flows(market, base)?;
-        let schedule = schedule_from_dated_flows(flows, self.notional(), dc);
 
         let deps = self.curve_dependencies()?;
         let disc_curve_id = deps
@@ -173,9 +169,14 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             .first()
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;
+        let schedule = crate::cashflow::traits::schedule_from_dated_flows(
+            self.build_dated_flows(market, base)?,
+            self.notional(),
+            disc_arc.day_count(),
+        );
 
-        // Keep periodized discounting aligned with the canonical schedule NPV path,
-        // which uses the discount curve's own day-count basis.
+        // Keep discounting aligned with the holder-view dated-flow path while still
+        // using the discount curve's own day-count basis for year fractions.
         let curve_dc = disc_arc.day_count();
         schedule.pv_by_period_with_ctx(
             periods,
@@ -267,8 +268,8 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             })
         })?;
 
-        // Build full schedule (holder perspective, filtered flows) to preserve CFKind
-        // This allows applying recovery rates to principal flows only.
+        // Credit-adjusted periodized PV needs the full schedule so recovery logic can
+        // distinguish principal-like flows from interest/fees via CFKind.
         let schedule = self.build_full_schedule(market, base)?;
 
         // Resolve discount curve once to avoid duplicated logic.
@@ -299,13 +300,17 @@ impl<T> PeriodizedPvExt for T where T: CashflowProvider + CurveDependencies {}
 mod tests {
     use super::*;
     use crate::cashflow::aggregation::DateContext;
+    use crate::cashflow::traits::CashflowProvider;
     use crate::instruments::Bond;
+    use crate::instruments::fixed_income::term_loan::TermLoan;
+    use crate::instruments::rates::repo::{CollateralSpec, Repo};
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCountCtx;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::market_data::term_structures::HazardCurve;
     use finstack_core::math::interp::InterpStyle;
-    use time::Month;
+    use finstack_core::money::Money;
+    use time::{Duration, Month};
 
     fn create_test_bond() -> Bond {
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -366,6 +371,14 @@ mod tests {
                 is_actual: false,
             },
         ]
+    }
+
+    fn total_pv(pv_by_period: &IndexMap<PeriodId, IndexMap<Currency, Money>>) -> f64 {
+        pv_by_period
+            .values()
+            .flat_map(IndexMap::values)
+            .map(Money::amount)
+            .sum()
     }
 
     #[test]
@@ -673,5 +686,84 @@ mod tests {
             assert_eq!(period_map.len(), 1);
             assert!(period_map.contains_key(&Currency::USD));
         }
+    }
+
+    #[test]
+    fn test_periodized_pv_repo_matches_holder_view_dated_flows() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 6).expect("Valid test date");
+        let market = create_test_market(as_of);
+        let periods = vec![Period {
+            id: PeriodId::annual(2025),
+            start: Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date"),
+            end: Date::from_calendar_date(2025, Month::February, 1).expect("Valid test date"),
+            is_actual: true,
+        }];
+        let repo = Repo::term(
+            "REPO-PERIOD-PV",
+            Money::new(1_000_000.0, Currency::USD),
+            CollateralSpec::new("UST-10Y", 10_000.0, "UST_10Y_PRICE"),
+            0.05,
+            Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date"),
+            Date::from_calendar_date(2025, Month::January, 9).expect("Valid test date"),
+            "USD-OIS",
+        )
+        .expect("Repo should build");
+
+        let disc = market
+            .get_discount("USD-OIS")
+            .expect("Discount curve should exist");
+        let direct_holder_view = crate::cashflow::traits::schedule_from_dated_flows(
+            repo.build_dated_flows(&market, as_of)
+                .expect("Repo dated flows should build"),
+            repo.notional(),
+            disc.day_count(),
+        )
+        .pv_by_period_with_ctx(&periods, disc.as_ref(), as_of, disc.day_count(), DayCountCtx::default())
+        .expect("Direct holder-view aggregation should succeed");
+
+        let actual = repo
+            .periodized_pv(&periods, &market, as_of, DayCount::Act365F)
+            .expect("Periodized PV should succeed");
+
+        let diff = (total_pv(&actual) - total_pv(&direct_holder_view)).abs();
+        assert!(
+            diff < 1e-8,
+            "Repo periodized PV should follow holder-view dated flows, diff={diff}"
+        );
+    }
+
+    #[test]
+    fn test_periodized_pv_term_loan_matches_holder_view_dated_flows() {
+        let loan = TermLoan::example().expect("Example term loan should build");
+        let as_of = loan.issue_date;
+        let market = create_test_market(as_of);
+        let periods = vec![Period {
+            id: PeriodId::annual(2024),
+            start: as_of,
+            end: loan.maturity + Duration::days(1),
+            is_actual: true,
+        }];
+
+        let disc = market
+            .get_discount("USD-OIS")
+            .expect("Discount curve should exist");
+        let direct_holder_view = crate::cashflow::traits::schedule_from_dated_flows(
+            loan.build_dated_flows(&market, as_of)
+                .expect("Term loan dated flows should build"),
+            loan.notional(),
+            disc.day_count(),
+        )
+        .pv_by_period_with_ctx(&periods, disc.as_ref(), as_of, disc.day_count(), DayCountCtx::default())
+        .expect("Direct holder-view aggregation should succeed");
+
+        let actual = loan
+            .periodized_pv(&periods, &market, as_of, DayCount::Act365F)
+            .expect("Periodized PV should succeed");
+
+        let diff = (total_pv(&actual) - total_pv(&direct_holder_view)).abs();
+        assert!(
+            diff < 1e-8,
+            "Term loan periodized PV should follow holder-view dated flows, diff={diff}"
+        );
     }
 }

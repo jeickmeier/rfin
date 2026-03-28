@@ -1,9 +1,11 @@
 //! Tests for repo cashflow schedule generation.
 
 use super::fixtures::*;
+use finstack_core::cashflow::CFKind;
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::internal::InstrumentExt;
 use finstack_valuations::instruments::rates::repo::Repo;
 
 #[test]
@@ -26,6 +28,30 @@ fn test_cashflow_schedule_structure() {
 
     // Should have exactly 2 cashflows: initial outflow and final inflow
     assert_eq!(cashflows.len(), 2);
+}
+
+#[test]
+fn test_full_schedule_marks_initial_exchange_as_notional() {
+    let context = create_standard_market_context();
+    let collateral = treasury_collateral();
+
+    let repo = Repo::term(
+        "CF_KIND",
+        Money::new(1_000_000.0, Currency::USD),
+        collateral,
+        0.05,
+        date(2025, 1, 15),
+        date(2025, 4, 15),
+        "USD-OIS",
+    )
+    .expect("Repo construction should succeed");
+
+    let schedule = repo
+        .build_full_schedule(&context, date(2025, 1, 10))
+        .expect("repo full schedule");
+
+    assert_eq!(schedule.flows.len(), 2);
+    assert_eq!(schedule.flows[0].kind, CFKind::Notional);
 }
 
 #[test]
@@ -148,6 +174,64 @@ fn test_cashflow_net_present_value() {
     let interest = repo.interest_amount().unwrap();
 
     assert_money_approx_eq(net_undiscounted, interest, 0.01);
+}
+
+#[test]
+fn test_value_matches_discounted_provider_flows() {
+    let context = create_standard_market_context();
+    let collateral = treasury_collateral();
+    let as_of = date(2025, 1, 10);
+
+    let repo = Repo::term(
+        "CF_VALUE_PATH",
+        Money::new(1_000_000.0, Currency::USD),
+        collateral,
+        0.05,
+        date(2025, 1, 15),
+        date(2025, 4, 15),
+        "USD-OIS",
+    )
+    .expect("Repo construction should succeed");
+
+    let pv = repo.value(&context, as_of).expect("repo value");
+    let discount = context.get_discount("USD-OIS").expect("discount curve");
+    let provider_flows = repo
+        .build_dated_flows(&context, as_of)
+        .expect("provider flows should build");
+    let discounted_total = provider_flows
+        .into_iter()
+        .try_fold(Money::new(0.0, Currency::USD), |acc, (date, amount)| {
+            let df = discount.df_between_dates(as_of, date)?;
+            acc.checked_add(amount * df)
+        })
+        .expect("discounting provider flows should succeed");
+
+    assert_money_approx_eq(pv, discounted_total, 0.01);
+}
+
+#[test]
+fn test_dated_flows_exclude_settled_start_leg_mid_life() {
+    let context = create_standard_market_context();
+    let collateral = treasury_collateral();
+
+    let repo = Repo::term(
+        "CF_MIDLIFE",
+        Money::new(1_000_000.0, Currency::USD),
+        collateral,
+        0.05,
+        date(2025, 1, 15),
+        date(2025, 4, 15),
+        "USD-OIS",
+    )
+    .expect("Repo construction should succeed");
+
+    let cashflows = repo
+        .build_dated_flows(&context, date(2025, 2, 1))
+        .expect("mid-life dated flows should build");
+
+    assert_eq!(cashflows.len(), 1);
+    assert_eq!(cashflows[0].0, date(2025, 4, 15));
+    assert!(cashflows[0].1.amount() > 0.0);
 }
 
 #[test]

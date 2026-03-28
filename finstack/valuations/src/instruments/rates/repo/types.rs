@@ -543,30 +543,17 @@ impl Repo {
     /// calculations to ensure correct accrual fractions and haircut coverage.
     pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         let disc_curve = context.get_discount(self.discount_curve_id.as_str())?;
+        let flows = self.build_dated_flows(context, as_of)?;
 
-        // Apply business day adjustments to start and maturity dates
-        let (adj_start, adj_maturity) = self.adjusted_dates()?;
-
-        if as_of >= adj_maturity {
+        if flows.is_empty() {
             return Ok(Money::new(0.0, self.cash_amount.currency()));
         }
 
-        // Total repayment at maturity (principal + interest) - uses adjusted dates
-        let total_repayment = self.total_repayment()?;
-
-        let df_maturity = disc_curve.df_between_dates(as_of, adj_maturity)?;
-
-        // PV of inflow at maturity
-        let pv_in = total_repayment * df_maturity;
-
-        // If start date is in the future (or today), subtract initial outflow
-        if as_of <= adj_start {
-            let df_start = disc_curve.df_between_dates(as_of, adj_start)?;
-            let pv_out = self.cash_amount * df_start;
-            return pv_in.checked_sub(pv_out);
-        }
-
-        Ok(pv_in)
+        flows.into_iter()
+            .try_fold(Money::new(0.0, self.cash_amount.currency()), |acc, (date, amount)| {
+                let df = disc_curve.df_between_dates(as_of, date)?;
+                acc.checked_add(amount * df)
+            })
     }
 
     /// Calculate repo interest amount.
@@ -688,6 +675,20 @@ impl CashflowProvider for Repo {
         Some(self.cash_amount)
     }
 
+    fn build_dated_flows(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> Result<crate::cashflow::traits::DatedFlows> {
+        let schedule = self.build_full_schedule(context, as_of)?;
+        Ok(schedule
+            .flows
+            .into_iter()
+            .filter(|flow| flow.date > as_of)
+            .map(|flow| (flow.date, flow.amount))
+            .collect())
+    }
+
     fn build_full_schedule(
         &self,
         _context: &MarketContext,
@@ -697,17 +698,30 @@ impl CashflowProvider for Repo {
         // Market standard: repo start/end dates must be business-adjusted (often T+1/T+2)
         let (adj_start, adj_maturity) = self.adjusted_dates()?;
 
-        let mut flows = Vec::new();
-
         // Initial cash outflow (lending cash) - negative amount for outflow
         let cash_outflow = Money::new(-self.cash_amount.amount(), self.cash_amount.currency());
-        flows.push((adj_start, cash_outflow));
-
         // Final cash inflow (principal + interest)
         let total_repayment = self.total_repayment()?;
-        flows.push((adj_maturity, total_repayment));
+        let flows = vec![
+            crate::cashflow::primitives::CashFlow {
+                date: adj_start,
+                reset_date: None,
+                amount: cash_outflow,
+                kind: crate::cashflow::primitives::CFKind::Notional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            crate::cashflow::primitives::CashFlow {
+                date: adj_maturity,
+                reset_date: None,
+                amount: total_repayment,
+                kind: crate::cashflow::primitives::CFKind::Fixed,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ];
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+        Ok(crate::cashflow::traits::schedule_from_classified_flows(
             flows,
             self.notional(),
             self.day_count,

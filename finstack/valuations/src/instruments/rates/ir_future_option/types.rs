@@ -320,8 +320,7 @@ impl CashflowProvider for IrFutureOption {
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
-            Vec::new(),
+        Ok(crate::cashflow::traits::empty_schedule(
             self.notional(),
             DayCount::Act365F,
         ))

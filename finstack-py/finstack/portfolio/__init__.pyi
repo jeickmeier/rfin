@@ -25,6 +25,7 @@ from .results import PortfolioResult
 from .grouping import group_by_attribute, aggregate_by_attribute, aggregate_by_book, aggregate_by_multiple_attributes
 from .attribution import PortfolioAttribution, attribute_portfolio_pnl
 from .cashflows import (
+    CashflowWarning,
     PortfolioCashflows,
     PortfolioCashflowBuckets,
     aggregate_cashflows,
@@ -137,6 +138,7 @@ try:
         "aggregate_by_multiple_attributes",
         "PortfolioAttribution",
         "attribute_portfolio_pnl",
+        "CashflowWarning",
         "PortfolioCashflows",
         "PortfolioCashflowBuckets",
         "aggregate_cashflows",
@@ -232,6 +234,7 @@ except ImportError:
         "aggregate_by_multiple_attributes",
         "PortfolioAttribution",
         "attribute_portfolio_pnl",
+        "CashflowWarning",
         "PortfolioCashflows",
         "PortfolioCashflowBuckets",
         "aggregate_cashflows",

@@ -164,12 +164,66 @@ pub fn schedule_from_dated_flows(
         })
         .collect();
 
-    CashFlowSchedule {
-        flows: cf_flows,
-        notional: Notional::par(notional_amount, notional_currency),
+    schedule_from_classified_flows(
+        cf_flows,
+        Some(Money::new(notional_amount, notional_currency)),
         day_count,
-        meta: Default::default(),
+    )
+}
+
+/// Helper to convert holder-view `(Date, Money)` flows into a schedule with an explicit kind.
+pub fn schedule_from_dated_flows_with_kind(
+    flows: DatedFlows,
+    kind: CFKind,
+    notional_hint: Option<Money>,
+    day_count: DayCount,
+) -> CashFlowSchedule {
+    if flows.is_empty() {
+        return empty_schedule(notional_hint, day_count);
     }
+
+    let inferred_currency = flows
+        .first()
+        .map(|(_, amount)| amount.currency())
+        .or_else(|| notional_hint.map(|money| money.currency()))
+        .unwrap_or(Currency::USD);
+    let notional = notional_hint
+        .map(|money| Notional::par(money.amount(), money.currency()))
+        .unwrap_or_else(|| Notional::par(0.0, inferred_currency));
+    let cf_flows = flows
+        .into_iter()
+        .map(|(date, amount)| CashFlow {
+            date,
+            reset_date: None,
+            amount,
+            kind,
+            accrual_factor: 0.0,
+            rate: None,
+        })
+        .collect();
+
+    CashFlowSchedule::from_parts(cf_flows, notional, day_count, Default::default())
+}
+
+/// Helper to convert classified cashflows into a [`CashFlowSchedule`] without losing `CFKind`.
+pub fn schedule_from_classified_flows(
+    flows: Vec<CashFlow>,
+    notional_hint: Option<Money>,
+    day_count: DayCount,
+) -> CashFlowSchedule {
+    let inferred_currency = flows
+        .first()
+        .map(|cf| cf.amount.currency())
+        .unwrap_or(Currency::USD);
+    let notional = notional_hint
+        .map(|money| Notional::par(money.amount(), money.currency()))
+        .unwrap_or_else(|| Notional::par(0.0, inferred_currency));
+    CashFlowSchedule::from_parts(flows, notional, day_count, Default::default())
+}
+
+/// Build an empty schedule while preserving any available notional metadata.
+pub fn empty_schedule(notional_hint: Option<Money>, day_count: DayCount) -> CashFlowSchedule {
+    schedule_from_classified_flows(Vec::new(), notional_hint, day_count)
 }
 
 #[cfg(test)]
@@ -242,5 +296,56 @@ mod tests {
         assert_eq!(schedule.notional.initial.amount(), 0.0);
         assert_eq!(schedule.notional.initial.currency(), Currency::EUR);
         assert_eq!(schedule.day_count, DayCount::Thirty360);
+    }
+
+    #[test]
+    fn schedule_from_classified_flows_preserves_kinds() {
+        let date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let flows = vec![
+            CashFlow {
+                date,
+                reset_date: None,
+                amount: Money::new(20.0, Currency::USD),
+                kind: CFKind::PrePayment,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+            CashFlow {
+                date,
+                reset_date: None,
+                amount: Money::new(-5.0, Currency::USD),
+                kind: CFKind::DefaultedNotional,
+                accrual_factor: 0.0,
+                rate: None,
+            },
+        ];
+
+        let schedule = schedule_from_classified_flows(
+            flows,
+            Some(Money::new(100.0, Currency::USD)),
+            DayCount::Act365F,
+        );
+
+        assert_eq!(schedule.flows.len(), 2);
+        assert_eq!(schedule.flows[0].kind, CFKind::PrePayment);
+        assert_eq!(schedule.flows[1].kind, CFKind::DefaultedNotional);
+    }
+
+    #[test]
+    fn schedule_from_dated_flows_with_kind_applies_requested_kind() {
+        let flows = vec![(
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid date"),
+            Money::new(100.0, Currency::USD),
+        )];
+
+        let schedule = schedule_from_dated_flows_with_kind(
+            flows,
+            CFKind::Notional,
+            Some(Money::new(100.0, Currency::USD)),
+            DayCount::Act365F,
+        );
+
+        assert_eq!(schedule.flows.len(), 1);
+        assert_eq!(schedule.flows[0].kind, CFKind::Notional);
     }
 }

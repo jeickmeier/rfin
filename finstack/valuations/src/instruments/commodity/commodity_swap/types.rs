@@ -5,6 +5,9 @@
 //! the other pays a floating price based on an index.
 
 use crate::impl_instrument_base;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
 use crate::instruments::common_impl::traits::Attributes;
@@ -431,6 +434,76 @@ impl CommoditySwap {
 
         Ok(flows)
     }
+
+    fn leg_schedule_from_amounts(
+        &self,
+        as_of: Date,
+        maturity: Date,
+        flows: &[(Date, Money)],
+    ) -> Result<CashFlowSchedule> {
+        let anchor = if as_of < maturity {
+            as_of
+        } else {
+            maturity - time::Duration::days(1)
+        };
+        let ccy = self.underlying.currency;
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, ccy), anchor, maturity);
+        for (date, amount) in flows {
+            let _ = builder.add_principal_event(
+                *date,
+                Money::new(0.0, ccy),
+                Some(Money::new(-amount.amount(), ccy)),
+                CFKind::Notional,
+            );
+        }
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(0.0, ccy);
+        Ok(schedule)
+    }
+
+    fn fixed_leg_flows(&self) -> Result<Vec<(Date, Money)>> {
+        let fixed_price = self
+            .fixed_price
+            .to_f64()
+            .ok_or(finstack_core::InputError::ConversionOverflow)?;
+        let signed_amount = match self.side {
+            PayReceive::PayFixed => -self.quantity * fixed_price,
+            PayReceive::ReceiveFixed => self.quantity * fixed_price,
+        };
+        Ok(self
+            .payment_schedule(self.start_date)?
+            .into_iter()
+            .map(|payment_date| {
+                (
+                    payment_date,
+                    Money::new(signed_amount, self.underlying.currency),
+                )
+            })
+            .collect())
+    }
+
+    fn floating_leg_flows(&self, market: &MarketContext, as_of: Date) -> Result<Vec<(Date, Money)>> {
+        let price_curve = market.get_price_curve(self.floating_index_id.as_str())?;
+        let mut prev_period_end = self.start_date;
+        let mut flows = Vec::new();
+        for payment_date in self.payment_schedule(as_of)? {
+            let period_start = prev_period_end;
+            let period_end = payment_date;
+            let forward_price =
+                self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
+            let signed_amount = match self.side {
+                PayReceive::PayFixed => self.quantity * forward_price,
+                PayReceive::ReceiveFixed => -self.quantity * forward_price,
+            };
+            flows.push((
+                payment_date,
+                Money::new(signed_amount, self.underlying.currency),
+            ));
+            prev_period_end = payment_date;
+        }
+        Ok(flows)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CommoditySwap {
@@ -476,6 +549,10 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
         Some(self.start_date)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -489,10 +566,30 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
     }
 }
 
+impl CashflowProvider for CommoditySwap {
+    fn build_full_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let mut fixed_schedule =
+            self.leg_schedule_from_amounts(as_of, self.maturity, &self.fixed_leg_flows()?)?;
+        let floating_schedule =
+            self.leg_schedule_from_amounts(as_of, self.maturity, &self.floating_leg_flows(market, as_of)?)?;
+        fixed_schedule.flows.extend(floating_schedule.flows);
+        fixed_schedule
+            .flows
+            .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+        fixed_schedule.notional = Notional::par(0.0, self.underlying.currency);
+        Ok(fixed_schedule)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
     use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
     use crate::instruments::common_impl::traits::Instrument;
     use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
@@ -722,5 +819,37 @@ mod tests {
         assert_eq!(swap.id.as_str(), deserialized.id.as_str());
         assert_eq!(swap.underlying.ticker, deserialized.underlying.ticker);
         assert_eq!(swap.fixed_price, deserialized.fixed_price);
+    }
+
+    #[test]
+    fn test_commodity_swap_cashflow_provider_emits_both_legs() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let market = test_market(as_of);
+        let swap = CommoditySwap::builder()
+            .id(InstrumentId::new("PROVIDER-TEST"))
+            .underlying(CommodityUnderlyingParams::new(
+                "Energy",
+                "NG",
+                "MMBTU",
+                Currency::USD,
+            ))
+            .quantity(10000.0)
+            .fixed_price(rust_decimal::Decimal::try_from(3.50).expect("valid decimal"))
+            .floating_index_id(CurveId::new("NG-SPOT-AVG"))
+            .side(PayReceive::PayFixed)
+            .start_date(as_of)
+            .maturity(Date::from_calendar_date(2025, Month::March, 31).expect("valid date"))
+            .frequency(Tenor::new(1, finstack_core::dates::TenorUnit::Months))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .expect("should build");
+
+        let flows = swap
+            .build_dated_flows(&market, as_of)
+            .expect("commodity swap contractual schedule should build");
+
+        assert_eq!(flows.len(), 6, "three payments should emit fixed and floating rows");
+        assert_eq!(flows.iter().filter(|(_, money)| money.amount() < 0.0).count(), 3);
+        assert_eq!(flows.iter().filter(|(_, money)| money.amount() > 0.0).count(), 3);
     }
 }

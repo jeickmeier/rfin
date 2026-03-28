@@ -15,6 +15,8 @@ use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::money::Money;
 use finstack_valuations::cashflow::builder::date_generation::build_dates;
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::common::pricing::swap_legs::add_payment_delay;
+use finstack_valuations::instruments::internal::InstrumentExt;
 use finstack_valuations::instruments::rates::irs::FloatingLegCompounding;
 use finstack_valuations::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use time::macros::date;
@@ -217,6 +219,59 @@ fn test_irs_floating_leg_schedule() {
 
     // Verify floating leg generates cashflows
     assert!(!schedule.is_empty());
+}
+
+#[test]
+fn test_irs_value_matches_combined_signed_schedule() {
+    let swap = test_utils::usd_irs_swap(
+        "IRS-PV-SCHEDULE",
+        Money::new(1_000_000.0, Currency::USD),
+        0.05,
+        date!(2024 - 01 - 01),
+        date!(2029 - 01 - 01),
+        PayReceive::ReceiveFixed,
+    )
+    .unwrap();
+
+    let market = build_test_curves();
+    let as_of = date!(2024 - 01 - 01);
+    let discount = market.get_discount("USD-OIS").unwrap();
+    let schedule =
+        finstack_valuations::instruments::rates::irs::cashflow::full_signed_schedule_with_curves(
+            &swap,
+            Some(&market),
+        )
+        .unwrap();
+
+    let expected_pv = schedule
+        .flows
+        .iter()
+        .try_fold(0.0, |acc, flow| -> finstack_core::Result<f64> {
+            let payment_date = match flow.kind {
+                finstack_core::cashflow::CFKind::Fixed | finstack_core::cashflow::CFKind::Stub => {
+                    add_payment_delay(
+                        flow.date,
+                        swap.fixed.payment_lag_days,
+                        swap.fixed.calendar_id.as_deref(),
+                    )?
+                }
+                finstack_core::cashflow::CFKind::FloatReset => add_payment_delay(
+                    flow.date,
+                    swap.float.payment_lag_days,
+                    swap.float.calendar_id.as_deref(),
+                )?,
+                _ => flow.date,
+            };
+            let df = discount.df_between_dates(as_of, payment_date)?;
+            Ok(acc + flow.amount.amount() * df)
+        })
+        .unwrap();
+
+    let value = swap.value(&market, as_of).unwrap();
+    assert!(
+        (value.amount() - expected_pv).abs() < 1.0e-6,
+        "IRS value should reconcile to the combined signed schedule"
+    );
 }
 
 #[test]

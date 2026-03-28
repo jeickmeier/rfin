@@ -5,6 +5,9 @@
 //! optional contract rate override.
 
 use crate::impl_instrument_base;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use finstack_core::currency::Currency;
@@ -451,6 +454,39 @@ impl FxForward {
 
         Ok(spot * df_foreign / df_domestic)
     }
+
+    fn contractual_forward_rate(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
+        self.contract_rate
+            .map(Ok)
+            .unwrap_or_else(|| self.market_forward_rate(market, as_of))
+    }
+
+    fn settlement_anchor(&self, as_of: Date) -> Date {
+        if as_of < self.maturity {
+            as_of
+        } else {
+            self.maturity - time::Duration::days(1)
+        }
+    }
+
+    fn single_leg_schedule(
+        &self,
+        as_of: Date,
+        amount: Money,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let mut builder = CashFlowSchedule::builder();
+        let anchor = self.settlement_anchor(as_of);
+        let _ = builder.principal(Money::new(0.0, amount.currency()), anchor, self.maturity);
+        let _ = builder.add_principal_event(
+            self.maturity,
+            Money::new(0.0, amount.currency()),
+            Some(Money::new(-amount.amount(), amount.currency())),
+            CFKind::Notional,
+        );
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(amount.amount().abs(), amount.currency());
+        Ok(schedule)
+    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for FxForward {
@@ -546,6 +582,10 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
         None
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -559,11 +599,60 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
     }
 }
 
+impl CashflowProvider for FxForward {
+    fn build_full_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        self.validate()?;
+        let contract_rate = self.contractual_forward_rate(market, as_of)?;
+        let base_amount = Money::new(self.notional.amount(), self.base_currency);
+        let quote_amount = Money::new(-self.notional.amount() * contract_rate, self.quote_currency);
+
+        let mut base_schedule = self.single_leg_schedule(as_of, base_amount)?;
+        let quote_schedule = self.single_leg_schedule(as_of, quote_amount)?;
+        base_schedule.flows.extend(quote_schedule.flows);
+        base_schedule.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+        base_schedule.notional = Notional::par(0.0, self.base_currency);
+        Ok(base_schedule)
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::term_structures::DiscountCurve;
+    use finstack_core::money::fx::{FxMatrix, SimpleFxProvider};
+    use std::sync::Arc;
     use time::Month;
+
+    fn test_market(as_of: Date) -> MarketContext {
+        let usd_curve = DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (0.5, 0.9753), (1.0, 0.9512)])
+            .build()
+            .expect("should build");
+        let eur_curve = DiscountCurve::builder("EUR-OIS")
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (0.5, 0.9851), (1.0, 0.9704)])
+            .build()
+            .expect("should build");
+
+        let fx_provider = Arc::new(SimpleFxProvider::new());
+        fx_provider
+            .set_quote(Currency::EUR, Currency::USD, 1.10)
+            .expect("valid rate");
+        let fx_matrix = FxMatrix::new(fx_provider);
+
+        MarketContext::new()
+            .insert(usd_curve)
+            .insert(eur_curve)
+            .insert_fx(fx_matrix)
+    }
 
     #[test]
     fn test_fx_forward_creation() {
@@ -753,5 +842,36 @@ mod tests {
     fn test_validation_valid_forward_passes() {
         let forward = FxForward::example().unwrap();
         assert!(forward.validate().is_ok());
+    }
+
+    #[test]
+    fn test_cashflow_provider_emits_two_currency_legs() {
+        let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid date");
+        let maturity = Date::from_calendar_date(2024, Month::July, 15).expect("valid date");
+        let market = test_market(as_of);
+
+        let forward = FxForward::builder()
+            .id(InstrumentId::new("EURUSD-CF"))
+            .base_currency(Currency::EUR)
+            .quote_currency(Currency::USD)
+            .maturity(maturity)
+            .notional(Money::new(1_000_000.0, Currency::EUR))
+            .contract_rate_opt(Some(1.12))
+            .domestic_discount_curve_id(CurveId::new("USD-OIS"))
+            .foreign_discount_curve_id(CurveId::new("EUR-OIS"))
+            .attributes(Attributes::new())
+            .build()
+            .expect("should build");
+
+        let flows = forward
+            .build_dated_flows(&market, as_of)
+            .expect("contractual schedule should build");
+
+        assert_eq!(flows.len(), 2, "fx forward should emit both settlement legs");
+        assert!(flows.iter().all(|(date, _)| *date == maturity));
+        assert_eq!(flows[0].1.currency(), Currency::EUR);
+        assert_eq!(flows[1].1.currency(), Currency::USD);
+        assert!((flows[0].1.amount() - 1_000_000.0).abs() < 1e-10);
+        assert!((flows[1].1.amount() + 1_120_000.0).abs() < 1e-10);
     }
 }

@@ -9,7 +9,7 @@ use crate::portfolio::error::portfolio_to_py;
 use crate::portfolio::positions::extract_portfolio;
 use finstack_portfolio::cashflows::{
     aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
-    PortfolioCashflowBuckets, PortfolioCashflows,
+    CashflowWarning, PortfolioCashflowBuckets, PortfolioCashflows,
 };
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
@@ -30,6 +30,51 @@ pub struct PyPortfolioCashflows {
 impl PyPortfolioCashflows {
     pub(crate) fn new(inner: PortfolioCashflows) -> Self {
         Self { inner }
+    }
+}
+
+/// Warning emitted when a position's contractual cashflows could not be built.
+#[pyclass(module = "finstack.portfolio", name = "CashflowWarning", from_py_object)]
+#[derive(Clone)]
+pub struct PyCashflowWarning {
+    pub(crate) inner: CashflowWarning,
+}
+
+impl PyCashflowWarning {
+    pub(crate) fn new(inner: CashflowWarning) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyCashflowWarning {
+    #[getter]
+    fn position_id(&self) -> &str {
+        self.inner.position_id.as_str()
+    }
+
+    #[getter]
+    fn instrument_id(&self) -> &str {
+        &self.inner.instrument_id
+    }
+
+    #[getter]
+    fn instrument_type(&self) -> &str {
+        &self.inner.instrument_type
+    }
+
+    #[getter]
+    fn message(&self) -> &str {
+        &self.inner.message
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CashflowWarning(position_id='{}', instrument_id='{}', instrument_type='{}')",
+            self.inner.position_id.as_str(),
+            self.inner.instrument_id,
+            self.inner.instrument_type
+        )
     }
 }
 
@@ -65,11 +110,24 @@ impl PyPortfolioCashflows {
         Ok(dict.into())
     }
 
+    #[getter]
+    fn warnings(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        let warnings: Vec<Py<PyCashflowWarning>> = self
+            .inner
+            .warnings
+            .iter()
+            .cloned()
+            .map(|warning| Py::new(py, PyCashflowWarning::new(warning)))
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok(PyList::new(py, warnings)?.into())
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "PortfolioCashflows(dates={}, positions={})",
+            "PortfolioCashflows(dates={}, positions={}, warnings={})",
             self.inner.by_date.len(),
-            self.inner.by_position.len()
+            self.inner.by_position.len(),
+            self.inner.warnings.len()
         )
     }
 }
@@ -187,6 +245,7 @@ pub(crate) fn register<'py>(
     _py: Python<'py>,
     parent: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<String>> {
+    parent.add_class::<PyCashflowWarning>()?;
     parent.add_class::<PyPortfolioCashflows>()?;
     parent.add_class::<PyPortfolioCashflowBuckets>()?;
 
@@ -200,6 +259,7 @@ pub(crate) fn register<'py>(
     parent.add("cashflows_to_base_by_period", bucket)?;
 
     Ok(vec![
+        "CashflowWarning".to_string(),
         "PortfolioCashflows".to_string(),
         "PortfolioCashflowBuckets".to_string(),
         "aggregate_cashflows".to_string(),

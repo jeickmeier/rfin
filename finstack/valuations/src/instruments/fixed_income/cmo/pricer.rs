@@ -4,7 +4,9 @@
 //! through the waterfall to calculate the PV of the reference tranche.
 
 use super::types::{AgencyCmo, CmoTrancheType};
-use super::waterfall::{allocate_io_cashflow, execute_waterfall};
+use super::waterfall::{allocate_io_cashflow, execute_waterfall_with_principal_breakdown};
+use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::fixed_income::mbs_passthrough::pricer::generate_cashflows;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, PoolType};
@@ -26,12 +28,25 @@ pub struct TrancheCashflow {
     pub payment_date: Date,
     /// Principal payment
     pub principal: f64,
+    /// Scheduled principal payment
+    pub scheduled_principal: f64,
+    /// Prepayment principal payment
+    pub prepayment_principal: f64,
     /// Interest payment
     pub interest: f64,
     /// Total payment
     pub total: f64,
     /// Ending balance after this period
     pub ending_balance: f64,
+}
+
+/// Resolve the collateral pool used as the canonical source for tranche projection.
+pub fn resolve_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
+    if let Some(ref pool) = cmo.collateral {
+        Ok(pool.as_ref().clone())
+    } else {
+        create_assumed_collateral(cmo)
+    }
 }
 
 /// Generate cashflows for the reference tranche.
@@ -43,12 +58,7 @@ pub fn generate_tranche_cashflows(
     as_of: Date,
     max_periods: Option<u32>,
 ) -> Result<Vec<TrancheCashflow>> {
-    // Create or use collateral pool
-    let collateral = if let Some(ref pool) = cmo.collateral {
-        pool.as_ref().clone()
-    } else {
-        create_assumed_collateral(cmo)?
-    };
+    let collateral = resolve_collateral(cmo)?;
 
     // Generate collateral cashflows
     let collateral_cfs = generate_cashflows(&collateral, as_of, max_periods)?;
@@ -70,7 +80,6 @@ pub fn generate_tranche_cashflows(
 
     for cf in &collateral_cfs {
         // Run waterfall for this period
-        let total_principal = cf.scheduled_principal + cf.prepayment;
         let total_interest = cf.interest;
 
         if is_io {
@@ -85,6 +94,8 @@ pub fn generate_tranche_cashflows(
                 tranche_cfs.push(TrancheCashflow {
                     payment_date: cf.payment_date,
                     principal: 0.0,
+                    scheduled_principal: 0.0,
+                    prepayment_principal: 0.0,
                     interest: io_payment,
                     total: io_payment,
                     ending_balance: io_tranche.current_face.amount() * factor,
@@ -92,13 +103,21 @@ pub fn generate_tranche_cashflows(
             }
         } else {
             // Regular waterfall execution
-            let result = execute_waterfall(&mut waterfall, total_principal, total_interest);
+            let result = execute_waterfall_with_principal_breakdown(
+                &mut waterfall,
+                cf.scheduled_principal,
+                cf.prepayment,
+                total_interest,
+                None,
+            );
 
             // Find allocation for reference tranche
             if let Some(alloc) = result.allocations.iter().find(|a| a.tranche_id == *ref_id) {
                 tranche_cfs.push(TrancheCashflow {
                     payment_date: cf.payment_date,
                     principal: alloc.principal,
+                    scheduled_principal: alloc.scheduled_principal,
+                    prepayment_principal: alloc.prepayment_principal,
                     interest: alloc.interest,
                     total: alloc.principal + alloc.interest,
                     ending_balance: alloc.ending_balance,
@@ -108,6 +127,67 @@ pub fn generate_tranche_cashflows(
     }
 
     Ok(tranche_cfs)
+}
+
+/// Build the canonical reference-tranche schedule used by pricing and providers.
+///
+pub fn build_reference_tranche_schedule(
+    cmo: &AgencyCmo,
+    as_of: Date,
+    max_periods: Option<u32>,
+) -> Result<CashFlowSchedule> {
+    let tranche = cmo.reference_tranche().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Tranche {} not found",
+            cmo.reference_tranche_id
+        ))
+    })?;
+    let tranche_cashflows = generate_tranche_cashflows(cmo, as_of, max_periods)?;
+    let mut flows = Vec::with_capacity(tranche_cashflows.len() * 2);
+
+    for cf in tranche_cashflows {
+        if cf.interest.abs() > f64::EPSILON {
+            flows.push(CashFlow {
+                date: cf.payment_date,
+                reset_date: None,
+                amount: Money::new(cf.interest, tranche.current_face.currency()),
+                kind: CFKind::Fixed,
+                accrual_factor: 0.0,
+                rate: Some(tranche.coupon),
+            });
+        }
+        if cf.scheduled_principal.abs() > f64::EPSILON {
+            flows.push(CashFlow {
+                date: cf.payment_date,
+                reset_date: None,
+                amount: Money::new(cf.scheduled_principal, tranche.current_face.currency()),
+                kind: CFKind::Amortization,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+        }
+        if cf.prepayment_principal.abs() > f64::EPSILON {
+            flows.push(CashFlow {
+                date: cf.payment_date,
+                reset_date: None,
+                amount: Money::new(cf.prepayment_principal, tranche.current_face.currency()),
+                kind: CFKind::PrePayment,
+                accrual_factor: 0.0,
+                rate: None,
+            });
+        }
+    }
+
+    Ok(CashFlowSchedule::from_parts(
+        flows,
+        Notional::par(tranche.current_face.amount(), tranche.current_face.currency()),
+        DayCount::Thirty360,
+        CashFlowMeta {
+            calendar_ids: Vec::new(),
+            facility_limit: None,
+            issue_date: Some(cmo.issue_date),
+        },
+    ))
 }
 
 /// Create assumed collateral for CMO valuation.
@@ -151,23 +231,27 @@ fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
 ///
 /// Generates tranche cashflows and discounts them to present value.
 pub fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result<Money> {
-    let tranche_cfs = generate_tranche_cashflows(cmo, as_of, None)?;
+    let schedule = build_reference_tranche_schedule(cmo, as_of, None)?;
+    let currency = cmo
+        .reference_tranche()
+        .map(|tranche| tranche.current_face.currency())
+        .unwrap_or(Currency::USD);
 
-    if tranche_cfs.is_empty() {
-        return Ok(Money::new(0.0, Currency::USD));
+    if schedule.flows.is_empty() {
+        return Ok(Money::new(0.0, currency));
     }
 
     let discount_curve = market.get_discount(&cmo.discount_curve_id)?;
     let day_count = DayCount::Thirty360;
 
     let mut pv = 0.0;
-    for cf in &tranche_cfs {
-        let years = day_count.year_fraction(as_of, cf.payment_date, DayCountCtx::default())?;
+    for cf in &schedule.flows {
+        let years = day_count.year_fraction(as_of, cf.date, DayCountCtx::default())?;
         let df = discount_curve.df(years);
-        pv += cf.total * df;
+        pv += cf.amount.amount() * df;
     }
 
-    Ok(Money::new(pv, Currency::USD))
+    Ok(Money::new(pv, currency))
 }
 
 /// Agency CMO discounting pricer.
@@ -199,6 +283,7 @@ impl Pricer for AgencyCmoDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::primitives::CFKind;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
     use time::Month;
@@ -234,6 +319,33 @@ mod tests {
             // Should have some cashflow
             assert!(cf.total >= 0.0);
         }
+    }
+
+    #[test]
+    fn test_reference_tranche_schedule_preserves_scheduled_and_prepay_rows() {
+        let cmo = AgencyCmo::example().expect("AgencyCmo example is valid");
+        let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
+        let schedule = build_reference_tranche_schedule(&cmo, as_of, Some(6))
+            .expect("reference tranche schedule should build");
+
+        assert!(!schedule.flows.is_empty());
+        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::Fixed));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| cf.kind == CFKind::Amortization));
+        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::PrePayment));
+    }
+
+    #[test]
+    fn test_pac_support_reference_schedule_preserves_prepayment_rows() {
+        let cmo = AgencyCmo::example_pac_support().expect("PAC/support example is valid");
+        let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
+        let schedule = build_reference_tranche_schedule(&cmo, as_of, Some(12))
+            .expect("PAC/support schedule should build");
+
+        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::Amortization));
+        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::PrePayment));
     }
 
     #[test]

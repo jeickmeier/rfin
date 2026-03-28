@@ -244,13 +244,42 @@ impl EquityTotalReturnSwap {
     /// # Returns
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
-        use crate::instruments::common_impl::pricing::TrsEngine;
-        TrsEngine::pv_financing_leg(
-            &self.financing,
-            &self.schedule,
-            self.notional,
-            curves,
-            as_of,
+        let discount = curves.get_discount(self.financing.discount_curve_id.as_str())?;
+        let schedule = self.build_full_schedule(curves, as_of)?;
+        let financing_flows: Vec<_> = schedule
+            .flows
+            .iter()
+            .filter(|cf| cf.kind == finstack_core::cashflow::CFKind::FloatReset)
+            .collect();
+        let period_schedule = self.schedule.period_schedule()?;
+        let payment_ends: Vec<_> = period_schedule
+            .dates
+            .iter()
+            .copied()
+            .skip(1)
+            .filter(|date| *date > as_of)
+            .collect();
+
+        if financing_flows.len() != payment_ends.len() {
+            return Err(finstack_core::Error::Validation(format!(
+                "Equity TRS financing schedule mismatch: {} financing flows vs {} future payment dates",
+                financing_flows.len(),
+                payment_ends.len()
+            )));
+        }
+
+        financing_flows.into_iter().zip(payment_ends).try_fold(
+            Money::new(0.0, self.notional.currency()),
+            |acc, (flow, period_end)| {
+                let payment_date = self.schedule.payment_date_for(period_end)?;
+                let df =
+                    crate::instruments::common_impl::pricing::time::relative_df_discount_curve(
+                        discount.as_ref(),
+                        as_of,
+                        payment_date,
+                    )?;
+                acc.checked_add(flow.amount * df)
+            },
         )
     }
 
@@ -336,25 +365,42 @@ impl CashflowProvider for EquityTotalReturnSwap {
 
     fn build_full_schedule(
         &self,
-        _context: &MarketContext,
+        context: &MarketContext,
         _as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
-        // For TRS, we return the expected payment dates
-        // Actual amounts depend on realized returns
-        let period_schedule = self.schedule.period_schedule()?;
-
-        let mut flows = Vec::new();
-        for date in period_schedule.dates.iter().skip(1) {
-            // Add a placeholder flow for each payment date
-            // In practice, the amount would be determined at fixing
-            flows.push((*date, Money::new(0.0, self.notional.currency())));
-        }
-
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
-            flows,
-            self.notional(),
-            self.financing.day_count,
-        ))
+        let mut builder = crate::cashflow::builder::CashFlowSchedule::builder();
+        let _ = builder
+            .principal(self.notional, self.schedule.start, self.schedule.end)
+            .floating_cf(crate::cashflow::builder::FloatingCouponSpec {
+                rate_spec: crate::cashflow::builder::FloatingRateSpec {
+                    index_id: self.financing.forward_curve_id.clone(),
+                    spread_bp: self.financing.spread_bp,
+                    gearing: Decimal::ONE,
+                    gearing_includes_spread: true,
+                    floor_bp: None,
+                    cap_bp: None,
+                    all_in_floor_bp: None,
+                    index_cap_bp: None,
+                    reset_freq: self.schedule.params.freq,
+                    reset_lag_days: 0,
+                    dc: self.financing.day_count,
+                    bdc: self.schedule.params.bdc,
+                    calendar_id: self.schedule.params.calendar_id.clone(),
+                    fixing_calendar_id: None,
+                    end_of_month: self.schedule.params.end_of_month,
+                    payment_lag_days: self.schedule.params.payment_lag_days,
+                    overnight_compounding: None,
+                    fallback: crate::cashflow::builder::FloatingRateFallback::Error,
+                },
+                coupon_type: crate::cashflow::builder::CouponType::Cash,
+                freq: self.schedule.params.freq,
+                stub: self.schedule.params.stub,
+            });
+        let mut schedule = builder.build_with_curves(Some(context))?;
+        schedule
+            .flows
+            .retain(|cf| cf.kind == finstack_core::cashflow::CFKind::FloatReset);
+        Ok(schedule)
     }
 }
 

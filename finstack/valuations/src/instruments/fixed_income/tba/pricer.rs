@@ -64,6 +64,15 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
         .build()
 }
 
+/// Resolve the assumed pool used as the canonical projected-collateral source.
+pub fn resolve_assumed_pool(tba: &AgencyTba, as_of: Date) -> Result<AgencyMbsPassthrough> {
+    if let Some(ref pool) = tba.assumed_pool {
+        Ok(pool.as_ref().clone())
+    } else {
+        create_assumed_pool(tba, as_of)
+    }
+}
+
 /// Price a TBA forward.
 ///
 /// Calculates the value as the difference between the forward price
@@ -76,13 +85,7 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
 /// * `as_of` - Valuation date
 pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result<Money> {
     let settlement_date = tba.get_settlement_date()?;
-
-    // Get or create assumed pool
-    let assumed_pool = if let Some(ref pool) = tba.assumed_pool {
-        pool.as_ref().clone()
-    } else {
-        create_assumed_pool(tba, as_of)?
-    };
+    let assumed_pool = resolve_assumed_pool(tba, as_of)?;
 
     // Price the assumed pool
     let pool_pv = price_mbs(&assumed_pool, market, as_of)?;
@@ -190,6 +193,25 @@ mod tests {
         assert_eq!(pool.agency, tba.agency);
         assert!((pool.pass_through_rate - tba.coupon).abs() < 1e-10);
         assert!((pool.current_factor - 1.0).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_resolved_pool_schedule_matches_provider_schedule() {
+        let tba = AgencyTba::example().expect("AgencyTba example is valid");
+        let as_of = Date::from_calendar_date(2027, Month::January, 15).expect("valid");
+        let market = create_test_market(as_of);
+        let pool = resolve_assumed_pool(&tba, as_of).expect("assumed pool should resolve");
+        let provider_schedule = crate::cashflow::traits::CashflowProvider::build_full_schedule(
+            &tba, &market, as_of,
+        )
+        .expect("tba provider schedule");
+        let pool_schedule = crate::cashflow::traits::CashflowProvider::build_full_schedule(
+            &pool, &market, as_of,
+        )
+        .expect("pool provider schedule");
+
+        assert_eq!(provider_schedule.flows.len(), pool_schedule.flows.len());
+        assert_eq!(provider_schedule.flows.first().map(|cf| cf.kind), pool_schedule.flows.first().map(|cf| cf.kind));
     }
 
     #[test]

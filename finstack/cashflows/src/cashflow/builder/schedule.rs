@@ -25,10 +25,41 @@ pub fn kind_rank(kind: CFKind) -> u8 {
         CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
         CFKind::Fee => 1,
         CFKind::Amortization => 2,
-        CFKind::PIK => 3,
-        CFKind::Notional => 4,
-        _ => 5,
+        CFKind::PrePayment => 3,
+        CFKind::DefaultedNotional => 4,
+        CFKind::Recovery => 5,
+        CFKind::PIK => 6,
+        CFKind::Notional => 7,
+        _ => 8,
     }
+}
+
+/// Sort flows deterministically using schedule ordering semantics.
+pub fn sort_flows(flows: &mut [CashFlow]) {
+    flows.sort_by(|a, b| {
+        use core::cmp::Ordering;
+        match a.date.cmp(&b.date) {
+            Ordering::Less => Ordering::Less,
+            Ordering::Greater => Ordering::Greater,
+            Ordering::Equal => match kind_rank(a.kind).cmp(&kind_rank(b.kind)) {
+                Ordering::Less => Ordering::Less,
+                Ordering::Greater => Ordering::Greater,
+                Ordering::Equal => match a.amount.currency().cmp(&b.amount.currency()) {
+                    Ordering::Less => Ordering::Less,
+                    Ordering::Greater => Ordering::Greater,
+                    Ordering::Equal => match a
+                        .amount
+                        .amount()
+                        .total_cmp(&b.amount.amount())
+                    {
+                        Ordering::Less => Ordering::Less,
+                        Ordering::Greater => Ordering::Greater,
+                        Ordering::Equal => a.reset_date.cmp(&b.reset_date),
+                    },
+                },
+            },
+        }
+    });
 }
 
 pub(crate) fn finalize_flows(
@@ -36,14 +67,7 @@ pub(crate) fn finalize_flows(
     fixed: &[FixedCouponSpec],
     floating: &[FloatingCouponSpec],
 ) -> (Vec<CashFlow>, CashFlowMeta, DayCount) {
-    flows.sort_by(|a, b| {
-        use core::cmp::Ordering;
-        match a.date.cmp(&b.date) {
-            Ordering::Less => Ordering::Less,
-            Ordering::Greater => Ordering::Greater,
-            Ordering::Equal => kind_rank(a.kind).cmp(&kind_rank(b.kind)),
-        }
-    });
+    sort_flows(&mut flows);
 
     let mut cals: Vec<String> = fixed
         .iter()
@@ -123,6 +147,22 @@ impl Discountable for CashFlowSchedule {
 }
 
 impl CashFlowSchedule {
+    /// Construct a schedule directly from classified cashflows.
+    pub fn from_parts(
+        mut flows: Vec<CashFlow>,
+        notional: Notional,
+        day_count: DayCount,
+        meta: CashFlowMeta,
+    ) -> Self {
+        sort_flows(&mut flows);
+        Self {
+            flows,
+            notional,
+            day_count,
+            meta,
+        }
+    }
+
     /// Create a new cashflow builder (standard Rust pattern).
     ///
     /// This is the recommended entry point for building cashflow schedules.
@@ -348,6 +388,127 @@ impl CashFlowSchedule {
         }
 
         Ok(result)
+    }
+}
+
+/// Merge multiple schedules into one deterministic composite schedule.
+pub fn merge_cashflow_schedules<I>(
+    schedules: I,
+    notional: Notional,
+    day_count: DayCount,
+) -> CashFlowSchedule
+where
+    I: IntoIterator<Item = CashFlowSchedule>,
+{
+    let mut flows = Vec::new();
+    let mut calendar_ids = Vec::new();
+    let mut facility_limit: Option<Option<Money>> = None;
+    let mut issue_date: Option<Option<Date>> = None;
+
+    for schedule in schedules {
+        flows.extend(schedule.flows);
+        calendar_ids.extend(schedule.meta.calendar_ids);
+        facility_limit = Some(match facility_limit {
+            None => schedule.meta.facility_limit,
+            Some(existing) if existing == schedule.meta.facility_limit => existing,
+            Some(_) => None,
+        });
+        issue_date = Some(match issue_date {
+            None => schedule.meta.issue_date,
+            Some(existing) if existing == schedule.meta.issue_date => existing,
+            Some(_) => None,
+        });
+    }
+
+    calendar_ids.sort_unstable();
+    calendar_ids.dedup();
+
+    CashFlowSchedule::from_parts(
+        flows,
+        notional,
+        day_count,
+        CashFlowMeta {
+            calendar_ids,
+            facility_limit: facility_limit.unwrap_or(None),
+            issue_date: issue_date.unwrap_or(None),
+        },
+    )
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::DayCount;
+    use time::Month;
+
+    fn flow(date: Date, amount: f64, kind: CFKind) -> CashFlow {
+        CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(amount, Currency::USD),
+            kind,
+            accrual_factor: 0.0,
+            rate: None,
+        }
+    }
+
+    #[test]
+    fn from_parts_sorts_by_date_then_kind_rank() {
+        let date = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let schedule = CashFlowSchedule::from_parts(
+            vec![
+                flow(date, 10.0, CFKind::Recovery),
+                flow(date, 12.0, CFKind::Amortization),
+                flow(date, 8.0, CFKind::PrePayment),
+                flow(date, 5.0, CFKind::Fixed),
+            ],
+            Notional::par(100.0, Currency::USD),
+            DayCount::Act365F,
+            CashFlowMeta::default(),
+        );
+
+        assert_eq!(schedule.flows[0].kind, CFKind::Fixed);
+        assert_eq!(schedule.flows[1].kind, CFKind::Amortization);
+        assert_eq!(schedule.flows[2].kind, CFKind::PrePayment);
+        assert_eq!(schedule.flows[3].kind, CFKind::Recovery);
+    }
+
+    #[test]
+    fn merge_cashflow_schedules_merges_meta_and_resorts() {
+        let d1 = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let d2 = Date::from_calendar_date(2025, Month::February, 15).expect("valid date");
+        let left = CashFlowSchedule::from_parts(
+            vec![flow(d2, 4.0, CFKind::Recovery)],
+            Notional::par(50.0, Currency::USD),
+            DayCount::Act365F,
+            CashFlowMeta {
+                calendar_ids: vec!["nyc".to_string()],
+                facility_limit: None,
+                issue_date: Some(d1),
+            },
+        );
+        let right = CashFlowSchedule::from_parts(
+            vec![flow(d1, 10.0, CFKind::Amortization)],
+            Notional::par(50.0, Currency::USD),
+            DayCount::Act365F,
+            CashFlowMeta {
+                calendar_ids: vec!["lon".to_string(), "nyc".to_string()],
+                facility_limit: None,
+                issue_date: Some(d1),
+            },
+        );
+
+        let merged = merge_cashflow_schedules(
+            vec![left, right],
+            Notional::par(100.0, Currency::USD),
+            DayCount::Act365F,
+        );
+
+        assert_eq!(merged.flows.len(), 2);
+        assert_eq!(merged.flows[0].date, d1);
+        assert_eq!(merged.meta.calendar_ids, vec!["lon".to_string(), "nyc".to_string()]);
+        assert_eq!(merged.meta.issue_date, Some(d1));
     }
 }
 

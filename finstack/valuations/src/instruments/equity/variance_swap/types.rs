@@ -371,8 +371,9 @@ impl CashflowProvider for VarianceSwap {
         _as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         // Variance swaps have a single settlement payment at maturity.
-        Ok(crate::cashflow::traits::schedule_from_dated_flows(
+        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             vec![(self.maturity, Money::new(0.0, self.notional.currency()))],
+            crate::cashflow::primitives::CFKind::Fixed,
             self.notional(),
             self.day_count,
         ))

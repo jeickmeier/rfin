@@ -8,6 +8,8 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
+use crate::cashflow::builder::CashFlowSchedule;
+use crate::cashflow::CashflowProvider;
 use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::bond::CallPutSchedule;
@@ -620,6 +622,10 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
         Some(self.issue_date)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -630,6 +636,20 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for ConvertibleBond {
+    fn notional(&self) -> Option<Money> {
+        Some(self.notional)
+    }
+
+    fn build_full_schedule(
+        &self,
+        _curves: &finstack_core::market_data::context::MarketContext,
+        _as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        pricer::build_convertible_schedule(self)
     }
 }
 
@@ -646,5 +666,26 @@ impl crate::instruments::common_impl::traits::CurveDependencies for ConvertibleB
             builder
         };
         builder.build()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::cashflow::CashflowProvider;
+
+    #[test]
+    fn test_cashflow_provider_matches_convertible_schedule_builder() {
+        let bond = ConvertibleBond::example().expect("example should build");
+        let market = finstack_core::market_data::context::MarketContext::new();
+        let expected = super::pricer::build_convertible_schedule(&bond).expect("schedule should build");
+        let actual = bond
+            .build_full_schedule(&market, bond.issue_date)
+            .expect("provider schedule should build");
+
+        assert_eq!(actual.flows, expected.flows);
+        assert_eq!(actual.notional.initial, expected.notional.initial);
+        assert_eq!(actual.day_count, expected.day_count);
     }
 }

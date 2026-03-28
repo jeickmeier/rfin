@@ -99,7 +99,6 @@ use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
-use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::cell::RefCell;
 use time::Duration;
@@ -770,33 +769,29 @@ impl CDSPricer {
         surv: &HazardCurve,
         as_of: Date,
     ) -> Result<f64> {
-        let periods = self.coupon_periods(cds, as_of)?;
         let calendar = cds
             .premium
             .calendar_id
             .as_deref()
             .and_then(finstack_core::dates::calendar::calendar_by_id);
+        let schedule =
+            crate::cashflow::traits::CashflowProvider::build_full_schedule(cds, &MarketContext::new(), as_of)?;
 
         let mut premium_pv = 0.0;
-        let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
-            Error::Validation(format!(
-                "spread_bp {} cannot be converted to f64",
-                cds.premium.spread_bp
-            ))
-        })? * ONE_BASIS_POINT;
+        let mut start_date = cds.premium.start;
 
-        for period in periods {
-            let start_date = period.accrual_start;
-            let end_date = period.accrual_end;
-            let payment_date = period.payment_date;
+        for flow in schedule.flows.iter().filter(|cf| {
+            cf.kind == finstack_core::cashflow::CFKind::Fixed
+                || cf.kind == finstack_core::cashflow::CFKind::Stub
+        }) {
+            let end_date = flow.date;
+            let payment_date = flow.date;
 
             // Skip periods that have already ended before as_of
             if end_date <= as_of {
+                start_date = end_date;
                 continue;
             }
-
-            // Accrual uses instrument's day-count convention (e.g., Act/360 for ISDA NA)
-            let accrual = year_fraction(cds.premium.day_count, start_date, end_date)?;
 
             // Discounting uses discount curve's day-count and relative DF from as_of
             let df = df_asof_to(disc, as_of, payment_date)?;
@@ -804,25 +799,29 @@ impl CDSPricer {
             // Survival uses hazard curve's day-count and conditional probability
             let sp = sp_cond_to(surv, as_of, end_date)?;
 
-            premium_pv += spread * accrual * sp * df;
+            premium_pv += flow.amount.amount() * sp * df;
 
             if self.config.include_accrual {
-                // Accrual-on-default contribution for this period
-                premium_pv += self.accrual_on_default_isda_midpoint(AodInputs {
-                    cds,
-                    spread,
-                    start_date: start_date.max(as_of),
-                    end_date,
-                    settlement_delay: cds.protection.settlement_delay,
-                    calendar,
-                    as_of,
-                    disc,
-                    surv,
-                })?;
+                // The scheduled coupon cashflows already include notional in `flow.amount`.
+                // Keep AoD on the same dollar basis when adding it into premium PV.
+                premium_pv += cds.notional.amount()
+                    * self.accrual_on_default_isda_midpoint(AodInputs {
+                        cds,
+                        spread: flow.rate.unwrap_or(0.0),
+                        start_date: start_date.max(as_of),
+                        end_date,
+                        settlement_delay: cds.protection.settlement_delay,
+                        calendar,
+                        as_of,
+                        disc,
+                        surv,
+                    })?;
             }
+
+            start_date = end_date;
         }
 
-        Ok(premium_pv * cds.notional.amount())
+        Ok(premium_pv)
     }
 
     /// Calculate accrual-on-default for a period using dates with proper time-axis handling.
@@ -2689,6 +2688,7 @@ mod tests {
     use finstack_core::market_data::term_structures::{DiscountCurve, Seniority};
     use finstack_core::types::CurveId;
     use finstack_core::HashMap;
+    use time::macros::date;
 
     fn create_test_cds(
         id: impl Into<String>,
@@ -2765,6 +2765,33 @@ mod tests {
             .pv_premium_leg(&cds, &disc, &credit, as_of)
             .expect("should succeed");
         assert!(pv_with.amount() > pv_without.amount());
+    }
+
+    #[test]
+    fn premium_leg_scales_linearly_with_notional_when_accrual_on_default_enabled() {
+        let (disc, credit) = create_test_curves();
+        let as_of = Date::from_calendar_date(2025, time::Month::February, 15).expect("valid date");
+        let pricer = CDSPricer::new();
+
+        let mut cds_unit = create_test_cds("TEST-CDS-UNIT", date!(2024 - 12 - 20), date!(2028 - 03 - 20), 100.0, 0.40);
+        cds_unit.notional = Money::new(1.0, Currency::USD);
+
+        let mut cds_large = cds_unit.clone();
+        cds_large.id = finstack_core::types::InstrumentId::new("TEST-CDS-LARGE");
+        cds_large.notional = Money::new(1_000_000.0, Currency::USD);
+
+        let pv_unit = pricer
+            .pv_premium_leg_raw(&cds_unit, &disc, &credit, as_of)
+            .expect("unit notional premium leg");
+        let pv_large = pricer
+            .pv_premium_leg_raw(&cds_large, &disc, &credit, as_of)
+            .expect("large notional premium leg");
+
+        let scaled_unit = pv_unit * cds_large.notional.amount();
+        assert!(
+            (pv_large - scaled_unit).abs() < 1e-8,
+            "premium leg PV should scale with notional, unit={pv_unit}, large={pv_large}, scaled_unit={scaled_unit}"
+        );
     }
 
     #[test]

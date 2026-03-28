@@ -53,6 +53,8 @@
 //! * Base correlation model can have small arbitrage inconsistencies at curve knots
 
 use crate::cashflow::builder::build_dates;
+use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
+use crate::cashflow::primitives::{CFKind, CashFlow};
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds_tranche::{CDSTranche, TrancheSide};
@@ -469,6 +471,14 @@ pub struct CDSTranchePricer {
     params: CDSTranchePricerConfig,
 }
 
+type ProjectionInputs = (std::sync::Arc<CreditIndexData>, Date, Vec<Date>, Vec<(Date, f64)>);
+
+#[derive(Debug, Clone)]
+struct ProjectedDiscountedRow {
+    cashflow: CashFlow,
+    discount_time: Option<f64>,
+}
+
 impl Default for CDSTranchePricer {
     fn default() -> Self {
         Self::new()
@@ -575,9 +585,184 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Money> {
-        // Get credit index data -- missing data must propagate as an error
-        // rather than silently returning zero PV, which would be
-        // indistinguishable from a correctly-priced at-par position.
+        // Check if tranche is already wiped out
+        if tranche.accumulated_loss >= tranche.detach_pct / 100.0 {
+            return Ok(Money::new(0.0, tranche.notional.currency()));
+        }
+
+        let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref())?;
+        let rows = self.project_discountable_rows(tranche, market_ctx, as_of)?;
+
+        if rows.is_empty() {
+            return Ok(Money::new(0.0, tranche.notional.currency()));
+        }
+
+        let net_pv = self.discount_projected_rows(&rows, discount_curve.as_ref(), as_of)?;
+
+        Ok(Money::new(net_pv, tranche.notional.currency()))
+    }
+
+    /// Build the projected premium/default schedule for the tranche.
+    pub fn build_projected_schedule(
+        &self,
+        tranche: &CDSTranche,
+        market_ctx: &MarketContext,
+        as_of: Date,
+    ) -> Result<CashFlowSchedule> {
+        let (_, valuation_date, _, _) = self.prepare_projection_inputs(tranche, market_ctx, as_of)?;
+        let flows = self
+            .project_discountable_rows(tranche, market_ctx, as_of)?
+            .into_iter()
+            .map(|row| row.cashflow)
+            .collect();
+
+        Ok(CashFlowSchedule::from_parts(
+            flows,
+            Notional::par(tranche.notional.amount(), tranche.notional.currency()),
+            tranche.day_count,
+            CashFlowMeta {
+                calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
+                facility_limit: None,
+                issue_date: tranche.contractual_effective_date(valuation_date),
+            },
+        ))
+    }
+
+    fn project_discountable_rows(
+        &self,
+        tranche: &CDSTranche,
+        market_ctx: &MarketContext,
+        as_of: Date,
+    ) -> Result<Vec<ProjectedDiscountedRow>> {
+        let (_index_data_arc, valuation_date, payment_dates, el_curve) =
+            self.prepare_projection_inputs(tranche, market_ctx, as_of)?;
+        if valuation_date >= tranche.maturity {
+            return Ok(Vec::new());
+        }
+
+        let coupon = tranche.running_coupon_bp / BASIS_POINTS_PER_UNIT;
+        let tranche_notional = tranche.notional.amount();
+        let premium_sign = match tranche.side {
+            TrancheSide::BuyProtection => -1.0,
+            TrancheSide::SellProtection => 1.0,
+        };
+        let protection_sign = -premium_sign;
+
+        let mut rows =
+            Vec::with_capacity(payment_dates.len() * 2 + usize::from(tranche.upfront.is_some()));
+        let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
+
+        for (i, &payment_date) in payment_dates.iter().enumerate() {
+            let el_fraction = el_curve[i].1;
+            let delta_el_fraction = (el_fraction - prev_el_fraction).max(0.0);
+            let outstanding_notional = tranche_notional * (1.0 - prev_el_fraction);
+            let period_start = if i == 0 {
+                tranche
+                    .contractual_effective_date(valuation_date)
+                    .unwrap_or(valuation_date)
+            } else {
+                payment_dates[i - 1]
+            };
+            let accrual_period = tranche.day_count.year_fraction(
+                period_start,
+                payment_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let payment_time = self.years_from_base(_index_data_arc.as_ref(), payment_date)?;
+            let aod_adjustment = if self.params.accrual_on_default_enabled {
+                self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction
+            } else {
+                0.0
+            };
+            let premium_amount = coupon * accrual_period * (outstanding_notional - aod_adjustment);
+
+            if premium_amount.abs() > f64::EPSILON {
+                rows.push(ProjectedDiscountedRow {
+                    cashflow: CashFlow {
+                        date: payment_date,
+                        reset_date: None,
+                        amount: Money::new(
+                            premium_amount * premium_sign,
+                            tranche.notional.currency(),
+                        ),
+                        kind: CFKind::Fixed,
+                        accrual_factor: accrual_period,
+                        rate: Some(coupon),
+                    },
+                    discount_time: Some(payment_time),
+                });
+            }
+
+            let default_amount = tranche_notional * delta_el_fraction;
+            if default_amount.abs() > f64::EPSILON {
+                rows.push(ProjectedDiscountedRow {
+                    cashflow: CashFlow {
+                        date: payment_date,
+                        reset_date: None,
+                        amount: Money::new(
+                            default_amount * protection_sign,
+                            tranche.notional.currency(),
+                        ),
+                        kind: CFKind::DefaultedNotional,
+                        accrual_factor: 0.0,
+                        rate: None,
+                    },
+                    discount_time: Some(if self.params.mid_period_protection {
+                        let prior_time = if i == 0 {
+                            0.0
+                        } else {
+                            self.years_from_base(_index_data_arc.as_ref(), payment_dates[i - 1])?
+                        };
+                        0.5 * (prior_time + payment_time)
+                    } else {
+                        payment_time
+                    }),
+                });
+            }
+
+            prev_el_fraction = el_fraction;
+        }
+
+        if let Some((date, amount)) = tranche.upfront.filter(|(date, _)| *date >= as_of) {
+            rows.push(ProjectedDiscountedRow {
+                cashflow: CashFlow {
+                    date,
+                    reset_date: None,
+                    amount: Money::new(amount.amount() * premium_sign, amount.currency()),
+                    kind: CFKind::Fee,
+                    accrual_factor: 0.0,
+                    rate: None,
+                },
+                discount_time: None,
+            });
+        }
+
+        Ok(rows)
+    }
+
+    fn discount_projected_rows(
+        &self,
+        rows: &[ProjectedDiscountedRow],
+        discount_curve: &dyn Discounting,
+        as_of: Date,
+    ) -> Result<f64> {
+        let mut pv = 0.0;
+        for row in rows {
+            let df = match row.discount_time {
+                Some(t) => discount_curve.df(t),
+                None => discount_curve.df_between_dates(as_of, row.cashflow.date)?,
+            };
+            pv += row.cashflow.amount.amount() * df;
+        }
+        Ok(pv)
+    }
+
+    fn prepare_projection_inputs(
+        &self,
+        tranche: &CDSTranche,
+        market_ctx: &MarketContext,
+        as_of: Date,
+    ) -> Result<ProjectionInputs> {
         let index_data_arc = market_ctx
             .get_credit_index(&tranche.credit_index_id)
             .map_err(|_| {
@@ -588,70 +773,14 @@ impl CDSTranchePricer {
                     ),
                 })
             })?;
-
-        // Check if tranche is already wiped out
-        if tranche.accumulated_loss >= tranche.detach_pct / 100.0 {
-            return Ok(Money::new(0.0, tranche.notional.currency()));
-        }
-
-        // Get the discount curve
-        let discount_curve = market_ctx.get_discount(tranche.discount_curve_id.as_ref())?;
-
-        // Determine effective valuation date using proper settlement lag
         let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
-
-        // If valuation occurs on or after maturity, remaining PV is zero.
-        if valuation_date >= tranche.maturity {
-            return Ok(Money::new(0.0, tranche.notional.currency()));
-        }
-
-        // Pre-compute payment schedule and EL curve once (EL curve is the most
-        // expensive step — Gauss-Hermite quadrature per date — so we avoid
-        // recomputing it for each leg).
         let payment_dates = self.generate_payment_schedule(tranche, valuation_date)?;
-        let el_curve = if payment_dates.is_empty() {
+        let el_curve = if payment_dates.is_empty() || valuation_date >= tranche.maturity {
             Vec::new()
         } else {
             self.build_el_curve(tranche, index_data_arc.as_ref(), &payment_dates)?
         };
-
-        let pv_premium = self.calculate_premium_leg_pv(
-            tranche,
-            index_data_arc.as_ref(),
-            discount_curve.as_ref(),
-            valuation_date,
-            &payment_dates,
-            &el_curve,
-        )?;
-
-        let pv_protection = self.calculate_protection_leg_pv(
-            tranche,
-            index_data_arc.as_ref(),
-            discount_curve.as_ref(),
-            valuation_date,
-            &payment_dates,
-            &el_curve,
-        )?;
-
-        // Net present value depends on the side
-        let mut net_pv = match tranche.side {
-            TrancheSide::SellProtection => pv_premium - pv_protection,
-            TrancheSide::BuyProtection => pv_protection - pv_premium,
-        };
-
-        // Apply upfront if present. Positive amount is paid by protection buyer.
-        if let Some((dt, amount)) = tranche.upfront {
-            if dt >= as_of {
-                let df = discount_curve.df_between_dates(as_of, dt)?;
-                let upfront_pv = amount.amount() * df;
-                match tranche.side {
-                    TrancheSide::BuyProtection => net_pv -= upfront_pv,
-                    TrancheSide::SellProtection => net_pv += upfront_pv,
-                }
-            }
-        }
-
-        Ok(Money::new(net_pv, tranche.notional.currency()))
+        Ok((index_data_arc, valuation_date, payment_dates, el_curve))
     }
 
     /// Calculate the settlement date based on ISDA conventions.
@@ -1686,149 +1815,6 @@ impl CDSTranchePricer {
         expected_loss
     }
 
-    /// Calculate present value of the premium leg with accrual-on-default.
-    ///
-    /// PV = Coupon * Σ(Δt_j * D(t_j) * [N_outstanding - 0.5 * N_incremental_loss])
-    /// where N_outstanding = N_tr * (1 - EL_fraction(t_{j-1}))
-    /// and N_incremental_loss = N_tr * (EL_fraction(t_j) - EL_fraction(t_{j-1}))
-    fn calculate_premium_leg_pv(
-        &self,
-        tranche: &CDSTranche,
-        index_data: &CreditIndexData,
-        discount_curve: &dyn Discounting,
-        as_of: Date,
-        payment_dates: &[Date],
-        el_curve: &[(Date, f64)],
-    ) -> Result<f64> {
-        let coupon = tranche.running_coupon_bp / BASIS_POINTS_PER_UNIT; // Convert bp to decimal
-        let tranche_notional = tranche.notional.amount();
-
-        if payment_dates.is_empty() {
-            return Ok(0.0);
-        }
-
-        let mut pv_premium = 0.0;
-        let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
-
-        for (i, &payment_date) in payment_dates.iter().enumerate() {
-            let t = self.years_from_base(index_data, payment_date)?;
-            if t <= 0.0 {
-                continue;
-            }
-
-            let el_fraction = el_curve[i].1; // Current EL fraction
-            let delta_el_fraction = (el_fraction - prev_el_fraction).max(0.0);
-
-            // Outstanding notional at beginning of period
-            let outstanding_notional = tranche_notional * (1.0 - prev_el_fraction);
-
-            if outstanding_notional <= 0.0 {
-                break; // Tranche fully written down
-            }
-
-            // Accrual period using day count convention
-            let period_start = if i == 0 {
-                tranche.contractual_effective_date(as_of).unwrap_or(as_of)
-            } else {
-                payment_dates[i - 1]
-            };
-
-            let accrual_period = tranche
-                .day_count
-                .year_fraction(
-                    period_start,
-                    payment_date,
-                    finstack_core::dates::DayCountCtx::default(),
-                )
-                .unwrap_or(0.0);
-            if accrual_period <= 0.0 {
-                continue;
-            }
-
-            // Base coupon accrual paid at period end
-            let discount_factor = discount_curve.df(t);
-            pv_premium += coupon * accrual_period * discount_factor * outstanding_notional;
-
-            // Accrual-on-default: apply mid-period discounting to the AoD adjustment only
-            if self.params.accrual_on_default_enabled {
-                let aod_adjustment =
-                    self.params.aod_allocation_fraction * tranche_notional * delta_el_fraction;
-                if aod_adjustment > 0.0 {
-                    let df_time = if self.params.mid_period_protection {
-                        let t_start = if i == 0 {
-                            self.years_from_base(index_data, as_of)?
-                        } else {
-                            self.years_from_base(index_data, period_start)?
-                        };
-                        (t_start + t) * 0.5
-                    } else {
-                        t
-                    };
-                    let discount_factor_aod = discount_curve.df(df_time);
-                    pv_premium -= coupon * accrual_period * discount_factor_aod * aod_adjustment;
-                }
-            }
-            prev_el_fraction = el_fraction;
-        }
-
-        Ok(pv_premium)
-    }
-
-    /// Calculate present value of the protection leg using incremental EL.
-    ///
-    /// PV = Σ(D(t_j) * ΔEL_j) where ΔEL_j = N_tr * (EL_fraction(t_j) - EL_fraction(t_{j-1}))
-    fn calculate_protection_leg_pv(
-        &self,
-        tranche: &CDSTranche,
-        index_data: &CreditIndexData,
-        discount_curve: &dyn Discounting,
-        _as_of: Date,
-        payment_dates: &[Date],
-        el_curve: &[(Date, f64)],
-    ) -> Result<f64> {
-        let tranche_notional = tranche.notional.amount();
-
-        if payment_dates.is_empty() {
-            return Ok(0.0);
-        }
-
-        let mut pv_protection = 0.0;
-        let mut prev_el_fraction = self.calculate_prior_tranche_loss(tranche);
-
-        for (i, &payment_date) in payment_dates.iter().enumerate() {
-            let t = self.years_from_base(index_data, payment_date)?;
-            if t <= 0.0 {
-                continue;
-            }
-
-            let el_fraction = el_curve[i].1; // Current EL fraction
-            let delta_el_fraction = (el_fraction - prev_el_fraction).max(0.0);
-
-            // Incremental loss amount in currency
-            let incremental_loss_amount = tranche_notional * delta_el_fraction;
-
-            if incremental_loss_amount > 0.0 {
-                // Use mid-period discounting if enabled (consistent with premium leg)
-                let df_time = if self.params.mid_period_protection {
-                    let t_prev = if i == 0 {
-                        0.0
-                    } else {
-                        self.years_from_base(index_data, payment_dates[i - 1])?
-                    };
-                    (t_prev + t) * 0.5
-                } else {
-                    t
-                };
-                let discount_factor = discount_curve.df(df_time);
-                pv_protection += incremental_loss_amount * discount_factor;
-            }
-
-            prev_el_fraction = el_fraction;
-        }
-
-        Ok(pv_protection)
-    }
-
     /// Get default probability for the index at a given maturity.
     fn get_default_probability(
         &self,
@@ -2084,42 +2070,34 @@ impl CDSTranchePricer {
         as_of: Date,
     ) -> Result<f64> {
         let discount_curve = market_ctx.get_discount(&tranche.discount_curve_id)?;
-        let index_data = market_ctx.get_credit_index(&tranche.credit_index_id)?;
-
-        // Use factored-out settlement date calculation
-        let valuation_date = self.calculate_settlement_date(tranche, market_ctx, as_of)?;
-
-        // Pre-compute shared schedule and EL curve
-        let payment_dates = self.generate_payment_schedule(tranche, valuation_date)?;
-        let el_curve = if payment_dates.is_empty() {
-            Vec::new()
-        } else {
-            self.build_el_curve(tranche, index_data.as_ref(), &payment_dates)?
-        };
 
         // Initial guess using ratio method (protection PV / premium per bp)
         let mut unit_tranche = tranche.clone();
         unit_tranche.running_coupon_bp = 1.0;
-        let premium_per_bp = self.calculate_premium_leg_pv(
-            &unit_tranche,
-            index_data.as_ref(),
+        let premium_per_bp_rows = self.project_discountable_rows(&unit_tranche, market_ctx, as_of)?;
+        let premium_per_bp = self.discount_projected_rows(
+            &premium_per_bp_rows
+                .iter()
+                .filter(|row| row.cashflow.kind == CFKind::Fixed)
+                .cloned()
+                .collect::<Vec<_>>(),
             discount_curve.as_ref(),
-            valuation_date,
-            &payment_dates,
-            &el_curve,
+            as_of,
         )?;
 
         if premium_per_bp.abs() < self.params.numerical_tolerance {
             return Ok(0.0);
         }
 
-        let protection_pv = self.calculate_protection_leg_pv(
-            tranche,
-            index_data.as_ref(),
+        let protection_rows = self.project_discountable_rows(tranche, market_ctx, as_of)?;
+        let protection_pv = self.discount_projected_rows(
+            &protection_rows
+                .iter()
+                .filter(|row| row.cashflow.kind == CFKind::DefaultedNotional)
+                .cloned()
+                .collect::<Vec<_>>(),
             discount_curve.as_ref(),
-            valuation_date,
-            &payment_dates,
-            &el_curve,
+            as_of,
         )?;
 
         // Initial guess from ratio method
@@ -2604,6 +2582,7 @@ impl crate::pricer::Pricer for SimpleCDSTrancheHazardPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::primitives::CFKind;
     use crate::instruments::credit_derivatives::cds_tranche::parameters::CDSTrancheParams;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::term_structures::CreditIndexData;
@@ -2757,6 +2736,44 @@ mod tests {
         let model = CDSTranchePricer::new();
         assert_eq!(model.params.quadrature_order, DEFAULT_QUADRATURE_ORDER);
         assert!(model.params.use_issuer_curves);
+    }
+
+    #[test]
+    fn projected_schedule_contains_premium_and_default_rows() {
+        let tranche = sample_tranche();
+        let market = sample_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let schedule = CDSTranchePricer::new()
+            .build_projected_schedule(&tranche, &market, as_of)
+            .expect("projected tranche schedule");
+
+        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::Fixed));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| cf.kind == CFKind::DefaultedNotional));
+    }
+
+    #[test]
+    fn price_matches_discounted_projected_rows() {
+        let tranche = sample_tranche();
+        let market = sample_market_context();
+        let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let pricer = CDSTranchePricer::new();
+        let discount = market
+            .get_discount(tranche.discount_curve_id.as_ref())
+            .expect("discount curve");
+        let projected_rows = pricer
+            .project_discountable_rows(&tranche, &market, as_of)
+            .expect("projected tranche rows");
+        let discounted_total = pricer
+            .discount_projected_rows(&projected_rows, discount.as_ref(), as_of)
+            .expect("discounted projected rows should sum");
+        let pv = pricer
+            .price_tranche(&tranche, &market, as_of)
+            .expect("tranche pv");
+
+        assert!((pv.amount() - discounted_total).abs() < 1e-8);
     }
 
     #[test]
@@ -3187,47 +3204,47 @@ mod tests {
         let tranche = sample_tranche();
         let market_ctx = sample_market_context();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
-        let index_data_arc = market_ctx
-            .get_credit_index(&tranche.credit_index_id)
-            .expect("Credit index should exist in test context");
         let discount_curve = market_ctx
             .get_discount(tranche.discount_curve_id.as_ref())
             .expect("Discount curve should exist in test context");
-
-        // Calculate individual leg PVs
-        let payment_dates = model
-            .generate_payment_schedule(&tranche, as_of)
-            .expect("Payment schedule generation should succeed in test");
-        let el_curve = model
-            .build_el_curve(&tranche, &index_data_arc, &payment_dates)
-            .expect("EL curve build should succeed in test");
-        let pv_premium = model.calculate_premium_leg_pv(
-            &tranche,
-            &index_data_arc,
-            discount_curve.as_ref(),
-            as_of,
-            &payment_dates,
-            &el_curve,
-        );
-        let pv_protection = model.calculate_protection_leg_pv(
-            &tranche,
-            &index_data_arc,
-            discount_curve.as_ref(),
-            as_of,
-            &payment_dates,
-            &el_curve,
-        );
-
-        assert!(pv_premium.is_ok());
-        assert!(pv_protection.is_ok());
-
-        let premium = pv_premium.expect("Premium PV calculation should succeed in test");
-        let protection = pv_protection.expect("Protection PV calculation should succeed in test");
+        let projected_rows = model
+            .project_discountable_rows(&tranche, &market_ctx, as_of)
+            .expect("Projected rows should build in test");
+        let premium = model
+            .discount_projected_rows(
+                &projected_rows
+                    .iter()
+                    .filter(|row| row.cashflow.kind == CFKind::Fixed)
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                discount_curve.as_ref(),
+                as_of,
+            )
+            .expect("Premium PV calculation should succeed in test");
+        let protection = model
+            .discount_projected_rows(
+                &projected_rows
+                    .iter()
+                    .filter(|row| row.cashflow.kind == CFKind::DefaultedNotional)
+                    .cloned()
+                    .collect::<Vec<_>>(),
+                discount_curve.as_ref(),
+                as_of,
+            )
+            .expect("Protection PV calculation should succeed in test");
 
         assert!(premium.is_finite());
         assert!(protection.is_finite());
-        assert!(premium >= 0.0); // Premium leg should be positive for ongoing coupon
-        assert!(protection >= 0.0); // Protection leg should be non-negative
+        match tranche.side {
+            TrancheSide::SellProtection => {
+                assert!(premium >= 0.0);
+                assert!(protection <= 0.0);
+            }
+            TrancheSide::BuyProtection => {
+                assert!(premium <= 0.0);
+                assert!(protection >= 0.0);
+            }
+        }
     }
 
     #[test]

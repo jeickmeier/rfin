@@ -13,6 +13,23 @@ DateLike = str | date
 
 DateMoney = Tuple[DateLike, Money]
 
+class CashflowWarning:
+    """Warning emitted when a position's contractual cashflows could not be built."""
+
+    @property
+    def position_id(self) -> str: ...
+
+    @property
+    def instrument_id(self) -> str: ...
+
+    @property
+    def instrument_type(self) -> str: ...
+
+    @property
+    def message(self) -> str: ...
+
+    def __repr__(self) -> str: ...
+
 class PortfolioCashflows:
     """Aggregated portfolio cashflows by date and currency."""
 
@@ -24,6 +41,11 @@ class PortfolioCashflows:
     @property
     def by_position(self) -> Dict[str, List[DateMoney]]:
         """Optional per-position cashflows keyed by position_id."""
+        ...
+
+    @property
+    def warnings(self) -> List[CashflowWarning]:
+        """Warnings for positions whose contractual cashflows could not be built."""
         ...
 
     def __repr__(self) -> str: ...

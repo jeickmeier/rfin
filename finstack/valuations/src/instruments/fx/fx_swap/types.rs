@@ -14,6 +14,9 @@ use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
 use super::parameters::FxSwapParams;
+use crate::cashflow::builder::{CashFlowSchedule, Notional};
+use crate::cashflow::primitives::CFKind;
+use crate::cashflow::CashflowProvider;
 use crate::impl_instrument_base;
 
 /// FX Swap instrument definition
@@ -162,6 +165,30 @@ impl FxSwap {
     }
 
     // Builder entrypoint is provided via derive
+
+    fn single_cashflow_schedule(
+        &self,
+        as_of: Date,
+        payment_date: Date,
+        amount: Money,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        let anchor = if as_of < payment_date {
+            as_of
+        } else {
+            payment_date - time::Duration::days(1)
+        };
+        let mut builder = CashFlowSchedule::builder();
+        let _ = builder.principal(Money::new(0.0, amount.currency()), anchor, payment_date);
+        let _ = builder.add_principal_event(
+            payment_date,
+            Money::new(0.0, amount.currency()),
+            Some(Money::new(-amount.amount(), amount.currency())),
+            CFKind::Notional,
+        );
+        let mut schedule = builder.build_with_curves(None)?;
+        schedule.notional = Notional::par(amount.amount().abs(), amount.currency());
+        Ok(schedule)
+    }
 }
 
 impl crate::instruments::common_impl::traits::Instrument for FxSwap {
@@ -227,6 +254,10 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
         Some(self.near_date)
     }
 
+    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
+        Some(self)
+    }
+
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -237,6 +268,53 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
         &self,
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
+    }
+}
+
+impl CashflowProvider for FxSwap {
+    fn build_full_schedule(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        use super::pricing_helper::FxSwapPricingContext;
+
+        if self.base_notional.currency() != self.base_currency {
+            return Err(finstack_core::Error::CurrencyMismatch {
+                expected: self.base_currency,
+                actual: self.base_notional.currency(),
+            });
+        }
+
+        let ctx = FxSwapPricingContext::build(self, curves, as_of)?;
+        let base_amount = self.base_notional.amount();
+        let near_quote = self.base_notional.amount() * ctx.contract_near_rate;
+        let far_quote = self.base_notional.amount() * ctx.contract_far_rate;
+
+        let mut near_base =
+            self.single_cashflow_schedule(as_of, self.near_date, Money::new(base_amount, self.base_currency))?;
+        let near_quote_schedule = self.single_cashflow_schedule(
+            as_of,
+            self.near_date,
+            Money::new(-near_quote, self.quote_currency),
+        )?;
+        let far_base_schedule = self.single_cashflow_schedule(
+            as_of,
+            self.far_date,
+            Money::new(-base_amount, self.base_currency),
+        )?;
+        let far_quote_schedule = self.single_cashflow_schedule(
+            as_of,
+            self.far_date,
+            Money::new(far_quote, self.quote_currency),
+        )?;
+
+        near_base.flows.extend(near_quote_schedule.flows);
+        near_base.flows.extend(far_base_schedule.flows);
+        near_base.flows.extend(far_quote_schedule.flows);
+        near_base.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+        near_base.notional = Notional::par(0.0, self.base_currency);
+        Ok(near_base)
     }
 }
 
@@ -255,6 +333,7 @@ impl crate::instruments::common_impl::traits::CurveDependencies for FxSwap {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
     use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -359,6 +438,31 @@ mod tests {
         assert!(
             pv.amount().abs() > 1e-6,
             "PV should be non-zero when far leg is active"
+        );
+    }
+
+    #[test]
+    fn test_fx_swap_cashflow_provider_emits_four_settlement_flows() {
+        let as_of = date(2024, Month::January, 3);
+        let market = base_market(as_of);
+        let swap = FxSwap::example();
+
+        let flows = swap
+            .build_dated_flows(&market, as_of)
+            .expect("fx swap contractual schedule should build");
+
+        assert_eq!(flows.len(), 4, "fx swap should emit near/far base+quote flows");
+        assert!(
+            flows.iter().any(|(date, money)| *date == swap.near_date && money.currency() == swap.base_currency && money.amount() > 0.0)
+        );
+        assert!(
+            flows.iter().any(|(date, money)| *date == swap.near_date && money.currency() == swap.quote_currency && money.amount() < 0.0)
+        );
+        assert!(
+            flows.iter().any(|(date, money)| *date == swap.far_date && money.currency() == swap.base_currency && money.amount() < 0.0)
+        );
+        assert!(
+            flows.iter().any(|(date, money)| *date == swap.far_date && money.currency() == swap.quote_currency && money.amount() > 0.0)
         );
     }
 }
