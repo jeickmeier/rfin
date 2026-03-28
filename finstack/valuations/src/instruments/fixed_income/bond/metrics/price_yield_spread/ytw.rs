@@ -1,4 +1,3 @@
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
@@ -72,7 +71,7 @@ impl MetricCalculator for YtwCalculator {
                 (
                     bond.discount_curve_id.to_owned(),
                     bond.cashflow_spec.day_count(),
-                    bond.dated_cashflows(&context.curves, context.as_of)?,
+                    bond.pricing_dated_cashflows(&context.curves, context.as_of)?,
                 )
             };
             context.cashflows = Some(built);

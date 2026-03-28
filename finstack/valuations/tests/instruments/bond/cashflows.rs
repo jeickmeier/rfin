@@ -60,9 +60,9 @@ fn test_fixed_rate_cashflows() {
     // Should have coupons + principal
     assert!(!flows.is_empty());
 
-    // All flows after as_of
+    // All flows on or after as_of (signed canonical schedule includes issue-date flows)
     for (date, _amount) in &flows {
-        assert!(*date > as_of);
+        assert!(*date >= as_of);
     }
 
     // Last flow should include principal
@@ -127,8 +127,8 @@ fn test_quarterly_coupon_frequency() {
     let curves = create_test_curves(as_of);
     let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
-    // 1 year = 4 quarters + principal
-    assert_eq!(flows.len(), 5);
+    // 1 year = 4 quarters + principal + initial negative notional
+    assert_eq!(flows.len(), 6);
 }
 
 #[test]
@@ -158,10 +158,9 @@ fn test_floating_rate_cashflows() {
     // Should have floating coupons + principal
     assert!(!flows.is_empty());
 
-    // All flows should be positive (holder perspective)
-    for (_date, amount) in &flows {
-        assert!(amount.amount() > 0.0);
-    }
+    // Signed canonical schedule: coupon flows are positive, initial notional is negative
+    let positive_count = flows.iter().filter(|(_, a)| a.amount() > 0.0).count();
+    assert!(positive_count > 0, "Should have positive coupon flows");
 }
 
 #[test]
@@ -191,19 +190,14 @@ fn test_amortizing_bond_linear() {
     // Should have cashflows (coupons + amortization + redemption)
     assert!(!flows.is_empty(), "Amortizing bond should have cashflows");
 
-    // Holder-view convention:
-    // - All contractual inflows to a long holder (coupons, amortization, redemption)
-    //   are POSITIVE amounts.
-    //
-    for (_date, amount) in &flows {
-        assert!(
-            amount.amount() > 0.0,
-            "All amortizing bond cashflows should be positive in holder view"
-        );
-    }
+    // Signed canonical schedule includes both positive flows (coupons,
+    // amortization, redemption) and a negative initial notional.
+    let positive_count = flows.iter().filter(|(_, a)| a.amount() > 0.0).count();
+    assert!(
+        positive_count > 0,
+        "Amortizing bond should have positive coupon/amortization flows"
+    );
 
-    // Net cashflow should be positive (holder receives more than pays) even
-    // though the initial drawdown is excluded from this schedule.
     let total: f64 = flows.iter().map(|(_, amt)| amt.amount()).sum();
     assert!(total.is_finite(), "Total cashflow should be finite");
 }
@@ -340,9 +334,9 @@ fn test_cashflows_with_short_front_stub() {
     // Should generate cashflows with stub handling
     assert!(!flows.is_empty());
 
-    // Verify all flows are after issue date
+    // All flows on or after issue date (signed canonical schedule)
     for (date, _) in &flows {
-        assert!(*date > as_of, "All flows should be after issue");
+        assert!(*date >= as_of, "All flows should be on or after issue");
     }
 
     // Should have multiple payment dates through to maturity

@@ -7,7 +7,6 @@
 //!
 //! All spread-style quantities exposed here use **decimal units**:
 //! `0.01` corresponds to **100 basis points**.
-use crate::cashflow::traits::CashflowProvider;
 use crate::constants::numerical::ZERO_TOLERANCE;
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
@@ -715,8 +714,8 @@ pub fn price_from_ytw(
     as_of: Date,
     dirty_price_target: Money,
 ) -> finstack_core::Result<f64> {
-    // Build holder-view flows and full schedule for accurate amortizing bond handling
-    let flows = bond.dated_cashflows(curves, as_of)?;
+    // Build signed canonical schedule flows and full schedule for accurate amortizing bond handling
+    let flows = bond.pricing_dated_cashflows(curves, as_of)?;
     let schedule = bond.full_cashflow_schedule(curves)?;
     let (best_yield, best_flows) =
         solve_ytw_from_flows(bond, &flows, as_of, dirty_price_target, Some(&schedule))?;
@@ -742,7 +741,7 @@ pub fn price_from_z_spread(
 ) -> finstack_core::Result<f64> {
     use finstack_core::math::summation::NeumaierAccumulator;
 
-    let flows = bond.dated_cashflows(curves, as_of)?;
+    let flows = bond.pricing_dated_cashflows(curves, as_of)?;
     let disc = curves.get_discount(&bond.discount_curve_id)?;
 
     let mut pv = NeumaierAccumulator::new();
@@ -938,9 +937,8 @@ pub fn compute_quotes(
             (clean_pct, clean_ccy, dirty_ccy)
         }
         BondQuoteInput::Ytm(ytm) => {
-            // Use standard holder-view flows and price_from_ytm helper.
-            let flows =
-                <Bond as CashflowProvider>::dated_cashflows(&bond_for_metrics, curves, as_of)?;
+            // Use standard signed canonical schedule flows and price_from_ytm helper.
+            let flows = bond_for_metrics.pricing_dated_cashflows(curves, as_of)?;
             let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, quote_ctx.quote_date, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;
@@ -977,8 +975,7 @@ pub fn compute_quotes(
             // I-spread = YTM - par_swap_rate → YTM = ISpread + par_swap_rate.
             let par_swap_rate = par_swap_rate_from_discount(bond, curves, as_of)?;
             let ytm = i_spread + par_swap_rate;
-            let flows =
-                <Bond as CashflowProvider>::dated_cashflows(&bond_for_metrics, curves, as_of)?;
+            let flows = bond_for_metrics.pricing_dated_cashflows(curves, as_of)?;
             let dirty_ccy = price_from_ytm(&bond_for_metrics, &flows, quote_ctx.quote_date, ytm)?;
             let clean_ccy = dirty_ccy - accrued_ccy;
             let clean_pct = clean_ccy / notional * 100.0;

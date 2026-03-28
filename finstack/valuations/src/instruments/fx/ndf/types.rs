@@ -806,8 +806,10 @@ impl CashflowProvider for Ndf {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(0.0, ccy);
-        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
-        Ok(schedule)
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

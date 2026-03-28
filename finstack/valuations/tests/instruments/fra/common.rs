@@ -39,7 +39,7 @@ pub fn build_flat_forward_curve(rate: f64, base_date: Date, curve_id: &str) -> F
 /// Creates a flat discount curve at the given rate
 pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> DiscountCurve {
     // DF = exp(-rate * time)
-    DiscountCurve::builder(curve_id)
+    let builder = DiscountCurve::builder(curve_id)
         .base_date(base_date)
         .day_count(DayCount::Act360)
         .knots([
@@ -48,9 +48,13 @@ pub fn build_flat_discount_curve(rate: f64, base_date: Date, curve_id: &str) -> 
             (5.0, (-rate * 5.0).exp()),
             (10.0, (-rate * 10.0).exp()),
         ])
-        .interp(InterpStyle::Linear)
-        .build()
-        .unwrap()
+        .interp(InterpStyle::Linear);
+    let builder = if rate < 0.0 {
+        builder.allow_non_monotonic_with_floor()
+    } else {
+        builder
+    };
+    builder.build().unwrap()
 }
 
 /// Creates an upward sloping forward curve (normal term structure)

@@ -39,18 +39,22 @@ fn test_theta_with_zero_rate() {
 
 #[test]
 fn test_theta_magnitude_reasonable() {
-    // Setup - theta should be of reasonable magnitude relative to PV
-    let base = date(2025, 1, 1);
-    let ctx = ctx_with_standard_disc(base, "USD-OIS");
-    let dep = DepositBuilder::new(base)
+    // Setup - theta should be of reasonable magnitude relative to PV.
+    // Use as_of one day after start so the initial negative notional is
+    // already excluded from the schedule (avoids a PV discontinuity when
+    // the theta bump rolls past the notional date).
+    let start = date(2025, 1, 1);
+    let as_of = date(2025, 1, 2);
+    let ctx = ctx_with_standard_disc(start, "USD-OIS");
+    let dep = DepositBuilder::new(start)
         .maturity(date(2025, 7, 1))
         .quote_rate(0.03)
         .build();
 
-    let pv = dep.value(&ctx, base).unwrap();
+    let pv = dep.value(&ctx, as_of).unwrap();
 
     // Execute
-    let theta = compute_metric(&dep, &ctx, base, MetricId::Theta);
+    let theta = compute_metric(&dep, &ctx, as_of, MetricId::Theta);
 
     // Validate - theta should be materially smaller than PV in absolute terms
     assert!(

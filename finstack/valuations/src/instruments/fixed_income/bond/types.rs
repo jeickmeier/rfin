@@ -1023,6 +1023,33 @@ impl Bond {
         b.build_with_curves(Some(curves))
     }
 
+    /// Pricing-oriented dated cashflows: coupons, amortization, and positive
+    /// notional (redemption). Negative notionals (initial draw) and pure PIK
+    /// accretion are excluded because they are not discounted receipt flows.
+    ///
+    /// Internal pricing engines (discount, hazard, spread solvers) should use
+    /// this instead of the public [`CashflowProvider::dated_cashflows`] which
+    /// now returns the full signed canonical schedule.
+    pub(crate) fn pricing_dated_cashflows(
+        &self,
+        curves: &finstack_core::market_data::context::MarketContext,
+        as_of: finstack_core::dates::Date,
+    ) -> Result<Vec<(finstack_core::dates::Date, finstack_core::money::Money)>> {
+        use finstack_core::cashflow::CFKind;
+
+        let schedule = self.full_cashflow_schedule(curves)?;
+        Ok(schedule
+            .flows
+            .into_iter()
+            .filter(|cf| {
+                cf.date >= as_of
+                    && cf.kind != CFKind::PIK
+                    && !(cf.kind == CFKind::Notional && cf.amount.amount() < 0.0)
+            })
+            .map(|cf| (cf.date, cf.amount))
+            .collect())
+    }
+
     /// Cashflow schedule enriched with discount factors, survival probabilities, and PVs.
     ///
     /// Builds the bond's full internal cashflow schedule
@@ -1241,6 +1268,20 @@ impl Bond {
         }
 
         Ok(())
+    }
+
+    /// Returns `true` when coupon cashflows depend on forward curve projection (floating FRNs).
+    ///
+    /// True for [`CashflowSpec::Floating`] and for [`CashflowSpec::Amortizing`] when the
+    /// base specification is floating.
+    pub fn has_floating_coupons(&self) -> bool {
+        match &self.cashflow_spec {
+            CashflowSpec::Floating(_) => true,
+            CashflowSpec::Amortizing { base, .. } => {
+                matches!(base.as_ref(), CashflowSpec::Floating(_))
+            }
+            _ => false,
+        }
     }
 
     /// Recursively validate that fixed coupon rates are non-negative.
@@ -1581,18 +1622,11 @@ mod tests {
             .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty());
 
-        // The flows should match what we put in the custom schedule
-        // (after conversion for holder perspective)
+        // The signed schedule preserves all flows except pure PIK
         let expected_flow_count = custom_schedule
             .flows
             .iter()
-            .filter(|cf| {
-                use crate::cashflow::primitives::CFKind;
-                matches!(
-                    cf.kind,
-                    CFKind::Fixed | CFKind::Stub | CFKind::Amortization | CFKind::Notional
-                ) && (cf.kind != CFKind::Notional || cf.amount.amount() > 0.0)
-            })
+            .filter(|cf| cf.kind != crate::cashflow::primitives::CFKind::PIK)
             .count();
         assert_eq!(flows.len(), expected_flow_count);
     }
@@ -2063,7 +2097,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_amortization_holder_view_and_notional_exclusion() {
+    fn test_bond_amortization_signed_schedule_preserves_all_flows() {
         use crate::cashflow::builder::AmortizationSpec;
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
@@ -2139,33 +2173,31 @@ mod tests {
             );
         }
 
-        // The holder-view dated cashflow projection should flatten the canonical schedule.
+        // The signed schedule preserves all flows including negative notionals.
         let flows = bond
             .dated_cashflows(&market, issue)
             .expect("Schedule building should succeed in test");
 
-        // Initial draw should be excluded (negative notional)
+        // Initial draw should be present (negative notional)
         let has_negative_initial = flows.iter().any(|(d, m)| *d == issue && m.amount() < 0.0);
         assert!(
-            !has_negative_initial,
-            "Simplified schedule should exclude initial negative notional draw"
+            has_negative_initial,
+            "Signed schedule preserves the initial negative notional draw"
         );
 
-        // Amortization should appear as positive holder receipts (principal repayments)
-        let amort_in_simplified: Vec<_> = flows
+        // Amortization should still appear as positive principal repayments
+        let amort_in_schedule: Vec<_> = flows
             .iter()
             .filter(|(d, _)| *d == step1 || *d == maturity)
             .collect();
-        // We expect at least one amortization payment
-        let has_positive_amort = amort_in_simplified.iter().any(|(_, m)| m.amount() > 0.0);
+        let has_positive_amort = amort_in_schedule.iter().any(|(_, m)| m.amount() > 0.0);
         assert!(
             has_positive_amort,
-            "Amortization in simplified schedule should be positive (holder-view principal receipt)"
+            "Amortization in signed schedule should be positive (principal repayment)"
         );
 
-        // Final redemption at maturity: depending on amortization schedule the
-        // maturity date can include coupon, amortization, and/or redemption
-        // flows, all of which should be positive from the holder's perspective.
+        // Final redemption at maturity: the maturity date can include coupon,
+        // amortization, and/or redemption flows with both positive and negative signs.
     }
 
     #[test]
@@ -2301,11 +2333,16 @@ mod tests {
             flows.len()
         );
 
-        // All flows should have positive amounts (coupons and redemption are receipts)
-        let all_positive = flows.iter().all(|(_, m)| m.amount() > 0.0);
+        // Signed schedule includes both positive (coupons, redemption) and negative (initial notional) flows
+        let has_positive = flows.iter().any(|(_, m)| m.amount() > 0.0);
+        let has_negative = flows.iter().any(|(_, m)| m.amount() < 0.0);
         assert!(
-            all_positive,
-            "All simplified FRN flows should be positive (holder view)"
+            has_positive,
+            "Signed FRN schedule has positive flows (coupons, redemption)"
+        );
+        assert!(
+            has_negative,
+            "Signed FRN schedule has negative flows (initial notional)"
         );
 
         // Verify flows are sorted by date

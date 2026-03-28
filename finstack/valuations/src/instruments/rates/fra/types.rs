@@ -614,15 +614,16 @@ impl CashflowProvider for ForwardRateAgreement {
             )]
         };
 
-        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             flows,
             crate::cashflow::primitives::CFKind::Fixed,
             self.notional(),
             self.day_count,
         );
-        schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(schedule)
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

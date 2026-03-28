@@ -201,13 +201,13 @@ fn test_pricing_after_maturity() {
         .quote_rate(0.03)
         .build();
 
-    // Execute - price on date after maturity
-    let pv = dep.value(&ctx, base).unwrap();
-
-    // Validate - value() uses signed_year_fraction (includes past flows
-    // with DF > 1 via backward extrapolation), so PV is non-zero.
-    // The key invariant is that pricing handles this gracefully.
-    assert!(pv.amount().is_finite());
+    // Matured deposits have no future cashflows under the signed canonical
+    // schedule (as_of filtering removes all past flows). Pricing returns an error.
+    let result = dep.value(&ctx, base);
+    assert!(
+        result.is_err(),
+        "Matured deposit should return error (no future cashflows)"
+    );
 }
 
 #[test]

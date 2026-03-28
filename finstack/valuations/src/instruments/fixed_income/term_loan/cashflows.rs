@@ -475,7 +475,7 @@ pub(crate) fn generate_cashflows(
     }
 
     // Keep the full engine schedule here; `TermLoan::cashflow_schedule()` applies
-    // the public holder-view projection on top of this internal representation.
+    // the public signed canonical schedule projection on top of this internal representation.
     schedule.day_count = loan.day_count;
     Ok(schedule)
 }

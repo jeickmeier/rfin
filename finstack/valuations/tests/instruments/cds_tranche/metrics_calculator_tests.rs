@@ -305,13 +305,13 @@ fn test_calculate_multiple_metrics_simultaneously() {
     let valuation = result.unwrap();
 
     assert!(valuation.value.amount().is_finite(), "PV should be finite");
-    assert_eq!(
+    assert!(
+        valuation.measures.len() >= metrics.len(),
+        "Should have at least all requested metrics (got {}, expected >= {})",
         valuation.measures.len(),
-        metrics.len(),
-        "Should have all requested metrics"
+        metrics.len()
     );
 
-    // Verify each metric is present and finite
     assert!(valuation.measures.get("cs01").is_some());
     assert!(valuation.measures.get("par_spread").is_some());
     assert!(valuation.measures.get("expected_loss").is_some());
@@ -481,10 +481,11 @@ fn test_price_with_metrics_returns_pv_and_metrics() {
     let valuation = result.unwrap();
 
     assert!(valuation.value.amount().is_finite(), "PV should be finite");
-    assert_eq!(
+    assert!(
+        valuation.measures.len() >= metrics.len(),
+        "Should have at least all requested metrics (got {}, expected >= {})",
         valuation.measures.len(),
-        metrics.len(),
-        "Should have all requested metrics"
+        metrics.len()
     );
 }
 

@@ -14,7 +14,6 @@
 //! where `PV(z) = Σ CF_i · DF_i · exp(-z · t_i)`. This is the market-standard
 //! approach for vanilla bonds without an explicit credit model.
 
-use crate::cashflow::traits::CashflowProvider;
 use crate::constants::ONE_BASIS_POINT;
 use crate::instruments::common_impl::traits::{CurveDependencies, Instrument};
 use crate::instruments::Bond;
@@ -52,7 +51,7 @@ impl MetricCalculator for BondCs01Calculator {
 
         let bumped_spread = base_spread + ONE_BASIS_POINT;
 
-        let flows = bond.dated_cashflows(&context.curves, context.as_of)?;
+        let flows = bond.pricing_dated_cashflows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let dc = disc.day_count();
         let base_date = disc.base_date();

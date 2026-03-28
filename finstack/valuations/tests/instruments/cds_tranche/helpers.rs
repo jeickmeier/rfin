@@ -75,6 +75,7 @@ pub fn standard_market_context() -> MarketContext {
     MarketContext::new()
         .insert(standard_discount_curve())
         .insert(standard_hazard_curve())
+        .insert(standard_correlation_curve())
         .insert_credit_index("CDX.NA.IG.42", standard_credit_index())
 }
 

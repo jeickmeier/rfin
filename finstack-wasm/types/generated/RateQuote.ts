@@ -44,106 +44,95 @@
  * # }
  * ```
  */
-export type RateQuote =
-  | {
-      type: 'deposit';
-      /**
-       * Unique identifier for the quote.
-       */
-      id: string;
-      /**
-       * Rate index identifier (e.g. "USD-SOFR-3M").
-       */
-      index: string;
-      /**
-       * Maturity pillar (e.g. Tenor("3M") or Date("2024-01-01")).
-       */
-      pillar: string;
-      /**
-       * Rate value (decimal).
-       */
-      rate: number;
-    }
-  | {
-      type: 'fra';
-      /**
-       * Unique identifier for the quote.
-       */
-      id: string;
-      /**
-       * Rate index identifier.
-       */
-      index: string;
-      /**
-       * Start date pillar.
-       */
-      start: string;
-      /**
-       * End date pillar.
-       */
-      end: string;
-      /**
-       * Rate value (decimal).
-       */
-      rate: number;
-    }
-  | {
-      type: 'futures';
-      /**
-       * Unique identifier for the quote.
-       */
-      id: string;
-      /**
-       * Future contract identifier (e.g. "CME:SR3").
-       */
-      contract: string;
-      /**
-       * Expiry date of the future.
-       */
-      expiry: string;
-      /**
-       * Price of the future (e.g. 98.50).
-       */
-      price: number;
-      /**
-       * Optional convexity adjustment (rate, decimal).
-       *
-       * If provided, this fixed value is used. Otherwise, the calibration
-       * engine will compute the adjustment dynamically using `vol_surface_id`.
-       */
-      convexity_adjustment: number | null;
-      /**
-       * Optional volatility surface identifier for dynamic convexity adjustment.
-       *
-       * If provided (and `convexity_adjustment` is `None`), the calibration engine
-       * will look up this volatility surface to calculate the convexity adjustment
-       * dynamically based on the model forward rate and time to expiry.
-       */
-      vol_surface_id: string | null;
-    }
-  | {
-      type: 'swap';
-      /**
-       * Unique identifier for the quote.
-       */
-      id: string;
-      /**
-       * Rate index identifier (floating leg).
-       */
-      index: string;
-      /**
-       * Maturity pillar of the swap.
-       */
-      pillar: string;
-      /**
-       * Fixed rate (decimal) making the swap PV=0.
-       */
-      rate: number;
-      /**
-       * Optional spread over the index in decimal format (e.g., 0.0010 for 10 basis points).
-       *
-       * This spread is added to the floating leg rate. The value is in decimal format
-       * and will be converted to basis points internally (multiplied by 10,000).
-       */
-      spread_decimal: number | null;
-    };
+export type RateQuote = { "type": "deposit", 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
+ * Rate index identifier (e.g. "USD-SOFR-3M").
+ */
+index: string, 
+/**
+ * Maturity pillar (e.g. Tenor("3M") or Date("2024-01-01")).
+ */
+pillar: string, 
+/**
+ * Rate value (decimal).
+ */
+rate: number, } | { "type": "fra", 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
+ * Rate index identifier.
+ */
+index: string, 
+/**
+ * Start date pillar.
+ */
+start: string, 
+/**
+ * End date pillar.
+ */
+end: string, 
+/**
+ * Rate value (decimal).
+ */
+rate: number, } | { "type": "futures", 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
+ * Future contract identifier (e.g. "CME:SR3").
+ */
+contract: string, 
+/**
+ * Expiry date of the future.
+ */
+expiry: string, 
+/**
+ * Price of the future (e.g. 98.50).
+ */
+price: number, 
+/**
+ * Optional convexity adjustment (rate, decimal).
+ *
+ * This fixed value is currently required for calibration. If omitted,
+ * futures-quote calibration will fail closed rather than silently assume
+ * zero or attempt an unwired dynamic lookup.
+ */
+convexity_adjustment: number | null, 
+/**
+ * Optional volatility surface identifier for dynamic convexity adjustment.
+ *
+ * Reserved for future dynamic convexity support. Until that wiring exists,
+ * providing `vol_surface_id` without `convexity_adjustment` is treated as
+ * an invalid quote shape during calibration.
+ */
+vol_surface_id: string | null, } | { "type": "swap", 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
+ * Rate index identifier (floating leg).
+ */
+index: string, 
+/**
+ * Maturity pillar of the swap.
+ */
+pillar: string, 
+/**
+ * Fixed rate (decimal) making the swap PV=0.
+ */
+rate: number, 
+/**
+ * Optional spread over the index in decimal format (e.g., 0.0010 for 10 basis points).
+ *
+ * This spread is added to the floating leg rate. The value is in decimal format
+ * and will be converted to basis points internally (multiplied by 10,000).
+ */
+spread_decimal: number | null, };

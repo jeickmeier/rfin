@@ -175,7 +175,7 @@
 //! Where:
 //! - `PV(t)` = present value at valuation date (base value)
 //! - `PV(t + period)` = present value at rolled forward date
-//! - `Cashflows(t, t + period)` = sum of cashflows received during the period
+//! - `Cashflows(t, t + period)` = sum of net cashflows during the period (signed canonical schedule)
 //!
 //! ## Components
 //!
@@ -319,7 +319,7 @@ pub(crate) fn collect_cashflows_in_period(
 ///
 /// Decomposes total theta into three additive components:
 ///
-/// - **Carry**: net cashflows received during the period (coupons, interest, fees)
+/// - **Carry**: net cashflows during the period (coupons, interest, fees; signed canonical schedule)
 /// - **Roll-down**: PV change from time passing along the *same* curve (no curve movement)
 /// - **Decay**: residual time-value / optionality decay (`total_theta - carry - roll_down`)
 ///
@@ -466,7 +466,7 @@ impl crate::metrics::MetricCalculator for GenericThetaAny {
             return Ok(0.0);
         }
 
-        // Theta uses value() (holder-view) for both base and rolled dates.
+        // Theta uses value() (instrument-economics-signed PV) for both base and rolled dates.
         // See GenericTheta for rationale on why value_raw() is not appropriate here.
         let base_pv = context
             .instrument_value_with_scenario(&context.curves, context.as_of)?

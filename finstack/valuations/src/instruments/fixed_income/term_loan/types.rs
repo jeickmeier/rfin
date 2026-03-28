@@ -175,8 +175,8 @@ impl RateSpec {
 /// # Cashflow Generation
 ///
 /// Uses the [`CashflowProvider`](crate::cashflow::traits::CashflowProvider) trait:
-/// - `dated_cashflows()` returns holder-view flows (coupons, amortization, redemptions)
-/// - `cashflow_schedule()` returns the canonical holder-view schedule with `CFKind` metadata
+/// - `dated_cashflows()` returns signed canonical schedule flows (coupons, amortization, redemptions)
+/// - `cashflow_schedule()` returns the signed canonical schedule with `CFKind` metadata
 ///
 /// # Pricing
 ///
@@ -575,39 +575,13 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        use finstack_core::cashflow::CFKind;
-
         let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
             self, curves, as_of,
         )?;
 
-        // The public schedule surface is holder-view only. Keep contractual coupon,
-        // fee, and principal repayment flows, but drop funding draws and PIK accretion.
-        let holder_view_flows = schedule
-            .flows
-            .into_iter()
-            .filter(|cf| match cf.kind {
-                CFKind::Fixed
-                | CFKind::FloatReset
-                | CFKind::Stub
-                | CFKind::Fee
-                | CFKind::CommitmentFee
-                | CFKind::UsageFee
-                | CFKind::FacilityFee
-                | CFKind::Amortization => true,
-                CFKind::Notional => cf.amount.amount() > 0.0,
-                _ => false,
-            })
-            .collect();
-
-        Ok(crate::cashflow::builder::CashFlowSchedule::from_parts(
-            holder_view_flows,
-            schedule.notional,
-            schedule.day_count,
-            crate::cashflow::builder::CashFlowMeta {
-                representation: crate::cashflow::builder::CashflowRepresentation::Contractual,
-                ..schedule.meta
-            },
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
         ))
     }
 }

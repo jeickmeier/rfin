@@ -273,12 +273,15 @@ fn test_accrued_interest_amortizing_schedule_driven() {
     // notional.
     let as_of = make_date(2027, 7, 1);
 
-    let schedule = bond.cashflow_schedule(&curves, as_of).unwrap();
+    // Use issue date to retrieve the full schedule (including historical coupon
+    // periods) since accrued interest calculation needs the complete period
+    // structure. This mirrors the production path which uses
+    // `Bond::full_cashflow_schedule` internally.
+    let schedule = bond.cashflow_schedule(&curves, issue).unwrap();
     let accrued = accrued_interest_amount(&schedule, as_of, &bond.accrual_config()).unwrap();
 
-    // Derive expected accrued from the schedule itself: coupon_total × (elapsed/period)
     let schedule = bond
-        .cashflow_schedule(&curves, as_of)
+        .cashflow_schedule(&curves, issue)
         .expect("Full schedule retrieval should succeed in test");
     use finstack_valuations::cashflow::primitives::CFKind;
     let mut coupon_dates: Vec<(Date, f64)> = Vec::new();

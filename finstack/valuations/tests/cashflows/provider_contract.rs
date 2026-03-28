@@ -7,10 +7,11 @@
 //! # Contract Properties Verified
 //!
 //! 1. `cashflow_schedule` succeeds with minimal valid market context
-//! 2. `dated_cashflows` succeeds with minimal valid market context
-//! 2. Returned flows are sorted by date (ascending)
-//! 3. All flows have the same currency as the instrument's notional (if provided)
-//! 4. Future flows (after as_of) are included; past flows may be filtered
+//! 2. `dated_cashflows` is a pure flattening of `cashflow_schedule`
+//! 3. Returned flows are sorted by date (non-decreasing)
+//! 4. All flows have the same currency as the instrument's notional (if provided)
+//! 5. All flows satisfy `date >= as_of` (future-only)
+//! 6. No `CFKind::PIK` flows appear in the public schedule
 //!
 //! # Adding New Instruments
 //!
@@ -41,19 +42,16 @@ use finstack_valuations::instruments::Instrument as PublicInstrument;
 // Contract Verification
 // =============================================================================
 
-/// Verifies basic `CashflowProvider` contract properties.
+/// Verifies `CashflowProvider` contract properties.
 ///
 /// # Contract Properties
 ///
 /// 1. `cashflow_schedule` returns `Ok` with valid market context
-/// 2. `dated_cashflows` returns `Ok` with valid market context
-/// 2. Returned flows are sorted by date (non-decreasing)
-/// 3. All flows have the same currency as notional (if notional is provided)
-///
-/// # Panics
-///
-/// Panics with descriptive message including the provider type name if any
-/// contract property is violated.
+/// 2. `dated_cashflows` is a pure flattening of `cashflow_schedule`
+/// 3. Flows are sorted by date (non-decreasing)
+/// 4. All flows satisfy `date >= as_of` (future-only)
+/// 5. No `CFKind::PIK` flows in the public schedule
+/// 6. Currency consistency with notional (if provided)
 fn verify_provider_contract<T: CashflowProvider>(
     provider: &T,
     market: &MarketContext,
@@ -86,7 +84,7 @@ fn verify_provider_contract<T: CashflowProvider>(
         type_name
     );
 
-    // Contract 2: Flows must be sorted by date (non-decreasing)
+    // Contract: Flows must be sorted by date (non-decreasing)
     for window in flows.windows(2) {
         let (d1, _) = window[0];
         let (d2, _) = window[1];
@@ -99,7 +97,29 @@ fn verify_provider_contract<T: CashflowProvider>(
         );
     }
 
-    // Contract 3: Currency consistency (if notional provided)
+    // Contract: All flows must be future-only (date >= as_of)
+    for cf in &schedule.flows {
+        assert!(
+            cf.date >= as_of,
+            "[{}] Flow on {} is before as_of {}; public schedule must be future-only",
+            type_name,
+            cf.date,
+            as_of
+        );
+    }
+
+    // Contract: No pure PIK flows in the public schedule
+    use finstack_core::cashflow::CFKind;
+    for cf in &schedule.flows {
+        assert!(
+            cf.kind != CFKind::PIK,
+            "[{}] PIK flow found on {}; pure PIK accretion must be omitted from public schedule",
+            type_name,
+            cf.date
+        );
+    }
+
+    // Contract: Currency consistency (if notional provided)
     if let Some(notional) = provider.notional() {
         let expected_ccy = notional.currency();
         for (date, money) in &flows {
@@ -231,6 +251,12 @@ mod bond_contract {
         .unwrap();
 
         verify_provider_contract(&bond, &minimal_market(), as_of);
+        verify_public_instrument_cashflow_surface(
+            &bond,
+            &minimal_market(),
+            as_of,
+            CashflowRepresentation::Projected,
+        );
     }
 }
 
@@ -278,6 +304,41 @@ mod irs_contract {
         .expect("valid swap");
 
         verify_provider_contract(&swap, &minimal_market(), as_of);
+        verify_public_instrument_cashflow_surface(
+            &swap,
+            &minimal_market(),
+            as_of,
+            CashflowRepresentation::Projected,
+        );
+    }
+}
+
+// =============================================================================
+// Repo Contract Tests
+// =============================================================================
+
+mod repo_contract {
+    use super::*;
+    use finstack_valuations::instruments::rates::repo::Repo;
+
+    #[test]
+    fn repo_preserves_signed_flows_and_contractual_tag() {
+        let as_of = d(2024, 1, 1);
+        let repo = Repo::example();
+
+        verify_provider_contract(&repo, &minimal_market(), as_of);
+
+        let schedule =
+            CashflowProvider::cashflow_schedule(&repo, &minimal_market(), as_of).expect("schedule");
+        assert_eq!(
+            schedule.meta.representation,
+            CashflowRepresentation::Contractual
+        );
+        let has_negative = schedule.flows.iter().any(|cf| cf.amount.amount() < 0.0);
+        assert!(
+            has_negative,
+            "Repo schedule should preserve the negative initial cash outflow"
+        );
     }
 }
 

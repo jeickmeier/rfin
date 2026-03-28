@@ -569,7 +569,7 @@ impl CashflowProvider for BasisSwap {
     fn cashflow_schedule(
         &self,
         market: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<CashFlowSchedule> {
         let mut primary = self.floating_leg_schedule(&self.primary_leg, market)?;
         let mut reference = self.floating_leg_schedule(&self.reference_leg, market)?;
@@ -577,11 +577,12 @@ impl CashflowProvider for BasisSwap {
             cf.amount *= -1.0;
         }
         primary.flows.extend(reference.flows);
-        primary.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         primary.notional = Notional::par(self.notional.amount(), self.notional.currency());
         primary.day_count = self.primary_leg.day_count;
-        primary.meta.representation = crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(primary)
+        Ok(primary.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

@@ -7,7 +7,7 @@
 //! - `D(as_of, t)` be the risk-free discount factor from valuation date to t.
 //! - `S(t)` be the survival probability from the hazard curve.
 //! - `R` be the recovery rate (fraction of outstanding notional).
-//! - `CF_i` be holder-view cashflows (coupons + principal) at dates `T_i`.
+//! - `CF_i` be signed canonical schedule cashflows (coupons + principal) at dates `T_i`.
 //! - `N(t)` be the outstanding notional process (including amortization).
 //!
 //! Under independence of rates and credit and FRP, the price at `as_of` is:
@@ -40,7 +40,6 @@ use finstack_core::Result;
 
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::primitives::CFKind;
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::traits::Instrument;
 
 use super::super::super::types::Bond;
@@ -101,13 +100,13 @@ impl HazardBondEngine {
         None
     }
 
-    /// Build holder-view cashflows and the full internal schedule.
+    /// Build pricing cashflows and the full internal schedule.
     fn build_schedules(
         bond: &Bond,
         market: &MarketContext,
         as_of: Date,
     ) -> Result<(Vec<(Date, Money)>, CashFlowSchedule)> {
-        let flows = bond.dated_cashflows(market, as_of)?;
+        let flows = bond.pricing_dated_cashflows(market, as_of)?;
         if flows.is_empty() {
             return Err(InputError::TooFewPoints.into());
         }
@@ -194,7 +193,7 @@ impl HazardBondEngine {
 
         // Include dates where the outstanding balance changes (PIK
         // capitalizations, amortization) even when they don't produce
-        // holder-view cashflows, so the recovery leg tracks the correct
+        // signed canonical schedule cashflows, so the recovery leg tracks the correct
         // notional at each interval boundary.
         for cf in &schedule.flows {
             if cf.date > as_of && matches!(cf.kind, CFKind::PIK | CFKind::Amortization) {
@@ -236,7 +235,7 @@ impl HazardBondEngine {
         // Conditional survival: Q(as_of, T_i) = S(T_i) / S(as_of)
         let surv: Vec<f64> = surv_raw.iter().map(|s| (s / s0).clamp(0.0, 1.0)).collect();
 
-        // Alive leg: survival-weighted PV of holder-view coupons and principal.
+        // Alive leg: survival-weighted PV of signed canonical schedule coupons and principal.
         // Use Kahan summation from finstack-core for numerical stability.
         let pv_values: Vec<f64> = flows
             .iter()

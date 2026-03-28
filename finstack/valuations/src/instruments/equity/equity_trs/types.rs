@@ -362,7 +362,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
     fn cashflow_schedule(
         &self,
         context: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         let mut builder = crate::cashflow::builder::CashFlowSchedule::builder();
         let _ = builder
@@ -392,12 +392,11 @@ impl CashflowProvider for EquityTotalReturnSwap {
                 freq: self.schedule.params.freq,
                 stub: self.schedule.params.stub,
             });
-        let mut schedule = builder.build_with_curves(Some(context))?;
-        schedule
-            .flows
-            .retain(|cf| cf.kind == finstack_core::cashflow::CFKind::FloatReset);
-        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
-        Ok(schedule)
+        let schedule = builder.build_with_curves(Some(context))?;
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

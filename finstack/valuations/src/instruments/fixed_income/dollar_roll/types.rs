@@ -320,9 +320,10 @@ impl CashflowProvider for DollarRoll {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), ccy);
-        schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(schedule)
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Contractual,
+        ))
     }
 }
 

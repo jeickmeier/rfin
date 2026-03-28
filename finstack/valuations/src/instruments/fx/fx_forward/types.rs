@@ -613,9 +613,12 @@ impl CashflowProvider for FxForward {
             .flows
             .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         base_schedule.notional = Notional::par(0.0, self.base_currency);
-        base_schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(base_schedule)
+        let representation = if self.contract_rate.is_some() {
+            crate::cashflow::builder::CashflowRepresentation::Contractual
+        } else {
+            crate::cashflow::builder::CashflowRepresentation::Projected
+        };
+        Ok(base_schedule.normalize_public(as_of, representation))
     }
 }
 
@@ -873,9 +876,19 @@ mod tests {
             "fx forward should emit both settlement legs"
         );
         assert!(flows.iter().all(|(date, _)| *date == maturity));
-        assert_eq!(flows[0].1.currency(), Currency::EUR);
-        assert_eq!(flows[1].1.currency(), Currency::USD);
-        assert!((flows[0].1.amount() - 1_000_000.0).abs() < 1e-10);
-        assert!((flows[1].1.amount() + 1_120_000.0).abs() < 1e-10);
+        let currencies: Vec<_> = flows.iter().map(|(_, m)| m.currency()).collect();
+        assert!(currencies.contains(&Currency::EUR), "should have EUR leg");
+        assert!(currencies.contains(&Currency::USD), "should have USD leg");
+
+        let eur_flow = flows
+            .iter()
+            .find(|(_, m)| m.currency() == Currency::EUR)
+            .unwrap();
+        let usd_flow = flows
+            .iter()
+            .find(|(_, m)| m.currency() == Currency::USD)
+            .unwrap();
+        assert!((eur_flow.1.amount() - 1_000_000.0).abs() < 1e-10);
+        assert!((usd_flow.1.amount() + 1_120_000.0).abs() < 1e-10);
     }
 }

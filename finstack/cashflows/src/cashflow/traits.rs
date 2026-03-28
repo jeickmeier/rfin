@@ -11,8 +11,10 @@ use finstack_core::money::Money;
 
 /// Build cashflow schedules and provide currency-safe aggregation hooks.
 ///
-/// Instruments implement this to generate their cashflow schedules
-/// given market curves and valuation date.
+/// Instruments implement this to generate their canonical signed cashflow schedule
+/// given market curves and valuation date. The returned schedule is future-filtered
+/// (`date >= as_of`), preserves fees and signed notionals, omits pure PIK accretion,
+/// and tags curve-dependent amounts as `Projected`.
 pub trait CashflowProvider: Send + Sync {
     /// Returns the instrument's notional amount, if applicable.
     ///
@@ -58,16 +60,17 @@ pub trait CashflowProvider: Send + Sync {
         None
     }
 
-    /// Return the canonical cashflow schedule with CFKind metadata and outstanding tracking.
+    /// Return the canonical signed cashflow schedule, future-filtered by `as_of`.
     ///
-    /// This enhanced method provides complete cashflow information including:
-    /// - Precise cashflow classification via `CFKind` (Interest, Principal, Fees, etc.)
-    /// - Outstanding balance tracking over time
-    /// - Notional amortization schedules
+    /// The returned schedule:
+    /// - Contains only flows with `date >= as_of`
+    /// - Preserves fees, signed notionals, and all valid cash events
+    /// - Omits pure PIK accretion (notional capitalisation without cash movement)
+    /// - Is tagged `Projected` when amounts depend on market curve projection,
+    ///   `Contractual` when all future amounts are fixed by contract terms
     ///
-    /// Implementers should return their canonical [`CashFlowSchedule`]. Callers that only need
-    /// `(Date, Money)` pairs can rely on [`CashflowProvider::dated_cashflows`] which converts
-    /// this schedule automatically.
+    /// Signs represent instrument economics. Position direction determines the
+    /// portfolio-level sign; there is no separate counterparty-specific schedule API.
     ///
     /// # Errors
     /// Returns an error if the schedule cannot be built due to invalid
@@ -78,11 +81,12 @@ pub trait CashflowProvider: Send + Sync {
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule>;
 
-    /// Convenience: return holder-view `(Date, Money)` flows derived from the schedule.
+    /// Convenience: return flattened `(Date, Money)` flows derived from the canonical schedule.
     ///
-    /// Most callers that previously consumed a flattened dated-flow view should call this
-    /// helper, which simply converts the [`CashFlowSchedule`] returned by
+    /// Simply converts the [`CashFlowSchedule`] returned by
     /// [`CashflowProvider::cashflow_schedule`] into a `Vec<(Date, Money)>`.
+    /// Schedule signs represent instrument economics; position direction
+    /// determines the portfolio-level sign.
     fn dated_cashflows(
         &self,
         curves: &MarketContext,
@@ -97,7 +101,7 @@ pub trait CashflowProvider: Send + Sync {
     }
 }
 
-/// Helper to convert holder-view `(Date, Money)` flows into a [`CashFlowSchedule`].
+/// Helper to convert instrument-economics-signed `(Date, Money)` flows into a [`CashFlowSchedule`].
 ///
 /// This mirrors the legacy default implementation and can be used by instruments that
 /// naturally produce dated flows but still need to return a `CashFlowSchedule`.
@@ -141,7 +145,7 @@ pub fn schedule_from_dated_flows(
     )
 }
 
-/// Helper to convert holder-view `(Date, Money)` flows into a schedule with explicit metadata.
+/// Helper to convert instrument-economics-signed `(Date, Money)` flows into a schedule with explicit metadata.
 pub fn schedule_from_dated_flows_with_representation(
     flows: DatedFlows,
     notional_hint: Option<Money>,
@@ -181,7 +185,7 @@ pub fn schedule_from_dated_flows_with_representation(
     )
 }
 
-/// Helper to convert holder-view `(Date, Money)` flows into a schedule with an explicit kind.
+/// Helper to convert instrument-economics-signed `(Date, Money)` flows into a schedule with an explicit kind.
 pub fn schedule_from_dated_flows_with_kind(
     flows: DatedFlows,
     kind: CFKind,
@@ -339,12 +343,12 @@ mod tests {
         let curves = MarketContext::new();
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
         let dummy = DummyInstrument;
-        let holder_flows = dummy
+        let dated_flows = dummy
             .dated_cashflows(&curves, as_of)
             .expect("should build flows");
-        assert_eq!(holder_flows.len(), 2);
-        assert_eq!(holder_flows[0].1.amount(), 100.0);
-        assert_eq!(holder_flows[1].1.amount(), 250.0);
+        assert_eq!(dated_flows.len(), 2);
+        assert_eq!(dated_flows[0].1.amount(), 100.0);
+        assert_eq!(dated_flows[1].1.amount(), 250.0);
     }
 
     #[test]

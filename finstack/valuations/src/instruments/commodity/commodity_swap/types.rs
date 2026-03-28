@@ -542,9 +542,10 @@ impl CashflowProvider for CommoditySwap {
             .flows
             .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         fixed_schedule.notional = Notional::par(0.0, self.underlying.currency);
-        fixed_schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(fixed_schedule)
+        Ok(fixed_schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

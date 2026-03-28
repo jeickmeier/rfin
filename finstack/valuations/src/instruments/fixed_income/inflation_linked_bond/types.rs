@@ -992,7 +992,7 @@ impl CashflowProvider for InflationLinkedBond {
     fn cashflow_schedule(
         &self,
         curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         let inflation_source = self.inflation_source(curves)?;
         let sched = crate::cashflow::builder::build_dates(
@@ -1065,18 +1065,19 @@ impl CashflowProvider for InflationLinkedBond {
             other => other,
         });
 
-        Ok(crate::cashflow::builder::CashFlowSchedule {
+        let schedule = crate::cashflow::builder::CashFlowSchedule {
             flows: detailed_flows,
             notional: crate::cashflow::builder::Notional::par(
                 self.notional.amount(),
                 self.notional.currency(),
             ),
             day_count: self.day_count,
-            meta: crate::cashflow::builder::CashFlowMeta {
-                representation: crate::cashflow::builder::CashflowRepresentation::Contractual,
-                ..Default::default()
-            },
-        })
+            meta: Default::default(),
+        };
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

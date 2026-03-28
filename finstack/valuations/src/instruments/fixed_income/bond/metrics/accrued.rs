@@ -1,4 +1,3 @@
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::Bond;
 use crate::metrics::{MetricCalculator, MetricContext};
 
@@ -50,7 +49,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 
             // Prepare potential flows for caching (build now, assign later)
             let maybe_flows = if context.cashflows.is_none() {
-                Some(bond.dated_cashflows(&context.curves, context.as_of)?)
+                Some(bond.pricing_dated_cashflows(&context.curves, context.as_of)?)
             } else {
                 None
             };

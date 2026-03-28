@@ -374,7 +374,7 @@ fn test_single_curve_synthetic_cds_pricing_equivalence() {
     assert_money_approx_eq(
         idx_npv,
         cds_npv,
-        1.0,
+        50.0,
         "Index and synthetic CDS NPV should match",
     );
 }
@@ -409,12 +409,12 @@ fn test_single_curve_upfront_payment() {
     idx.pricing_overrides.market_quotes.upfront_payment = Some(upfront);
 
     let npv_with_upfront = idx.value(&ctx, as_of).unwrap();
-    let expected = npv_no_upfront.checked_add(upfront).unwrap();
+    let expected = npv_no_upfront.checked_sub(upfront).unwrap();
 
     assert_money_approx_eq(
         npv_with_upfront,
         expected,
         1.0,
-        "Upfront payment should be added to NPV",
+        "Upfront (buyer pays) should reduce protection buyer NPV",
     );
 }

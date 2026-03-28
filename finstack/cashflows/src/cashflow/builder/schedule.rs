@@ -20,17 +20,28 @@ use std::sync::Arc;
 use super::specs::{FixedCouponSpec, FloatingCouponSpec};
 
 /// Stable ordering rank used for deterministic sorting of same-date cashflows.
+///
+/// All known `CFKind` variants are explicitly ranked so that same-date ordering
+/// is fully deterministic. The wildcard arm covers future `#[non_exhaustive]`
+/// additions and sorts them after all known variants.
 pub fn kind_rank(kind: CFKind) -> u8 {
     match kind {
-        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset => 0,
-        CFKind::Fee => 1,
+        CFKind::Fixed | CFKind::Stub | CFKind::FloatReset | CFKind::InflationCoupon => 0,
+        CFKind::Fee | CFKind::CommitmentFee | CFKind::UsageFee | CFKind::FacilityFee => 1,
         CFKind::Amortization => 2,
         CFKind::PrePayment => 3,
         CFKind::DefaultedNotional => 4,
-        CFKind::Recovery => 5,
+        CFKind::Recovery | CFKind::AccruedOnDefault => 5,
         CFKind::PIK => 6,
-        CFKind::Notional => 7,
-        _ => 8,
+        CFKind::Notional | CFKind::RevolvingDraw | CFKind::RevolvingRepayment => 7,
+        CFKind::InitialMarginPost
+        | CFKind::InitialMarginReturn
+        | CFKind::VariationMarginReceive
+        | CFKind::VariationMarginPay
+        | CFKind::MarginInterest
+        | CFKind::CollateralSubstitutionIn
+        | CFKind::CollateralSubstitutionOut => 8,
+        _ => 9,
     }
 }
 
@@ -224,6 +235,43 @@ impl CashFlowSchedule {
     /// Returns the list of dates for all flows in schedule order.
     pub fn dates(&self) -> Vec<Date> {
         self.flows.iter().map(|cf| cf.date).collect()
+    }
+
+    /// Remove flows strictly before `as_of`, keeping only future-dated events.
+    ///
+    /// This is the canonical future-filtering step for public schedule surfaces.
+    /// Flows on or after `as_of` are retained.
+    #[must_use]
+    pub fn filter_future(mut self, as_of: Date) -> Self {
+        self.flows.retain(|cf| cf.date >= as_of);
+        self
+    }
+
+    /// Remove pure PIK accretion flows from the schedule.
+    ///
+    /// PIK entries represent notional capitalisation without cash movement.
+    /// They are omitted from the public schedule by default; the notional
+    /// evolution they drive is already captured in the balance path.
+    #[must_use]
+    pub fn omit_pure_pik(mut self) -> Self {
+        self.flows.retain(|cf| cf.kind != CFKind::PIK);
+        self
+    }
+
+    /// One-shot public-schedule normalization pipeline.
+    ///
+    /// Applies, in order:
+    /// 1. Future-flow filtering (`date >= as_of`)
+    /// 2. Pure PIK omission
+    /// 3. Re-sort (defensive, in case instrument code appended unsorted flows)
+    /// 4. Attach the given representation tag
+    #[must_use]
+    pub fn normalize_public(mut self, as_of: Date, representation: CashflowRepresentation) -> Self {
+        self.flows
+            .retain(|cf| cf.date >= as_of && cf.kind != CFKind::PIK);
+        sort_flows(&mut self.flows);
+        self.meta.representation = representation;
+        self
     }
 
     /// Outstanding principal path tracking Amortization and PIK flows only.

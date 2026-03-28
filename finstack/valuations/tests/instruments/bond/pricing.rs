@@ -347,14 +347,13 @@ fn test_bond_matured_or_near_zero_value() {
     let disc_curve = create_flat_curve(0.05, as_of, "USD-OIS");
     let market = MarketContext::new().insert(disc_curve);
 
-    let pv = bond.value(&market, as_of).unwrap();
-
-    // The cashflow provider filters to flows where date > settlement_date
-    // For matured bonds, there should be no future flows, resulting in zero PV
-    // If the implementation includes the maturity flow, adjust test accordingly
-    // Verify PV is finite and non-negative
-    assert!(pv.amount().is_finite());
-    assert!(pv.amount() >= 0.0);
+    // Matured bonds have no future cashflows under the signed canonical schedule
+    // (as_of filtering removes all past flows). Pricing returns an error.
+    let result = bond.value(&market, as_of);
+    assert!(
+        result.is_err(),
+        "Matured bond should return error (no future cashflows)"
+    );
 }
 
 #[test]

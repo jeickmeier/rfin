@@ -678,32 +678,14 @@ impl CashflowProvider for Repo {
         Some(self.cash_amount)
     }
 
-    fn dated_cashflows(
-        &self,
-        context: &MarketContext,
-        as_of: Date,
-    ) -> Result<crate::cashflow::traits::DatedFlows> {
-        let schedule = self.cashflow_schedule(context, as_of)?;
-        Ok(schedule
-            .flows
-            .into_iter()
-            .filter(|flow| flow.date >= as_of)
-            .map(|flow| (flow.date, flow.amount))
-            .collect())
-    }
-
     fn cashflow_schedule(
         &self,
         _context: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
-        // Apply business day adjustments to start and maturity dates
-        // Market standard: repo start/end dates must be business-adjusted (often T+1/T+2)
         let (adj_start, adj_maturity) = self.adjusted_dates()?;
 
-        // Initial cash outflow (lending cash) - negative amount for outflow
         let cash_outflow = Money::new(-self.cash_amount.amount(), self.cash_amount.currency());
-        // Final cash inflow (principal + interest)
         let total_repayment = self.total_repayment()?;
         let flows = vec![
             crate::cashflow::primitives::CashFlow {
@@ -724,14 +706,13 @@ impl CashflowProvider for Repo {
             },
         ];
 
-        Ok(
-            crate::cashflow::traits::schedule_from_classified_flows_with_representation(
-                flows,
-                self.notional(),
-                self.day_count,
-                crate::cashflow::builder::CashflowRepresentation::Contractual,
-            ),
-        )
+        let schedule = crate::cashflow::traits::schedule_from_classified_flows_with_representation(
+            flows,
+            self.notional(),
+            self.day_count,
+            crate::cashflow::builder::CashflowRepresentation::Contractual,
+        );
+        Ok(schedule.filter_future(as_of))
     }
 }
 

@@ -262,7 +262,7 @@ fn test_different_curve_base_dates() {
     let market = MarketContext::new().insert(disc).insert(fwd);
 
     let fra = create_standard_fra();
-    let pv = fra.value(&market, BASE_DATE).unwrap();
+    let pv = fra.value(&market, curve_base).unwrap();
 
     assert_finite(pv.amount(), "Different curve base dates should work");
 }

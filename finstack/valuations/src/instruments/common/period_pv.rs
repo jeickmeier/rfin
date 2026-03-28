@@ -10,7 +10,7 @@
 //! - `periodized_pv`: Basic discounting with discount curve only
 //! - `periodized_pv_credit_adjusted`: Optional credit adjustment via hazard curve
 //!
-//! `periodized_pv` follows the instrument's holder-view `dated_cashflows`
+//! `periodized_pv` follows the instrument's signed canonical `dated_cashflows`
 //! semantics, while `periodized_pv_credit_adjusted` uses the canonical full
 //! schedule so credit adjustment can respect `CFKind`.
 //!
@@ -96,7 +96,7 @@ use indexmap::IndexMap;
 ///
 /// This trait serves as a bridge between instrument-level APIs and the lower-level
 /// cashflow aggregation utilities. It handles:
-/// - Building the holder-view cashflow schedule via `dated_cashflows`
+/// - Building the signed canonical cashflow schedule via `dated_cashflows`
 /// - Extracting the discount curve ID from the instrument
 /// - Delegating to the aggregation utilities for periodized PV calculation
 ///
@@ -175,7 +175,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             disc_arc.day_count(),
         );
 
-        // Keep discounting aligned with the holder-view dated-flow path while still
+        // Keep discounting aligned with the signed canonical dated-flow path while still
         // using the discount curve's own day-count basis for year fractions.
         let curve_dc = disc_arc.day_count();
         schedule.pv_by_period_with_ctx(
@@ -513,7 +513,7 @@ mod tests {
     #[test]
     fn test_periodized_pv_credit_adjusted_applies_hazard() {
         let bond = create_test_bond();
-        let base = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
+        let base = Date::from_calendar_date(2025, Month::January, 2).expect("Valid test date");
 
         // Create market with discount and hazard curves
         let disc_curve = DiscountCurve::builder("USD-OIS")
@@ -689,7 +689,7 @@ mod tests {
     }
 
     #[test]
-    fn test_periodized_pv_repo_matches_holder_view_dated_flows() {
+    fn test_periodized_pv_repo_matches_signed_canonical_dated_flows() {
         let as_of = Date::from_calendar_date(2025, Month::January, 6).expect("Valid test date");
         let market = create_test_market(as_of);
         let periods = vec![Period {
@@ -712,7 +712,7 @@ mod tests {
         let disc = market
             .get_discount("USD-OIS")
             .expect("Discount curve should exist");
-        let direct_holder_view = crate::cashflow::traits::schedule_from_dated_flows(
+        let direct_signed_canonical = crate::cashflow::traits::schedule_from_dated_flows(
             repo.dated_cashflows(&market, as_of)
                 .expect("Repo dated flows should build"),
             repo.notional(),
@@ -725,21 +725,21 @@ mod tests {
             disc.day_count(),
             DayCountCtx::default(),
         )
-        .expect("Direct holder-view aggregation should succeed");
+        .expect("Direct signed canonical aggregation should succeed");
 
         let actual = repo
             .periodized_pv(&periods, &market, as_of, DayCount::Act365F)
             .expect("Periodized PV should succeed");
 
-        let diff = (total_pv(&actual) - total_pv(&direct_holder_view)).abs();
+        let diff = (total_pv(&actual) - total_pv(&direct_signed_canonical)).abs();
         assert!(
             diff < 1e-8,
-            "Repo periodized PV should follow holder-view dated flows, diff={diff}"
+            "Repo periodized PV should follow signed canonical dated flows, diff={diff}"
         );
     }
 
     #[test]
-    fn test_periodized_pv_term_loan_matches_holder_view_dated_flows() {
+    fn test_periodized_pv_term_loan_matches_signed_canonical_dated_flows() {
         let loan = TermLoan::example().expect("Example term loan should build");
         let as_of = loan.issue_date;
         let market = create_test_market(as_of);
@@ -753,7 +753,7 @@ mod tests {
         let disc = market
             .get_discount("USD-OIS")
             .expect("Discount curve should exist");
-        let direct_holder_view = crate::cashflow::traits::schedule_from_dated_flows(
+        let direct_signed_canonical = crate::cashflow::traits::schedule_from_dated_flows(
             loan.dated_cashflows(&market, as_of)
                 .expect("Term loan dated flows should build"),
             loan.notional(),
@@ -766,16 +766,16 @@ mod tests {
             disc.day_count(),
             DayCountCtx::default(),
         )
-        .expect("Direct holder-view aggregation should succeed");
+        .expect("Direct signed canonical aggregation should succeed");
 
         let actual = loan
             .periodized_pv(&periods, &market, as_of, DayCount::Act365F)
             .expect("Periodized PV should succeed");
 
-        let diff = (total_pv(&actual) - total_pv(&direct_holder_view)).abs();
+        let diff = (total_pv(&actual) - total_pv(&direct_signed_canonical)).abs();
         assert!(
             diff < 1e-8,
-            "Term loan periodized PV should follow holder-view dated flows, diff={diff}"
+            "Term loan periodized PV should follow signed canonical dated flows, diff={diff}"
         );
     }
 }

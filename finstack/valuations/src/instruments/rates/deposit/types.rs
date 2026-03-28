@@ -443,7 +443,7 @@ impl CashflowProvider for Deposit {
     fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Validate deposit parameters before building schedule
         // (includes effective date ordering check)
@@ -493,14 +493,13 @@ impl CashflowProvider for Deposit {
             },
         ];
 
-        Ok(
-            crate::cashflow::traits::schedule_from_classified_flows_with_representation(
-                flows,
-                self.notional(),
-                self.day_count,
-                crate::cashflow::builder::CashflowRepresentation::Contractual,
-            ),
-        )
+        let schedule = crate::cashflow::traits::schedule_from_classified_flows_with_representation(
+            flows,
+            self.notional(),
+            self.day_count,
+            crate::cashflow::builder::CashflowRepresentation::Contractual,
+        );
+        Ok(schedule.filter_future(as_of))
     }
 }
 

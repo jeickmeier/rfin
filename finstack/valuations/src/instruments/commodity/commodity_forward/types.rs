@@ -513,9 +513,10 @@ impl CashflowProvider for CommodityForward {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(invoice.amount().abs(), invoice.currency());
-        schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(schedule)
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

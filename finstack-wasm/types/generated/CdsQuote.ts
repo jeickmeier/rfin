@@ -58,62 +58,56 @@
  * # }
  * ```
  */
-export type CdsQuote =
-  | {
-      type: 'cds_par_spread';
-      /**
-       * Unique identifier for the quote.
-       */
-      id: string;
-      /**
-       * Reference entity name.
-       */
-      entity: string;
-      /**
-       * Convention key (currency + doc clause).
-       */
-      convention: string;
-      /**
-       * Maturity pillar.
-       */
-      pillar: string;
-      /**
-       * Par spread in basis points (e.g. 100.0).
-       */
-      spread_bp: number;
-      /**
-       * Recovery rate assumption (e.g. 0.40).
-       */
-      recovery_rate: number;
-    }
-  | {
-      type: 'cds_upfront';
-      /**
-       * Unique identifier for the quote.
-       */
-      id: string;
-      /**
-       * Reference entity name.
-       */
-      entity: string;
-      /**
-       * Convention key.
-       */
-      convention: string;
-      /**
-       * Maturity pillar.
-       */
-      pillar: string;
-      /**
-       * Running spread in basis points (e.g. 100.0 or 500.0).
-       */
-      running_spread_bp: number;
-      /**
-       * Upfront payment percentage of notional (e.g. 0.01 for 1%).
-       */
-      upfront_pct: number;
-      /**
-       * Recovery rate assumption.
-       */
-      recovery_rate: number;
-    };
+export type CdsQuote = { "type": "cds_par_spread", 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
+ * Reference entity name.
+ */
+entity: string, 
+/**
+ * Convention key (currency + doc clause).
+ */
+convention: string, 
+/**
+ * Maturity pillar.
+ */
+pillar: string, 
+/**
+ * Par spread in basis points (e.g. 100.0).
+ */
+spread_bp: number, 
+/**
+ * Recovery rate assumption (e.g. 0.40).
+ */
+recovery_rate: number, } | { "type": "cds_upfront", 
+/**
+ * Unique identifier for the quote.
+ */
+id: string, 
+/**
+ * Reference entity name.
+ */
+entity: string, 
+/**
+ * Convention key.
+ */
+convention: string, 
+/**
+ * Maturity pillar.
+ */
+pillar: string, 
+/**
+ * Running spread in basis points (e.g. 100.0 or 500.0).
+ */
+running_spread_bp: number, 
+/**
+ * Upfront payment percentage of notional (e.g. 0.01 for 1%).
+ */
+upfront_pct: number, 
+/**
+ * Recovery rate assumption.
+ */
+recovery_rate: number, };

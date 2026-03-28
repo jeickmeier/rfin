@@ -2,7 +2,7 @@
 //!
 //! This module provides utilities to build a **cashflow ladder** across all
 //! positions in a portfolio. Cashflows are aggregated by payment date and
-//! currency using holder-view schedules from the underlying instruments.
+//! currency using signed canonical schedules from the underlying instruments.
 //!
 //! The aggregation is **currency-preserving**: no implicit FX conversion is
 //! applied. Consumers can apply explicit FX policies on top if a base-currency
@@ -181,8 +181,8 @@ pub struct PortfolioCashflows {
 
     /// Optional per-position cashflow schedules for drill-down.
     ///
-    /// This is keyed by position ID and contains holder-view cashflows in
-    /// the instrument's native currency, scaled by position quantity.
+    /// This is keyed by position ID and contains instrument-economics-signed
+    /// cashflows in the instrument's native currency, scaled by position quantity.
     pub by_position: IndexMap<PositionId, DatedFlows>,
 
     /// Per-position cashflow metadata, including empty-schedule visibility.
@@ -209,7 +209,7 @@ pub struct PortfolioCashflowKindBuckets {
     pub by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>>,
 }
 
-/// Build the canonical holder-view schedule for a single instrument.
+/// Build the canonical signed schedule for a single instrument.
 fn instrument_cashflow_schedule(
     instrument: &DynInstrument,
     market: &MarketContext,
@@ -309,7 +309,7 @@ pub fn aggregate_full_cashflows(
 /// Aggregate portfolio cashflows by payment date and currency.
 ///
 /// This function:
-/// 1. Collects holder-view cashflows for each position (when supported)
+/// 1. Collects signed canonical schedule cashflows for each position (when supported)
 /// 2. Scales flows by position quantity
 /// 3. Aggregates by date and currency across the entire portfolio
 ///

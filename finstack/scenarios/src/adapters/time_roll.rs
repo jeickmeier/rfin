@@ -184,7 +184,7 @@ pub fn apply_time_roll_forward(
 ///
 /// This accounts for:
 /// - Pull-to-par effects (PV change)
-/// - Coupon/interest receipts during the period
+/// - Coupon/interest net cashflows during the period
 /// - Principal payments during the period
 ///
 /// This is consistent with the theta metric definition in valuations.
@@ -227,7 +227,7 @@ fn calculate_instrument_pnl(
         let cashflows_during_period =
             collect_instrument_cashflows(instrument.as_ref(), market, old_date, new_date);
 
-        // Carry per currency = PV change + cashflows received.
+        // Carry per currency = PV change + net cashflows in the period.
         let mut carry_by_ccy = pv_change_by_ccy;
         for (ccy, flow) in cashflows_during_period {
             carry_by_ccy

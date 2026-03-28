@@ -410,12 +410,13 @@ fn term_loan_golden_pv_and_metrics() {
         dv01
     );
 
-    // Verify holder-view schedule excludes funding legs
-    let holder_flows = loan.dated_cashflows(&market, as_of).unwrap();
-    // Should have coupons + final redemption; no negative funding leg
+    // Signed canonical schedule includes all flows (coupons, redemption,
+    // and initial negative notional disbursement).
+    let all_flows = loan.dated_cashflows(&market, as_of).unwrap();
+    let positive_count = all_flows.iter().filter(|(_, a)| a.amount() > 0.0).count();
     assert!(
-        holder_flows.iter().all(|(_, amt)| amt.amount() >= 0.0),
-        "Holder-view flows should all be positive (inflows)"
+        positive_count > 0,
+        "Schedule should have positive coupon/redemption flows"
     );
 }
 
@@ -467,8 +468,12 @@ fn term_loan_amortizing_outstanding_path() {
         !amortization_flows.is_empty(),
         "Holder-view schedule should expose amortizing repayments"
     );
+    // Signed canonical schedule preserves initial negative notional.
+    // Verify that positive coupon/amortization flows exist alongside any
+    // negative notional flows.
+    let has_positive = sched.flows.iter().any(|cf| cf.amount.amount() > 0.0);
     assert!(
-        sched.flows.iter().all(|cf| cf.amount.amount() >= 0.0),
-        "Holder-view schedule should exclude lender funding outflows"
+        has_positive,
+        "Schedule should have positive coupon/amortization flows"
     );
 }

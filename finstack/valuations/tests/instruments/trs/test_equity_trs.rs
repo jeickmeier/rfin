@@ -285,11 +285,15 @@ fn test_equity_trs_financing_leg_matches_provider_schedule() {
     let payment_dates = trs.schedule.period_schedule().expect("period schedule");
     let mut expected_pv = 0.0;
 
-    for (flow, payment_end) in schedule
+    // Filter to coupon-only flows (the signed canonical schedule now also
+    // contains notional flows which are not part of the financing leg PV).
+    let coupon_flows: Vec<_> = schedule
         .flows
         .iter()
-        .zip(payment_dates.dates.iter().skip(1))
-    {
+        .filter(|cf| cf.kind.is_interest_like())
+        .collect();
+
+    for (flow, payment_end) in coupon_flows.iter().zip(payment_dates.dates.iter().skip(1)) {
         if *payment_end <= as_of {
             continue;
         }
@@ -537,12 +541,16 @@ fn test_equity_trs_cashflow_schedule_generation() {
     let flows = trs.dated_cashflows(&market, as_of).unwrap();
 
     // Assert
-    // 1 year quarterly = 4 payments
-    assert_eq!(flows.len(), 4, "Should have 4 quarterly cashflows");
+    // Signed canonical schedule: 4 quarterly coupons + initial/final notional = 6 flows
+    assert_eq!(
+        flows.len(),
+        6,
+        "Should have 6 flows (4 coupons + 2 notionals)"
+    );
 
-    // All flows in correct currency
+    // All flows on or after as_of, in correct currency
     for (date, amount) in &flows {
-        assert!(date > &as_of);
+        assert!(date >= &as_of);
         assert_eq!(amount.currency(), USD);
     }
 }
@@ -557,11 +565,12 @@ fn test_equity_trs_cashflow_schedule_dates_ordered() {
     // Act
     let flows = trs.dated_cashflows(&market, as_of).unwrap();
 
-    // Assert - Dates should be strictly increasing
+    // Dates should be non-decreasing (multiple flows on the same date are
+    // valid under the signed canonical schedule, e.g. coupon + notional).
     for i in 1..flows.len() {
         assert!(
-            flows[i].0 > flows[i - 1].0,
-            "Cashflow dates should be strictly increasing"
+            flows[i].0 >= flows[i - 1].0,
+            "Cashflow dates should be non-decreasing"
         );
     }
 }

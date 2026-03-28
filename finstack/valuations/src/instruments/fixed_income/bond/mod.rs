@@ -7,9 +7,9 @@
 //! - Zero-coupon bonds
 //! - Custom cashflow schedules (including PIK and bespoke amortization)
 //!
-//! # Holder-View Cashflow Convention
+//! # Signed Canonical Schedule
 //!
-//! All bond cashflows in this module follow a **holder-view** convention:
+//! All bond cashflows in this module follow a **signed canonical schedule** convention:
 //! - **Positive amounts** represent contractual inflows to a long holder
 //!   (coupons, amortization, redemption).
 //! - **Initial draw / funding legs** are handled outside the schedule
@@ -22,7 +22,7 @@
 //!
 //! # Bond Pricing
 //!
-//! Bonds are priced by discounting all future holder-view cashflows:
+//! Bonds are priced by discounting all future cashflows from the signed canonical schedule:
 //!
 //! ```text
 //! PV = Σ CF_i · DF(as_of → t_i)

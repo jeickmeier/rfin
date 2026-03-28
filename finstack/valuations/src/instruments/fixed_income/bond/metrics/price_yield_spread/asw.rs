@@ -1,4 +1,3 @@
-use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::{builder::CashFlowSchedule, primitives::CFKind};
 use crate::instruments::fixed_income::bond::pricing::quote_engine::{
     fixed_leg_annuity, par_rate_and_annuity_from_discount,
@@ -215,7 +214,7 @@ pub fn asw_par_with_forward_config(
     }
 
     // Mirror the bond schedule via holder flows
-    let flows = bond.dated_cashflows(curves, as_of)?;
+    let flows = bond.pricing_dated_cashflows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
         return Err(finstack_core::Error::Validation(
@@ -313,7 +312,7 @@ pub fn asw_market_with_forward_config(
     fixed_leg_day_count: Option<DayCount>,
 ) -> finstack_core::Result<f64> {
     let disc = curves.get_discount(&bond.discount_curve_id)?;
-    let flows = bond.dated_cashflows(curves, as_of)?;
+    let flows = bond.pricing_dated_cashflows(curves, as_of)?;
     let sched = build_future_dates_from_flows(&flows, as_of);
     if sched.len() < 2 {
         return Err(finstack_core::Error::Validation(
@@ -546,7 +545,7 @@ impl MetricCalculator for AssetSwapMarketCalculator {
                 (
                     b.discount_curve_id.to_owned(),
                     b.cashflow_spec.day_count(),
-                    b.dated_cashflows(&context.curves, context.as_of)?,
+                    b.pricing_dated_cashflows(&context.curves, context.as_of)?,
                 )
             };
             context.cashflows = Some(built);

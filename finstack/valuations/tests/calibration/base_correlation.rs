@@ -33,8 +33,8 @@ use super::tolerances;
 // Fixture upfronts (percent of tranche notional) generated from a frozen market snapshot.
 // To regenerate after a pricing model change:
 // FINSTACK_REGEN_BASE_CORR_FIXTURES=1 cargo test -p finstack-valuations base_correlation_step_builds_curve_and_updates_credit_index_data -- --nocapture
-const UPFRONT_0_3_PCT: f64 = -5.0;
-const UPFRONT_3_7_PCT: f64 = 4.0;
+const UPFRONT_0_3_PCT: f64 = 5.53840660;
+const UPFRONT_3_7_PCT: f64 = -4.18622145;
 
 fn create_discount_curve(base_date: Date) -> DiscountCurve {
     DiscountCurve::builder("USD-OIS")
@@ -100,7 +100,7 @@ fn tranche_upfront_pct(
         .calendar_id_opt(None)
         .discount_curve_id(CurveId::from("USD-OIS"))
         .credit_index_id(CurveId::from("CDX"))
-        .side(TrancheSide::SellProtection)
+        .side(TrancheSide::BuyProtection)
         .effective_date_opt(None)
         .accumulated_loss(0.0)
         .standard_imm_dates(true)

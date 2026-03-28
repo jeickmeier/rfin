@@ -643,12 +643,12 @@ impl CashflowProvider for ConvertibleBond {
     fn cashflow_schedule(
         &self,
         _curves: &finstack_core::market_data::context::MarketContext,
-        _as_of: Date,
+        as_of: Date,
     ) -> finstack_core::Result<CashFlowSchedule> {
         let mut schedule = pricer::build_convertible_schedule(self)?;
         schedule.meta.representation =
             crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(schedule)
+        Ok(schedule.filter_future(as_of))
     }
 }
 

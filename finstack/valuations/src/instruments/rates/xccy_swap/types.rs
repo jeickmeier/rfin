@@ -581,9 +581,10 @@ impl CashflowProvider for XccySwap {
             .flows
             .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         leg1_schedule.notional = Notional::par(0.0, self.reporting_currency);
-        leg1_schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(leg1_schedule)
+        Ok(leg1_schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

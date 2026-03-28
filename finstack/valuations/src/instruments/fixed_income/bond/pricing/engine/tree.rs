@@ -42,7 +42,6 @@ use super::super::super::types::Bond;
 
 #[cfg(test)]
 use super::super::super::types::CallPut;
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::models::trees::hull_white_tree::{
     HullWhiteTree, HullWhiteTreeConfig,
 };
@@ -740,7 +739,7 @@ impl BondValuator {
         let curves = market_context;
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let dc_curve = discount_curve.day_count();
-        let flows = bond.dated_cashflows(curves, as_of)?;
+        let flows = bond.pricing_dated_cashflows(curves, as_of)?;
 
         // Build outstanding principal schedule from the full cashflow schedule.
         // This tracks notional minus cumulative amortization at each step for

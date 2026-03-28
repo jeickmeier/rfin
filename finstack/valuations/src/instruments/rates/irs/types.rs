@@ -644,28 +644,24 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateSwap {
 
 impl CashflowProvider for InterestRateSwap {
     fn notional(&self) -> Option<Money> {
-        // Return the receive leg notional as the primary notional
         Some(self.notional)
     }
 
-    /// Build full cashflow schedule with CFKind metadata for precise classification.
-    ///
-    /// This creates a proper CashFlowSchedule with CFKind information for each leg,
-    /// enabling precise classification of fixed vs floating rate payments.
     fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        let mut schedule =
+        let schedule =
             crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves_as_of(
                 self,
                 Some(curves),
                 Some(as_of),
             )?;
-        schedule.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(schedule)
+        Ok(schedule.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

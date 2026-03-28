@@ -986,7 +986,6 @@ pub mod calibration {
         CalibrationParameter, MertonMcCalibrationSpec, MertonMcConfig, PikMode, PikSchedule,
     };
     use crate::cashflow::builder::specs::CouponType;
-    use crate::cashflow::traits::CashflowProvider;
     use crate::instruments::common::models::credit::{AssetDynamics, BarrierType, MertonModel};
     use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
         price_from_ytm, price_from_z_spread, BondQuoteInput,
@@ -1083,7 +1082,7 @@ pub mod calibration {
             }
             BondQuoteInput::DirtyPriceCcy(dirty_ccy) => dirty_ccy,
             BondQuoteInput::Ytm(ytm) => {
-                let flows = bond.dated_cashflows(market, as_of)?;
+                let flows = bond.pricing_dated_cashflows(market, as_of)?;
                 price_from_ytm(bond, &flows, quote_date, ytm)?
             }
             BondQuoteInput::ZSpread(z) => price_from_z_spread(bond, market, quote_date, z)?,

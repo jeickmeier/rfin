@@ -311,11 +311,11 @@ impl CashflowProvider for FxSwap {
         near_base.flows.extend(near_quote_schedule.flows);
         near_base.flows.extend(far_base_schedule.flows);
         near_base.flows.extend(far_quote_schedule.flows);
-        near_base.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         near_base.notional = Notional::par(0.0, self.base_currency);
-        near_base.meta.representation =
-            crate::cashflow::builder::CashflowRepresentation::Contractual;
-        Ok(near_base)
+        Ok(near_base.normalize_public(
+            as_of,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
+        ))
     }
 }
 

@@ -1,6 +1,6 @@
 //! YTM metric for term loans via IRR solving.
 //!
-//! Yield-to-maturity is computed using the holder-view cashflow schedule (excluding
+//! Yield-to-maturity is computed using the signed canonical schedule (excluding
 //! funding legs) with an initial price leg at `as_of` equal to the negative base PV.
 //! Uses the same IRR engine and day-count as the loan for consistency.
 
@@ -13,7 +13,7 @@ use super::irr_helpers::target_price_from_quote_or_model;
 
 /// Yield-to-maturity calculator for term loans.
 ///
-/// Solves for the IRR using holder-view flows (coupons, amortization, redemptions only)
+/// Solves for the IRR using signed canonical schedule flows (coupons, amortization, redemptions only)
 /// plus an initial price leg at as_of.
 pub struct YtmCalculator;
 
@@ -25,7 +25,7 @@ impl MetricCalculator for YtmCalculator {
         // Compute settlement date using loan calendar/business-day conventions.
         let settlement_date = loan.settlement_date(as_of)?;
 
-        // Use holder-view schedule (via CashflowProvider::dated_cashflows)
+        // Use signed canonical schedule (via CashflowProvider::dated_cashflows)
         // This filters to contractual inflows: coupons, amortization, positive redemptions
         let holder_flows = loan.dated_cashflows(&context.curves, as_of)?;
 
@@ -39,7 +39,7 @@ impl MetricCalculator for YtmCalculator {
             Money::new(-target_price.amount(), target_price.currency()),
         ));
 
-        // Add holder-view flows after settlement_date
+        // Add signed canonical schedule flows after settlement_date
         for (date, amount) in holder_flows {
             if date > settlement_date {
                 flows.push((date, amount));
