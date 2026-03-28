@@ -288,6 +288,7 @@ fn test_deep_otm_approaches_zero() {
 
     let pv = call.value(&market, as_of).unwrap().amount();
 
-    // Deep OTM should be very small
-    assert!(pv < 50.0, "Deep OTM call should be near zero, got {}", pv);
+    // Strike=200, spot=100: 100% OTM. BS price ≈ $0.054 for $100 notional at 25% vol
+    // Tolerance of $1 is ~18x expected value — generous but meaningful
+    assert!(pv < 1.0, "Deep OTM call should be near zero, got {}", pv);
 }

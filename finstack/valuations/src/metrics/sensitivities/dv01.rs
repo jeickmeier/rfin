@@ -40,7 +40,7 @@ use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
 
-use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
+use finstack_core::market_data::bumps::BumpSpec;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::math::neumaier_sum;
 use finstack_core::types::CurveId;
@@ -258,6 +258,9 @@ where
     }
 
     /// Compute parallel DV01 with all curves bumped together (central differencing).
+    ///
+    /// Uses in-place scratch bumps to avoid cloning the market context for each
+    /// bump direction.
     fn compute_parallel_combined(
         &self,
         context: &mut MetricContext,
@@ -268,35 +271,40 @@ where
             return Ok(0.0);
         }
 
-        let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
+        let spec_up = BumpSpec::parallel_bp(bump_bp);
+        let spec_down = BumpSpec::parallel_bp(-bump_bp);
 
-        let bumps_up: Vec<MarketBump> = curves
-            .iter()
-            .map(|(curve_id, _kind)| MarketBump::Curve {
-                id: curve_id.clone(),
-                spec: BumpSpec::parallel_bp(bump_bp),
-            })
-            .collect();
+        // Single scratch clone for both up and down bumps.
+        let mut scratch = context.curves.as_ref().clone();
 
-        let bumps_down: Vec<MarketBump> = curves
-            .iter()
-            .map(|(curve_id, _kind)| MarketBump::Curve {
-                id: curve_id.clone(),
-                spec: BumpSpec::parallel_bp(-bump_bp),
-            })
-            .collect();
+        // Apply all up bumps, reprice, then revert all.
+        let mut tokens_up = Vec::with_capacity(curves.len());
+        for (curve_id, _kind) in curves {
+            tokens_up.push(scratch.apply_curve_bump_in_place(curve_id, spec_up)?);
+        }
+        let pv_up = context.reprice_raw(&scratch, as_of)?;
+        for token in tokens_up.into_iter().rev() {
+            scratch.revert_scratch_bump(token)?;
+        }
 
-        let ctx_up = base_ctx.bump(bumps_up)?;
-        let ctx_down = base_ctx.bump(bumps_down)?;
-        let pv_up = context.reprice_raw(&ctx_up, as_of)?;
-        let pv_down = context.reprice_raw(&ctx_down, as_of)?;
+        // Apply all down bumps, reprice, then revert all.
+        let mut tokens_down = Vec::with_capacity(curves.len());
+        for (curve_id, _kind) in curves {
+            tokens_down.push(scratch.apply_curve_bump_in_place(curve_id, spec_down)?);
+        }
+        let pv_down = context.reprice_raw(&scratch, as_of)?;
+        for token in tokens_down.into_iter().rev() {
+            scratch.revert_scratch_bump(token)?;
+        }
 
         let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
         Ok(dv01)
     }
 
     /// Compute parallel DV01 per curve and store as series (central differencing).
+    ///
+    /// Uses in-place scratch bumps to avoid cloning the market context per curve.
     fn compute_parallel_per_curve(
         &self,
         context: &mut MetricContext,
@@ -307,25 +315,26 @@ where
             return Ok(0.0);
         }
 
-        let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
 
-        let mut series = Vec::new();
+        let mut series = Vec::with_capacity(curves.len());
         let mut total_dv01 = 0.0;
 
-        for (curve_id, _kind) in curves {
-            let ctx_up = base_ctx.bump([MarketBump::Curve {
-                id: curve_id.clone(),
-                spec: BumpSpec::parallel_bp(bump_bp),
-            }])?;
-            let ctx_down = base_ctx.bump([MarketBump::Curve {
-                id: curve_id.clone(),
-                spec: BumpSpec::parallel_bp(-bump_bp),
-            }])?;
-            let pv_up = context.reprice_raw(&ctx_up, as_of)?;
-            let pv_down = context.reprice_raw(&ctx_down, as_of)?;
-            let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
+        // Single scratch clone, reused across all curves via in-place bump + revert.
+        let mut scratch = context.curves.as_ref().clone();
 
+        for (curve_id, _kind) in curves {
+            let token_up =
+                scratch.apply_curve_bump_in_place(curve_id, BumpSpec::parallel_bp(bump_bp))?;
+            let pv_up = context.reprice_raw(&scratch, as_of)?;
+            scratch.revert_scratch_bump(token_up)?;
+
+            let token_down =
+                scratch.apply_curve_bump_in_place(curve_id, BumpSpec::parallel_bp(-bump_bp))?;
+            let pv_down = context.reprice_raw(&scratch, as_of)?;
+            scratch.revert_scratch_bump(token_down)?;
+
+            let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
             series.push((curve_id.as_str().to_string(), dv01));
             total_dv01 += dv01;
         }
@@ -366,6 +375,7 @@ where
     /// Compute triangular key-rate DV01 for a single curve (central differencing).
     ///
     /// Uses triangular weights based on the bucket grid, ensuring proper partitioning.
+    /// Employs in-place scratch bumps to avoid cloning the market context per bucket.
     fn compute_triangular_for_curve(
         &self,
         context: &mut MetricContext,
@@ -373,11 +383,14 @@ where
         metric_id: MetricId,
         bump_bp: f64,
     ) -> finstack_core::Result<f64> {
-        let base_ctx = context.curves.as_ref();
         let as_of = context.as_of;
 
         let buckets = &self.config.buckets;
-        let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
+        let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> =
+            Vec::with_capacity(buckets.len());
+
+        // Single scratch clone, reused across all buckets via in-place bump + revert.
+        let mut scratch = context.curves.as_ref().clone();
 
         for (i, &target_time) in buckets.iter().enumerate() {
             let label = super::config::format_bucket_label_cow(target_time);
@@ -389,33 +402,32 @@ where
                 buckets[i + 1]
             };
 
-            let ctx_up = base_ctx.bump([MarketBump::Curve {
-                id: curve_id.clone(),
-                spec: BumpSpec::triangular_key_rate_bp(
-                    prev_bucket,
-                    target_time,
-                    next_bucket,
-                    bump_bp,
-                ),
-            }])?;
-            let ctx_down = base_ctx.bump([MarketBump::Curve {
-                id: curve_id.clone(),
-                spec: BumpSpec::triangular_key_rate_bp(
-                    prev_bucket,
-                    target_time,
-                    next_bucket,
-                    -bump_bp,
-                ),
-            }])?;
-            let pv_up = context.reprice_raw(&ctx_up, as_of)?;
-            let pv_down = context.reprice_raw(&ctx_down, as_of)?;
-            let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
+            let spec_up = BumpSpec::triangular_key_rate_bp(
+                prev_bucket,
+                target_time,
+                next_bucket,
+                bump_bp,
+            );
+            let token_up = scratch.apply_curve_bump_in_place(curve_id, spec_up)?;
+            let pv_up = context.reprice_raw(&scratch, as_of)?;
+            scratch.revert_scratch_bump(token_up)?;
 
+            let spec_down = BumpSpec::triangular_key_rate_bp(
+                prev_bucket,
+                target_time,
+                next_bucket,
+                -bump_bp,
+            );
+            let token_down = scratch.apply_curve_bump_in_place(curve_id, spec_down)?;
+            let pv_down = context.reprice_raw(&scratch, as_of)?;
+            scratch.revert_scratch_bump(token_down)?;
+
+            let dv01 = calculate_dv01_central(pv_up, pv_down, bump_bp);
             series.push((label, dv01));
         }
 
-        context.store_bucketed_series(metric_id, series.clone());
         let total: f64 = neumaier_sum(series.iter().map(|(_, v)| *v));
+        context.store_bucketed_series(metric_id, series);
         Ok(total)
     }
 }

@@ -156,8 +156,9 @@ fn test_very_deep_otm_call() {
 
     let pv = call.value(&market, as_of).unwrap();
 
-    // Very deep OTM should have minimal value
-    assert!(pv.amount() < 10.0, "Deep OTM call should be near worthless");
+    // Strike=500 is 5x spot=100: this is astronomically OTM, PV should be essentially 0
+    // For $100 notional, BS price << $0.001 for 400% OTM call
+    assert!(pv.amount() < 0.01, "Deep OTM call should be near worthless, got {}", pv.amount());
 }
 
 // ==================== EXTREME VOLATILITY ====================

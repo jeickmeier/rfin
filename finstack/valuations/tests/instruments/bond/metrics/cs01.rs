@@ -52,5 +52,7 @@ fn test_cs01_positive() {
         )
         .unwrap();
     let cs01 = *result.measures.get("cs01").unwrap();
-    assert!(cs01.abs() < 10.0); // Should be reasonable
+    // For $100 bond, 5Y maturity, 2% hazard rate: CS01 ≈ dur × LGD × notional × 1bp ≈ $0.024
+    // Upper bound of $1 is generous while still catching gross errors
+    assert!(cs01.abs() < 1.0, "Bond CS01 should be small for $100 notional, got {}", cs01.abs());
 }
