@@ -92,6 +92,22 @@ harness = false
 name = "statistical_functions"
 harness = false
 
+[[bench]]
+name = "rate_conversions"
+harness = false
+
+[[bench]]
+name = "cashflow_operations"
+harness = false
+
+[[bench]]
+name = "schedule_generation"
+harness = false
+
+[[bench]]
+name = "factor_model"
+harness = false
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
