@@ -581,7 +581,11 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
     let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
     quote_sets.insert(
         "disc".to_string(),
-        disc_quotes.iter().cloned().map(MarketQuote::Rates).collect(),
+        disc_quotes
+            .iter()
+            .cloned()
+            .map(MarketQuote::Rates)
+            .collect(),
     );
     quote_sets.insert("cds".to_string(), vec![MarketQuote::Cds(quote.clone())]);
 
@@ -635,13 +639,18 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
 
     let out = engine::execute(&envelope).expect("calibration should succeed");
     let ctx = MarketContext::try_from(out.result.final_market).expect("restore context");
-    let haz_report = out.result.step_reports.get("haz").expect("hazard step report");
+    let haz_report = out
+        .result
+        .step_reports
+        .get("haz")
+        .expect("hazard step report");
 
     let mut unit_curve_ids = HashMap::default();
     unit_curve_ids.insert("discount".to_string(), "USD-OIS".to_string());
     unit_curve_ids.insert("credit".to_string(), "REPRICE-DIAG-SENIOR".to_string());
     let unit_build_ctx = BuildCtx::new(base_date, 1.0, unit_curve_ids);
-    let unit_inst = build_cds_instrument(&quote, &unit_build_ctx).expect("build unit cds instrument");
+    let unit_inst =
+        build_cds_instrument(&quote, &unit_build_ctx).expect("build unit cds instrument");
     let prepared_pv = unit_inst
         .value_raw(&ctx, base_date)
         .expect("unit cds valuation");

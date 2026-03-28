@@ -3,10 +3,10 @@
 //! This module defines the data structures for bond futures, including
 //! the deliverable basket, contract specifications, and the main BondFuture type.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::dates::Date;
@@ -1169,11 +1169,11 @@ impl BondFutureBuilder {
 #[allow(clippy::expect_used, clippy::panic, deprecated)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
+    use crate::instruments::fixed_income::bond::Bond;
     use finstack_core::currency::Currency;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::types::CurveId;
-    use crate::cashflow::CashflowProvider;
-    use crate::instruments::fixed_income::bond::Bond;
     use time::Month;
 
     #[test]
@@ -1771,7 +1771,11 @@ mod tests {
             .build_dated_flows(&MarketContext::new(), future.expiry)
             .expect("delivery schedule should build");
 
-        assert_eq!(flows.len(), 1, "bond future should emit one delivery invoice flow");
+        assert_eq!(
+            flows.len(),
+            1,
+            "bond future should emit one delivery invoice flow"
+        );
         assert_eq!(flows[0].0, future.delivery_start);
         assert!(
             flows[0].1.amount() < 0.0,
@@ -1882,7 +1886,11 @@ impl CashflowProvider for BondFuture {
             self.expiry - time::Duration::days(1)
         };
         let mut builder = CashFlowSchedule::builder();
-        let _ = builder.principal(Money::new(0.0, invoice.currency()), anchor, self.delivery_start);
+        let _ = builder.principal(
+            Money::new(0.0, invoice.currency()),
+            anchor,
+            self.delivery_start,
+        );
         let _ = builder.add_principal_event(
             self.delivery_start,
             Money::new(0.0, invoice.currency()),

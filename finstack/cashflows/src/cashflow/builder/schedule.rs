@@ -47,11 +47,7 @@ pub fn sort_flows(flows: &mut [CashFlow]) {
                 Ordering::Equal => match a.amount.currency().cmp(&b.amount.currency()) {
                     Ordering::Less => Ordering::Less,
                     Ordering::Greater => Ordering::Greater,
-                    Ordering::Equal => match a
-                        .amount
-                        .amount()
-                        .total_cmp(&b.amount.amount())
-                    {
+                    Ordering::Equal => match a.amount.amount().total_cmp(&b.amount.amount()) {
                         Ordering::Less => Ordering::Less,
                         Ordering::Greater => Ordering::Greater,
                         Ordering::Equal => a.reset_date.cmp(&b.reset_date),
@@ -507,7 +503,10 @@ mod tests {
 
         assert_eq!(merged.flows.len(), 2);
         assert_eq!(merged.flows[0].date, d1);
-        assert_eq!(merged.meta.calendar_ids, vec!["lon".to_string(), "nyc".to_string()]);
+        assert_eq!(
+            merged.meta.calendar_ids,
+            vec!["lon".to_string(), "nyc".to_string()]
+        );
         assert_eq!(merged.meta.issue_date, Some(d1));
     }
 }

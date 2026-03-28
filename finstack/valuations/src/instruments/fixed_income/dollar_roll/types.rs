@@ -3,10 +3,10 @@
 //! A dollar roll is a simultaneous sale and purchase of agency MBS TBAs
 //! for different settlement months, used for financing and carry trades.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::mbs_passthrough::AgencyProgram;
 use crate::instruments::fixed_income::tba::{AgencyTba, TbaTerm};
@@ -386,10 +386,17 @@ mod tests {
             .build_dated_flows(&market, as_of)
             .expect("contractual settlement schedule should build");
 
-        assert_eq!(flows.len(), 2, "dollar roll should emit front and back settlements");
+        assert_eq!(
+            flows.len(),
+            2,
+            "dollar roll should emit front and back settlements"
+        );
         assert_eq!(flows[0].0, roll.front_settle_date().expect("front settle"));
         assert_eq!(flows[1].0, roll.back_settle_date().expect("back settle"));
         assert!(flows[0].1.amount() > 0.0, "front sale should be a receipt");
-        assert!(flows[1].1.amount() < 0.0, "back purchase should be a payment");
+        assert!(
+            flows[1].1.amount() < 0.0,
+            "back purchase should be a payment"
+        );
     }
 }

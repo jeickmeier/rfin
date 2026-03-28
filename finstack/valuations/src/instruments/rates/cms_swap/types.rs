@@ -371,20 +371,21 @@ impl CmsSwap {
             let swap_start = fixing_date;
             let swap_tenor_months = (self.cms_tenor * 12.0).round() as i32;
             let swap_end = swap_start.add_months(swap_tenor_months);
-            let (forward_swap_rate, _) = crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
-                crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
-                    market,
-                    discount_curve_id: &self.discount_curve_id,
-                    forward_curve_id: &self.forward_curve_id,
-                    as_of,
-                    start: swap_start,
-                    end: swap_end,
-                    fixed_freq: self.resolved_swap_fixed_freq(),
-                    fixed_day_count: self.resolved_swap_day_count(),
-                    float_freq: self.resolved_swap_float_freq(),
-                    float_day_count: self.resolved_swap_float_day_count(),
-                },
-            )?;
+            let (forward_swap_rate, _) =
+                crate::instruments::rates::shared::forward_swap_rate::calculate_forward_swap_rate(
+                    crate::instruments::rates::shared::forward_swap_rate::ForwardSwapRateInputs {
+                        market,
+                        discount_curve_id: &self.discount_curve_id,
+                        forward_curve_id: &self.forward_curve_id,
+                        as_of,
+                        start: swap_start,
+                        end: swap_end,
+                        fixed_freq: self.resolved_swap_fixed_freq(),
+                        fixed_day_count: self.resolved_swap_day_count(),
+                        float_freq: self.resolved_swap_float_freq(),
+                        float_day_count: self.resolved_swap_float_day_count(),
+                    },
+                )?;
             if forward_swap_rate <= 0.0 {
                 return Err(finstack_core::Error::Validation(format!(
                     "Forward swap rate {} is non-positive for fixing date {}",
@@ -422,7 +423,10 @@ impl CmsSwap {
                     adjusted_rate * accrual_fraction * self.notional.amount()
                 }
             };
-            flows.push((payment_date, Money::new(signed_amount, self.notional.currency())));
+            flows.push((
+                payment_date,
+                Money::new(signed_amount, self.notional.currency()),
+            ));
 
             let _ = rate_period_on_dates; // keep import path checked in sync with pricer logic
         }
@@ -449,8 +453,12 @@ impl CmsSwap {
                     let accrual = accrual_fractions.get(i).copied().unwrap_or(0.0);
                     let unsigned = rate * accrual * self.notional.amount();
                     let signed = match self.side {
-                        crate::instruments::common_impl::parameters::legs::PayReceive::Pay => unsigned,
-                        crate::instruments::common_impl::parameters::legs::PayReceive::Receive => -unsigned,
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Pay => {
+                            unsigned
+                        }
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Receive => {
+                            -unsigned
+                        }
                     };
                     flows.push((payment_date, Money::new(signed, self.notional.currency())));
                 }
@@ -474,8 +482,12 @@ impl CmsSwap {
                         rate_period_on_dates(fwd_curve.as_ref(), prev_date, payment_date)?;
                     let unsigned = (fwd_rate + spread) * accrual * self.notional.amount();
                     let signed = match self.side {
-                        crate::instruments::common_impl::parameters::legs::PayReceive::Pay => unsigned,
-                        crate::instruments::common_impl::parameters::legs::PayReceive::Receive => -unsigned,
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Pay => {
+                            unsigned
+                        }
+                        crate::instruments::common_impl::parameters::legs::PayReceive::Receive => {
+                            -unsigned
+                        }
                     };
                     flows.push((payment_date, Money::new(signed, self.notional.currency())));
                     prev_date = payment_date;
@@ -637,7 +649,12 @@ mod tests {
         let market = finstack_core::market_data::context::MarketContext::new()
             .insert(flat_discount_with_tenor("USD-OIS", as_of, 0.0, 2.0))
             .insert(flat_forward_with_tenor("USD-LIBOR-3M", as_of, 0.04, 2.0))
-            .insert_surface(flat_vol_surface("USD-CMS10Y-VOL", &[0.25, 1.0], &[0.03, 0.05], 0.20));
+            .insert_surface(flat_vol_surface(
+                "USD-CMS10Y-VOL",
+                &[0.25, 1.0],
+                &[0.03, 0.05],
+                0.20,
+            ));
 
         let flows = swap
             .build_dated_flows(&market, as_of)

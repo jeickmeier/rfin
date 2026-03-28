@@ -694,8 +694,15 @@ mod tests {
             .build_dated_flows(&market, as_of)
             .expect("xccy contractual schedule should build");
 
-        assert!(flows.len() >= 6, "xccy swap should emit principal and coupon flows");
-        assert!(flows.iter().any(|(_, money)| money.currency() == Currency::USD));
-        assert!(flows.iter().any(|(_, money)| money.currency() == Currency::EUR));
+        assert!(
+            flows.len() >= 6,
+            "xccy swap should emit principal and coupon flows"
+        );
+        assert!(flows
+            .iter()
+            .any(|(_, money)| money.currency() == Currency::USD));
+        assert!(flows
+            .iter()
+            .any(|(_, money)| money.currency() == Currency::EUR));
     }
 }

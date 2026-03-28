@@ -8,9 +8,9 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
 
+use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::cashflow::builder::CashFlowSchedule;
 use crate::cashflow::CashflowProvider;
-use crate::cashflow::builder::specs::{FixedCouponSpec, FloatingCouponSpec};
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::bond::CallPutSchedule;
 
@@ -679,7 +679,8 @@ mod tests {
     fn test_cashflow_provider_matches_convertible_schedule_builder() {
         let bond = ConvertibleBond::example().expect("example should build");
         let market = finstack_core::market_data::context::MarketContext::new();
-        let expected = super::pricer::build_convertible_schedule(&bond).expect("schedule should build");
+        let expected =
+            super::pricer::build_convertible_schedule(&bond).expect("schedule should build");
         let actual = bond
             .build_full_schedule(&market, bond.issue_date)
             .expect("provider schedule should build");

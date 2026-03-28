@@ -612,12 +612,14 @@ impl CashflowProvider for ForwardRateAgreement {
             )]
         };
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
-            flows,
-            crate::cashflow::primitives::CFKind::Fixed,
-            self.notional(),
-            self.day_count,
-        ))
+        Ok(
+            crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+                flows,
+                crate::cashflow::primitives::CFKind::Fixed,
+                self.notional(),
+                self.day_count,
+            ),
+        )
     }
 }
 

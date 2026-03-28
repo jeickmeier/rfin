@@ -301,9 +301,9 @@ mod tests {
     use super::*;
     use crate::cashflow::aggregation::DateContext;
     use crate::cashflow::traits::CashflowProvider;
-    use crate::instruments::Bond;
     use crate::instruments::fixed_income::term_loan::TermLoan;
     use crate::instruments::rates::repo::{CollateralSpec, Repo};
+    use crate::instruments::Bond;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCountCtx;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -718,7 +718,13 @@ mod tests {
             repo.notional(),
             disc.day_count(),
         )
-        .pv_by_period_with_ctx(&periods, disc.as_ref(), as_of, disc.day_count(), DayCountCtx::default())
+        .pv_by_period_with_ctx(
+            &periods,
+            disc.as_ref(),
+            as_of,
+            disc.day_count(),
+            DayCountCtx::default(),
+        )
         .expect("Direct holder-view aggregation should succeed");
 
         let actual = repo
@@ -753,7 +759,13 @@ mod tests {
             loan.notional(),
             disc.day_count(),
         )
-        .pv_by_period_with_ctx(&periods, disc.as_ref(), as_of, disc.day_count(), DayCountCtx::default())
+        .pv_by_period_with_ctx(
+            &periods,
+            disc.as_ref(),
+            as_of,
+            disc.day_count(),
+            DayCountCtx::default(),
+        )
         .expect("Direct holder-view aggregation should succeed");
 
         let actual = loan

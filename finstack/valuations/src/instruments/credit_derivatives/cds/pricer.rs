@@ -774,8 +774,11 @@ impl CDSPricer {
             .calendar_id
             .as_deref()
             .and_then(finstack_core::dates::calendar::calendar_by_id);
-        let schedule =
-            crate::cashflow::traits::CashflowProvider::build_full_schedule(cds, &MarketContext::new(), as_of)?;
+        let schedule = crate::cashflow::traits::CashflowProvider::build_full_schedule(
+            cds,
+            &MarketContext::new(),
+            as_of,
+        )?;
 
         let mut premium_pv = 0.0;
         let mut start_date = cds.premium.start;
@@ -2773,7 +2776,13 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, time::Month::February, 15).expect("valid date");
         let pricer = CDSPricer::new();
 
-        let mut cds_unit = create_test_cds("TEST-CDS-UNIT", date!(2024 - 12 - 20), date!(2028 - 03 - 20), 100.0, 0.40);
+        let mut cds_unit = create_test_cds(
+            "TEST-CDS-UNIT",
+            date!(2024 - 12 - 20),
+            date!(2028 - 03 - 20),
+            100.0,
+            0.40,
+        );
         cds_unit.notional = Money::new(1.0, Currency::USD);
 
         let mut cds_large = cds_unit.clone();

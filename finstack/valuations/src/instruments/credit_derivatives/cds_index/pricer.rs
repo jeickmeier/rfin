@@ -16,7 +16,7 @@ use crate::calibration::bumps::BumpRequest;
 use crate::cashflow::builder::schedule::merge_cashflow_schedules;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::cashflow::traits::CashflowProvider;
+use crate::cashflow::traits::{schedule_from_classified_flows_with_meta, CashflowProvider};
 use crate::constants::{credit, BASIS_POINTS_PER_UNIT};
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::credit_derivatives::cds::pricer::{CDSPricer, CDSPricerConfig};
@@ -313,7 +313,7 @@ impl CDSIndexPricer {
     ) -> Result<CashFlowSchedule> {
         let projected = self.project_resolved_flows(index, curves, as_of)?;
         match projected.single_curve {
-            Some((_, flows)) => Ok(CashFlowSchedule::from_parts(
+            Some((_, flows)) => Ok(schedule_from_classified_flows_with_meta(
                 flows,
                 Notional::par(index.notional.amount(), index.notional.currency()),
                 index.premium.day_count,
@@ -324,7 +324,7 @@ impl CDSIndexPricer {
                     .constituents
                     .into_iter()
                     .map(|projection| {
-                        CashFlowSchedule::from_parts(
+                        schedule_from_classified_flows_with_meta(
                             projection.flows,
                             Notional::par(index.notional.amount(), index.notional.currency()),
                             index.premium.day_count,
@@ -466,7 +466,10 @@ impl CDSIndexPricer {
                         value,
                     });
                 }
-                Ok(IndexResult { total, constituents })
+                Ok(IndexResult {
+                    total,
+                    constituents,
+                })
             }
         }
     }
@@ -654,7 +657,8 @@ impl CDSIndexPricer {
         survival: &HazardCurve,
         as_of: Date,
     ) -> Result<Vec<CashFlow>> {
-        let mut schedule = CashflowProvider::build_full_schedule(cds, &MarketContext::new(), as_of)?;
+        let mut schedule =
+            CashflowProvider::build_full_schedule(cds, &MarketContext::new(), as_of)?;
         let premium_sign = match cds.side {
             PayReceive::PayFixed => -1.0,
             PayReceive::ReceiveFixed => 1.0,
@@ -696,7 +700,10 @@ impl CDSIndexPricer {
                 let projected_premium = flow.amount.amount().abs() * projected_survival;
                 if projected_premium.abs() > f64::EPSILON {
                     projected_flows.push(CashFlow {
-                        amount: Money::new(projected_premium * premium_sign, flow.amount.currency()),
+                        amount: Money::new(
+                            projected_premium * premium_sign,
+                            flow.amount.currency(),
+                        ),
                         ..flow
                     });
                 }
@@ -770,7 +777,11 @@ impl CDSIndexPricer {
         survival.base_date() + Duration::days(days)
     }
 
-    fn midpoint_default_date(survival: &HazardCurve, start_date: Date, end_date: Date) -> Result<Date> {
+    fn midpoint_default_date(
+        survival: &HazardCurve,
+        start_date: Date,
+        end_date: Date,
+    ) -> Result<Date> {
         let t_start = survival.day_count().year_fraction(
             survival.base_date(),
             start_date,
@@ -781,7 +792,10 @@ impl CDSIndexPricer {
             end_date,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        Ok(Self::date_from_hazard_time(survival, 0.5 * (t_start + t_end)))
+        Ok(Self::date_from_hazard_time(
+            survival,
+            0.5 * (t_start + t_end),
+        ))
     }
 
     fn settlement_date_with_delay(
@@ -977,7 +991,10 @@ mod tests {
             .build_projected_schedule(&CDSIndex::example(), &market, as_of)
             .expect("projected schedule should build");
 
-        assert!(schedule.flows.iter().any(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub)));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub)));
         assert!(schedule
             .flows
             .iter()

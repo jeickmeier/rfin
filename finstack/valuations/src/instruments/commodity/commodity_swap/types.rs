@@ -4,10 +4,10 @@
 //! price exchange contracts. One party pays a fixed price per unit while
 //! the other pays a floating price based on an index.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::parameters::CommodityUnderlyingParams;
 use crate::instruments::common_impl::traits::Attributes;
@@ -483,7 +483,11 @@ impl CommoditySwap {
             .collect())
     }
 
-    fn floating_leg_flows(&self, market: &MarketContext, as_of: Date) -> Result<Vec<(Date, Money)>> {
+    fn floating_leg_flows(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> Result<Vec<(Date, Money)>> {
         let price_curve = market.get_price_curve(self.floating_index_id.as_str())?;
         let mut prev_period_end = self.start_date;
         let mut flows = Vec::new();
@@ -574,8 +578,11 @@ impl CashflowProvider for CommoditySwap {
     ) -> finstack_core::Result<CashFlowSchedule> {
         let mut fixed_schedule =
             self.leg_schedule_from_amounts(as_of, self.maturity, &self.fixed_leg_flows()?)?;
-        let floating_schedule =
-            self.leg_schedule_from_amounts(as_of, self.maturity, &self.floating_leg_flows(market, as_of)?)?;
+        let floating_schedule = self.leg_schedule_from_amounts(
+            as_of,
+            self.maturity,
+            &self.floating_leg_flows(market, as_of)?,
+        )?;
         fixed_schedule.flows.extend(floating_schedule.flows);
         fixed_schedule
             .flows
@@ -848,8 +855,24 @@ mod tests {
             .build_dated_flows(&market, as_of)
             .expect("commodity swap contractual schedule should build");
 
-        assert_eq!(flows.len(), 6, "three payments should emit fixed and floating rows");
-        assert_eq!(flows.iter().filter(|(_, money)| money.amount() < 0.0).count(), 3);
-        assert_eq!(flows.iter().filter(|(_, money)| money.amount() > 0.0).count(), 3);
+        assert_eq!(
+            flows.len(),
+            6,
+            "three payments should emit fixed and floating rows"
+        );
+        assert_eq!(
+            flows
+                .iter()
+                .filter(|(_, money)| money.amount() < 0.0)
+                .count(),
+            3
+        );
+        assert_eq!(
+            flows
+                .iter()
+                .filter(|(_, money)| money.amount() > 0.0)
+                .count(),
+            3
+        );
     }
 }

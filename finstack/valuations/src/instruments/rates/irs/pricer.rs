@@ -98,16 +98,18 @@ impl InterestRateSwap {
         as_of: Date,
         fixings: Option<&ScalarTimeSeries>,
     ) -> Result<f64> {
-        let schedule = crate::instruments::rates::irs::cashflow::projected_compounded_float_leg_schedule(
-            self, disc, proj, as_of, fixings,
-        )?;
+        let schedule =
+            crate::instruments::rates::irs::cashflow::projected_compounded_float_leg_schedule(
+                self, disc, proj, as_of, fixings,
+            )?;
         let mut acc = NeumaierAccumulator::new();
         for flow in schedule.flows {
-            let payment_date = crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
-                flow.date,
-                self.float.payment_lag_days,
-                self.float.calendar_id.as_deref(),
-            )?;
+            let payment_date =
+                crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
+                    flow.date,
+                    self.float.payment_lag_days,
+                    self.float.calendar_id.as_deref(),
+                )?;
             let df = robust_relative_df(disc, as_of, payment_date)?;
             acc.add(flow.amount.amount() * df);
         }
@@ -363,7 +365,8 @@ pub(crate) fn compute_pv_raw(
 
     schedule.flows.iter().try_fold(0.0, |acc, flow| {
         let payment_date = match flow.kind {
-            crate::cashflow::primitives::CFKind::Fixed | crate::cashflow::primitives::CFKind::Stub => {
+            crate::cashflow::primitives::CFKind::Fixed
+            | crate::cashflow::primitives::CFKind::Stub => {
                 crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
                     flow.date,
                     irs.fixed.payment_lag_days,
@@ -391,8 +394,8 @@ mod tests {
     use crate::instruments::common_impl::pricing::swap_legs::add_payment_delay;
     use crate::instruments::common_impl::traits::Instrument;
     use crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves;
-    use finstack_core::currency::Currency;
     use finstack_core::cashflow::CFKind;
+    use finstack_core::currency::Currency;
     use finstack_core::dates::DayCountCtx;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::scalars::ScalarTimeSeries;
@@ -840,38 +843,42 @@ mod tests {
             .id(InstrumentId::new("OIS-VALUE-RAW-NO-FWD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(crate::instruments::rates::irs::PayReceive::PayFixed)
-            .fixed(crate::instruments::common_impl::parameters::legs::FixedLegSpec {
-                discount_curve_id: disc_id.clone(),
-                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-                start,
-                end,
-                par_method: None,
-                compounding_simple: true,
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
-            .float(crate::instruments::common_impl::parameters::legs::FloatLegSpec {
-                discount_curve_id: disc_id.clone(),
-                forward_curve_id: disc_id.clone(),
-                spread_bp: rust_decimal::Decimal::ZERO,
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-                reset_lag_days: 0,
-                fixing_calendar_id: None,
-                start,
-                end,
-                compounding: FloatingLegCompounding::sofr(),
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
+            .fixed(
+                crate::instruments::common_impl::parameters::legs::FixedLegSpec {
+                    discount_curve_id: disc_id.clone(),
+                    rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
+                    frequency: Tenor::quarterly(),
+                    day_count: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                    start,
+                    end,
+                    par_method: None,
+                    compounding_simple: true,
+                    payment_lag_days: 0,
+                    end_of_month: false,
+                },
+            )
+            .float(
+                crate::instruments::common_impl::parameters::legs::FloatLegSpec {
+                    discount_curve_id: disc_id.clone(),
+                    forward_curve_id: disc_id.clone(),
+                    spread_bp: rust_decimal::Decimal::ZERO,
+                    frequency: Tenor::quarterly(),
+                    day_count: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                    reset_lag_days: 0,
+                    fixing_calendar_id: None,
+                    start,
+                    end,
+                    compounding: FloatingLegCompounding::sofr(),
+                    payment_lag_days: 0,
+                    end_of_month: false,
+                },
+            )
             .build()
             .expect("swap");
 
@@ -909,38 +916,42 @@ mod tests {
             .id(InstrumentId::new("OIS-SCHEDULE-NO-FWD"))
             .notional(Money::new(10_000_000.0, Currency::USD))
             .side(crate::instruments::rates::irs::PayReceive::PayFixed)
-            .fixed(crate::instruments::common_impl::parameters::legs::FixedLegSpec {
-                discount_curve_id: disc_id.clone(),
-                rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-                start,
-                end,
-                par_method: None,
-                compounding_simple: true,
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
-            .float(crate::instruments::common_impl::parameters::legs::FloatLegSpec {
-                discount_curve_id: disc_id.clone(),
-                forward_curve_id: disc_id.clone(),
-                spread_bp: rust_decimal::Decimal::ZERO,
-                frequency: Tenor::quarterly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-                reset_lag_days: 0,
-                fixing_calendar_id: None,
-                start,
-                end,
-                compounding: FloatingLegCompounding::sofr(),
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
+            .fixed(
+                crate::instruments::common_impl::parameters::legs::FixedLegSpec {
+                    discount_curve_id: disc_id.clone(),
+                    rate: rust_decimal::Decimal::try_from(0.03).expect("valid"),
+                    frequency: Tenor::quarterly(),
+                    day_count: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                    start,
+                    end,
+                    par_method: None,
+                    compounding_simple: true,
+                    payment_lag_days: 0,
+                    end_of_month: false,
+                },
+            )
+            .float(
+                crate::instruments::common_impl::parameters::legs::FloatLegSpec {
+                    discount_curve_id: disc_id.clone(),
+                    forward_curve_id: disc_id.clone(),
+                    spread_bp: rust_decimal::Decimal::ZERO,
+                    frequency: Tenor::quarterly(),
+                    day_count: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                    reset_lag_days: 0,
+                    fixing_calendar_id: None,
+                    start,
+                    end,
+                    compounding: FloatingLegCompounding::sofr(),
+                    payment_lag_days: 0,
+                    end_of_month: false,
+                },
+            )
             .build()
             .expect("swap");
 
@@ -998,38 +1009,42 @@ mod tests {
             .id(InstrumentId::new("OIS-SCHEDULE-SEASONED"))
             .notional(Money::new(1_000_000.0, Currency::USD))
             .side(crate::instruments::rates::irs::PayReceive::PayFixed)
-            .fixed(crate::instruments::common_impl::parameters::legs::FixedLegSpec {
-                discount_curve_id: disc_id.clone(),
-                rate: rust_decimal::Decimal::ZERO,
-                frequency: Tenor::monthly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-                start,
-                end,
-                par_method: None,
-                compounding_simple: true,
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
-            .float(crate::instruments::common_impl::parameters::legs::FloatLegSpec {
-                discount_curve_id: disc_id.clone(),
-                forward_curve_id: fwd_id.clone(),
-                spread_bp: rust_decimal::Decimal::ZERO,
-                frequency: Tenor::monthly(),
-                day_count: DayCount::Act360,
-                bdc: BusinessDayConvention::ModifiedFollowing,
-                calendar_id: None,
-                stub: finstack_core::dates::StubKind::None,
-                reset_lag_days: 0,
-                fixing_calendar_id: None,
-                start,
-                end,
-                compounding: FloatingLegCompounding::fedfunds(),
-                payment_lag_days: 0,
-                end_of_month: false,
-            })
+            .fixed(
+                crate::instruments::common_impl::parameters::legs::FixedLegSpec {
+                    discount_curve_id: disc_id.clone(),
+                    rate: rust_decimal::Decimal::ZERO,
+                    frequency: Tenor::monthly(),
+                    day_count: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                    start,
+                    end,
+                    par_method: None,
+                    compounding_simple: true,
+                    payment_lag_days: 0,
+                    end_of_month: false,
+                },
+            )
+            .float(
+                crate::instruments::common_impl::parameters::legs::FloatLegSpec {
+                    discount_curve_id: disc_id.clone(),
+                    forward_curve_id: fwd_id.clone(),
+                    spread_bp: rust_decimal::Decimal::ZERO,
+                    frequency: Tenor::monthly(),
+                    day_count: DayCount::Act360,
+                    bdc: BusinessDayConvention::ModifiedFollowing,
+                    calendar_id: None,
+                    stub: finstack_core::dates::StubKind::None,
+                    reset_lag_days: 0,
+                    fixing_calendar_id: None,
+                    start,
+                    end,
+                    compounding: FloatingLegCompounding::fedfunds(),
+                    payment_lag_days: 0,
+                    end_of_month: false,
+                },
+            )
             .build()
             .expect("swap");
 

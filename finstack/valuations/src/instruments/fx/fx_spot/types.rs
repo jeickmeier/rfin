@@ -546,12 +546,14 @@ impl CashflowProvider for FxSpot {
             Vec::new()
         };
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
-            flows,
-            crate::cashflow::primitives::CFKind::Notional,
-            self.notional(),
-            finstack_core::dates::DayCount::Act365F, // Standard for FX spot
-        ))
+        Ok(
+            crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+                flows,
+                crate::cashflow::primitives::CFKind::Notional,
+                self.notional(),
+                finstack_core::dates::DayCount::Act365F, // Standard for FX spot
+            ),
+        )
     }
 }
 

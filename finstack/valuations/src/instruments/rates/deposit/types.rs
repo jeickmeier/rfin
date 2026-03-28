@@ -510,8 +510,8 @@ impl CashflowProvider for Deposit {
 mod tests {
     use super::*;
     use crate::cashflow::traits::CashflowProvider;
-    use finstack_core::cashflow::CFKind;
     use crate::instruments::common_impl::traits::Attributes;
+    use finstack_core::cashflow::CFKind;
     use finstack_core::currency::Currency;
     use time::macros::date;
 

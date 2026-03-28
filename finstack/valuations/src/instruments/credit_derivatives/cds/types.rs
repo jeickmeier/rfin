@@ -823,23 +823,22 @@ impl CreditDefaultSwap {
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         let spread_decimal = self.premium.spread_bp / Decimal::from(10_000u32);
         let mut builder = crate::cashflow::builder::CashFlowSchedule::builder();
-        let _ = builder
-            .principal(self.notional, self.premium.start, self.premium.end)
-            .fixed_cf(crate::cashflow::builder::FixedCouponSpec {
-                coupon_type: crate::cashflow::builder::CouponType::Cash,
-                rate: spread_decimal,
-                freq: self.premium.frequency,
-                dc: self.premium.day_count,
-                bdc: self.premium.bdc,
-                calendar_id: self
-                    .premium
-                    .calendar_id
-                    .clone()
-                    .unwrap_or_else(|| crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.into()),
-                stub: self.premium.stub,
-                end_of_month: false,
-                payment_lag_days: 0,
-            });
+        let _ =
+            builder
+                .principal(self.notional, self.premium.start, self.premium.end)
+                .fixed_cf(crate::cashflow::builder::FixedCouponSpec {
+                    coupon_type: crate::cashflow::builder::CouponType::Cash,
+                    rate: spread_decimal,
+                    freq: self.premium.frequency,
+                    dc: self.premium.day_count,
+                    bdc: self.premium.bdc,
+                    calendar_id: self.premium.calendar_id.clone().unwrap_or_else(|| {
+                        crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.into()
+                    }),
+                    stub: self.premium.stub,
+                    end_of_month: false,
+                    payment_lag_days: 0,
+                });
         let mut schedule = builder.build_with_curves(None)?;
         schedule.flows.retain(|cf| {
             cf.kind == finstack_core::cashflow::CFKind::Fixed

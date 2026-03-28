@@ -549,11 +549,13 @@ impl Repo {
             return Ok(Money::new(0.0, self.cash_amount.currency()));
         }
 
-        flows.into_iter()
-            .try_fold(Money::new(0.0, self.cash_amount.currency()), |acc, (date, amount)| {
+        flows.into_iter().try_fold(
+            Money::new(0.0, self.cash_amount.currency()),
+            |acc, (date, amount)| {
                 let df = disc_curve.df_between_dates(as_of, date)?;
                 acc.checked_add(amount * df)
-            })
+            },
+        )
     }
 
     /// Calculate repo interest amount.

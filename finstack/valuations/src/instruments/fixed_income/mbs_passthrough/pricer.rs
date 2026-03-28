@@ -208,16 +208,18 @@ pub fn build_projected_schedule(
         }
     }
 
-    Ok(CashFlowSchedule::from_parts(
-        flows,
-        Notional::par(mbs.current_face.amount(), mbs.current_face.currency()),
-        mbs.day_count,
-        CashFlowMeta {
-            calendar_ids: Vec::new(),
-            facility_limit: None,
-            issue_date: Some(mbs.issue_date),
-        },
-    ))
+    Ok(
+        crate::cashflow::traits::schedule_from_classified_flows_with_meta(
+            flows,
+            Notional::par(mbs.current_face.amount(), mbs.current_face.currency()),
+            mbs.day_count,
+            CashFlowMeta {
+                calendar_ids: Vec::new(),
+                facility_limit: None,
+                issue_date: Some(mbs.issue_date),
+            },
+        ),
+    )
 }
 
 fn end_of_month(date: Date) -> Result<Date> {
@@ -328,8 +330,8 @@ impl Pricer for AgencyMbsDiscountingPricer {
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
-    use crate::cashflow::primitives::CFKind;
     use crate::cashflow::builder::specs::PrepaymentModelSpec;
+    use crate::cashflow::primitives::CFKind;
     use finstack_core::currency::Currency;
     use finstack_core::dates::DayCount;
     use finstack_core::market_data::term_structures::DiscountCurve;
@@ -406,8 +408,8 @@ mod tests {
     fn test_projected_schedule_preserves_classified_rows() {
         let mbs = create_test_mbs();
         let as_of = Date::from_calendar_date(2024, Month::January, 15).expect("valid");
-        let schedule =
-            build_projected_schedule(&mbs, as_of, Some(3)).expect("projected schedule should build");
+        let schedule = build_projected_schedule(&mbs, as_of, Some(3))
+            .expect("projected schedule should build");
 
         assert!(!schedule.flows.is_empty());
         assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::Fixed));

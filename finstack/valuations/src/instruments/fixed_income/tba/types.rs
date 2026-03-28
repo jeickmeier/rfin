@@ -4,11 +4,11 @@
 //! pools to be delivered are not known at trade time. Instead, pools must
 //! meet good delivery standards (coupon, term, agency).
 
+use crate::cashflow::traits::CashflowProvider;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, AgencyProgram};
 use crate::instruments::PricingOverrides;
-use crate::cashflow::traits::CashflowProvider;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, SifmaSettlementClass};
 use finstack_core::money::Money;
@@ -284,9 +284,8 @@ impl CashflowProvider for AgencyTba {
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        let assumed_pool = crate::instruments::fixed_income::tba::pricer::resolve_assumed_pool(
-            self, as_of,
-        )?;
+        let assumed_pool =
+            crate::instruments::fixed_income::tba::pricer::resolve_assumed_pool(self, as_of)?;
         assumed_pool.build_full_schedule(curves, as_of)
     }
 }

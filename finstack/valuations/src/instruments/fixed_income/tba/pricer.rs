@@ -201,17 +201,18 @@ mod tests {
         let as_of = Date::from_calendar_date(2027, Month::January, 15).expect("valid");
         let market = create_test_market(as_of);
         let pool = resolve_assumed_pool(&tba, as_of).expect("assumed pool should resolve");
-        let provider_schedule = crate::cashflow::traits::CashflowProvider::build_full_schedule(
-            &tba, &market, as_of,
-        )
-        .expect("tba provider schedule");
-        let pool_schedule = crate::cashflow::traits::CashflowProvider::build_full_schedule(
-            &pool, &market, as_of,
-        )
-        .expect("pool provider schedule");
+        let provider_schedule =
+            crate::cashflow::traits::CashflowProvider::build_full_schedule(&tba, &market, as_of)
+                .expect("tba provider schedule");
+        let pool_schedule =
+            crate::cashflow::traits::CashflowProvider::build_full_schedule(&pool, &market, as_of)
+                .expect("pool provider schedule");
 
         assert_eq!(provider_schedule.flows.len(), pool_schedule.flows.len());
-        assert_eq!(provider_schedule.flows.first().map(|cf| cf.kind), pool_schedule.flows.first().map(|cf| cf.kind));
+        assert_eq!(
+            provider_schedule.flows.first().map(|cf| cf.kind),
+            pool_schedule.flows.first().map(|cf| cf.kind)
+        );
     }
 
     #[test]

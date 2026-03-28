@@ -7,10 +7,10 @@
 //! - `Constituents`: expand into per-name CDS positions with weights and
 //!   aggregate results across names.
 
+use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::common_impl::dependencies::MarketDependencies;
 use crate::instruments::common_impl::parameters::CreditParams;
 use crate::instruments::common_impl::traits::Attributes;
-use crate::cashflow::traits::CashflowProvider;
 use crate::instruments::PricingOverrides;
 use crate::margin::types::OtcMarginSpec;
 use finstack_core::currency::Currency;

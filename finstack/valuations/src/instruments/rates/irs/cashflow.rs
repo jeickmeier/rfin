@@ -134,16 +134,16 @@ fn resolve_compounded_fixing_calendar(
         .or(float.calendar_id.as_deref());
 
     if let Some(id) = calendar_id {
-        return Ok(Some(CalendarRegistry::global().resolve_str(id).ok_or_else(
-            || {
+        return Ok(Some(
+            CalendarRegistry::global().resolve_str(id).ok_or_else(|| {
                 finstack_core::Error::Validation(format!(
                     "Fixing calendar '{}' not found in registry for compounded RFR swap '{}'. \
                      Load the calendar or remove fixing_calendar_id to use weekday stepping.",
                     id,
                     irs.id.as_str()
                 ))
-            },
-        )?));
+            })?,
+        ));
     }
 
     Ok(default_rfr_calendar(irs.notional.currency())
@@ -208,13 +208,15 @@ fn projected_overnight_rate(
         return Ok((comp - 1.0) / dcf);
     }
 
-    Err(finstack_core::Error::Input(finstack_core::InputError::NotFound {
-        id: format!(
-            "forward curve '{}' not found for reset date {} (overnight compounding)",
-            inputs.float.forward_curve_id.as_str(),
-            obs_start
-        ),
-    }))
+    Err(finstack_core::Error::Input(
+        finstack_core::InputError::NotFound {
+            id: format!(
+                "forward curve '{}' not found for reset date {} (overnight compounding)",
+                inputs.float.forward_curve_id.as_str(),
+                obs_start
+            ),
+        },
+    ))
 }
 
 pub(crate) fn projected_compounded_float_leg_schedule(
@@ -254,16 +256,14 @@ pub(crate) fn projected_compounded_float_leg_schedule(
     let cal = resolve_compounded_fixing_calendar(irs)?;
     let total_shift = compounded_total_shift_days(float.compounding.clone());
     let shift_dcf = uses_observation_shift_dcf(float.compounding.clone());
-    let disc_fallback = if proj.is_none() {
-        Some(disc)
-    } else {
-        None
-    };
+    let disc_fallback = if proj.is_none() { Some(disc) } else { None };
     let projection = OvernightProjectionInputs {
         proj,
         disc_fallback,
         fixings,
-        projection_base_date: proj.map(ForwardCurve::base_date).unwrap_or_else(|| disc.base_date()),
+        projection_base_date: proj
+            .map(ForwardCurve::base_date)
+            .unwrap_or_else(|| disc.base_date()),
         float: &float,
     };
 
@@ -275,9 +275,8 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 
         let accrual_start = period.accrual_start;
         let accrual_end = period.accrual_end;
-        let allow_fast_path = as_of <= accrual_start
-            && total_shift == 0
-            && proj.is_none_or(|p| disc.id() == p.id());
+        let allow_fast_path =
+            as_of <= accrual_start && total_shift == 0 && proj.is_none_or(|p| disc.id() == p.id());
 
         let compound_factor = if allow_fast_path {
             1.0 / crate::instruments::common_impl::pricing::swap_legs::robust_relative_df(
@@ -294,7 +293,11 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                 } else {
                     d.add_weekdays(1)
                 };
-                let step_end = if next_d > accrual_end { accrual_end } else { next_d };
+                let step_end = if next_d > accrual_end {
+                    accrual_end
+                } else {
+                    next_d
+                };
 
                 let obs_start = if total_shift == 0 {
                     d
@@ -311,10 +314,15 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                     step_end.add_weekdays(total_shift)
                 };
 
-                let (dcf_start, dcf_end) = if shift_dcf { (obs_start, obs_end) } else { (d, step_end) };
-                let dcf = float
-                    .day_count
-                    .year_fraction(dcf_start, dcf_end, DayCountCtx::default())?;
+                let (dcf_start, dcf_end) = if shift_dcf {
+                    (obs_start, obs_end)
+                } else {
+                    (d, step_end)
+                };
+                let dcf =
+                    float
+                        .day_count
+                        .year_fraction(dcf_start, dcf_end, DayCountCtx::default())?;
 
                 if obs_end <= obs_start {
                     return Err(finstack_core::Error::Validation(format!(
@@ -325,12 +333,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                     )));
                 }
 
-                let r = projected_overnight_rate(
-                    obs_start,
-                    obs_end,
-                    dcf,
-                    &projection,
-                )?;
+                let r = projected_overnight_rate(obs_start, obs_end, dcf, &projection)?;
                 acc *= 1.0 + r * dcf;
                 d = step_end;
             }
@@ -344,8 +347,10 @@ pub(crate) fn projected_compounded_float_leg_schedule(
             ))
         })?;
         let interest = irs.notional.amount() * (compound_factor - 1.0);
-        let spread_contrib =
-            irs.notional.amount() * spread_bp * crate::constants::ONE_BASIS_POINT * period.accrual_year_fraction;
+        let spread_contrib = irs.notional.amount()
+            * spread_bp
+            * crate::constants::ONE_BASIS_POINT
+            * period.accrual_year_fraction;
         let coupon_amount = interest + spread_contrib;
         let all_in_rate = if period.accrual_year_fraction.abs() > f64::EPSILON {
             (compound_factor - 1.0) / period.accrual_year_fraction
@@ -512,8 +517,11 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
             };
             let fixings_id = format!("FIXING:{}", float.forward_curve_id.as_str());
             let fixings = market.get_series(&fixings_id).ok();
-            let valuation_date =
-                as_of.unwrap_or_else(|| proj.as_ref().map(|c| c.base_date()).unwrap_or_else(|| disc.base_date()));
+            let valuation_date = as_of.unwrap_or_else(|| {
+                proj.as_ref()
+                    .map(|c| c.base_date())
+                    .unwrap_or_else(|| disc.base_date())
+            });
             return projected_compounded_float_leg_schedule(
                 irs,
                 disc.as_ref(),

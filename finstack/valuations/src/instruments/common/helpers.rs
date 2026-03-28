@@ -315,8 +315,8 @@ mod tests {
     use finstack_core::types::CurveId;
     use std::any::Any;
     use std::sync::Arc;
-    use time::Duration;
     use time::macros::date;
+    use time::Duration;
 
     #[derive(Clone)]
     struct StubInstrument {

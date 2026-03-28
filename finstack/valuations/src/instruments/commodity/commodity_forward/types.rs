@@ -4,12 +4,12 @@
 //! commodity forward contracts. Pricing uses curve-based forward interpolation
 //! with optional quoted price override.
 
-use crate::impl_instrument_base;
-use crate::instruments::common_impl::parameters::{CommodityConvention, CommodityUnderlyingParams};
-use crate::instruments::common_impl::traits::Attributes;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
+use crate::instruments::common_impl::parameters::{CommodityConvention, CommodityUnderlyingParams};
+use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date};
 use finstack_core::market_data::context::MarketContext;
@@ -387,7 +387,9 @@ impl CommodityForward {
     }
 
     fn contractual_invoice_amount(&self, market: &MarketContext, as_of: Date) -> Result<Money> {
-        let contract_price = self.contract_price.unwrap_or(self.forward_price(market, as_of)?);
+        let contract_price = self
+            .contract_price
+            .unwrap_or(self.forward_price(market, as_of)?);
         let amount = -self.position.sign() * contract_price * self.quantity * self.multiplier;
         Ok(Money::new(amount, self.underlying.currency))
     }
@@ -948,7 +950,11 @@ mod tests {
             .build_dated_flows(&market, as_of)
             .expect("contractual schedule should build");
 
-        assert_eq!(flows.len(), 1, "commodity forward should emit one invoice flow");
+        assert_eq!(
+            flows.len(),
+            1,
+            "commodity forward should emit one invoice flow"
+        );
         assert_eq!(flows[0].0, forward.maturity);
         assert_eq!(flows[0].1.currency(), Currency::USD);
         assert!(

@@ -85,8 +85,8 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 // IMPORTS FOR STRUCTUREDCREDIT
 // ============================================================================
 
-use crate::cashflow::traits::CashflowProvider;
 use crate::cashflow::traits::schedule_from_classified_flows;
+use crate::cashflow::traits::CashflowProvider;
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
 use crate::instruments::fixed_income::structured_credit::pricing::stochastic::pricer::{
@@ -766,12 +766,13 @@ impl CashflowProvider for StructuredCredit {
         context: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        let detailed_flows = crate::instruments::fixed_income::structured_credit::pricing::run_simulation(
-            self, context, as_of,
-        )?
-        .into_values()
-        .flat_map(|result| result.detailed_flows.into_iter())
-        .collect();
+        let detailed_flows =
+            crate::instruments::fixed_income::structured_credit::pricing::run_simulation(
+                self, context, as_of,
+            )?
+            .into_values()
+            .flat_map(|result| result.detailed_flows.into_iter())
+            .collect();
         // Use deal-type-appropriate day count convention:
         // CLO/CBO: ACT/360 (standard for leveraged loan market)
         // RMBS/CMBS: 30/360 (standard for mortgage market)
@@ -780,7 +781,11 @@ impl CashflowProvider for StructuredCredit {
             DealType::RMBS | DealType::CMBS => finstack_core::dates::DayCount::Thirty360,
             _ => finstack_core::dates::DayCount::Act360,
         };
-        Ok(schedule_from_classified_flows(detailed_flows, self.notional(), dc))
+        Ok(schedule_from_classified_flows(
+            detailed_flows,
+            self.notional(),
+            dc,
+        ))
     }
 }
 

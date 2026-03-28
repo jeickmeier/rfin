@@ -236,12 +236,13 @@ fn test_value_matches_provider_flows() {
     let provider_flows = fx
         .build_dated_flows(&market, as_of)
         .expect("provider flows should build");
-    let provider_total = provider_flows
-        .into_iter()
-        .fold(Money::new(0.0, Currency::USD), |acc, (_, amount)| {
-            acc.checked_add(amount)
-                .expect("flow sum should remain in a single currency")
-        });
+    let provider_total =
+        provider_flows
+            .into_iter()
+            .fold(Money::new(0.0, Currency::USD), |acc, (_, amount)| {
+                acc.checked_add(amount)
+                    .expect("flow sum should remain in a single currency")
+            });
 
     assert_approx_eq(
         value.amount(),

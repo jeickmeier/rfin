@@ -4,10 +4,10 @@
 //! currency pairs. Pricing uses covered interest rate parity (CIRP) with
 //! optional contract rate override.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
 use finstack_core::currency::Currency;
@@ -613,7 +613,9 @@ impl CashflowProvider for FxForward {
         let mut base_schedule = self.single_leg_schedule(as_of, base_amount)?;
         let quote_schedule = self.single_leg_schedule(as_of, quote_amount)?;
         base_schedule.flows.extend(quote_schedule.flows);
-        base_schedule.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
+        base_schedule
+            .flows
+            .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         base_schedule.notional = Notional::par(0.0, self.base_currency);
         Ok(base_schedule)
     }
@@ -867,7 +869,11 @@ mod tests {
             .build_dated_flows(&market, as_of)
             .expect("contractual schedule should build");
 
-        assert_eq!(flows.len(), 2, "fx forward should emit both settlement legs");
+        assert_eq!(
+            flows.len(),
+            2,
+            "fx forward should emit both settlement legs"
+        );
         assert!(flows.iter().all(|(date, _)| *date == maturity));
         assert_eq!(flows[0].1.currency(), Currency::EUR);
         assert_eq!(flows[1].1.currency(), Currency::USD);

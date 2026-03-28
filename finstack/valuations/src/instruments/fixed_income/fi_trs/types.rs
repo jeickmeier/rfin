@@ -299,12 +299,14 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
             flows.push((*date, Money::new(0.0, self.notional.currency())));
         }
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
-            flows,
-            crate::cashflow::primitives::CFKind::Fixed,
-            self.notional(),
-            self.financing.day_count,
-        ))
+        Ok(
+            crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+                flows,
+                crate::cashflow::primitives::CFKind::Fixed,
+                self.notional(),
+                self.financing.day_count,
+            ),
+        )
     }
 }
 

@@ -1,9 +1,9 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
@@ -1041,8 +1041,14 @@ mod tests {
 
         assert_eq!(flows.len(), 2, "zc inflation swap should emit both legs");
         assert!(flows.iter().all(|(date, _)| *date == maturity));
-        assert!(flows[0].1.amount() < 0.0, "pay-fixed swap should pay fixed leg");
-        assert!(flows[1].1.amount() > 0.0, "pay-fixed swap should receive inflation leg");
+        assert!(
+            flows[0].1.amount() < 0.0,
+            "pay-fixed swap should pay fixed leg"
+        );
+        assert!(
+            flows[1].1.amount() > 0.0,
+            "pay-fixed swap should receive inflation leg"
+        );
     }
 
     #[test]
@@ -1071,8 +1077,24 @@ mod tests {
             .build_dated_flows(&market, as_of)
             .expect("yoy contractual schedule should build");
 
-        assert_eq!(flows.len(), 4, "two annual periods should emit fixed and inflation rows");
-        assert_eq!(flows.iter().filter(|(_, money)| money.amount() < 0.0).count(), 2);
-        assert_eq!(flows.iter().filter(|(_, money)| money.amount() > 0.0).count(), 2);
+        assert_eq!(
+            flows.len(),
+            4,
+            "two annual periods should emit fixed and inflation rows"
+        );
+        assert_eq!(
+            flows
+                .iter()
+                .filter(|(_, money)| money.amount() < 0.0)
+                .count(),
+            2
+        );
+        assert_eq!(
+            flows
+                .iter()
+                .filter(|(_, money)| money.amount() > 0.0)
+                .count(),
+            2
+        );
     }
 }

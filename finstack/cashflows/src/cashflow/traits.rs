@@ -1,6 +1,6 @@
 //! Cashflow-related traits and aliases.
 
-use crate::cashflow::builder::schedule::CashFlowSchedule;
+use crate::cashflow::builder::schedule::{CashFlowMeta, CashFlowSchedule};
 use crate::cashflow::builder::Notional;
 use crate::cashflow::primitives::{CFKind, CashFlow};
 pub use crate::cashflow::DatedFlows;
@@ -221,6 +221,20 @@ pub fn schedule_from_classified_flows(
     CashFlowSchedule::from_parts(flows, notional, day_count, Default::default())
 }
 
+/// Canonical root constructor for provider schedules that already have classified flows and metadata.
+///
+/// Instruments that cannot express their cashflows through `CashFlowSchedule::builder()` should
+/// still terminate in the shared `finstack_cashflows` construction layer via this helper rather
+/// than assembling `CashFlowSchedule` ad hoc in downstream crates.
+pub fn schedule_from_classified_flows_with_meta(
+    flows: Vec<CashFlow>,
+    notional: Notional,
+    day_count: DayCount,
+    meta: CashFlowMeta,
+) -> CashFlowSchedule {
+    CashFlowSchedule::from_parts(flows, notional, day_count, meta)
+}
+
 /// Build an empty schedule while preserving any available notional metadata.
 pub fn empty_schedule(notional_hint: Option<Money>, day_count: DayCount) -> CashFlowSchedule {
     schedule_from_classified_flows(Vec::new(), notional_hint, day_count)
@@ -347,5 +361,39 @@ mod tests {
 
         assert_eq!(schedule.flows.len(), 1);
         assert_eq!(schedule.flows[0].kind, CFKind::Notional);
+    }
+
+    #[test]
+    fn schedule_from_classified_flows_with_meta_preserves_notional_and_meta() {
+        let date = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let flows = vec![CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(25.0, Currency::USD),
+            kind: CFKind::Fee,
+            accrual_factor: 0.0,
+            rate: None,
+        }];
+        let notional = Notional::par(250.0, Currency::USD);
+        let meta = CashFlowMeta {
+            calendar_ids: vec!["weekends_only".to_string()],
+            facility_limit: Some(Money::new(500.0, Currency::USD)),
+            issue_date: Some(date),
+        };
+
+        let schedule = schedule_from_classified_flows_with_meta(
+            flows,
+            notional.clone(),
+            DayCount::Act365F,
+            meta.clone(),
+        );
+
+        assert_eq!(
+            schedule.notional.initial.amount(),
+            notional.initial.amount()
+        );
+        assert_eq!(schedule.meta.issue_date, meta.issue_date);
+        assert_eq!(schedule.meta.facility_limit, meta.facility_limit);
+        assert_eq!(schedule.meta.calendar_ids, meta.calendar_ids);
     }
 }

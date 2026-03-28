@@ -1,19 +1,19 @@
 //! Tests for `Instrument::as_cashflow_provider()` bridge coverage.
 
+use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
+use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::credit_derivatives::{CDSIndex, CDSTranche};
 use finstack_valuations::instruments::fixed_income::bond_future::BondFuture;
 use finstack_valuations::instruments::fixed_income::convertible::ConvertibleBond;
 use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
-use finstack_valuations::instruments::fixed_income::{AgencyCmo, AgencyMbsPassthrough, AgencyTba};
 use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCredit;
 use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
-use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::fixed_income::{AgencyCmo, AgencyMbsPassthrough, AgencyTba};
 use finstack_valuations::instruments::fx::fx_forward::FxForward;
-use finstack_valuations::instruments::fx::ndf::Ndf;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
+use finstack_valuations::instruments::fx::ndf::Ndf;
 use finstack_valuations::instruments::internal::InstrumentExt;
-use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
 use finstack_valuations::instruments::rates::basis_swap::BasisSwap;
 use finstack_valuations::instruments::rates::cms_swap::CmsSwap;
 use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, YoYInflationSwap};
@@ -95,7 +95,9 @@ fn bond_future_exposes_cashflow_provider_bridge() {
     use finstack_core::dates::Date;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
-    use finstack_valuations::instruments::fixed_income::bond_future::{BondFutureSpecs, DeliverableBond, Position};
+    use finstack_valuations::instruments::fixed_income::bond_future::{
+        BondFutureSpecs, DeliverableBond, Position,
+    };
     use time::Month;
 
     let future = BondFuture::builder()
@@ -145,7 +147,7 @@ fn inflation_swap_exposes_cashflow_provider_bridge() {
 #[test]
 fn basis_swap_exposes_cashflow_provider_bridge() {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Date, StubKind, Tenor};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use rust_decimal::Decimal;
@@ -185,7 +187,7 @@ fn basis_swap_exposes_cashflow_provider_bridge() {
 #[test]
 fn xccy_swap_exposes_cashflow_provider_bridge() {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Date, StubKind, Tenor};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use rust_decimal::Decimal;
@@ -244,9 +246,18 @@ fn cms_swap_exposes_cashflow_provider_bridge() {
 fn yoy_inflation_swap_exposes_cashflow_provider_bridge() {
     let swap = YoYInflationSwap::builder()
         .id("YOY-BRIDGE".into())
-        .notional(finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD))
-        .start_date(finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date"))
-        .maturity(finstack_core::dates::Date::from_calendar_date(2027, time::Month::January, 1).expect("valid date"))
+        .notional(finstack_core::money::Money::new(
+            1_000_000.0,
+            finstack_core::currency::Currency::USD,
+        ))
+        .start_date(
+            finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
+                .expect("valid date"),
+        )
+        .maturity(
+            finstack_core::dates::Date::from_calendar_date(2027, time::Month::January, 1)
+                .expect("valid date"),
+        )
         .fixed_rate(rust_decimal::Decimal::try_from(0.02).expect("valid"))
         .frequency(finstack_core::dates::Tenor::annual())
         .inflation_index_id("US-CPI".into())

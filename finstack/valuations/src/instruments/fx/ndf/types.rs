@@ -4,10 +4,10 @@
 //! restricted currencies. Supports both pre-fixing (forward rate estimation)
 //! and post-fixing (observed rate) valuation modes.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -658,9 +658,7 @@ impl Ndf {
             NdfQuoteConvention::BasePerSettlement => {
                 n_base * (1.0 / self.contract_rate - 1.0 / fixing_rate)
             }
-            NdfQuoteConvention::SettlementPerBase => {
-                n_base * (fixing_rate - self.contract_rate)
-            }
+            NdfQuoteConvention::SettlementPerBase => n_base * (fixing_rate - self.contract_rate),
         };
         Ok(settlement_amount)
     }
