@@ -293,7 +293,7 @@ fn test_semi_annual_vs_quarterly_frequency() {
     // (though depends on forward curve shape)
     assert!(quarterly_pv > 0.0 && semi_annual_pv > 0.0);
     assert!(
-        (quarterly_pv / semi_annual_pv - 1.0).abs() < 0.5,
-        "Quarterly and semi-annual caps should have similar values"
+        (quarterly_pv / semi_annual_pv - 1.0).abs() < 0.25,
+        "Quarterly and semi-annual caps on same risk should have similar values (within 25%)"
     );
 }

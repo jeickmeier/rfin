@@ -181,7 +181,7 @@ fn test_clean_dirty_ex_coupon_parity() {
     // Use base value as dirty price when no quoted clean is provided
     let dirty_before = res_before.value.amount();
     let clean_before = *res_before.measures.get("clean_price").unwrap();
-    assert!((clean_before - (dirty_before - acc_before)).abs() < 1e-2);
+    assert!((clean_before - (dirty_before - acc_before)).abs() < 1e-6); // clean = dirty - accrued identity
 
     // After coupon date: check parity and ensure accrued decreased
     let res_after = bond
@@ -195,7 +195,7 @@ fn test_clean_dirty_ex_coupon_parity() {
     let acc_after = *res_after.measures.get("accrued").unwrap();
     let clean_after = *res_after.measures.get("clean_price").unwrap();
     let dirty_after = res_after.value.amount();
-    assert!((clean_after - (dirty_after - acc_after)).abs() < 1e-2);
+    assert!((clean_after - (dirty_after - acc_after)).abs() < 1e-6); // clean = dirty - accrued identity
     assert!(
         acc_after < acc_before,
         "Accrued should decrease after coupon"

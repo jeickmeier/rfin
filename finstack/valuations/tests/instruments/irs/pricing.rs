@@ -308,11 +308,11 @@ fn test_irs_npv_scales_with_notional() {
     let npv_1m = swap_1m.value(&market, as_of).unwrap();
     let npv_10m = swap_10m.value(&market, as_of).unwrap();
 
-    // NPV should scale approximately linearly with notional
+    // NPV is linear in notional (all cashflows scale proportionally)
     let ratio = npv_10m.amount() / npv_1m.amount();
     assert!(
-        (ratio - 10.0).abs() < 0.1,
-        "NPV should scale linearly with notional: ratio={}",
+        (ratio - 10.0).abs() < 1e-6,
+        "NPV must scale exactly with notional: ratio={}",
         ratio
     );
 }

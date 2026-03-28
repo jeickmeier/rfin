@@ -190,7 +190,7 @@ fn theta_matches_pv_change() {
     let pv_tomorrow = swap.value(&ctx, next_day).unwrap().amount();
     let actual_change = pv_tomorrow - pv_today;
 
-    // Theta should approximate the PV change (within 10% tolerance)
+    // Theta should approximate the PV change (within 5% tolerance or $10 absolute on $10M notional)
     let error_pct = if actual_change.abs() > 1.0 {
         ((theta - actual_change).abs() / actual_change.abs()) * 100.0
     } else {
@@ -198,7 +198,7 @@ fn theta_matches_pv_change() {
     };
 
     assert!(
-        error_pct < 20.0 || (theta - actual_change).abs() < 100.0,
+        error_pct < 5.0 && (theta - actual_change).abs() < 10.0,
         "Theta {} should approximate PV change {}, error {}%",
         theta,
         actual_change,
@@ -417,8 +417,8 @@ fn theta_multi_year() {
         let pv_tomorrow = swap.value(&ctx, tomorrow).unwrap().amount();
         let actual_change = pv_tomorrow - pv_today;
 
-        // Theta should approximate 1-day PV change within 25%
-        // (first-order approximation has higher error for complex instruments)
+        // Theta should approximate 1-day PV change within 10% or $10 absolute
+        // (first-order approximation has higher error near coupon dates)
         let error_pct = if actual_change.abs() > 1.0 {
             ((theta - actual_change).abs() / actual_change.abs()) * 100.0
         } else {
@@ -426,7 +426,7 @@ fn theta_multi_year() {
         };
 
         assert!(
-            error_pct < 25.0 || (theta - actual_change).abs() < 100.0,
+            error_pct < 10.0 && (theta - actual_change).abs() < 10.0,
             "Theta at {} should approximate 1-day PV change: theta={:.2}, actual={:.2}, error={:.1}%",
             today,
             theta,
@@ -453,9 +453,9 @@ fn theta_zero_at_maturity() {
         .unwrap();
     let theta = res.measures[MetricId::Theta.as_str()];
 
-    // At maturity, theta should be very small (near zero)
+    // At maturity, theta should be near zero (tight tolerance for $10M notional)
     assert!(
-        theta.abs() < 100.0,
+        theta.abs() < 0.10,
         "Theta at maturity should be near zero, got {}",
         theta
     );

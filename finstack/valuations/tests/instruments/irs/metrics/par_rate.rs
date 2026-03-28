@@ -103,9 +103,12 @@ fn test_par_rate_flat_curve() {
 
     let par_rate = *result.measures.get("par_rate").unwrap();
 
+    // Par rate ≈ 5.07%, not exactly 5%: continuous OIS curve at 5% gives quarterly Act360
+    // simple forward rate of (e^(0.05×T)-1)/T ≈ 5.066% per the convention difference.
+    // Tolerance of 10bp covers the ~7bp compounding-convention offset.
     assert!(
         (par_rate - 0.05).abs() < 0.001,
-        "Par rate should be ~5% in flat 5% curve, got {}",
+        "Par rate should be ~5.07% in flat 5% continuous curve (got {:.5})",
         par_rate
     );
 }

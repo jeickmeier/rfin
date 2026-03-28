@@ -166,14 +166,15 @@ fn dv01_scales_with_notional() {
     let ratio_1_to_5 = dv01s[1] / dv01s[0];
     let ratio_1_to_10 = dv01s[2] / dv01s[0];
 
+    // DV01 = annuity × notional × 1bp — exact linear scaling with notional
     assert!(
-        (ratio_1_to_5 - 5.0).abs() < 0.1,
-        "DV01 should scale ~5x with notional, got {}x",
+        (ratio_1_to_5 - 5.0).abs() < 1e-6,
+        "DV01 must scale exactly 5x with notional, got {}x",
         ratio_1_to_5
     );
     assert!(
-        (ratio_1_to_10 - 10.0).abs() < 0.1,
-        "DV01 should scale ~10x with notional, got {}x",
+        (ratio_1_to_10 - 10.0).abs() < 1e-6,
+        "DV01 must scale exactly 10x with notional, got {}x",
         ratio_1_to_10
     );
 }
@@ -417,9 +418,10 @@ fn sensitivity_to_spread() {
     let delta1 = npvs[1] - npvs[0];
     let delta2 = npvs[2] - npvs[1];
     let ratio = delta2 / delta1;
+    // NPV is linear in spread: consecutive deltas must be exactly equal
     assert!(
-        (ratio - 1.0).abs() < 0.1,
-        "Spread sensitivity should be linear, got ratio {}",
+        (ratio - 1.0).abs() < 1e-6,
+        "Spread sensitivity must be exactly linear, got ratio {}",
         ratio
     );
 }

@@ -140,11 +140,11 @@ fn test_pv_fixed_scales_with_rate() {
         .get("pv_fixed")
         .unwrap();
 
-    // 6% rate should give 2x PV of 3% rate
+    // 6% rate should give exactly 2x PV of 3% rate: PV = rate × annuity, annuity is same for both
     let ratio = pv_fixed_6pct / pv_fixed_3pct;
     assert!(
-        (ratio - 2.0).abs() < 0.1,
-        "PV should scale with rate: ratio={}",
+        (ratio - 2.0).abs() < 1e-6,
+        "PV must scale linearly with rate: ratio={}",
         ratio
     );
 }
@@ -184,10 +184,11 @@ fn test_pv_fixed_scales_with_notional() {
         .get("pv_fixed")
         .unwrap();
 
+    // PV = rate × annuity × notional — annuity is identical for both swaps, so ratio is exact
     let ratio = pv_fixed_5m / pv_fixed_1m;
     assert!(
-        (ratio - 5.0).abs() < 0.01,
-        "PV should scale with notional: ratio={}",
+        (ratio - 5.0).abs() < 1e-6,
+        "PV must scale exactly with notional: ratio={}",
         ratio
     );
 }

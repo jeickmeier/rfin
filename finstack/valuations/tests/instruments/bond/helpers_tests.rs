@@ -235,9 +235,9 @@ fn test_df_from_yield_high_ytm() {
 
 #[test]
 fn test_price_from_ytm_compounded_params_single_flow() {
-    // Single cashflow in 1 year
-    let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let payment_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    // Single cashflow in 1 year. Use non-leap year dates so Act365F gives year_fraction = 1.0 exactly.
+    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let payment_date = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
     let flows = vec![(payment_date, Money::new(100.0, Currency::USD))];
 
     let ytm = 0.05;
@@ -251,9 +251,9 @@ fn test_price_from_ytm_compounded_params_single_flow() {
     )
     .unwrap();
 
-    // PV = 100 / 1.05 = 95.238
+    // PV = 100 / 1.05 = 95.238... (exact: year_fraction = 365/365 = 1.0)
     let expected = 100.0 / 1.05;
-    assert!((price - expected).abs() < 0.1);
+    assert!((price - expected).abs() < 1e-10);
 }
 
 #[test]
@@ -285,10 +285,10 @@ fn test_price_from_ytm_compounded_params_multiple_flows() {
 
 #[test]
 fn test_price_from_ytm_compounded_params_past_flows_ignored() {
-    // Past flows should be ignored
-    let as_of = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
-    let past_date = Date::from_calendar_date(2023, time::Month::January, 1).unwrap();
-    let future_date = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    // Past flows should be ignored. Use non-leap year dates so Act365F gives year_fraction = 1.0 exactly.
+    let as_of = Date::from_calendar_date(2025, time::Month::January, 1).unwrap();
+    let past_date = Date::from_calendar_date(2024, time::Month::January, 1).unwrap();
+    let future_date = Date::from_calendar_date(2026, time::Month::January, 1).unwrap();
 
     let flows = vec![
         (past_date, Money::new(100.0, Currency::USD)), // Should be ignored
@@ -306,9 +306,9 @@ fn test_price_from_ytm_compounded_params_past_flows_ignored() {
     )
     .unwrap();
 
-    // Should only value the future flow
+    // Should only value the future flow: PV = 100 / 1.05 = 95.238... (year_fraction = 365/365 = 1.0)
     let expected = 100.0 / 1.05;
-    assert!((price - expected).abs() < 0.1);
+    assert!((price - expected).abs() < 1e-10);
 }
 
 #[test]
@@ -410,9 +410,11 @@ fn test_price_from_ytm_compounded_params_long_maturity() {
     )
     .unwrap();
 
-    // PV = 100 / (1.04)^30 ≈ 30.83
-    let expected = 100.0 / (1.04_f64).powf(30.0);
-    assert!((price - expected).abs() < 1.0);
+    // Act365F from 2024-01-01 to 2054-01-01: 30 years with 8 leap years = 10958 days / 365 = 30.0219 yrs.
+    // expected uses the actual year fraction, not 30.0 exactly.
+    let year_fraction = 10958.0 / 365.0;
+    let expected = 100.0 / (1.04_f64).powf(year_fraction);
+    assert!((price - expected).abs() < 1e-10);
     assert!(price < 35.0); // Should be heavily discounted
 }
 
@@ -443,9 +445,10 @@ fn test_price_from_ytm_compounded_params_continuous_vs_annual() {
     )
     .unwrap();
 
-    // Continuous compounding should give slightly lower price (higher discount)
+    // Continuous compounding should give slightly lower price (higher discount).
+    // For 5% yield over ~1 year, the difference is ~0.12 (100bp annualized effect).
     assert!(price_continuous < price_annual);
-    assert!((price_annual - price_continuous).abs() < 0.5);
+    assert!((price_annual - price_continuous).abs() < 0.2);
 }
 
 #[test]

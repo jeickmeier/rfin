@@ -113,9 +113,10 @@ fn test_bond_ytm_round_trip() {
             ytm
         );
 
-        // YTM should be somewhat close to the discount rate
+        // YTM should match the discount rate closely.
+        // At 3.5% continuous, semi-annual YTM is ~3bp higher; 20bp tolerance gives safe headroom.
         assert!(
-            (ytm - rate).abs() < 0.02,
+            (ytm - rate).abs() < 0.002,
             "YTM should be close to the discount rate. Expected ~{:.4}, got {:.4}",
             rate,
             ytm

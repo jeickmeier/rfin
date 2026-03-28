@@ -404,10 +404,11 @@ fn test_bond_price_yield_relationship() {
         );
     }
 
-    // Middle price (6% yield, 6% coupon) should be near par
+    // Middle price (6% yield, 6% coupon) should be near par.
+    // Small deviation (<0.5) expected due to continuous discount curve vs semi-annual coupon compounding.
     assert!(
-        (prices[1] - 100.0).abs() < 1.0,
-        "Bond with 6% coupon at 6% yield should be near par: {:.2}",
+        (prices[1] - 100.0).abs() < 0.5,
+        "Bond with 6% coupon at 6% yield should be near par: {:.4}",
         prices[1]
     );
 }
@@ -449,10 +450,11 @@ fn test_bond_zero_coupon_duration() {
 
     let mac_duration = *result.measures.get("duration_mac").unwrap();
 
-    // For zero coupon bond, duration = time to maturity (5 years)
+    // For zero coupon bond, duration = time to maturity (5 years).
+    // Act365F from 2024-01-01 to 2029-01-01 yields 1827/365 ≈ 5.005 years.
     assert!(
-        (mac_duration - 5.0).abs() < 0.1,
-        "Zero coupon bond duration={:.2} should equal maturity 5.00 years",
+        (mac_duration - 5.0).abs() < 0.01,
+        "Zero coupon bond duration={:.4} should equal maturity 5.00 years (within day count tolerance)",
         mac_duration
     );
 }

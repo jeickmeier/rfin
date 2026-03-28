@@ -141,10 +141,10 @@ fn test_multiple_contracts_scaling() {
     );
     let pv_multiple = multiple.value(&market, as_of).unwrap().amount();
 
-    // Should scale linearly (allowing small floating point tolerance)
+    // PV is linear in contract size — must hold to float precision
     assert!(
-        (pv_multiple - 5.0 * pv_single).abs() < 0.1,
-        "5 contracts should be 5x single contract: {} vs {}",
+        (pv_multiple - 5.0 * pv_single).abs() < 1e-6,
+        "5 contracts must be exactly 5x single: {} vs {}",
         pv_multiple,
         5.0 * pv_single
     );
@@ -294,10 +294,10 @@ fn test_fractional_notional() {
     );
     let pv_full = full.value(&market, as_of).unwrap().amount();
 
-    // Should be half (allowing small floating point tolerance)
+    // PV is linear in contract size — must hold to float precision
     assert!(
-        (pv_frac - 0.5 * pv_full).abs() < 0.1,
-        "Half contract should be 0.5x full: {} vs {}",
+        (pv_frac - 0.5 * pv_full).abs() < 1e-6,
+        "Half contract must be exactly 0.5x full: {} vs {}",
         pv_frac,
         0.5 * pv_full
     );

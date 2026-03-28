@@ -44,11 +44,11 @@ fn test_ytm_par_bond() {
         .unwrap();
     let ytm = *result.measures.get("ytm").unwrap();
 
-    // At par, YTM should equal coupon rate within 5bp
-    // Small deviation allowed for compounding convention mismatch
+    // At par, YTM should equal coupon rate within 1bp.
+    // Tiny residual (~0.1bp) allowed for irregular first coupon period (181/365 days ≠ 0.5yr).
     assert!(
-        (ytm - 0.05).abs() < 0.0005,
-        "Par bond YTM {:.6} should approximately equal coupon 0.05",
+        (ytm - 0.05).abs() < 1e-4,
+        "Par bond YTM {:.6} should equal coupon rate 0.05 (within 1bp)",
         ytm
     );
 }

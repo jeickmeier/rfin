@@ -46,9 +46,10 @@ fn test_ytw_equals_ytm_for_non_callable_bond_from_price() {
 
     // For a non-callable bond, YTW should collapse to YTM (same cashflows/price)
     assert!(ytw.is_finite());
+    // YTW must equal YTM exactly: same cashflows, same price, no optionality to exercise
     assert!(
-        (ytw - ytm).abs() <= 1e-6,
-        "expected YTW ≈ YTM for non-callable bond, got ytm={} ytw={}",
+        (ytw - ytm).abs() <= 1e-10,
+        "expected YTW == YTM for non-callable bond, got ytm={} ytw={}",
         ytm,
         ytw
     );

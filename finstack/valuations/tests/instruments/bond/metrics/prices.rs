@@ -38,5 +38,5 @@ fn test_clean_price_from_quoted() {
         )
         .unwrap();
     let clean = *result.measures.get("clean_price").unwrap();
-    assert!((clean - 98.5).abs() < 0.1);
+    assert!((clean - 98.5).abs() < 1e-10); // Quoted clean price round-trip must be exact
 }

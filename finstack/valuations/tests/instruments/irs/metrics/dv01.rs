@@ -110,9 +110,11 @@ fn test_dv01_formula_consistency() {
 
     let expected_dv01 = annuity * 1_000_000.0 * 0.0001;
 
+    // Identity holds at par (market rate = fixed rate = 5%) on matched disc/fwd curves:
+    // floating sensitivity cancels, leaving DV01 ≈ annuity × notional × 1bp.
     assert!(
-        (dv01.abs() - expected_dv01.abs()).abs() < 10.0,
-        "DV01={} should match formula {} (within $10)",
+        (dv01.abs() - expected_dv01.abs()).abs() < 0.01,
+        "DV01={} should match annuity×notional×1bp formula (at-par, matched curves), got {}",
         dv01,
         expected_dv01
     );
@@ -231,9 +233,10 @@ fn test_dv01_receive_vs_pay_opposite_signs() {
         dv01_pay
     );
 
+    // Same swap, opposite direction: DV01 magnitudes must be exactly equal
     assert!(
-        (dv01_receive.abs() - dv01_pay.abs()).abs() < 0.1,
-        "Magnitudes should be equal: |receive|={}, |pay|={}",
+        (dv01_receive.abs() - dv01_pay.abs()).abs() < 1e-6,
+        "DV01 magnitudes must be equal: |receive|={}, |pay|={}",
         dv01_receive.abs(),
         dv01_pay.abs()
     );

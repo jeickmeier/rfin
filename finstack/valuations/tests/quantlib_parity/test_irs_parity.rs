@@ -160,10 +160,9 @@ fn test_irs_par_rate_flat_curve() {
         .expect("pricing with metrics should succeed");
 
     if let Some(&par_rate) = result.measures.get(MetricId::ParRate.as_str()) {
-        // Par rate should be close to the market rate (within 50bp due to
-        // day count convention differences between legs)
+        // Par rate should be close to the market rate (within 10bp due to day count convention differences)
         assert!(
-            (par_rate - market_rate).abs() < 0.005,
+            (par_rate - market_rate).abs() < 0.001,
             "Par rate should be close to market rate. Expected ~{:.4}, got {:.4}",
             market_rate,
             par_rate

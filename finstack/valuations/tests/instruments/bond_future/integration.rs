@@ -817,7 +817,7 @@ fn test_conversion_factor_calculation_accuracy() {
 
     // Bonds with coupons at the standard should have CF ≈ 1.0
     assert!(
-        (cf_at - 1.0).abs() < 0.15,
+        (cf_at - 1.0).abs() < 0.05,
         "6% bond should have CF ≈ 1.0, got {}",
         cf_at
     );

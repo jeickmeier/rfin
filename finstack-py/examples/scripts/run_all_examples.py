@@ -19,7 +19,10 @@ def find_python_scripts(base_dir: Path) -> list[Path]:
     # Exclude slow Monte Carlo examples (100k paths each, can take 30-60s)
     # These are comprehensive demonstrations but too slow for routine testing
     # Run them manually when needed: uv run python finstack-py/examples/scripts/valuations/<example>.py
-    excluded_patterns = []
+    excluded_patterns = [
+        "generate_pik_deep_dive.py",
+        "generate_pik_presentation.py",
+    ]
     scripts = [s for s in scripts if s.name not in excluded_patterns]
 
     return scripts

@@ -52,7 +52,7 @@ def build_repo(as_of: date) -> Repo:
         .repo_rate(0.032)
         .start_date(start)
         .maturity(maturity)
-        .disc_id("USD-OIS")
+        .discount_curve("USD-OIS")
         .repo_type("term")
         .haircut(0.02)
         .calendar("usny")

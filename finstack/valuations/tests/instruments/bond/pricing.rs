@@ -270,7 +270,7 @@ fn test_bond_theta_time_decay() {
     // Just verify prices are finite and reasonable
     assert!(pv_t0.amount().is_finite());
     assert!(pv_t1.amount().is_finite());
-    assert!((pv_t0.amount() - pv_t1.amount()).abs() < 10.0); // Small 1-day change
+    assert!((pv_t0.amount() - pv_t1.amount()).abs() < 1.0); // Daily carry on $1000 bond is ~$0.15
 }
 
 #[test]

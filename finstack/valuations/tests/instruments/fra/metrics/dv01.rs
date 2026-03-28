@@ -189,7 +189,9 @@ fn test_dv01_short_period() {
     let dv01 = *result.measures.get("dv01").unwrap();
 
     assert_finite(dv01, "Short period DV01 should be finite");
-    assert!(dv01.abs() < 100.0, "Short FRA should have small DV01");
+    // For short-period FRA (1 month), DV01 is smaller than for longer-period FRA
+    // But still significant: for 1M notional, typically $2-$10
+    assert!(dv01.abs() < 10.0, "Short FRA DV01 should be smaller than long-period: got {}", dv01.abs());
 }
 
 #[test]

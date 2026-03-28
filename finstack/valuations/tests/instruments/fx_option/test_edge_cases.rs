@@ -98,9 +98,11 @@ fn test_deep_itm_call_behaves_like_forward() {
         "Deep ITM delta should approach notional"
     );
 
-    // Gamma and vega should be near zero for deep ITM
-    assert!(greeks.gamma < 100.0, "Deep ITM gamma should be small");
-    assert!(greeks.vega < 10_000.0, "Deep ITM vega should be small");
+    // Gamma and vega should be significantly reduced for deep ITM (approaches forward behavior)
+    // Deep ITM gamma is typically < 0.05 per 1M notional (vs ~0.5+ for ATM)
+    assert!(greeks.gamma < 0.1, "Deep ITM gamma should be substantially reduced (forward-like behavior), got {}", greeks.gamma);
+    // Vega for deep ITM is typically < 1.0 per 1M notional (vs ~100+ for ATM)
+    assert!(greeks.vega < 5.0, "Deep ITM vega should be substantially reduced (forward-like behavior), got {}", greeks.vega);
 }
 
 #[test]

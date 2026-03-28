@@ -40,7 +40,7 @@ fn test_duration_zero_coupon() {
         )
         .unwrap();
     let mac_dur = *result.measures.get("duration_mac").unwrap();
-    assert!((mac_dur - 5.0).abs() < 0.2); // Zero coupon duration ≈ maturity
+    assert!((mac_dur - 5.0).abs() < 0.01); // Zero coupon duration ≈ maturity (day count convention may give ~5.003)
 }
 
 #[test]
@@ -84,7 +84,7 @@ fn test_modified_duration_matches_macaulay_over_yield() {
 
     // Semiannual frequency → m = 2 by default in helper
     let expected = d_mac / (1.0 + ytm / 2.0);
-    assert!((d_mod - expected).abs() < 0.05);
+    assert!((d_mod - expected).abs() < 1e-4); // d_mod = d_mac / (1 + ytm/2) is an analytical identity
 }
 
 #[test]
