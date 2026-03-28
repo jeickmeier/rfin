@@ -390,7 +390,7 @@ fn test_structured_credit_registry_wal_matches_cashflow_wal() {
             finstack_valuations::instruments::PricingOptions::default(),
         )
         .expect("WAL metric request should succeed");
-    let expected = 2.209_178_398_160_473_f64;
+    let expected = 2.224_953_739_568_304_6_f64;
     let actual = valuation.measures["wal"];
 
     assert!(

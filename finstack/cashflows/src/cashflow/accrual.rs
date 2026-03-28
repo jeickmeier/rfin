@@ -277,8 +277,7 @@ struct PeriodInputs {
 
 /// Check if a cashflow kind is a coupon that should be included in accrual.
 fn is_coupon_kind(kind: CFKind, include_pik: bool) -> bool {
-    matches!(kind, CFKind::Fixed | CFKind::Stub | CFKind::FloatReset)
-        || (include_pik && kind == CFKind::PIK)
+    kind.is_interest_like() || (include_pik && kind == CFKind::PIK)
 }
 
 fn derive_horizon_start(

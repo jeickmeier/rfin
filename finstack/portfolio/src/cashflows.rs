@@ -545,14 +545,27 @@ pub fn cashflows_to_base_by_period(
 
     let mut by_period: IndexMap<finstack_core::dates::PeriodId, Money> = IndexMap::new();
 
+    let mut unbucketed_count: usize = 0;
+    let mut unbucketed_total = 0.0_f64;
+
     for (date, amount) in by_date_base {
-        // Find the first period containing this date: [start, end]
         if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
             let entry = by_period
                 .entry(period.id)
                 .or_insert_with(|| Money::new(0.0, base_ccy));
             *entry = entry.checked_add(amount).map_err(Error::Core)?;
+        } else {
+            unbucketed_count += 1;
+            unbucketed_total += amount.amount().abs();
         }
+    }
+
+    if unbucketed_count > 0 {
+        tracing::warn!(
+            count = unbucketed_count,
+            total_abs = unbucketed_total,
+            "cashflows_to_base_by_period: {unbucketed_count} cashflows fell outside all period boundaries and were dropped"
+        );
     }
 
     Ok(PortfolioCashflowBuckets { by_period })
@@ -570,6 +583,9 @@ pub fn cashflows_to_base_by_period_kind(
     let mut by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>> =
         IndexMap::new();
 
+    let mut unbucketed_count: usize = 0;
+    let mut unbucketed_total = 0.0_f64;
+
     for (date, per_kind) in by_date_base {
         if let Some(period) = periods.iter().find(|p| date >= p.start && date <= p.end) {
             let period_entry = by_period.entry(period.id).or_default();
@@ -579,7 +595,18 @@ pub fn cashflows_to_base_by_period_kind(
                     .or_insert_with(|| Money::new(0.0, base_ccy));
                 *entry = entry.checked_add(amount).map_err(Error::Core)?;
             }
+        } else {
+            unbucketed_count += 1;
+            unbucketed_total += per_kind.values().map(|m| m.amount().abs()).sum::<f64>();
         }
+    }
+
+    if unbucketed_count > 0 {
+        tracing::warn!(
+            count = unbucketed_count,
+            total_abs = unbucketed_total,
+            "cashflows_to_base_by_period_kind: {unbucketed_count} cashflow dates fell outside all period boundaries and were dropped"
+        );
     }
 
     Ok(PortfolioCashflowKindBuckets { by_period })

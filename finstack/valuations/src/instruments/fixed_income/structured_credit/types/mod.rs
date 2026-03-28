@@ -790,7 +790,6 @@ impl CashflowProvider for StructuredCredit {
             )?
             .into_values()
             .flat_map(|result| result.detailed_flows.into_iter())
-            .filter(|flow| flow.amount.amount() >= 0.0)
             .collect();
         // Use deal-type-appropriate day count convention:
         // CLO/CBO: ACT/360 (standard for leveraged loan market)

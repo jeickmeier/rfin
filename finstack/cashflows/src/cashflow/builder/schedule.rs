@@ -288,11 +288,11 @@ impl CashFlowSchedule {
         Ok(out)
     }
 
-    /// Get an iterator over coupon cashflows (Fixed and Stub types).
+    /// Get an iterator over interest-like coupon cashflows.
+    ///
+    /// Includes `Fixed`, `FloatReset`, `InflationCoupon`, and `Stub` kinds.
     pub fn coupons(&self) -> impl Iterator<Item = &CashFlow> {
-        self.flows
-            .iter()
-            .filter(|cf| cf.kind == CFKind::Fixed || cf.kind == CFKind::Stub)
+        self.flows.iter().filter(|cf| cf.kind.is_interest_like())
     }
 
     /// Weighted Average Life (WAL) in years from `as_of`.
@@ -553,7 +553,12 @@ impl CashFlowSchedule {
         dc: DayCount,
         dc_ctx: DayCountCtx,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let flows: Vec<(Date, Money)> = self.flows.iter().map(|cf| (cf.date, cf.amount)).collect();
+        let flows: Vec<(Date, Money)> = self
+            .flows
+            .iter()
+            .filter(|cf| cf.kind != CFKind::DefaultedNotional)
+            .map(|cf| (cf.date, cf.amount))
+            .collect();
         crate::cashflow::aggregation::pv_by_period_with_ctx(&flows, periods, disc, base, dc, dc_ctx)
     }
 

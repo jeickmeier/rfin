@@ -243,11 +243,11 @@ pub fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result
     }
 
     let discount_curve = market.get_discount(&cmo.discount_curve_id)?;
-    let day_count = DayCount::Thirty360;
+    let dc = discount_curve.day_count();
 
     let mut pv = 0.0;
     for cf in &schedule.flows {
-        let years = day_count.year_fraction(as_of, cf.date, DayCountCtx::default())?;
+        let years = dc.year_fraction(as_of, cf.date, DayCountCtx::default())?;
         let df = discount_curve.df(years);
         pv += cf.amount.amount() * df;
     }

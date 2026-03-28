@@ -205,6 +205,21 @@ pub enum CFKind {
     CollateralSubstitutionOut,
 }
 
+impl CFKind {
+    /// Returns `true` for interest-bearing cashflow kinds.
+    ///
+    /// Covers fixed coupons, floating resets, inflation-linked coupons,
+    /// and irregular stub periods. Use this predicate wherever you need
+    /// to distinguish interest flows from principal, fees, and credit-event flows.
+    #[must_use]
+    pub fn is_interest_like(self) -> bool {
+        matches!(
+            self,
+            CFKind::Fixed | CFKind::FloatReset | CFKind::InflationCoupon | CFKind::Stub
+        )
+    }
+}
+
 /// A single dated cash-flow (payment or reset).
 ///
 /// Represents a monetary flow at a specific date with metadata

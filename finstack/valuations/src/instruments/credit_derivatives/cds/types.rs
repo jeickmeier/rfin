@@ -1039,6 +1039,16 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
             schedule.flows.sort_by_key(|cf| cf.date);
         }
 
+        // Apply holder-view sign: protection buyer (PayFixed) pays premium,
+        // protection seller (ReceiveFixed) receives premium.
+        let sign = match self.side {
+            PayReceive::PayFixed => -1.0,
+            PayReceive::ReceiveFixed => 1.0,
+        };
+        for cf in &mut schedule.flows {
+            cf.amount = Money::new(cf.amount.amount() * sign, cf.amount.currency());
+        }
+
         schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
         Ok(schedule)
     }
