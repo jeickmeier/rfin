@@ -456,4 +456,3 @@
 - Prefer rewriting tests to match the new semantics rather than adding shims that keep the old bridge alive.
 - Keep `value()` and other pricer entry points untouched unless a rename fallout genuinely requires a local fix.
 - If any contingent product resists classification, default to an empty `Placeholder` schedule rather than inventing a projected payoff policy during this refactor.
-

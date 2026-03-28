@@ -469,4 +469,3 @@ This is the smallest design that gives:
 - clear semantics for empty results
 - a clean portfolio waterfall API
 - room to later add projected contingent-payoff policies without redesigning the public surface
-

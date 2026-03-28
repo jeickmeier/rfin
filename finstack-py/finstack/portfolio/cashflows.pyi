@@ -18,16 +18,12 @@ class CashflowWarning:
 
     @property
     def position_id(self) -> str: ...
-
     @property
     def instrument_id(self) -> str: ...
-
     @property
     def instrument_type(self) -> str: ...
-
     @property
     def message(self) -> str: ...
-
     def __repr__(self) -> str: ...
 
 class PortfolioCashflows:
