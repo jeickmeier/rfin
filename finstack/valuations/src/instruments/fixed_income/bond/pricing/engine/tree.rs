@@ -990,9 +990,11 @@ impl BondValuator {
     ///
     /// Model dirty price of the bond.
     pub(crate) fn price_with_hw_tree(&self, hw_tree: &HullWhiteTree, oas_bp: f64) -> f64 {
-        let oas_decimal = oas_bp / 10_000.0;
         let dt = hw_tree.dt();
         let final_step = hw_tree.num_steps();
+
+        // Pre-compute OAS discount factor (constant across entire tree)
+        let oas_discount = (-(oas_bp / 10_000.0) * dt).exp();
 
         let terminal_cf = self.cashflow_at(final_step);
         let terminal_values = vec![terminal_cf; hw_tree.num_nodes(final_step)];
@@ -1000,7 +1002,6 @@ impl BondValuator {
         hw_tree.backward_induction(&terminal_values, |step, _node_idx, continuation| {
             // The HW tree's backward_induction already discounts by the short
             // rate r(step, node). Apply the OAS as additional discounting.
-            let oas_discount = (-oas_decimal * dt).exp();
             let oas_adjusted = continuation * oas_discount;
 
             let coupon = self.cashflow_at(step);

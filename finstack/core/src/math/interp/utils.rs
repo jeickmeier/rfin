@@ -109,6 +109,21 @@ pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
     Ok(if idx == 0 { 0 } else { idx - 1 })
 }
 
+/// Fast-path segment lookup for callers that already verified x is finite
+/// and in-bounds (e.g., after `check_extrapolation` returned `None`).
+///
+/// Skips finite/bounds checks. Returns the segment index directly.
+/// Caller MUST ensure: x is finite, xs has >= 2 elements, xs[0] <= x <= xs[last].
+#[inline(always)]
+pub fn locate_segment_unchecked(xs: &[f64], x: f64) -> usize {
+    let idx = xs.partition_point(|k| *k < x);
+    if idx == 0 {
+        0
+    } else {
+        idx - 1
+    }
+}
+
 /// Validate that all values are strictly positive.
 pub fn validate_positive_series(values: &[f64]) -> crate::Result<()> {
     if values.iter().any(|&v| !v.is_finite() || v <= 0.0) {

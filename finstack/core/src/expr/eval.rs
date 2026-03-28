@@ -198,23 +198,38 @@ impl CompiledExpr {
         cols: &[&[f64]],
         opts: EvalOpts,
     ) -> crate::Result<EvaluationResult> {
-        // Decide on execution plan preference: opts > self > lazy-cached auto-build
-        let plan_to_use: ExecutionPlan = if let Some(plan) = opts.plan.or_else(|| self.plan.clone())
-        {
+        // Decide on execution plan preference: opts > self > lazy-cached auto-build.
+        // Use references to avoid cloning ExecutionPlan (which contains Vec<DagNode>
+        // with recursive Expr trees). Only build a new owned plan when none exists.
+        let owned_plan;
+        let plan_to_use: &ExecutionPlan = if let Some(ref plan) = opts.plan {
+            plan
+        } else if let Some(ref plan) = self.plan {
             plan
         } else if let Some(plan) = self.lazy_plan.get() {
-            plan.clone()
+            plan
         } else {
             let mut builder = DagBuilder::new();
             let meta = crate::config::results_meta(&crate::config::FinstackConfig::default());
             let plan = builder.build_plan(vec![self.ast.clone()], meta)?;
-            let _ = self.lazy_plan.set(plan.clone());
-            plan
+            // Try to cache for future calls; if a racing thread beat us, use theirs.
+            match self.lazy_plan.set(plan) {
+                Ok(()) => self
+                    .lazy_plan
+                    .get()
+                    .ok_or(crate::Error::from(crate::InputError::Invalid))?,
+                Err(plan) => {
+                    // Race: another thread set it first. Use theirs (already cached).
+                    // Keep our plan alive for this call as a fallback.
+                    owned_plan = plan;
+                    self.lazy_plan.get().unwrap_or(&owned_plan)
+                }
+            }
         };
 
         // Decide on cache to use for this evaluation
         let eval_cache: Option<CacheManager> = if let Some(budget) = opts.cache_budget_mb {
-            Some(CacheManager::for_plan(&plan_to_use, budget))
+            Some(CacheManager::for_plan(plan_to_use, budget))
         } else {
             self.cache.clone()
         };

@@ -7,7 +7,7 @@ use super::{
     traits::InterpolationStrategy,
     types::ExtrapolationPolicy,
     utils::{
-        locate_segment, validate_knot_spacing, validate_monotone_nonincreasing,
+        locate_segment_unchecked, validate_knot_spacing, validate_monotone_nonincreasing,
         validate_positive_series, MIN_RELATIVE_KNOT_GAP,
     },
 };
@@ -80,10 +80,8 @@ impl InterpolationStrategy for LinearStrategy {
         // knots[idx] <= x, so w = 0.0 when x == knots[idx] and w = 1.0 when
         // x == knots[idx+1] — both produce the exact knot value without a
         // separate binary search.
-        let idx = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Safe: check_extrapolation returning None guarantees x is in [knots[0], knots[last]].
+        let idx = locate_segment_unchecked(knots, x);
         let x0 = knots[idx];
         let x1 = knots[idx + 1];
         let y0 = values[idx];
@@ -127,11 +125,8 @@ impl InterpolationStrategy for LinearStrategy {
             return val;
         }
 
-        // Interior linear interpolation derivative
-        let idx = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Interior: safe after check_extrapolation returned None
+        let idx = locate_segment_unchecked(knots, x);
         segment_slope(knots, values, idx, idx + 1)
     }
 }
@@ -222,18 +217,10 @@ impl InterpolationStrategy for LogLinearStrategy {
             return val;
         }
 
-        // Exact knot match
-        if let Ok(idx_exact) =
-            knots.binary_search_by(|k| k.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Less))
-        {
-            return self.log_values[idx_exact].exp();
-        }
-
-        // Interior interpolation
-        let idx = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Interior interpolation (exact knot hits produce w=0 or w=1,
+        // yielding the exact knot value without a separate search).
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let idx = locate_segment_unchecked(knots, x);
         let x0 = knots[idx];
         let x1 = knots[idx + 1];
         let y0 = self.log_values[idx];
@@ -286,13 +273,16 @@ impl InterpolationStrategy for LogLinearStrategy {
             return val;
         }
 
-        // Get the interpolated value and log-linear slope
-        let f_val = self.interp(x, knots, &[], extrapolation);
-        let idx = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
-        let slope = log_segment_slope(&self.log_values, knots, idx, idx + 1);
+        // Compute interpolated value and slope in a single binary search.
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let idx = locate_segment_unchecked(knots, x);
+        let x0 = knots[idx];
+        let x1 = knots[idx + 1];
+        let y0 = self.log_values[idx];
+        let y1 = self.log_values[idx + 1];
+        let w = (x - x0) / (x1 - x0);
+        let f_val = (y0 + w * (y1 - y0)).exp();
+        let slope = (y1 - y0) / (x1 - x0);
 
         // Derivative: f(x) * (slope in log space)
         f_val * slope
@@ -451,10 +441,8 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
             return val;
         }
 
-        let idx = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let idx = locate_segment_unchecked(knots, x);
         let s = x - knots[idx];
         let y = self.a[idx] + self.b[idx] * s + self.c[idx] * s * s + self.d[idx] * s * s * s;
         (-y).exp()
@@ -491,10 +479,8 @@ impl InterpolationStrategy for PiecewiseQuadraticForwardStrategy {
             return val;
         }
 
-        let idx = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let idx = locate_segment_unchecked(knots, x);
         let s = x - knots[idx];
 
         let y = self.a[idx] + self.b[idx] * s + self.c[idx] * s * s + self.d[idx] * s * s * s;
@@ -618,18 +604,11 @@ impl InterpolationStrategy for CubicHermiteStrategy {
             return val;
         }
 
-        // Fast-path: exact knot value → short-circuit
-        if let Ok(idx) =
-            knots.binary_search_by(|k| k.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Less))
-        {
-            return values[idx];
-        }
-
-        // Interior interpolation using cubic Hermite
-        let i = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Interior interpolation using cubic Hermite.
+        // Exact knot hits produce t=0 or t=1, giving the exact knot value
+        // through the basis functions without a separate binary search.
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let i = locate_segment_unchecked(knots, x);
         let x0 = knots[i];
         let x1 = knots[i + 1];
         let h = x1 - x0;
@@ -686,17 +665,10 @@ impl InterpolationStrategy for CubicHermiteStrategy {
             return val;
         }
 
-        // For exact knot values, return the precomputed slope
-        if let Ok(idx) =
-            knots.binary_search_by(|k| k.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Less))
-        {
-            return self.ms[idx];
-        }
-
-        let i = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        // Exact knot hits produce t=0 or t=1, giving the exact slope
+        // through the derivative basis functions.
+        let i = locate_segment_unchecked(knots, x);
         let x0 = knots[i];
         let x1 = knots[i + 1];
         let h = x1 - x0;
@@ -896,18 +868,11 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
             return val;
         }
 
-        // Exact knot match
-        if let Ok(idx_exact) =
-            knots.binary_search_by(|k| k.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Less))
-        {
-            return values[idx_exact];
-        }
-
-        // Interior interpolation using Hagan-West formula
-        let i = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Interior interpolation using Hagan-West formula.
+        // Exact knot hits produce x=0 in interpolate_segment, giving the
+        // exact knot value without a separate binary search.
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let i = locate_segment_unchecked(knots, x);
         self.interpolate_segment(i, x, knots)
     }
 
@@ -915,7 +880,7 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
         &self,
         x: f64,
         knots: &[f64],
-        values: &[f64],
+        _values: &[f64],
         extrapolation: ExtrapolationPolicy,
     ) -> f64 {
         use super::utils::check_extrapolation;
@@ -955,19 +920,9 @@ impl InterpolationStrategy for MonotoneConvexStrategy {
             return val;
         }
 
-        // For exact knot values, compute derivative using forward rate
-        if let Ok(idx) =
-            knots.binary_search_by(|k| k.partial_cmp(&x).unwrap_or(std::cmp::Ordering::Less))
-        {
-            // d/dx[DF] = -f * DF at knot points
-            return -self.f[idx] * values[idx];
-        }
-
         // Interior: d/dx[DF(t)] = -f(t) * DF(t)
-        let i = match locate_segment(knots, x) {
-            Ok(i) => i,
-            Err(_) => return f64::NAN,
-        };
+        // Safe: check_extrapolation returning None guarantees x is in bounds.
+        let i = locate_segment_unchecked(knots, x);
         let df = self.interpolate_segment(i, x, knots);
         let fwd = self.forward_rate_in_segment(i, x, knots);
         -fwd * df

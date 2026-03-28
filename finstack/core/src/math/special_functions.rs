@@ -220,6 +220,9 @@ pub fn norm_cdf(x: f64) -> f64 {
     STANDARD_NORMAL.cdf(x)
 }
 
+// Precomputed 1/√(2π) for direct norm_pdf evaluation.
+const INV_SQRT_2PI: f64 = 0.398_942_280_401_432_7;
+
 /// Standard normal probability density function φ(x).
 ///
 /// Computes the probability density of the standard normal distribution at x.
@@ -265,11 +268,11 @@ pub fn norm_cdf(x: f64) -> f64 {
 ///
 /// # Implementation
 ///
-/// Uses a static standard normal distribution instance for performance in hot paths.
+/// Direct computation using the formula φ(x) = (1/√(2π)) × e^(-x²/2) with a
+/// precomputed constant, avoiding trait dispatch overhead from statrs.
 #[inline]
 pub fn norm_pdf(x: f64) -> f64 {
-    use statrs::distribution::Continuous;
-    STANDARD_NORMAL.pdf(x)
+    INV_SQRT_2PI * (-0.5 * x * x).exp()
 }
 
 fn validate_finite_positive(name: &str, value: f64) -> crate::Result<()> {

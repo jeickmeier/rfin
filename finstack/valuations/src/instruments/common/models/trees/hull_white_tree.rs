@@ -735,6 +735,11 @@ impl HullWhiteTree {
         // Start with terminal values
         let mut values = terminal_values.to_vec();
 
+        // Reuse scratch buffer across steps to avoid per-step allocation
+        let max_nodes = self.num_nodes(n);
+        let mut scratch = vec![0.0; max_nodes];
+        let neg_dt = -self.dt;
+
         // Backward induction
         for step in (0..n).rev() {
             let num_nodes = self.num_nodes(step);
@@ -742,14 +747,16 @@ impl HullWhiteTree {
             let j_max_curr = step.min(self.j_max);
             let j_max_next = (step + 1).min(self.j_max);
 
-            let mut new_values = vec![0.0; num_nodes];
+            // Pre-fetch alpha for this step (avoids repeated bounds check in rate_at_node)
+            let alpha_step = self.alpha.get(step).copied().unwrap_or(0.0);
 
-            for (j, new_value) in new_values.iter_mut().enumerate() {
-                let r_j = self.rate_at_node(step, j);
+            for (j, scratch_j) in scratch.iter_mut().enumerate().take(num_nodes) {
+                // Inline rate_at_node to avoid method call overhead + repeated j_max calc
+                let j_signed = j as i32 - j_max_curr as i32;
+                let r_j = j_signed as f64 * self.dx + alpha_step;
                 let (p_up, p_mid, p_down) = self.probabilities(step, j);
 
                 // Discounted expected value from child nodes
-                let j_signed = j as i32 - j_max_curr as i32;
                 let next_mid = (j_signed + j_max_next as i32) as usize;
 
                 let v_up = if next_mid + 1 < num_next_nodes {
@@ -771,13 +778,13 @@ impl HullWhiteTree {
                 };
 
                 let expected_value = p_up * v_up + p_mid * v_mid + p_down * v_down;
-                let discounted = expected_value * (-r_j * self.dt).exp();
+                let discounted = expected_value * (r_j * neg_dt).exp();
 
-                // Apply intermediate value function (exercise decision, coupons, etc.)
-                *new_value = intermediate_value_fn(step, j, discounted);
+                *scratch_j = intermediate_value_fn(step, j, discounted);
             }
 
-            values = new_values;
+            // Swap buffers instead of allocating new Vec
+            std::mem::swap(&mut values, &mut scratch);
         }
 
         // Return value at root node
