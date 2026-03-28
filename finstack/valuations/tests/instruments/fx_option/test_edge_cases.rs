@@ -119,12 +119,14 @@ fn test_deep_otm_call_has_minimal_value() {
     let pv = call.value(&market, as_of).unwrap();
     let greeks = compute_greeks(&call, &market, as_of);
 
-    // Assert: Value should be very small
-    assert!(pv.amount() < 10_000.0, "Deep OTM value should be small");
+    // Assert: Value should be very small (strike=2.00 is 67% above spot=1.20)
+    // For $1M notional, deep OTM 1Y call should be worth < $100
+    assert!(pv.amount() < 100.0, "Deep OTM value should be near zero: {}", pv.amount());
     assert!(pv.amount() >= 0.0, "Value should be non-negative");
 
-    // Delta should be near zero
-    assert!(greeks.delta < 100_000.0, "Deep OTM delta should be small");
+    // Delta should be near zero (deep OTM call has near-zero probability of exercise)
+    // For $1M notional call 67% OTM, delta << 1% of notional
+    assert!(greeks.delta < 10_000.0, "Deep OTM delta should be near zero: {}", greeks.delta);
     assert!(greeks.delta >= 0.0, "Call delta should be non-negative");
 }
 
