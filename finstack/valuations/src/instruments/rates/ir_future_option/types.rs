@@ -285,10 +285,6 @@ impl crate::instruments::common_impl::traits::Instrument for IrFutureOption {
         self.npv(curves, as_of)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<Date> {
         Some(self.expiry)
     }
@@ -315,14 +311,15 @@ impl CashflowProvider for IrFutureOption {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(crate::cashflow::traits::empty_schedule(
+        Ok(crate::cashflow::traits::empty_schedule_with_representation(
             self.notional(),
             DayCount::Act365F,
+            crate::cashflow::builder::CashflowRepresentation::Placeholder,
         ))
     }
 }

@@ -108,7 +108,7 @@ fn test_bond_ytm_benchmark_1() {
 
     // Verify self-consistency: price from computed YTM should match target
     use finstack_valuations::cashflow::CashflowProvider;
-    let flows = bond.build_dated_flows(&market, as_of).unwrap();
+    let flows = bond.dated_cashflows(&market, as_of).unwrap();
     let recalc_price =
         finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
             &bond, &flows, as_of, ytm,

@@ -3,6 +3,7 @@
 use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 use finstack_core::{Error, InputError};
+use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::fixed_income::bond::Bond;
 use finstack_valuations::instruments::fixed_income::bond::ZSpreadCalculator;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
@@ -174,7 +175,7 @@ fn test_z_spread_solver_convergence_across_spread_regimes() {
         // (dirty = clean + accrued at quote_date).
         // Accrued must be computed at the quote/settlement date, not `as_of`.
         let schedule = base_bond
-            .get_full_schedule(&market)
+            .cashflow_schedule(&market, quote_date)
             .expect("build full schedule");
         let accrued = finstack_valuations::cashflow::accrued_interest_amount(
             &schedule,

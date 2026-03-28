@@ -941,24 +941,43 @@ impl PyBond {
         self.inner.validate().map_err(core_to_py)
     }
 
-    /// Generate the full cashflow schedule for this bond.
+    /// Generate the canonical cashflow schedule for this bond.
     ///
     /// Parameters
     /// ----------
     /// market : MarketContext
     ///     Market data for forward rate fixing (required for floating-rate bonds)
+    /// as_of : datetime.date, optional
+    ///     Valuation date. Defaults to the bond discount curve base date.
     ///
     /// Returns
     /// -------
     /// CashFlowSchedule
-    ///     Complete schedule of coupon and principal cashflows
-    fn get_full_schedule(
+    ///     Holder-view contractual schedule returned by ``CashflowProvider.cashflow_schedule()``
+    #[pyo3(
+        signature = (market, *, as_of=None),
+        text_signature = "($self, market, *, as_of=None)"
+    )]
+    fn cashflow_schedule(
         &self,
         py: Python<'_>,
         market: &PyMarketContext,
+        as_of: Option<Bound<'_, PyAny>>,
     ) -> PyResult<PyCashFlowSchedule> {
+        let as_of_date = if let Some(as_of) = as_of {
+            py_to_date(&as_of)?
+        } else {
+            market
+                .inner
+                .get_discount(self.inner.discount_curve_id.as_str())
+                .map_err(core_to_py)?
+                .base_date()
+        };
         let schedule = py
-            .detach(|| self.inner.get_full_schedule(&market.inner))
+            .detach(|| {
+                use finstack_valuations::cashflow::CashflowProvider;
+                self.inner.cashflow_schedule(&market.inner, as_of_date)
+            })
             .map_err(core_to_py)?;
         Ok(PyCashFlowSchedule::new(schedule))
     }

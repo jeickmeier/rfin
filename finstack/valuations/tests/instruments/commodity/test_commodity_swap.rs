@@ -5,6 +5,7 @@ use finstack_core::dates::{Date, Tenor, TenorUnit};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, PriceCurve};
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::cashflow::CashflowProvider;
 use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::irs::PayReceive;
@@ -350,7 +351,7 @@ fn test_commodity_swap_cashflow_npv_consistency() {
 
     // Get cashflows and compute discounted sum
     let cashflows = swap
-        .cashflows(&market, as_of)
+        .dated_cashflows(&market, as_of)
         .expect("should get cashflows");
     let disc = market.get_discount("USD-OIS").expect("discount curve");
 

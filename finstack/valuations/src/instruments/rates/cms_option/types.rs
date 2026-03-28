@@ -315,3 +315,8 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CmsOption {
         builder.build()
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    CmsOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

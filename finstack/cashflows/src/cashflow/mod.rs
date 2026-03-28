@@ -145,7 +145,11 @@ pub mod accrual;
 // Re-export primary builder type at the cashflow root for ergonomic access.
 pub use accrual::{accrued_interest_amount, AccrualConfig, AccrualMethod, ExCouponRule};
 pub use builder::CashFlowBuilder;
-pub use traits::{schedule_from_dated_flows, CashflowProvider};
+pub use traits::{
+    empty_schedule, empty_schedule_with_representation, schedule_from_classified_flows,
+    schedule_from_classified_flows_with_representation, schedule_from_dated_flows,
+    schedule_from_dated_flows_with_representation, CashflowProvider,
+};
 
 pub use finstack_core::dates::Date;
 pub use finstack_core::money::Money;

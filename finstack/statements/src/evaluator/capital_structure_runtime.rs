@@ -167,7 +167,7 @@ pub(crate) fn resolve_opening_balance(
     as_of: Date,
     period_start: Date,
 ) -> Result<Money> {
-    let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+    let schedule = instrument.cashflow_schedule(market_ctx, as_of)?;
     let outstanding_path = schedule.outstanding_by_date()?;
 
     let abs_money = |m: &Money| -> Money {
@@ -217,7 +217,7 @@ fn compute_contractual_flows(
             if let Some(balance) = cs_state.opening_balances.get(instrument_id).copied() {
                 balance
             } else {
-                let schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+                let schedule = instrument.cashflow_schedule(market_ctx, as_of)?;
                 Money::new(0.0, schedule.notional.initial.currency())
             };
 

@@ -617,10 +617,6 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateSwap {
         crate::instruments::rates::irs::pricer::compute_pv_raw(self, curves, as_of)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
@@ -656,16 +652,20 @@ impl CashflowProvider for InterestRateSwap {
     ///
     /// This creates a proper CashFlowSchedule with CFKind information for each leg,
     /// enabling precise classification of fixed vs floating rate payments.
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves_as_of(
-            self,
-            Some(curves),
-            Some(as_of),
-        )
+        let mut schedule =
+            crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves_as_of(
+                self,
+                Some(curves),
+                Some(as_of),
+            )?;
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
+        Ok(schedule)
     }
 }
 

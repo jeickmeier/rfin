@@ -387,10 +387,6 @@ impl Instrument for CDSTranche {
         pricer.price_tranche(self, curves, as_of)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.maturity)
     }
@@ -417,13 +413,15 @@ impl CashflowProvider for CDSTranche {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         let pricer = pricer::CDSTranchePricer::new();
-        pricer.build_projected_schedule(self, curves, as_of)
+        let mut schedule = pricer.build_projected_schedule(self, curves, as_of)?;
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
+        Ok(schedule)
     }
 }
 

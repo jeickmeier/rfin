@@ -421,12 +421,47 @@ macro_rules! impl_instrument_base {
     };
 }
 
+/// Implement a standard empty-schedule `CashflowProvider` for products whose
+/// waterfall policy is intentionally empty for now.
+#[macro_export]
+macro_rules! impl_empty_cashflow_provider {
+    ($ty:ty, $representation:expr) => {
+        $crate::impl_empty_cashflow_provider!(
+            $ty,
+            $representation,
+            None,
+            finstack_core::dates::DayCount::Act365F
+        );
+    };
+    ($ty:ty, $representation:expr, $notional:expr, $day_count:expr) => {
+        impl $crate::cashflow::traits::CashflowProvider for $ty {
+            fn notional(&self) -> Option<finstack_core::money::Money> {
+                $notional
+            }
+
+            fn cashflow_schedule(
+                &self,
+                _market: &finstack_core::market_data::context::MarketContext,
+                _as_of: finstack_core::dates::Date,
+            ) -> finstack_core::Result<$crate::cashflow::builder::CashFlowSchedule> {
+                Ok(
+                    $crate::cashflow::traits::empty_schedule_with_representation(
+                        self.notional(),
+                        $day_count,
+                        $representation,
+                    ),
+                )
+            }
+        }
+    };
+}
+
 /// Common interface implemented by all valuation instruments.
 ///
 /// This trait defines the minimal identity, typing, metadata, and clone
 /// behavior required for instrument dispatch, pricing, and serialization-safe
 /// handling across the library.
-pub trait Instrument: Send + Sync {
+pub trait Instrument: CashflowProvider + Send + Sync {
     /// Get the instrument's unique identifier.
     ///
     /// Returns a stable string identifier that uniquely identifies this
@@ -541,53 +576,6 @@ pub trait Instrument: Send + Sync {
     /// scenario adapters that need to modify typed instrument state
     /// (e.g., correlation shocks on `StructuredCredit`).
     fn as_any_mut(&mut self) -> &mut dyn Any;
-
-    /// Expose this instrument as a [`CashflowProvider`] when supported.
-    ///
-    /// This hook enables generic components (e.g., scenario time-roll and
-    /// attribution engines) to obtain cashflow schedules without relying on
-    /// manual downcasting for each concrete instrument type.
-    ///
-    /// Instruments that implement [`CashflowProvider`] should override this
-    /// method to return `Some(self)`. The default implementation returns
-    /// `None`, indicating that no cashflow schedule is available.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_valuations::cashflow::CashflowProvider;
-    /// use finstack_valuations::instruments::Bond;
-    /// use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
-    /// # use finstack_core::currency::Currency;
-    /// # use finstack_core::money::Money;
-    /// # use finstack_core::dates::create_date;
-    /// # use finstack_core::types::Rate;
-    /// # use finstack_core::market_data::context::MarketContext;
-    /// # use time::Month;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let issue = create_date(2025, Month::January, 15)?;
-    /// # let maturity = create_date(2030, Month::January, 15)?;
-    /// let bond = Bond::fixed(
-    ///     "BOND-001",
-    ///     Money::new(1_000_000.0, Currency::USD),
-    ///     Rate::from_percent(5.0),
-    ///     issue,
-    ///     maturity,
-    ///     "USD-OIS"
-    /// )?;
-    ///
-    /// let inst: &dyn Instrument = &bond;
-    /// if let Some(cf) = inst.as_cashflow_provider() {
-    ///     let curves = MarketContext::new();
-    ///     let _schedule = cf.build_dated_flows(&curves, issue)?;
-    /// }
-    /// # Ok(())
-    /// # }
-    /// ```
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        None
-    }
 
     /// Pre-seed a metric context with instrument-specific cached data.
     ///

@@ -271,10 +271,6 @@ impl crate::instruments::common_impl::traits::Instrument for DollarRoll {
         self.trade_date
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -293,7 +289,7 @@ impl CashflowProvider for DollarRoll {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
@@ -324,6 +320,8 @@ impl CashflowProvider for DollarRoll {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), ccy);
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }
@@ -383,7 +381,7 @@ mod tests {
         let market = finstack_core::market_data::context::MarketContext::new();
 
         let flows = roll
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("contractual settlement schedule should build");
 
         assert_eq!(

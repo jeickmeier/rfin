@@ -924,3 +924,12 @@ fn test_near_maturity_edge_case() {
         attribution.rates_curves_pnl.amount()
     );
 }
+
+finstack_valuations::impl_empty_cashflow_provider!(
+    ScaledInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+finstack_valuations::impl_empty_cashflow_provider!(
+    CompositeInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);

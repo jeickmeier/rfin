@@ -967,6 +967,11 @@ mod tests {
         value: Money,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        SpotVolTestInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl SpotVolTestInstrument {
         fn new(id: &str, value: Money) -> Self {
             Self {

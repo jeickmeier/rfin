@@ -599,3 +599,8 @@ fn test_waterfall_factor_ordering_sensitivity() {
     // Factor attributions may differ due to ordering
     // (This is expected and correct for waterfall methodology)
 }
+
+finstack_valuations::impl_empty_cashflow_provider!(
+    FxLinkedInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);

@@ -96,7 +96,7 @@ impl BondFuturePricer {
         as_of: Date,
     ) -> Result<f64> {
         // Get bond's cashflows (holder view: all positive)
-        let cashflows = bond.build_dated_flows(market, as_of)?;
+        let cashflows = bond.dated_cashflows(market, as_of)?;
 
         // Calculate present value using standard coupon rate as discount rate
         // For semi-annual bonds: DF(t) = 1 / (1 + r/2)^(2*t)
@@ -488,7 +488,7 @@ mod tests {
         let as_of = date!(2025 - 01 - 15);
 
         let cashflows = bond
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("Failed to build cashflow schedule");
 
         println!("\n=== Bond Cashflows ===");

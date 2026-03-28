@@ -6,7 +6,8 @@
 //!
 //! # Contract Properties Verified
 //!
-//! 1. `build_dated_flows` succeeds with minimal valid market context
+//! 1. `cashflow_schedule` succeeds with minimal valid market context
+//! 2. `dated_cashflows` succeeds with minimal valid market context
 //! 2. Returned flows are sorted by date (ascending)
 //! 3. All flows have the same currency as the instrument's notional (if provided)
 //! 4. Future flows (after as_of) are included; past flows may be filtered
@@ -32,7 +33,9 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::schedule::CashflowRepresentation;
 use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::Instrument as PublicInstrument;
 
 // =============================================================================
 // Contract Verification
@@ -42,7 +45,8 @@ use finstack_valuations::cashflow::CashflowProvider;
 ///
 /// # Contract Properties
 ///
-/// 1. `build_dated_flows` returns `Ok` with valid market context
+/// 1. `cashflow_schedule` returns `Ok` with valid market context
+/// 2. `dated_cashflows` returns `Ok` with valid market context
 /// 2. Returned flows are sorted by date (non-decreasing)
 /// 3. All flows have the same currency as notional (if notional is provided)
 ///
@@ -57,15 +61,30 @@ fn verify_provider_contract<T: CashflowProvider>(
 ) {
     let type_name = std::any::type_name::<T>();
 
-    // Contract 1: build_dated_flows should succeed with valid inputs
-    let flows = provider
-        .build_dated_flows(market, as_of)
+    let schedule = provider
+        .cashflow_schedule(market, as_of)
         .unwrap_or_else(|e| {
             panic!(
-                "[{}] build_dated_flows failed with valid market context: {}",
+                "[{}] cashflow_schedule failed with valid market context: {}",
                 type_name, e
             )
         });
+    let flows = provider.dated_cashflows(market, as_of).unwrap_or_else(|e| {
+        panic!(
+            "[{}] dated_cashflows failed with valid market context: {}",
+            type_name, e
+        )
+    });
+    let flattened_schedule_flows: Vec<_> = schedule
+        .flows
+        .iter()
+        .map(|cf| (cf.date, cf.amount))
+        .collect();
+    assert_eq!(
+        flows, flattened_schedule_flows,
+        "[{}] dated_cashflows must be the flattened view of cashflow_schedule",
+        type_name
+    );
 
     // Contract 2: Flows must be sorted by date (non-decreasing)
     for window in flows.windows(2) {
@@ -95,6 +114,43 @@ fn verify_provider_contract<T: CashflowProvider>(
             );
         }
     }
+}
+
+fn verify_public_instrument_cashflow_surface<T: PublicInstrument>(
+    instrument: &T,
+    market: &MarketContext,
+    as_of: Date,
+    expected_representation: CashflowRepresentation,
+) {
+    let schedule = instrument
+        .cashflow_schedule(market, as_of)
+        .expect("public instrument trait should expose cashflow_schedule");
+    let flows = instrument
+        .dated_cashflows(market, as_of)
+        .expect("public instrument trait should expose dated_cashflows");
+    assert_eq!(schedule.meta.representation, expected_representation);
+    assert_eq!(flows.len(), schedule.flows.len());
+}
+
+fn verify_empty_schedule_surface<T: PublicInstrument>(
+    instrument: &T,
+    market: &MarketContext,
+    as_of: Date,
+    expected_representation: CashflowRepresentation,
+) {
+    let schedule = instrument
+        .cashflow_schedule(market, as_of)
+        .expect("public instrument trait should expose cashflow_schedule");
+    let flows = instrument
+        .dated_cashflows(market, as_of)
+        .expect("public instrument trait should expose dated_cashflows");
+
+    assert_eq!(schedule.meta.representation, expected_representation);
+    assert!(
+        schedule.flows.is_empty(),
+        "schedule should be genuinely empty"
+    );
+    assert!(flows.is_empty(), "dated flow view should also be empty");
 }
 
 /// Creates a minimal market context for contract testing.
@@ -145,6 +201,12 @@ mod bond_contract {
         .unwrap();
 
         verify_provider_contract(&bond, &minimal_market(), as_of);
+        verify_public_instrument_cashflow_surface(
+            &bond,
+            &minimal_market(),
+            as_of,
+            CashflowRepresentation::Contractual,
+        );
     }
 
     #[test]
@@ -216,6 +278,80 @@ mod irs_contract {
         .expect("valid swap");
 
         verify_provider_contract(&swap, &minimal_market(), as_of);
+    }
+}
+
+mod empty_schedule_contract {
+    use super::*;
+    use finstack_valuations::instruments::equity::equity_index_future::EquityIndexFuture;
+    use finstack_valuations::instruments::equity::spot::Equity;
+    use finstack_valuations::instruments::equity::variance_swap::VarianceSwap;
+    use finstack_valuations::instruments::equity::vol_index_future::VolatilityIndexFuture;
+    use finstack_valuations::instruments::equity::vol_index_option::VolatilityIndexOption;
+    use finstack_valuations::instruments::fx::fx_variance_swap::FxVarianceSwap;
+    use finstack_valuations::instruments::rates::ir_future::InterestRateFuture;
+    use finstack_valuations::instruments::rates::ir_future_option::IrFutureOption;
+
+    #[test]
+    fn no_residual_products_emit_empty_no_residual_schedules() {
+        let as_of = d(2025, 1, 1);
+        let market = MarketContext::new();
+
+        verify_empty_schedule_surface(
+            &Equity::example(),
+            &market,
+            as_of,
+            CashflowRepresentation::NoResidual,
+        );
+        verify_empty_schedule_surface(
+            &InterestRateFuture::example().expect("ir future example"),
+            &market,
+            as_of,
+            CashflowRepresentation::NoResidual,
+        );
+        verify_empty_schedule_surface(
+            &EquityIndexFuture::example().expect("equity index future example"),
+            &market,
+            as_of,
+            CashflowRepresentation::NoResidual,
+        );
+        verify_empty_schedule_surface(
+            &VolatilityIndexFuture::example().expect("vol index future example"),
+            &market,
+            as_of,
+            CashflowRepresentation::NoResidual,
+        );
+    }
+
+    #[test]
+    fn placeholder_products_emit_empty_placeholder_schedules() {
+        let as_of = d(2025, 1, 1);
+        let market = MarketContext::new();
+
+        verify_empty_schedule_surface(
+            &VarianceSwap::example().expect("variance swap example"),
+            &market,
+            as_of,
+            CashflowRepresentation::Placeholder,
+        );
+        verify_empty_schedule_surface(
+            &FxVarianceSwap::example(),
+            &market,
+            as_of,
+            CashflowRepresentation::Placeholder,
+        );
+        verify_empty_schedule_surface(
+            &IrFutureOption::example().expect("ir future option example"),
+            &market,
+            as_of,
+            CashflowRepresentation::Placeholder,
+        );
+        verify_empty_schedule_surface(
+            &VolatilityIndexOption::example().expect("vol index option example"),
+            &market,
+            as_of,
+            CashflowRepresentation::Placeholder,
+        );
     }
 }
 

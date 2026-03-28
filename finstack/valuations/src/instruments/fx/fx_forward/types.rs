@@ -582,10 +582,6 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
         None
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -600,7 +596,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxForward {
 }
 
 impl CashflowProvider for FxForward {
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         market: &MarketContext,
         as_of: Date,
@@ -617,6 +613,8 @@ impl CashflowProvider for FxForward {
             .flows
             .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         base_schedule.notional = Notional::par(0.0, self.base_currency);
+        base_schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(base_schedule)
     }
 }
@@ -866,7 +864,7 @@ mod tests {
             .expect("should build");
 
         let flows = forward
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("contractual schedule should build");
 
         assert_eq!(

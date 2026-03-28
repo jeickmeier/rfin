@@ -244,10 +244,6 @@ impl InstrumentTrait for FxVarianceSwap {
     fn value(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
         pricer::compute_pv(self, context, as_of)
     }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
 }
 
 // FxVarianceSwap uses both domestic and foreign curves for forward construction
@@ -265,19 +261,16 @@ impl CashflowProvider for FxVarianceSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _context: &MarketContext,
         _as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(
-            crate::cashflow::traits::schedule_from_dated_flows_with_kind(
-                vec![(self.maturity, Money::new(0.0, self.notional.currency()))],
-                crate::cashflow::primitives::CFKind::Fixed,
-                self.notional(),
-                self.day_count,
-            ),
-        )
+        Ok(crate::cashflow::traits::empty_schedule_with_representation(
+            self.notional(),
+            self.day_count,
+            crate::cashflow::builder::CashflowRepresentation::Placeholder,
+        ))
     }
 }
 

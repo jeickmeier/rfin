@@ -68,7 +68,7 @@ pub struct Deposit {
 
     /// Optional quoted simple rate r (annualised) for the deposit.
     ///
-    /// Note: `build_full_schedule()` requires `quote_rate` to be set. Leaving it as `None`
+    /// Note: `cashflow_schedule()` requires `quote_rate` to be set. Leaving it as `None`
     /// is only appropriate if the caller never requests cashflow generation/PV from
     /// this instrument (e.g., constructing placeholders).
     #[builder(optional)]
@@ -249,10 +249,6 @@ impl crate::instruments::common_impl::traits::Instrument for Deposit {
         crate::instruments::common_impl::dependencies::MarketDependencies::from_curve_dependencies(
             self,
         )
-    }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
     }
 
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
@@ -444,7 +440,7 @@ impl CashflowProvider for Deposit {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
@@ -497,11 +493,14 @@ impl CashflowProvider for Deposit {
             },
         ];
 
-        Ok(crate::cashflow::traits::schedule_from_classified_flows(
-            flows,
-            self.notional(),
-            self.day_count,
-        ))
+        Ok(
+            crate::cashflow::traits::schedule_from_classified_flows_with_representation(
+                flows,
+                self.notional(),
+                self.day_count,
+                crate::cashflow::builder::CashflowRepresentation::Contractual,
+            ),
+        )
     }
 }
 
@@ -545,7 +544,7 @@ mod tests {
     }
 
     #[test]
-    fn build_full_schedule_marks_initial_exchange_as_notional() {
+    fn cashflow_schedule_marks_initial_exchange_as_notional() {
         let deposit = Deposit::builder()
             .id(InstrumentId::new("DEP-KIND"))
             .notional(Money::new(1_000_000.0, Currency::USD))
@@ -559,7 +558,7 @@ mod tests {
             .expect("deposit should build");
 
         let schedule = deposit
-            .build_full_schedule(&MarketContext::new(), date!(2025 - 01 - 01))
+            .cashflow_schedule(&MarketContext::new(), date!(2025 - 01 - 01))
             .expect("deposit full schedule");
 
         assert_eq!(schedule.flows.len(), 2);

@@ -696,7 +696,7 @@ impl BondFuture {
             .conversion_factor;
 
         // Get the CTD bond's cashflow schedule
-        let schedule = ctd_bond.get_full_schedule(market)?;
+        let schedule = ctd_bond.full_cashflow_schedule(market)?;
 
         // Calculate accrued interest at settlement date
         use crate::cashflow::accrual::accrued_interest_amount;
@@ -1768,7 +1768,7 @@ mod tests {
             .expect("valid future");
 
         let flows = future
-            .build_dated_flows(&MarketContext::new(), future.expiry)
+            .dated_cashflows(&MarketContext::new(), future.expiry)
             .expect("delivery schedule should build");
 
         assert_eq!(
@@ -1836,10 +1836,6 @@ Provide it at construction time via BondFutureBuilder::ctd_bond(...) or by using
         Some(self.delivery_start)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -1874,7 +1870,7 @@ impl CashflowProvider for BondFuture {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         market: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
@@ -1899,6 +1895,8 @@ impl CashflowProvider for BondFuture {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), self.notional.currency());
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }

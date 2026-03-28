@@ -208,18 +208,17 @@ pub fn build_projected_schedule(
         }
     }
 
-    Ok(
-        crate::cashflow::traits::schedule_from_classified_flows_with_meta(
-            flows,
-            Notional::par(mbs.current_face.amount(), mbs.current_face.currency()),
-            mbs.day_count,
-            CashFlowMeta {
-                calendar_ids: Vec::new(),
-                facility_limit: None,
-                issue_date: Some(mbs.issue_date),
-            },
-        ),
-    )
+    Ok(CashFlowSchedule::from_parts(
+        flows,
+        Notional::par(mbs.current_face.amount(), mbs.current_face.currency()),
+        mbs.day_count,
+        CashFlowMeta {
+            representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+            calendar_ids: Vec::new(),
+            facility_limit: None,
+            issue_date: Some(mbs.issue_date),
+        },
+    ))
 }
 
 fn end_of_month(date: Date) -> Result<Date> {

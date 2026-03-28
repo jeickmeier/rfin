@@ -51,6 +51,11 @@ struct RatesCreditInteractionInstrument {
     id: String,
 }
 
+finstack_valuations::impl_empty_cashflow_provider!(
+    RatesCreditInteractionInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+
 impl RatesCreditInteractionInstrument {
     fn new(id: &str) -> Self {
         Self { id: id.to_string() }

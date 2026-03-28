@@ -229,3 +229,75 @@ impl CurveDependencies for RealEstateAsset {
             .build()
     }
 }
+
+impl crate::cashflow::traits::CashflowProvider for RealEstateAsset {
+    fn cashflow_schedule(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let mut flows: Vec<(Date, Money)> = self
+            .unlevered_flows(as_of)?
+            .into_iter()
+            .map(|(date, amount)| (date, Money::new(amount, self.currency)))
+            .collect();
+
+        if let Some((date, amount)) = self.terminal_sale_proceeds(as_of)? {
+            flows.push((date, Money::new(amount, self.currency)));
+        }
+        flows.sort_by_key(|(date, _)| *date);
+
+        Ok(
+            crate::cashflow::traits::schedule_from_dated_flows_with_representation(
+                flows,
+                None,
+                self.day_count,
+                crate::cashflow::builder::CashflowRepresentation::Projected,
+            ),
+        )
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::cashflow::CashflowProvider;
+    use finstack_core::dates::DayCount;
+
+    #[test]
+    fn real_estate_cashflow_schedule_emits_projected_unlevered_flows() {
+        let valuation_date =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("valid valuation date");
+        let noi1 = Date::from_calendar_date(2026, time::Month::January, 1).expect("valid noi date");
+        let noi2 = Date::from_calendar_date(2027, time::Month::January, 1).expect("valid noi date");
+
+        let asset = RealEstateAsset::builder()
+            .id(InstrumentId::new("RE-SCHEDULE"))
+            .currency(Currency::USD)
+            .valuation_date(valuation_date)
+            .valuation_method(RealEstateValuationMethod::Dcf)
+            .noi_schedule(vec![(noi1, 100.0), (noi2, 100.0)])
+            .discount_rate_opt(Some(0.10))
+            .terminal_cap_rate_opt(Some(0.08))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Default::default())
+            .build()
+            .expect("asset should build");
+
+        let schedule = asset
+            .cashflow_schedule(&MarketContext::new(), valuation_date)
+            .expect("real estate schedule");
+
+        assert_eq!(
+            schedule.meta.representation,
+            crate::cashflow::builder::CashflowRepresentation::Projected
+        );
+        assert_eq!(schedule.flows.len(), 3);
+        assert_eq!(schedule.flows[0].date, noi1);
+        assert_eq!(schedule.flows[0].amount.amount(), 100.0);
+        assert_eq!(schedule.flows[1].date, noi2);
+        assert!(schedule.flows[2].amount.amount() > 100.0);
+    }
+}

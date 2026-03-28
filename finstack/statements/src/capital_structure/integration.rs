@@ -72,7 +72,7 @@ pub fn calculate_period_flows(
     market_ctx: &MarketContext,
     as_of: Date,
 ) -> Result<(CashflowBreakdown, Money, Vec<EvalWarning>)> {
-    let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+    let full_schedule = instrument.cashflow_schedule(market_ctx, as_of)?;
     let currency = full_schedule.notional.initial.currency();
     if opening_balance.amount() != 0.0 && opening_balance.currency() != currency {
         return Err(crate::error::Error::currency_mismatch(
@@ -245,7 +245,7 @@ pub fn calculate_period_flows(
 
 /// Aggregate cashflows from instruments by period using valuations infrastructure.
 ///
-/// The integration leverages `build_full_schedule()` for CFKind-aware classification and
+/// The integration leverages `cashflow_schedule()` for CFKind-aware classification and
 /// `outstanding_by_date()` for accurate debt balances. Results are normalized into
 /// [`CapitalStructureCashflows`] so downstream code (including the DSL via `cs.*`) can
 /// consume totals or per-instrument breakdowns.
@@ -321,8 +321,8 @@ pub fn aggregate_instrument_cashflows(
 
     // Process each instrument
     for (instrument_id, instrument) in instruments {
-        // Use enhanced build_full_schedule() for precise CFKind classification
-        let full_schedule = instrument.build_full_schedule(market_ctx, as_of)?;
+        // Use enhanced cashflow_schedule() for precise CFKind classification
+        let full_schedule = instrument.cashflow_schedule(market_ctx, as_of)?;
 
         // Determine currency from first cashflow (all cashflows should be same currency)
         let currency = full_schedule.notional.initial.currency();
@@ -792,7 +792,7 @@ mod tests {
     }
 
     impl CashflowProvider for SignedFlowInstrument {
-        fn build_full_schedule(
+        fn cashflow_schedule(
             &self,
             _curves: &MarketContext,
             _as_of: Date,

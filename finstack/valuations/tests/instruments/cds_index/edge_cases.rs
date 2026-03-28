@@ -95,10 +95,12 @@ fn test_at_maturity() {
     let idx = standard_single_curve_index("CDX-AT-MAT", start, end, 10_000_000.0);
     let ctx = standard_market_context(as_of);
 
-    let result = idx.value(&ctx, as_of);
+    let npv = idx
+        .value(&ctx, as_of)
+        .expect("pricing at maturity should collapse to zero residual value");
     assert!(
-        result.is_err(),
-        "Pricing at maturity should return an error (no remaining protection period)"
+        npv.amount().abs() < 1_000.0,
+        "Pricing at maturity should have ~zero residual value"
     );
 }
 

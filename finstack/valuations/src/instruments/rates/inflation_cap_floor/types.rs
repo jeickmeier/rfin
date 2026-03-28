@@ -471,3 +471,8 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InflationCap
             .build()
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    InflationCapFloor,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

@@ -393,48 +393,6 @@ impl CommoditySwap {
         Ok(dates)
     }
 
-    /// Get all projected cashflows for this swap.
-    ///
-    /// Returns net cashflows (floating - fixed for pay-fixed, fixed - floating otherwise)
-    /// at each payment date.
-    pub fn cashflows(&self, market: &MarketContext, as_of: Date) -> Result<Vec<(Date, Money)>> {
-        let schedule = self.payment_schedule(as_of)?;
-        let price_curve = market.get_price_curve(self.floating_index_id.as_str())?;
-
-        let mut flows = Vec::new();
-        let mut prev_period_end = self.start_date;
-        let fixed_price = self
-            .fixed_price
-            .to_f64()
-            .ok_or(finstack_core::InputError::ConversionOverflow)?;
-
-        for payment_date in schedule {
-            if payment_date < as_of {
-                prev_period_end = payment_date;
-                continue;
-            }
-
-            let period_start = prev_period_end;
-            let period_end = payment_date;
-
-            let forward_price =
-                self.expected_period_price(&price_curve, as_of, period_start, period_end)?;
-
-            let net_cashflow = match self.side {
-                PayReceive::PayFixed => self.quantity * (forward_price - fixed_price),
-                PayReceive::ReceiveFixed => self.quantity * (fixed_price - forward_price),
-            };
-
-            flows.push((
-                payment_date,
-                Money::new(net_cashflow, self.underlying.currency),
-            ));
-            prev_period_end = payment_date;
-        }
-
-        Ok(flows)
-    }
-
     fn leg_schedule_from_amounts(
         &self,
         as_of: Date,
@@ -553,10 +511,6 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
         Some(self.start_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -571,7 +525,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommoditySwap {
 }
 
 impl CashflowProvider for CommoditySwap {
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         market: &MarketContext,
         as_of: Date,
@@ -588,6 +542,8 @@ impl CashflowProvider for CommoditySwap {
             .flows
             .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         fixed_schedule.notional = Notional::par(0.0, self.underlying.currency);
+        fixed_schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(fixed_schedule)
     }
 }
@@ -780,18 +736,30 @@ mod tests {
             .build()
             .expect("should build");
 
-        let flows = swap.cashflows(&market, as_of).expect("should get flows");
+        let flows = swap
+            .dated_cashflows(&market, as_of)
+            .expect("should get flows");
 
-        // Should have 3 payments (Jan, Feb, Mar end of month)
-        assert_eq!(flows.len(), 3, "Expected 3 monthly payments");
+        // The canonical contractual schedule emits both fixed and floating legs.
+        assert_eq!(
+            flows.len(),
+            6,
+            "Expected fixed and floating rows for 3 payments"
+        );
 
-        // All cashflows should be positive in contango (floating > fixed)
+        let mut net_by_date = std::collections::BTreeMap::new();
         for (date, cf) in &flows {
+            *net_by_date.entry(*date).or_insert(0.0) += cf.amount();
+        }
+        assert_eq!(net_by_date.len(), 3, "Expected 3 monthly payment dates");
+
+        // Net cashflows should still be positive in contango (floating > fixed).
+        for (date, net) in net_by_date {
             assert!(
-                cf.amount() > 0.0,
-                "Cashflow on {} should be positive in contango, got {}",
+                net > 0.0,
+                "Net cashflow on {} should be positive in contango, got {}",
                 date,
-                cf.amount()
+                net
             );
         }
     }
@@ -852,7 +820,7 @@ mod tests {
             .expect("should build");
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("commodity swap contractual schedule should build");
 
         assert_eq!(

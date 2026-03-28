@@ -95,8 +95,8 @@ def main() -> None:
         metrics=["lp_irr", "tvpi_lp"],
     )
 
-    ledger = fund.lp_cashflows()
-    [(dt.isoformat(), round(cf.amount, 2)) for dt, cf in ledger[:3]]
+    schedule = fund.cashflow_schedule(market, as_of)
+    [(cf.date.isoformat(), round(cf.amount.amount, 2)) for cf in schedule.flows()[:3]]
 
 
 if __name__ == "__main__":

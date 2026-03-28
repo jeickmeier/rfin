@@ -754,11 +754,17 @@ impl JsBond {
         use crate::core::dates::date::JsDate;
         use crate::core::money::JsMoney;
         use finstack_core::cashflow::CFKind;
+        use finstack_valuations::cashflow::CashflowProvider;
 
-        // Use the Bond's get_full_schedule method with market curves
+        let disc = market
+            .inner()
+            .get_discount(self.inner.discount_curve_id.as_str())
+            .map_err(|e| js_error(e.to_string()))?;
+        let as_of = disc.base_date();
+
         let sched = self
             .inner
-            .get_full_schedule(market.inner())
+            .cashflow_schedule(market.inner(), as_of)
             .map_err(|e| js_error(e.to_string()))?;
 
         // Get outstanding path (properly calculated by the Rust library)

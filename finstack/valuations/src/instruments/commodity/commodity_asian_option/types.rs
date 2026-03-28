@@ -259,6 +259,11 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityAsianOptio
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    CommodityAsianOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

@@ -26,6 +26,11 @@ struct FixedMetricInstrument {
     attributes: Attributes,
 }
 
+finstack_valuations::impl_empty_cashflow_provider!(
+    FixedMetricInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+
 impl FixedMetricInstrument {
     fn new(id: &str, value: Money, measures: IndexMap<MetricId, f64>) -> Self {
         Self {

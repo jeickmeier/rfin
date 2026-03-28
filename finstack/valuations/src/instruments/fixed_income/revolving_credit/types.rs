@@ -842,10 +842,6 @@ impl crate::instruments::common_impl::traits::Instrument for RevolvingCredit {
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for RevolvingCredit {
@@ -873,7 +869,7 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
         Some(self.commitment_amount)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
@@ -886,6 +882,8 @@ impl crate::cashflow::traits::CashflowProvider for RevolvingCredit {
         use crate::instruments::fixed_income::revolving_credit::cashflow_engine::CashflowEngine;
         let engine = CashflowEngine::new(self, Some(curves), as_of)?;
         let path_schedule = engine.generate_deterministic()?;
-        Ok(path_schedule.schedule)
+        let mut schedule = path_schedule.schedule;
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
+        Ok(schedule)
     }
 }

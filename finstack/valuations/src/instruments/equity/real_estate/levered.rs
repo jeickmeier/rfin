@@ -78,8 +78,8 @@ impl LeveredRealEstateEquity {
         levered_pricer::financing_schedules_supported(self, market, as_of)
     }
 
-    /// Build a dated equity cashflow schedule for levered return metrics.
-    pub fn equity_cashflows(
+    /// Build a dated equity cashflow schedule for internal levered return metrics.
+    pub(crate) fn equity_cashflows(
         &self,
         market: &MarketContext,
         as_of: Date,
@@ -143,5 +143,88 @@ impl CurveDependencies for LeveredRealEstateEquity {
         }
 
         Ok(curves)
+    }
+}
+
+impl crate::cashflow::traits::CashflowProvider for LeveredRealEstateEquity {
+    fn cashflow_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let flows = self
+            .equity_cashflows(market, as_of)?
+            .into_iter()
+            .map(|(date, amount)| (date, Money::new(amount, self.currency)))
+            .collect();
+
+        Ok(
+            crate::cashflow::traits::schedule_from_dated_flows_with_representation(
+                flows,
+                None,
+                self.asset.day_count,
+                crate::cashflow::builder::CashflowRepresentation::Projected,
+            ),
+        )
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use crate::cashflow::CashflowProvider;
+    use crate::instruments::equity::real_estate::types::RealEstateValuationMethod;
+
+    #[test]
+    fn levered_real_estate_cashflow_schedule_emits_projected_equity_flows() {
+        let as_of =
+            Date::from_calendar_date(2025, time::Month::January, 1).expect("valid as_of date");
+        let noi1 = Date::from_calendar_date(2026, time::Month::January, 1).expect("valid noi date");
+        let noi2 = Date::from_calendar_date(2027, time::Month::January, 1).expect("valid noi date");
+
+        let asset = RealEstateAsset::builder()
+            .id(InstrumentId::new("RE-LEVERED-ASSET"))
+            .currency(Currency::USD)
+            .valuation_date(as_of)
+            .valuation_method(RealEstateValuationMethod::Dcf)
+            .noi_schedule(vec![(noi1, 100.0), (noi2, 100.0)])
+            .purchase_price_opt(Some(Money::new(1_000.0, Currency::USD)))
+            .sale_price_opt(Some(Money::new(1_100.0, Currency::USD)))
+            .discount_rate_opt(Some(0.10))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Default::default())
+            .build()
+            .expect("asset should build");
+
+        let equity = LeveredRealEstateEquity::builder()
+            .id(InstrumentId::new("RE-LEVERED"))
+            .currency(Currency::USD)
+            .asset(asset)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Default::default())
+            .build()
+            .expect("levered equity should build");
+
+        let schedule = equity
+            .cashflow_schedule(&MarketContext::new(), as_of)
+            .expect("levered schedule");
+
+        assert_eq!(
+            schedule.meta.representation,
+            crate::cashflow::builder::CashflowRepresentation::Projected
+        );
+        assert_eq!(schedule.flows.first().expect("initial flow").date, as_of);
+        assert!(
+            schedule
+                .flows
+                .first()
+                .expect("initial flow")
+                .amount
+                .amount()
+                < 0.0
+        );
+        assert!(schedule.flows.last().expect("exit flow").amount.amount() > 0.0);
     }
 }

@@ -375,6 +375,7 @@ impl Bond {
     ///
     /// # Example
     /// ```rust,no_run
+    /// use finstack_valuations::cashflow::CashflowProvider;
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::money::Money;
     /// use finstack_core::currency::Currency;
@@ -937,7 +938,7 @@ impl Bond {
         }
     }
 
-    /// Get the full cashflow schedule with kinds for this bond.
+    /// Build the bond's full internal cashflow schedule with kinds.
     ///
     /// This returns the complete `CashFlowSchedule` including all cashflow types
     /// (Fixed, Float, PIK, Amortization, Notional, etc.) and metadata in the
@@ -970,10 +971,10 @@ impl Bond {
     ///
     /// # let bond = Bond::example().unwrap();
     /// # let curves = MarketContext::new();
-    /// let schedule = bond.get_full_schedule(&curves)?;
+    /// let schedule = bond.cashflow_schedule(&curves, bond.issue_date)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
-    pub fn get_full_schedule(
+    pub(crate) fn full_cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
     ) -> Result<CashFlowSchedule> {
@@ -1024,7 +1025,7 @@ impl Bond {
 
     /// Cashflow schedule enriched with discount factors, survival probabilities, and PVs.
     ///
-    /// Builds the bond's cashflow schedule via [`get_full_schedule`](Self::get_full_schedule)
+    /// Builds the bond's full internal cashflow schedule
     /// and computes per-cashflow discount factors and (when a credit curve is configured)
     /// survival probabilities, returning a
     /// [`crate::cashflow::builder::PeriodDataFrame`] that is ready for tabular
@@ -1045,7 +1046,7 @@ impl Bond {
         use crate::cashflow::builder::PeriodDataFrameOptions;
         use finstack_core::dates::{Period, PeriodId};
 
-        let schedule = self.get_full_schedule(market)?;
+        let schedule = self.full_cashflow_schedule(market)?;
 
         let periods: Vec<Period> =
             if let (Some(first), Some(last)) = (schedule.flows.first(), schedule.flows.last()) {
@@ -1321,10 +1322,6 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
         )
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -1580,7 +1577,7 @@ mod tests {
 
         // Build schedule and verify it uses custom cashflows
         let flows = bond
-            .build_dated_flows(&curves, issue)
+            .dated_cashflows(&curves, issue)
             .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty());
 
@@ -1755,10 +1752,10 @@ mod tests {
 
         // Build schedules
         let regular_flows = regular_bond
-            .build_dated_flows(&curves, issue)
+            .dated_cashflows(&curves, issue)
             .expect("Schedule building should succeed in test");
         let custom_flows = custom_bond
-            .build_dated_flows(&curves, issue)
+            .dated_cashflows(&curves, issue)
             .expect("Schedule building should succeed in test");
 
         // Should have different number of flows due to different frequency
@@ -1853,7 +1850,7 @@ mod tests {
 
         // Use the full schedule to locate the first coupon end date
         let full_schedule = bond
-            .get_full_schedule(&ctx)
+            .full_cashflow_schedule(&ctx)
             .expect("Full schedule retrieval should succeed in test");
         let first_coupon_date = full_schedule
             .flows
@@ -1869,7 +1866,7 @@ mod tests {
 
         // Before ex-date, accrued interest should be positive
         let schedule_before = bond
-            .get_full_schedule(&ctx)
+            .full_cashflow_schedule(&ctx)
             .expect("Full schedule should build");
         let ai_before = crate::cashflow::accrual::accrued_interest_amount(
             &schedule_before,
@@ -1884,7 +1881,7 @@ mod tests {
 
         // On or inside the ex-coupon window, accrued interest should be zero
         let schedule_ex = bond
-            .get_full_schedule(&ctx)
+            .full_cashflow_schedule(&ctx)
             .expect("Full schedule should build");
         let ai_ex = crate::cashflow::accrual::accrued_interest_amount(
             &schedule_ex,
@@ -1953,7 +1950,7 @@ mod tests {
 
         // Use the full schedule to locate the first coupon end date
         let full_schedule = bond
-            .get_full_schedule(&ctx)
+            .full_cashflow_schedule(&ctx)
             .expect("Full schedule retrieval should succeed in test");
         let first_coupon_date = full_schedule
             .flows
@@ -1969,7 +1966,7 @@ mod tests {
 
         // Before ex-date, accrued interest should be positive
         let schedule_before = bond
-            .get_full_schedule(&ctx)
+            .full_cashflow_schedule(&ctx)
             .expect("Full schedule should build");
         let ai_before = crate::cashflow::accrual::accrued_interest_amount(
             &schedule_before,
@@ -1984,7 +1981,7 @@ mod tests {
 
         // On or inside the ex-coupon window, accrued interest should be zero
         let schedule_ex = bond
-            .get_full_schedule(&ctx)
+            .full_cashflow_schedule(&ctx)
             .expect("Full schedule should build");
         let ai_ex = crate::cashflow::accrual::accrued_interest_amount(
             &schedule_ex,
@@ -2000,7 +1997,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_frn_build_dated_flows_uses_builder() {
+    fn test_bond_frn_dated_cashflows_uses_builder() {
         use crate::cashflow::primitives::CFKind;
         use crate::cashflow::traits::CashflowProvider;
 
@@ -2040,7 +2037,7 @@ mod tests {
 
         // Get full schedule to verify it includes FloatReset CFKind
         let full_schedule = frn
-            .get_full_schedule(&market)
+            .full_cashflow_schedule(&market)
             .expect("Full schedule retrieval should succeed in test");
         let has_floating = full_schedule
             .flows
@@ -2051,9 +2048,9 @@ mod tests {
             "Full schedule should include CFKind::FloatReset for FRN"
         );
 
-        // Get simplified schedule via build_dated_flows
+        // The holder-view dated cashflow projection should flatten the canonical schedule.
         let flows = frn
-            .build_dated_flows(&market, issue)
+            .dated_cashflows(&market, issue)
             .expect("Schedule building should succeed in test");
         assert!(!flows.is_empty(), "FRN should have cashflows");
 
@@ -2107,7 +2104,7 @@ mod tests {
 
         // Get full schedule to check internal representation
         let full_schedule = bond
-            .get_full_schedule(&market)
+            .full_cashflow_schedule(&market)
             .expect("Full schedule retrieval should succeed in test");
 
         // Find initial notional (should be negative - issuer receives)
@@ -2142,9 +2139,9 @@ mod tests {
             );
         }
 
-        // Get simplified schedule via build_dated_flows
+        // The holder-view dated cashflow projection should flatten the canonical schedule.
         let flows = bond
-            .build_dated_flows(&market, issue)
+            .dated_cashflows(&market, issue)
             .expect("Schedule building should succeed in test");
 
         // Initial draw should be excluded (negative notional)
@@ -2256,7 +2253,7 @@ mod tests {
     }
 
     #[test]
-    fn test_bond_build_dated_flows_includes_floating_cfkind() {
+    fn test_bond_dated_cashflows_include_floating_cfkind() {
         use crate::cashflow::traits::CashflowProvider;
 
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");
@@ -2293,7 +2290,7 @@ mod tests {
 
         // Build simplified schedule
         let flows = frn
-            .build_dated_flows(&market, issue)
+            .dated_cashflows(&market, issue)
             .expect("Schedule building should succeed in test");
 
         // Should have multiple flows (quarterly coupons + redemption)
@@ -2663,8 +2660,8 @@ mod tests {
         );
 
         let schedule = bond
-            .get_full_schedule(&market)
-            .expect("get_full_schedule should succeed for step-up bond");
+            .full_cashflow_schedule(&market)
+            .expect("full_cashflow_schedule should succeed for step-up bond");
 
         (bond, schedule)
     }
@@ -2706,8 +2703,8 @@ mod tests {
         );
 
         let fixed_sched = fixed_bond
-            .get_full_schedule(&market)
-            .expect("get_full_schedule should succeed for fixed bond");
+            .full_cashflow_schedule(&market)
+            .expect("full_cashflow_schedule should succeed for fixed bond");
 
         // Compare coupon flows
         let step_coupons: Vec<_> = step_sched

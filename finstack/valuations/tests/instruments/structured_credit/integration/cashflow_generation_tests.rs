@@ -150,7 +150,7 @@ fn test_clo_generates_cashflows() {
     let market = create_test_market();
 
     // Act
-    let result = clo.build_dated_flows(&market, test_date());
+    let result = clo.dated_cashflows(&market, test_date());
 
     // Assert
     assert!(
@@ -184,7 +184,7 @@ fn test_abs_generates_cashflows() {
     let market = create_test_market();
 
     // Act
-    let result = abs.build_dated_flows(&market, test_date());
+    let result = abs.dated_cashflows(&market, test_date());
 
     // Assert
     assert!(result.is_ok());
@@ -208,7 +208,7 @@ fn test_rmbs_generates_cashflows() {
     let market = create_test_market();
 
     // Act
-    let result = rmbs.build_dated_flows(&market, test_date());
+    let result = rmbs.dated_cashflows(&market, test_date());
 
     // Assert
     assert!(result.is_ok());
@@ -232,7 +232,7 @@ fn test_cmbs_generates_cashflows() {
     let market = create_test_market();
 
     // Act
-    let result = cmbs.build_dated_flows(&market, test_date());
+    let result = cmbs.dated_cashflows(&market, test_date());
 
     // Assert
     assert!(result.is_ok());
@@ -256,7 +256,7 @@ fn test_cashflow_dates_respect_payment_frequency() {
     let market = create_test_market();
 
     // Act
-    let flows = clo.build_dated_flows(&market, test_date()).unwrap();
+    let flows = clo.dated_cashflows(&market, test_date()).unwrap();
 
     // Assert: Payment dates should be quarterly (roughly 3 months apart)
     if flows.len() >= 2 {
@@ -288,7 +288,7 @@ fn test_cashflow_amounts_are_positive() {
     let market = create_test_market();
 
     // Act
-    let flows = clo.build_dated_flows(&market, test_date()).unwrap();
+    let flows = clo.dated_cashflows(&market, test_date()).unwrap();
 
     // Assert
     for (date, amount) in flows {

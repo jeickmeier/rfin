@@ -175,21 +175,20 @@ pub fn build_reference_tranche_schedule(
         }
     }
 
-    Ok(
-        crate::cashflow::traits::schedule_from_classified_flows_with_meta(
-            flows,
-            Notional::par(
-                tranche.current_face.amount(),
-                tranche.current_face.currency(),
-            ),
-            DayCount::Thirty360,
-            CashFlowMeta {
-                calendar_ids: Vec::new(),
-                facility_limit: None,
-                issue_date: Some(cmo.issue_date),
-            },
+    Ok(CashFlowSchedule::from_parts(
+        flows,
+        Notional::par(
+            tranche.current_face.amount(),
+            tranche.current_face.currency(),
         ),
-    )
+        DayCount::Thirty360,
+        CashFlowMeta {
+            representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+            calendar_ids: Vec::new(),
+            facility_limit: None,
+            issue_date: Some(cmo.issue_date),
+        },
+    ))
 }
 
 /// Create assumed collateral for CMO valuation.

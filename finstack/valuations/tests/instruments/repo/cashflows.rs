@@ -24,7 +24,7 @@ fn test_cashflow_schedule_structure() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     // Should have exactly 2 cashflows: initial outflow and final inflow
     assert_eq!(cashflows.len(), 2);
@@ -47,7 +47,7 @@ fn test_full_schedule_marks_initial_exchange_as_notional() {
     .expect("Repo construction should succeed");
 
     let schedule = repo
-        .build_full_schedule(&context, date(2025, 1, 10))
+        .cashflow_schedule(&context, date(2025, 1, 10))
         .expect("repo full schedule");
 
     assert_eq!(schedule.flows.len(), 2);
@@ -70,7 +70,7 @@ fn test_initial_cashflow_negative() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     let (start_date, cash_outflow) = &cashflows[0];
 
@@ -99,7 +99,7 @@ fn test_final_cashflow_includes_interest() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     let (maturity_date, cash_inflow) = &cashflows[1];
 
@@ -139,7 +139,7 @@ fn test_cashflow_dates_match_repo_dates() {
     // Get the expected adjusted dates
     let (adj_start, adj_maturity) = repo.adjusted_dates().unwrap();
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     assert_eq!(
         cashflows[0].0, adj_start,
@@ -167,7 +167,7 @@ fn test_cashflow_net_present_value() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     // Net cashflow should equal interest amount (ignoring time value)
     let net_undiscounted = cashflows[0].1.checked_add(cashflows[1].1).unwrap();
@@ -196,7 +196,7 @@ fn test_value_matches_discounted_provider_flows() {
     let pv = repo.value(&context, as_of).expect("repo value");
     let discount = context.get_discount("USD-OIS").expect("discount curve");
     let provider_flows = repo
-        .build_dated_flows(&context, as_of)
+        .dated_cashflows(&context, as_of)
         .expect("provider flows should build");
     let discounted_total = provider_flows
         .into_iter()
@@ -226,7 +226,7 @@ fn test_dated_flows_exclude_settled_start_leg_mid_life() {
     .expect("Repo construction should succeed");
 
     let cashflows = repo
-        .build_dated_flows(&context, date(2025, 2, 1))
+        .dated_cashflows(&context, date(2025, 2, 1))
         .expect("mid-life dated flows should build");
 
     assert_eq!(cashflows.len(), 1);
@@ -250,7 +250,7 @@ fn test_zero_rate_cashflows() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     // Final cashflow should equal principal (no interest)
     assert_eq!(cashflows[1].1.amount(), 1_000_000.0);
@@ -272,7 +272,7 @@ fn test_overnight_repo_cashflows() {
     )
     .unwrap();
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 14)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 14)).unwrap();
 
     assert_eq!(cashflows.len(), 2);
     assert_eq!(cashflows[0].0, date(2025, 1, 15));
@@ -300,7 +300,7 @@ fn test_cashflows_currency_consistency() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     // All cashflows should be in EUR
     assert_eq!(cashflows[0].1.currency(), Currency::EUR);
@@ -323,7 +323,7 @@ fn test_large_notional_cashflows() {
     )
     .expect("Repo construction should succeed");
 
-    let cashflows = repo.build_dated_flows(&context, date(2025, 1, 10)).unwrap();
+    let cashflows = repo.dated_cashflows(&context, date(2025, 1, 10)).unwrap();
 
     assert_eq!(cashflows[0].1.amount(), -100_000_000.0);
     assert!(cashflows[1].1.amount() > 100_000_000.0);

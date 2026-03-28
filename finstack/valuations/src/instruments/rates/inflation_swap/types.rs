@@ -473,10 +473,6 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
         Some(self.start_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -495,7 +491,7 @@ impl CashflowProvider for InflationSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
@@ -530,6 +526,8 @@ impl CashflowProvider for InflationSwap {
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), ccy);
         schedule.day_count = self.day_count;
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }
@@ -860,10 +858,6 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
         Some(self.start_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -882,7 +876,7 @@ impl CashflowProvider for YoYInflationSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
@@ -906,6 +900,8 @@ impl CashflowProvider for YoYInflationSwap {
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), ccy);
         schedule.day_count = self.day_count;
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }
@@ -1036,7 +1032,7 @@ mod tests {
             .expect("swap should build");
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("contractual schedule should build");
 
         assert_eq!(flows.len(), 2, "zc inflation swap should emit both legs");
@@ -1074,7 +1070,7 @@ mod tests {
             .expect("yoy swap should build");
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("yoy contractual schedule should build");
 
         assert_eq!(

@@ -88,7 +88,7 @@ fn test_settlement_far_future() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2050, 1, 15)); // 25 years out
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].0, d(2050, 1, 15));
@@ -99,7 +99,7 @@ fn test_settlement_far_past() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2000, 1, 15)); // 25 years ago
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 0, "Past settlement => no cashflows");
 }
@@ -119,7 +119,7 @@ fn test_settlement_on_leap_day() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2024, 2, 29));
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, d(2024, 2, 28)).unwrap();
+    let cashflows = fx.dated_cashflows(&market, d(2024, 2, 28)).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].0, d(2024, 2, 29));
@@ -130,7 +130,7 @@ fn test_year_boundary_settlement() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(d(2025, 12, 31));
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, d(2025, 12, 30)).unwrap();
+    let cashflows = fx.dated_cashflows(&market, d(2025, 12, 30)).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].0, d(2025, 12, 31));
@@ -268,7 +268,7 @@ fn test_weekend_settlement_adjustment() {
         .with_quote_calendar_id("usny");
 
     let market = MarketContext::new();
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // BDC adjustment only applies when calendar is loaded - may return unadjusted date
@@ -291,7 +291,7 @@ fn test_extreme_settlement_lag() {
         .with_settlement(far_future);
 
     let market = MarketContext::new();
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].0, far_future);

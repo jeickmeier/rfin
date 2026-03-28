@@ -32,7 +32,7 @@ use crate::instruments::common_impl::pricing::swap_legs::{
 // Re-export for backward compatibility with IRS metrics modules
 pub(crate) use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df as relative_df;
 
-use crate::instruments::rates::irs::InterestRateSwap;
+use crate::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::ScalarTimeSeries;
@@ -356,34 +356,30 @@ pub(crate) fn compute_pv_raw(
     as_of: Date,
 ) -> Result<f64> {
     let disc = context.get_discount(irs.fixed.discount_curve_id.as_ref())?;
-    let schedule =
-        crate::instruments::rates::irs::cashflow::full_signed_schedule_with_curves_as_of(
-            irs,
-            Some(context),
-            Some(as_of),
-        )?;
+    let fixings_id = format!("FIXING:{}", irs.float.forward_curve_id.as_str());
+    let fixings = context.get_series(&fixings_id).ok();
+    let pv_fixed = irs.pv_fixed_leg(disc.as_ref(), as_of)?;
+    let pv_float = match irs.float.compounding {
+        FloatingLegCompounding::Simple => {
+            let fwd = context.get_forward(irs.float.forward_curve_id.as_ref())?;
+            irs.pv_float_leg(disc.as_ref(), fwd.as_ref(), as_of, fixings)?
+        }
+        FloatingLegCompounding::CompoundedInArrears { .. }
+        | FloatingLegCompounding::CompoundedWithObservationShift { .. } => {
+            let proj = if irs.is_single_curve_ois() {
+                context
+                    .get_forward(irs.float.forward_curve_id.as_ref())
+                    .ok()
+            } else {
+                Some(context.get_forward(irs.float.forward_curve_id.as_ref())?)
+            };
+            irs.pv_compounded_float_leg(disc.as_ref(), proj.as_deref(), as_of, fixings)?
+        }
+    };
 
-    schedule.flows.iter().try_fold(0.0, |acc, flow| {
-        let payment_date = match flow.kind {
-            crate::cashflow::primitives::CFKind::Fixed
-            | crate::cashflow::primitives::CFKind::Stub => {
-                crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
-                    flow.date,
-                    irs.fixed.payment_lag_days,
-                    irs.fixed.calendar_id.as_deref(),
-                )?
-            }
-            crate::cashflow::primitives::CFKind::FloatReset => {
-                crate::instruments::common_impl::pricing::swap_legs::add_payment_delay(
-                    flow.date,
-                    irs.float.payment_lag_days,
-                    irs.float.calendar_id.as_deref(),
-                )?
-            }
-            _ => flow.date,
-        };
-        let df = disc.df_between_dates(as_of, payment_date)?;
-        Ok(acc + flow.amount.amount() * df)
+    Ok(match irs.side {
+        PayReceive::PayFixed => pv_float - pv_fixed,
+        PayReceive::ReceiveFixed => pv_fixed - pv_float,
     })
 }
 

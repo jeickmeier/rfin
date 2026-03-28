@@ -356,6 +356,11 @@ impl crate::instruments::common_impl::traits::CurveDependencies for RangeAccrual
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    RangeAccrual,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

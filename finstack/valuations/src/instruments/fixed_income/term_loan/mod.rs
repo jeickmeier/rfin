@@ -77,7 +77,7 @@
 //! - term loan pricing module for valuation methodology
 //! - term loan metrics module for available metrics
 
-pub mod cashflows;
+pub(crate) mod cashflows;
 pub(crate) mod metrics;
 pub(crate) mod pricing;
 pub mod spec;

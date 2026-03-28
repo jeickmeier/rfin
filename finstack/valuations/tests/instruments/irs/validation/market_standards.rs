@@ -1356,7 +1356,7 @@ fn test_eom_pricer_cashflow_consistency() {
     // Cross-check: the cashflow schedule and the pricer should produce the same NPV.
     // Build full schedule (this uses the cashflow builder which correctly propagates EOM)
     let sched = swap_eom
-        .build_full_schedule(&market, as_of)
+        .cashflow_schedule(&market, as_of)
         .expect("EOM cashflow schedule");
 
     // The schedule should have generated valid flows

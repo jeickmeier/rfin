@@ -365,6 +365,11 @@ impl crate::instruments::common_impl::traits::CurveDependencies for Basket {
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    Basket,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

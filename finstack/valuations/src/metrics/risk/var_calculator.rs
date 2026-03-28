@@ -953,6 +953,11 @@ mod tests {
         attributes: Attributes,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        CurrencyScalarInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl CurrencyScalarInstrument {
         fn new(id: &str, price_id: &str, currency: Currency) -> Self {
             Self {

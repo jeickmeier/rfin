@@ -741,6 +741,11 @@ impl crate::instruments::common_impl::traits::CurveDependencies for InterestRate
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    InterestRateOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

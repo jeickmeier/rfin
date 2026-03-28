@@ -425,7 +425,7 @@ fn test_fi_index_trs_cashflow_schedule_generation() {
     let trs = TestFIIndexTrsBuilder::new().tenor_months(12).build();
 
     // Act
-    let flows = trs.build_dated_flows(&market, as_of).unwrap();
+    let flows = trs.dated_cashflows(&market, as_of).unwrap();
 
     // Assert
     // 1 year quarterly = 4 payments
@@ -446,7 +446,7 @@ fn test_fi_index_trs_cashflow_schedule_dates_ordered() {
     let trs = TestFIIndexTrsBuilder::new().build();
 
     // Act
-    let flows = trs.build_dated_flows(&market, as_of).unwrap();
+    let flows = trs.dated_cashflows(&market, as_of).unwrap();
 
     // Assert - Dates should be strictly increasing
     for i in 1..flows.len() {

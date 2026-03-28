@@ -4,8 +4,8 @@ use crate::core::common::args::CurrencyArg;
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::market_data::context::PyMarketContext;
-use crate::core::money::PyMoney;
 use crate::errors::PyContext;
+use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::{f64_to_decimal, PyInstrumentType};
 use finstack_core::dates::{BusinessDayConvention, Tenor, TenorUnit};
 use finstack_core::types::{CurveId, InstrumentId};
@@ -15,7 +15,7 @@ use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::CommodityUnderlyingParams;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyList, PyModule, PyTuple, PyType};
+use pyo3::types::{PyAny, PyList, PyModule, PyType};
 use pyo3::{Bound, Py, PyRefMut};
 use std::fmt;
 use std::sync::Arc;
@@ -567,27 +567,20 @@ impl PyCommoditySwap {
         Ok(py_dates.into())
     }
 
-    /// Net cashflows at each payment date: list of (date, Money) tuples.
+    /// Generate the canonical cashflow schedule for this commodity swap.
     #[pyo3(signature = (market, as_of))]
-    fn cashflows<'py>(
+    fn cashflow_schedule(
         &self,
-        py: Python<'py>,
         market: &PyMarketContext,
-        as_of: Bound<'py, PyAny>,
-    ) -> PyResult<Py<PyAny>> {
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyCashFlowSchedule> {
+        use finstack_valuations::cashflow::CashflowProvider;
+
         let date = py_to_date(&as_of).context("as_of")?;
-        let flows = self
-            .inner
-            .cashflows(&market.inner, date)
-            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))?;
-        let result = PyList::empty(py);
-        for (d, money) in flows {
-            let py_date = date_to_py(py, d)?;
-            let py_money = PyMoney::new(money);
-            let tuple = PyTuple::new(py, [py_date, Py::new(py, py_money)?.into_any()])?;
-            result.append(tuple)?;
-        }
-        Ok(result.into())
+        self.inner
+            .cashflow_schedule(&market.inner, date)
+            .map(PyCashFlowSchedule::new)
+            .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(format!("{e}")))
     }
 
     fn __repr__(&self) -> String {

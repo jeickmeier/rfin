@@ -391,13 +391,13 @@ println!("Annuity: {:.6}", result.get_metric(&MetricId::Annuity)?);
 ```rust
 use finstack_valuations::cashflow::CashflowProvider;
 
-let flows = swap.build_dated_flows(&market, date!(2024-01-01))?;
+let flows = swap.dated_cashflows(&market, date!(2024-01-01))?;
 for (date, amount) in flows {
     println!("{}: {}", date, amount);
 }
 
 // Or get the full schedule with metadata
-let full_schedule = swap.build_full_schedule(&market, date!(2024-01-01))?;
+let full_schedule = swap.cashflow_schedule(&market, date!(2024-01-01))?;
 for cf in full_schedule.flows {
     println!("{}: {} ({:?})", cf.date, cf.amount, cf.kind);
 }

@@ -249,3 +249,8 @@ impl crate::instruments::common_impl::traits::Instrument for LookbackOption {
         Some(&self.pricing_overrides)
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    LookbackOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

@@ -254,10 +254,6 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
         Some(self.near_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -272,7 +268,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxSwap {
 }
 
 impl CashflowProvider for FxSwap {
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
@@ -317,6 +313,8 @@ impl CashflowProvider for FxSwap {
         near_base.flows.extend(far_quote_schedule.flows);
         near_base.flows.sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         near_base.notional = Notional::par(0.0, self.base_currency);
+        near_base.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(near_base)
     }
 }
@@ -451,7 +449,7 @@ mod tests {
         let swap = FxSwap::example();
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("fx swap contractual schedule should build");
 
         assert_eq!(

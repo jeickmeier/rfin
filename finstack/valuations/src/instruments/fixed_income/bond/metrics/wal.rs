@@ -21,7 +21,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// # Principal Flow Selection
 ///
-/// The calculator uses the full cashflow schedule (via `get_full_schedule`) and
+/// The calculator uses the bond's full internal cashflow schedule and
 /// selects only `CFKind::Amortization` and positive `CFKind::Notional` flows.
 /// This correctly excludes coupons, PIK accruals, and the initial negative
 /// notional draw, giving an accurate principal-only WAL.
@@ -30,7 +30,7 @@ pub struct BondWalCalculator;
 impl MetricCalculator for BondWalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
         let bond: &Bond = context.instrument_as()?;
-        let schedule = bond.get_full_schedule(&context.curves)?;
+        let schedule = bond.full_cashflow_schedule(&context.curves)?;
 
         let mut weighted_sum = 0.0;
         let mut total_principal = 0.0;

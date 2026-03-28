@@ -76,6 +76,7 @@ pub(crate) fn finalize_flows(
         calendar_ids: cals,
         facility_limit: None,
         issue_date: None,
+        representation: CashflowRepresentation::default(),
     };
 
     let out_dc = if let Some(s) = fixed.first() {
@@ -88,12 +89,30 @@ pub(crate) fn finalize_flows(
     (flows, meta, out_dc)
 }
 
+/// Meaning of the emitted schedule relative to pricing and waterfall policy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CashflowRepresentation {
+    /// Fixed or contractually scheduled future dated cash amounts.
+    #[default]
+    Contractual,
+    /// Current-market or model-projected future dated cash amounts.
+    Projected,
+    /// Intentionally empty because the contingent payoff policy is not modeled yet.
+    Placeholder,
+    /// Intentionally empty because no future dated cashflows remain.
+    NoResidual,
+}
+
 /// Metadata for cashflow schedules (calendar IDs, facility limits, issue date).
 ///
 /// Tracks referenced calendar IDs, optional facility limits, and the instrument's
 /// issue date for use by downstream engines (e.g., accrual calculation).
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct CashFlowMeta {
+    /// Meaning of the schedule relative to waterfall policy.
+    #[serde(default)]
+    pub representation: CashflowRepresentation,
     /// Holiday calendar IDs used for schedule adjustments.
     pub calendar_ids: Vec<String>,
     /// Optional facility limit/commitment for instruments like RCFs.
@@ -400,8 +419,14 @@ where
     let mut calendar_ids = Vec::new();
     let mut facility_limit: Option<Option<Money>> = None;
     let mut issue_date: Option<Option<Date>> = None;
+    let mut representation: Option<CashflowRepresentation> = None;
 
     for schedule in schedules {
+        representation = Some(match representation {
+            None => schedule.meta.representation,
+            Some(existing) if existing == schedule.meta.representation => existing,
+            Some(_) => CashflowRepresentation::default(),
+        });
         flows.extend(schedule.flows);
         calendar_ids.extend(schedule.meta.calendar_ids);
         facility_limit = Some(match facility_limit {
@@ -424,91 +449,12 @@ where
         notional,
         day_count,
         CashFlowMeta {
+            representation: representation.unwrap_or_default(),
             calendar_ids,
             facility_limit: facility_limit.unwrap_or(None),
             issue_date: issue_date.unwrap_or(None),
         },
     )
-}
-
-#[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic)]
-mod tests {
-    use super::*;
-    use finstack_core::dates::DayCount;
-    use time::Month;
-
-    fn flow(date: Date, amount: f64, kind: CFKind) -> CashFlow {
-        CashFlow {
-            date,
-            reset_date: None,
-            amount: Money::new(amount, Currency::USD),
-            kind,
-            accrual_factor: 0.0,
-            rate: None,
-        }
-    }
-
-    #[test]
-    fn from_parts_sorts_by_date_then_kind_rank() {
-        let date = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
-        let schedule = CashFlowSchedule::from_parts(
-            vec![
-                flow(date, 10.0, CFKind::Recovery),
-                flow(date, 12.0, CFKind::Amortization),
-                flow(date, 8.0, CFKind::PrePayment),
-                flow(date, 5.0, CFKind::Fixed),
-            ],
-            Notional::par(100.0, Currency::USD),
-            DayCount::Act365F,
-            CashFlowMeta::default(),
-        );
-
-        assert_eq!(schedule.flows[0].kind, CFKind::Fixed);
-        assert_eq!(schedule.flows[1].kind, CFKind::Amortization);
-        assert_eq!(schedule.flows[2].kind, CFKind::PrePayment);
-        assert_eq!(schedule.flows[3].kind, CFKind::Recovery);
-    }
-
-    #[test]
-    fn merge_cashflow_schedules_merges_meta_and_resorts() {
-        let d1 = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
-        let d2 = Date::from_calendar_date(2025, Month::February, 15).expect("valid date");
-        let left = CashFlowSchedule::from_parts(
-            vec![flow(d2, 4.0, CFKind::Recovery)],
-            Notional::par(50.0, Currency::USD),
-            DayCount::Act365F,
-            CashFlowMeta {
-                calendar_ids: vec!["nyc".to_string()],
-                facility_limit: None,
-                issue_date: Some(d1),
-            },
-        );
-        let right = CashFlowSchedule::from_parts(
-            vec![flow(d1, 10.0, CFKind::Amortization)],
-            Notional::par(50.0, Currency::USD),
-            DayCount::Act365F,
-            CashFlowMeta {
-                calendar_ids: vec!["lon".to_string(), "nyc".to_string()],
-                facility_limit: None,
-                issue_date: Some(d1),
-            },
-        );
-
-        let merged = merge_cashflow_schedules(
-            vec![left, right],
-            Notional::par(100.0, Currency::USD),
-            DayCount::Act365F,
-        );
-
-        assert_eq!(merged.flows.len(), 2);
-        assert_eq!(merged.flows[0].date, d1);
-        assert_eq!(
-            merged.meta.calendar_ids,
-            vec!["lon".to_string(), "nyc".to_string()]
-        );
-        assert_eq!(merged.meta.issue_date, Some(d1));
-    }
 }
 
 /// Compare two amounts using relative epsilon for floating-point tolerance.
@@ -781,5 +727,91 @@ impl<'a> IntoIterator for &'a CashFlowSchedule {
 
     fn into_iter(self) -> Self::IntoIter {
         self.flows.iter()
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use finstack_core::dates::DayCount;
+    use time::Month;
+
+    fn flow(date: Date, amount: f64, kind: CFKind) -> CashFlow {
+        CashFlow {
+            date,
+            reset_date: None,
+            amount: Money::new(amount, Currency::USD),
+            kind,
+            accrual_factor: 0.0,
+            rate: None,
+        }
+    }
+
+    #[test]
+    fn from_parts_sorts_by_date_then_kind_rank() {
+        let date = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let schedule = CashFlowSchedule::from_parts(
+            vec![
+                flow(date, 10.0, CFKind::Recovery),
+                flow(date, 12.0, CFKind::Amortization),
+                flow(date, 8.0, CFKind::PrePayment),
+                flow(date, 5.0, CFKind::Fixed),
+            ],
+            Notional::par(100.0, Currency::USD),
+            DayCount::Act365F,
+            CashFlowMeta::default(),
+        );
+
+        assert_eq!(schedule.flows[0].kind, CFKind::Fixed);
+        assert_eq!(schedule.flows[1].kind, CFKind::Amortization);
+        assert_eq!(schedule.flows[2].kind, CFKind::PrePayment);
+        assert_eq!(schedule.flows[3].kind, CFKind::Recovery);
+    }
+
+    #[test]
+    fn merge_cashflow_schedules_merges_meta_and_resorts() {
+        let d1 = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let d2 = Date::from_calendar_date(2025, Month::February, 15).expect("valid date");
+        let left = CashFlowSchedule::from_parts(
+            vec![flow(d2, 4.0, CFKind::Recovery)],
+            Notional::par(50.0, Currency::USD),
+            DayCount::Act365F,
+            CashFlowMeta {
+                representation: CashflowRepresentation::Projected,
+                calendar_ids: vec!["nyc".to_string()],
+                facility_limit: None,
+                issue_date: Some(d1),
+            },
+        );
+        let right = CashFlowSchedule::from_parts(
+            vec![flow(d1, 10.0, CFKind::Amortization)],
+            Notional::par(50.0, Currency::USD),
+            DayCount::Act365F,
+            CashFlowMeta {
+                representation: CashflowRepresentation::Projected,
+                calendar_ids: vec!["lon".to_string(), "nyc".to_string()],
+                facility_limit: None,
+                issue_date: Some(d1),
+            },
+        );
+
+        let merged = merge_cashflow_schedules(
+            vec![left, right],
+            Notional::par(100.0, Currency::USD),
+            DayCount::Act365F,
+        );
+
+        assert_eq!(merged.flows.len(), 2);
+        assert_eq!(merged.flows[0].date, d1);
+        assert_eq!(
+            merged.meta.representation,
+            CashflowRepresentation::Projected
+        );
+        assert_eq!(
+            merged.meta.calendar_ids,
+            vec!["lon".to_string(), "nyc".to_string()]
+        );
+        assert_eq!(merged.meta.issue_date, Some(d1));
     }
 }

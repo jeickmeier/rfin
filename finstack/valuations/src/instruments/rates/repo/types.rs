@@ -542,8 +542,13 @@ impl Repo {
     /// Uses business-day adjusted dates for all comparisons and discount factor
     /// calculations to ensure correct accrual fractions and haircut coverage.
     pub fn pv(&self, context: &MarketContext, as_of: Date) -> Result<Money> {
+        let (_, adj_maturity) = self.adjusted_dates()?;
+        if as_of >= adj_maturity {
+            return Ok(Money::new(0.0, self.cash_amount.currency()));
+        }
+
         let disc_curve = context.get_discount(self.discount_curve_id.as_str())?;
-        let flows = self.build_dated_flows(context, as_of)?;
+        let flows = self.dated_cashflows(context, as_of)?;
 
         if flows.is_empty() {
             return Ok(Money::new(0.0, self.cash_amount.currency()));
@@ -639,10 +644,6 @@ impl Instrument for Repo {
         self.pv(context, as_of)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
@@ -677,21 +678,21 @@ impl CashflowProvider for Repo {
         Some(self.cash_amount)
     }
 
-    fn build_dated_flows(
+    fn dated_cashflows(
         &self,
         context: &MarketContext,
         as_of: Date,
     ) -> Result<crate::cashflow::traits::DatedFlows> {
-        let schedule = self.build_full_schedule(context, as_of)?;
+        let schedule = self.cashflow_schedule(context, as_of)?;
         Ok(schedule
             .flows
             .into_iter()
-            .filter(|flow| flow.date > as_of)
+            .filter(|flow| flow.date >= as_of)
             .map(|flow| (flow.date, flow.amount))
             .collect())
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _context: &MarketContext,
         _as_of: Date,
@@ -723,11 +724,14 @@ impl CashflowProvider for Repo {
             },
         ];
 
-        Ok(crate::cashflow::traits::schedule_from_classified_flows(
-            flows,
-            self.notional(),
-            self.day_count,
-        ))
+        Ok(
+            crate::cashflow::traits::schedule_from_classified_flows_with_representation(
+                flows,
+                self.notional(),
+                self.day_count,
+                crate::cashflow::builder::CashflowRepresentation::Contractual,
+            ),
+        )
     }
 }
 
@@ -893,7 +897,7 @@ mod tests {
         // Verify cashflows use adjusted dates
         let ctx = MarketContext::new();
         let flows = repo
-            .build_dated_flows(&ctx, date(2025, 1, 1))
+            .dated_cashflows(&ctx, date(2025, 1, 1))
             .expect("Schedule should build");
 
         assert_eq!(flows.len(), 2, "Repo should have 2 cashflows");

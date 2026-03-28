@@ -86,7 +86,7 @@ fn test_irs_cashflow_schedule_generation() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // Should have cashflows from both legs
     assert!(!schedule.is_empty(), "Schedule should not be empty");
@@ -137,7 +137,7 @@ fn test_irs_fixed_leg_quarterly_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // 1 year quarterly = 4 periods per leg = 8 cashflows
     assert!(
@@ -191,7 +191,7 @@ fn test_irs_fixed_leg_semiannual_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // 2 years: 4 semiannual + 8 quarterly = 12 total
     assert!(
@@ -215,7 +215,7 @@ fn test_irs_floating_leg_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // Verify floating leg generates cashflows
     assert!(!schedule.is_empty());
@@ -236,12 +236,7 @@ fn test_irs_value_matches_combined_signed_schedule() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
     let discount = market.get_discount("USD-OIS").unwrap();
-    let schedule =
-        finstack_valuations::instruments::rates::irs::cashflow::full_signed_schedule_with_curves(
-            &swap,
-            Some(&market),
-        )
-        .unwrap();
+    let schedule = swap.cashflow_schedule(&market, as_of).unwrap();
 
     let expected_pv = schedule
         .flows
@@ -319,7 +314,7 @@ fn test_irs_stub_front() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of);
+    let schedule = swap.dated_cashflows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should generate schedule with stub");
 }
@@ -369,7 +364,7 @@ fn test_irs_stub_back() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of);
+    let schedule = swap.dated_cashflows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should generate schedule with back stub");
 }
@@ -389,7 +384,7 @@ fn test_irs_cashflow_dates_ordered() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // Verify dates are in ascending order
     let mut prev_date = date!(2020 - 01 - 01);
@@ -414,7 +409,7 @@ fn test_irs_cashflow_amounts_nonzero() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // Verify amounts are reasonable (non-zero for fixed rate > 0)
     for (_, amount) in &schedule {
@@ -441,7 +436,7 @@ fn test_irs_full_schedule_with_cfkind() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let full_schedule = swap.build_full_schedule(&market, as_of);
+    let full_schedule = swap.cashflow_schedule(&market, as_of);
 
     assert!(full_schedule.is_ok(), "Should build full schedule");
 
@@ -501,7 +496,7 @@ fn test_irs_different_frequencies() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of).unwrap();
+    let schedule = swap.dated_cashflows(&market, as_of).unwrap();
 
     // 2 years: 4 semiannual fixed + 8 quarterly float = 12
     assert!(schedule.len() >= 4, "Should have multiple cashflows");
@@ -552,7 +547,7 @@ fn test_irs_calendar_adjustments() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let schedule = swap.build_dated_flows(&market, as_of);
+    let schedule = swap.dated_cashflows(&market, as_of);
 
     assert!(schedule.is_ok(), "Should handle calendar adjustments");
 }
@@ -605,9 +600,10 @@ fn test_irs_explicit_zero_payment_delay_preserved() {
         .build()
         .unwrap();
 
-    let fixed_schedule =
-        finstack_valuations::instruments::rates::irs::cashflow::fixed_leg_schedule(&swap)
-            .expect("fixed schedule");
+    let market = build_test_curves();
+    let full_schedule = swap
+        .cashflow_schedule(&market, start)
+        .expect("full schedule");
     // Expected schedule with payment_delay = 0 (no delay)
     let expected = build_dates(
         start,
@@ -620,9 +616,16 @@ fn test_irs_explicit_zero_payment_delay_preserved() {
         "weekends_only",
     )
     .expect("expected schedule");
-    let first_payment = fixed_schedule
+    let first_payment = full_schedule
         .flows
         .iter()
+        .filter(|cf| {
+            matches!(
+                cf.kind,
+                finstack_valuations::cashflow::primitives::CFKind::Fixed
+                    | finstack_valuations::cashflow::primitives::CFKind::Stub
+            )
+        })
         .map(|cf| cf.date)
         .min()
         .expect("first payment");
@@ -674,10 +677,11 @@ fn test_irs_explicit_zero_reset_lag_preserved() {
         .build()
         .unwrap();
 
-    let float_schedule =
-        finstack_valuations::instruments::rates::irs::cashflow::float_leg_schedule(&swap)
-            .expect("float schedule");
-    let first_reset = float_schedule
+    let market = build_test_curves();
+    let full_schedule = swap
+        .cashflow_schedule(&market, start)
+        .expect("full schedule");
+    let first_reset = full_schedule
         .flows
         .iter()
         .find(|cf| cf.kind == finstack_valuations::cashflow::primitives::CFKind::FloatReset)
@@ -703,7 +707,7 @@ fn test_irs_receive_fixed_cashflow_signs() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let full_schedule = swap.build_full_schedule(&market, as_of).unwrap();
+    let full_schedule = swap.cashflow_schedule(&market, as_of).unwrap();
 
     use finstack_valuations::cashflow::primitives::CFKind;
 
@@ -745,7 +749,7 @@ fn test_irs_pay_fixed_cashflow_signs() {
     let market = build_test_curves();
     let as_of = date!(2024 - 01 - 01);
 
-    let full_schedule = swap.build_full_schedule(&market, as_of).unwrap();
+    let full_schedule = swap.cashflow_schedule(&market, as_of).unwrap();
 
     use finstack_valuations::cashflow::primitives::CFKind;
 
@@ -827,7 +831,7 @@ fn test_irs_npv_parity_at_par_rate() {
 
     let market = build_test_curves();
 
-    let full_schedule = swap.build_full_schedule(&market, as_of).unwrap();
+    let full_schedule = swap.cashflow_schedule(&market, as_of).unwrap();
 
     // Separate fixed and floating leg flows
     let fixed_sum: f64 = full_schedule

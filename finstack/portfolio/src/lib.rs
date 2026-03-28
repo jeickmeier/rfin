@@ -116,7 +116,7 @@ pub use book::{Book, BookId};
 pub use builder::PortfolioBuilder;
 pub use cashflows::{
     aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
-    PortfolioCashflowBuckets, PortfolioCashflows,
+    PortfolioCashflowBuckets, PortfolioCashflowPositionSummary, PortfolioCashflows,
 };
 pub use dependencies::{DependencyIndex, MarketFactorKey};
 pub use error::{Error, Result};

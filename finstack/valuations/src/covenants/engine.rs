@@ -1218,6 +1218,11 @@ mod tests {
         maturity: Date,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        TestInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl TestInstrument {
         fn new(id: &str, maturity: Date) -> Self {
             Self {

@@ -23,6 +23,11 @@ struct ValueOnlyInstrument {
     attributes: Attributes,
 }
 
+finstack_valuations::impl_empty_cashflow_provider!(
+    ValueOnlyInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+
 impl ValueOnlyInstrument {
     fn new(id: &str, currency: Currency, value: f64) -> Self {
         Self {

@@ -18,7 +18,7 @@ fn test_cashflow_generation_two_flows() {
         .build();
 
     // Execute
-    let flows = dep.build_dated_flows(&ctx, base).unwrap();
+    let flows = dep.dated_cashflows(&ctx, base).unwrap();
 
     // Validate - should have exactly 2 flows
     assert_eq!(flows.len(), 2, "Expected 2 cashflows");
@@ -56,7 +56,7 @@ fn test_cashflow_redemption_amount() {
         .build();
 
     // Execute
-    let flows = dep.build_dated_flows(&ctx, base).unwrap();
+    let flows = dep.dated_cashflows(&ctx, base).unwrap();
 
     // Calculate expected redemption
     let yf = dep
@@ -86,7 +86,7 @@ fn test_cashflow_conservation_of_value() {
         .build();
 
     // Execute
-    let flows = dep.build_dated_flows(&ctx, base).unwrap();
+    let flows = dep.dated_cashflows(&ctx, base).unwrap();
     let pv = dep.value(&ctx, base).unwrap();
 
     // Manually discount flows
@@ -126,7 +126,7 @@ fn test_cashflow_with_zero_rate() {
         .build();
 
     // Execute
-    let flows = dep.build_dated_flows(&ctx, base).unwrap();
+    let flows = dep.dated_cashflows(&ctx, base).unwrap();
 
     // Validate - with zero rate, redemption = notional
     assert!((flows[1].1.amount() - notional).abs() < 1e-9);
@@ -144,7 +144,7 @@ fn test_cashflow_dates_ordered() {
         .build();
 
     // Execute
-    let flows = dep.build_dated_flows(&ctx, base).unwrap();
+    let flows = dep.dated_cashflows(&ctx, base).unwrap();
 
     // Validate - dates should be in order
     assert!(flows[0].0 < flows[1].0);
@@ -167,8 +167,8 @@ fn test_cashflow_notional_scales() {
         .build();
 
     // Execute
-    let flows_1m = dep_1m.build_dated_flows(&ctx, base).unwrap();
-    let flows_2m = dep_2m.build_dated_flows(&ctx, base).unwrap();
+    let flows_1m = dep_1m.dated_cashflows(&ctx, base).unwrap();
+    let flows_2m = dep_2m.dated_cashflows(&ctx, base).unwrap();
 
     // Validate - cashflows should scale linearly
     assert!((flows_2m[0].1.amount() / flows_1m[0].1.amount() - 2.0).abs() < 1e-10);
@@ -187,7 +187,7 @@ fn test_cashflow_currency_consistency() {
         .build();
 
     // Execute
-    let flows = dep.build_dated_flows(&ctx, base).unwrap();
+    let flows = dep.dated_cashflows(&ctx, base).unwrap();
 
     // Validate - all flows should be in EUR
     for (_, amount) in flows {

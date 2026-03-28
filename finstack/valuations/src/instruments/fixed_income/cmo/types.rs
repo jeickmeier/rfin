@@ -360,15 +360,18 @@ impl CashflowProvider for AgencyCmo {
         self.reference_tranche().map(|tranche| tranche.current_face)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         let _ = curves;
-        crate::instruments::fixed_income::cmo::pricer::build_reference_tranche_schedule(
-            self, as_of, None,
-        )
+        let mut schedule =
+            crate::instruments::fixed_income::cmo::pricer::build_reference_tranche_schedule(
+                self, as_of, None,
+            )?;
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
+        Ok(schedule)
     }
 }
 
@@ -385,10 +388,6 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyCmo {
 
     fn effective_start_date(&self) -> Option<Date> {
         Some(self.issue_date)
-    }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
     }
 
     fn pricing_overrides_mut(

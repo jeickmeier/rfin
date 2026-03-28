@@ -474,10 +474,6 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
         None
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<Date> {
         Some(self.maturity)
     }
@@ -496,7 +492,7 @@ impl crate::instruments::common_impl::traits::Instrument for CommodityForward {
 }
 
 impl CashflowProvider for CommodityForward {
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         market: &MarketContext,
         as_of: Date,
@@ -517,6 +513,8 @@ impl CashflowProvider for CommodityForward {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(invoice.amount().abs(), invoice.currency());
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }
@@ -947,7 +945,7 @@ mod tests {
             .expect("should build");
 
         let flows = forward
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("contractual schedule should build");
 
         assert_eq!(

@@ -617,6 +617,11 @@ mod tests {
         id: String,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        RatesCreditInteractionInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl RatesCreditInteractionInstrument {
         fn new(id: &str) -> Self {
             Self { id: id.to_string() }

@@ -248,10 +248,6 @@ impl crate::instruments::common_impl::traits::Instrument for FIIndexTotalReturnS
         Ok(net_pv)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
@@ -282,7 +278,7 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _context: &MarketContext,
         _as_of: Date,
@@ -299,14 +295,14 @@ impl CashflowProvider for FIIndexTotalReturnSwap {
             flows.push((*date, Money::new(0.0, self.notional.currency())));
         }
 
-        Ok(
-            crate::cashflow::traits::schedule_from_dated_flows_with_kind(
-                flows,
-                crate::cashflow::primitives::CFKind::Fixed,
-                self.notional(),
-                self.financing.day_count,
-            ),
-        )
+        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+            flows,
+            crate::cashflow::primitives::CFKind::Fixed,
+            self.notional(),
+            self.financing.day_count,
+        );
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
+        Ok(schedule)
     }
 }
 

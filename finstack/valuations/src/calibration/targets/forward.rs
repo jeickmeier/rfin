@@ -371,6 +371,11 @@ mod tests {
     #[derive(Clone)]
     struct DummyInstrument;
 
+    crate::impl_empty_cashflow_provider!(
+        DummyInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl Instrument for DummyInstrument {
         fn id(&self) -> &str {
             "dummy"

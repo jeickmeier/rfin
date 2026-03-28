@@ -1,10 +1,11 @@
 """Private markets fund instrument."""
 
 from __future__ import annotations
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any
 from datetime import date
-from ....core.money import Money
 from ....core.currency import Currency
+from ....core.market_data.context import MarketContext
+from ...cashflow.builder import CashFlowSchedule
 from ...common import InstrumentType
 
 class PrivateMarketsFund:
@@ -53,20 +54,20 @@ class PrivateMarketsFund:
         ...     "attributes": {"tags": [], "meta": {}},
         ... }
         >>> fund = PrivateMarketsFund.from_json(json.dumps(json_data))
-        >>> cashflows = fund.lp_cashflows()
+        >>> schedule = fund.cashflow_schedule(market, date(2024, 1, 2))
 
     Notes
     -----
     - Private markets funds are defined via JSON
     - Include capital commitments, calls, and distributions
-    - LP cashflows represent net cashflows to limited partners
+    - The canonical cashflow schedule represents net cashflows to limited partners
     - Can include management fees and carried interest
     - NAV (net asset value) tracking for fund valuation
 
     MarketContext Requirements
     -------------------------
-    - None required for parsing/LP cashflow generation from the JSON itself.
-    - Pricing/valuation paths may reference market data via IDs embedded in the JSON payload when applicable.
+    - Parsing and waterfall construction do not require market data by themselves.
+    - The canonical `cashflow_schedule()` method follows the standard instrument interface and therefore accepts a market context and valuation date.
 
     See Also
     --------
@@ -103,9 +104,9 @@ class PrivateMarketsFund:
         Examples
         --------
             >>> fund = PrivateMarketsFund.from_json(json_data)
-            >>> cashflows = fund.lp_cashflows()
-            >>> for date, amount in cashflows:
-            ...     print(f"{date}: {amount}")
+            >>> schedule = fund.cashflow_schedule(market, date(2024, 1, 2))
+            >>> for flow in schedule.flows():
+            ...     print(flow)
         """
         ...
 
@@ -113,8 +114,8 @@ class PrivateMarketsFund:
         """Serialize the fund to a JSON string."""
         ...
 
-    def lp_cashflows(self) -> List[Tuple[date, Money]]:
-        """Calculate LP cashflows."""
+    def cashflow_schedule(self, market: MarketContext, as_of: date) -> CashFlowSchedule:
+        """Return the canonical LP cashflow schedule."""
         ...
 
     def run_waterfall(self) -> str:

@@ -39,7 +39,7 @@ impl MetricCalculator for AccruedInterestCalculator {
             let bond: &Bond = context.instrument_as()?;
 
             // Build full schedule with market context (supports FRNs, amortization, custom schedules)
-            let schedule = bond.get_full_schedule(&context.curves)?;
+            let schedule = bond.full_cashflow_schedule(&context.curves)?;
 
             // Use generic cashflow accrual engine with bond's config
             let accrued_amt = crate::cashflow::accrual::accrued_interest_amount(
@@ -50,7 +50,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 
             // Prepare potential flows for caching (build now, assign later)
             let maybe_flows = if context.cashflows.is_none() {
-                Some(bond.build_dated_flows(&context.curves, context.as_of)?)
+                Some(bond.dated_cashflows(&context.curves, context.as_of)?)
             } else {
                 None
             };

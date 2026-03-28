@@ -167,6 +167,11 @@ mod tests {
         scale: f64,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        MockInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl MockInstrument {
         fn new(id: &str, curve_id: &str, tenor_years: f64, scale: f64) -> Self {
             Self {

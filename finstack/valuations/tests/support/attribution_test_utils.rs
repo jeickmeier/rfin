@@ -103,3 +103,8 @@ impl Instrument for TestInstrument {
         Ok(ValuationResult::stamped(self.id(), as_of, value))
     }
 }
+
+finstack_valuations::impl_empty_cashflow_provider!(
+    TestInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);

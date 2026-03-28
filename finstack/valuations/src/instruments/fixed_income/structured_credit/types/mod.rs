@@ -85,7 +85,7 @@ pub use crate::cashflow::builder::{DefaultModelSpec, PrepaymentModelSpec, Recove
 // IMPORTS FOR STRUCTUREDCREDIT
 // ============================================================================
 
-use crate::cashflow::traits::schedule_from_classified_flows;
+use crate::cashflow::traits::schedule_from_classified_flows_with_representation;
 use crate::cashflow::traits::CashflowProvider;
 use crate::constants::DECIMAL_TO_PERCENT;
 use crate::instruments::common_impl::traits::{Attributes, Instrument};
@@ -105,6 +105,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 use finstack_core::Error as CoreError;
 
 use finstack_core::HashMap;
+use std::collections::BTreeMap;
 
 use crate::impl_instrument_base;
 use serde::{Deserialize, Serialize};
@@ -657,7 +658,7 @@ impl StructuredCredit {
     ) -> finstack_core::Result<f64> {
         use finstack_core::math::solver::{BrentSolver, Solver};
 
-        let flows = self.build_dated_flows(context, as_of)?;
+        let flows = self.dated_cashflows(context, as_of)?;
         let discount_curve = context.get_discount(&self.discount_curve_id)?;
 
         let price_fn = |spread: f64| -> f64 {
@@ -675,7 +676,7 @@ impl StructuredCredit {
 
                 if t <= 0.0 {
                     // Flow is today or past, assume full value or ignore?
-                    // Usually ignore past flows, but build_dated_flows might return future only.
+                    // Usually ignore past flows, but dated_cashflows may already exclude settled flows.
                     // If today, DF=1.
                     pv.add(amount.amount());
                     continue;
@@ -761,7 +762,24 @@ impl CashflowProvider for StructuredCredit {
         self.pool.total_balance().ok()
     }
 
-    fn build_full_schedule(
+    fn dated_cashflows(
+        &self,
+        context: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::traits::DatedFlows> {
+        let schedule = self.cashflow_schedule(context, as_of)?;
+        let mut by_date = BTreeMap::<Date, Money>::new();
+        for flow in schedule.flows {
+            if let Some(total) = by_date.get_mut(&flow.date) {
+                *total = total.checked_add(flow.amount)?;
+            } else {
+                by_date.insert(flow.date, flow.amount);
+            }
+        }
+        Ok(by_date.into_iter().collect())
+    }
+
+    fn cashflow_schedule(
         &self,
         context: &MarketContext,
         as_of: Date,
@@ -772,6 +790,7 @@ impl CashflowProvider for StructuredCredit {
             )?
             .into_values()
             .flat_map(|result| result.detailed_flows.into_iter())
+            .filter(|flow| flow.amount.amount() >= 0.0)
             .collect();
         // Use deal-type-appropriate day count convention:
         // CLO/CBO: ACT/360 (standard for leveraged loan market)
@@ -781,10 +800,11 @@ impl CashflowProvider for StructuredCredit {
             DealType::RMBS | DealType::CMBS => finstack_core::dates::DayCount::Thirty360,
             _ => finstack_core::dates::DayCount::Act360,
         };
-        Ok(schedule_from_classified_flows(
+        Ok(schedule_from_classified_flows_with_representation(
             detailed_flows,
             self.notional(),
             dc,
+            crate::cashflow::builder::CashflowRepresentation::Projected,
         ))
     }
 }
@@ -794,15 +814,11 @@ impl Instrument for StructuredCredit {
 
     fn value(&self, context: &MarketContext, as_of: Date) -> finstack_core::Result<Money> {
         let disc = context.get_discount(self.discount_curve_id.as_str())?;
-        let flows = self.build_dated_flows(context, as_of)?;
+        let flows = self.dated_cashflows(context, as_of)?;
 
         use crate::instruments::common_impl::discountable::Discountable;
         let curve_day_count = disc.day_count();
         flows.npv(disc.as_ref(), as_of, Some(curve_day_count))
-    }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
     }
 
     fn seed_metric_context(
@@ -816,7 +832,7 @@ impl Instrument for StructuredCredit {
         // Pre-compute cashflows once here to avoid re-running the waterfall
         // simulation for each metric. Ignore errors — the metric calculators
         // will handle missing cashflows gracefully.
-        if let Ok(flows) = self.build_dated_flows(market, as_of) {
+        if let Ok(flows) = self.dated_cashflows(market, as_of) {
             context.cashflows = Some(flows);
         }
     }

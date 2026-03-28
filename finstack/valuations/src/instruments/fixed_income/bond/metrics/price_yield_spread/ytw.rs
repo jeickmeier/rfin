@@ -72,7 +72,7 @@ impl MetricCalculator for YtwCalculator {
                 (
                     bond.discount_curve_id.to_owned(),
                     bond.cashflow_spec.day_count(),
-                    bond.build_dated_flows(&context.curves, context.as_of)?,
+                    bond.dated_cashflows(&context.curves, context.as_of)?,
                 )
             };
             context.cashflows = Some(built);
@@ -102,7 +102,7 @@ impl MetricCalculator for YtwCalculator {
         let dirty_now = Money::new(dirty_amt, bond.notional.currency());
 
         // Build full schedule for accurate outstanding principal on amortizing bonds
-        let schedule = bond.get_full_schedule(&context.curves)?;
+        let schedule = bond.full_cashflow_schedule(&context.curves)?;
 
         // Delegate candidate scanning and YTM solving to shared helper.
         // Use quote_date as the time origin to match market convention.

@@ -50,6 +50,7 @@ use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Teno
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::types::InstrumentId;
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use time::macros::date;
 
@@ -821,30 +822,45 @@ impl CreditDefaultSwap {
     fn build_premium_leg_schedule(
         &self,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        let spread_decimal = self.premium.spread_bp / Decimal::from(10_000u32);
-        let mut builder = crate::cashflow::builder::CashFlowSchedule::builder();
-        let _ =
-            builder
-                .principal(self.notional, self.premium.start, self.premium.end)
-                .fixed_cf(crate::cashflow::builder::FixedCouponSpec {
-                    coupon_type: crate::cashflow::builder::CouponType::Cash,
-                    rate: spread_decimal,
-                    freq: self.premium.frequency,
-                    dc: self.premium.day_count,
-                    bdc: self.premium.bdc,
-                    calendar_id: self.premium.calendar_id.clone().unwrap_or_else(|| {
-                        crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID.into()
-                    }),
-                    stub: self.premium.stub,
-                    end_of_month: false,
-                    payment_lag_days: 0,
-                });
-        let mut schedule = builder.build_with_curves(None)?;
-        schedule.flows.retain(|cf| {
-            cf.kind == finstack_core::cashflow::CFKind::Fixed
-                || cf.kind == finstack_core::cashflow::CFKind::Stub
-        });
-        Ok(schedule)
+        let spread = self.premium.spread_bp.to_f64().ok_or_else(|| {
+            finstack_core::Error::Validation(
+                "premium spread_bp cannot be represented as f64".to_string(),
+            )
+        })? / 10_000.0;
+        let schedule_dates = CDSPricer::new().generate_schedule(self, self.premium.start)?;
+        let flows = schedule_dates
+            .windows(2)
+            .map(|window| {
+                let start = window[0];
+                let end = window[1];
+                let accrual = self.premium.day_count.year_fraction(
+                    start,
+                    end,
+                    finstack_core::dates::DayCountCtx::default(),
+                )?;
+                Ok(finstack_core::cashflow::CashFlow {
+                    date: end,
+                    reset_date: None,
+                    amount: Money::new(
+                        self.notional.amount() * spread * accrual,
+                        self.notional.currency(),
+                    ),
+                    kind: finstack_core::cashflow::CFKind::Fixed,
+                    accrual_factor: accrual,
+                    rate: Some(spread),
+                })
+            })
+            .collect::<finstack_core::Result<Vec<_>>>()?;
+
+        Ok(crate::cashflow::builder::CashFlowSchedule::from_parts(
+            flows,
+            crate::cashflow::builder::Notional::par(
+                self.notional.amount(),
+                self.notional.currency(),
+            ),
+            self.premium.day_count,
+            Default::default(),
+        ))
     }
 
     /// Build premium leg cashflows
@@ -986,10 +1002,6 @@ impl crate::instruments::common_impl::traits::Instrument for CreditDefaultSwap {
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
 }
 
 impl crate::instruments::common_impl::traits::CurveDependencies for CreditDefaultSwap {
@@ -1008,7 +1020,7 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
@@ -1027,6 +1039,7 @@ impl crate::cashflow::traits::CashflowProvider for CreditDefaultSwap {
             schedule.flows.sort_by_key(|cf| cf.date);
         }
 
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
         Ok(schedule)
     }
 }

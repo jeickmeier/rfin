@@ -279,14 +279,16 @@ impl CashflowProvider for AgencyTba {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         let assumed_pool =
             crate::instruments::fixed_income::tba::pricer::resolve_assumed_pool(self, as_of)?;
-        assumed_pool.build_full_schedule(curves, as_of)
+        let mut schedule = assumed_pool.cashflow_schedule(curves, as_of)?;
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
+        Ok(schedule)
     }
 }
 
@@ -303,10 +305,6 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyTba {
 
     fn effective_start_date(&self) -> Option<Date> {
         self.trade_date
-    }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
     }
 
     fn pricing_overrides_mut(

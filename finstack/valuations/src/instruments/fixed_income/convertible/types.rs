@@ -622,10 +622,6 @@ impl crate::instruments::common_impl::traits::Instrument for ConvertibleBond {
         Some(self.issue_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -644,12 +640,15 @@ impl CashflowProvider for ConvertibleBond {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &finstack_core::market_data::context::MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<CashFlowSchedule> {
-        pricer::build_convertible_schedule(self)
+        let mut schedule = pricer::build_convertible_schedule(self)?;
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
+        Ok(schedule)
     }
 }
 
@@ -682,7 +681,7 @@ mod tests {
         let expected =
             super::pricer::build_convertible_schedule(&bond).expect("schedule should build");
         let actual = bond
-            .build_full_schedule(&market, bond.issue_date)
+            .cashflow_schedule(&market, bond.issue_date)
             .expect("provider schedule should build");
 
         assert_eq!(actual.flows, expected.flows);

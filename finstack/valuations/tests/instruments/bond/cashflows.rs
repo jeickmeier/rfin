@@ -55,7 +55,7 @@ fn test_fixed_rate_cashflows() {
     .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Should have coupons + principal
     assert!(!flows.is_empty());
@@ -86,7 +86,7 @@ fn test_cashflow_dates_alignment() {
     .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Verify dates are in chronological order (allowing for same-date flows)
     for i in 1..flows.len() {
@@ -125,7 +125,7 @@ fn test_quarterly_coupon_frequency() {
         .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // 1 year = 4 quarters + principal
     assert_eq!(flows.len(), 5);
@@ -153,7 +153,7 @@ fn test_floating_rate_cashflows() {
         .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Should have floating coupons + principal
     assert!(!flows.is_empty());
@@ -186,7 +186,7 @@ fn test_amortizing_bond_linear() {
         .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Should have cashflows (coupons + amortization + redemption)
     assert!(!flows.is_empty(), "Amortizing bond should have cashflows");
@@ -234,7 +234,7 @@ fn test_custom_cashflows_from_schedule() {
     let bond = Bond::from_cashflows("CUSTOM", custom_schedule, "USD-OIS", Some(98.0)).unwrap();
 
     let curves = create_test_curves(issue);
-    let flows = bond.build_dated_flows(&curves, issue).unwrap();
+    let flows = bond.dated_cashflows(&curves, issue).unwrap();
 
     // Should use custom cashflows
     assert!(!flows.is_empty());
@@ -265,10 +265,16 @@ fn test_pik_cashflows() {
     let bond = Bond::from_cashflows("PIK", custom_schedule, "USD-OIS", None).unwrap();
 
     let curves = create_test_curves(issue);
-    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+    let schedule = bond.cashflow_schedule(&curves, issue).unwrap();
 
-    // Should have PIK coupons in the schedule
-    assert!(!full_schedule.flows.is_empty());
+    assert!(
+        schedule
+            .flows
+            .iter()
+            .all(|cf| cf.kind != finstack_valuations::cashflow::primitives::CFKind::PIK),
+        "holder-view cashflow_schedule should exclude PIK accretion"
+    );
+    assert!(!schedule.flows.is_empty());
 }
 
 #[test]
@@ -288,10 +294,10 @@ fn test_cashflows_for_matured_bond() {
     .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // The cashflow builder generates all flows from issue to maturity.
-    // The CashflowProvider trait's build_dated_flows filters to future flows (date > as_of).
+    // The CashflowProvider trait's dated_cashflows path filters to future holder-view flows.
     // However, the builder itself may still include all historical flows.
     // What matters is that when pricing, only future flows are used.
 
@@ -329,7 +335,7 @@ fn test_cashflows_with_short_front_stub() {
         .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Should generate cashflows with stub handling
     assert!(!flows.is_empty());
@@ -359,7 +365,7 @@ fn test_zero_coupon_cashflows() {
     .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Zero coupon bond: only principal at maturity
     // The schedule builder may still generate coupon periods but with 0 amounts
@@ -391,7 +397,7 @@ fn test_cashflows_notional_scaling() {
         .unwrap();
 
         let curves = create_test_curves(as_of);
-        let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+        let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
         assert!(!flows.is_empty());
 
@@ -402,7 +408,7 @@ fn test_cashflows_notional_scaling() {
 }
 
 #[test]
-fn test_get_full_schedule_fixed() {
+fn test_cashflow_schedule_fixed() {
     let as_of = date!(2025 - 01 - 01);
     let maturity = date!(2027 - 01 - 01);
 
@@ -417,7 +423,7 @@ fn test_get_full_schedule_fixed() {
     .unwrap();
 
     let curves = create_test_curves(as_of);
-    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+    let full_schedule = bond.cashflow_schedule(&curves, as_of).unwrap();
 
     // Should have flows with CFKind metadata
     assert!(!full_schedule.flows.is_empty());
@@ -425,7 +431,7 @@ fn test_get_full_schedule_fixed() {
 }
 
 #[test]
-fn test_get_full_schedule_floating() {
+fn test_cashflow_schedule_floating() {
     let as_of = date!(2025 - 01 - 01);
     let maturity = date!(2027 - 01 - 01);
 
@@ -446,7 +452,7 @@ fn test_get_full_schedule_floating() {
         .unwrap();
 
     let curves = create_test_curves(as_of);
-    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+    let full_schedule = bond.cashflow_schedule(&curves, as_of).unwrap();
 
     assert!(!full_schedule.flows.is_empty());
 }
@@ -476,7 +482,7 @@ fn test_cashflows_day_count_conventions() {
             .unwrap();
 
         let curves = create_test_curves(as_of);
-        let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+        let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
         // All day count conventions should produce valid cashflows
         assert!(!flows.is_empty());
@@ -505,7 +511,7 @@ fn test_amortizing_full_redemption() {
         .unwrap();
 
     let curves = create_test_curves(as_of);
-    let flows = bond.build_dated_flows(&curves, as_of).unwrap();
+    let flows = bond.dated_cashflows(&curves, as_of).unwrap();
 
     // Should have amortization flows throughout
     assert!(!flows.is_empty());
@@ -542,7 +548,7 @@ fn test_actact_isma_daycount_context() {
         .unwrap();
 
     let curves = create_test_curves(issue);
-    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+    let full_schedule = bond.cashflow_schedule(&curves, issue).unwrap();
 
     // Find coupon flows (exclude principal redemption)
     let coupon_flows: Vec<_> = full_schedule
@@ -625,7 +631,7 @@ fn test_bus252_daycount_with_calendar() {
         .unwrap();
 
     let curves = create_test_curves(issue);
-    let full_schedule = bond.get_full_schedule(&curves).unwrap();
+    let full_schedule = bond.cashflow_schedule(&curves, issue).unwrap();
 
     // Find coupon flows
     let coupon_flows: Vec<_> = full_schedule

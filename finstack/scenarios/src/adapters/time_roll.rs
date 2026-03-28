@@ -259,16 +259,14 @@ fn collect_instrument_cashflows(
 ) -> IndexMap<Currency, Money> {
     let mut result: IndexMap<Currency, Money> = IndexMap::new();
 
-    if let Some(provider) = instrument.as_cashflow_provider() {
-        if let Ok(flows) = provider.build_dated_flows(market, start_date) {
-            for (date, money) in flows.into_iter() {
-                if date > start_date && date <= end_date {
-                    let ccy = money.currency();
-                    result
-                        .entry(ccy)
-                        .and_modify(|m| *m += money)
-                        .or_insert(money);
-                }
+    if let Ok(flows) = instrument.dated_cashflows(market, start_date) {
+        for (date, money) in flows.into_iter() {
+            if date > start_date && date <= end_date {
+                let ccy = money.currency();
+                result
+                    .entry(ccy)
+                    .and_modify(|m| *m += money)
+                    .or_insert(money);
             }
         }
     }

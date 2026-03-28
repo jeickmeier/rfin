@@ -34,6 +34,11 @@ struct FixedValueInstrument {
     attributes: Attributes,
 }
 
+finstack_valuations::impl_empty_cashflow_provider!(
+    FixedValueInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+
 impl FixedValueInstrument {
     fn new(id: &str, value: Money) -> Self {
         Self {

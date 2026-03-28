@@ -10,7 +10,7 @@
 //! - `periodized_pv`: Basic discounting with discount curve only
 //! - `periodized_pv_credit_adjusted`: Optional credit adjustment via hazard curve
 //!
-//! `periodized_pv` follows the instrument's holder-view `build_dated_flows`
+//! `periodized_pv` follows the instrument's holder-view `dated_cashflows`
 //! semantics, while `periodized_pv_credit_adjusted` uses the canonical full
 //! schedule so credit adjustment can respect `CFKind`.
 //!
@@ -96,7 +96,7 @@ use indexmap::IndexMap;
 ///
 /// This trait serves as a bridge between instrument-level APIs and the lower-level
 /// cashflow aggregation utilities. It handles:
-/// - Building the holder-view cashflow schedule via `build_dated_flows`
+/// - Building the holder-view cashflow schedule via `dated_cashflows`
 /// - Extracting the discount curve ID from the instrument
 /// - Delegating to the aggregation utilities for periodized PV calculation
 ///
@@ -170,7 +170,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
             .ok_or_else(|| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
         let disc_arc = market.get_discount(disc_curve_id.as_str())?;
         let schedule = crate::cashflow::traits::schedule_from_dated_flows(
-            self.build_dated_flows(market, base)?,
+            self.dated_cashflows(market, base)?,
             self.notional(),
             disc_arc.day_count(),
         );
@@ -270,7 +270,7 @@ pub trait PeriodizedPvExt: CashflowProvider + CurveDependencies {
 
         // Credit-adjusted periodized PV needs the full schedule so recovery logic can
         // distinguish principal-like flows from interest/fees via CFKind.
-        let schedule = self.build_full_schedule(market, base)?;
+        let schedule = self.cashflow_schedule(market, base)?;
 
         // Resolve discount curve once to avoid duplicated logic.
         let deps = self.curve_dependencies()?;
@@ -635,7 +635,7 @@ mod tests {
             .expect("Credit-adjusted PV should succeed");
 
         let schedule = bond
-            .build_full_schedule(&market, base)
+            .cashflow_schedule(&market, base)
             .expect("Schedule should build");
 
         let disc_ref: &dyn finstack_core::market_data::traits::Discounting = &disc_curve;
@@ -713,7 +713,7 @@ mod tests {
             .get_discount("USD-OIS")
             .expect("Discount curve should exist");
         let direct_holder_view = crate::cashflow::traits::schedule_from_dated_flows(
-            repo.build_dated_flows(&market, as_of)
+            repo.dated_cashflows(&market, as_of)
                 .expect("Repo dated flows should build"),
             repo.notional(),
             disc.day_count(),
@@ -754,7 +754,7 @@ mod tests {
             .get_discount("USD-OIS")
             .expect("Discount curve should exist");
         let direct_holder_view = crate::cashflow::traits::schedule_from_dated_flows(
-            loan.build_dated_flows(&market, as_of)
+            loan.dated_cashflows(&market, as_of)
                 .expect("Term loan dated flows should build"),
             loan.notional(),
             disc.day_count(),

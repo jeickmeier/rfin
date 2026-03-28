@@ -385,10 +385,10 @@ impl PyRevolvingCredit {
     ///     ValueError: If facility is stochastic or valuation fails.
     ///
     /// Examples:
-    ///     >>> schedule = rc.build_dated_flows(market, date.today())
+    ///     >>> schedule = rc.cashflow_schedule(market, date.today())
     ///     >>> for flow in schedule.flows:
     ///     ...     print(f"{flow.date}: {flow.amount} - {flow.description}")
-    fn build_dated_flows(
+    fn cashflow_schedule(
         &self,
         market: &PyMarketContext,
         as_of: Bound<'_, pyo3::PyAny>,
@@ -398,7 +398,7 @@ impl PyRevolvingCredit {
 
         let as_of_date = py_to_date(&as_of)?;
         self.inner
-            .build_full_schedule(&market.inner, as_of_date)
+            .cashflow_schedule(&market.inner, as_of_date)
             .map(PyCashFlowSchedule::new)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }

@@ -175,8 +175,8 @@ impl RateSpec {
 /// # Cashflow Generation
 ///
 /// Uses the [`CashflowProvider`](crate::cashflow::traits::CashflowProvider) trait:
-/// - `build_dated_flows()` returns holder-view flows (coupons, amortization, redemptions)
-/// - `build_full_schedule()` returns internal engine schedule with all flow types
+/// - `dated_cashflows()` returns holder-view flows (coupons, amortization, redemptions)
+/// - `cashflow_schedule()` returns the canonical holder-view schedule with `CFKind` metadata
 ///
 /// # Pricing
 ///
@@ -563,10 +563,6 @@ impl crate::instruments::common_impl::traits::Instrument for TermLoan {
     ) -> Option<&crate::instruments::pricing_overrides::PricingOverrides> {
         Some(&self.pricing_overrides)
     }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
 }
 
 impl crate::cashflow::traits::CashflowProvider for TermLoan {
@@ -574,67 +570,45 @@ impl crate::cashflow::traits::CashflowProvider for TermLoan {
         Some(self.notional_limit)
     }
 
-    fn build_dated_flows(
+    fn cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::cashflow::DatedFlows> {
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         use finstack_core::cashflow::CFKind;
 
-        // Get full internal schedule
         let schedule = crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
             self, curves, as_of,
         )?;
 
-        // Filter to holder-view: only contractual inflows to a long lender.
-        // Include: coupons, amortization, fees, positive notional redemptions.
-        // Exclude: funding legs (negative notional draws), PIK capitalization.
-        //
-        // Fees (commitment, usage, facility) ARE included because they represent
-        // cash inflows to the lender.  This ensures YTM (which consumes these
-        // flows) captures the full economic return, consistent with YTC/YTW
-        // which also include fees via the kind-aware filter in irr_helpers.
-        let mut flows: Vec<(finstack_core::dates::Date, finstack_core::money::Money)> = Vec::new();
-
-        for cf in &schedule.flows {
-            match cf.kind {
-                // Include coupons, interest, and all fee variants (holder receives them)
+        // The public schedule surface is holder-view only. Keep contractual coupon,
+        // fee, and principal repayment flows, but drop funding draws and PIK accretion.
+        let holder_view_flows = schedule
+            .flows
+            .into_iter()
+            .filter(|cf| match cf.kind {
                 CFKind::Fixed
                 | CFKind::FloatReset
                 | CFKind::Stub
                 | CFKind::Fee
                 | CFKind::CommitmentFee
                 | CFKind::UsageFee
-                | CFKind::FacilityFee => {
-                    flows.push((cf.date, cf.amount));
-                }
-                // Amortization principal repayment: holder receives this
-                CFKind::Amortization => {
-                    flows.push((cf.date, cf.amount));
-                }
-                // Notional: only redemptions (positive), exclude draws (negative)
-                CFKind::Notional if cf.amount.amount() > 0.0 => {
-                    flows.push((cf.date, cf.amount));
-                }
-                // Exclude funding legs (negative notional), PIK capitalization, and other kinds
-                _ => {}
-            }
-        }
+                | CFKind::FacilityFee
+                | CFKind::Amortization => true,
+                CFKind::Notional => cf.amount.amount() > 0.0,
+                _ => false,
+            })
+            .collect();
 
-        // Sort by date for deterministic ordering
-        flows.sort_by_key(|(d, _)| *d);
-
-        Ok(flows)
-    }
-
-    fn build_full_schedule(
-        &self,
-        curves: &finstack_core::market_data::context::MarketContext,
-        as_of: finstack_core::dates::Date,
-    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        crate::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            self, curves, as_of,
-        )
+        Ok(crate::cashflow::builder::CashFlowSchedule::from_parts(
+            holder_view_flows,
+            schedule.notional,
+            schedule.day_count,
+            crate::cashflow::builder::CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Contractual,
+                ..schedule.meta
+            },
+        ))
     }
 }
 

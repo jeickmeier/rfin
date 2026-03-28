@@ -570,3 +570,8 @@ pub mod calibration {
         Ok((market, result.result.report))
     }
 }
+
+finstack_valuations::impl_empty_cashflow_provider!(
+    TestInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
