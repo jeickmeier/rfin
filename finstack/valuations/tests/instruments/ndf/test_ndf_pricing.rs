@@ -59,9 +59,9 @@ fn test_ndf_pricing_pre_fixing_at_market() {
 
     let npv = ndf.value(&market, as_of).expect("should price");
 
-    // At-market NDF should have PV ≈ 0
+    // At-market NDF should have PV ≈ 0 (small residual from curve interpolation)
     assert!(
-        npv.amount().abs() < 1000.0,
+        npv.amount().abs() < 100.0,
         "At-market NDF PV should be near zero, got {}",
         npv.amount()
     );

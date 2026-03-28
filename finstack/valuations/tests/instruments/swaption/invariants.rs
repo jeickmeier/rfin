@@ -228,10 +228,10 @@ fn test_at_expiry_equals_intrinsic() {
     let payer_otm = create_standard_payer_swaption(expiry, swap_start, swap_end, 0.08);
     let pv_otm = payer_otm.value(&market, as_of).unwrap().amount();
 
-    // At expiry, OTM option should be worthless or have small residual value
+    // At expiry, OTM option is not exercised → exactly zero value
     assert!(
-        pv_otm.abs() < 1000.0, // Allow small residual for numerical precision
-        "At-expiry OTM swaption should be near zero, got: {}",
+        pv_otm.abs() < 1.0,
+        "At-expiry OTM swaption should be zero (not exercised), got: {}",
         pv_otm
     );
 }

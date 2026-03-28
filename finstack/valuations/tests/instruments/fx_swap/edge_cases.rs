@@ -63,10 +63,11 @@ fn test_same_near_far_dates() {
 
     let pv = swap.value(&market, dates.as_of).unwrap();
 
-    // Degenerate swap should have PV close to zero
+    // Degenerate swap (same near/far dates) has no net cash flow, so PV = 0
     assert!(
-        pv.amount().abs() < 1000.0,
-        "Swap with same near/far dates should have minimal PV"
+        pv.amount().abs() < 1.0,
+        "Swap with same near/far dates should have zero PV, got {}",
+        pv.amount()
     );
 }
 

@@ -219,8 +219,9 @@ fn test_pv_float_equals_fixed_at_par() {
     let pv_fixed = *result.measures.get("pv_fixed").unwrap();
     let pv_float = *result.measures.get("pv_float").unwrap();
 
+    // At par rate, PV fixed = PV float by definition (small residual from convention difference)
     assert!(
-        (pv_fixed - pv_float).abs() < 1000.0,
+        (pv_fixed - pv_float).abs() < 100.0,
         "At par rate, PV fixed ≈ PV float: fixed={}, float={}",
         pv_fixed,
         pv_float

@@ -281,9 +281,11 @@ fn test_maturity_equals_valuation_date() {
 
     // CDS with maturity = valuation date may error (no future cashflows) or have zero value
     if let Ok(value) = npv {
+        // Expired CDS at maturity should have near-zero value (no future cashflows)
         assert!(
-            value.amount().abs() < 1000.0,
-            "Expired CDS should have near-zero value"
+            value.amount().abs() < 100.0,
+            "Expired CDS should have near-zero value, got {}",
+            value.amount()
         );
     } else {
         // It's acceptable for expired CDS to return an error
@@ -317,9 +319,11 @@ fn test_valuation_after_maturity() {
     // Both are acceptable behaviors for expired instruments
     match npv {
         Ok(value) => {
+            // Past-maturity CDS should have zero value (all cashflows have expired)
             assert!(
-                value.amount().abs() < 1000.0,
-                "Past maturity CDS should have near-zero value"
+                value.amount().abs() < 100.0,
+                "Past maturity CDS should have near-zero value, got {}",
+                value.amount()
             );
         }
         Err(_) => {

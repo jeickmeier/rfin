@@ -223,8 +223,9 @@ fn test_dv01_metric() {
     // DV01 = PV(bumped) - PV(base); when rates rise, PV falls, so DV01 is negative
     assert!(*dv01 <= 0.0);
 
-    // Should be reasonable magnitude for 1M notional, 3-month repo
-    assert!(dv01.abs() < 1000.0);
+    // For $1M 3M repo, DV01 ≈ notional × maturity × 1bp ≈ $1M × 0.25 × 0.0001 = $25
+    // Upper bound of $100 is generous for this instrument
+    assert!(dv01.abs() < 100.0, "Repo DV01 should be small, got: {}", dv01.abs());
 }
 
 #[test]

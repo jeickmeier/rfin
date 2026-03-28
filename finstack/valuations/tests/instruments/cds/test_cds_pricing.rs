@@ -274,10 +274,10 @@ fn test_npv_buyer_seller_opposite() {
     // Should be opposite signs
     assert!(npv_buyer.amount() * npv_seller.amount() < 0.0);
 
-    // Should sum to approximately zero (within numerical tolerance)
+    // Should sum to exactly zero — buyer and seller are model-symmetric
     let sum = npv_buyer.amount() + npv_seller.amount();
     assert!(
-        sum.abs() < 1000.0,
+        sum.abs() < 10.0,
         "Buyer + Seller NPV sum should be near zero, got {}",
         sum
     );
@@ -340,11 +340,11 @@ fn test_par_spread_gives_zero_npv() {
     // Set spread to par (convert f64 to Decimal)
     cds.premium.spread_bp = Decimal::try_from(par_spread).expect("valid par_spread");
 
-    // NPV should be near zero (allowing for float->Decimal conversion / rounding).
+    // NPV should be near zero; f64→Decimal rounding introduces ~0.07bp on spread → ~$350 residual on $10M
     let npv = cds.value(&market, as_of).unwrap();
     assert!(
-        npv.amount().abs() < 500.0,
-        "NPV at par spread should be near zero, got {}",
+        npv.amount().abs() < 400.0,
+        "NPV at par spread should be near zero (f64→Decimal rounding residual), got {}",
         npv.amount()
     );
 }

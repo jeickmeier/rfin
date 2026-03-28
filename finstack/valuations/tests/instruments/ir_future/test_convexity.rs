@@ -137,9 +137,10 @@ fn test_large_convexity_adjustment() {
 
     let pv = future.value(&market, as_of).unwrap();
 
-    // Should still produce valid result
+    // Should still produce valid result even with extreme convexity adjustment
+    // 200bp on $1M ≈ $5k impact; $100k allows for numerical edge cases in this test
     assert!(pv.amount().is_finite());
-    assert!(pv.amount().abs() < 1_000_000.0);
+    assert!(pv.amount().abs() < 100_000.0, "Large convexity PV should still be bounded, got {}", pv.amount());
 }
 
 /// Build a flat volatility surface for testing convexity adjustments.

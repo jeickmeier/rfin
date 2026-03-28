@@ -130,9 +130,9 @@ fn quantlib_parity_fra_at_market_valuation() {
     // QuantLib expectation: At-market FRA has NPV ≈ 0
     let quantlib_npv = 0.0;
 
-    // Use absolute tolerance for near-zero values
+    // Small residual from continuous OIS curve vs simple ACT/360 forward convention
     assert!(
-        pv.amount().abs() < 1000.0,
+        pv.amount().abs() < 50.0,
         "At-market FRA NPV should be near zero: got {}, expected ~{}",
         pv.amount(),
         quantlib_npv
@@ -436,10 +436,11 @@ fn quantlib_parity_fra_standard_tenor_3x6() {
     let market = create_flat_market(base, 0.05);
     let pv = fra.value(&market, base).unwrap();
 
-    // At-market FRA should have near-zero NPV
+    // At-market FRA should have near-zero NPV (small residual from continuous vs simple convention)
     assert!(
-        pv.amount().abs() < 1000.0,
-        "3x6 at-market FRA should be near zero"
+        pv.amount().abs() < 50.0,
+        "3x6 at-market FRA should be near zero, got: {}",
+        pv.amount()
     );
 }
 
@@ -471,9 +472,11 @@ fn quantlib_parity_fra_standard_tenor_6x9() {
     let market = create_flat_market(base, 0.05);
     let pv = fra.value(&market, base).unwrap();
 
+    // At-market FRA should have near-zero NPV (small residual from continuous vs simple convention)
     assert!(
-        pv.amount().abs() < 1000.0,
-        "6x9 at-market FRA should be near zero"
+        pv.amount().abs() < 50.0,
+        "6x9 at-market FRA should be near zero, got: {}",
+        pv.amount()
     );
 }
 
@@ -505,9 +508,11 @@ fn quantlib_parity_fra_standard_tenor_6x12() {
     let market = create_flat_market(base, 0.05);
     let pv = fra.value(&market, base).unwrap();
 
+    // 6M tenor has larger convention difference (continuous vs simple over 6M)
     assert!(
-        pv.amount().abs() < 2000.0,
-        "6x12 at-market FRA should be near zero"
+        pv.amount().abs() < 200.0,
+        "6x12 at-market FRA should be near zero, got: {}",
+        pv.amount()
     );
 }
 
