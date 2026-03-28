@@ -44,6 +44,16 @@ impl AutocallableMcPricer {
         }
     }
 
+    fn merged_path_config(&self, inst: &Autocallable) -> PathDependentPricerConfig {
+        let mut c = self.config.clone();
+        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
+            if n > 0 {
+                c.num_paths = n;
+            }
+        }
+        c
+    }
+
     fn convert_final_payoff_type(ft: FinalPayoffType) -> McFinalPayoffType {
         match ft {
             FinalPayoffType::CapitalProtection { floor } => {
@@ -167,6 +177,8 @@ impl AutocallableMcPricer {
         #[cfg(feature = "mc")]
         use finstack_monte_carlo::seed;
 
+        let base_cfg = self.merged_path_config(inst);
+
         let seed = if let Some(ref scenario) = inst.pricing_overrides.metrics.mc_seed_scenario {
             #[cfg(feature = "mc")]
             {
@@ -180,10 +192,10 @@ impl AutocallableMcPricer {
                 seed::derive_seed(&inst.id, "base")
             }
             #[cfg(not(feature = "mc"))]
-            self.config.seed
+            base_cfg.seed
         };
 
-        let mut config = self.config.clone();
+        let mut config = base_cfg;
         config.seed = seed;
         let pricer = PathDependentPricer::new(config);
         let time_grid = pricer.config().build_time_grid(t, &observation_times)?;

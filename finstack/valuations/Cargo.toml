@@ -101,6 +101,15 @@ harness = false
 required-features = ["mc"]
 
 [[bench]]
+name = "fi_misc_pricing"
+harness = false
+
+[[bench]]
+name = "mc_exotics_pricing"
+harness = false
+required-features = ["mc"]
+
+[[bench]]
 name = "bucketed_risk"
 harness = false
 
@@ -125,4 +134,36 @@ required-features = ["test-utils"]
 
 [[bench]]
 name = "bond_future_bench"
+harness = false
+
+[[bench]]
+name = "metrics"
+harness = false
+
+[[bench]]
+name = "equity_pricing"
+harness = false
+
+[[bench]]
+name = "fx_dates"
+harness = false
+
+[[bench]]
+name = "inflation_pricing"
+harness = false
+
+[[bench]]
+name = "attribution"
+harness = false
+
+[[bench]]
+name = "linear_rates"
+harness = false
+
+[[bench]]
+name = "fx_pricing"
+harness = false
+
+[[bench]]
+name = "commodity_pricing"
 harness = false

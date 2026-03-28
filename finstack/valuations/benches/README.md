@@ -23,6 +23,18 @@ cargo bench --package finstack-valuations --bench structured_credit_pricing
 cargo bench --package finstack-valuations --bench convertible_pricing
 cargo bench --package finstack-valuations --bench calibration
 cargo bench --package finstack-valuations --bench bucketed_risk
+cargo bench --package finstack-valuations --bench fx_pricing
+cargo bench --package finstack-valuations --bench linear_rates
+cargo bench --package finstack-valuations --bench equity_pricing
+cargo bench --package finstack-valuations --bench commodity_pricing
+cargo bench --package finstack-valuations --bench inflation_pricing
+cargo bench --package finstack-valuations --bench fi_misc_pricing
+cargo bench --package finstack-valuations --bench attribution
+cargo bench --package finstack-valuations --bench metrics
+cargo bench --package finstack-valuations --bench fx_dates
+
+# MC exotics (requires mc feature)
+cargo bench --package finstack-valuations --bench mc_exotics_pricing --features mc
 
 # Quick mode (fewer samples)
 cargo bench --package finstack-valuations -- --quick
@@ -156,6 +168,78 @@ cargo bench --package finstack-valuations --bench bond_pricing -- --baseline my_
 - **sabr_surface_medium**: SABR vol surface (4 expiries × 7 strikes)
 - **swaption_vol_small**: Swaption vol calibration (2 exp × 2 ten)
 - **swaption_vol_medium**: Swaption vol calibration (3 exp × 3 ten)
+
+### fx_pricing.rs - FX Instruments
+
+- **fx_spot_pv**: FX spot valuation (EUR/USD)
+- **fx_swap_pv**: FX swap PV by tenor (1M, 3M, 1Y)
+- **fx_forward_pv**: FX forward PV by maturity (1M, 3M, 6M, 1Y)
+- **fx_option_pv**: FX option Black-Scholes PV (3M, 6M, 12M)
+- **fx_option_greeks**: FX option Greeks (Delta, Gamma, Vega, Theta, Rho)
+- **ndf_pv**: Non-deliverable forward PV (CNY/USD)
+
+### linear_rates.rs - Linear Rates Instruments
+
+- **deposit_pv**: Deposit PV by tenor (1M, 3M, 6M, 1Y)
+- **fra_pv**: Forward rate agreement PV (3x6, 6x9, 6x12)
+- **basis_swap_pv**: Basis swap PV by tenor (2Y, 5Y, 10Y)
+- **cap_floor_pv**: Cap/floor PV (2Y, 5Y caps)
+- **cap_floor_greeks**: Cap Greeks (Delta, Gamma, Vega, DV01)
+- **repo_pv**: Term repo PV
+- **ir_future_pv**: Interest rate future PV
+
+### equity_pricing.rs - Equity Non-Option Instruments
+
+- **equity_pv**: Equity spot PV
+- **equity_trs_pv**: Equity total return swap PV (1Y, 3Y, 5Y)
+- **equity_index_future_pv**: Index future PV (near, far expiry)
+- **variance_swap_pv**: Variance swap PV (3M, 6M, 1Y)
+
+### commodity_pricing.rs - Commodity Instruments
+
+- **commodity_forward_pv**: Commodity forward PV (3M, 6M, 1Y)
+- **commodity_swap_pv**: Commodity swap PV (1Y, 2Y, 5Y)
+- **commodity_option_pv**: Commodity option PV (3M, 6M, 12M)
+- **commodity_option_greeks**: Commodity option Greeks (Delta, Gamma, Vega, Theta)
+
+### inflation_pricing.rs - Inflation Instruments
+
+- **inflation_swap_pv**: Inflation swap PV (2Y, 5Y, 10Y)
+- **inflation_cap_floor_pv**: Inflation cap/floor PV (2Y, 5Y caps; 5Y floor)
+- **inflation_linked_bond_pv**: TIPS-style ILB PV (5Y, 10Y)
+
+### fi_misc_pricing.rs - Fixed Income Miscellaneous
+
+- **term_loan_pv**: Term loan PV (3Y, 5Y, 7Y)
+- **revolving_credit_pv**: Revolving credit PV (3Y, 5Y)
+- **agency_mbs_pv**: Agency MBS passthrough and TBA PV
+
+### mc_exotics_pricing.rs - Monte Carlo Exotics (requires `mc` feature)
+
+- **asian_option_mc**: Asian option MC pricing (1K, 2.5K, 5K paths)
+- **lookback_option_mc**: Lookback option MC pricing (1K, 2.5K, 5K paths)
+- **autocallable_mc**: Autocallable MC pricing (1K, 2.5K, 5K paths)
+
+### attribution.rs - P&L Attribution
+
+- **attribution_parallel_1_bond**: Parallel attribution on single bond
+- **attribution_waterfall_1_bond**: Waterfall attribution on single bond
+- **attribution_parallel_5_bonds**: Parallel attribution on 5-bond portfolio
+
+### metrics.rs - Metrics Pipeline
+
+- **metrics_bond_9_standard_metrics**: Full metrics suite on bond (DV01, Convexity, Duration, YTM, Clean/Dirty/Accrued, Theta)
+- **metrics_bond_3_pricing_metrics**: Pricing-only metrics (Clean, Dirty, Accrued)
+- **metrics_scaling**: Metric count scaling (1, 3, 5, 10 metrics)
+- **metrics_portfolio_5_bonds_3_metrics**: Mini-portfolio metrics (5 bonds × 3 metrics)
+
+### fx_dates.rs - FX Settlement Dates
+
+- **add_joint_business_days**: Joint business day calculation (USD/EUR, GBP/JPY)
+- **roll_spot_date**: FX spot settlement date (T+2 various pairs)
+- **fx_settlement_scenarios**: Settlement across date scenarios (weekday, weekend, year-end, holiday)
+- **fx_settlement_batch**: Batch settlement (100 trades)
+- **calendar_complexity**: Calendar complexity scaling (weekends-only vs 1 vs 2 calendars)
 
 ## Typical Performance (M1 Mac, Release Build)
 

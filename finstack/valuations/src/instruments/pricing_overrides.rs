@@ -270,6 +270,12 @@ pub struct ModelConfig {
     /// tighter rate dispersion at long maturities.
     /// When `None` or zero, the tree uses pure Ho-Lee dynamics (no mean reversion).
     pub mean_reversion: Option<f64>,
+    /// Optional Monte Carlo path count for path-dependent GBM pricers (Asians, lookbacks, autocallables, etc.).
+    ///
+    /// When set, overrides the default simulation size (typically 100,000 paths). Intended for tests,
+    /// benchmarks, and controlled revaluation—not a market quote.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mc_paths: Option<usize>,
 }
 
 impl ModelConfig {
@@ -279,6 +285,11 @@ impl ModelConfig {
         let nonneg = |v: f64| v.is_finite() && v >= 0.0;
         if let Some(steps) = self.tree_steps {
             if steps == 0 {
+                return Err(InputError::Invalid.into());
+            }
+        }
+        if let Some(paths) = self.mc_paths {
+            if paths == 0 {
                 return Err(InputError::Invalid.into());
             }
         }
@@ -628,6 +639,12 @@ impl PricingOverrides {
         config: crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
     ) -> Self {
         self.model_config.merton_mc_config = Some(MertonMcOverride(config));
+        self
+    }
+
+    /// Set Monte Carlo path count for path-dependent GBM pricing (when supported by the instrument pricer).
+    pub fn with_mc_paths(mut self, paths: usize) -> Self {
+        self.model_config.mc_paths = Some(paths);
         self
     }
 

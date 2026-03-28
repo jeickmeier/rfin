@@ -38,6 +38,16 @@ impl LookbackOptionMcPricer {
         }
     }
 
+    fn merged_path_config(&self, inst: &LookbackOption) -> PathDependentPricerConfig {
+        let mut c = self.config.clone();
+        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
+            if n > 0 {
+                c.num_paths = n;
+            }
+        }
+        c
+    }
+
     /// Price a lookback option using Monte Carlo.
     fn price_internal(
         &self,
@@ -91,8 +101,10 @@ impl LookbackOptionMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        let steps_per_year = self.config.steps_per_year;
-        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
+        let base_cfg = self.merged_path_config(inst);
+
+        let steps_per_year = base_cfg.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(base_cfg.min_steps);
         let maturity_step = num_steps - 1;
 
         let currency = inst.notional.currency();
@@ -114,10 +126,10 @@ impl LookbackOptionMcPricer {
                 seed::derive_seed(&inst.id, "base")
             }
             #[cfg(not(feature = "mc"))]
-            self.config.seed
+            base_cfg.seed
         };
 
-        let mut config = self.config.clone();
+        let mut config = base_cfg;
         config.seed = seed;
         let pricer = PathDependentPricer::new(config);
         let result = match (inst.lookback_type, inst.option_type) {

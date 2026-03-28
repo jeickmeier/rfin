@@ -46,6 +46,16 @@ impl AsianOptionMcPricer {
         }
     }
 
+    fn merged_path_config(&self, inst: &AsianOption) -> PathDependentPricerConfig {
+        let mut c = self.config.clone();
+        if let Some(n) = inst.pricing_overrides.model_config.mc_paths {
+            if n > 0 {
+                c.num_paths = n;
+            }
+        }
+        c
+    }
+
     /// Price an Asian option using Monte Carlo.
     fn price_internal(
         &self,
@@ -121,10 +131,12 @@ impl AsianOptionMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
+        let base_cfg = self.merged_path_config(inst);
+
         // Map fixing dates to time steps
         // Use configurable steps per year with a minimum cap
-        let steps_per_year = self.config.steps_per_year;
-        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
+        let steps_per_year = base_cfg.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(base_cfg.min_steps);
         let mut fixing_steps = Vec::new();
         for &fixing_date in &inst.fixing_dates {
             let fixing_t =
@@ -166,11 +178,11 @@ impl AsianOptionMcPricer {
                 seed::derive_seed(&inst.id, "base")
             }
             #[cfg(not(feature = "mc"))]
-            self.config.seed
+            base_cfg.seed
         };
 
         // Create config with derived seed
-        let mut config = self.config.clone();
+        let mut config = base_cfg;
         config.seed = seed;
 
         // If arithmetic averaging, apply geometric-Asian control variate for variance reduction
@@ -577,8 +589,10 @@ impl AsianOptionMcPricer {
         let gbm_params = GbmParams::new(r, q, sigma);
         let process = GbmProcess::new(gbm_params);
 
-        let steps_per_year = self.config.steps_per_year;
-        let num_steps = ((t * steps_per_year).round() as usize).max(self.config.min_steps);
+        let base_cfg = self.merged_path_config(inst);
+
+        let steps_per_year = base_cfg.steps_per_year;
+        let num_steps = ((t * steps_per_year).round() as usize).max(base_cfg.min_steps);
 
         // Fixing steps mapping
         let mut fixing_steps = Vec::new();
@@ -621,9 +635,9 @@ impl AsianOptionMcPricer {
                 seed::derive_seed(&inst.id, "base")
             }
             #[cfg(not(feature = "mc"))]
-            self.config.seed
+            base_cfg.seed
         };
-        let mut cfg = self.config.clone();
+        let mut cfg = base_cfg;
         cfg.seed = seed;
         let pricer = PathDependentPricer::new(cfg);
 
