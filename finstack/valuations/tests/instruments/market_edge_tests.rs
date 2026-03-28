@@ -277,7 +277,7 @@ mod bond_market_edge {
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::money::Money;
-    use finstack_valuations::cashflow::accrued_interest_amount;
+    use finstack_valuations::cashflow::{accrued_interest_amount, CashflowProvider};
     use finstack_valuations::instruments::fixed_income::bond::{Bond, CashflowSpec};
     use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
     use finstack_valuations::metrics::{standard_registry, MetricContext, MetricId};
@@ -351,8 +351,12 @@ mod bond_market_edge {
             .build()
             .unwrap();
 
-        let sched_t0 = bond_t0.get_full_schedule(&MarketContext::new()).unwrap();
-        let sched_t2 = bond_t2.get_full_schedule(&MarketContext::new()).unwrap();
+        let sched_t0 = bond_t0
+            .cashflow_schedule(&MarketContext::new(), as_of)
+            .unwrap();
+        let sched_t2 = bond_t2
+            .cashflow_schedule(&MarketContext::new(), as_of)
+            .unwrap();
 
         // Calculate accrued for each
         let accrued_t0 = accrued_interest_amount(
@@ -407,7 +411,9 @@ mod bond_market_edge {
             },
         );
 
-        let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
+        let schedule = bond
+            .cashflow_schedule(&MarketContext::new(), coupon_date)
+            .unwrap();
         let config = bond.accrual_config();
 
         // 8 days before coupon = just before ex-coupon window
@@ -461,7 +467,9 @@ mod bond_market_edge {
         )
         .unwrap();
 
-        let schedule = bond.get_full_schedule(&MarketContext::new()).unwrap();
+        let schedule = bond
+            .cashflow_schedule(&MarketContext::new(), issue)
+            .unwrap();
         let config = bond.accrual_config();
 
         // 2 months into the stub period
@@ -523,10 +531,10 @@ mod bond_market_edge {
             .unwrap();
 
         let sched_30_360 = bond_30_360
-            .get_full_schedule(&MarketContext::new())
+            .cashflow_schedule(&MarketContext::new(), issue)
             .unwrap();
         let sched_act_365 = bond_act_365
-            .get_full_schedule(&MarketContext::new())
+            .cashflow_schedule(&MarketContext::new(), issue)
             .unwrap();
 
         // Feb 29 (leap day) - ~59 days into a 180-day period

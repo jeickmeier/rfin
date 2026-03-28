@@ -12,7 +12,7 @@ use super::super::super::types::Bond;
 
 /// Bond pricing engine providing core valuation methods.
 ///
-/// The engine expects **holder-view** cashflows from `CashflowProvider::build_dated_flows` on `Bond`,
+/// The engine expects **holder-view** cashflows from `CashflowProvider::dated_cashflows` on `Bond`,
 /// i.e. all contractual amounts received by a long holder (coupons,
 /// amortization, redemption) are positive, and any cash outflows are
 /// represented separately at trade level (e.g. purchase price).
@@ -149,7 +149,7 @@ impl BondEngine {
         as_of: Date,
         explain: ExplainOpts,
     ) -> Result<(Money, Option<ExplanationTrace>)> {
-        let flows = bond.build_dated_flows(context, as_of)?;
+        let flows = bond.dated_cashflows(context, as_of)?;
         let disc = context.get_discount(bond.discount_curve_id.as_str())?;
         if flows.is_empty() {
             return Err(finstack_core::InputError::TooFewPoints.into());

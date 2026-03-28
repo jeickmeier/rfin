@@ -166,7 +166,9 @@ fn bench_cashflow_generation(c: &mut Criterion) {
             BenchmarkId::from_parameter(format!("{}assets", num_assets)),
             num_assets,
             |b, _| {
-                b.iter(|| deal.build_dated_flows(black_box(&market), black_box(as_of)));
+                b.iter(|| {
+                    CashflowProvider::dated_cashflows(&deal, black_box(&market), black_box(as_of))
+                });
             },
         );
     }

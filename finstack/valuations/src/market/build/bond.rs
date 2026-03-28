@@ -71,7 +71,7 @@ pub fn build_bond_instrument(
             let empty_market = MarketContext::new();
             let market = market.unwrap_or(&empty_market);
             let quote_ctx = QuoteDateContext::new(&bond, market, ctx.as_of())?;
-            let flows = <Bond as CashflowProvider>::build_dated_flows(&bond, market, ctx.as_of())?;
+            let flows = <Bond as CashflowProvider>::dated_cashflows(&bond, market, ctx.as_of())?;
             let dirty_price_ccy =
                 dirty_price_from_ytm_with_frequency_ctx(&bond, &flows, quote_ctx.quote_date, *ytm)?;
             if bond.notional.amount().abs() < crate::constants::numerical::ZERO_TOLERANCE {

@@ -245,7 +245,7 @@ impl EquityTotalReturnSwap {
     /// Present value of the financing leg in the instrument's currency.
     pub fn pv_financing_leg(&self, curves: &MarketContext, as_of: Date) -> Result<Money> {
         let discount = curves.get_discount(self.financing.discount_curve_id.as_str())?;
-        let schedule = self.build_full_schedule(curves, as_of)?;
+        let schedule = self.cashflow_schedule(curves, as_of)?;
         let financing_flows: Vec<_> = schedule
             .flows
             .iter()
@@ -329,10 +329,6 @@ impl crate::instruments::common_impl::traits::Instrument for EquityTotalReturnSw
         Ok(net_pv)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn as_marginable(&self) -> Option<&dyn finstack_margin::Marginable> {
         Some(self)
     }
@@ -363,7 +359,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         context: &MarketContext,
         _as_of: Date,
@@ -400,6 +396,7 @@ impl CashflowProvider for EquityTotalReturnSwap {
         schedule
             .flows
             .retain(|cf| cf.kind == finstack_core::cashflow::CFKind::FloatReset);
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
         Ok(schedule)
     }
 }

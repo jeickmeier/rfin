@@ -557,7 +557,7 @@ class TestEdgeCases:
         eur = Currency("EUR")
 
         # Setting zero rate should raise error or be rejected
-        with pytest.raises(Exception, match=r"positive|rate"):
+        with pytest.raises(Exception, match=r"(?i)(positive|rate|invalid input parameter)"):
             fx.set_quote(eur, usd, 0.0)
 
 

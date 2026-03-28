@@ -5,9 +5,9 @@
 
 use super::types::{AgencyCmo, CmoTrancheType};
 use super::waterfall::{allocate_io_cashflow, execute_waterfall_with_principal_breakdown};
+use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::cashflow::builder::{CashFlowMeta, CashFlowSchedule, Notional};
 use crate::cashflow::primitives::{CFKind, CashFlow};
-use crate::cashflow::builder::specs::PrepaymentModelSpec;
 use crate::instruments::fixed_income::mbs_passthrough::pricer::generate_cashflows;
 use crate::instruments::fixed_income::mbs_passthrough::{AgencyMbsPassthrough, PoolType};
 use crate::pricer::{
@@ -137,10 +137,7 @@ pub fn build_reference_tranche_schedule(
     max_periods: Option<u32>,
 ) -> Result<CashFlowSchedule> {
     let tranche = cmo.reference_tranche().ok_or_else(|| {
-        finstack_core::Error::Validation(format!(
-            "Tranche {} not found",
-            cmo.reference_tranche_id
-        ))
+        finstack_core::Error::Validation(format!("Tranche {} not found", cmo.reference_tranche_id))
     })?;
     let tranche_cashflows = generate_tranche_cashflows(cmo, as_of, max_periods)?;
     let mut flows = Vec::with_capacity(tranche_cashflows.len() * 2);
@@ -180,9 +177,13 @@ pub fn build_reference_tranche_schedule(
 
     Ok(CashFlowSchedule::from_parts(
         flows,
-        Notional::par(tranche.current_face.amount(), tranche.current_face.currency()),
+        Notional::par(
+            tranche.current_face.amount(),
+            tranche.current_face.currency(),
+        ),
         DayCount::Thirty360,
         CashFlowMeta {
+            representation: crate::cashflow::builder::CashflowRepresentation::Projected,
             calendar_ids: Vec::new(),
             facility_limit: None,
             issue_date: Some(cmo.issue_date),
@@ -334,7 +335,10 @@ mod tests {
             .flows
             .iter()
             .any(|cf| cf.kind == CFKind::Amortization));
-        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::PrePayment));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| cf.kind == CFKind::PrePayment));
     }
 
     #[test]
@@ -344,8 +348,14 @@ mod tests {
         let schedule = build_reference_tranche_schedule(&cmo, as_of, Some(12))
             .expect("PAC/support schedule should build");
 
-        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::Amortization));
-        assert!(schedule.flows.iter().any(|cf| cf.kind == CFKind::PrePayment));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| cf.kind == CFKind::Amortization));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| cf.kind == CFKind::PrePayment));
     }
 
     #[test]

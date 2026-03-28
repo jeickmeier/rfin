@@ -215,7 +215,7 @@ impl MetricCalculator for ZSpreadCalculator {
         // Note: quote_date is the settlement date, which is the correct anchor
         // for market-convention z-spread calculations. This ensures the z-spread
         // shift exp(-z * t) is applied relative to the same date as the base DFs.
-        let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
+        let flows = bond.dated_cashflows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let quote_date = quote_ctx.quote_date;
         // Keep z-spread time axis on the discount-curve basis for consistency with

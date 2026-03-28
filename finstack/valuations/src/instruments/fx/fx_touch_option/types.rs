@@ -413,3 +413,8 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxTouchOp
         }
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    FxTouchOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

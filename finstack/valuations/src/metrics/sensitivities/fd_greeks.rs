@@ -877,6 +877,15 @@ mod tests {
         attributes: Attributes,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        TestFdInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+    crate::impl_empty_cashflow_provider!(
+        RoundingSensitiveInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl RoundingSensitiveInstrument {
         fn new(id: &str, expiry: Date, spot_id: &str) -> Self {
             Self {

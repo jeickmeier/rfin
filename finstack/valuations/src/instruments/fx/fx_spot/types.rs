@@ -459,7 +459,7 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
         market: &finstack_core::market_data::context::MarketContext,
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
-        self.build_dated_flows(market, as_of)?
+        self.dated_cashflows(market, as_of)?
             .into_iter()
             .try_fold(Money::new(0.0, self.quote_currency), |acc, (_, amount)| {
                 acc.checked_add(amount)
@@ -476,10 +476,6 @@ impl crate::instruments::common_impl::traits::Instrument for FxSpot {
 
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         None
-    }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
     }
 
     fn pricing_overrides_mut(
@@ -510,7 +506,7 @@ impl CashflowProvider for FxSpot {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
@@ -518,7 +514,15 @@ impl CashflowProvider for FxSpot {
         self.validate_economics()?;
         let settle_date = self.effective_settlement_date(as_of)?;
 
-        let flows = if settle_date > as_of {
+        if settle_date <= as_of {
+            return Ok(crate::cashflow::traits::empty_schedule_with_representation(
+                self.notional(),
+                finstack_core::dates::DayCount::Act365F,
+                crate::cashflow::builder::CashflowRepresentation::NoResidual,
+            ));
+        }
+
+        let flows = {
             // Future settlement - use explicit spot_rate if provided, otherwise query FX matrix
             let rate = if let Some(rate) = self.spot_rate {
                 rate
@@ -541,17 +545,17 @@ impl CashflowProvider for FxSpot {
                 self.quote_currency,
             );
             vec![(settle_date, value)]
-        } else {
-            // Already settled
-            Vec::new()
         };
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             flows,
             crate::cashflow::primitives::CFKind::Notional,
             self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for FX spot
-        ))
+        );
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
+        Ok(schedule)
     }
 }
 
@@ -777,5 +781,44 @@ mod tests {
             .effective_settlement_date(as_of)
             .expect("should compute");
         assert_eq!(settle, as_of, "T+0 should settle same day");
+    }
+
+    #[test]
+    fn cashflow_schedule_marks_future_spot_settlement_as_contractual() {
+        let as_of = date(2025, Month::January, 15);
+        let market = MarketContext::new();
+        let spot = FxSpot::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_rate(1.10)
+            .expect("valid rate");
+
+        let schedule = spot
+            .cashflow_schedule(&market, as_of)
+            .expect("future-dated spot schedule");
+
+        assert_eq!(
+            schedule.meta.representation,
+            crate::cashflow::builder::CashflowRepresentation::Contractual
+        );
+        assert_eq!(schedule.flows.len(), 1);
+    }
+
+    #[test]
+    fn cashflow_schedule_marks_settled_spot_as_no_residual() {
+        let as_of = date(2025, Month::January, 15);
+        let market = MarketContext::new();
+        let spot = FxSpot::new(InstrumentId::new("EURUSD-T0"), Currency::EUR, Currency::USD)
+            .with_rate(1.10)
+            .expect("valid rate")
+            .with_settlement_lag_days(0);
+
+        let schedule = spot
+            .cashflow_schedule(&market, as_of)
+            .expect("same-day settled spot schedule");
+
+        assert_eq!(
+            schedule.meta.representation,
+            crate::cashflow::builder::CashflowRepresentation::NoResidual
+        );
+        assert!(schedule.flows.is_empty());
     }
 }

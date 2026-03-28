@@ -204,3 +204,8 @@ impl Instrument for CommoditySpreadOption {
         Some(&self.pricing_overrides)
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    CommoditySpreadOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

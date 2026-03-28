@@ -715,6 +715,11 @@ mod tests {
         }
     }
 
+    finstack_valuations::impl_empty_cashflow_provider!(
+        MockInstrument,
+        finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl Instrument for MockInstrument {
         fn id(&self) -> &str {
             &self.id

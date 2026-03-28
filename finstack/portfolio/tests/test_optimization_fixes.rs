@@ -87,6 +87,11 @@ struct MetricInstrument {
     attributes: Attributes,
 }
 
+finstack_valuations::impl_empty_cashflow_provider!(
+    MetricInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+
 impl MetricInstrument {
     fn new(id: &str, value: Money, measures: IndexMap<MetricId, f64>) -> Self {
         Self {

@@ -528,6 +528,11 @@ impl crate::instruments::common_impl::traits::Instrument for FxBarrierOption {
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    FxBarrierOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

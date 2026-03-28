@@ -60,8 +60,8 @@ pub(super) fn margin_bp_at(loan: &TermLoan, d: Date) -> f64 {
     base_margin + step + override_add
 }
 
-/// Generate the full internal cashflow schedule for a term loan using the shared builder.
-pub fn generate_cashflows(
+/// Generate the full crate-internal cashflow schedule for a term loan.
+pub(crate) fn generate_cashflows(
     loan: &TermLoan,
     market: &MarketContext,
     _as_of: Date,
@@ -474,10 +474,8 @@ pub fn generate_cashflows(
         }
     }
 
-    // Note: We no longer filter flows by as_of here. The full schedule is returned
-    // so that build_full_schedule() can compute outstanding paths correctly.
-    // The holder-view filtering in build_dated_flows() handles date-based exclusion
-    // for pricing purposes (it filters to inflows only).
+    // Keep the full engine schedule here; `TermLoan::cashflow_schedule()` applies
+    // the public holder-view projection on top of this internal representation.
     schedule.day_count = loan.day_count;
     Ok(schedule)
 }
@@ -642,14 +640,6 @@ fn cumulative_drawn_at(ddtl: &super::spec::DdtlSpec, draw_stop: Option<Date>, da
 pub struct OidEirPeriod {
     /// Period end date.
     pub date: Date,
-    /// Opening balance for the period.
-    pub opening_balance: Money,
-    /// Interest income recognized under EIR.
-    pub interest_income: Money,
-    /// Cash interest received during the period.
-    pub cash_interest: Money,
-    /// Cash principal received during the period.
-    pub cash_principal: Money,
     /// OID amortization for the period.
     pub oid_amortization: Money,
     /// Closing balance for the period.
@@ -730,16 +720,11 @@ pub fn build_oid_eir_schedule(
             .year_fraction(prev, *date, DayCountCtx::default())?;
         let interest_income = opening_balance * effective_rate * yf;
         let cash_interest = bucket.interest;
-        let cash_principal = bucket.principal;
         let closing_balance = opening_balance + interest_income - bucket.total;
         let oid_amortization = interest_income - cash_interest;
 
         periods.push(OidEirPeriod {
             date: *date,
-            opening_balance: Money::new(opening_balance, loan.currency),
-            interest_income: Money::new(interest_income, loan.currency),
-            cash_interest: Money::new(cash_interest, loan.currency),
-            cash_principal: Money::new(cash_principal, loan.currency),
             oid_amortization: Money::new(oid_amortization, loan.currency),
             closing_balance: Money::new(closing_balance, loan.currency),
         });

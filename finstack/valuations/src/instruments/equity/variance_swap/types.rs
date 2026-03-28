@@ -324,10 +324,6 @@ impl crate::instruments::common_impl::traits::Instrument for VarianceSwap {
         pricer::compute_pv(self, curves, as_of)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.maturity)
     }
@@ -365,17 +361,15 @@ impl CashflowProvider for VarianceSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _context: &MarketContext,
         _as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
-        // Variance swaps have a single settlement payment at maturity.
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
-            vec![(self.maturity, Money::new(0.0, self.notional.currency()))],
-            crate::cashflow::primitives::CFKind::Fixed,
+        Ok(crate::cashflow::traits::empty_schedule_with_representation(
             self.notional(),
             self.day_count,
+            crate::cashflow::builder::CashflowRepresentation::Placeholder,
         ))
     }
 }

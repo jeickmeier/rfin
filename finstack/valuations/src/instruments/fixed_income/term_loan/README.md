@@ -282,7 +282,7 @@ let loan = TermLoan::builder()
 let pv = loan.value(&market_context, as_of_date)?;
 
 // Generate cashflows
-let cashflows = loan.build_dated_flows(&market_context, as_of_date)?;
+let cashflows = loan.dated_cashflows(&market_context, as_of_date)?;
 ```
 
 ### Example 2: Floating Rate TL with Linear Amortization
@@ -643,8 +643,8 @@ The `Notional.initial` is set to **0**, and outstanding principal is computed dy
 
 ### Internal View vs. Holder View
 
-- **Internal view** (`generate_cashflows()`): Full schedule including funding legs
-- **Holder view** (`CashflowProvider::build_dated_flows`): Filters to contractual inflows only (excludes funding legs and PIK)
+- **Internal engine** (crate-private `generate_cashflows()`): Full schedule including funding legs
+- **Public holder view** (`CashflowProvider::cashflow_schedule()` and `CashflowProvider::dated_cashflows()`): Contractual lender-facing flows only
 
 ### PIK Treatment in Pricing
 

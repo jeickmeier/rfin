@@ -494,6 +494,11 @@ mod tests {
         attrs: Attributes,
     }
 
+    crate::impl_empty_cashflow_provider!(
+        MockInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
+
     impl MockInstrument {
         fn new(instrument_type: InstrumentType) -> Self {
             Self {

@@ -1083,7 +1083,7 @@ pub mod calibration {
             }
             BondQuoteInput::DirtyPriceCcy(dirty_ccy) => dirty_ccy,
             BondQuoteInput::Ytm(ytm) => {
-                let flows = bond.build_dated_flows(market, as_of)?;
+                let flows = bond.dated_cashflows(market, as_of)?;
                 price_from_ytm(bond, &flows, quote_date, ytm)?
             }
             BondQuoteInput::ZSpread(z) => price_from_z_spread(bond, market, quote_date, z)?,

@@ -524,6 +524,7 @@ impl<'a> CashflowEngine<'a> {
             notional: Notional::par(0.0, self.facility.commitment_amount.currency()),
             day_count: self.facility.day_count,
             meta: crate::cashflow::builder::CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
                 // commitment_date is the facility's effective start: the date on which the
@@ -713,6 +714,7 @@ impl<'a> CashflowEngine<'a> {
             notional: Notional::par(0.0, self.facility.commitment_amount.currency()),
             day_count: self.facility.day_count,
             meta: crate::cashflow::builder::CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
                 calendar_ids: Vec::new(),
                 facility_limit: Some(self.facility.commitment_amount),
                 // commitment_date is the facility's effective start: the date on which the

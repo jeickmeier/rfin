@@ -1904,6 +1904,15 @@ fn lognormal_to_normal_vol(
     sigma_ln * effective_forward * correction
 }
 
+crate::impl_empty_cashflow_provider!(
+    Swaption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+crate::impl_empty_cashflow_provider!(
+    BermudanSwaption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

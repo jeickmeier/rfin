@@ -368,10 +368,6 @@ impl crate::instruments::common_impl::traits::Instrument for Equity {
         None
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -393,14 +389,15 @@ impl CashflowProvider for Equity {
             .map(|p| Money::new(self.effective_shares() * p, self.currency))
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(crate::cashflow::traits::empty_schedule(
+        Ok(crate::cashflow::traits::empty_schedule_with_representation(
             self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for equity spot
+            crate::cashflow::builder::CashflowRepresentation::NoResidual,
         ))
     }
 }
@@ -452,7 +449,7 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
 
         let flows = equity
-            .build_dated_flows(&curves, as_of)
+            .dated_cashflows(&curves, as_of)
             .expect("should succeed");
         assert!(flows.is_empty());
     }

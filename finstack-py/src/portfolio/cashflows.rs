@@ -34,7 +34,11 @@ impl PyPortfolioCashflows {
 }
 
 /// Warning emitted when a position's contractual cashflows could not be built.
-#[pyclass(module = "finstack.portfolio", name = "CashflowWarning", from_py_object)]
+#[pyclass(
+    module = "finstack.portfolio",
+    name = "CashflowWarning",
+    from_py_object
+)]
 #[derive(Clone)]
 pub struct PyCashflowWarning {
     pub(crate) inner: CashflowWarning,

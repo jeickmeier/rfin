@@ -17,7 +17,7 @@ fn test_settlement_explicit_date() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(settlement);
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].0, settlement);
@@ -37,7 +37,7 @@ fn test_full_schedule_marks_settlement_as_notional() {
     let market = MarketContext::new();
 
     let schedule = fx
-        .build_full_schedule(&market, test_date())
+        .cashflow_schedule(&market, test_date())
         .expect("full schedule should build");
 
     assert_eq!(schedule.flows.len(), 1);
@@ -51,7 +51,7 @@ fn test_settlement_lag_default() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 15); // Wednesday
 
-    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = fx.dated_cashflows(&market, as_of).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // T+2 business days from Wed Jan 15 = Fri Jan 17
@@ -65,7 +65,7 @@ fn test_settlement_already_settled() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 15);
 
-    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = fx.dated_cashflows(&market, as_of).unwrap();
 
     // Already settled - no cashflows
     assert_eq!(cashflows.len(), 0);
@@ -77,7 +77,7 @@ fn test_settlement_on_valuation_date() {
     let fx = eurusd_with_notional(1_000_000.0, 1.20).with_settlement(settlement);
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, settlement).unwrap();
+    let cashflows = fx.dated_cashflows(&market, settlement).unwrap();
 
     // Settlement on as_of means already settled
     assert_eq!(cashflows.len(), 0);
@@ -91,7 +91,7 @@ fn test_settlement_from_fx_matrix() {
         .with_settlement(d(2025, 1, 17));
     let market = market_with_fx_matrix();
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].1.currency(), Currency::USD);
@@ -108,7 +108,7 @@ fn test_settlement_explicit_rate_overrides_matrix() {
     let fx = eurusd_with_notional(1_000_000.0, 1.25).with_settlement(d(2025, 1, 17));
     let market = market_with_fx_matrix(); // Has EUR/USD = 1.20
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // Should use explicit rate 1.25, not matrix rate 1.20
@@ -132,7 +132,7 @@ fn test_settlement_lag_custom() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 15); // Wednesday
 
-    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = fx.dated_cashflows(&market, as_of).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_eq!(cashflows[0].0, d(2025, 1, 16));
@@ -144,7 +144,7 @@ fn test_settlement_lag_over_weekend() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 17); // Friday
 
-    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = fx.dated_cashflows(&market, as_of).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // T+2 business days from Fri Jan 17 = Tue Jan 21 (skips weekend)
@@ -163,7 +163,7 @@ fn test_settlement_with_business_day_convention() {
 
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // BDC adjustment only applies when calendar is loaded - may return unadjusted date
@@ -184,7 +184,7 @@ fn test_settlement_zero_notional() {
         .with_settlement(d(2025, 1, 17));
     let market = MarketContext::new();
 
-    let cashflows = fx.build_dated_flows(&market, test_date()).unwrap();
+    let cashflows = fx.dated_cashflows(&market, test_date()).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     assert_approx_eq(
@@ -203,8 +203,8 @@ fn test_multiple_instruments_independent_settlement() {
     let market = MarketContext::new();
     let as_of = test_date();
 
-    let cf1 = fx1.build_dated_flows(&market, as_of).unwrap();
-    let cf2 = fx2.build_dated_flows(&market, as_of).unwrap();
+    let cf1 = fx1.dated_cashflows(&market, as_of).unwrap();
+    let cf2 = fx2.dated_cashflows(&market, as_of).unwrap();
 
     assert_eq!(cf1.len(), 1);
     assert_eq!(cf2.len(), 1);
@@ -222,7 +222,7 @@ fn test_settlement_without_rate_or_matrix_fails() {
         .with_settlement(d(2025, 1, 17));
     let market = MarketContext::new(); // No FX matrix
 
-    let result = fx.build_dated_flows(&market, test_date());
+    let result = fx.dated_cashflows(&market, test_date());
     assert!(result.is_err());
 }
 
@@ -234,14 +234,15 @@ fn test_value_matches_provider_flows() {
 
     let value = fx.value(&market, as_of).expect("fx spot value");
     let provider_flows = fx
-        .build_dated_flows(&market, as_of)
+        .dated_cashflows(&market, as_of)
         .expect("provider flows should build");
-    let provider_total = provider_flows
-        .into_iter()
-        .fold(Money::new(0.0, Currency::USD), |acc, (_, amount)| {
-            acc.checked_add(amount)
-                .expect("flow sum should remain in a single currency")
-        });
+    let provider_total =
+        provider_flows
+            .into_iter()
+            .fold(Money::new(0.0, Currency::USD), |acc, (_, amount)| {
+                acc.checked_add(amount)
+                    .expect("flow sum should remain in a single currency")
+            });
 
     assert_approx_eq(
         value.amount(),
@@ -265,7 +266,7 @@ fn test_settlement_lag_negative() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 17); // Friday
 
-    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = fx.dated_cashflows(&market, as_of).unwrap();
 
     // Past date means no cashflow
     assert_eq!(cashflows.len(), 0);
@@ -285,7 +286,7 @@ fn test_calendar_aware_settlement_lag() {
     let market = MarketContext::new();
     let as_of = d(2025, 1, 15);
 
-    let cashflows = fx.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = fx.dated_cashflows(&market, as_of).unwrap();
 
     assert_eq!(cashflows.len(), 1);
     // Should respect calendar holidays if any

@@ -1,18 +1,20 @@
-//! Tests for `Instrument::as_cashflow_provider()` bridge coverage.
+//! Smoke tests for direct `CashflowProvider` coverage.
 
+use finstack_valuations::cashflow::CashflowProvider;
+use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
 use finstack_valuations::instruments::credit_derivatives::cds::CreditDefaultSwap;
 use finstack_valuations::instruments::credit_derivatives::{CDSIndex, CDSTranche};
 use finstack_valuations::instruments::fixed_income::bond_future::BondFuture;
 use finstack_valuations::instruments::fixed_income::convertible::ConvertibleBond;
 use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
-use finstack_valuations::instruments::fixed_income::{AgencyCmo, AgencyMbsPassthrough, AgencyTba};
 use finstack_valuations::instruments::fixed_income::revolving_credit::RevolvingCredit;
 use finstack_valuations::instruments::fixed_income::term_loan::TermLoan;
-use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
+use finstack_valuations::instruments::fixed_income::{AgencyCmo, AgencyMbsPassthrough, AgencyTba};
 use finstack_valuations::instruments::fx::fx_forward::FxForward;
-use finstack_valuations::instruments::fx::ndf::Ndf;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
-use finstack_valuations::instruments::internal::InstrumentExt;
+use finstack_valuations::instruments::fx::ndf::Ndf;
+
+fn assert_provider<T: CashflowProvider>(_instrument: &T) {}
 use finstack_valuations::instruments::commodity::commodity_forward::CommodityForward;
 use finstack_valuations::instruments::rates::basis_swap::BasisSwap;
 use finstack_valuations::instruments::rates::cms_swap::CmsSwap;
@@ -23,70 +25,49 @@ use finstack_valuations::instruments::rates::xccy_swap::XccySwap;
 fn term_loan_exposes_cashflow_provider_bridge() {
     let loan = TermLoan::example().expect("term loan example");
 
-    assert!(
-        loan.as_cashflow_provider().is_some(),
-        "term loan should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&loan);
 }
 
 #[test]
 fn revolving_credit_exposes_cashflow_provider_bridge() {
     let facility = RevolvingCredit::example().expect("revolving credit example");
 
-    assert!(
-        facility.as_cashflow_provider().is_some(),
-        "revolving credit should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&facility);
 }
 
 #[test]
 fn cds_exposes_cashflow_provider_bridge() {
     let cds = CreditDefaultSwap::example();
 
-    assert!(
-        cds.as_cashflow_provider().is_some(),
-        "cds should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&cds);
 }
 
 #[test]
 fn commodity_forward_exposes_cashflow_provider_bridge() {
     let forward = CommodityForward::example();
 
-    assert!(
-        forward.as_cashflow_provider().is_some(),
-        "commodity forward should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&forward);
 }
 
 #[test]
 fn fx_forward_exposes_cashflow_provider_bridge() {
     let forward = FxForward::example().expect("fx forward example");
 
-    assert!(
-        forward.as_cashflow_provider().is_some(),
-        "fx forward should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&forward);
 }
 
 #[test]
 fn ndf_exposes_cashflow_provider_bridge() {
     let ndf = Ndf::example();
 
-    assert!(
-        ndf.as_cashflow_provider().is_some(),
-        "ndf should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&ndf);
 }
 
 #[test]
 fn dollar_roll_exposes_cashflow_provider_bridge() {
     let roll = DollarRoll::example().expect("dollar roll example");
 
-    assert!(
-        roll.as_cashflow_provider().is_some(),
-        "dollar roll should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&roll);
 }
 
 #[test]
@@ -95,7 +76,9 @@ fn bond_future_exposes_cashflow_provider_bridge() {
     use finstack_core::dates::Date;
     use finstack_core::money::Money;
     use finstack_core::types::{CurveId, InstrumentId};
-    use finstack_valuations::instruments::fixed_income::bond_future::{BondFutureSpecs, DeliverableBond, Position};
+    use finstack_valuations::instruments::fixed_income::bond_future::{
+        BondFutureSpecs, DeliverableBond, Position,
+    };
     use time::Month;
 
     let future = BondFuture::builder()
@@ -116,36 +99,27 @@ fn bond_future_exposes_cashflow_provider_bridge() {
         .build_validated()
         .expect("bond future fixture");
 
-    assert!(
-        future.as_cashflow_provider().is_some(),
-        "bond future should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&future);
 }
 
 #[test]
 fn convertible_bond_exposes_cashflow_provider_bridge() {
     let bond = ConvertibleBond::example().expect("convertible bond example");
 
-    assert!(
-        bond.as_cashflow_provider().is_some(),
-        "convertible bond should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&bond);
 }
 
 #[test]
 fn inflation_swap_exposes_cashflow_provider_bridge() {
     let swap = InflationSwap::example();
 
-    assert!(
-        swap.as_cashflow_provider().is_some(),
-        "inflation swap should expose CashflowProvider via Instrument bridge"
-    );
+    assert_provider(&swap);
 }
 
 #[test]
 fn basis_swap_exposes_cashflow_provider_bridge() {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Date, StubKind, Tenor};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use rust_decimal::Decimal;
@@ -179,13 +153,13 @@ fn basis_swap_exposes_cashflow_provider_bridge() {
     )
     .expect("basis swap fixture");
 
-    assert!(swap.as_cashflow_provider().is_some());
+    assert_provider(&swap);
 }
 
 #[test]
 fn xccy_swap_exposes_cashflow_provider_bridge() {
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{BusinessDayConvention, DayCount, Date, StubKind, Tenor};
+    use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
     use finstack_core::money::Money;
     use finstack_core::types::CurveId;
     use rust_decimal::Decimal;
@@ -231,22 +205,31 @@ fn xccy_swap_exposes_cashflow_provider_bridge() {
     };
     let swap = XccySwap::new("XCCY-BRIDGE", leg1, leg2, Currency::USD);
 
-    assert!(swap.as_cashflow_provider().is_some());
+    assert_provider(&swap);
 }
 
 #[test]
 fn cms_swap_exposes_cashflow_provider_bridge() {
     let swap = CmsSwap::example();
-    assert!(swap.as_cashflow_provider().is_some());
+    assert_provider(&swap);
 }
 
 #[test]
 fn yoy_inflation_swap_exposes_cashflow_provider_bridge() {
     let swap = YoYInflationSwap::builder()
         .id("YOY-BRIDGE".into())
-        .notional(finstack_core::money::Money::new(1_000_000.0, finstack_core::currency::Currency::USD))
-        .start_date(finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date"))
-        .maturity(finstack_core::dates::Date::from_calendar_date(2027, time::Month::January, 1).expect("valid date"))
+        .notional(finstack_core::money::Money::new(
+            1_000_000.0,
+            finstack_core::currency::Currency::USD,
+        ))
+        .start_date(
+            finstack_core::dates::Date::from_calendar_date(2025, time::Month::January, 1)
+                .expect("valid date"),
+        )
+        .maturity(
+            finstack_core::dates::Date::from_calendar_date(2027, time::Month::January, 1)
+                .expect("valid date"),
+        )
         .fixed_rate(rust_decimal::Decimal::try_from(0.02).expect("valid"))
         .frequency(finstack_core::dates::Tenor::annual())
         .inflation_index_id("US-CPI".into())
@@ -257,47 +240,47 @@ fn yoy_inflation_swap_exposes_cashflow_provider_bridge() {
         .build()
         .expect("yoy fixture");
 
-    assert!(swap.as_cashflow_provider().is_some());
+    assert_provider(&swap);
 }
 
 #[test]
 fn commodity_swap_exposes_cashflow_provider_bridge() {
     let swap = CommoditySwap::example();
-    assert!(swap.as_cashflow_provider().is_some());
+    assert_provider(&swap);
 }
 
 #[test]
 fn fx_swap_exposes_cashflow_provider_bridge() {
     let swap = FxSwap::example();
-    assert!(swap.as_cashflow_provider().is_some());
+    assert_provider(&swap);
 }
 
 #[test]
 fn agency_mbs_passthrough_exposes_cashflow_provider_bridge() {
     let mbs = AgencyMbsPassthrough::example().expect("agency mbs example");
-    assert!(mbs.as_cashflow_provider().is_some());
+    assert_provider(&mbs);
 }
 
 #[test]
 fn agency_tba_exposes_cashflow_provider_bridge() {
     let tba = AgencyTba::example().expect("agency tba example");
-    assert!(tba.as_cashflow_provider().is_some());
+    assert_provider(&tba);
 }
 
 #[test]
 fn agency_cmo_exposes_cashflow_provider_bridge() {
     let cmo = AgencyCmo::example().expect("agency cmo example");
-    assert!(cmo.as_cashflow_provider().is_some());
+    assert_provider(&cmo);
 }
 
 #[test]
 fn cds_index_exposes_cashflow_provider_bridge() {
     let index = CDSIndex::example();
-    assert!(index.as_cashflow_provider().is_some());
+    assert_provider(&index);
 }
 
 #[test]
 fn cds_tranche_exposes_cashflow_provider_bridge() {
     let tranche = CDSTranche::example();
-    assert!(tranche.as_cashflow_provider().is_some());
+    assert_provider(&tranche);
 }

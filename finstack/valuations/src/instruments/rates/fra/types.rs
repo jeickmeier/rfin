@@ -504,7 +504,7 @@ impl ForwardRateAgreement {
     ) -> finstack_core::Result<f64> {
         self.validate()?;
         let disc = context.get_discount(&self.discount_curve_id)?;
-        let flows = self.build_dated_flows(context, as_of)?;
+        let flows = self.dated_cashflows(context, as_of)?;
 
         if flows.is_empty() {
             return Ok(0.0);
@@ -555,10 +555,6 @@ impl crate::instruments::common_impl::traits::Instrument for ForwardRateAgreemen
         self.npv_raw(curves, as_of)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.maturity)
     }
@@ -596,15 +592,21 @@ impl CashflowProvider for ForwardRateAgreement {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Settlement at start of accrual period; if already settled, no flows
-        let flows = if self.start_date <= as_of {
-            Vec::new()
-        } else {
+        if self.start_date <= as_of {
+            return Ok(crate::cashflow::traits::empty_schedule_with_representation(
+                self.notional(),
+                self.day_count,
+                crate::cashflow::builder::CashflowRepresentation::NoResidual,
+            ));
+        }
+
+        let flows = {
             let settlement = self.settlement_amount_raw(curves, as_of)?;
             vec![(
                 self.start_date,
@@ -612,12 +614,15 @@ impl CashflowProvider for ForwardRateAgreement {
             )]
         };
 
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             flows,
             crate::cashflow::primitives::CFKind::Fixed,
             self.notional(),
             self.day_count,
-        ))
+        );
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
+        Ok(schedule)
     }
 }
 

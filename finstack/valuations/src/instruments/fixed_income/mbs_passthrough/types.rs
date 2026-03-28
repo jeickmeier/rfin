@@ -157,17 +157,20 @@ impl CashflowProvider for AgencyMbsPassthrough {
         Some(self.current_face)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &finstack_core::market_data::context::MarketContext,
         as_of: Date,
     ) -> Result<crate::cashflow::builder::CashFlowSchedule> {
         let _ = curves;
-        crate::instruments::fixed_income::mbs_passthrough::pricer::build_projected_schedule(
-            self,
-            as_of,
-            Some(self.wam + 12),
-        )
+        let mut schedule =
+            crate::instruments::fixed_income::mbs_passthrough::pricer::build_projected_schedule(
+                self,
+                as_of,
+                Some(self.wam + 12),
+            )?;
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
+        Ok(schedule)
     }
 }
 
@@ -426,10 +429,6 @@ impl crate::instruments::common_impl::traits::Instrument for AgencyMbsPassthroug
         as_of: finstack_core::dates::Date,
     ) -> finstack_core::Result<finstack_core::money::Money> {
         crate::instruments::fixed_income::mbs_passthrough::pricer::price_mbs(self, market, as_of)
-    }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
     }
 
     fn effective_start_date(&self) -> Option<Date> {

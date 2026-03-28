@@ -993,6 +993,11 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for Commodity
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    CommodityOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

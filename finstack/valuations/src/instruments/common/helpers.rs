@@ -48,12 +48,7 @@ where
 {
     use finstack_core::cashflow::npv;
 
-    let schedule = S::build_full_schedule(instrument, curves, as_of)?;
-    let flows = schedule
-        .flows
-        .iter()
-        .map(|cf| (cf.date, cf.amount))
-        .collect::<Vec<_>>();
+    let flows = S::dated_cashflows(instrument, curves, as_of)?;
     let disc = curves.get_discount(discount_curve_id.as_str())?;
     // Use None to use the curve's day count for consistent pricing with metrics
     npv(disc.as_ref(), as_of, None, &flows)
@@ -98,23 +93,23 @@ where
     use finstack_core::dates::DayCountCtx;
     use finstack_core::math::neumaier_sum;
 
-    let schedule = S::build_full_schedule(instrument, curves, as_of)?;
+    let flows = S::dated_cashflows(instrument, curves, as_of)?;
     let disc = curves.get_discount(discount_curve_id.as_str())?;
 
-    let mut terms = Vec::with_capacity(schedule.flows.len());
+    let mut terms = Vec::with_capacity(flows.len());
     let dc = disc.day_count();
 
-    for cf in schedule.flows {
+    for (date, amount) in flows {
         // PRICING-VIEW: Include cashflows on `as_of` (t=0, df=1).
         // Only exclude truly past cashflows (date < as_of).
         // This ensures calibration bracketing works for T+0 instruments.
-        if cf.date < as_of {
+        if date < as_of {
             continue;
         }
         // Use relative time from as_of (T+0)
-        let t = dc.year_fraction(as_of, cf.date, DayCountCtx::default())?;
+        let t = dc.year_fraction(as_of, date, DayCountCtx::default())?;
         let df = disc.df(t);
-        terms.push(cf.amount.amount() * df);
+        terms.push(amount.amount() * df);
     }
 
     Ok(neumaier_sum(terms))
@@ -300,14 +295,13 @@ pub(crate) fn build_with_metrics_dyn(
 #[allow(clippy::items_after_test_module)]
 mod tests {
     use super::*;
-    use crate::cashflow::builder::{CashFlowSchedule, Notional};
-    use crate::cashflow::primitives::{CFKind, CashFlow};
+    use crate::cashflow::builder::CashFlowSchedule;
     use crate::cashflow::traits::{CashflowProvider, DatedFlows};
     use crate::instruments::common_impl::traits::{Attributes, Instrument};
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use finstack_core::currency::Currency;
-    use finstack_core::dates::{Date, DayCount};
+    use finstack_core::dates::Date;
     use finstack_core::market_data::context::MarketContext;
     use finstack_core::market_data::term_structures::DiscountCurve;
     use finstack_core::math::interp::InterpStyle;
@@ -315,8 +309,8 @@ mod tests {
     use finstack_core::types::CurveId;
     use std::any::Any;
     use std::sync::Arc;
-    use time::Duration;
     use time::macros::date;
+    use time::Duration;
 
     #[derive(Clone)]
     struct StubInstrument {
@@ -324,6 +318,11 @@ mod tests {
         attrs: Attributes,
         pricing_overrides: crate::instruments::pricing_overrides::PricingOverrides,
     }
+
+    crate::impl_empty_cashflow_provider!(
+        StubInstrument,
+        crate::cashflow::builder::CashflowRepresentation::NoResidual
+    );
 
     impl StubInstrument {
         fn new(id: &str) -> Self {
@@ -336,41 +335,32 @@ mod tests {
         }
     }
 
-    struct ScheduleOnlyProvider;
+    struct DatedFlowsOnlyProvider;
 
-    impl CashflowProvider for ScheduleOnlyProvider {
+    impl CashflowProvider for DatedFlowsOnlyProvider {
         fn notional(&self) -> Option<Money> {
             Some(Money::new(100.0, Currency::USD))
         }
 
-        fn build_full_schedule(
-            &self,
-            _curves: &MarketContext,
-            as_of: Date,
-        ) -> finstack_core::Result<CashFlowSchedule> {
-            Ok(CashFlowSchedule::from_parts(
-                vec![CashFlow {
-                    date: as_of + Duration::days(30),
-                    reset_date: None,
-                    amount: Money::new(100.0, Currency::USD),
-                    kind: CFKind::Fixed,
-                    accrual_factor: 0.25,
-                    rate: Some(0.04),
-                }],
-                Notional::par(100.0, Currency::USD),
-                DayCount::Act365F,
-                Default::default(),
-            ))
-        }
-
-        fn build_dated_flows(
+        fn cashflow_schedule(
             &self,
             _curves: &MarketContext,
             _as_of: Date,
-        ) -> finstack_core::Result<DatedFlows> {
+        ) -> finstack_core::Result<CashFlowSchedule> {
             Err(finstack_core::Error::Validation(
-                "shared PV helpers should use build_full_schedule".to_string(),
+                "shared PV helpers should use dated_cashflows".to_string(),
             ))
+        }
+
+        fn dated_cashflows(
+            &self,
+            _curves: &MarketContext,
+            as_of: Date,
+        ) -> finstack_core::Result<DatedFlows> {
+            Ok(vec![(
+                as_of + Duration::days(30),
+                Money::new(100.0, Currency::USD),
+            )])
         }
     }
 
@@ -591,7 +581,7 @@ mod tests {
     }
 
     #[test]
-    fn schedule_pv_using_curve_dc_raw_uses_full_schedule_path() -> finstack_core::Result<()> {
+    fn schedule_pv_using_curve_dc_raw_uses_dated_cashflows_path() -> finstack_core::Result<()> {
         let as_of = date!(2024 - 01 - 01);
         let market = MarketContext::new().insert(
             DiscountCurve::builder("DISC")
@@ -602,7 +592,7 @@ mod tests {
         );
 
         let pv = schedule_pv_using_curve_dc_raw(
-            &ScheduleOnlyProvider,
+            &DatedFlowsOnlyProvider,
             &market,
             as_of,
             &CurveId::new("DISC"),
@@ -613,7 +603,7 @@ mod tests {
     }
 
     #[test]
-    fn schedule_pv_using_curve_dc_uses_full_schedule_path() -> finstack_core::Result<()> {
+    fn schedule_pv_using_curve_dc_uses_dated_cashflows_path() -> finstack_core::Result<()> {
         let as_of = date!(2024 - 01 - 01);
         let market = MarketContext::new().insert(
             DiscountCurve::builder("DISC")
@@ -624,7 +614,7 @@ mod tests {
         );
 
         let pv = schedule_pv_using_curve_dc(
-            &ScheduleOnlyProvider,
+            &DatedFlowsOnlyProvider,
             &market,
             as_of,
             &CurveId::new("DISC"),

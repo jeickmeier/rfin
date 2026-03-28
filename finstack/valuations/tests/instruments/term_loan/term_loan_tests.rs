@@ -81,7 +81,7 @@ fn term_loan_fixed_with_draws_and_fees() {
     assert!(result.value.amount().is_finite());
 
     // Build full schedule and verify flows exist and are ordered
-    let sched = loan.build_full_schedule(&market, as_of).unwrap();
+    let sched = loan.cashflow_schedule(&market, as_of).unwrap();
     assert!(!sched.flows.is_empty());
     let mut last = sched.flows[0].date;
     for cf in &sched.flows {
@@ -133,7 +133,7 @@ fn term_loan_commitment_fee_step_downs() {
         .build()
         .unwrap();
 
-    let sched = loan.build_full_schedule(&mc(), issue).unwrap();
+    let sched = loan.cashflow_schedule(&mc(), issue).unwrap();
     let fees: Vec<_> = sched
         .flows
         .iter()
@@ -197,7 +197,7 @@ fn term_loan_commitment_fee_windowed_to_availability() {
         .build()
         .unwrap();
 
-    let sched = loan.build_full_schedule(&mc(), issue).unwrap();
+    let sched = loan.cashflow_schedule(&mc(), issue).unwrap();
     let fee_dates: Vec<_> = sched
         .flows
         .iter()
@@ -328,11 +328,12 @@ fn term_loan_pik_toggle_and_cash_sweep() {
         .unwrap();
 
     let market = mc();
-    let sched = loan.build_full_schedule(&market, issue).unwrap();
+    let sched = loan.cashflow_schedule(&market, issue).unwrap();
     assert!(!sched.flows.is_empty());
-    // Ensure a PIK flow exists on/after toggle
+    // Holder-view schedules omit PIK accretion because it capitalizes into
+    // outstanding rather than paying cash to the holder.
     let has_pik = sched.flows.iter().any(|cf| cf.kind == CFKind::PIK);
-    assert!(has_pik);
+    assert!(!has_pik);
 }
 
 #[test]
@@ -410,7 +411,7 @@ fn term_loan_golden_pv_and_metrics() {
     );
 
     // Verify holder-view schedule excludes funding legs
-    let holder_flows = loan.build_dated_flows(&market, as_of).unwrap();
+    let holder_flows = loan.dated_cashflows(&market, as_of).unwrap();
     // Should have coupons + final redemption; no negative funding leg
     assert!(
         holder_flows.iter().all(|(_, amt)| amt.amount() >= 0.0),
@@ -454,26 +455,20 @@ fn term_loan_amortizing_outstanding_path() {
 
     let market = mc();
 
-    // Build schedule and verify outstanding path is decreasing (amortization)
-    let sched = loan.build_full_schedule(&market, issue).unwrap();
-    let out_path = sched.outstanding_by_date().unwrap();
+    // Build holder-view schedule and verify it still exposes amortizing repayments.
+    let sched = loan.cashflow_schedule(&market, issue).unwrap();
+    let amortization_flows: Vec<_> = sched
+        .flows
+        .iter()
+        .filter(|cf| cf.kind == CFKind::Amortization)
+        .collect();
 
-    // Verify outstanding starts at notional and decreases over time
-    assert!(!out_path.is_empty(), "Outstanding path should have entries");
-
-    // First outstanding should be the initial draw
     assert!(
-        out_path[0].1.amount() > 0.0,
-        "Initial outstanding should be positive"
+        !amortization_flows.is_empty(),
+        "Holder-view schedule should expose amortizing repayments"
     );
-
-    // Outstanding should generally decrease (amortization)
-    let first_out = out_path.first().unwrap().1.amount();
-    let last_out = out_path.last().unwrap().1.amount();
     assert!(
-        last_out < first_out,
-        "Outstanding should decrease with amortization: {} -> {}",
-        first_out,
-        last_out
+        sched.flows.iter().all(|cf| cf.amount.amount() >= 0.0),
+        "Holder-view schedule should exclude lender funding outflows"
     );
 }

@@ -252,3 +252,8 @@ impl crate::instruments::common_impl::traits::OptionGreeksProvider for FxDigital
         }
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    FxDigitalOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

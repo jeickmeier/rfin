@@ -15,7 +15,7 @@ pub use crate::book::{Book, BookId};
 pub use crate::builder::PortfolioBuilder;
 pub use crate::cashflows::{
     aggregate_cashflows, cashflows_to_base_by_period, collapse_cashflows_to_base_by_date,
-    PortfolioCashflowBuckets, PortfolioCashflows,
+    PortfolioCashflowBuckets, PortfolioCashflowPositionSummary, PortfolioCashflows,
 };
 pub use crate::dependencies::{DependencyIndex, MarketFactorKey};
 pub use crate::error::{Error, Result};

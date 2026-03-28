@@ -681,3 +681,8 @@ impl crate::instruments::common_impl::traits::OptionVolgaProvider for FxOption {
         Ok((vega_up - vega_dn) / (2.0 * delta_sigma) * 0.01)
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    FxOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

@@ -538,6 +538,11 @@ fn black76_swaption_price(
     price * annuity
 }
 
+crate::impl_empty_cashflow_provider!(
+    CommoditySwaption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

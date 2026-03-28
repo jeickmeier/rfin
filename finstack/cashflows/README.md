@@ -284,8 +284,8 @@ If you need credit-adjusted PV, use
 
 ### Implement `CashflowProvider`
 
-`CashflowProvider` requires `build_full_schedule`. The default
-`build_dated_flows` implementation derives holder-view `(Date, Money)` pairs
+`CashflowProvider` requires `cashflow_schedule`. The default
+`dated_cashflows` implementation derives holder-view `(Date, Money)` pairs
 from the returned `CashFlowSchedule`.
 
 ```rust,no_run
@@ -308,7 +308,7 @@ impl CashflowProvider for FixedBondLike {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,

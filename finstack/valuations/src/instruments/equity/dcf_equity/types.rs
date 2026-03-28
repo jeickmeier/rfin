@@ -486,10 +486,35 @@ impl CurveDependencies for DiscountedCashFlow {
     }
 }
 
+impl crate::cashflow::traits::CashflowProvider for DiscountedCashFlow {
+    fn cashflow_schedule(
+        &self,
+        _curves: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
+        let flows = self
+            .flows
+            .iter()
+            .filter(|(date, _)| *date >= as_of)
+            .map(|(date, amount)| (*date, Money::new(*amount, self.currency)))
+            .collect();
+
+        Ok(
+            crate::cashflow::traits::schedule_from_dated_flows_with_representation(
+                flows,
+                None,
+                finstack_core::dates::DayCount::Act365F,
+                crate::cashflow::builder::CashflowRepresentation::Projected,
+            ),
+        )
+    }
+}
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use crate::cashflow::CashflowProvider;
     use crate::metrics::{MetricContext, MetricId};
     use finstack_core::currency::Currency;
     use finstack_core::dates::Date;
@@ -772,6 +797,23 @@ mod tests {
             results.contains_key(&MetricId::BucketedDv01),
             "BucketedDv01 metric should be present for DCF"
         );
+    }
+
+    #[test]
+    fn dcf_cashflow_schedule_emits_projected_explicit_flows() {
+        let dcf = build_simple_dcf_gordon();
+        let schedule = dcf
+            .cashflow_schedule(&MarketContext::new(), dcf.valuation_date)
+            .expect("dcf schedule");
+
+        assert_eq!(
+            schedule.meta.representation,
+            crate::cashflow::builder::CashflowRepresentation::Projected
+        );
+        assert_eq!(schedule.flows.len(), 1);
+        assert_eq!(schedule.flows[0].date, dcf.flows[0].0);
+        assert_eq!(schedule.flows[0].amount.amount(), dcf.flows[0].1);
+        assert_eq!(schedule.flows[0].amount.currency(), Currency::USD);
     }
 
     // ──────────────────────────────────────────────────────────────────

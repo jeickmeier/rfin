@@ -1,11 +1,11 @@
 """Test goal seek functionality in Python bindings."""
 
+import pytest
 from finstack.core.dates.periods import PeriodId
-from finstack.statements.analysis import goal_seek as analysis_goal_seek
 from finstack.statements.builder import ModelBuilder
 from finstack.statements.evaluator import Evaluator
 from finstack.statements.types import AmountOrScalar, ForecastSpec
-import pytest
+from finstack.statements_analytics.analysis import goal_seek as analysis_goal_seek
 
 import finstack
 

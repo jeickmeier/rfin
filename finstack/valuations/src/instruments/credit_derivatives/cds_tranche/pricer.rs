@@ -471,7 +471,12 @@ pub struct CDSTranchePricer {
     params: CDSTranchePricerConfig,
 }
 
-type ProjectionInputs = (std::sync::Arc<CreditIndexData>, Date, Vec<Date>, Vec<(Date, f64)>);
+type ProjectionInputs = (
+    std::sync::Arc<CreditIndexData>,
+    Date,
+    Vec<Date>,
+    Vec<(Date, f64)>,
+);
 
 #[derive(Debug, Clone)]
 struct ProjectedDiscountedRow {
@@ -609,7 +614,21 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<CashFlowSchedule> {
-        let (_, valuation_date, _, _) = self.prepare_projection_inputs(tranche, market_ctx, as_of)?;
+        if as_of >= tranche.maturity {
+            return Ok(CashFlowSchedule::from_parts(
+                Vec::new(),
+                Notional::par(tranche.notional.amount(), tranche.notional.currency()),
+                tranche.day_count,
+                CashFlowMeta {
+                    representation: crate::cashflow::builder::CashflowRepresentation::Projected,
+                    calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
+                    facility_limit: None,
+                    issue_date: tranche.contractual_effective_date(as_of),
+                },
+            ));
+        }
+        let (_, valuation_date, _, _) =
+            self.prepare_projection_inputs(tranche, market_ctx, as_of)?;
         let flows = self
             .project_discountable_rows(tranche, market_ctx, as_of)?
             .into_iter()
@@ -621,6 +640,7 @@ impl CDSTranchePricer {
             Notional::par(tranche.notional.amount(), tranche.notional.currency()),
             tranche.day_count,
             CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Projected,
                 calendar_ids: tranche.calendar_id.clone().into_iter().collect(),
                 facility_limit: None,
                 issue_date: tranche.contractual_effective_date(valuation_date),
@@ -634,6 +654,9 @@ impl CDSTranchePricer {
         market_ctx: &MarketContext,
         as_of: Date,
     ) -> Result<Vec<ProjectedDiscountedRow>> {
+        if as_of >= tranche.maturity {
+            return Ok(Vec::new());
+        }
         let (_index_data_arc, valuation_date, payment_dates, el_curve) =
             self.prepare_projection_inputs(tranche, market_ctx, as_of)?;
         if valuation_date >= tranche.maturity {
@@ -2074,7 +2097,8 @@ impl CDSTranchePricer {
         // Initial guess using ratio method (protection PV / premium per bp)
         let mut unit_tranche = tranche.clone();
         unit_tranche.running_coupon_bp = 1.0;
-        let premium_per_bp_rows = self.project_discountable_rows(&unit_tranche, market_ctx, as_of)?;
+        let premium_per_bp_rows =
+            self.project_discountable_rows(&unit_tranche, market_ctx, as_of)?;
         let premium_per_bp = self.discount_projected_rows(
             &premium_per_bp_rows
                 .iter()

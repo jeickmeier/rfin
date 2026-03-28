@@ -455,10 +455,6 @@ impl crate::instruments::common_impl::traits::Instrument for EquityIndexFuture {
         None
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -477,15 +473,16 @@ impl CashflowProvider for EquityIndexFuture {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         // Futures are daily settled (mark-to-market). There are no residual flows.
-        Ok(crate::cashflow::traits::empty_schedule(
+        Ok(crate::cashflow::traits::empty_schedule_with_representation(
             self.notional(),
             finstack_core::dates::DayCount::Act365F, // Standard for equity futures
+            crate::cashflow::builder::CashflowRepresentation::NoResidual,
         ))
     }
 }

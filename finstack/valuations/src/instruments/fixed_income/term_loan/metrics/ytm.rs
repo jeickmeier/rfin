@@ -25,9 +25,9 @@ impl MetricCalculator for YtmCalculator {
         // Compute settlement date using loan calendar/business-day conventions.
         let settlement_date = loan.settlement_date(as_of)?;
 
-        // Use holder-view schedule (via CashflowProvider::build_dated_flows)
+        // Use holder-view schedule (via CashflowProvider::dated_cashflows)
         // This filters to contractual inflows: coupons, amortization, positive redemptions
-        let holder_flows = loan.build_dated_flows(&context.curves, as_of)?;
+        let holder_flows = loan.dated_cashflows(&context.curves, as_of)?;
 
         let mut flows: Vec<(finstack_core::dates::Date, Money)> =
             Vec::with_capacity(holder_flows.len() + 1);

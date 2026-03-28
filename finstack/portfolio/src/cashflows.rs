@@ -27,6 +27,7 @@ use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::fx::FxQuery;
 use finstack_core::money::Money;
+use finstack_valuations::cashflow::builder::{CashFlowSchedule, CashflowRepresentation};
 use finstack_valuations::cashflow::{DatedFlow, DatedFlows};
 use finstack_valuations::instruments::DynInstrument;
 use indexmap::IndexMap;
@@ -90,6 +91,21 @@ pub struct CashflowWarning {
     pub message: String,
 }
 
+/// Per-position cashflow summary, including empty-schedule intent metadata.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PortfolioCashflowPositionSummary {
+    /// Position identifier.
+    pub position_id: PositionId,
+    /// Underlying instrument identifier.
+    pub instrument_id: String,
+    /// Underlying instrument type key.
+    pub instrument_type: String,
+    /// Schedule representation carried by the instrument.
+    pub representation: CashflowRepresentation,
+    /// Number of emitted dated events after schedule construction.
+    pub event_count: usize,
+}
+
 /// Aggregated portfolio cashflows by date and currency, plus extraction warnings.
 #[derive(Clone, Debug)]
 pub struct PortfolioCashflows {
@@ -101,6 +117,9 @@ pub struct PortfolioCashflows {
     /// This is keyed by position ID and contains holder-view cashflows in
     /// the instrument's native currency, scaled by position quantity.
     pub by_position: IndexMap<PositionId, DatedFlows>,
+
+    /// Per-position cashflow metadata, including empty-schedule visibility.
+    pub position_summaries: IndexMap<PositionId, PortfolioCashflowPositionSummary>,
 
     /// Cashflow extraction warnings captured during aggregation.
     pub warnings: Vec<CashflowWarning>,
@@ -116,22 +135,13 @@ pub struct PortfolioCashflowBuckets {
     pub by_period: IndexMap<finstack_core::dates::PeriodId, Money>,
 }
 
-/// Collect holder-view cashflows for a single instrument, if supported.
-///
-/// Uses the `Instrument::as_cashflow_provider()` trait method to obtain cashflow
-/// schedules from instruments that implement `CashflowProvider`. This approach
-/// automatically supports new instruments as they implement the trait.
-fn instrument_holder_flows(
+/// Build the canonical holder-view schedule for a single instrument.
+fn instrument_cashflow_schedule(
     instrument: &DynInstrument,
     market: &MarketContext,
     as_of: Date,
-) -> std::result::Result<Option<DatedFlows>, finstack_core::Error> {
-    if let Some(provider) = instrument.as_cashflow_provider() {
-        return provider.build_dated_flows(market, as_of).map(Some);
-    }
-
-    // Instruments without a cashflow schedule interface (options, baskets, etc.)
-    Ok(None)
+) -> std::result::Result<CashFlowSchedule, finstack_core::Error> {
+    instrument.cashflow_schedule(market, as_of)
 }
 
 /// Aggregate portfolio cashflows by payment date and currency.
@@ -161,25 +171,37 @@ pub fn aggregate_cashflows(
 ) -> Result<PortfolioCashflows> {
     let mut all_flows: Vec<DatedFlow> = Vec::new();
     let mut by_position: IndexMap<PositionId, DatedFlows> = IndexMap::new();
+    let mut position_summaries: IndexMap<PositionId, PortfolioCashflowPositionSummary> =
+        IndexMap::new();
     let mut warnings = Vec::new();
 
     // Phase 1: collect and scale flows per position
     for position in &portfolio.positions {
-        match instrument_holder_flows(position.instrument.as_ref(), market, portfolio.as_of) {
-            Ok(Some(flows)) => {
-                let mut scaled: DatedFlows = Vec::with_capacity(flows.len());
-
-                for (date, money) in flows {
+        match instrument_cashflow_schedule(position.instrument.as_ref(), market, portfolio.as_of) {
+            Ok(schedule) => {
+                let event_count = schedule.flows.len();
+                let representation = schedule.meta.representation;
+                let mut scaled: DatedFlows = Vec::with_capacity(schedule.flows.len());
+                for cf in &schedule.flows {
+                    let date = cf.date;
+                    let money = cf.amount;
                     let scaled_money = position.scale_value(money);
                     all_flows.push((date, scaled_money));
                     scaled.push((date, scaled_money));
                 }
 
-                if !scaled.is_empty() {
-                    by_position.insert(position.position_id.clone(), scaled);
-                }
+                by_position.insert(position.position_id.clone(), scaled);
+                position_summaries.insert(
+                    position.position_id.clone(),
+                    PortfolioCashflowPositionSummary {
+                        position_id: position.position_id.clone(),
+                        instrument_id: position.instrument.id().to_string(),
+                        instrument_type: format!("{:?}", position.instrument.key()),
+                        representation,
+                        event_count,
+                    },
+                );
             }
-            Ok(None) => {}
             Err(err) => {
                 tracing::warn!(
                     position_id = %position.position_id,
@@ -213,6 +235,7 @@ pub fn aggregate_cashflows(
     Ok(PortfolioCashflows {
         by_date,
         by_position,
+        position_summaries,
         warnings,
     })
 }
@@ -351,10 +374,11 @@ mod tests {
     use crate::test_utils::build_test_market_at;
     use crate::types::Entity;
     use finstack_core::market_data::term_structures::HazardCurve;
+    use finstack_valuations::instruments::commodity::commodity_swap::CommoditySwap;
     use finstack_valuations::instruments::credit_derivatives::CDSIndex;
-    use finstack_valuations::instruments::fixed_income::AgencyMbsPassthrough;
     use finstack_valuations::instruments::fixed_income::bond;
-    use finstack_valuations::instruments::fx::ndf::Ndf;
+    use finstack_valuations::instruments::fixed_income::AgencyMbsPassthrough;
+    use finstack_valuations::instruments::rates::Swaption;
     use std::sync::Arc;
     use time::macros::date;
 
@@ -416,7 +440,15 @@ mod tests {
         // Position-level drill-down should have exactly one entry
         assert_eq!(ladder.by_position.len(), 1);
         assert!(ladder.by_position.contains_key("POS_001"));
-        assert!(ladder.warnings.is_empty(), "expected no aggregation warnings");
+        assert_eq!(ladder.position_summaries.len(), 1);
+        assert_eq!(
+            ladder.position_summaries["POS_001"].representation,
+            CashflowRepresentation::Contractual
+        );
+        assert!(
+            ladder.warnings.is_empty(),
+            "expected no aggregation warnings"
+        );
     }
 
     #[test]
@@ -499,10 +531,10 @@ mod tests {
     fn aggregate_cashflows_surfaces_provider_failures_as_warnings() {
         let as_of = date!(2025 - 01 - 01);
         let position = Position::new(
-            "POS_NDF",
+            "POS_SWAP",
             "ENTITY_A",
-            "USDCNY-NDF-3M",
-            Arc::new(Ndf::example()),
+            "NG-SWAP-2025",
+            Arc::new(CommoditySwap::example()),
             1.0,
             PositionUnit::Units,
         )
@@ -518,17 +550,122 @@ mod tests {
         let ladder = aggregate_cashflows(&portfolio, &MarketContext::new())
             .expect("aggregation should succeed with warnings");
 
-        assert!(ladder.by_date.is_empty(), "failed cashflows should be skipped");
-        assert!(ladder.by_position.is_empty(), "failed position should not emit flows");
-        assert_eq!(ladder.warnings.len(), 1, "expected one warning");
-        assert_eq!(ladder.warnings[0].position_id.as_str(), "POS_NDF");
         assert!(
-            ladder.warnings[0]
-                .message
-                .contains("cannot build a contractual cashflow schedule before fixing"),
+            ladder.by_date.is_empty(),
+            "failed cashflows should be skipped"
+        );
+        assert!(
+            ladder.by_position.is_empty(),
+            "failed position should not emit flows"
+        );
+        assert_eq!(ladder.warnings.len(), 1, "expected one warning");
+        assert_eq!(ladder.warnings[0].position_id.as_str(), "POS_SWAP");
+        assert!(
+            ladder.warnings[0].message.contains("NG-SPOT-AVG"),
             "unexpected warning message: {}",
             ladder.warnings[0].message
         );
+    }
+
+    #[test]
+    fn aggregate_cashflows_preserves_empty_placeholder_position_summaries() {
+        let as_of = date!(2025 - 01 - 01);
+        let position = Position::new(
+            "POS_SWAPTION",
+            "ENTITY_A",
+            "SWAPTION_001",
+            Arc::new(Swaption::example()),
+            1.0,
+            PositionUnit::Units,
+        )
+        .expect("test should succeed");
+        let portfolio = PortfolioBuilder::new("PLACEHOLDER")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .entity(Entity::new("ENTITY_A"))
+            .position(position)
+            .build()
+            .expect("test should succeed");
+
+        let ladder = aggregate_cashflows(&portfolio, &build_test_market_at(as_of))
+            .expect("placeholder aggregation");
+
+        assert!(
+            ladder.by_date.is_empty(),
+            "empty placeholder schedule has no events"
+        );
+        assert!(ladder.by_position["POS_SWAPTION"].is_empty());
+        assert_eq!(
+            ladder.position_summaries["POS_SWAPTION"].representation,
+            CashflowRepresentation::Placeholder
+        );
+        assert_eq!(ladder.position_summaries["POS_SWAPTION"].event_count, 0);
+        assert!(
+            ladder.warnings.is_empty(),
+            "placeholder schedules should not warn"
+        );
+    }
+
+    #[test]
+    fn collapsed_and_bucketed_views_project_from_same_canonical_event_set() {
+        let as_of = date!(2025 - 01 - 01);
+        let bond = bond::Bond::fixed(
+            "BOND_001",
+            Money::new(1_000_000.0, Currency::USD),
+            0.05,
+            as_of,
+            date!(2027 - 01 - 01),
+            "USD-OIS",
+        )
+        .expect("Bond::fixed should succeed with valid parameters");
+        let position = Position::new(
+            "POS_001",
+            "ENTITY_A",
+            "BOND_001",
+            Arc::new(bond),
+            1.0,
+            PositionUnit::FaceValue,
+        )
+        .expect("test should succeed");
+        let portfolio = PortfolioBuilder::new("TEST")
+            .base_ccy(Currency::USD)
+            .as_of(as_of)
+            .entity(Entity::new("ENTITY_A"))
+            .position(position)
+            .build()
+            .expect("test should succeed");
+        let market = build_test_market_at(as_of);
+        let ladder = aggregate_cashflows(&portfolio, &market).expect("cashflow aggregation");
+
+        let collapsed = collapse_cashflows_to_base_by_date(&ladder, &market, Currency::USD)
+            .expect("collapse to base");
+        let periods = vec![
+            finstack_core::dates::Period {
+                id: finstack_core::dates::PeriodId::annual(2025),
+                start: date!(2025 - 01 - 01),
+                end: date!(2026 - 01 - 01),
+                is_actual: true,
+            },
+            finstack_core::dates::Period {
+                id: finstack_core::dates::PeriodId::annual(2026),
+                start: date!(2026 - 01 - 01),
+                end: date!(2027 - 01 - 01),
+                is_actual: true,
+            },
+            finstack_core::dates::Period {
+                id: finstack_core::dates::PeriodId::annual(2027),
+                start: date!(2027 - 01 - 01),
+                end: date!(2028 - 01 - 01),
+                is_actual: true,
+            },
+        ];
+        let buckets = cashflows_to_base_by_period(&ladder, &market, Currency::USD, &periods)
+            .expect("bucketed cashflows");
+
+        let collapsed_total: f64 = collapsed.values().map(Money::amount).sum();
+        let bucket_total: f64 = buckets.by_period.values().map(Money::amount).sum();
+        assert_eq!(collapsed.len(), ladder.by_date.len());
+        assert_eq!(bucket_total, collapsed_total);
     }
 
     #[test]
@@ -554,8 +691,14 @@ mod tests {
         let ladder = aggregate_cashflows(&portfolio, &build_test_market_at(as_of))
             .expect("agency cashflow aggregation");
 
-        assert!(!ladder.by_date.is_empty(), "agency provider should emit flows");
-        assert!(ladder.warnings.is_empty(), "agency provider should not warn");
+        assert!(
+            !ladder.by_date.is_empty(),
+            "agency provider should emit flows"
+        );
+        assert!(
+            ladder.warnings.is_empty(),
+            "agency provider should not warn"
+        );
     }
 
     #[test]
@@ -589,7 +732,13 @@ mod tests {
 
         let ladder = aggregate_cashflows(&portfolio, &market).expect("cdx cashflow aggregation");
 
-        assert!(!ladder.by_date.is_empty(), "credit composite provider should emit flows");
-        assert!(ladder.warnings.is_empty(), "credit composite provider should not warn");
+        assert!(
+            !ladder.by_date.is_empty(),
+            "credit composite provider should emit flows"
+        );
+        assert!(
+            ladder.warnings.is_empty(),
+            "credit composite provider should not warn"
+        );
     }
 }

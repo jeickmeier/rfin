@@ -344,7 +344,7 @@ impl JsEquityTotalReturnSwap {
 
         let sched = self
             .inner
-            .build_full_schedule(market.inner(), as_of)
+            .cashflow_schedule(market.inner(), as_of)
             .map_err(|e| js_error(e.to_string()))?;
         let outstanding_path = sched
             .outstanding_path_per_flow()
@@ -544,7 +544,7 @@ impl JsFiIndexTotalReturnSwap {
 
         let sched = self
             .inner
-            .build_full_schedule(market.inner(), as_of)
+            .cashflow_schedule(market.inner(), as_of)
             .map_err(|e| js_error(e.to_string()))?;
         let outstanding_path = sched
             .outstanding_path_per_flow()

@@ -2,8 +2,7 @@
 //!
 //! This module centralizes cashflow schedule generation for `InterestRateSwap`:
 //! - Fixed-leg and floating-leg `CashFlowSchedule` builders
-//! - Signed dated flows used by `CashflowProvider`
-//! - Combined full schedules with `CFKind` metadata
+//! - Combined signed schedules with `CFKind` metadata used by `CashflowProvider`
 //!
 //! Pricing logic (discounting, forwards, PV) lives in `pricer.rs` and consumes
 //! these schedules where appropriate.
@@ -38,7 +37,6 @@ use crate::cashflow::builder::{
     periods::{build_periods, BuildPeriodsParams},
     CashFlowSchedule, FixedCouponSpec, FloatingCouponSpec, FloatingRateSpec, Notional,
 };
-use crate::cashflow::traits::DatedFlows;
 use crate::instruments::rates::irs::{FloatingLegCompounding, InterestRateSwap, PayReceive};
 
 fn default_rfr_calendar(currency: finstack_core::currency::Currency) -> Option<&'static str> {
@@ -134,16 +132,16 @@ fn resolve_compounded_fixing_calendar(
         .or(float.calendar_id.as_deref());
 
     if let Some(id) = calendar_id {
-        return Ok(Some(CalendarRegistry::global().resolve_str(id).ok_or_else(
-            || {
+        return Ok(Some(
+            CalendarRegistry::global().resolve_str(id).ok_or_else(|| {
                 finstack_core::Error::Validation(format!(
                     "Fixing calendar '{}' not found in registry for compounded RFR swap '{}'. \
                      Load the calendar or remove fixing_calendar_id to use weekday stepping.",
                     id,
                     irs.id.as_str()
                 ))
-            },
-        )?));
+            })?,
+        ));
     }
 
     Ok(default_rfr_calendar(irs.notional.currency())
@@ -208,13 +206,15 @@ fn projected_overnight_rate(
         return Ok((comp - 1.0) / dcf);
     }
 
-    Err(finstack_core::Error::Input(finstack_core::InputError::NotFound {
-        id: format!(
-            "forward curve '{}' not found for reset date {} (overnight compounding)",
-            inputs.float.forward_curve_id.as_str(),
-            obs_start
-        ),
-    }))
+    Err(finstack_core::Error::Input(
+        finstack_core::InputError::NotFound {
+            id: format!(
+                "forward curve '{}' not found for reset date {} (overnight compounding)",
+                inputs.float.forward_curve_id.as_str(),
+                obs_start
+            ),
+        },
+    ))
 }
 
 pub(crate) fn projected_compounded_float_leg_schedule(
@@ -254,16 +254,14 @@ pub(crate) fn projected_compounded_float_leg_schedule(
     let cal = resolve_compounded_fixing_calendar(irs)?;
     let total_shift = compounded_total_shift_days(float.compounding.clone());
     let shift_dcf = uses_observation_shift_dcf(float.compounding.clone());
-    let disc_fallback = if proj.is_none() {
-        Some(disc)
-    } else {
-        None
-    };
+    let disc_fallback = if proj.is_none() { Some(disc) } else { None };
     let projection = OvernightProjectionInputs {
         proj,
         disc_fallback,
         fixings,
-        projection_base_date: proj.map(ForwardCurve::base_date).unwrap_or_else(|| disc.base_date()),
+        projection_base_date: proj
+            .map(ForwardCurve::base_date)
+            .unwrap_or_else(|| disc.base_date()),
         float: &float,
     };
 
@@ -275,9 +273,8 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 
         let accrual_start = period.accrual_start;
         let accrual_end = period.accrual_end;
-        let allow_fast_path = as_of <= accrual_start
-            && total_shift == 0
-            && proj.is_none_or(|p| disc.id() == p.id());
+        let allow_fast_path =
+            as_of <= accrual_start && total_shift == 0 && proj.is_none_or(|p| disc.id() == p.id());
 
         let compound_factor = if allow_fast_path {
             1.0 / crate::instruments::common_impl::pricing::swap_legs::robust_relative_df(
@@ -294,7 +291,11 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                 } else {
                     d.add_weekdays(1)
                 };
-                let step_end = if next_d > accrual_end { accrual_end } else { next_d };
+                let step_end = if next_d > accrual_end {
+                    accrual_end
+                } else {
+                    next_d
+                };
 
                 let obs_start = if total_shift == 0 {
                     d
@@ -311,10 +312,15 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                     step_end.add_weekdays(total_shift)
                 };
 
-                let (dcf_start, dcf_end) = if shift_dcf { (obs_start, obs_end) } else { (d, step_end) };
-                let dcf = float
-                    .day_count
-                    .year_fraction(dcf_start, dcf_end, DayCountCtx::default())?;
+                let (dcf_start, dcf_end) = if shift_dcf {
+                    (obs_start, obs_end)
+                } else {
+                    (d, step_end)
+                };
+                let dcf =
+                    float
+                        .day_count
+                        .year_fraction(dcf_start, dcf_end, DayCountCtx::default())?;
 
                 if obs_end <= obs_start {
                     return Err(finstack_core::Error::Validation(format!(
@@ -325,12 +331,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
                     )));
                 }
 
-                let r = projected_overnight_rate(
-                    obs_start,
-                    obs_end,
-                    dcf,
-                    &projection,
-                )?;
+                let r = projected_overnight_rate(obs_start, obs_end, dcf, &projection)?;
                 acc *= 1.0 + r * dcf;
                 d = step_end;
             }
@@ -344,8 +345,10 @@ pub(crate) fn projected_compounded_float_leg_schedule(
             ))
         })?;
         let interest = irs.notional.amount() * (compound_factor - 1.0);
-        let spread_contrib =
-            irs.notional.amount() * spread_bp * crate::constants::ONE_BASIS_POINT * period.accrual_year_fraction;
+        let spread_contrib = irs.notional.amount()
+            * spread_bp
+            * crate::constants::ONE_BASIS_POINT
+            * period.accrual_year_fraction;
         let coupon_amount = interest + spread_contrib;
         let all_in_rate = if period.accrual_year_fraction.abs() > f64::EPSILON {
             (compound_factor - 1.0) / period.accrual_year_fraction
@@ -393,7 +396,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
 ///
 /// # fn example() -> finstack_core::Result<()> {
@@ -405,7 +408,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
 /// # Ok(())
 /// # }
 /// ```
-pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
+pub(crate) fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
     let fixed = irs.resolved_fixed_leg();
     let mut fixed_b = CashFlowSchedule::builder();
     let _ = fixed_b
@@ -431,44 +434,6 @@ pub fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
             || cf.kind == crate::cashflow::primitives::CFKind::Stub
     });
     Ok(sched)
-}
-
-/// Build an unsigned floating-leg cashflow schedule for an IRS.
-///
-/// The schedule encodes reset dates, payment dates, and accrual metadata. The
-/// amounts are unsigned; caller is responsible for applying `PayReceive`.
-///
-/// # Arguments
-///
-/// * `irs` - The interest rate swap for which to build the schedule
-///
-/// # Returns
-///
-/// A `CashFlowSchedule` containing all floating leg cashflows with `CFKind::FloatReset`
-/// classifications. Amounts are unsigned (positive) and represent notional × spread
-/// × accrual factor (forward rates must be added separately by the pricer).
-///
-/// # Errors
-///
-/// Returns an error if the cashflow schedule cannot be built (e.g., invalid
-/// date ranges or calendar lookups fail).
-///
-/// # Examples
-///
-/// ```
-/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
-///
-/// # fn example() -> finstack_core::Result<()> {
-/// let irs = InterestRateSwap::example()?;
-/// let schedule = cashflow::float_leg_schedule(&irs)?;
-///
-/// // Schedule contains floating rate reset flows
-/// assert!(!schedule.flows.is_empty());
-/// # Ok(())
-/// # }
-/// ```
-pub fn float_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
-    float_leg_schedule_with_curves(irs, None)
 }
 
 /// Build an unsigned floating-leg cashflow schedule for an IRS with market curves.
@@ -512,8 +477,11 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
             };
             let fixings_id = format!("FIXING:{}", float.forward_curve_id.as_str());
             let fixings = market.get_series(&fixings_id).ok();
-            let valuation_date =
-                as_of.unwrap_or_else(|| proj.as_ref().map(|c| c.base_date()).unwrap_or_else(|| disc.base_date()));
+            let valuation_date = as_of.unwrap_or_else(|| {
+                proj.as_ref()
+                    .map(|c| c.base_date())
+                    .unwrap_or_else(|| disc.base_date())
+            });
             return projected_compounded_float_leg_schedule(
                 irs,
                 disc.as_ref(),
@@ -567,133 +535,6 @@ pub(crate) fn float_leg_schedule_with_curves_as_of(
     Ok(sched)
 }
 
-/// Build signed dated flows for an IRS, suitable for `CashflowProvider`.
-///
-/// Returns a vector of `(date, amount)` with signs applied according to
-/// `PayReceive` and fixed/float leg direction.
-///
-/// # Arguments
-///
-/// * `irs` - The interest rate swap for which to build dated flows
-///
-/// # Returns
-///
-/// A vector of `(Date, Money)` tuples with:
-/// - Fixed leg flows: positive for ReceiveFixed, negative for PayFixed
-/// - Floating leg flows: negative for ReceiveFixed, positive for PayFixed
-///
-/// # Errors
-///
-/// Returns an error if either leg's cashflow schedule cannot be built.
-///
-/// # Examples
-///
-/// ```
-/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow, PayReceive};
-///
-/// # fn example() -> finstack_core::Result<()> {
-/// let irs = InterestRateSwap::example()?;
-/// let flows = cashflow::signed_dated_flows(&irs)?;
-///
-/// // PayFixed swap has negative fixed leg flows, positive float leg flows
-/// assert!(!flows.is_empty());
-/// # Ok(())
-/// # }
-/// ```
-pub fn signed_dated_flows(irs: &InterestRateSwap) -> Result<DatedFlows> {
-    signed_dated_flows_with_curves(irs, None)
-}
-
-/// Build signed dated flows for an IRS with market curves.
-///
-/// When curves are provided, floating leg amounts include forward rate projections.
-///
-/// # Arguments
-///
-/// * `irs` - The interest rate swap for which to build dated flows
-/// * `curves` - Optional market context containing forward curves
-pub fn signed_dated_flows_with_curves(
-    irs: &InterestRateSwap,
-    curves: Option<&finstack_core::market_data::context::MarketContext>,
-) -> Result<DatedFlows> {
-    let fixed_sched = fixed_leg_schedule(irs)?;
-    let float_sched = float_leg_schedule_with_curves(irs, curves)?;
-
-    let mut flows: Vec<(Date, Money)> = Vec::new();
-
-    // Fixed leg: sign depends on PayReceive
-    for cf in fixed_sched.flows {
-        if cf.kind == crate::cashflow::primitives::CFKind::Fixed
-            || cf.kind == crate::cashflow::primitives::CFKind::Stub
-        {
-            let amt = match irs.side {
-                PayReceive::ReceiveFixed => cf.amount,
-                PayReceive::PayFixed => cf.amount * -1.0,
-            };
-            flows.push((cf.date, amt));
-        }
-    }
-
-    // Floating leg: opposite sign to fixed leg
-    for cf in float_sched.flows {
-        if cf.kind == crate::cashflow::primitives::CFKind::FloatReset {
-            let amt = match irs.side {
-                PayReceive::ReceiveFixed => cf.amount * -1.0,
-                PayReceive::PayFixed => cf.amount,
-            };
-            flows.push((cf.date, amt));
-        }
-    }
-
-    // Sort flows by date
-    flows.sort_by_key(|(date, _)| *date);
-
-    Ok(flows)
-}
-
-/// Build a full, signed cashflow schedule with `CFKind` metadata for an IRS.
-///
-/// This combines fixed and floating leg schedules, applies sign conventions,
-/// and sorts flows by date and CFKind priority.
-///
-/// # Arguments
-///
-/// * `irs` - The interest rate swap for which to build the full schedule
-///
-/// # Returns
-///
-/// A `CashFlowSchedule` containing all cashflows from both legs with:
-/// - Proper sign conventions applied based on `PayReceive`
-/// - `CFKind` metadata preserved for each flow
-/// - Flows sorted by date and kind priority
-///
-/// # Errors
-///
-/// Returns an error if either leg's cashflow schedule cannot be built.
-///
-/// # Examples
-///
-/// ```
-/// use finstack_valuations::instruments::rates::irs::{InterestRateSwap, cashflow};
-///
-/// # fn example() -> finstack_core::Result<()> {
-/// let irs = InterestRateSwap::example()?;
-/// let schedule = cashflow::full_signed_schedule(&irs)?;
-///
-/// // Combined schedule has flows from both fixed and floating legs
-/// assert!(!schedule.flows.is_empty());
-///
-/// // Flows are sorted by date
-/// for i in 1..schedule.flows.len() {
-///     assert!(schedule.flows[i].date >= schedule.flows[i-1].date);
-/// }
-/// # Ok(())
-/// # }
-/// ```
-pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> {
-    full_signed_schedule_with_curves(irs, None)
-}
-
 /// Build a full, signed cashflow schedule with `CFKind` metadata for an IRS with market curves.
 ///
 /// When curves are provided, floating leg amounts include forward rate projections.
@@ -702,7 +543,8 @@ pub fn full_signed_schedule(irs: &InterestRateSwap) -> Result<CashFlowSchedule> 
 ///
 /// * `irs` - The interest rate swap for which to build the full schedule
 /// * `curves` - Optional market context containing forward curves
-pub fn full_signed_schedule_with_curves(
+#[cfg(test)]
+pub(crate) fn full_signed_schedule_with_curves(
     irs: &InterestRateSwap,
     curves: Option<&MarketContext>,
 ) -> Result<CashFlowSchedule> {
@@ -714,10 +556,14 @@ pub(crate) fn full_signed_schedule_with_curves_as_of(
     curves: Option<&MarketContext>,
     as_of: Option<Date>,
 ) -> Result<CashFlowSchedule> {
+    use crate::instruments::common_impl::pricing::swap_legs::add_payment_delay;
     use finstack_core::cashflow::{CFKind, CashFlow};
 
     let fixed_sched = fixed_leg_schedule(irs)?;
-    let float_sched = float_leg_schedule_with_curves_as_of(irs, curves, as_of)?;
+    let float_sched = match as_of {
+        Some(as_of_date) => float_leg_schedule_with_curves_as_of(irs, curves, Some(as_of_date))?,
+        None => float_leg_schedule_with_curves(irs, curves)?,
+    };
 
     // Combine flows from both legs with proper CFKind classification
     let mut all_flows: Vec<CashFlow> = Vec::new();
@@ -786,6 +632,29 @@ pub(crate) fn full_signed_schedule_with_curves_as_of(
         }
     });
 
+    if let Some(as_of) = as_of {
+        all_flows.retain(|flow| {
+            let payment_date = match flow.kind {
+                CFKind::Fixed | CFKind::Stub => add_payment_delay(
+                    flow.date,
+                    irs.fixed.payment_lag_days,
+                    irs.fixed.calendar_id.as_deref(),
+                ),
+                CFKind::FloatReset => add_payment_delay(
+                    flow.date,
+                    irs.float.payment_lag_days,
+                    irs.float.calendar_id.as_deref(),
+                ),
+                _ => Ok(flow.date),
+            };
+
+            match payment_date {
+                Ok(payment_date) => payment_date > as_of,
+                Err(_) => true,
+            }
+        });
+    }
+
     // Create notional spec for swap (notional doesn't amortize)
     let notional = Notional::par(irs.notional.amount(), irs.notional.currency());
 
@@ -815,7 +684,7 @@ mod tests {
             "fixed_leg_schedule should be coupon-only"
         );
 
-        let float = float_leg_schedule(&irs).expect("float schedule");
+        let float = float_leg_schedule_with_curves(&irs, None).expect("float schedule");
         assert!(
             float.flows.iter().all(|cf| cf.kind == CFKind::FloatReset),
             "float_leg_schedule should be coupon-only"

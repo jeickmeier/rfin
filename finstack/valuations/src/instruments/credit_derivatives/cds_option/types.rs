@@ -531,3 +531,8 @@ impl crate::instruments::common_impl::traits::CurveDependencies for CDSOption {
             .build()
     }
 }
+
+crate::impl_empty_cashflow_provider!(
+    CDSOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);

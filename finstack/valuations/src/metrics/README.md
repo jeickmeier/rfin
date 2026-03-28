@@ -464,7 +464,9 @@ fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
 
     // Compute expensive calculation once
     let cashflows = context.cashflows.get_or_insert_with(|| {
-        generate_cashflows(&context.instrument, context.as_of)
+        context
+            .instrument
+            .cashflow_schedule(context.curves.as_ref(), context.as_of)
     });
 
     // Use cached cashflows

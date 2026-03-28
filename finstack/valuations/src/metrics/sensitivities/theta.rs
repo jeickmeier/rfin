@@ -292,11 +292,7 @@ pub(crate) fn collect_cashflows_in_period(
     end_date: Date,
     base_currency: Currency,
 ) -> Result<f64> {
-    let Some(cf) = instrument.as_cashflow_provider() else {
-        return Ok(0.0);
-    };
-
-    let flows = cf.build_dated_flows(curves, start_date)?;
+    let flows = instrument.dated_cashflows(curves, start_date)?;
     let mut sum = 0.0;
     for (d, m) in flows {
         if d > start_date && d <= end_date {

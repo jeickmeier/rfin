@@ -39,6 +39,13 @@
 //! - `key()`: Type classification for pricer dispatch
 //! - `value()`: Fast NPV calculation
 //! - `price_with_metrics()`: NPV plus risk metrics (DV01, Greeks, etc.)
+//! - `cashflow_schedule()`: Canonical future-dated waterfall schedule
+//! - `dated_cashflows()`: Derived flattened `(Date, Money)` convenience view
+//!
+//! Cashflow policy is now universal across instruments. Deterministic products
+//! emit contractual or projected schedules, while contingent or exhausted
+//! products still return an explicit empty schedule tagged with metadata that
+//! distinguishes `Placeholder` from `NoResidual`.
 //!
 //! # Quick Example
 //!

@@ -52,7 +52,7 @@ impl MetricCalculator for BondCs01Calculator {
 
         let bumped_spread = base_spread + ONE_BASIS_POINT;
 
-        let flows = bond.build_dated_flows(&context.curves, context.as_of)?;
+        let flows = bond.dated_cashflows(&context.curves, context.as_of)?;
         let disc = context.curves.get_discount(&bond.discount_curve_id)?;
         let dc = disc.day_count();
         let base_date = disc.base_date();

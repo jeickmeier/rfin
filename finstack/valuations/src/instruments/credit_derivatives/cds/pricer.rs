@@ -99,6 +99,7 @@ use finstack_core::math::{adaptive_simpson, gauss_legendre_integrate};
 use finstack_core::money::Money;
 use finstack_core::types::CurveId;
 use finstack_core::{Error, Result};
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use std::cell::RefCell;
 use time::Duration;
@@ -774,22 +775,19 @@ impl CDSPricer {
             .calendar_id
             .as_deref()
             .and_then(finstack_core::dates::calendar::calendar_by_id);
-        let schedule =
-            crate::cashflow::traits::CashflowProvider::build_full_schedule(cds, &MarketContext::new(), as_of)?;
+        let periods = self.coupon_periods(cds, as_of)?;
+        let spread = cds.premium.spread_bp.to_f64().ok_or_else(|| {
+            Error::Validation("premium spread_bp cannot be represented as f64".into())
+        })? / BASIS_POINTS_PER_UNIT;
 
         let mut premium_pv = 0.0;
-        let mut start_date = cds.premium.start;
-
-        for flow in schedule.flows.iter().filter(|cf| {
-            cf.kind == finstack_core::cashflow::CFKind::Fixed
-                || cf.kind == finstack_core::cashflow::CFKind::Stub
-        }) {
-            let end_date = flow.date;
-            let payment_date = flow.date;
+        for period in periods {
+            let start_date = period.accrual_start;
+            let end_date = period.accrual_end;
+            let payment_date = period.payment_date;
 
             // Skip periods that have already ended before as_of
             if end_date <= as_of {
-                start_date = end_date;
                 continue;
             }
 
@@ -799,15 +797,22 @@ impl CDSPricer {
             // Survival uses hazard curve's day-count and conditional probability
             let sp = sp_cond_to(surv, as_of, end_date)?;
 
-            premium_pv += flow.amount.amount() * sp * df;
+            let accrual = cds.premium.day_count.year_fraction(
+                start_date,
+                end_date,
+                finstack_core::dates::DayCountCtx::default(),
+            )?;
+            let scheduled_coupon = cds.notional.amount() * spread * accrual;
+            premium_pv += scheduled_coupon * sp * df;
 
             if self.config.include_accrual {
-                // The scheduled coupon cashflows already include notional in `flow.amount`.
-                // Keep AoD on the same dollar basis when adding it into premium PV.
-                premium_pv += cds.notional.amount()
+                let spread_sign = spread.signum();
+                // Keep AoD on the same dollar basis as the scheduled coupon leg.
+                premium_pv += spread_sign
+                    * cds.notional.amount()
                     * self.accrual_on_default_isda_midpoint(AodInputs {
                         cds,
-                        spread: flow.rate.unwrap_or(0.0),
+                        spread: spread.abs(),
                         start_date: start_date.max(as_of),
                         end_date,
                         settlement_delay: cds.protection.settlement_delay,
@@ -817,8 +822,6 @@ impl CDSPricer {
                         surv,
                     })?;
             }
-
-            start_date = end_date;
         }
 
         Ok(premium_pv)
@@ -2773,7 +2776,13 @@ mod tests {
         let as_of = Date::from_calendar_date(2025, time::Month::February, 15).expect("valid date");
         let pricer = CDSPricer::new();
 
-        let mut cds_unit = create_test_cds("TEST-CDS-UNIT", date!(2024 - 12 - 20), date!(2028 - 03 - 20), 100.0, 0.40);
+        let mut cds_unit = create_test_cds(
+            "TEST-CDS-UNIT",
+            date!(2024 - 12 - 20),
+            date!(2028 - 03 - 20),
+            100.0,
+            0.40,
+        );
         cds_unit.notional = Money::new(1.0, Currency::USD);
 
         let mut cds_large = cds_unit.clone();

@@ -155,9 +155,17 @@ impl CDSIndexPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<IndexResult<Money>> {
-        self.discount_projected_flows_detailed(index, curves, as_of, |flow| {
+        let mut result = self.discount_projected_flows_detailed(index, curves, as_of, |flow| {
             flow.kind == CFKind::DefaultedNotional
-        })
+        })?;
+        result.total = Money::new(result.total.amount().abs(), result.total.currency());
+        for constituent in &mut result.constituents {
+            constituent.value = Money::new(
+                constituent.value.amount().abs(),
+                constituent.value.currency(),
+            );
+        }
+        Ok(result)
     }
 
     /// Present value of the premium leg (aggregated by pricing mode)
@@ -177,9 +185,17 @@ impl CDSIndexPricer {
         curves: &MarketContext,
         as_of: Date,
     ) -> Result<IndexResult<Money>> {
-        self.discount_projected_flows_detailed(index, curves, as_of, |flow| {
+        let mut result = self.discount_projected_flows_detailed(index, curves, as_of, |flow| {
             matches!(flow.kind, CFKind::Fixed | CFKind::Stub)
-        })
+        })?;
+        result.total = Money::new(result.total.amount().abs(), result.total.currency());
+        for constituent in &mut result.constituents {
+            constituent.value = Money::new(
+                constituent.value.amount().abs(),
+                constituent.value.currency(),
+            );
+        }
+        Ok(result)
     }
 
     /// Par spread in basis points that sets NPV to zero.
@@ -432,6 +448,12 @@ impl CDSIndexPricer {
     where
         F: Fn(&CashFlow) -> bool + Copy,
     {
+        if as_of >= index.premium.end {
+            return Ok(IndexResult {
+                total: Money::new(0.0, index.notional.currency()),
+                constituents: Vec::new(),
+            });
+        }
         let projected = self.project_resolved_flows(index, curves, as_of)?;
         match projected.single_curve {
             Some((discount_curve_id, flows)) => {
@@ -466,7 +488,10 @@ impl CDSIndexPricer {
                         value,
                     });
                 }
-                Ok(IndexResult { total, constituents })
+                Ok(IndexResult {
+                    total,
+                    constituents,
+                })
             }
         }
     }
@@ -481,6 +506,12 @@ impl CDSIndexPricer {
     where
         F: Fn(&CDSPricer, &CreditDefaultSwap, &DiscountCurve, &HazardCurve, Date) -> Result<f64>,
     {
+        if as_of >= index.premium.end {
+            return Ok(IndexResult {
+                total: 0.0,
+                constituents: Vec::new(),
+            });
+        }
         let pricer = CDSPricer::with_config(self.config.cds_config.clone());
         match index.pricing {
             IndexPricing::SingleCurve => {
@@ -654,7 +685,7 @@ impl CDSIndexPricer {
         survival: &HazardCurve,
         as_of: Date,
     ) -> Result<Vec<CashFlow>> {
-        let mut schedule = CashflowProvider::build_full_schedule(cds, &MarketContext::new(), as_of)?;
+        let mut schedule = CashflowProvider::cashflow_schedule(cds, &MarketContext::new(), as_of)?;
         let premium_sign = match cds.side {
             PayReceive::PayFixed => -1.0,
             PayReceive::ReceiveFixed => 1.0,
@@ -696,7 +727,10 @@ impl CDSIndexPricer {
                 let projected_premium = flow.amount.amount().abs() * projected_survival;
                 if projected_premium.abs() > f64::EPSILON {
                     projected_flows.push(CashFlow {
-                        amount: Money::new(projected_premium * premium_sign, flow.amount.currency()),
+                        amount: Money::new(
+                            projected_premium * premium_sign,
+                            flow.amount.currency(),
+                        ),
                         ..flow
                     });
                 }
@@ -770,7 +804,11 @@ impl CDSIndexPricer {
         survival.base_date() + Duration::days(days)
     }
 
-    fn midpoint_default_date(survival: &HazardCurve, start_date: Date, end_date: Date) -> Result<Date> {
+    fn midpoint_default_date(
+        survival: &HazardCurve,
+        start_date: Date,
+        end_date: Date,
+    ) -> Result<Date> {
         let t_start = survival.day_count().year_fraction(
             survival.base_date(),
             start_date,
@@ -781,7 +819,10 @@ impl CDSIndexPricer {
             end_date,
             finstack_core::dates::DayCountCtx::default(),
         )?;
-        Ok(Self::date_from_hazard_time(survival, 0.5 * (t_start + t_end)))
+        Ok(Self::date_from_hazard_time(
+            survival,
+            0.5 * (t_start + t_end),
+        ))
     }
 
     fn settlement_date_with_delay(
@@ -977,7 +1018,10 @@ mod tests {
             .build_projected_schedule(&CDSIndex::example(), &market, as_of)
             .expect("projected schedule should build");
 
-        assert!(schedule.flows.iter().any(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub)));
+        assert!(schedule
+            .flows
+            .iter()
+            .any(|cf| matches!(cf.kind, CFKind::Fixed | CFKind::Stub)));
         assert!(schedule
             .flows
             .iter()

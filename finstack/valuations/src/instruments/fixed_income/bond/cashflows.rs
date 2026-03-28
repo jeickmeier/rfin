@@ -6,7 +6,7 @@
 //!
 //! # Holder-View Convention
 //!
-//! All cashflows returned by `CashflowProvider::build_dated_flows` follow a **holder-view** convention:
+//! All cashflows returned by `CashflowProvider::dated_cashflows` follow a **holder-view** convention:
 //! - **Positive amounts** represent contractual inflows to a long holder
 //!   (coupons, amortization, redemption).
 //! - **Initial draw / funding legs** are excluded (handled at trade level).
@@ -22,7 +22,7 @@
 //! # let bond = Bond::example().unwrap();
 //! # let market = MarketContext::new();
 //! # let as_of = Date::from_calendar_date(2024, time::Month::January, 15).unwrap();
-//! let flows = bond.build_dated_flows(&market, as_of)?;
+//! let flows = bond.dated_cashflows(&market, as_of)?;
 //! // flows is Vec<(Date, Money)> with positive holder receipts
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
@@ -47,7 +47,7 @@ impl CashflowProvider for Bond {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         _as_of: Date,
@@ -56,7 +56,7 @@ impl CashflowProvider for Bond {
         let mut schedule = if let Some(ref custom) = self.custom_cashflows {
             custom.clone()
         } else {
-            self.get_full_schedule(curves)?
+            self.full_cashflow_schedule(curves)?
         };
 
         // Filter flows to holder view, preserving CashFlow objects with CFKind.
@@ -83,6 +83,8 @@ impl CashflowProvider for Bond {
         schedule.flows = filtered_flows;
         // Sort by date
         schedule.flows.sort_by_key(|cf| cf.date);
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
 
         Ok(schedule)
     }

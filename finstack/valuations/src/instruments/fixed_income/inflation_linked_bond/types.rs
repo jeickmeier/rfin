@@ -573,8 +573,8 @@ impl InflationLinkedBond {
 
     /// Calculate the raw index ratio for a given date (CPI(date) / CPI(base)).
     ///
-    /// Returns the **unfloored** ratio. Deflation protection is applied at the
-    /// cashflow level in [`build_schedule`](Self::build_schedule) so that the
+    /// Returns the **unfloored** ratio. Deflation protection is applied when
+    /// building the canonical cashflow schedule so that the
     /// TIPS-style principal-only floor does not leak into coupon indexation.
     ///
     /// | Method | Lag | Interpolation |
@@ -655,8 +655,8 @@ impl InflationLinkedBond {
     /// (via [`InflationCurve::cpi_on_date`]), avoiding day-count basis
     /// mismatches between the bond and the curve.
     ///
-    /// Returns the **unfloored** ratio. Deflation protection is applied
-    /// at the cashflow level in [`build_schedule`](Self::build_schedule).
+    /// Returns the **unfloored** ratio. Deflation protection is applied when
+    /// building the canonical cashflow schedule.
     pub fn index_ratio_from_curve(
         &self,
         date: Date,
@@ -681,64 +681,6 @@ impl InflationLinkedBond {
     pub fn index_ratio_from_market(&self, date: Date, curves: &MarketContext) -> Result<f64> {
         let source = self.inflation_source(curves)?;
         source.ratio(self, date)
-    }
-
-    /// Build inflation-adjusted cashflow schedule
-    pub fn build_schedule(&self, curves: &MarketContext, _as_of: Date) -> Result<DatedFlows> {
-        let inflation_source = self.inflation_source(curves)?;
-
-        // Base coupon dates via shared builder
-        let sched = crate::cashflow::builder::build_dates(
-            self.issue_date,
-            self.maturity,
-            self.frequency,
-            self.stub,
-            self.bdc,
-            false,
-            0,
-            self.calendar_id
-                .as_deref()
-                .unwrap_or(crate::cashflow::builder::calendar::WEEKENDS_ONLY_ID),
-        )?;
-        let periods = &sched.periods;
-        if periods.is_empty() {
-            return Ok(vec![]);
-        }
-
-        let mut flows = Vec::with_capacity(periods.len() + 1);
-        for period in periods {
-            let year_frac = self
-                .day_count
-                .year_fraction(
-                    period.accrual_start,
-                    period.accrual_end,
-                    DayCountCtx::default(),
-                )?
-                .max(0.0);
-            let coupon_rate = self
-                .real_coupon
-                .to_f64()
-                .ok_or(finstack_core::InputError::ConversionOverflow)?;
-            let base_amount = self.notional * coupon_rate * year_frac;
-            let raw_ratio = inflation_source.ratio(self, period.payment_date)?;
-            let ratio = match self.deflation_protection {
-                DeflationProtection::AllPayments => raw_ratio.max(1.0),
-                DeflationProtection::None | DeflationProtection::MaturityOnly => raw_ratio,
-            };
-            flows.push((period.payment_date, base_amount * ratio));
-        }
-
-        // Principal repayment at maturity (inflation adjusted)
-        let raw_principal_ratio = inflation_source.ratio(self, self.maturity)?;
-        let principal_ratio = match self.deflation_protection {
-            DeflationProtection::None => raw_principal_ratio,
-            DeflationProtection::MaturityOnly | DeflationProtection::AllPayments => {
-                raw_principal_ratio.max(1.0)
-            }
-        };
-        flows.push((self.maturity, self.notional * principal_ratio));
-
-        Ok(flows)
     }
 
     /// Calculate real accrued interest at the given date
@@ -802,7 +744,7 @@ impl InflationLinkedBond {
     ///
     /// Cashflows with `payment_date < as_of` are excluded (already settled).
     /// The principal payment date is business-day adjusted via the bond's BDC.
-    pub fn build_real_schedule(&self, as_of: Date) -> Result<DatedFlows> {
+    pub(crate) fn build_real_schedule(&self, as_of: Date) -> Result<DatedFlows> {
         let cal_id = self
             .calendar_id
             .as_deref()
@@ -1021,10 +963,6 @@ impl crate::instruments::common_impl::traits::Instrument for InflationLinkedBond
         )
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.maturity)
     }
@@ -1051,7 +989,7 @@ impl CashflowProvider for InflationLinkedBond {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         _as_of: Date,
@@ -1134,7 +1072,10 @@ impl CashflowProvider for InflationLinkedBond {
                 self.notional.currency(),
             ),
             day_count: self.day_count,
-            meta: crate::cashflow::builder::CashFlowMeta::default(),
+            meta: crate::cashflow::builder::CashFlowMeta {
+                representation: crate::cashflow::builder::CashflowRepresentation::Contractual,
+                ..Default::default()
+            },
         })
     }
 }
@@ -1209,13 +1150,25 @@ mod tests {
         let market = market_with_deflation(as_of);
         let bond = sample_bond(DeflationProtection::MaturityOnly);
 
-        let flows = bond
-            .build_schedule(&market, as_of)
+        let schedule = bond
+            .cashflow_schedule(&market, as_of)
             .expect("schedule should build");
-        assert!(flows.len() >= 3);
+        assert!(schedule.flows.len() >= 3);
 
-        let first_coupon = flows[0].1.amount();
-        let principal = flows.last().expect("principal flow").1.amount();
+        let first_coupon = schedule
+            .flows
+            .iter()
+            .find(|flow| flow.kind == CFKind::InflationCoupon)
+            .expect("coupon flow")
+            .amount
+            .amount();
+        let principal = schedule
+            .flows
+            .iter()
+            .find(|flow| flow.date == bond.maturity && flow.kind == CFKind::Notional)
+            .expect("principal flow")
+            .amount
+            .amount();
 
         assert!(
             first_coupon < 20_000.0,
@@ -1230,26 +1183,38 @@ mod tests {
         let market = market_with_deflation(as_of);
         let bond = sample_bond(DeflationProtection::AllPayments);
 
-        let flows = bond
-            .build_schedule(&market, as_of)
+        let schedule = bond
+            .cashflow_schedule(&market, as_of)
             .expect("schedule should build");
-        assert!(flows.len() >= 3);
+        assert!(schedule.flows.len() >= 3);
 
-        let first_coupon = flows[0].1.amount();
-        let principal = flows.last().expect("principal flow").1.amount();
+        let first_coupon = schedule
+            .flows
+            .iter()
+            .find(|flow| flow.kind == CFKind::InflationCoupon)
+            .expect("coupon flow")
+            .amount
+            .amount();
+        let principal = schedule
+            .flows
+            .iter()
+            .find(|flow| flow.date == bond.maturity && flow.kind == CFKind::Notional)
+            .expect("principal flow")
+            .amount
+            .amount();
 
         assert_eq!(first_coupon, 20_000.0);
         assert_eq!(principal, 1_000_000.0);
     }
 
     #[test]
-    fn build_full_schedule_marks_inflation_coupons_explicitly() {
+    fn cashflow_schedule_marks_inflation_coupons_explicitly() {
         let as_of = d(2024, Month::January, 15);
         let market = market_with_deflation(as_of);
         let bond = sample_bond(DeflationProtection::AllPayments);
 
         let schedule = bond
-            .build_full_schedule(&market, as_of)
+            .cashflow_schedule(&market, as_of)
             .expect("full schedule should build");
 
         assert!(

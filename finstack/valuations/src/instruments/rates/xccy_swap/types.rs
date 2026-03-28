@@ -553,14 +553,10 @@ impl crate::instruments::common_impl::traits::Instrument for XccySwap {
     fn effective_start_date(&self) -> Option<finstack_core::dates::Date> {
         Some(self.leg1.start)
     }
-
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
 }
 
 impl CashflowProvider for XccySwap {
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         market: &MarketContext,
         as_of: Date,
@@ -585,6 +581,8 @@ impl CashflowProvider for XccySwap {
             .flows
             .sort_by(|lhs, rhs| lhs.date.cmp(&rhs.date));
         leg1_schedule.notional = Notional::par(0.0, self.reporting_currency);
+        leg1_schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(leg1_schedule)
     }
 }
@@ -691,11 +689,18 @@ mod tests {
         );
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("xccy contractual schedule should build");
 
-        assert!(flows.len() >= 6, "xccy swap should emit principal and coupon flows");
-        assert!(flows.iter().any(|(_, money)| money.currency() == Currency::USD));
-        assert!(flows.iter().any(|(_, money)| money.currency() == Currency::EUR));
+        assert!(
+            flows.len() >= 6,
+            "xccy swap should emit principal and coupon flows"
+        );
+        assert!(flows
+            .iter()
+            .any(|(_, money)| money.currency() == Currency::USD));
+        assert!(flows
+            .iter()
+            .any(|(_, money)| money.currency() == Currency::EUR));
     }
 }

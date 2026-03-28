@@ -92,7 +92,7 @@
 //! - `PayReceive` for swap direction
 //! - swap metrics module for swap-specific risk metrics
 
-pub mod cashflow;
+pub(crate) mod cashflow;
 pub mod compounding;
 pub mod dates;
 pub(crate) mod metrics;

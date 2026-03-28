@@ -740,12 +740,12 @@ impl BondValuator {
         let curves = market_context;
         let discount_curve = market_context.get_discount(&bond.discount_curve_id)?;
         let dc_curve = discount_curve.day_count();
-        let flows = bond.build_dated_flows(curves, as_of)?;
+        let flows = bond.dated_cashflows(curves, as_of)?;
 
         // Build outstanding principal schedule from the full cashflow schedule.
         // This tracks notional minus cumulative amortization at each step for
         // correct call/put redemption pricing on amortizing bonds.
-        let full_schedule = bond.get_full_schedule(market_context)?;
+        let full_schedule = bond.full_cashflow_schedule(market_context)?;
         let mut outstanding_principal_vec = vec![bond.notional.amount(); num_steps];
 
         // Collect amortization events sorted by date

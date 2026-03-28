@@ -196,8 +196,8 @@ pub fn execute_waterfall_with_principal_breakdown(
             .unwrap_or(0.0);
         let scheduled_principal = principal.min(remaining_scheduled_principal);
         remaining_scheduled_principal -= scheduled_principal;
-        let prepayment_principal = (principal - scheduled_principal)
-            .min(remaining_prepayment_principal);
+        let prepayment_principal =
+            (principal - scheduled_principal).min(remaining_prepayment_principal);
         remaining_prepayment_principal -= prepayment_principal;
 
         let beginning = tranche.current_face.amount();

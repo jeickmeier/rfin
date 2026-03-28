@@ -120,7 +120,7 @@ impl PrivateMarketsFund {
     }
 
     /// Compute LP cashflows from running the waterfall.
-    pub fn lp_cashflows(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
+    pub(crate) fn lp_cashflows(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
         pricer::lp_cashflows(self)
     }
 }
@@ -140,10 +140,6 @@ impl Instrument for PrivateMarketsFund {
         None
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -161,17 +157,20 @@ impl CashflowProvider for PrivateMarketsFund {
     // Private markets funds don't have a simple notional concept
     // (commitment varies with capital calls/distributions)
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
         let flows = self.lp_cashflows()?;
-        Ok(crate::cashflow::traits::schedule_from_dated_flows_with_kind(
+        let mut schedule = crate::cashflow::traits::schedule_from_dated_flows_with_kind(
             flows,
             crate::cashflow::primitives::CFKind::Fixed,
             None,
             finstack_core::dates::DayCount::Act365F, // Standard for PE fund cashflows
-        ))
+        );
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
+        Ok(schedule)
     }
 }

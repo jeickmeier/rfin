@@ -1,9 +1,9 @@
 //! Zero-coupon Inflation Swap types and pricing implementation.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::parameters::legs::PayReceive;
 use crate::instruments::common_impl::traits::Attributes;
 use crate::instruments::common_impl::validation;
@@ -473,10 +473,6 @@ impl crate::instruments::common_impl::traits::Instrument for InflationSwap {
         Some(self.start_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -495,7 +491,7 @@ impl CashflowProvider for InflationSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
@@ -530,6 +526,8 @@ impl CashflowProvider for InflationSwap {
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), ccy);
         schedule.day_count = self.day_count;
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }
@@ -860,10 +858,6 @@ impl crate::instruments::common_impl::traits::Instrument for YoYInflationSwap {
         Some(self.start_date)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -882,7 +876,7 @@ impl CashflowProvider for YoYInflationSwap {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         curves: &MarketContext,
         as_of: Date,
@@ -906,6 +900,8 @@ impl CashflowProvider for YoYInflationSwap {
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(self.notional.amount(), ccy);
         schedule.day_count = self.day_count;
+        schedule.meta.representation =
+            crate::cashflow::builder::CashflowRepresentation::Contractual;
         Ok(schedule)
     }
 }
@@ -1036,13 +1032,19 @@ mod tests {
             .expect("swap should build");
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("contractual schedule should build");
 
         assert_eq!(flows.len(), 2, "zc inflation swap should emit both legs");
         assert!(flows.iter().all(|(date, _)| *date == maturity));
-        assert!(flows[0].1.amount() < 0.0, "pay-fixed swap should pay fixed leg");
-        assert!(flows[1].1.amount() > 0.0, "pay-fixed swap should receive inflation leg");
+        assert!(
+            flows[0].1.amount() < 0.0,
+            "pay-fixed swap should pay fixed leg"
+        );
+        assert!(
+            flows[1].1.amount() > 0.0,
+            "pay-fixed swap should receive inflation leg"
+        );
     }
 
     #[test]
@@ -1068,11 +1070,27 @@ mod tests {
             .expect("yoy swap should build");
 
         let flows = swap
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("yoy contractual schedule should build");
 
-        assert_eq!(flows.len(), 4, "two annual periods should emit fixed and inflation rows");
-        assert_eq!(flows.iter().filter(|(_, money)| money.amount() < 0.0).count(), 2);
-        assert_eq!(flows.iter().filter(|(_, money)| money.amount() > 0.0).count(), 2);
+        assert_eq!(
+            flows.len(),
+            4,
+            "two annual periods should emit fixed and inflation rows"
+        );
+        assert_eq!(
+            flows
+                .iter()
+                .filter(|(_, money)| money.amount() < 0.0)
+                .count(),
+            2
+        );
+        assert_eq!(
+            flows
+                .iter()
+                .filter(|(_, money)| money.amount() > 0.0)
+                .count(),
+            2
+        );
     }
 }

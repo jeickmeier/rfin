@@ -522,7 +522,7 @@ fn test_valuation_succeeds_when_as_of_equals_discount_curve_base() {
 // ============================================================================
 
 #[test]
-fn test_cashflow_schedule_returns_single_maturity_flow() {
+fn test_cashflow_schedule_is_empty_placeholder() {
     use finstack_valuations::cashflow::CashflowProvider;
 
     // Arrange
@@ -531,12 +531,16 @@ fn test_cashflow_schedule_returns_single_maturity_flow() {
     let as_of = swap.start_date;
 
     // Act
-    let flows = swap.build_dated_flows(&ctx, as_of).unwrap();
+    let schedule = swap.cashflow_schedule(&ctx, as_of).unwrap();
+    let flows = swap.dated_cashflows(&ctx, as_of).unwrap();
 
     // Assert
-    assert_eq!(flows.len(), 1);
-    assert_eq!(flows[0].0, swap.maturity);
-    assert_eq!(flows[0].1.currency(), swap.notional.currency());
+    assert!(schedule.flows.is_empty());
+    assert_eq!(
+        schedule.meta.representation,
+        finstack_valuations::cashflow::builder::CashflowRepresentation::Placeholder
+    );
+    assert!(flows.is_empty());
 }
 
 #[test]
@@ -550,14 +554,14 @@ fn test_cashflow_schedule_preserves_currency() {
     let as_of = swap.start_date;
 
     // Act
-    let flows = swap.build_dated_flows(&ctx, as_of).unwrap();
+    let schedule = swap.cashflow_schedule(&ctx, as_of).unwrap();
 
     // Assert
-    assert_eq!(flows[0].1.currency(), Currency::EUR);
+    assert_eq!(schedule.notional.initial.currency(), Currency::EUR);
 }
 
 #[test]
-fn test_cashflow_schedule_has_zero_amount_before_settlement() {
+fn test_cashflow_schedule_has_no_synthetic_zero_amount_before_settlement() {
     use finstack_valuations::cashflow::CashflowProvider;
 
     // Arrange
@@ -566,10 +570,10 @@ fn test_cashflow_schedule_has_zero_amount_before_settlement() {
     let as_of = swap.start_date;
 
     // Act
-    let flows = swap.build_dated_flows(&ctx, as_of).unwrap();
+    let flows = swap.dated_cashflows(&ctx, as_of).unwrap();
 
-    // Assert - variance swaps have path-dependent payoff, amount is 0 in schedule
-    assert_eq!(flows[0].1.amount(), 0.0);
+    // Assert - variance swaps no longer emit a synthetic zero payoff placeholder.
+    assert!(flows.is_empty());
 }
 
 // ============================================================================

@@ -422,10 +422,6 @@ impl crate::instruments::common_impl::traits::Instrument for InterestRateFuture 
         self.npv_raw(curves)
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn expiry(&self) -> Option<finstack_core::dates::Date> {
         Some(self.expiry)
     }
@@ -453,14 +449,15 @@ impl CashflowProvider for InterestRateFuture {
         Some(self.notional)
     }
 
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
         _curves: &MarketContext,
         _as_of: Date,
     ) -> finstack_core::Result<crate::cashflow::builder::CashFlowSchedule> {
-        Ok(crate::cashflow::traits::empty_schedule(
+        Ok(crate::cashflow::traits::empty_schedule_with_representation(
             self.notional(),
             self.day_count,
+            crate::cashflow::builder::CashflowRepresentation::NoResidual,
         ))
     }
 }

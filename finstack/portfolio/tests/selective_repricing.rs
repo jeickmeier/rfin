@@ -360,6 +360,11 @@ struct UnresolvableInstrument {
     attributes: finstack_valuations::instruments::common::traits::Attributes,
 }
 
+finstack_valuations::impl_empty_cashflow_provider!(
+    UnresolvableInstrument,
+    finstack_valuations::cashflow::builder::CashflowRepresentation::NoResidual
+);
+
 impl UnresolvableInstrument {
     fn new() -> Self {
         Self {

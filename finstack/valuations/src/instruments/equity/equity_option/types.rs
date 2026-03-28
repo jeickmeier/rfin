@@ -747,6 +747,11 @@ impl crate::instruments::common_impl::traits::Instrument for EquityOption {
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    EquityOption,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 mod tests {

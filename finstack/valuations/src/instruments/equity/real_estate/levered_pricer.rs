@@ -85,10 +85,10 @@ pub(crate) fn financing_schedules_supported(
     let mut schedules = Vec::with_capacity(inst.financing.len());
     for instrument in &inst.financing {
         let sched = match instrument {
-            InstrumentJson::TermLoan(i) => i.build_full_schedule(market, as_of)?,
-            InstrumentJson::Bond(i) => i.build_full_schedule(market, as_of)?,
-            InstrumentJson::RevolvingCredit(i) => i.build_full_schedule(market, as_of)?,
-            InstrumentJson::Repo(i) => i.build_full_schedule(market, as_of)?,
+            InstrumentJson::TermLoan(i) => i.cashflow_schedule(market, as_of)?,
+            InstrumentJson::Bond(i) => i.cashflow_schedule(market, as_of)?,
+            InstrumentJson::RevolvingCredit(i) => i.cashflow_schedule(market, as_of)?,
+            InstrumentJson::Repo(i) => i.cashflow_schedule(market, as_of)?,
             _ => {
                 return Err(CoreError::Validation(
                     "Unsupported financing instrument for cashflow-based metrics (supported: term_loan, bond, revolving_credit, repo)".into(),

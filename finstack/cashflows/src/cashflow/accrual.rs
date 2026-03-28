@@ -4,7 +4,7 @@
 //! canonical [`crate::cashflow::builder::CashFlowSchedule`] only, without
 //! depending on instrument
 //! specifications. Any instrument that can expose a `CashFlowSchedule`
-//! (via `CashflowProvider::build_full_schedule` or otherwise) can use this
+//! (via `CashflowProvider::cashflow_schedule` or otherwise) can use this
 //! engine for consistent Linear / Compounded accrual, including:
 //!
 //! - Fixed, floating, fixed-to-float, and float-to-fixed coupons

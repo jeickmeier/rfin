@@ -4,10 +4,10 @@
 //! restricted currencies. Supports both pre-fixing (forward rate estimation)
 //! and post-fixing (observed rate) valuation modes.
 
-use crate::impl_instrument_base;
 use crate::cashflow::builder::{CashFlowSchedule, Notional};
 use crate::cashflow::primitives::CFKind;
 use crate::cashflow::CashflowProvider;
+use crate::impl_instrument_base;
 use crate::instruments::common_impl::traits::Attributes;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -642,14 +642,18 @@ impl Ndf {
         Ok(())
     }
 
-    fn fixed_settlement_amount(&self) -> Result<f64> {
-        let fixing_rate = self.fixing_rate.ok_or_else(|| {
-            finstack_core::Error::Validation(format!(
-                "NDF {} cannot build a contractual cashflow schedule before fixing; \
-                 set fixing_rate first",
-                self.id
-            ))
-        })?;
+    fn settlement_amount_for_schedule(&self, market: &MarketContext, as_of: Date) -> Result<f64> {
+        let fixing_rate = if let Some(fixed_rate) = self.fixing_rate {
+            fixed_rate
+        } else if as_of >= self.fixing_date {
+            return Err(finstack_core::Error::Validation(format!(
+                "NDF {} is past fixing date ({}) but no fixing_rate is set. \
+                 Use with_fixing_rate() to set the observed rate.",
+                self.id, self.fixing_date
+            )));
+        } else {
+            self.estimate_forward_rate(market, as_of)?
+        };
         Self::validate_rate("contract_rate", self.contract_rate)?;
         Self::validate_rate("fixing_rate", fixing_rate)?;
 
@@ -658,9 +662,7 @@ impl Ndf {
             NdfQuoteConvention::BasePerSettlement => {
                 n_base * (1.0 / self.contract_rate - 1.0 / fixing_rate)
             }
-            NdfQuoteConvention::SettlementPerBase => {
-                n_base * (fixing_rate - self.contract_rate)
-            }
+            NdfQuoteConvention::SettlementPerBase => n_base * (fixing_rate - self.contract_rate),
         };
         Ok(settlement_amount)
     }
@@ -768,10 +770,6 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
         None
     }
 
-    fn as_cashflow_provider(&self) -> Option<&dyn crate::cashflow::traits::CashflowProvider> {
-        Some(self)
-    }
-
     fn pricing_overrides_mut(
         &mut self,
     ) -> Option<&mut crate::instruments::pricing_overrides::PricingOverrides> {
@@ -786,12 +784,12 @@ impl crate::instruments::common_impl::traits::Instrument for Ndf {
 }
 
 impl CashflowProvider for Ndf {
-    fn build_full_schedule(
+    fn cashflow_schedule(
         &self,
-        _market: &MarketContext,
+        market: &MarketContext,
         as_of: Date,
     ) -> finstack_core::Result<CashFlowSchedule> {
-        let settlement_amount = self.fixed_settlement_amount()?;
+        let settlement_amount = self.settlement_amount_for_schedule(market, as_of)?;
         let anchor = if as_of < self.maturity {
             as_of
         } else {
@@ -808,6 +806,7 @@ impl CashflowProvider for Ndf {
         );
         let mut schedule = builder.build_with_curves(None)?;
         schedule.notional = Notional::par(0.0, ccy);
+        schedule.meta.representation = crate::cashflow::builder::CashflowRepresentation::Projected;
         Ok(schedule)
     }
 }
@@ -1288,12 +1287,31 @@ mod tests {
             .expect("should build");
 
         let flows = ndf
-            .build_dated_flows(&market, as_of)
+            .dated_cashflows(&market, as_of)
             .expect("post-fixing contractual settlement should build");
 
         assert_eq!(flows.len(), 1, "fixed NDF should emit one settlement flow");
         assert_eq!(flows[0].0, maturity);
         assert_eq!(flows[0].1.currency(), Currency::USD);
         assert!(flows[0].1.amount() > 0.0);
+    }
+
+    #[test]
+    fn test_cashflow_schedule_is_tagged_projected() {
+        let as_of = Date::from_calendar_date(2025, Month::January, 15).expect("valid date");
+        let curve = finstack_core::market_data::term_structures::DiscountCurve::builder("USD-OIS")
+            .base_date(as_of)
+            .knots(vec![(0.0, 1.0), (1.0, 0.95)])
+            .build()
+            .expect("curve should build");
+        let market = MarketContext::new().insert(curve);
+        let schedule = Ndf::example()
+            .cashflow_schedule(&market, as_of)
+            .expect("ndf schedule");
+
+        assert_eq!(
+            schedule.meta.representation,
+            crate::cashflow::builder::CashflowRepresentation::Projected
+        );
     }
 }

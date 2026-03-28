@@ -2,14 +2,15 @@
 //! Full name (`private_markets_fund`) used in Python instead of Rust abbreviation.
 
 use crate::core::currency::PyCurrency;
-use crate::core::dates::utils::date_to_py;
-use crate::core::money::PyMoney;
-use crate::errors::core_to_py;
+use crate::core::dates::utils::py_to_date;
+use crate::core::market_data::context::PyMarketContext;
+use crate::errors::{core_to_py, PyContext};
+use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::equity::pe_fund::PrivateMarketsFund;
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyModule, PyType};
+use pyo3::types::{PyAny, PyDict, PyModule, PyType};
 use pyo3::Bound;
 use std::fmt;
 use std::sync::Arc;
@@ -91,18 +92,19 @@ impl PyPrivateMarketsFund {
             .map(|id| id.as_str().to_string())
     }
 
-    #[pyo3(text_signature = "(self)")]
-    fn lp_cashflows(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
-        let flows = self.inner.lp_cashflows().map_err(core_to_py)?;
-        let items: PyResult<Vec<(Py<PyAny>, PyMoney)>> = flows
-            .into_iter()
-            .map(|(date, amt)| {
-                let py_date = date_to_py(py, date)?;
-                let money = PyMoney::new(amt);
-                Ok((py_date, money))
-            })
-            .collect();
-        Ok(PyList::new(py, items?)?.into())
+    #[pyo3(text_signature = "($self, market, as_of)")]
+    fn cashflow_schedule(
+        &self,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyCashFlowSchedule> {
+        use finstack_valuations::cashflow::CashflowProvider;
+
+        let date = py_to_date(&as_of).context("as_of")?;
+        self.inner
+            .cashflow_schedule(&market.inner, date)
+            .map(PyCashFlowSchedule::new)
+            .map_err(core_to_py)
     }
 
     #[pyo3(text_signature = "(self)")]
@@ -145,7 +147,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PyPrivateMarketsFund>()?;
     module.setattr(
         "__doc__",
-        "Private markets fund instrument parsed from JSON definitions (LP cashflows, waterfall specs).",
+        "Private markets fund instrument parsed from JSON definitions (cashflow schedules, waterfall specs).",
     )?;
     Ok(vec!["PrivateMarketsFund"])
 }

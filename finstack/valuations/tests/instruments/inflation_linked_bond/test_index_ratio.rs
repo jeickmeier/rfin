@@ -139,7 +139,7 @@ fn test_index_ratio_maturity_only_deflation_protection() {
     .with_interpolation(InflationInterpolation::Linear);
 
     // index_ratio now returns the RAW ratio (no deflation floor).
-    // Deflation protection is applied at the cashflow level in build_schedule.
+    // Deflation protection is applied when building the cashflow schedule.
     let ratio_at_maturity = ilb.index_ratio(ilb.maturity, &index).unwrap();
     let ratio_before_maturity = ilb.index_ratio(d(2025, 1, 1), &index).unwrap();
 
@@ -177,7 +177,7 @@ fn test_index_ratio_all_payments_deflation_protection() {
     .with_interpolation(InflationInterpolation::Linear);
 
     // index_ratio now returns the RAW ratio (no deflation floor).
-    // Deflation protection is applied at the cashflow level in build_schedule.
+    // Deflation protection is applied when building the cashflow schedule.
     let ratio = ilb.index_ratio(d(2025, 1, 1), &index).unwrap();
 
     assert!(ratio < 1.0, "raw ratio should reflect deflation");

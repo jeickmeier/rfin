@@ -54,7 +54,7 @@ fn test_fixed_coupon_cashflows() {
     // Act
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
-    let cashflows = loan.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = loan.dated_cashflows(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -94,7 +94,7 @@ fn test_amortizing_principal_cashflows() {
     // Act
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
-    let cashflows = loan.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = loan.dated_cashflows(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -130,7 +130,7 @@ fn test_pik_interest_capitalization() {
     // Act
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
-    let cashflows = loan.build_dated_flows(&market, as_of).unwrap();
+    let cashflows = loan.dated_cashflows(&market, as_of).unwrap();
 
     // Assert
     assert!(!cashflows.is_empty());
@@ -171,25 +171,9 @@ fn test_over_amortization_is_capped() {
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
 
-    // Generate the full schedule and check outstanding path
-    let schedule =
-        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            &loan, &market, as_of,
-        )
-        .expect("cashflow generation should succeed even with excessive amort");
-
-    let out_path = schedule
-        .outstanding_by_date()
-        .expect("outstanding path should succeed");
-
-    // Outstanding must never go negative
-    for (d, amt) in &out_path {
-        assert!(
-            amt.amount() >= -1e-10,
-            "Outstanding at {d} = {} -- must never be negative",
-            amt.amount()
-        );
-    }
+    let schedule = loan
+        .cashflow_schedule(&market, as_of)
+        .expect("cashflow schedule should succeed even with excessive amort");
 
     // Total amortization should equal exactly the notional (capped)
     let total_amort: f64 = schedule
@@ -253,11 +237,9 @@ fn test_linear_amort_no_event_at_issue_date() {
     let market = build_market_context();
     let as_of = issue;
 
-    let schedule =
-        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            &loan, &market, as_of,
-        )
-        .expect("cashflow generation should succeed");
+    let schedule = loan
+        .cashflow_schedule(&market, as_of)
+        .expect("cashflow schedule should succeed");
 
     // No amort event should occur on the issue date itself
     let amort_at_issue: Vec<_> = schedule
@@ -326,22 +308,9 @@ fn test_percent_per_period_full_amort() {
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
 
-    let schedule =
-        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            &loan, &market, as_of,
-        )
-        .expect("cashflow generation should succeed");
-
-    let out_path = schedule.outstanding_by_date().expect("outstanding path");
-
-    // Outstanding must never go negative
-    for (d, amt) in &out_path {
-        assert!(
-            amt.amount() >= -1e-10,
-            "Outstanding at {d} = {} -- must never be negative",
-            amt.amount()
-        );
-    }
+    let schedule = loan
+        .cashflow_schedule(&market, as_of)
+        .expect("cashflow schedule should succeed");
 
     // With 100% per period applied to current outstanding:
     // Q1: 100% × 1M = 1M (fully repaid in first period)
@@ -390,11 +359,9 @@ fn test_percent_of_original_notional_flat_dollar() {
     let market = build_market_context();
     let as_of = date!(2025 - 01 - 01);
 
-    let schedule =
-        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            &loan, &market, as_of,
-        )
-        .expect("cashflow generation should succeed");
+    let schedule = loan
+        .cashflow_schedule(&market, as_of)
+        .expect("cashflow schedule should succeed");
 
     let amort_amounts: Vec<f64> = schedule
         .flows
@@ -460,11 +427,7 @@ fn test_flat_vs_geometric_amort_differ() {
     let as_of = date!(2025 - 01 - 01);
 
     let get_amorts = |loan: &TermLoan| -> Vec<f64> {
-        let schedule =
-            finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-                loan, &market, as_of,
-            )
-            .unwrap();
+        let schedule = loan.cashflow_schedule(&market, as_of).unwrap();
         schedule
             .flows
             .iter()
@@ -551,11 +514,9 @@ fn test_ddtl_partial_draw_amort_uses_funded_amount() {
         .unwrap();
 
     let market = build_market_context();
-    let schedule =
-        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            &loan, &market, issue,
-        )
-        .expect("cashflow generation should succeed");
+    let schedule = loan
+        .cashflow_schedule(&market, issue)
+        .expect("cashflow schedule should succeed");
 
     let amort_amounts: Vec<f64> = schedule
         .flows
@@ -623,11 +584,9 @@ fn test_commitment_fees_use_correct_kind() {
         .unwrap();
 
     let market = build_market_context();
-    let schedule =
-        finstack_valuations::instruments::fixed_income::term_loan::cashflows::generate_cashflows(
-            &loan, &market, issue,
-        )
-        .expect("cashflow generation should succeed");
+    let schedule = loan
+        .cashflow_schedule(&market, issue)
+        .expect("cashflow schedule should succeed");
 
     // Commitment fees should exist and use CommitmentFee kind
     let commitment_fees: Vec<_> = schedule

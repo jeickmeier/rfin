@@ -203,6 +203,11 @@ impl crate::instruments::common_impl::traits::Instrument for Autocallable {
     }
 }
 
+crate::impl_empty_cashflow_provider!(
+    Autocallable,
+    crate::cashflow::builder::CashflowRepresentation::Placeholder
+);
+
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

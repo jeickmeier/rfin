@@ -1,3 +1,5 @@
+use crate::cashflow::builder::CashFlowSchedule;
+use crate::cashflow::DatedFlows;
 use crate::instruments::common_impl::traits as internal_traits;
 use crate::metrics::MetricId;
 use finstack_core::dates::Date;
@@ -38,6 +40,20 @@ pub trait Instrument: Send + Sync {
 
     /// Get the instrument's expiry or maturity date, if applicable.
     fn expiry(&self) -> Option<Date>;
+
+    /// Return the instrument's canonical cashflow schedule.
+    fn cashflow_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule>;
+
+    /// Return the flattened dated-cashflow view derived from `cashflow_schedule()`.
+    fn dated_cashflows(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<DatedFlows>;
 }
 
 impl<T: internal_traits::Instrument + ?Sized> Instrument for T {
@@ -71,5 +87,21 @@ impl<T: internal_traits::Instrument + ?Sized> Instrument for T {
 
     fn expiry(&self) -> Option<Date> {
         internal_traits::Instrument::expiry(self)
+    }
+
+    fn cashflow_schedule(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<CashFlowSchedule> {
+        crate::cashflow::traits::CashflowProvider::cashflow_schedule(self, market, as_of)
+    }
+
+    fn dated_cashflows(
+        &self,
+        market: &MarketContext,
+        as_of: Date,
+    ) -> finstack_core::Result<DatedFlows> {
+        crate::cashflow::traits::CashflowProvider::dated_cashflows(self, market, as_of)
     }
 }
