@@ -47,7 +47,7 @@ impl ScenarioAdapter for StatementAdapter {
     }
 }
 
-fn with_node_values_mut<F>(model: &mut FinancialModelSpec, node_id: &str, mut f: F) -> Result<()>
+fn with_node_values_mut<F>(model: &mut FinancialModelSpec, node_id: &str, mut f: F) -> Result<bool>
 where
     F: FnMut(&mut AmountOrScalar),
 {
@@ -57,19 +57,24 @@ where
             node_id: node_id.to_string(),
         })?;
 
-    if let Some(values) = node.values.as_mut() {
-        for val in values.values_mut() {
-            f(val);
+    match node.values.as_mut() {
+        Some(values) => {
+            for val in values.values_mut() {
+                f(val);
+            }
+            Ok(true)
         }
+        None => Ok(false),
     }
-
-    Ok(())
 }
 
 /// Apply a percentage change to a statement node's explicit forecast values.
 ///
 /// `pct` is interpreted in percentage points (`5.0 = +5%`). Scalar values and
 /// monetary amounts are both scaled multiplicatively.
+///
+/// Returns `true` if the node had explicit values that were modified, `false`
+/// if the node exists but has no values (a no-op).
 ///
 /// # Arguments
 ///
@@ -84,8 +89,7 @@ pub fn apply_forecast_percent(
     model: &mut FinancialModelSpec,
     node_id: &str,
     pct: f64,
-) -> Result<()> {
-    // Apply multiplicative factor to all explicit period values
+) -> Result<bool> {
     let factor = 1.0 + (pct / 100.0);
 
     with_node_values_mut(model, node_id, |val| match val {
@@ -97,6 +101,9 @@ pub fn apply_forecast_percent(
 }
 
 /// Assign a uniform scalar value to all explicit forecasts in a node.
+///
+/// Returns `true` if the node had explicit values that were modified, `false`
+/// if the node exists but has no values (a no-op).
 ///
 /// # Arguments
 ///
@@ -111,11 +118,14 @@ pub fn apply_forecast_assign(
     model: &mut FinancialModelSpec,
     node_id: &str,
     value: f64,
-) -> Result<()> {
+) -> Result<bool> {
     apply_forecast_assign_filtered(model, node_id, value, None)
 }
 
 /// Assign a scalar value to explicit forecasts in a node, optionally filtering periods.
+///
+/// Returns `true` if the node had explicit values that were modified, `false`
+/// if the node exists but has no values (a no-op).
 ///
 /// # Arguments
 ///
@@ -133,7 +143,7 @@ pub fn apply_forecast_assign_filtered(
     node_id: &str,
     value: f64,
     period_filter: Option<(finstack_core::dates::Date, finstack_core::dates::Date)>,
-) -> Result<()> {
+) -> Result<bool> {
     let allowed_period_ids = period_filter.as_ref().map(|(start, end)| {
         model
             .periods
@@ -149,18 +159,20 @@ pub fn apply_forecast_assign_filtered(
             node_id: node_id.to_string(),
         })?;
 
-    if let Some(values) = node.values.as_mut() {
-        for (period_id, val) in values.iter_mut() {
-            if allowed_period_ids
-                .as_ref()
-                .is_none_or(|allowed| allowed.contains(period_id))
-            {
-                *val = AmountOrScalar::Scalar(value);
+    match node.values.as_mut() {
+        Some(values) => {
+            for (period_id, val) in values.iter_mut() {
+                if allowed_period_ids
+                    .as_ref()
+                    .is_none_or(|allowed| allowed.contains(period_id))
+                {
+                    *val = AmountOrScalar::Scalar(value);
+                }
             }
+            Ok(true)
         }
+        None => Ok(false),
     }
-
-    Ok(())
 }
 
 /// Update a statement rate node using a full [`RateBindingSpec`].
@@ -175,6 +187,9 @@ pub fn apply_forecast_assign_filtered(
 ///
 /// The assigned statement value is always a decimal annualized rate such as
 /// `0.0525` for 5.25%.
+///
+/// Returns `true` if the target node had explicit values that were updated,
+/// `false` if the node exists but has no values (a no-op).
 ///
 /// # Arguments
 ///
@@ -203,7 +218,7 @@ pub fn update_rate_from_binding(
     binding: &RateBindingSpec,
     model: &mut FinancialModelSpec,
     market: &MarketContext,
-) -> Result<()> {
+) -> Result<bool> {
     let curve_id = &binding.curve_id;
 
     if let Ok(curve) = market.get_discount(curve_id) {

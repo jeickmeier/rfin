@@ -694,7 +694,11 @@ impl ScenarioEngine {
                     ctx.model,
                     ctx.market,
                 ) {
-                    Ok(_) => {}
+                    Ok(true) => {}
+                    Ok(false) => warnings.push(format!(
+                        "Rate binding {}->{}: node has no forecast values to assign",
+                        node_id, binding_ref.curve_id
+                    )),
                     Err(e) => warnings.push(format!(
                         "Rate binding {}->{}: {}",
                         node_id, binding_ref.curve_id, e
@@ -716,9 +720,20 @@ impl ScenarioEngine {
                     match crate::adapters::statements::update_rate_from_binding(
                         &binding, ctx.model, ctx.market,
                     ) {
-                        Ok(_) => {}
+                        Ok(true) => {
+                            applied += 1;
+                            applied_stmt_ops += 1;
+                        }
+                        Ok(false) => {
+                            applied += 1;
+                            applied_stmt_ops += 1;
+                            warnings.push(format!(
+                                "Dynamic rate binding {}->{}: node has no forecast values to assign",
+                                binding.node_id, binding.curve_id
+                            ));
+                        }
                         Err(e) => warnings.push(format!(
-                            "Dynamic Rate binding {}->{}: {}",
+                            "Dynamic rate binding {}->{}: {}",
                             binding.node_id, binding.curve_id, e
                         )),
                     }
@@ -729,9 +744,15 @@ impl ScenarioEngine {
                         node_id.as_str(),
                         pct,
                     ) {
-                        Ok(()) => {
+                        Ok(true) => {
                             applied += 1;
                             applied_stmt_ops += 1;
+                        }
+                        Ok(false) => {
+                            warnings.push(format!(
+                                "Statement node '{}' has no forecast values to modify",
+                                node_id,
+                            ));
                         }
                         Err(e) => warnings.push(format!(
                             "Statement forecast percent for node {}: {}",
@@ -746,9 +767,15 @@ impl ScenarioEngine {
                         node_id.as_str(),
                         value,
                     ) {
-                        Ok(()) => {
+                        Ok(true) => {
                             applied += 1;
                             applied_stmt_ops += 1;
+                        }
+                        Ok(false) => {
+                            warnings.push(format!(
+                                "Statement node '{}' has no forecast values to modify",
+                                node_id,
+                            ));
                         }
                         Err(e) => warnings.push(format!(
                             "Statement forecast assign for node {}: {}",

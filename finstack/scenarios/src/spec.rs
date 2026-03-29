@@ -186,6 +186,12 @@ pub enum OperationSpec {
 
     /// Parallel shift to a curve (additive in basis points).
     ///
+    /// For rate curves (Discount, Forward, Hazard), `bp` uses the standard
+    /// convention where 1 bp = 0.0001 in fractional rate space. For
+    /// [`CurveKind::VolIndex`], `bp` is scaled differently: 100 bp = 1.0 index
+    /// point (i.e., `bp / 100`). See the vol-index branch in the curve adapter
+    /// for details.
+    ///
     /// # Example
     /// ```rust
     /// use finstack_scenarios::{OperationSpec, CurveKind};
@@ -213,6 +219,12 @@ pub enum OperationSpec {
     },
 
     /// Node-specific basis point shifts for curve shaping.
+    ///
+    /// For rate curves (Discount, Forward, Hazard), `bp` values use the standard
+    /// convention where 1 bp = 0.0001 in fractional rate space. For
+    /// [`CurveKind::VolIndex`], `bp` is scaled differently: 100 bp = 1.0 index
+    /// point (i.e., `bp / 100`). See the vol-index branch in the curve adapter
+    /// for details.
     ///
     /// # Example
     /// ```rust

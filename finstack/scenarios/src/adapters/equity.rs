@@ -25,6 +25,9 @@ impl ScenarioAdapter for EquityAdapter {
                 let mut effects = Vec::new();
                 for id in ids {
                     if ctx.market.get_price(id).is_ok() {
+                        // Additive/Percent on MarketScalar::Price is interpreted as a
+                        // proportional shift: new_price = old_price * (1 + pct/100).
+                        // See MarketScalar::apply_bump in finstack_core::market_data::bumps.
                         let bump = MarketBump::Curve {
                             id: CurveId::from(id.as_str()),
                             spec: BumpSpec {

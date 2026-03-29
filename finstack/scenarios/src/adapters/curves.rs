@@ -28,7 +28,13 @@ struct BumpTargetResult {
     warnings: Vec<String>,
 }
 
-// Helper function for resolving bump targets, used by CurveNodeBp
+/// Resolve tenor strings to curve knot positions and bump magnitudes.
+///
+/// Uses calendar-aware parsing by default, with a simple-parsing fallback for
+/// backwards compatibility (test cases often use bare integers like `"5Y"` that
+/// match knots exactly under simple parsing but land slightly off under
+/// calendar-aware parsing). The simple fallback should be revisited once all
+/// callers supply a production calendar.
 fn resolve_bump_targets(
     nodes: &[(String, f64)],
     knots: &[f64],
