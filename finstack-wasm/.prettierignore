@@ -10,6 +10,7 @@ target/
 
 # Generated files
 *.d.ts
+types/generated/
 *.wasm
 *.wasm.d.ts
 
