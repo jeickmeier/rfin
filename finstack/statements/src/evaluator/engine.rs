@@ -418,7 +418,10 @@ impl Evaluator {
             let mut path_eval = self.clone();
             path_eval.forecast_cache.clear();
 
-            let seed_offset = config.seed.wrapping_add(path_idx as u64);
+            let seed_offset = config
+                .seed
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(path_idx as u64);
             let mut mc_z_cache: IndexMap<NodeId, IndexMap<PeriodId, f64>> = IndexMap::new();
             let mut historical: std::sync::Arc<IndexMap<PeriodId, IndexMap<String, f64>>> =
                 std::sync::Arc::new(IndexMap::new());
@@ -537,7 +540,8 @@ impl Evaluator {
             if node_spec.where_text.is_some() {
                 let where_key = NodeId::new(format!("__where__{}", node_id));
                 if let Some(where_expr) = self.compiled_cache.get(&where_key) {
-                    let where_result = evaluate_formula(where_expr, context, None)?;
+                    let where_result =
+                        evaluate_formula(where_expr, context, Some(node_id.as_str()))?;
                     if !is_truthy(where_result) {
                         context.set_value(node_id.as_str(), 0.0)?;
                         continue;

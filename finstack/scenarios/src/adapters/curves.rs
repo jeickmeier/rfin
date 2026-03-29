@@ -308,7 +308,10 @@ impl ScenarioAdapter for CurveAdapter {
                             &bump_req,
                             Some(&discount_id),
                         )
-                        .or_else(|_| bump_hazard_shift(&base_curve, &bump_req))
+                        .or_else(|_| {
+                            tracing::warn!(curve_id = %curve_id, "Hazard curve recalibration failed; falling back to direct shift");
+                            bump_hazard_shift(&base_curve, &bump_req)
+                        })
                         .map_err(|e| {
                             Error::Internal(format!("Failed to bump hazard curve: {}", e))
                         })?;
@@ -540,7 +543,10 @@ impl ScenarioAdapter for CurveAdapter {
                             &bump_req,
                             Some(&discount_id),
                         )
-                        .or_else(|_| bump_hazard_shift(&base_curve, &bump_req))
+                        .or_else(|_| {
+                            tracing::warn!(curve_id = %curve_id, "Hazard curve recalibration failed; falling back to direct shift");
+                            bump_hazard_shift(&base_curve, &bump_req)
+                        })
                         .map_err(|e| {
                             Error::Internal(format!(
                                 "Failed to bump hazard curve components: {}",
@@ -645,6 +651,10 @@ impl ScenarioAdapter for CurveAdapter {
                         for &(idx, bp_shift) in &result.indexed_targets {
                             let t = knots[idx];
                             if t > 1e-12 {
+                                if dfs[idx] <= 0.0 {
+                                    tracing::warn!(idx, df = dfs[idx], "Non-positive discount factor in commodity curve bump; skipping node");
+                                    continue;
+                                }
                                 let zero = -(dfs[idx].ln()) / t;
                                 let shifted = zero + bp_shift * 1e-4;
                                 dfs[idx] = (-shifted * t).exp();

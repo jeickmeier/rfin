@@ -420,7 +420,7 @@ impl ProcessParams {
     /// Infer the matrix dimension from `correlation`.
     pub fn dim(&self) -> Option<usize> {
         self.correlation.as_ref().and_then(|corr| {
-            let dim = (corr.len() as f64).sqrt() as usize;
+            let dim = (corr.len() as f64).sqrt().round() as usize;
             if dim * dim == corr.len() {
                 Some(dim)
             } else {

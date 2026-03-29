@@ -1475,9 +1475,12 @@ impl CashFlowBuilder {
         }
 
         // 7) Finalize flows and produce meta/day count (use actual specs used)
-        let (flows, mut meta, out_dc) =
-            finalize_flows(state.flows, &used_fixed_specs, &used_float_specs);
-        meta.issue_date = Some(issue);
+        let (flows, meta, out_dc) = finalize_flows(
+            state.flows,
+            &used_fixed_specs,
+            &used_float_specs,
+            Some(issue),
+        );
         debug!(flows = flows.len(), "cashflow schedule: build complete");
         Ok(CashFlowSchedule {
             flows,

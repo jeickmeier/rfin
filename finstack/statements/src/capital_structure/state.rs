@@ -68,7 +68,10 @@ impl CapitalStructureState {
     }
 
     /// Advance state to next period: closing balances become opening balances.
+    ///
+    /// Closing balances are cleared after promotion so matured instruments
+    /// (balance == 0) do not carry stale data into the next evaluation cycle.
     pub fn advance_period(&mut self) {
-        self.opening_balances = self.closing_balances.clone();
+        self.opening_balances = std::mem::take(&mut self.closing_balances);
     }
 }

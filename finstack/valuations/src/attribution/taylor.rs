@@ -16,7 +16,9 @@
 use super::helpers::*;
 use super::types::*;
 use crate::instruments::common_impl::traits::Instrument;
-use crate::metrics::{bump_discount_curve_parallel, bump_surface_vol_absolute};
+use crate::metrics::{
+    bump_discount_curve_parallel, bump_forward_curve_parallel, bump_surface_vol_absolute,
+};
 use finstack_core::dates::Date;
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::market_data::context::MarketContext;
@@ -145,50 +147,77 @@ pub fn attribute_pnl_taylor(
     // Rate sensitivities (parallel DV01 per discount curve)
     let market_deps = instrument.market_dependencies()?;
     for curve_id in &market_deps.curve_dependencies().discount_curves {
-        if let Ok(result) = compute_rate_factor(
+        match compute_rate_factor(
             instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
         ) {
-            total_explained += result.explained_pnl;
-            if let Some(g) = result.gamma_pnl {
-                total_explained += g;
+            Ok(result) => {
+                total_explained += result.explained_pnl;
+                if let Some(g) = result.gamma_pnl {
+                    total_explained += g;
+                }
+                num_repricings += 2;
+                factors.push(result);
             }
-            num_repricings += 2;
-            factors.push(result);
+            Err(e) => {
+                tracing::warn!(
+                    curve_id = %curve_id,
+                    error = %e,
+                    "Taylor attribution: rate factor computation failed"
+                );
+            }
         }
     }
 
     // Forward curve sensitivities (parallel bump per forward curve)
     for curve_id in &market_deps.curve_dependencies().forward_curves {
-        if let Ok(result) = compute_forward_factor(
+        match compute_forward_factor(
             instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
         ) {
-            total_explained += result.explained_pnl;
-            if let Some(g) = result.gamma_pnl {
-                total_explained += g;
+            Ok(result) => {
+                total_explained += result.explained_pnl;
+                if let Some(g) = result.gamma_pnl {
+                    total_explained += g;
+                }
+                num_repricings += 2;
+                factors.push(result);
             }
-            num_repricings += 2;
-            factors.push(result);
+            Err(e) => {
+                tracing::warn!(
+                    curve_id = %curve_id,
+                    error = %e,
+                    "Taylor attribution: forward factor computation failed"
+                );
+            }
         }
     }
 
     // Credit sensitivities (CS01 per hazard curve)
     for curve_id in &market_deps.curve_dependencies().credit_curves {
-        if let Ok(result) = compute_credit_factor(
+        match compute_credit_factor(
             instrument, market_t0, market_t1, as_of_t0, pv_t0, curve_id, config,
         ) {
-            total_explained += result.explained_pnl;
-            if let Some(g) = result.gamma_pnl {
-                total_explained += g;
+            Ok(result) => {
+                total_explained += result.explained_pnl;
+                if let Some(g) = result.gamma_pnl {
+                    total_explained += g;
+                }
+                num_repricings += 2;
+                factors.push(result);
             }
-            num_repricings += 2;
-            factors.push(result);
+            Err(e) => {
+                tracing::warn!(
+                    curve_id = %curve_id,
+                    error = %e,
+                    "Taylor attribution: credit factor computation failed"
+                );
+            }
         }
     }
 
     // Volatility sensitivity (vega)
     if let Some(ref surface_id_str) = market_deps.equity_dependencies().vol_surface_id {
         let surface_id = CurveId::new(surface_id_str.as_str());
-        if let Ok(result) = compute_vol_factor(
+        match compute_vol_factor(
             instrument,
             market_t0,
             market_t1,
@@ -197,20 +226,37 @@ pub fn attribute_pnl_taylor(
             &surface_id,
             config,
         ) {
-            total_explained += result.explained_pnl;
-            if let Some(g) = result.gamma_pnl {
-                total_explained += g;
+            Ok(result) => {
+                total_explained += result.explained_pnl;
+                if let Some(g) = result.gamma_pnl {
+                    total_explained += g;
+                }
+                num_repricings += 2;
+                factors.push(result);
             }
-            num_repricings += 2;
-            factors.push(result);
+            Err(e) => {
+                tracing::warn!(
+                    surface_id = %surface_id,
+                    error = %e,
+                    "Taylor attribution: vol factor computation failed"
+                );
+            }
         }
     }
 
     // Theta (time decay): reprice at T1 date with T0 market
-    if let Ok(result) = compute_theta_factor(instrument, market_t0, as_of_t0, as_of_t1, pv_t0) {
-        total_explained += result.explained_pnl;
-        num_repricings += 1;
-        factors.push(result);
+    match compute_theta_factor(instrument, market_t0, as_of_t0, as_of_t1, pv_t0) {
+        Ok(result) => {
+            total_explained += result.explained_pnl;
+            num_repricings += 1;
+            factors.push(result);
+        }
+        Err(e) => {
+            tracing::warn!(
+                error = %e,
+                "Taylor attribution: theta factor computation failed"
+            );
+        }
     }
 
     let unexplained = actual_pnl - total_explained;
@@ -429,10 +475,10 @@ fn compute_forward_factor(
     curve_id: &CurveId,
     config: &TaylorAttributionConfig,
 ) -> Result<TaylorFactorResult> {
-    let bumped_up = bump_discount_curve_parallel(market_t0, curve_id, config.rate_bump_bp)?;
+    let bumped_up = bump_forward_curve_parallel(market_t0, curve_id, config.rate_bump_bp)?;
     let pv_up = reprice_instrument(instrument, &bumped_up, as_of_t0)?;
 
-    let bumped_down = bump_discount_curve_parallel(market_t0, curve_id, -config.rate_bump_bp)?;
+    let bumped_down = bump_forward_curve_parallel(market_t0, curve_id, -config.rate_bump_bp)?;
     let pv_down = reprice_instrument(instrument, &bumped_down, as_of_t0)?;
 
     let dv01 = (pv_up.amount() - pv_down.amount()) / (2.0 * config.rate_bump_bp);

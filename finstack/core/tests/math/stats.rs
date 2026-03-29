@@ -239,7 +239,7 @@ fn yang_zhang_includes_open_to_close_component() {
         })
         .sum::<f64>()
         / (open_close.len() - 1) as f64;
-    let var_rs = rs_sum / (n - 1) as f64;
+    let var_rs = rs_sum / n as f64;
     let expected = (var_overnight + k * var_open_close + (1.0 - k) * var_rs) * annualization;
 
     assert!((yz - expected).abs() < 1e-12, "Yang-Zhang formula mismatch");

@@ -43,7 +43,7 @@ use finstack_core::math::{norm_cdf, GaussHermiteQuadrature};
 /// CDF argument clipping to prevent overflow.
 const CDF_CLIP: f64 = 10.0;
 /// Default quadrature order for multi-dimensional integration.
-const MULTI_FACTOR_QUADRATURE_ORDER: u8 = 7;
+const MULTI_FACTOR_QUADRATURE_ORDER: u8 = 10;
 
 /// Multi-factor Gaussian copula with sector structure.
 ///
@@ -60,7 +60,7 @@ const MULTI_FACTOR_QUADRATURE_ORDER: u8 = 7;
 /// - Global loading: 0.4 (gives ~16% inter-sector correlation)
 /// - Sector loading: 0.3 (gives ~25% additional intra-sector correlation)
 /// - Sector fraction: 0.4 (40% of total correlation from sector factor)
-/// - Quadrature order: 7 (better accuracy while remaining cheap for two factors)
+/// - Quadrature order: 10 (better accuracy while remaining cheap for two factors)
 ///
 /// # References
 ///

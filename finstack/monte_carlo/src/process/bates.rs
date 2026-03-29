@@ -119,9 +119,7 @@ impl StochasticProcess for BatesProcess {
     }
 
     fn is_diagonal(&self) -> bool {
-        // Non-diagonal due to spot-variance correlation (rho), consistent with Heston.
-        // Process-specific discretizations (QE-Heston) handle the correlation internally.
-        false
+        true
     }
 }
 

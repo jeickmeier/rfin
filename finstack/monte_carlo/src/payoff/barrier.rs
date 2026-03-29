@@ -154,9 +154,16 @@ impl Payoff for BarrierOptionPayoff {
     fn on_event(&mut self, state: &mut PathState) {
         let current_spot = state.spot().unwrap_or(0.0);
 
-        // Check barrier on first event
         if state.step == 0 {
             self.previous_spot = current_spot;
+
+            let breached = match self.barrier_type.direction() {
+                BarrierDirection::Up => current_spot >= self.barrier,
+                BarrierDirection::Down => current_spot <= self.barrier,
+            };
+            if breached {
+                self.barrier_hit = true;
+            }
             return;
         }
 

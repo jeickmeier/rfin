@@ -606,6 +606,12 @@ pub enum OperationSpec {
         target: HierarchyTarget,
         /// Basis point shift (additive).
         bp: f64,
+        /// Optional discount curve for hazard-curve recalibration.
+        ///
+        /// Propagated to each expanded [`OperationSpec::CurveParallelBp`].
+        /// If `None`, the adapter applies heuristic resolution.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        discount_curve_id: Option<String>,
     },
 
     /// Hierarchy-targeted vol-surface parallel shift.
@@ -1113,13 +1119,21 @@ impl OperationSpec {
             OperationSpec::PrepayFactorLoadingPts { delta_pts } => {
                 check_finite(*delta_pts, "delta_pts")?;
             }
-            OperationSpec::HierarchyCurveParallelBp { target, bp, .. } => {
+            OperationSpec::HierarchyCurveParallelBp {
+                target,
+                bp,
+                discount_curve_id,
+                ..
+            } => {
                 if target.path.is_empty() {
                     return Err(crate::error::Error::Validation(
                         "Hierarchy target path cannot be empty".into(),
                     ));
                 }
                 check_finite(*bp, "bp")?;
+                if let Some(dcid) = discount_curve_id {
+                    check_id(dcid, "discount_curve_id")?;
+                }
             }
             OperationSpec::HierarchyVolSurfaceParallelPct { target, pct, .. } => {
                 if target.path.is_empty() {

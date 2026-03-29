@@ -1108,11 +1108,13 @@ mod edge_cases {
         let expr = CompiledExpr::new(Expr::call(Function::CumSum, vec![Expr::column("nan_data")]));
         let result = expr.eval(&ctx, &cols, EvalOpts::default()).unwrap().values;
 
-        // Should handle NaN properly in cumsum
+        // NaN values are skipped (treated as identity element 0 for sum)
         assert_eq!(result.len(), 5);
         assert_eq!(result[0], 1.0);
-        assert!(result[1].is_nan());
-        // Subsequent values should also be NaN due to cumulative nature
+        assert_eq!(result[1], 1.0);
+        assert_eq!(result[2], 4.0);
+        assert_eq!(result[3], 4.0);
+        assert_eq!(result[4], 9.0);
     }
 
     #[test]

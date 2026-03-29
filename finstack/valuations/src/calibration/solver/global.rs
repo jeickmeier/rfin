@@ -455,26 +455,18 @@ where
             *r = 0.0;
         }
 
-        let params_to_use: Vec<f64>;
+        let mut params_to_use = Vec::new();
         let params_ref = if lb.is_some() || ub.is_some() {
-            params_to_use = params
-                .iter()
-                .enumerate()
-                .map(|(i, &p)| {
-                    let mut v = p;
-                    if let Some(ref lower) = lb {
-                        if i < lower.len() {
-                            v = v.max(lower[i]);
-                        }
-                    }
-                    if let Some(ref upper) = ub {
-                        if i < upper.len() {
-                            v = v.min(upper[i]);
-                        }
-                    }
-                    v
-                })
-                .collect();
+            let n_clamped = clamp_to_bounds(params, lb, ub, &mut params_to_use);
+            if n_clamped > 0 {
+                record_eval_error(
+                    &eval_diagnostics,
+                    eval_idx,
+                    "bound clamping",
+                    params,
+                    &format!("{n_clamped} param(s) clamped to bounds"),
+                );
+            }
             &params_to_use
         } else {
             params
@@ -533,26 +525,9 @@ where
         }
 
         fn jacobian(&self, params: &[f64], jacobian: &mut [Vec<f64>]) -> Option<()> {
-            let params_to_use: Vec<f64>;
+            let mut params_to_use = Vec::new();
             let params_ref = if self.lb.is_some() || self.ub.is_some() {
-                params_to_use = params
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &p)| {
-                        let mut v = p;
-                        if let Some(ref lower) = self.lb {
-                            if i < lower.len() {
-                                v = v.max(lower[i]);
-                            }
-                        }
-                        if let Some(ref upper) = self.ub {
-                            if i < upper.len() {
-                                v = v.min(upper[i]);
-                            }
-                        }
-                        v
-                    })
-                    .collect();
+                clamp_to_bounds(params, self.lb, self.ub, &mut params_to_use);
                 &params_to_use
             } else {
                 params
@@ -730,6 +705,49 @@ fn record_eval_error(
         max = max_param,
         detail = detail
     ));
+}
+
+/// Inward offset applied when clamping solver parameters to bounds.
+///
+/// Keeps parameters strictly interior to the feasible region so that
+/// finite-difference Jacobian perturbations (typically ~1e-7) do not land
+/// exactly on the boundary, which would create a flat gradient plateau.
+const BOUND_INWARD_EPS: f64 = 1e-8;
+
+/// Clamp `params` to `[lower + eps, upper - eps]` and return the number of
+/// parameters that were actually clamped.
+fn clamp_to_bounds(
+    params: &[f64],
+    lb: &Option<Vec<f64>>,
+    ub: &Option<Vec<f64>>,
+    out: &mut Vec<f64>,
+) -> usize {
+    out.clear();
+    out.reserve(params.len());
+    let mut clamped = 0usize;
+    for (i, &p) in params.iter().enumerate() {
+        let mut v = p;
+        if let Some(ref lower) = lb {
+            if i < lower.len() {
+                let lo = lower[i] + BOUND_INWARD_EPS;
+                if v < lo {
+                    v = lo;
+                    clamped += 1;
+                }
+            }
+        }
+        if let Some(ref upper) = ub {
+            if i < upper.len() {
+                let hi = upper[i] - BOUND_INWARD_EPS;
+                if v > hi {
+                    v = hi;
+                    clamped += 1;
+                }
+            }
+        }
+        out.push(v);
+    }
+    clamped
 }
 
 fn param_range(params: &[f64]) -> (f64, f64) {
@@ -974,8 +992,9 @@ fn compute_condition_number(
         }
 
         // The Rayleigh quotient of the inverse gives 1/lambda_min.
+        // Subtract the shift to recover the eigenvalue of the original (unshifted) matrix.
         let candidate = if rayleigh.abs() > 1e-30 {
-            1.0 / rayleigh + shift
+            1.0 / rayleigh - shift
         } else {
             lambda_min
         };

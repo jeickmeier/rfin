@@ -98,18 +98,24 @@ impl FactorCovarianceMatrix {
         &self.data
     }
 
-    /// Return the variance for a factor.
+    /// Return the variance for a factor, or `0.0` if the factor is unknown.
     #[must_use]
     pub fn variance(&self, factor: &FactorId) -> f64 {
-        let idx = self.index[factor];
+        let Some(&idx) = self.index.get(factor) else {
+            return 0.0;
+        };
         self.data[idx * self.n + idx]
     }
 
-    /// Return the covariance between two factors.
+    /// Return the covariance between two factors, or `0.0` if either is unknown.
     #[must_use]
     pub fn covariance(&self, lhs: &FactorId, rhs: &FactorId) -> f64 {
-        let i = self.index[lhs];
-        let j = self.index[rhs];
+        let Some(&i) = self.index.get(lhs) else {
+            return 0.0;
+        };
+        let Some(&j) = self.index.get(rhs) else {
+            return 0.0;
+        };
         self.data[i * self.n + j]
     }
 

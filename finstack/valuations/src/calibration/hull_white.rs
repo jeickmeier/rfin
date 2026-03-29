@@ -320,7 +320,7 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
             if model_price.is_finite() {
                 resid[idx] = model_price - market_prices[idx];
             } else {
-                resid[idx] = 1.0;
+                resid[idx] = 1e6;
             }
         }
     };
@@ -582,16 +582,16 @@ fn hw1f_swaption_price(
             "HW1F r* Newton solver did not converge (kappa={kappa:.4}, sigma={sigma:.4}), \
              falling back to Brent"
         );
-        let bracket_lo = f0t0 - 0.05;
-        let bracket_hi = f0t0 + 0.05;
+        let bracket_lo = f0t0 - 0.20;
+        let bracket_hi = f0t0 + 0.20;
         let brent = BrentSolver::new()
             .tolerance(1e-12)
             .bracket_bounds(bracket_lo, bracket_hi);
         match brent.solve(g, f0t0) {
             Ok(r) => r_star = r,
             Err(_) => {
-                // Last resort: keep Newton's best guess
-                tracing::warn!("HW1F r* Brent fallback also failed; using Newton's best estimate");
+                tracing::warn!("HW1F r* Brent fallback also failed; returning NaN");
+                r_star = f64::NAN;
             }
         }
     }

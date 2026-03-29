@@ -49,8 +49,12 @@ impl QeCir {
         // Compute conditional mean and variance
         let exp_kappa_dt = (-kappa * dt).exp();
         let m = theta + (v_t - theta) * exp_kappa_dt;
-        let s2 = v_t * sigma * sigma * exp_kappa_dt * (1.0 - exp_kappa_dt) / kappa
-            + theta * sigma * sigma * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa);
+        let s2 = if kappa.abs() * dt < 1e-6 {
+            v_t * sigma * sigma * dt
+        } else {
+            v_t * sigma * sigma * exp_kappa_dt * (1.0 - exp_kappa_dt) / kappa
+                + theta * sigma * sigma * (1.0 - exp_kappa_dt).powi(2) / (2.0 * kappa)
+        };
 
         // Compute ψ = s²/m²
         // When m is near zero, force Case B (exponential/uniform mixture) by
@@ -81,6 +85,9 @@ impl QeCir {
 
             if u <= p {
                 // Point mass at zero
+                0.0
+            } else if (u - p).abs() < f64::EPSILON {
+                // Guard: u ≈ p makes ln((1-p)/(u-p)) → +∞; clamp to zero
                 0.0
             } else {
                 // Exponential part

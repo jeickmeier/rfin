@@ -278,6 +278,18 @@ impl LsmcPricer {
         sorted_exercise_dates.sort_unstable();
         sorted_exercise_dates.reverse(); // Go backward
 
+        let valid_exercise_count = sorted_exercise_dates
+            .iter()
+            .filter(|&&step| step < num_steps)
+            .count();
+        if valid_exercise_count == 0 {
+            tracing::warn!(
+                num_steps,
+                exercise_dates = ?self.config.exercise_dates,
+                "All exercise dates are >= num_steps; option priced as European (terminal exercise only)"
+            );
+        }
+
         // Pre-allocate regression buffers to avoid reallocations
         let mut regression_x = Vec::with_capacity(paths.len() / 2);
         let mut regression_y = Vec::with_capacity(paths.len() / 2);

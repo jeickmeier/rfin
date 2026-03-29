@@ -119,9 +119,18 @@ impl NormalizationConfig {
     }
 
     /// Add an adjustment to the configuration.
-    pub fn add_adjustment(mut self, adjustment: Adjustment) -> Self {
+    ///
+    /// Returns an error if an adjustment with the same `id` is already present,
+    /// preventing accidental double-counting.
+    pub fn add_adjustment(mut self, adjustment: Adjustment) -> crate::error::Result<Self> {
+        if self.adjustments.iter().any(|a| a.id == adjustment.id) {
+            return Err(crate::error::Error::invalid_input(format!(
+                "Duplicate adjustment ID '{}' — each adjustment must have a unique id",
+                adjustment.id
+            )));
+        }
         self.adjustments.push(adjustment);
-        self
+        Ok(self)
     }
 }
 

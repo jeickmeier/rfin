@@ -8,6 +8,15 @@ use finstack_core::expr::{BinOp as CoreBinOp, Expr, Function, UnaryOp as CoreUna
 ///
 /// Converts the statements DSL syntax into the shared expression engine
 /// representation used by the evaluator.
+///
+/// # Limitations
+///
+/// TODO: No dimensional type checking is performed during compilation. The DSL
+/// allows adding/subtracting values with different currencies or mixing monetary
+/// amounts with unitless scalars. A future enhancement should propagate
+/// `NodeValueType` through the expression tree and reject dimensional mismatches
+/// (e.g., `USD_revenue + EUR_cost`) at build time. This requires threading the
+/// node type map from `ModelBuilder` into the compile pass.
 pub fn compile(ast: &StmtExpr) -> Result<Expr> {
     match ast {
         StmtExpr::Literal(val) => Ok(Expr::literal(*val)),

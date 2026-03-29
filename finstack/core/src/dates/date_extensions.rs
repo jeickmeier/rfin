@@ -304,7 +304,11 @@ impl DateExt for Date {
         let mut months =
             (other.year() - self.year()) * 12 + (other.month() as i32 - self.month() as i32);
         if self.day() > other.day() {
-            months -= 1;
+            let self_eom = self.day() == self.month().length(self.year());
+            let other_eom = other.day() == other.month().length(other.year());
+            if !(self_eom && other_eom) {
+                months -= 1;
+            }
         }
         months.max(0) as u32
     }

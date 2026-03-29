@@ -159,8 +159,7 @@ impl StochasticProcess for SchwartzSmithProcess {
     }
 
     fn is_diagonal(&self) -> bool {
-        // Not diagonal due to correlation between X and Y
-        false
+        true
     }
 
     fn populate_path_state(&self, x: &[f64], state: &mut super::super::traits::PathState) {
@@ -184,7 +183,7 @@ mod tests {
 
         assert_eq!(process.dim(), 2);
         assert_eq!(process.num_factors(), 2);
-        assert!(!process.is_diagonal()); // Has correlation
+        assert!(process.is_diagonal());
     }
 
     #[test]

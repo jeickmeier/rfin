@@ -219,7 +219,8 @@ pub use sensitivities::cross_factor::{CrossFactorCalculator, CrossFactorPair};
 // supported as a stable downstream API. Keep them `pub(crate)` so we can refactor module layout
 // without creating public breakage surface.
 pub(crate) use core::finite_difference::{
-    bump_discount_curve_parallel, bump_scalar_price, bump_sizes, bump_surface_vol_absolute,
+    bump_discount_curve_parallel, bump_forward_curve_parallel, bump_scalar_price, bump_sizes,
+    bump_surface_vol_absolute,
 };
 pub(crate) use sensitivities::carry_decomposition::{
     CarryComponentLookup, CarryDecompositionCalculator,

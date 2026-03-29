@@ -229,8 +229,17 @@ impl CopulaSpec {
         match self {
             CopulaSpec::Gaussian => Box::new(GaussianCopula::new()),
             CopulaSpec::StudentT { degrees_of_freedom } => {
-                // Clamp to valid range to avoid panic from deserialized config
-                let df = degrees_of_freedom.max(2.01);
+                if !degrees_of_freedom.is_finite() || *degrees_of_freedom <= 2.0 {
+                    tracing::warn!(
+                        df = degrees_of_freedom,
+                        "Student-t degrees_of_freedom must be finite and > 2; clamping to 2.01"
+                    );
+                }
+                let df = if degrees_of_freedom.is_finite() {
+                    degrees_of_freedom.max(2.01)
+                } else {
+                    2.01
+                };
                 Box::new(StudentTCopula::new(df))
             }
             CopulaSpec::RandomFactorLoading { loading_volatility } => {
@@ -262,7 +271,17 @@ impl CopulaSpec {
     pub fn build_student_t(&self) -> Option<StudentTCopula> {
         match self {
             CopulaSpec::StudentT { degrees_of_freedom } => {
-                let df = degrees_of_freedom.max(2.01);
+                if !degrees_of_freedom.is_finite() || *degrees_of_freedom <= 2.0 {
+                    tracing::warn!(
+                        df = degrees_of_freedom,
+                        "Student-t degrees_of_freedom must be finite and > 2; clamping to 2.01"
+                    );
+                }
+                let df = if degrees_of_freedom.is_finite() {
+                    degrees_of_freedom.max(2.01)
+                } else {
+                    2.01
+                };
                 Some(StudentTCopula::new(df))
             }
             _ => None,

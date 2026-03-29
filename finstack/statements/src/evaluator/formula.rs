@@ -216,7 +216,7 @@ fn build_context_for_period(
     );
     period_context.historical_capital_structure_cashflows =
         std::sync::Arc::clone(&context.historical_capital_structure_cashflows);
-    period_context.node_value_types = context.node_value_types.clone();
+    period_context.node_value_types = std::sync::Arc::clone(&context.node_value_types);
     period_context.capital_structure_cashflows = if target_period == context.period_id {
         context.capital_structure_cashflows.clone()
     } else {
@@ -234,6 +234,12 @@ fn build_context_for_period(
 }
 
 /// Collect expression values over all available periods in chronological order.
+///
+/// **Performance note:** For complex expressions (not simple Column or Literal),
+/// this rebuilds an evaluation context and re-evaluates the expression for each
+/// historical period, giving O(P) evaluations. If the expression itself contains
+/// aggregate functions that also walk history, the total cost is O(P²). Consider
+/// caching results by `(expr_hash, period_id)` if this becomes a bottleneck.
 pub(crate) fn collect_expression_values_sorted(
     expr: &Expr,
     context: &EvaluationContext,
@@ -252,14 +258,15 @@ pub(crate) fn collect_expression_values_sorted(
         _ => {}
     }
 
-    let mut periods = BTreeMap::new();
-    for period in context.historical_results.keys() {
-        periods.insert(*period, ());
-    }
-    periods.insert(context.period_id, ());
+    let periods: Vec<PeriodId> = context
+        .historical_results
+        .keys()
+        .copied()
+        .chain(std::iter::once(context.period_id))
+        .collect();
 
     let mut values = BTreeMap::new();
-    for (period, _) in periods {
+    for period in periods {
         let mut period_context = build_context_for_period(period, context)?;
         let value = evaluate_expr(expr, &mut period_context, node_id)?;
         values.insert(period, value);
@@ -365,7 +372,23 @@ pub(crate) fn evaluate_expr(
                         left_val / right_val
                     }
                 }
-                BinOp::Mod => left_val % right_val,
+                BinOp::Mod => {
+                    if right_val == 0.0 {
+                        tracing::warn!(
+                            "Modulo by zero in formula evaluation (period: {:?})",
+                            context.period_id
+                        );
+                        if let Some(id) = node_id {
+                            context.push_warning(EvalWarning::DivisionByZero {
+                                node_id: id.to_string(),
+                                period: context.period_id,
+                            });
+                        }
+                        f64::NAN
+                    } else {
+                        left_val % right_val
+                    }
+                }
 
                 // Comparison operations (use approximate equality for == and !=)
                 BinOp::Eq => bool_to_f64((left_val - right_val).abs() <= ZERO_TOLERANCE),
@@ -600,7 +623,7 @@ fn evaluate_function(
                         return Ok(f64::NAN);
                     }
                     let ratio = current_value / start_value;
-                    if !ratio.is_finite() {
+                    if !ratio.is_finite() || ratio < 0.0 {
                         return Ok(f64::NAN);
                     }
                     let exponent = 1.0 / periods as f64;
@@ -1061,15 +1084,23 @@ fn evaluate_function(
                 ewm_var = (1.0 - alpha) * (ewm_var + alpha * diff * diff);
             }
 
-            // Apply bias correction AFTER the loop if requested (pandas adjust=True)
-            // This corrects for the fact that the sum of weights doesn't equal 1.0
+            // Apply pandas-style bias correction after the loop if requested.
+            // Uses the effective degrees of freedom: sum_w² / (sum_w² - sum_w2)
+            // where sum_w tracks the (unnormalized) sum of recursive weights and
+            // sum_w2 tracks the sum of squared weights. This converges to the
+            // standard Bessel correction n/(n-1) as alpha → 0 (equal weighting).
             if adjust {
                 let n = values.len();
-                // Bias correction factor: 1 / (1 - (1-alpha)^n)
-                // This accounts for the exponentially decaying weights not summing to 1
-                let weight_sum = 1.0 - (1.0 - alpha).powi(n as i32);
-                if weight_sum.abs() > ZERO_TOLERANCE {
-                    ewm_var /= weight_sum;
+                let one_minus_alpha = 1.0 - alpha;
+                let mut sum_wt = 1.0_f64;
+                let mut sum_wt2 = 1.0_f64;
+                for _ in 1..n {
+                    sum_wt = one_minus_alpha * sum_wt + 1.0;
+                    sum_wt2 = one_minus_alpha * one_minus_alpha * sum_wt2 + 1.0;
+                }
+                let denom = sum_wt * sum_wt - sum_wt2;
+                if denom.abs() > ZERO_TOLERANCE {
+                    ewm_var *= sum_wt * sum_wt / denom;
                 }
             }
 
@@ -1191,7 +1222,10 @@ mod tests {
         )
         .expect("ewm_var without adjust");
 
-        assert!((value_default - 1.0 / 3.0).abs() < 1e-9);
+        // n=2, alpha=0.5: sum_wt=1.5, sum_wt2=1.25
+        // correction = 2.25 / (2.25 - 1.25) = 2.25
+        // bias-corrected = 0.25 * 2.25 = 0.5625
+        assert!((value_default - 0.5625).abs() < 1e-9);
         assert!((value_no_adjust - 0.25).abs() < 1e-9);
         assert!(value_default > value_no_adjust);
     }

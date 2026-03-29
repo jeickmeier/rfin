@@ -906,9 +906,18 @@ impl McEngine {
                 )?
             };
 
-            // Accumulate statistics
+            // Accumulate statistics (skip non-finite values to prevent NaN poisoning)
             let discounted_value = payoff_value * discount_factor;
-            stats.update(discounted_value);
+            if discounted_value.is_finite() {
+                stats.update(discounted_value);
+            } else {
+                tracing::warn!(
+                    path_id,
+                    payoff_value,
+                    discount_factor,
+                    "Skipping non-finite payoff value in MC statistics"
+                );
+            }
 
             // Check auto-stop condition
             if let Some(target) = self.config.target_ci_half_width {
@@ -1007,7 +1016,16 @@ impl McEngine {
                     };
 
                     let discounted_value = payoff_value * discount_factor;
-                    stats.update(discounted_value);
+                    if discounted_value.is_finite() {
+                        stats.update(discounted_value);
+                    } else {
+                        tracing::warn!(
+                            path_id,
+                            payoff_value,
+                            discount_factor,
+                            "Skipping non-finite payoff value in MC statistics"
+                        );
+                    }
                 }
 
                 Ok(stats)
@@ -1173,9 +1191,18 @@ impl McEngine {
                 (val, None)
             };
 
-            // Accumulate statistics
+            // Accumulate statistics (skip non-finite values to prevent NaN poisoning)
             let discounted_value = payoff_value * discount_factor;
-            stats.update(discounted_value);
+            if discounted_value.is_finite() {
+                stats.update(discounted_value);
+            } else {
+                tracing::warn!(
+                    path_id,
+                    payoff_value,
+                    discount_factor,
+                    "Skipping non-finite payoff value in MC statistics"
+                );
+            }
 
             // Store captured path
             if let Some(path) = captured_path {
@@ -1333,7 +1360,16 @@ impl McEngine {
                     };
 
                     let discounted_value = payoff_value * discount_factor;
-                    stats.update(discounted_value);
+                    if discounted_value.is_finite() {
+                        stats.update(discounted_value);
+                    } else {
+                        tracing::warn!(
+                            path_id,
+                            payoff_value,
+                            discount_factor,
+                            "Skipping non-finite payoff value in MC statistics"
+                        );
+                    }
 
                     if let Some(path) = captured_path {
                         chunk_paths.push(path);

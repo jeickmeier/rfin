@@ -218,14 +218,7 @@ pub fn execute_waterfall(
             }
         }
 
-        let mut staged_breakdown = breakdown.clone();
-        if is_pik_enabled(state, instrument_id)
-            && interest_priority < extra_principal_priority
-            && extra_principal_priority != usize::MAX
-        {
-            staged_breakdown.interest_expense_pik += staged_breakdown.interest_expense_cash;
-            staged_breakdown.interest_expense_cash = Money::new(0.0, currency);
-        }
+        let staged_breakdown = breakdown.clone();
         staged.push(StagedInstrumentFlow {
             instrument_id: instrument_id.clone(),
             breakdown: staged_breakdown,
@@ -280,45 +273,79 @@ pub fn execute_waterfall(
             continue;
         }
 
-        let mut capacity = (s.opening_balance.amount() - s.scheduled_principal.amount()).max(0.0);
-        if is_pik_enabled(state, &s.instrument_id) && interest_priority < extra_principal_priority {
-            capacity += s.breakdown.interest_expense_pik.amount();
-        }
+        let capacity = (s.opening_balance.amount() - s.scheduled_principal.amount()).max(0.0);
 
         total_extra_capacity += capacity;
         extra_capacity.insert(s.instrument_id.clone(), capacity);
     }
 
+    // Two-pass approach: compute all proportional shares first, then apply.
+    // This avoids the bug where mutating remaining_sweep during iteration
+    // gives incorrect proportions to instruments after the first.
+    let sweep_currency = remaining_sweep.currency();
+    let sweep_total = remaining_sweep.amount();
     let staged_len = staged.len();
-    for (idx, s) in staged.iter_mut().enumerate() {
+    let mut sweep_allocations: Vec<f64> = vec![0.0; staged_len];
+
+    for (idx, s) in staged.iter().enumerate() {
         let currency = s.breakdown.interest_expense_cash.currency();
 
-        let sweep_for_instrument =
-            if extra_principal_priority == usize::MAX || remaining_sweep.currency() != currency {
-                Money::new(0.0, currency)
+        sweep_allocations[idx] =
+            if extra_principal_priority == usize::MAX || sweep_currency != currency {
+                0.0
             } else if let Some(target_id) = target_instrument_id {
                 if target_id == s.instrument_id {
                     let capacity = *extra_capacity.get(s.instrument_id.as_str()).unwrap_or(&0.0);
-                    Money::new(remaining_sweep.amount().min(capacity), currency)
+                    sweep_total.min(capacity)
                 } else {
-                    Money::new(0.0, currency)
+                    0.0
                 }
             } else {
                 let capacity = *extra_capacity.get(s.instrument_id.as_str()).unwrap_or(&0.0);
                 if total_extra_capacity <= 0.0 || capacity <= 0.0 {
-                    Money::new(0.0, currency)
-                } else if idx + 1 == staged_len {
-                    Money::new(remaining_sweep.amount().min(capacity), currency)
+                    0.0
                 } else {
-                    let proportional = remaining_sweep.amount() * (capacity / total_extra_capacity);
-                    Money::new(proportional.min(capacity), currency)
+                    let proportional = sweep_total * (capacity / total_extra_capacity);
+                    proportional.min(capacity)
                 }
             };
+    }
 
-        s.extra_principal = sweep_for_instrument;
-        remaining_sweep = remaining_sweep.checked_sub(sweep_for_instrument)?;
+    // Handle rounding residual: assign to the last eligible instrument
+    let allocated_total: f64 = sweep_allocations.iter().sum();
+    let residual = sweep_total - allocated_total;
+    if residual.abs() > f64::EPSILON {
+        for idx in (0..staged_len).rev() {
+            let capacity = *extra_capacity
+                .get(staged[idx].instrument_id.as_str())
+                .unwrap_or(&0.0);
+            if sweep_allocations[idx] > 0.0 || capacity > 0.0 {
+                sweep_allocations[idx] = (sweep_allocations[idx] + residual).min(capacity).max(0.0);
+                break;
+            }
+        }
+    }
 
+    // Second pass: apply computed shares
+    for (idx, s) in staged.iter_mut().enumerate() {
+        let currency = s.breakdown.interest_expense_cash.currency();
+        s.extra_principal = Money::new(sweep_allocations[idx], currency);
+        remaining_sweep = remaining_sweep.checked_sub(s.extra_principal)?;
         s.breakdown.principal_payment = s.scheduled_principal.checked_add(s.extra_principal)?;
+    }
+
+    // --- Step 4b: Apply PIK mode (post-sweep) ---
+    // PIK staging is deferred until after sweep allocation so that PIK
+    // accrues on the post-sweep balance, not the pre-sweep contractual amount.
+    for s in &mut staged {
+        let currency = s.breakdown.interest_expense_cash.currency();
+        if is_pik_enabled(state, &s.instrument_id)
+            && interest_priority < extra_principal_priority
+            && extra_principal_priority != usize::MAX
+        {
+            s.breakdown.interest_expense_pik += s.breakdown.interest_expense_cash;
+            s.breakdown.interest_expense_cash = Money::new(0.0, currency);
+        }
     }
 
     // --- Step 5: Available cash caps ---
@@ -378,6 +405,11 @@ pub fn execute_waterfall(
             breakdown.principal_payment = opening_balance;
         }
         let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
+        let post_sweep_balance = if post_sweep_balance.amount().abs() < 0.005 {
+            Money::new(0.0, post_sweep_balance.currency())
+        } else {
+            post_sweep_balance
+        };
 
         let pik_enabled = is_pik_enabled(state, &instrument_id);
         if pik_enabled

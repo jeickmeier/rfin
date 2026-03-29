@@ -395,7 +395,8 @@ mod tests {
 
     #[test]
     fn test_cycle_detection() {
-        let model = ModelBuilder::new("test")
+        // Cycles are now caught at build time by ModelBuilder::build()
+        let result = ModelBuilder::new("test")
             .periods("2025Q1..Q2", None)
             .expect("test should succeed")
             .compute("a", "b + 1")
@@ -404,14 +405,14 @@ mod tests {
             .expect("test should succeed")
             .compute("c", "a + 1")
             .expect("test should succeed")
-            .build()
-            .expect("test should succeed");
+            .build();
 
-        let graph = DependencyGraph::from_model(&model).expect("test should succeed");
-
-        // Should detect cycle
-        let result = graph.detect_cycles();
         assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("Circular dependency"),
+            "expected circular dependency error, got: {err}"
+        );
     }
 
     #[test]

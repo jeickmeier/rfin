@@ -95,10 +95,10 @@ impl<P: StochasticProcess> Discretization<P> for LogEuler {
         // Transform to log-space and apply Euler
         let sqrt_dt = dt.sqrt();
         for i in 0..dim {
-            let mu_x = work[i] / x[i]; // μ/X (rate form)
-            let sigma_x = work[dim + i] / x[i]; // σ/X (rate form)
+            let x_safe = x[i].max(f64::MIN_POSITIVE);
+            let mu_x = work[i] / x_safe;
+            let sigma_x = work[dim + i] / x_safe;
 
-            // Log-Euler: ln(X_new) = ln(X) + (μ/X - ½(σ/X)²)Δt + (σ/X)√Δt Z
             let drift_term = (mu_x - 0.5 * sigma_x * sigma_x) * dt;
             let diffusion_term = sigma_x * sqrt_dt * z[i];
 

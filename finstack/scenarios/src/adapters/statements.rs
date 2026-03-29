@@ -304,7 +304,7 @@ fn convert_continuous_rate(
 ) -> Result<f64> {
     // Validate year fraction to prevent division by zero or invalid calculations
     // in simple rate conversion: simple_rate = (exp(r * t) - 1) / t
-    if year_fraction <= 0.0 {
+    if !year_fraction.is_finite() || year_fraction <= 0.0 {
         return Err(Error::Validation(format!(
             "Year fraction must be positive for rate conversion, got {}",
             year_fraction

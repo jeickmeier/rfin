@@ -340,7 +340,8 @@ fn test_dag_multiple_dependencies() {
 
 #[test]
 fn test_circular_dependency_detection() {
-    let model = ModelBuilder::new("test")
+    // Cycles are now caught at build time by ModelBuilder::build()
+    let result = ModelBuilder::new("test")
         .periods("2025Q1..Q1", None)
         .unwrap()
         .compute("a", "b + 1")
@@ -349,11 +350,7 @@ fn test_circular_dependency_detection() {
         .unwrap()
         .compute("c", "a + 1")
         .unwrap()
-        .build()
-        .unwrap();
-
-    let mut evaluator = Evaluator::new();
-    let result = evaluator.evaluate(&model);
+        .build();
 
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -362,16 +359,13 @@ fn test_circular_dependency_detection() {
 
 #[test]
 fn test_self_reference_cycle() {
-    let model = ModelBuilder::new("test")
+    // Self-referencing cycles are now caught at build time
+    let result = ModelBuilder::new("test")
         .periods("2025Q1..Q1", None)
         .unwrap()
         .compute("a", "a + 1")
         .unwrap()
-        .build()
-        .unwrap();
-
-    let mut evaluator = Evaluator::new();
-    let result = evaluator.evaluate(&model);
+        .build();
 
     assert!(result.is_err());
 }

@@ -219,6 +219,7 @@ fn expand_hierarchy_operations(
                 curve_kind,
                 target,
                 bp,
+                discount_curve_id,
             } => {
                 let matches = resolve_hierarchy_matches(hierarchy, target);
                 for matched in matches {
@@ -231,7 +232,7 @@ fn expand_hierarchy_operations(
                         operation: OperationSpec::CurveParallelBp {
                             curve_kind: *curve_kind,
                             curve_id: matched.curve_id.as_str().to_string(),
-                            discount_curve_id: None,
+                            discount_curve_id: discount_curve_id.clone(),
                             bp: *bp,
                         },
                     });
@@ -545,6 +546,21 @@ impl ScenarioEngine {
             expand_hierarchy_operations(&spec.operations, ctx.market, spec.resolution_mode);
 
         // Phase 0: Time Roll Forward
+        let time_roll_count = expanded_ops
+            .iter()
+            .filter(|op| matches!(op, OperationSpec::TimeRollForward { .. }))
+            .count();
+        if time_roll_count > 1 {
+            tracing::warn!(
+                count = time_roll_count,
+                "Scenario contains multiple TimeRollForward operations; stacking time rolls may produce unexpected results"
+            );
+            warnings.push(format!(
+                "Multiple TimeRollForward operations detected ({}); consider using validate()",
+                time_roll_count,
+            ));
+        }
+
         for op in &expanded_ops {
             if let OperationSpec::TimeRollForward {
                 period,

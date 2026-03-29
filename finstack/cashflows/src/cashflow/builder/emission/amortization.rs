@@ -69,12 +69,11 @@ pub(in crate::cashflow::builder) fn emit_amortization_on(
 ) -> finstack_core::Result<()> {
     match &notional.amort {
         AmortizationSpec::None => {}
-        AmortizationSpec::LinearTo { .. } => {
+        AmortizationSpec::LinearTo { final_notional } => {
             if params.amort_dates.contains(&d) {
                 if let Some(delta) = params.linear_delta {
                     let pay = if is_maturity {
-                        // Final clean-up: pay whatever remains outstanding
-                        *outstanding
+                        (*outstanding - final_notional.amount()).max(0.0)
                     } else {
                         delta.min(*outstanding)
                     };

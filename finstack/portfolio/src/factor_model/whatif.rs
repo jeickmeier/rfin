@@ -214,14 +214,26 @@ fn factor_deltas(
     before: &RiskDecomposition,
     after: &RiskDecomposition,
 ) -> Vec<FactorContributionDelta> {
+    let after_by_id: std::collections::HashMap<&FactorId, &super::types::FactorContribution> =
+        after
+            .factor_contributions
+            .iter()
+            .map(|fc| (&fc.factor_id, fc))
+            .collect();
+
     before
         .factor_contributions
         .iter()
-        .zip(after.factor_contributions.iter())
-        .map(|(before_factor, after_factor)| FactorContributionDelta {
-            factor_id: before_factor.factor_id.clone(),
-            absolute_change: after_factor.absolute_risk - before_factor.absolute_risk,
-            relative_change: after_factor.relative_risk - before_factor.relative_risk,
+        .map(|before_factor| {
+            let (abs_after, rel_after) = after_by_id
+                .get(&before_factor.factor_id)
+                .map(|af| (af.absolute_risk, af.relative_risk))
+                .unwrap_or((0.0, 0.0));
+            FactorContributionDelta {
+                factor_id: before_factor.factor_id.clone(),
+                absolute_change: abs_after - before_factor.absolute_risk,
+                relative_change: rel_after - before_factor.relative_risk,
+            }
         })
         .collect()
 }

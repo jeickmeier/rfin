@@ -276,8 +276,9 @@ fn double_exponential_smoothing(data: &[f64], alpha: f64, beta: f64) -> (f64, f6
     }
 
     let mut level = data[0];
-    let mut trend = if data.len() > 1 {
-        data[1] - data[0]
+    let init_window = data.len().min(10);
+    let mut trend = if init_window >= 2 {
+        (data[init_window - 1] - data[0]) / (init_window - 1) as f64
     } else {
         0.0
     };
@@ -300,8 +301,15 @@ fn double_exponential_smoothing(data: &[f64], alpha: f64, beta: f64) -> (f64, f6
 ///
 /// * `historical` - Array of historical values (need 2+ seasons, required)
 /// * `season_length` - Length of seasonal cycle (required)
-/// * `growth` - Growth rate to apply to trend (default: 0.0)
+/// * `growth` - Total compound growth rate applied to the trend component
+///   (default: 0.0). When `growth == 0.0` the trend is held flat at its last
+///   historical value. This is a **total** rate, not an additional rate on
+///   top of the historical trend slope—the decomposition already captures the
+///   historical trajectory in the trend component.
 /// * `mode` - SeasonalMode enum: "additive" or "multiplicative" (required)
+/// * `season_start` - Zero-based offset indicating which season position the
+///   first historical observation corresponds to (default: 0). Set this when
+///   your data does not start at the beginning of a seasonal cycle.
 ///
 /// Note: `base_value` is provided for API parity with other forecast methods but
 /// is not used in the seasonal calculation—the historical series establishes
@@ -377,6 +385,12 @@ fn seasonal_forecast_with_decomposition(
     // Get growth rate for trend projection
     let growth = params.get("growth").and_then(|v| v.as_f64()).unwrap_or(0.0);
 
+    // Season start offset (default: 0 — data starts at season position 0)
+    let season_start = params
+        .get("season_start")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+
     // Project forward
     let mut results = IndexMap::new();
     let last_trend = trend
@@ -386,10 +400,14 @@ fn seasonal_forecast_with_decomposition(
 
     for (i, period_id) in forecast_periods.iter().enumerate() {
         // Calculate trend component with growth
-        let trend_value = last_trend * (1.0 + growth).powi(i as i32 + 1);
+        let trend_value = if growth == 0.0 {
+            last_trend
+        } else {
+            last_trend * (1.0 + growth).powi(i as i32 + 1)
+        };
 
-        // Get seasonal component (cycle through pattern)
-        let season_idx = (hist_data.len() + i) % season_length;
+        // Get seasonal component (cycle through pattern, accounting for season_start offset)
+        let season_idx = (season_start + hist_data.len() + i) % season_length;
         let seasonal_value = seasonal.get(season_idx).copied().unwrap_or(0.0);
 
         // Combine based on mode (type-safe match)
@@ -436,8 +454,10 @@ fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
     let n = data.len();
     let mut trend = vec![0.0; n];
     let half_season = season_length / 2;
+    let is_even = season_length.is_multiple_of(2);
 
-    // Use centered moving average for middle values
+    // Use centered moving average for middle values.
+    // For even-period seasonality, apply 2×MA weighting (half-weight endpoints).
     for (i, trend_val) in trend
         .iter_mut()
         .enumerate()
@@ -446,8 +466,15 @@ fn calculate_trend_component(data: &[f64], season_length: usize) -> Vec<f64> {
     {
         let window_start = i.saturating_sub(half_season);
         let window_end = (i + half_season + 1).min(n);
-        let sum: f64 = data[window_start..window_end].iter().sum();
-        *trend_val = sum / (window_end - window_start) as f64;
+
+        if is_even && window_end - window_start == season_length + 1 {
+            let sum: f64 = data[window_start + 1..window_end - 1].iter().sum();
+            let endpoint_sum = 0.5 * (data[window_start] + data[window_end - 1]);
+            *trend_val = (sum + endpoint_sum) / season_length as f64;
+        } else {
+            let sum: f64 = data[window_start..window_end].iter().sum();
+            *trend_val = sum / (window_end - window_start) as f64;
+        }
     }
 
     // Extrapolate trend to edges using linear extrapolation
@@ -533,19 +560,9 @@ fn decompose_additive(
 fn decompose_multiplicative(
     data: &[f64],
     season_length: usize,
-    _trend: Vec<f64>,
+    trend: Vec<f64>,
 ) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let n = data.len();
-    let cycle_levels: Vec<f64> = data
-        .chunks(season_length)
-        .map(|chunk| chunk.iter().sum::<f64>() / chunk.len() as f64)
-        .collect();
-
-    let trend: Vec<f64> = cycle_levels
-        .iter()
-        .flat_map(|level| std::iter::repeat_n(*level, season_length))
-        .take(n)
-        .collect();
 
     let detrended: Vec<f64> = data
         .iter()
@@ -734,10 +751,13 @@ mod tests {
 
     #[test]
     fn test_multiplicative_seasonal_forecast_preserves_relative_factors() {
+        // Stable-level data with clear seasonal pattern (3 years).
+        // Seasonal ratios: Q1=1.0, Q2=0.8, Q3=1.2, Q4=0.9 relative to Q1.
         let params = indexmap! {
             "historical".into() => serde_json::json!([
                 100.0, 80.0, 120.0, 90.0,
-                200.0, 160.0, 240.0, 180.0
+                102.0, 82.0, 122.0, 92.0,
+                104.0, 84.0, 124.0, 94.0
             ]),
             "season_length".into() => serde_json::json!(4),
             "mode".into() => serde_json::json!("multiplicative"),

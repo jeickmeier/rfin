@@ -143,7 +143,9 @@ impl CompiledExpr {
             let base = arg_results[0];
             let mut acc = 0.0;
             for &v in base {
-                acc += v;
+                if !v.is_nan() {
+                    acc += v;
+                }
                 out.push(acc);
             }
         }
@@ -157,7 +159,9 @@ impl CompiledExpr {
             let base = arg_results[0];
             let mut acc = 1.0;
             for &v in base {
-                acc *= v;
+                if !v.is_nan() {
+                    acc *= v;
+                }
                 out.push(acc);
             }
         }
@@ -171,7 +175,9 @@ impl CompiledExpr {
             let base = arg_results[0];
             let mut cur = f64::INFINITY;
             for &v in base {
-                cur = if cur < v { cur } else { v };
+                if !v.is_nan() {
+                    cur = if cur < v { cur } else { v };
+                }
                 out.push(cur);
             }
         }
@@ -185,7 +191,9 @@ impl CompiledExpr {
             let base = arg_results[0];
             let mut cur = f64::NEG_INFINITY;
             for &v in base {
-                cur = if cur > v { cur } else { v };
+                if !v.is_nan() {
+                    cur = if cur > v { cur } else { v };
+                }
                 out.push(cur);
             }
         }

@@ -244,12 +244,20 @@ impl MarketContext {
         }
 
         // Apply curve bumps
-        if !curve_bumps.is_empty() {
-            ctx.apply_curve_bumps(curve_bumps)?;
-        }
+        let curve_invalidated = if !curve_bumps.is_empty() {
+            ctx.apply_curve_bumps(curve_bumps)?
+        } else {
+            Vec::new()
+        };
         let mut mutation_info = ContextMutationInfo::default();
         if needs_credit_rebind {
-            mutation_info.invalidated_credit_indices = ctx.rebind_all_credit_indices();
+            let base_corr_invalidated = ctx.rebind_all_credit_indices();
+            mutation_info.invalidated_credit_indices = base_corr_invalidated;
+        }
+        for id in curve_invalidated {
+            if !mutation_info.invalidated_credit_indices.contains(&id) {
+                mutation_info.invalidated_credit_indices.push(id);
+            }
         }
 
         #[cfg(feature = "tracing")]
@@ -271,7 +279,7 @@ impl MarketContext {
     fn apply_curve_bumps(
         &mut self,
         bumps: crate::collections::HashMap<CurveId, BumpSpec>,
-    ) -> Result<()> {
+    ) -> Result<Vec<CurveId>> {
         let mut needs_credit_rebind = false;
         for (curve_id, bump_spec) in bumps {
             let cid = curve_id.as_str();
@@ -308,11 +316,13 @@ impl MarketContext {
             .into());
         }
 
-        if needs_credit_rebind {
-            let _invalidated = self.rebind_all_credit_indices();
-        }
+        let invalidated = if needs_credit_rebind {
+            self.rebind_all_credit_indices()
+        } else {
+            Vec::new()
+        };
 
-        Ok(())
+        Ok(invalidated)
     }
 }
 

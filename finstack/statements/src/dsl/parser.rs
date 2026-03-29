@@ -7,7 +7,7 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while1},
     character::complete::{char, multispace0, multispace1},
-    combinator::{map, opt, recognize},
+    combinator::{map, opt, recognize, verify},
     multi::separated_list0,
     number::complete::double,
     sequence::{delimited, pair, preceded},
@@ -224,9 +224,9 @@ fn function_call(input: &str) -> IResult<&str, StmtExpr> {
     Ok((input, StmtExpr::call(name, args)))
 }
 
-// Literal number
+// Literal number (rejects inf/nan)
 fn literal(input: &str) -> IResult<&str, StmtExpr> {
-    map(double, StmtExpr::literal).parse(input)
+    map(verify(double, |v: &f64| v.is_finite()), StmtExpr::literal).parse(input)
 }
 
 // Identifier (node reference)
@@ -254,7 +254,13 @@ fn identifier(input: &str) -> IResult<&str, StmtExpr> {
     Ok((input, StmtExpr::NodeRef(NodeId::from(id_str.as_str()))))
 }
 
-// Identifier string (alphanumeric + underscore + dot + hyphen for instrument IDs)
+// Identifier string (alphanumeric + underscore + dot + hyphen for instrument IDs).
+//
+// **Ambiguity note:** Hyphens are allowed so that capital-structure instrument
+// IDs like `TL-1` and `cs.debt_balance.TL-1` can be referenced directly.
+// This means `revenue-cogs` will parse as a *single* identifier rather than
+// subtraction.  To express subtraction, surround the `-` operator with
+// whitespace: `revenue - cogs`.
 fn identifier_string(input: &str) -> IResult<&str, String> {
     map(
         recognize(pair(

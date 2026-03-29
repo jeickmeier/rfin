@@ -283,11 +283,12 @@ impl FxDeltaVolSurface {
             .rr_25d(&self.rr_25d)
             .bf_25d(&self.bf_25d);
 
-        // The existing builder does not support 10D wings, so we use the 25D
-        // path. The builder's .build() handles the rest.
-        let _ = &self.rr_10d;
-        let _ = &self.bf_10d;
-        let _ = &mut builder; // suppress unused-mut if cfg changes
+        if let Some(rr_10d) = &self.rr_10d {
+            builder = builder.rr_10d(rr_10d);
+        }
+        if let Some(bf_10d) = &self.bf_10d {
+            builder = builder.bf_10d(bf_10d);
+        }
 
         builder.build()
     }

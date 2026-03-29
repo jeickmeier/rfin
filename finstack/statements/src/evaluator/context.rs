@@ -40,8 +40,9 @@ pub struct EvaluationContext {
     /// Uses `Option<f64>` to distinguish between "not yet evaluated" (`None`) and "evaluated to NaN" (`Some(NaN)`).
     pub current_values: Vec<Option<f64>>,
 
-    /// Track value types for each node (monetary vs scalar)
-    pub node_value_types: IndexMap<String, NodeValueType>,
+    /// Track value types for each node (monetary vs scalar).
+    /// Wrapped in `Arc` so that per-period context copies are O(1).
+    pub node_value_types: Arc<IndexMap<String, NodeValueType>>,
 
     /// Capital structure cashflows (optional)
     pub capital_structure_cashflows: Option<crate::capital_structure::CapitalStructureCashflows>,
@@ -111,7 +112,7 @@ impl EvaluationContext {
             historical_results,
             historical_capital_structure_cashflows,
             current_values: vec![None; num_nodes],
-            node_value_types: IndexMap::new(),
+            node_value_types: Arc::new(IndexMap::new()),
             capital_structure_cashflows: None,
             warnings: Vec::new(),
         }

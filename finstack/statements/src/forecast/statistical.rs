@@ -32,9 +32,12 @@ fn build_rng(seed: u64, stream_id: Option<u64>) -> Pcg64Rng {
 /// keeping results reproducible for a given `(seed, path_offset, node_id)` tuple.
 #[must_use]
 pub(crate) fn stable_hash_u64(node_id: &str) -> u64 {
-    node_id.as_bytes().iter().fold(0u64, |acc, &b| {
-        acc.wrapping_mul(31).wrapping_add(u64::from(b))
-    })
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &b in node_id.as_bytes() {
+        hash ^= u64::from(b);
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    hash
 }
 
 /// Parse a JSON seed as `u64`, accepting integer JSON numbers stored as floats
@@ -141,22 +144,25 @@ fn extract_distribution_params(
 
 /// Normal distribution forecast (deterministic with seed).
 ///
-/// Samples from a normal distribution N(mean, std_dev^2) for each forecast period.
+/// Produces a random-walk path starting from `base_value`:
+/// `value[t] = value[t-1] + N(mean, std_dev²)`.
+///
+/// When `base_value` is zero the series reduces to a cumulative sum of
+/// i.i.d. normal increments (a discrete Wiener process with drift).
 ///
 /// # Arguments
 ///
-/// * `base_value` - Unused for this method; included for API compatibility with
-///   other forecast helpers
+/// * `base_value` - Starting level for the random walk
 /// * `forecast_periods` - Periods to simulate
 /// * `params` - JSON parameter map containing `mean`, `std_dev`, and `seed`
 ///
-/// `mean` and `std_dev` are expressed in the same units as the returned
-/// series. `seed` must be integer-like and is required for deterministic
-/// sampling.
+/// `mean` is the per-period drift and `std_dev` is the per-period
+/// volatility. `seed` must be integer-like and is required for
+/// deterministic sampling.
 ///
 /// # Returns
 ///
-/// Returns one simulated scalar per forecast period.
+/// Returns one simulated scalar per forecast period forming a path.
 ///
 /// # Errors
 ///
@@ -191,15 +197,15 @@ fn extract_distribution_params(
 /// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
 /// - Numerical sampling techniques: `docs/REFERENCES.md#press-numerical-recipes`
 pub fn normal_forecast(
-    _base_value: f64,
+    base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
-    normal_forecast_with_stream(_base_value, forecast_periods, params, None)
+    normal_forecast_with_stream(base_value, forecast_periods, params, None)
 }
 
 pub(crate) fn normal_forecast_with_stream(
-    _base_value: f64,
+    base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
     stream_id: Option<u64>,
@@ -208,10 +214,11 @@ pub(crate) fn normal_forecast_with_stream(
 
     let mut rng = build_rng(p.seed, stream_id);
     let mut results = IndexMap::new();
+    let mut prev = base_value;
 
     for period_id in forecast_periods {
         let z = rng.normal(0.0, 1.0);
-        let value = p.mean + p.std_dev * z;
+        let value = prev + p.mean + p.std_dev * z;
         if !value.is_finite() {
             return Err(Error::forecast(format!(
                 "Normal forecast produced a non-finite value at period {:?}",
@@ -219,6 +226,7 @@ pub(crate) fn normal_forecast_with_stream(
             )));
         }
         results.insert(*period_id, value);
+        prev = value;
     }
 
     Ok(results)
@@ -226,17 +234,25 @@ pub(crate) fn normal_forecast_with_stream(
 
 /// Log-normal distribution forecast (deterministic with seed).
 ///
-/// Samples from a log-normal distribution. All values are positive.
+/// Produces a geometric Brownian motion path starting from `base_value`:
+/// `value[t] = value[t-1] * exp(N(mean - 0.5*std_dev², std_dev))`.
+///
+/// The Itô correction (`-0.5 * σ²`) ensures the expected value of the
+/// multiplicative increment is `exp(mean)`, matching the drift convention
+/// in Black–Scholes and standard GBM literature.
+///
+/// When `base_value` is zero, falls back to i.i.d. `exp(N(mean, std_dev))`
+/// draws (no path dependence since multiplication by zero would collapse
+/// the path).
 ///
 /// # Arguments
 ///
-/// * `base_value` - Unused for this method; included for API compatibility with
-///   other forecast helpers
+/// * `base_value` - Starting level for the geometric random walk
 /// * `forecast_periods` - Periods to simulate
 /// * `params` - JSON parameter map containing `mean`, `std_dev`, and `seed`
 ///
-/// `mean` and `std_dev` describe the underlying normal distribution, so the
-/// returned series is always positive after exponentiation.
+/// `mean` and `std_dev` describe the underlying log-return distribution.
+/// `seed` must be integer-like and is required for deterministic sampling.
 ///
 /// # Returns
 ///
@@ -259,11 +275,11 @@ pub(crate) fn normal_forecast_with_stream(
 ///     PeriodId::quarter(2025, 2),
 /// ];
 /// let params = indexmap! {
-///     "mean".to_string() => serde_json::json!(11.5),
+///     "mean".to_string() => serde_json::json!(0.05),
 ///     "std_dev".to_string() => serde_json::json!(0.15),
 ///     "seed".to_string() => serde_json::json!(42_u64),
 /// };
-/// let simulated = lognormal_forecast(0.0, &periods, &params)?;
+/// let simulated = lognormal_forecast(100.0, &periods, &params)?;
 /// assert!(simulated.values().all(|v| *v > 0.0));
 /// # Ok(())
 /// # }
@@ -274,22 +290,21 @@ pub(crate) fn normal_forecast_with_stream(
 /// - Monte Carlo simulation practice: `docs/REFERENCES.md#glasserman-2004-monte-carlo`
 /// - Numerical sampling techniques: `docs/REFERENCES.md#press-numerical-recipes`
 pub fn lognormal_forecast(
-    _base_value: f64,
+    base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
 ) -> Result<IndexMap<PeriodId, f64>> {
-    lognormal_forecast_with_stream(_base_value, forecast_periods, params, None)
+    lognormal_forecast_with_stream(base_value, forecast_periods, params, None)
 }
 
 pub(crate) fn lognormal_forecast_with_stream(
-    _base_value: f64,
+    base_value: f64,
     forecast_periods: &[PeriodId],
     params: &IndexMap<String, serde_json::Value>,
     stream_id: Option<u64>,
 ) -> Result<IndexMap<PeriodId, f64>> {
     let p = extract_distribution_params(params, "LogNormal")?;
 
-    // Warn on degenerate distribution (all values will be identical)
     if p.std_dev == 0.0 {
         tracing::warn!(
             "LogNormal forecast with std_dev=0.0 produces degenerate distribution (all values identical)"
@@ -298,12 +313,34 @@ pub(crate) fn lognormal_forecast_with_stream(
 
     let mut rng = build_rng(p.seed, stream_id);
     let mut results = IndexMap::new();
+    let mut prev = base_value;
+    let use_path = base_value.abs() > f64::EPSILON;
+
+    const EXP_CLAMP: f64 = 709.0;
 
     for period_id in forecast_periods {
         let z = rng.normal(0.0, 1.0);
-        let normal_value = p.mean + p.std_dev * z;
-        // Exponentiate to get log-normal
-        let value = normal_value.exp();
+        let value = if use_path {
+            let log_return = (p.mean - 0.5 * p.std_dev * p.std_dev) + p.std_dev * z;
+            if log_return.abs() > EXP_CLAMP {
+                tracing::warn!(
+                    mean = p.mean,
+                    std_dev = p.std_dev,
+                    "LogNormal exponent clamped to avoid overflow"
+                );
+            }
+            prev * log_return.clamp(-EXP_CLAMP, EXP_CLAMP).exp()
+        } else {
+            let normal_value = p.mean + p.std_dev * z;
+            if normal_value.abs() > EXP_CLAMP {
+                tracing::warn!(
+                    mean = p.mean,
+                    std_dev = p.std_dev,
+                    "LogNormal exponent clamped to avoid overflow"
+                );
+            }
+            normal_value.clamp(-EXP_CLAMP, EXP_CLAMP).exp()
+        };
         if !value.is_finite() {
             return Err(Error::forecast(format!(
                 "LogNormal forecast produced a non-finite value at period {:?}",
@@ -311,6 +348,7 @@ pub(crate) fn lognormal_forecast_with_stream(
             )));
         }
         results.insert(*period_id, value);
+        prev = value;
     }
 
     Ok(results)
@@ -592,7 +630,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lognormal_forecast_rejects_non_finite_output() {
+    fn test_lognormal_forecast_clamps_overflow() {
         let periods = vec![PeriodId::quarter(2025, 1)];
 
         let mut params = IndexMap::new();
@@ -601,6 +639,13 @@ mod tests {
         params.insert("seed".to_string(), serde_json::json!(42));
 
         let result = lognormal_forecast(0.0, &periods, &params);
-        assert!(result.is_err(), "overflowing lognormal paths must fail");
+        assert!(
+            result.is_ok(),
+            "lognormal with large mean should clamp, not fail"
+        );
+        let values = result.expect("test already asserted Ok");
+        for v in values.values() {
+            assert!(v.is_finite(), "clamped output must be finite");
+        }
     }
 }

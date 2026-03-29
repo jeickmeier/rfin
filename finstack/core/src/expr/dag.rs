@@ -267,15 +267,14 @@ impl DagBuilder {
             if depth >= MAX_DAG_RECURSION_DEPTH {
                 return;
             }
-            if visited.contains(&node_id) {
-                return;
-            }
-            visited.insert(node_id);
+            let first_visit = visited.insert(node_id);
 
             if let Some(node) = nodes.get(&node_id) {
                 for &dep_id in &node.dependencies {
                     *ref_counts.entry(dep_id).or_insert(0) += 1;
-                    count_refs(dep_id, nodes, ref_counts, visited, depth + 1);
+                    if first_visit {
+                        count_refs(dep_id, nodes, ref_counts, visited, depth + 1);
+                    }
                 }
             }
         }

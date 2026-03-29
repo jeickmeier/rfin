@@ -399,11 +399,11 @@ mod tests {
     #[test]
     fn test_conditional_prob_uses_nu_plus_one_in_perfect_correlation_limit() {
         let copula = StudentTCopula::new(5.0);
-        let nu = 5.0;
+        let nu: f64 = 5.0;
 
         // Test with small and large factor values to exercise the scaling
-        for &factor in &[0.35, 3.0, -2.5] {
-            let threshold = -1.25;
+        for &factor in &[0.35_f64, 3.0, -2.5] {
+            let threshold: f64 = -1.25;
             let scaling = ((nu + 1.0) / (nu + factor * factor)).sqrt();
             let expected = student_t_cdf((threshold - factor) * scaling, nu + 1.0);
 

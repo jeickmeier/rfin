@@ -480,13 +480,10 @@ pub fn attribute_portfolio_pnl(
                     to: base_ccy,
                 })?;
 
-            let pnl_amount = pos_attr.total_pnl.amount();
-            let flow_translation = pnl_amount * (rate_t1.rate - rate_t0.rate);
-
             let principal_amount = val_t0_native.amount();
             let principal_translation = principal_amount * (rate_t1.rate - rate_t0.rate);
 
-            let total_translation = flow_translation + principal_translation;
+            let total_translation = principal_translation;
             fx_translation_vals.push(total_translation);
 
             total_pnl_vals.push(total_translation);

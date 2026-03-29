@@ -180,6 +180,9 @@ impl Tenor {
     /// * `years` - The time period in years
     /// * `day_count` - The day count convention to use for day conversion
     pub fn from_years(years: f64, day_count: DayCount) -> Self {
+        if years < 0.0 || !years.is_finite() {
+            return Self::new(0, TenorUnit::Days);
+        }
         let months = years * 12.0;
         let rounded_months = months.round();
 

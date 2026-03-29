@@ -96,7 +96,11 @@ impl MonteCarloResults {
         }
     }
 
-    /// Estimate the probability that a metric breaches a threshold in any forecast period.
+    /// Estimate the probability that a metric exceeds a threshold in any forecast period.
+    ///
+    /// This checks **upside** breaches only (`value > threshold`). For downside
+    /// breaches (e.g. DSCR falling below a floor), negate both the metric values
+    /// and the threshold, or use a derived metric that flips the sign.
     ///
     /// Returns `None` if the metric has no data, no forecast periods, or if any
     /// period's path vector is shorter than `n_paths` (incomplete simulation).

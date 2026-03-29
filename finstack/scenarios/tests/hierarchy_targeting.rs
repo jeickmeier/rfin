@@ -100,6 +100,7 @@ fn hierarchy_curve_parallel_bp_resolves_to_individual_bumps() {
                 tag_filter: None,
             },
             bp: 50.0,
+            discount_curve_id: None,
         }],
         priority: 0,
         resolution_mode: ResolutionMode::default(),
@@ -183,6 +184,7 @@ fn cumulative_mode_stacks_shocks_down_tree() {
                     tag_filter: None,
                 },
                 bp: 50.0,
+                discount_curve_id: None,
             },
             OperationSpec::HierarchyCurveParallelBp {
                 curve_kind: CurveKind::Discount,
@@ -191,6 +193,7 @@ fn cumulative_mode_stacks_shocks_down_tree() {
                     tag_filter: None,
                 },
                 bp: 100.0,
+                discount_curve_id: None,
             },
         ],
         priority: 0,
@@ -282,6 +285,7 @@ fn most_specific_wins_keeps_only_deepest_shock() {
                     tag_filter: None,
                 },
                 bp: 50.0,
+                discount_curve_id: None,
             },
             OperationSpec::HierarchyCurveParallelBp {
                 curve_kind: CurveKind::Discount,
@@ -290,6 +294,7 @@ fn most_specific_wins_keeps_only_deepest_shock() {
                     tag_filter: None,
                 },
                 bp: 100.0,
+                discount_curve_id: None,
             },
         ],
         priority: 0,
@@ -411,6 +416,7 @@ fn hierarchy_operation_json_round_trip() {
             }),
         },
         bp: 50.0,
+        discount_curve_id: None,
     };
 
     let json = serde_json::to_string_pretty(&op).unwrap();
@@ -430,6 +436,7 @@ fn hierarchy_operation_json_round_trip() {
             curve_kind,
             target,
             bp,
+            ..
         } => {
             assert_eq!(curve_kind, CurveKind::Discount);
             assert_eq!(
@@ -480,6 +487,7 @@ fn scenario_with_resolution_mode_json_round_trip() {
                 tag_filter: None,
             },
             bp: 25.0,
+            discount_curve_id: None,
         }],
         priority: 0,
         resolution_mode: ResolutionMode::Cumulative,
@@ -602,6 +610,7 @@ fn most_specific_wins_uses_matched_node_depth_not_target_path_depth() {
                     }),
                 },
                 bp: 100.0,
+                discount_curve_id: None,
             },
             OperationSpec::HierarchyCurveParallelBp {
                 curve_kind: CurveKind::Discount,
@@ -610,6 +619,7 @@ fn most_specific_wins_uses_matched_node_depth_not_target_path_depth() {
                     tag_filter: None,
                 },
                 bp: 50.0,
+                discount_curve_id: None,
             },
         ],
         priority: 0,

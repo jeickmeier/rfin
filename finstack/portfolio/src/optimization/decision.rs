@@ -6,7 +6,6 @@ use crate::position::Position;
 use crate::types::PositionId;
 use finstack_core::config::FinstackConfig;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::summation::neumaier_sum;
 use finstack_valuations::metrics::MetricId;
 use indexmap::IndexMap;
 
@@ -103,7 +102,7 @@ pub(crate) fn build_decision_space(
     let mut current_weights = IndexMap::new();
 
     // Map position id -> (pv_base, measures, tags, quantity)
-    let mut total_pv_base = 0.0_f64;
+    let mut _total_pv_base = 0.0_f64;
     // Gross market value: sum of absolute PVs (for weight calculation with hedged portfolios)
     let mut gross_pv_base = 0.0_f64;
     // Track notional values for NotionalWeight scheme
@@ -124,11 +123,11 @@ pub(crate) fn build_decision_space(
 
         let pv_base = pv_entry.value_base.amount();
         let pv_native = pv_entry.value_native.amount();
-        total_pv_base = neumaier_sum([total_pv_base, pv_base].into_iter());
-        gross_pv_base = neumaier_sum([gross_pv_base, pv_base.abs()].into_iter());
+        _total_pv_base += pv_base;
+        gross_pv_base += pv_base.abs();
         // For NotionalWeight: use signed quantity as notional proxy
         position_notionals.insert(position.position_id.clone(), position.quantity);
-        gross_notional = neumaier_sum([gross_notional, position.quantity.abs()].into_iter());
+        gross_notional += position.quantity.abs();
 
         // Extract measures
         let mut measures = IndexMap::new();

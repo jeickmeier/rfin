@@ -141,13 +141,23 @@ impl ExtensionRegistry {
     ///
     /// Returns an error if any extension name is not registered.
     pub fn set_execution_order(&mut self, order: Vec<String>) -> Result<()> {
-        // Validate all extensions exist
+        // Validate all extensions in order are registered
         for name in &order {
             if !self.extensions.contains_key(name) {
                 return Err(crate::error::Error::invalid_input(format!(
                     "Extension '{}' is not registered",
                     name
                 )));
+            }
+        }
+
+        // Warn about registered extensions that will be skipped
+        for name in self.extensions.keys() {
+            if !order.contains(name) {
+                tracing::warn!(
+                    extension = name.as_str(),
+                    "Registered extension not included in execution order — it will not run"
+                );
             }
         }
 
@@ -201,15 +211,9 @@ impl ExtensionRegistry {
         context: &ExtensionContext,
     ) -> Result<IndexMap<String, ExtensionResult>> {
         let mut results = IndexMap::new();
-        let shared_context = ExtensionContext {
-            model: context.model,
-            results: context.results,
-            config: None,
-            runtime_context: context.runtime_context.clone(),
-        };
 
         for name in &self.execution_order.clone() {
-            let result = self.execute(name, &shared_context)?;
+            let result = self.execute(name, context)?;
             results.insert(name.clone(), result);
         }
 
@@ -232,15 +236,9 @@ impl ExtensionRegistry {
         context: &ExtensionContext,
     ) -> IndexMap<String, Result<ExtensionResult>> {
         let mut results = IndexMap::new();
-        let shared_context = ExtensionContext {
-            model: context.model,
-            results: context.results,
-            config: None,
-            runtime_context: context.runtime_context.clone(),
-        };
 
         for name in &self.execution_order.clone() {
-            let result = self.execute(name, &shared_context);
+            let result = self.execute(name, context);
             results.insert(name.clone(), result);
         }
 
@@ -458,7 +456,7 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_all_does_not_fan_out_extension_specific_config() {
+    fn test_execute_all_passes_config_to_extensions() {
         let mut registry = ExtensionRegistry::new();
         registry
             .register(Box::new(ValidatingExtension))
@@ -469,12 +467,20 @@ mod tests {
 
         let model = FinancialModelSpec::new("test", vec![]);
         let results = crate::evaluator::StatementResult::new();
-        let invalid = serde_json::json!({"ok": false});
-        let context = ExtensionContext::new(&model, &results).with_config(&invalid);
 
-        let results = registry
-            .execute_all(&context)
-            .expect("fan-out config should be stripped");
-        assert_eq!(results.len(), 2);
+        // With no config, all extensions execute successfully
+        let context_no_config = ExtensionContext::new(&model, &results);
+        let all_results = registry
+            .execute_all(&context_no_config)
+            .expect("no config should pass for all extensions");
+        assert_eq!(all_results.len(), 2);
+
+        // With a valid config, ValidatingExtension should also succeed
+        let valid = serde_json::json!({"ok": true});
+        let context_valid = ExtensionContext::new(&model, &results).with_config(&valid);
+        let all_results = registry
+            .execute_all(&context_valid)
+            .expect("valid config should pass for all extensions");
+        assert_eq!(all_results.len(), 2);
     }
 }

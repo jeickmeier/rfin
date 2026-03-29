@@ -140,13 +140,13 @@ pub fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Vec<Drawd
                 valley_val = d;
             }
         } else if in_dd {
-            let ep = make_episode(dates, start_idx, valley_idx, Some(i), valley_val);
+            let ep = make_episode(dates, start_idx, valley_idx, Some(i), valley_val, len - 1);
             episodes.push(ep);
             in_dd = false;
         }
     }
     if in_dd {
-        let ep = make_episode(dates, start_idx, valley_idx, None, valley_val);
+        let ep = make_episode(dates, start_idx, valley_idx, None, valley_val, len - 1);
         episodes.push(ep);
     }
 
@@ -165,11 +165,12 @@ fn make_episode(
     valley_idx: usize,
     end_idx: Option<usize>,
     valley_val: f64,
+    last_data_idx: usize,
 ) -> DrawdownEpisode {
     let start = dates[start_idx];
     let valley = dates[valley_idx];
     let end = end_idx.map(|i| dates[i]);
-    let end_date = end.unwrap_or(dates[dates.len() - 1]);
+    let end_date = end.unwrap_or(dates[last_data_idx]);
     let duration_days = (end_date - start).whole_days();
     DrawdownEpisode {
         start,

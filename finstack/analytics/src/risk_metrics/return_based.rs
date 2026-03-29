@@ -291,7 +291,9 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The Sharpe ratio. Returns `0.0` if `ann_vol` is zero (constant returns).
+/// The Sharpe ratio. When `ann_vol` is zero: returns `f64::INFINITY` if
+/// excess return is positive, `f64::NEG_INFINITY` if negative, and `0.0`
+/// if both are zero (matching [`sortino`] convention).
 ///
 /// # Examples
 ///
@@ -299,8 +301,8 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// use finstack_analytics::risk_metrics::sharpe;
 ///
 /// assert!((sharpe(0.10, 0.15, 0.0) - 0.6667).abs() < 0.001);
-/// // Zero volatility → zero Sharpe.
-/// assert_eq!(sharpe(0.10, 0.0, 0.0), 0.0);
+/// // Zero volatility with positive excess → +∞.
+/// assert_eq!(sharpe(0.10, 0.0, 0.0), f64::INFINITY);
 /// ```
 ///
 /// # References
@@ -308,7 +310,14 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// - Sharpe (1966): see docs/REFERENCES.md#sharpe1966
 pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
     if ann_vol == 0.0 {
-        return 0.0;
+        let excess = ann_return - risk_free_rate;
+        return if excess > 0.0 {
+            f64::INFINITY
+        } else if excess < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     (ann_return - risk_free_rate) / ann_vol
 }
@@ -709,8 +718,9 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 ///
 /// # Returns
 ///
-/// The Omega ratio. Returns `f64::INFINITY` if no returns fall below the
-/// threshold, and `0.0` for an empty slice.
+/// The Omega ratio. Returns `f64::INFINITY` if gains exist but no losses,
+/// `1.0` if all returns equal the threshold (neutral outcome per
+/// Keating-Shadwick), and `0.0` for an empty slice.
 ///
 /// # Examples
 ///
@@ -739,7 +749,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
         }
     }
     if losses == 0.0 {
-        return if gains > 0.0 { f64::INFINITY } else { 0.0 };
+        return if gains > 0.0 { f64::INFINITY } else { 1.0 };
     }
     gains / losses
 }
@@ -936,7 +946,9 @@ mod tests {
     #[test]
     fn sharpe_basic() {
         assert!((sharpe(0.10, 0.15, 0.0) - 0.6666).abs() < 0.01);
-        assert_eq!(sharpe(0.10, 0.0, 0.0), 0.0);
+        assert_eq!(sharpe(0.10, 0.0, 0.0), f64::INFINITY);
+        assert_eq!(sharpe(-0.05, 0.0, 0.0), f64::NEG_INFINITY);
+        assert_eq!(sharpe(0.02, 0.0, 0.02), 0.0);
     }
 
     #[test]

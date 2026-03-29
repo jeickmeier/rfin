@@ -105,6 +105,7 @@ fn operation_validate_rejects_invalid_inputs() {
             tag_filter: None,
         },
         bp: 25.0,
+        discount_curve_id: None,
     };
 
     assert!(same_ccy

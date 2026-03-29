@@ -3,6 +3,7 @@
 //! Provides parallel and key-rate vega calculators for instruments with volatility surfaces.
 
 use crate::instruments::common_impl::traits::Instrument;
+use crate::metrics::bump_surface_vol_absolute;
 use crate::metrics::sensitivities::config as sens_config;
 use crate::metrics::MetricCalculator;
 use crate::metrics::{MetricContext, MetricId};
@@ -139,8 +140,9 @@ where
         let target_total = if let Some(existing) = context.computed.get(&MetricId::Vega) {
             *existing
         } else {
-            let parallel_surface = vol_surface.scaled(1.0 + bump_pct);
-            let parallel_ctx = base_ctx.clone().insert_surface(parallel_surface);
+            // Additive parallel bump (consistent with bucketed approach and standard vega definition)
+            let parallel_ctx =
+                bump_surface_vol_absolute(base_ctx, vol_surface_id.as_str(), bump_pct)?;
             let pv_parallel = context.reprice_money(&parallel_ctx, as_of)?;
             (pv_parallel.amount() - base_pv.amount()) / bump_pct
         };
@@ -174,13 +176,15 @@ where
         for &expiry in &self.expiries {
             let mut row = Vec::new();
             for &strike in &strike_grid {
-                // Bump vol at this specific (expiry, strike) point
-                let bumped_surface = vol_surface.bump_point(expiry, strike, bump_pct)?;
-                let temp_ctx = base_ctx.clone().insert_surface(bumped_surface);
-                let pv_bumped = context.reprice_money(&temp_ctx, as_of)?;
+                // Central differences: O(h²) accuracy, consistent with other Greeks
+                let bumped_up = vol_surface.bump_point(expiry, strike, bump_pct)?;
+                let bumped_down = vol_surface.bump_point(expiry, strike, -bump_pct)?;
+                let temp_up = base_ctx.clone().insert_surface(bumped_up);
+                let temp_down = base_ctx.clone().insert_surface(bumped_down);
+                let pv_up = context.reprice_money(&temp_up, as_of)?;
+                let pv_down = context.reprice_money(&temp_down, as_of)?;
 
-                // Vega = (PV_bumped - PV_base) / bump_pct
-                let vega = (pv_bumped.amount() - base_pv.amount()) / bump_pct;
+                let vega = (pv_up.amount() - pv_down.amount()) / (2.0 * bump_pct);
                 row.push(vega);
                 raw_total.add(vega);
             }

@@ -301,7 +301,22 @@ impl ModelBuilder<Ready> {
             .map(|(period_id, money)| (*period_id, AmountOrScalar::Amount(*money)))
             .collect();
 
-        // Get currency from first value for type tracking
+        // Validate all values share the same currency
+        if values.len() > 1 {
+            let first_currency = values[0].1.currency();
+            for (period_id, money) in values.iter().skip(1) {
+                if money.currency() != first_currency {
+                    tracing::warn!(
+                        "value_money('{}') has mixed currencies: {:?} at {:?} vs {:?}",
+                        node_id,
+                        money.currency(),
+                        period_id,
+                        first_currency
+                    );
+                }
+            }
+        }
+
         let value_type = values
             .first()
             .map(|(_, money)| crate::types::NodeValueType::Monetary {
@@ -653,7 +668,11 @@ impl ModelBuilder<Ready> {
     /// Add a specific metric from the built-in registry.
     ///
     /// This is a convenience method that loads the built-in metrics registry
-    /// and adds a specific metric to the model.
+    /// and adds a specific metric to the model. For adding multiple metrics,
+    /// prefer loading the registry once and calling [`add_metric_from_registry`]
+    /// for each metric to avoid repeated I/O.
+    ///
+    /// [`add_metric_from_registry`]: ModelBuilder::add_metric_from_registry
     ///
     /// # Arguments
     /// * `qualified_id` - Fully qualified metric identifier (e.g., `"fin.gross_margin"`)
@@ -662,13 +681,18 @@ impl ModelBuilder<Ready> {
     ///
     /// ```rust,no_run
     /// # use finstack_statements::builder::ModelBuilder;
+    /// # use finstack_statements::registry::Registry;
     /// # fn main() -> finstack_statements::Result<()> {
+    /// // Preferred: load registry once for multiple metrics
+    /// let mut registry = Registry::new();
+    /// registry.load_builtins()?;
+    ///
     /// let model = ModelBuilder::new("test")
     ///     .periods("2025Q1..Q2", None)?
     ///     .value("revenue", &[])
     ///     .value("cogs", &[])
-    ///     .add_metric("fin.gross_profit")?
-    ///     .add_metric("fin.gross_margin")?
+    ///     .add_metric_from_registry("fin.gross_profit", &registry)?
+    ///     .add_metric_from_registry("fin.gross_margin", &registry)?
     ///     .build()?;
     /// # Ok(())
     /// # }
@@ -797,6 +821,38 @@ impl ModelBuilder<Ready> {
             validate_node_id(node_id.as_str())?;
         }
 
+        // Validate node type / field consistency
+        for (node_id, node) in &self.nodes {
+            match node.node_type {
+                NodeType::Value => {
+                    if node.formula_text.is_some() {
+                        return Err(Error::build(format!(
+                            "Value node '{}' cannot have a formula — use Mixed or Calculated type",
+                            node_id
+                        )));
+                    }
+                }
+                NodeType::Calculated => {
+                    if node.values.is_some() {
+                        return Err(Error::build(format!(
+                            "Calculated node '{}' cannot have explicit values — use Mixed or Value type",
+                            node_id
+                        )));
+                    }
+                }
+                NodeType::Mixed => {}
+            }
+        }
+
+        // Validate where clauses at build time (catches syntax errors early)
+        for (node_id, node) in &self.nodes {
+            if let Some(where_text) = &node.where_text {
+                crate::dsl::parse_and_compile(where_text).map_err(|e| {
+                    Error::build(format!("Invalid where clause on node '{}': {}", node_id, e))
+                })?;
+            }
+        }
+
         for node in self.nodes.values_mut() {
             if let Some(values) = &node.values {
                 let inferred = crate::types::infer_series_value_type(values.values())?;
@@ -829,6 +885,11 @@ impl ModelBuilder<Ready> {
         spec.nodes = self.nodes;
         spec.meta = self.meta;
         spec.capital_structure = self.capital_structure;
+
+        // Detect circular dependencies at build time
+        if let Ok(graph) = crate::evaluator::DependencyGraph::from_model(&spec) {
+            graph.detect_cycles()?;
+        }
 
         Ok(spec)
     }

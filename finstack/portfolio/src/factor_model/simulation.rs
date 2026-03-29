@@ -5,7 +5,7 @@ use super::types::{FactorContribution, RiskDecomposition};
 use finstack_core::factor_model::{FactorCovarianceMatrix, RiskMeasure};
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 
-const MATRIX_TOLERANCE: f64 = 1e-12;
+const MATRIX_TOLERANCE: f64 = 1e-10;
 const ZERO_TOLERANCE: f64 = 1e-15;
 
 /// Cholesky decomposition returning a lower-triangular matrix `L` such that `L * L' = A`.

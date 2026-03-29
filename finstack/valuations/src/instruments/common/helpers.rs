@@ -90,14 +90,12 @@ pub fn schedule_pv_using_curve_dc_raw<S>(
 where
     S: crate::cashflow::traits::CashflowProvider,
 {
-    use finstack_core::dates::DayCountCtx;
     use finstack_core::math::neumaier_sum;
 
     let flows = S::dated_cashflows(instrument, curves, as_of)?;
     let disc = curves.get_discount(discount_curve_id.as_str())?;
 
     let mut terms = Vec::with_capacity(flows.len());
-    let dc = disc.day_count();
 
     for (date, amount) in flows {
         // PRICING-VIEW: Include cashflows on `as_of` (t=0, df=1).
@@ -106,9 +104,8 @@ where
         if date < as_of {
             continue;
         }
-        // Use relative time from as_of (T+0)
-        let t = dc.year_fraction(as_of, date, DayCountCtx::default())?;
-        let df = disc.df(t);
+        // Date-based DF handles the case where as_of != curve base_date correctly
+        let df = disc.df_between_dates(as_of, date)?;
         terms.push(amount.amount() * df);
     }
 

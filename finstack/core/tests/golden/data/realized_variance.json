@@ -99,9 +99,9 @@
       },
       "expected": {
         "annualized_variance": {
-          "value": 3.224596066677150,
+          "value": 3.166331675400162,
           "tolerance_abs": 1e-10,
-          "notes": "Verified against yang_zhang_includes_open_to_close_component unit test formula"
+          "notes": "Yang-Zhang (2000) original paper uses n divisor for RS component"
         }
       }
     }

@@ -522,7 +522,7 @@ pub fn realized_variance_ohlc(
                 })
                 .sum::<f64>()
                 / (open_close_returns.len() - 1) as f64;
-            let var_rs = sum_rs / (n - 1) as f64;
+            let var_rs = sum_rs / n as f64;
 
             Ok((var_overnight + k * var_open_close + (1.0 - k) * var_rs) * annualization_factor)
         }
@@ -562,7 +562,10 @@ impl OnlineStats {
 
     /// Merge with another statistics accumulator.
     ///
-    /// This enables parallel computation followed by reduction.
+    /// Uses Chan, Golub & LeVeque (1979) parallel algorithm:
+    /// `combined_m2 = m2_a + m2_b + δ² · n_a · n_b / (n_a + n_b)`
+    /// where `δ = mean_b − mean_a`. This is numerically stable even
+    /// when the two sub-populations have very different means.
     pub fn merge(&mut self, other: &Self) {
         if other.count == 0 {
             return;
@@ -608,14 +611,21 @@ impl OnlineStats {
     }
 
     /// Standard error of the mean (σ / √n).
+    ///
+    /// Returns [`f64::NAN`] for 0 or 1 samples because the standard error
+    /// requires an estimate of σ, which is undefined with fewer than 2
+    /// observations.
     pub fn stderr(&self) -> f64 {
-        if self.count == 0 {
-            return f64::INFINITY;
+        if self.count <= 1 {
+            return f64::NAN;
         }
         self.std_dev() / (self.count as f64).sqrt()
     }
 
     /// Confidence interval at specified level.
+    ///
+    /// Returns `(mean, mean)` when fewer than 2 samples are available
+    /// (standard error is undefined so no interval can be constructed).
     ///
     /// # Arguments
     ///
@@ -625,6 +635,9 @@ impl OnlineStats {
     ///
     /// (lower, upper) bounds of the confidence interval.
     pub fn confidence_interval(&self, alpha: f64) -> (f64, f64) {
+        if self.count <= 1 {
+            return (self.mean, self.mean);
+        }
         let z = standard_normal_inv_cdf(1.0 - alpha / 2.0);
         let margin = z * self.stderr();
         (self.mean - margin, self.mean + margin)

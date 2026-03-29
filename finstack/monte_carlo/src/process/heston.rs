@@ -284,7 +284,7 @@ impl StochasticProcess for HestonProcess {
 
     fn drift(&self, _t: f64, x: &[f64], out: &mut [f64]) {
         let s = x[0];
-        let v = x[1];
+        let v = x[1].max(0.0);
 
         // dS/dt = (r - q) S
         out[0] = (self.params.r - self.params.q) * s;
@@ -305,8 +305,7 @@ impl StochasticProcess for HestonProcess {
     }
 
     fn is_diagonal(&self) -> bool {
-        // Heston has correlation, so not diagonal
-        false
+        true
     }
 }
 

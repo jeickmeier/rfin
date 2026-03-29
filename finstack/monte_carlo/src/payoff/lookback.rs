@@ -128,11 +128,13 @@ impl Lookback {
 
 impl Payoff for Lookback {
     fn on_event(&mut self, state: &mut PathState) {
-        if let Some(spot) = state.spot() {
-            self.extreme_spot = match self.direction {
-                LookbackDirection::Call => self.extreme_spot.max(spot),
-                LookbackDirection::Put => self.extreme_spot.min(spot),
-            };
+        if state.step <= self.maturity_step {
+            if let Some(spot) = state.spot() {
+                self.extreme_spot = match self.direction {
+                    LookbackDirection::Call => self.extreme_spot.max(spot),
+                    LookbackDirection::Put => self.extreme_spot.min(spot),
+                };
+            }
         }
     }
 
@@ -199,10 +201,12 @@ impl FloatingStrikeLookbackCall {
 
 impl Payoff for FloatingStrikeLookbackCall {
     fn on_event(&mut self, state: &mut PathState) {
-        if let Some(spot) = state.spot() {
-            self.min_spot = self.min_spot.min(spot);
-            if state.step == self.maturity_step {
-                self.terminal_spot = spot;
+        if state.step <= self.maturity_step {
+            if let Some(spot) = state.spot() {
+                self.min_spot = self.min_spot.min(spot);
+                if state.step == self.maturity_step {
+                    self.terminal_spot = spot;
+                }
             }
         }
     }
@@ -271,10 +275,12 @@ impl FloatingStrikeLookbackPut {
 
 impl Payoff for FloatingStrikeLookbackPut {
     fn on_event(&mut self, state: &mut PathState) {
-        if let Some(spot) = state.spot() {
-            self.max_spot = self.max_spot.max(spot);
-            if state.step == self.maturity_step {
-                self.terminal_spot = spot;
+        if state.step <= self.maturity_step {
+            if let Some(spot) = state.spot() {
+                self.max_spot = self.max_spot.max(spot);
+                if state.step == self.maturity_step {
+                    self.terminal_spot = spot;
+                }
             }
         }
     }

@@ -22,7 +22,7 @@
 //! For positivity: 2κθ ≥ σ²
 //! If violated, zero is attainable (but QE handles gracefully).
 
-use super::super::traits::StochasticProcess;
+use super::super::traits::{state_keys, PathState, StochasticProcess};
 
 /// CIR process parameters.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -126,6 +126,13 @@ impl StochasticProcess for CirProcess {
     fn is_diagonal(&self) -> bool {
         true
     }
+
+    fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
+        if !x.is_empty() {
+            state.set(state_keys::SHORT_RATE, x[0]);
+            state.set(state_keys::SPOT, x[0]);
+        }
+    }
 }
 
 /// CIR++ process (shifted CIR for yield curve fitting).
@@ -225,6 +232,13 @@ impl StochasticProcess for CirPlusPlusProcess {
 
     fn is_diagonal(&self) -> bool {
         true
+    }
+
+    fn populate_path_state(&self, x: &[f64], state: &mut PathState) {
+        if !x.is_empty() {
+            state.set(state_keys::SHORT_RATE, x[0]);
+            state.set(state_keys::SPOT, x[0]);
+        }
     }
 }
 

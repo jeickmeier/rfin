@@ -1399,7 +1399,7 @@ mod tests {
 ///
 /// - Treynor (1965): see docs/REFERENCES.md#treynor1965
 pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
-    if beta == 0.0 {
+    if beta.abs() < 1e-10 {
         return 0.0;
     }
     (ann_return - risk_free_rate) / beta
@@ -1441,7 +1441,7 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 ///
 /// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
 pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
-    if ann_vol == 0.0 {
+    if ann_vol.abs() < 1e-10 {
         return risk_free_rate;
     }
     risk_free_rate + (ann_return - risk_free_rate) * (bench_vol / ann_vol)

@@ -100,8 +100,9 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 /// * `rf` - Risk-free rate series, aligned with `returns`. If longer, the
 ///   excess length is ignored.
 /// * `nperiods` - Optional compounding periods per year. `None` uses `rf`
-///   values directly without adjustment. Non-finite or non-positive values
-///   yield an all-`NaN` output to flag invalid input.
+///   values directly without adjustment. Negative, zero, or non-finite
+///   values yield an all-`NaN` output to flag invalid input (negative
+///   values would invert the decompounding direction).
 ///
 /// # Returns
 ///
@@ -123,8 +124,10 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 /// ```
 pub fn excess_returns(returns: &[f64], rf: &[f64], nperiods: Option<f64>) -> Vec<f64> {
     let n = returns.len().min(rf.len());
-    if matches!(nperiods, Some(np) if !np.is_finite() || np <= 0.0) {
-        return vec![f64::NAN; n];
+    if let Some(np) = nperiods {
+        if !np.is_finite() || np <= 0.0 {
+            return vec![f64::NAN; n];
+        }
     }
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
@@ -289,10 +292,11 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 /// Equivalent to `comp_sum(returns).last()`, but computed in a single pass
 /// without allocating an intermediate vector.
 ///
-/// Uses Kahan summation in log-space for numerical stability. Growth
-/// factors are clamped to `MIN_GROWTH_FACTOR` so that returns ≤ −1.0
-/// produce a near-total-loss rather than NaN. Non-finite returns (NaN,
-/// ±Inf) immediately propagate invalidity by returning `NaN`.
+/// Uses a Neumaier accumulator in log-space for numerical stability
+/// (matching [`comp_sum`]). Growth factors are clamped to
+/// `MIN_GROWTH_FACTOR` so that returns ≤ −1.0 produce a near-total-loss
+/// rather than NaN. Non-finite returns (NaN, ±Inf) immediately propagate
+/// invalidity by returning `NaN`.
 ///
 /// # Arguments
 ///

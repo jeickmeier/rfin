@@ -7,6 +7,7 @@ use crate::adjustments::types::{
 use crate::error::{Error, Result};
 use crate::evaluator::StatementResult;
 use finstack_core::dates::PeriodId;
+use finstack_core::math::NeumaierAccumulator;
 use indexmap::IndexMap;
 
 /// Engine for calculating normalized metrics.
@@ -18,6 +19,18 @@ impl NormalizationEngine {
         results: &StatementResult,
         config: &NormalizationConfig,
     ) -> Result<Vec<NormalizationResult>> {
+        // Validate adjustment types upfront — Formula adjustments are not yet
+        // supported, so reject them at the start rather than mid-loop.
+        for adj in &config.adjustments {
+            if matches!(adj.value, AdjustmentValue::Formula { .. }) {
+                return Err(Error::eval(format!(
+                    "Formula adjustment '{}' is not yet implemented — \
+                     use Fixed or PercentageOfNode instead",
+                    adj.id
+                )));
+            }
+        }
+
         let mut normalization_results = Vec::new();
 
         // Get the target node values
@@ -31,15 +44,21 @@ impl NormalizationEngine {
         // Iterate over all periods where the target node has a value
         for (period_id, &base_value) in target_values {
             let mut applied_adjustments = Vec::new();
-            let mut total_adjustments = 0.0;
+            let mut total_acc = NeumaierAccumulator::new();
 
             for adjustment in &config.adjustments {
-                // Calculate raw adjustment amount
                 let raw_amount = Self::calculate_adjustment_value(adjustment, *period_id, results)?;
 
-                // Apply cap if present
+                let running_total = total_acc.total();
                 let (capped_amount, is_capped) = if let Some(cap) = &adjustment.cap {
-                    Self::apply_cap(cap, raw_amount, *period_id, results)?
+                    Self::apply_cap(
+                        cap,
+                        raw_amount,
+                        &config.target_node,
+                        running_total,
+                        *period_id,
+                        results,
+                    )?
                 } else {
                     (raw_amount, false)
                 };
@@ -52,14 +71,14 @@ impl NormalizationEngine {
                     is_capped,
                 });
 
-                total_adjustments += capped_amount;
+                total_acc.add(capped_amount);
             }
 
             normalization_results.push(NormalizationResult {
                 period: *period_id,
                 base_value,
                 adjustments: applied_adjustments,
-                final_value: base_value + total_adjustments,
+                final_value: base_value + total_acc.total(),
             });
         }
 
@@ -110,28 +129,38 @@ impl NormalizationEngine {
     }
 
     /// Apply capping logic to an adjustment amount.
+    ///
+    /// When the cap references the normalization target node, the cap limit
+    /// is computed against the **progressively adjusted** value
+    /// (`base_value + running_total`) rather than the unadjusted value, so
+    /// that earlier adjustments widen the cap room for subsequent ones.
     fn apply_cap(
         cap: &AdjustmentCap,
         raw_amount: f64,
+        target_node: &str,
+        running_total: f64,
         period_id: PeriodId,
         results: &StatementResult,
     ) -> Result<(f64, bool)> {
         let cap_limit = if let Some(base_node) = &cap.base_node {
-            // Percentage of base node (e.g., 20% of EBITDA)
             let base_values = results
                 .nodes
                 .get(base_node)
                 .ok_or_else(|| Error::eval(format!("Cap base node '{}' not found", base_node)))?;
 
-            let base_value = base_values.get(&period_id).unwrap_or(&0.0);
-            base_value.max(0.0) * cap.value
+            let node_value = *base_values.get(&period_id).unwrap_or(&0.0);
+            let effective_base = if base_node == target_node {
+                node_value + running_total
+            } else {
+                node_value
+            };
+            effective_base.max(0.0) * cap.value
         } else {
-            // Fixed absolute cap
             cap.value
         };
 
-        if raw_amount > cap_limit {
-            Ok((cap_limit, true))
+        if raw_amount.abs() > cap_limit {
+            Ok((raw_amount.signum() * cap_limit, true))
         } else {
             Ok((raw_amount, false))
         }
@@ -170,7 +199,9 @@ mod tests {
         amounts.insert(PeriodId::quarter(2025, 2), 15.0);
 
         let adj = Adjustment::fixed("addback1", "Addback 1", amounts);
-        let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
+        let config = NormalizationConfig::new("EBITDA")
+            .add_adjustment(adj)
+            .expect("unique adjustment id");
 
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for fixed adjustment");
@@ -185,7 +216,9 @@ mod tests {
         let results = mock_results();
         // 5% of Revenue
         let adj = Adjustment::percentage("perc1", "Perc 1", "Revenue", 0.05);
-        let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
+        let config = NormalizationConfig::new("EBITDA")
+            .add_adjustment(adj)
+            .expect("unique adjustment id");
 
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for percentage adjustment");
@@ -206,7 +239,9 @@ mod tests {
         let adj = Adjustment::fixed("syn", "Synergies", amounts)
             .with_cap(Some("EBITDA".to_string()), 0.20);
 
-        let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
+        let config = NormalizationConfig::new("EBITDA")
+            .add_adjustment(adj)
+            .expect("unique adjustment id");
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for capped adjustment");
 
@@ -225,7 +260,9 @@ mod tests {
         amounts.insert(PeriodId::quarter(2025, 2), 15.0);
 
         let adj = Adjustment::fixed("addback1", "Addback 1", amounts);
-        let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
+        let config = NormalizationConfig::new("EBITDA")
+            .add_adjustment(adj)
+            .expect("unique adjustment id");
 
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for merge test");
@@ -263,7 +300,9 @@ mod tests {
 
         let adj = Adjustment::fixed("syn", "Synergies", amounts)
             .with_cap(Some("EBITDA".to_string()), 0.20);
-        let config = NormalizationConfig::new("EBITDA").add_adjustment(adj);
+        let config = NormalizationConfig::new("EBITDA")
+            .add_adjustment(adj)
+            .expect("unique adjustment id");
 
         let normalized = NormalizationEngine::normalize(&results, &config)
             .expect("normalization should succeed for negative EBITDA case");

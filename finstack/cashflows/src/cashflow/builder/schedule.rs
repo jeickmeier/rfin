@@ -73,6 +73,7 @@ pub(crate) fn finalize_flows(
     mut flows: Vec<CashFlow>,
     fixed: &[FixedCouponSpec],
     floating: &[FloatingCouponSpec],
+    issue_date: Option<Date>,
 ) -> (Vec<CashFlow>, CashFlowMeta, DayCount) {
     sort_flows(&mut flows);
 
@@ -86,7 +87,7 @@ pub(crate) fn finalize_flows(
     let meta = CashFlowMeta {
         calendar_ids: cals,
         facility_limit: None,
-        issue_date: None,
+        issue_date,
         representation: CashflowRepresentation::default(),
     };
 
@@ -431,7 +432,13 @@ impl CashFlowSchedule {
                     && self.flows[j].kind == CFKind::Notional
                     && self.flows[j].amount.amount() < 0.0
                     && initial_amount != 0.0
-                    && amounts_approx_equal(self.flows[j].amount.amount().abs(), initial_amount);
+                    && match self.meta.issue_date {
+                        Some(issue) => self.flows[j].date == issue,
+                        None => amounts_approx_equal(
+                            self.flows[j].amount.amount().abs(),
+                            initial_amount,
+                        ),
+                    };
                 if is_initial_funding {
                     initial_funding_skipped = true;
                 }

@@ -80,18 +80,15 @@ fn test_formula_evaluation() {
 
 #[test]
 fn test_circular_dependency_error() {
-    let model = ModelBuilder::new("test")
+    // Cycles are now caught at build time by ModelBuilder::build()
+    let result = ModelBuilder::new("test")
         .periods("2025Q1..Q2", None)
         .expect("test should succeed")
         .compute("a", "b + 1")
         .expect("test should succeed")
         .compute("b", "a + 1")
         .expect("test should succeed")
-        .build()
-        .expect("test should succeed");
-
-    let mut evaluator = Evaluator::new();
-    let result = evaluator.evaluate(&model);
+        .build();
 
     assert!(result.is_err());
     assert!(result

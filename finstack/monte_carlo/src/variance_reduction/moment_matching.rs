@@ -26,6 +26,16 @@
 /// This is standard practice for Monte Carlo moment matching - we want the
 /// sample to have the exact theoretical properties, not an unbiased estimate.
 ///
+/// # Bias Warning
+///
+/// Moment matching **destroys sample independence**: the transformed samples
+/// become linearly dependent (they are constrained to sum to zero and have
+/// unit second moment). This induces a negative bias for convex payoffs
+/// (calls, swaptions, cliquets) because the forced-zero-mean constraint
+/// suppresses tail realizations that drive convexity value. The bias is
+/// O(1/n) and negligible for large sample sizes but can be material for
+/// small batches (n < 1000). See Glasserman (2003), §4.3.
+///
 /// # Arguments
 ///
 /// * `samples` - Mutable slice of samples to adjust in-place

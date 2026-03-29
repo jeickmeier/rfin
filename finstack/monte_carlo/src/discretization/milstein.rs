@@ -109,15 +109,16 @@ impl<P: StochasticProcess + ProportionalDiffusion> Discretization<P> for Milstei
     }
 }
 
-/// Milstein scheme for log-normal processes.
+/// Log-space discretization for GBM (proportional diffusion).
 ///
-/// Applies Milstein in log-space for better positivity preservation:
+/// Evolves log(X) directly, guaranteeing positivity:
 ///
 /// ```text
-/// ln(X_{t+Δt}) = ln(X_t) + (μ/X - ½(σ/X)²)Δt + (σ/X)√Δt Z + ½(σ/X)²(Z² - 1)Δt
+/// ln(X_{t+Δt}) = ln(X_t) + (μ/X - ½(σ/X)²)Δt + (σ/X)√Δt Z
 /// ```
 ///
-/// The last term simplifies to: (σ/X)²Z²Δt/2
+/// For GBM, σ(X)/X = σ_const, so the Milstein correction dσ/d(log X)
+/// is exactly zero and the scheme reduces to the exact log-Euler step.
 #[derive(Debug, Clone, Default)]
 pub struct LogMilstein;
 
@@ -139,15 +140,14 @@ impl<P: StochasticProcess + ProportionalDiffusion> Discretization<P> for LogMils
         let sqrt_dt = dt.sqrt();
 
         for i in 0..dim {
-            let mu_x = work[i] / x[i]; // μ/X (rate form)
-            let sigma_x = work[dim + i] / x[i]; // σ/X (rate form)
+            let x_safe = x[i].max(f64::MIN_POSITIVE);
+            let mu_x = work[i] / x_safe;
+            let sigma_x = work[dim + i] / x_safe;
 
-            // Log-Milstein components
             let drift_term = (mu_x - 0.5 * sigma_x * sigma_x) * dt;
             let diffusion_term = sigma_x * sqrt_dt * z[i];
-            let milstein_correction = 0.5 * sigma_x * sigma_x * (z[i] * z[i] - 1.0) * dt;
 
-            x[i] *= (drift_term + diffusion_term + milstein_correction).exp();
+            x[i] *= (drift_term + diffusion_term).exp();
         }
     }
 
