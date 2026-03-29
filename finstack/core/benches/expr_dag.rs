@@ -43,7 +43,7 @@ fn bench_dag_evaluation(c: &mut Criterion) {
     let mut group = c.benchmark_group("dag_evaluation");
 
     // Set up test data
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
     let x: Vec<f64> = (0..100).map(|i| i as f64).collect();
     let y: Vec<f64> = (0..100).map(|i| (i as f64) * 0.5).collect();
     let cols: Vec<&[f64]> = vec![&x, &y];
@@ -66,7 +66,7 @@ fn bench_dag_with_planning(c: &mut Criterion) {
     let mut group = c.benchmark_group("dag_with_planning");
 
     // Set up test data
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
     let x: Vec<f64> = (0..100).map(|i| i as f64).collect();
     let y: Vec<f64> = (0..100).map(|i| (i as f64) * 0.5).collect();
     let cols: Vec<&[f64]> = vec![&x, &y];
@@ -92,7 +92,7 @@ fn bench_dag_cache_enabled(c: &mut Criterion) {
     let mut group = c.benchmark_group("dag_cache_enabled");
 
     // Set up test data
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
     let x: Vec<f64> = (0..100).map(|i| i as f64).collect();
     let y: Vec<f64> = (0..100).map(|i| (i as f64) * 0.5).collect();
     let cols: Vec<&[f64]> = vec![&x, &y];
@@ -124,7 +124,7 @@ fn bench_dag_row_scaling(c: &mut Criterion) {
     let compiled = CompiledExpr::with_planning(expr, meta)
         .unwrap()
         .with_cache(10);
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
 
     for rows in [100usize, 1_000, 10_000] {
         let x: Vec<f64> = (0..rows).map(|i| i as f64).collect();

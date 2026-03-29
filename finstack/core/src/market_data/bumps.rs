@@ -653,8 +653,7 @@ impl Bumpable for VolatilityIndexCurve {
                 // Vol index curves support both additive and multiplicative bumps
                 match (spec.mode, spec.units) {
                     (BumpMode::Additive, BumpUnits::RateBp) => {
-                        // Interpret bp as index points (1bp = 0.01 index point)
-                        let bump = spec.value / 100.0;
+                        let bump = spec.value / 10_000.0;
                         self.with_parallel_bump(bump)
                     }
                     (BumpMode::Additive, BumpUnits::Fraction) => {
@@ -689,7 +688,7 @@ impl Bumpable for VolatilityIndexCurve {
                 next_bucket,
             } => {
                 let bump = match (spec.mode, spec.units) {
-                    (BumpMode::Additive, BumpUnits::RateBp) => spec.value / 100.0,
+                    (BumpMode::Additive, BumpUnits::RateBp) => spec.value / 10_000.0,
                     (BumpMode::Additive, BumpUnits::Fraction) => spec.value,
                     (BumpMode::Additive, BumpUnits::Percent) => spec.value / 100.0,
                     _ => {

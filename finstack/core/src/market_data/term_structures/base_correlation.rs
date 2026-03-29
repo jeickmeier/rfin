@@ -567,32 +567,31 @@ impl BaseCorrelationCurve {
         let n = self.correlations.len();
         let mut smoothed = self.correlations.clone();
 
-        // PAVA: Pool Adjacent Violators Algorithm
-        // Process from left to right, pooling violations
-        let mut i = 0;
-        while i < n - 1 {
-            if smoothed[i] > smoothed[i + 1] {
-                // Found a violation - pool these values
-                let mut j = i + 1;
-
-                // Extend pool to include all consecutive violations
-                while j < n && smoothed[j - 1] > smoothed[j] {
-                    j += 1;
+        // PAVA: Pool Adjacent Violators Algorithm (single-pass pool-merge)
+        // Each pool is (start_index, element_count, value_sum).
+        let mut pools: Vec<(usize, usize, f64)> = Vec::with_capacity(n);
+        for (i, &val) in smoothed.iter().enumerate() {
+            pools.push((i, 1, val));
+            while pools.len() > 1 {
+                let tail = pools.len() - 1;
+                let avg_curr = pools[tail].2 / pools[tail].1 as f64;
+                let avg_prev = pools[tail - 1].2 / pools[tail - 1].1 as f64;
+                if avg_prev > avg_curr {
+                    if let Some(absorbed) = pools.pop() {
+                        if let Some(prev) = pools.last_mut() {
+                            prev.1 += absorbed.1;
+                            prev.2 += absorbed.2;
+                        }
+                    }
+                } else {
+                    break;
                 }
-
-                // Average the pooled values
-                let avg = smoothed[i..j].iter().sum::<f64>() / (j - i) as f64;
-                for item in smoothed.iter_mut().take(j).skip(i) {
-                    *item = avg;
-                }
-
-                // Go back to check if new pool violates with previous
-                i = i.saturating_sub(1);
-                if i == 0 && smoothed[0] <= smoothed[1] {
-                    i = 1; // Don't get stuck at 0 if no violation
-                }
-            } else {
-                i += 1;
+            }
+        }
+        for &(start, count, sum) in &pools {
+            let avg = sum / count as f64;
+            for item in smoothed.iter_mut().skip(start).take(count) {
+                *item = avg;
             }
         }
 

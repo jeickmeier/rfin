@@ -14,7 +14,7 @@ use finstack_core::config::{results_meta, FinstackConfig};
 use finstack_core::expr::{BinOp, CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
 fn create_test_data() -> (SimpleContext, Vec<Vec<f64>>) {
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
     let data = vec![
         vec![1.0, 2.0, 3.0, 4.0, 5.0],      // x column
         vec![10.0, 20.0, 30.0, 40.0, 50.0], // y column
@@ -54,7 +54,7 @@ fn literal_evaluation() {
 
 #[test]
 fn literal_zero_length() {
-    let ctx = SimpleContext::new(["empty"]);
+    let ctx = SimpleContext::new(["empty"]).expect("unique columns");
     let empty_data = [Vec::<f64>::new()];
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
@@ -178,7 +178,7 @@ fn if_then_else_evaluation() {
 
 #[test]
 fn if_then_else_mixed_condition() {
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
     let x = vec![1.0, 2.0, 3.0, 4.0];
     let y = vec![2.0, 1.0, 0.0, -1.0];
     let cols: Vec<&[f64]> = vec![x.as_slice(), y.as_slice()];
@@ -258,7 +258,7 @@ fn with_planning_produces_same_result() {
 
 #[test]
 fn with_cache_configuration() {
-    let ctx = SimpleContext::new(["x"]);
+    let ctx = SimpleContext::new(["x"]).expect("unique columns");
     let x = vec![1.0, 2.0, 3.0, 4.0];
     let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -297,7 +297,7 @@ fn with_cache_configuration() {
 
 #[test]
 fn empty_data_column() {
-    let ctx = SimpleContext::new(["empty"]);
+    let ctx = SimpleContext::new(["empty"]).expect("unique columns");
     let empty_data = [Vec::<f64>::new()];
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
@@ -308,7 +308,7 @@ fn empty_data_column() {
 
 #[test]
 fn empty_data_function() {
-    let ctx = SimpleContext::new(["empty"]);
+    let ctx = SimpleContext::new(["empty"]).expect("unique columns");
     let empty_data = [Vec::<f64>::new()];
     let cols: Vec<&[f64]> = empty_data.iter().map(|v| v.as_slice()).collect();
 
@@ -322,7 +322,7 @@ fn empty_data_function() {
 
 #[test]
 fn single_element_data() {
-    let ctx = SimpleContext::new(["single"]);
+    let ctx = SimpleContext::new(["single"]).expect("unique columns");
     let data = [vec![42.0]];
     let cols: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
 
@@ -337,7 +337,7 @@ fn single_element_data() {
 
 #[test]
 fn nested_function_calls() {
-    let ctx = SimpleContext::new(["x"]);
+    let ctx = SimpleContext::new(["x"]).expect("unique columns");
     let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
     let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -363,7 +363,7 @@ fn nested_function_calls() {
 
 #[test]
 fn binop_with_function_result() {
-    let ctx = SimpleContext::new(["x"]);
+    let ctx = SimpleContext::new(["x"]).expect("unique columns");
     let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
     let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -384,7 +384,7 @@ fn binop_with_function_result() {
 
 #[test]
 fn missing_column_is_an_error() {
-    let ctx = SimpleContext::new(["x"]);
+    let ctx = SimpleContext::new(["x"]).expect("unique columns");
     let x = vec![1.0, 2.0, 3.0];
     let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -398,7 +398,7 @@ fn missing_column_is_an_error() {
 
 #[test]
 fn unsupported_financial_function_is_an_error() {
-    let ctx = SimpleContext::new(["x"]);
+    let ctx = SimpleContext::new(["x"]).expect("unique columns");
     let x = vec![1.0, 2.0, 3.0];
     let cols: Vec<&[f64]> = vec![x.as_slice()];
 

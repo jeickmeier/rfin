@@ -140,7 +140,7 @@ use finstack_core::expr::{
 };
 
 // Columns in input frame: ["x", "y"]
-let ctx = SimpleContext::new(["x", "y"]);
+let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
 let x = vec![1.0, 2.0, 3.0, 4.0];
 let y = vec![0.5, 1.5, 2.5, 3.5];
 let cols: Vec<&[f64]> = vec![x.as_slice(), y.as_slice()];
@@ -164,7 +164,7 @@ assert_eq!(out.values.len(), 4);
 use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
 // Single column ["x"]
-let ctx = SimpleContext::new(["x"]);
+let ctx = SimpleContext::new(["x"]).expect("unique columns");
 let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -193,7 +193,7 @@ significantly reduces recomputation of shared sub‑expressions:
 use finstack_core::config::{results_meta, FinstackConfig};
 use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
-let ctx = SimpleContext::new(["x"]);
+let ctx = SimpleContext::new(["x"]).expect("unique columns");
 let x = vec![0.2, 0.5, 3.0, 4.0];
 let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -228,7 +228,7 @@ Advanced callers (e.g., the statements engine) can build a plan once and reuse i
 use finstack_core::config::{results_meta, FinstackConfig};
 use finstack_core::expr::{CompiledExpr, EvalOpts, Expr, Function, SimpleContext};
 
-let ctx = SimpleContext::new(["x"]);
+let ctx = SimpleContext::new(["x"]).expect("unique columns");
 let x = vec![0.2, 0.5, 3.0, 4.0];
 let cols: Vec<&[f64]> = vec![x.as_slice()];
 

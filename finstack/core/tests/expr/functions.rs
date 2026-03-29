@@ -11,7 +11,7 @@ use finstack_core::expr::{BinOp, CompiledExpr, EvalOpts, Expr, Function, SimpleC
 
 /// Standard test data: values 1-10 and indices 0-9.
 fn standard_test_data() -> (SimpleContext, Vec<Vec<f64>>) {
-    let ctx = SimpleContext::new(["values", "index"]);
+    let ctx = SimpleContext::new(["values", "index"]).expect("unique columns");
     let data = vec![
         vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0], // values
         vec![0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0],  // index
@@ -21,7 +21,7 @@ fn standard_test_data() -> (SimpleContext, Vec<Vec<f64>>) {
 
 /// Small test data for simpler tests.
 fn small_test_data() -> (SimpleContext, Vec<Vec<f64>>) {
-    let ctx = SimpleContext::new(["x", "y"]);
+    let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
     let data = vec![
         vec![1.0, 2.0, 3.0, 4.0, 5.0],      // x
         vec![10.0, 20.0, 30.0, 40.0, 50.0], // y
@@ -124,7 +124,7 @@ mod shift_operations {
 
     #[test]
     fn shift_positive_equals_lag() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![10.0, 20.0, 30.0, 40.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -151,7 +151,7 @@ mod shift_operations {
 
     #[test]
     fn shift_negative_equals_lead() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![10.0, 20.0, 30.0, 40.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -202,7 +202,7 @@ mod shift_operations {
 
     #[test]
     fn diff_multiple_periods() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 4.0, 8.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -240,7 +240,7 @@ mod shift_operations {
 
     #[test]
     fn pct_change_multiple_periods() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 4.0, 8.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -336,7 +336,7 @@ mod cumulative_operations {
 
     #[test]
     fn cummin_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![3.0, 1.0, 4.0, 2.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -366,7 +366,7 @@ mod cumulative_operations {
 
     #[test]
     fn cummax_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![3.0, 1.0, 4.0, 2.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -425,7 +425,7 @@ mod rolling_operations {
 
     #[test]
     fn rolling_mean_window_2() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -502,7 +502,7 @@ mod rolling_operations {
 
     #[test]
     fn rolling_std_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -523,7 +523,7 @@ mod rolling_operations {
 
     #[test]
     fn rolling_var_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -544,7 +544,7 @@ mod rolling_operations {
 
     #[test]
     fn rolling_median_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -585,7 +585,7 @@ mod rolling_operations {
 
     #[test]
     fn rolling_max_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -606,7 +606,7 @@ mod rolling_operations {
 
     #[test]
     fn rolling_count_basic() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -722,7 +722,7 @@ mod ewm_operations {
 
     #[test]
     fn binary_op_missing_tail_yields_nan() {
-        let ctx = SimpleContext::new(["lhs", "rhs"]);
+        let ctx = SimpleContext::new(["lhs", "rhs"]).expect("unique columns");
         let lhs = vec![1.0, 2.0, 3.0, 4.0];
         let rhs = vec![10.0, 20.0];
         let cols = vec![lhs.as_slice(), rhs.as_slice()];
@@ -787,8 +787,44 @@ mod ewm_operations {
     }
 
     #[test]
+    fn ewm_std_empty_input() {
+        let ctx = SimpleContext::new(["x", "alpha"]).expect("unique columns");
+        let x: Vec<f64> = vec![];
+        let alpha_col = vec![];
+        let cols: Vec<&[f64]> = vec![x.as_slice(), alpha_col.as_slice()];
+
+        let std_expr = CompiledExpr::new(Expr::call(
+            Function::EwmStd,
+            vec![Expr::column("x"), Expr::column("alpha")],
+        ));
+        let result = std_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn ewm_var_empty_input() {
+        let ctx = SimpleContext::new(["x", "alpha"]).expect("unique columns");
+        let x: Vec<f64> = vec![];
+        let alpha_col = vec![];
+        let cols: Vec<&[f64]> = vec![x.as_slice(), alpha_col.as_slice()];
+
+        let var_expr = CompiledExpr::new(Expr::call(
+            Function::EwmVar,
+            vec![Expr::column("x"), Expr::column("alpha")],
+        ));
+        let result = var_expr
+            .eval(&ctx, &cols, EvalOpts::default())
+            .unwrap()
+            .values;
+        assert!(result.is_empty());
+    }
+
+    #[test]
     fn ewm_std_var_consistency() {
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let x = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let cols: Vec<&[f64]> = vec![x.as_slice()];
 
@@ -868,8 +904,8 @@ mod statistical_operations {
             .unwrap()
             .values;
 
-        // Sample std of [1..10] = sqrt(82.5/9) ≈ 3.0277; exact integer arithmetic
-        let expected_std = (82.5_f64 / 9.0).sqrt();
+        // Population std of [1..10] = sqrt(82.5/10) ≈ 2.8723
+        let expected_std = (82.5_f64 / 10.0).sqrt();
         for r in &result {
             assert!(
                 (r - expected_std).abs() < 1e-10,
@@ -915,8 +951,8 @@ mod statistical_operations {
             .unwrap()
             .values;
 
-        // Sample variance of [1..10] = 82.5/9 ≈ 9.1667; exact integer arithmetic
-        let expected_var = 82.5_f64 / 9.0;
+        // Population variance of [1..10] = 82.5/10 = 8.25
+        let expected_var = 82.5_f64 / 10.0;
         for r in &result {
             assert!(
                 (r - expected_var).abs() < 1e-10,
@@ -970,7 +1006,7 @@ mod statistical_operations {
 
     #[test]
     fn rank_basic() {
-        let ctx = SimpleContext::new(["v"]);
+        let ctx = SimpleContext::new(["v"]).expect("unique columns");
         let v = vec![3.0, 1.0, 2.0, 2.0];
         let cols: Vec<&[f64]> = vec![v.as_slice()];
 
@@ -996,7 +1032,7 @@ mod statistical_operations {
 
     #[test]
     fn quantile_median() {
-        let ctx = SimpleContext::new(["v"]);
+        let ctx = SimpleContext::new(["v"]).expect("unique columns");
         let v = vec![3.0, 1.0, 2.0, 2.0];
         let cols: Vec<&[f64]> = vec![v.as_slice()];
 
@@ -1040,7 +1076,7 @@ mod edge_cases {
 
     #[test]
     fn empty_data() {
-        let ctx = SimpleContext::new(["empty"]);
+        let ctx = SimpleContext::new(["empty"]).expect("unique columns");
         let data = [vec![]];
         let cols = to_slice_refs(&data);
 
@@ -1054,7 +1090,7 @@ mod edge_cases {
 
     #[test]
     fn single_value() {
-        let ctx = SimpleContext::new(["single"]);
+        let ctx = SimpleContext::new(["single"]).expect("unique columns");
         let data = [vec![42.0]];
         let cols = to_slice_refs(&data);
 
@@ -1065,7 +1101,7 @@ mod edge_cases {
 
     #[test]
     fn nan_handling_cumsum() {
-        let ctx = SimpleContext::new(["nan_data"]);
+        let ctx = SimpleContext::new(["nan_data"]).expect("unique columns");
         let data = [vec![1.0, f64::NAN, 3.0, f64::NAN, 5.0]];
         let cols = to_slice_refs(&data);
 

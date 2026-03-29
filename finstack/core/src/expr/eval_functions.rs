@@ -326,7 +326,7 @@ impl CompiledExpr {
                     dx * dx
                 })
                 .sum::<f64>()
-                / (data.len() - 1) as f64;
+                / data.len() as f64;
             let std = variance.sqrt();
             for v in out.iter_mut().take(len) {
                 *v = std;
@@ -360,7 +360,7 @@ impl CompiledExpr {
                     dx * dx
                 })
                 .sum::<f64>()
-                / (data.len() - 1) as f64;
+                / data.len() as f64;
             for v in out.iter_mut().take(len) {
                 *v = variance;
             }
@@ -704,50 +704,21 @@ impl CompiledExpr {
     }
 
     pub(super) fn eval_ewm_std(&self, arg_results: &[&[f64]]) -> Vec<f64> {
-        let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
-        let mut out: Vec<f64> = Vec::with_capacity(len);
-        if arg_results.len() >= 2 && !arg_results[1].is_empty() {
-            let base = &arg_results[0];
-            let alpha = arg_results[1][0].clamp(0.001, 0.999);
-            let adjust = arg_results
-                .get(2)
-                .and_then(|v| v.first())
-                .map(|&x| x > 0.0)
-                .unwrap_or(true);
-
-            let mut ema = base[0];
-            let mut ema_sq = base[0] * base[0];
-            let mut n: f64 = 1.0;
-
-            out.push(0.0);
-
-            for &value in base.iter().skip(1) {
-                if !value.is_nan() {
-                    n += 1.0;
-                    let n_f64 = n;
-                    let alpha_f64 = alpha;
-                    let weight = if adjust {
-                        alpha_f64 / (1.0 - (1.0 - alpha_f64).powf(n_f64))
-                    } else {
-                        alpha_f64
-                    };
-                    ema = ((1.0 - weight) * ema) + (weight * value);
-                    ema_sq = ((1.0 - weight) * ema_sq) + (weight * value * value);
-                    let variance = ema_sq - ema * ema;
-                    out.push(if variance > 0.0 { variance.sqrt() } else { 0.0 });
-                } else {
-                    out.push(f64::NAN);
-                }
-            }
-        }
-        out
+        Self::eval_ewm_variance_core(arg_results, true)
     }
 
     pub(super) fn eval_ewm_var(&self, arg_results: &[&[f64]]) -> Vec<f64> {
+        Self::eval_ewm_variance_core(arg_results, false)
+    }
+
+    fn eval_ewm_variance_core(arg_results: &[&[f64]], take_sqrt: bool) -> Vec<f64> {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         let mut out: Vec<f64> = Vec::with_capacity(len);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
+            if base.is_empty() {
+                return out;
+            }
             let alpha = arg_results[1][0].clamp(0.001, 0.999);
             let adjust = arg_results
                 .get(2)
@@ -764,17 +735,15 @@ impl CompiledExpr {
             for &value in base.iter().skip(1) {
                 if !value.is_nan() {
                     n += 1.0;
-                    let n_f64 = n;
-                    let alpha_f64 = alpha;
                     let weight = if adjust {
-                        alpha_f64 / (1.0 - (1.0 - alpha_f64).powf(n_f64))
+                        alpha / (1.0 - (1.0 - alpha).powf(n))
                     } else {
-                        alpha_f64
+                        alpha
                     };
                     ema = ((1.0 - weight) * ema) + (weight * value);
                     ema_sq = ((1.0 - weight) * ema_sq) + (weight * value * value);
-                    let variance = ema_sq - ema * ema;
-                    out.push(if variance > 0.0 { variance } else { 0.0 });
+                    let variance = (ema_sq - ema * ema).max(0.0);
+                    out.push(if take_sqrt { variance.sqrt() } else { variance });
                 } else {
                     out.push(f64::NAN);
                 }

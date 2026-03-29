@@ -482,7 +482,7 @@ impl PyCompiledExpr {
             ));
         }
 
-        let ctx = SimpleContext::new(columns);
+        let ctx = SimpleContext::new(columns).map_err(|e| PyValueError::new_err(e.to_string()))?;
         let slices: Vec<&[f64]> = data.iter().map(|v| v.as_slice()).collect();
         let eval_opts = opts.map(|o| o.inner.clone()).unwrap_or_default();
 

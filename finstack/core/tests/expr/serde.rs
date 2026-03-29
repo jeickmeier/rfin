@@ -287,7 +287,7 @@ fn test_compiled_expr_serde() {
 
 #[test]
 fn test_simple_context_serde() {
-    let context = SimpleContext::new(vec!["price", "volume", "timestamp"]);
+    let context = SimpleContext::new(vec!["price", "volume", "timestamp"]).expect("unique columns");
 
     let json = serde_json::to_string(&context).expect("Failed to serialize SimpleContext");
     let deserialized: SimpleContext =

@@ -38,7 +38,7 @@ use std::vec::Vec;
 /// ```rust
 /// use finstack_core::expr::{CompiledExpr, Expr, SimpleContext, EvalOpts};
 ///
-/// let ctx = SimpleContext::new(["x"]);
+/// let ctx = SimpleContext::new(["x"]).expect("unique columns");
 /// let x = vec![1.0, 2.0, 3.0];
 /// let cols: [&[f64]; 1] = [&x];
 /// let expr = CompiledExpr::new(Expr::column("x"));
@@ -609,6 +609,9 @@ impl CompiledExpr {
         let result = self.eval_function_core(fun, arg_slices, _ctx, _cols)?;
         let copy_len = out.len().min(result.len());
         out[..copy_len].copy_from_slice(&result[..copy_len]);
+        if copy_len < out.len() {
+            out[copy_len..].fill(f64::NAN);
+        }
         Ok(())
     }
 }
@@ -625,7 +628,7 @@ mod tests {
     use crate::expr::{BinOp, Expr, Function, SimpleContext, UnaryOp};
 
     fn sample_context() -> (SimpleContext, Vec<Vec<f64>>) {
-        let ctx = SimpleContext::new(["x", "y"]);
+        let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
         let data = vec![vec![0.2, 0.5, 3.0, 4.0], vec![0.5, 1.5, 2.5, 3.5]];
         (ctx, data)
     }
@@ -721,7 +724,7 @@ mod tests {
 
         let col: Vec<f64> = vec![1.0; 1000];
         let cols: Vec<&[f64]> = vec![&col, &col];
-        let ctx = SimpleContext::new(["x", "y"]);
+        let ctx = SimpleContext::new(["x", "y"]).expect("unique columns");
 
         let opts = EvalOpts {
             max_arena_bytes: 100,
@@ -742,7 +745,7 @@ mod tests {
         let expr = CompiledExpr::new(ast);
         let col = vec![1.0, 2.0, 3.0];
         let cols: Vec<&[f64]> = vec![&col];
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let opts = EvalOpts::default();
         let result = expr.eval(&ctx, &cols, opts);
         assert!(result.is_ok());
@@ -754,7 +757,7 @@ mod tests {
         let expr = CompiledExpr::new(ast);
         let col = vec![1.0, 2.0, 3.0];
         let cols: Vec<&[f64]> = vec![&col];
-        let ctx = SimpleContext::new(["x"]);
+        let ctx = SimpleContext::new(["x"]).expect("unique columns");
         let opts = EvalOpts {
             max_arena_bytes: 0,
             ..EvalOpts::default()

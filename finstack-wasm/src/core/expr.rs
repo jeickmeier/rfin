@@ -531,7 +531,7 @@ impl JsCompiledExpr {
             ));
         }
 
-        let ctx = SimpleContext::new(col_names);
+        let ctx = SimpleContext::new(col_names).map_err(|e| js_error(e.to_string()))?;
         let slices: Vec<&[f64]> = series.iter().map(|v| v.as_slice()).collect();
         let eval_opts = opts.map(|o| o.inner).unwrap_or_default();
         let result = self

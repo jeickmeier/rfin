@@ -47,7 +47,7 @@
 //!
 //! // Compile and evaluate
 //! let compiled = CompiledExpr::new(expr);
-//! let context = SimpleContext::new(["x"]);
+//! let context = SimpleContext::new(["x"]).expect("unique columns");
 //! let data = vec![1.0, 2.0, 3.0, 4.0, 5.0];
 //! let cols = [data.as_slice()];
 //! let result = compiled.eval(&context, &cols, EvalOpts::default()).unwrap();

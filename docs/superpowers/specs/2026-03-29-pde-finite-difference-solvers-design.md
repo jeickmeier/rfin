@@ -140,6 +140,7 @@ pub struct TridiagOperator {
 For grid spacing `h_i = x[i] - x[i-1]`, second-order accurate on non-uniform grids:
 
 Second derivative:
+
 ```
 d2u/dx2 ~ 2/(h_i + h_{i+1}) * [u[i+1]/h_{i+1} - u[i]*(1/h_i + 1/h_{i+1}) + u[i-1]/h_i]
 ```
@@ -321,6 +322,7 @@ impl Solver1D {
 ```
 
 Builder pattern:
+
 ```rust
 Solver1D::builder()
     .grid(Grid1D::sinh_concentrated(-5.0, 5.0, 200, 0.0, 0.1))

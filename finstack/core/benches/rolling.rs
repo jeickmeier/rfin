@@ -15,7 +15,7 @@ fn bench_rolling_median(c: &mut Criterion) {
                 BenchmarkId::new(format!("data_{}", data_size), window_size),
                 &(data_size, window_size),
                 |b, &(data_size, window_size)| {
-                    let ctx = SimpleContext::new(["x"]);
+                    let ctx = SimpleContext::new(["x"]).expect("unique columns");
                     let x: Vec<f64> = (0..data_size)
                         .map(|i| (i as f64) * 0.5 + i as f64 % 7_f64)
                         .collect();
@@ -48,7 +48,7 @@ fn bench_rolling_mean(c: &mut Criterion) {
                 BenchmarkId::new(format!("data_{}", data_size), window_size),
                 &(data_size, window_size),
                 |b, &(data_size, window_size)| {
-                    let ctx = SimpleContext::new(["x"]);
+                    let ctx = SimpleContext::new(["x"]).expect("unique columns");
                     let x: Vec<f64> = (0..data_size).map(|i| i as f64).collect();
                     let cols: Vec<&[f64]> = vec![&x];
 
@@ -78,7 +78,7 @@ fn bench_rolling_std(c: &mut Criterion) {
             BenchmarkId::from_parameter(data_size),
             &data_size,
             |b, &data_size| {
-                let ctx = SimpleContext::new(["x"]);
+                let ctx = SimpleContext::new(["x"]).expect("unique columns");
                 let x: Vec<f64> = (0..data_size).map(|i| (i as f64) * 0.5).collect();
                 let cols: Vec<&[f64]> = vec![&x];
 

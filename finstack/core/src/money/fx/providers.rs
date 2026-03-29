@@ -244,8 +244,12 @@ impl FxProvider for BumpedFxProvider {
         if from == self.override_from && to == self.override_to {
             return Ok(self.override_rate);
         }
-        if from == self.override_to && to == self.override_from && self.override_rate != 0.0 {
-            return Ok(1.0 / self.override_rate);
+        if from == self.override_to && to == self.override_from {
+            return super::reciprocal_rate_or_err(
+                self.override_rate,
+                self.override_to,
+                self.override_from,
+            );
         }
 
         // Delegate to original provider for all other pairs

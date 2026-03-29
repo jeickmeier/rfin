@@ -385,7 +385,7 @@ pub fn geometric_asian_call(
     let d1 = (ln_s_over_k + (b_g + 0.5 * sigma_g * sigma_g) * time) / st;
     let d2 = d1 - st;
     let df_r = (-rate * time).exp();
-    let growth = ((b_g - rate) * time).exp();
+    let growth = (b_g * time).exp();
     df_r * (spot * growth * norm_cdf(d1) - strike * norm_cdf(d2))
 }
 

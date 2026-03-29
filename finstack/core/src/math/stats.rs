@@ -338,10 +338,14 @@ pub fn realized_variance(
     match method {
         RealizedVarMethod::CloseToClose => {
             let returns = log_returns(prices);
-            Ok(
-                returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64
-                    * annualization_factor,
-            )
+            let var = returns.iter().map(|r| r * r).sum::<f64>() / returns.len() as f64
+                * annualization_factor;
+            if var.is_nan() {
+                return Err(crate::Error::Validation(
+                    "realized_variance: non-positive or non-finite prices produce undefined log returns".into(),
+                ));
+            }
+            Ok(var)
         }
         RealizedVarMethod::Parkinson
         | RealizedVarMethod::GarmanKlass

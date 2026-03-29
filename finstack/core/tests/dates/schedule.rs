@@ -221,6 +221,30 @@ fn test_long_back_stub() {
 }
 
 #[test]
+fn test_long_back_even_schedule_emits_all_dates() {
+    // When the schedule divides evenly, LongBack must still emit every period date.
+    // Regression: the penultimate date was previously dropped.
+    let start = make_date(2025, 1, 1);
+    let end = make_date(2026, 1, 1); // exactly 4 quarters
+
+    let dates: Vec<_> = ScheduleBuilder::new(start, end)
+        .unwrap()
+        .frequency(Tenor::quarterly())
+        .stub_rule(StubKind::LongBack)
+        .build()
+        .unwrap()
+        .into_iter()
+        .collect();
+
+    assert_eq!(dates.len(), 5);
+    assert_eq!(dates[0], make_date(2025, 1, 1));
+    assert_eq!(dates[1], make_date(2025, 4, 1));
+    assert_eq!(dates[2], make_date(2025, 7, 1));
+    assert_eq!(dates[3], make_date(2025, 10, 1));
+    assert_eq!(dates[4], make_date(2026, 1, 1));
+}
+
+#[test]
 fn test_end_of_month_convention() {
     // Test EOM convention adjusts dates to month-end
     let start = make_date(2025, 1, 15);

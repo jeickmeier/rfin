@@ -205,7 +205,7 @@ impl BuilderInternal {
         while dt < self.end {
             let next = self.add_tenor(dt, 1)?;
             let next_after = self.add_tenor(next, 1)?;
-            if next_after >= self.end {
+            if next_after > self.end {
                 let end_date = maybe_eom(self.eom, self.end);
                 push_if_new(&mut buf, end_date);
                 break;

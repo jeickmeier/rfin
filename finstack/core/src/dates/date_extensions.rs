@@ -115,7 +115,7 @@ pub trait DateExt: Sized {
     ///
     /// let start = Date::from_calendar_date(2020, Month::January, 15).expect("Valid date");
     /// let end = Date::from_calendar_date(2022, Month::March, 10).expect("Valid date");
-    /// assert_eq!(start.months_until(end), 26);
+    /// assert_eq!(start.months_until(end), 25);
     ///
     /// // Returns 0 if end is before start
     /// assert_eq!(end.months_until(start), 0);
@@ -301,8 +301,11 @@ impl DateExt for Date {
     }
 
     fn months_until(self, other: Self) -> u32 {
-        let months =
+        let mut months =
             (other.year() - self.year()) * 12 + (other.month() as i32 - self.month() as i32);
+        if self.day() > other.day() {
+            months -= 1;
+        }
         months.max(0) as u32
     }
 }
@@ -623,10 +626,10 @@ mod tests {
 
     #[test]
     fn test_months_until() {
-        // Standard case: 2 years and 2 months = 26 months
+        // Jan 15 → Mar 10: day 15 > day 10, so 26 - 1 = 25 completed months
         let start = make_date(2020, 1, 15);
         let end = make_date(2022, 3, 10);
-        assert_eq!(start.months_until(end), 26);
+        assert_eq!(start.months_until(end), 25);
 
         // Same date = 0 months
         assert_eq!(start.months_until(start), 0);
@@ -634,11 +637,11 @@ mod tests {
         // End before start = 0 (clamped)
         assert_eq!(end.months_until(start), 0);
 
-        // Exactly one month
+        // Exactly one month (same day-of-month)
         let one_month_later = make_date(2020, 2, 15);
         assert_eq!(start.months_until(one_month_later), 1);
 
-        // Cross year boundary
+        // Cross year boundary (same day-of-month)
         let dec = make_date(2024, 12, 1);
         let jan = make_date(2025, 1, 1);
         assert_eq!(dec.months_until(jan), 1);
@@ -647,6 +650,11 @@ mod tests {
         let ancient = make_date(-500, 6, 1);
         let later = make_date(-498, 6, 1);
         assert_eq!(ancient.months_until(later), 24);
+
+        // Jan 31 → Feb 1: only 1 day apart, not a completed month
+        let jan31 = make_date(2020, 1, 31);
+        let feb1 = make_date(2020, 2, 1);
+        assert_eq!(jan31.months_until(feb1), 0);
     }
 
     #[test]
@@ -659,6 +667,6 @@ mod tests {
             .with_hms(14, 30, 0)
             .expect("Time should be valid")
             .assume_utc();
-        assert_eq!(start.months_until(end), 26);
+        assert_eq!(start.months_until(end), 25);
     }
 }
