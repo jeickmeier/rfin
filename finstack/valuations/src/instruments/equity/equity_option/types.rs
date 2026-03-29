@@ -78,6 +78,7 @@ use time::macros::date;
 
 use super::parameters::{EquityOptionMarketData, EquityOptionParams};
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::validation;
 
 /// Equity option instrument
 #[derive(
@@ -212,13 +213,15 @@ impl EquityOption {
 
     /// Validate structural invariants.
     ///
-    /// Checks that the strike price is positive and the notional is non-zero.
-    /// Called automatically during pricing, but can also be invoked after
-    /// building to catch configuration errors early.
+    /// Checks that the strike is finite and positive, and the notional amount
+    /// is finite and non-zero.
     pub fn validate(&self) -> finstack_core::Result<()> {
-        if self.strike <= 0.0 {
-            return Err(finstack_core::Error::Input(
-                finstack_core::InputError::Invalid,
+        validation::validate_f64_finite(self.strike, "equity option strike")?;
+        validation::validate_f64_positive(self.strike, "equity option strike")?;
+        validation::validate_money_finite(self.notional, "equity option notional")?;
+        if self.notional.amount().abs() < f64::EPSILON {
+            return Err(finstack_core::Error::Validation(
+                "Equity option notional must be non-zero".into(),
             ));
         }
         Ok(())

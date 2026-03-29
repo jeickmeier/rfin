@@ -243,11 +243,12 @@ impl SABRCalibrationDerivatives {
 
         let vol = term1 * x * term2_base;
 
-        // Analytical approximations (faster)
+        // Analytical approximations (faster) — pass shifted f/k so derivatives
+        // are consistent with the shifted vol computed above.
         let sabr_params = SABRDerivParams { alpha, nu, rho };
-        let d_vol_d_alpha = self.d_vol_d_alpha_impl(strike, &sabr_params, vol, x, term2_base);
-        let d_vol_d_nu = self.d_vol_d_nu_impl(strike, &sabr_params, vol, x, term2_base);
-        let d_vol_d_rho = self.d_vol_d_rho_impl(strike, &sabr_params, vol, x, term2_base);
+        let d_vol_d_alpha = self.d_vol_d_alpha_impl(f, k, &sabr_params, vol, x, term2_base);
+        let d_vol_d_nu = self.d_vol_d_nu_impl(f, k, &sabr_params, vol, x, term2_base);
+        let d_vol_d_rho = self.d_vol_d_rho_impl(f, k, &sabr_params, vol, x, term2_base);
         (vol, d_vol_d_alpha, d_vol_d_nu, d_vol_d_rho)
     }
 
@@ -272,8 +273,9 @@ impl SABRCalibrationDerivatives {
     ///
     /// x(z, ρ) = ln((√(1-2ρz+z²) + z - ρ) / (1-ρ))
     ///
-    /// dx/dz = 1/(√(1-2ρz+z²)) * ((-2ρ+2z)/(2√(1-2ρz+z²)) + 1) / ((√(1-2ρz+z²) + z - ρ) / (1-ρ))
-    ///       = (1-ρ) * ((-ρ+z)/√(1-2ρz+z²) + 1) / (√(1-2ρz+z²) + z - ρ)
+    /// Since ln(1-ρ) is constant in z, dx/dz = d/dz ln(√(1-2ρz+z²) + z - ρ):
+    ///
+    /// dx/dz = ((-ρ+z)/√(1-2ρz+z²) + 1) / (√(1-2ρz+z²) + z - ρ)
     fn dx_dz(&self, z: f64, rho: f64) -> f64 {
         let sqrt_term = (1.0 - 2.0 * rho * z + z * z).sqrt();
         let numerator = -rho + z + sqrt_term;
@@ -283,7 +285,7 @@ impl SABRCalibrationDerivatives {
             return 0.0;
         }
 
-        (1.0 - rho) * numerator / denominator
+        numerator / denominator
     }
 
     /// Compute derivative of x with respect to rho.
@@ -360,15 +362,17 @@ impl SABRCalibrationDerivatives {
     /// Partial derivative with respect to alpha.
     ///
     /// Complete chain rule implementation including dx/dα.
+    /// `forward` and `strike` must already include any SABR shift.
     fn d_vol_d_alpha_impl(
         &self,
+        forward: f64,
         strike: f64,
         sabr_params: &SABRDerivParams,
         _vol: f64,
         x: f64,
         term2: f64,
     ) -> f64 {
-        let f = self.market_data.forward;
+        let f = forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
@@ -410,15 +414,17 @@ impl SABRCalibrationDerivatives {
     /// Partial derivative with respect to nu (vol of vol).
     ///
     /// Complete chain rule implementation including dx/dν.
+    /// `forward` and `strike` must already include any SABR shift.
     fn d_vol_d_nu_impl(
         &self,
+        forward: f64,
         strike: f64,
         sabr_params: &SABRDerivParams,
         _vol: f64,
         x: f64,
         term2: f64,
     ) -> f64 {
-        let f = self.market_data.forward;
+        let f = forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
@@ -458,15 +464,17 @@ impl SABRCalibrationDerivatives {
     /// Partial derivative with respect to rho (correlation).
     ///
     /// Complete chain rule implementation including dx/dρ.
+    /// `forward` and `strike` must already include any SABR shift.
     fn d_vol_d_rho_impl(
         &self,
+        forward: f64,
         strike: f64,
         sabr_params: &SABRDerivParams,
         _vol: f64,
         x: f64,
         term2: f64,
     ) -> f64 {
-        let f = self.market_data.forward;
+        let f = forward;
         let t = self.market_data.time_to_expiry;
         let beta = self.market_data.beta;
 
@@ -770,5 +778,84 @@ mod tests {
         check("d_sigma/d_alpha", d_alpha_provider, d_alpha_fd);
         check("d_sigma/d_nu", d_nu_provider, d_nu_fd);
         check("d_sigma/d_rho", d_rho_provider, d_rho_fd);
+    }
+
+    /// Verify that the **analytical** derivative path produces correct gradients
+    /// when a SABR shift is active.
+    ///
+    /// Uses `new()` (not `new_with_fd`) so the analytical `d_vol_d_*_impl`
+    /// methods are exercised, then compares against central finite differences
+    /// of `sabr_vol_and_derivatives` itself. The shift changes the effective
+    /// forward/strike used for vol computation (f+shift, k+shift), so the
+    /// derivatives must use the same shifted coordinates.
+    #[test]
+    fn test_analytical_derivatives_with_shift() {
+        let forward = 100.0;
+        let shift = 10.0; // effective forward = 110, effective strikes = 100/110/120
+        let beta = 0.5;
+        let strikes = vec![90.0, 100.0, 110.0];
+        let market_vols = vec![0.22, 0.20, 0.21];
+
+        let market_data = SABRMarketData::new_with_shift(
+            forward,
+            1.0,
+            strikes.clone(),
+            market_vols.clone(),
+            beta,
+            shift,
+        )
+        .expect("valid shifted market data");
+
+        // Analytical gradient provider (NOT fd) — exercises d_vol_d_*_impl
+        let provider = SABRCalibrationDerivatives::new(market_data);
+
+        // Alpha must be scaled for shifted coordinates: with effective fwd=110
+        // and beta=0.5, alpha ≈ target_vol * fwd^(1-beta) ≈ 0.20 * 110^0.5 ≈ 2.1
+        let alpha = 2.1;
+        let nu = 0.3;
+        let rho = -0.1;
+        let eps = 1e-6;
+
+        for &strike in &strikes {
+            let (vol, da, dnu, drho) = provider.sabr_vol_and_derivatives(strike, alpha, nu, rho);
+
+            assert!(vol.is_finite(), "vol must be finite for strike {strike}");
+
+            // Central finite differences of the same analytical vol function
+            let fd_da = (provider
+                .sabr_vol_and_derivatives(strike, alpha + eps, nu, rho)
+                .0
+                - provider
+                    .sabr_vol_and_derivatives(strike, alpha - eps, nu, rho)
+                    .0)
+                / (2.0 * eps);
+            let fd_dnu = (provider
+                .sabr_vol_and_derivatives(strike, alpha, nu + eps, rho)
+                .0
+                - provider
+                    .sabr_vol_and_derivatives(strike, alpha, nu - eps, rho)
+                    .0)
+                / (2.0 * eps);
+            let fd_drho = (provider
+                .sabr_vol_and_derivatives(strike, alpha, nu, rho + eps)
+                .0
+                - provider
+                    .sabr_vol_and_derivatives(strike, alpha, nu, rho - eps)
+                    .0)
+                / (2.0 * eps);
+
+            let check = |name: &str, analytical: f64, fd: f64| {
+                let denom = fd.abs().max(1e-12);
+                let rel_err = (analytical - fd).abs() / denom;
+                assert!(
+                    rel_err < 0.02 || (analytical - fd).abs() < 1e-8,
+                    "Shifted SABR {name} at K={strike}: analytical={analytical:.6e}, fd={fd:.6e}, rel={rel_err:.4e}",
+                );
+            };
+
+            check("d_vol/d_alpha", da, fd_da);
+            check("d_vol/d_nu", dnu, fd_dnu);
+            check("d_vol/d_rho", drho, fd_drho);
+        }
     }
 }

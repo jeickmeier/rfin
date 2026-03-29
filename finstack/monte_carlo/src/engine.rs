@@ -214,13 +214,16 @@ impl Default for PathCaptureConfig {
     }
 }
 
+/// Maximum number of Monte Carlo paths allowed per simulation run.
+pub const MAX_NUM_PATHS: usize = 10_000_000;
+
 /// Stores the runtime configuration for a Monte Carlo pricing run.
 ///
 /// This configuration is consumed by [`McEngine`] and can either be built
 /// manually or via [`McEngineBuilder`]. All time values are year fractions.
 #[derive(Debug, Clone)]
 pub struct McEngineConfig {
-    /// Number of paths to simulate
+    /// Number of paths to simulate (capped at [`MAX_NUM_PATHS`] at runtime)
     pub num_paths: usize,
     /// Random number generator seed
     pub seed: u64,
@@ -529,6 +532,13 @@ impl McEngine {
             return Err(finstack_core::Error::Validation(
                 "Monte Carlo num_paths must be greater than zero".to_string(),
             ));
+        }
+
+        if self.config.num_paths > MAX_NUM_PATHS {
+            return Err(finstack_core::Error::Validation(format!(
+                "Monte Carlo num_paths ({}) exceeds maximum ({})",
+                self.config.num_paths, MAX_NUM_PATHS
+            )));
         }
 
         if self.config.chunk_size == 0 {

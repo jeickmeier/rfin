@@ -86,7 +86,7 @@ fn linear_in_variance_vol(vol_surface: &VolSurface, expiry: f64, strike: f64) ->
         let w1 = v1 * v1 * t;
 
         // Linear slope in (K, w) space
-        let dk = k0 - k1; // > 0 since k0 > k1
+        let dk = k0 - k1; // < 0 since k0 < k1 (ascending grid)
         let slope = (w0 - w1) / dk;
 
         // Extrapolated total variance

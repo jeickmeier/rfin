@@ -47,8 +47,6 @@ pub struct CliquetCallPayoff {
     // State variables (tracked during path simulation)
     /// Spot prices at reset dates
     reset_spots: Vec<f64>,
-    /// Accumulated return so far
-    accumulated_return: f64,
     /// Index of next reset date to check
     next_reset_idx: usize,
     /// Payoff type (Additive or Multiplicative)
@@ -116,7 +114,6 @@ impl CliquetCallPayoff {
             currency,
             initial_spot,
             reset_spots: Vec::new(),
-            accumulated_return: 0.0,
             next_reset_idx: 0,
             payoff_type,
         }
@@ -190,7 +187,6 @@ impl Payoff for CliquetCallPayoff {
 
     fn reset(&mut self) {
         self.reset_spots.clear();
-        self.accumulated_return = 0.0;
         self.next_reset_idx = 0;
     }
 }

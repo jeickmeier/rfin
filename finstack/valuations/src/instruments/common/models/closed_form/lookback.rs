@@ -35,15 +35,23 @@
 
 use finstack_core::math::special_functions::norm_cdf;
 
-/// Tolerance for r = q degeneracy check.
+/// Tolerance for the r = q (b = r − q → 0) degeneracy.
 ///
-/// The formula (σ²/(2b)) diverges as b→0, causing numerical instability
-/// when |r - q| is small. Using 0.01% (1e-4) captures only truly degenerate
-/// cases while avoiding unnecessary switching to the limiting form for
-/// common parameter regimes (e.g., r=3%, q=2.5% should use the general form).
+/// The reflection-principle correction term contains (σ²/(2b)) which diverges
+/// as b → 0. Standard references (Haug 2007 §6; Goldman, Sosin & Gatto 1979)
+/// use a d-value `d₃ = a₁ − 2b√T/σ` in the reflection bracket, making the
+/// bracket vanish at b = 0 and yielding a clean 0/0 L'Hôpital form.
 ///
-/// The previous value of 0.01 (1%) was too wide, capturing normal equity
-/// parameter space and creating Greeks discontinuity at the tolerance boundary.
+/// **Implementation note:** The general-case formula below uses `a₂ = a₁ − σ√T`
+/// (which equals `d₃` only when b = σ²/2). The limiting forms were derived
+/// independently for the b → 0 case. A future refactor should reconcile the
+/// general-case d-value with the standard `d₃` parameterisation and re-derive
+/// the limits; see also the `log_ratio.abs()` note on each branch.
+///
+/// The threshold of 1e-4 (0.01%) captures only truly degenerate cases while
+/// avoiding unnecessary switching for common equity parameter regimes (e.g.,
+/// r = 3%, q = 2.5% uses the general form). The previous value of 0.01 (1%)
+/// was too wide and created Greeks discontinuity at the tolerance boundary.
 const RATE_EQ_DIV_TOL: f64 = 1e-4;
 
 /// Price a fixed-strike lookback call option (continuous monitoring).
@@ -254,12 +262,25 @@ pub fn floating_strike_lookback_call(
 
     // Third term: reflection principle correction
     // Haug formula: S·e^(-rT)·(σ²/(2b))·[(S/S_min)^(-2b/σ²)·N(-a2) - e^(bT)·N(-a1)]
+    // Reflection-principle correction (third term).
+    //
+    // General form: S·e^{-rT}·(σ²/(2b))·[R^{-2b/σ²}·N(-a₂) - e^{bT}·N(-a₁)]
+    //
+    // NOTE: standard references (Haug 2007, QuantLib) parameterise the bracket
+    // with d₃ = a₁ - 2b√T/σ instead of a₂ = a₁ - σ√T. Both coincide at b = 0,
+    // so the limiting form below is unaffected, but the general branch should be
+    // reconciled with the standard parameterisation in a future refactor.
     let term3 = if b.abs() < RATE_EQ_DIV_TOL {
-        // Limiting form when b → 0 via L'Hôpital's rule
-        // (σ²/(2b)) diverges, but the bracket term → 0, so we use the limit
+        // Limiting form when b → 0 via L'Hôpital's rule.
+        // At b = 0 the power term R^{-2b/σ²} → 1 and e^{bT} → 1.
+        // With the standard d₃ parameterisation, d₃ → a₁ and the bracket
+        // collapses to N(-a₁) - N(-a₁) = 0, giving a 0 · ∞ form.
+        // L'Hôpital yields: S·e^{-rT}·σ²·T·(ln(S/S_min)·N(-a₂) + N(-a₁)).
+        //
+        // `log_ratio.abs()` is used because for calls S ≥ S_min ⇒ ln(S/S_min) ≥ 0,
+        // so abs() is a no-op here; it guards against floating-point sign noise
+        // when S ≈ S_min (log_ratio ≈ 0).
         let log_ratio = (spot / s_min).ln();
-        // At b=0: power term = 1, a2 = a1 - σ√T
-        // Limit is: σ²·T·[ln(S/S_min)·N(-a2) + N(-a1)]
         spot * df * vol2 * time * (log_ratio.abs() * norm_cdf(-a2) + norm_cdf(-a1))
     } else {
         let power = -2.0 * b / vol2;
@@ -336,11 +357,14 @@ pub fn floating_strike_lookback_put(
     let term1 = s_max * df * norm_cdf(b1);
     let term2 = -spot * df_q * norm_cdf(b2);
 
-    // Third term: reflection principle correction
-    // Haug formula: S·e^(-rT)·(σ²/(2b))·[(S/S_max)^(-2b/σ²)·N(b2) - e^(bT)·N(b1)]
+    // Reflection-principle correction — same structural note as the call above
+    // regarding d₃ vs b₂ parameterisation.
     let term3 = if b.abs() < RATE_EQ_DIV_TOL {
-        // Limiting form when b → 0
-        let log_ratio = (spot / s_max).ln(); // negative since S <= S_max
+        // Limiting form when b → 0 (symmetric to the call case).
+        // `log_ratio.abs()` converts the negative ln(S/S_max) (since S ≤ S_max)
+        // to a positive coefficient; this is equivalent to using -ln(S/S_max) =
+        // ln(S_max/S), which is the natural magnitude in the put reflection term.
+        let log_ratio = (spot / s_max).ln();
         spot * df * vol2 * time * (log_ratio.abs() * norm_cdf(b2) + norm_cdf(b1))
     } else {
         let power = -2.0 * b / vol2;
@@ -516,9 +540,9 @@ mod tests {
 
     #[test]
     fn test_r_equals_q_continuity() {
-        // Prices should be continuous as r approaches q
-        // RATE_EQ_DIV_TOL is 0.01 (1%), so we test with 0.02 to ensure
-        // we're comparing the general formula against the limiting form
+        // Prices should be continuous as r approaches q.
+        // RATE_EQ_DIV_TOL is 1e-4, so a delta of 0.02 places us well
+        // outside the tolerance band (general formula vs limiting form).
         let spot = 100.0;
         let s_min = 95.0;
         let time = 1.0;

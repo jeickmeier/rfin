@@ -28,6 +28,7 @@ use rust_decimal::Decimal;
 
 use super::parameters::SwaptionParams;
 use crate::impl_instrument_base;
+use crate::instruments::common_impl::validation;
 
 /// Volatility model for pricing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
@@ -574,6 +575,32 @@ impl Swaption {
         self.strike.to_f64().ok_or_else(|| {
             Error::Validation("Swaption strike could not be converted to f64".to_string())
         })
+    }
+
+    /// Validate structural invariants.
+    ///
+    /// Checks date ordering (expiry <= swap_start < swap_end), notional
+    /// finiteness and positivity, and strike finiteness and magnitude.
+    pub fn validate(&self) -> Result<()> {
+        validation::validate_money_finite(self.notional, "swaption notional")?;
+        validation::validate_money_gt(self.notional, 0.0, "swaption notional")?;
+
+        validation::validate_date_range_non_strict(
+            self.expiry,
+            self.swap_start,
+            "swaption expiry vs swap_start",
+        )?;
+        validation::validate_date_range_strict(
+            self.swap_start,
+            self.swap_end,
+            "swaption swap_start vs swap_end",
+        )?;
+
+        let strike = self.strike_f64()?;
+        validation::validate_f64_finite(strike, "swaption strike")?;
+        validation::validate_f64_abs_le(strike, 2.0, "swaption strike", Some(" (rate)"))?;
+
+        Ok(())
     }
 
     /// Create a canonical example swaption for testing and documentation.

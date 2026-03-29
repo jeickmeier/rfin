@@ -1199,7 +1199,8 @@ impl Bond {
             },
         )?;
 
-        // Validate notional is positive
+        // Validate notional is finite and positive
+        validation::validate_money_finite(self.notional, "bond notional")?;
         validation::validate_money_gt_with(self.notional, 0.0, |amount| {
             format!("Bond notional must be positive, got {}", amount)
         })?;

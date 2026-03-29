@@ -31,6 +31,11 @@ impl BilinearInterp {
     ///   If we iterate xs then ys, it's x-major?
     ///   Let's stick to: index = i * ys.len() + j
     pub fn new(xs: Vec<f64>, ys: Vec<f64>, z_flat: Vec<f64>) -> Result<Self> {
+        if xs.len() < 2 || ys.len() < 2 {
+            return Err(finstack_core::Error::Validation(
+                "Bilinear interpolation requires at least a 2x2 grid".into(),
+            ));
+        }
         if xs.len() * ys.len() != z_flat.len() {
             return Err(finstack_core::Error::Validation(
                 "Grid dimensions do not match values length".into(),
