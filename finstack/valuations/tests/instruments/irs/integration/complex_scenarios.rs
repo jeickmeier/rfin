@@ -250,7 +250,11 @@ fn test_forward_starting_swap() {
 
     // Forward-starting swap at 5% in flat 5% curve should price near par
     // Small residual from continuous OIS vs simple ACT/360 coupon convention
-    assert!(npv.amount().abs() < 10_000.0, "Forward swap NPV at par: {}", npv.amount());
+    assert!(
+        npv.amount().abs() < 10_000.0,
+        "Forward swap NPV at par: {}",
+        npv.amount()
+    );
 }
 
 #[test]

@@ -289,5 +289,9 @@ fn test_vega_reasonable_magnitude() {
     // Vega should be positive and reasonable (per 1% vol change for $1M 5Y cap at 30% vol)
     // Expected ~$5k-$30k for typical ATM cap; 50k is a generous upper sanity bound
     assert!(vega > 0.0, "Vega should be positive");
-    assert!(vega < 50_000.0, "Vega should be reasonable for $1M 5Y cap: {}", vega);
+    assert!(
+        vega < 50_000.0,
+        "Vega should be reasonable for $1M 5Y cap: {}",
+        vega
+    );
 }

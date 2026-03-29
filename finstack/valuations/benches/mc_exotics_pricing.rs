@@ -2,6 +2,8 @@
 //!
 //! `AsianOption`'s `Instrument::value` uses Turnbull–Wakeman for arithmetic averages; the Asian group
 //! calls `AsianOption::npv_mc` so timings reflect Monte Carlo paths controlled by `PricingOverrides::with_mc_paths`.
+//!
+//! `CliquetOption` uses an internal GBM MC engine with step count driven by the number of reset dates.
 
 #![allow(clippy::unwrap_used)]
 #![cfg(feature = "mc")]
@@ -13,8 +15,9 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::equity::autocallable::{Autocallable, FinalPayoffType};
+use finstack_valuations::instruments::equity::CliquetOption;
 use finstack_valuations::instruments::exotics::lookback_option::{LookbackOption, LookbackType};
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::{
@@ -185,10 +188,73 @@ fn bench_autocallable_mc(c: &mut Criterion) {
     group.finish();
 }
 
+fn make_cliquet(as_of: Date, n_resets: usize) -> CliquetOption {
+    // Space resets evenly over 1 year
+    let reset_dates: Vec<Date> = (1..=n_resets)
+        .map(|i| {
+            let days = (365 * i / n_resets) as i64;
+            as_of + time::Duration::days(days)
+        })
+        .collect();
+    let expiry = *reset_dates.last().unwrap();
+
+    CliquetOption::builder()
+        .id(InstrumentId::new("CLIQ-BENCH"))
+        .underlying_ticker("SPOT".to_string())
+        .reset_dates(reset_dates)
+        .expiry(expiry)
+        .local_cap(0.05)
+        .local_floor(0.0)
+        .global_cap(0.20)
+        .global_floor(0.0)
+        .notional(Money::new(100_000.0, Currency::USD))
+        .day_count(DayCount::Act365F)
+        .discount_curve_id(CurveId::new("USD-OIS"))
+        .spot_id("SPOT".into())
+        .vol_surface_id(CurveId::new("SPOT_VOL"))
+        .div_yield_id_opt(Some(CurveId::new("SPOT_DIV")))
+        .pricing_overrides(PricingOverrides::default())
+        .attributes(Attributes::new())
+        .build()
+        .unwrap()
+}
+
+/// Scale cliquet option MC cost vs number of reset periods (4, 8, 12, 24).
+///
+/// More reset dates = more simulation time steps per path, directly scaling
+/// the inner path generation loop in the GBM MC engine.
+fn bench_cliquet_option_mc(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cliquet_option_mc");
+    let as_of = as_of();
+    let market = create_mc_market(as_of, 100.0, 0.25, 0.05);
+
+    for n_resets in [4_usize, 8, 12, 24] {
+        let option = make_cliquet(as_of, n_resets);
+        group.bench_with_input(
+            BenchmarkId::from_parameter(format!("{n_resets}resets")),
+            &n_resets,
+            |b, _| {
+                b.iter(|| {
+                    black_box(
+                        finstack_valuations::instruments::internal::InstrumentExt::value(
+                            &option,
+                            black_box(&market),
+                            black_box(as_of),
+                        ),
+                    )
+                    .unwrap()
+                })
+            },
+        );
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_asian_option_mc,
     bench_lookback_option_mc,
-    bench_autocallable_mc
+    bench_autocallable_mc,
+    bench_cliquet_option_mc,
 );
 criterion_main!(benches);

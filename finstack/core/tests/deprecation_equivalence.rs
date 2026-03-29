@@ -256,9 +256,11 @@ mod quadrature_tests {
             let result_x2 = quad.integrate(|x| x * x);
             let result_x4 = quad.integrate(|x| x.powi(4));
 
-            // Higher order should be more accurate
-            let tolerance_x2 = if order >= 7 { 1e-6 } else { 0.1 };
-            let tolerance_x4 = if order >= 10 { 1e-6 } else { 0.5 };
+            // All supported orders are exact for x² (degree 2) and x⁴ (degree 4)
+            // because n-point GH is exact for polynomials of degree ≤ 2n-1, and our
+            // minimum supported order is 5 (exact up to degree 9).
+            let tolerance_x2 = 1e-10;
+            let tolerance_x4 = 1e-10;
 
             assert!(
                 (result_x2 - expected_x2).abs() < tolerance_x2,

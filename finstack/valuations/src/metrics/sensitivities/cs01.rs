@@ -130,19 +130,11 @@ where
         bump_hazard_shift(hazard_ref, &bump_request_down)?
     };
 
-    // Single scratch clone, reused for both up and down bumps via insert + restore.
-    let original_hazard = hazard.clone(); // Arc clone (cheap ref count bump)
-    let mut scratch = base_ctx.clone();
+    let temp_ctx_up = base_ctx.clone().insert(bumped_hazard_up);
+    let pv_bumped_up = revalue_raw(&temp_ctx_up)?;
 
-    scratch = scratch.insert(bumped_hazard_up);
-    let pv_bumped_up = revalue_raw(&scratch)?;
-
-    scratch = scratch.insert(bumped_hazard_down);
-    let pv_bumped_down = revalue_raw(&scratch)?;
-
-    // Restore original hazard (not strictly needed since scratch is dropped, but
-    // keeps the pattern consistent and avoids surprising callers if this changes).
-    let _ = scratch.insert(original_hazard);
+    let temp_ctx_down = base_ctx.clone().insert(bumped_hazard_down);
+    let pv_bumped_down = revalue_raw(&temp_ctx_down)?;
 
     Ok(sensitivity_central_diff(
         pv_bumped_up,
@@ -204,10 +196,6 @@ where
     let mut series: Vec<(std::borrow::Cow<'static, str>, f64)> = Vec::new();
     let mut total = 0.0;
 
-    // Single scratch clone, reused across all buckets via insert + restore.
-    let original_hazard = hazard.clone(); // Arc clone (cheap ref count bump)
-    let mut scratch = base_ctx.clone();
-
     for t in bucket_times_years.into_iter() {
         let label = super::config::format_bucket_label_cow(t);
 
@@ -242,14 +230,11 @@ where
             bump_hazard_shift(hazard_ref, &bump_request_down)?
         };
 
-        scratch = scratch.insert(bumped_hazard_up);
-        let pv_bumped_up = revalue_raw(&scratch)?;
+        let temp_ctx_up = base_ctx.clone().insert(bumped_hazard_up);
+        let pv_bumped_up = revalue_raw(&temp_ctx_up)?;
 
-        scratch = scratch.insert(bumped_hazard_down);
-        let pv_bumped_down = revalue_raw(&scratch)?;
-
-        // Restore original hazard for next bucket iteration.
-        scratch = scratch.insert(original_hazard.clone());
+        let temp_ctx_down = base_ctx.clone().insert(bumped_hazard_down);
+        let pv_bumped_down = revalue_raw(&temp_ctx_down)?;
 
         let cs01 = sensitivity_central_diff(pv_bumped_up, pv_bumped_down, bump_bp);
         series.push((label, cs01));

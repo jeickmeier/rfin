@@ -64,7 +64,11 @@ fn test_standard_eur_6m_deposit() {
     // Validate: at market rate, PV should be near zero
     // Small basis from continuous OIS curve vs simple ACT/360 deposit convention
     assert!(pv.currency() == Currency::EUR);
-    assert!(pv.amount().abs() < 5_000.0, "EUR 6M deposit at par rate PV: {}", pv.amount());
+    assert!(
+        pv.amount().abs() < 5_000.0,
+        "EUR 6M deposit at par rate PV: {}",
+        pv.amount()
+    );
 }
 
 #[test]

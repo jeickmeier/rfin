@@ -66,11 +66,32 @@ impl MetricCalculator for IrConvexityCalculator {
             return Ok(0.0);
         }
 
-        let curves_up = context.curves.bump(bumps_up)?;
-        let pv_up = irs.value_raw(&curves_up, as_of)?;
+        // Single scratch clone, reused for up and down bumps via in-place bump + revert.
+        let mut scratch = context.curves.as_ref().clone();
+        let spec_up = BumpSpec::parallel_bp(bump_bp);
+        let spec_down = BumpSpec::parallel_bp(-bump_bp);
 
-        let curves_down = context.curves.bump(bumps_down)?;
-        let pv_down = irs.value_raw(&curves_down, as_of)?;
+        let mut tokens_up = Vec::with_capacity(bumps_up.len());
+        for bump in &bumps_up {
+            if let MarketBump::Curve { id, .. } = bump {
+                tokens_up.push(scratch.apply_curve_bump_in_place(id, spec_up)?);
+            }
+        }
+        let pv_up = irs.value_raw(&scratch, as_of)?;
+        for token in tokens_up.into_iter().rev() {
+            scratch.revert_scratch_bump(token)?;
+        }
+
+        let mut tokens_down = Vec::with_capacity(bumps_down.len());
+        for bump in &bumps_down {
+            if let MarketBump::Curve { id, .. } = bump {
+                tokens_down.push(scratch.apply_curve_bump_in_place(id, spec_down)?);
+            }
+        }
+        let pv_down = irs.value_raw(&scratch, as_of)?;
+        for token in tokens_down.into_iter().rev() {
+            scratch.revert_scratch_bump(token)?;
+        }
 
         let h = bump_bp * 1e-4;
         let convexity = (pv_up + pv_down - 2.0 * base_pv) / (h * h);

@@ -206,7 +206,11 @@ fn test_pv_before_start() {
 
     assert_eq!(pv.currency(), Currency::USD);
     // PV before start: 5-day pre-start period on $1M 5% repo ≈ $694 carry; < $5k is generous
-    assert!(pv.amount().abs() < 5_000.0, "Repo PV before start: {}", pv.amount());
+    assert!(
+        pv.amount().abs() < 5_000.0,
+        "Repo PV before start: {}",
+        pv.amount()
+    );
 }
 
 #[test]

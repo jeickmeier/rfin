@@ -180,9 +180,10 @@ fn npv_50_year_cashflow_is_positive_and_small() {
 
     assert!(pv.amount() > 0.0, "50-year PV must be positive");
     assert!(pv.amount() < 1_000_000.0, "50-year PV must be discounted");
-    // Use wider tolerance (0.5%) due to year fraction complexity over 50 years
+    // Both expected_pv and the NPV function use the same year fraction, so
+    // results should agree to near floating-point precision (1e-6 relative).
     assert!(
-        (pv.amount() - expected_pv).abs() / expected_pv < 0.005,
+        (pv.amount() - expected_pv).abs() / expected_pv < 1e-6,
         "50-year PV should be ~{:.0}, got {:.0} (year fraction: {:.4})",
         expected_pv,
         pv.amount(),

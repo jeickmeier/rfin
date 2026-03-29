@@ -20,7 +20,8 @@ fn test_simpson_rule_sin() {
     // Test Simpson's rule on sin(x) over [0, π] = 2
     let f = |x: f64| x.sin();
     let result = simpson_rule(f, 0.0, PI, 100).unwrap();
-    assert!((result - 2.0).abs() < 1e-4);
+    // Simpson with n=100 on sin(x): error ~ π/180 * (π/100)^4 ≈ 1.7e-9
+    assert!((result - 2.0).abs() < 1e-7);
 }
 
 #[test]
@@ -95,10 +96,11 @@ fn test_financial_application_option_payoff() {
     let d2 = d1 - vol * time.sqrt();
     let bs_price = spot * norm_cdf(d1) - strike * norm_cdf(d2);
 
-    // Gauss-Hermite should be within 1.0 of Black-Scholes for this ATM option
-    // (10-point quadrature has limited accuracy for option payoffs)
+    // Gauss-Hermite should be within 0.5 of Black-Scholes for this ATM option.
+    // Option payoffs have a kink so GH is less accurate than for smooth functions,
+    // but 10-point GH should still achieve well under 10% relative error.
     assert!(
-        (result - bs_price).abs() < 1.0,
+        (result - bs_price).abs() < 0.5,
         "GH integral {} vs Black-Scholes {} (diff {})",
         result,
         bs_price,
@@ -234,8 +236,8 @@ fn test_adaptive_simpson_constant_function() {
     let f = |_x: f64| 10.0;
 
     let result = adaptive_simpson(f, 0.0, 5.0, 1e-6, 20).unwrap();
-    // Integral of 10 from 0 to 5 = 50
-    assert!((result - 50.0).abs() < 1e-3);
+    // Integral of 10 from 0 to 5 = 50; constant functions integrate exactly
+    assert!((result - 50.0).abs() < 1e-12);
 }
 
 #[test]

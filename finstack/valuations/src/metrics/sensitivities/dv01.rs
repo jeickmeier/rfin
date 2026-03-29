@@ -402,22 +402,14 @@ where
                 buckets[i + 1]
             };
 
-            let spec_up = BumpSpec::triangular_key_rate_bp(
-                prev_bucket,
-                target_time,
-                next_bucket,
-                bump_bp,
-            );
+            let spec_up =
+                BumpSpec::triangular_key_rate_bp(prev_bucket, target_time, next_bucket, bump_bp);
             let token_up = scratch.apply_curve_bump_in_place(curve_id, spec_up)?;
             let pv_up = context.reprice_raw(&scratch, as_of)?;
             scratch.revert_scratch_bump(token_up)?;
 
-            let spec_down = BumpSpec::triangular_key_rate_bp(
-                prev_bucket,
-                target_time,
-                next_bucket,
-                -bump_bp,
-            );
+            let spec_down =
+                BumpSpec::triangular_key_rate_bp(prev_bucket, target_time, next_bucket, -bump_bp);
             let token_down = scratch.apply_curve_bump_in_place(curve_id, spec_down)?;
             let pv_down = context.reprice_raw(&scratch, as_of)?;
             scratch.revert_scratch_bump(token_down)?;

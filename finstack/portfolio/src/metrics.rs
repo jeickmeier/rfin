@@ -24,6 +24,8 @@ use finstack_core::math::summation::neumaier_sum;
 use finstack_core::money::fx::FxQuery;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
+use std::sync::LazyLock;
 
 /// Aggregated metric across the portfolio.
 ///
@@ -129,26 +131,30 @@ impl Default for PortfolioMetrics {
 ///
 /// To support portfolio-level aggregation of these series, `is_summable` performs
 /// a prefix match on the base metric ID rather than requiring an exact key match.
-const SUMMABLE_METRICS: &[&str] = &[
-    "theta",
-    "dv01",
-    "cs01",
-    "delta",
-    "gamma",
-    "vega",
-    "rho",
-    "pv01",
-    "ir01",
-    "hazard_cs01",
-    "index_delta",
-    "bucketed_dv01",
-    "bucketed_cs01",
-    "accrued_interest",
-    "pv_fixed",
-    "pv_float",
-    "pv_primary",
-    "pv_reference",
-];
+static SUMMABLE_SET: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
+    [
+        "theta",
+        "dv01",
+        "cs01",
+        "delta",
+        "gamma",
+        "vega",
+        "rho",
+        "pv01",
+        "ir01",
+        "hazard_cs01",
+        "index_delta",
+        "bucketed_dv01",
+        "bucketed_cs01",
+        "accrued_interest",
+        "pv_fixed",
+        "pv_float",
+        "pv_primary",
+        "pv_reference",
+    ]
+    .into_iter()
+    .collect()
+});
 
 /// Check if a metric can be summed across positions.
 ///
@@ -165,14 +171,14 @@ const SUMMABLE_METRICS: &[&str] = &[
 /// `true` when the metric is safe to sum across positions after any required
 /// FX conversion.
 pub fn is_summable(metric_id: &str) -> bool {
-    if SUMMABLE_METRICS.contains(&metric_id) {
+    if SUMMABLE_SET.contains(metric_id) {
         return true;
     }
 
     // Handle composite keys produced by `MetricContext::default_composite_key`,
     // which uses the pattern `base::label[::sub_label...]`.
     if let Some((base, _rest)) = metric_id.split_once("::") {
-        return SUMMABLE_METRICS.contains(&base);
+        return SUMMABLE_SET.contains(base);
     }
 
     false
@@ -373,19 +379,19 @@ struct PositionMetricData {
 /// Aggregate collected position metric data into portfolio metrics.
 ///
 /// This is the shared Phase 2+3 logic used by both serial and parallel implementations.
+/// Takes ownership of `collected` to move metric maps instead of cloning them.
 fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioMetrics {
-    let mut by_position: IndexMap<PositionId, PositionMetrics> = IndexMap::new();
-    let mut metric_values: IndexMap<String, Vec<f64>> = IndexMap::new();
-    let mut entity_values: IndexMap<String, IndexMap<EntityId, Vec<f64>>> = IndexMap::new();
+    let n = collected.len();
+    let mut by_position: IndexMap<PositionId, PositionMetrics> = IndexMap::with_capacity(n);
 
-    for data in &collected {
-        by_position.insert(
-            data.position_id.clone(),
-            PositionMetrics {
-                currency: data.currency,
-                metrics: data.metrics.clone(),
-            },
-        );
+    // Use HashMap for intermediate accumulation (faster hashing, no ordering overhead).
+    let mut metric_values: HashMap<String, Vec<f64>> = HashMap::new();
+    let mut entity_values: HashMap<String, HashMap<EntityId, Vec<f64>>> = HashMap::new();
+
+    // Take ownership of collected to move metrics instead of cloning.
+    for data in collected {
+        let fx_rate = data.fx_rate;
+        let entity_id = data.entity_id;
 
         for (metric_id, value) in &data.metrics {
             if is_summable(metric_id) {
@@ -399,7 +405,7 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
                     continue;
                 }
 
-                let value_base = *value * data.fx_rate;
+                let value_base = *value * fx_rate;
 
                 metric_values
                     .entry(metric_id.clone())
@@ -409,25 +415,36 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
                 entity_values
                     .entry(metric_id.clone())
                     .or_default()
-                    .entry(data.entity_id.clone())
+                    .entry(entity_id.clone())
                     .or_default()
                     .push(value_base);
             }
         }
+
+        by_position.insert(
+            data.position_id,
+            PositionMetrics {
+                currency: data.currency,
+                metrics: data.metrics, // move, not clone
+            },
+        );
     }
 
-    let mut aggregated: IndexMap<String, AggregatedMetric> = IndexMap::new();
+    let mut aggregated: IndexMap<String, AggregatedMetric> =
+        IndexMap::with_capacity(metric_values.len());
 
     for (metric_id, values) in metric_values {
         let total = neumaier_sum(values.into_iter());
 
-        let mut by_entity: IndexMap<EntityId, f64> = IndexMap::new();
-        if let Some(entity_map) = entity_values.get(&metric_id) {
-            for (entity_id, entity_vals) in entity_map {
-                let entity_total = neumaier_sum(entity_vals.iter().copied());
-                by_entity.insert(entity_id.clone(), entity_total);
-            }
-        }
+        let by_entity: IndexMap<EntityId, f64> = entity_values
+            .remove(&metric_id)
+            .into_iter()
+            .flat_map(|entity_map| {
+                entity_map
+                    .into_iter()
+                    .map(|(eid, vals)| (eid, neumaier_sum(vals.into_iter())))
+            })
+            .collect();
 
         aggregated.insert(
             metric_id.clone(),

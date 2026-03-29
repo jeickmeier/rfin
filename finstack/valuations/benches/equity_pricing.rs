@@ -1,4 +1,12 @@
 //! Equity non-option instrument pricing benchmarks.
+//!
+//! Covers:
+//! - [`Equity`]: spot equity PV.
+//! - [`EquityTotalReturnSwap`]: floating financing vs equity total return.
+//! - [`EquityIndexFuture`]: cost-of-carry future pricing.
+//! - [`VarianceSwap`]: fair-strike via Carr-Madan replication.
+//! - [`VolatilityIndexFuture`]: VIX-style forward contract.
+//! - [`VolatilityIndexOption`]: options on volatility indices.
 
 #![allow(clippy::unwrap_used)]
 
@@ -8,7 +16,9 @@ use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::surfaces::VolSurface;
-use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
+use finstack_core::market_data::term_structures::{
+    DiscountCurve, ForwardCurve, VolatilityIndexCurve,
+};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
@@ -20,11 +30,18 @@ use finstack_valuations::instruments::equity::equity_trs::EquityTotalReturnSwap;
 use finstack_valuations::instruments::equity::variance_swap::{
     PayReceive, RealizedVarMethod, VarianceSwap,
 };
+use finstack_valuations::instruments::equity::vol_index_future::{
+    VolIndexContractSpecs, VolatilityIndexFuture,
+};
+use finstack_valuations::instruments::equity::vol_index_option::{
+    VolIndexOptionSpecs, VolatilityIndexOption,
+};
 use finstack_valuations::instruments::equity::Equity;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use finstack_valuations::instruments::rates::ir_future::Position;
-use finstack_valuations::instruments::Attributes;
+use finstack_valuations::instruments::{Attributes, ExerciseStyle, OptionType};
 use finstack_valuations::instruments::{
-    EquityUnderlyingParams, FinancingLegSpec, Instrument, TrsScheduleSpec, TrsSide,
+    EquityUnderlyingParams, FinancingLegSpec, TrsScheduleSpec, TrsSide,
 };
 use rust_decimal::Decimal;
 use std::hint::black_box;
@@ -42,7 +59,10 @@ fn base_date() -> Date {
     Date::from_calendar_date(2025, Month::January, 1).unwrap()
 }
 
-/// Shared USD-OIS / SOFR-3M discount and forward curves, SPX spot (levels and TRS id), dividend yield, and SPX vol grid.
+/// Shared market context for all equity benchmarks.
+///
+/// Provides USD-OIS / SOFR-3M curves, SPX spot and vol grid, VIX forward curve,
+/// and VIX vol-of-vol surface for volatility index benchmarks.
 fn create_equity_market() -> MarketContext {
     let base = base_date();
 
@@ -87,10 +107,30 @@ fn create_equity_market() -> MarketContext {
     )
     .unwrap();
 
+    // VIX forward curve: spot at 18.5, mean-reverting to ~22 at 1Y
+    let vix_curve = VolatilityIndexCurve::builder("VIX")
+        .base_date(base)
+        .spot_level(18.5)
+        .knots([(0.0, 18.5), (0.25, 20.0), (0.5, 21.0), (1.0, 22.0)])
+        .interp(InterpStyle::Linear)
+        .build()
+        .unwrap();
+
+    // Flat VIX vol-of-vol surface (for vol index option pricing)
+    let vix_volvol = VolSurface::from_grid(
+        "VIX-VOLVOL",
+        &[0.25, 0.5, 1.0],
+        &[15.0, 18.0, 21.0, 24.0, 27.0],
+        &[0.80; 15],
+    )
+    .unwrap();
+
     MarketContext::new()
         .insert(disc)
         .insert(fwd)
+        .insert(vix_curve)
         .insert_surface(vol_surface)
+        .insert_surface(vix_volvol)
         .insert_price(
             "SPX",
             MarketScalar::Price(Money::new(5000.0, Currency::USD)),
@@ -244,11 +284,83 @@ fn bench_variance_swap_pv(c: &mut Criterion) {
     group.finish();
 }
 
+// ================================================================================================
+// Volatility index benchmarks
+// ================================================================================================
+
+/// Benchmark VIX future pricing vs tenor (1M, 3M, 6M).
+///
+/// Measures the vol index forward curve interpolation and discount factor
+/// lookup required to mark a VIX futures position to market.
+fn bench_vol_index_future_pv(c: &mut Criterion) {
+    let market = create_equity_market();
+    let as_of = base_date();
+
+    let mut group = c.benchmark_group("vol_index_future/tenor");
+    for (label, months) in [("1M", 1_i64), ("3M", 3), ("6M", 6)] {
+        let expiry = as_of + time::Duration::days(months * 30);
+        let fut = VolatilityIndexFuture::builder()
+            .id(InstrumentId::new(format!("VIX-FUT-{label}")))
+            .notional(Money::new(100_000.0, Currency::USD))
+            .expiry(expiry)
+            .settlement_date(expiry)
+            .quoted_price(18.5)
+            .position(Position::Long)
+            .contract_specs(VolIndexContractSpecs::vix())
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_index_curve_id(CurveId::new("VIX"))
+            .attributes(Attributes::new())
+            .build()
+            .unwrap();
+
+        group.bench_with_input(BenchmarkId::from_parameter(label), &label, |b, _| {
+            b.iter(|| black_box(fut.value(black_box(&market), black_box(as_of))).unwrap())
+        });
+    }
+    group.finish();
+}
+
+/// Benchmark VIX call/put option pricing via Black-76 on VIX forward.
+///
+/// Measures vol-of-vol surface lookup, Black-76 evaluation, and discount
+/// factor interpolation for options on a volatility index.
+fn bench_vol_index_option_pv(c: &mut Criterion) {
+    let market = create_equity_market();
+    let as_of = base_date();
+
+    let mut group = c.benchmark_group("vol_index_option/type");
+    for (label, opt_type) in [("call", OptionType::Call), ("put", OptionType::Put)] {
+        let expiry = as_of + time::Duration::days(90);
+        let opt = VolatilityIndexOption::builder()
+            .id(InstrumentId::new(format!("VIX-OPT-{label}")))
+            .notional(Money::new(10_000.0, Currency::USD))
+            .strike(20.0)
+            .option_type(opt_type)
+            .exercise_style(ExerciseStyle::European)
+            .expiry(expiry)
+            .contract_specs(VolIndexOptionSpecs::vix())
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_index_curve_id(CurveId::new("VIX"))
+            .vol_of_vol_surface_id(CurveId::new("VIX-VOLVOL"))
+            .attributes(Attributes::new())
+            .build()
+            .unwrap();
+
+        group.bench_with_input(BenchmarkId::from_parameter(label), &label, |b, _| {
+            b.iter(|| black_box(opt.value(black_box(&market), black_box(as_of))).unwrap())
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     equity_pricing,
     bench_equity_pv,
     bench_equity_trs_pv,
     bench_equity_index_future_pv,
-    bench_variance_swap_pv
+    bench_variance_swap_pv,
+    bench_vol_index_future_pv,
+    bench_vol_index_option_pv,
 );
 criterion_main!(equity_pricing);

@@ -86,7 +86,11 @@ fn test_cs01_positive_for_buyer() {
     assert!(cs01 > 0.0, "CS01 should be positive for protection buyer");
     // For $10M 5Y CDS with 1.5% hazard rate, CS01 ≈ notional × (1-rec) × annuity × 1bp ≈ $2,700
     // Upper bound of $10,000 is ~4x expected, a generous but meaningful sanity check
-    assert!(cs01 < 10_000.0, "CS01 should be reasonable for $10M 5Y CDS: {}", cs01);
+    assert!(
+        cs01 < 10_000.0,
+        "CS01 should be reasonable for $10M 5Y CDS: {}",
+        cs01
+    );
 }
 
 #[test]

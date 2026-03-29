@@ -248,7 +248,11 @@ fn test_fx_forward_with_spot_override() {
 
     // With spot=contract=1.12 but fair forward ≈ 1.1313 (from 5%/3% rates), NPV ≈ $11k
     // 20k bound allows for market parameter variation while still catching large errors
-    assert!(npv.amount().abs() < 20_000.0, "PV should be reasonable for interest-differential scenario, got {}", npv.amount());
+    assert!(
+        npv.amount().abs() < 20_000.0,
+        "PV should be reasonable for interest-differential scenario, got {}",
+        npv.amount()
+    );
 }
 
 #[test]

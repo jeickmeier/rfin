@@ -155,7 +155,8 @@ fn assemble_valuation(
     base_ccy: Currency,
     as_of: finstack_core::dates::Date,
 ) -> Result<PortfolioValuation> {
-    let mut position_values = IndexMap::new();
+    let n = position_values_vec.len();
+    let mut position_values = IndexMap::with_capacity(n);
     let mut entity_amounts: IndexMap<EntityId, Vec<f64>> = IndexMap::new();
 
     for pv in position_values_vec {
@@ -171,7 +172,7 @@ fn assemble_valuation(
         .map(|(entity_id, amounts)| (entity_id, Money::new(neumaier_sum(amounts), base_ccy)))
         .collect();
 
-    let total_amount = neumaier_sum(by_entity.values().map(|v| v.amount()).collect::<Vec<_>>());
+    let total_amount = neumaier_sum(by_entity.values().map(|v| v.amount()));
     let total_base_ccy = Money::new(total_amount, base_ccy);
 
     let degraded_positions = position_values

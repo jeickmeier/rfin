@@ -225,7 +225,11 @@ fn test_dv01_metric() {
 
     // For $1M 3M repo, DV01 ≈ notional × maturity × 1bp ≈ $1M × 0.25 × 0.0001 = $25
     // Upper bound of $100 is generous for this instrument
-    assert!(dv01.abs() < 100.0, "Repo DV01 should be small, got: {}", dv01.abs());
+    assert!(
+        dv01.abs() < 100.0,
+        "Repo DV01 should be small, got: {}",
+        dv01.abs()
+    );
 }
 
 #[test]

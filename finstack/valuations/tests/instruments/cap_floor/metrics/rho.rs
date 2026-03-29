@@ -106,7 +106,11 @@ fn test_cap_rho_finite() {
     // Rho should be finite and reasonable for $1M 5Y cap
     // Expected ~$5k-$30k for typical ATM cap; 50k is a generous upper sanity bound
     assert!(rho.is_finite(), "Rho should be finite");
-    assert!(rho.abs() < 50_000.0, "Rho should be reasonable for $1M 5Y cap: {}", rho);
+    assert!(
+        rho.abs() < 50_000.0,
+        "Rho should be reasonable for $1M 5Y cap: {}",
+        rho
+    );
 }
 
 #[test]

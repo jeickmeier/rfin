@@ -868,11 +868,11 @@ mod statistical_operations {
             .unwrap()
             .values;
 
-        // Sample std of [1..10] = sqrt(82.5/9) ≈ 3.0277
+        // Sample std of [1..10] = sqrt(82.5/9) ≈ 3.0277; exact integer arithmetic
         let expected_std = (82.5_f64 / 9.0).sqrt();
         for r in &result {
             assert!(
-                (r - expected_std).abs() < 1e-4,
+                (r - expected_std).abs() < 1e-10,
                 "std: {} != {}",
                 r,
                 expected_std
@@ -915,11 +915,11 @@ mod statistical_operations {
             .unwrap()
             .values;
 
-        // Sample variance of [1..10] = 82.5/9 ≈ 9.1667
+        // Sample variance of [1..10] = 82.5/9 ≈ 9.1667; exact integer arithmetic
         let expected_var = 82.5_f64 / 9.0;
         for r in &result {
             assert!(
-                (r - expected_var).abs() < 1e-4,
+                (r - expected_var).abs() < 1e-10,
                 "var: {} != {}",
                 r,
                 expected_var

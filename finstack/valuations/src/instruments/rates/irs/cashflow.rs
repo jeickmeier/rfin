@@ -265,7 +265,7 @@ pub(crate) fn projected_compounded_float_leg_schedule(
         float: &float,
     };
 
-    let mut flows = Vec::new();
+    let mut flows = Vec::with_capacity(periods.len());
     for period in periods {
         if period.payment_date <= as_of {
             continue;
@@ -566,7 +566,8 @@ pub(crate) fn full_signed_schedule_with_curves_as_of(
     };
 
     // Combine flows from both legs with proper CFKind classification
-    let mut all_flows: Vec<CashFlow> = Vec::new();
+    let mut all_flows: Vec<CashFlow> =
+        Vec::with_capacity(fixed_sched.flows.len() + float_sched.flows.len());
 
     // Add fixed leg flows
     for cf in fixed_sched.flows {

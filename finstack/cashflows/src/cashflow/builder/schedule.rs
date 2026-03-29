@@ -324,7 +324,7 @@ impl CashFlowSchedule {
     /// assert_eq!(path[1].1.amount(), 95.0);  // 90 + 5 = 95
     /// ```
     pub fn outstanding_path_per_flow(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
-        let mut out = Vec::new();
+        let mut out = Vec::with_capacity(self.flows.len());
         let mut outstanding = self.notional.initial;
         for cf in &self.flows {
             // `outstanding_path_per_flow` historically ignored notional draws/repays and
@@ -406,7 +406,7 @@ impl CashFlowSchedule {
     /// - Amortization or repayment exceeds current outstanding
     /// - Currency mismatch between flows and notional
     pub fn outstanding_by_date(&self) -> finstack_core::Result<Vec<(Date, Money)>> {
-        let mut result: Vec<(Date, Money)> = Vec::new();
+        let mut result: Vec<(Date, Money)> = Vec::with_capacity(self.flows.len());
         if self.flows.is_empty() {
             return Ok(result);
         }
@@ -601,13 +601,20 @@ impl CashFlowSchedule {
         dc: DayCount,
         dc_ctx: DayCountCtx,
     ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-        let flows: Vec<(Date, Money)> = self
-            .flows
-            .iter()
-            .filter(|cf| cf.kind != CFKind::DefaultedNotional)
-            .map(|cf| (cf.date, cf.amount))
-            .collect();
-        crate::cashflow::aggregation::pv_by_period_with_ctx(&flows, periods, disc, base, dc, dc_ctx)
+        if self.flows.is_empty() || periods.is_empty() {
+            return Ok(IndexMap::new());
+        }
+        // Schedule flows are always sorted at construction (maintained by sort_flows).
+        // Use the CashFlow-native path to avoid intermediate Vec<DatedFlow> allocation.
+        crate::cashflow::aggregation::pv_by_period_cashflows_sorted_checked(
+            &self.flows,
+            periods,
+            disc,
+            base,
+            dc,
+            dc_ctx,
+            None,
+        )
     }
 
     /// Compute pre-period present values for schedules that aggregate to a single currency.

@@ -100,9 +100,17 @@ fn test_deep_itm_call_behaves_like_forward() {
 
     // Gamma and vega should be significantly reduced for deep ITM (approaches forward behavior)
     // Deep ITM gamma is typically < 0.05 per 1M notional (vs ~0.5+ for ATM)
-    assert!(greeks.gamma < 0.1, "Deep ITM gamma should be substantially reduced (forward-like behavior), got {}", greeks.gamma);
+    assert!(
+        greeks.gamma < 0.1,
+        "Deep ITM gamma should be substantially reduced (forward-like behavior), got {}",
+        greeks.gamma
+    );
     // Vega for deep ITM is typically < 1.0 per 1M notional (vs ~100+ for ATM)
-    assert!(greeks.vega < 5.0, "Deep ITM vega should be substantially reduced (forward-like behavior), got {}", greeks.vega);
+    assert!(
+        greeks.vega < 5.0,
+        "Deep ITM vega should be substantially reduced (forward-like behavior), got {}",
+        greeks.vega
+    );
 }
 
 #[test]
@@ -121,12 +129,20 @@ fn test_deep_otm_call_has_minimal_value() {
 
     // Assert: Value should be very small (strike=2.00 is 67% above spot=1.20)
     // For $1M notional, deep OTM 1Y call should be worth < $100
-    assert!(pv.amount() < 100.0, "Deep OTM value should be near zero: {}", pv.amount());
+    assert!(
+        pv.amount() < 100.0,
+        "Deep OTM value should be near zero: {}",
+        pv.amount()
+    );
     assert!(pv.amount() >= 0.0, "Value should be non-negative");
 
     // Delta should be near zero (deep OTM call has near-zero probability of exercise)
     // For $1M notional call 67% OTM, delta << 1% of notional
-    assert!(greeks.delta < 10_000.0, "Deep OTM delta should be near zero: {}", greeks.delta);
+    assert!(
+        greeks.delta < 10_000.0,
+        "Deep OTM delta should be near zero: {}",
+        greeks.delta
+    );
     assert!(greeks.delta >= 0.0, "Call delta should be non-negative");
 }
 

@@ -191,7 +191,11 @@ fn test_dv01_short_period() {
     assert_finite(dv01, "Short period DV01 should be finite");
     // For short-period FRA (1 month), DV01 is smaller than for longer-period FRA
     // But still significant: for 1M notional, typically $2-$10
-    assert!(dv01.abs() < 10.0, "Short FRA DV01 should be smaller than long-period: got {}", dv01.abs());
+    assert!(
+        dv01.abs() < 10.0,
+        "Short FRA DV01 should be smaller than long-period: got {}",
+        dv01.abs()
+    );
 }
 
 #[test]

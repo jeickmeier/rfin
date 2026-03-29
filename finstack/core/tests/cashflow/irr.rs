@@ -289,13 +289,14 @@ fn xirr_daycount_act365f_vs_act360() {
     assert!(result_365 > 0.0, "Act/365F result should be positive");
     assert!(result_360 > 0.0, "Act/360 result should be positive");
 
-    // Act/360 divides by smaller denominator, so year fraction is larger
-    // This means annualized rate should be slightly lower for same absolute return
-    // The difference should be proportional to 365/360 ratio
+    // Act/360 has a larger year fraction (182/360 > 182/365), so the annualized
+    // rate is lower for the same absolute return: result_360 < result_365.
+    // In the linear approximation (r ≈ return / yf), the ratio is:
+    //   result_360 / result_365 ≈ yf_365 / yf_360 = (182/365) / (182/360) = 360/365
     let ratio = result_360 / result_365;
-    let expected_ratio = 365.0 / 360.0;
+    let expected_ratio = 360.0 / 365.0;
     assert!(
-        (ratio - expected_ratio).abs() < 0.05,
+        (ratio - expected_ratio).abs() < 0.005,
         "Act/360 vs Act/365F ratio should be ~{:.4}, got {:.4}",
         expected_ratio,
         ratio
@@ -368,11 +369,16 @@ fn xirr_long_duration_30_years() {
         npv_at_irr
     );
 
-    // 5x return over 30 years → IRR = 5^(1/30) - 1 ≈ 5.5%
-    let expected = (5.0_f64).powf(1.0 / 30.0) - 1.0;
+    // 5x return over 30 years → IRR = 5^(1/t) - 1 where t is the Act/365F year fraction.
+    // Using the actual year fraction avoids the ~1e-4 error from leap-year accumulation.
+    let ctx = finstack_core::dates::DayCountCtx::default();
+    let t_30y = DayCount::Act365F
+        .year_fraction(d(2024, 1, 1), d(2054, 1, 1), ctx)
+        .unwrap();
+    let expected = (5.0_f64).powf(1.0 / t_30y) - 1.0;
     assert!(
-        (result - expected).abs() < 0.01,
-        "30-year IRR should be ~{:.2}%, got {:.2}%",
+        (result - expected).abs() < XIRR_TOLERANCE,
+        "30-year IRR should be ~{:.4}%, got {:.4}%",
         expected * 100.0,
         result * 100.0
     );
@@ -650,11 +656,16 @@ fn xirr_handles_distant_horizon() {
     let result = flows.irr(None);
     let irr = result.expect("Long horizon XIRR should converge");
 
-    // 10x over 50 years: IRR = 10^(1/50) - 1 ≈ 4.7%
-    let expected = (10.0_f64).powf(1.0 / 50.0) - 1.0;
+    // 10x over 50 years: IRR = 10^(1/t) - 1 where t is the Act/365F year fraction.
+    // Using the actual year fraction avoids the ~1e-4 error from leap-year accumulation.
+    let ctx = finstack_core::dates::DayCountCtx::default();
+    let t_50y = DayCount::Act365F
+        .year_fraction(d(2025, 1, 1), d(2075, 1, 1), ctx)
+        .unwrap();
+    let expected = (10.0_f64).powf(1.0 / t_50y) - 1.0;
     assert!(
-        (irr - expected).abs() < 0.01,
-        "50-year 10x IRR should be ~{:.2}%, got {:.2}%",
+        (irr - expected).abs() < XIRR_TOLERANCE,
+        "50-year 10x IRR should be ~{:.4}%, got {:.4}%",
         expected * 100.0,
         irr * 100.0
     );

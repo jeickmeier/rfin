@@ -96,7 +96,8 @@ mod brent {
         let solver = BrentSolver::new().tolerance(1e-10);
         let yield_result = solver.solve(f, 0.06).unwrap();
 
-        assert!(yield_result > 0.05 && yield_result < 0.08);
+        // 5% coupon, $95 price, 5-period bond YTM ≈ 6.20%
+        assert!(yield_result > 0.061 && yield_result < 0.063);
         assert!(
             f(yield_result).abs() < 1e-9,
             "f(yield) = {} exceeds tolerance",
@@ -186,8 +187,8 @@ mod newton {
             "f(root) = {} exceeds tolerance",
             f(r).abs()
         );
-        // Root is approximately 2.0946
-        assert!((r - 2.0946).abs() < 1e-4);
+        // Root of x³ - 2x - 5 ≈ 2.09455132 (verified numerically)
+        assert!((r - 2.09455132_f64).abs() < 1e-6);
     }
 
     #[test]
@@ -211,7 +212,8 @@ mod newton {
         let solver = NewtonSolver::new().tolerance(1e-10);
         let yield_result = solver.solve(f, 0.06).unwrap();
 
-        assert!(yield_result > 0.05 && yield_result < 0.08);
+        // 5% coupon, $95 price, 5-period bond YTM ≈ 6.20%
+        assert!(yield_result > 0.061 && yield_result < 0.063);
         assert!(
             f(yield_result).abs() < 1e-9,
             "f(yield) = {} exceeds tolerance",

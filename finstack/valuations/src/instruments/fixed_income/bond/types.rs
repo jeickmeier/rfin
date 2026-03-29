@@ -965,13 +965,13 @@ impl Bond {
     ///
     /// # Examples
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
     /// use finstack_core::market_data::context::MarketContext;
     ///
-    /// # let bond = Bond::example().unwrap();
-    /// # let curves = MarketContext::new();
-    /// let schedule = bond.cashflow_schedule(&curves, bond.issue_date)?;
+    /// let bond = Bond::example().unwrap();
+    /// let curves = MarketContext::new();
+    /// let schedule = bond.full_cashflow_schedule(&curves)?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```
     pub(crate) fn full_cashflow_schedule(

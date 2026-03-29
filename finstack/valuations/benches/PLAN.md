@@ -8,7 +8,7 @@ Each new file follows the same conventions as existing benches: Criterion groups
 
 ## Priority 1: Global Calibration Solver
 
-**File:** `benches/global_calibration.rs`  
+**File:** `benches/global_calibration.rs`
 **Cargo.toml:** `[[bench]] name = "global_calibration" harness = false`
 
 Benchmarks the `GlobalFitOptimizer::optimize` and `optimize_with_multi_start`
@@ -38,7 +38,7 @@ Build rate quote vectors of varying size and run `engine::execute_plan`.
 
 ## Priority 2a: Merton MC Bond Engine
 
-**File:** `benches/merton_mc_pricing.rs`  
+**File:** `benches/merton_mc_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "merton_mc_pricing" harness = false required-features = ["mc"]`
 
 Benchmarks the Merton structural MC pricer in
@@ -63,7 +63,7 @@ the `MertonMcPricer` directly.
 
 ## Priority 2b: Stochastic Revolving Credit MC
 
-**File:** `benches/rcf_mc_pricing.rs`  
+**File:** `benches/rcf_mc_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "rcf_mc_pricing" harness = false required-features = ["mc"]`
 
 Benchmarks the 3-factor MC engine for revolving credit facilities
@@ -89,7 +89,7 @@ market with discount + forward + hazard curves.
 
 ## Priority 3: PE Fund Waterfall
 
-**File:** `benches/pe_fund_pricing.rs`  
+**File:** `benches/pe_fund_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "pe_fund_pricing" harness = false`
 
 Benchmarks the `WaterfallEngine` and Brent-based IRR solves in
@@ -114,7 +114,7 @@ Use `PrivateMarketsFund::example()` for small case. Build larger funds with
 
 ## Priority 4: Cross-Currency Swap
 
-**File:** `benches/xccy_pricing.rs`  
+**File:** `benches/xccy_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "xccy_pricing" harness = false`
 
 Benchmarks `XccySwap` pricing (two-currency floating legs, notional exchange,
@@ -140,7 +140,7 @@ an `FxMatrix` with EUR/USD spot. Tenor-parameterized via `BenchmarkId`.
 
 ### 5a: CMS Instruments
 
-**File:** `benches/cms_pricing.rs`  
+**File:** `benches/cms_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "cms_pricing" harness = false`
 
 | Group | Scenario | Description |
@@ -152,7 +152,7 @@ an `FxMatrix` with EUR/USD spot. Tenor-parameterized via `BenchmarkId`.
 
 ### 5b: Range Accrual
 
-**File:** `benches/range_accrual_pricing.rs`  
+**File:** `benches/range_accrual_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "range_accrual_pricing" harness = false required-features = ["mc"]`
 
 | Group | Scenario | Description |
@@ -162,7 +162,7 @@ an `FxMatrix` with EUR/USD spot. Tenor-parameterized via `BenchmarkId`.
 
 ### 5c: FX Exotic Options
 
-**File:** `benches/fx_exotics_pricing.rs`  
+**File:** `benches/fx_exotics_pricing.rs`
 **Cargo.toml:** `[[bench]] name = "fx_exotics_pricing" harness = false required-features = ["mc"]`
 
 | Group | Scenario | Description |

@@ -100,21 +100,22 @@ fn aggregate_by_period_sorted(
     periods: &[Period],
 ) -> IndexMap<PeriodId, IndexMap<Currency, Money>> {
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
+    let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
 
     for (p, flows_in_period) in iter_by_period(sorted, periods) {
         if flows_in_period.is_empty() {
             continue;
         }
 
-        let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
+        per_ccy.clear();
         for &(_d, m) in flows_in_period {
             let ccy = m.currency();
             per_ccy.entry(ccy).or_default().add(m.amount());
         }
-        let result: IndexMap<Currency, Money> = per_ccy
-            .into_iter()
-            .map(|(ccy, acc)| (ccy, Money::new(acc.total(), ccy)))
-            .collect();
+        let mut result: IndexMap<Currency, Money> = IndexMap::with_capacity(per_ccy.len());
+        for (&ccy, acc) in &per_ccy {
+            result.insert(ccy, Money::new(acc.total(), ccy));
+        }
         out.insert(p.id, result);
     }
     out
@@ -256,64 +257,36 @@ where
     F: FnMut(&T, f64, f64) -> Money,
 {
     let mut out: IndexMap<PeriodId, IndexMap<Currency, Money>> = IndexMap::new();
+    let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
 
     for (p, flows_in_period) in iter_by_period(sorted, periods) {
         if flows_in_period.is_empty() {
             continue;
         }
 
-        let mut per_ccy: IndexMap<Currency, NeumaierAccumulator> = IndexMap::new();
+        per_ccy.clear();
         for flow in flows_in_period {
             let (_t, df, sp) = time_discount_survival(flow.flow_date(), disc, hazard, date_ctx)?;
             let pv = value_fn(flow, df, sp);
             let ccy = pv.currency();
             per_ccy.entry(ccy).or_default().add(pv.amount());
         }
-        let result: IndexMap<Currency, Money> = per_ccy
-            .into_iter()
-            .map(|(ccy, acc)| (ccy, Money::new(acc.total(), ccy)))
-            .collect();
+        let mut result: IndexMap<Currency, Money> = IndexMap::with_capacity(per_ccy.len());
+        for (&ccy, acc) in &per_ccy {
+            result.insert(ccy, Money::new(acc.total(), ccy));
+        }
         out.insert(p.id, result);
     }
 
     Ok(out)
 }
 
-/// Currency-preserving aggregation of cashflow present values by period with explicit day-count context.
+/// Checked variant that works directly on `CashFlow` slices without intermediate allocation.
 ///
-/// This is the primary entry point for periodized PV aggregation. It accepts a
-/// `DayCountCtx` to support conventions requiring frequency (Act/Act ISMA) or
-/// calendar (Bus/252) and propagates day-count errors instead of swallowing
-/// them.
-///
-/// # Arguments
-/// * `flows` - Dated cashflows to aggregate
-/// * `periods` - Period definitions with start/end boundaries
-/// * `disc` - Discount curve for present value calculation
-/// * `base` - Base date for discounting (typically valuation date)
-/// * `dc` - Day count convention for year fraction calculation
-/// * `dc_ctx` - Day count context (frequency, calendar, bus_basis)
-///
-/// # Returns
-/// Map from `PeriodId` to currency-indexed PV sums. Periods with no cashflows
-/// are omitted from the result.
-///
-/// # Errors
-/// Returns error if day-count calculation fails (e.g., missing required context).
-pub(crate) fn pv_by_period_with_ctx(
-    flows: &[crate::cashflow::DatedFlow],
-    periods: &[Period],
-    disc: &dyn Discounting,
-    base: Date,
-    dc: DayCount,
-    dc_ctx: DayCountCtx<'_>,
-) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-    pv_by_period_with_optional_hazard(flows, periods, disc, base, dc, dc_ctx, None)
-}
-
-/// Checked variant that propagates day-count errors and accepts explicit context.
-fn pv_by_period_sorted_checked(
-    sorted: &[crate::cashflow::DatedFlow],
+/// Filters out `DefaultedNotional` flows during PV computation. Requires flows
+/// to be pre-sorted by date (as guaranteed by `CashFlowSchedule`).
+pub(crate) fn pv_by_period_cashflows_sorted_checked(
+    sorted: &[CashFlow],
     periods: &[Period],
     disc: &dyn Discounting,
     base: Date,
@@ -322,17 +295,13 @@ fn pv_by_period_sorted_checked(
     hazard: Option<&dyn Survival>,
 ) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
     let date_ctx = DateContext::new(base, dc, dc_ctx);
-    pv_by_period_generic(
-        sorted,
-        periods,
-        disc,
-        hazard,
-        &date_ctx,
-        |&(_d, m), df, sp| {
-            let pv_amount = m.amount() * df * sp;
-            Money::new(pv_amount, m.currency())
-        },
-    )
+    pv_by_period_generic(sorted, periods, disc, hazard, &date_ctx, |cf, df, sp| {
+        if cf.kind == CFKind::DefaultedNotional {
+            return Money::new(0.0, cf.amount.currency());
+        }
+        let pv_amount = cf.amount.amount() * df * sp;
+        Money::new(pv_amount, cf.amount.currency())
+    })
 }
 
 /// Parameters for date and day-count calculations.
@@ -493,15 +462,15 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
         }
     }
 
+    if flows.is_empty() || periods.is_empty() {
+        return Ok(IndexMap::new());
+    }
     let hazard = hazard.ok_or_else(|| {
         finstack_core::Error::Input(finstack_core::InputError::NotFound {
             id: "hazard curve".to_string(),
         })
     })?;
     let mut sorted: Vec<CashFlow> = flows.to_vec();
-    if sorted.is_empty() || periods.is_empty() {
-        return Ok(IndexMap::new());
-    }
     sorted.sort_unstable_by_key(|cf| cf.date);
     pv_by_period_generic(
         &sorted,
@@ -533,23 +502,6 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
             Money::new(pv_amount, m.currency())
         },
     )
-}
-
-fn pv_by_period_with_optional_hazard(
-    flows: &[crate::cashflow::DatedFlow],
-    periods: &[Period],
-    disc: &dyn Discounting,
-    base: Date,
-    dc: DayCount,
-    dc_ctx: DayCountCtx<'_>,
-    hazard: Option<&dyn Survival>,
-) -> finstack_core::Result<IndexMap<PeriodId, IndexMap<Currency, Money>>> {
-    let mut sorted: Vec<crate::cashflow::DatedFlow> = flows.to_vec();
-    if sorted.is_empty() || periods.is_empty() {
-        return Ok(IndexMap::new());
-    }
-    sorted.sort_unstable_by_key(|(d, _)| *d);
-    pv_by_period_sorted_checked(&sorted, periods, disc, base, dc, dc_ctx, hazard)
 }
 
 #[cfg(test)]

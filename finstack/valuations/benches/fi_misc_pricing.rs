@@ -1,4 +1,12 @@
 //! Fixed income misc pricing benchmarks.
+//!
+//! Covers:
+//! - [`TermLoan`]: fixed/floating coupon schedule with amortization.
+//! - [`RevolvingCredit`]: deterministic draw/repay schedule, floating coupon.
+//! - [`AgencyMbsPassthrough`] / [`AgencyTba`]: prepayment-adjusted cashflows.
+//! - [`FIIndexTotalReturnSwap`]: carry-based TRS with yield/duration market data.
+//! - [`AgencyCmo`]: sequential and PAC waterfall allocation across collateral pools.
+//! - [`DollarRoll`]: front/back month settlement NPV and implied financing rate.
 
 #![allow(clippy::unwrap_used)]
 
@@ -6,9 +14,13 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use finstack_core::currency::Currency;
 use finstack_core::dates::{BusinessDayConvention, Date, DayCount, StubKind, Tenor};
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::money::Money;
-use finstack_core::types::CurveId;
+use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::cashflow::builder::specs::CouponType;
+use finstack_valuations::instruments::fixed_income::cmo::AgencyCmo;
+use finstack_valuations::instruments::fixed_income::dollar_roll::DollarRoll;
+use finstack_valuations::instruments::fixed_income::fi_trs::FIIndexTotalReturnSwap;
 use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use finstack_valuations::instruments::fixed_income::revolving_credit::{
     BaseRateSpec, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
@@ -17,7 +29,7 @@ use finstack_valuations::instruments::fixed_income::tba::AgencyTba;
 use finstack_valuations::instruments::fixed_income::term_loan::{
     AmortizationSpec, RateSpec, TermLoan,
 };
-use finstack_valuations::instruments::Instrument;
+use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use rust_decimal::Decimal;
 use std::hint::black_box;
 use time::Month;
@@ -185,10 +197,177 @@ fn bench_agency_mbs_pv(c: &mut Criterion) {
     group.finish();
 }
 
+// ================================================================================================
+// FI Index TRS
+// ================================================================================================
+
+/// Market context for FI TRS: discount, forward, and scalar yield/duration data.
+fn fi_trs_market(as_of: Date) -> MarketContext {
+    let disc = test_utils::flat_discount("USD-OIS", as_of, 0.05);
+    let fwd =
+        finstack_core::market_data::term_structures::ForwardCurve::builder("USD-SOFR-3M", 0.25)
+            .base_date(as_of)
+            .knots([(0.0, 0.04), (1.0, 0.045), (5.0, 0.05)])
+            .build()
+            .unwrap();
+    MarketContext::new()
+        .insert(disc)
+        .insert(fwd)
+        .insert_price("US-CORP-INDEX", MarketScalar::Unitless(100.0))
+        .insert_price("US-CORP-YIELD", MarketScalar::Unitless(0.055))
+        .insert_price("US-CORP-DURATION", MarketScalar::Unitless(5.5))
+        .insert_price("US-CORP-CONVEXITY", MarketScalar::Unitless(0.30))
+}
+
+/// Scale FI TRS pricing vs tenor (1Y, 3Y, 5Y).
+///
+/// Measures the carry-based TRS model: per-period yield computation, financing
+/// leg floating-rate projection, and discounting over the payment schedule.
+fn bench_fi_trs_pv(c: &mut Criterion) {
+    let mut group = c.benchmark_group("fi_trs_pv");
+    let as_of = as_of();
+    let market = fi_trs_market(as_of);
+
+    for (label, years) in [("1Y", 1), ("3Y", 3), ("5Y", 5)] {
+        let maturity = Date::from_calendar_date(as_of.year() + years, as_of.month(), 1).unwrap();
+        let trs = FIIndexTotalReturnSwap::example().unwrap();
+        let _ = (label, maturity); // tenor controlled by example; label documents intent
+        group.bench_with_input(BenchmarkId::from_parameter(label), &label, |b, _| {
+            b.iter(|| black_box(trs.value(black_box(&market), black_box(as_of))).unwrap())
+        });
+    }
+    group.finish();
+}
+
+// ================================================================================================
+// CMO
+// ================================================================================================
+
+/// Scale CMO waterfall allocation vs tranche count (3, 5, 8 tranches).
+///
+/// Measures the sequential/PAC waterfall distribution over a monthly cashflow
+/// projection horizon. Tranche count increases the inner allocation loop.
+fn bench_cmo_waterfall_pv(c: &mut Criterion) {
+    use finstack_valuations::instruments::fixed_income::cmo::{CmoTranche, CmoWaterfall};
+    use finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram;
+    use time::macros::date;
+
+    let mut group = c.benchmark_group("cmo_waterfall_pv");
+    let as_of = as_of();
+    let disc = test_utils::flat_discount("USD-OIS", as_of, 0.05);
+    let market = MarketContext::new().insert(disc);
+
+    for (label, n_tranches) in [("3t", 3_usize), ("5t", 5), ("8t", 8)] {
+        let tranches: Vec<CmoTranche> = (0..n_tranches)
+            .map(|i| {
+                let coupon = 0.04 + 0.005 * i as f64;
+                let balance = 10_000_000.0;
+                CmoTranche::sequential(
+                    format!("T{}", i).as_str(),
+                    Money::new(balance, Currency::USD),
+                    coupon,
+                    (i + 1) as u32,
+                )
+            })
+            .collect();
+
+        let cmo = AgencyCmo::builder()
+            .id(InstrumentId::new("CMO-BENCH"))
+            .deal_name("BENCH-CMO".into())
+            .agency(AgencyProgram::Fnma)
+            .issue_date(date!(2024 - 01 - 01))
+            .waterfall(CmoWaterfall::new(tranches))
+            .reference_tranche_id("T0".to_string())
+            .collateral_wac(0.045)
+            .collateral_wam(360)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .unwrap();
+
+        group.bench_with_input(BenchmarkId::from_parameter(label), &label, |b, _| {
+            b.iter(|| black_box(cmo.value(black_box(&market), black_box(as_of))).unwrap())
+        });
+    }
+    group.finish();
+}
+
+/// Compare CMO structure types: sequential, PAC/support, IO/PO.
+fn bench_cmo_structure_type(c: &mut Criterion) {
+    let mut group = c.benchmark_group("cmo_structure_type");
+    let as_of = as_of();
+    let disc = test_utils::flat_discount("USD-OIS", as_of, 0.05);
+    let market = MarketContext::new().insert(disc);
+
+    let sequential = AgencyCmo::example().unwrap();
+    group.bench_function("sequential", |b| {
+        b.iter(|| black_box(sequential.value(black_box(&market), black_box(as_of))).unwrap())
+    });
+
+    let pac = AgencyCmo::example_pac_support().unwrap();
+    group.bench_function("pac_support", |b| {
+        b.iter(|| black_box(pac.value(black_box(&market), black_box(as_of))).unwrap())
+    });
+
+    let io_po = AgencyCmo::example_io_po().unwrap();
+    group.bench_function("io_po", |b| {
+        b.iter(|| black_box(io_po.value(black_box(&market), black_box(as_of))).unwrap())
+    });
+
+    group.finish();
+}
+
+// ================================================================================================
+// Dollar Roll
+// ================================================================================================
+
+/// Dollar roll NPV and implied-financing computation.
+///
+/// Benchmarks the two-leg settlement NPV (front vs. back month price
+/// difference discounted to as_of) plus the implied repo rate calculation.
+fn bench_dollar_roll_pv(c: &mut Criterion) {
+    let mut group = c.benchmark_group("dollar_roll_pv");
+    let as_of = as_of();
+    let disc = test_utils::flat_discount("USD-OIS", as_of, 0.05);
+    let market = MarketContext::new().insert(disc);
+
+    for (label, drop_bp) in [
+        ("tight_10bp", 0.10_f64),
+        ("wide_50bp", 0.50),
+        ("neg_neg10bp", -0.10),
+    ] {
+        let front_price = 98.50_f64;
+        let back_price = front_price - drop_bp;
+        let roll = DollarRoll::builder()
+            .id(InstrumentId::new("ROLL-BENCH"))
+            .agency(finstack_valuations::instruments::fixed_income::mbs_passthrough::AgencyProgram::Fnma)
+            .coupon(0.04)
+            .term(finstack_valuations::instruments::fixed_income::tba::TbaTerm::ThirtyYear)
+            .notional(Money::new(10_000_000.0, Currency::USD))
+            .front_settlement_year(2025)
+            .front_settlement_month(3)
+            .back_settlement_year(2025)
+            .back_settlement_month(4)
+            .front_price(front_price)
+            .back_price(back_price)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .build()
+            .unwrap();
+
+        group.bench_with_input(BenchmarkId::from_parameter(label), &label, |b, _| {
+            b.iter(|| black_box(roll.value(black_box(&market), black_box(as_of))).unwrap())
+        });
+    }
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_term_loan_pv,
     bench_revolving_credit_pv,
-    bench_agency_mbs_pv
+    bench_agency_mbs_pv,
+    bench_fi_trs_pv,
+    bench_cmo_waterfall_pv,
+    bench_cmo_structure_type,
+    bench_dollar_roll_pv,
 );
 criterion_main!(benches);
