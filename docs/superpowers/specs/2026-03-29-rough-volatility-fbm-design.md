@@ -226,6 +226,7 @@ impl ForwardVarianceCurve {
 **Location**: `finstack/monte_carlo/src/process/rough_bergomi.rs`
 
 Model dynamics:
+
 ```text
 dS_t = sqrt(V_t) * S_t * dW_t
 V_t  = xi_0(t) * exp(eta * W_tilde_H(t) - 0.5 * eta^2 * t^{2H})
@@ -276,6 +277,7 @@ Note: The correlation structure requires care. The fBM increment `dB_H` is gener
 **Location**: `finstack/monte_carlo/src/process/rough_heston.rs`
 
 Model dynamics:
+
 ```text
 dS_t = sqrt(V_t) * S_t * dW_t
 V_t  = V_0 + (1/Gamma(alpha)) * integral_0^t (t-s)^{alpha-1} * [kappa*(theta - V_s) ds + sigma_v * sqrt(V_s) dW_tilde_s]
@@ -342,11 +344,13 @@ Semi-analytical pricing for European options via the characteristic function. Us
 ### Fractional Riccati ODE
 
 The rough Heston characteristic function:
+
 ```text
 phi(u, t) = exp(C(u,t) + D(u,t) * v0)
 ```
 
 where D(u, t) solves the fractional Riccati equation:
+
 ```text
 D^alpha_t D(t) = F(D(t))
 F(x) = 0.5*(u^2 - iu) + (iu*rho*sigma_v - kappa)*x + 0.5*sigma_v^2 * x^2
@@ -355,6 +359,7 @@ D^alpha is the Caputo fractional derivative of order alpha = H + 0.5
 ```
 
 and C(u, t) is obtained by integrating D:
+
 ```text
 C(u, t) = kappa * theta * integral_0^t D(u, s) ds
 ```
@@ -440,6 +445,7 @@ Couples a Cheyette short-rate model with a rough volatility driver for rates der
 ### Cheyette Model
 
 The Cheyette framework (1-factor Markovian HJM):
+
 ```text
 r(t) = x(t) + phi(t)
 dx(t) = [y(t) - kappa * x(t)] dt + sigma(t) dW(t)
@@ -451,6 +457,7 @@ where x is the rate state, y is the accumulated variance state, and phi(t) is de
 ### Rough Vol Extension
 
 Replace deterministic sigma(t) with a rough stochastic process:
+
 ```text
 sigma(t) = sigma_0(t) * exp(eta * W_tilde_H(t) - 0.5 * eta^2 * t^{2H})
 ```
