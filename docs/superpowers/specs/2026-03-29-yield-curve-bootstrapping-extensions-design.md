@@ -68,9 +68,11 @@ Derive a foreign currency discount curve from a domestic OIS curve, FX spot, and
 **Bootstrap logic per quote:**
 
 For FX forwards:
+
 ```
 DF_foreign(T) = DF_domestic(T) * FX_fwd(T) / FX_spot
 ```
+
 The solver finds the foreign DF value at each knot that reprices the FX forward.
 
 For XCCY basis swaps: prices the swap using the trial foreign DF curve and the known domestic OIS curve, solving for the foreign DF knot that makes PV = 0.
@@ -78,9 +80,11 @@ For XCCY basis swaps: prices the swap using the trial foreign DF curve and the k
 **Post-calibration basis spread extraction:**
 
 After the foreign discount curve is calibrated, extract basis spreads:
+
 ```
 spread(T) = z_foreign(T) - z_domestic(T)
 ```
+
 Build a `BasisSpreadCurve` from these knots and insert into the market context.
 
 ### New Schema Variant
@@ -166,6 +170,7 @@ pub enum NelsonSiegelModel {
 ```
 
 Zero rate formulas:
+
 ```
 NS:  z(t) = beta0
            + beta1 * ((1 - exp(-t/tau)) / (t/tau))
@@ -258,12 +263,14 @@ pub fn hw1f_convexity_adjustment(
 ```
 
 Formula:
+
 ```
 B(t1, t2) = (1 - exp(-kappa * (t2 - t1))) / kappa
 convexity = 0.5 * sigma^2 * B(t_settle, t_end) * (B(t_settle, t_end) - B(t_settle, t_start))
 ```
 
 The `B` function is already implemented in `hull_white.rs`. The convexity adjustment is additive to the forward rate implied from the futures price:
+
 ```
 adjusted_forward = futures_implied_rate - convexity_adjustment
 ```
@@ -271,6 +278,7 @@ adjusted_forward = futures_implied_rate - convexity_adjustment
 ### Integration into Discount Curve Calibration
 
 **`DiscountCurveTargetParams`** -- add optional field:
+
 ```rust
 pub hw_params: Option<HullWhiteParams>
 ```
@@ -278,6 +286,7 @@ pub hw_params: Option<HullWhiteParams>
 When present and the current quote is a futures instrument, the target applies the HW1F convexity adjustment before computing the residual.
 
 **`DiscountCurveParams` schema** -- add optional field:
+
 ```rust
 pub hull_white_curve_id: Option<CurveId>
 ```
@@ -325,6 +334,7 @@ Example: `{ start_month: 12, start_day: 15, end_month: 1, end_day: 15, spread_bp
 ### Integration
 
 **`DiscountCurveParams` schema** -- add optional field:
+
 ```rust
 pub toy_adjustment: Option<ToyAdjustment>
 ```
