@@ -3,7 +3,7 @@
 //! This module provides a fluent interface for constructing validated portfolios.
 //! The builder keeps track of entities, positions, metadata and validates the resulting
 //! [`Portfolio`] to ensure it is internally consistent.
-//! Typical usage starts by creating a builder with [`PortfolioBuilder::new`], chaining
+//! Typical usage starts by creating a builder with [`Portfolio::builder`](crate::portfolio::Portfolio::builder), chaining
 //! configuration methods, and finalizing with [`PortfolioBuilder::build`].
 //!
 //! # Error Handling Best Practices
@@ -12,14 +12,14 @@
 //! This allows callers to handle errors appropriately:
 //!
 //! ```rust
-//! use finstack_portfolio::builder::PortfolioBuilder;
+//! use finstack_portfolio::Portfolio;
 //! use finstack_core::currency::Currency;
 //! use finstack_core::dates::Date;
 //! use time::Month;
 //!
 //! let valuation_date = Date::from_calendar_date(2024, Month::January, 1).expect("test should succeed");
 //!
-//! let result = PortfolioBuilder::new("test_portfolio")
+//! let result = Portfolio::builder("test_portfolio")
 //!     .base_ccy(Currency::USD)
 //!     .as_of(valuation_date)
 //!     .build();

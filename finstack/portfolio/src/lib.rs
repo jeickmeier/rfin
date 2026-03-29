@@ -22,7 +22,7 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use finstack_portfolio::{PortfolioBuilder, Entity, Position, PositionUnit};
+//! use finstack_portfolio::{Portfolio, Entity, Position, PositionUnit};
 //! use finstack_core::currency::Currency;
 //! use finstack_core::money::Money;
 //! use finstack_valuations::instruments::rates::deposit::Deposit;
@@ -54,7 +54,7 @@
 //!  .with_tag("asset_class", "cash");
 //!
 //! // Build the portfolio with the entity and position
-//! let portfolio = PortfolioBuilder::new("MY_FUND")
+//! let portfolio = Portfolio::builder("MY_FUND")
 //!     .base_ccy(Currency::USD)
 //!     .as_of(as_of)
 //!     .entity(Entity::new("ACME_CORP"))

@@ -42,6 +42,18 @@ pub struct FinancialModelSpec {
 }
 
 impl FinancialModelSpec {
+    /// Create a [`crate::builder::ModelBuilder`] for constructing a model specification.
+    ///
+    /// This is the preferred entry point for staged model creation. The
+    /// returned builder uses typestate to require `.periods()` before node
+    /// definitions can be added.
+    #[must_use]
+    pub fn builder(
+        id: impl Into<String>,
+    ) -> crate::builder::ModelBuilder<crate::builder::NeedPeriods> {
+        crate::builder::ModelBuilder::new(id)
+    }
+
     /// Create a new model specification.
     ///
     /// # Arguments

@@ -105,6 +105,16 @@ pub struct PortfolioSpec {
 }
 
 impl Portfolio {
+    /// Create a [`crate::builder::PortfolioBuilder`] for constructing a portfolio.
+    ///
+    /// This is the preferred entry point for validated portfolio creation when
+    /// the identifier is known up front but the remaining required fields are
+    /// filled in fluently.
+    #[must_use]
+    pub fn builder(id: impl Into<String>) -> crate::builder::PortfolioBuilder {
+        crate::builder::PortfolioBuilder::new(id)
+    }
+
     /// Create a new empty portfolio.
     ///
     /// # Arguments

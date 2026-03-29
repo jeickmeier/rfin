@@ -229,7 +229,9 @@ impl CopulaSpec {
         match self {
             CopulaSpec::Gaussian => Box::new(GaussianCopula::new()),
             CopulaSpec::StudentT { degrees_of_freedom } => {
-                Box::new(StudentTCopula::new(*degrees_of_freedom))
+                // Clamp to valid range to avoid panic from deserialized config
+                let df = degrees_of_freedom.max(2.01);
+                Box::new(StudentTCopula::new(df))
             }
             CopulaSpec::RandomFactorLoading { loading_volatility } => {
                 Box::new(RandomFactorLoadingCopula::new(*loading_volatility))
@@ -260,7 +262,8 @@ impl CopulaSpec {
     pub fn build_student_t(&self) -> Option<StudentTCopula> {
         match self {
             CopulaSpec::StudentT { degrees_of_freedom } => {
-                Some(StudentTCopula::new(*degrees_of_freedom))
+                let df = degrees_of_freedom.max(2.01);
+                Some(StudentTCopula::new(df))
             }
             _ => None,
         }
@@ -409,5 +412,16 @@ mod tests {
         assert!(mf.is_multi_factor());
         let mf_copula = mf.build();
         assert_eq!(mf_copula.num_factors(), 2);
+    }
+
+    #[test]
+    fn test_deserialized_invalid_student_t_df_does_not_panic() {
+        // Simulate config file with invalid df <= 2
+        let spec: CopulaSpec =
+            serde_json::from_str(r#"{"type":"StudentT","degrees_of_freedom":1.5}"#)
+                .expect("should deserialize");
+        // build() must not panic — it clamps df to 2.01
+        let copula = spec.build();
+        assert_eq!(copula.num_factors(), 1);
     }
 }

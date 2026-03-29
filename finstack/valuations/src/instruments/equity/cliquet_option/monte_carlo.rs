@@ -314,6 +314,6 @@ mod tests {
 
         assert!(cliquet.reset_spots.is_empty());
         assert_eq!(cliquet.next_reset_idx, 0);
-        assert_eq!(cliquet.accumulated_return, 0.0);
+        assert_eq!(cliquet.compute_return(), 0.0);
     }
 }

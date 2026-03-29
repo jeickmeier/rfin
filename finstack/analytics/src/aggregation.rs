@@ -252,7 +252,11 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     };
 
     let payoff_ratio = if avg_loss == 0.0 {
-        0.0
+        if avg_win > 0.0 {
+            f64::INFINITY
+        } else {
+            0.0
+        }
     } else {
         avg_win / avg_loss.abs()
     };
@@ -275,7 +279,9 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     let cpc_ratio = profit_factor * win_rate * payoff_ratio;
 
     let loss_rate = 1.0 - win_rate;
-    let kelly_criterion = if payoff_ratio == 0.0 {
+    let kelly_criterion = if payoff_ratio.is_infinite() {
+        1.0
+    } else if payoff_ratio == 0.0 {
         0.0
     } else {
         win_rate - loss_rate / payoff_ratio
@@ -337,5 +343,19 @@ mod tests {
     fn period_stats_empty() {
         let stats = period_stats(&[]);
         assert_eq!(stats.win_rate, 0.0);
+    }
+
+    #[test]
+    fn period_stats_all_winning_reports_full_kelly() {
+        let grouped = vec![
+            (PeriodId::month(2025, 1), 0.02),
+            (PeriodId::month(2025, 2), 0.01),
+            (PeriodId::month(2025, 3), 0.03),
+        ];
+        let stats = period_stats(&grouped);
+        assert!(stats.payoff_ratio.is_infinite());
+        assert!(stats.profit_ratio.is_infinite());
+        assert!(stats.cpc_ratio.is_infinite());
+        assert_eq!(stats.kelly_criterion, 1.0);
     }
 }

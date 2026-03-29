@@ -120,6 +120,7 @@ pub fn drawdown_details(drawdown: &[f64], dates: &[Date], n: usize) -> Vec<Drawd
         return vec![];
     }
     let len = drawdown.len().min(dates.len());
+    let dates = &dates[..len];
 
     let mut episodes: Vec<DrawdownEpisode> = Vec::new();
     let mut in_dd = false;
@@ -379,6 +380,18 @@ mod tests {
         let episodes = drawdown_details(&dd, &dates, 5);
         assert!(!episodes.is_empty());
         assert!(episodes[0].max_drawdown < 0.0);
+    }
+
+    #[test]
+    fn drawdown_details_bounds_unrecovered_episode_to_aligned_dates() {
+        let drawdown = [0.0, -0.10, -0.20, -0.15];
+        let dates = make_dates(6);
+        let episodes = drawdown_details(&drawdown, &dates, 5);
+        assert_eq!(episodes.len(), 1);
+        assert_eq!(episodes[0].start, dates[0]);
+        assert_eq!(episodes[0].valley, dates[2]);
+        assert_eq!(episodes[0].end, None);
+        assert_eq!(episodes[0].duration_days, 3);
     }
 
     #[test]

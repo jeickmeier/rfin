@@ -98,6 +98,17 @@ pub struct ScenarioSpec {
     pub resolution_mode: ResolutionMode,
 }
 
+impl ScenarioSpec {
+    /// Create a [`crate::templates::ScenarioSpecBuilder`] for constructing a scenario.
+    ///
+    /// This is the preferred entry point when the scenario identifier is known
+    /// up front and the ordered operations will be assembled fluently.
+    #[must_use]
+    pub fn builder(id: impl Into<String>) -> crate::templates::ScenarioSpecBuilder {
+        crate::templates::ScenarioSpecBuilder::new(id)
+    }
+}
+
 /// Individual operation within a scenario.
 ///
 /// Each variant represents a specific type of shock or adjustment that can be

@@ -14,13 +14,16 @@
 //! Use these variants when surfacing validation failures to configuration or
 //! calibration layers.
 
-/// Error types for correlation matrix validation.
+/// Convenience result type used throughout the correlation crate.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Error type for correlation matrix validation.
 ///
 /// This enum preserves the first validation failure detected when checking a
 /// row-major flattened correlation matrix.
 #[derive(Debug, Clone, PartialEq, thiserror::Error, serde::Serialize, serde::Deserialize)]
 #[non_exhaustive]
-pub enum CorrelationMatrixError {
+pub enum Error {
     /// Matrix size does not match expected n×n.
     #[error("Invalid matrix size: expected {expected}×{expected}={}, got {actual}", expected * expected)]
     InvalidSize {

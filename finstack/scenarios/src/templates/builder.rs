@@ -26,6 +26,10 @@ pub struct ScenarioSpecBuilder {
 impl ScenarioSpecBuilder {
     /// Create a new builder with the given scenario identifier.
     ///
+    /// Prefer calling [`ScenarioSpec::builder`](crate::ScenarioSpec::builder)
+    /// from user-facing code so the builder entry point is discoverable from
+    /// the built type itself.
+    ///
     /// # Arguments
     ///
     /// - `id`: Stable identifier for the scenario that will be built.

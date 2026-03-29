@@ -100,7 +100,8 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 /// * `rf` - Risk-free rate series, aligned with `returns`. If longer, the
 ///   excess length is ignored.
 /// * `nperiods` - Optional compounding periods per year. `None` uses `rf`
-///   values directly without adjustment.
+///   values directly without adjustment. Non-finite or non-positive values
+///   yield an all-`NaN` output to flag invalid input.
 ///
 /// # Returns
 ///
@@ -122,6 +123,9 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
 /// ```
 pub fn excess_returns(returns: &[f64], rf: &[f64], nperiods: Option<f64>) -> Vec<f64> {
     let n = returns.len().min(rf.len());
+    if matches!(nperiods, Some(np) if !np.is_finite() || np <= 0.0) {
+        return vec![f64::NAN; n];
+    }
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
         let rf_adj = match nperiods {
@@ -317,18 +321,14 @@ pub fn comp_total(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
     }
-    let mut sum = 0.0_f64;
-    let mut comp = 0.0_f64;
+    let mut acc = NeumaierAccumulator::new();
     for &r in returns {
         if !r.is_finite() {
             return f64::NAN;
         }
-        let y = (1.0 + r).max(MIN_GROWTH_FACTOR).ln() - comp;
-        let t = sum + y;
-        comp = (t - sum) - y;
-        sum = t;
+        acc.add((1.0 + r).max(MIN_GROWTH_FACTOR).ln());
     }
-    sum.exp() - 1.0
+    acc.total().exp() - 1.0
 }
 
 #[cfg(test)]
@@ -368,6 +368,15 @@ mod tests {
     }
 
     #[test]
+    fn excess_returns_invalid_nperiods_returns_nan_series() {
+        let ret = [0.05, 0.03, -0.02];
+        let rf = [0.10, 0.10, 0.10];
+        let ex = excess_returns(&ret, &rf, Some(-12.0));
+        assert_eq!(ex.len(), 3);
+        assert!(ex.iter().all(|v| v.is_nan()));
+    }
+
+    #[test]
     fn convert_to_prices_roundtrip() {
         let prices = [100.0, 110.0, 99.0, 105.0];
         let r = simple_returns(&prices);
@@ -396,6 +405,16 @@ mod tests {
         // manual: (1.01 * 1.02 * 0.995) - 1
         let expected = 1.01 * 1.02 * 0.995 - 1.0;
         assert!((ct - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn comp_total_matches_comp_sum_on_long_mixed_sign_series() {
+        let r: Vec<f64> = (0..5000)
+            .map(|i| (((i % 17) as f64) - 8.0) * 0.0003)
+            .collect();
+        let cs = comp_sum(&r);
+        let ct = comp_total(&r);
+        assert!((cs.last().copied().unwrap_or(0.0) - ct).abs() < 1e-12);
     }
 
     #[test]

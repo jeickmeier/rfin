@@ -31,7 +31,7 @@
 //!
 //! # fn main() -> Result<()> {
 //! // Build a simple P&L model
-//! let model = ModelBuilder::new("Acme Corp")
+//! let model = FinancialModelSpec::builder("Acme Corp")
 //!     .periods("2025Q1..Q4", Some("2025Q2"))?
 //!     .value("revenue", &[
 //!         (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(10_000_000.0)),

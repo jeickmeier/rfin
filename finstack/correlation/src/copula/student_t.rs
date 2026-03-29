@@ -236,6 +236,13 @@ impl Copula for StudentTCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        if factor_realization.len() != 1 {
+            tracing::warn!(
+                expected = 1,
+                actual = factor_realization.len(),
+                "StudentTCopula: factor_realization length mismatch, defaulting missing to 0.0"
+            );
+        }
         let m = factor_realization.first().copied().unwrap_or(0.0);
         let nu = self.degrees_of_freedom;
 
@@ -243,8 +250,8 @@ impl Copula for StudentTCopula {
             return student_t_cdf(default_threshold, nu);
         }
         if correlation >= 1.0 - 1e-10 {
-            let threshold_adj = default_threshold - m;
-            return student_t_cdf(threshold_adj, nu + 1.0);
+            let scaling = ((nu + 1.0) / (nu + m * m)).sqrt();
+            return student_t_cdf((default_threshold - m) * scaling, nu + 1.0);
         }
 
         let rho = self.smooth_correlation(correlation);
@@ -392,18 +399,24 @@ mod tests {
     #[test]
     fn test_conditional_prob_uses_nu_plus_one_in_perfect_correlation_limit() {
         let copula = StudentTCopula::new(5.0);
-        let threshold = -1.25;
-        let factor = 0.35;
+        let nu = 5.0;
 
-        let prob = copula.conditional_default_prob(threshold, &[factor], 1.0);
-        let expected = student_t_cdf(threshold - factor, 6.0);
+        // Test with small and large factor values to exercise the scaling
+        for &factor in &[0.35, 3.0, -2.5] {
+            let threshold = -1.25;
+            let scaling = ((nu + 1.0) / (nu + factor * factor)).sqrt();
+            let expected = student_t_cdf((threshold - factor) * scaling, nu + 1.0);
 
-        assert!(
-            (prob - expected).abs() < 1e-12,
-            "perfect-correlation limit should use ν+1 degrees of freedom: expected {}, got {}",
-            expected,
-            prob
-        );
+            let prob = copula.conditional_default_prob(threshold, &[factor], 1.0);
+
+            assert!(
+                (prob - expected).abs() < 1e-12,
+                "perfect-correlation limit should use scaling: factor={}, expected {}, got {}",
+                factor,
+                expected,
+                prob
+            );
+        }
     }
 
     #[test]

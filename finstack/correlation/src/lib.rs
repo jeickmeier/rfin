@@ -45,7 +45,7 @@ pub use copula::{
     Copula, CopulaSpec, GaussianCopula, MultiFactorCopula, RandomFactorLoadingCopula,
     StudentTCopula,
 };
-pub use error::CorrelationMatrixError;
+pub use error::{Error, Result};
 pub use factor_model::{
     cholesky_decompose, validate_correlation_matrix, FactorModel, FactorSpec, MultiFactorModel,
     SingleFactorModel, TwoFactorModel,

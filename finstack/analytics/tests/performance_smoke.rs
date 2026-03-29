@@ -166,3 +166,38 @@ fn performance_accepts_log_returns_path() {
     assert!(perf.uses_log_returns());
     let _ = perf.sharpe(0.0);
 }
+
+#[test]
+fn performance_smoke_asserts_fiscal_lookback_and_zero_variance_invariants() {
+    let dates = calendar_days(
+        Date::from_calendar_date(2025, Month::January, 1).expect("d0"),
+        40,
+    );
+    let flat_perf = Performance::new(
+        dates.clone(),
+        vec![vec![100.0; dates.len()]],
+        vec!["FLAT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    )
+    .expect("flat performance");
+
+    assert_eq!(flat_perf.sharpe(0.0), vec![0.0]);
+    assert_eq!(flat_perf.max_drawdown(), vec![0.0]);
+    assert!(flat_perf.drawdown_details(0, 3).is_empty());
+
+    let rising_perf = Performance::new(
+        dates,
+        vec![ramp(40, 100.0, 1.0)],
+        vec!["RISING".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    )
+    .expect("rising performance");
+    let config = FiscalConfig::new(1, 15).expect("valid fiscal config");
+    let ref_date = *rising_perf.active_dates().last().expect("last active date");
+    let lookbacks = rising_perf.lookback_returns(ref_date, Some(config));
+    assert!(lookbacks.fytd.expect("fytd present")[0] > 0.0);
+}

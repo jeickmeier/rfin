@@ -85,7 +85,8 @@ pub struct Ready;
 /// Builder for financial models with compile-time type-state enforcement.
 ///
 /// The builder uses a type-state pattern to ensure correct usage:
-/// 1. Start with `ModelBuilder::new()` → `ModelBuilder<NeedPeriods>`
+/// 1. Start with [`FinancialModelSpec::builder`](crate::types::FinancialModelSpec::builder)
+///    or `ModelBuilder::new()` → `ModelBuilder<NeedPeriods>`
 /// 2. Call `.periods()` → `ModelBuilder<Ready>`
 /// 3. Add nodes, forecasts, etc.
 /// 4. Call `.build()` → `FinancialModelSpec`
@@ -93,12 +94,11 @@ pub struct Ready;
 /// # Example
 ///
 /// ```rust
-/// use finstack_statements::builder::ModelBuilder;
-/// use finstack_statements::types::{AmountOrScalar, NodeType};
+/// use finstack_statements::types::{AmountOrScalar, FinancialModelSpec, NodeType};
 /// use finstack_core::dates::PeriodId;
 ///
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let model = ModelBuilder::new("test_model")
+/// let model = FinancialModelSpec::builder("test_model")
 ///     .periods("2025Q1..Q4", None)?
 ///     .value("revenue", &[
 ///         (PeriodId::quarter(2025, 1), AmountOrScalar::scalar(100.0)),

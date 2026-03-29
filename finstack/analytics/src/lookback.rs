@@ -182,7 +182,7 @@ pub fn fytd_select(
 ) -> Range<usize> {
     let fy = ref_date.fiscal_year(fiscal_config);
     let fy_start_month = Month::try_from(fiscal_config.start_month).unwrap_or(Month::January);
-    let calendar_year = if fiscal_config.start_month == 1 {
+    let calendar_year = if fiscal_config.start_month == 1 && fiscal_config.start_day <= 1 {
         fy
     } else {
         fy - 1
@@ -237,5 +237,14 @@ mod tests {
         let config = FiscalConfig::us_federal();
         let range = fytd_select(&dates, d(2025, 1, 15), config, 0);
         assert_eq!(range.start, 0);
+    }
+
+    #[test]
+    fn fytd_select_january_mid_month_start_uses_prior_calendar_year() {
+        let dates = daily_dates(d(2025, 1, 1), 40);
+        let config = FiscalConfig::new(1, 15).expect("valid fiscal config");
+        let range = fytd_select(&dates, d(2025, 1, 20), config, 0);
+        assert_eq!(range.start, 14);
+        assert_eq!(range.end, 20);
     }
 }

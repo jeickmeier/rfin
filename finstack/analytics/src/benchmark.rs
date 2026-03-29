@@ -5,6 +5,27 @@
 
 use crate::dates::Date;
 use crate::math::stats::{correlation, mean, OnlineCovariance, OnlineStats};
+use finstack_core::math::neumaier_sum;
+
+const ROLLING_GREEKS_RECOMPUTE_INTERVAL: usize = 64;
+
+#[inline]
+fn recompute_rolling_greeks_sums(returns: &[f64], benchmark: &[f64]) -> (f64, f64, f64, f64) {
+    (
+        neumaier_sum(returns.iter().copied()),
+        neumaier_sum(benchmark.iter().copied()),
+        neumaier_sum(returns.iter().zip(benchmark.iter()).map(|(&r, &b)| r * b)),
+        neumaier_sum(benchmark.iter().map(|&b| b * b)),
+    )
+}
+
+#[inline]
+fn compensated_add(sum: &mut f64, compensation: &mut f64, value: f64) {
+    let y = value - *compensation;
+    let t = *sum + y;
+    *compensation = (t - *sum) - y;
+    *sum = t;
+}
 
 /// Policy for handling benchmark dates that are missing from the target grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -590,14 +611,10 @@ pub fn rolling_greeks(
 
     // Incremental O(n) sliding-window OLS via running sums.
     let w = window as f64;
-    let (mut sr, mut sb, mut srb, mut sb2) = (0.0, 0.0, 0.0, 0.0);
-
-    for i in 0..window {
-        sr += returns[i];
-        sb += benchmark[i];
-        srb += returns[i] * benchmark[i];
-        sb2 += benchmark[i] * benchmark[i];
-    }
+    let (mut sr, mut sb, mut srb, mut sb2) =
+        recompute_rolling_greeks_sums(&returns[..window], &benchmark[..window]);
+    let (mut csr, mut csb, mut csrb, mut csb2) = (0.0, 0.0, 0.0, 0.0);
+    let mut steps_since_recompute = 0usize;
 
     for i in window..=n {
         let denom = w * sb2 - sb * sb;
@@ -616,10 +633,18 @@ pub fn rolling_greeks(
             let old_b = benchmark[i - window];
             let new_r = returns[i];
             let new_b = benchmark[i];
-            sr += new_r - old_r;
-            sb += new_b - old_b;
-            srb += new_r * new_b - old_r * old_b;
-            sb2 += new_b * new_b - old_b * old_b;
+            compensated_add(&mut sr, &mut csr, new_r - old_r);
+            compensated_add(&mut sb, &mut csb, new_b - old_b);
+            compensated_add(&mut srb, &mut csrb, new_r * new_b - old_r * old_b);
+            compensated_add(&mut sb2, &mut csb2, new_b * new_b - old_b * old_b);
+            steps_since_recompute += 1;
+            if steps_since_recompute >= ROLLING_GREEKS_RECOMPUTE_INTERVAL {
+                let start = i + 1 - window;
+                (sr, sb, srb, sb2) =
+                    recompute_rolling_greeks_sums(&returns[start..=i], &benchmark[start..=i]);
+                (csr, csb, csrb, csb2) = (0.0, 0.0, 0.0, 0.0);
+                steps_since_recompute = 0;
+            }
         }
     }
 
@@ -1028,7 +1053,7 @@ pub fn multi_factor_greeks(
 mod tests {
     use super::*;
 
-    use crate::dates::Month;
+    use crate::dates::{Duration, Month};
 
     fn jan(day: u8) -> Date {
         Date::from_calendar_date(2025, Month::January, day).expect("valid date")
@@ -1114,6 +1139,71 @@ mod tests {
         let dates: Vec<Date> = (1..=20).map(jan).collect();
         let rg = rolling_greeks(&r, &b, &dates, 5, 252.0);
         assert_eq!(rg.betas.len(), 16);
+    }
+
+    #[test]
+    fn rolling_greeks_stays_close_to_exact_recomputation_on_long_series() {
+        fn exact_rolling_greeks(
+            returns: &[f64],
+            benchmark: &[f64],
+            window: usize,
+            ann_factor: f64,
+        ) -> (Vec<f64>, Vec<f64>) {
+            let n = returns.len().min(benchmark.len());
+            let w = window as f64;
+            let mut alphas = Vec::with_capacity(n - window + 1);
+            let mut betas = Vec::with_capacity(n - window + 1);
+            for end in window..=n {
+                let rs = &returns[end - window..end];
+                let bs = &benchmark[end - window..end];
+                let sr: f64 = rs.iter().sum();
+                let sb: f64 = bs.iter().sum();
+                let srb: f64 = rs.iter().zip(bs.iter()).map(|(&r, &b)| r * b).sum();
+                let sb2: f64 = bs.iter().map(|&b| b * b).sum();
+                let denom = w * sb2 - sb * sb;
+                let beta = if denom.abs() < 1e-30 {
+                    0.0
+                } else {
+                    (w * srb - sb * sr) / denom
+                };
+                let alpha = (sr / w - beta * sb / w) * ann_factor;
+                alphas.push(alpha);
+                betas.push(beta);
+            }
+            (alphas, betas)
+        }
+
+        let window = 64;
+        let ann_factor = 252.0;
+        let n = ROLLING_GREEKS_RECOMPUTE_INTERVAL + window + 128;
+        let r: Vec<f64> = (0..n)
+            .map(|i| {
+                let x = i as f64;
+                1_000_000.0 + x * 0.125 + (x / 9.0).sin() * 0.01
+            })
+            .collect();
+        let b: Vec<f64> = (0..n)
+            .map(|i| {
+                let x = i as f64;
+                500_000.0 + x * 0.0625 + (x / 7.0).cos() * 0.01
+            })
+            .collect();
+        let dates: Vec<Date> = (0..n).map(|i| jan(1) + Duration::days(i as i64)).collect();
+
+        let rolling = rolling_greeks(&r, &b, &dates, window, ann_factor);
+        let (_, expected_betas) = exact_rolling_greeks(&r, &b, window, ann_factor);
+
+        let max_beta_diff = rolling
+            .betas
+            .iter()
+            .zip(expected_betas.iter())
+            .map(|(&actual, &expected)| (actual - expected).abs())
+            .fold(0.0_f64, f64::max);
+        assert!(
+            max_beta_diff < 5e-4,
+            "max beta diff too large: {max_beta_diff}"
+        );
+        assert!(rolling.alphas.iter().all(|alpha| alpha.is_finite()));
     }
 
     #[test]

@@ -259,6 +259,13 @@ impl Copula for MultiFactorCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        if factor_realization.len() != self.num_factors_count {
+            tracing::warn!(
+                expected = self.num_factors_count,
+                actual = factor_realization.len(),
+                "MultiFactorCopula: factor_realization length mismatch, defaulting missing to 0.0"
+            );
+        }
         let (global_loading, sector_loading) =
             self.decompose_correlation(correlation, self.sector_fraction);
 

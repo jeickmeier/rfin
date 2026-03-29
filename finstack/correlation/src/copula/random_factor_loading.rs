@@ -184,6 +184,13 @@ impl Copula for RandomFactorLoadingCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        if factor_realization.len() != 2 {
+            tracing::warn!(
+                expected = 2,
+                actual = factor_realization.len(),
+                "RandomFactorLoadingCopula: factor_realization length mismatch, defaulting missing to 0.0"
+            );
+        }
         // factor_realization[0] = Z (market factor)
         // factor_realization[1] = η (loading shock), optional
         let z = factor_realization.first().copied().unwrap_or(0.0);

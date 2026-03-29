@@ -152,6 +152,13 @@ impl Copula for GaussianCopula {
         factor_realization: &[f64],
         correlation: f64,
     ) -> f64 {
+        if factor_realization.len() != 1 {
+            tracing::warn!(
+                expected = 1,
+                actual = factor_realization.len(),
+                "GaussianCopula: factor_realization length mismatch, defaulting missing to 0.0"
+            );
+        }
         let z = factor_realization.first().copied().unwrap_or(0.0);
 
         // Handle extreme correlation before clamping

@@ -1264,7 +1264,8 @@ impl Performance {
     ///
     /// * `rf` - Risk-free rate series aligned with the active date window.
     /// * `nperiods` - If `Some(n)`, de-compounds the risk-free rate from annual
-    ///   to the observation frequency before subtraction.
+    ///   to the observation frequency before subtraction. Non-finite or
+    ///   non-positive values propagate as `NaN` outputs.
     ///
     /// # Returns
     ///

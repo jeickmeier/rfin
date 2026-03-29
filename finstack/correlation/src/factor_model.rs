@@ -35,7 +35,7 @@
 //! - Portfolio-risk and dependence context:
 //!   `docs/REFERENCES.md#mcneil-frey-embrechts-qrm`
 
-pub use crate::error::CorrelationMatrixError;
+use crate::error::{Error, Result};
 use finstack_core::math::linalg::{cholesky_correlation, CholeskyError, CorrelationFactor};
 
 /// Tolerance for correlation matrix validation.
@@ -45,7 +45,7 @@ const CORRELATION_TOLERANCE: f64 = 1e-10;
 ///
 /// Delegates to [`finstack_core::math::linalg::validate_correlation_matrix`] for
 /// validation logic. On failure, classifies the error into a specific
-/// [`CorrelationMatrixError`] variant for diagnostics.
+/// [`crate::Error`] variant for diagnostics.
 ///
 /// Checks:
 /// - Correct size (n×n flattened)
@@ -63,7 +63,7 @@ const CORRELATION_TOLERANCE: f64 = 1e-10;
 ///
 /// # Errors
 ///
-/// Returns [`CorrelationMatrixError`] when the flattened matrix has the wrong
+/// Returns [`crate::Error`] when the flattened matrix has the wrong
 /// size, a non-unit diagonal, asymmetric entries, out-of-bounds correlations,
 /// or is not positive semidefinite.
 ///
@@ -75,10 +75,10 @@ const CORRELATION_TOLERANCE: f64 = 1e-10;
 /// let corr = vec![1.0, 0.5, 0.5, 1.0];
 /// assert!(validate_correlation_matrix(&corr, 2).is_ok());
 /// ```
-pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), CorrelationMatrixError> {
+pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<()> {
     // Guard: core uses assert_eq! for size, so check before delegating
     if matrix.len() != n * n {
-        return Err(CorrelationMatrixError::InvalidSize {
+        return Err(Error::InvalidSize {
             expected: n,
             actual: matrix.len(),
         });
@@ -93,12 +93,12 @@ pub fn validate_correlation_matrix(matrix: &[f64], n: usize) -> Result<(), Corre
 ///
 /// Called only on the error path after core validation has already failed.
 /// Runs lightweight checks to identify which property is violated.
-fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixError {
+fn classify_correlation_error(matrix: &[f64], n: usize) -> Error {
     // Check diagonal = 1
     for i in 0..n {
         let diag = matrix[i * n + i];
         if (diag - 1.0).abs() > CORRELATION_TOLERANCE {
-            return CorrelationMatrixError::DiagonalNotOne {
+            return Error::DiagonalNotOne {
                 index: i,
                 value: diag,
             };
@@ -112,7 +112,7 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixErro
             let rho_ji = matrix[j * n + i];
 
             if !(-1.0 - CORRELATION_TOLERANCE..=1.0 + CORRELATION_TOLERANCE).contains(&rho_ij) {
-                return CorrelationMatrixError::OutOfBounds {
+                return Error::OutOfBounds {
                     i,
                     j,
                     value: rho_ij,
@@ -121,22 +121,19 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixErro
 
             let diff = (rho_ij - rho_ji).abs();
             if diff > CORRELATION_TOLERANCE {
-                return CorrelationMatrixError::NotSymmetric { i, j, diff };
+                return Error::NotSymmetric { i, j, diff };
             }
         }
     }
 
     match cholesky_decompose(matrix, n) {
-        Err(CorrelationMatrixError::NotPositiveSemiDefinite { row }) => {
-            CorrelationMatrixError::NotPositiveSemiDefinite { row }
-        }
+        Err(Error::NotPositiveSemiDefinite { row }) => Error::NotPositiveSemiDefinite { row },
         Err(err) => err,
-        Ok(_) => CorrelationMatrixError::NotPositiveSemiDefinite { row: 0 },
+        Ok(_) => Error::NotPositiveSemiDefinite { row: 0 },
     }
 }
 
 /// Perform Cholesky decomposition of a correlation matrix using diagonal pivoting.
-///
 /// Returns a [`CorrelationFactor`] that holds the lower triangular factor in the
 /// **original variable ordering** and exposes the effective numerical rank. The
 /// pivoted algorithm handles near-singular and positive-semidefinite matrices
@@ -151,15 +148,11 @@ fn classify_correlation_error(matrix: &[f64], n: usize) -> CorrelationMatrixErro
 /// is indefinite.
 ///
 /// # Errors
-///
-/// Returns [`CorrelationMatrixError`] if the flattened matrix shape is wrong or
+/// Returns [`crate::Error`] if the flattened matrix shape is wrong or
 /// the matrix is not positive semidefinite.
-pub fn cholesky_decompose(
-    matrix: &[f64],
-    n: usize,
-) -> Result<CorrelationFactor, CorrelationMatrixError> {
+pub fn cholesky_decompose(matrix: &[f64], n: usize) -> Result<CorrelationFactor> {
     if matrix.len() != n * n {
-        return Err(CorrelationMatrixError::InvalidSize {
+        return Err(Error::InvalidSize {
             expected: n,
             actual: matrix.len(),
         });
@@ -168,13 +161,13 @@ pub fn cholesky_decompose(
     match cholesky_correlation(matrix, n) {
         Ok(factor) => Ok(factor),
         Err(CholeskyError::NotPositiveDefinite { row, .. }) => {
-            Err(CorrelationMatrixError::NotPositiveSemiDefinite { row })
+            Err(Error::NotPositiveSemiDefinite { row })
         }
         Err(CholeskyError::DimensionMismatch { expected, actual }) => {
-            Err(CorrelationMatrixError::InvalidSize { expected, actual })
+            Err(Error::InvalidSize { expected, actual })
         }
         // cholesky_correlation only emits NotPositiveDefinite and DimensionMismatch.
-        Err(_) => Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: 0 }),
+        Err(_) => Err(Error::NotPositiveSemiDefinite { row: 0 }),
     }
 }
 
@@ -645,16 +638,12 @@ impl MultiFactorModel {
     /// * `correlations` - Correlation matrix (flattened row-major, n×n values)
     ///
     /// # Errors
-    /// Returns [`CorrelationMatrixError`] if the matrix is invalid.
+    /// Returns [`crate::Error`] if the matrix is invalid.
     ///
     /// # Returns
     ///
     /// A validated multi-factor model.
-    pub fn new(
-        num_factors: usize,
-        volatilities: Vec<f64>,
-        correlations: Vec<f64>,
-    ) -> Result<Self, CorrelationMatrixError> {
+    pub fn new(num_factors: usize, volatilities: Vec<f64>, correlations: Vec<f64>) -> Result<Self> {
         Self::validated(num_factors, volatilities, correlations)
     }
 
@@ -689,7 +678,7 @@ impl MultiFactorModel {
     /// * `correlations` - Correlation matrix (flattened row-major, n×n values)
     ///
     /// # Errors
-    /// Returns [`CorrelationMatrixError`] if the matrix is invalid.
+    /// Returns [`crate::Error`] if the matrix is invalid.
     ///
     /// # Returns
     ///
@@ -698,7 +687,7 @@ impl MultiFactorModel {
         num_factors: usize,
         volatilities: Vec<f64>,
         correlations: Vec<f64>,
-    ) -> Result<Self, CorrelationMatrixError> {
+    ) -> Result<Self> {
         let n = num_factors.max(1);
 
         // Validate or create default volatilities
@@ -710,7 +699,7 @@ impl MultiFactorModel {
 
         // Validate correlation matrix
         if correlations.len() != n * n {
-            return Err(CorrelationMatrixError::InvalidSize {
+            return Err(Error::InvalidSize {
                 expected: n,
                 actual: correlations.len(),
             });
@@ -981,10 +970,7 @@ mod tests {
     fn test_validate_invalid_size() {
         let corr = vec![1.0, 0.5, 0.5, 1.0];
         let result = validate_correlation_matrix(&corr, 3);
-        assert!(matches!(
-            result,
-            Err(CorrelationMatrixError::InvalidSize { .. })
-        ));
+        assert!(matches!(result, Err(Error::InvalidSize { .. })));
     }
 
     #[test]
@@ -993,7 +979,7 @@ mod tests {
         let result = validate_correlation_matrix(&corr, 2);
         assert!(matches!(
             result,
-            Err(CorrelationMatrixError::DiagonalNotOne { index: 0, .. })
+            Err(Error::DiagonalNotOne { index: 0, .. })
         ));
     }
 
@@ -1001,10 +987,7 @@ mod tests {
     fn test_validate_not_symmetric() {
         let corr = vec![1.0, 0.5, 0.3, 1.0]; // Off-diagonals don't match
         let result = validate_correlation_matrix(&corr, 2);
-        assert!(matches!(
-            result,
-            Err(CorrelationMatrixError::NotSymmetric { .. })
-        ));
+        assert!(matches!(result, Err(Error::NotSymmetric { .. })));
     }
 
     #[test]
@@ -1012,10 +995,7 @@ mod tests {
         // Non-PSD matrix: high correlations that violate PSD constraint
         let corr = vec![1.0, 0.9, 0.9, 0.9, 1.0, -0.5, 0.9, -0.5, 1.0];
         let result = validate_correlation_matrix(&corr, 3);
-        assert!(matches!(
-            result,
-            Err(CorrelationMatrixError::NotPositiveSemiDefinite { .. })
-        ));
+        assert!(matches!(result, Err(Error::NotPositiveSemiDefinite { .. })));
     }
 
     #[test]
@@ -1026,8 +1006,8 @@ mod tests {
 
         match (result, cholesky_result) {
             (
-                Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: validate_row }),
-                Err(CorrelationMatrixError::NotPositiveSemiDefinite { row: cholesky_row }),
+                Err(Error::NotPositiveSemiDefinite { row: validate_row }),
+                Err(Error::NotPositiveSemiDefinite { row: cholesky_row }),
             ) => assert_eq!(validate_row, cholesky_row),
             other => panic!("expected matching PSD errors, got {:?}", other),
         }
@@ -1037,10 +1017,7 @@ mod tests {
     fn test_validate_out_of_bounds() {
         let corr = vec![1.0, 1.5, 1.5, 1.0];
         let result = validate_correlation_matrix(&corr, 2);
-        assert!(matches!(
-            result,
-            Err(CorrelationMatrixError::OutOfBounds { .. })
-        ));
+        assert!(matches!(result, Err(Error::OutOfBounds { .. })));
     }
 
     // ========== Cholesky Decomposition Tests ==========
@@ -1130,7 +1107,7 @@ mod tests {
         let err = MultiFactorModel::new(2, vols, corr)
             .expect_err("invalid matrices should no longer silently fall back");
 
-        assert!(matches!(err, CorrelationMatrixError::NotSymmetric { .. }));
+        assert!(matches!(err, Error::NotSymmetric { .. }));
     }
 
     #[test]
