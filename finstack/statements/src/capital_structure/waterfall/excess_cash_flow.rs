@@ -56,20 +56,26 @@ pub(super) fn calculate_ecf_sweep(
             .map(|cf| cf.interest_expense_cash.amount())
             .sum()
     }
-    .abs();
+    .max(0.0);
 
     let ecf = ebitda - taxes - capex - wc_change - cash_interest;
     let sweep_amount = ecf * ecf_spec.sweep_percentage;
-    let currency = base_currency(contractual_flows);
+    let currency = base_currency(contractual_flows)?;
 
     Ok(Money::new(sweep_amount.max(0.0), currency))
 }
 
 /// Get base currency from contractual flows (assumes all same currency).
-fn base_currency(flows: &IndexMap<String, CashflowBreakdown>) -> finstack_core::currency::Currency {
+fn base_currency(
+    flows: &IndexMap<String, CashflowBreakdown>,
+) -> Result<finstack_core::currency::Currency> {
     flows
         .values()
         .next()
         .map(|cf| cf.interest_expense_cash.currency())
-        .unwrap_or(finstack_core::currency::Currency::USD)
+        .ok_or_else(|| {
+            crate::error::Error::capital_structure(
+                "Cannot determine base currency for ECF sweep: no contractual flows provided",
+            )
+        })
 }

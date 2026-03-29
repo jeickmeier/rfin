@@ -196,11 +196,12 @@ impl CapitalStructureCashflows {
         Self::default()
     }
 
-    /// Merge a single period's cashflows into this accumulator.
+    /// Set a single period's cashflows into this accumulator.
     ///
     /// Copies per-instrument breakdowns, totals, and per-currency totals from `period_cs`
-    /// into this structure. Reporting currency is set from the first non-`None` source.
-    pub fn merge_period(&mut self, period_cs: CapitalStructureCashflows) {
+    /// into this structure, overwriting any existing entries for the same keys.
+    /// Reporting currency is set from the first non-`None` source.
+    pub fn set_period(&mut self, period_cs: CapitalStructureCashflows) {
         for (inst_id, period_map) in period_cs.by_instrument {
             let accum_map = self.by_instrument.entry(inst_id).or_default();
             for (pid, breakdown) in period_map {

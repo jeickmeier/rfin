@@ -100,6 +100,8 @@ pub fn calculate_period_flows(
     // Use opening balance to scale cashflows when the schedule notional differs from the
     // stateful outstanding (e.g., after applying sweeps). This is an approximation but
     // prevents obviously overstated interest after large paydowns.
+    const SCALE_WARN_THRESHOLD: f64 = 1.5;
+    const SCALE_CLAMP_MAX: f64 = 2.0;
     let scale = if opening_balance.amount() == 0.0 {
         if scheduled_opening.amount() == 0.0 {
             1.0
@@ -109,7 +111,16 @@ pub fn calculate_period_flows(
     } else if scheduled_opening.amount() == 0.0 {
         1.0
     } else {
-        opening_balance.amount() / scheduled_opening.amount()
+        let raw = opening_balance.amount() / scheduled_opening.amount();
+        if raw > SCALE_WARN_THRESHOLD {
+            tracing::warn!(
+                raw_scale = raw,
+                clamped_scale = raw.clamp(0.0, SCALE_CLAMP_MAX),
+                "Scale factor between opening balance and scheduled opening is unusually large; \
+                 clamping to {SCALE_CLAMP_MAX} to prevent cashflow amplification"
+            );
+        }
+        raw.clamp(0.0, SCALE_CLAMP_MAX)
     };
 
     // Extract flows that fall within this period
@@ -940,5 +951,49 @@ mod tests {
         assert_eq!(breakdown.principal_payment.amount(), 0.0);
         assert_eq!(breakdown.debt_balance.amount(), 100_000.0);
         assert_eq!(closing_balance.amount(), 100_000.0);
+    }
+
+    #[test]
+    fn calculate_period_flows_clamps_pathological_scale_factor() {
+        let start = Date::from_calendar_date(2025, Month::January, 1).expect("valid date");
+        let end = Date::from_calendar_date(2025, Month::April, 1).expect("valid date");
+        let period = Period {
+            id: PeriodId::quarter(2025, 1),
+            start,
+            end,
+            is_actual: false,
+        };
+
+        let instrument = SignedFlowInstrument {
+            schedule: CashFlowSchedule {
+                flows: vec![CashFlow {
+                    date: Date::from_calendar_date(2025, Month::February, 15).expect("valid date"),
+                    reset_date: None,
+                    amount: Money::new(-50_000.0, Currency::USD),
+                    kind: CFKind::Fixed,
+                    accrual_factor: 0.25,
+                    rate: None,
+                }],
+                notional: Notional::par(0.01, Currency::USD),
+                day_count: DayCount::Act365F,
+                meta: CashFlowMeta::default(),
+            },
+        };
+
+        let market_ctx = MarketContext::new();
+        let (breakdown, _, _) = calculate_period_flows(
+            &instrument,
+            &period,
+            Money::new(100_000.0, Currency::USD),
+            &market_ctx,
+            start,
+        )
+        .expect("period flow calculation should succeed");
+
+        assert!(
+            breakdown.interest_expense_cash.amount() <= 50_000.0 * 2.0,
+            "scale factor should be clamped to 2.0, but interest was {}",
+            breakdown.interest_expense_cash.amount()
+        );
     }
 }

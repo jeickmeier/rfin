@@ -374,6 +374,9 @@ pub fn execute_waterfall(
         } = s;
         let currency = breakdown.interest_expense_cash.currency();
         breakdown.principal_payment = scheduled_principal.checked_add(extra_principal)?;
+        if breakdown.principal_payment.amount() > opening_balance.amount() {
+            breakdown.principal_payment = opening_balance;
+        }
         let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
 
         let pik_enabled = is_pik_enabled(state, &instrument_id);
@@ -388,10 +391,11 @@ pub fn execute_waterfall(
         let closing_balance = post_sweep_balance.checked_add(breakdown.interest_expense_pik)?;
         state.set_closing_balance(instrument_id.to_string(), closing_balance);
         breakdown.debt_balance = closing_balance;
-        debug_assert!(
-            breakdown.validate_currency_invariant().is_ok(),
-            "Currency invariant violated after waterfall mutation"
-        );
+        breakdown.validate_currency_invariant().map_err(|e| {
+            crate::error::Error::capital_structure(format!(
+                "Currency invariant violated after waterfall mutation for {instrument_id}: {e}"
+            ))
+        })?;
 
         update_cumulative_metrics(state, &instrument_id, &breakdown, currency)?;
 
@@ -960,7 +964,7 @@ mod tests {
     }
 
     #[test]
-    fn test_ecf_deducts_cash_interest_by_magnitude() {
+    fn test_ecf_negative_cash_interest_does_not_reduce_ecf() {
         let period = PeriodId::quarter(2025, 1);
         let context = build_context(
             period,
@@ -1007,7 +1011,109 @@ mod tests {
         )
         .expect("waterfall should execute");
 
+        // ECF = 1000 - 100 - 50 - max(0, -200) = 1000 - 100 - 50 - 0 = 850
+        // Sweep = 850 * 0.5 = 425
         let tl = results.get("TL-1").expect("TL-1");
-        assert_eq!(tl.principal_payment.amount(), 325.0);
+        assert_eq!(tl.principal_payment.amount(), 425.0);
+    }
+
+    #[test]
+    fn test_scheduled_amortization_exceeding_balance_is_clamped() {
+        let period = PeriodId::quarter(2025, 1);
+        let context = build_context(period, &[]);
+
+        let mut contractual_flows: IndexMap<String, CashflowBreakdown> = IndexMap::new();
+        let mut breakdown = CashflowBreakdown::with_currency(Currency::USD);
+        breakdown.principal_payment = Money::new(300.0, Currency::USD);
+        contractual_flows.insert("TL-1".to_string(), breakdown);
+
+        let mut state = CapitalStructureState::new();
+        state
+            .opening_balances
+            .insert("TL-1".to_string(), Money::new(200.0, Currency::USD));
+
+        let waterfall = WaterfallSpec {
+            priority_of_payments: vec![PaymentPriority::Amortization, PaymentPriority::Equity],
+            available_cash_node: None,
+            ecf_sweep: None,
+            pik_toggle: None,
+        };
+
+        let results = execute_waterfall(
+            &period,
+            &context,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        let tl = results.get("TL-1").expect("TL-1");
+        assert_eq!(
+            tl.principal_payment.amount(),
+            200.0,
+            "principal should be clamped to opening balance"
+        );
+        assert_eq!(
+            tl.debt_balance.amount(),
+            0.0,
+            "balance should be zero, not negative"
+        );
+    }
+
+    #[test]
+    fn test_sweep_plus_amortization_exceeding_balance_is_clamped() {
+        let period = PeriodId::quarter(2025, 1);
+        let context = build_context(period, &[("ebitda", 10_000.0)]);
+
+        let mut contractual_flows: IndexMap<String, CashflowBreakdown> = IndexMap::new();
+        let mut breakdown = CashflowBreakdown::with_currency(Currency::USD);
+        breakdown.principal_payment = Money::new(500.0, Currency::USD);
+        contractual_flows.insert("TL-1".to_string(), breakdown);
+
+        let mut state = CapitalStructureState::new();
+        state
+            .opening_balances
+            .insert("TL-1".to_string(), Money::new(400.0, Currency::USD));
+
+        let waterfall = WaterfallSpec {
+            priority_of_payments: vec![
+                PaymentPriority::Amortization,
+                PaymentPriority::Sweep,
+                PaymentPriority::Equity,
+            ],
+            available_cash_node: None,
+            ecf_sweep: Some(EcfSweepSpec {
+                ebitda_node: "ebitda".into(),
+                taxes_node: None,
+                capex_node: None,
+                working_capital_node: None,
+                cash_interest_node: None,
+                sweep_percentage: 1.0,
+                target_instrument_id: Some("TL-1".into()),
+            }),
+            pik_toggle: None,
+        };
+
+        let results = execute_waterfall(
+            &period,
+            &context,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        let tl = results.get("TL-1").expect("TL-1");
+        assert_eq!(
+            tl.principal_payment.amount(),
+            400.0,
+            "principal should be clamped to opening balance"
+        );
+        assert_eq!(
+            tl.debt_balance.amount(),
+            0.0,
+            "balance should be zero after full paydown"
+        );
     }
 }

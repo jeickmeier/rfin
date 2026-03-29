@@ -254,7 +254,7 @@ impl Evaluator {
                         &cs_affected_nodes,
                     )?;
 
-                    cs_cashflows_accum.merge_period(period_cs);
+                    cs_cashflows_accum.set_period(period_cs);
                     has_cs = true;
 
                     (vals, warns)
