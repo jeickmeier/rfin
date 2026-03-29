@@ -348,7 +348,10 @@ impl crate::instruments::common_impl::traits::Instrument for Equity {
     impl_instrument_base!(crate::pricer::InstrumentType::Equity);
 
     fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
-        MarketDependencies::from_curve_dependencies(self)
+        let mut deps = MarketDependencies::from_curve_dependencies(self)?;
+        let spot_key = self.price_id.as_deref().unwrap_or(self.ticker.as_str());
+        deps.add_spot_id(spot_key);
+        Ok(deps)
     }
 
     fn value(

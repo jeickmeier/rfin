@@ -586,7 +586,7 @@ impl InstrumentEnvelope {
     }
 
     fn validate_schema(&self) -> Result<()> {
-        if !self.schema.starts_with(Self::CURRENT_SCHEMA) {
+        if self.schema != Self::CURRENT_SCHEMA {
             return Err(finstack_core::InputError::Invalid.into());
         }
         Ok(())

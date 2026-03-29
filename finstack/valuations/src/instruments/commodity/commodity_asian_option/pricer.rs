@@ -271,8 +271,8 @@ fn price_seasoned_geometric_commodity(
     // In log space: ln(K_adj) = (n * ln(K) - hist_prod_log) / m
     let ln_k_adj = (n * strike.ln() - hist_prod_log) / m;
 
-    // If adjusted strike is non-positive (deep ITM), return intrinsic
-    if ln_k_adj <= 0.0 {
+    // If adjusted strike is degenerate (non-finite from bad inputs), return intrinsic
+    if !ln_k_adj.is_finite() {
         let log_sum: f64 = future_forwards.iter().map(|(_, f)| f.ln()).sum();
         let geo_avg_all = ((hist_prod_log + log_sum) / n).exp();
         let payoff = match option_type {

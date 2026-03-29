@@ -104,20 +104,12 @@ pub fn execute_waterfall_with_principal_breakdown(
     available_interest: f64,
     pac_context: Option<&PacContext>,
 ) -> WaterfallPeriodResult {
-    let mut allocations = Vec::new();
     let mut remaining_principal = scheduled_principal + prepayment_principal;
     let mut remaining_interest = available_interest;
     let mut remaining_scheduled_principal = scheduled_principal;
     let mut remaining_prepayment_principal = prepayment_principal;
 
     // First pass: distribute interest to interest-bearing tranches
-    let _total_interest_notional: f64 = waterfall
-        .tranches
-        .iter()
-        .filter(|t| t.is_interest_bearing())
-        .map(|t| t.current_face.amount())
-        .sum();
-
     let mut interest_allocations: HashMap<String, f64> = HashMap::default();
 
     for tranche in &waterfall.tranches {
@@ -179,13 +171,20 @@ pub fn execute_waterfall_with_principal_breakdown(
         }
     }
 
-    // Build final allocations and update tranche balances
+    // Build final allocations and update tranche balances.
+    // Attribute scheduled vs prepay principal in priority order so senior
+    // tranches consume scheduled principal first (matching waterfall intent).
+    let mut priority_order: Vec<usize> = (0..waterfall.tranches.len()).collect();
+    priority_order.sort_by_key(|&i| waterfall.tranches[i].priority);
+
     let mut total_principal = 0.0;
     let mut total_scheduled_principal = 0.0;
     let mut total_prepayment_principal = 0.0;
     let mut total_interest = 0.0;
+    let mut allocations = Vec::with_capacity(waterfall.tranches.len());
 
-    for tranche in &mut waterfall.tranches {
+    for &idx in &priority_order {
+        let tranche = &mut waterfall.tranches[idx];
         let principal = principal_allocations
             .get(&tranche.id)
             .cloned()
@@ -203,7 +202,6 @@ pub fn execute_waterfall_with_principal_breakdown(
         let beginning = tranche.current_face.amount();
         let ending = (beginning - principal).max(0.0);
 
-        // Update tranche balance
         tranche.current_face = Money::new(ending, tranche.current_face.currency());
 
         allocations.push(TrancheAllocation {
@@ -307,15 +305,35 @@ fn allocate_principal_to_group(
     // Support tranches absorb excess/shortfall
     // For sequential without PAC, just go in order
     if pro_rata {
-        // Pro-rata allocation
-        let total_balance: f64 = other_tranches.iter().map(|t| t.current_face.amount()).sum();
+        let mut to_allocate = remaining;
+        let mut tranche_totals: Vec<f64> = vec![0.0; other_tranches.len()];
+        let mut active: Vec<(usize, f64)> = other_tranches
+            .iter()
+            .enumerate()
+            .map(|(i, t)| (i, t.current_face.amount()))
+            .filter(|(_, b)| *b > 0.0)
+            .collect();
 
-        if total_balance > 0.0 {
-            for tranche in &other_tranches {
-                let balance = tranche.current_face.amount();
-                let proportion = balance / total_balance;
-                let allocated = (remaining * proportion).min(balance);
-                allocations.push((tranche.id.clone(), allocated));
+        while to_allocate > 1e-12 && !active.is_empty() {
+            let total_balance: f64 = active.iter().map(|(_, b)| b).sum();
+            let mut next = Vec::new();
+            let mut round_alloc = 0.0;
+            for &(i, balance) in &active {
+                let share = (to_allocate * balance / total_balance).min(balance);
+                tranche_totals[i] += share;
+                round_alloc += share;
+                let rem = balance - share;
+                if rem > 1e-12 {
+                    next.push((i, rem));
+                }
+            }
+            to_allocate -= round_alloc;
+            active = next;
+        }
+
+        for (i, &total) in tranche_totals.iter().enumerate() {
+            if total > 0.0 {
+                allocations.push((other_tranches[i].id.clone(), total));
             }
         }
     } else {

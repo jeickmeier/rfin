@@ -230,10 +230,11 @@ impl Payoff for AutocallablePayoff {
             FinalPayoffType::KnockInPut { strike } => {
                 let barrier_level = self.initial_spot * self.final_barrier;
                 if self.min_spot_observed <= barrier_level {
-                    // Barrier breached, put option active
-                    (strike - self.final_spot).max(0.0)
+                    let strike_ratio = strike / self.initial_spot;
+                    let spot_ratio = self.final_spot / self.initial_spot;
+                    (strike_ratio - spot_ratio).max(0.0)
                 } else {
-                    1.0 // No barrier breach, return principal
+                    1.0
                 }
             }
         };
@@ -387,6 +388,7 @@ mod tests {
 
     #[test]
     fn test_final_knock_in_barrier_scales_from_initial_spot() {
+        let notional = 100_000.0;
         let mut payoff = AutocallablePayoff::new(
             vec![1.0],
             vec![2.0],
@@ -395,7 +397,7 @@ mod tests {
             FinalPayoffType::KnockInPut { strike: 100.0 },
             1.0,
             1.2,
-            1.0,
+            notional,
             Currency::USD,
             100.0,
             vec![1.0],
@@ -406,8 +408,9 @@ mod tests {
         payoff.on_event(&mut state);
 
         let value = payoff.value(Currency::USD);
+        let expected = 0.45 * notional;
         assert!(
-            (value.amount() - 45.0).abs() < 1e-10,
+            (value.amount() - expected).abs() < 1e-6,
             "A 60% final barrier should knock in when spot hits 55 on a 100 initial spot; got {}",
             value.amount()
         );

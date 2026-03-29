@@ -186,6 +186,9 @@ impl DynamicRecoverySpec {
     ///
     /// All results are clamped to `[0.0, base_recovery]`.
     pub fn recovery_at_notional(&self, current_notional: f64) -> f64 {
+        if current_notional <= 0.0 {
+            return 0.0;
+        }
         let raw = match self.model {
             RecoveryModel::Constant => self.base_recovery,
             RecoveryModel::InverseLinear => {

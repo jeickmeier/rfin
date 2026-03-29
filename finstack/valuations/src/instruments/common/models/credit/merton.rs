@@ -108,14 +108,14 @@ impl MertonModel {
     /// # Arguments
     ///
     /// * `asset_value` - Current asset value V_0 (must be > 0)
-    /// * `asset_vol` - Asset volatility sigma_V (must be >= 0)
+    /// * `asset_vol` - Asset volatility sigma_V (must be > 0)
     /// * `debt_barrier` - Debt face value B (must be > 0)
     /// * `risk_free_rate` - Risk-free rate r
     ///
     /// # Errors
     ///
-    /// Returns [`InputError::NonPositiveValue`] if `asset_value <= 0` or
-    /// `debt_barrier <= 0`, and [`InputError::NegativeValue`] if `asset_vol < 0`.
+    /// Returns [`InputError::NonPositiveValue`] if `asset_value`, `asset_vol`,
+    /// or `debt_barrier` are non-positive.
     pub fn new(
         asset_value: f64,
         asset_vol: f64,
@@ -138,7 +138,7 @@ impl MertonModel {
     /// # Arguments
     ///
     /// * `asset_value` - Current asset value V_0 (must be > 0)
-    /// * `asset_vol` - Asset volatility sigma_V (must be >= 0)
+    /// * `asset_vol` - Asset volatility sigma_V (must be > 0)
     /// * `debt_barrier` - Debt face value B (must be > 0)
     /// * `risk_free_rate` - Risk-free rate r
     /// * `payout_rate` - Dividend / payout yield q
@@ -147,8 +147,8 @@ impl MertonModel {
     ///
     /// # Errors
     ///
-    /// Returns [`InputError::NonPositiveValue`] if `asset_value <= 0` or
-    /// `debt_barrier <= 0`, and [`InputError::NegativeValue`] if `asset_vol < 0`.
+    /// Returns [`InputError::NonPositiveValue`] if `asset_value`, `asset_vol`,
+    /// or `debt_barrier` are non-positive.
     pub fn new_with_dynamics(
         asset_value: f64,
         asset_vol: f64,
@@ -161,8 +161,8 @@ impl MertonModel {
         if asset_value <= 0.0 {
             return Err(InputError::NonPositiveValue.into());
         }
-        if asset_vol < 0.0 {
-            return Err(InputError::NegativeValue.into());
+        if asset_vol <= 0.0 {
+            return Err(InputError::NonPositiveValue.into());
         }
         if debt_barrier <= 0.0 {
             return Err(InputError::NonPositiveValue.into());
@@ -183,8 +183,13 @@ impl MertonModel {
     /// DD = (ln(V/B) + (r - q - sigma^2/2) * T) / (sigma * sqrt(T))
     ///
     /// A higher DD indicates a lower probability of default.
+    /// Returns `f64::INFINITY` when `horizon <= 0` (no time = infinite DD,
+    /// yielding PD = N(-∞) = 0).
     #[inline]
     pub fn distance_to_default(&self, horizon: f64) -> f64 {
+        if horizon <= 0.0 {
+            return f64::INFINITY;
+        }
         let sigma = self.asset_vol;
         let mu = self.risk_free_rate - self.payout_rate - 0.5 * sigma * sigma;
         let sqrt_t = horizon.sqrt();

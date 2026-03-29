@@ -42,11 +42,10 @@ use finstack_core::math::special_functions::norm_cdf;
 /// use a d-value `d₃ = a₁ − 2b√T/σ` in the reflection bracket, making the
 /// bracket vanish at b = 0 and yielding a clean 0/0 L'Hôpital form.
 ///
-/// **Implementation note:** The general-case formula below uses `a₂ = a₁ − σ√T`
-/// (which equals `d₃` only when b = σ²/2). The limiting forms were derived
-/// independently for the b → 0 case. A future refactor should reconcile the
-/// general-case d-value with the standard `d₃` parameterisation and re-derive
-/// the limits; see also the `log_ratio.abs()` note on each branch.
+/// **Implementation note:** The general-case reflection bracket uses `d₃ = a₁ − 2b√T/σ`
+/// as defined in Goldman, Sosin & Gatto (1979) / Haug (2007). The limiting forms
+/// at b → 0 are derived via L'Hôpital's rule and are independent of the d₃ vs a₂
+/// distinction (both collapse to a₁ at b = 0).
 ///
 /// The threshold of 1e-4 (0.01%) captures only truly degenerate cases while
 /// avoiding unnecessary switching for common equity parameter regimes (e.g.,
@@ -260,35 +259,26 @@ pub fn floating_strike_lookback_call(
     let term1 = spot * df_q * norm_cdf(a1);
     let term2 = -s_min * df * norm_cdf(a2); // a2 = a1 - σ√T
 
-    // Third term: reflection principle correction
-    // Haug formula: S·e^(-rT)·(σ²/(2b))·[(S/S_min)^(-2b/σ²)·N(-a2) - e^(bT)·N(-a1)]
     // Reflection-principle correction (third term).
-    //
-    // General form: S·e^{-rT}·(σ²/(2b))·[R^{-2b/σ²}·N(-a₂) - e^{bT}·N(-a₁)]
-    //
-    // NOTE: standard references (Haug 2007, QuantLib) parameterise the bracket
-    // with d₃ = a₁ - 2b√T/σ instead of a₂ = a₁ - σ√T. Both coincide at b = 0,
-    // so the limiting form below is unaffected, but the general branch should be
-    // reconciled with the standard parameterisation in a future refactor.
+    // General form: S·e^{-rT}·(σ²/(2b))·[R^{-2b/σ²}·N(-d₃) - e^{bT}·N(-a₁)]
+    // where d₃ = a₁ - 2b√T/σ (Goldman, Sosin & Gatto 1979; Haug 2007 §6).
     let term3 = if b.abs() < RATE_EQ_DIV_TOL {
-        // Limiting form when b → 0 via L'Hôpital's rule.
-        // At b = 0 the power term R^{-2b/σ²} → 1 and e^{bT} → 1.
-        // With the standard d₃ parameterisation, d₃ → a₁ and the bracket
-        // collapses to N(-a₁) - N(-a₁) = 0, giving a 0 · ∞ form.
-        // L'Hôpital yields: S·e^{-rT}·σ²·T·(ln(S/S_min)·N(-a₂) + N(-a₁)).
+        // Limiting form when b → 0 via L'Hôpital's rule, derived independently.
+        // Uses a₂ (not d₃) because the L'Hôpital derivation yields this form
+        // directly; d₃ and a₂ are distinct at b = 0 (d₃ → a₁, a₂ = a₁ − σ√T).
         //
-        // `log_ratio.abs()` is used because for calls S ≥ S_min ⇒ ln(S/S_min) ≥ 0,
-        // so abs() is a no-op here; it guards against floating-point sign noise
+        // `log_ratio.abs()` guards against floating-point sign noise
         // when S ≈ S_min (log_ratio ≈ 0).
         let log_ratio = (spot / s_min).ln();
         spot * df * vol2 * time * (log_ratio.abs() * norm_cdf(-a2) + norm_cdf(-a1))
     } else {
+        let d3 = a1 - 2.0 * b * sqrt_t / vol;
         let power = -2.0 * b / vol2;
         let ratio_power = (spot / s_min).powf(power);
 
         spot * df
             * (vol2 / (2.0 * b))
-            * (ratio_power * norm_cdf(-a2) - (b * time).exp() * norm_cdf(-a1))
+            * (ratio_power * norm_cdf(-d3) - (b * time).exp() * norm_cdf(-a1))
     };
 
     (term1 + term2 + term3).max(0.0)
@@ -357,22 +347,21 @@ pub fn floating_strike_lookback_put(
     let term1 = s_max * df * norm_cdf(b1);
     let term2 = -spot * df_q * norm_cdf(b2);
 
-    // Reflection-principle correction — same structural note as the call above
-    // regarding d₃ vs b₂ parameterisation.
+    // Reflection-principle correction — put tracks the maximum, so the reflected
+    // drift is -b, giving d₃' = b₁ + 2b√T/σ (sign opposite to the call's d₃).
     let term3 = if b.abs() < RATE_EQ_DIV_TOL {
-        // Limiting form when b → 0 (symmetric to the call case).
-        // `log_ratio.abs()` converts the negative ln(S/S_max) (since S ≤ S_max)
-        // to a positive coefficient; this is equivalent to using -ln(S/S_max) =
-        // ln(S_max/S), which is the natural magnitude in the put reflection term.
+        // Limiting form when b → 0, derived independently (symmetric to call).
+        // Uses b₂ (not d₃'); see call branch for rationale.
         let log_ratio = (spot / s_max).ln();
         spot * df * vol2 * time * (log_ratio.abs() * norm_cdf(b2) + norm_cdf(b1))
     } else {
+        let d3_put = b1 + 2.0 * b * sqrt_t / vol;
         let power = -2.0 * b / vol2;
         let ratio_power = (spot / s_max).powf(power);
 
         spot * df
             * (vol2 / (2.0 * b))
-            * (ratio_power * norm_cdf(b2) - (b * time).exp() * norm_cdf(b1))
+            * (ratio_power * norm_cdf(d3_put) - (b * time).exp() * norm_cdf(b1))
     };
 
     (term1 + term2 + term3).max(0.0)

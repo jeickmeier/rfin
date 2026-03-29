@@ -465,7 +465,10 @@ pub fn barrier_touch_probability(
             return 1.0;
         }
         // Down barrier (H < S)
-        // P(min S < H)
+        // P(min S < H) — first-passage formula (Shreve, Theorem 7.2.1):
+        //   P = N((h − νT)/(σ√T)) + e^{2νh/σ²} N((h + νT)/(σ√T))
+        // Note: the ±ν signs differ from the up-barrier case because
+        // P(min ≤ h) and P(max ≥ h) are structurally different formulas.
         let log_h_s = log_barrier_ratio; // Negative
         let d1 = (log_h_s - nu * time) / sigma_sqrt_t;
         let d2 = (log_h_s + nu * time) / sigma_sqrt_t;

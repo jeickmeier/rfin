@@ -138,7 +138,8 @@ impl EndogenousHazardSpec {
     pub fn hazard_at_leverage(&self, leverage: f64) -> f64 {
         let raw = match &self.leverage_hazard_map {
             LeverageHazardMap::PowerLaw { exponent } => {
-                self.base_hazard_rate * (leverage / self.base_leverage).powf(*exponent)
+                let ratio = (leverage / self.base_leverage).max(0.0);
+                self.base_hazard_rate * ratio.powf(*exponent)
             }
             LeverageHazardMap::Exponential { sensitivity } => {
                 self.base_hazard_rate * (*sensitivity * (leverage - self.base_leverage)).exp()
