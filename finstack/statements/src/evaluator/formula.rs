@@ -669,10 +669,10 @@ fn evaluate_function(
                     Ok(f64::NAN)
                 }
             } else {
-                // For complex expressions, we can't easily evaluate them in a different period context
-                // Return NaN to indicate the value is not available
-                let _ = evaluate_expr(&args[0], context, node_id)?;
-                Ok(f64::NAN)
+                Err(eval_error(
+                    node_id,
+                    "shift() requires a column reference as first argument; use an intermediate node for complex expressions",
+                ))
             }
         }
 
@@ -690,10 +690,9 @@ fn evaluate_function(
             };
 
             let mut all_values = collect_all_historical_values(node_name, context)?;
-            all_values.push(current_value);
 
             // Sort values in ascending order
-            all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            all_values.sort_by(|a, b| a.total_cmp(b));
 
             // Find rank (1-based)
             let rank = all_values
@@ -761,7 +760,7 @@ fn evaluate_function(
                 return Ok(f64::NAN);
             }
 
-            all_values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+            all_values.sort_by(|a, b| a.total_cmp(b));
 
             // Calculate quantile using linear interpolation (R-7 / Excel / numpy default)
             let n = all_values.len() as f64;

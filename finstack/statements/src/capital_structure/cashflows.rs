@@ -127,6 +127,10 @@ impl CashflowBreakdown {
     /// This method provides backward compatibility for code that used the
     /// deprecated `interest_expense` field.
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the cash and PIK interest currencies do not match.
+    ///
     /// # Example
     ///
     /// ```rust
@@ -138,19 +142,18 @@ impl CashflowBreakdown {
     ///     interest_expense_pik: Money::new(2_500.0, Currency::USD),
     ///     ..CashflowBreakdown::with_currency(Currency::USD)
     /// };
-    /// assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
+    /// assert_eq!(cf.interest_expense_total().unwrap().amount(), 12_500.0);
     /// ```
-    pub fn interest_expense_total(&self) -> Money {
-        debug_assert_eq!(
-            self.interest_expense_cash.currency(),
-            self.interest_expense_pik.currency(),
-            "CashflowBreakdown currency invariant violated: cash={}, pik={}",
-            self.interest_expense_cash.currency(),
-            self.interest_expense_pik.currency(),
-        );
+    pub fn interest_expense_total(&self) -> crate::Result<Money> {
         self.interest_expense_cash
             .checked_add(self.interest_expense_pik)
-            .unwrap_or(self.interest_expense_cash)
+            .map_err(|_| {
+                crate::error::Error::capital_structure(format!(
+                    "Currency mismatch in interest_expense_total: cash={}, pik={}",
+                    self.interest_expense_cash.currency(),
+                    self.interest_expense_pik.currency(),
+                ))
+            })
     }
 
     /// Validate that all `Money` fields share the same currency.
@@ -273,9 +276,17 @@ impl CapitalStructureCashflows {
     /// assert_eq!(cashflows.get_interest("BOND-1", &period).unwrap(), 5_000.0);
     /// ```
     pub fn get_interest(&self, instrument_id: &str, period_id: &PeriodId) -> Result<f64> {
-        self.get_instrument_field(instrument_id, period_id, "interest", |cf| {
-            cf.interest_expense_total().amount()
-        })
+        let cf = self
+            .by_instrument
+            .get(instrument_id)
+            .and_then(|m| m.get(period_id))
+            .ok_or_else(|| {
+                crate::error::Error::capital_structure(format!(
+                    "No interest data for instrument '{}' in period {}",
+                    instrument_id, period_id
+                ))
+            })?;
+        Ok(cf.interest_expense_total()?.amount())
     }
 
     /// Get cash interest expense for a specific instrument and period.
@@ -354,7 +365,21 @@ impl CapitalStructureCashflows {
     /// unavailable because multiple currencies are present and no FX conversion
     /// was supplied, this function returns an error.
     pub fn get_total_interest(&self, period_id: &PeriodId) -> Result<f64> {
-        self.reporting_total(period_id, |cf| cf.interest_expense_total().amount())
+        if self.reporting_currency.is_none()
+            && self.totals.is_empty()
+            && self.totals_by_currency.len() > 1
+        {
+            return Err(crate::error::Error::capital_structure(
+                "Multiple currencies present in capital structure totals and no FX provided. Supply FX in MarketContext or limit to a single currency.",
+            ));
+        }
+        let cf = self.totals.get(period_id).ok_or_else(|| {
+            crate::error::Error::capital_structure(format!(
+                "No total cashflow data for period {}",
+                period_id
+            ))
+        })?;
+        Ok(cf.interest_expense_total()?.amount())
     }
 
     /// Get total cash interest expense across all instruments for a period.
@@ -439,7 +464,10 @@ mod tests {
         let cf = CashflowBreakdown::with_currency(Currency::USD);
         assert_eq!(cf.interest_expense_cash.amount(), 0.0);
         assert_eq!(cf.interest_expense_pik.amount(), 0.0);
-        assert_eq!(cf.interest_expense_total().amount(), 0.0);
+        assert_eq!(
+            cf.interest_expense_total().expect("same currency").amount(),
+            0.0
+        );
         assert_eq!(cf.principal_payment.amount(), 0.0);
         assert_eq!(cf.fees.amount(), 0.0);
         assert_eq!(cf.debt_balance.amount(), 0.0);
@@ -457,7 +485,10 @@ mod tests {
             interest_expense_pik: Money::new(2_500.0, Currency::USD),
             ..CashflowBreakdown::with_currency(Currency::USD)
         };
-        assert_eq!(cf.interest_expense_total().amount(), 12_500.0);
+        assert_eq!(
+            cf.interest_expense_total().expect("same currency").amount(),
+            12_500.0
+        );
     }
 
     #[test]

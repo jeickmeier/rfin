@@ -174,13 +174,19 @@ fn determine_base_value(
         }
     }
 
-    // Try to find any historical value
-    for historical_period in context.historical_results.keys().rev() {
-        if let Some(val) =
-            context.get_historical_value(node_spec.node_id.as_str(), historical_period)
-        {
-            return Ok(val);
-        }
+    // Try to find the most recent historical value by chronological ordering
+    if let Some((&latest_period, val)) = context
+        .historical_results
+        .keys()
+        .filter_map(|p| {
+            context
+                .get_historical_value(node_spec.node_id.as_str(), p)
+                .map(|v| (p, v))
+        })
+        .max_by_key(|(p, _)| *p)
+    {
+        let _ = latest_period;
+        return Ok(val);
     }
 
     // No base value found

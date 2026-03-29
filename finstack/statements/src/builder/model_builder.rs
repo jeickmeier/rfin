@@ -569,11 +569,9 @@ impl ModelBuilder<Ready> {
     fn add_all_metrics_from_registry_internal(
         mut self,
         registry: &crate::registry::Registry,
-    ) -> Self {
+    ) -> Result<Self> {
         for (qualified_id, stored_metric) in registry.all_metrics() {
-            // Extract namespace from qualified_id (e.g. "fin" from "fin.gross_profit")
             let namespace = qualified_id.split('.').next().unwrap_or("");
-            // Qualify intra-namespace references so "net_income" → "fin.net_income"
             let formula = if namespace.is_empty() {
                 stored_metric.definition.formula.clone()
             } else {
@@ -581,12 +579,11 @@ impl ModelBuilder<Ready> {
                     &stored_metric.definition.formula,
                     namespace,
                     registry,
-                )
-                .unwrap_or_else(|_| stored_metric.definition.formula.clone())
+                )?
             };
             self.insert_metric_node(qualified_id, stored_metric, formula);
         }
-        self
+        Ok(self)
     }
 
     /// Load built-in metrics (fin.* namespace) and add them to the model.
@@ -620,7 +617,7 @@ impl ModelBuilder<Ready> {
     pub fn with_builtin_metrics(self) -> Result<Self> {
         let mut registry = crate::registry::Registry::new();
         registry.load_builtins()?;
-        Ok(self.add_all_metrics_from_registry_internal(&registry))
+        self.add_all_metrics_from_registry_internal(&registry)
     }
 
     /// Load metrics from a JSON file and add them to the model.
@@ -650,7 +647,7 @@ impl ModelBuilder<Ready> {
     pub fn with_metrics(self, path: &str) -> Result<Self> {
         let mut registry = crate::registry::Registry::new();
         registry.load_from_json(path)?;
-        Ok(self.add_all_metrics_from_registry_internal(&registry))
+        self.add_all_metrics_from_registry_internal(&registry)
     }
 
     /// Add a specific metric from the built-in registry.

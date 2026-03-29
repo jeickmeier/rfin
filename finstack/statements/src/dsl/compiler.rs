@@ -223,7 +223,69 @@ fn compile_function_call(func_name: &str, args: &[StmtExpr]) -> Result<Expr> {
                     ));
                 }
             }
-            _ => {}
+            Function::Lag | Function::Shift => {
+                if compiled_args.len() != 2 {
+                    return Err(crate::error::Error::eval(format!(
+                        "{}() requires exactly 2 arguments",
+                        func_name
+                    )));
+                }
+            }
+            Function::Diff | Function::PctChange => {
+                if compiled_args.is_empty() || compiled_args.len() > 2 {
+                    return Err(crate::error::Error::eval(format!(
+                        "{}() requires 1 or 2 arguments",
+                        func_name
+                    )));
+                }
+            }
+            Function::RollingMean
+            | Function::RollingSum
+            | Function::RollingStd
+            | Function::RollingVar
+            | Function::RollingMedian
+            | Function::RollingMin
+            | Function::RollingMax
+            | Function::RollingCount
+            | Function::EwmMean
+            | Function::Quantile => {
+                if compiled_args.len() != 2 {
+                    return Err(crate::error::Error::eval(format!(
+                        "{}() requires exactly 2 arguments",
+                        func_name
+                    )));
+                }
+            }
+            Function::EwmStd | Function::EwmVar => {
+                if compiled_args.len() < 2 || compiled_args.len() > 3 {
+                    return Err(crate::error::Error::eval(format!(
+                        "{}() requires 2 or 3 arguments",
+                        func_name
+                    )));
+                }
+            }
+            Function::Rank => {
+                if compiled_args.is_empty() {
+                    return Err(crate::error::Error::eval(
+                        "rank() requires at least 1 argument",
+                    ));
+                }
+            }
+            Function::CumSum
+            | Function::CumProd
+            | Function::CumMin
+            | Function::CumMax
+            | Function::Std
+            | Function::Var
+            | Function::Median => {
+                if compiled_args.is_empty() {
+                    return Err(crate::error::Error::eval(format!(
+                        "{}() requires at least 1 argument",
+                        func_name
+                    )));
+                }
+            }
+            Function::Lead => {}
         }
         Ok(Expr::call(f, compiled_args))
     } else {

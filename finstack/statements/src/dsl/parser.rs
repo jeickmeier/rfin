@@ -237,7 +237,6 @@ fn identifier(input: &str) -> IResult<&str, StmtExpr> {
     if id_str.starts_with("cs.") {
         let parts: Vec<&str> = id_str.split('.').collect();
         if parts.len() == 3 {
-            // Valid cs reference: cs.component.instrument_or_total
             return Ok((
                 input,
                 StmtExpr::CSRef {
@@ -246,6 +245,10 @@ fn identifier(input: &str) -> IResult<&str, StmtExpr> {
                 },
             ));
         }
+        return Err(nom::Err::Failure(nom::error::Error::new(
+            input,
+            nom::error::ErrorKind::Verify,
+        )));
     }
 
     Ok((input, StmtExpr::NodeRef(NodeId::from(id_str.as_str()))))

@@ -10,7 +10,7 @@ use indexmap::IndexSet;
 /// Returns true if the character is NOT part of an identifier (alphanumeric or underscore).
 #[inline]
 fn is_identifier_boundary(c: char) -> bool {
-    !c.is_alphanumeric() && c != '_'
+    !c.is_alphanumeric() && c != '_' && c != '-'
 }
 
 /// Check if an identifier at a given position is standalone (not part of a larger identifier).
@@ -195,17 +195,21 @@ pub fn extract_identifiers(
     formula: &str,
     known_identifiers: &IndexSet<String>,
 ) -> IndexSet<String> {
-    if let Ok(ast) = parse_formula(formula) {
-        let mut identifiers = IndexSet::new();
-        collect_identifiers_from_ast(&ast, &mut identifiers, false);
+    match parse_formula(formula) {
+        Ok(ast) => {
+            let mut identifiers = IndexSet::new();
+            collect_identifiers_from_ast(&ast, &mut identifiers, false);
 
-        return identifiers
-            .into_iter()
-            .filter(|id| known_identifiers.contains(id))
-            .collect();
+            identifiers
+                .into_iter()
+                .filter(|id| known_identifiers.contains(id))
+                .collect()
+        }
+        Err(e) => {
+            tracing::warn!("AST parse failed for formula, falling back to string scanner: {e}");
+            extract_identifiers_by_scanning(formula, known_identifiers)
+        }
     }
-
-    extract_identifiers_by_scanning(formula, known_identifiers)
 }
 
 fn extract_identifiers_by_scanning(

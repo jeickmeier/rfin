@@ -41,9 +41,12 @@ fn test_parse_identifier_underscore() {
 }
 
 #[test]
-fn test_parse_identifier_with_namespace() {
-    let result = parse_formula("cs.interest_expense").unwrap();
-    assert_eq!(result, StmtExpr::NodeRef("cs.interest_expense".into()));
+fn test_parse_cs_two_part_is_error() {
+    let result = parse_formula("cs.interest_expense");
+    assert!(
+        result.is_err(),
+        "Two-part cs.* reference must be a parse error, not a NodeRef"
+    );
 }
 
 #[test]

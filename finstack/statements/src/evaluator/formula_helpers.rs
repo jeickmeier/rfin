@@ -170,7 +170,7 @@ pub(crate) fn calculate_median(values: &[f64]) -> Result<f64> {
         return Ok(f64::NAN);
     }
     let mut sorted = values.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    sorted.sort_by(|a, b| a.total_cmp(b));
     let len = sorted.len();
     if len.is_multiple_of(2) {
         Ok((sorted[len / 2 - 1] + sorted[len / 2]) / 2.0)

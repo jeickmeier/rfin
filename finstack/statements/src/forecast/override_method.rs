@@ -54,6 +54,13 @@ pub fn apply_override(
         )
     })?;
 
+    if !base_value.is_finite() {
+        return Err(Error::forecast(format!(
+            "base_value must be finite, got {}",
+            base_value
+        )));
+    }
+
     let overrides_map: IndexMap<String, f64> = serde_json::from_value(overrides_json.clone())
         .map_err(|e| {
             Error::forecast(format!(
@@ -61,6 +68,15 @@ pub fn apply_override(
                 e
             ))
         })?;
+
+    for (period_str, value) in &overrides_map {
+        if !value.is_finite() {
+            return Err(Error::forecast(format!(
+                "Override value for period '{}' must be finite, got {}",
+                period_str, value
+            )));
+        }
+    }
 
     let mut results = IndexMap::new();
     let mut current_value = base_value;

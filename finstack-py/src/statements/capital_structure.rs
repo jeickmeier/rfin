@@ -52,8 +52,10 @@ impl PyCashflowBreakdown {
     }
 
     #[getter]
-    fn interest_expense_total(&self) -> PyMoney {
-        PyMoney::new(self.inner.interest_expense_total())
+    fn interest_expense_total(&self) -> PyResult<PyMoney> {
+        Ok(PyMoney::new(
+            self.inner.interest_expense_total().map_err(stmt_to_py)?,
+        ))
     }
 
     #[getter]
@@ -77,11 +79,13 @@ impl PyCashflowBreakdown {
     }
 
     fn __repr__(&self) -> String {
+        let interest = self
+            .inner
+            .interest_expense_total()
+            .map_or_else(|e| format!("<error: {e}>"), |m| m.to_string());
         format!(
             "CashflowBreakdown(interest={}, principal={}, balance={})",
-            self.inner.interest_expense_total(),
-            self.inner.principal_payment,
-            self.inner.debt_balance
+            interest, self.inner.principal_payment, self.inner.debt_balance
         )
     }
 }

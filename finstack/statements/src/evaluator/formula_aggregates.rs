@@ -4,6 +4,7 @@ use super::formula::{
     collect_expression_window_values, collect_period_range_values, collect_rolling_window_values,
     eval_error, evaluate_non_negative_integer_arg, require_args, require_min_args,
 };
+use super::results::EvalWarning;
 use super::EvaluationContext;
 use crate::error::Result;
 use finstack_core::dates::PeriodKind;
@@ -139,6 +140,13 @@ fn evaluate_cumulative_function(
                         "cumprod() overflow detected in period {:?}",
                         context.period_id
                     );
+                    if let Some(id) = node_id {
+                        context.push_warning(EvalWarning::NonFiniteValue {
+                            node_id: id.to_string(),
+                            period: context.period_id,
+                            value: product,
+                        });
+                    }
                     return Ok(f64::NAN);
                 }
             }

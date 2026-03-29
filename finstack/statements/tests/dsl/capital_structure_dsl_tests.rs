@@ -95,18 +95,14 @@ fn test_parse_cs_complex_formula() {
     }
 }
 
-/// Test that invalid cs references are parsed as regular node refs
+/// Test that invalid cs references produce a parse error
 #[test]
 fn test_parse_cs_invalid_format() {
-    // Only two parts - should be parsed as regular node ref
-    let ast = parse_formula("cs.interest_expense").unwrap();
-
-    match ast {
-        StmtExpr::NodeRef(name) => {
-            assert_eq!(name, "cs.interest_expense");
-        }
-        _ => panic!("Expected NodeRef, got {:?}", ast),
-    }
+    let result = parse_formula("cs.interest_expense");
+    assert!(
+        result.is_err(),
+        "Two-part cs.* reference should produce a parse error"
+    );
 }
 
 /// Test context with capital structure cashflows

@@ -121,7 +121,10 @@ pub fn compute_credit_context(
 
     for period in periods {
         if let Some(cf) = inst_data.get(&period.id) {
-            let interest = cf.interest_expense_total().amount();
+            let interest = match cf.interest_expense_total() {
+                Ok(m) => m.amount(),
+                Err(_) => continue,
+            };
             let principal = cf.principal_payment.amount();
             let balance = cf.debt_balance.amount();
 

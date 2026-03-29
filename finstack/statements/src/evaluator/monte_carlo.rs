@@ -9,7 +9,6 @@ use indexmap::IndexMap;
 /// Results for a single Monte Carlo path: per-node per-period values and any warnings emitted.
 pub(crate) type PathResult = (IndexMap<String, IndexMap<PeriodId, f64>>, Vec<EvalWarning>);
 use serde::{Deserialize, Serialize};
-use std::cmp::Ordering;
 use std::collections::HashSet;
 
 /// Configuration for Monte Carlo evaluation of a statement model.
@@ -98,6 +97,9 @@ impl MonteCarloResults {
     }
 
     /// Estimate the probability that a metric breaches a threshold in any forecast period.
+    ///
+    /// Returns `None` if the metric has no data, no forecast periods, or if any
+    /// period's path vector is shorter than `n_paths` (incomplete simulation).
     pub fn breach_probability(&self, metric: &str, threshold: f64) -> Option<f64> {
         let metric_map = self.path_values.get(metric)?;
         if metric_map.is_empty() || self.n_paths == 0 {
@@ -115,11 +117,18 @@ impl MonteCarloResults {
             return None;
         }
 
+        if period_vectors
+            .iter()
+            .any(|(_, values)| values.len() < self.n_paths)
+        {
+            return None;
+        }
+
         let mut breached_paths = 0usize;
         for path_idx in 0..self.n_paths {
             let mut breached = false;
             for (_, values) in &period_vectors {
-                if path_idx < values.len() && values[path_idx] > threshold {
+                if values[path_idx] > threshold {
                     breached = true;
                     break;
                 }
@@ -140,7 +149,7 @@ fn normalize_percentiles(raw: &[f64]) -> Vec<f64> {
         raw.iter().map(|q| q.clamp(0.0, 1.0)).collect()
     };
 
-    v.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+    v.sort_by(|a, b| a.total_cmp(b));
     v.dedup();
     v
 }
@@ -259,7 +268,7 @@ impl MonteCarloAccumulator {
                 }
 
                 let mut sorted = values.clone();
-                sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
+                sorted.sort_by(|a, b| a.total_cmp(b));
                 let len = sorted.len();
                 let mut pairs: Vec<(f64, f64)> = Vec::with_capacity(self.percentiles.len());
                 for &q in &self.percentiles {
