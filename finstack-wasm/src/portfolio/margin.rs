@@ -248,6 +248,23 @@ impl JsNettingSetMargin {
     pub fn is_cleared(&self) -> bool {
         self.inner.is_cleared()
     }
+
+    /// Serialize to a JavaScript object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Failed to serialize NettingSetMargin: {}", e)))
+    }
+
+    /// Deserialize from a JavaScript object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsNettingSetMargin, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsNettingSetMargin { inner })
+            .map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize NettingSetMargin: {}", e))
+            })
+    }
 }
 
 impl JsNettingSetMargin {
@@ -319,6 +336,27 @@ impl JsPortfolioMarginResult {
         arr.push(&JsValue::from(JsMoney::from_inner(cleared)));
         arr.push(&JsValue::from(JsMoney::from_inner(bilateral)));
         arr
+    }
+
+    /// Serialize to a JavaScript object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize PortfolioMarginResult: {}", e))
+        })
+    }
+
+    /// Deserialize from a JavaScript object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsPortfolioMarginResult, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsPortfolioMarginResult { inner })
+            .map_err(|e| {
+                JsValue::from_str(&format!(
+                    "Failed to deserialize PortfolioMarginResult: {}",
+                    e
+                ))
+            })
     }
 }
 

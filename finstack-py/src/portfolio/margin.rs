@@ -12,6 +12,7 @@ use finstack_portfolio::margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,
 };
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyDict, PyModule};
 use pyo3::Bound;
@@ -183,6 +184,20 @@ impl PyNettingSetMargin {
             self.inner.position_count
         )
     }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("JSON serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON string.
+    #[staticmethod]
+    fn from_json(json_str: &str) -> PyResult<Self> {
+        let inner: NettingSetMargin = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("JSON deserialization failed: {}", e)))?;
+        Ok(Self::new(inner))
+    }
 }
 
 /// Portfolio-wide margin calculation results.
@@ -288,6 +303,20 @@ impl PyPortfolioMarginResult {
             self.inner.total_variation_margin,
             self.inner.by_netting_set.len()
         )
+    }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("JSON serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON string.
+    #[staticmethod]
+    fn from_json(json_str: &str) -> PyResult<Self> {
+        let inner: PortfolioMarginResult = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("JSON deserialization failed: {}", e)))?;
+        Ok(Self::new(inner))
     }
 }
 

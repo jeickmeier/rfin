@@ -32,7 +32,7 @@ use indexmap::IndexMap;
 /// };
 /// assert_eq!(report.days, 31);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RollForwardReport {
     /// Original as-of date.
     pub old_date: finstack_core::dates::Date,

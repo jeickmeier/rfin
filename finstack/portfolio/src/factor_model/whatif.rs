@@ -9,7 +9,7 @@ use finstack_valuations::factor_model::mapping_to_market_bumps;
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 
 /// Base/after delta for a single factor contribution.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FactorContributionDelta {
     /// Factor identifier whose contribution changed.
     pub factor_id: FactorId,
@@ -20,7 +20,7 @@ pub struct FactorContributionDelta {
 }
 
 /// Result of a position what-if scenario.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WhatIfResult {
     /// Baseline decomposition used as the comparison point.
     pub before: RiskDecomposition,
@@ -31,7 +31,7 @@ pub struct WhatIfResult {
 }
 
 /// Result of a factor-stress scenario.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StressResult {
     /// Total portfolio P&L under the stressed market.
     pub total_pnl: f64,

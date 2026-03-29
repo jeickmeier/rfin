@@ -55,6 +55,24 @@ impl JsPortfolioCashflows {
         }
         Ok(JsValue::from(dict))
     }
+
+    /// Serialize to a JavaScript object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize PortfolioCashflows: {}", e))
+        })
+    }
+
+    /// Deserialize from a JavaScript object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsPortfolioCashflows, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsPortfolioCashflows { inner })
+            .map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize PortfolioCashflows: {}", e))
+            })
+    }
 }
 
 impl JsPortfolioCashflows {
@@ -83,6 +101,30 @@ impl JsPortfolioCashflowBuckets {
             )?;
         }
         Ok(JsValue::from(dict))
+    }
+
+    /// Serialize to a JavaScript object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!(
+                "Failed to serialize PortfolioCashflowBuckets: {}",
+                e
+            ))
+        })
+    }
+
+    /// Deserialize from a JavaScript object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsPortfolioCashflowBuckets, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsPortfolioCashflowBuckets { inner })
+            .map_err(|e| {
+                JsValue::from_str(&format!(
+                    "Failed to deserialize PortfolioCashflowBuckets: {}",
+                    e
+                ))
+            })
     }
 }
 

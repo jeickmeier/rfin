@@ -6,6 +6,7 @@ use finstack_core::money::Money;
 use finstack_scenarios::adapters::RollForwardReport;
 use finstack_scenarios::engine::ApplicationReport;
 use indexmap::IndexMap;
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
 use time::macros::date;
@@ -79,6 +80,20 @@ impl PyApplicationReport {
             self.inner.warnings.len(),
             self.inner.rounding_context
         )
+    }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("JSON serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON string.
+    #[staticmethod]
+    fn from_json(json_str: &str) -> PyResult<Self> {
+        let inner: ApplicationReport = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("JSON deserialization failed: {}", e)))?;
+        Ok(Self::new(inner))
     }
 }
 
@@ -221,6 +236,20 @@ impl PyRollForwardReport {
             self.inner.days,
             self.inner.total_carry.len()
         )
+    }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| PyValueError::new_err(format!("JSON serialization failed: {}", e)))
+    }
+
+    /// Deserialize from JSON string.
+    #[staticmethod]
+    fn from_json(json_str: &str) -> PyResult<Self> {
+        let inner: RollForwardReport = serde_json::from_str(json_str)
+            .map_err(|e| PyValueError::new_err(format!("JSON deserialization failed: {}", e)))?;
+        Ok(Self::new(inner))
     }
 }
 

@@ -99,7 +99,7 @@ pub struct ExecutionContext<'a> {
 /// assert_eq!(report.operations_applied, 3);
 /// assert_eq!(report.warnings.len(), 1);
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ApplicationReport {
     /// Number of operations successfully applied.
     pub operations_applied: usize,

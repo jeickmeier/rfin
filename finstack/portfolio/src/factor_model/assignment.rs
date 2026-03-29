@@ -4,7 +4,7 @@ use finstack_core::factor_model::{FactorId, MarketDependency};
 use finstack_core::types::Attributes;
 
 /// Assignment results for a portfolio-level factor mapping pass.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FactorAssignmentReport {
     /// Per-position matched dependencies and factor identifiers.
     pub assignments: Vec<PositionAssignment>,
@@ -13,7 +13,7 @@ pub struct FactorAssignmentReport {
 }
 
 /// Matched factor assignments for a single portfolio position.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PositionAssignment {
     /// Portfolio position identifier.
     pub position_id: PositionId,
@@ -22,7 +22,7 @@ pub struct PositionAssignment {
 }
 
 /// Single unmatched dependency surfaced during assignment.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct UnmatchedEntry {
     /// Portfolio position identifier.
     pub position_id: PositionId,

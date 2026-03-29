@@ -128,6 +128,14 @@ class NettingSetMargin:
         ...
 
     def __repr__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "NettingSetMargin":
+        """Deserialize from JSON string."""
+        ...
 
 class NettingSetManager:
     """Organize positions into netting sets."""
@@ -235,6 +243,14 @@ class PortfolioMarginResult:
         ...
 
     def __repr__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "PortfolioMarginResult":
+        """Deserialize from JSON string."""
+        ...
 
 class PortfolioMarginAggregator:
     """Aggregate margin requirements across a portfolio."""

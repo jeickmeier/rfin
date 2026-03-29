@@ -28,6 +28,7 @@ use super::risk_metrics::{
 ///
 /// Holds pre-computed returns, drawdowns, and benchmark data for a universe of
 /// tickers. Methods delegate to the pure-function sub-modules.
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct Performance {
     price_dates: Vec<Date>,
     dates: Vec<Date>,
@@ -1306,7 +1307,7 @@ impl Performance {
 }
 
 /// Lookback returns for each period horizon.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LookbackReturns {
     /// Month-to-date compounded return per ticker.
     pub mtd: Vec<f64>,

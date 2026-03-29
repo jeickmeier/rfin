@@ -1,8 +1,20 @@
 //! Integration tests for scenarios WASM bindings.
 
+use finstack_core::currency::Currency as CoreCurrency;
+use finstack_core::money::Money;
+use finstack_scenarios::adapters::RollForwardReport as CoreRollForwardReport;
+use finstack_scenarios::engine::ApplicationReport as CoreApplicationReport;
+use indexmap::IndexMap;
+use time::macros::date;
+use wasm_bindgen::JsValue;
 use wasm_bindgen_test::*;
 
-wasm_bindgen_test_configure!(run_in_browser);
+fn js_stringify(value: &JsValue) -> String {
+    js_sys::JSON::stringify(value)
+        .unwrap()
+        .as_string()
+        .unwrap_or_default()
+}
 
 #[wasm_bindgen_test]
 fn test_scenario_engine_creation() {
@@ -141,5 +153,50 @@ fn test_operation_spec_json_roundtrip() {
     assert_eq!(
         js_sys::JSON::stringify(&json).unwrap(),
         js_sys::JSON::stringify(&json2).unwrap()
+    );
+}
+
+#[wasm_bindgen_test]
+fn test_application_report_json_roundtrip() {
+    use finstack_wasm::ApplicationReport;
+
+    let payload = serde_wasm_bindgen::to_value(&CoreApplicationReport {
+        operations_applied: 3,
+        warnings: vec!["rounded discount factor".to_string()],
+        rounding_context: Some("book-close-v1".to_string()),
+    })
+    .unwrap();
+
+    let wrapped = ApplicationReport::from_json(payload.clone()).unwrap();
+    assert_eq!(
+        js_stringify(&payload),
+        js_stringify(&wrapped.to_json().unwrap())
+    );
+}
+
+#[wasm_bindgen_test]
+fn test_roll_forward_report_json_roundtrip() {
+    use finstack_wasm::RollForwardReport;
+
+    let mut total_carry = IndexMap::new();
+    total_carry.insert(CoreCurrency::USD, Money::new(1_250.0, CoreCurrency::USD));
+
+    let mut instrument_carry = IndexMap::new();
+    instrument_carry.insert(CoreCurrency::USD, Money::new(500.0, CoreCurrency::USD));
+
+    let payload = serde_wasm_bindgen::to_value(&CoreRollForwardReport {
+        old_date: date!(2025 - 01 - 01),
+        new_date: date!(2025 - 02 - 01),
+        days: 31,
+        instrument_carry: vec![("BOND_A".to_string(), instrument_carry)],
+        total_carry,
+        failed_instruments: vec![("LOAN_B".to_string(), "missing carry inputs".to_string())],
+    })
+    .unwrap();
+
+    let wrapped = RollForwardReport::from_json(payload.clone()).unwrap();
+    assert_eq!(
+        js_stringify(&payload),
+        js_stringify(&wrapped.to_json().unwrap())
     );
 }

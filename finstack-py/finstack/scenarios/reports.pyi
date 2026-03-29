@@ -76,6 +76,14 @@ class ApplicationReport:
         ...
 
     def __repr__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "ApplicationReport":
+        """Deserialize from JSON string."""
+        ...
 
 class RollForwardReport:
     """Report from time roll-forward operation.
@@ -174,3 +182,11 @@ class RollForwardReport:
         ...
 
     def __repr__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "RollForwardReport":
+        """Deserialize from JSON string."""
+        ...

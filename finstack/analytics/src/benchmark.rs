@@ -28,7 +28,7 @@ fn compensated_add(sum: &mut f64, compensation: &mut f64, value: f64) {
 }
 
 /// Policy for handling benchmark dates that are missing from the target grid.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BenchmarkAlignmentPolicy {
     /// Preserve legacy behavior by synthesizing a zero return for missing dates.
     ZeroReturnOnMissingDates,
@@ -333,7 +333,7 @@ pub fn r_squared(returns: &[f64], benchmark: &[f64]) -> f64 {
 }
 
 /// OLS beta result with optional standard error and confidence interval.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct BetaResult {
     /// Estimated beta coefficient.
     pub beta: f64,
@@ -480,7 +480,7 @@ pub fn calc_beta(portfolio: &[f64], benchmark: &[f64]) -> BetaResult {
 }
 
 /// Greeks (alpha, beta, r_squared) from a single-factor regression.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GreeksResult {
     /// Annualized alpha (intercept).
     pub alpha: f64,
@@ -545,7 +545,7 @@ pub fn greeks(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> GreeksResu
 }
 
 /// Rolling greeks output.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RollingGreeks {
     /// End dates for each rolling window.
     pub dates: Vec<Date>,
@@ -832,7 +832,7 @@ pub fn batting_average(returns: &[f64], benchmark: &[f64]) -> f64 {
 }
 
 /// Result of a multi-factor regression.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MultiFactorResult {
     /// Annualized intercept (alpha).
     pub alpha: f64,

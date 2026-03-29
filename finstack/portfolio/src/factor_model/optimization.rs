@@ -4,7 +4,7 @@ use crate::PositionId;
 use finstack_core::factor_model::FactorId;
 
 /// Declarative factor-aware constraint surface for future optimization support.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum FactorConstraint {
     /// Cap the absolute portfolio risk attributed to a single factor.
     MaxFactorRisk {
@@ -28,7 +28,7 @@ pub enum FactorConstraint {
 }
 
 /// Placeholder result shape for future factor-constrained optimization.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FactorOptimizationResult {
     /// Optimized position quantities keyed by position identifier.
     pub optimized_quantities: Vec<(PositionId, f64)>,

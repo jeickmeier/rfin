@@ -41,11 +41,11 @@ Audit or review first, then plan, then implement. Keep changes minimal, direct, 
 2. Identify the smallest correct change that satisfies the request.
 3. Add or update tests alongside the behavior change when appropriate.
 4. After each meaningful Rust edit set, run:
-	- `make lint-rust`
-	- `make test-rust`
+- `make lint-rust`
+- `make test-rust`
 5. If the change touches binding-facing Rust or changes the Rust library surface used by bindings:
-	- rebuild Python bindings with `make python-dev` before validating Python usage
-	- rebuild WASM bindings with `make wasm-build` before validating WASM or JS usage
+- rebuild Python bindings with `make python-dev` before validating Python usage
+- rebuild WASM bindings with `make wasm-build` before validating WASM or JS usage
 6. If Rust changes include binding crates or all-feature paths, expand validation as needed, for example with `make lint-rust-full`.
 
 ## Testing Expectations
@@ -61,13 +61,13 @@ Audit or review first, then plan, then implement. Keep changes minimal, direct, 
 Before reporting success, complete all of the following:
 
 1. Run a pre-commit validation pass and get it 100% green:
-	- `make pre-commit-run`
+- `make pre-commit-run`
 2. Run Rust tests and get them 100% green:
-	- `make test-rust`
+- `make test-rust`
 3. Review the final diff like a skeptical senior reviewer:
-	- check correctness, edge cases, failure paths, and regressions
-	- remove unnecessary complexity and dead code
-	- confirm tests and documentation match the implementation
+- check correctness, edge cases, failure paths, and regressions
+- remove unnecessary complexity and dead code
+- confirm tests and documentation match the implementation
 
 Do not declare the task done while any required check is failing. If a check is blocked by an unrelated existing failure, state that explicitly and separate it from your own changes.
 

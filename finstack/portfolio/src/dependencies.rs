@@ -20,7 +20,7 @@ use finstack_valuations::instruments::MarketDependencies;
 /// market data input.  The key space is intentionally broader than curves
 /// alone so the index can route spot, vol, FX, and series changes without
 /// a second abstraction layer.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum MarketFactorKey {
     /// A rate curve identified by curve ID and kind (discount / forward / credit).
     Curve {

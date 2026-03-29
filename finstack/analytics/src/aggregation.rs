@@ -8,7 +8,7 @@ use crate::dates::{Date, DateExt, FiscalConfig, PeriodId, PeriodKind};
 use super::returns::comp_total;
 
 /// Period-level aggregate statistics.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct PeriodStats {
     /// Best single-period return.
     pub best: f64,

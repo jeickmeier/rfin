@@ -18,7 +18,7 @@ fn invalid_annualization_factor(annualize: bool, ann_factor: f64) -> bool {
 }
 
 /// Day-count convention for CAGR annualization over explicit calendar dates.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AnnualizationConvention {
     /// Actual calendar days divided by 365.0.
     Act365Fixed,
@@ -437,7 +437,7 @@ pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 }
 
 /// Explicit ruin event definition for simulated portfolio paths.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum RuinDefinition {
     /// Ruin occurs once path wealth falls to or below a fraction of starting wealth.
     WealthFloor { floor_fraction: f64 },
@@ -448,7 +448,7 @@ pub enum RuinDefinition {
 }
 
 /// Simulation controls for ruin-probability estimation.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RuinModel {
     /// Number of simulated periods per path.
     pub horizon_periods: usize,
@@ -475,7 +475,7 @@ impl Default for RuinModel {
 }
 
 /// Ruin-probability estimate with uncertainty bounds.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RuinEstimate {
     /// Estimated probability of ruin.
     pub probability: f64,

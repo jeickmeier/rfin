@@ -64,7 +64,7 @@ fn matches_strike(target: f64, actual: f64) -> bool {
 }
 
 /// Arbitrage violation types detected in volatility surfaces.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ArbitrageViolation {
     /// Calendar spread arbitrage: total variance decreases with expiry at given strike
     CalendarSpread {

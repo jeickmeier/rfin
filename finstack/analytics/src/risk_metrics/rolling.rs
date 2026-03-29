@@ -30,7 +30,7 @@ fn recompute_sum_sum_ds(window: &[f64]) -> (f64, f64) {
 ///
 /// Contains parallel vectors of Sharpe values and their corresponding
 /// window-end dates, suitable for time-series charting.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RollingSharpe {
     /// Rolling Sharpe ratio values.
     pub values: Vec<f64>,
@@ -105,7 +105,7 @@ pub fn rolling_sharpe(
 }
 
 /// Output of a rolling volatility computation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RollingVolatility {
     /// Rolling annualized volatility values.
     pub values: Vec<f64>,
@@ -174,7 +174,7 @@ pub fn rolling_volatility(
 }
 
 /// Output of a rolling Sortino ratio computation.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RollingSortino {
     /// Rolling Sortino ratio values.
     pub values: Vec<f64>,

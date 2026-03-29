@@ -1,0 +1,96 @@
+use finstack_core::factor_model::{CurveType, FactorId, MarketDependency, RiskMeasure};
+use finstack_core::types::CurveId;
+use finstack_portfolio::factor_model::{
+    FactorAssignmentReport, FactorConstraint, FactorContribution, FactorContributionDelta,
+    FactorOptimizationResult, PositionAssignment, PositionFactorContribution, StressResult,
+    UnmatchedEntry, WhatIfResult,
+};
+use finstack_portfolio::{PositionId, RiskDecomposition};
+
+fn roundtrip_json<T>(value: &T) -> T
+where
+    T: serde::Serialize + serde::de::DeserializeOwned,
+{
+    let json = serde_json::to_string(value).expect("serialization should succeed");
+    serde_json::from_str(&json).expect("deserialization should succeed")
+}
+
+fn assert_roundtrip_value<T>(value: &T)
+where
+    T: serde::Serialize + serde::de::DeserializeOwned,
+{
+    let restored = roundtrip_json(value);
+    assert_eq!(
+        serde_json::to_value(value).expect("value serialization should succeed"),
+        serde_json::to_value(&restored).expect("value reserialization should succeed")
+    );
+}
+
+fn sample_decomposition() -> RiskDecomposition {
+    RiskDecomposition {
+        total_risk: 100.0,
+        measure: RiskMeasure::Variance,
+        factor_contributions: vec![FactorContribution {
+            factor_id: FactorId::new("Rates"),
+            absolute_risk: 60.0,
+            relative_risk: 0.6,
+            marginal_risk: 0.3,
+        }],
+        residual_risk: 40.0,
+        position_factor_contributions: vec![PositionFactorContribution {
+            position_id: PositionId::new("POS_1"),
+            factor_id: FactorId::new("Rates"),
+            risk_contribution: 60.0,
+        }],
+    }
+}
+
+#[test]
+fn test_factor_model_report_types_roundtrip() {
+    let dependency = MarketDependency::Curve {
+        id: CurveId::new("USD-OIS"),
+        curve_type: CurveType::Discount,
+    };
+
+    assert_roundtrip_value(&FactorAssignmentReport {
+        assignments: vec![PositionAssignment {
+            position_id: PositionId::new("POS_1"),
+            mappings: vec![(dependency.clone(), FactorId::new("Rates"))],
+        }],
+        unmatched: vec![UnmatchedEntry {
+            position_id: PositionId::new("POS_2"),
+            dependency: MarketDependency::Spot { id: "AAPL".into() },
+        }],
+    });
+
+    assert_roundtrip_value(&FactorContributionDelta {
+        factor_id: FactorId::new("Credit"),
+        absolute_change: -12.5,
+        relative_change: -0.2,
+    });
+
+    assert_roundtrip_value(&WhatIfResult {
+        before: sample_decomposition(),
+        after: sample_decomposition(),
+        delta: vec![FactorContributionDelta {
+            factor_id: FactorId::new("Rates"),
+            absolute_change: 5.0,
+            relative_change: 0.1,
+        }],
+    });
+
+    assert_roundtrip_value(&StressResult {
+        total_pnl: -1_250.0,
+        position_pnl: vec![(PositionId::new("POS_1"), -750.0)],
+        stressed_decomposition: sample_decomposition(),
+    });
+
+    assert_roundtrip_value(&FactorConstraint::MaxFactorConcentration {
+        factor_id: FactorId::new("Rates"),
+        max_fraction: 0.35,
+    });
+
+    assert_roundtrip_value(&FactorOptimizationResult {
+        optimized_quantities: vec![(PositionId::new("POS_1"), 1.25)],
+    });
+}

@@ -45,6 +45,14 @@ class PortfolioCashflows:
         ...
 
     def __repr__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "PortfolioCashflows":
+        """Deserialize from JSON string."""
+        ...
 
 class PortfolioCashflowBuckets:
     """Cashflows bucketed by reporting period in base currency."""
@@ -55,6 +63,14 @@ class PortfolioCashflowBuckets:
         ...
 
     def __repr__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    @staticmethod
+    def from_json(json_str: str) -> "PortfolioCashflowBuckets":
+        """Deserialize from JSON string."""
+        ...
 
 def aggregate_cashflows(portfolio: Portfolio, market_context: MarketContext) -> PortfolioCashflows:
     """Collect and aggregate holder-view cashflows across all positions.

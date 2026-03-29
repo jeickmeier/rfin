@@ -201,6 +201,7 @@ fn price_instrument_handles(
     signature = (instruments, market, as_of, metrics=None, model=None, registry=None, return_dicts=false),
     text_signature = "(instruments, market, as_of, metrics=None, model='discounting', registry=None, return_dicts=False)"
 )]
+#[allow(clippy::too_many_arguments)]
 /// Price a list of instruments using a single service-friendly helper.
 ///
 /// Args:

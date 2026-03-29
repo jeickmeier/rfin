@@ -11,7 +11,7 @@ use crate::dates::Date;
 use crate::math::stats::quantile;
 
 /// Drawdown episode with start, valley, optional recovery, and max drawdown.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DrawdownEpisode {
     /// Date when the drawdown began (peak date).
     pub start: Date,

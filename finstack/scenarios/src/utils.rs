@@ -251,7 +251,7 @@ pub fn parse_period_to_days(period: &str) -> Result<i64> {
 }
 
 /// Result of interpolation weight calculation, including any extrapolation info.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct InterpolationResult {
     /// Weights as (knot_index, weight) pairs.
     pub weights: Vec<(usize, f64)>,

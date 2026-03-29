@@ -80,7 +80,7 @@ fn should_warn_far_future_fx_conversion(
 ///
 /// The `by_date` map preserves chronological ordering of payment dates and
 /// aggregates per-currency amounts for each date across all positions.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CashflowWarning {
     /// Position whose cashflow extraction failed.
     pub position_id: PositionId,
@@ -93,7 +93,7 @@ pub struct CashflowWarning {
 }
 
 /// Why a position did not contribute classified cashflows to a portfolio ladder.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CashflowExtractionIssueKind {
     /// The instrument does not expose `CashflowProvider`.
     Unsupported,
@@ -102,7 +102,7 @@ pub enum CashflowExtractionIssueKind {
 }
 
 /// Structured issue captured while extracting full cashflow schedules.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct CashflowExtractionIssue {
     /// Position whose cashflow extraction was attempted.
     pub position_id: PositionId,
@@ -117,7 +117,7 @@ pub struct CashflowExtractionIssue {
 }
 
 /// Per-position cashflow summary, including empty-schedule intent metadata.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioCashflowPositionSummary {
     /// Position identifier.
     pub position_id: PositionId,
@@ -132,7 +132,7 @@ pub struct PortfolioCashflowPositionSummary {
 }
 
 /// One scaled portfolio cashflow event derived from an instrument schedule.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioCashflowEvent {
     /// Position contributing the event.
     pub position_id: PositionId,
@@ -155,7 +155,7 @@ pub struct PortfolioCashflowEvent {
 }
 
 /// Rich portfolio cashflow ladder preserving event classifications.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioFullCashflows {
     /// Scaled cashflow events for all supported positions, sorted by payment date.
     pub events: Vec<PortfolioCashflowEvent>,
@@ -174,7 +174,7 @@ pub struct PortfolioFullCashflows {
 }
 
 /// Aggregated portfolio cashflows by date and currency, plus extraction warnings.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioCashflows {
     /// Map from payment date to per-currency totals.
     pub by_date: IndexMap<Date, IndexMap<Currency, Money>>,
@@ -196,14 +196,14 @@ pub struct PortfolioCashflows {
 ///
 /// Each period total is expressed in a single reporting currency and is
 /// suitable for liquidity analysis and cashflow ladder reporting.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioCashflowBuckets {
     /// Map from period identifier to total cashflow in reporting currency.
     pub by_period: IndexMap<finstack_core::dates::PeriodId, Money>,
 }
 
 /// Aggregated base-currency cashflows bucketed by period and `CFKind`.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct PortfolioCashflowKindBuckets {
     /// Map from period identifier to base-currency totals per cashflow kind.
     pub by_period: IndexMap<finstack_core::dates::PeriodId, IndexMap<CFKind, Money>>,

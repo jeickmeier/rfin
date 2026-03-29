@@ -38,6 +38,24 @@ impl JsApplicationReport {
     pub fn rounding_context(&self) -> Option<String> {
         self.inner.rounding_context.clone()
     }
+
+    /// Serialize to a JavaScript object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize ApplicationReport: {}", e))
+        })
+    }
+
+    /// Deserialize from a JavaScript object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsApplicationReport, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsApplicationReport { inner })
+            .map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize ApplicationReport: {}", e))
+            })
+    }
 }
 
 impl From<ApplicationReport> for JsApplicationReport {
@@ -108,6 +126,24 @@ impl JsRollForwardReport {
             result.push(&pair.into());
         }
         result
+    }
+
+    /// Serialize to a JavaScript object.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            JsValue::from_str(&format!("Failed to serialize RollForwardReport: {}", e))
+        })
+    }
+
+    /// Deserialize from a JavaScript object.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsRollForwardReport, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsRollForwardReport { inner })
+            .map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize RollForwardReport: {}", e))
+            })
     }
 }
 
