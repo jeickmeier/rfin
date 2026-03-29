@@ -15,7 +15,7 @@ use finstack_core::currency::Currency;
 use finstack_core::money::Money;
 
 /// Vanilla option kind for barrier payoff evaluation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum OptionKind {
     /// Call option: max(S-K, 0)
     Call,
@@ -24,7 +24,7 @@ pub enum OptionKind {
 }
 
 /// Barrier option type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BarrierType {
     /// Up-and-out: option knocked out if S >= B
     UpAndOut,

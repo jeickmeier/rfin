@@ -427,7 +427,7 @@ fn initialize_direction_numbers(max_dim: usize) -> Vec<Vec<u32>> {
         for i in s..32 {
             let mut v = directions[i - s] >> s;
             for k in 1..s {
-                let coeff = (a >> (k - 1)) & 1;
+                let coeff = (a >> (s - 1 - k)) & 1;
                 if coeff == 1 {
                     v ^= directions[i - k];
                 }
