@@ -17,6 +17,9 @@ use crate::instruments::common_impl::parameters::OptionType;
 const UNBRACKETED_MSG: &str =
     "Cannot bracket implied volatility: price may exceed arbitrage bounds";
 
+/// Error returned when implied volatility inputs contain non-finite values.
+const NON_FINITE_MSG: &str = "Implied volatility solver received non-finite input parameters";
+
 /// Minimum volatility (annualized) used for bracketing.
 const MIN_VOL: f64 = 1e-8;
 /// Maximum volatility (annualized) allowed during bracketing.
@@ -36,7 +39,7 @@ const MIN_VEGA: f64 = 1e-15;
 ///
 /// - `target_price` is the **per-unit** option price (not contract-scaled).
 /// - Returns `Ok(0.0)` when `t <= 0` or `target_price <= 0` (expired or degenerate).
-/// - Returns `Err` when the target cannot be bracketed (price may exceed arbitrage bounds).
+/// - Returns `Err` for non-finite inputs (NaN, infinity) or when the target cannot be bracketed.
 #[allow(clippy::too_many_arguments)]
 pub fn bs_implied_vol(
     spot: f64,
@@ -47,8 +50,14 @@ pub fn bs_implied_vol(
     option_type: OptionType,
     target_price: f64,
 ) -> Result<f64> {
-    if !spot.is_finite() || !strike.is_finite() || !r.is_finite() || !q.is_finite() {
-        return Ok(0.0);
+    if !spot.is_finite()
+        || !strike.is_finite()
+        || !r.is_finite()
+        || !q.is_finite()
+        || !t.is_finite()
+        || !target_price.is_finite()
+    {
+        return Err(finstack_core::Error::Validation(NON_FINITE_MSG.into()));
     }
     if t <= 0.0 || target_price <= 0.0 || spot <= 0.0 || strike <= 0.0 {
         return Ok(0.0);
@@ -142,7 +151,7 @@ pub fn bs_implied_vol(
 ///
 /// - `target_price` is the **per-unit** option price (not contract-scaled).
 /// - Returns `Ok(0.0)` when `t <= 0` or `target_price <= 0` (expired or degenerate).
-/// - Returns `Err` when the target cannot be bracketed (price may exceed arbitrage bounds).
+/// - Returns `Err` for non-finite inputs (NaN, infinity) or when the target cannot be bracketed.
 pub fn black76_implied_vol(
     forward: f64,
     strike: f64,
@@ -151,8 +160,13 @@ pub fn black76_implied_vol(
     option_type: OptionType,
     target_price: f64,
 ) -> Result<f64> {
-    if !forward.is_finite() || !strike.is_finite() || !df.is_finite() {
-        return Ok(0.0);
+    if !forward.is_finite()
+        || !strike.is_finite()
+        || !df.is_finite()
+        || !t.is_finite()
+        || !target_price.is_finite()
+    {
+        return Err(finstack_core::Error::Validation(NON_FINITE_MSG.into()));
     }
     if t <= 0.0 || target_price <= 0.0 || forward <= 0.0 || strike <= 0.0 || df <= 0.0 {
         return Ok(0.0);

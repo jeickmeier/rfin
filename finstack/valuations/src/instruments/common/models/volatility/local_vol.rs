@@ -8,6 +8,7 @@
 //! where $C(K, T)$ is the call price surface, $r$ is the risk-free rate, and $q$ is the
 //! dividend yield.
 
+use crate::instruments::common_impl::parameters::VolatilityModel;
 use finstack_core::dates::Date;
 use finstack_core::Result;
 use std::sync::Arc;
@@ -41,8 +42,14 @@ impl BilinearInterp {
                 "Grid dimensions do not match values length".into(),
             ));
         }
-        // Verify sorted
-        // (Omitted for brevity, assume sorted from builder)
+        debug_assert!(
+            xs.windows(2).all(|w| w[0] <= w[1]),
+            "BilinearInterp: xs must be sorted"
+        );
+        debug_assert!(
+            ys.windows(2).all(|w| w[0] <= w[1]),
+            "BilinearInterp: ys must be sorted"
+        );
         Ok(Self { xs, ys, z_flat })
     }
 
@@ -139,113 +146,81 @@ impl LocalVolSurface {
     }
 }
 
+/// Parameters for constructing a local volatility surface via Dupire's formula.
+pub struct DupireParams<'a> {
+    /// As-of date for the surface.
+    pub base_date: Date,
+    /// Current spot price (or forward rate for rates).
+    pub spot: f64,
+    /// Risk-free rate (continuous).
+    pub rate: f64,
+    /// Dividend yield (continuous).
+    pub div_yield: f64,
+    /// Grid of strikes for the local vol surface.
+    pub strikes: &'a [f64],
+    /// Grid of times (years) for the local vol surface.
+    pub times: &'a [f64],
+    /// Lognormal ([`VolatilityModel::Black`]) or normal ([`VolatilityModel::Normal`]).
+    pub vol_model: VolatilityModel,
+}
+
 /// Builder for Local Volatility Surface from Implied Volatility.
 pub struct LocalVolBuilder;
 
 impl LocalVolBuilder {
     /// Construct Local Volatility from Implied Volatility using Dupire's formula.
     ///
-    /// This implementation uses scale-aware finite differences on the implied volatility
-    /// surface to compute the necessary derivatives of the Call price, ensuring numerical
-    /// stability across different asset classes (equities, rates, FX).
+    /// Supports both lognormal (Black) and normal (Bachelier) volatility models.
+    /// For rates-scale data (forward ~ 0.01-0.05), use [`VolatilityModel::Normal`]
+    /// with normal implied vols to avoid the numerical instability of the lognormal
+    /// model at small absolute levels.
     ///
-    /// # Arguments
-    /// * `implied_vol`: Function/Closure returning implied vol $\sigma(K, T)$
-    /// * `base_date`: The as-of date for the surface
-    /// * `s0`: Current spot price
-    /// * `r`: Risk-free rate (continuous)
-    /// * `q`: Dividend yield (continuous)
-    /// * `strikes`: Grid of strikes for the local vol surface
-    /// * `times`: Grid of times for the local vol surface
+    /// # Dupire Formulas
     ///
-    /// # Numerical Stability
+    /// **Lognormal** (Black) — spot measure with discounted call prices:
+    /// $$ \sigma_{loc}^2 = \frac{\partial C/\partial T + (r-q)K\,\partial C/\partial K + qC}
+    ///                          {\tfrac{1}{2}K^2\,\partial^2 C/\partial K^2} $$
     ///
-    /// Uses relative perturbations (1% of strike/time) rather than fixed absolute
-    /// values to ensure stable derivatives across different scales:
-    /// - For equities (S ~ 100): dk ~ 1.0
-    /// - For rates (S ~ 0.05): dk ~ 0.0005
+    /// **Normal** (Bachelier) — forward measure with undiscounted call prices at fixed forward:
+    /// $$ \sigma_{N,loc}^2 = \frac{\partial C_{und}/\partial T}
+    ///                            {\tfrac{1}{2}\,\partial^2 C_{und}/\partial K^2} $$
     #[allow(non_snake_case)]
-    pub fn from_implied_vol<F>(
-        implied_vol: F,
-        base_date: Date,
-        S0: f64,
-        r: f64,
-        q: f64,
-        strikes: &[f64],
-        times: &[f64],
-    ) -> Result<LocalVolSurface>
+    pub fn from_implied_vol<F>(implied_vol: F, params: DupireParams<'_>) -> Result<LocalVolSurface>
     where
-        F: Fn(f64, f64) -> Result<f64>, // (K, T) -> sigma
+        F: Fn(f64, f64) -> Result<f64>,
     {
-        // Grid construction
-        // We iterate times (outer) then strikes (inner) to match BilinearInterp expectation
-        // if we map times -> x, strikes -> y.
+        let DupireParams {
+            base_date,
+            spot: S0,
+            rate: r,
+            div_yield: q,
+            strikes,
+            times,
+            vol_model,
+        } = params;
         let mut local_vols = Vec::with_capacity(times.len() * strikes.len());
 
         for &t in times {
             for &k in strikes {
                 if t <= 1e-6 {
-                    // At t≈0, local vol = implied vol (limiting case)
-                    let vol = implied_vol(k, 1e-6)?; // Use small positive time
+                    let vol = implied_vol(k, 1e-6)?;
                     local_vols.push(vol);
                     continue;
                 }
 
-                // Scale-aware perturbations (relative to strike/time)
-                // Use 1% relative perturbation, with minimum floors for very small values
-                let dk = (0.01 * k.abs()).max(1e-8);
+                let dk = match vol_model {
+                    VolatilityModel::Normal => (0.01 * k.abs()).max(1e-4),
+                    VolatilityModel::Black => (0.01 * k.abs()).max(1e-8),
+                };
                 let dt = (0.01 * t).max(1e-6);
 
-                // 1. Compute Call Price C(K, T) and derivatives
-
-                // Central difference for K (second-order accurate)
-                let c_k_plus = black_scholes_price(&implied_vol, S0, k + dk, t, r, q)?;
-                let c_k_minus = black_scholes_price(&implied_vol, S0, k - dk, t, r, q)?;
-                let c_k = black_scholes_price(&implied_vol, S0, k, t, r, q)?;
-
-                #[allow(non_snake_case)]
-                let dC_dK = (c_k_plus - c_k_minus) / (2.0 * dk);
-                #[allow(non_snake_case)]
-                let d2C_dK2 = (c_k_plus - 2.0 * c_k + c_k_minus) / (dk * dk);
-
-                // Butterfly spread arbitrage: d²C/dK² must be positive
-                if d2C_dK2 <= 0.0 {
-                    tracing::warn!(
-                        strike = k,
-                        time = t,
-                        "d²C/dK² <= 0 (butterfly spread arbitrage violation): falling back to implied vol"
-                    );
-                    let iv = implied_vol(k, t)?;
-                    local_vols.push(iv);
-                    continue;
-                }
-
-                // Central difference for T (more accurate than forward difference)
-                let c_t_plus = black_scholes_price(&implied_vol, S0, k, t + dt, r, q)?;
-                let c_t_minus = if t > dt {
-                    black_scholes_price(&implied_vol, S0, k, t - dt, r, q)?
-                } else {
-                    c_k // Use forward difference near t=0
-                };
-                #[allow(non_snake_case)]
-                let dC_dT = if t > dt {
-                    (c_t_plus - c_t_minus) / (2.0 * dt) // Central difference
-                } else {
-                    (c_t_plus - c_k) / dt // Forward difference near t=0
-                };
-
-                // Dupire Formula
-                // sigma_loc^2 = (dC/dT + (r-q)K dC/dK + qC) / (0.5 * K^2 * d2C/dK2)
-
-                let numerator = dC_dT + (r - q) * k * dC_dK + q * c_k;
-                let denominator = 0.5 * k * k * d2C_dK2;
-
-                let var_loc = if denominator.abs() < 1e-12 {
-                    // Fallback to implied vol if curvature is near zero (flat smile)
-                    let iv = implied_vol(k, t)?;
-                    iv * iv
-                } else {
-                    (numerator / denominator).max(0.0) // Ensure non-negative variance
+                let var_loc = match vol_model {
+                    VolatilityModel::Normal => {
+                        dupire_normal_point(&implied_vol, S0, r, q, k, t, dk, dt)?
+                    }
+                    VolatilityModel::Black => {
+                        dupire_lognormal_point(&implied_vol, S0, r, q, k, t, dk, dt)?
+                    }
                 };
 
                 local_vols.push(var_loc.sqrt());
@@ -258,26 +233,136 @@ impl LocalVolBuilder {
     }
 }
 
-/// Helper to price Call using Black-Scholes with implied vol
-#[allow(non_snake_case)]
-fn black_scholes_price<F>(implied_vol_fn: &F, S: f64, K: f64, T: f64, r: f64, q: f64) -> Result<f64>
-where
-    F: Fn(f64, f64) -> Result<f64>,
-{
-    let sigma = implied_vol_fn(K, T)?;
-
-    if T <= 0.0 {
-        return Ok((S - K).max(0.0));
-    }
-
-    use crate::instruments::common_impl::models::volatility::black::{d1, d2};
+/// Lognormal (Black-Scholes) Dupire local variance at a single grid point.
+///
+/// Uses spot-measure discounted call prices and the standard Dupire formula:
+/// `sigma_loc^2 = (dC/dT + (r-q)K dC/dK + qC) / (0.5 K^2 d2C/dK2)`
+#[allow(non_snake_case, clippy::too_many_arguments)]
+fn dupire_lognormal_point(
+    implied_vol: &dyn Fn(f64, f64) -> Result<f64>,
+    S0: f64,
+    r: f64,
+    q: f64,
+    k: f64,
+    t: f64,
+    dk: f64,
+    dt: f64,
+) -> Result<f64> {
+    use crate::instruments::common_impl::models::volatility::black::d1_d2;
     use finstack_core::math::norm_cdf;
 
-    let d1_val = d1(S, K, r, sigma, T, q);
-    let d2_val = d2(S, K, r, sigma, T, q);
+    let bs_call = |strike: f64, time: f64| -> Result<f64> {
+        let sigma = implied_vol(strike, time)?;
+        if time <= 0.0 {
+            return Ok((S0 - strike).max(0.0));
+        }
+        let (d1v, d2v) = d1_d2(S0, strike, r, sigma, time, q);
+        Ok(S0 * (-q * time).exp() * norm_cdf(d1v) - strike * (-r * time).exp() * norm_cdf(d2v))
+    };
 
-    let call = S * (-q * T).exp() * norm_cdf(d1_val) - K * (-r * T).exp() * norm_cdf(d2_val);
-    Ok(call)
+    let c_k = bs_call(k, t)?;
+    let c_k_plus = bs_call(k + dk, t)?;
+    let c_k_minus = bs_call(k - dk, t)?;
+
+    let dC_dK = (c_k_plus - c_k_minus) / (2.0 * dk);
+    let d2C_dK2 = (c_k_plus - 2.0 * c_k + c_k_minus) / (dk * dk);
+
+    if d2C_dK2 <= 0.0 {
+        tracing::warn!(
+            strike = k,
+            time = t,
+            "d²C/dK² <= 0 (butterfly arbitrage violation): falling back to implied vol"
+        );
+        let iv = implied_vol(k, t)?;
+        return Ok(iv * iv);
+    }
+
+    let c_t_plus = bs_call(k, t + dt)?;
+    let c_t_minus = if t > dt { bs_call(k, t - dt)? } else { c_k };
+    let dC_dT = if t > dt {
+        (c_t_plus - c_t_minus) / (2.0 * dt)
+    } else {
+        (c_t_plus - c_k) / dt
+    };
+
+    let numerator = dC_dT + (r - q) * k * dC_dK + q * c_k;
+    let denominator = 0.5 * k * k * d2C_dK2;
+
+    if denominator.abs() < 1e-12 {
+        let iv = implied_vol(k, t)?;
+        return Ok(iv * iv);
+    }
+    Ok((numerator / denominator).max(0.0))
+}
+
+/// Normal (Bachelier) Dupire local variance at a single grid point.
+///
+/// Works with **undiscounted** Bachelier call prices in the forward measure,
+/// holding the forward fixed when perturbing T. This avoids the drift/discounting
+/// terms that make the lognormal formula unstable at rates scale.
+///
+/// Forward-measure normal Dupire:
+/// `sigma_N_loc^2 = dC_und/dT / (0.5 * d2C_und/dK2)`
+#[allow(non_snake_case, clippy::too_many_arguments)]
+fn dupire_normal_point(
+    implied_vol: &dyn Fn(f64, f64) -> Result<f64>,
+    s0: f64,
+    r: f64,
+    q: f64,
+    k: f64,
+    t: f64,
+    dk: f64,
+    dt: f64,
+) -> Result<f64> {
+    let forward = s0 * ((r - q) * t).exp();
+
+    let bach_call = |strike: f64, time: f64, fwd: f64| -> Result<f64> {
+        let sigma_n = implied_vol(strike, time)?;
+        if time <= 0.0 {
+            return Ok((fwd - strike).max(0.0));
+        }
+        Ok(finstack_core::math::volatility::bachelier_call(
+            fwd, strike, sigma_n, time,
+        ))
+    };
+
+    // K derivatives at fixed T and fixed forward
+    let c_k = bach_call(k, t, forward)?;
+    let c_k_plus = bach_call(k + dk, t, forward)?;
+    let c_k_minus = bach_call(k - dk, t, forward)?;
+
+    let d2C_dK2 = (c_k_plus - 2.0 * c_k + c_k_minus) / (dk * dk);
+
+    if d2C_dK2 <= 0.0 {
+        tracing::warn!(
+            strike = k,
+            time = t,
+            "d²C/dK² <= 0 (butterfly arbitrage violation): falling back to implied vol"
+        );
+        let iv = implied_vol(k, t)?;
+        return Ok(iv * iv);
+    }
+
+    // T derivative at FIXED forward — pure time decay, no drift contamination.
+    let c_t_plus = bach_call(k, t + dt, forward)?;
+    let c_t_minus = if t > dt {
+        bach_call(k, t - dt, forward)?
+    } else {
+        c_k
+    };
+    let dC_dT = if t > dt {
+        (c_t_plus - c_t_minus) / (2.0 * dt)
+    } else {
+        (c_t_plus - c_k) / dt
+    };
+
+    let denominator = 0.5 * d2C_dK2;
+
+    if denominator.abs() < 1e-12 {
+        let iv = implied_vol(k, t)?;
+        return Ok(iv * iv);
+    }
+    Ok((dC_dT / denominator).max(0.0))
 }
 
 #[cfg(test)]
@@ -287,34 +372,30 @@ mod tests {
 
     #[test]
     fn test_local_vol_flat_smile() -> Result<()> {
-        // If implied vol is constant (flat smile), local vol should equal implied vol
         let const_vol = 0.20;
         let implied_vol_fn = |_: f64, _: f64| Ok(const_vol);
 
         let base_date =
             Date::from_ordinal_date(2024, 1).expect("Invalid date: 2024-01-01 should be valid");
-        #[allow(non_snake_case)]
-        let S0 = 100.0;
-        let r = 0.05;
-        let q = 0.0;
 
         let strikes = vec![80.0, 90.0, 100.0, 110.0, 120.0];
         let times = vec![0.5, 1.0, 2.0];
 
         let lv_surface = LocalVolBuilder::from_implied_vol(
             implied_vol_fn,
-            base_date,
-            S0,
-            r,
-            q,
-            &strikes,
-            &times,
+            DupireParams {
+                base_date,
+                spot: 100.0,
+                rate: 0.05,
+                div_yield: 0.0,
+                strikes: &strikes,
+                times: &times,
+                vol_model: VolatilityModel::Black,
+            },
         )?;
 
-        // Check at ATM, T=1.0
         let lv = lv_surface.get_vol(1.0, 100.0)?;
 
-        // Allow small numerical error due to finite differences
         assert!(
             (lv - const_vol).abs() < 0.01,
             "Local vol {} should match flat implied vol {}",
@@ -326,43 +407,39 @@ mod tests {
     }
 
     #[test]
-    fn test_local_vol_rates_scale() -> Result<()> {
-        // Test that local vol works correctly for rates-scale data (small values)
-        let const_vol = 0.01; // 1% normal vol typical for rates
+    fn test_local_vol_rates_scale_normal() -> Result<()> {
+        // Bachelier (normal) Dupire for rates-scale data avoids the numerical
+        // instability of the lognormal model at small absolute levels.
+        let const_vol = 0.005; // 50bp normal vol typical for rates
         let implied_vol_fn = |_: f64, _: f64| Ok(const_vol);
 
         let base_date =
             Date::from_ordinal_date(2024, 1).expect("Invalid date: 2024-01-01 should be valid");
-        #[allow(non_snake_case)]
-        let S0 = 0.03; // 3% forward rate
-        let r = 0.03;
-        let q = 0.0;
 
         let strikes = vec![0.01, 0.02, 0.03, 0.04, 0.05];
         let times = vec![0.5, 1.0, 2.0];
 
         let lv_surface = LocalVolBuilder::from_implied_vol(
             implied_vol_fn,
-            base_date,
-            S0,
-            r,
-            q,
-            &strikes,
-            &times,
+            DupireParams {
+                base_date,
+                spot: 0.03,
+                rate: 0.03,
+                div_yield: 0.0,
+                strikes: &strikes,
+                times: &times,
+                vol_model: VolatilityModel::Normal,
+            },
         )?;
 
-        // Check at ATM, T=1.0
         let lv = lv_surface.get_vol(1.0, 0.03)?;
 
-        // For rates, we allow larger tolerance due to numerical challenges
-        // with scale-aware FD steps in the Dupire formula
+        let rel_error = (lv / const_vol - 1.0).abs();
         assert!(
-            (lv - const_vol).abs() < 0.01 || (lv / const_vol - 1.0).abs() < 0.7,
-            "Local vol {} should be reasonably close to flat implied vol {} for rates \
-             (relative error: {:.2}%)",
-            lv,
-            const_vol,
-            (lv / const_vol - 1.0).abs() * 100.0
+            rel_error < 0.05,
+            "Normal Dupire local vol {lv:.6} should be within 5% of flat implied vol \
+             {const_vol:.6} (relative error: {:.2}%)",
+            rel_error * 100.0
         );
 
         Ok(())

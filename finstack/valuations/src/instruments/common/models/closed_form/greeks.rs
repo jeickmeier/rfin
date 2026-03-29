@@ -5,6 +5,16 @@
 //! 1. **Production risk metrics** for vanilla options
 //! 2. **Validation benchmarks** for numerical Greek computations
 //!
+//! # Relationship to [`super::vanilla`]
+//!
+//! [`super::vanilla::bs_greeks`] computes all first-order Greeks in a single pass
+//! using consistent scaling conventions (vega per 1%, rho per 1%). Both modules
+//! return **annualized** theta; `vanilla::bs_greeks` additionally exposes a
+//! `theta_days_per_year` parameter that converts to per-day theta for reporting.
+//! Use that function when you need all Greeks at once with an `OptionType`
+//! discriminant. The individual functions in *this* module (`bs_call_delta`,
+//! `bs_gamma`, etc.) are useful when only a subset of Greeks is needed.
+//!
 //! # Mathematical Foundation
 //!
 //! The Black-Scholes-Merton model assumes:
@@ -99,7 +109,7 @@
 //! assert!(vega > 0.0);
 //! ```
 
-use crate::instruments::common_impl::models::volatility::black::{d1, d2};
+use crate::instruments::common_impl::models::volatility::black::{d1, d1_d2, d2};
 use finstack_core::math::special_functions::{norm_cdf, norm_pdf};
 
 /// Black-Scholes call option delta.
@@ -438,6 +448,9 @@ pub use super::vanilla::BsGreeks;
 
 /// Compute all call Greeks at once.
 ///
+/// Uses a single `d1_d2()` call to compute shared intermediates, avoiding the
+/// redundant recomputation that would occur from calling individual Greek functions.
+///
 /// Returns [`BsGreeks`] with `rho_r` set to the domestic rate sensitivity
 /// and `rho_q` set to the dividend yield sensitivity.
 #[must_use]
@@ -449,21 +462,37 @@ pub fn bs_call_greeks(
     div_yield: f64,
     vol: f64,
 ) -> BsGreeks {
-    // Compute individual Greeks
-    let delta = bs_call_delta(spot, strike, time, rate, div_yield, vol);
-    let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
-    let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
-    let theta = bs_call_theta(spot, strike, time, rate, div_yield, vol);
-    let rho_r = bs_call_rho(spot, strike, time, rate, div_yield, vol);
+    if time <= 0.0 {
+        return BsGreeks {
+            delta: if spot > strike { 1.0 } else { 0.0 },
+            ..BsGreeks::default()
+        };
+    }
 
-    // Compute dividend yield sensitivity (rho_q)
-    // For calls: ∂C/∂q = -S * T * e^(-qT) * N(d1)
-    let rho_q = if time <= 0.0 {
+    let (d1_val, d2_val) = d1_d2(spot, strike, rate, vol, time, div_yield);
+
+    let exp_q_t = (-div_yield * time).exp();
+    let exp_r_t = (-rate * time).exp();
+    let sqrt_t = time.sqrt();
+    let pdf_d1 = norm_pdf(d1_val);
+    let cdf_d1 = norm_cdf(d1_val);
+    let cdf_d2 = norm_cdf(d2_val);
+
+    let delta = exp_q_t * cdf_d1;
+    let gamma = if spot <= 0.0 || vol <= 0.0 || sqrt_t <= 0.0 {
         0.0
     } else {
-        let d1_val = d1(spot, strike, rate, vol, time, div_yield);
-        -spot * time * (-div_yield * time).exp() * norm_cdf(d1_val) * 0.01
+        exp_q_t * pdf_d1 / (spot * vol * sqrt_t)
     };
+    let vega = 0.01 * spot * exp_q_t * sqrt_t * pdf_d1;
+    let theta = {
+        let term1 = -spot * pdf_d1 * vol * exp_q_t / (2.0 * sqrt_t);
+        let term2 = -rate * strike * exp_r_t * cdf_d2;
+        let term3 = div_yield * spot * exp_q_t * cdf_d1;
+        term1 + term2 + term3
+    };
+    let rho_r = strike * time * exp_r_t * cdf_d2 * 0.01;
+    let rho_q = -spot * time * exp_q_t * cdf_d1 * 0.01;
 
     BsGreeks {
         delta,
@@ -477,6 +506,9 @@ pub fn bs_call_greeks(
 
 /// Compute all put Greeks at once.
 ///
+/// Uses a single `d1_d2()` call to compute shared intermediates, avoiding the
+/// redundant recomputation that would occur from calling individual Greek functions.
+///
 /// Returns [`BsGreeks`] with `rho_r` set to the domestic rate sensitivity
 /// and `rho_q` set to the dividend yield sensitivity.
 #[must_use]
@@ -488,21 +520,37 @@ pub fn bs_put_greeks(
     div_yield: f64,
     vol: f64,
 ) -> BsGreeks {
-    // Compute individual Greeks
-    let delta = bs_put_delta(spot, strike, time, rate, div_yield, vol);
-    let gamma = bs_gamma(spot, strike, time, rate, div_yield, vol);
-    let vega = bs_vega(spot, strike, time, rate, div_yield, vol);
-    let theta = bs_put_theta(spot, strike, time, rate, div_yield, vol);
-    let rho_r = bs_put_rho(spot, strike, time, rate, div_yield, vol);
+    if time <= 0.0 {
+        return BsGreeks {
+            delta: if spot < strike { -1.0 } else { 0.0 },
+            ..BsGreeks::default()
+        };
+    }
 
-    // Compute dividend yield sensitivity (rho_q)
-    // For puts: ∂P/∂q = S * T * e^(-qT) * N(-d1)
-    let rho_q = if time <= 0.0 {
+    let (d1_val, d2_val) = d1_d2(spot, strike, rate, vol, time, div_yield);
+
+    let exp_q_t = (-div_yield * time).exp();
+    let exp_r_t = (-rate * time).exp();
+    let sqrt_t = time.sqrt();
+    let pdf_d1 = norm_pdf(d1_val);
+    let cdf_m_d1 = norm_cdf(-d1_val);
+    let cdf_m_d2 = norm_cdf(-d2_val);
+
+    let delta = -exp_q_t * cdf_m_d1;
+    let gamma = if spot <= 0.0 || vol <= 0.0 || sqrt_t <= 0.0 {
         0.0
     } else {
-        let d1_val = d1(spot, strike, rate, vol, time, div_yield);
-        spot * time * (-div_yield * time).exp() * norm_cdf(-d1_val) * 0.01
+        exp_q_t * pdf_d1 / (spot * vol * sqrt_t)
     };
+    let vega = 0.01 * spot * exp_q_t * sqrt_t * pdf_d1;
+    let theta = {
+        let term1 = -spot * pdf_d1 * vol * exp_q_t / (2.0 * sqrt_t);
+        let term2 = rate * strike * exp_r_t * cdf_m_d2;
+        let term3 = -div_yield * spot * exp_q_t * cdf_m_d1;
+        term1 + term2 + term3
+    };
+    let rho_r = -strike * time * exp_r_t * cdf_m_d2 * 0.01;
+    let rho_q = spot * time * exp_q_t * cdf_m_d1 * 0.01;
 
     BsGreeks {
         delta,

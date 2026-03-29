@@ -9,6 +9,14 @@
 //! - **`bs_greeks`**: Computes all first-order Greeks (delta, gamma, vega, theta, rho_r, rho_q)
 //! - **`BsGreeks`**: Struct holding per-unit Greeks with both domestic and foreign rho
 //!
+//! # Relationship to [`super::greeks`]
+//!
+//! [`super::greeks`] exposes the same Greeks as individual functions
+//! (`bs_call_delta`, `bs_gamma`, `bs_vega`, etc.) with identical scaling
+//! conventions (vega per 1%, rho per 1%). Those are useful when only a subset
+//! of Greeks is needed; [`bs_greeks`] in this module computes all of them in
+//! one pass and takes an explicit `theta_days_per_year` for day-count control.
+//!
 //! # Model
 //!
 //! The pricing formula uses continuous compounding with dividend yield (or foreign rate for FX):
@@ -294,7 +302,7 @@ pub fn bs_greeks(
     };
 
     // Gamma is the same for calls and puts
-    let gamma = if sigma <= 0.0 || sqrt_t <= 0.0 {
+    let gamma = if spot <= 0.0 || sigma <= 0.0 || sqrt_t <= 0.0 {
         0.0
     } else {
         exp_q_t * pdf_d1 / (spot * sigma * sqrt_t)
