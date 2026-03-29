@@ -44,7 +44,7 @@ Derive a foreign currency discount curve from a domestic OIS curve, FX spot, and
 
 **`BasisSpreadCurve`** in `finstack/core/src/market_data/term_structures/basis_spread_curve.rs`:
 
-- Stores `(time, spread_bps)` knots with an interpolator
+- Stores `(time, spread)` knots with an interpolator (spread in continuously compounded rate units, not bps)
 - Implements `TermStructure`
 - Provides `spread(t) -> f64` (continuously compounded spread in rate units)
 - Builder pattern: `BasisSpreadCurve::builder("USD-EUR-BASIS").base_date(...).knots(...).build()`
@@ -201,8 +201,8 @@ Implements `GlobalSolveTarget<Quote = RateQuote, Curve = ParametricCurve>`:
 - `build_time_grid_and_guesses`: returns dummy times `[0.0, 1.0, ..., N-1]` (one per parameter) and initial guesses. Default guesses: `beta0 = 0.03, beta1 = -0.02, beta2 = 0.01, tau = 1.5` for NS; add `beta3 = 0.01, tau2 = 5.0` for NSS.
 - `build_curve_from_params`: constructs `ParametricCurve` from the parameter vector
 - `calculate_residuals`: prices each instrument against the parametric curve, returns model-vs-market residuals
-- `lower_bounds`: `[None, None, None, 0.01]` for NS (tau > 0); `[None, None, None, None, 0.01, 0.01]` for NSS
-- `upper_bounds`: `[None, None, None, 30.0]` for NS; `[None, None, None, None, 30.0, 30.0]` for NSS
+- `lower_bounds`: `[-INF, -INF, -INF, 0.01]` for NS (tau > 0); `[-INF, -INF, -INF, -INF, 0.01, 0.01]` for NSS. Uses `f64::NEG_INFINITY` for unbounded parameters.
+- `upper_bounds`: `[INF, INF, INF, 30.0]` for NS; `[INF, INF, INF, INF, 30.0, 30.0]` for NSS. Uses `f64::INFINITY` for unbounded parameters.
 - Analytical Jacobian: NS/NSS partials w.r.t. each parameter are closed-form. Implement `jacobian()` and return `supports_efficient_jacobian() = true`.
 
 **GlobalSolveTarget reuse note:** The existing trait uses `times` and `params` as parallel vectors. For NS/NSS, the "times" vector carries dummy indices (0, 1, 2, ...) and the solver only uses `params.len()` to determine dimensionality. This is a pragmatic reuse -- the dummy times are internal to the target and not exposed to callers.
