@@ -3,7 +3,7 @@
 //! This module handles the integration between statements models and capital structure,
 //! leveraging valuations infrastructure for cashflow aggregation and classification.
 
-use crate::capital_structure::types::*;
+use crate::capital_structure::cashflows::{CapitalStructureCashflows, CashflowBreakdown};
 use crate::error::Result;
 use crate::evaluator::EvalWarning;
 use crate::types::DebtInstrumentSpec;

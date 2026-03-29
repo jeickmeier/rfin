@@ -48,13 +48,37 @@
 //! Sweep @50%: $ 3,000,000 → applied to debt prepayment
 //! ```
 
-use crate::capital_structure::types::*;
+mod cash_distribution;
+mod excess_cash_flow;
+mod payment_in_kind;
+mod payment_stack;
+mod period_close;
+
+use crate::capital_structure::cashflows::CashflowBreakdown;
+use crate::capital_structure::state::CapitalStructureState;
+use crate::capital_structure::waterfall_spec::{PaymentPriority, WaterfallSpec};
 use crate::error::Result;
 use crate::evaluator::EvaluationContext;
 use finstack_core::dates::PeriodId;
 use finstack_core::money::Money;
 use indexmap::IndexMap;
 use std::collections::HashSet;
+
+use cash_distribution::{allocate_pro_rata, apply_cash_cap_to_category, StagedInstrumentFlow};
+use excess_cash_flow::calculate_ecf_sweep;
+use payment_in_kind::{evaluate_pik_toggle, is_pik_enabled};
+use payment_stack::{extra_principal_priority, priority_index, waterfall_currency};
+use period_close::update_cumulative_metrics;
+
+/// Evaluate a node reference or inline DSL expression against the current context.
+fn eval_value_or_formula(context: &EvaluationContext, expr: &str) -> Result<f64> {
+    if let Ok(value) = context.get_value(expr) {
+        return Ok(value);
+    }
+    let compiled = crate::dsl::parse_and_compile(expr)?;
+    let mut scratch = context.clone();
+    crate::evaluator::formula::evaluate_formula(&compiled, &mut scratch, None)
+}
 
 /// Execute waterfall logic for a single period.
 ///
@@ -101,24 +125,23 @@ pub fn execute_waterfall(
         has_pik_toggle = waterfall_spec.pik_toggle.is_some()
     )
     .entered();
+
     let mut result = IndexMap::new();
     let cash_currency = waterfall_currency(contractual_flows)?;
+
+    // --- resolve priority positions ---
     let interest_priority = priority_index(
         &waterfall_spec.priority_of_payments,
         PaymentPriority::Interest,
     );
     let fees_priority = priority_index(&waterfall_spec.priority_of_payments, PaymentPriority::Fees);
-    let _amortization_priority = priority_index(
-        &waterfall_spec.priority_of_payments,
-        PaymentPriority::Amortization,
-    );
     let extra_principal_priority = extra_principal_priority(&waterfall_spec.priority_of_payments);
     let equity_priority = priority_index(
         &waterfall_spec.priority_of_payments,
         PaymentPriority::Equity,
     );
 
-    // Step 1: Check PIK toggle conditions
+    // --- Step 1: PIK toggle ---
     let (pik_enable, pik_targets): (Option<bool>, Option<HashSet<String>>) =
         if let Some(pik_spec) = &waterfall_spec.pik_toggle {
             (
@@ -132,9 +155,9 @@ pub fn execute_waterfall(
             (None, None)
         };
 
-    // Step 2: Calculate ECF and sweep amount
+    // --- Step 2: ECF / sweep ---
     let sweep_amount = if let Some(ecf_spec) = &waterfall_spec.ecf_sweep {
-        calculate_ecf_sweep(context, ecf_spec, state, contractual_flows)?
+        calculate_ecf_sweep(context, ecf_spec, contractual_flows)?
     } else {
         Money::new(0.0, cash_currency)
     };
@@ -145,23 +168,20 @@ pub fn execute_waterfall(
         None
     };
 
-    // Step 3: Allocate cash according to priority stack
+    // --- Step 3: Build staged per-instrument state ---
     //
     // Execution order per standard loan documentation:
     //   1. Determine sweep amount (already computed above)
     //   2. Apply sweep as additional principal prepayment
     //   3. Update balance after sweep + scheduled amortization
     //   4. Apply PIK mode — PIK accrues on post-sweep balance
-    //
-    // This ensures PIK interest accrues on the reduced (post-sweep) balance,
-    // matching standard LPA (Loan and Purchase Agreement) conventions.
     let min_periods_in_pik = waterfall_spec
         .pik_toggle
         .as_ref()
         .map(|spec| spec.min_periods_in_pik)
         .unwrap_or(0);
-    let mut staged: Vec<(String, CashflowBreakdown, Money, Money, Money)> =
-        Vec::with_capacity(contractual_flows.len());
+
+    let mut staged: Vec<StagedInstrumentFlow> = Vec::with_capacity(contractual_flows.len());
     for (instrument_id, breakdown) in contractual_flows {
         let currency = breakdown.interest_expense_cash.currency();
         let opening_balance = state.get_opening_balance(instrument_id, currency);
@@ -199,36 +219,33 @@ pub fn execute_waterfall(
         }
 
         let mut staged_breakdown = breakdown.clone();
-        if is_pik_enabled_for_priority(state, instrument_id)
+        if is_pik_enabled(state, instrument_id)
             && interest_priority < extra_principal_priority
             && extra_principal_priority != usize::MAX
         {
             staged_breakdown.interest_expense_pik += staged_breakdown.interest_expense_cash;
             staged_breakdown.interest_expense_cash = Money::new(0.0, currency);
         }
-        staged.push((
-            instrument_id.clone(),
-            staged_breakdown,
+        staged.push(StagedInstrumentFlow {
+            instrument_id: instrument_id.clone(),
+            breakdown: staged_breakdown,
             opening_balance,
-            Money::new(0.0, currency),
-            breakdown.principal_payment,
-        ));
+            extra_principal: Money::new(0.0, currency),
+            scheduled_principal: breakdown.principal_payment,
+        });
     }
 
+    // --- Step 4: Distribute sweep across instruments ---
     let mut remaining_sweep = if equity_priority < extra_principal_priority {
         Money::new(0.0, sweep_amount.currency())
     } else {
         sweep_amount
     };
-    // When there is no ECF sweep, the sweep amount is zero and these deductions
-    // are moot. When ECF is configured, cash interest is already deducted inside
-    // calculate_ecf_sweep, so we must not deduct it again here.
-    // Fees are never part of the ECF formula, so always deduct them if they
-    // rank before extra-principal actions.
+
     if fees_priority < extra_principal_priority {
         let total_fees = staged
             .iter()
-            .map(|(_, breakdown, _, _, _)| breakdown.fees.amount())
+            .map(|s| s.breakdown.fees.amount())
             .sum::<f64>();
         remaining_sweep = Money::new(
             (remaining_sweep.amount() - total_fees).max(0.0),
@@ -238,7 +255,7 @@ pub fn execute_waterfall(
     if interest_priority < extra_principal_priority && waterfall_spec.ecf_sweep.is_none() {
         let total_cash_interest = staged
             .iter()
-            .map(|(_, breakdown, _, _, _)| breakdown.interest_expense_cash.amount())
+            .map(|s| s.breakdown.interest_expense_cash.amount())
             .sum::<f64>();
         remaining_sweep = Money::new(
             (remaining_sweep.amount() - total_cash_interest).max(0.0),
@@ -252,46 +269,42 @@ pub fn execute_waterfall(
         .and_then(|spec| spec.target_instrument_id.as_deref());
     let mut extra_capacity: IndexMap<String, f64> = IndexMap::new();
     let mut total_extra_capacity = 0.0;
-    for (instrument_id, breakdown, opening_balance, _, scheduled_principal) in &staged {
+    for s in &staged {
         let eligible = if let Some(target_id) = target_instrument_id {
-            target_id == instrument_id
+            target_id == s.instrument_id
         } else {
             true
         };
         if !eligible || extra_principal_priority == usize::MAX {
-            extra_capacity.insert(instrument_id.clone(), 0.0);
+            extra_capacity.insert(s.instrument_id.clone(), 0.0);
             continue;
         }
 
-        let mut capacity = (opening_balance.amount() - scheduled_principal.amount()).max(0.0);
-        if is_pik_enabled_for_priority(state, instrument_id)
-            && interest_priority < extra_principal_priority
-        {
-            capacity += breakdown.interest_expense_pik.amount();
+        let mut capacity = (s.opening_balance.amount() - s.scheduled_principal.amount()).max(0.0);
+        if is_pik_enabled(state, &s.instrument_id) && interest_priority < extra_principal_priority {
+            capacity += s.breakdown.interest_expense_pik.amount();
         }
 
         total_extra_capacity += capacity;
-        extra_capacity.insert(instrument_id.clone(), capacity);
+        extra_capacity.insert(s.instrument_id.clone(), capacity);
     }
 
     let staged_len = staged.len();
-    for (idx, entry) in staged.iter_mut().enumerate() {
-        let instrument_id = &entry.0;
-        let breakdown = &mut entry.1;
-        let currency = breakdown.interest_expense_cash.currency();
+    for (idx, s) in staged.iter_mut().enumerate() {
+        let currency = s.breakdown.interest_expense_cash.currency();
 
         let sweep_for_instrument =
             if extra_principal_priority == usize::MAX || remaining_sweep.currency() != currency {
                 Money::new(0.0, currency)
             } else if let Some(target_id) = target_instrument_id {
-                if target_id == instrument_id {
-                    let capacity = *extra_capacity.get(instrument_id.as_str()).unwrap_or(&0.0);
+                if target_id == s.instrument_id {
+                    let capacity = *extra_capacity.get(s.instrument_id.as_str()).unwrap_or(&0.0);
                     Money::new(remaining_sweep.amount().min(capacity), currency)
                 } else {
                     Money::new(0.0, currency)
                 }
             } else {
-                let capacity = *extra_capacity.get(instrument_id.as_str()).unwrap_or(&0.0);
+                let capacity = *extra_capacity.get(s.instrument_id.as_str()).unwrap_or(&0.0);
                 if total_extra_capacity <= 0.0 || capacity <= 0.0 {
                     Money::new(0.0, currency)
                 } else if idx + 1 == staged_len {
@@ -302,33 +315,35 @@ pub fn execute_waterfall(
                 }
             };
 
-        entry.3 = sweep_for_instrument;
+        s.extra_principal = sweep_for_instrument;
         remaining_sweep = remaining_sweep.checked_sub(sweep_for_instrument)?;
 
-        breakdown.principal_payment = entry.4.checked_add(entry.3)?;
+        s.breakdown.principal_payment = s.scheduled_principal.checked_add(s.extra_principal)?;
     }
 
+    // --- Step 5: Available cash caps ---
     if let Some(mut remaining_cash) = available_cash {
         for priority in &waterfall_spec.priority_of_payments {
             match priority {
                 PaymentPriority::Fees => {
-                    apply_cash_cap_to_category(&mut staged, &mut remaining_cash, |entry| {
-                        &mut entry.1.fees
+                    apply_cash_cap_to_category(&mut staged, &mut remaining_cash, |s| {
+                        &mut s.breakdown.fees
                     });
                 }
                 PaymentPriority::Interest => {
-                    apply_cash_cap_to_category(&mut staged, &mut remaining_cash, |entry| {
-                        &mut entry.1.interest_expense_cash
+                    apply_cash_cap_to_category(&mut staged, &mut remaining_cash, |s| {
+                        &mut s.breakdown.interest_expense_cash
                     });
                 }
                 PaymentPriority::Amortization => {
                     let planned: Vec<f64> = staged
                         .iter()
-                        .map(|entry| entry.4.amount().max(0.0))
+                        .map(|s| s.scheduled_principal.amount().max(0.0))
                         .collect();
                     let allocations = allocate_pro_rata(&planned, &mut remaining_cash);
-                    for (entry, allocated) in staged.iter_mut().zip(allocations.into_iter()) {
-                        entry.4 = Money::new(allocated, entry.4.currency());
+                    for (s, allocated) in staged.iter_mut().zip(allocations.into_iter()) {
+                        s.scheduled_principal =
+                            Money::new(allocated, s.scheduled_principal.currency());
                     }
                 }
                 PaymentPriority::MandatoryPrepayment
@@ -336,11 +351,11 @@ pub fn execute_waterfall(
                 | PaymentPriority::Sweep => {
                     let planned: Vec<f64> = staged
                         .iter()
-                        .map(|entry| entry.3.amount().max(0.0))
+                        .map(|s| s.extra_principal.amount().max(0.0))
                         .collect();
                     let allocations = allocate_pro_rata(&planned, &mut remaining_cash);
-                    for (entry, allocated) in staged.iter_mut().zip(allocations.into_iter()) {
-                        entry.3 = Money::new(allocated, entry.3.currency());
+                    for (s, allocated) in staged.iter_mut().zip(allocations.into_iter()) {
+                        s.extra_principal = Money::new(allocated, s.extra_principal.currency());
                     }
                 }
                 PaymentPriority::Equity => {}
@@ -348,15 +363,21 @@ pub fn execute_waterfall(
         }
     }
 
-    for (instrument_id, mut breakdown, opening_balance, extra_principal, scheduled_principal) in
-        staged
-    {
+    // --- Step 6: Period close ---
+    for s in staged {
+        let StagedInstrumentFlow {
+            instrument_id,
+            mut breakdown,
+            opening_balance,
+            extra_principal,
+            scheduled_principal,
+        } = s;
         let currency = breakdown.interest_expense_cash.currency();
         breakdown.principal_payment = scheduled_principal.checked_add(extra_principal)?;
         let post_sweep_balance = opening_balance.checked_sub(breakdown.principal_payment)?;
 
-        let is_pik_enabled = is_pik_enabled_for_priority(state, &instrument_id);
-        if is_pik_enabled
+        let pik_enabled = is_pik_enabled(state, &instrument_id);
+        if pik_enabled
             && !(interest_priority < extra_principal_priority
                 && extra_principal_priority != usize::MAX)
         {
@@ -364,7 +385,6 @@ pub fn execute_waterfall(
             breakdown.interest_expense_cash = Money::new(0.0, currency);
         }
 
-        // Step 3d: Closing balance = post-sweep + PIK accrual
         let closing_balance = post_sweep_balance.checked_add(breakdown.interest_expense_pik)?;
         state.set_closing_balance(instrument_id.to_string(), closing_balance);
         breakdown.debt_balance = closing_balance;
@@ -373,7 +393,6 @@ pub fn execute_waterfall(
             "Currency invariant violated after waterfall mutation"
         );
 
-        // Update cumulative metrics
         update_cumulative_metrics(state, &instrument_id, &breakdown, currency)?;
 
         result.insert(instrument_id.to_string(), breakdown);
@@ -382,236 +401,13 @@ pub fn execute_waterfall(
     Ok(result)
 }
 
-fn apply_cash_cap_to_category<F>(
-    staged: &mut [(String, CashflowBreakdown, Money, Money, Money)],
-    remaining_cash: &mut Money,
-    mut field: F,
-) where
-    F: FnMut(&mut (String, CashflowBreakdown, Money, Money, Money)) -> &mut Money,
-{
-    let planned: Vec<f64> = staged
-        .iter_mut()
-        .map(|entry| field(entry).amount().max(0.0))
-        .collect();
-    let allocations = allocate_pro_rata(&planned, remaining_cash);
-    for (entry, allocated) in staged.iter_mut().zip(allocations.into_iter()) {
-        let currency = field(entry).currency();
-        *field(entry) = Money::new(allocated, currency);
-    }
-}
-
-fn allocate_pro_rata(planned: &[f64], remaining_cash: &mut Money) -> Vec<f64> {
-    let total_planned: f64 = planned.iter().sum();
-    if total_planned <= 0.0 || remaining_cash.amount() <= 0.0 {
-        return vec![0.0; planned.len()];
-    }
-    if remaining_cash.amount() >= total_planned {
-        *remaining_cash = Money::new(
-            remaining_cash.amount() - total_planned,
-            remaining_cash.currency(),
-        );
-        return planned.to_vec();
-    }
-
-    let cash_before = remaining_cash.amount();
-    let mut allocations = Vec::with_capacity(planned.len());
-    for (idx, planned_value) in planned.iter().enumerate() {
-        if idx + 1 == planned.len() {
-            let allocated_so_far: f64 = allocations.iter().sum();
-            allocations.push(
-                (cash_before - allocated_so_far)
-                    .max(0.0)
-                    .min(*planned_value),
-            );
-        } else {
-            allocations.push((cash_before * (*planned_value / total_planned)).min(*planned_value));
-        }
-    }
-    *remaining_cash = Money::new(0.0, remaining_cash.currency());
-    allocations
-}
-
-fn priority_index(priorities: &[PaymentPriority], target: PaymentPriority) -> usize {
-    priorities
-        .iter()
-        .position(|priority| *priority == target)
-        .unwrap_or(usize::MAX)
-}
-
-fn waterfall_currency(
-    flows: &IndexMap<String, CashflowBreakdown>,
-) -> Result<finstack_core::currency::Currency> {
-    let mut currencies = flows
-        .values()
-        .map(|cf| cf.interest_expense_cash.currency())
-        .collect::<Vec<_>>();
-    currencies.sort();
-    currencies.dedup();
-    match currencies.as_slice() {
-        [currency] => Ok(*currency),
-        [] => Ok(finstack_core::currency::Currency::USD),
-        _ => Err(crate::error::Error::capital_structure(
-            "Waterfall execution currently requires a single cash currency. \
-             Use one currency per waterfall or add explicit FX allocation semantics.",
-        )),
-    }
-}
-
-fn extra_principal_priority(priorities: &[PaymentPriority]) -> usize {
-    [
-        PaymentPriority::MandatoryPrepayment,
-        PaymentPriority::VoluntaryPrepayment,
-        PaymentPriority::Sweep,
-    ]
-    .into_iter()
-    .map(|priority| priority_index(priorities, priority))
-    .min()
-    .unwrap_or(usize::MAX)
-}
-
-fn is_pik_enabled_for_priority(state: &CapitalStructureState, instrument_id: &str) -> bool {
-    state.pik_mode.get(instrument_id).copied().unwrap_or(false)
-}
-
-fn eval_value_or_formula(context: &EvaluationContext, expr: &str) -> Result<f64> {
-    // Fast path: treat as a node reference.
-    if let Ok(value) = context.get_value(expr) {
-        return Ok(value);
-    }
-
-    // Otherwise, treat as a DSL expression and evaluate against the current context.
-    let compiled = crate::dsl::parse_and_compile(expr)?;
-    let mut scratch = context.clone();
-    crate::evaluator::formula::evaluate_formula(&compiled, &mut scratch, None)
-}
-
-/// Evaluate PIK toggle conditions and return whether PIK should be enabled.
-fn evaluate_pik_toggle(context: &EvaluationContext, pik_spec: &PikToggleSpec) -> Result<bool> {
-    let metric_value = eval_value_or_formula(context, &pik_spec.liquidity_metric)?;
-
-    let enable_pik = metric_value < pik_spec.threshold;
-    Ok(enable_pik)
-}
-
-/// Calculate Excess Cash Flow and determine sweep amount.
-fn calculate_ecf_sweep(
-    context: &EvaluationContext,
-    ecf_spec: &EcfSweepSpec,
-    _state: &CapitalStructureState,
-    contractual_flows: &IndexMap<String, CashflowBreakdown>,
-) -> Result<Money> {
-    // Get EBITDA
-    let ebitda = eval_value_or_formula(context, &ecf_spec.ebitda_node)?;
-
-    // Get taxes (if specified)
-    let taxes = ecf_spec
-        .taxes_node
-        .as_ref()
-        .map(|expr| eval_value_or_formula(context, expr))
-        .transpose()?
-        .unwrap_or(0.0);
-
-    // Get capex (if specified)
-    let capex = ecf_spec
-        .capex_node
-        .as_ref()
-        .map(|expr| eval_value_or_formula(context, expr))
-        .transpose()?
-        .unwrap_or(0.0);
-
-    // Get working capital change (if specified)
-    let wc_change = ecf_spec
-        .working_capital_node
-        .as_ref()
-        .map(|expr| eval_value_or_formula(context, expr))
-        .transpose()?
-        .unwrap_or(0.0);
-
-    // Get cash interest paid. Per S&P LCD / standard LPA definitions, ECF should
-    // deduct cash interest paid. When not explicitly provided, use the period's
-    // contractual cash interest so ECF is not overstated.
-    let cash_interest = if let Some(ref expr) = ecf_spec.cash_interest_node {
-        eval_value_or_formula(context, expr)?
-    } else {
-        contractual_flows
-            .values()
-            .map(|cf| cf.interest_expense_cash.amount())
-            .sum()
-    }
-    .abs();
-
-    // Calculate ECF: EBITDA - Taxes - Capex - Working Capital Change - Cash Interest
-    let ecf = ebitda - taxes - capex - wc_change - cash_interest;
-
-    // Apply sweep percentage
-    let sweep_amount = ecf * ecf_spec.sweep_percentage;
-
-    // Get base currency from contractual flows
-    let currency = get_base_currency(contractual_flows);
-
-    Ok(Money::new(sweep_amount.max(0.0), currency))
-}
-
-/// Get base currency from contractual flows (assumes all same currency for now).
-fn get_base_currency(
-    flows: &IndexMap<String, CashflowBreakdown>,
-) -> finstack_core::currency::Currency {
-    flows
-        .values()
-        .next()
-        .map(|cf| cf.interest_expense_cash.currency())
-        .unwrap_or(finstack_core::currency::Currency::USD)
-}
-
-/// Update cumulative metrics in state.
-fn update_cumulative_metrics(
-    state: &mut CapitalStructureState,
-    instrument_id: &str,
-    breakdown: &CashflowBreakdown,
-    currency: finstack_core::currency::Currency,
-) -> Result<()> {
-    // Update cumulative interest cash
-    let current_cash = state
-        .cumulative_interest_cash
-        .get(instrument_id)
-        .copied()
-        .unwrap_or_else(|| Money::new(0.0, currency));
-    state.cumulative_interest_cash.insert(
-        instrument_id.to_string(),
-        current_cash.checked_add(breakdown.interest_expense_cash)?,
-    );
-
-    // Update cumulative interest PIK
-    let current_pik = state
-        .cumulative_interest_pik
-        .get(instrument_id)
-        .copied()
-        .unwrap_or_else(|| Money::new(0.0, currency));
-    state.cumulative_interest_pik.insert(
-        instrument_id.to_string(),
-        current_pik.checked_add(breakdown.interest_expense_pik)?,
-    );
-
-    // Update cumulative principal
-    let current_principal = state
-        .cumulative_principal
-        .get(instrument_id)
-        .copied()
-        .unwrap_or_else(|| Money::new(0.0, currency));
-    state.cumulative_principal.insert(
-        instrument_id.to_string(),
-        current_principal.checked_add(breakdown.principal_payment)?,
-    );
-
-    Ok(())
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used)]
 mod tests {
     use super::*;
-    use crate::capital_structure::types::{
-        CapitalStructureState, CashflowBreakdown, EcfSweepSpec, PaymentPriority, WaterfallSpec,
+    use crate::capital_structure::{
+        CapitalStructureState, CashflowBreakdown, EcfSweepSpec, PaymentPriority, PikToggleSpec,
+        WaterfallSpec,
     };
     use finstack_core::currency::Currency;
     use finstack_core::dates::PeriodId;
@@ -672,7 +468,7 @@ mod tests {
                 capex_node: Some("capex".into()),
                 working_capital_node: None,
                 cash_interest_node: None,
-                sweep_percentage: 0.5, // 50% of ECF
+                sweep_percentage: 0.5,
                 target_instrument_id: Some("TL-1".into()),
             }),
             pik_toggle: None,
@@ -688,7 +484,6 @@ mod tests {
         .expect("waterfall should execute");
 
         let tl_result = results.get("TL-1").expect("instrument exists");
-        // ECF = 1_000_000 - 200_000 - 50_000 = 750,000 => sweep 375,000
         assert_eq!(tl_result.principal_payment.amount(), 475_000.0);
         assert_eq!(
             state
@@ -753,7 +548,6 @@ mod tests {
 
         assert_eq!(state.pik_mode.get("TL-PIK"), Some(&true));
 
-        // Update liquidity above threshold and ensure toggle switches off
         context
             .set_value("liquidity", 150.0)
             .expect("should update liquidity for second evaluation");
@@ -767,6 +561,109 @@ mod tests {
         .expect("waterfall should execute");
 
         assert_eq!(state.pik_mode.get("TL-PIK"), Some(&false));
+    }
+
+    #[test]
+    fn test_pik_hysteresis_holds_pik_active_for_min_periods() {
+        let period = PeriodId::quarter(2025, 1);
+
+        let mut contractual_flows: IndexMap<String, CashflowBreakdown> = IndexMap::new();
+        let mut tl_breakdown = CashflowBreakdown::with_currency(Currency::USD);
+        tl_breakdown.interest_expense_cash = Money::new(10_000.0, Currency::USD);
+        contractual_flows.insert("TL-PIK".to_string(), tl_breakdown);
+
+        let mut state = CapitalStructureState::new();
+        state
+            .opening_balances
+            .insert("TL-PIK".to_string(), Money::new(5_000_000.0, Currency::USD));
+
+        let waterfall = WaterfallSpec {
+            priority_of_payments: vec![
+                PaymentPriority::Fees,
+                PaymentPriority::Interest,
+                PaymentPriority::Amortization,
+                PaymentPriority::Sweep,
+                PaymentPriority::Equity,
+            ],
+            available_cash_node: None,
+            ecf_sweep: None,
+            pik_toggle: Some(PikToggleSpec {
+                liquidity_metric: "liquidity".into(),
+                threshold: 100.0,
+                target_instrument_ids: Some(vec!["TL-PIK".into()]),
+                min_periods_in_pik: 3,
+            }),
+        };
+
+        // Period 1: liquidity < threshold => PIK activates
+        let ctx_low = build_context(period, &[("liquidity", 50.0)]);
+        execute_waterfall(
+            &period,
+            &ctx_low,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        assert_eq!(state.pik_mode.get("TL-PIK"), Some(&true));
+        assert_eq!(state.pik_periods_active.get("TL-PIK"), Some(&1));
+
+        // Period 2: liquidity recovers above threshold, but hysteresis holds PIK
+        let ctx_high = build_context(period, &[("liquidity", 150.0)]);
+        execute_waterfall(
+            &period,
+            &ctx_high,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        assert_eq!(
+            state.pik_mode.get("TL-PIK"),
+            Some(&true),
+            "PIK should remain active due to hysteresis (periods_active=1 < 3)"
+        );
+        assert_eq!(state.pik_periods_active.get("TL-PIK"), Some(&2));
+
+        // Period 3: still above threshold, hysteresis still holds (periods_active=2 < 3)
+        execute_waterfall(
+            &period,
+            &ctx_high,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        assert_eq!(
+            state.pik_mode.get("TL-PIK"),
+            Some(&true),
+            "PIK should remain active due to hysteresis (periods_active=2 < 3)"
+        );
+        assert_eq!(state.pik_periods_active.get("TL-PIK"), Some(&3));
+
+        // Period 4: min_periods met (periods_active=3, which is not < 3), PIK releases
+        execute_waterfall(
+            &period,
+            &ctx_high,
+            &waterfall,
+            &mut state,
+            &contractual_flows,
+        )
+        .expect("waterfall should execute");
+
+        assert_eq!(
+            state.pik_mode.get("TL-PIK"),
+            Some(&false),
+            "PIK should release after min_periods_in_pik completed"
+        );
+        assert_eq!(
+            state.pik_periods_active.get("TL-PIK"),
+            Some(&0),
+            "counter should reset on PIK exit"
+        );
     }
 
     #[test]
@@ -836,7 +733,6 @@ mod tests {
         let tl1 = results.get("TL-1").expect("TL-1 result");
         let tl2 = results.get("TL-2").expect("TL-2 result");
 
-        // ECF = 1_000_000 - 200_000 - 50_000 = 750,000 => sweep 375,000
         assert_eq!(total_principal, 375_000.0);
         assert!((tl1.principal_payment.amount() - 150_000.0).abs() < 1e-9);
         assert!((tl2.principal_payment.amount() - 225_000.0).abs() < 1e-9);
@@ -912,9 +808,6 @@ mod tests {
         let sweep_first_balance = sweep_first_result["TL-1"].debt_balance.amount();
         let interest_first_balance = interest_first_result["TL-1"].debt_balance.amount();
         assert_eq!(sweep_first_balance, 100.0);
-        // With ECF configured, cash interest is already deducted in ECF, so the
-        // waterfall does not subtract it again from sweep capacity. Both orderings
-        // now produce the same balance when PIK is active and ECF handles interest.
         assert_eq!(interest_first_balance, 100.0);
     }
 
@@ -1063,8 +956,6 @@ mod tests {
         .expect("waterfall should execute");
 
         let tl = results.get("TL-1").expect("TL-1");
-        // ECF = 1000 - 100 - 50 - 200 (auto cash interest) = 650
-        // Sweep = 650 * 0.5 = 325
         assert_eq!(tl.principal_payment.amount(), 325.0);
     }
 

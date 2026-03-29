@@ -1,0 +1,75 @@
+//! ECF calculation, cash-interest deduction rules, and sweep sizing.
+
+use crate::capital_structure::cashflows::CashflowBreakdown;
+use crate::capital_structure::waterfall_spec::EcfSweepSpec;
+use crate::error::Result;
+use crate::evaluator::EvaluationContext;
+use finstack_core::money::Money;
+use indexmap::IndexMap;
+
+use super::eval_value_or_formula;
+
+/// Calculate Excess Cash Flow and determine sweep amount.
+pub(super) fn calculate_ecf_sweep(
+    context: &EvaluationContext,
+    ecf_spec: &EcfSweepSpec,
+    contractual_flows: &IndexMap<String, CashflowBreakdown>,
+) -> Result<Money> {
+    if !(0.0..=1.0).contains(&ecf_spec.sweep_percentage) {
+        return Err(crate::error::Error::capital_structure(format!(
+            "sweep_percentage must be in [0.0, 1.0], got {}",
+            ecf_spec.sweep_percentage
+        )));
+    }
+
+    let ebitda = eval_value_or_formula(context, &ecf_spec.ebitda_node)?;
+
+    let taxes = ecf_spec
+        .taxes_node
+        .as_ref()
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
+        .unwrap_or(0.0);
+
+    let capex = ecf_spec
+        .capex_node
+        .as_ref()
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
+        .unwrap_or(0.0);
+
+    let wc_change = ecf_spec
+        .working_capital_node
+        .as_ref()
+        .map(|expr| eval_value_or_formula(context, expr))
+        .transpose()?
+        .unwrap_or(0.0);
+
+    // Per S&P LCD / standard LPA definitions, ECF should deduct cash interest
+    // paid. When not explicitly provided, use the period's contractual cash
+    // interest so ECF is not overstated.
+    let cash_interest = if let Some(ref expr) = ecf_spec.cash_interest_node {
+        eval_value_or_formula(context, expr)?
+    } else {
+        contractual_flows
+            .values()
+            .map(|cf| cf.interest_expense_cash.amount())
+            .sum()
+    }
+    .abs();
+
+    let ecf = ebitda - taxes - capex - wc_change - cash_interest;
+    let sweep_amount = ecf * ecf_spec.sweep_percentage;
+    let currency = base_currency(contractual_flows);
+
+    Ok(Money::new(sweep_amount.max(0.0), currency))
+}
+
+/// Get base currency from contractual flows (assumes all same currency).
+fn base_currency(flows: &IndexMap<String, CashflowBreakdown>) -> finstack_core::currency::Currency {
+    flows
+        .values()
+        .next()
+        .map(|cf| cf.interest_expense_cash.currency())
+        .unwrap_or(finstack_core::currency::Currency::USD)
+}

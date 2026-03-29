@@ -4,10 +4,10 @@
 //! (debt instruments like bonds, swaps, loans) via the `finstack-valuations` crate.
 //!
 //! ## Features
-//! - ✅ Construct bonds, swaps, and other debt instruments from specifications
-//! - ✅ Generate cashflow schedules from instruments
-//! - ✅ Aggregate cashflows by period (interest, principal, fees)
-//! - ✅ DSL access to capital structure metrics via `cs.*` namespace
+//! - Construct bonds, swaps, and other debt instruments from specifications
+//! - Generate cashflow schedules from instruments
+//! - Aggregate cashflows by period (interest, principal, fees)
+//! - DSL access to capital structure metrics via `cs.*` namespace
 //!
 //! ## DSL Integration
 //! The `cs.*` namespace provides access to capital structure data in formulas:
@@ -18,7 +18,7 @@
 //! - `cs.debt_balance.{instrument_id}` - Outstanding debt balance for specific instrument
 //! - `cs.debt_balance.total` - Total outstanding debt balance
 //!
-//! ## ✅ Integration Status: Complete
+//! ## Integration Status: Complete
 //! - Capital structure cashflow computation fully integrated with valuations
 //! - Precise CFKind-based classification (no heuristics)
 //! - Outstanding balance tracking via `outstanding_by_date()`
@@ -59,10 +59,18 @@
 //! ```
 
 mod builder;
+mod cashflows;
 pub mod integration;
-mod types;
+mod state;
 pub mod waterfall;
+mod waterfall_spec;
 
-pub use integration::*;
-pub use types::*;
-pub use waterfall::*;
+// Curated public facade — preserves the same public type set as the old `types.rs`.
+pub use cashflows::{CapitalStructureCashflows, CashflowBreakdown};
+pub use integration::{
+    aggregate_instrument_cashflows, build_any_instrument_from_spec, build_bond_from_spec,
+    build_swap_from_spec, build_term_loan_from_spec, calculate_period_flows,
+};
+pub use state::CapitalStructureState;
+pub use waterfall::execute_waterfall;
+pub use waterfall_spec::{EcfSweepSpec, PaymentPriority, PikToggleSpec, WaterfallSpec};
