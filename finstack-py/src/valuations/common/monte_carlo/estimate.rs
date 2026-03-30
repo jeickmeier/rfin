@@ -1,6 +1,8 @@
 //! Python bindings for Monte Carlo estimation types.
 
-use finstack_monte_carlo::estimate::{ConvergenceDiagnostics, Estimate};
+#[allow(deprecated)]
+use finstack_monte_carlo::estimate::ConvergenceDiagnostics;
+use finstack_monte_carlo::estimate::Estimate;
 use pyo3::prelude::*;
 
 /// Monte Carlo estimation result.
@@ -143,6 +145,7 @@ impl PyEstimate {
 /// The underlying Rust engine currently leaves these fields unset, so Python
 /// callers should treat this type as a placeholder and rely on `Estimate`
 /// statistics for live convergence information.
+#[allow(deprecated)]
 #[pyclass(
     module = "finstack.valuations.common.monte_carlo",
     name = "ConvergenceDiagnostics",
@@ -154,6 +157,7 @@ pub struct PyConvergenceDiagnostics {
     pub(crate) inner: ConvergenceDiagnostics,
 }
 
+#[allow(deprecated)]
 #[pymethods]
 impl PyConvergenceDiagnostics {
     /// Create empty compatibility diagnostics.
@@ -192,6 +196,7 @@ impl PyConvergenceDiagnostics {
     }
 }
 
+#[allow(deprecated)]
 impl PyConvergenceDiagnostics {
     pub fn from_inner(inner: ConvergenceDiagnostics) -> Self {
         Self { inner }

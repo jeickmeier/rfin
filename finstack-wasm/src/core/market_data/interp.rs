@@ -54,6 +54,11 @@ impl JsInterpStyle {
         Self::new(InterpStyle::LogLinear)
     }
 
+    #[wasm_bindgen(js_name = PiecewiseQuadraticForward)]
+    pub fn piecewise_quadratic_forward() -> JsInterpStyle {
+        Self::new(InterpStyle::PiecewiseQuadraticForward)
+    }
+
     #[wasm_bindgen(js_name = fromName)]
     pub fn from_name(name: &str) -> Result<JsInterpStyle, JsValue> {
         match name.to_ascii_lowercase().as_str() {
@@ -62,6 +67,9 @@ impl JsInterpStyle {
             "monotone_convex" | "monotoneconvex" => Ok(Self::monotone_convex()),
             "cubic_hermite" | "cubichermite" => Ok(Self::cubic_hermite()),
             "flat_fwd" | "flat_forward" | "flatforward" => Ok(Self::flat_fwd()),
+            "piecewise_quadratic_forward" | "piecewise_quadratic" | "pqf" => {
+                Ok(Self::piecewise_quadratic_forward())
+            }
             other => Err(js_error(format!("Unknown interpolation style: {other}"))),
         }
     }

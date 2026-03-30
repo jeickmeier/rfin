@@ -688,7 +688,11 @@ fn bench_wal(c: &mut Criterion) {
 
         group.throughput(Throughput::Elements(n as u64));
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, _| {
-            b.iter(|| black_box(&schedule).weighted_average_life(black_box(base)));
+            b.iter(|| {
+                black_box(&schedule)
+                    .weighted_average_life(black_box(base))
+                    .ok()
+            });
         });
     }
 

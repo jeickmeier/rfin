@@ -178,14 +178,20 @@ impl Portfolio {
         &self.positions
     }
 
-    /// Append a position and refresh derived indices.
+    /// Append a position and incrementally update derived indices.
+    ///
+    /// This is O(k) where k is the number of market dependencies for the
+    /// position, rather than O(N) for a full rebuild.
     ///
     /// # Arguments
     ///
     /// * `position` - Position to append to the portfolio.
     pub fn add_position(&mut self, position: Position) {
+        let idx = self.positions.len();
+        self.position_index
+            .insert(position.position_id.clone(), idx);
+        self.dependency_index.add_position(idx, &position);
         self.positions.push(position);
-        self.rebuild_index();
     }
 
     /// Replace all positions and refresh derived indices.
@@ -301,19 +307,22 @@ impl Portfolio {
         Ok(())
     }
 
-    /// Detect cycles in the book parent_id hierarchy using iterative tortoise-and-hare.
+    /// Validate the book hierarchy for cycles and referential integrity.
     ///
-    /// For each book, follows the `parent_id` chain. If any chain revisits a
-    /// previously seen node, a cycle exists. Uses a `HashSet` per chain (bounded
-    /// by book count) for clarity.
+    /// Checks performed:
+    /// 1. No cycles in parent_id chains (iterative walk with visited set).
+    /// 2. Every `child_book_ids` entry refers to an existing book.
+    /// 3. Parent/child consistency: if B is in A's `child_book_ids`,
+    ///    then B's `parent_id` must be A.
     fn validate_book_hierarchy(&self) -> Result<()> {
         use finstack_core::HashSet;
 
-        for (book_id, _book) in &self.books {
+        // (1) Detect cycles via parent_id chains
+        for (book_id, book) in &self.books {
             let mut visited = HashSet::default();
             visited.insert(book_id.clone());
 
-            let mut current = _book.parent_id.clone();
+            let mut current = book.parent_id.clone();
             while let Some(ref pid) = current {
                 if !visited.insert(pid.clone()) {
                     return Err(Error::validation(format!(
@@ -324,6 +333,26 @@ impl Portfolio {
                 current = self.books.get(pid).and_then(|b| b.parent_id.clone());
             }
         }
+
+        // (2)+(3) Validate child_book_ids referential integrity
+        for (parent_id, parent_book) in &self.books {
+            for child_id in &parent_book.child_book_ids {
+                let child = self.books.get(child_id).ok_or_else(|| {
+                    Error::validation(format!(
+                        "Book '{}' references non-existent child book '{}'",
+                        parent_id, child_id
+                    ))
+                })?;
+
+                if child.parent_id.as_ref() != Some(parent_id) {
+                    return Err(Error::validation(format!(
+                        "Book '{}' lists '{}' as child, but child's parent_id is {:?}",
+                        parent_id, child_id, child.parent_id
+                    )));
+                }
+            }
+        }
+
         Ok(())
     }
 

@@ -210,7 +210,11 @@ impl JsSwaptionBuilder {
                 curve_id_from_str(forward_curve),
                 vol_surface_id,
             ),
-            _ => unreachable!("validated above"),
+            other => {
+                return Err(JsValue::from_str(&format!(
+                    "Invalid swaption_type '{other}'; expected 'payer' or 'receiver'"
+                )));
+            }
         };
 
         swaption.exercise_style = exercise_style;

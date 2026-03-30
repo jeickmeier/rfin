@@ -49,12 +49,14 @@ impl From<JsAllocationMode> for RustAllocationMode {
     }
 }
 
-impl From<RustAllocationMode> for JsAllocationMode {
-    fn from(value: RustAllocationMode) -> Self {
+impl JsAllocationMode {
+    fn try_from_rust(value: RustAllocationMode) -> Result<Self, JsValue> {
         match value {
-            RustAllocationMode::Sequential => JsAllocationMode::Sequential,
-            RustAllocationMode::ProRata => JsAllocationMode::ProRata,
-            _ => unreachable!("unknown AllocationMode variant"),
+            RustAllocationMode::Sequential => Ok(JsAllocationMode::Sequential),
+            RustAllocationMode::ProRata => Ok(JsAllocationMode::ProRata),
+            other => Err(js_error(format!(
+                "unsupported AllocationMode variant: {other:?}"
+            ))),
         }
     }
 }
@@ -86,14 +88,16 @@ impl From<JsPaymentType> for RustPaymentType {
     }
 }
 
-impl From<RustPaymentType> for JsPaymentType {
-    fn from(value: RustPaymentType) -> Self {
+impl JsPaymentType {
+    fn try_from_rust(value: RustPaymentType) -> Result<Self, JsValue> {
         match value {
-            RustPaymentType::Fee => JsPaymentType::Fee,
-            RustPaymentType::Interest => JsPaymentType::Interest,
-            RustPaymentType::Principal => JsPaymentType::Principal,
-            RustPaymentType::Residual => JsPaymentType::Residual,
-            _ => unreachable!("unknown PaymentType variant"),
+            RustPaymentType::Fee => Ok(JsPaymentType::Fee),
+            RustPaymentType::Interest => Ok(JsPaymentType::Interest),
+            RustPaymentType::Principal => Ok(JsPaymentType::Principal),
+            RustPaymentType::Residual => Ok(JsPaymentType::Residual),
+            other => Err(js_error(format!(
+                "unsupported PaymentType variant: {other:?}"
+            ))),
         }
     }
 }
@@ -165,14 +169,14 @@ impl JsWaterfallTier {
 
     /// Get payment type as number.
     #[wasm_bindgen(getter, js_name = paymentType)]
-    pub fn payment_type(&self) -> u8 {
-        JsPaymentType::from(self.inner.payment_type) as u8
+    pub fn payment_type(&self) -> Result<u8, JsValue> {
+        Ok(JsPaymentType::try_from_rust(self.inner.payment_type)? as u8)
     }
 
     /// Get allocation mode as number.
     #[wasm_bindgen(getter, js_name = allocationMode)]
-    pub fn allocation_mode(&self) -> u8 {
-        JsAllocationMode::from(self.inner.allocation_mode) as u8
+    pub fn allocation_mode(&self) -> Result<u8, JsValue> {
+        Ok(JsAllocationMode::try_from_rust(self.inner.allocation_mode)? as u8)
     }
 
     /// Is tier divertible.

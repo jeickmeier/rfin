@@ -497,7 +497,7 @@ impl JsXccySwap {
             let principal_sign = match leg.side {
                 LegSide::Receive => (-1.0, 1.0),
                 LegSide::Pay => (1.0, -1.0),
-                _ => unreachable!("unknown LegSide variant"),
+                other => return Err(js_error(format!("unsupported LegSide variant: {other:?}"))),
             };
 
             if matches!(
@@ -567,7 +567,7 @@ impl JsXccySwap {
             let coupon_sign = match leg.side {
                 LegSide::Receive => 1.0,
                 LegSide::Pay => -1.0,
-                _ => unreachable!("unknown LegSide variant"),
+                other => return Err(js_error(format!("unsupported LegSide variant: {other:?}"))),
             };
 
             for i in 1..dates.len() {

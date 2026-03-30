@@ -321,6 +321,7 @@ pub fn comp_sum(returns: &[f64]) -> Vec<f64> {
 /// assert!(ct_wipeout.is_finite());
 /// assert!(ct_wipeout < -0.99);
 /// ```
+#[must_use]
 pub fn comp_total(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;

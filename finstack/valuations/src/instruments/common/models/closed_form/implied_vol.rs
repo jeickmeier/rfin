@@ -38,8 +38,9 @@ const MIN_VEGA: f64 = 1e-15;
 /// Finds \(\sigma\) such that `bs_price(spot, strike, r, q, sigma, t, option_type) == target_price`.
 ///
 /// - `target_price` is the **per-unit** option price (not contract-scaled).
-/// - Returns `Ok(0.0)` when `t <= 0` or `target_price <= 0` (expired or degenerate).
-/// - Returns `Err` for non-finite inputs (NaN, infinity) or when the target cannot be bracketed.
+/// - Returns `Ok(0.0)` when `t <= 0` (expired; volatility is moot).
+/// - Returns `Err` for non-finite inputs, non-positive `spot`/`strike`/`target_price`,
+///   or when the target cannot be bracketed.
 #[allow(clippy::too_many_arguments)]
 pub fn bs_implied_vol(
     spot: f64,
@@ -59,8 +60,13 @@ pub fn bs_implied_vol(
     {
         return Err(finstack_core::Error::Validation(NON_FINITE_MSG.into()));
     }
-    if t <= 0.0 || target_price <= 0.0 || spot <= 0.0 || strike <= 0.0 {
+    if t <= 0.0 {
         return Ok(0.0);
+    }
+    if target_price <= 0.0 || spot <= 0.0 || strike <= 0.0 {
+        return Err(finstack_core::Error::Validation(
+            "implied vol requires positive spot, strike, and target_price".into(),
+        ));
     }
 
     // Intrinsic lower bound (per unit) for continuous compounding.
@@ -150,8 +156,9 @@ pub fn bs_implied_vol(
 /// `df * bs_price(forward, strike, 0, 0, sigma, t, option_type) == target_price`.
 ///
 /// - `target_price` is the **per-unit** option price (not contract-scaled).
-/// - Returns `Ok(0.0)` when `t <= 0` or `target_price <= 0` (expired or degenerate).
-/// - Returns `Err` for non-finite inputs (NaN, infinity) or when the target cannot be bracketed.
+/// - Returns `Ok(0.0)` when `t <= 0` (expired; volatility is moot).
+/// - Returns `Err` for non-finite inputs, non-positive `forward`/`strike`/`df`/`target_price`,
+///   or when the target cannot be bracketed.
 pub fn black76_implied_vol(
     forward: f64,
     strike: f64,
@@ -168,8 +175,13 @@ pub fn black76_implied_vol(
     {
         return Err(finstack_core::Error::Validation(NON_FINITE_MSG.into()));
     }
-    if t <= 0.0 || target_price <= 0.0 || forward <= 0.0 || strike <= 0.0 || df <= 0.0 {
+    if t <= 0.0 {
         return Ok(0.0);
+    }
+    if target_price <= 0.0 || forward <= 0.0 || strike <= 0.0 || df <= 0.0 {
+        return Err(finstack_core::Error::Validation(
+            "implied vol requires positive forward, strike, df, and target_price".into(),
+        ));
     }
 
     let intrinsic = match option_type {

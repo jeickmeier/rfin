@@ -62,6 +62,7 @@ pub enum AnnualizationConvention {
 /// let c = cagr(&[0.10], start, end);
 /// assert!((c - 0.10).abs() < 0.01);
 /// ```
+#[must_use]
 pub fn cagr(returns: &[f64], start: crate::dates::Date, end: crate::dates::Date) -> f64 {
     cagr_with_convention(returns, start, end, AnnualizationConvention::Act365_25)
 }
@@ -95,6 +96,7 @@ pub fn cagr(returns: &[f64], start: crate::dates::Date, end: crate::dates::Date)
 /// let c = cagr_with_convention(&[0.10], start, end, AnnualizationConvention::Act365Fixed);
 /// assert!((c - 0.10).abs() < 0.01);
 /// ```
+#[must_use]
 pub fn cagr_with_convention(
     returns: &[f64],
     start: crate::dates::Date,
@@ -167,6 +169,7 @@ fn is_leap_year(year: i32) -> bool {
 ///
 /// Returns `f64::NAN` when `returns` has fewer than 2 elements, or when
 /// `ann_factor` is not finite and strictly positive.
+#[must_use]
 pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
     let n = returns.len();
     if n < 2 {
@@ -223,6 +226,7 @@ pub fn cagr_from_periods(returns: &[f64], ann_factor: f64) -> f64 {
 /// let m_ann = mean_return(&r, true, 252.0);
 /// assert!((m_ann - 0.02 * 252.0).abs() < 1e-10);
 /// ```
+#[must_use]
 pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
@@ -266,6 +270,7 @@ pub fn mean_return(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// let vol_ann = volatility(&r, true, 252.0);
 /// assert!((vol_ann - vol * 252.0_f64.sqrt()).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
@@ -308,6 +313,7 @@ pub fn volatility(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// # References
 ///
 /// - Sharpe (1966): see docs/REFERENCES.md#sharpe1966
+#[must_use]
 pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
     if ann_vol == 0.0 {
         let excess = ann_return - risk_free_rate;
@@ -363,6 +369,7 @@ pub fn sharpe(ann_return: f64, ann_vol: f64, risk_free_rate: f64) -> f64 {
 /// # References
 ///
 /// - Sortino & van der Meer (1991): see docs/REFERENCES.md#sortinoVanDerMeer1991
+#[must_use]
 pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -423,6 +430,7 @@ pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor
 /// # References
 ///
 /// - Sortino & van der Meer (1991): see docs/REFERENCES.md#sortinoVanDerMeer1991
+#[must_use]
 pub fn sortino(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     if invalid_annualization_factor(annualize, ann_factor) {
         return f64::NAN;
@@ -693,6 +701,7 @@ pub fn estimate_ruin(
 /// let gm5 = geometric_mean(&[0.05, 0.05, 0.05]);
 /// assert!((gm5 - 0.05).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn geometric_mean(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -735,6 +744,7 @@ pub fn geometric_mean(returns: &[f64]) -> f64 {
 /// # References
 ///
 /// - Keating & Shadwick (2002): see docs/REFERENCES.md#keatingShadwick2002
+#[must_use]
 pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -786,6 +796,7 @@ pub fn omega_ratio(returns: &[f64], threshold: f64) -> f64 {
 /// # References
 ///
 /// - Schwager (2012): see docs/REFERENCES.md#schwager2012
+#[must_use]
 pub fn gain_to_pain(returns: &[f64]) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -832,6 +843,7 @@ pub fn gain_to_pain(returns: &[f64]) -> f64 {
 /// # References
 ///
 /// - Gregoriou & Gueyie (2003): see docs/REFERENCES.md#gregoriou2003
+#[must_use]
 pub fn modified_sharpe(
     returns: &[f64],
     risk_free_rate: f64,

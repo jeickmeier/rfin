@@ -352,8 +352,13 @@ impl CashFlowSchedule {
     /// and the sum runs over all principal flows (Amortization, Notional,
     /// PrePayment) with positive amounts after `as_of`.
     ///
-    /// Returns 0.0 if there are no future principal flows.
-    pub fn weighted_average_life(&self, as_of: Date) -> f64 {
+    /// Returns `Ok(0.0)` if there are no future principal flows.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the day-count convention cannot compute a year
+    /// fraction for any principal flow date.
+    pub fn weighted_average_life(&self, as_of: Date) -> finstack_core::Result<f64> {
         let mut principal_time_sum = 0.0;
         let mut principal_total = 0.0;
 
@@ -366,17 +371,16 @@ impl CashFlowSchedule {
             {
                 let t = self
                     .day_count
-                    .year_fraction(as_of, cf.date, Default::default())
-                    .unwrap_or(0.0);
+                    .year_fraction(as_of, cf.date, Default::default())?;
                 principal_time_sum += cf.amount.amount() * t;
                 principal_total += cf.amount.amount();
             }
         }
 
         if principal_total > 0.0 {
-            principal_time_sum / principal_total
+            Ok(principal_time_sum / principal_total)
         } else {
-            0.0
+            Ok(0.0)
         }
     }
 

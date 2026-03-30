@@ -208,6 +208,7 @@ pub fn align_benchmark_with_policy(
 /// # References
 ///
 /// - Grinold & Kahn (1999): see docs/REFERENCES.md#grinoldKahn1999ActivePortfolio
+#[must_use]
 pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
@@ -268,6 +269,7 @@ pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_f
 /// # References
 ///
 /// - Grinold & Kahn (1999): see docs/REFERENCES.md#grinoldKahn1999ActivePortfolio
+#[must_use]
 pub fn information_ratio(
     returns: &[f64],
     benchmark: &[f64],
@@ -327,6 +329,7 @@ pub fn information_ratio(
 /// let b = [2.0, 4.0, 6.0, 8.0];
 /// assert!((r_squared(&r, &b) - 1.0).abs() < 1e-10);
 /// ```
+#[must_use]
 pub fn r_squared(returns: &[f64], benchmark: &[f64]) -> f64 {
     let c = correlation(returns, benchmark);
     c * c
@@ -682,6 +685,7 @@ pub fn rolling_greeks(
 /// let uc = up_capture(&r, &b);
 /// assert!(uc > 1.0);
 /// ```
+#[must_use]
 pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
@@ -735,6 +739,7 @@ pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// let dc = down_capture(&r, &b);
 /// assert!(dc < 1.0);
 /// ```
+#[must_use]
 pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
@@ -784,6 +789,7 @@ pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// let cr = capture_ratio(&r, &b);
 /// assert!(cr > 1.0);
 /// ```
+#[must_use]
 pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
     let dc = down_capture(returns, benchmark);
     if dc == 0.0 {
@@ -822,6 +828,7 @@ pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// // Period 3: -0.01 < 0.00 → loss
 /// assert!((ba - 0.5).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn batting_average(returns: &[f64], benchmark: &[f64]) -> f64 {
     let n = returns.len().min(benchmark.len());
     if n == 0 {
@@ -1398,6 +1405,7 @@ mod tests {
 /// # References
 ///
 /// - Treynor (1965): see docs/REFERENCES.md#treynor1965
+#[must_use]
 pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
     if beta.abs() < 1e-10 {
         return 0.0;
@@ -1440,6 +1448,7 @@ pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
 /// # References
 ///
 /// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
+#[must_use]
 pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: f64) -> f64 {
     if ann_vol.abs() < 1e-10 {
         return risk_free_rate;
@@ -1492,6 +1501,7 @@ pub fn m_squared(ann_return: f64, ann_vol: f64, bench_vol: f64, risk_free_rate: 
 /// # References
 ///
 /// - Modigliani & Modigliani (1997): see docs/REFERENCES.md#modigliani1997
+#[must_use]
 pub fn m_squared_from_returns(
     portfolio: &[f64],
     benchmark: &[f64],

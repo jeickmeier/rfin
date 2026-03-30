@@ -178,6 +178,29 @@ impl DependencyIndex {
         Self { inner, unresolved }
     }
 
+    /// Incrementally index a single position (avoids full rebuild on append).
+    ///
+    /// # Arguments
+    ///
+    /// * `idx` - Positional index in the portfolio's position vector.
+    /// * `position` - The position to index.
+    pub fn add_position(&mut self, idx: usize, position: &crate::position::Position) {
+        let deps = match position.instrument.market_dependencies() {
+            Ok(d) => d,
+            Err(_) => {
+                self.unresolved.push(idx);
+                return;
+            }
+        };
+
+        for key in flatten_dependencies(&deps) {
+            let entry = self.inner.entry(key).or_default();
+            if !entry.contains(&idx) {
+                entry.push(idx);
+            }
+        }
+    }
+
     /// Look up position indices affected by a single market factor key.
     ///
     /// # Returns

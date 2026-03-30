@@ -87,6 +87,9 @@ impl ParseFromString for InterpStyle {
             "monotone_convex" => Ok(InterpStyle::MonotoneConvex),
             "cubic_hermite" => Ok(InterpStyle::CubicHermite),
             "flat_fwd" => Ok(InterpStyle::LogLinear),
+            "piecewise_quadratic_forward" | "piecewise_quadratic" | "pqf" => {
+                Ok(InterpStyle::PiecewiseQuadraticForward)
+            }
             _ => Err(js_error(format!("Unknown interpolation style: {}", label))),
         }
     }

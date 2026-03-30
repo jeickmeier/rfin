@@ -324,12 +324,14 @@ impl JsAgencyTba {
     }
 
     #[wasm_bindgen(getter)]
-    pub fn term(&self) -> String {
+    pub fn term(&self) -> Result<String, JsValue> {
         match self.inner.term {
-            TbaTerm::FifteenYear => "15y".to_string(),
-            TbaTerm::TwentyYear => "20y".to_string(),
-            TbaTerm::ThirtyYear => "30y".to_string(),
-            _ => unreachable!("unknown TbaTerm variant"),
+            TbaTerm::FifteenYear => Ok("15y".to_string()),
+            TbaTerm::TwentyYear => Ok("20y".to_string()),
+            TbaTerm::ThirtyYear => Ok("30y".to_string()),
+            other => Err(JsValue::from_str(&format!(
+                "unsupported TbaTerm variant: {other:?}"
+            ))),
         }
     }
 

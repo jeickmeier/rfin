@@ -157,6 +157,10 @@ impl std::fmt::Display for Estimate {
 /// All fields are currently placeholders and remain `None` unless a downstream
 /// caller fills them manually. Prefer the statistics on [`Estimate`] and any
 /// simulation-result summaries for actual convergence analysis.
+#[deprecated(
+    since = "0.5.0",
+    note = "Not populated by the engine. Use Estimate statistics instead."
+)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConvergenceDiagnostics {
     /// Stderr decay rate (should be ~-0.5 for MC)
@@ -167,6 +171,7 @@ pub struct ConvergenceDiagnostics {
     pub variance_reduction_factor: Option<f64>,
 }
 
+#[allow(deprecated)]
 impl ConvergenceDiagnostics {
     /// Create empty compatibility diagnostics.
     ///
@@ -199,6 +204,7 @@ impl ConvergenceDiagnostics {
     }
 }
 
+#[allow(deprecated)]
 impl Default for ConvergenceDiagnostics {
     fn default() -> Self {
         Self::new()

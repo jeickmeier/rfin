@@ -43,6 +43,7 @@ fn has_strict_confidence(confidence: f64) -> bool {
 /// # References
 ///
 /// - J.P. Morgan RiskMetrics (1996): see docs/REFERENCES.md#jpmorgan1996RiskMetrics
+#[must_use]
 pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -57,6 +58,7 @@ pub fn value_at_risk(returns: &[f64], confidence: f64, ann_factor: Option<f64>) 
 /// Historical VaR using a caller-provided scratch buffer (avoids allocation).
 ///
 /// The contents of `scratch` will be partially reordered by `quantile`.
+#[must_use]
 pub fn value_at_risk_with_scratch(
     scratch: &mut [f64],
     confidence: f64,
@@ -113,6 +115,7 @@ pub fn value_at_risk_with_scratch(
 /// # References
 ///
 /// - Artzner et al. (1999): see docs/REFERENCES.md#artzner1999CoherentRisk
+#[must_use]
 pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -127,6 +130,7 @@ pub fn expected_shortfall(returns: &[f64], confidence: f64, ann_factor: Option<f
 /// Expected Shortfall using a caller-provided scratch buffer (avoids allocation).
 ///
 /// The contents of `scratch` will be partially reordered by `quantile`.
+#[must_use]
 pub fn expected_shortfall_with_scratch(
     scratch: &mut [f64],
     confidence: f64,
@@ -190,6 +194,7 @@ pub fn expected_shortfall_with_scratch(
 /// let tr = tail_ratio(&r, 0.95);
 /// assert!((tr - 1.0).abs() < 0.1);
 /// ```
+#[must_use]
 pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -202,6 +207,7 @@ pub fn tail_ratio(returns: &[f64], confidence: f64) -> f64 {
 }
 
 /// Tail ratio using a caller-provided scratch buffer (avoids allocation).
+#[must_use]
 pub fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
     if scratch.is_empty() {
         return 0.0;
@@ -242,6 +248,7 @@ pub fn tail_ratio_with_scratch(scratch: &mut [f64], confidence: f64) -> f64 {
 /// let ratio = outlier_win_ratio(&r, 0.95);
 /// assert!(ratio < 0.06);
 /// ```
+#[must_use]
 pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -256,6 +263,7 @@ pub fn outlier_win_ratio(returns: &[f64], confidence: f64) -> f64 {
 /// Outlier win ratio using a caller-provided scratch buffer (avoids allocation).
 ///
 /// `original` must contain the un-reordered return data for counting.
+#[must_use]
 pub fn outlier_win_ratio_with_scratch(
     original: &[f64],
     scratch: &mut [f64],
@@ -298,6 +306,7 @@ pub fn outlier_win_ratio_with_scratch(
 /// let ratio = outlier_loss_ratio(&r, 0.95);
 /// assert!(ratio < 0.06);
 /// ```
+#[must_use]
 pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -312,6 +321,7 @@ pub fn outlier_loss_ratio(returns: &[f64], confidence: f64) -> f64 {
 /// Outlier loss ratio using a caller-provided scratch buffer (avoids allocation).
 ///
 /// `original` must contain the un-reordered return data for counting.
+#[must_use]
 pub fn outlier_loss_ratio_with_scratch(
     original: &[f64],
     scratch: &mut [f64],
@@ -363,6 +373,7 @@ pub fn outlier_loss_ratio_with_scratch(
 /// # References
 ///
 /// - Joanes & Gill (1998): see docs/REFERENCES.md#joanesGill1998
+#[must_use]
 pub fn skewness(returns: &[f64]) -> f64 {
     let (_, _, skew, _) = moments4(returns);
     skew
@@ -406,6 +417,7 @@ pub fn skewness(returns: &[f64]) -> f64 {
 /// # References
 ///
 /// - Joanes & Gill (1998): see docs/REFERENCES.md#joanesGill1998
+#[must_use]
 pub fn kurtosis(returns: &[f64]) -> f64 {
     let (_, _, _, kurt) = moments4(returns);
     kurt
@@ -445,6 +457,7 @@ pub fn kurtosis(returns: &[f64]) -> f64 {
 /// # References
 ///
 /// - J.P. Morgan RiskMetrics (1996): see docs/REFERENCES.md#jpmorgan1996RiskMetrics
+#[must_use]
 pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;
@@ -509,6 +522,7 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
 /// # References
 ///
 /// - Cornish & Fisher (1937): see docs/REFERENCES.md#cornishFisher1937
+#[must_use]
 pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>) -> f64 {
     if returns.is_empty() {
         return 0.0;

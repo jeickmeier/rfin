@@ -19,7 +19,9 @@ finstack-statements-analytics = { path = "../finstack/statements-analytics" }
 finstack-valuations = { path = "../finstack/valuations", default-features = false, features = ["mc"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", default-features = false, features = ["scenarios"] }
-wasm-bindgen = "0.2"
+# Pinned: extract_instrument relies on WasmRefCell internal layout (see mod.rs:260-393).
+# Bump only after verifying pointer-based extraction still works.
+wasm-bindgen = "=0.2.114"
 serde = { workspace = true }
 serde-wasm-bindgen = "0.6"
 serde_json = { workspace = true }

@@ -28,16 +28,13 @@ pub(crate) type AmountRepr = Decimal;
 /// Panics if conversion fails (which should never happen for valid monetary amounts).
 /// Use [`try_amount_from_repr`] for explicit error handling at API boundaries.
 #[inline]
+#[allow(clippy::expect_used)]
 pub(crate) fn amount_from_repr(x: AmountRepr) -> f64 {
     use rust_decimal::prelude::ToPrimitive;
-    match x.to_f64() {
-        Some(v) => v,
-        // INVARIANT: Decimal values within monetary range always convert to f64.
-        // The rust_decimal::Decimal max (~7.9e28) is well within f64's range (~1.8e308).
-        None => {
-            unreachable!("Decimal to f64 conversion failed: value {x} outside representable range")
-        }
-    }
+    // INVARIANT: Decimal values within monetary range always convert to f64.
+    // The rust_decimal::Decimal max (~7.9e28) is well within f64's range (~1.8e308).
+    x.to_f64()
+        .expect("Decimal to f64 conversion failed: monetary-range Decimal must fit in f64")
 }
 
 /// Fallible conversion from Decimal representation to f64.
@@ -64,27 +61,16 @@ pub(crate) fn repr_sub(a: AmountRepr, b: AmountRepr) -> Result<AmountRepr, Error
 }
 
 #[inline]
+#[allow(clippy::expect_used)]
 pub(crate) fn repr_mul_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    match try_repr_mul_f64(a, rhs) {
-        Ok(v) => v,
-        // INVARIANT: Callers must ensure rhs is finite and representable.
-        // This is enforced at API boundaries via try_* variants.
-        Err(_) => {
-            unreachable!("Money multiplication requires finite, representable scalar (got {rhs:?})")
-        }
-    }
+    try_repr_mul_f64(a, rhs).expect("Money multiplication requires finite, representable scalar")
 }
 
 #[inline]
+#[allow(clippy::expect_used)]
 pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
-    match try_repr_div_f64(a, rhs) {
-        Ok(v) => v,
-        // INVARIANT: Callers must ensure rhs is finite, non-zero, and representable.
-        // This is enforced at API boundaries via try_* variants.
-        Err(_) => unreachable!(
-            "Money division requires finite, non-zero, representable scalar (got {rhs:?})"
-        ),
-    }
+    try_repr_div_f64(a, rhs)
+        .expect("Money division requires finite, non-zero, representable scalar")
 }
 
 /// Round `x` to `dp` decimal places using the supplied [`RoundingMode`].
@@ -95,15 +81,9 @@ pub(crate) fn repr_div_f64(a: AmountRepr, rhs: f64) -> AmountRepr {
 /// Panics if `x` is not finite or cannot be represented as a Decimal.
 /// Use [`try_round_f64`] for explicit error handling at API boundaries.
 #[inline]
+#[allow(clippy::expect_used)]
 pub(crate) fn round_f64(x: f64, dp: i32, mode: RoundingMode) -> Decimal {
-    match try_round_f64(x, dp, mode) {
-        Ok(v) => v,
-        // INVARIANT: Callers must ensure x is finite and representable.
-        // This is enforced at API boundaries via try_* variants.
-        Err(_) => {
-            unreachable!("Money rounding requires finite, representable scalar (got {x:?})")
-        }
-    }
+    try_round_f64(x, dp, mode).expect("Money rounding requires finite, representable scalar")
 }
 
 /// Fallible multiplication by an `f64` scalar (no silent substitution).
@@ -314,14 +294,14 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money multiplication requires finite, representable scalar")]
+    #[should_panic(expected = "Money multiplication requires finite")]
     fn repr_mul_f64_panics_on_nan() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_mul_f64(a, f64::NAN);
     }
 
     #[test]
-    #[should_panic(expected = "Money multiplication requires finite, representable scalar")]
+    #[should_panic(expected = "Money multiplication requires finite")]
     fn repr_mul_f64_panics_on_infinity() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_mul_f64(a, f64::INFINITY);
@@ -353,21 +333,21 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
+    #[should_panic(expected = "Money division requires finite")]
     fn repr_div_f64_panics_on_nan() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_div_f64(a, f64::NAN);
     }
 
     #[test]
-    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
+    #[should_panic(expected = "Money division requires finite")]
     fn repr_div_f64_panics_on_infinity() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_div_f64(a, f64::INFINITY);
     }
 
     #[test]
-    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
+    #[should_panic(expected = "Money division requires finite")]
     fn repr_div_f64_panics_on_zero() {
         let a = Decimal::from_str("100.00").expect("valid decimal");
         repr_div_f64(a, 0.0);
@@ -437,7 +417,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money rounding requires finite, representable scalar")]
+    #[should_panic(expected = "Money rounding requires finite")]
     fn round_f64_panics_on_nan() {
         round_f64(f64::NAN, 2, RoundingMode::Bankers);
     }

@@ -362,9 +362,12 @@ pub fn bs_vega(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol
     0.01 * spot * (-div_yield * time).exp() * time.sqrt() * norm_pdf(d1_val)
 }
 
-/// Black-Scholes call theta.
+/// Black-Scholes call theta (**annualized**).
 ///
 /// Θ_call = -S * φ(d1) * σ / (2√T) * exp(-qT) - r*K*exp(-rT)*N(d2) + q*S*exp(-qT)*N(d1)
+///
+/// Returns theta per year. For **per-day** theta (divided by a day-count basis),
+/// use [`super::vanilla::bs_greeks`] which accepts a `theta_days_per_year` parameter.
 #[must_use]
 pub fn bs_call_theta(
     spot: f64,
@@ -388,9 +391,12 @@ pub fn bs_call_theta(
     term1 + term2 + term3
 }
 
-/// Black-Scholes put theta.
+/// Black-Scholes put theta (**annualized**).
 ///
 /// Θ_put = -S * φ(d1) * σ / (2√T) * exp(-qT) + r*K*exp(-rT)*N(-d2) - q*S*exp(-qT)*N(-d1)
+///
+/// Returns theta per year. For **per-day** theta (divided by a day-count basis),
+/// use [`super::vanilla::bs_greeks`] which accepts a `theta_days_per_year` parameter.
 #[must_use]
 pub fn bs_put_theta(spot: f64, strike: f64, time: f64, rate: f64, div_yield: f64, vol: f64) -> f64 {
     if time <= 0.0 {

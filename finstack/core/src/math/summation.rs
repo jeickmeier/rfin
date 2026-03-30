@@ -31,7 +31,9 @@
 ///
 /// # Arguments
 ///
-/// * `iter` - Iterator yielding `f64` values to sum
+/// * `iter` - Iterator yielding `f64` values to sum. **All values must be finite.**
+///   NaN or infinity in the input silently corrupts the compensation term,
+///   producing an incorrect result even after the non-finite value has passed.
 ///
 /// # Returns
 ///
@@ -87,7 +89,9 @@ where
 ///
 /// # Arguments
 ///
-/// * `iter` - Iterator yielding `f64` values to sum
+/// * `iter` - Iterator yielding `f64` values to sum. **All values must be finite.**
+///   NaN or infinity in the input silently corrupts the compensation term,
+///   producing an incorrect result even after the non-finite value has passed.
 ///
 /// # Returns
 ///
@@ -178,6 +182,8 @@ impl NeumaierAccumulator {
     }
 
     /// Add a value to the running total.
+    ///
+    /// `x` must be finite. NaN or infinity corrupts the compensation term.
     #[inline]
     pub fn add(&mut self, x: f64) {
         let t = self.sum + x;

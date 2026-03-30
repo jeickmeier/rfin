@@ -30,7 +30,7 @@ use core::ops::{AddAssign, Div, DivAssign, Mul, MulAssign, SubAssign};
 
 use super::rounding::{
     amount_from_repr, repr_add, repr_div_f64, repr_mul_f64, repr_sub, round_f64,
-    try_amount_from_repr, AmountRepr,
+    try_amount_from_repr, try_repr_div_f64, try_repr_mul_f64, AmountRepr,
 };
 
 /// Helper function to format an integer string (optionally prefixed by `-`) with thousands separators.
@@ -217,13 +217,13 @@ impl Money {
     }
 
     #[inline]
+    #[allow(clippy::expect_used)]
     fn new_finite(amount: f64, currency: Currency, cfg: Option<&FinstackConfig>) -> Self {
         let rounded = if let Some(cfg) = cfg {
             let (dp, mode) = Self::ingest_rounding_params(currency, Some(cfg));
             round_f64(amount, dp as i32, mode)
         } else {
-            AmountRepr::from_f64_retain(amount)
-                .unwrap_or_else(|| unreachable!("finite amount should convert to Decimal"))
+            AmountRepr::from_f64_retain(amount).expect("finite f64 amount must convert to Decimal")
         };
         Self {
             amount: rounded,
@@ -429,6 +429,65 @@ impl Money {
         ensure_same_currency(&self, &rhs)?;
         Ok(Self {
             amount: repr_sub(self.amount, rhs.amount)?,
+            currency: self.currency,
+        })
+    }
+
+    /// Multiply by an `f64` scalar, returning an error on non-finite or
+    /// non-representable values instead of panicking.
+    ///
+    /// Prefer this over the `*` operator when the scalar may come from
+    /// untrusted or computed input.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// # fn main() -> finstack_core::Result<()> {
+    ///
+    /// let m = Money::new(100.0, Currency::USD);
+    /// let doubled = m.checked_mul_f64(2.0)?;
+    /// assert_eq!(doubled.amount(), 200.0);
+    ///
+    /// assert!(m.checked_mul_f64(f64::NAN).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "returns new Money on success"]
+    #[inline]
+    pub fn checked_mul_f64(self, rhs: f64) -> Result<Self, Error> {
+        Ok(Self {
+            amount: try_repr_mul_f64(self.amount, rhs)?,
+            currency: self.currency,
+        })
+    }
+
+    /// Divide by an `f64` scalar, returning an error on non-finite, zero, or
+    /// non-representable values instead of panicking.
+    ///
+    /// Prefer this over the `/` operator when the scalar may come from
+    /// untrusted or computed input.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use finstack_core::money::Money;
+    /// use finstack_core::currency::Currency;
+    /// # fn main() -> finstack_core::Result<()> {
+    ///
+    /// let m = Money::new(100.0, Currency::USD);
+    /// let half = m.checked_div_f64(2.0)?;
+    /// assert_eq!(half.amount(), 50.0);
+    ///
+    /// assert!(m.checked_div_f64(0.0).is_err());
+    /// assert!(m.checked_div_f64(f64::INFINITY).is_err());
+    /// # Ok(())
+    /// # }
+    /// ```
+    #[must_use = "returns new Money on success"]
+    #[inline]
+    pub fn checked_div_f64(self, rhs: f64) -> Result<Self, Error> {
+        Ok(Self {
+            amount: try_repr_div_f64(self.amount, rhs)?,
             currency: self.currency,
         })
     }
@@ -768,13 +827,13 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Money division requires finite, non-zero, representable scalar")]
+    #[should_panic(expected = "Money division requires finite")]
     fn division_by_zero_panics() {
         let _ = Money::new(10.0, Currency::USD) / 0.0;
     }
 
     #[test]
-    #[should_panic(expected = "Money multiplication requires finite, representable scalar")]
+    #[should_panic(expected = "Money multiplication requires finite")]
     fn multiply_by_nan_panics() {
         let _ = Money::new(10.0, Currency::USD) * f64::NAN;
     }

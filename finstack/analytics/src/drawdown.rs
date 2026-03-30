@@ -214,6 +214,7 @@ fn make_episode(
 /// let avg = avg_drawdown(&dd, &dates, 3);
 /// assert!(avg < 0.0);
 /// ```
+#[must_use]
 pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
     let _ = dates;
     let episode_depths = worst_episode_drawdowns(drawdown, n);
@@ -324,6 +325,7 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 /// # References
 ///
 /// - Chekhlov, Uryasev & Zabarankin (2005): see docs/REFERENCES.md#chekhlov2005
+#[must_use]
 pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
     if drawdown.is_empty() {
         return 0.0;
@@ -503,6 +505,7 @@ mod tests {
 /// # References
 ///
 /// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
+#[must_use]
 pub fn ulcer_index(drawdown: &[f64]) -> f64 {
     if drawdown.is_empty() {
         return 0.0;
@@ -536,6 +539,7 @@ pub fn ulcer_index(drawdown: &[f64]) -> f64 {
 /// let pi = pain_index(&dd);
 /// assert!((pi - 0.045).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn pain_index(drawdown: &[f64]) -> f64 {
     if drawdown.is_empty() {
         return 0.0;
@@ -571,6 +575,7 @@ pub fn max_drawdown_from_returns(returns: &[f64]) -> f64 {
 ///
 /// * `drawdowns` - Slice of per-period drawdown depths (from
 ///   [`to_drawdown_series`]).
+#[must_use]
 pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
     if drawdowns.is_empty() {
         0.0
@@ -607,6 +612,7 @@ pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
 /// # References
 ///
 /// - Young (1991): see docs/REFERENCES.md#youngCalmar1991
+#[must_use]
 pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
     if max_dd == 0.0 {
         return 0.0;
@@ -647,6 +653,7 @@ pub fn calmar_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 /// // 50% total return with 25% max drawdown → 2.0.
 /// assert!((recovery_factor(0.50, -0.25) - 2.0).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
     if max_dd == 0.0 {
         return 0.0;
@@ -681,6 +688,7 @@ pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
 /// let expected = recovery_factor(comp_total(&returns), max_dd);
 /// assert!((direct - expected).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
     let total_return = crate::returns::comp_total(returns);
     recovery_factor(total_return, max_drawdown_from_returns(returns))
@@ -712,6 +720,7 @@ pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
 /// # References
 ///
 /// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
+#[must_use]
 pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
     if ulcer == 0.0 {
         return 0.0;
@@ -755,6 +764,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 /// # References
 ///
 /// - Martin (1987): see docs/REFERENCES.md#martinUlcer1987
+#[must_use]
 pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
@@ -790,6 +800,7 @@ pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 /// # References
 ///
 /// - Kestner (1996): see docs/REFERENCES.md#kestner1996
+#[must_use]
 pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
     if avg_dd == 0.0 {
         return 0.0;
@@ -836,6 +847,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 /// # References
 ///
 /// - Kestner (1996): see docs/REFERENCES.md#kestner1996
+#[must_use]
 pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
@@ -874,6 +886,7 @@ pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_r
 /// # References
 ///
 /// - Burke (1994): see docs/REFERENCES.md#burke1994
+#[must_use]
 pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f64 {
     if dd_episodes.is_empty() {
         return 0.0;
@@ -910,6 +923,7 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 ///
 /// assert!((pain_ratio(0.10, 0.05, 0.02) - 1.6).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
     if pain == 0.0 {
         return 0.0;
@@ -950,6 +964,7 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
 /// );
 /// assert!((direct - expected).abs() < 1e-12);
 /// ```
+#[must_use]
 pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);

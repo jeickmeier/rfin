@@ -16,6 +16,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 
 /// Register the Monte Carlo submodule with all classes at the mc level.
+#[allow(deprecated)]
 pub(crate) fn register(
     py: Python<'_>,
     parent: &Bound<'_, PyModule>,

@@ -546,7 +546,13 @@ impl CompiledExpr {
         let len = arg_results.first().map(|a| a.len()).unwrap_or(0);
         if arg_results.len() >= 2 && !arg_results[1].is_empty() {
             let base = &arg_results[0];
-            let n = arg_results[1][0] as i32;
+            let raw = arg_results[1][0];
+            #[allow(clippy::as_conversions)]
+            let n = if raw.is_finite() && raw >= f64::from(i32::MIN) && raw <= f64::from(i32::MAX) {
+                raw as i32
+            } else {
+                return vec![f64::NAN; len];
+            };
             let mut out = vec![0.0; len];
             for (i, slot) in out.iter_mut().enumerate().take(len) {
                 let shifted_idx = i as i32 - n;

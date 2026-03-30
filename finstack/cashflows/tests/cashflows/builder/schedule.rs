@@ -1049,7 +1049,9 @@ fn test_weighted_average_life_two_amort() {
         meta: CashFlowMeta::default(),
     };
 
-    let wal = schedule.weighted_average_life(as_of);
+    let wal = schedule
+        .weighted_average_life(as_of)
+        .expect("WAL should succeed");
     // With Act/365F, ~365 days = ~1.0y, ~730 days = ~2.0y
     // Equal weights => WAL ~ 1.5
     assert!(
@@ -1085,7 +1087,9 @@ fn test_weighted_average_life_bullet() {
         meta: CashFlowMeta::default(),
     };
 
-    let wal = schedule.weighted_average_life(as_of);
+    let wal = schedule
+        .weighted_average_life(as_of)
+        .expect("WAL should succeed");
     // 5 years with Act/365F (1826 or 1827 days depending on leap years)
     assert!(
         (wal - 5.0).abs() < 0.02,
@@ -1109,7 +1113,9 @@ fn test_weighted_average_life_empty() {
         meta: CashFlowMeta::default(),
     };
 
-    let wal = schedule.weighted_average_life(as_of);
+    let wal = schedule
+        .weighted_average_life(as_of)
+        .expect("WAL should succeed");
     assert!(wal == 0.0, "WAL with no flows should be 0.0, got {}", wal);
 }
 
@@ -1162,7 +1168,9 @@ fn test_weighted_average_life_ignores_coupons() {
         meta: CashFlowMeta::default(),
     };
 
-    let wal = schedule.weighted_average_life(as_of);
+    let wal = schedule
+        .weighted_average_life(as_of)
+        .expect("WAL should succeed");
     // Should be ~1.0 year (only the notional at maturity counts)
     assert!(
         (wal - 1.0).abs() < 0.02,
