@@ -552,12 +552,9 @@ class TestErrorHandling:
         builder.compute("b", "c + 1")
         builder.compute("c", "a + 1")  # Circular!
 
-        model = builder.build()
-        evaluator = Evaluator.new()
-
-        # Should raise an error for circular dependencies
-        with pytest.raises(Exception, match=r".*"):
-            evaluator.evaluate(model)
+        # Circular dependency is detected at build time
+        with pytest.raises(Exception, match=r".*[Cc]ircular.*"):
+            builder.build()
 
 
 if __name__ == "__main__":

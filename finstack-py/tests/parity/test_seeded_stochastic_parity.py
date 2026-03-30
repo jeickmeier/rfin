@@ -203,24 +203,30 @@ class TestSeededForecastProperties:
     )
     @settings(max_examples=30, deadline=None)
     def test_normal_forecast_reasonable_bounds(self, mean: float, std: float, seed: int) -> None:
-        """Normal forecasts produce values within reasonable bounds (5 sigma)."""
-        assume(std > 0)
-        assume(mean > 5 * std)  # Ensure we won't go negative
+        """Normal forecasts produce values within reasonable bounds (5 sigma).
 
+        The normal forecast is a random walk: value[t] = value[t-1] + N(mean, std).
+        After k steps the expected value is base + k*mean with std sqrt(k)*std.
+        """
+        assume(std > 0)
+
+        base_value = mean
         builder = ModelBuilder.new("bounds_test")
         builder.periods("2024Q1..Q4", "2024Q1")
-        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(mean))])
+        builder.value("revenue", [(PeriodId.quarter(2024, 1), AmountOrScalar.scalar(base_value))])
         builder.forecast("revenue", ForecastSpec.normal(mean, std, seed=seed))
         model = builder.build()
 
         results = Evaluator.new().evaluate(model)
 
         for q in [2, 3, 4]:
+            steps = q - 1
             period = PeriodId.quarter(2024, q)
             value = results.get("revenue", period)
-            # Values should be within 5 sigma (very high probability)
-            assert value > mean - 5 * std, f"Q{q}: {value} < {mean - 5 * std}"
-            assert value < mean + 5 * std, f"Q{q}: {value} > {mean + 5 * std}"
+            expected = base_value + steps * mean
+            band = 5 * (steps**0.5) * std
+            assert value > expected - band, f"Q{q}: {value} < {expected - band}"
+            assert value < expected + band, f"Q{q}: {value} > {expected + band}"
 
     @given(
         st.floats(min_value=0.01, max_value=0.10, allow_nan=False, allow_infinity=False),
