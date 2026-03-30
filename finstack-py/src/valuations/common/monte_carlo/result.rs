@@ -53,10 +53,9 @@ impl PyMonteCarloResult {
     /// Get the captured paths dataset (if available).
     #[getter]
     fn paths(&self) -> Option<PyPathDataset> {
-        self.inner
-            .paths
-            .as_ref()
-            .map(|p| PyPathDataset { inner: p.clone() })
+        self.inner.paths.as_ref().map(|p| PyPathDataset {
+            inner: std::sync::Arc::new(p.clone()),
+        })
     }
 
     /// Check if paths were captured.

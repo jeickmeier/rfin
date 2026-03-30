@@ -461,7 +461,10 @@ impl Performance {
     /// One VaR value per ticker (non-positive).
     pub fn value_at_risk(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| risk_metrics::value_at_risk(self.active_returns(i), confidence, None))
+            .map(|i| {
+                let mut scratch: Vec<f64> = self.active_returns(i).to_vec();
+                risk_metrics::value_at_risk_with_scratch(&mut scratch, confidence, None)
+            })
             .collect()
     }
 
@@ -476,7 +479,10 @@ impl Performance {
     /// One ES value per ticker (non-positive, always ≤ corresponding VaR).
     pub fn expected_shortfall(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| risk_metrics::expected_shortfall(self.active_returns(i), confidence, None))
+            .map(|i| {
+                let mut scratch: Vec<f64> = self.active_returns(i).to_vec();
+                risk_metrics::expected_shortfall_with_scratch(&mut scratch, confidence, None)
+            })
             .collect()
     }
 
@@ -491,7 +497,10 @@ impl Performance {
     /// One tail ratio per ticker.
     pub fn tail_ratio(&self, confidence: f64) -> Vec<f64> {
         (0..self.ticker_names.len())
-            .map(|i| risk_metrics::tail_ratio(self.active_returns(i), confidence))
+            .map(|i| {
+                let mut scratch: Vec<f64> = self.active_returns(i).to_vec();
+                risk_metrics::tail_ratio_with_scratch(&mut scratch, confidence)
+            })
             .collect()
     }
 

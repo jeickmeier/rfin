@@ -70,12 +70,13 @@ impl<'a> SensitivityAnalyzer<'a> {
 
     /// Run diagonal sensitivity (one-at-a-time).
     fn run_diagonal(&self, config: &SensitivityConfig) -> Result<SensitivityResult> {
+        let mut evaluator = Evaluator::new();
+        let prepared = evaluator.prepare(self.model)?;
+        let mut model_clone = self.model.clone();
         let mut scenarios = Vec::new();
 
         for param in &config.parameters {
             for perturbation in &param.perturbations {
-                // Clone model and override this parameter
-                let mut model_clone = self.model.clone();
                 self.apply_parameter_override(
                     &mut model_clone,
                     &param.node_id,
@@ -83,11 +84,10 @@ impl<'a> SensitivityAnalyzer<'a> {
                     *perturbation,
                 )?;
 
-                // Evaluate
-                let mut evaluator = Evaluator::new();
-                let results = evaluator.evaluate(&model_clone)?;
+                let results = evaluator.evaluate_prepared(&model_clone, &prepared)?;
 
-                // Store scenario
+                self.restore_parameter(&mut model_clone, &param.node_id, param.period_id)?;
+
                 let mut parameter_values = IndexMap::new();
                 parameter_values.insert(
                     scenario_parameter_key(&param.node_id, param.period_id),
@@ -115,6 +115,9 @@ impl<'a> SensitivityAnalyzer<'a> {
             ));
         }
 
+        let mut evaluator = Evaluator::new();
+        let prepared = evaluator.prepare(self.model)?;
+
         let mut combinations = Vec::new();
         let mut current = Vec::new();
         build_parameter_grid(&config.parameters, 0, &mut current, &mut combinations);
@@ -138,8 +141,7 @@ impl<'a> SensitivityAnalyzer<'a> {
                 );
             }
 
-            let mut evaluator = Evaluator::new();
-            let results = evaluator.evaluate(&model_clone)?;
+            let results = evaluator.evaluate_prepared(&model_clone, &prepared)?;
             scenarios.push(SensitivityScenario {
                 parameter_values,
                 results,
@@ -169,7 +171,6 @@ impl<'a> SensitivityAnalyzer<'a> {
         Ok(result)
     }
 
-    // Helper to override a parameter value in the model
     fn apply_parameter_override(
         &self,
         model: &mut FinancialModelSpec,
@@ -178,10 +179,41 @@ impl<'a> SensitivityAnalyzer<'a> {
         value: f64,
     ) -> Result<()> {
         if let Some(node) = model.nodes.get_mut(node_id) {
-            // Override the value for this period
             let mut values = node.values.clone().unwrap_or_default();
             values.insert(period_id, AmountOrScalar::scalar(value));
             node.values = Some(values);
+            Ok(())
+        } else {
+            Err(Error::invalid_input(format!(
+                "Node '{}' not found",
+                node_id
+            )))
+        }
+    }
+
+    /// Restore a node's value for a specific period from the original model.
+    fn restore_parameter(
+        &self,
+        model: &mut FinancialModelSpec,
+        node_id: &str,
+        period_id: finstack_core::dates::PeriodId,
+    ) -> Result<()> {
+        let original_value = self
+            .model
+            .nodes
+            .get(node_id)
+            .and_then(|n| n.values.as_ref())
+            .and_then(|v| v.get(&period_id))
+            .cloned();
+
+        if let Some(node) = model.nodes.get_mut(node_id) {
+            if let Some(values) = node.values.as_mut() {
+                if let Some(orig) = original_value {
+                    values.insert(period_id, orig);
+                } else {
+                    values.swap_remove(&period_id);
+                }
+            }
             Ok(())
         } else {
             Err(Error::invalid_input(format!(

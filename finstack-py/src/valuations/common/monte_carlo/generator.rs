@@ -14,6 +14,7 @@ use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 use pyo3::Bound;
+use smallvec::SmallVec;
 
 /// Standalone Monte Carlo path generator.
 ///
@@ -108,7 +109,9 @@ impl PyMonteCarloPathGenerator {
             })
         })?;
 
-        Ok(PyPathDataset { inner: paths })
+        Ok(PyPathDataset {
+            inner: std::sync::Arc::new(paths),
+        })
     }
 
     /// Generate paths with custom parameters (advanced).
@@ -237,7 +240,7 @@ impl PyMonteCarloPathGenerator {
             let mut simulated_path = SimulatedPath::with_capacity(path_id, num_steps);
 
             // Capture initial point
-            let initial_point = PathPoint::with_state(0, 0.0, state.clone().into());
+            let initial_point = PathPoint::with_state(0, 0.0, SmallVec::from_slice(&state));
             simulated_path.add_point(initial_point);
 
             // Simulate path
@@ -252,7 +255,7 @@ impl PyMonteCarloPathGenerator {
                 disc.step(process, t, dt, &mut state, &z, &mut work);
 
                 // Capture this point
-                let point = PathPoint::with_state(step + 1, t + dt, state.clone().into());
+                let point = PathPoint::with_state(step + 1, t + dt, SmallVec::from_slice(&state));
                 simulated_path.add_point(point);
             }
 

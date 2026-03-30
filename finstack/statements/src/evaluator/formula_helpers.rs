@@ -21,13 +21,12 @@ pub(crate) fn is_truthy(value: f64) -> bool {
 
 /// Decode an internal `__cs__<component>__<instrument>` reference.
 pub(crate) fn decode_cs_reference(name: &str) -> Option<(&str, &str)> {
-    if name.starts_with("__cs__") {
-        let parts: Vec<&str> = name.split("__").collect();
-        if parts.len() == 4 && parts[0].is_empty() && parts[1] == "cs" {
-            return Some((parts[2], parts[3]));
-        }
+    let rest = name.strip_prefix("__cs__")?;
+    let (component, instrument) = rest.split_once("__")?;
+    if component.is_empty() || instrument.is_empty() || instrument.contains("__") {
+        return None;
     }
-    None
+    Some((component, instrument))
 }
 
 /// Get a single historical value for a node or cs-reference at a target period.

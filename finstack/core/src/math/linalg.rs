@@ -480,6 +480,61 @@ pub fn cholesky_decomposition(
     Ok(l)
 }
 
+/// Cholesky decomposition into a caller-provided buffer (avoids allocation).
+///
+/// The output buffer `l` must have length `n * n` and will be overwritten.
+pub fn cholesky_decomposition_into(
+    matrix: &[f64],
+    n: usize,
+    l: &mut [f64],
+) -> std::result::Result<(), CholeskyError> {
+    if matrix.len() != n * n || l.len() != n * n {
+        return Err(CholeskyError::DimensionMismatch {
+            expected: n,
+            actual: matrix.len(),
+        });
+    }
+
+    l.fill(0.0);
+
+    for i in 0..n {
+        for j in 0..=i {
+            let mut sum = 0.0;
+            for k in 0..j {
+                sum += l[i * n + k] * l[j * n + k];
+            }
+
+            if i == j {
+                let diag = matrix[i * n + i] - sum;
+                if diag < 0.0 {
+                    return Err(CholeskyError::NotPositiveDefinite { diag, row: i });
+                }
+                l[i * n + j] = diag.sqrt();
+                if l[i * n + j].abs() < SINGULAR_THRESHOLD {
+                    return Err(CholeskyError::Singular {
+                        value: l[i * n + j],
+                        row: i,
+                        col: j,
+                        threshold: SINGULAR_THRESHOLD,
+                    });
+                }
+            } else {
+                if l[j * n + j].abs() < SINGULAR_THRESHOLD {
+                    return Err(CholeskyError::Singular {
+                        value: l[j * n + j],
+                        row: i,
+                        col: j,
+                        threshold: SINGULAR_THRESHOLD,
+                    });
+                }
+                l[i * n + j] = (matrix[i * n + j] - sum) / l[j * n + j];
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Apply correlation via Cholesky factor to independent shocks.
 ///
 /// Transforms independent N(0,1) shocks into correlated shocks.

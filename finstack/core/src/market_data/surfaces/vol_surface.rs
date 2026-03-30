@@ -274,19 +274,74 @@ impl VolSurface {
         // Get bounds safely using first/last with defensive fallbacks
         let (exp_min, exp_max) = match (self.expiries.first(), self.expiries.last()) {
             (Some(&min), Some(&max)) => (min, max),
-            _ => return f64::NAN, // Empty surface - return NaN
+            _ => return f64::NAN,
         };
         let (str_min, str_max) = match (self.strikes.first(), self.strikes.last()) {
             (Some(&min), Some(&max)) => (min, max),
-            _ => return f64::NAN, // Empty surface - return NaN
+            _ => return f64::NAN,
         };
 
-        // Clamp coordinates to grid bounds
         let expiry = expiry.clamp(exp_min, exp_max);
         let strike = strike.clamp(str_min, str_max);
 
-        // After clamping, coordinates are guaranteed in bounds
-        self.value_checked(expiry, strike).unwrap_or(f64::NAN)
+        self.value_in_bounds(expiry, strike)
+    }
+
+    /// Interpolate a vol at coordinates known to be within grid bounds.
+    ///
+    /// Skips bounds checks and error handling. Coordinates must satisfy
+    /// `expiries[0] <= expiry <= expiries[last]` and similarly for strike.
+    #[inline]
+    fn value_in_bounds(&self, expiry: f64, strike: f64) -> f64 {
+        use crate::math::interp::utils::locate_segment_unchecked;
+
+        let ie0 = locate_segment_unchecked(&self.expiries, expiry);
+        let is0 = locate_segment_unchecked(&self.strikes, strike);
+        let n_strikes = self.strikes.len();
+
+        #[allow(clippy::float_cmp)]
+        let exact_e = self.expiries[ie0] == expiry;
+        #[allow(clippy::float_cmp)]
+        let exact_s = self.strikes[is0] == strike;
+
+        if exact_e && exact_s {
+            return self.vols[ie0 * n_strikes + is0];
+        }
+
+        let ie1 = if exact_e { ie0 } else { ie0 + 1 };
+        let is1 = if exact_s { is0 } else { is0 + 1 };
+        let e0 = self.expiries[ie0];
+        let e1 = self.expiries[ie1];
+        let s0 = self.strikes[is0];
+        let s1 = self.strikes[is1];
+        let q11 = self.vols[ie0 * n_strikes + is0];
+        let q21 = self.vols[ie1 * n_strikes + is0];
+        let q12 = self.vols[ie0 * n_strikes + is1];
+        let q22 = self.vols[ie1 * n_strikes + is1];
+        let t = if exact_e {
+            0.0
+        } else {
+            (expiry - e0) / (e1 - e0)
+        };
+        let u = if exact_s {
+            0.0
+        } else {
+            (strike - s0) / (s1 - s0)
+        };
+        match self.interpolation_mode {
+            VolInterpolationMode::Vol => Self::bilinear(q11, q21, q12, q22, t, u),
+            VolInterpolationMode::TotalVariance => {
+                let total_variance = Self::bilinear(
+                    e0 * q11 * q11,
+                    e1 * q21 * q21,
+                    e0 * q12 * q12,
+                    e1 * q22 * q22,
+                    t,
+                    u,
+                );
+                (total_variance / expiry.max(f64::EPSILON)).max(0.0).sqrt()
+            }
+        }
     }
 
     #[inline]
@@ -431,6 +486,57 @@ impl VolSurface {
             &self.strikes,
             &bumped_vols,
         )
+    }
+
+    /// Bump a single grid point in place, returning the original vol for reversal.
+    ///
+    /// Avoids cloning the entire vols vector. Use with
+    /// [`unbump_point_in_place`](Self::unbump_point_in_place) to restore.
+    pub fn bump_point_in_place(
+        &mut self,
+        expiry: f64,
+        strike: f64,
+        bump_pct: f64,
+    ) -> crate::Result<f64> {
+        let (exp_min, exp_max) = match (self.expiries.first(), self.expiries.last()) {
+            (Some(&min), Some(&max)) => (min, max),
+            _ => return Err(crate::error::InputError::TooFewPoints.into()),
+        };
+        let (str_min, str_max) = match (self.strikes.first(), self.strikes.last()) {
+            (Some(&min), Some(&max)) => (min, max),
+            _ => return Err(crate::error::InputError::TooFewPoints.into()),
+        };
+
+        let clamped_expiry = expiry.clamp(exp_min, exp_max);
+        let clamped_strike = strike.clamp(str_min, str_max);
+
+        let expiry_idx = find_closest_grid_index(self.expiries.as_ref(), clamped_expiry);
+        let strike_idx = find_closest_grid_index(self.strikes.as_ref(), clamped_strike);
+
+        let n_strikes = self.strikes.len();
+        let idx = expiry_idx * n_strikes + strike_idx;
+
+        let original = self.vols[idx];
+        self.vols[idx] = original * (1.0 + bump_pct).max(0.0);
+        Ok(original)
+    }
+
+    /// Restore a grid point to a previously saved vol value.
+    pub fn unbump_point_in_place(&mut self, expiry: f64, strike: f64, original_vol: f64) {
+        let clamped_expiry = match (self.expiries.first(), self.expiries.last()) {
+            (Some(&min), Some(&max)) => expiry.clamp(min, max),
+            _ => return,
+        };
+        let clamped_strike = match (self.strikes.first(), self.strikes.last()) {
+            (Some(&min), Some(&max)) => strike.clamp(min, max),
+            _ => return,
+        };
+
+        let expiry_idx = find_closest_grid_index(self.expiries.as_ref(), clamped_expiry);
+        let strike_idx = find_closest_grid_index(self.strikes.as_ref(), clamped_strike);
+
+        let n_strikes = self.strikes.len();
+        self.vols[expiry_idx * n_strikes + strike_idx] = original_vol;
     }
 
     /// Return a new volatility surface scaled uniformly by `scale`.

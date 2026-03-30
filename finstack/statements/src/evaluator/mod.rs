@@ -44,7 +44,7 @@ mod results;
 pub use cashflow_export::{node_to_dated_schedule, PeriodDateConvention};
 pub use context::EvaluationContext;
 pub use dag::{evaluate_order, DependencyGraph};
-pub use engine::{Evaluator, EvaluatorWithContext};
+pub use engine::{Evaluator, EvaluatorWithContext, PreparedEvaluation};
 pub use monte_carlo::{MonteCarloConfig, MonteCarloResults, PercentileSeries};
 pub use precedence::{resolve_node_value, NodeValueSource};
 pub use results::{EvalWarning, NumericMode, ResultsMeta, StatementResult};

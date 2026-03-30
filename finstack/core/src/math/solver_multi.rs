@@ -50,6 +50,46 @@
 use crate::error::InputError;
 use crate::Result;
 
+/// Pre-allocated scratch buffers for finite-difference Jacobian computation.
+struct JacobianScratch {
+    jacobian: Vec<f64>,
+    params_plus: Vec<f64>,
+    params_minus: Vec<f64>,
+    r_plus: Vec<f64>,
+    r_minus: Vec<f64>,
+}
+
+impl JacobianScratch {
+    fn new(n_params: usize, n_residuals: usize) -> Self {
+        Self {
+            jacobian: vec![0.0; n_residuals * n_params],
+            params_plus: vec![0.0; n_params],
+            params_minus: vec![0.0; n_params],
+            r_plus: vec![0.0; n_residuals],
+            r_minus: vec![0.0; n_residuals],
+        }
+    }
+}
+
+/// Pre-allocated workspace for the normal-equations step of LM.
+struct NormalEquationsWorkspace {
+    matrix: Vec<f64>,
+    rhs: Vec<f64>,
+    chol: Vec<f64>,
+    step: Vec<f64>,
+}
+
+impl NormalEquationsWorkspace {
+    fn new(n_params: usize) -> Self {
+        Self {
+            matrix: vec![0.0; n_params * n_params],
+            rhs: vec![0.0; n_params],
+            chol: vec![0.0; n_params * n_params],
+            step: vec![0.0; n_params],
+        }
+    }
+}
+
 /// Trait for functions that can provide analytical derivatives.
 ///
 /// This trait allows optimization algorithms to use exact derivatives
@@ -342,107 +382,94 @@ impl LevenbergMarquardtSolver {
         self.compute_jacobian(objective, params)
     }
 
-    /// Compute Jacobian for a system of residuals.
+    /// Compute Jacobian for a system of residuals into a pre-allocated buffer.
     ///
-    /// Returns a flat `Vec<f64>` in row-major layout: `jacobian[i * n_params + j]`
-    /// where i = residual index, j = param index.
-    fn compute_jacobian_system<Res>(
+    /// Writes a flat row-major Jacobian into `scratch.jacobian`: `J[i * n_params + j]`.
+    fn compute_jacobian_system_into<Res>(
         &self,
         residuals: &Res,
         params: &[f64],
         n_residuals: usize,
         residual_eval_counter: &mut usize,
-    ) -> Vec<f64>
-    where
+        scratch: &mut JacobianScratch,
+    ) where
         Res: Fn(&[f64], &mut [f64]),
     {
         let n_params = params.len();
-        let mut jacobian = vec![0.0; n_residuals * n_params];
 
-        let mut params_plus = params.to_vec();
-        let mut params_minus = params.to_vec();
-        let mut r_plus = vec![0.0; n_residuals];
-        let mut r_minus = vec![0.0; n_residuals];
+        scratch.params_plus.copy_from_slice(params);
+        scratch.params_minus.copy_from_slice(params);
 
-        for j in 0..n_params {
-            let h = (params[j].abs() * self.fd_step).max(self.fd_step);
-            params_plus[j] = params[j] + h;
-            params_minus[j] = params[j] - h;
-            residuals(&params_plus, &mut r_plus);
-            residuals(&params_minus, &mut r_minus);
+        for (j, &p_j) in params.iter().enumerate() {
+            let h = (p_j.abs() * self.fd_step).max(self.fd_step);
+            scratch.params_plus[j] = p_j + h;
+            scratch.params_minus[j] = p_j - h;
+            residuals(&scratch.params_plus, &mut scratch.r_plus);
+            residuals(&scratch.params_minus, &mut scratch.r_minus);
             *residual_eval_counter += 2;
 
             for i in 0..n_residuals {
-                jacobian[i * n_params + j] = (r_plus[i] - r_minus[i]) / (2.0 * h);
+                scratch.jacobian[i * n_params + j] =
+                    (scratch.r_plus[i] - scratch.r_minus[i]) / (2.0 * h);
             }
-            params_plus[j] = params[j];
-            params_minus[j] = params[j];
+            scratch.params_plus[j] = p_j;
+            scratch.params_minus[j] = p_j;
         }
-
-        jacobian
     }
 
-    /// Solve the normal equations (J^T J + λI) δ = -J^T r
-    ///
-    /// # Arguments
-    /// * `jacobian` - Flat Jacobian in row-major layout: `jacobian[i * n + j]`
-    /// * `m` - Number of residuals (rows)
-    /// * `n` - Number of parameters (columns)
-    /// * `residuals` - Residual vector of length m
-    /// * `lambda` - Damping parameter
-    fn solve_normal_equations(
+    /// Solve the normal equations (J^T J + λI) δ = -J^T r into pre-allocated workspace.
+    fn solve_normal_equations_into(
         &self,
         jacobian: &[f64],
         m: usize,
         n: usize,
         residuals: &[f64],
         lambda: f64,
-    ) -> Result<Vec<f64>> {
-        use super::linalg::{cholesky_decomposition, cholesky_solve};
+        ws: &mut NormalEquationsWorkspace,
+    ) -> Result<()> {
+        use super::linalg::{cholesky_decomposition_into, cholesky_solve};
 
         let min_dim = n.min(m);
 
         if min_dim == 0 {
-            return Ok(vec![0.0; n]);
+            ws.step.fill(0.0);
+            return Ok(());
         }
 
-        // Compute J^T J + λI as flat matrix
-        let mut matrix = vec![0.0; n * n];
+        ws.matrix.fill(0.0);
 
         for row in 0..m {
             for i in 0..n {
                 let ri = jacobian[row * n + i];
                 for j in 0..=i {
-                    matrix[i * n + j] += ri * jacobian[row * n + j];
+                    ws.matrix[i * n + j] += ri * jacobian[row * n + j];
                 }
             }
         }
 
-        // Add damping and symmetrize
         for i in 0..n {
-            matrix[i * n + i] += lambda;
+            ws.matrix[i * n + i] += lambda;
             for j in 0..i {
-                matrix[j * n + i] = matrix[i * n + j];
+                ws.matrix[j * n + i] = ws.matrix[i * n + j];
             }
         }
 
-        // Compute -J^T r
-        let mut rhs = vec![0.0; n];
+        ws.rhs.fill(0.0);
         for k in 0..m {
             let r = residuals[k];
             for i in 0..n {
-                rhs[i] -= jacobian[k * n + i] * r;
+                ws.rhs[i] -= jacobian[k * n + i] * r;
             }
         }
 
-        // Solve using Cholesky
-        let chol =
-            cholesky_decomposition(&matrix, n).map_err(|_| crate::error::InputError::Invalid)?;
+        cholesky_decomposition_into(&ws.matrix, n, &mut ws.chol)
+            .map_err(|_| crate::error::InputError::Invalid)?;
 
-        let mut result = vec![0.0; n];
-        cholesky_solve(&chol, &rhs, &mut result).map_err(|_| crate::error::InputError::Invalid)?;
+        ws.step.fill(0.0);
+        cholesky_solve(&ws.chol, &ws.rhs, &mut ws.step)
+            .map_err(|_| crate::error::InputError::Invalid)?;
 
-        Ok(result)
+        Ok(())
     }
 
     /// Apply box constraints to parameters.
@@ -458,14 +485,14 @@ impl LevenbergMarquardtSolver {
         &self,
         mut params: Vec<f64>,
         residuals_func: &Res,
-        jacobian_func: Jac,
+        mut jacobian_func: Jac,
         convergence_check: Check,
         n_residuals: usize,
         bounds: Option<&[(f64, f64)]>,
     ) -> Result<LmSolution>
     where
         Res: Fn(&[f64], &mut [f64]),
-        Jac: Fn(&[f64], &[f64], &mut usize) -> Vec<f64>,
+        Jac: FnMut(&[f64], &[f64], &mut usize, &mut [f64]),
         Check: Fn(&[f64], &[f64], &[f64]) -> Option<LmTerminationReason>,
     {
         if params.is_empty() || n_residuals == 0 {
@@ -475,12 +502,12 @@ impl LevenbergMarquardtSolver {
         let mut lambda = self.lambda_init;
         let n_params = params.len();
 
-        // Allocations reused across iterations
         let mut resid_vec = vec![0.0; n_residuals];
         let mut new_resid = vec![0.0; n_residuals];
         let mut new_params = vec![0.0; n_params];
+        let mut jacobian = vec![0.0; n_residuals * n_params];
+        let mut ne_ws = NormalEquationsWorkspace::new(n_params);
 
-        // Initial residual evaluation
         residuals_func(&params, &mut resid_vec);
         let mut resid_norm: f64 = resid_vec.iter().map(|r| r * r).sum::<f64>().sqrt();
         let mut residual_evals = 1usize;
@@ -499,9 +526,8 @@ impl LevenbergMarquardtSolver {
         );
 
         for _iter in 0..self.max_iterations {
-            // Compute Jacobian (strategy depends on use case)
             jacobian_evals += 1;
-            let jacobian = jacobian_func(&params, &resid_vec, &mut residual_evals);
+            jacobian_func(&params, &resid_vec, &mut residual_evals, &mut jacobian);
 
             if let Some(reason) = convergence_check(&params, &resid_vec, &jacobian[..]) {
                 #[cfg(feature = "tracing")]
@@ -521,15 +547,15 @@ impl LevenbergMarquardtSolver {
                 });
             }
 
-            // Solve for step: (J^T J + λI) δ = -J^T r
-            let step = match self.solve_normal_equations(
+            match self.solve_normal_equations_into(
                 &jacobian,
                 n_residuals,
                 n_params,
                 &resid_vec,
                 lambda,
+                &mut ne_ws,
             ) {
-                Ok(step) => step,
+                Ok(()) => {}
                 Err(_) => {
                     let new_lambda = (lambda * self.lambda_factor).min(LAMBDA_MAX);
                     if new_lambda >= LAMBDA_MAX {
@@ -540,14 +566,12 @@ impl LevenbergMarquardtSolver {
                 }
             };
 
-            // Try the step: new_params = params + step
             new_params.copy_from_slice(&params);
-            for (i, &s) in step.iter().enumerate() {
+            for (i, &s) in ne_ws.step.iter().enumerate() {
                 new_params[i] += s;
             }
             self.apply_bounds(&mut new_params, bounds);
 
-            // Check effective step size (after bounds clipping) for convergence
             let effective_step_norm: f64 = new_params
                 .iter()
                 .zip(params.iter())
@@ -571,14 +595,11 @@ impl LevenbergMarquardtSolver {
                 });
             }
 
-            // Evaluate new parameters
             residuals_func(&new_params, &mut new_resid);
             residual_evals += 1;
             let new_norm: f64 = new_resid.iter().map(|r| r * r).sum::<f64>().sqrt();
 
-            // Accept or reject step
             if new_norm < resid_norm {
-                // Accept: update params, residuals, and decrease lambda
                 params.copy_from_slice(&new_params);
                 resid_vec.copy_from_slice(&new_resid);
                 resid_norm = new_norm;
@@ -590,7 +611,6 @@ impl LevenbergMarquardtSolver {
                 }
                 lambda = new_lambda;
             } else {
-                // Reject: increase lambda and try again with same params
                 let new_lambda = (lambda * self.lambda_factor).min(LAMBDA_MAX);
                 if new_lambda >= LAMBDA_MAX {
                     lambda_bound_hits += 1;
@@ -635,14 +655,13 @@ impl LevenbergMarquardtSolver {
         Obj: Fn(&[f64]) -> f64,
         D: AnalyticalDerivatives,
     {
-        // Wrap scalar objective as a residual vector of size 1
         let residuals_func = |params: &[f64], resid: &mut [f64]| {
             resid[0] = objective(params);
         };
 
-        // Jacobian strategy: use analytical gradient (flat 1×n)
-        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize| -> Vec<f64> {
-            self.compute_gradient_with_analytical(&objective, p, Some(derivatives))
+        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize, out: &mut [f64]| {
+            let grad = self.compute_gradient_with_analytical(&objective, p, Some(derivatives));
+            out.copy_from_slice(&grad);
         };
 
         // Convergence check: Gradient Norm (jac is flat 1×n = gradient)
@@ -678,12 +697,20 @@ impl LevenbergMarquardtSolver {
     where
         Res: Fn(&[f64], &mut [f64]),
     {
-        // Jacobian strategy: finite difference system (flat row-major)
-        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<f64> {
-            self.compute_jacobian_system(&residuals, p, n_residuals, eval_counter)
+        let n_params = initial.len();
+        let mut jac_scratch = JacobianScratch::new(n_params, n_residuals);
+
+        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize, out: &mut [f64]| {
+            self.compute_jacobian_system_into(
+                &residuals,
+                p,
+                n_residuals,
+                eval_counter,
+                &mut jac_scratch,
+            );
+            out.copy_from_slice(&jac_scratch.jacobian);
         };
 
-        // Convergence check: Residual Norm
         let convergence_check =
             |_p: &[f64], r: &[f64], _jac: &[f64]| -> Option<LmTerminationReason> {
                 let resid_norm: f64 = r.iter().map(|val| val * val).sum::<f64>().sqrt();
@@ -700,7 +727,7 @@ impl LevenbergMarquardtSolver {
             jacobian_func,
             convergence_check,
             n_residuals,
-            None, // bounds
+            None,
         )
     }
 
@@ -725,22 +752,32 @@ impl LevenbergMarquardtSolver {
             )
         })?;
 
-        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize| -> Vec<f64> {
+        let n_params = initial.len();
+        let mut jac_scratch = JacobianScratch::new(n_params, n_residuals);
+        let mut jac_2d = vec![vec![0.0; n_params]; n_residuals];
+
+        let jacobian_func = |p: &[f64], _r: &[f64], eval_counter: &mut usize, out: &mut [f64]| {
             if derivatives.has_jacobian() {
-                let mut jac_2d = vec![vec![0.0; p.len()]; n_residuals];
+                for row in jac_2d.iter_mut() {
+                    row.fill(0.0);
+                }
                 if derivatives.jacobian(p, &mut jac_2d).is_some() {
-                    // Convert Vec<Vec<f64>> to flat row-major
-                    let mut flat = vec![0.0; n_residuals * p.len()];
                     for (i, row) in jac_2d.iter().enumerate() {
                         for (j, &v) in row.iter().enumerate() {
-                            flat[i * p.len() + j] = v;
+                            out[i * p.len() + j] = v;
                         }
                     }
-                    return flat;
+                    return;
                 }
             }
-            // Fallback
-            self.compute_jacobian_system(&residuals, p, n_residuals, eval_counter)
+            self.compute_jacobian_system_into(
+                &residuals,
+                p,
+                n_residuals,
+                eval_counter,
+                &mut jac_scratch,
+            );
+            out.copy_from_slice(&jac_scratch.jacobian);
         };
 
         // Convergence check: Residual Norm
@@ -775,14 +812,13 @@ impl MultiSolver for LevenbergMarquardtSolver {
     where
         Obj: Fn(&[f64]) -> f64,
     {
-        // Wrap scalar objective as a residual vector of size 1
         let residuals_func = |params: &[f64], resid: &mut [f64]| {
             resid[0] = objective(params);
         };
 
-        // Jacobian strategy: finite difference gradient (flat 1×n)
-        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize| -> Vec<f64> {
-            self.compute_jacobian(&objective, p)
+        let jacobian_func = |p: &[f64], _r: &[f64], _eval_counter: &mut usize, out: &mut [f64]| {
+            let jac = self.compute_jacobian(&objective, p);
+            out.copy_from_slice(&jac);
         };
 
         // Convergence check: Gradient Norm (jac is flat 1×n = gradient)

@@ -5,6 +5,7 @@ use finstack_monte_carlo::paths::{CashflowType, PathDataset, PathPoint, Simulate
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
+use std::sync::Arc;
 
 /// Helper function to convert CashflowType to string.
 fn cashflow_type_to_string(cf_type: CashflowType) -> &'static str {
@@ -482,7 +483,7 @@ impl PySimulatedPath {
 )]
 #[derive(Clone)]
 pub struct PyPathDataset {
-    pub(crate) inner: PathDataset,
+    pub(crate) inner: Arc<PathDataset>,
 }
 
 #[pymethods]
@@ -728,8 +729,13 @@ impl PyPathDataset {
 
     /// Return an iterator over the paths in this dataset.
     fn __iter__(slf: PyRef<'_, Self>) -> PyResult<Py<PyPathDatasetIterator>> {
-        let paths: Vec<SimulatedPath> = slf.inner.paths.clone();
-        Py::new(slf.py(), PyPathDatasetIterator { paths, index: 0 })
+        Py::new(
+            slf.py(),
+            PyPathDatasetIterator {
+                dataset: Arc::clone(&slf.inner),
+                index: 0,
+            },
+        )
     }
 }
 
@@ -739,7 +745,7 @@ impl PyPathDataset {
     name = "PathDatasetIterator"
 )]
 pub struct PyPathDatasetIterator {
-    paths: Vec<SimulatedPath>,
+    dataset: Arc<PathDataset>,
     index: usize,
 }
 
@@ -750,9 +756,9 @@ impl PyPathDatasetIterator {
     }
 
     fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PySimulatedPath> {
-        if slf.index < slf.paths.len() {
+        if slf.index < slf.dataset.paths.len() {
             let path = PySimulatedPath {
-                inner: slf.paths[slf.index].clone(),
+                inner: slf.dataset.paths[slf.index].clone(),
             };
             slf.index += 1;
             Some(path)

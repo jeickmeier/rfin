@@ -13,7 +13,9 @@
 
 pub use crate::builder::{MixedNodeBuilder, ModelBuilder, NeedPeriods, Ready};
 pub use crate::error::{Error, Result};
-pub use crate::evaluator::{Evaluator, EvaluatorWithContext, NumericMode, StatementResult};
+pub use crate::evaluator::{
+    Evaluator, EvaluatorWithContext, NumericMode, PreparedEvaluation, StatementResult,
+};
 pub use crate::extensions::{
     Extension, ExtensionContext, ExtensionMetadata, ExtensionRegistry, ExtensionResult,
     ExtensionStatus,

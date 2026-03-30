@@ -74,17 +74,15 @@ pub fn match_standard_normal_moments(samples: &mut [f64]) {
 /// * `num_paths` - Number of paths
 /// * `num_steps` - Number of time steps
 pub fn match_moments_per_step(samples: &mut [f64], num_paths: usize, num_steps: usize) {
+    let mut col_buf: Vec<f64> = vec![0.0; num_paths];
     for step in 0..num_steps {
-        // Extract column for this step
-        let mut step_samples: Vec<f64> = (0..num_paths)
-            .map(|path| samples[path * num_steps + step])
-            .collect();
+        for path in 0..num_paths {
+            col_buf[path] = samples[path * num_steps + step];
+        }
 
-        // Apply moment matching
-        match_standard_normal_moments(&mut step_samples);
+        match_standard_normal_moments(&mut col_buf);
 
-        // Write back
-        for (path, &val) in step_samples.iter().enumerate() {
+        for (path, &val) in col_buf.iter().enumerate() {
             samples[path * num_steps + step] = val;
         }
     }

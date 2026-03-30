@@ -417,7 +417,7 @@ pub fn realized_variance_ohlc(
                     (hl_ratio.ln()).powi(2)
                 })
                 .sum();
-            let factor = 1.0 / (4.0 * (2.0_f64).ln());
+            let factor = 1.0 / (4.0 * std::f64::consts::LN_2);
             Ok((sum / n as f64) * factor * annualization_factor)
         }
         RealizedVarMethod::GarmanKlass => {
@@ -432,11 +432,12 @@ pub fn realized_variance_ohlc(
             // Reference: Garman, M. B., & Klass, M. J. (1980). "On the Estimation of
             // Security Price Volatilities from Historical Data."
             // Journal of Business, 53(1), 67-78.
+            let gk_coeff = 2.0 * std::f64::consts::LN_2 - 1.0;
             let sum: f64 = (0..n)
                 .map(|i| {
                     let hl = (high[i] / low[i]).ln();
                     let co = (close[i] / open[i]).ln();
-                    0.5 * hl.powi(2) - (2.0 * (2.0_f64).ln() - 1.0) * co.powi(2)
+                    0.5 * hl.powi(2) - gk_coeff * co.powi(2)
                 })
                 .sum();
             Ok((sum / n as f64) * annualization_factor)

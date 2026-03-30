@@ -275,7 +275,62 @@ pub(crate) fn collect_expression_values_sorted(
     Ok(values)
 }
 
+/// Returns `true` if the expression tree contains any time-series or
+/// aggregate functions that depend on historical values (lag, rolling,
+/// cumulative, etc.). Point-wise arithmetic on columns and literals is
+/// safe to evaluate period-by-period without full history.
+fn has_aggregate(expr: &Expr) -> bool {
+    match &expr.node {
+        ExprNode::Column(_) | ExprNode::Literal(_) => false,
+        ExprNode::Call(func, args) => {
+            matches!(
+                func,
+                Function::Lag
+                    | Function::Lead
+                    | Function::Diff
+                    | Function::PctChange
+                    | Function::CumSum
+                    | Function::CumProd
+                    | Function::CumMin
+                    | Function::CumMax
+                    | Function::RollingMean
+                    | Function::RollingSum
+                    | Function::RollingStd
+                    | Function::RollingVar
+                    | Function::RollingMedian
+                    | Function::RollingMin
+                    | Function::RollingMax
+                    | Function::RollingCount
+                    | Function::EwmMean
+                    | Function::EwmStd
+                    | Function::EwmVar
+                    | Function::Std
+                    | Function::Var
+                    | Function::Median
+                    | Function::Rank
+                    | Function::Quantile
+                    | Function::Shift
+                    | Function::Ttm
+                    | Function::Ytd
+                    | Function::Qtd
+                    | Function::FiscalYtd
+                    | Function::GrowthRate
+            ) || args.iter().any(has_aggregate)
+        }
+        ExprNode::BinOp { left, right, .. } => has_aggregate(left) || has_aggregate(right),
+        ExprNode::UnaryOp { operand, .. } => has_aggregate(operand),
+        ExprNode::IfThenElse {
+            condition,
+            then_expr,
+            else_expr,
+        } => has_aggregate(condition) || has_aggregate(then_expr) || has_aggregate(else_expr),
+    }
+}
+
 /// Collect expression values for a rolling window in chronological order.
+///
+/// Uses an optimized reverse-walk when the expression contains no aggregate
+/// functions, evaluating only the last `window_size` periods instead of all.
 pub(crate) fn collect_expression_window_values(
     expr: &Expr,
     context: &EvaluationContext,
@@ -284,6 +339,36 @@ pub(crate) fn collect_expression_window_values(
 ) -> Result<Vec<f64>> {
     if window_size == 0 {
         return Ok(Vec::new());
+    }
+
+    match &expr.node {
+        ExprNode::Column(name) => {
+            return collect_rolling_window_values(name, context, window_size);
+        }
+        ExprNode::Literal(value) => {
+            let total = context.historical_results.len() + 1;
+            return Ok(vec![*value; window_size.min(total)]);
+        }
+        _ => {}
+    }
+
+    if !has_aggregate(expr) {
+        let mut periods: Vec<PeriodId> = context
+            .historical_results
+            .keys()
+            .copied()
+            .chain(std::iter::once(context.period_id))
+            .collect();
+        periods.sort_unstable();
+
+        let mut values = Vec::with_capacity(window_size);
+        for period in periods.iter().rev().take(window_size) {
+            let mut period_context = build_context_for_period(*period, context)?;
+            let value = evaluate_expr(expr, &mut period_context, node_id)?;
+            values.push(value);
+        }
+        values.reverse();
+        return Ok(values);
     }
 
     let mut values: Vec<f64> = collect_expression_values_sorted(expr, context, node_id)?

@@ -292,7 +292,8 @@ impl SimulatedPath {
     /// Returns all `(time, amount)` pairs in path order using the same sign
     /// convention as [`PathPoint::cashflows`].
     pub fn extract_cashflows(&self) -> Vec<(f64, f64)> {
-        let mut all_cashflows = Vec::new();
+        let cap: usize = self.points.iter().map(|p| p.cashflows.len()).sum();
+        let mut all_cashflows = Vec::with_capacity(cap);
         for point in &self.points {
             for (time, amount, _) in &point.cashflows {
                 all_cashflows.push((*time, *amount));

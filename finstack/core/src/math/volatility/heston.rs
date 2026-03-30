@@ -396,8 +396,7 @@ impl HestonParams {
             return bs_call_fallback(spot, strike, r, q, t, self.v0.sqrt(), is_call);
         }
 
-        let p1 = self.compute_pj(1, spot, strike, r, q, t);
-        let p2 = self.compute_pj(2, spot, strike, r, q, t);
+        let (p1, p2) = self.compute_p1_p2(spot, strike, r, q, t);
         if !p1.is_finite() || !p2.is_finite() {
             return f64::NAN;
         }
@@ -536,9 +535,138 @@ impl HestonParams {
             .collect()
     }
 
-    /// Compute probability P_j via Fourier inversion.
+    /// Compute both P₁ and P₂ in a single Gauss-Legendre pass.
+    ///
+    /// Evaluates char_func_j for j=1 and j=2 at each quadrature point
+    /// simultaneously, halving the number of integration passes compared
+    /// to two separate `compute_pj` calls.
+    fn compute_p1_p2(&self, spot: f64, strike: f64, r: f64, q: f64, t: f64) -> (f64, f64) {
+        let coords = HestonPjCoords {
+            x: spot.ln(),
+            ln_k: strike.ln(),
+            r,
+            q,
+            t,
+        };
+
+        let upper_limit = self.integration_upper_limit(t);
+        let (coarse1, coarse2) = self.compute_p1_p2_with_upper_limit(coords, upper_limit);
+        if !coarse1.is_finite() || !coarse2.is_finite() {
+            return (coarse1, coarse2);
+        }
+
+        let (tail1, tail2) = self
+            .compute_p1_p2_interval_integral(coords, 0.5 * upper_limit, upper_limit)
+            .map(|(t1, t2)| ((t1 / PI).abs(), (t2 / PI).abs()))
+            .unwrap_or((0.0, 0.0));
+
+        if tail1.max(tail2) > 1.0e-4 {
+            let refined_upper = (2.0 * upper_limit).min(2_000.0);
+            let (refined1, refined2) = self.compute_p1_p2_with_upper_limit(coords, refined_upper);
+            if refined1.is_finite() && refined2.is_finite() {
+                return (refined1, refined2);
+            }
+        }
+
+        (coarse1, coarse2)
+    }
+
+    fn compute_p1_p2_with_upper_limit(
+        &self,
+        coords: HestonPjCoords,
+        upper_limit: f64,
+    ) -> (f64, f64) {
+        let (i1, i2) = self
+            .compute_p1_p2_interval_integral(coords, 1e-8, upper_limit)
+            .unwrap_or((f64::NAN, f64::NAN));
+
+        (
+            if i1.is_finite() {
+                (0.5 + i1 / PI).clamp(0.0, 1.0)
+            } else {
+                f64::NAN
+            },
+            if i2.is_finite() {
+                (0.5 + i2 / PI).clamp(0.0, 1.0)
+            } else {
+                f64::NAN
+            },
+        )
+    }
+
+    /// Gauss-Legendre integration computing both P₁ and P₂ integrands at each
+    /// quadrature point, sharing the `exp(-iφ ln K)/(iφ)` factor.
+    fn compute_p1_p2_interval_integral(
+        &self,
+        coords: HestonPjCoords,
+        lower: f64,
+        upper: f64,
+    ) -> Option<(f64, f64)> {
+        if !(lower.is_finite() && upper.is_finite()) || upper <= lower {
+            return None;
+        }
+
+        let i = Complex64::i();
+
+        let integrand_pair = |phi: f64| -> (f64, f64) {
+            if phi.abs() < 1e-10 {
+                return (0.0, 0.0);
+            }
+            let psi1 = self.char_func_j(1, phi, coords.x, coords.r, coords.q, coords.t);
+            let psi2 = self.char_func_j(2, phi, coords.x, coords.r, coords.q, coords.t);
+            let common = (-i * phi * coords.ln_k).exp() / (i * phi);
+            let v1 = if psi1.is_finite() {
+                let val = (common * psi1).re;
+                if val.is_finite() {
+                    val
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+            let v2 = if psi2.is_finite() {
+                let val = (common * psi2).re;
+                if val.is_finite() {
+                    val
+                } else {
+                    0.0
+                }
+            } else {
+                0.0
+            };
+            (v1, v2)
+        };
+
+        let panels = 8_usize;
+        let order = 16_usize;
+        let (xs, ws) = gl_nodes_weights(order)?;
+        let h = (upper - lower) / panels as f64;
+        let mut sum1 = 0.0_f64;
+        let mut sum2 = 0.0_f64;
+
+        for panel_idx in 0..panels {
+            let panel_start = lower + panel_idx as f64 * h;
+            let half = 0.5 * h;
+            let mid = panel_start + half;
+
+            for (x, w) in xs.iter().zip(ws.iter()) {
+                let phi = mid + half * x;
+                let (f1, f2) = integrand_pair(phi);
+                let weight = half * w;
+                sum1 += weight * f1;
+                sum2 += weight * f2;
+            }
+        }
+
+        Some((sum1, sum2))
+    }
+
+    /// Compute probability P_j via Fourier inversion (single-j variant for tests
+    /// and strip tail checks).
     ///
     /// P_j = 1/2 + (1/π) ∫₀^∞ Re[exp(-iφ ln K) ψ_j(φ) / (iφ)] dφ
+    #[cfg(test)]
     fn compute_pj(&self, j: u8, spot: f64, strike: f64, r: f64, q: f64, t: f64) -> f64 {
         let coords = HestonPjCoords {
             x: spot.ln(),
@@ -569,6 +697,7 @@ impl HestonParams {
         coarse
     }
 
+    #[cfg(test)]
     fn compute_pj_with_upper_limit(&self, j: u8, coords: HestonPjCoords, upper_limit: f64) -> f64 {
         let integral = self
             .compute_pj_interval_integral(j, coords, 1e-8, upper_limit)

@@ -46,6 +46,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_statements::error::{Error, Result};
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::{AmountOrScalar, FinancialModelSpec};
+use std::cell::RefCell;
 
 /// Perform goal seek on a financial model.
 ///
@@ -178,28 +179,28 @@ pub fn goal_seek(
         })
         .unwrap_or(1.0); // Default initial guess (see rationale above)
 
-    // Create the objective function
-    let objective = |driver_value: f64| -> f64 {
-        // Clone the model to avoid modifying it during search
-        let mut temp_model = model.clone();
+    let mut evaluator = Evaluator::new();
+    let prepared = match evaluator.prepare(model) {
+        Ok(p) => p,
+        Err(_) => return Err(Error::eval("Goal seek: failed to prepare evaluator")),
+    };
+    let eval_cell = RefCell::new((evaluator, model.clone()));
 
-        // Update driver value
+    let objective = |driver_value: f64| -> f64 {
+        let mut borrow = eval_cell.borrow_mut();
+        let (ref mut eval, ref mut temp_model) = *borrow;
+
         if let Some(node) = temp_model.nodes.get_mut(driver_node) {
             let mut values = node.values.clone().unwrap_or_default();
             values.insert(driver_period, AmountOrScalar::scalar(driver_value));
             node.values = Some(values);
         }
 
-        // Evaluate the model
-        let mut evaluator = Evaluator::new();
-        match evaluator.evaluate(&temp_model) {
-            Ok(results) => {
-                // Get the target value
-                match results.get(target_node, &target_period) {
-                    Some(actual_value) => actual_value - target_value,
-                    None => f64::NAN,
-                }
-            }
+        match eval.evaluate_prepared(temp_model, &prepared) {
+            Ok(results) => match results.get(target_node, &target_period) {
+                Some(actual_value) => actual_value - target_value,
+                None => f64::NAN,
+            },
             Err(_) => f64::NAN,
         }
     };

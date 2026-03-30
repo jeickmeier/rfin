@@ -193,7 +193,7 @@ impl LsmcPricer {
         Ok(MoneyEstimate::from_estimate(estimate, currency))
     }
 
-    /// Generate Monte Carlo paths.
+    /// Generate Monte Carlo paths (serial or parallel depending on config).
     fn generate_paths(
         &self,
         process: &GbmProcess,
@@ -202,9 +202,25 @@ impl LsmcPricer {
         num_steps: usize,
     ) -> Result<Vec<Vec<f64>>> {
         let time_grid = TimeGrid::uniform(time_to_maturity, num_steps)?;
+
+        #[cfg(feature = "parallel")]
+        if self.config.use_parallel {
+            return self.generate_paths_parallel(process, initial_spot, &time_grid, num_steps);
+        }
+
+        self.generate_paths_serial(process, initial_spot, &time_grid, num_steps)
+    }
+
+    /// Serial path generation.
+    fn generate_paths_serial(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_grid: &TimeGrid,
+        num_steps: usize,
+    ) -> Result<Vec<Vec<f64>>> {
         let disc = ExactGbm::new();
         let rng = PhiloxRng::new(self.config.seed);
-
         let mut paths = Vec::with_capacity(self.config.num_paths);
 
         for path_id in 0..self.config.num_paths {
@@ -228,6 +244,48 @@ impl LsmcPricer {
 
             paths.push(spot_path);
         }
+
+        Ok(paths)
+    }
+
+    /// Parallel path generation using rayon with deterministic per-path RNG.
+    #[cfg(feature = "parallel")]
+    fn generate_paths_parallel(
+        &self,
+        process: &GbmProcess,
+        initial_spot: f64,
+        time_grid: &TimeGrid,
+        num_steps: usize,
+    ) -> Result<Vec<Vec<f64>>> {
+        use rayon::prelude::*;
+
+        let rng = PhiloxRng::new(self.config.seed);
+        let disc = ExactGbm::new();
+
+        let paths: Vec<Vec<f64>> = (0..self.config.num_paths)
+            .into_par_iter()
+            .map(|path_id| {
+                let mut path_rng = rng.split(path_id as u64);
+                let mut spot_path = Vec::with_capacity(num_steps + 1);
+                let mut state = vec![initial_spot];
+                let mut z = vec![0.0];
+                let mut work = vec![];
+
+                spot_path.push(initial_spot);
+
+                for step in 0..num_steps {
+                    let t = time_grid.time(step);
+                    let dt = time_grid.dt(step);
+
+                    path_rng.fill_std_normals(&mut z);
+                    disc.step(process, t, dt, &mut state, &z, &mut work);
+
+                    spot_path.push(state[0]);
+                }
+
+                spot_path
+            })
+            .collect();
 
         Ok(paths)
     }

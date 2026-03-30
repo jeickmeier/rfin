@@ -11,7 +11,7 @@ use finstack_core::config::FinstackConfig;
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
 use finstack_core::market_data::context::MarketContext;
-use finstack_core::math::summation::neumaier_sum;
+use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_core::money::{fx::FxQuery, Money};
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, default_attribution_metrics,
@@ -402,19 +402,18 @@ pub fn attribute_portfolio_pnl(
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let n = position_data.len();
-    let mut total_pnl_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut carry_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut rates_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut credit_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut inflation_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut corr_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut fx_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut vol_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut model_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut scalars_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut residual_vals: Vec<f64> = Vec::with_capacity(n);
-    let mut fx_translation_vals: Vec<f64> = Vec::new();
+    let mut total_pnl_acc = NeumaierAccumulator::new();
+    let mut carry_acc = NeumaierAccumulator::new();
+    let mut rates_acc = NeumaierAccumulator::new();
+    let mut credit_acc = NeumaierAccumulator::new();
+    let mut inflation_acc = NeumaierAccumulator::new();
+    let mut corr_acc = NeumaierAccumulator::new();
+    let mut fx_acc = NeumaierAccumulator::new();
+    let mut vol_acc = NeumaierAccumulator::new();
+    let mut model_acc = NeumaierAccumulator::new();
+    let mut scalars_acc = NeumaierAccumulator::new();
+    let mut residual_acc = NeumaierAccumulator::new();
+    let mut fx_translation_acc = NeumaierAccumulator::new();
 
     let mut by_position: IndexMap<PositionId, PnlAttribution> = IndexMap::new();
 
@@ -444,17 +443,17 @@ pub fn attribute_portfolio_pnl(
             }
         };
 
-        total_pnl_vals.push(convert(pos_attr.total_pnl)?.amount());
-        carry_vals.push(convert(pos_attr.carry)?.amount());
-        rates_vals.push(convert(pos_attr.rates_curves_pnl)?.amount());
-        credit_vals.push(convert(pos_attr.credit_curves_pnl)?.amount());
-        inflation_vals.push(convert(pos_attr.inflation_curves_pnl)?.amount());
-        corr_vals.push(convert(pos_attr.correlations_pnl)?.amount());
-        fx_vals.push(convert(pos_attr.fx_pnl)?.amount());
-        vol_vals.push(convert(pos_attr.vol_pnl)?.amount());
-        model_vals.push(convert(pos_attr.model_params_pnl)?.amount());
-        scalars_vals.push(convert(pos_attr.market_scalars_pnl)?.amount());
-        residual_vals.push(convert(pos_attr.residual)?.amount());
+        total_pnl_acc.add(convert(pos_attr.total_pnl)?.amount());
+        carry_acc.add(convert(pos_attr.carry)?.amount());
+        rates_acc.add(convert(pos_attr.rates_curves_pnl)?.amount());
+        credit_acc.add(convert(pos_attr.credit_curves_pnl)?.amount());
+        inflation_acc.add(convert(pos_attr.inflation_curves_pnl)?.amount());
+        corr_acc.add(convert(pos_attr.correlations_pnl)?.amount());
+        fx_acc.add(convert(pos_attr.fx_pnl)?.amount());
+        vol_acc.add(convert(pos_attr.vol_pnl)?.amount());
+        model_acc.add(convert(pos_attr.model_params_pnl)?.amount());
+        scalars_acc.add(convert(pos_attr.market_scalars_pnl)?.amount());
+        residual_acc.add(convert(pos_attr.residual)?.amount());
 
         if inst_ccy != base_ccy {
             let fx_t0 = market_t0.fx().ok_or_else(|| {
@@ -484,27 +483,27 @@ pub fn attribute_portfolio_pnl(
             let principal_translation = principal_amount * (rate_t1.rate - rate_t0.rate);
 
             let total_translation = principal_translation;
-            fx_translation_vals.push(total_translation);
+            fx_translation_acc.add(total_translation);
 
-            total_pnl_vals.push(total_translation);
+            total_pnl_acc.add(total_translation);
         }
 
         by_position.insert(position_id, pos_attr);
     }
 
     let portfolio_attr = PortfolioAttribution {
-        total_pnl: Money::new(neumaier_sum(total_pnl_vals), base_ccy),
-        carry: Money::new(neumaier_sum(carry_vals), base_ccy),
-        rates_curves_pnl: Money::new(neumaier_sum(rates_vals), base_ccy),
-        credit_curves_pnl: Money::new(neumaier_sum(credit_vals), base_ccy),
-        inflation_curves_pnl: Money::new(neumaier_sum(inflation_vals), base_ccy),
-        correlations_pnl: Money::new(neumaier_sum(corr_vals), base_ccy),
-        fx_pnl: Money::new(neumaier_sum(fx_vals), base_ccy),
-        fx_translation_pnl: Money::new(neumaier_sum(fx_translation_vals), base_ccy),
-        vol_pnl: Money::new(neumaier_sum(vol_vals), base_ccy),
-        model_params_pnl: Money::new(neumaier_sum(model_vals), base_ccy),
-        market_scalars_pnl: Money::new(neumaier_sum(scalars_vals), base_ccy),
-        residual: Money::new(neumaier_sum(residual_vals), base_ccy),
+        total_pnl: Money::new(total_pnl_acc.total(), base_ccy),
+        carry: Money::new(carry_acc.total(), base_ccy),
+        rates_curves_pnl: Money::new(rates_acc.total(), base_ccy),
+        credit_curves_pnl: Money::new(credit_acc.total(), base_ccy),
+        inflation_curves_pnl: Money::new(inflation_acc.total(), base_ccy),
+        correlations_pnl: Money::new(corr_acc.total(), base_ccy),
+        fx_pnl: Money::new(fx_acc.total(), base_ccy),
+        fx_translation_pnl: Money::new(fx_translation_acc.total(), base_ccy),
+        vol_pnl: Money::new(vol_acc.total(), base_ccy),
+        model_params_pnl: Money::new(model_acc.total(), base_ccy),
+        market_scalars_pnl: Money::new(scalars_acc.total(), base_ccy),
+        residual: Money::new(residual_acc.total(), base_ccy),
         by_position,
         rates_detail: None,
         credit_detail: None,

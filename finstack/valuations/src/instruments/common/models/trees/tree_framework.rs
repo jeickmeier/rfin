@@ -87,7 +87,7 @@ pub struct NodeState<'a> {
 }
 
 /// Simple barrier state tracking for barrier options
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct BarrierState {
     /// Whether barrier has been hit during the path
     pub barrier_hit: bool,
@@ -386,14 +386,10 @@ pub trait TreeModel {
     ) -> Result<TreeGreeks> {
         let bump = bump_size.unwrap_or(0.01);
 
-        // Use a single mutable clone for all bump scenarios, restoring each
-        // variable after its up/down pricing calls to avoid repeated cloning.
-        let mut vars = initial_vars;
+        let vars = initial_vars;
 
-        // Base price
         let base_price = self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
 
-        // Calculate Delta (spot sensitivity)
         let mut greeks = TreeGreeks {
             price: base_price,
             delta: 0.0,
@@ -406,59 +402,49 @@ pub trait TreeModel {
         if let Some(&spot) = vars.get(state_keys::SPOT) {
             let h = bump * spot;
 
-            vars.insert(state_keys::SPOT, spot + h);
-            let price_up = self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+            let mut vars_up = vars.clone();
+            vars_up.insert(state_keys::SPOT, spot + h);
+            let mut vars_down = vars.clone();
+            vars_down.insert(state_keys::SPOT, spot - h);
 
-            vars.insert(state_keys::SPOT, spot - h);
-            let price_down =
-                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
-
-            vars.insert(state_keys::SPOT, spot); // restore
+            let price_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
+            let price_down = self.price(vars_down, time_to_maturity, market_context, valuator)?;
 
             greeks.delta = (price_up - price_down) / (2.0 * h);
             greeks.gamma = (price_up - 2.0 * base_price + price_down) / (h * h);
         }
 
-        // Calculate Vega (volatility sensitivity) using central difference
-        // This reduces first-order error compared to one-sided bumps
         if let Some(&vol) = vars.get(state_keys::VOLATILITY) {
-            let h = 0.01; // 1% vol bump
-
-            vars.insert(state_keys::VOLATILITY, vol + h);
-            let price_vol_up =
-                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
-
-            // Vol down (ensure positive volatility)
+            let h = 0.01;
             let vol_down = (vol - h).max(1e-6);
-            vars.insert(state_keys::VOLATILITY, vol_down);
+
+            let mut vars_up = vars.clone();
+            vars_up.insert(state_keys::VOLATILITY, vol + h);
+            let mut vars_down = vars.clone();
+            vars_down.insert(state_keys::VOLATILITY, vol_down);
+
+            let price_vol_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
             let price_vol_down =
-                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+                self.price(vars_down, time_to_maturity, market_context, valuator)?;
 
-            vars.insert(state_keys::VOLATILITY, vol); // restore
-
-            // Central difference vega (per 1% vol move)
             greeks.vega = (price_vol_up - price_vol_down) / 2.0;
         }
 
-        // Calculate Rho (rate sensitivity) using central difference
         if let Some(&rate) = vars.get(state_keys::INTEREST_RATE) {
-            let h = 0.0001; // 1bp rate bump
+            let h = 0.0001;
 
-            vars.insert(state_keys::INTEREST_RATE, rate + h);
-            let price_rate_up =
-                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+            let mut vars_up = vars.clone();
+            vars_up.insert(state_keys::INTEREST_RATE, rate + h);
+            let mut vars_down = vars.clone();
+            vars_down.insert(state_keys::INTEREST_RATE, rate - h);
 
-            vars.insert(state_keys::INTEREST_RATE, rate - h);
+            let price_rate_up = self.price(vars_up, time_to_maturity, market_context, valuator)?;
             let price_rate_down =
-                self.price(vars.clone(), time_to_maturity, market_context, valuator)?;
+                self.price(vars_down, time_to_maturity, market_context, valuator)?;
 
-            vars.insert(state_keys::INTEREST_RATE, rate); // restore
-
-            // Central difference rho (per 1bp move)
             greeks.rho = (price_rate_up - price_rate_down) / 2.0;
         }
 
-        // Calculate Theta (time decay) - use 1 day bump
         let dt = 1.0 / 365.25;
         if time_to_maturity > dt {
             let price_tomorrow =
@@ -1021,7 +1007,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         time_t,
                         &node_vars,
                         inputs.market_context,
-                        hit_state.clone(),
+                        hit_state,
                     );
                     let payoff_hit = inputs.valuator.value_at_maturity(&terminal_state)?;
                     let payoff_not_hit = if touched { payoff_hit } else { rebate };
@@ -1061,7 +1047,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             time_t,
                             &node_vars,
                             inputs.market_context,
-                            hit_state.clone(),
+                            hit_state,
                         );
                         let value_hit =
                             inputs
@@ -1352,8 +1338,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     barrier_type,
                 };
 
-                let mut hit_values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
-                let mut not_hit_values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
+                let mut hit_curr = vec![0.0; max_nodes];
+                let mut hit_next = vec![0.0; max_nodes];
+                let mut nothit_curr = vec![0.0; max_nodes];
+                let mut nothit_next = vec![0.0; max_nodes];
 
                 // Terminal values
                 for j in 0..max_nodes {
@@ -1377,17 +1365,17 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             time_t,
                             &node_vars,
                             inputs.market_context,
-                            hit_state.clone(),
+                            hit_state,
                         );
                         let payoff_hit = inputs.valuator.value_at_maturity(&terminal_state)?;
                         let payoff_not_hit = if touched { payoff_hit } else { rebate };
 
-                        hit_values[inputs.steps][j] = payoff_hit;
-                        not_hit_values[inputs.steps][j] = payoff_not_hit;
+                        hit_next[j] = payoff_hit;
+                        nothit_next[j] = payoff_not_hit;
                     }
                 }
 
-                // Backward induction
+                // Backward induction with double-buffer
                 for step in (0..inputs.steps).rev() {
                     let nodes_at_step = 2 * step + 1;
                     for j in 0..nodes_at_step {
@@ -1395,7 +1383,6 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         let time_t = step as f64 * dt;
                         let df_node = get_df(step, j);
 
-                        // Child indices: up=j+2, mid=j+1, down=j
                         let up_idx = j + 2;
                         let mid_idx = j + 1;
                         let down_idx = j;
@@ -1412,15 +1399,15 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                         );
 
                         let continuation_hit = df_node
-                            * (inputs.prob_up * hit_values[step + 1][up_idx]
-                                + p_m * hit_values[step + 1][mid_idx]
-                                + inputs.prob_down * hit_values[step + 1][down_idx]);
+                            * (inputs.prob_up * hit_next[up_idx]
+                                + p_m * hit_next[mid_idx]
+                                + inputs.prob_down * hit_next[down_idx]);
                         let node_state_hit = NodeState::new_with_barrier(
                             step,
                             time_t,
                             &node_vars,
                             inputs.market_context,
-                            hit_state.clone(),
+                            hit_state,
                         );
                         let value_hit =
                             inputs
@@ -1445,19 +1432,19 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             let child_down_touched = dn_t_up || dn_t_dn;
 
                             let next_up = if child_up_touched {
-                                hit_values[step + 1][up_idx]
+                                hit_next[up_idx]
                             } else {
-                                not_hit_values[step + 1][up_idx]
+                                nothit_next[up_idx]
                             };
                             let next_mid = if child_mid_touched {
-                                hit_values[step + 1][mid_idx]
+                                hit_next[mid_idx]
                             } else {
-                                not_hit_values[step + 1][mid_idx]
+                                nothit_next[mid_idx]
                             };
                             let next_down = if child_down_touched {
-                                hit_values[step + 1][down_idx]
+                                hit_next[down_idx]
                             } else {
-                                not_hit_values[step + 1][down_idx]
+                                nothit_next[down_idx]
                             };
 
                             df_node
@@ -1466,23 +1453,26 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                                     + inputs.prob_down * next_down)
                         };
 
-                        hit_values[step][j] = value_hit;
-                        not_hit_values[step][j] = value_not_hit;
+                        hit_curr[j] = value_hit;
+                        nothit_curr[j] = value_not_hit;
                     }
+                    std::mem::swap(&mut hit_curr, &mut hit_next);
+                    std::mem::swap(&mut nothit_curr, &mut nothit_next);
                 }
 
-                return Ok(not_hit_values[0][0]);
+                return Ok(nothit_next[0]);
             }
 
-            let mut values = vec![vec![0.0; max_nodes]; inputs.steps + 1];
+            let mut curr_buf = vec![0.0; max_nodes];
+            let mut next_buf = vec![0.0; max_nodes];
 
-            // Terminal values
-            for (j, terminal_value) in values[inputs.steps].iter_mut().enumerate().take(max_nodes) {
+            // Terminal values into next_buf
+            #[allow(clippy::needless_range_loop)]
+            for j in 0..max_nodes {
                 if j <= 2 * inputs.steps {
                     let spot_t = get_state(inputs.steps, j, spot0);
                     let time_t = inputs.time_to_maturity;
 
-                    // Update state variable (SPOT for equity, INTEREST_RATE for rates)
                     if inputs.initial_vars.contains_key(state_keys::SPOT) {
                         node_vars.insert(state_keys::SPOT, spot_t);
                     } else {
@@ -1503,30 +1493,28 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     } else {
                         inputs.valuator.value_at_maturity(&terminal_state)?
                     };
-                    *terminal_value = payoff;
+                    next_buf[j] = payoff;
                 }
             }
 
-            // Backward induction
+            // Backward induction with double-buffer
+            #[allow(clippy::needless_range_loop)]
             for step in (0..inputs.steps).rev() {
                 let nodes_at_step = 2 * step + 1;
                 for j in 0..nodes_at_step {
                     let spot_t = get_state(step, j, spot0);
                     let time_t = step as f64 * dt;
 
-                    // Child indices: up=j+2, mid=j+1, down=j
                     let up_idx = j + 2;
                     let mid_idx = j + 1;
                     let down_idx = j;
 
-                    // Discounted expected continuation value using custom discount if provided
                     let df_node = get_df(step, j);
                     let continuation = df_node
-                        * (inputs.prob_up * values[step + 1][up_idx]
-                            + p_m * values[step + 1][mid_idx]
-                            + inputs.prob_down * values[step + 1][down_idx]);
+                        * (inputs.prob_up * next_buf[up_idx]
+                            + p_m * next_buf[mid_idx]
+                            + inputs.prob_down * next_buf[down_idx]);
 
-                    // Update state variable (SPOT for equity, INTEREST_RATE for rates)
                     if inputs.initial_vars.contains_key(state_keys::SPOT) {
                         node_vars.insert(state_keys::SPOT, spot_t);
                     } else {
@@ -1541,7 +1529,7 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                     );
                     let node_state =
                         NodeState::new(step, time_t, &node_vars, inputs.market_context);
-                    values[step][j] = if breached {
+                    curr_buf[j] = if breached {
                         rebate
                     } else {
                         inputs
@@ -1549,9 +1537,10 @@ pub fn price_recombining_tree<V: TreeValuator>(inputs: RecombiningInputs<'_, V>)
                             .value_at_node(&node_state, continuation, dt)?
                     };
                 }
+                std::mem::swap(&mut curr_buf, &mut next_buf);
             }
 
-            Ok(values[0][0])
+            Ok(next_buf[0])
         }
     }
 }

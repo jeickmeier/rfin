@@ -381,14 +381,18 @@ struct PositionMetricData {
 /// This is the shared Phase 2+3 logic used by both serial and parallel implementations.
 /// Takes ownership of `collected` to move metric maps instead of cloning them.
 fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioMetrics {
+    use std::sync::Arc;
+
     let n = collected.len();
     let mut by_position: IndexMap<PositionId, PositionMetrics> = IndexMap::with_capacity(n);
 
-    // Use HashMap for intermediate accumulation (faster hashing, no ordering overhead).
-    let mut metric_values: HashMap<String, Vec<f64>> = HashMap::new();
-    let mut entity_values: HashMap<String, HashMap<EntityId, Vec<f64>>> = HashMap::new();
+    // Intern metric IDs: each unique string is stored once as Arc<str>,
+    // eliminating per-position String clones during accumulation.
+    let mut intern: HashMap<String, Arc<str>> = HashMap::new();
 
-    // Take ownership of collected to move metrics instead of cloning.
+    let mut metric_values: HashMap<Arc<str>, Vec<f64>> = HashMap::new();
+    let mut entity_values: HashMap<Arc<str>, HashMap<EntityId, Vec<f64>>> = HashMap::new();
+
     for data in collected {
         let fx_rate = data.fx_rate;
         let entity_id = data.entity_id;
@@ -405,15 +409,20 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
                     continue;
                 }
 
+                let key = Arc::clone(
+                    intern
+                        .entry(metric_id.clone())
+                        .or_insert_with(|| Arc::from(metric_id.as_str())),
+                );
                 let value_base = *value * fx_rate;
 
                 metric_values
-                    .entry(metric_id.clone())
+                    .entry(Arc::clone(&key))
                     .or_default()
                     .push(value_base);
 
                 entity_values
-                    .entry(metric_id.clone())
+                    .entry(key)
                     .or_default()
                     .entry(entity_id.clone())
                     .or_default()
@@ -425,7 +434,7 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
             data.position_id,
             PositionMetrics {
                 currency: data.currency,
-                metrics: data.metrics, // move, not clone
+                metrics: data.metrics,
             },
         );
     }
@@ -446,10 +455,11 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
             })
             .collect();
 
+        let metric_string: String = (*metric_id).to_string();
         aggregated.insert(
-            metric_id.clone(),
+            metric_string.clone(),
             AggregatedMetric {
-                metric_id,
+                metric_id: metric_string,
                 total,
                 by_entity,
             },
