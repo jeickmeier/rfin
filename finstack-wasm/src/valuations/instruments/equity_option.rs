@@ -129,9 +129,6 @@ impl JsEquityOptionBuilder {
         let strike = self
             .strike
             .ok_or_else(|| js_error("EquityOptionBuilder: strike is required".to_string()))?;
-        if strike <= 0.0 {
-            return Err(js_error("EquityOptionBuilder: strike must be positive"));
-        }
         let option_type = self
             .option_type
             .as_deref()
@@ -180,7 +177,7 @@ impl JsEquityOptionBuilder {
             None => underlying,
         };
 
-        EquityOption::builder()
+        let opt = EquityOption::builder()
             .id(InstrumentId::new(self.instrument_id))
             .underlying_ticker(underlying.ticker)
             .strike(strike)
@@ -197,8 +194,9 @@ impl JsEquityOptionBuilder {
             .pricing_overrides(PricingOverrides::default())
             .attributes(Attributes::new())
             .build()
-            .map(JsEquityOption::from_inner)
-            .map_err(|e| js_error(e.to_string()))
+            .map_err(|e| js_error(e.to_string()))?;
+        opt.validate().map_err(|e| js_error(e.to_string()))?;
+        Ok(JsEquityOption::from_inner(opt))
     }
 }
 

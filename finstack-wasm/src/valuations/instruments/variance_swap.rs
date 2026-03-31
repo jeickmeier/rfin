@@ -205,40 +205,42 @@ impl JsVarianceSwapBuilder {
             js_error("VarianceSwapBuilder: observationFrequency is required".to_string())
         })?;
 
-        if strike_variance < 0.0 {
-            return Err(js_error("Strike variance must be non-negative".to_string()));
-        }
-        if maturity <= start_date {
-            return Err(js_error(
-                "Maturity must be after observation start".to_string(),
-            ));
-        }
-
         let method =
             parse_optional_with_default(self.realized_method, RealizedVarMethod::CloseToClose)?;
         let direction = parse_optional_with_default(self.side, VarSwapPayReceive::Receive)?;
 
-        let swap = VarianceSwap {
-            id: instrument_id_from_str(&self.instrument_id),
-            underlying_ticker: underlying_id.to_string(),
-            notional,
-            strike_variance,
-            start_date,
-            maturity,
-            observation_freq,
-            realized_var_method: method,
-            open_series_id: self.open_series_id,
-            high_series_id: self.high_series_id,
-            low_series_id: self.low_series_id,
-            close_series_id: self.close_series_id,
-            side: direction,
-            discount_curve_id: curve_id_from_str(discount_curve),
-            day_count: DayCount::Act365F,
-            pricing_overrides: finstack_valuations::instruments::PricingOverrides::default(),
-            attributes: Attributes::new(),
-        };
+        let mut builder = VarianceSwap::builder()
+            .id(instrument_id_from_str(&self.instrument_id))
+            .underlying_ticker(underlying_id.to_string())
+            .notional(notional)
+            .strike_variance(strike_variance)
+            .start_date(start_date)
+            .maturity(maturity)
+            .observation_freq(observation_freq)
+            .realized_var_method(method)
+            .side(direction)
+            .discount_curve_id(curve_id_from_str(discount_curve))
+            .day_count(DayCount::Act365F)
+            .pricing_overrides(finstack_valuations::instruments::PricingOverrides::default())
+            .attributes(Attributes::new());
 
-        Ok(JsVarianceSwap::from_inner(swap))
+        if let Some(id) = self.open_series_id {
+            builder = builder.open_series_id(id);
+        }
+        if let Some(id) = self.high_series_id {
+            builder = builder.high_series_id(id);
+        }
+        if let Some(id) = self.low_series_id {
+            builder = builder.low_series_id(id);
+        }
+        if let Some(id) = self.close_series_id {
+            builder = builder.close_series_id(id);
+        }
+
+        builder
+            .build()
+            .map(JsVarianceSwap::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 

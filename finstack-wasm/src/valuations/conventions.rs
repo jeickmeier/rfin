@@ -7,8 +7,9 @@
 use crate::core::error::js_error;
 use finstack_valuations::market::conventions::{
     ids::{
-        CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId, IrFutureContractId,
-        OptionConventionId, SwaptionConventionId,
+        BondConventionId, CdsConventionKey, CdsDocClause, FxConventionId, FxOptionConventionId,
+        IndexId, InflationSwapConventionId, IrFutureContractId, OptionConventionId,
+        SwaptionConventionId, XccyConventionId,
     },
     CdsConventions, ConventionRegistry, InflationSwapConventions, IrFutureConventions,
     OptionConventions, RateIndexConventions, RateIndexKind, SwaptionConventions,
@@ -667,6 +668,110 @@ impl JsConventionRegistry {
         ConventionRegistry::try_global()
             .map(|r| {
                 r.require_ir_future(&IrFutureContractId::new(contract_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+    }
+
+    // -------------------------------------------------------------------------
+    // Bond conventions
+    // -------------------------------------------------------------------------
+
+    /// Look up conventions for a bond.
+    #[wasm_bindgen(js_name = requireBond)]
+    pub fn require_bond(&self, convention_id: &str) -> Result<JsValue, JsValue> {
+        let conv = ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
+            .require_bond(&BondConventionId::new(convention_id))
+            .map_err(|e| js_error(e.to_string()))?;
+        serde_wasm_bindgen::to_value(conv)
+            .map_err(|e| js_error(format!("Serialization failed: {}", e)))
+    }
+
+    /// Check if a bond convention exists in the registry.
+    #[wasm_bindgen(js_name = hasBond)]
+    pub fn has_bond(&self, convention_id: &str) -> bool {
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_bond(&BondConventionId::new(convention_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+    }
+
+    // -------------------------------------------------------------------------
+    // FX conventions
+    // -------------------------------------------------------------------------
+
+    /// Look up conventions for an FX pair.
+    #[wasm_bindgen(js_name = requireFx)]
+    pub fn require_fx(&self, convention_id: &str) -> Result<JsValue, JsValue> {
+        let conv = ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
+            .require_fx(&FxConventionId::new(convention_id))
+            .map_err(|e| js_error(e.to_string()))?;
+        serde_wasm_bindgen::to_value(conv)
+            .map_err(|e| js_error(format!("Serialization failed: {}", e)))
+    }
+
+    /// Check if an FX convention exists.
+    #[wasm_bindgen(js_name = hasFx)]
+    pub fn has_fx(&self, convention_id: &str) -> bool {
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_fx(&FxConventionId::new(convention_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+    }
+
+    // -------------------------------------------------------------------------
+    // FX option conventions
+    // -------------------------------------------------------------------------
+
+    /// Look up conventions for an FX option.
+    #[wasm_bindgen(js_name = requireFxOption)]
+    pub fn require_fx_option(&self, convention_id: &str) -> Result<JsValue, JsValue> {
+        let conv = ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
+            .require_fx_option(&FxOptionConventionId::new(convention_id))
+            .map_err(|e| js_error(e.to_string()))?;
+        serde_wasm_bindgen::to_value(conv)
+            .map_err(|e| js_error(format!("Serialization failed: {}", e)))
+    }
+
+    /// Check if an FX option convention exists.
+    #[wasm_bindgen(js_name = hasFxOption)]
+    pub fn has_fx_option(&self, convention_id: &str) -> bool {
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_fx_option(&FxOptionConventionId::new(convention_id))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+    }
+
+    // -------------------------------------------------------------------------
+    // Cross-currency swap conventions
+    // -------------------------------------------------------------------------
+
+    /// Look up conventions for a cross-currency swap.
+    #[wasm_bindgen(js_name = requireXccy)]
+    pub fn require_xccy(&self, convention_id: &str) -> Result<JsValue, JsValue> {
+        let conv = ConventionRegistry::try_global()
+            .map_err(|e| js_error(e.to_string()))?
+            .require_xccy(&XccyConventionId::new(convention_id))
+            .map_err(|e| js_error(e.to_string()))?;
+        serde_wasm_bindgen::to_value(conv)
+            .map_err(|e| js_error(format!("Serialization failed: {}", e)))
+    }
+
+    /// Check if a cross-currency swap convention exists.
+    #[wasm_bindgen(js_name = hasXccy)]
+    pub fn has_xccy(&self, convention_id: &str) -> bool {
+        ConventionRegistry::try_global()
+            .map(|r| {
+                r.require_xccy(&XccyConventionId::new(convention_id))
                     .is_ok()
             })
             .unwrap_or(false)

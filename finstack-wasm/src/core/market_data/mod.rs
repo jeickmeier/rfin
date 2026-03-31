@@ -3,6 +3,7 @@ pub mod context;
 pub mod diff;
 pub mod dividends;
 pub mod fx;
+pub mod hierarchy;
 pub mod interp;
 pub mod scalars;
 pub mod surfaces;
@@ -29,17 +30,25 @@ pub use dividends::{
     JsDividendEvent as DividendEvent, JsDividendSchedule as DividendSchedule,
     JsDividendScheduleBuilder as DividendScheduleBuilder,
 };
+pub use hierarchy::{
+    JsHierarchyBuilder as HierarchyBuilder, JsHierarchyNode as HierarchyNode,
+    JsHierarchyTarget as HierarchyTarget, JsMarketDataHierarchy as MarketDataHierarchy,
+    JsResolutionMode as ResolutionMode, JsTagFilter as TagFilter,
+    JsTagPredicate as TagPredicate,
+};
 pub use fx::{
     JsFxConfig as FxConfig, JsFxConversionPolicy as FxConversionPolicy, JsFxMatrix as FxMatrix,
-    JsFxRateResult as FxRateResult,
+    JsFxPolicyMeta as FxPolicyMeta, JsFxQuery as FxQuery, JsFxRateResult as FxRateResult,
 };
 pub use scalars::{
-    JsMarketScalar as MarketScalar, JsScalarTimeSeries as ScalarTimeSeries,
-    JsSeriesInterpolation as SeriesInterpolation,
+    JsInflationIndex as InflationIndex, JsInflationInterpolation as InflationInterpolation,
+    JsInflationLag as InflationLag, JsMarketScalar as MarketScalar,
+    JsScalarTimeSeries as ScalarTimeSeries, JsSeriesInterpolation as SeriesInterpolation,
 };
 pub use surfaces::JsVolSurface as VolSurface;
 pub use term_structures::{
     JsBaseCorrelationCurve as BaseCorrelationCurve, JsCreditIndexData as CreditIndexData,
-    JsDiscountCurve as DiscountCurve, JsForwardCurve as ForwardCurve, JsHazardCurve as HazardCurve,
-    JsInflationCurve as InflationCurve,
+    JsDiscountCurve as DiscountCurve, JsFlatCurve as FlatCurve, JsForwardCurve as ForwardCurve,
+    JsHazardCurve as HazardCurve, JsInflationCurve as InflationCurve,
+    JsPriceCurve as PriceCurve,
 };

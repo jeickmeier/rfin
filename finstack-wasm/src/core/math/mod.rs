@@ -1,3 +1,4 @@
+pub mod compounding;
 pub mod distributions;
 pub mod integration;
 pub mod linalg;
@@ -7,6 +8,8 @@ pub mod solver;
 pub mod special_functions;
 pub mod stats;
 pub mod summation;
+pub mod time_grid;
+pub mod volatility;
 
 // Distributions
 pub use distributions::{
@@ -47,7 +50,29 @@ pub use probability::{
 pub use random::{box_muller_transform_js as boxMullerTransform, JsRng as Rng};
 
 // Solvers
-pub use solver::{JsBrentSolver as BrentSolver, JsNewtonSolver as NewtonSolver};
+pub use solver::{
+    JsBrentSolver as BrentSolver, JsLevenbergMarquardtSolver as LevenbergMarquardtSolver,
+    JsNewtonSolver as NewtonSolver,
+};
+
+// Compounding
+pub use compounding::JsCompounding as MathCompounding;
+
+// Time Grid
+pub use time_grid::JsTimeGrid as TimeGrid;
+
+// Volatility pricing
+pub use volatility::{
+    bachelier_call_js as bachelierCall_vol, bachelier_put_js as bachelierPut_vol,
+    bachelier_vega_js as bachelierVega_vol, black_call_js as blackCall,
+    black_delta_call_js as blackDeltaCall, black_delta_put_js as blackDeltaPut,
+    black_gamma_js as blackGamma, black_put_js as blackPut,
+    black_scholes_spot_call_js as blackScholesSpotCall,
+    black_scholes_spot_put_js as blackScholesSpotPut, black_shifted_call_js as blackShiftedCall,
+    black_shifted_put_js as blackShiftedPut, black_shifted_vega_js as blackShiftedVega,
+    black_vega_js as blackVega, geometric_asian_call_js as geometricAsianCall,
+    implied_vol_bachelier_js as impliedVolBachelier, implied_vol_black_js as impliedVolBlack,
+};
 
 // Special Functions
 pub use special_functions::{

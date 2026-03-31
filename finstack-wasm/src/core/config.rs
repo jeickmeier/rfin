@@ -215,3 +215,60 @@ impl JsFinstackConfig {
         &self.inner
     }
 }
+
+/// Numerical tolerance configuration for floating-point comparisons.
+///
+/// @example
+/// ```javascript
+/// const tol = new ToleranceConfig();
+/// console.log(tol.rateEpsilon);     // 1e-12
+/// console.log(tol.genericEpsilon);  // 1e-10
+///
+/// tol.rateEpsilon = 1e-14;
+/// ```
+#[wasm_bindgen(js_name = ToleranceConfig)]
+#[derive(Clone, Copy, Debug)]
+pub struct JsToleranceConfig {
+    inner: finstack_core::config::ToleranceConfig,
+}
+
+impl Default for JsToleranceConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen(js_class = ToleranceConfig)]
+impl JsToleranceConfig {
+    /// Create with default tolerances (rateEpsilon=1e-12, genericEpsilon=1e-10).
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsToleranceConfig {
+        JsToleranceConfig {
+            inner: finstack_core::config::ToleranceConfig::default(),
+        }
+    }
+
+    /// Epsilon for rate comparisons.
+    #[wasm_bindgen(getter, js_name = rateEpsilon)]
+    pub fn rate_epsilon(&self) -> f64 {
+        self.inner.rate_epsilon
+    }
+
+    /// Set rate epsilon.
+    #[wasm_bindgen(setter, js_name = rateEpsilon)]
+    pub fn set_rate_epsilon(&mut self, value: f64) {
+        self.inner.rate_epsilon = value;
+    }
+
+    /// Epsilon for generic floating-point comparisons.
+    #[wasm_bindgen(getter, js_name = genericEpsilon)]
+    pub fn generic_epsilon(&self) -> f64 {
+        self.inner.generic_epsilon
+    }
+
+    /// Set generic epsilon.
+    #[wasm_bindgen(setter, js_name = genericEpsilon)]
+    pub fn set_generic_epsilon(&mut self, value: f64) {
+        self.inner.generic_epsilon = value;
+    }
+}

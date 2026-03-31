@@ -1,12 +1,16 @@
-//! WASM bindings for core phantom types (IDs, rates, credit ratings).
+//! WASM bindings for core phantom types (IDs, rates, credit ratings, attributes).
 
 use crate::core::error::js_error;
 use finstack_core::types::{
-    Bps as CoreBps, CurveId as CoreCurveId, IndexId as CoreIndexId,
-    InstrumentId as CoreInstrumentId, Percentage as CorePercentage, PriceId as CorePriceId,
+    Bps as CoreBps, CalendarId as CoreCalendarId, CurveId as CoreCurveId,
+    DealId as CoreDealId, IndexId as CoreIndexId, InstrumentId as CoreInstrumentId,
+    Percentage as CorePercentage, PoolId as CorePoolId, PriceId as CorePriceId,
     Rate as CoreRate, UnderlyingId as CoreUnderlyingId,
 };
-use finstack_core::types::{CreditRating, NotchedRating, RatingNotch};
+use finstack_core::types::{
+    Attributes as CoreAttributes, CreditRating, NotchedRating, RatingLabel as CoreRatingLabel,
+    RatingNotch,
+};
 use wasm_bindgen::prelude::*;
 
 // ======================================================================
@@ -54,6 +58,9 @@ id_wrapper!(InstrumentId, CoreInstrumentId);
 id_wrapper!(IndexId, CoreIndexId);
 id_wrapper!(PriceId, CorePriceId);
 id_wrapper!(UnderlyingId, CoreUnderlyingId);
+id_wrapper!(PoolId, CorePoolId);
+id_wrapper!(DealId, CoreDealId);
+id_wrapper!(CalendarId, CoreCalendarId);
 
 // ======================================================================
 // Rates
@@ -344,5 +351,157 @@ impl JsNotchedRating {
     #[allow(dead_code)]
     pub(crate) fn inner(&self) -> NotchedRating {
         self.inner
+    }
+}
+
+// ======================================================================
+// Rating Label
+// ======================================================================
+
+/// Stable, display-ready rating label sourced from a NotchedRating.
+#[wasm_bindgen(js_name = RatingLabel)]
+#[derive(Clone, Debug)]
+pub struct JsRatingLabel {
+    inner: CoreRatingLabel,
+}
+
+#[wasm_bindgen(js_class = RatingLabel)]
+impl JsRatingLabel {
+    /// Create a rating label from a notched rating string (e.g. "AA-", "Baa1").
+    #[wasm_bindgen(constructor)]
+    pub fn new(label: &str) -> Result<JsRatingLabel, JsValue> {
+        label
+            .parse::<NotchedRating>()
+            .map(|nr| JsRatingLabel {
+                inner: CoreRatingLabel::from(nr),
+            })
+            .map_err(|e| js_error(format!("Invalid rating label: {e}")))
+    }
+
+    /// The display string for this label.
+    #[wasm_bindgen(getter)]
+    pub fn label(&self) -> String {
+        self.inner.to_string()
+    }
+
+    #[allow(clippy::inherent_to_string)]
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string(&self) -> String {
+        self.inner.to_string()
+    }
+}
+
+// ======================================================================
+// Rating Factor Table
+// ======================================================================
+
+/// Get the Moody's WARF (Weighted Average Rating Factor) for a credit rating.
+///
+/// @param {CreditRating} rating - Credit rating bucket
+/// @returns {number} WARF factor
+#[wasm_bindgen(js_name = moodysWarfFactor)]
+pub fn moodys_warf_factor_js(rating: JsCreditRating) -> Result<f64, JsValue> {
+    let core_rating: CreditRating = rating.into();
+    finstack_core::types::moodys_warf_factor(core_rating)
+        .map_err(|e| js_error(format!("{e}")))
+}
+
+// ======================================================================
+// Attributes
+// ======================================================================
+
+/// User-defined tags and key-value metadata for instrument classification.
+///
+/// @example
+/// ```javascript
+/// const attrs = new Attributes();
+/// attrs.addTag("energy");
+/// attrs.setMeta("region", "NA");
+/// console.log(attrs.hasTag("energy"));  // true
+/// console.log(attrs.getMeta("region")); // "NA"
+/// ```
+#[wasm_bindgen(js_name = Attributes)]
+#[derive(Clone, Debug)]
+pub struct JsAttributes {
+    inner: CoreAttributes,
+}
+
+impl JsAttributes {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> &CoreAttributes {
+        &self.inner
+    }
+
+    #[allow(dead_code)]
+    pub(crate) fn from_inner(inner: CoreAttributes) -> Self {
+        Self { inner }
+    }
+}
+
+impl Default for JsAttributes {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[wasm_bindgen(js_class = Attributes)]
+impl JsAttributes {
+    /// Create an empty set of attributes.
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsAttributes {
+        JsAttributes {
+            inner: CoreAttributes::new(),
+        }
+    }
+
+    /// Add a tag to the attribute set.
+    #[wasm_bindgen(js_name = addTag)]
+    pub fn add_tag(&mut self, tag: &str) {
+        self.inner.tags.insert(tag.to_string());
+    }
+
+    /// Check if a tag is present.
+    #[wasm_bindgen(js_name = hasTag)]
+    pub fn has_tag(&self, tag: &str) -> bool {
+        self.inner.has_tag(tag)
+    }
+
+    /// Set a metadata key-value pair.
+    #[wasm_bindgen(js_name = setMeta)]
+    pub fn set_meta(&mut self, key: &str, value: &str) {
+        self.inner.set(key, value);
+    }
+
+    /// Get a metadata value by key.
+    #[wasm_bindgen(js_name = getMeta)]
+    pub fn get_meta(&self, key: &str) -> Option<String> {
+        self.inner.get_meta(key).map(|s| s.to_string())
+    }
+
+    /// Match against a selector string (e.g. "tag:energy", "meta:region=NA", "*").
+    #[wasm_bindgen(js_name = matchesSelector)]
+    pub fn matches_selector(&self, selector: &str) -> bool {
+        self.inner.matches_selector(selector)
+    }
+
+    /// Get all tags as a string array.
+    #[wasm_bindgen(getter)]
+    pub fn tags(&self) -> Vec<String> {
+        self.inner.tags.iter().cloned().collect()
+    }
+
+    /// Serialize to a JSON object.
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner)
+            .map_err(|e| js_error(format!("Failed to serialize attributes: {e}")))
+    }
+
+    /// Deserialize from a JSON object.
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(value: JsValue) -> Result<JsAttributes, JsValue> {
+        let inner: CoreAttributes = serde_wasm_bindgen::from_value(value)
+            .map_err(|e| js_error(format!("Failed to deserialize attributes: {e}")))?;
+        Ok(JsAttributes { inner })
     }
 }

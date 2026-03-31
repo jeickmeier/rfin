@@ -59,6 +59,7 @@
 
 pub mod ids;
 pub mod registry;
+pub mod types;
 
 pub use ids::JsMetricId;
 pub use registry::JsMetricRegistry;

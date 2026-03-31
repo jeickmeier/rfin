@@ -221,8 +221,7 @@ impl JsYoYInflationSwap {
     /// Returns an array of cashflow tuples: [date, amount, kind, outstanding_balance]
     #[wasm_bindgen(js_name = getCashflows)]
     pub fn get_cashflows(&self, market: &JsMarketContext) -> Result<Array, JsValue> {
-        use finstack_core::dates::{DayCountCtx, StubKind};
-        use finstack_valuations::cashflow::builder::build_dates;
+        use finstack_valuations::cashflow::CashflowProvider;
 
         let disc = market
             .inner()
@@ -230,76 +229,24 @@ impl JsYoYInflationSwap {
             .map_err(|e| js_error(e.to_string()))?;
         let as_of = disc.base_date();
 
-        let sched = build_dates(
-            self.inner.start_date,
-            self.inner.maturity,
-            self.inner.frequency,
-            StubKind::None,
-            finstack_core::dates::BusinessDayConvention::Unadjusted,
-            false,
-            0,
-            finstack_valuations::cashflow::builder::calendar::WEEKENDS_ONLY_ID,
-        )
-        .map_err(|e| js_error(e.to_string()))?;
-
-        let dates = sched.dates;
-        if dates.len() < 2 {
-            return Ok(Array::new());
-        }
+        let sched =
+            CashflowProvider::cashflow_schedule(&self.inner, market.inner(), as_of)
+                .map_err(|e| js_error(e.to_string()))?;
+        let outstanding_path = sched.outstanding_path_per_flow().unwrap_or_default();
 
         let result = Array::new();
-        let mut prev = dates[0];
-        for &d in &dates[1..] {
-            if d <= as_of {
-                prev = d;
-                continue;
-            }
-
-            let accrual = self
-                .inner
-                .day_count
-                .year_fraction(prev, d, DayCountCtx::default())
-                .map_err(|e| js_error(e.to_string()))?;
-
-            let mut yoy = 0.0;
-            if let Ok(index) = market
-                .inner()
-                .get_inflation_index(self.inner.inflation_index_id.as_str())
-            {
-                let s = index.value_on(prev).unwrap_or(1.0);
-                let e = index.value_on(d).unwrap_or(s);
-                if s > 0.0 {
-                    yoy = e / s - 1.0;
-                }
-            }
-
-            let notional = self.inner.notional.amount();
-            let ccy = self.inner.notional.currency();
-
-            let infl_amt = notional * yoy * accrual;
-            let fixed_rate = decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate");
-            let fixed_amt = notional * fixed_rate * accrual;
-
-            let (infl_sign, fixed_sign) = match self.inner.side {
-                PayReceive::PayFixed => (1.0, -1.0),
-                PayReceive::ReceiveFixed => (-1.0, 1.0),
-            };
-
-            for (kind, amt) in [
-                ("InflationLeg", infl_sign * infl_amt),
-                ("FixedLeg", fixed_sign * fixed_amt),
-            ] {
-                let entry = Array::new();
-                entry.push(&JsDate::from_core(d).into());
-                entry.push(&JsMoney::from_inner(finstack_core::money::Money::new(amt, ccy)).into());
-                entry.push(&JsValue::from_str(kind));
-                entry.push(&JsValue::NULL);
-                result.push(&entry);
-            }
-
-            prev = d;
+        for (idx, cf) in sched.flows.iter().enumerate() {
+            let entry = Array::new();
+            entry.push(&JsDate::from_core(cf.date).into());
+            entry.push(&JsMoney::from_inner(cf.amount).into());
+            entry.push(&JsValue::from_str(&format!("{:?}", cf.kind)));
+            let outstanding = outstanding_path
+                .get(idx)
+                .map(|(_, m)| m.amount())
+                .unwrap_or(0.0);
+            entry.push(&JsValue::from_f64(outstanding));
+            result.push(&entry);
         }
-
         Ok(result)
     }
 

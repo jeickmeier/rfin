@@ -1,10 +1,14 @@
 //! Evaluator for financial models.
 
 use crate::core::dates::FsDate;
+use crate::core::error::js_error;
 use crate::core::market_data::context::JsMarketContext;
 use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::PeriodId;
-use finstack_statements::evaluator::{Evaluator, ResultsMeta, StatementResult};
+use finstack_statements::evaluator::{
+    node_to_dated_schedule as core_node_to_dated_schedule, Evaluator, MonteCarloConfig,
+    MonteCarloResults, PeriodDateConvention, PercentileSeries, ResultsMeta, StatementResult,
+};
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
 
@@ -282,4 +286,273 @@ impl JsEvaluator {
             })?;
         Ok(JsStatementResult::new(results))
     }
+
+    /// Evaluate a financial model in Monte Carlo mode.
+    ///
+    /// Replays the model `nPaths` times with independent, deterministic seeds
+    /// for stochastic forecast methods and aggregates into percentile bands.
+    ///
+    /// # Arguments
+    /// * `model` - Financial model specification
+    /// * `config` - Monte Carlo configuration
+    ///
+    /// # Returns
+    /// Monte Carlo results with percentile distributions
+    #[wasm_bindgen(js_name = evaluateMonteCarlo)]
+    pub fn evaluate_monte_carlo(
+        &mut self,
+        model: &JsFinancialModelSpec,
+        config: &JsMonteCarloConfig,
+    ) -> Result<JsMonteCarloResults, JsValue> {
+        let results = self
+            .inner
+            .evaluate_monte_carlo(&model.inner, &config.inner)
+            .map_err(|e| js_error(format!("Monte Carlo evaluation failed: {e}")))?;
+        Ok(JsMonteCarloResults { inner: results })
+    }
+}
+
+/// Configuration for Monte Carlo evaluation of a statement model.
+#[wasm_bindgen(js_name = MonteCarloConfig)]
+pub struct JsMonteCarloConfig {
+    inner: MonteCarloConfig,
+}
+
+#[wasm_bindgen(js_class = MonteCarloConfig)]
+impl JsMonteCarloConfig {
+    /// Create a new Monte Carlo configuration.
+    ///
+    /// # Arguments
+    /// * `n_paths` - Number of simulation paths
+    /// * `seed` - Base random seed for deterministic results
+    #[wasm_bindgen(constructor)]
+    pub fn new(n_paths: usize, seed: u64) -> JsMonteCarloConfig {
+        JsMonteCarloConfig {
+            inner: MonteCarloConfig::new(n_paths, seed),
+        }
+    }
+
+    /// Override the percentiles to compute (values in [0, 1]).
+    ///
+    /// Default percentiles are [0.05, 0.5, 0.95].
+    #[wasm_bindgen(js_name = withPercentiles)]
+    pub fn with_percentiles(mut self, percentiles: Vec<f64>) -> JsMonteCarloConfig {
+        self.inner = self.inner.with_percentiles(percentiles);
+        self
+    }
+
+    /// Number of Monte Carlo paths.
+    #[wasm_bindgen(getter, js_name = nPaths)]
+    pub fn n_paths(&self) -> usize {
+        self.inner.n_paths
+    }
+
+    /// Base random seed.
+    #[wasm_bindgen(getter)]
+    pub fn seed(&self) -> u64 {
+        self.inner.seed
+    }
+
+    /// Percentiles to compute.
+    #[wasm_bindgen(getter)]
+    pub fn percentiles(&self) -> Vec<f64> {
+        self.inner.percentiles.clone()
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsMonteCarloConfig, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsMonteCarloConfig { inner })
+            .map_err(|e| js_error(format!("Failed to deserialize MonteCarloConfig: {e}")))
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner)
+            .map_err(|e| js_error(format!("Failed to serialize MonteCarloConfig: {e}")))
+    }
+}
+
+/// Per-metric percentile time series from Monte Carlo evaluation.
+#[wasm_bindgen(js_name = PercentileSeries)]
+pub struct JsPercentileSeries {
+    inner: PercentileSeries,
+}
+
+#[wasm_bindgen(js_class = PercentileSeries)]
+impl JsPercentileSeries {
+    /// Metric / node identifier.
+    #[wasm_bindgen(getter)]
+    pub fn metric(&self) -> String {
+        self.inner.metric.clone()
+    }
+
+    /// Get values as a JavaScript object: `{ periodId: [[percentile, value], ...] }`.
+    #[wasm_bindgen(getter)]
+    pub fn values(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner.values)
+            .map_err(|e| js_error(format!("Failed to serialize PercentileSeries values: {e}")))
+    }
+
+    /// Convert to string representation.
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!(
+            "PercentileSeries(metric='{}', periods={})",
+            self.inner.metric,
+            self.inner.values.len()
+        )
+    }
+}
+
+/// Monte Carlo results for a statement model.
+///
+/// Contains percentile distributions for each metric across forecast periods.
+#[wasm_bindgen(js_name = MonteCarloResults)]
+pub struct JsMonteCarloResults {
+    inner: MonteCarloResults,
+}
+
+#[wasm_bindgen(js_class = MonteCarloResults)]
+impl JsMonteCarloResults {
+    /// Number of Monte Carlo paths simulated.
+    #[wasm_bindgen(getter, js_name = nPaths)]
+    pub fn n_paths(&self) -> usize {
+        self.inner.n_paths
+    }
+
+    /// Percentiles computed for each metric/period.
+    #[wasm_bindgen(getter)]
+    pub fn percentiles(&self) -> Vec<f64> {
+        self.inner.percentiles.clone()
+    }
+
+    /// Forecast periods included in the simulation.
+    #[wasm_bindgen(getter, js_name = forecastPeriods)]
+    pub fn forecast_periods(&self) -> Vec<String> {
+        self.inner
+            .forecast_periods
+            .iter()
+            .map(|p| p.to_string())
+            .collect()
+    }
+
+    /// Get the percentile series for a specific metric.
+    #[wasm_bindgen(js_name = getPercentileSeries)]
+    pub fn get_percentile_series(&self, metric: &str) -> Option<JsPercentileSeries> {
+        self.inner
+            .percentile_results
+            .get(metric)
+            .map(|series| JsPercentileSeries {
+                inner: series.clone(),
+            })
+    }
+
+    /// Get a time series of a specific percentile for a metric.
+    ///
+    /// Returns a JS object mapping period IDs to values, or null if not found.
+    #[wasm_bindgen(js_name = getPercentileTimeSeries)]
+    pub fn get_percentile_time_series(
+        &self,
+        metric: &str,
+        percentile: f64,
+    ) -> Result<JsValue, JsValue> {
+        match self.inner.get_percentile_series(metric, percentile) {
+            Some(series) => {
+                let obj = js_sys::Object::new();
+                for (period_id, value) in &series {
+                    js_sys::Reflect::set(
+                        &obj,
+                        &JsValue::from_str(&period_id.to_string()),
+                        &JsValue::from_f64(*value),
+                    )?;
+                }
+                Ok(JsValue::from(obj))
+            }
+            None => Ok(JsValue::NULL),
+        }
+    }
+
+    /// Estimate the probability that a metric exceeds a threshold in any forecast period.
+    #[wasm_bindgen(js_name = breachProbability)]
+    pub fn breach_probability(&self, metric: &str, threshold: f64) -> Option<f64> {
+        self.inner.breach_probability(metric, threshold)
+    }
+
+    /// List all metric names in the results.
+    #[wasm_bindgen(getter, js_name = metricNames)]
+    pub fn metric_names(&self) -> Vec<String> {
+        self.inner.percentile_results.keys().cloned().collect()
+    }
+
+    /// Convert to JSON representation.
+    #[wasm_bindgen(js_name = toJSON)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        serde_wasm_bindgen::to_value(&self.inner)
+            .map_err(|e| js_error(format!("Failed to serialize MonteCarloResults: {e}")))
+    }
+
+    /// Create from JSON representation.
+    #[wasm_bindgen(js_name = fromJSON)]
+    pub fn from_json(value: JsValue) -> Result<JsMonteCarloResults, JsValue> {
+        serde_wasm_bindgen::from_value(value)
+            .map(|inner| JsMonteCarloResults { inner })
+            .map_err(|e| js_error(format!("Failed to deserialize MonteCarloResults: {e}")))
+    }
+
+    /// Convert to string representation.
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!(
+            "MonteCarloResults(paths={}, metrics={}, periods={})",
+            self.inner.n_paths,
+            self.inner.percentile_results.len(),
+            self.inner.forecast_periods.len()
+        )
+    }
+}
+
+/// Convention for mapping a statement period into a point-in-time cashflow date.
+#[wasm_bindgen(js_name = PeriodDateConvention)]
+pub enum JsPeriodDateConvention {
+    /// Use the period start date.
+    Start = "start",
+    /// Use the last inclusive day of the period.
+    End = "end",
+}
+
+/// Export a statement node as a dated cashflow schedule.
+///
+/// Iterates periods in model order and extracts values from results for the node.
+/// Each period is mapped to a date using the date convention.
+///
+/// # Returns
+/// Array of `[dateString, value]` pairs.
+#[wasm_bindgen(js_name = nodeToDatedSchedule)]
+pub fn node_to_dated_schedule(
+    model: &JsFinancialModelSpec,
+    results: &JsStatementResult,
+    node_id: &str,
+    date_convention: JsPeriodDateConvention,
+) -> Result<JsValue, JsValue> {
+    let convention = match date_convention {
+        JsPeriodDateConvention::Start => PeriodDateConvention::Start,
+        JsPeriodDateConvention::End => PeriodDateConvention::End,
+        _ => PeriodDateConvention::End,
+    };
+
+    let schedule =
+        core_node_to_dated_schedule(model.inner(), &results.inner, node_id, convention)
+            .map_err(|e| js_error(format!("Failed to export dated schedule: {e}")))?;
+
+    let array = js_sys::Array::new();
+    for (date, value) in schedule {
+        let pair = js_sys::Array::new();
+        pair.push(&JsValue::from_str(&date.to_string()));
+        pair.push(&JsValue::from_f64(value));
+        array.push(&pair);
+    }
+    Ok(JsValue::from(array))
 }

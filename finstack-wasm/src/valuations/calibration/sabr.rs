@@ -3,8 +3,9 @@
 //! Provides SABR (Stochastic Alpha Beta Rho) model parameters and calibration
 //! support for implied volatility surface modeling.
 
+use crate::core::error::js_error;
 use finstack_valuations::instruments::common::models::volatility::{
-    SABRCalibrationDerivatives, SABRMarketData,
+    SABRCalibrationDerivatives, SABRMarketData, SABRParameters,
 };
 use wasm_bindgen::prelude::*;
 
@@ -91,21 +92,9 @@ impl JsSABRModelParams {
     /// ```
     #[wasm_bindgen(constructor)]
     pub fn new(alpha: f64, nu: f64, rho: f64, beta: f64) -> Result<JsSABRModelParams, JsValue> {
-        if alpha <= 0.0 {
-            return Err(JsValue::from_str("alpha must be positive"));
-        }
-        if nu < 0.0 {
-            return Err(JsValue::from_str("nu must be non-negative"));
-        }
-        if !(-1.0..=1.0).contains(&rho) {
-            return Err(JsValue::from_str("rho must be in [-1, 1]"));
-        }
-        if !(0.0..=1.0).contains(&beta) {
-            return Err(JsValue::from_str("beta must be in [0, 1]"));
-        }
-        Ok(Self::from_inner(SABRModelParamsData::new(
-            alpha, nu, rho, beta,
-        )))
+        SABRParameters::new(alpha, beta, nu, rho)
+            .map(|p| Self::from_inner(SABRModelParamsData::new(p.alpha, p.nu, p.rho, p.beta)))
+            .map_err(|e| js_error(e.to_string()))
     }
 
     /// Create SABR parameters with equity market standard (beta=1.0).
@@ -122,8 +111,10 @@ impl JsSABRModelParams {
     /// const params = SABRModelParams.equityStandard(0.2, 0.4, -0.3);
     /// ```
     #[wasm_bindgen(js_name = equityStandard)]
-    pub fn equity_standard(alpha: f64, nu: f64, rho: f64) -> JsSABRModelParams {
-        Self::from_inner(SABRModelParamsData::equity_standard(alpha, nu, rho))
+    pub fn equity_standard(alpha: f64, nu: f64, rho: f64) -> Result<JsSABRModelParams, JsValue> {
+        SABRParameters::equity_standard(alpha, nu, rho)
+            .map(|p| Self::from_inner(SABRModelParamsData::new(p.alpha, p.nu, p.rho, p.beta)))
+            .map_err(|e| js_error(e.to_string()))
     }
 
     /// Create SABR parameters with interest rate market standard (beta=0.5).
@@ -141,8 +132,10 @@ impl JsSABRModelParams {
     /// const params = SABRModelParams.ratesStandard(0.01, 0.2, 0.1);
     /// ```
     #[wasm_bindgen(js_name = ratesStandard)]
-    pub fn rates_standard(alpha: f64, nu: f64, rho: f64) -> JsSABRModelParams {
-        Self::from_inner(SABRModelParamsData::rates_standard(alpha, nu, rho))
+    pub fn rates_standard(alpha: f64, nu: f64, rho: f64) -> Result<JsSABRModelParams, JsValue> {
+        SABRParameters::rates_standard(alpha, nu, rho)
+            .map(|p| Self::from_inner(SABRModelParamsData::new(p.alpha, p.nu, p.rho, p.beta)))
+            .map_err(|e| js_error(e.to_string()))
     }
 
     /// Create SABR parameters with custom beta (e.g., 0.7 for FX markets).
@@ -165,12 +158,9 @@ impl JsSABRModelParams {
         rho: f64,
         beta: f64,
     ) -> Result<JsSABRModelParams, JsValue> {
-        if !(0.0..=1.0).contains(&beta) {
-            return Err(JsValue::from_str("beta must be in [0, 1]"));
-        }
-        Ok(Self::from_inner(SABRModelParamsData::new(
-            alpha, nu, rho, beta,
-        )))
+        SABRParameters::new(alpha, beta, nu, rho)
+            .map(|p| Self::from_inner(SABRModelParamsData::new(p.alpha, p.nu, p.rho, p.beta)))
+            .map_err(|e| js_error(e.to_string()))
     }
 
     // Getters
@@ -288,34 +278,9 @@ impl JsSABRMarketData {
         market_vols: Vec<f64>,
         beta: f64,
     ) -> Result<JsSABRMarketData, JsValue> {
-        if strikes.len() != market_vols.len() {
-            return Err(JsValue::from_str(
-                "Strikes and market vols must have the same length",
-            ));
-        }
-        if strikes.is_empty() {
-            return Err(JsValue::from_str(
-                "Must provide at least one strike/vol pair",
-            ));
-        }
-        if forward <= 0.0 {
-            return Err(JsValue::from_str("Forward must be positive"));
-        }
-        if time_to_expiry <= 0.0 {
-            return Err(JsValue::from_str("Time to expiry must be positive"));
-        }
-        if !(0.0..=1.0).contains(&beta) {
-            return Err(JsValue::from_str("Beta must be in [0, 1]"));
-        }
-
-        Ok(Self::from_inner(SABRMarketData {
-            forward,
-            time_to_expiry,
-            strikes,
-            market_vols,
-            beta,
-            shift: None, // Default to None, could be exposed in future if needed
-        }))
+        SABRMarketData::new(forward, time_to_expiry, strikes, market_vols, beta)
+            .map(Self::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 
     /// Forward price.

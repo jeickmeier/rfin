@@ -180,6 +180,118 @@ pub(crate) fn resolve_calendar_ref(code: &str) -> Result<&'static dyn HolidayCal
         .ok_or_else(|| calendar_not_found(code))
 }
 
+// ======================================================================
+// CompositeCalendar
+// ======================================================================
+
+/// Mode for combining multiple holiday calendars.
+#[wasm_bindgen(js_name = CompositeMode)]
+#[derive(Clone, Copy, Debug)]
+pub struct JsCompositeMode {
+    inner: finstack_core::dates::CompositeMode,
+}
+
+impl JsCompositeMode {
+    pub(crate) fn inner(&self) -> finstack_core::dates::CompositeMode {
+        self.inner
+    }
+}
+
+#[wasm_bindgen(js_class = CompositeMode)]
+impl JsCompositeMode {
+    /// Holiday if any sub-calendar marks the date as holiday (set union).
+    #[wasm_bindgen(js_name = Union)]
+    pub fn union() -> JsCompositeMode {
+        JsCompositeMode {
+            inner: finstack_core::dates::CompositeMode::Union,
+        }
+    }
+
+    /// Holiday only if all sub-calendars mark the date as holiday (set intersection).
+    #[wasm_bindgen(js_name = Intersection)]
+    pub fn intersection() -> JsCompositeMode {
+        JsCompositeMode {
+            inner: finstack_core::dates::CompositeMode::Intersection,
+        }
+    }
+
+    /// String representation.
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!("{:?}", self.inner)
+    }
+}
+
+/// Composite calendar combining multiple market calendars.
+///
+/// Supports union (holiday if ANY subcalendar is closed) and intersection
+/// (holiday only if ALL subcalendars are closed) semantics.
+///
+/// @example
+/// ```javascript
+/// const cal = new CompositeCalendar(["TARGET2", "GBLO"], CompositeMode.Union());
+/// const isHoliday = cal.isHoliday(date);
+/// ```
+#[wasm_bindgen(js_name = CompositeCalendar)]
+pub struct JsCompositeCalendar {
+    /// Stored as static references resolved from the global registry.
+    calendars: Vec<&'static dyn HolidayCalendar>,
+    mode: finstack_core::dates::CompositeMode,
+    codes: Vec<String>,
+}
+
+#[wasm_bindgen(js_class = CompositeCalendar)]
+impl JsCompositeCalendar {
+    /// Create a composite calendar from calendar codes and combination mode.
+    ///
+    /// @param {string[]} codes - Calendar codes (e.g., `["TARGET2", "GBLO"]`)
+    /// @param {CompositeMode} mode - Union or Intersection
+    #[wasm_bindgen(constructor)]
+    pub fn new(codes: Vec<String>, mode: &JsCompositeMode) -> Result<JsCompositeCalendar, JsValue> {
+        let mut calendars = Vec::with_capacity(codes.len());
+        for code in &codes {
+            calendars.push(resolve_calendar_ref(code)?);
+        }
+        Ok(JsCompositeCalendar {
+            calendars,
+            mode: mode.inner(),
+            codes,
+        })
+    }
+
+    /// Check if a date is a holiday under this composite calendar.
+    #[wasm_bindgen(js_name = isHoliday)]
+    pub fn is_holiday(&self, date: &JsDate) -> bool {
+        let d = date.inner();
+        let refs: Vec<&dyn HolidayCalendar> = self.calendars.to_vec();
+        let composite =
+            finstack_core::dates::CompositeCalendar::with_mode(&refs, self.mode);
+        composite.is_holiday(d)
+    }
+
+    /// Check if a date is a business day under this composite calendar.
+    #[wasm_bindgen(js_name = isBusinessDay)]
+    pub fn is_business_day(&self, date: &JsDate) -> bool {
+        let d = date.inner();
+        let refs: Vec<&dyn HolidayCalendar> = self.calendars.to_vec();
+        let composite =
+            finstack_core::dates::CompositeCalendar::with_mode(&refs, self.mode);
+        composite.is_business_day(d)
+    }
+
+    /// Calendar codes in this composite.
+    #[wasm_bindgen(getter)]
+    pub fn codes(&self) -> Vec<String> {
+        self.codes.clone()
+    }
+
+    /// Combination mode.
+    #[wasm_bindgen(getter)]
+    pub fn mode(&self) -> JsCompositeMode {
+        JsCompositeMode { inner: self.mode }
+    }
+}
+
 fn build_calendar(code: &str) -> Result<JsCalendar, JsValue> {
     let normalized = code.to_ascii_lowercase();
     let calendar = resolve_calendar_ref(&normalized)?;

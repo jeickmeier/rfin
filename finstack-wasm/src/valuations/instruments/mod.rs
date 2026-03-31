@@ -14,9 +14,13 @@ mod cds_option;
 mod cds_tranche;
 mod cliquet_option;
 mod cms_option;
+mod cms_swap;
+mod commodity_asian_option;
 mod commodity_forward;
 mod commodity_option;
+mod commodity_spread_option;
 mod commodity_swap;
+mod commodity_swaption;
 mod convertible;
 mod dcf;
 mod deposit;
@@ -26,12 +30,15 @@ mod equity_option;
 mod fra;
 mod fx;
 mod fx_barrier_option;
+mod fx_digital_option;
 mod fx_forward;
+mod fx_touch_option;
 mod fx_variance_swap;
 mod inflation_cap_floor;
 mod inflation_linked_bond;
 mod inflation_swap;
 mod ir_future;
+mod ir_future_option;
 mod irs;
 mod levered_real_estate_equity;
 mod lookback_option;
@@ -123,11 +130,31 @@ pub use commodity_option::JsCommodityOptionBuilder as CommodityOptionBuilder;
 pub use commodity_swap::JsCommoditySwap as CommoditySwap;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use commodity_swap::JsCommoditySwapBuilder as CommoditySwapBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cms_swap::JsCmsSwap as CmsSwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use cms_swap::JsCmsSwapBuilder as CmsSwapBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_asian_option::JsCommodityAsianOption as CommodityAsianOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_asian_option::JsCommodityAsianOptionBuilder as CommodityAsianOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_spread_option::JsCommoditySpreadOption as CommoditySpreadOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_spread_option::JsCommoditySpreadOptionBuilder as CommoditySpreadOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_swaption::JsCommoditySwaption as CommoditySwaption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_swaption::JsCommoditySwaptionBuilder as CommoditySwaptionBuilder;
 // Commodity instruments: exported directly via wasm_bindgen
 pub use convertible::JsConvertibleBond as ConvertibleBond;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use convertible::JsConvertibleBondBuilder as ConvertibleBondBuilder;
 pub use dcf::evaluate_dcf_wasm;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use dcf::JsDiscountedCashFlow as DiscountedCashFlow;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use dcf::JsDiscountedCashFlowBuilder as DiscountedCashFlowBuilder;
 pub use deposit::JsDeposit as Deposit;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use deposit::JsDepositBuilder as DepositBuilder;
@@ -154,9 +181,23 @@ pub use fx::{
 pub use fx_barrier_option::JsFxBarrierOption as FxBarrierOption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use fx_barrier_option::JsFxBarrierOptionBuilder as FxBarrierOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_digital_option::JsDigitalPayoutType as DigitalPayoutType;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_digital_option::JsFxDigitalOption as FxDigitalOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_digital_option::JsFxDigitalOptionBuilder as FxDigitalOptionBuilder;
 pub use fx_forward::JsFxForward as FxForward;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use fx_forward::JsFxForwardBuilder as FxForwardBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_touch_option::JsFxTouchOption as FxTouchOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_touch_option::JsFxTouchOptionBuilder as FxTouchOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_touch_option::JsPayoutTiming as PayoutTiming;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use fx_touch_option::JsTouchType as TouchType;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use fx_variance_swap::JsFxVarianceSwapBuilder as FxVarianceSwapBuilder;
 pub use fx_variance_swap::{
@@ -176,6 +217,10 @@ pub use inflation_swap::JsInflationSwapBuilder as InflationSwapBuilder;
 pub use ir_future::JsInterestRateFuture as InterestRateFuture;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use ir_future::JsInterestRateFutureBuilder as InterestRateFutureBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use ir_future_option::JsIrFutureOption as IrFutureOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use ir_future_option::JsIrFutureOptionBuilder as IrFutureOptionBuilder;
 pub use irs::JsInterestRateSwap as InterestRateSwap;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use irs::JsInterestRateSwapBuilder as InterestRateSwapBuilder;
@@ -386,6 +431,26 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
         levered_real_estate_equity::JsLeveredRealEstateEquity,
         "LeveredRealEstateEquity"
     );
+    try_extract!(
+        commodity_asian_option::JsCommodityAsianOption,
+        "CommodityAsianOption"
+    );
+    try_extract!(
+        commodity_spread_option::JsCommoditySpreadOption,
+        "CommoditySpreadOption"
+    );
+    try_extract!(
+        commodity_swaption::JsCommoditySwaption,
+        "CommoditySwaption"
+    );
+    try_extract!(
+        fx_digital_option::JsFxDigitalOption,
+        "FxDigitalOption"
+    );
+    try_extract!(fx_touch_option::JsFxTouchOption, "FxTouchOption");
+    try_extract!(ir_future_option::JsIrFutureOption, "IrFutureOption");
+    try_extract!(cms_swap::JsCmsSwap, "CmsSwap");
+    try_extract!(dcf::JsDiscountedCashFlow, "DiscountedCashFlow");
 
     Err(JsValue::from_str(
         "Unsupported instrument type; construct instruments from finstack-wasm valuations module",

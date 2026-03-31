@@ -2,8 +2,10 @@ pub mod calendar;
 pub mod date;
 pub mod daycount;
 pub mod frequency;
+pub mod fx_settlement;
 pub mod imm;
 pub mod periods;
+pub mod rate_conversions;
 pub mod schedule;
 pub mod utils;
 
@@ -16,6 +18,8 @@ pub use calendar::business_day_convention_name;
 pub use calendar::get_calendar;
 pub use calendar::JsBusinessDayConvention as BusinessDayConvention;
 pub use calendar::JsCalendar as Calendar;
+pub use calendar::JsCompositeCalendar as CompositeCalendar;
+pub use calendar::JsCompositeMode as CompositeMode;
 pub use date::JsDate as FsDate;
 pub use daycount::JsDayCount as DayCount;
 pub use daycount::JsDayCountContext as DayCountContext;
@@ -45,3 +49,16 @@ pub use utils::days_in_month;
 pub use utils::days_since_epoch_to_date;
 pub use utils::is_leap_year;
 pub use utils::last_day_of_month;
+
+// Rate conversions
+pub use rate_conversions::{
+    continuous_to_periodic, continuous_to_simple, periodic_to_continuous, periodic_to_simple,
+    simple_to_continuous, simple_to_periodic,
+};
+
+// FX settlement
+pub use fx_settlement::{
+    add_joint_business_days as addJointBusinessDays,
+    adjust_joint_calendar as adjustJointCalendar, can_resolve_calendar as canResolveCalendar,
+    roll_spot_date as rollSpotDate,
+};

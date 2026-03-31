@@ -388,6 +388,171 @@ impl JsBrentSolver {
     }
 }
 
+/// Levenberg-Marquardt solver for non-linear least squares optimization.
+///
+/// Combines Gauss-Newton and gradient descent methods using an adaptive damping
+/// parameter. Particularly effective for calibrating financial models with
+/// multiple parameters (SABR, Heston, multi-curve bootstrapping).
+///
+/// @example
+/// ```javascript
+/// const solver = new LevenbergMarquardtSolver(1e-8, 100);
+///
+/// // Minimize (x-2)^2 + (y-3)^2
+/// const result = solver.minimize(
+///   params => Math.pow(params[0] - 2, 2) + Math.pow(params[1] - 3, 2),
+///   new Float64Array([0, 0])
+/// );
+/// console.log(result);  // ~[2, 3]
+/// ```
+#[wasm_bindgen(js_name = LevenbergMarquardtSolver)]
+pub struct JsLevenbergMarquardtSolver {
+    inner: finstack_core::math::solver_multi::LevenbergMarquardtSolver,
+}
+
+#[wasm_bindgen(js_class = LevenbergMarquardtSolver)]
+impl JsLevenbergMarquardtSolver {
+    /// Create a Levenberg-Marquardt solver with optional configuration.
+    ///
+    /// @param {number} [tolerance] - Convergence tolerance (default: 1e-8)
+    /// @param {number} [maxIterations] - Maximum iterations (default: 100)
+    /// @param {number} [lambdaInit] - Initial damping parameter (default: 1e-3)
+    /// @param {number} [fdStep] - Finite difference step size (default: 1e-8)
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        tolerance: Option<f64>,
+        max_iterations: Option<usize>,
+        lambda_init: Option<f64>,
+        fd_step: Option<f64>,
+    ) -> JsLevenbergMarquardtSolver {
+        let mut inner = finstack_core::math::solver_multi::LevenbergMarquardtSolver::new();
+        if let Some(tol) = tolerance {
+            inner.tolerance = tol;
+        }
+        if let Some(iter) = max_iterations {
+            inner.max_iterations = iter;
+        }
+        if let Some(lambda) = lambda_init {
+            inner.lambda_init = lambda;
+        }
+        if let Some(step) = fd_step {
+            inner.fd_step = step;
+        }
+        Self { inner }
+    }
+
+    /// Convergence tolerance.
+    #[wasm_bindgen(getter)]
+    pub fn tolerance(&self) -> f64 {
+        self.inner.tolerance
+    }
+
+    /// Set convergence tolerance.
+    #[wasm_bindgen(setter)]
+    pub fn set_tolerance(&mut self, value: f64) {
+        self.inner.tolerance = value;
+    }
+
+    /// Maximum number of iterations.
+    #[wasm_bindgen(getter, js_name = maxIterations)]
+    pub fn max_iterations(&self) -> usize {
+        self.inner.max_iterations
+    }
+
+    /// Set maximum iterations.
+    #[wasm_bindgen(setter, js_name = maxIterations)]
+    pub fn set_max_iterations(&mut self, value: usize) {
+        self.inner.max_iterations = value;
+    }
+
+    /// Initial damping parameter (lambda).
+    #[wasm_bindgen(getter, js_name = lambdaInit)]
+    pub fn lambda_init(&self) -> f64 {
+        self.inner.lambda_init
+    }
+
+    /// Set initial damping parameter.
+    #[wasm_bindgen(setter, js_name = lambdaInit)]
+    pub fn set_lambda_init(&mut self, value: f64) {
+        self.inner.lambda_init = value;
+    }
+
+    /// Finite difference step size.
+    #[wasm_bindgen(getter, js_name = fdStep)]
+    pub fn fd_step(&self) -> f64 {
+        self.inner.fd_step
+    }
+
+    /// Set finite difference step size.
+    #[wasm_bindgen(setter, js_name = fdStep)]
+    pub fn set_fd_step(&mut self, value: f64) {
+        self.inner.fd_step = value;
+    }
+
+    /// Minimize an objective function starting from an initial guess.
+    ///
+    /// @param {Function} objective - Function mapping Float64Array → number
+    /// @param {Float64Array} initial - Initial parameter guess
+    /// @param {Float64Array} [boundsLow] - Optional lower bounds for each parameter
+    /// @param {Float64Array} [boundsHigh] - Optional upper bounds for each parameter
+    /// @returns {Float64Array} Optimal parameter vector
+    #[wasm_bindgen(js_name = minimize)]
+    pub fn minimize(
+        &self,
+        objective: &JsValue,
+        initial: Vec<f64>,
+        bounds_low: Option<Vec<f64>>,
+        bounds_high: Option<Vec<f64>>,
+    ) -> Result<Vec<f64>, JsValue> {
+        use finstack_core::math::solver_multi::MultiSolver;
+
+        let func = objective
+            .dyn_ref::<Function>()
+            .ok_or_else(|| js_error("Expected a JavaScript function"))?;
+
+        let error_cell = RefCell::new(None);
+
+        let bounds_vec: Option<Vec<(f64, f64)>> = match (bounds_low, bounds_high) {
+            (Some(lo), Some(hi)) => {
+                if lo.len() != hi.len() || lo.len() != initial.len() {
+                    return Err(js_error("Bounds arrays must match initial parameter length"));
+                }
+                Some(lo.into_iter().zip(hi).collect())
+            }
+            (None, None) => None,
+            _ => return Err(js_error("Both boundsLow and boundsHigh must be provided, or neither")),
+        };
+
+        let obj_wrapper = |params: &[f64]| -> f64 {
+            let arr = js_sys::Float64Array::from(params);
+            match func.call1(&JsValue::NULL, &arr) {
+                Ok(val) => val.as_f64().unwrap_or(f64::NAN),
+                Err(err) => {
+                    *error_cell.borrow_mut() = Some(err);
+                    f64::NAN
+                }
+            }
+        };
+
+        let result = run_with_error_check(&error_cell, || {
+            self.inner
+                .minimize(obj_wrapper, &initial, bounds_vec.as_deref())
+        })?;
+
+        result.map_err(|e| js_error(e.to_string()))
+    }
+
+    /// String representation of the solver configuration.
+    #[allow(clippy::inherent_to_string)]
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string(&self) -> String {
+        format!(
+            "LevenbergMarquardtSolver(tolerance={}, maxIterations={}, lambdaInit={}, fdStep={})",
+            self.inner.tolerance, self.inner.max_iterations, self.inner.lambda_init, self.inner.fd_step
+        )
+    }
+}
+
 #[cfg(all(test, target_arch = "wasm32"))]
 mod tests {
     use super::*;
