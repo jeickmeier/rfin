@@ -302,3 +302,218 @@ impl From<BarrierType> for JsBarrierType {
         Self::from_inner(value)
     }
 }
+
+// =============================================================================
+// FixedLegSpec
+// =============================================================================
+
+/// Specification for fixed rate legs in interest rate swaps.
+#[wasm_bindgen(js_name = FixedLegSpec)]
+pub struct JsFixedLegSpec {
+    inner: finstack_valuations::instruments::FixedLegSpec,
+}
+
+#[wasm_bindgen(js_class = FixedLegSpec)]
+impl JsFixedLegSpec {
+    /// Create a FixedLegSpec from a JSON object.
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(json: &str) -> Result<JsFixedLegSpec, JsValue> {
+        let inner: finstack_valuations::instruments::FixedLegSpec =
+            serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Invalid JSON: {}", e)))?;
+        Ok(JsFixedLegSpec { inner })
+    }
+
+    /// Serialize to JSON.
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Serialization failed: {}", e)))
+    }
+
+    /// Discount curve identifier.
+    #[wasm_bindgen(getter, js_name = discountCurveId)]
+    pub fn discount_curve_id(&self) -> String {
+        self.inner.discount_curve_id.to_string()
+    }
+
+    /// Fixed rate (decimal).
+    #[wasm_bindgen(getter)]
+    pub fn rate(&self) -> f64 {
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.rate.to_f64().unwrap_or(0.0)
+    }
+
+    /// Payment frequency code.
+    #[wasm_bindgen(getter)]
+    pub fn frequency(&self) -> String {
+        self.inner.frequency.to_string()
+    }
+
+    /// Day count convention code.
+    #[wasm_bindgen(getter, js_name = dayCount)]
+    pub fn day_count(&self) -> String {
+        format!("{:?}", self.inner.day_count)
+    }
+
+    /// Start date as ISO string.
+    #[wasm_bindgen(getter)]
+    pub fn start(&self) -> String {
+        self.inner.start.to_string()
+    }
+
+    /// End date as ISO string.
+    #[wasm_bindgen(getter)]
+    pub fn end(&self) -> String {
+        self.inner.end.to_string()
+    }
+}
+
+#[allow(dead_code)]
+impl JsFixedLegSpec {
+    pub(crate) fn from_inner(inner: finstack_valuations::instruments::FixedLegSpec) -> Self {
+        Self { inner }
+    }
+
+    pub(crate) fn inner(&self) -> &finstack_valuations::instruments::FixedLegSpec {
+        &self.inner
+    }
+}
+
+// =============================================================================
+// FloatLegSpec
+// =============================================================================
+
+/// Specification for floating rate legs in interest rate swaps.
+#[wasm_bindgen(js_name = FloatLegSpec)]
+pub struct JsFloatLegSpec {
+    inner: finstack_valuations::instruments::FloatLegSpec,
+}
+
+#[wasm_bindgen(js_class = FloatLegSpec)]
+impl JsFloatLegSpec {
+    /// Create a FloatLegSpec from a JSON object.
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json(json: &str) -> Result<JsFloatLegSpec, JsValue> {
+        let inner: finstack_valuations::instruments::FloatLegSpec =
+            serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Invalid JSON: {}", e)))?;
+        Ok(JsFloatLegSpec { inner })
+    }
+
+    /// Serialize to JSON.
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner)
+            .map_err(|e| JsValue::from_str(&format!("Serialization failed: {}", e)))
+    }
+
+    /// Discount curve identifier.
+    #[wasm_bindgen(getter, js_name = discountCurveId)]
+    pub fn discount_curve_id(&self) -> String {
+        self.inner.discount_curve_id.to_string()
+    }
+
+    /// Forward curve identifier.
+    #[wasm_bindgen(getter, js_name = forwardCurveId)]
+    pub fn forward_curve_id(&self) -> String {
+        self.inner.forward_curve_id.to_string()
+    }
+
+    /// Spread in basis points.
+    #[wasm_bindgen(getter, js_name = spreadBp)]
+    pub fn spread_bp(&self) -> f64 {
+        use rust_decimal::prelude::ToPrimitive;
+        self.inner.spread_bp.to_f64().unwrap_or(0.0)
+    }
+
+    /// Payment frequency code.
+    #[wasm_bindgen(getter)]
+    pub fn frequency(&self) -> String {
+        self.inner.frequency.to_string()
+    }
+
+    /// Day count convention code.
+    #[wasm_bindgen(getter, js_name = dayCount)]
+    pub fn day_count(&self) -> String {
+        format!("{:?}", self.inner.day_count)
+    }
+
+    /// Start date as ISO string.
+    #[wasm_bindgen(getter)]
+    pub fn start(&self) -> String {
+        self.inner.start.to_string()
+    }
+
+    /// End date as ISO string.
+    #[wasm_bindgen(getter)]
+    pub fn end(&self) -> String {
+        self.inner.end.to_string()
+    }
+}
+
+#[allow(dead_code)]
+impl JsFloatLegSpec {
+    pub(crate) fn from_inner(inner: finstack_valuations::instruments::FloatLegSpec) -> Self {
+        Self { inner }
+    }
+
+    pub(crate) fn inner(&self) -> &finstack_valuations::instruments::FloatLegSpec {
+        &self.inner
+    }
+}
+
+// =============================================================================
+// FxPair
+// =============================================================================
+
+/// A currency pair for FX operations.
+#[wasm_bindgen(js_name = FxPair)]
+pub struct JsFxPair {
+    base: String,
+    quote: String,
+}
+
+#[wasm_bindgen(js_class = FxPair)]
+impl JsFxPair {
+    /// Create a new FX pair from base and quote currency codes.
+    #[wasm_bindgen(constructor)]
+    pub fn new(base: &str, quote: &str) -> JsFxPair {
+        JsFxPair {
+            base: base.to_string(),
+            quote: quote.to_string(),
+        }
+    }
+
+    /// Parse an FX pair from "BASE/QUOTE" notation (e.g., "EUR/USD").
+    #[wasm_bindgen(js_name = fromString)]
+    pub fn from_string(pair: &str) -> Result<JsFxPair, JsValue> {
+        let parts: Vec<&str> = pair.split('/').collect();
+        if parts.len() != 2 {
+            return Err(JsValue::from_str(&format!(
+                "Invalid FX pair format '{}'; expected 'BASE/QUOTE'",
+                pair
+            )));
+        }
+        Ok(JsFxPair {
+            base: parts[0].to_string(),
+            quote: parts[1].to_string(),
+        })
+    }
+
+    /// Base currency code.
+    #[wasm_bindgen(getter)]
+    pub fn base(&self) -> String {
+        self.base.clone()
+    }
+
+    /// Quote currency code.
+    #[wasm_bindgen(getter)]
+    pub fn quote(&self) -> String {
+        self.quote.clone()
+    }
+
+    /// String representation "BASE/QUOTE".
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!("{}/{}", self.base, self.quote)
+    }
+}

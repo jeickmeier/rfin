@@ -1,8 +1,14 @@
+use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::statements::types::JsFinancialModelSpec;
+use crate::utils::json::{from_js_value, to_js_value};
+use crate::valuations::instruments::InstrumentWrapper;
 use finstack_statements_analytics::analysis::corporate::{evaluate_dcf_with_market, DcfOptions};
-use finstack_valuations::instruments::equity::dcf_equity::{TerminalValueSpec, ValuationDiscounts};
-use js_sys::{Object, Reflect};
+use finstack_valuations::instruments::equity::dcf_equity::{
+    DiscountedCashFlow, TerminalValueSpec, ValuationDiscounts,
+};
+use finstack_valuations::pricer::InstrumentType;
+use js_sys::{Array, Object, Reflect};
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsValue;
 
@@ -156,4 +162,135 @@ pub fn evaluate_dcf_wasm(
     }
 
     Ok(output.into())
+}
+
+// ===========================
+// DiscountedCashFlow instrument wrapper
+// ===========================
+
+/// Builder for DiscountedCashFlow instruments (JSON-based).
+#[wasm_bindgen(js_name = DiscountedCashFlowBuilder)]
+#[derive(Clone, Debug, Default)]
+pub struct JsDiscountedCashFlowBuilder {
+    /// JSON string payload.
+    json_str: Option<String>,
+}
+
+#[wasm_bindgen(js_class = DiscountedCashFlowBuilder)]
+impl JsDiscountedCashFlowBuilder {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> JsDiscountedCashFlowBuilder {
+        JsDiscountedCashFlowBuilder { json_str: None }
+    }
+
+    #[wasm_bindgen(js_name = jsonString)]
+    pub fn json_string(mut self, json_str: String) -> JsDiscountedCashFlowBuilder {
+        self.json_str = Some(json_str);
+        self
+    }
+
+    #[wasm_bindgen(js_name = build)]
+    pub fn build(self) -> Result<JsDiscountedCashFlow, JsValue> {
+        let json_str = self.json_str.as_deref().ok_or_else(|| {
+            JsValue::from_str("DiscountedCashFlowBuilder: jsonString is required")
+        })?;
+        JsDiscountedCashFlow::from_json_str(json_str)
+    }
+}
+
+/// Discounted Cash Flow instrument for corporate valuation.
+///
+/// DCF values a company by discounting projected free cash flows and terminal value.
+/// Configured via JSON payload matching the Rust model schema.
+#[wasm_bindgen(js_name = DiscountedCashFlow)]
+#[derive(Clone, Debug)]
+pub struct JsDiscountedCashFlow {
+    pub(crate) inner: DiscountedCashFlow,
+}
+
+impl InstrumentWrapper for JsDiscountedCashFlow {
+    type Inner = DiscountedCashFlow;
+    fn from_inner(inner: DiscountedCashFlow) -> Self {
+        JsDiscountedCashFlow { inner }
+    }
+    fn inner(&self) -> DiscountedCashFlow {
+        self.inner.clone()
+    }
+}
+
+#[wasm_bindgen(js_class = DiscountedCashFlow)]
+impl JsDiscountedCashFlow {
+    /// Parse from a JSON string.
+    #[wasm_bindgen(js_name = fromJson)]
+    pub fn from_json_str(json_str: &str) -> Result<JsDiscountedCashFlow, JsValue> {
+        serde_json::from_str(json_str)
+            .map(JsDiscountedCashFlow::from_inner)
+            .map_err(|e| js_error(e.to_string()))
+    }
+
+    /// Construct from a JsValue (serde-wasm-bindgen).
+    #[wasm_bindgen(js_name = fromJsonValue)]
+    pub fn from_json_value(value: JsValue) -> Result<JsDiscountedCashFlow, JsValue> {
+        from_js_value(value).map(JsDiscountedCashFlow::from_inner)
+    }
+
+    #[wasm_bindgen(js_name = toJson)]
+    pub fn to_json(&self) -> Result<JsValue, JsValue> {
+        to_js_value(&self.inner)
+    }
+
+    /// Serialize to a pretty-printed JSON string.
+    #[wasm_bindgen(js_name = toJsonString)]
+    pub fn to_json_string(&self) -> Result<String, JsValue> {
+        serde_json::to_string_pretty(&self.inner).map_err(|e| js_error(e.to_string()))
+    }
+
+    #[wasm_bindgen(getter, js_name = instrumentId)]
+    pub fn instrument_id(&self) -> String {
+        self.inner.id.as_str().to_string()
+    }
+
+    /// Get the WACC (discount rate).
+    #[wasm_bindgen(getter)]
+    pub fn wacc(&self) -> f64 {
+        self.inner.wacc
+    }
+
+    /// Get the net debt value.
+    #[wasm_bindgen(getter, js_name = netDebt)]
+    pub fn net_debt(&self) -> f64 {
+        self.inner.net_debt
+    }
+
+    /// Get the number of explicit cash flow periods.
+    #[wasm_bindgen(getter, js_name = flowCount)]
+    pub fn flow_count(&self) -> usize {
+        self.inner.flows.len()
+    }
+
+    /// DCF cashflow schedule is empty from the WASM binding (use evaluateDcf for full valuation).
+    #[wasm_bindgen(js_name = getCashflows)]
+    pub fn get_cashflows(&self) -> Array {
+        Array::new()
+    }
+
+    #[wasm_bindgen(js_name = instrumentType)]
+    pub fn instrument_type(&self) -> String {
+        InstrumentType::DCF.to_string()
+    }
+
+    #[wasm_bindgen(js_name = toString)]
+    pub fn to_string_js(&self) -> String {
+        format!(
+            "DiscountedCashFlow(id='{}', wacc={:.4}, flows={})",
+            self.inner.id,
+            self.inner.wacc,
+            self.inner.flows.len()
+        )
+    }
+
+    #[wasm_bindgen(js_name = clone)]
+    pub fn clone_js(&self) -> JsDiscountedCashFlow {
+        JsDiscountedCashFlow::from_inner(self.inner.clone())
+    }
 }

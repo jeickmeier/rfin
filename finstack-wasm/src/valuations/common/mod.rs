@@ -1,4 +1,5 @@
 pub(crate) mod parameters;
+pub mod pricing_overrides;
 pub(crate) mod parse;
 
 use finstack_core::types::{CurveId, InstrumentId};

@@ -1,12 +1,15 @@
 //! Portfolio management bindings for WASM.
 
 mod attribution;
+mod book;
 mod builder;
 mod cashflows;
+mod dependencies;
+mod factor_model;
 mod grouping;
 mod margin;
 mod metrics;
-mod optimization;
+pub mod optimization;
 mod positions;
 mod results;
 mod types;
@@ -39,6 +42,13 @@ pub use valuation::{
 };
 
 pub use attribution::{js_attribute_portfolio_pnl, JsPnlAttribution, JsPortfolioAttribution};
+
+pub use book::{JsBook, JsBookId};
+pub use dependencies::{JsDependencyIndex, JsMarketFactorKey};
+pub use factor_model::{
+    JsFactorContribution, JsFactorContributionDelta, JsFactorModel, JsFactorModelBuilder,
+    JsRiskDecomposition, JsStressResult, JsWhatIfEngineWrapper, JsWhatIfResult,
+};
 
 #[cfg(feature = "scenarios")]
 pub use scenarios::{js_apply_and_revalue, js_apply_scenario};

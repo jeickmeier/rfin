@@ -163,7 +163,7 @@ impl JsInflationSwap {
         market: &crate::core::market_data::context::JsMarketContext,
     ) -> Result<Array, JsValue> {
         use crate::core::dates::date::JsDate;
-        use finstack_core::dates::DayCountCtx;
+        use finstack_valuations::cashflow::CashflowProvider;
 
         let disc = market
             .inner()
@@ -171,59 +171,25 @@ impl JsInflationSwap {
             .map_err(|e| js_error(e.to_string()))?;
         let as_of = disc.base_date();
 
-        // If already matured relative to curve base, return empty.
-        if self.inner.maturity <= as_of {
-            return Ok(Array::new());
-        }
-
-        // Very simple forward projection: use inflation index if present, otherwise assume index_ratio=1.
-        let mut index_ratio = 1.0;
-        if let Ok(index) = market
-            .inner()
-            .get_inflation_index(self.inner.inflation_index_id.as_str())
-        {
-            let start_v = index.value_on(self.inner.start_date).unwrap_or(1.0);
-            let end_v = index.value_on(self.inner.maturity).unwrap_or(start_v);
-            if start_v > 0.0 {
-                index_ratio = end_v / start_v;
-            }
-        }
-
-        let tau = self
+        let sched = self
             .inner
-            .day_count
-            .year_fraction(
-                self.inner.start_date,
-                self.inner.maturity,
-                DayCountCtx::default(),
-            )
+            .cashflow_schedule(market.inner(), as_of)
             .map_err(|e| js_error(e.to_string()))?;
-
-        let notional = self.inner.notional.amount();
-        let ccy = self.inner.notional.currency();
-
-        let inflation_leg = notional * (index_ratio - 1.0);
-        let fixed_rate = decimal_to_f64_or_warn(&self.inner.fixed_rate, "fixedRate");
-        let fixed_leg = notional * ((1.0 + fixed_rate).powf(tau) - 1.0);
-
-        let (infl_sign, fixed_sign) = match self.inner.side {
-            PayReceive::PayFixed => (1.0, -1.0),
-            PayReceive::ReceiveFixed => (-1.0, 1.0),
-        };
+        let outstanding_path = sched.outstanding_path_per_flow().unwrap_or_default();
 
         let result = Array::new();
-        for (kind, amt) in [
-            ("InflationLeg", infl_sign * inflation_leg),
-            ("FixedLeg", fixed_sign * fixed_leg),
-        ] {
+        for (idx, cf) in sched.flows.iter().enumerate() {
             let entry = Array::new();
-            entry.push(&JsDate::from_core(self.inner.maturity).into());
-            entry.push(&JsMoney::from_inner(finstack_core::money::Money::new(amt, ccy)).into());
-            entry.push(&JsValue::from_str(kind));
-            entry.push(&JsValue::NULL);
+            entry.push(&JsDate::from_core(cf.date).into());
+            entry.push(&JsMoney::from_inner(cf.amount).into());
+            entry.push(&JsValue::from_str(&format!("{:?}", cf.kind)));
+            let outstanding = outstanding_path
+                .get(idx)
+                .map(|(_, m)| m.amount())
+                .unwrap_or(0.0);
+            entry.push(&JsValue::from_f64(outstanding));
             result.push(&entry);
         }
-
         Ok(result)
     }
 

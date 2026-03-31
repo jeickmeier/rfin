@@ -160,12 +160,6 @@ impl JsCDSTrancheBuilder {
             js_error("CDSTrancheBuilder: creditIndexCurve is required".to_string())
         })?;
 
-        if attach_pct < 0.0 || detach_pct <= attach_pct {
-            return Err(js_error(
-                "detach_pct must be greater than attach_pct and both non-negative".to_string(),
-            ));
-        }
-
         let side_value = parse_optional_with_default(self.side, TrancheSide::BuyProtection)?;
         let freq = match self.payments_per_year {
             Some(ppy) => Tenor::from_payments_per_year(ppy)
@@ -174,7 +168,7 @@ impl JsCDSTrancheBuilder {
         };
         let dc = self.day_count.unwrap_or(DayCount::Act360);
 
-        CDSTranche::builder()
+        let tranche = CDSTranche::builder()
             .id(instrument_id_from_str(&self.instrument_id))
             .index_name(index_name.to_string())
             .series(series)
@@ -193,8 +187,9 @@ impl JsCDSTrancheBuilder {
             .standard_imm_dates(false)
             .attributes(Default::default())
             .build()
-            .map(JsCDSTranche::from_inner)
-            .map_err(|e| js_error(e.to_string()))
+            .map_err(|e| js_error(e.to_string()))?;
+        tranche.validate().map_err(|e| js_error(e.to_string()))?;
+        Ok(JsCDSTranche::from_inner(tranche))
     }
 }
 

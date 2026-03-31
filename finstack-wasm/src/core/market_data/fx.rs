@@ -280,3 +280,141 @@ impl JsFxMatrix {
         self.inner.clear_cache();
     }
 }
+
+// ======================================================================
+// FxQuery
+// ======================================================================
+
+/// Simple FX rate query with currency pair, date, and policy.
+///
+/// @example
+/// ```javascript
+/// const query = new FxQuery(Currency.USD(), Currency.EUR(), date, FxConversionPolicy.CashflowDate());
+/// ```
+#[wasm_bindgen(js_name = FxQuery)]
+#[derive(Clone, Debug)]
+pub struct JsFxQuery {
+    inner: FxQuery,
+}
+
+impl JsFxQuery {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> FxQuery {
+        self.inner
+    }
+}
+
+#[wasm_bindgen(js_class = FxQuery)]
+impl JsFxQuery {
+    /// Create a new FX query with default CashflowDate policy.
+    ///
+    /// @param {Currency} from - Source currency
+    /// @param {Currency} to - Target currency
+    /// @param {FsDate} on - Rate date
+    #[wasm_bindgen(constructor)]
+    pub fn new(from: &JsCurrency, to: &JsCurrency, on: &JsDate) -> JsFxQuery {
+        JsFxQuery {
+            inner: FxQuery::new(from.inner(), to.inner(), on.inner()),
+        }
+    }
+
+    /// Create with a specific conversion policy.
+    ///
+    /// @param {Currency} from - Source currency
+    /// @param {Currency} to - Target currency
+    /// @param {FsDate} on - Rate date
+    /// @param {FxConversionPolicy} policy - Conversion policy
+    #[wasm_bindgen(js_name = withPolicy)]
+    pub fn with_policy(
+        from: &JsCurrency,
+        to: &JsCurrency,
+        on: &JsDate,
+        policy: &JsFxConversionPolicy,
+    ) -> JsFxQuery {
+        JsFxQuery {
+            inner: FxQuery::with_policy(from.inner(), to.inner(), on.inner(), policy.inner()),
+        }
+    }
+
+    /// Source currency.
+    #[wasm_bindgen(getter)]
+    pub fn from(&self) -> JsCurrency {
+        JsCurrency::from_inner(self.inner.from)
+    }
+
+    /// Target currency.
+    #[wasm_bindgen(getter)]
+    pub fn to(&self) -> JsCurrency {
+        JsCurrency::from_inner(self.inner.to)
+    }
+
+    /// Rate date.
+    #[wasm_bindgen(getter)]
+    pub fn on(&self) -> JsDate {
+        JsDate::from_core(self.inner.on)
+    }
+}
+
+// ======================================================================
+// FxPolicyMeta
+// ======================================================================
+
+/// Metadata describing how an FX conversion was sourced (for auditing).
+///
+/// @example
+/// ```javascript
+/// const meta = new FxPolicyMeta(FxConversionPolicy.CashflowDate(), Currency.USD(), "spot rate");
+/// ```
+#[wasm_bindgen(js_name = FxPolicyMeta)]
+#[derive(Clone, Debug)]
+pub struct JsFxPolicyMeta {
+    inner: finstack_core::money::fx::FxPolicyMeta,
+}
+
+impl JsFxPolicyMeta {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> &finstack_core::money::fx::FxPolicyMeta {
+        &self.inner
+    }
+}
+
+#[wasm_bindgen(js_class = FxPolicyMeta)]
+impl JsFxPolicyMeta {
+    /// Create FX policy metadata.
+    ///
+    /// @param {FxConversionPolicy} strategy - Conversion strategy applied
+    /// @param {Currency | null} targetCcy - Optional target currency
+    /// @param {string} notes - Audit notes
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        strategy: &JsFxConversionPolicy,
+        target_ccy: Option<JsCurrency>,
+        notes: &str,
+    ) -> JsFxPolicyMeta {
+        JsFxPolicyMeta {
+            inner: finstack_core::money::fx::FxPolicyMeta {
+                strategy: strategy.inner(),
+                target_ccy: target_ccy.map(|c| c.inner()),
+                notes: notes.to_string(),
+            },
+        }
+    }
+
+    /// The conversion strategy.
+    #[wasm_bindgen(getter)]
+    pub fn strategy(&self) -> JsFxConversionPolicy {
+        JsFxConversionPolicy::from(self.inner.strategy)
+    }
+
+    /// Optional target currency.
+    #[wasm_bindgen(getter, js_name = targetCcy)]
+    pub fn target_ccy(&self) -> Option<JsCurrency> {
+        self.inner.target_ccy.map(JsCurrency::from_inner)
+    }
+
+    /// Audit notes.
+    #[wasm_bindgen(getter)]
+    pub fn notes(&self) -> String {
+        self.inner.notes.clone()
+    }
+}

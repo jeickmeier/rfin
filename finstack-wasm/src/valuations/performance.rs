@@ -1,8 +1,9 @@
 //! Performance measurement bindings for WASM.
 //!
-//! Provides XIRR (Extended Internal Rate of Return) calculation for
-//! cash flows with irregular timing.
+//! Provides XIRR/IRR (Internal Rate of Return) and NPV calculations for
+//! cash flows with irregular and periodic timing.
 
+use crate::core::error::js_error;
 use js_sys::{Array, Date as JsDate};
 use wasm_bindgen::prelude::*;
 
@@ -168,9 +169,136 @@ pub fn calculate_npv_wasm(cash_flows: Array, discount_rate: f64) -> Result<f64, 
 /// ```
 #[wasm_bindgen(js_name = irrPeriodic)]
 pub fn irr_periodic_wasm(amounts: Vec<f64>, guess: Option<f64>) -> Result<f64, JsValue> {
-    // Use the core IRR periodic function
     use finstack_core::cashflow::InternalRateOfReturn;
     amounts
         .irr(guess)
         .map_err(|e| JsValue::from_str(&format!("IRR calculation failed: {}", e)))
+}
+
+/// Extended IRR result with root-ambiguity metadata.
+///
+/// Contains the IRR rate plus diagnostic information about whether
+/// multiple solutions may exist (Descartes' rule of signs).
+///
+/// @example
+/// ```javascript
+/// const result = irrDetailed([-100, 230, -132, 5], null);
+/// console.log(result.rate);
+/// console.log(result.signChanges);
+/// console.log(result.multipleRootsPossible);
+/// ```
+#[wasm_bindgen(js_name = IrrResult)]
+#[derive(Clone, Debug)]
+pub struct JsIrrResult {
+    rate: f64,
+    sign_changes: usize,
+    multiple_roots_possible: bool,
+}
+
+#[wasm_bindgen(js_class = IrrResult)]
+impl JsIrrResult {
+    /// The computed internal rate of return.
+    #[wasm_bindgen(getter)]
+    pub fn rate(&self) -> f64 {
+        self.rate
+    }
+
+    /// Number of sign changes in the cashflow sequence (upper bound on positive roots).
+    #[wasm_bindgen(getter, js_name = signChanges)]
+    pub fn sign_changes(&self) -> usize {
+        self.sign_changes
+    }
+
+    /// Whether multiple roots are possible (sign_changes > 1).
+    #[wasm_bindgen(getter, js_name = multipleRootsPossible)]
+    pub fn multiple_roots_possible(&self) -> bool {
+        self.multiple_roots_possible
+    }
+}
+
+/// Calculate IRR with root-ambiguity metadata for periodic cashflows.
+///
+/// @param {Float64Array} amounts - Periodic cashflow amounts
+/// @param {number | null} guess - Optional initial guess
+/// @returns {IrrResult} IRR result with diagnostic metadata
+#[wasm_bindgen(js_name = irrDetailed)]
+pub fn irr_detailed_wasm(amounts: Vec<f64>, guess: Option<f64>) -> Result<JsIrrResult, JsValue> {
+    let result = finstack_core::cashflow::irr_detailed(&amounts, guess)
+        .map_err(|e| js_error(format!("IRR calculation failed: {e}")))?;
+    Ok(JsIrrResult {
+        rate: result.rate,
+        sign_changes: result.sign_changes,
+        multiple_roots_possible: result.multiple_roots_possible,
+    })
+}
+
+/// Calculate XIRR with root-ambiguity metadata for dated cashflows.
+///
+/// @param {Array} cashFlows - Array of [Date, amount] tuples
+/// @param {string} dayCount - Day count convention name (e.g. "act_365f")
+/// @param {number | null} guess - Optional initial guess
+/// @returns {IrrResult} XIRR result with diagnostic metadata
+#[wasm_bindgen(js_name = xirrDetailed)]
+pub fn xirr_detailed_wasm(
+    cash_flows: Array,
+    day_count: &str,
+    guess: Option<f64>,
+) -> Result<JsIrrResult, JsValue> {
+    use crate::core::common::parse::ParseFromString;
+
+    let dc = finstack_core::dates::DayCount::parse_from_string(day_count)?;
+
+    let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::new();
+    for item in cash_flows.iter() {
+        if !Array::is_array(&item) {
+            return Err(js_error("Each cash flow must be an array [Date, amount]"));
+        }
+        let pair = Array::from(&item);
+        if pair.length() != 2 {
+            return Err(js_error(
+                "Each cash flow must have exactly 2 elements: [Date, amount]",
+            ));
+        }
+
+        let date_value = pair.get(0);
+        let js_date = date_value
+            .dyn_ref::<JsDate>()
+            .ok_or_else(|| js_error("First element must be a JavaScript Date object"))?;
+
+        let year = js_date.get_full_year() as i32;
+        let month = (js_date.get_month() + 1) as u8;
+        let day = js_date.get_date() as u8;
+
+        let month_enum = time::Month::try_from(month)
+            .map_err(|_| js_error("Invalid month from JavaScript Date"))?;
+        let core_date = finstack_core::dates::Date::from_calendar_date(year, month_enum, day)
+            .map_err(|e| js_error(format!("Invalid date: {e}")))?;
+
+        let amount = pair
+            .get(1)
+            .as_f64()
+            .ok_or_else(|| js_error("Second element must be a number"))?;
+
+        flows.push((core_date, amount));
+    }
+
+    let result = finstack_core::cashflow::xirr_detailed(&flows, dc, guess)
+        .map_err(|e| js_error(format!("XIRR calculation failed: {e}")))?;
+
+    Ok(JsIrrResult {
+        rate: result.rate,
+        sign_changes: result.sign_changes,
+        multiple_roots_possible: result.multiple_roots_possible,
+    })
+}
+
+/// Count sign changes in a numeric sequence.
+///
+/// Useful for Descartes' rule of signs to bound the number of real roots.
+///
+/// @param {Float64Array} values - Numeric sequence
+/// @returns {number} Number of sign changes
+#[wasm_bindgen(js_name = countSignChanges)]
+pub fn count_sign_changes_wasm(values: Vec<f64>) -> usize {
+    finstack_core::cashflow::count_sign_changes(values)
 }

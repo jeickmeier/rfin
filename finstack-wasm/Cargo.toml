@@ -12,11 +12,14 @@ description = "WebAssembly bindings for Finstack - high-performance financial co
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+finstack-analytics = { path = "../finstack/analytics" }
 finstack-core = { path = "../finstack/core" }
+finstack-correlation = { path = "../finstack/correlation" }
 finstack-margin = { path = "../finstack/margin" }
 finstack-statements = { path = "../finstack/statements" }
 finstack-statements-analytics = { path = "../finstack/statements-analytics" }
 finstack-valuations = { path = "../finstack/valuations", default-features = false, features = ["mc"] }
+finstack-monte-carlo = { path = "../finstack/monte_carlo", default-features = false, features = ["advanced"] }
 finstack-scenarios = { path = "../finstack/scenarios" }
 finstack-portfolio = { path = "../finstack/portfolio", default-features = false, features = ["scenarios"] }
 # Pinned: extract_instrument relies on WasmRefCell internal layout (see mod.rs:260-393).

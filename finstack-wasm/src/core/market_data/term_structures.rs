@@ -7,8 +7,8 @@ use crate::core::utils::js_array_from_iter;
 use finstack_core::currency::Currency as CoreCurrency;
 use finstack_core::dates::{Date, DayCount, DayCountCtx};
 use finstack_core::market_data::term_structures::{
-    BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
-    InflationCurve, Seniority,
+    BaseCorrelationCurve, CreditIndexData, DiscountCurve, FlatCurve, ForwardCurve, HazardCurve,
+    InflationCurve, PriceCurve, Seniority,
 };
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::HashMap;
@@ -790,5 +790,196 @@ impl JsVolatilityIndexCurve {
             arr.push(&tuple);
         }
         arr
+    }
+}
+
+// ======================================================================
+// FlatCurve
+// ======================================================================
+
+/// A term structure with a constant continuously compounded rate.
+///
+/// Useful for approximate valuations, performance metrics (NPV/IRR),
+/// and testing.
+///
+/// @example
+/// ```javascript
+/// const curve = new FlatCurve(0.05, baseDate, "act_365f", "FLAT-5%");
+/// const df = curve.df(1.0);  // e^(-0.05) ≈ 0.9512
+/// ```
+#[wasm_bindgen(js_name = FlatCurve)]
+#[derive(Clone)]
+pub struct JsFlatCurve {
+    inner: Arc<FlatCurve>,
+}
+
+impl JsFlatCurve {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> Arc<FlatCurve> {
+        Arc::clone(&self.inner)
+    }
+}
+
+#[wasm_bindgen(js_class = FlatCurve)]
+impl JsFlatCurve {
+    /// Create a flat curve with a constant rate.
+    ///
+    /// @param {number} rate - Continuously compounded annual rate (decimal)
+    /// @param {FsDate} baseDate - Reference date
+    /// @param {string} dayCount - Day count convention name
+    /// @param {string} id - Curve identifier
+    #[wasm_bindgen(constructor)]
+    pub fn new(
+        rate: f64,
+        base_date: &JsDate,
+        day_count: &JsValue,
+        id: &str,
+    ) -> Result<JsFlatCurve, JsValue> {
+        let dc = parse_day_count_jsvalue(day_count)?
+            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+        Ok(JsFlatCurve {
+            inner: Arc::new(FlatCurve::new(rate, base_date.inner(), dc, id)),
+        })
+    }
+
+    /// The constant rate.
+    #[wasm_bindgen(getter)]
+    pub fn rate(&self) -> f64 {
+        self.inner.rate()
+    }
+
+    /// Base date for the curve.
+    #[wasm_bindgen(getter, js_name = baseDate)]
+    pub fn base_date(&self) -> JsDate {
+        use finstack_core::market_data::traits::Discounting;
+        JsDate::from_core(self.inner.base_date())
+    }
+
+    /// Discount factor at time t (years from base date).
+    ///
+    /// @param {number} t - Time in years
+    /// @returns {number} Discount factor
+    #[wasm_bindgen(js_name = df)]
+    pub fn df(&self, t: f64) -> f64 {
+        use finstack_core::market_data::traits::Discounting;
+        self.inner.df(t)
+    }
+
+    /// Curve identifier.
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        use finstack_core::market_data::traits::TermStructure;
+        self.inner.id().to_string()
+    }
+}
+
+// ======================================================================
+// PriceCurve
+// ======================================================================
+
+/// Forward price curve for commodities and other price-based assets.
+///
+/// @example
+/// ```javascript
+/// const curve = PriceCurve.build("WTI-FWD", baseDate, "act_365f", 75.0,
+///   [0.0, 0.25, 0.5, 1.0], [75.0, 76.5, 77.2, 78.0], "linear", "flat_zero");
+/// console.log(curve.price(0.25));  // 76.5
+/// ```
+#[wasm_bindgen(js_name = PriceCurve)]
+#[derive(Clone)]
+pub struct JsPriceCurve {
+    inner: Arc<PriceCurve>,
+}
+
+impl JsPriceCurve {
+    #[allow(dead_code)]
+    pub(crate) fn inner(&self) -> Arc<PriceCurve> {
+        Arc::clone(&self.inner)
+    }
+}
+
+#[wasm_bindgen(js_class = PriceCurve)]
+impl JsPriceCurve {
+    /// Build a price curve from knot points.
+    ///
+    /// @param {string} id - Curve identifier
+    /// @param {FsDate} baseDate - Reference date
+    /// @param {string} dayCount - Day count convention name
+    /// @param {number} spotPrice - Current spot price
+    /// @param {Float64Array} times - Knot times in years
+    /// @param {Float64Array} prices - Forward prices at each knot
+    /// @param {string} [interp] - Interpolation style (default: "linear")
+    /// @param {string} [extrapolation] - Extrapolation policy (default: "flat_zero")
+    #[wasm_bindgen(js_name = build)]
+    #[allow(clippy::too_many_arguments)]
+    pub fn build(
+        id: &str,
+        base_date: &JsDate,
+        day_count: &JsValue,
+        spot_price: f64,
+        times: Vec<f64>,
+        prices: Vec<f64>,
+        interp: Option<String>,
+        extrapolation: Option<String>,
+    ) -> Result<JsPriceCurve, JsValue> {
+        if times.len() != prices.len() {
+            return Err(js_error("times and prices must have the same length"));
+        }
+
+        let dc = parse_day_count_jsvalue(day_count)?
+            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+        let interp_style = parse_interp_value(
+            &interp
+                .map(|s| JsValue::from_str(&s))
+                .unwrap_or(JsValue::UNDEFINED),
+        )?;
+        let extrap_policy = parse_extrap_value(
+            &extrapolation
+                .map(|s| JsValue::from_str(&s))
+                .unwrap_or(JsValue::UNDEFINED),
+        )?;
+
+        let knots: Vec<(f64, f64)> = times.into_iter().zip(prices).collect();
+
+        let curve = PriceCurve::builder(id)
+            .base_date(base_date.inner())
+            .day_count(dc)
+            .spot_price(spot_price)
+            .knots(knots)
+            .interp(interp_style)
+            .extrapolation(extrap_policy)
+            .build()
+            .map_err(core_to_js)?;
+
+        Ok(JsPriceCurve {
+            inner: Arc::new(curve),
+        })
+    }
+
+    /// Forward price at time t (years from base date).
+    ///
+    /// @param {number} t - Time in years
+    /// @returns {number} Forward price
+    #[wasm_bindgen(js_name = price)]
+    pub fn price(&self, t: f64) -> f64 {
+        self.inner.price(t)
+    }
+
+    /// Spot price (price at t=0).
+    #[wasm_bindgen(getter, js_name = spotPrice)]
+    pub fn spot_price(&self) -> f64 {
+        self.inner.spot_price()
+    }
+
+    /// Curve identifier.
+    #[wasm_bindgen(getter)]
+    pub fn id(&self) -> String {
+        self.inner.id().to_string()
+    }
+
+    /// Base date for the curve.
+    #[wasm_bindgen(getter, js_name = baseDate)]
+    pub fn base_date(&self) -> JsDate {
+        JsDate::from_core(self.inner.base_date())
     }
 }
