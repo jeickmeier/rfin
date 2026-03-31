@@ -1,16 +1,21 @@
 //! Monte Carlo simulation infrastructure Python bindings.
 //!
 //! This module provides Python bindings for Monte Carlo path generation,
-//! stochastic processes, discretization schemes, and result structures.
+//! stochastic processes, discretization schemes, payoffs, RNG, engine, and
+//! variance-reduction utilities.
 
 pub(crate) mod discretization;
+pub(crate) mod engine;
 pub(crate) mod estimate;
 pub(crate) mod generator;
 pub(crate) mod params;
 pub(crate) mod paths;
+pub(crate) mod payoffs;
 pub(crate) mod processes;
 pub(crate) mod result;
+pub(crate) mod rng;
 pub(crate) mod time_grid;
+pub(crate) mod variance_reduction;
 
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -70,6 +75,33 @@ pub(crate) fn register(
     mc_module.add_class::<discretization::PyJumpEulerScheme>()?;
     mc_module.add_class::<discretization::PyExactSchwartzSmithScheme>()?;
 
+    // Payoff types
+    mc_module.add_class::<payoffs::PyEuropeanCall>()?;
+    mc_module.add_class::<payoffs::PyEuropeanPut>()?;
+    mc_module.add_class::<payoffs::PyDigital>()?;
+    mc_module.add_class::<payoffs::PyForward>()?;
+
+    // RNG
+    mc_module.add_class::<rng::PyPhiloxRng>()?;
+
+    // Engine / pricer
+    mc_module.add_class::<engine::PyEuropeanPricerConfig>()?;
+    mc_module.add_class::<engine::PyEuropeanMcPricer>()?;
+
+    // Variance reduction
+    mc_module.add_class::<variance_reduction::PyAntitheticConfig>()?;
+
+    // Free functions
+    mc_module.add_function(wrap_pyfunction!(engine::price_european, &mc_module)?)?;
+    mc_module.add_function(wrap_pyfunction!(
+        variance_reduction::black_scholes_call,
+        &mc_module
+    )?)?;
+    mc_module.add_function(wrap_pyfunction!(
+        variance_reduction::black_scholes_put,
+        &mc_module
+    )?)?;
+
     let exports = vec![
         // Existing types
         "ProcessParams",
@@ -103,6 +135,22 @@ pub(crate) fn register(
         "ExactHullWhite1FScheme",
         "JumpEulerScheme",
         "ExactSchwartzSmithScheme",
+        // Payoff types
+        "EuropeanCall",
+        "EuropeanPut",
+        "Digital",
+        "Forward",
+        // RNG
+        "PhiloxRng",
+        // Engine / pricer
+        "EuropeanPricerConfig",
+        "EuropeanMcPricer",
+        // Variance reduction
+        "AntitheticConfig",
+        // Free functions
+        "price_european",
+        "black_scholes_call",
+        "black_scholes_put",
     ];
 
     mc_module.setattr("__all__", PyList::new(py, &exports)?)?;

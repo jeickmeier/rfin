@@ -1,3 +1,5 @@
+pub mod accrual;
+pub mod aggregation;
 pub mod builder;
 pub(crate) mod dataframe;
 pub(crate) mod performance;
@@ -18,6 +20,12 @@ pub(crate) fn register<'py>(
     )?;
 
     let mut exports: Vec<&str> = Vec::new();
+
+    let accrual_exports = accrual::register(py, &module)?;
+    exports.extend(accrual_exports.iter().copied());
+
+    let aggregation_exports = aggregation::register(py, &module)?;
+    exports.extend(aggregation_exports.iter().copied());
 
     let builder_exports = builder::register(py, &module)?;
     exports.extend(builder_exports.iter().copied());

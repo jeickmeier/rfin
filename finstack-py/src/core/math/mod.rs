@@ -1,4 +1,5 @@
 mod callable;
+mod compounding;
 mod distributions;
 mod integration;
 pub(crate) mod interp;
@@ -10,6 +11,7 @@ mod solver_multi;
 mod special_functions;
 mod stats;
 mod summation;
+mod time_grid;
 pub(crate) mod volatility;
 
 use finstack_core::HashSet;
@@ -35,6 +37,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     )?;
 
     let mut exports: Vec<&str> = Vec::new();
+
+    let compounding_exports = compounding::register(py, &module)?;
+    exports.extend(compounding_exports.iter().copied());
 
     let dist_exports = distributions::register(py, &module)?;
     exports.extend(dist_exports.iter().copied());
@@ -68,6 +73,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     let sum_exports = summation::register(py, &module)?;
     exports.extend(sum_exports.iter().copied());
+
+    let time_grid_exports = time_grid::register(py, &module)?;
+    exports.extend(time_grid_exports.iter().copied());
 
     exports = {
         let mut seen = HashSet::default();

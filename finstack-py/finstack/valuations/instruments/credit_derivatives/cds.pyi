@@ -4,7 +4,9 @@ from __future__ import annotations
 from datetime import date
 from ....core.money import Money
 from ....core.currency import Currency
+from ....core.market_data.context import MarketContext
 from ...common import InstrumentType
+from ...conventions import CdsDocClause
 
 class CDSConvention:
     """ISDA CDS convention for regional market standards.
@@ -258,6 +260,41 @@ class CreditDefaultSwap:
     def calendar(self) -> str | None: ...
     def isda_coupon_schedule(self) -> list[date]:
         """Return ISDA-standard coupon date schedule."""
+        ...
+
+    @classmethod
+    def from_isda(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        side: CDSPayReceive | str,
+        convention: CDSConvention,
+        spread_bp: float,
+        start: date,
+        end: date,
+        recovery_rate: float,
+        discount_curve_id: str,
+        credit_curve_id: str,
+    ) -> "CreditDefaultSwap":
+        """Create a CDS with standard ISDA conventions."""
+        ...
+
+    @property
+    def protection_start(self) -> date:
+        """Effective protection start date."""
+        ...
+
+    @property
+    def doc_clause_effective(self) -> CdsDocClause:
+        """Effective ISDA documentation clause."""
+        ...
+
+    def build_premium_schedule(
+        self,
+        market: MarketContext,
+        as_of: date,
+    ) -> list[tuple[date, Money]]:
+        """Build the premium leg cashflow schedule."""
         ...
 
     def __repr__(self) -> str: ...

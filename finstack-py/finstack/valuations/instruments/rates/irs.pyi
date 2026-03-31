@@ -171,6 +171,24 @@ class InterestRateSwap:
     def fixing_calendar(self) -> str | None: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
+    def validate(self) -> None:
+        """Validate swap parameters for market-standard compliance."""
+        ...
+    @classmethod
+    def from_conventions(
+        cls,
+        instrument_id: str,
+        notional: Money,
+        side: PayReceive | str,
+        fixed_rate: float,
+        start: date,
+        end: date,
+        index_id: str,
+        discount_curve_id: str,
+        forward_curve_id: str,
+    ) -> "InterestRateSwap":
+        """Create a swap from market conventions resolved via the global ConventionRegistry."""
+        ...
     def __repr__(self) -> str: ...
 
 class InterestRateSwapBuilder:

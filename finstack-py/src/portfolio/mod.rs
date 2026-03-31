@@ -8,6 +8,7 @@ pub(crate) mod book;
 pub(crate) mod builder;
 pub(crate) mod cashflows;
 pub(crate) mod dataframe;
+pub(crate) mod dependencies;
 pub(crate) mod error;
 pub(crate) mod factor_model;
 pub(crate) mod grouping;
@@ -135,6 +136,13 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         "scenarios",
         &mut all_exports,
         scenarios::register,
+    )?;
+    register_submodule(
+        py,
+        &module,
+        "dependencies",
+        &mut all_exports,
+        dependencies::register,
     )?;
 
     let all_list = PyList::new(py, &all_exports)?;

@@ -4,7 +4,7 @@ use crate::errors::core_to_py;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::credit_derivatives::cds::{
-    CDSConvention, CreditDefaultSwap, PayReceive, PremiumLegSpec, ProtectionLegSpec,
+    CDSConvention, CreditDefaultSwap, IsdaCdsParams, PayReceive, PremiumLegSpec, ProtectionLegSpec,
 };
 use finstack_valuations::instruments::{Attributes, PricingOverrides};
 use pyo3::basic::CompareOp;
@@ -560,6 +560,151 @@ impl PyCreditDefaultSwap {
             .isda_coupon_schedule()
             .map_err(crate::errors::core_to_py)?;
         dates.into_iter().map(|d| date_to_py(py, d)).collect()
+    }
+
+    /// Create a CDS with standard ISDA conventions.
+    ///
+    /// Parameters
+    /// ----------
+    /// instrument_id : str
+    ///     Unique identifier.
+    /// notional : Money
+    ///     Notional principal amount.
+    /// side : CDSPayReceive or str
+    ///     Pay or receive protection.
+    /// convention : CDSConvention
+    ///     ISDA regional convention.
+    /// spread_bp : float
+    ///     Running spread in basis points.
+    /// start : datetime.date
+    ///     Premium leg start date.
+    /// end : datetime.date
+    ///     Maturity (protection end date).
+    /// recovery_rate : float
+    ///     Recovery rate in decimal form (e.g. 0.40).
+    /// discount_curve_id : str
+    ///     Discount curve identifier.
+    /// credit_curve_id : str
+    ///     Credit/hazard curve identifier.
+    ///
+    /// Returns
+    /// -------
+    /// CreditDefaultSwap
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If construction or validation fails.
+    #[classmethod]
+    #[pyo3(
+        signature = (instrument_id, notional, side, convention, spread_bp, start, end, recovery_rate, discount_curve_id, credit_curve_id),
+        text_signature = "(cls, instrument_id, notional, side, convention, spread_bp, start, end, recovery_rate, discount_curve_id, credit_curve_id)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn from_isda(
+        _cls: &Bound<'_, PyType>,
+        instrument_id: &str,
+        notional: Bound<'_, PyAny>,
+        side: Bound<'_, PyAny>,
+        convention: PyCdsConvention,
+        spread_bp: f64,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        recovery_rate: f64,
+        discount_curve_id: &str,
+        credit_curve_id: &str,
+    ) -> PyResult<Self> {
+        use crate::errors::PyContext;
+
+        let amt = extract_money(&notional).context("notional")?;
+        let parsed_side = if let Ok(py_side) = side.extract::<PyRef<PyCdsPayReceive>>() {
+            py_side.inner
+        } else if let Ok(name) = side.extract::<&str>() {
+            normalize_cds_side(name)?
+        } else {
+            return Err(pyo3::exceptions::PyTypeError::new_err(
+                "side expects CDSPayReceive or str",
+            ));
+        };
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
+
+        let params = IsdaCdsParams {
+            id: InstrumentId::new(instrument_id),
+            notional: amt,
+            side: parsed_side,
+            convention: convention.inner,
+            spread_bp,
+            start: start_date,
+            end: end_date,
+            recovery_rate,
+            discount_curve_id,
+            credit_curve_id,
+        };
+
+        CreditDefaultSwap::from_isda(params)
+            .map(PyCreditDefaultSwap::new)
+            .map_err(core_to_py)
+    }
+
+    /// Effective protection start date.
+    ///
+    /// For a forward-starting CDS, returns the explicit protection effective date.
+    /// For a standard CDS, returns the premium start date.
+    ///
+    /// Returns:
+    ///     datetime.date: Protection start date.
+    #[getter]
+    fn protection_start(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.protection_start())
+    }
+
+    /// Effective ISDA documentation clause.
+    ///
+    /// If an explicit doc_clause is set, returns it. Otherwise derives
+    /// the standard clause from the CDS convention.
+    ///
+    /// Returns:
+    ///     CdsDocClause: Resolved documentation clause.
+    #[getter]
+    fn doc_clause_effective(&self) -> crate::valuations::market::conventions::PyCdsDocClause {
+        crate::valuations::market::conventions::PyCdsDocClause::new(
+            self.inner.doc_clause_effective(),
+        )
+    }
+
+    /// Build the premium leg cashflow schedule.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data context (curves).
+    /// as_of : datetime.date
+    ///     Valuation date.
+    ///
+    /// Returns
+    /// -------
+    /// list[tuple[datetime.date, Money]]
+    ///     Premium leg cashflows as (date, amount) pairs.
+    #[pyo3(
+        signature = (market, as_of),
+        text_signature = "($self, market, as_of)"
+    )]
+    fn build_premium_schedule(
+        &self,
+        py: Python<'_>,
+        market: &crate::core::market_data::PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<Vec<(Py<PyAny>, PyMoney)>> {
+        let as_of_date = py_to_date(&as_of)?;
+        let flows = self
+            .inner
+            .build_premium_schedule(&market.inner, as_of_date)
+            .map_err(core_to_py)?;
+        flows
+            .into_iter()
+            .map(|(date, money)| Ok((date_to_py(py, date)?, PyMoney::new(money))))
+            .collect()
     }
 
     fn __repr__(&self) -> PyResult<String> {

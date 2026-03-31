@@ -1018,6 +1018,24 @@ impl PyBond {
         crate::valuations::cashflow::dataframe::period_dataframe_to_polars(frame)
     }
 
+    /// Whether the bond has floating-rate coupons requiring forward curve projection.
+    ///
+    /// Returns:
+    ///     bool: ``True`` for FRNs and amortizing bonds with a floating base.
+    fn has_floating_coupons(&self) -> bool {
+        self.inner.has_floating_coupons()
+    }
+
+    /// Accrual configuration derived from bond settlement conventions.
+    ///
+    /// Returns:
+    ///     AccrualConfig: Configuration for accrued interest calculation.
+    fn accrual_config(&self) -> crate::valuations::cashflow::accrual::PyAccrualConfig {
+        crate::valuations::cashflow::accrual::PyAccrualConfig {
+            inner: self.inner.accrual_config(),
+        }
+    }
+
     #[getter]
     fn cashflow_spec(&self) -> PyCashflowSpec {
         PyCashflowSpec {

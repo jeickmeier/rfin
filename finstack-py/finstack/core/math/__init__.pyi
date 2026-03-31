@@ -12,9 +12,11 @@ This module aggregates bindings for:
 - summation: Kahan, pairwise, and stable sums
 - random: SimpleRng and Box-Muller transforms
 - interp: interpolation and extrapolation styles
+- time_grid: time grids for Monte Carlo simulation
 """
 
 from __future__ import annotations
+from . import compounding
 from . import distributions
 from . import integration
 from . import interp
@@ -26,8 +28,10 @@ from . import solver_multi
 from . import special_functions
 from . import stats
 from . import summation
+from . import time_grid
 
 __all__ = [
+    "compounding",
     "distributions",
     "integration",
     "interp",
@@ -39,4 +43,5 @@ __all__ = [
     "special_functions",
     "stats",
     "summation",
+    "time_grid",
 ]

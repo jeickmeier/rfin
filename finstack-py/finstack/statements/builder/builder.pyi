@@ -6,6 +6,13 @@ from ..types.model import FinancialModelSpec
 from ..types.forecast import ForecastSpec
 from ..types.value import AmountOrScalar
 from ..types.waterfall import WaterfallSpec
+from ..templates import (
+    LeaseSpec,
+    LeaseSpecV2,
+    ManagementFeeSpec,
+    PropertyTemplateNodes,
+    RentRollOutputNodes,
+)
 from ...core.dates.periods import Period, PeriodId
 from .mixed_builder import MixedNodeBuilder
 
@@ -379,6 +386,159 @@ class ModelBuilder:
         Args:
             qualified_id: Fully qualified metric identifier to add
             registry: Registry loaded by the caller (allows reuse across builders)
+        """
+        ...
+
+    def add_registry_metrics(
+        self,
+        qualified_ids: List[str],
+        registry: Any,
+    ) -> None:
+        """Add multiple metrics from a registry at once.
+
+        Args:
+            qualified_ids: List of fully qualified metric identifiers
+            registry: Registry loaded by the caller
+        """
+        ...
+
+    # ── Template helpers ─────────────────────────────────────────
+
+    def add_roll_forward(
+        self,
+        name: str,
+        increases: List[str],
+        decreases: List[str],
+    ) -> None:
+        """Add a roll-forward structure (beginning + changes = ending).
+
+        Creates ``{name}_beg`` and ``{name}_end`` calculated nodes where
+        the beginning balance is the lagged ending balance and the ending
+        balance is ``beg + sum(increases) - sum(decreases)``.
+
+        Args:
+            name: Base name for the roll-forward (e.g., ``"arr"``).
+            increases: Node IDs that increase the balance.
+            decreases: Node IDs that decrease the balance.
+        """
+        ...
+
+    def add_vintage_buildup(
+        self,
+        name: str,
+        new_volume_node: str,
+        decay_curve: List[float],
+    ) -> None:
+        """Add a vintage buildup (cohort/convolution) structure.
+
+        Models a stack of layers where each cohort originates from
+        *new_volume_node* and evolves according to *decay_curve*.
+
+        ``Total[t] = sum(NewVolume[t-k] * curve[k])`` for ``k`` in
+        ``0..len(decay_curve)``.
+
+        Args:
+            name: Resulting total node name (e.g., ``"revenue"``).
+            new_volume_node: Node ID for the new volume per period.
+            decay_curve: Multipliers indexed by vintage age.
+        """
+        ...
+
+    def add_noi_buildup(
+        self,
+        total_revenue_node: str,
+        revenue_nodes: List[str],
+        total_expenses_node: str,
+        expense_nodes: List[str],
+        noi_node: str,
+    ) -> None:
+        """Add a NOI (Net Operating Income) buildup template.
+
+        Creates ``total_revenue = sum(revenue_nodes)``,
+        ``total_expenses = sum(expense_nodes)``, and
+        ``noi = total_revenue - total_expenses``.
+
+        Args:
+            total_revenue_node: Aggregated revenue node ID.
+            revenue_nodes: Revenue line-item node IDs.
+            total_expenses_node: Aggregated expense node ID.
+            expense_nodes: Expense line-item node IDs.
+            noi_node: Net operating income node ID.
+        """
+        ...
+
+    def add_ncf_buildup(
+        self,
+        noi_node: str,
+        capex_nodes: List[str],
+        ncf_node: str,
+    ) -> None:
+        """Add a NCF (Net Cash Flow) buildup template.
+
+        ``ncf = noi - sum(capex_nodes)``.  When *capex_nodes* is empty the
+        NCF node is an alias of the NOI node.
+
+        Args:
+            noi_node: NOI source node ID.
+            capex_nodes: Capital expenditure node IDs (positive outflows).
+            ncf_node: Target NCF node ID.
+        """
+        ...
+
+    def add_rent_roll_rental_revenue(
+        self,
+        leases: List[LeaseSpec],
+        total_rent_node: str,
+    ) -> None:
+        """Add a rent-roll rental revenue projection (v1, simple leases).
+
+        Creates one value node per lease and a computed total.
+
+        Args:
+            leases: Simple lease specifications.
+            total_rent_node: Aggregated rental revenue node ID.
+        """
+        ...
+
+    def add_rent_roll_rental_revenue_v2(
+        self,
+        leases: List[LeaseSpecV2],
+        nodes: RentRollOutputNodes,
+    ) -> None:
+        """Add a rent-roll rental revenue projection (v2, enhanced leases).
+
+        Creates per-lease detail nodes (``{id}.pgi``, ``{id}.free_rent``,
+        ``{id}.vacancy_loss``, ``{id}.effective_rent``) and aggregated
+        totals.
+
+        Args:
+            leases: Enhanced lease specifications.
+            nodes: Output node names for the rent decomposition.
+        """
+        ...
+
+    def add_property_operating_statement(
+        self,
+        leases: List[LeaseSpecV2],
+        other_income_nodes: List[str],
+        opex_nodes: List[str],
+        capex_nodes: List[str],
+        nodes: PropertyTemplateNodes,
+        management_fee: ManagementFeeSpec | None = None,
+    ) -> None:
+        """Add a full property operating statement template.
+
+        Combines rent roll, other income, expenses, management fees,
+        and capex into a complete NOI-to-NCF waterfall:
+        rent roll -> EGI -> NOI -> NCF.
+
+        Args:
+            leases: Enhanced lease specifications.
+            other_income_nodes: Other income node IDs.
+            opex_nodes: Operating expense node IDs.
+            capex_nodes: Capital expenditure node IDs.
+            nodes: Aggregate output node names.
+            management_fee: Optional management fee specification.
         """
         ...
 

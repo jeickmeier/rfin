@@ -128,6 +128,10 @@ _rust_portfolio = _finstack.portfolio
 _portfolio = _setup_hybrid_module(_rust_portfolio, "portfolio", _pkg_path / "portfolio")
 globals()["portfolio"] = _portfolio
 
+_rust_correlation = _finstack.correlation
+_correlation = _setup_hybrid_module(_rust_correlation, "correlation", _pkg_path / "correlation")
+globals()["correlation"] = _correlation
+
 # Analytics — canonical top-level package (finstack-analytics crate).
 # finstack.core.analytics remains available as a compatibility shim via core's __init__.
 _rust_analytics = _finstack.analytics
@@ -152,6 +156,8 @@ del (
     _statements,
     _rust_portfolio,
     _portfolio,
+    _rust_correlation,
+    _correlation,
     _rust_analytics,
     _analytics,
     _statements_analytics,

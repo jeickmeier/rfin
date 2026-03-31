@@ -26,6 +26,7 @@ use pyo3::types::{PyList, PyModule, PyModuleMethods};
 use pyo3::Bound;
 
 mod core;
+mod correlation;
 mod errors;
 mod portfolio;
 mod scenarios;
@@ -70,6 +71,8 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     core::types::register(py, &core_mod)?;
     core::expr::register(py, &core_mod)?;
     core::analytics::register(py, &core_mod)?;
+    core::factor_model::register(py, &core_mod)?;
+    core::validation::register(py, &core_mod)?;
 
     let core_exports = PyList::new(
         py,
@@ -78,11 +81,13 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "cashflow",
             "currency",
             "config",
+            "factor_model",
             "money",
             "dates",
             "explain",
             "market_data",
             "math",
+            "validation",
             "volatility",
             "volatility_models",
             "types",
@@ -99,6 +104,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         "cashflow",
         "currency",
         "config",
+        "factor_model",
         "money",
         "dates",
         "explain",
@@ -133,6 +139,9 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
 
     // Portfolio bindings (module registers itself under `portfolio`)
     portfolio::register(py, &m)?;
+
+    // Correlation bindings (module registers itself under `correlation`)
+    correlation::register(py, &m)?;
 
     // Re-export selected helpers at package root for convenience
     let dates_binding = core_mod.getattr("dates")?;
@@ -223,6 +232,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
             "statements",
             "scenarios",
             "portfolio",
+            "correlation",
             "analytics",
             "Currency",
             "Money",

@@ -21,7 +21,9 @@ use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::py_to_date;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::money::fx::SimpleFxProvider;
-use finstack_core::money::fx::{FxConfig, FxConversionPolicy, FxMatrix, FxQuery, FxRateResult};
+use finstack_core::money::fx::{
+    FxConfig, FxConversionPolicy, FxMatrix, FxPolicyMeta, FxQuery, FxRateResult,
+};
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -315,6 +317,98 @@ pub(crate) fn parse_policy(
     }
 }
 
+/// Metadata describing how an FX conversion was sourced.
+///
+/// Attach to valuation results for auditability of FX conversions.
+///
+/// Parameters
+/// ----------
+/// strategy : FxConversionPolicy
+///     The conversion timing policy applied.
+/// target_ccy : Currency, optional
+///     Declared target currency, if any.
+/// notes : str
+///     Free-text notes for auditing.
+///
+/// Returns
+/// -------
+/// FxPolicyMeta
+///     Metadata describing the FX conversion.
+#[pyclass(
+    module = "finstack.core.market_data.fx",
+    name = "FxPolicyMeta",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyFxPolicyMeta {
+    pub(crate) inner: FxPolicyMeta,
+}
+
+#[pymethods]
+impl PyFxPolicyMeta {
+    #[new]
+    #[pyo3(signature = (strategy, *, target_ccy=None, notes=None))]
+    #[pyo3(text_signature = "(strategy, *, target_ccy=None, notes=None)")]
+    fn new_py(
+        strategy: &PyFxConversionPolicy,
+        target_ccy: Option<&PyCurrency>,
+        notes: Option<String>,
+    ) -> Self {
+        Self {
+            inner: FxPolicyMeta {
+                strategy: strategy.inner,
+                target_ccy: target_ccy.map(|c| c.inner),
+                notes: notes.unwrap_or_default(),
+            },
+        }
+    }
+
+    /// Conversion strategy applied.
+    ///
+    /// Returns
+    /// -------
+    /// FxConversionPolicy
+    #[getter]
+    fn strategy(&self) -> PyFxConversionPolicy {
+        PyFxConversionPolicy::new(self.inner.strategy)
+    }
+
+    /// Declared target currency, if any.
+    ///
+    /// Returns
+    /// -------
+    /// Currency | None
+    #[getter]
+    fn target_ccy(&self) -> Option<PyCurrency> {
+        self.inner.target_ccy.map(PyCurrency::new)
+    }
+
+    /// Free-text audit notes.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    #[getter]
+    fn notes(&self) -> &str {
+        &self.inner.notes
+    }
+
+    fn __repr__(&self) -> String {
+        let ccy_str = self
+            .inner
+            .target_ccy
+            .map(|c| format!("{c}"))
+            .unwrap_or_else(|| "None".to_string());
+        format!(
+            "FxPolicyMeta(strategy='{}', target_ccy={}, notes='{}')",
+            PyFxConversionPolicy::new(self.inner.strategy).label(),
+            ccy_str,
+            self.inner.notes
+        )
+    }
+}
+
 /// Mutable FX quote container with date-aware rate queries.
 ///
 /// Parameters
@@ -534,8 +628,15 @@ pub(crate) fn register<'py>(
     module.add_class::<PyFxConversionPolicy>()?;
     module.add_class::<PyFxConfig>()?;
     module.add_class::<PyFxRateResult>()?;
+    module.add_class::<PyFxPolicyMeta>()?;
     module.add_class::<PyFxMatrix>()?;
-    let exports = ["FxConversionPolicy", "FxConfig", "FxRateResult", "FxMatrix"];
+    let exports = [
+        "FxConversionPolicy",
+        "FxConfig",
+        "FxRateResult",
+        "FxPolicyMeta",
+        "FxMatrix",
+    ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

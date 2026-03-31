@@ -9,7 +9,7 @@ from .....core.dates.schedule import Frequency, StubKind
 from .....core.dates.daycount import DayCount
 from .....core.dates.calendar import BusinessDayConvention
 from .....core.market_data.context import MarketContext
-from ....cashflow.builder import AmortizationSpec, CashFlowSchedule
+from ....cashflow.builder import AccrualConfig, AmortizationSpec, CashFlowSchedule
 from ....common import InstrumentType
 from .mc_config import MertonMcConfig, MertonMcResult
 from .merton import MertonAssetDynamics, MertonBarrierType, MertonModel
@@ -165,6 +165,12 @@ class Bond:
     def accrual_method(self) -> str: ...
     @property
     def has_call_put(self) -> bool: ...
+    def has_floating_coupons(self) -> bool:
+        """Whether the bond has floating-rate coupons requiring forward curve projection."""
+        ...
+    def accrual_config(self) -> AccrualConfig:
+        """Accrual configuration derived from bond settlement conventions."""
+        ...
     def validate(self) -> None: ...
     def cashflow_schedule(self, market: MarketContext, *, as_of: datetime.date | None = ...) -> CashFlowSchedule: ...
     def pricing_cashflows(

@@ -16,6 +16,67 @@ from finstack.core.market_data.term_structures import (
 )
 from finstack.portfolio import Portfolio
 
+ATTRIBUTION_SCHEMA_V1: str
+"""Schema version identifier for attribution serialization (``"finstack.attribution/1"``)."""
+
+class AttributionConfig:
+    """Optional configuration for attribution runs."""
+
+    def __init__(
+        self,
+        *,
+        tolerance_abs: float | None = None,
+        tolerance_pct: float | None = None,
+        metrics: List[str] | None = None,
+        strict_validation: bool | None = None,
+        rounding_scale: int | None = None,
+        rate_bump_bp: float | None = None,
+    ) -> None: ...
+    @property
+    def tolerance_abs(self) -> float | None: ...
+    @property
+    def tolerance_pct(self) -> float | None: ...
+    @property
+    def metrics(self) -> List[str] | None: ...
+    @property
+    def strict_validation(self) -> bool | None: ...
+    @property
+    def rounding_scale(self) -> int | None: ...
+    @property
+    def rate_bump_bp(self) -> float | None: ...
+
+class ModelParamsSnapshot:
+    """Snapshot of extractable model parameters from an instrument.
+
+    Variants: ``StructuredCredit``, ``Convertible``, or ``None``.
+    Construct via :func:`extract_model_params` or :meth:`from_json`.
+    """
+
+    @classmethod
+    def from_json(cls, json_str: str) -> ModelParamsSnapshot:
+        """Construct from a JSON string.
+
+        Args:
+            json_str: JSON representation of the snapshot
+
+        Raises:
+            ValueError: If JSON is malformed
+        """
+        ...
+
+    @staticmethod
+    def none() -> ModelParamsSnapshot:
+        """Return a snapshot representing no model parameters."""
+        ...
+
+    def to_json(self) -> str:
+        """Serialize to JSON string."""
+        ...
+
+    def is_none(self) -> bool:
+        """True if this is the None variant (no model params)."""
+        ...
+
 class AttributionMethod:
     """Attribution methodology selector."""
 
@@ -862,5 +923,118 @@ def attribution_result_to_json(attribution: PnlAttribution) -> str:
         >>> # Save to file or send to API
         >>> # with open("attribution_result.json", "w") as f:
         >>> #     f.write(json_str)
+    """
+    ...
+
+def default_attribution_metrics() -> List[str]:
+    """Default set of metrics for metrics-based attribution.
+
+    Returns the metric names required by the ``MetricsBased`` method
+    (e.g. ``"Theta"``, ``"Dv01"``, ``"Cs01"``, ``"Vega"``, ...).
+
+    Returns:
+        List of metric name strings
+    """
+    ...
+
+def extract_model_params(instrument: Any) -> ModelParamsSnapshot:
+    """Extract model parameters from an instrument.
+
+    Uses downcasting to identify instrument type (StructuredCredit,
+    ConvertibleBond, etc.) and extract relevant model parameters.
+
+    Args:
+        instrument: Any finstack instrument
+
+    Returns:
+        Snapshot of model parameters, or ``ModelParamsSnapshot.none()``
+        if the instrument type has no extractable parameters.
+    """
+    ...
+
+def measure_prepayment_shift(
+    snapshot_t0: ModelParamsSnapshot,
+    snapshot_t1: ModelParamsSnapshot,
+) -> float:
+    """Measure prepayment parameter shift between two snapshots.
+
+    Returns shift in basis points for use with Prepayment01 metric.
+
+    Args:
+        snapshot_t0: Parameters at T₀
+        snapshot_t1: Parameters at T₁
+
+    Returns:
+        Shift in basis points, or 0.0 if not applicable.
+    """
+    ...
+
+def measure_default_shift(
+    snapshot_t0: ModelParamsSnapshot,
+    snapshot_t1: ModelParamsSnapshot,
+) -> float:
+    """Measure default rate parameter shift between two snapshots.
+
+    Returns shift in basis points for use with Default01 metric.
+
+    Args:
+        snapshot_t0: Parameters at T₀
+        snapshot_t1: Parameters at T₁
+
+    Returns:
+        Shift in basis points, or 0.0 if not applicable.
+    """
+    ...
+
+def measure_recovery_shift(
+    snapshot_t0: ModelParamsSnapshot,
+    snapshot_t1: ModelParamsSnapshot,
+) -> float:
+    """Measure recovery rate parameter shift between two snapshots.
+
+    Returns shift in percentage points (not basis points).
+
+    Args:
+        snapshot_t0: Parameters at T₀
+        snapshot_t1: Parameters at T₁
+
+    Returns:
+        Shift in percentage points, or 0.0 if not applicable.
+    """
+    ...
+
+def measure_conversion_shift(
+    snapshot_t0: ModelParamsSnapshot,
+    snapshot_t1: ModelParamsSnapshot,
+) -> float:
+    """Measure conversion ratio shift between two snapshots.
+
+    Returns shift in percentage points.
+
+    Args:
+        snapshot_t0: Parameters at T₀
+        snapshot_t1: Parameters at T₁
+
+    Returns:
+        Shift in percentage points, or 0.0 if not applicable.
+    """
+    ...
+
+def restore_scalars(
+    market: MarketContext,
+    snapshot: ScalarsSnapshot,
+) -> MarketContext:
+    """Replace market scalars with snapshot values.
+
+    Preserves all curves, FX, and vol surfaces from the original market
+    but replaces ALL scalar data (prices, series, inflation indices,
+    dividends) with the snapshot values.
+
+    Args:
+        market: Market context to modify
+        snapshot: Snapshot of market scalars to restore
+
+    Returns:
+        New market context with replaced market scalars
     """
     ...

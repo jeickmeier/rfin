@@ -723,3 +723,133 @@ def compute_overnight_rate(
 ) -> float:
     """Compute an overnight compounding rate using the specified method."""
     ...
+
+# ---------------------------------------------------------------------------
+# Accrual types
+# ---------------------------------------------------------------------------
+
+class AccrualMethod:
+    """Accrual interpolation method for interest calculations."""
+
+    LINEAR: AccrualMethod
+    """Linear accrual (simple interest interpolation)."""
+
+    COMPOUNDED: AccrualMethod
+    """Compounded accrual (ICMA-style)."""
+
+    def __repr__(self) -> str: ...
+    def __eq__(self, other: object) -> bool: ...
+
+class ExCouponRule:
+    """Ex-coupon convention applied to coupon flows.
+
+    When the valuation date falls inside the ex-coupon window
+    (between ex-date and payment date), accrued interest is zero.
+    """
+
+    @classmethod
+    def new(
+        cls,
+        days_before_coupon: int,
+        calendar_id: str | None = None,
+    ) -> ExCouponRule:
+        """Create an ex-coupon rule.
+
+        Args:
+            days_before_coupon: Number of days before coupon date that go ex.
+            calendar_id: Optional calendar for business-day counting.
+        """
+        ...
+
+    @property
+    def days_before_coupon(self) -> int: ...
+    @property
+    def calendar_id(self) -> str | None: ...
+    def __repr__(self) -> str: ...
+
+class AccrualConfig:
+    """Configuration for schedule-driven interest accrual."""
+
+    @classmethod
+    def new(
+        cls,
+        method: AccrualMethod | None = None,
+        ex_coupon: ExCouponRule | None = None,
+        include_pik: bool | None = True,
+    ) -> AccrualConfig:
+        """Create an accrual configuration.
+
+        Args:
+            method: Accrual method (default: LINEAR).
+            ex_coupon: Optional ex-coupon rule.
+            include_pik: Whether to include PIK interest (default: True).
+        """
+        ...
+
+    @property
+    def method(self) -> AccrualMethod: ...
+    @property
+    def ex_coupon(self) -> ExCouponRule | None: ...
+    @property
+    def include_pik(self) -> bool: ...
+    def __repr__(self) -> str: ...
+
+def accrued_interest_amount(
+    schedule: CashFlowSchedule,
+    as_of: _Date | str,
+    config: AccrualConfig,
+) -> float:
+    """Compute accrued interest from a cashflow schedule.
+
+    Args:
+        schedule: CashFlowSchedule containing coupon, PIK, and notional flows.
+        as_of: Accrual cut-off date.
+        config: Accrual configuration (method, ex-coupon, PIK inclusion).
+
+    Returns:
+        Scalar accrued interest amount. Returns 0.0 when the schedule has
+        no coupon periods, the as_of date is outside all coupon periods,
+        or the as_of date falls inside an active ex-coupon window.
+    """
+    ...
+
+# ---------------------------------------------------------------------------
+# Aggregation functions
+# ---------------------------------------------------------------------------
+
+def aggregate_by_period(
+    flows: List[Tuple[_Date | str, Money]],
+    periods: List[Period] | PeriodPlan,
+) -> Dict[str, Dict[Currency, Money]]:
+    """Aggregate dated cashflows by period with currency preservation.
+
+    Args:
+        flows: List of (date, Money) tuples.
+        periods: Reporting periods (PeriodPlan or list[Period]).
+
+    Returns:
+        Dictionary mapping period code strings to inner dictionaries of
+        {Currency: Money}.
+    """
+    ...
+
+def aggregate_cashflows_precise_checked(
+    flows: List[Tuple[_Date | str, Money]],
+    target: Currency,
+) -> Money:
+    """Single-currency precision aggregation of dated cashflows.
+
+    Uses compensated summation for numerical precision. All flows must
+    match the target currency.
+
+    Args:
+        flows: List of (date, Money) tuples.
+        target: Required currency for every flow and the returned total.
+
+    Returns:
+        A single Money total in the target currency.
+
+    Raises:
+        FinstackError: If any flow's currency differs from target.
+    """
+    ...

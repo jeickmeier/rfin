@@ -67,6 +67,7 @@ from .optimization import (
     MaxYieldWithCccLimitResult,
     DefaultLpOptimizer,
 )
+from .dependencies import MarketFactorKey, DependencyIndex
 from .factor_model import (
     MarketDependency,
     BumpSizeConfig,
@@ -202,6 +203,8 @@ try:
         "FactorModelBuilder",
         "FactorModel",
         "WhatIfEngine",
+        "MarketFactorKey",
+        "DependencyIndex",
         "apply_scenario",
         "apply_and_revalue",
         "ApplicationReport",
@@ -298,4 +301,6 @@ except ImportError:
         "FactorModelBuilder",
         "FactorModel",
         "WhatIfEngine",
+        "MarketFactorKey",
+        "DependencyIndex",
     ]

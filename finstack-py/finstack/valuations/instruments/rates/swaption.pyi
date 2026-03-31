@@ -5,6 +5,7 @@ from datetime import date
 from ....core.money import Money
 from ....core.dates.schedule import Frequency
 from ....core.dates.daycount import DayCount
+from ....core.market_data.context import MarketContext
 from ...common import InstrumentType
 from ...common.parameters import VolatilityModel, CashSettlementMethod
 
@@ -64,6 +65,27 @@ class SABRParameters:
     def rho(self) -> float: ...
     @property
     def shift(self) -> float | None: ...
+
+class GreekInputs:
+    """Pre-computed inputs for swaption Greek calculations."""
+
+    @property
+    def forward(self) -> float:
+        """Forward swap rate."""
+        ...
+    @property
+    def annuity(self) -> float:
+        """Swap annuity (PV01 or cash annuity depending on settlement)."""
+        ...
+    @property
+    def sigma(self) -> float:
+        """Resolved volatility (from SABR, override, or surface)."""
+        ...
+    @property
+    def time_to_expiry(self) -> float:
+        """Time to option expiry in years."""
+        ...
+    def __repr__(self) -> str: ...
 
 class BermudanSchedule:
     """Exercise schedule for Bermudan swaptions."""
@@ -441,6 +463,183 @@ class Swaption:
     def sabr_params(self) -> SABRParameters | None: ...
     @property
     def instrument_type(self) -> InstrumentType: ...
+
+    # Analytical helpers
+
+    def forward_swap_rate(self, market: MarketContext, as_of: date) -> float:
+        """Forward par swap rate implied by the market curves.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing discount and forward curves.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        float
+            Forward par swap rate as a decimal (e.g., 0.03 for 3%).
+        """
+        ...
+    def price_black(self, market: MarketContext, volatility: float, as_of: date) -> Money:
+        """Black (lognormal) model present value.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing curves.
+        volatility : float
+            Black (lognormal) volatility as a decimal.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        Money
+            Present value under the Black model.
+        """
+        ...
+    def price_normal(self, market: MarketContext, volatility: float, as_of: date) -> Money:
+        """Bachelier (normal) model present value.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing curves.
+        volatility : float
+            Normal (Bachelier) volatility as a decimal.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        Money
+            Present value under the Normal model.
+        """
+        ...
+    def price_sabr(self, market: MarketContext, as_of: date) -> Money:
+        """SABR-implied volatility present value (requires sabr_params).
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing curves.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        Money
+            Present value using SABR-implied volatility.
+
+        Raises
+        ------
+        ValueError
+            If ``sabr_params`` was not set on the swaption.
+        """
+        ...
+    def swap_annuity(self, market: MarketContext, as_of: date) -> float:
+        """Discounted fixed-leg PV01 (swap annuity) of the underlying swap.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing the discount curve.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        float
+            Swap annuity factor.
+        """
+        ...
+    def annuity(self, market: MarketContext, as_of: date) -> float:
+        """Settlement-aware annuity (physical or cash, depending on settlement type).
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing curves.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        float
+            Annuity factor appropriate for the settlement type.
+        """
+        ...
+    def cash_annuity_par_yield(self, forward_rate: float) -> float:
+        """Cash settlement annuity using par yield approximation.
+
+        Parameters
+        ----------
+        forward_rate : float
+            Forward swap rate as a decimal.
+
+        Returns
+        -------
+        float
+            Par yield cash annuity factor.
+        """
+        ...
+    def cash_annuity_zero_coupon(self, market: MarketContext, as_of: date) -> float:
+        """Cash settlement annuity using zero coupon method.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing the discount curve.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        float
+            Zero coupon cash annuity factor.
+        """
+        ...
+    def resolve_volatility(self, market: MarketContext, forward: float, time_to_expiry: float) -> float:
+        """Resolve volatility from SABR, pricing override, or surface.
+
+        Priority: SABR parameters > implied_volatility override > vol surface lookup.
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing volatility surfaces.
+        forward : float
+            Forward swap rate.
+        time_to_expiry : float
+            Time to option expiry in years.
+
+        Returns
+        -------
+        float
+            Resolved volatility.
+        """
+        ...
+    def greek_inputs(self, market: MarketContext, as_of: date) -> GreekInputs | None:
+        """Pre-compute common Greek calculation inputs.
+
+        Returns ``None`` if the option has expired (time_to_expiry <= 0).
+
+        Parameters
+        ----------
+        market : MarketContext
+            Market data containing curves and surfaces.
+        as_of : date
+            Valuation date.
+
+        Returns
+        -------
+        GreekInputs or None
+            Pre-computed forward, annuity, sigma, and time to expiry,
+            or ``None`` if expired.
+        """
+        ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 

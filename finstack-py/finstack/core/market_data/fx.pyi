@@ -157,6 +157,34 @@ class FxRateResult:
 
     def __init__(self, rate: float, triangulated: bool) -> None: ...
 
+class FxPolicyMeta:
+    """Metadata describing how an FX conversion was sourced.
+
+    Attributes
+    ----------
+    strategy : FxConversionPolicy
+        The conversion timing policy applied.
+    target_ccy : Currency | None
+        Declared target currency, if any.
+    notes : str
+        Free-text notes for auditing.
+    """
+
+    def __init__(
+        self,
+        strategy: FxConversionPolicy,
+        *,
+        target_ccy: Currency | None = None,
+        notes: str | None = None,
+    ) -> None: ...
+    @property
+    def strategy(self) -> FxConversionPolicy: ...
+    @property
+    def target_ccy(self) -> Currency | None: ...
+    @property
+    def notes(self) -> str: ...
+    def __repr__(self) -> str: ...
+
 class FxMatrix:
     """Foreign exchange rate matrix for multi-currency calculations.
 

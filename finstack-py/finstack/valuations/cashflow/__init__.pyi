@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 from .builder import (
+    AccrualConfig as AccrualConfig,
+    AccrualMethod as AccrualMethod,
     AmortizationSpec as AmortizationSpec,
     CashFlowBuilder as CashFlowBuilder,
     CashFlowSchedule as CashFlowSchedule,
@@ -9,6 +11,7 @@ from .builder import (
     DefaultCurve as DefaultCurve,
     DefaultEvent as DefaultEvent,
     DefaultModelSpec as DefaultModelSpec,
+    ExCouponRule as ExCouponRule,
     FeeBase as FeeBase,
     FeeSpec as FeeSpec,
     FeeTier as FeeTier,
@@ -25,6 +28,9 @@ from .builder import (
     PrincipalEvent as PrincipalEvent,
     RecoveryModelSpec as RecoveryModelSpec,
     ScheduleParams as ScheduleParams,
+    accrued_interest_amount as accrued_interest_amount,
+    aggregate_by_period as aggregate_by_period,
+    aggregate_cashflows_precise_checked as aggregate_cashflows_precise_checked,
     compute_compounded_rate as compute_compounded_rate,
     compute_overnight_rate as compute_overnight_rate,
     compute_simple_average_rate as compute_simple_average_rate,
@@ -34,6 +40,8 @@ from .builder import (
 )
 
 __all__ = [
+    "AccrualConfig",
+    "AccrualMethod",
     "AmortizationSpec",
     "CashFlowBuilder",
     "CashFlowSchedule",
@@ -41,6 +49,7 @@ __all__ = [
     "DefaultCurve",
     "DefaultEvent",
     "DefaultModelSpec",
+    "ExCouponRule",
     "FeeBase",
     "FeeSpec",
     "FeeTier",
@@ -57,6 +66,9 @@ __all__ = [
     "PrincipalEvent",
     "RecoveryModelSpec",
     "ScheduleParams",
+    "accrued_interest_amount",
+    "aggregate_by_period",
+    "aggregate_cashflows_precise_checked",
     "compute_compounded_rate",
     "compute_overnight_rate",
     "compute_simple_average_rate",

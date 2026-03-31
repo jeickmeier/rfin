@@ -847,6 +847,85 @@ impl PyInterestRateSwap {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::IRS)
     }
 
+    /// Validate swap parameters for market-standard compliance.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If validation fails (e.g. dates out of order, notional non-positive).
+    fn validate(&self) -> PyResult<()> {
+        self.inner.validate().map_err(core_to_py)
+    }
+
+    /// Create a swap from market conventions resolved via the global ConventionRegistry.
+    ///
+    /// Parameters
+    /// ----------
+    /// instrument_id : str
+    ///     Unique identifier for the swap.
+    /// notional : Money
+    ///     Notional principal amount.
+    /// side : PayReceive or str
+    ///     Pay/receive direction.
+    /// fixed_rate : float
+    ///     Fixed coupon rate (decimal, e.g. 0.03 = 3%).
+    /// start : datetime.date
+    ///     Effective start date.
+    /// end : datetime.date
+    ///     Maturity end date.
+    /// index_id : str
+    ///     Rate index identifier for convention resolution (e.g. "USD-SOFR").
+    /// discount_curve_id : str
+    ///     Discount curve identifier.
+    /// forward_curve_id : str
+    ///     Forward projection curve identifier.
+    ///
+    /// Returns
+    /// -------
+    /// InterestRateSwap
+    ///     Swap constructed with standard conventions.
+    #[classmethod]
+    #[pyo3(
+        signature = (instrument_id, notional, side, fixed_rate, start, end, index_id, discount_curve_id, forward_curve_id),
+        text_signature = "(cls, instrument_id, notional, side, fixed_rate, start, end, index_id, discount_curve_id, forward_curve_id)"
+    )]
+    #[allow(clippy::too_many_arguments)]
+    fn from_conventions(
+        _cls: &Bound<'_, PyType>,
+        instrument_id: &str,
+        notional: PyRef<'_, PyMoney>,
+        side: Bound<'_, PyAny>,
+        fixed_rate: f64,
+        start: Bound<'_, PyAny>,
+        end: Bound<'_, PyAny>,
+        index_id: &str,
+        discount_curve_id: &str,
+        forward_curve_id: &str,
+    ) -> PyResult<Self> {
+        use crate::errors::PyContext;
+        use finstack_valuations::instruments::rates::irs::ConventionSwapParams;
+
+        let parsed_side = PyInterestRateSwapBuilder::parse_side(&side)?;
+        let start_date = py_to_date(&start).context("start")?;
+        let end_date = py_to_date(&end).context("end")?;
+
+        let params = ConventionSwapParams {
+            id: InstrumentId::new(instrument_id),
+            notional: notional.inner,
+            side: parsed_side,
+            fixed_rate,
+            start: start_date,
+            end: end_date,
+            index_id,
+            discount_curve_id,
+            forward_curve_id,
+        };
+
+        InterestRateSwap::from_conventions(params)
+            .map(Self::new)
+            .map_err(core_to_py)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         Ok(format!(
             "InterestRateSwap(id='{}', notional={}, side='{}')",

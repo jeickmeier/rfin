@@ -17,13 +17,16 @@ use finstack_core::HashMap;
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor,
     attribute_pnl_taylor_compat, attribute_pnl_waterfall, compute_pnl, compute_pnl_with_fx,
-    convert_currency, default_waterfall_order, reprice_instrument, AttributionFactor,
-    AttributionMeta, AttributionMethod, CarryDetail, CorrelationsAttribution,
-    CreditCurvesAttribution, CrossFactorDetail, CurveRestoreFlags, FxAttribution,
-    InflationCurvesAttribution, JsonEnvelope, MarketSnapshot, ModelParamsAttribution,
-    ModelParamsSnapshot, PnlAttribution, RatesCurvesAttribution, ScalarsAttribution,
-    ScalarsSnapshot, TaylorAttributionConfig, TaylorAttributionResult, TaylorFactorResult,
-    VolAttribution, VolatilitySnapshot,
+    convert_currency, default_attribution_metrics, default_waterfall_order,
+    extract_model_params as rust_extract_model_params, measure_conversion_shift,
+    measure_default_shift, measure_prepayment_shift, measure_recovery_shift, reprice_instrument,
+    restore_scalars as rust_restore_scalars, AttributionConfig, AttributionFactor, AttributionMeta,
+    AttributionMethod, CarryDetail, CorrelationsAttribution, CreditCurvesAttribution,
+    CrossFactorDetail, CurveRestoreFlags, FxAttribution, InflationCurvesAttribution, JsonEnvelope,
+    MarketSnapshot, ModelParamsAttribution, ModelParamsSnapshot, PnlAttribution,
+    RatesCurvesAttribution, ScalarsAttribution, ScalarsSnapshot, TaylorAttributionConfig,
+    TaylorAttributionResult, TaylorFactorResult, VolAttribution, VolatilitySnapshot,
+    ATTRIBUTION_SCHEMA_V1,
 };
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
 use indexmap::IndexMap;
@@ -898,6 +901,130 @@ impl PyTaylorAttributionResult {
     }
 }
 
+/// Python wrapper for AttributionConfig.
+#[pyclass(name = "AttributionConfig", from_py_object)]
+#[derive(Clone)]
+pub struct PyAttributionConfig {
+    pub(crate) inner: AttributionConfig,
+}
+
+#[pymethods]
+impl PyAttributionConfig {
+    #[new]
+    #[pyo3(signature = (*, tolerance_abs=None, tolerance_pct=None, metrics=None, strict_validation=None, rounding_scale=None, rate_bump_bp=None))]
+    fn new(
+        tolerance_abs: Option<f64>,
+        tolerance_pct: Option<f64>,
+        metrics: Option<Vec<String>>,
+        strict_validation: Option<bool>,
+        rounding_scale: Option<u32>,
+        rate_bump_bp: Option<f64>,
+    ) -> Self {
+        Self {
+            inner: AttributionConfig {
+                tolerance_abs,
+                tolerance_pct,
+                metrics,
+                strict_validation,
+                rounding_scale,
+                rate_bump_bp,
+            },
+        }
+    }
+
+    #[getter]
+    fn tolerance_abs(&self) -> Option<f64> {
+        self.inner.tolerance_abs
+    }
+
+    #[getter]
+    fn tolerance_pct(&self) -> Option<f64> {
+        self.inner.tolerance_pct
+    }
+
+    #[getter]
+    fn metrics(&self) -> Option<Vec<String>> {
+        self.inner.metrics.clone()
+    }
+
+    #[getter]
+    fn strict_validation(&self) -> Option<bool> {
+        self.inner.strict_validation
+    }
+
+    #[getter]
+    fn rounding_scale(&self) -> Option<u32> {
+        self.inner.rounding_scale
+    }
+
+    #[getter]
+    fn rate_bump_bp(&self) -> Option<f64> {
+        self.inner.rate_bump_bp
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "AttributionConfig(tolerance_abs={:?}, tolerance_pct={:?}, strict={:?})",
+            self.inner.tolerance_abs, self.inner.tolerance_pct, self.inner.strict_validation
+        )
+    }
+}
+
+/// Python wrapper for ModelParamsSnapshot.
+#[pyclass(name = "ModelParamsSnapshot", from_py_object)]
+#[derive(Clone)]
+pub struct PyModelParamsSnapshot {
+    pub(crate) inner: ModelParamsSnapshot,
+}
+
+#[pymethods]
+impl PyModelParamsSnapshot {
+    /// Construct from a JSON string or Python dict.
+    #[classmethod]
+    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
+        let snapshot: ModelParamsSnapshot = serde_json::from_str(json_str).map_err(|err| {
+            pyo3::exceptions::PyValueError::new_err(format!(
+                "Invalid ModelParamsSnapshot JSON: {err}"
+            ))
+        })?;
+        Ok(Self { inner: snapshot })
+    }
+
+    /// Return a snapshot representing no model parameters.
+    #[staticmethod]
+    fn none() -> Self {
+        Self {
+            inner: ModelParamsSnapshot::None,
+        }
+    }
+
+    /// Serialize to JSON string.
+    fn to_json(&self) -> PyResult<String> {
+        serde_json::to_string(&self.inner).map_err(|err| {
+            pyo3::exceptions::PyRuntimeError::new_err(format!(
+                "Failed to serialize ModelParamsSnapshot: {err}"
+            ))
+        })
+    }
+
+    /// True if this is the None variant (no model params).
+    fn is_none(&self) -> bool {
+        matches!(self.inner, ModelParamsSnapshot::None)
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            ModelParamsSnapshot::StructuredCredit { .. } => {
+                "ModelParamsSnapshot(StructuredCredit)".to_string()
+            }
+            ModelParamsSnapshot::Convertible { .. } => {
+                "ModelParamsSnapshot(Convertible)".to_string()
+            }
+            ModelParamsSnapshot::None => "ModelParamsSnapshot(None)".to_string(),
+        }
+    }
+}
+
 /// Python wrapper for CurveRestoreFlags.
 #[pyclass(name = "CurveRestoreFlags", frozen, from_py_object)]
 #[derive(Clone, Copy)]
@@ -1562,6 +1689,67 @@ fn default_waterfall_order_py() -> Vec<String> {
         .collect()
 }
 
+/// Default set of metrics for metrics-based attribution.
+#[pyfunction(name = "default_attribution_metrics")]
+fn default_attribution_metrics_py() -> Vec<String> {
+    default_attribution_metrics()
+        .into_iter()
+        .map(|m| m.to_string())
+        .collect()
+}
+
+/// Extract model parameters from an instrument.
+#[pyfunction(name = "extract_model_params")]
+fn extract_model_params_py(instrument: Bound<'_, PyAny>) -> PyResult<PyModelParamsSnapshot> {
+    let handle = crate::valuations::instruments::extract_instrument(&instrument)?;
+    let snapshot = rust_extract_model_params(&handle.instrument);
+    Ok(PyModelParamsSnapshot { inner: snapshot })
+}
+
+/// Measure prepayment parameter shift between two snapshots (in basis points).
+#[pyfunction(name = "measure_prepayment_shift")]
+fn measure_prepayment_shift_py(
+    snapshot_t0: &PyModelParamsSnapshot,
+    snapshot_t1: &PyModelParamsSnapshot,
+) -> f64 {
+    measure_prepayment_shift(&snapshot_t0.inner, &snapshot_t1.inner)
+}
+
+/// Measure default rate parameter shift between two snapshots (in basis points).
+#[pyfunction(name = "measure_default_shift")]
+fn measure_default_shift_py(
+    snapshot_t0: &PyModelParamsSnapshot,
+    snapshot_t1: &PyModelParamsSnapshot,
+) -> f64 {
+    measure_default_shift(&snapshot_t0.inner, &snapshot_t1.inner)
+}
+
+/// Measure recovery rate parameter shift between two snapshots (in percentage points).
+#[pyfunction(name = "measure_recovery_shift")]
+fn measure_recovery_shift_py(
+    snapshot_t0: &PyModelParamsSnapshot,
+    snapshot_t1: &PyModelParamsSnapshot,
+) -> f64 {
+    measure_recovery_shift(&snapshot_t0.inner, &snapshot_t1.inner)
+}
+
+/// Measure conversion ratio shift between two snapshots (in percentage points).
+#[pyfunction(name = "measure_conversion_shift")]
+fn measure_conversion_shift_py(
+    snapshot_t0: &PyModelParamsSnapshot,
+    snapshot_t1: &PyModelParamsSnapshot,
+) -> f64 {
+    measure_conversion_shift(&snapshot_t0.inner, &snapshot_t1.inner)
+}
+
+/// Replace market scalars with snapshot values, preserving curves/FX/surfaces.
+#[pyfunction(name = "restore_scalars")]
+fn restore_scalars_py(market: &PyMarketContext, snapshot: &PyScalarsSnapshot) -> PyMarketContext {
+    PyMarketContext {
+        inner: rust_restore_scalars(&market.inner, &snapshot.inner),
+    }
+}
+
 /// Python wrapper for PortfolioAttribution.
 #[pyclass(name = "PortfolioAttribution", from_py_object)]
 #[derive(Clone)]
@@ -1819,6 +2007,8 @@ pub fn attribution_result_to_json(attribution: &PyPnlAttribution) -> PyResult<St
 pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyAttributionMethod>()?;
     module.add_class::<PyAttributionMeta>()?;
+    module.add_class::<PyAttributionConfig>()?;
+    module.add_class::<PyModelParamsSnapshot>()?;
     module.add_class::<PyRatesCurvesAttribution>()?;
     module.add_class::<PyCreditCurvesAttribution>()?;
     module.add_class::<PyModelParamsAttribution>()?;
@@ -1838,6 +2028,7 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyScalarsSnapshot>()?;
     module.add_class::<PyPnlAttribution>()?;
     module.add_class::<PyPortfolioAttribution>()?;
+    module.add("ATTRIBUTION_SCHEMA_V1", ATTRIBUTION_SCHEMA_V1)?;
     module.add_function(wrap_pyfunction!(attribute_pnl, module)?)?;
     module.add_function(wrap_pyfunction!(attribute_pnl_taylor_py, module)?)?;
     module.add_function(wrap_pyfunction!(attribute_portfolio_pnl, module)?)?;
@@ -1848,10 +2039,19 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
     module.add_function(wrap_pyfunction!(compute_pnl_py, module)?)?;
     module.add_function(wrap_pyfunction!(compute_pnl_with_fx_py, module)?)?;
     module.add_function(wrap_pyfunction!(default_waterfall_order_py, module)?)?;
+    module.add_function(wrap_pyfunction!(default_attribution_metrics_py, module)?)?;
+    module.add_function(wrap_pyfunction!(extract_model_params_py, module)?)?;
+    module.add_function(wrap_pyfunction!(measure_prepayment_shift_py, module)?)?;
+    module.add_function(wrap_pyfunction!(measure_default_shift_py, module)?)?;
+    module.add_function(wrap_pyfunction!(measure_recovery_shift_py, module)?)?;
+    module.add_function(wrap_pyfunction!(measure_conversion_shift_py, module)?)?;
+    module.add_function(wrap_pyfunction!(restore_scalars_py, module)?)?;
 
     let exports = vec![
         "AttributionMethod",
         "AttributionMeta",
+        "AttributionConfig",
+        "ModelParamsSnapshot",
         "RatesCurvesAttribution",
         "CreditCurvesAttribution",
         "ModelParamsAttribution",
@@ -1870,6 +2070,7 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
         "ScalarsSnapshot",
         "PnlAttribution",
         "PortfolioAttribution",
+        "ATTRIBUTION_SCHEMA_V1",
         "attribute_pnl",
         "attribute_pnl_taylor",
         "attribute_portfolio_pnl",
@@ -1880,6 +2081,13 @@ pub fn register(module: &Bound<'_, PyModule>) -> PyResult<Vec<&'static str>> {
         "compute_pnl",
         "compute_pnl_with_fx",
         "default_waterfall_order",
+        "default_attribution_metrics",
+        "extract_model_params",
+        "measure_prepayment_shift",
+        "measure_default_shift",
+        "measure_recovery_shift",
+        "measure_conversion_shift",
+        "restore_scalars",
     ];
     let py = module.py();
     module.setattr("__doc__", "P&L attribution for instruments and portfolios.")?;

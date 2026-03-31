@@ -9,6 +9,10 @@ from . import time_grid
 from . import estimate
 from . import processes
 from . import discretization
+from . import payoffs
+from . import rng
+from . import engine
+from . import variance_reduction
 
 from .generator import MonteCarloPathGenerator
 from .params import ProcessParams
@@ -38,6 +42,10 @@ from .discretization import (
     JumpEulerScheme,
     ExactSchwartzSmithScheme,
 )
+from .payoffs import EuropeanCall, EuropeanPut, Digital, Forward
+from .rng import PhiloxRng
+from .engine import EuropeanPricerConfig, EuropeanMcPricer, price_european
+from .variance_reduction import AntitheticConfig, black_scholes_call, black_scholes_put
 
 __all__ = [
     # Submodules
@@ -49,6 +57,10 @@ __all__ = [
     "estimate",
     "processes",
     "discretization",
+    "payoffs",
+    "rng",
+    "engine",
+    "variance_reduction",
     # Existing classes
     "MonteCarloPathGenerator",
     "ProcessParams",
@@ -82,4 +94,20 @@ __all__ = [
     "ExactHullWhite1FScheme",
     "JumpEulerScheme",
     "ExactSchwartzSmithScheme",
+    # Payoff types
+    "EuropeanCall",
+    "EuropeanPut",
+    "Digital",
+    "Forward",
+    # RNG
+    "PhiloxRng",
+    # Engine / pricer
+    "EuropeanPricerConfig",
+    "EuropeanMcPricer",
+    # Variance reduction
+    "AntitheticConfig",
+    # Free functions
+    "price_european",
+    "black_scholes_call",
+    "black_scholes_put",
 ]

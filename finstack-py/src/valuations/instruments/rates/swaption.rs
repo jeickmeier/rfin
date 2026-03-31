@@ -1,12 +1,13 @@
 use crate::core::common::args::{DayCountArg, TenorArg};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::dates::PyDayCount;
+use crate::core::market_data::context::PyMarketContext;
 use crate::core::money::{extract_money, PyMoney};
 use crate::valuations::common::parameters::{PyCashSettlementMethod, PyVolatilityModel};
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
 use finstack_valuations::instruments::rates::swaption::{
-    BermudanSchedule, BermudanSwaption, BermudanType, SABRParameters,
+    BermudanSchedule, BermudanSwaption, BermudanType, GreekInputs, SABRParameters,
 };
 use finstack_valuations::instruments::rates::swaption::{Swaption, SwaptionParams};
 use finstack_valuations::instruments::rates::swaption::{SwaptionExercise, SwaptionSettlement};
@@ -382,6 +383,56 @@ impl PyBermudanSchedule {
 }
 
 // ============================================================================
+// GreekInputs wrapper
+// ============================================================================
+
+/// Pre-computed inputs for swaption Greek calculations.
+#[pyclass(
+    module = "finstack.valuations.instruments.rates",
+    name = "GreekInputs",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyGreekInputs {
+    pub(crate) inner: GreekInputs,
+}
+
+#[pymethods]
+impl PyGreekInputs {
+    /// Forward swap rate.
+    #[getter]
+    fn forward(&self) -> f64 {
+        self.inner.forward
+    }
+
+    /// Swap annuity (PV01 or cash annuity depending on settlement).
+    #[getter]
+    fn annuity(&self) -> f64 {
+        self.inner.annuity
+    }
+
+    /// Resolved volatility (from SABR, override, or surface).
+    #[getter]
+    fn sigma(&self) -> f64 {
+        self.inner.sigma
+    }
+
+    /// Time to option expiry in years.
+    #[getter]
+    fn time_to_expiry(&self) -> f64 {
+        self.inner.time_to_expiry
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "GreekInputs(forward={:.6}, annuity={:.6}, sigma={:.6}, time_to_expiry={:.4})",
+            self.inner.forward, self.inner.annuity, self.inner.sigma, self.inner.time_to_expiry
+        )
+    }
+}
+
+// ============================================================================
 // Swaption wrapper
 // ============================================================================
 
@@ -613,6 +664,147 @@ impl PySwaption {
     #[getter]
     fn instrument_type(&self) -> PyInstrumentType {
         PyInstrumentType::new(finstack_valuations::pricer::InstrumentType::Swaption)
+    }
+
+    // ========================================================================
+    // Analytical helpers
+    // ========================================================================
+
+    /// Forward par swap rate implied by the market curves.
+    #[pyo3(signature = (market, as_of))]
+    fn forward_swap_rate(
+        &self,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        self.inner
+            .forward_swap_rate(&market.inner, date)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Black (lognormal) model present value.
+    #[pyo3(signature = (market, volatility, as_of))]
+    fn price_black(
+        &self,
+        market: &PyMarketContext,
+        volatility: f64,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        self.inner
+            .price_black(&market.inner, volatility, date)
+            .map(PyMoney::new)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Bachelier (normal) model present value.
+    #[pyo3(signature = (market, volatility, as_of))]
+    fn price_normal(
+        &self,
+        market: &PyMarketContext,
+        volatility: f64,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        self.inner
+            .price_normal(&market.inner, volatility, date)
+            .map(PyMoney::new)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// SABR-implied volatility present value (requires sabr_params).
+    #[pyo3(signature = (market, as_of))]
+    fn price_sabr(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<PyMoney> {
+        let date = py_to_date(&as_of)?;
+        self.inner
+            .price_sabr(&market.inner, date)
+            .map(PyMoney::new)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Discounted fixed-leg PV01 (swap annuity) of the underlying swap.
+    #[pyo3(signature = (market, as_of))]
+    fn swap_annuity(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        let disc = market
+            .inner
+            .get_discount(self.inner.discount_curve_id.as_ref())
+            .map_err(crate::errors::map_error)?;
+        self.inner
+            .swap_annuity(disc.as_ref(), date)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Settlement-aware annuity (physical or cash, depending on settlement type).
+    #[pyo3(signature = (market, as_of))]
+    fn annuity(&self, market: &PyMarketContext, as_of: Bound<'_, PyAny>) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        let disc = market
+            .inner
+            .get_discount(self.inner.discount_curve_id.as_ref())
+            .map_err(crate::errors::map_error)?;
+        let forward_rate = self
+            .inner
+            .forward_swap_rate(&market.inner, date)
+            .map_err(crate::errors::map_error)?;
+        self.inner
+            .annuity(disc.as_ref(), date, forward_rate)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Cash settlement annuity using par yield approximation.
+    #[pyo3(signature = (forward_rate))]
+    fn cash_annuity_par_yield(&self, forward_rate: f64) -> PyResult<f64> {
+        self.inner
+            .cash_annuity_par_yield(forward_rate)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Cash settlement annuity using zero coupon method.
+    #[pyo3(signature = (market, as_of))]
+    fn cash_annuity_zero_coupon(
+        &self,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<f64> {
+        let date = py_to_date(&as_of)?;
+        let disc = market
+            .inner
+            .get_discount(self.inner.discount_curve_id.as_ref())
+            .map_err(crate::errors::map_error)?;
+        self.inner
+            .cash_annuity_zero_coupon(disc.as_ref(), date)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Resolve volatility from SABR, pricing override, or surface.
+    #[pyo3(signature = (market, forward, time_to_expiry))]
+    fn resolve_volatility(
+        &self,
+        market: &PyMarketContext,
+        forward: f64,
+        time_to_expiry: f64,
+    ) -> PyResult<f64> {
+        self.inner
+            .resolve_volatility(&market.inner, forward, time_to_expiry)
+            .map_err(crate::errors::map_error)
+    }
+
+    /// Pre-compute common Greek calculation inputs.
+    ///
+    /// Returns ``None`` if the option has expired.
+    #[pyo3(signature = (market, as_of))]
+    fn greek_inputs(
+        &self,
+        market: &PyMarketContext,
+        as_of: Bound<'_, PyAny>,
+    ) -> PyResult<Option<PyGreekInputs>> {
+        let date = py_to_date(&as_of)?;
+        self.inner
+            .greek_inputs(&market.inner, date)
+            .map(|opt| opt.map(|gi| PyGreekInputs { inner: gi }))
+            .map_err(crate::errors::map_error)
     }
 
     fn __repr__(&self) -> PyResult<String> {
@@ -1086,6 +1278,7 @@ pub(crate) fn register<'py>(
     module.add_class::<PySABRParameters>()?;
     module.add_class::<PyBermudanSchedule>()?;
     module.add_class::<PyBermudanSwaption>()?;
+    module.add_class::<PyGreekInputs>()?;
     Ok(vec![
         "SwaptionSettlement",
         "SwaptionExercise",
@@ -1094,5 +1287,6 @@ pub(crate) fn register<'py>(
         "SABRParameters",
         "BermudanSchedule",
         "BermudanSwaption",
+        "GreekInputs",
     ])
 }

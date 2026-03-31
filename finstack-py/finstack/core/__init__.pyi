@@ -21,6 +21,7 @@ from . import currency
 from . import dates
 from . import explain
 from . import expr
+from . import factor_model
 from . import market_data
 from . import math
 from . import money
@@ -55,6 +56,14 @@ from .dates.utils import (
     last_day_of_month as last_day_of_month,
 )
 
+def require(condition: bool, message: str) -> None:
+    """Assert that a condition is true, raising ``ValidationError`` otherwise."""
+    ...
+
+def require_or(condition: bool, message: str) -> None:
+    """Assert that a condition is true, raising ``ValidationError`` otherwise."""
+    ...
+
 __all__ = [
     "analytics",
     "cashflow",
@@ -63,6 +72,7 @@ __all__ = [
     "dates",
     "explain",
     "expr",
+    "factor_model",
     "market_data",
     "math",
     "money",
@@ -88,4 +98,6 @@ __all__ = [
     "is_leap_year",
     "date_to_days_since_epoch",
     "days_since_epoch_to_date",
+    "require",
+    "require_or",
 ]
