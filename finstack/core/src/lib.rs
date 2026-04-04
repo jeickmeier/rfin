@@ -90,6 +90,8 @@ pub mod cashflow;
 pub(crate) mod collections;
 /// Global configuration and environment settings.
 pub mod config;
+/// Credit risk modeling primitives (migration models, generator extraction, CTMC simulation).
+pub mod credit;
 /// Currency types and ISO-4217 definitions.
 pub mod currency;
 /// Date & calendar helpers (facade over the `time` crate)
