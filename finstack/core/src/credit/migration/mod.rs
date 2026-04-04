@@ -47,6 +47,8 @@ pub mod matrix;
 pub mod projection;
 pub mod scale;
 pub mod simulation;
+#[cfg(test)]
+mod tests;
 
 pub use error::MigrationError;
 pub use generator::GeneratorMatrix;
