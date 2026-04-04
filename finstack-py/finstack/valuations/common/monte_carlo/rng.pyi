@@ -10,7 +10,6 @@ class PhiloxRng:
     """
 
     def __init__(self, seed: int) -> None: ...
-
     @staticmethod
     def from_string(seed_str: str) -> PhiloxRng:
         """Create a deterministic RNG from a human-readable string seed."""
@@ -18,7 +17,6 @@ class PhiloxRng:
 
     @property
     def seed(self) -> int: ...
-
     def uniform(self, n: int) -> list[float]:
         """Generate *n* uniform random numbers in [0, 1)."""
         ...

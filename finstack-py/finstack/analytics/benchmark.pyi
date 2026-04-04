@@ -25,9 +25,7 @@ def r_squared(returns: list[float], benchmark_returns: list[float]) -> float:
     """R-squared: correlation squared between portfolio and benchmark."""
     ...
 
-def calc_beta(
-    portfolio: list[float], benchmark_returns: list[float]
-) -> BetaResult:
+def calc_beta(portfolio: list[float], benchmark_returns: list[float]) -> BetaResult:
     """Beta with confidence interval via OLS regression."""
     ...
 
@@ -51,15 +49,11 @@ def capture_ratio(returns: list[float], benchmark_returns: list[float]) -> float
     """Capture ratio: up capture / down capture."""
     ...
 
-def batting_average(
-    returns: list[float], benchmark_returns: list[float]
-) -> float:
+def batting_average(returns: list[float], benchmark_returns: list[float]) -> float:
     """Batting average: fraction of periods portfolio beats benchmark."""
     ...
 
-def treynor(
-    ann_return: float, risk_free_rate: float = 0.0, beta: float = 1.0
-) -> float:
+def treynor(ann_return: float, risk_free_rate: float = 0.0, beta: float = 1.0) -> float:
     """Treynor ratio: excess return per unit of systematic risk."""
     ...
 

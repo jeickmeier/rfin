@@ -144,9 +144,7 @@ class RecoverySpec:
         """Create a constant recovery specification."""
         ...
     @staticmethod
-    def market_correlated(
-        mean_recovery: float, recovery_volatility: float, factor_correlation: float
-    ) -> RecoverySpec:
+    def market_correlated(mean_recovery: float, recovery_volatility: float, factor_correlation: float) -> RecoverySpec:
         """Create a market-correlated recovery specification."""
         ...
     @staticmethod

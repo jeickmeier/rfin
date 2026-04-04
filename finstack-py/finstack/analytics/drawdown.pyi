@@ -58,15 +58,11 @@ def sterling_ratio(cagr_val: float, avg_dd: float, risk_free_rate: float) -> flo
     """Sterling ratio: (CAGR - Rf) / |avg drawdown|."""
     ...
 
-def sterling_ratio_from_returns(
-    returns: list[float], ann_factor: float, risk_free_rate: float
-) -> float:
+def sterling_ratio_from_returns(returns: list[float], ann_factor: float, risk_free_rate: float) -> float:
     """Sterling ratio computed directly from a returns series."""
     ...
 
-def burke_ratio(
-    cagr_val: float, dd_episodes: list[float], risk_free_rate: float
-) -> float:
+def burke_ratio(cagr_val: float, dd_episodes: list[float], risk_free_rate: float) -> float:
     """Burke ratio: (CAGR - Rf) / RMS of worst drawdowns."""
     ...
 
@@ -74,8 +70,6 @@ def pain_ratio(cagr_val: float, pain: float, risk_free_rate: float) -> float:
     """Pain ratio: (CAGR - Rf) / Pain Index."""
     ...
 
-def pain_ratio_from_returns(
-    returns: list[float], ann_factor: float, risk_free_rate: float
-) -> float:
+def pain_ratio_from_returns(returns: list[float], ann_factor: float, risk_free_rate: float) -> float:
     """Pain ratio computed directly from a returns series."""
     ...

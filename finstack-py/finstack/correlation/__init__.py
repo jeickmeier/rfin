@@ -36,25 +36,25 @@ correlation_bounds = _rust.correlation_bounds
 joint_probabilities = _rust.joint_probabilities
 
 __all__ = [
-    # Copulas
-    "GaussianCopula",
-    "StudentTCopula",
-    "MultiFactorCopula",
-    "RandomFactorLoadingCopula",
-    "CopulaSpec",
-    # Factor models
-    "SingleFactorModel",
-    "TwoFactorModel",
-    "MultiFactorModel",
-    "FactorSpec",
     # Recovery models
     "ConstantRecovery",
-    "CorrelatedRecovery",
-    "RecoverySpec",
+    "CopulaSpec",
     # Utilities
     "CorrelatedBernoulli",
-    "validate_correlation_matrix",
+    "CorrelatedRecovery",
+    "FactorSpec",
+    # Copulas
+    "GaussianCopula",
+    "MultiFactorCopula",
+    "MultiFactorModel",
+    "RandomFactorLoadingCopula",
+    "RecoverySpec",
+    # Factor models
+    "SingleFactorModel",
+    "StudentTCopula",
+    "TwoFactorModel",
     "cholesky_decompose",
     "correlation_bounds",
     "joint_probabilities",
+    "validate_correlation_matrix",
 ]

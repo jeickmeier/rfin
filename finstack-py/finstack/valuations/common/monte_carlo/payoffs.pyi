@@ -6,7 +6,6 @@ class EuropeanCall:
     """European call payoff: max(S_T - K, 0) * notional."""
 
     def __init__(self, strike: float, notional: float = 1.0) -> None: ...
-
     @property
     def strike(self) -> float: ...
     @property
@@ -16,7 +15,6 @@ class EuropeanPut:
     """European put payoff: max(K - S_T, 0) * notional."""
 
     def __init__(self, strike: float, notional: float = 1.0) -> None: ...
-
     @property
     def strike(self) -> float: ...
     @property
@@ -29,10 +27,7 @@ class Digital:
     Put:  pays *payout* if S_T < strike.
     """
 
-    def __init__(
-        self, strike: float, payout: float, is_call: bool = True
-    ) -> None: ...
-
+    def __init__(self, strike: float, payout: float, is_call: bool = True) -> None: ...
     @property
     def strike(self) -> float: ...
     @property
@@ -53,7 +48,6 @@ class Forward:
         notional: float = 1.0,
         is_long: bool = True,
     ) -> None: ...
-
     @property
     def forward_price(self) -> float: ...
     @property

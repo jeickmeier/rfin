@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from finstack.core import Currency
-from finstack.core.market_data import MarketContext
+from finstack.core.currency import Currency
+from finstack.core.market_data.context import MarketContext
 from finstack.valuations.common import InstrumentType
 from finstack.valuations.common.parameters import OptionType
 from finstack.valuations.conventions import CdsConventionKey

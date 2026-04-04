@@ -61,6 +61,7 @@ See Also
 
 from __future__ import annotations
 from .core import analytics as analytics
+from . import correlation
 from . import core
 from . import valuations
 from . import statements

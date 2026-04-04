@@ -11,7 +11,6 @@ class AntitheticConfig:
         discount_factor: float = 1.0,
         currency: str = "USD",
     ) -> None: ...
-
     @property
     def num_pairs(self) -> int: ...
     @property

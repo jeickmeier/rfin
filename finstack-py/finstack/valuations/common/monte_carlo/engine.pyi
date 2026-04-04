@@ -17,7 +17,6 @@ class EuropeanPricerConfig:
         seed: int = 42,
         use_parallel: bool = True,
     ) -> None: ...
-
     @property
     def num_paths(self) -> int: ...
     @property
@@ -29,7 +28,6 @@ class EuropeanMcPricer:
     """Compact GBM-only Monte Carlo pricer for European-style payoffs."""
 
     def __init__(self, config: EuropeanPricerConfig) -> None: ...
-
     def price_call(
         self,
         spot: float,

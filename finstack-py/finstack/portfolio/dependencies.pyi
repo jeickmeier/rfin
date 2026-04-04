@@ -99,7 +99,6 @@ class MarketFactorKey:
     def __eq__(self, other: object) -> bool: ...
     def __hash__(self) -> int: ...
 
-
 class DependencyIndex:
     """Inverted index mapping market factor keys to affected portfolio positions.
 

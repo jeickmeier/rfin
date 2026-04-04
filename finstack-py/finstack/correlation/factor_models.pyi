@@ -55,9 +55,7 @@ class TwoFactorModel:
         True
     """
 
-    def __init__(
-        self, prepay_vol: float, credit_vol: float, correlation: float
-    ) -> None: ...
+    def __init__(self, prepay_vol: float, credit_vol: float, correlation: float) -> None: ...
     @staticmethod
     def rmbs_standard() -> TwoFactorModel:
         """Standard RMBS calibration (prepay=0.20, credit=0.25, corr=-0.30)."""
@@ -172,9 +170,7 @@ class FactorSpec:
         """Create a single factor specification."""
         ...
     @staticmethod
-    def two_factor(
-        prepay_vol: float, credit_vol: float, correlation: float
-    ) -> FactorSpec:
+    def two_factor(prepay_vol: float, credit_vol: float, correlation: float) -> FactorSpec:
         """Create a two-factor specification."""
         ...
     def num_factors(self) -> int:

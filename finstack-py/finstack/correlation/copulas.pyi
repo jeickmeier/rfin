@@ -48,9 +48,7 @@ class StudentTCopula:
         True
     """
 
-    def __init__(
-        self, degrees_of_freedom: float, quadrature_order: int | None = None
-    ) -> None: ...
+    def __init__(self, degrees_of_freedom: float, quadrature_order: int | None = None) -> None: ...
     @property
     def degrees_of_freedom(self) -> float:
         """Degrees of freedom."""
@@ -102,9 +100,7 @@ class MultiFactorCopula:
     def intra_sector_correlation(self) -> float:
         """Intra-sector correlation (β_G² + β_S²)."""
         ...
-    def decompose_correlation(
-        self, total_correlation: float, sector_fraction: float
-    ) -> tuple[float, float]:
+    def decompose_correlation(self, total_correlation: float, sector_fraction: float) -> tuple[float, float]:
         """Decompose total correlation into (global_loading, sector_loading)."""
         ...
     def conditional_default_prob(
@@ -139,9 +135,7 @@ class RandomFactorLoadingCopula:
         2
     """
 
-    def __init__(
-        self, loading_volatility: float, quadrature_order: int | None = None
-    ) -> None: ...
+    def __init__(self, loading_volatility: float, quadrature_order: int | None = None) -> None: ...
     @property
     def loading_volatility(self) -> float:
         """Loading volatility."""

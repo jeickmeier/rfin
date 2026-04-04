@@ -11,12 +11,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from . import analytics, core, portfolio, scenarios, statements, valuations
+from . import analytics, correlation, core, portfolio, scenarios, statements, valuations
 from .core.currency import Currency
 from .core.market_data.term_structures import DiscountCurve
 from .core.money import Money
 
 analytics: Any
+correlation: Any
 core: Any
 portfolio: Any
 scenarios: Any

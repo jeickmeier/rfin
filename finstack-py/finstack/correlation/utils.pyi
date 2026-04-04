@@ -83,9 +83,7 @@ def correlation_bounds(p1: float, p2: float) -> tuple[float, float]:
     """
     ...
 
-def joint_probabilities(
-    p1: float, p2: float, correlation: float
-) -> tuple[float, float, float, float]:
+def joint_probabilities(p1: float, p2: float, correlation: float) -> tuple[float, float, float, float]:
     """Compute joint probabilities for correlated Bernoulli events.
 
     Parameters

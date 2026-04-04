@@ -6,27 +6,19 @@ def cagr_from_periods(returns: list[float], ann_factor: float) -> float:
     """Compound annual growth rate from a return series using a period-based factor."""
     ...
 
-def mean_return(
-    returns: list[float], annualize: bool = True, ann_factor: float = 252.0
-) -> float:
+def mean_return(returns: list[float], annualize: bool = True, ann_factor: float = 252.0) -> float:
     """Mean return, optionally annualized."""
     ...
 
-def volatility(
-    returns: list[float], annualize: bool = True, ann_factor: float = 252.0
-) -> float:
+def volatility(returns: list[float], annualize: bool = True, ann_factor: float = 252.0) -> float:
     """Volatility (standard deviation of returns), optionally annualized."""
     ...
 
-def sharpe(
-    ann_return: float, ann_vol: float, risk_free_rate: float = 0.0
-) -> float:
+def sharpe(ann_return: float, ann_vol: float, risk_free_rate: float = 0.0) -> float:
     """Sharpe ratio from pre-computed annualized return and volatility."""
     ...
 
-def sortino(
-    returns: list[float], annualize: bool = True, ann_factor: float = 252.0
-) -> float:
+def sortino(returns: list[float], annualize: bool = True, ann_factor: float = 252.0) -> float:
     """Sortino ratio (downside-risk-adjusted return)."""
     ...
 
