@@ -272,11 +272,7 @@ impl JsMultiFactorCopula {
     ///
     /// @returns Float64Array of [globalLoading, sectorLoading].
     #[wasm_bindgen(js_name = decomposeCorrelation)]
-    pub fn decompose_correlation(
-        &self,
-        total_correlation: f64,
-        sector_fraction: f64,
-    ) -> Vec<f64> {
+    pub fn decompose_correlation(&self, total_correlation: f64, sector_fraction: f64) -> Vec<f64> {
         let (gl, sl) = self
             .inner
             .decompose_correlation(total_correlation, sector_fraction);

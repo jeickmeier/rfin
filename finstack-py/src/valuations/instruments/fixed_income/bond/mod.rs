@@ -11,6 +11,7 @@ pub(crate) mod endogenous_hazard;
 pub(crate) mod mc_config;
 pub(crate) mod merton;
 pub(crate) mod toggle_exercise;
+pub(crate) mod tree_config;
 
 use crate::core::common::args::{
     BusinessDayConventionArg, CurrencyArg, DayCountArg, StubKindArg, TenorArg,
@@ -362,6 +363,11 @@ pub struct PyBondBuilder {
     float_gearing: f64,
     float_reset_lag_days: i32,
     merton_mc_config: Option<finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig>,
+    tree_steps: Option<usize>,
+    tree_volatility: Option<f64>,
+    mean_reversion: Option<f64>,
+    call_friction_cents: Option<f64>,
+    tree_model: Option<finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreeModelChoice>,
 }
 
 impl PyBondBuilder {
@@ -391,6 +397,11 @@ impl PyBondBuilder {
             float_gearing: 1.0,
             float_reset_lag_days: 2,
             merton_mc_config: None,
+            tree_steps: None,
+            tree_volatility: None,
+            mean_reversion: None,
+            call_friction_cents: None,
+            tree_model: None,
         }
     }
 
@@ -688,6 +699,63 @@ impl PyBondBuilder {
         slf
     }
 
+    /// Set number of time steps for tree-based pricing (default: 100).
+    #[pyo3(text_signature = "($self, steps)")]
+    fn tree_steps(mut slf: PyRefMut<'_, Self>, steps: usize) -> PyRefMut<'_, Self> {
+        slf.tree_steps = Some(steps);
+        slf
+    }
+
+    /// Set short rate volatility for tree-based pricing (annualized).
+    ///
+    /// Interpretation depends on model type:
+    /// - Ho-Lee (default): Normal volatility in rate units (0.01 = 100 bps)
+    /// - BDT: Lognormal volatility as proportion (0.20 = 20%)
+    #[pyo3(text_signature = "($self, vol)")]
+    fn tree_volatility(mut slf: PyRefMut<'_, Self>, vol: f64) -> PyRefMut<'_, Self> {
+        slf.tree_volatility = Some(vol);
+        slf
+    }
+
+    /// Set mean reversion speed for Hull-White extension (annualized).
+    ///
+    /// When set, transforms the Ho-Lee tree into Hull-White 1F.
+    /// Typical values: 0.01-0.10 (1-10% per year).
+    #[pyo3(
+        text_signature = "($self, kappa=None)",
+        signature = (kappa=None)
+    )]
+    fn mean_reversion(mut slf: PyRefMut<'_, Self>, kappa: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.mean_reversion = kappa;
+        slf
+    }
+
+    /// Set issuer call exercise friction in cents per 100 of outstanding principal.
+    ///
+    /// Raises the exercise threshold without changing the redemption price.
+    /// For example, 50.0 = $0.50 per $100 par.
+    #[pyo3(
+        text_signature = "($self, cents=None)",
+        signature = (cents=None)
+    )]
+    fn call_friction_cents(mut slf: PyRefMut<'_, Self>, cents: Option<f64>) -> PyRefMut<'_, Self> {
+        slf.call_friction_cents = cents;
+        slf
+    }
+
+    /// Set the short-rate model choice for tree pricing.
+    #[pyo3(
+        text_signature = "($self, model=None)",
+        signature = (model=None)
+    )]
+    fn tree_model<'py>(
+        mut slf: PyRefMut<'py, Self>,
+        model: Option<&tree_config::PyTreeModelChoice>,
+    ) -> PyRefMut<'py, Self> {
+        slf.tree_model = model.map(|m| m.inner.clone());
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(mut slf: PyRefMut<'_, Self>) -> PyResult<PyBond> {
         slf.ensure_ready()?;
@@ -761,6 +829,18 @@ impl PyBondBuilder {
         }
         if let Some(px) = slf.quoted_clean_price {
             overrides = overrides.with_clean_price(px);
+        }
+        if let Some(steps) = slf.tree_steps {
+            overrides = overrides.with_tree_steps(steps);
+        }
+        if let Some(vol) = slf.tree_volatility {
+            overrides = overrides.with_tree_volatility(vol);
+        }
+        if let Some(mr) = slf.mean_reversion {
+            overrides.model_config.mean_reversion = Some(mr);
+        }
+        if let Some(fc) = slf.call_friction_cents {
+            overrides = overrides.with_call_friction_cents(fc);
         }
 
         let mut builder = Bond::builder()
@@ -1077,6 +1157,79 @@ impl PyBond {
         Ok(mc_config::PyMertonMcResult { inner: result })
     }
 
+    /// Calculate OAS using a tree pricer.
+    ///
+    /// Convenience method equivalent to ``TreePricer(config).calculate_oas(...)``.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data including discount and optionally hazard curves.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    /// clean_price_pct : float
+    ///     Market clean price as percentage of par (e.g., 98.5).
+    /// config : TreePricerConfig | None, optional
+    ///     Tree pricer configuration. If ``None``, uses bond pricing overrides
+    ///     or default config.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     OAS in basis points.
+    #[pyo3(signature = (market, as_of, clean_price_pct, config=None))]
+    fn calculate_oas(
+        &self,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, pyo3::types::PyAny>,
+        clean_price_pct: f64,
+        config: Option<&tree_config::PyTreePricerConfig>,
+    ) -> PyResult<f64> {
+        use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::{
+            bond_tree_config, TreePricer as RustTreePricer,
+        };
+        let date = py_to_date(as_of).context("as_of")?;
+        let pricer = match config {
+            Some(c) => RustTreePricer::with_config(c.inner.clone()),
+            None => RustTreePricer::with_config(bond_tree_config(&self.inner)),
+        };
+        pricer
+            .calculate_oas(&self.inner, &market.inner, date, clean_price_pct)
+            .map_err(core_to_py)
+    }
+
+    /// Price the bond at a given OAS using the short-rate tree.
+    ///
+    /// Parameters
+    /// ----------
+    /// market : MarketContext
+    ///     Market data.
+    /// as_of : datetime.date
+    ///     Valuation date.
+    /// oas_decimal : float
+    ///     OAS in decimal form (e.g., 0.015 = 150 bp).
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Dirty price in currency units.
+    #[pyo3(signature = (market, as_of, oas_decimal))]
+    fn price_from_oas(
+        &self,
+        market: &PyMarketContext,
+        as_of: &Bound<'_, pyo3::types::PyAny>,
+        oas_decimal: f64,
+    ) -> PyResult<f64> {
+        let date = py_to_date(as_of).context("as_of")?;
+        finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::price_from_oas(
+            &self.inner,
+            &market.inner,
+            date,
+            oas_decimal,
+        )
+        .map_err(core_to_py)
+    }
+
     fn __repr__(&self) -> PyResult<String> {
         use rust_decimal::prelude::ToPrimitive;
         let coupon_rate = match &self.inner.cashflow_spec {
@@ -1139,6 +1292,9 @@ pub(crate) fn register<'py>(
 
     let mc_config_exports = mc_config::register(py, module)?;
     exports.extend(mc_config_exports.iter().copied());
+
+    let tree_config_exports = tree_config::register(py, module)?;
+    exports.extend(tree_config_exports.iter().copied());
 
     Ok(exports)
 }

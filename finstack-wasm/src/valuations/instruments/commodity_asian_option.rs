@@ -1,11 +1,11 @@
 //! WASM bindings for CommodityAsianOption instrument.
 
+use super::asian_option::JsAveragingMethod;
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::utils::json::{from_js_value, to_js_value};
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::common::parameters::JsOptionType;
-use super::asian_option::JsAveragingMethod;
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::currency::Currency;
 use finstack_core::dates::DayCount;
@@ -165,9 +165,10 @@ impl JsCommodityAsianOptionBuilder {
         let ticker = self.ticker.as_deref().ok_or_else(|| {
             js_error("CommodityAsianOptionBuilder: ticker is required".to_string())
         })?;
-        let unit = self.unit.as_deref().ok_or_else(|| {
-            js_error("CommodityAsianOptionBuilder: unit is required".to_string())
-        })?;
+        let unit = self
+            .unit
+            .as_deref()
+            .ok_or_else(|| js_error("CommodityAsianOptionBuilder: unit is required".to_string()))?;
         let ccy = self.currency.ok_or_else(|| {
             js_error("CommodityAsianOptionBuilder: currency is required".to_string())
         })?;

@@ -485,9 +485,8 @@ impl JsXccySwap {
             .map_err(|e| js_error(e.to_string()))?;
         let as_of = disc.base_date();
 
-        let sched =
-            CashflowProvider::cashflow_schedule(&self.inner, market.inner(), as_of)
-                .map_err(|e| js_error(e.to_string()))?;
+        let sched = CashflowProvider::cashflow_schedule(&self.inner, market.inner(), as_of)
+            .map_err(|e| js_error(e.to_string()))?;
         let outstanding_path = sched.outstanding_path_per_flow().unwrap_or_default();
 
         let result = Array::new();

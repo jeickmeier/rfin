@@ -185,8 +185,7 @@ impl WasmRatesCurvesAttribution {
             .map(|(k, v)| (k.to_string(), v.amount()))
             .collect();
 
-        serde_json::to_string(&map)
-            .map_err(|e| js_error(format!("Serialization failed: {}", e)))
+        serde_json::to_string(&map).map_err(|e| js_error(format!("Serialization failed: {}", e)))
     }
 }
 

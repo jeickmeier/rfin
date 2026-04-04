@@ -90,8 +90,7 @@ impl JsPerformance {
             ));
         }
 
-        let core_dates: Vec<finstack_core::dates::Date> =
-            dates.iter().map(|d| d.inner()).collect();
+        let core_dates: Vec<finstack_core::dates::Date> = dates.iter().map(|d| d.inner()).collect();
 
         let price_cols: Vec<Vec<f64>> = (0..n_tickers)
             .map(|col| {
@@ -469,11 +468,7 @@ impl JsPerformance {
     /// @param {number} window - Look-back window in periods
     /// @returns {Float64Array} Interleaved alpha/beta values
     #[wasm_bindgen(js_name = rollingGreeks)]
-    pub fn rolling_greeks(
-        &self,
-        ticker: &str,
-        window: usize,
-    ) -> Result<Vec<f64>, JsValue> {
+    pub fn rolling_greeks(&self, ticker: &str, window: usize) -> Result<Vec<f64>, JsValue> {
         let idx = self.resolve_ticker(ticker)?;
         let rg = self.inner.rolling_greeks(idx, window);
         let mut out = Vec::with_capacity(rg.alphas.len() * 2);

@@ -285,7 +285,10 @@ impl JsFactorCovarianceMatrix {
     /// @param factorIds - Ordered factor identifier strings
     /// @param data - Row-major covariance data (length = n*n)
     #[wasm_bindgen(constructor)]
-    pub fn new(factor_ids: Vec<String>, data: Vec<f64>) -> Result<JsFactorCovarianceMatrix, JsValue> {
+    pub fn new(
+        factor_ids: Vec<String>,
+        data: Vec<f64>,
+    ) -> Result<JsFactorCovarianceMatrix, JsValue> {
         let ids: Vec<FactorId> = factor_ids.into_iter().map(FactorId::new).collect();
         let inner = FactorCovarianceMatrix::new(ids, data).map_err(core_to_js)?;
         Ok(Self { inner })

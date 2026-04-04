@@ -718,10 +718,7 @@ impl JsConventionRegistry {
     #[wasm_bindgen(js_name = hasFx)]
     pub fn has_fx(&self, convention_id: &str) -> bool {
         ConventionRegistry::try_global()
-            .map(|r| {
-                r.require_fx(&FxConventionId::new(convention_id))
-                    .is_ok()
-            })
+            .map(|r| r.require_fx(&FxConventionId::new(convention_id)).is_ok())
             .unwrap_or(false)
     }
 

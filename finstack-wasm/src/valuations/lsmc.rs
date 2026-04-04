@@ -261,7 +261,16 @@ impl JsLsmcPricer {
         let exercise = AmericanPut { strike };
         let basis = PolynomialBasis::new(degree);
         pricer
-            .price(&process, initial_spot, time_to_maturity, num_steps, &exercise, &basis, ccy, r)
+            .price(
+                &process,
+                initial_spot,
+                time_to_maturity,
+                num_steps,
+                &exercise,
+                &basis,
+                ccy,
+                r,
+            )
             .map(|inner| JsLsmcResult { inner })
             .map_err(core_to_js)
     }
@@ -288,7 +297,16 @@ impl JsLsmcPricer {
         let exercise = AmericanCall { strike };
         let basis = PolynomialBasis::new(degree);
         pricer
-            .price(&process, initial_spot, time_to_maturity, num_steps, &exercise, &basis, ccy, r)
+            .price(
+                &process,
+                initial_spot,
+                time_to_maturity,
+                num_steps,
+                &exercise,
+                &basis,
+                ccy,
+                r,
+            )
             .map(|inner| JsLsmcResult { inner })
             .map_err(core_to_js)
     }
@@ -315,7 +333,16 @@ impl JsLsmcPricer {
         let exercise = AmericanPut { strike };
         let basis = LaguerreBasis::new(degree, strike);
         pricer
-            .price(&process, initial_spot, time_to_maturity, num_steps, &exercise, &basis, ccy, r)
+            .price(
+                &process,
+                initial_spot,
+                time_to_maturity,
+                num_steps,
+                &exercise,
+                &basis,
+                ccy,
+                r,
+            )
             .map(|inner| JsLsmcResult { inner })
             .map_err(core_to_js)
     }
@@ -342,7 +369,16 @@ impl JsLsmcPricer {
         let exercise = AmericanCall { strike };
         let basis = LaguerreBasis::new(degree, strike);
         pricer
-            .price(&process, initial_spot, time_to_maturity, num_steps, &exercise, &basis, ccy, r)
+            .price(
+                &process,
+                initial_spot,
+                time_to_maturity,
+                num_steps,
+                &exercise,
+                &basis,
+                ccy,
+                r,
+            )
             .map(|inner| JsLsmcResult { inner })
             .map_err(core_to_js)
     }

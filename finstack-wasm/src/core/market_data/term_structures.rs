@@ -835,8 +835,8 @@ impl JsFlatCurve {
         day_count: &JsValue,
         id: &str,
     ) -> Result<JsFlatCurve, JsValue> {
-        let dc = parse_day_count_jsvalue(day_count)?
-            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+        let dc =
+            parse_day_count_jsvalue(day_count)?.unwrap_or(finstack_core::dates::DayCount::Act365F);
         Ok(JsFlatCurve {
             inner: Arc::new(FlatCurve::new(rate, base_date.inner(), dc, id)),
         })
@@ -926,8 +926,8 @@ impl JsPriceCurve {
             return Err(js_error("times and prices must have the same length"));
         }
 
-        let dc = parse_day_count_jsvalue(day_count)?
-            .unwrap_or(finstack_core::dates::DayCount::Act365F);
+        let dc =
+            parse_day_count_jsvalue(day_count)?.unwrap_or(finstack_core::dates::DayCount::Act365F);
         let interp_style = parse_interp_value(
             &interp
                 .map(|s| JsValue::from_str(&s))

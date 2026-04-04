@@ -101,7 +101,11 @@ impl JsCapitalStructureCashflows {
     /// List of period IDs that have aggregate totals.
     #[wasm_bindgen(getter, js_name = periodIds)]
     pub fn period_ids(&self) -> Vec<String> {
-        self.inner.totals.keys().map(|pid| pid.to_string()).collect()
+        self.inner
+            .totals
+            .keys()
+            .map(|pid| pid.to_string())
+            .collect()
     }
 
     /// Get the total interest expense for a specific instrument and period.
@@ -234,7 +238,10 @@ impl JsCapitalStructureCashflows {
 
     /// Get the aggregate breakdown for a given period.
     #[wasm_bindgen(js_name = getTotalBreakdown)]
-    pub fn get_total_breakdown(&self, period_id: &str) -> Result<Option<JsCashflowBreakdown>, JsValue> {
+    pub fn get_total_breakdown(
+        &self,
+        period_id: &str,
+    ) -> Result<Option<JsCashflowBreakdown>, JsValue> {
         let pid = parse_period_id(period_id)?;
         Ok(self
             .inner
@@ -246,8 +253,11 @@ impl JsCapitalStructureCashflows {
     /// Convert to JSON representation.
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
-        serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| js_error(format!("Failed to serialize CapitalStructureCashflows: {e}")))
+        serde_wasm_bindgen::to_value(&self.inner).map_err(|e| {
+            js_error(format!(
+                "Failed to serialize CapitalStructureCashflows: {e}"
+            ))
+        })
     }
 
     /// Convert to string representation.

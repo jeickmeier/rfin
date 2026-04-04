@@ -58,10 +58,7 @@ pub fn periodic_to_continuous(periodic_rate: f64, periods_per_year: u32) -> Resu
 /// @param {number} periodsPerYear - Target compounding frequency
 /// @returns {number} Equivalent periodic rate
 #[wasm_bindgen(js_name = continuousToPeriodic)]
-pub fn continuous_to_periodic(
-    continuous_rate: f64,
-    periods_per_year: u32,
-) -> Result<f64, JsValue> {
+pub fn continuous_to_periodic(continuous_rate: f64, periods_per_year: u32) -> Result<f64, JsValue> {
     finstack_core::dates::rate_conversions::continuous_to_periodic(
         continuous_rate,
         periods_per_year,

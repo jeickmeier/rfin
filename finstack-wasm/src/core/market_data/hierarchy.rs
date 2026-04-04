@@ -171,7 +171,9 @@ impl JsHierarchyTarget {
     pub fn new(path: &str) -> Result<JsHierarchyTarget, JsValue> {
         let segments: Vec<String> = path.split('/').map(String::from).collect();
         if segments.iter().any(|s| s.is_empty()) {
-            return Err(js_error("HierarchyTarget path must not contain empty segments"));
+            return Err(js_error(
+                "HierarchyTarget path must not contain empty segments",
+            ));
         }
         Ok(JsHierarchyTarget {
             inner: CoreHierarchyTarget {
@@ -186,7 +188,9 @@ impl JsHierarchyTarget {
     pub fn with_filter(path: &str, filter: &JsTagFilter) -> Result<JsHierarchyTarget, JsValue> {
         let segments: Vec<String> = path.split('/').map(String::from).collect();
         if segments.iter().any(|s| s.is_empty()) {
-            return Err(js_error("HierarchyTarget path must not contain empty segments"));
+            return Err(js_error(
+                "HierarchyTarget path must not contain empty segments",
+            ));
         }
         Ok(JsHierarchyTarget {
             inner: CoreHierarchyTarget {
@@ -446,11 +450,7 @@ impl JsMarketDataHierarchy {
     }
 
     /// Resolve a hierarchy target to the set of curve IDs it covers.
-    pub fn resolve(
-        &self,
-        target: &JsHierarchyTarget,
-        mode: &JsResolutionMode,
-    ) -> Vec<String> {
+    pub fn resolve(&self, target: &JsHierarchyTarget, mode: &JsResolutionMode) -> Vec<String> {
         self.inner
             .resolve(target.inner(), mode.inner())
             .into_iter()

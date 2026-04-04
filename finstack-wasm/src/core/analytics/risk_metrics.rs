@@ -64,12 +64,7 @@ pub fn sortino_ratio(returns: &[f64], annualize: bool, ann_factor: f64) -> f64 {
 /// @param {number} annFactor - Periods per year
 /// @returns {number} Downside deviation
 #[wasm_bindgen(js_name = downsideDeviation)]
-pub fn downside_deviation(
-    returns: &[f64],
-    mar: f64,
-    annualize: bool,
-    ann_factor: f64,
-) -> f64 {
+pub fn downside_deviation(returns: &[f64], mar: f64, annualize: bool, ann_factor: f64) -> f64 {
     finstack_analytics::risk_metrics::downside_deviation(returns, mar, annualize, ann_factor)
 }
 
@@ -115,7 +110,12 @@ pub fn modified_sharpe(
     confidence: f64,
     ann_factor: f64,
 ) -> f64 {
-    finstack_analytics::risk_metrics::modified_sharpe(returns, risk_free_rate, confidence, ann_factor)
+    finstack_analytics::risk_metrics::modified_sharpe(
+        returns,
+        risk_free_rate,
+        confidence,
+        ann_factor,
+    )
 }
 
 /// Sample skewness of returns.

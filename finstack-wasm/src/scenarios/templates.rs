@@ -269,11 +269,9 @@ impl JsTemplateRegistry {
     /// Get template metadata by identifier.
     #[wasm_bindgen]
     pub fn get(&self, id: &str) -> Option<JsTemplateMetadata> {
-        self.inner
-            .get(id)
-            .map(|entry| JsTemplateMetadata {
-                inner: entry.metadata().clone(),
-            })
+        self.inner.get(id).map(|entry| JsTemplateMetadata {
+            inner: entry.metadata().clone(),
+        })
     }
 
     /// List all registered template metadata.
@@ -319,11 +317,9 @@ impl JsTemplateRegistry {
     /// Get a fresh builder for a registered template.
     #[wasm_bindgen(js_name = getBuilder)]
     pub fn get_builder(&self, id: &str) -> Option<JsScenarioSpecBuilder> {
-        self.inner
-            .get(id)
-            .map(|entry| JsScenarioSpecBuilder {
-                inner: entry.builder(),
-            })
+        self.inner.get(id).map(|entry| JsScenarioSpecBuilder {
+            inner: entry.builder(),
+        })
     }
 
     /// Get a fresh builder for a specific component of a registered template.
@@ -334,9 +330,9 @@ impl JsTemplateRegistry {
         component_id: &str,
     ) -> Option<JsScenarioSpecBuilder> {
         self.inner.get(template_id).and_then(|entry| {
-            entry.component(component_id).map(|builder| {
-                JsScenarioSpecBuilder { inner: builder }
-            })
+            entry
+                .component(component_id)
+                .map(|builder| JsScenarioSpecBuilder { inner: builder })
         })
     }
 
@@ -344,7 +340,11 @@ impl JsTemplateRegistry {
     #[wasm_bindgen(js_name = getComponentIds)]
     pub fn get_component_ids(&self, template_id: &str) -> Option<Vec<String>> {
         self.inner.get(template_id).map(|entry| {
-            entry.component_ids().into_iter().map(String::from).collect()
+            entry
+                .component_ids()
+                .into_iter()
+                .map(String::from)
+                .collect()
         })
     }
 }

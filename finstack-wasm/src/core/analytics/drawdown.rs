@@ -147,11 +147,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 /// @param {number} riskFreeRate - Annualized risk-free rate
 /// @returns {number} Sterling ratio
 #[wasm_bindgen(js_name = sterlingRatioFromReturns)]
-pub fn sterling_ratio_from_returns(
-    returns: &[f64],
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> f64 {
+pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     finstack_analytics::drawdown::sterling_ratio_from_returns(returns, ann_factor, risk_free_rate)
 }
 
@@ -184,10 +180,6 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
 /// @param {number} riskFreeRate - Annualized risk-free rate
 /// @returns {number} Pain ratio
 #[wasm_bindgen(js_name = painRatioFromReturns)]
-pub fn pain_ratio_from_returns(
-    returns: &[f64],
-    ann_factor: f64,
-    risk_free_rate: f64,
-) -> f64 {
+pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     finstack_analytics::drawdown::pain_ratio_from_returns(returns, ann_factor, risk_free_rate)
 }

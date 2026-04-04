@@ -7,7 +7,7 @@ use crate::statements::types::JsFinancialModelSpec;
 use finstack_core::dates::PeriodId;
 use finstack_statements::evaluator::{
     node_to_dated_schedule as core_node_to_dated_schedule, Evaluator, MonteCarloConfig,
-    MonteCarloResults, PeriodDateConvention, PercentileSeries, ResultsMeta, StatementResult,
+    MonteCarloResults, PercentileSeries, PeriodDateConvention, ResultsMeta, StatementResult,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -543,9 +543,8 @@ pub fn node_to_dated_schedule(
         _ => PeriodDateConvention::End,
     };
 
-    let schedule =
-        core_node_to_dated_schedule(model.inner(), &results.inner, node_id, convention)
-            .map_err(|e| js_error(format!("Failed to export dated schedule: {e}")))?;
+    let schedule = core_node_to_dated_schedule(model.inner(), &results.inner, node_id, convention)
+        .map_err(|e| js_error(format!("Failed to export dated schedule: {e}")))?;
 
     let array = js_sys::Array::new();
     for (date, value) in schedule {

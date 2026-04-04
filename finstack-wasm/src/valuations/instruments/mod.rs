@@ -120,17 +120,6 @@ pub use cms_option::JsCmsOption as CmsOption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use cms_option::JsCmsOptionBuilder as CmsOptionBuilder;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use commodity_forward::JsCommodityForward as CommodityForward;
-#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use commodity_forward::JsCommodityForwardBuilder as CommodityForwardBuilder;
-pub use commodity_option::JsCommodityOption as CommodityOption;
-#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use commodity_option::JsCommodityOptionBuilder as CommodityOptionBuilder;
-#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use commodity_swap::JsCommoditySwap as CommoditySwap;
-#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
-pub use commodity_swap::JsCommoditySwapBuilder as CommoditySwapBuilder;
-#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use cms_swap::JsCmsSwap as CmsSwap;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use cms_swap::JsCmsSwapBuilder as CmsSwapBuilder;
@@ -139,9 +128,20 @@ pub use commodity_asian_option::JsCommodityAsianOption as CommodityAsianOption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use commodity_asian_option::JsCommodityAsianOptionBuilder as CommodityAsianOptionBuilder;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_forward::JsCommodityForward as CommodityForward;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_forward::JsCommodityForwardBuilder as CommodityForwardBuilder;
+pub use commodity_option::JsCommodityOption as CommodityOption;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_option::JsCommodityOptionBuilder as CommodityOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use commodity_spread_option::JsCommoditySpreadOption as CommoditySpreadOption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use commodity_spread_option::JsCommoditySpreadOptionBuilder as CommoditySpreadOptionBuilder;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_swap::JsCommoditySwap as CommoditySwap;
+#[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
+pub use commodity_swap::JsCommoditySwapBuilder as CommoditySwapBuilder;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
 pub use commodity_swaption::JsCommoditySwaption as CommoditySwaption;
 #[allow(unused_imports)] // Exported for external consumers via wasm_bindgen
@@ -439,14 +439,8 @@ pub(crate) fn extract_instrument(value: &JsValue) -> Result<Box<dyn Instrument>,
         commodity_spread_option::JsCommoditySpreadOption,
         "CommoditySpreadOption"
     );
-    try_extract!(
-        commodity_swaption::JsCommoditySwaption,
-        "CommoditySwaption"
-    );
-    try_extract!(
-        fx_digital_option::JsFxDigitalOption,
-        "FxDigitalOption"
-    );
+    try_extract!(commodity_swaption::JsCommoditySwaption, "CommoditySwaption");
+    try_extract!(fx_digital_option::JsFxDigitalOption, "FxDigitalOption");
     try_extract!(fx_touch_option::JsFxTouchOption, "FxTouchOption");
     try_extract!(ir_future_option::JsIrFutureOption, "IrFutureOption");
     try_extract!(cms_swap::JsCmsSwap, "CmsSwap");

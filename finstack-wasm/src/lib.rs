@@ -48,17 +48,16 @@ mod valuations;
 
 // Analytics exports
 pub use core::analytics::benchmark::{
-    batting_average, calc_beta, capture_ratio, down_capture, greeks_js,
-    information_ratio, m_squared, m_squared_from_returns, multi_factor_greeks, r_squared,
-    tracking_error, treynor_ratio, up_capture,
+    batting_average, calc_beta, capture_ratio, down_capture, greeks_js, information_ratio,
+    m_squared, m_squared_from_returns, multi_factor_greeks, r_squared, tracking_error,
+    treynor_ratio, up_capture,
 };
 pub use core::analytics::consecutive::{count_consecutive_above, count_consecutive_below};
 pub use core::analytics::drawdown::{
-    average_drawdown, burke_ratio, calmar_ratio, calmar_ratio_from_returns, cdar,
-    martin_ratio, martin_ratio_from_returns, max_drawdown, max_drawdown_from_returns,
-    pain_index, pain_ratio, pain_ratio_from_returns, recovery_factor,
-    recovery_factor_from_returns, sterling_ratio, sterling_ratio_from_returns,
-    to_drawdown_series, ulcer_index,
+    average_drawdown, burke_ratio, calmar_ratio, calmar_ratio_from_returns, cdar, martin_ratio,
+    martin_ratio_from_returns, max_drawdown, max_drawdown_from_returns, pain_index, pain_ratio,
+    pain_ratio_from_returns, recovery_factor, recovery_factor_from_returns, sterling_ratio,
+    sterling_ratio_from_returns, to_drawdown_series, ulcer_index,
 };
 pub use core::analytics::lookback::{lookback_returns, mtd_select, qtd_select, ytd_select};
 pub use core::analytics::performance::JsPerformance as Performance;
@@ -97,6 +96,13 @@ pub use core::dates::next_equity_option_expiry as nextEquityOptionExpiry;
 pub use core::dates::next_imm as nextImm;
 pub use core::dates::next_imm_option_expiry as nextImmOptionExpiry;
 pub use core::dates::{
+    addJointBusinessDays, adjustJointCalendar, canResolveCalendar,
+    continuous_to_periodic as continuousToPeriodic, continuous_to_simple as continuousToSimple,
+    periodic_to_continuous as periodicToContinuous, periodic_to_simple as periodicToSimple,
+    rollSpotDate, simple_to_continuous as simpleToContinuous,
+    simple_to_periodic as simpleToPeriodic,
+};
+pub use core::dates::{
     adjust, BusinessDayConvention, Calendar, CompositeCalendar, CompositeMode, DayCount,
     DayCountContext, DayCountContextState, FiscalConfig, Frequency, FsDate, Period, PeriodId,
     PeriodPlan, Schedule, ScheduleBuilder, ScheduleSpec, StubKind, Tenor,
@@ -105,18 +111,15 @@ pub use core::dates::{
     imm_option_expiry as immOptionExpiry, third_friday as thirdFriday,
     third_wednesday as thirdWednesday,
 };
-pub use core::dates::{
-    addJointBusinessDays, adjustJointCalendar, canResolveCalendar,
-    continuous_to_periodic as continuousToPeriodic,
-    continuous_to_simple as continuousToSimple,
-    periodic_to_continuous as periodicToContinuous,
-    periodic_to_simple as periodicToSimple, rollSpotDate,
-    simple_to_continuous as simpleToContinuous, simple_to_periodic as simpleToPeriodic,
-};
 pub use core::expr::{
     JsBinOp as BinOp, JsCompiledExpr as CompiledExpr, JsEvalOpts as EvalOpts,
     JsEvaluationResult as EvaluationResult, JsExecutionPlan as ExecutionPlan, JsExpr as Expr,
     JsFunction as Function, JsUnaryOp as UnaryOp,
+};
+pub use core::factor_model::{
+    JsBumpSizeConfig as BumpSizeConfig, JsFactorCovarianceMatrix as FactorCovarianceMatrix,
+    JsFactorDefinition as FactorDefinition, JsFactorId as FactorId,
+    JsFactorModelConfig as FactorModelConfig, JsMarketDependency as MarketDependency,
 };
 pub use core::market_data::{
     atm_moneyness as atmMoneyness, default_vol_expiry as defaultVolExpiry,
@@ -136,9 +139,24 @@ pub use core::math::{
     adaptiveSimpson,
     // Linear Algebra
     applyCorrelation,
+    bachelierCall_vol,
+    bachelierPut_vol,
+    bachelierVega_vol,
     // Distributions
     binomialDistribution,
     binomialProbability,
+    // Volatility pricing
+    blackCall,
+    blackDeltaCall,
+    blackDeltaPut,
+    blackGamma,
+    blackPut,
+    blackScholesSpotCall,
+    blackScholesSpotPut,
+    blackShiftedCall,
+    blackShiftedPut,
+    blackShiftedVega,
+    blackVega,
     // Random
     boxMullerTransform,
     buildCorrelationMatrix,
@@ -159,6 +177,9 @@ pub use core::math::{
     gaussLegendreIntegrate,
     gaussLegendreIntegrateAdaptive,
     gaussLegendreIntegrateComposite,
+    geometricAsianCall,
+    impliedVolBachelier,
+    impliedVolBlack,
     jointProbabilities,
     // Summation
     kahanSum,
@@ -188,38 +209,15 @@ pub use core::math::{
     Rng,
     SumAccumulator,
     TimeGrid,
-    // Volatility pricing
-    blackCall,
-    blackPut,
-    blackVega,
-    blackDeltaCall,
-    blackDeltaPut,
-    blackGamma,
-    bachelierCall_vol,
-    bachelierPut_vol,
-    bachelierVega_vol,
-    blackShiftedCall,
-    blackShiftedPut,
-    blackShiftedVega,
-    blackScholesSpotCall,
-    blackScholesSpotPut,
-    impliedVolBlack,
-    impliedVolBachelier,
-    geometricAsianCall,
-};
-pub use core::factor_model::{
-    JsBumpSizeConfig as BumpSizeConfig, JsFactorCovarianceMatrix as FactorCovarianceMatrix,
-    JsFactorDefinition as FactorDefinition, JsFactorId as FactorId,
-    JsFactorModelConfig as FactorModelConfig, JsMarketDependency as MarketDependency,
 };
 pub use core::money::JsMoney as Money;
-pub use core::types::{
-    CalendarId, CurveId, DealId, IndexId, InstrumentId, JsAttributes as Attributes,
-    JsBps as Bps, JsCreditRating as CreditRating, JsNotchedRating as NotchedRating,
-    JsPercentage as Percentage, JsRate as Rate, JsRatingLabel as RatingLabel,
-    JsRatingNotch as RatingNotch, PoolId, PriceId, UnderlyingId,
-};
 pub use core::types::moodys_warf_factor_js as moodysWarfFactor;
+pub use core::types::{
+    CalendarId, CurveId, DealId, IndexId, InstrumentId, JsAttributes as Attributes, JsBps as Bps,
+    JsCreditRating as CreditRating, JsNotchedRating as NotchedRating, JsPercentage as Percentage,
+    JsRate as Rate, JsRatingLabel as RatingLabel, JsRatingNotch as RatingNotch, PoolId, PriceId,
+    UnderlyingId,
+};
 pub use core::volatility::{
     convert_atm_volatility_js as convertAtmVolatility,
     JsVolatilityConvention as VolatilityConvention,
@@ -229,8 +227,7 @@ pub use core::volatility::{
 pub use correlation::copulas::{
     JsCopulaSpec as CopulaSpec, JsGaussianCopula as GaussianCopula,
     JsMultiFactorCopula as MultiFactorCopula,
-    JsRandomFactorLoadingCopula as RandomFactorLoadingCopula,
-    JsStudentTCopula as StudentTCopula,
+    JsRandomFactorLoadingCopula as RandomFactorLoadingCopula, JsStudentTCopula as StudentTCopula,
 };
 pub use correlation::factor_models::{
     JsFactorSpec as FactorSpec, JsMultiFactorModel as MultiFactorModel,
@@ -288,8 +285,8 @@ pub use valuations::instruments::{
 };
 pub use valuations::performance::{
     calculate_npv_wasm as calculateNpv, count_sign_changes_wasm as countSignChanges,
-    irr_detailed_wasm as irrDetailed, irr_periodic_wasm as irrPeriodic, xirr_wasm as xirr,
-    xirr_detailed_wasm as xirrDetailed, JsIrrResult as IrrResult,
+    irr_detailed_wasm as irrDetailed, irr_periodic_wasm as irrPeriodic,
+    xirr_detailed_wasm as xirrDetailed, xirr_wasm as xirr, JsIrrResult as IrrResult,
 };
 pub use valuations::pricer::{
     create_credit_registry_js as createCreditRegistry,
@@ -329,8 +326,7 @@ pub use valuations::common::pricing_overrides::{
     JsBumpConfig as BumpConfig, JsInstrumentPricingOverrides as InstrumentPricingOverrides,
     JsMarketQuoteOverrides as MarketQuoteOverrides,
     JsMetricPricingOverrides as MetricPricingOverrides, JsModelConfig as ModelConfig,
-    JsPricingOverrides as PricingOverrides,
-    JsScenarioPricingOverrides as ScenarioPricingOverrides,
+    JsPricingOverrides as PricingOverrides, JsScenarioPricingOverrides as ScenarioPricingOverrides,
 };
 
 // JSON schema accessors
@@ -343,17 +339,16 @@ pub use valuations::schema::{
 // LSMC (Longstaff-Schwartz Monte Carlo) pricer
 pub use valuations::lsmc::{
     JsAmericanCall as LsmcAmericanCall, JsAmericanPut as LsmcAmericanPut,
-    JsLaguerreBasis as LsmcLaguerreBasis, JsLsmcConfig as LsmcConfig,
-    JsLsmcPricer as LsmcPricer, JsLsmcResult as LsmcResult,
-    JsPolynomialBasis as LsmcPolynomialBasis,
+    JsLaguerreBasis as LsmcLaguerreBasis, JsLsmcConfig as LsmcConfig, JsLsmcPricer as LsmcPricer,
+    JsLsmcResult as LsmcResult, JsPolynomialBasis as LsmcPolynomialBasis,
 };
 
 // Attribution helpers
 pub use valuations::attribution::WasmAttributionMethod as AttributionMethod;
 pub use valuations::attribution::{
-    JsAttributionConfig as AttributionConfig, JsAttributionEnvelope as AttributionEnvelope,
-    JsAttributionSpec as AttributionSpec, JsTaylorAttributionConfig as TaylorAttributionConfig,
-    attribute_pnl_from_json as attributePnlFromJson,
+    attribute_pnl_from_json as attributePnlFromJson, JsAttributionConfig as AttributionConfig,
+    JsAttributionEnvelope as AttributionEnvelope, JsAttributionSpec as AttributionSpec,
+    JsTaylorAttributionConfig as TaylorAttributionConfig,
 };
 
 // Risk analysis functions
@@ -383,14 +378,14 @@ pub use valuations::conventions::{
 };
 
 // XVA exports
+pub use valuations::xva::apply_collateral as applyXvaCollateral;
 pub use valuations::xva::{
     apply_netting as applyNetting, compute_bilateral_xva as computeBilateralXva,
     compute_cva as computeCva, compute_dva as computeDva, compute_fva as computeFva,
     JsExposureProfile as ExposureProfile, JsFundingConfig as FundingConfig,
-    JsXvaCsaTerms as XvaCsaTerms, JsXvaConfig as XvaConfig,
-    JsXvaNettingSet as XvaNettingSet, JsXvaResult as XvaResult,
+    JsXvaConfig as XvaConfig, JsXvaCsaTerms as XvaCsaTerms, JsXvaNettingSet as XvaNettingSet,
+    JsXvaResult as XvaResult,
 };
-pub use valuations::xva::apply_collateral as applyXvaCollateral;
 
 // Valuations factor model exports
 pub use valuations::factor_model::{
@@ -405,36 +400,29 @@ pub use statements::{
     JsAdjustment as Adjustment, JsAmountOrScalar as AmountOrScalar,
     JsAppliedAdjustment as AppliedAdjustment,
     JsCapitalStructureCashflows as CapitalStructureCashflows,
-    JsCapitalStructureSpec as CapitalStructureSpec,
-    JsCashflowBreakdown as CashflowBreakdown,
+    JsCapitalStructureSpec as CapitalStructureSpec, JsCashflowBreakdown as CashflowBreakdown,
     JsCorkscrewExtension as CorkscrewExtension,
     JsCreditScorecardExtension as CreditScorecardExtension,
     JsDebtInstrumentSpec as DebtInstrumentSpec, JsDependencyTree as DependencyTree,
-    JsEcfSweepSpec as EcfSweepSpec,
-    JsEvaluator as Evaluator, JsExtensionMetadata as ExtensionMetadata,
-    JsExtensionRegistry as ExtensionRegistry, JsExtensionResult as ExtensionResult,
-    JsExtensionStatus as ExtensionStatus, JsFinancialModelSpec as FinancialModelSpec,
-    JsForecastMethod as ForecastMethod, JsForecastSpec as ForecastSpec,
-    JsFreeRentWindowSpec as FreeRentWindowSpec,
-    JsLeaseGrowthConvention as LeaseGrowthConvention,
-    JsLeaseSpec as LeaseSpec, JsLeaseSpecV2 as LeaseSpecV2,
-    JsManagementFeeBase as ManagementFeeBase, JsManagementFeeSpec as ManagementFeeSpec,
-    JsMetricDefinition as MetricDefinition, JsMetricRegistry as StatementsMetricRegistry,
-    JsModelBuilder as ModelBuilder,
+    JsEcfSweepSpec as EcfSweepSpec, JsEvaluator as Evaluator,
+    JsExtensionMetadata as ExtensionMetadata, JsExtensionRegistry as ExtensionRegistry,
+    JsExtensionResult as ExtensionResult, JsExtensionStatus as ExtensionStatus,
+    JsFinancialModelSpec as FinancialModelSpec, JsForecastMethod as ForecastMethod,
+    JsForecastSpec as ForecastSpec, JsFreeRentWindowSpec as FreeRentWindowSpec,
+    JsLeaseGrowthConvention as LeaseGrowthConvention, JsLeaseSpec as LeaseSpec,
+    JsLeaseSpecV2 as LeaseSpecV2, JsManagementFeeBase as ManagementFeeBase,
+    JsManagementFeeSpec as ManagementFeeSpec, JsMetricDefinition as MetricDefinition,
+    JsMetricRegistry as StatementsMetricRegistry, JsModelBuilder as ModelBuilder,
     JsMonteCarloConfig as MonteCarloConfig, JsMonteCarloResults as MonteCarloResults,
-    JsNodeSpec as NodeSpec, JsNodeType as NodeType,
-    JsNormalizationConfig as NormalizationConfig, JsNormalizationEngine as NormalizationEngine,
-    JsNormalizationResult as NormalizationResult,
-    JsPercentileSeries as PercentileSeries,
-    JsPeriodDateConvention as PeriodDateConvention,
-    JsPikToggleSpec as PikToggleSpec,
-    JsPropertyTemplateNodes as PropertyTemplateNodes,
+    JsNodeSpec as NodeSpec, JsNodeType as NodeType, JsNormalizationConfig as NormalizationConfig,
+    JsNormalizationEngine as NormalizationEngine, JsNormalizationResult as NormalizationResult,
+    JsPercentileSeries as PercentileSeries, JsPeriodDateConvention as PeriodDateConvention,
+    JsPikToggleSpec as PikToggleSpec, JsPropertyTemplateNodes as PropertyTemplateNodes,
     JsRegistry as Registry, JsRenewalSpec as RenewalSpec,
     JsRentRollOutputNodes as RentRollOutputNodes, JsRentStepSpec as RentStepSpec,
     JsSeasonalMode as SeasonalMode, JsStatementResult as StatementResult,
-    JsStatementResultMeta as StatementResultsMeta,
-    JsStmtExpr as StmtExpr,
-    JsUnitType as UnitType, JsWaterfallSpec as WaterfallSpec,
+    JsStatementResultMeta as StatementResultsMeta, JsStmtExpr as StmtExpr, JsUnitType as UnitType,
+    JsWaterfallSpec as WaterfallSpec,
 };
 
 // Statements analysis functions
@@ -452,9 +440,8 @@ pub use statements::{
 
 // Statements forecast functions
 pub use statements::{
-    apply_forecast as applyForecast, apply_override as applyOverride,
-    curve_pct as curvePct, forward_fill as forwardFill,
-    growth_pct as growthPct, lognormal_forecast as lognormalForecast,
+    apply_forecast as applyForecast, apply_override as applyOverride, curve_pct as curvePct,
+    forward_fill as forwardFill, growth_pct as growthPct, lognormal_forecast as lognormalForecast,
     normal_forecast as normalForecast, seasonal_forecast as seasonalForecast,
     timeseries_forecast as timeseriesForecast,
 };
@@ -473,17 +460,16 @@ pub use scenarios::{
     JsRateBindingSpec as RateBindingSpec, JsRollForwardReport as RollForwardReport,
     JsScenarioEngine as ScenarioEngine, JsScenarioSpec as ScenarioSpec,
     JsScenarioSpecBuilder as ScenarioSpecBuilder, JsSeverity as ScenarioSeverity,
-    JsTemplateMetadata as ScenarioTemplateMetadata,
-    JsTemplateRegistry as ScenarioTemplateRegistry, JsTenorMatchMode as TenorMatchMode,
-    JsTimeRollMode as TimeRollMode, JsVolSurfaceKind as VolSurfaceKind,
+    JsTemplateMetadata as ScenarioTemplateMetadata, JsTemplateRegistry as ScenarioTemplateRegistry,
+    JsTenorMatchMode as TenorMatchMode, JsTimeRollMode as TimeRollMode,
+    JsVolSurfaceKind as VolSurfaceKind,
 };
 
 // Scenarios utility functions
 pub use scenarios::{
     calculate_interpolation_weights as calculateInterpolationWeights,
     calculate_interpolation_weights_with_info as calculateInterpolationWeightsWithInfo,
-    parse_period_to_days as parsePeriodToDays,
-    parse_tenor_to_years as parseTenorToYears,
+    parse_period_to_days as parsePeriodToDays, parse_tenor_to_years as parseTenorToYears,
 };
 
 // Portfolio exports
@@ -517,10 +503,9 @@ pub use portfolio::{
     JsBook as Book, JsBookId as BookId, JsDependencyIndex as DependencyIndex,
     JsFactorContribution as FactorContribution,
     JsFactorContributionDelta as FactorContributionDelta, JsFactorModel as PortfolioFactorModel,
-    JsFactorModelBuilder as PortfolioFactorModelBuilder,
-    JsMarketFactorKey as MarketFactorKey, JsRiskDecomposition as RiskDecomposition,
-    JsStressResult as StressResult, JsWhatIfEngineWrapper as WhatIfEngine,
-    JsWhatIfResult as WhatIfResult,
+    JsFactorModelBuilder as PortfolioFactorModelBuilder, JsMarketFactorKey as MarketFactorKey,
+    JsRiskDecomposition as RiskDecomposition, JsStressResult as StressResult,
+    JsWhatIfEngineWrapper as WhatIfEngine, JsWhatIfResult as WhatIfResult,
 };
 
 #[cfg(feature = "scenarios")]

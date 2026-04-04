@@ -12,8 +12,8 @@ use crate::portfolio::positions::JsPortfolio;
 use crate::valuations::factor_model::JsSensitivityMatrix;
 use finstack_core::factor_model::FactorId;
 use finstack_portfolio::factor_model::{
-    FactorContribution, FactorContributionDelta, FactorModel, FactorModelBuilder,
-    PositionChange, RiskDecomposition, StressResult, WhatIfEngine, WhatIfResult,
+    FactorContribution, FactorContributionDelta, FactorModel, FactorModelBuilder, PositionChange,
+    RiskDecomposition, StressResult, WhatIfEngine, WhatIfResult,
 };
 use finstack_portfolio::PositionId;
 use js_sys::Array;
@@ -289,9 +289,10 @@ impl JsFactorModelBuilder {
 
     /// Build the factor model.
     pub fn build(mut self) -> Result<JsFactorModel, JsValue> {
-        let builder = self.inner.take().ok_or_else(|| {
-            crate::core::error::js_error("Builder already consumed")
-        })?;
+        let builder = self
+            .inner
+            .take()
+            .ok_or_else(|| crate::core::error::js_error("Builder already consumed"))?;
         let model = builder.build().map_err(portfolio_to_js)?;
         Ok(JsFactorModel {
             inner: Arc::new(model),

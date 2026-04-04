@@ -30,9 +30,10 @@ impl JsCommoditySwaptionBuilder {
 
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsCommoditySwaption, JsValue> {
-        let json_str = self.json_str.as_deref().ok_or_else(|| {
-            JsValue::from_str("CommoditySwaptionBuilder: jsonString is required")
-        })?;
+        let json_str = self
+            .json_str
+            .as_deref()
+            .ok_or_else(|| JsValue::from_str("CommoditySwaptionBuilder: jsonString is required"))?;
         JsCommoditySwaption::from_json_str(json_str)
     }
 }

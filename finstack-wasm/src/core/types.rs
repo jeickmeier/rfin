@@ -2,14 +2,14 @@
 
 use crate::core::error::js_error;
 use finstack_core::types::{
-    Bps as CoreBps, CalendarId as CoreCalendarId, CurveId as CoreCurveId,
-    DealId as CoreDealId, IndexId as CoreIndexId, InstrumentId as CoreInstrumentId,
-    Percentage as CorePercentage, PoolId as CorePoolId, PriceId as CorePriceId,
-    Rate as CoreRate, UnderlyingId as CoreUnderlyingId,
-};
-use finstack_core::types::{
     Attributes as CoreAttributes, CreditRating, NotchedRating, RatingLabel as CoreRatingLabel,
     RatingNotch,
+};
+use finstack_core::types::{
+    Bps as CoreBps, CalendarId as CoreCalendarId, CurveId as CoreCurveId, DealId as CoreDealId,
+    IndexId as CoreIndexId, InstrumentId as CoreInstrumentId, Percentage as CorePercentage,
+    PoolId as CorePoolId, PriceId as CorePriceId, Rate as CoreRate,
+    UnderlyingId as CoreUnderlyingId,
 };
 use wasm_bindgen::prelude::*;
 
@@ -402,8 +402,7 @@ impl JsRatingLabel {
 #[wasm_bindgen(js_name = moodysWarfFactor)]
 pub fn moodys_warf_factor_js(rating: JsCreditRating) -> Result<f64, JsValue> {
     let core_rating: CreditRating = rating.into();
-    finstack_core::types::moodys_warf_factor(core_rating)
-        .map_err(|e| js_error(format!("{e}")))
+    finstack_core::types::moodys_warf_factor(core_rating).map_err(|e| js_error(format!("{e}")))
 }
 
 // ======================================================================

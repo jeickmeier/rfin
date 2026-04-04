@@ -4,8 +4,8 @@ use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::core::money::JsMoney;
 use crate::utils::json::{from_js_value, to_js_value};
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::common::parameters::JsOptionType;
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_valuations::instruments::rates::ir_future_option::IrFutureOption;
 use finstack_valuations::pricer::InstrumentType;
@@ -107,27 +107,27 @@ impl JsIrFutureOptionBuilder {
         let futures_price = self.futures_price.ok_or_else(|| {
             js_error("IrFutureOptionBuilder: futuresPrice is required".to_string())
         })?;
-        let strike = self.strike.ok_or_else(|| {
-            js_error("IrFutureOptionBuilder: strike is required".to_string())
-        })?;
-        let expiry = self.expiry.ok_or_else(|| {
-            js_error("IrFutureOptionBuilder: expiry is required".to_string())
-        })?;
-        let option_type = self.option_type.ok_or_else(|| {
-            js_error("IrFutureOptionBuilder: optionType is required".to_string())
-        })?;
+        let strike = self
+            .strike
+            .ok_or_else(|| js_error("IrFutureOptionBuilder: strike is required".to_string()))?;
+        let expiry = self
+            .expiry
+            .ok_or_else(|| js_error("IrFutureOptionBuilder: expiry is required".to_string()))?;
+        let option_type = self
+            .option_type
+            .ok_or_else(|| js_error("IrFutureOptionBuilder: optionType is required".to_string()))?;
         let notional = self.notional.ok_or_else(|| {
             js_error("IrFutureOptionBuilder: money (notional) is required".to_string())
         })?;
-        let tick_size = self.tick_size.ok_or_else(|| {
-            js_error("IrFutureOptionBuilder: tickSize is required".to_string())
-        })?;
-        let tick_value = self.tick_value.ok_or_else(|| {
-            js_error("IrFutureOptionBuilder: tickValue is required".to_string())
-        })?;
-        let volatility = self.volatility.ok_or_else(|| {
-            js_error("IrFutureOptionBuilder: volatility is required".to_string())
-        })?;
+        let tick_size = self
+            .tick_size
+            .ok_or_else(|| js_error("IrFutureOptionBuilder: tickSize is required".to_string()))?;
+        let tick_value = self
+            .tick_value
+            .ok_or_else(|| js_error("IrFutureOptionBuilder: tickValue is required".to_string()))?;
+        let volatility = self
+            .volatility
+            .ok_or_else(|| js_error("IrFutureOptionBuilder: volatility is required".to_string()))?;
         let discount_curve = self.discount_curve_id.as_deref().ok_or_else(|| {
             js_error("IrFutureOptionBuilder: discountCurve is required".to_string())
         })?;

@@ -318,8 +318,8 @@ impl JsFixedLegSpec {
     /// Create a FixedLegSpec from a JSON object.
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json: &str) -> Result<JsFixedLegSpec, JsValue> {
-        let inner: finstack_valuations::instruments::FixedLegSpec =
-            serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Invalid JSON: {}", e)))?;
+        let inner: finstack_valuations::instruments::FixedLegSpec = serde_json::from_str(json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid JSON: {}", e)))?;
         Ok(JsFixedLegSpec { inner })
     }
 
@@ -394,8 +394,8 @@ impl JsFloatLegSpec {
     /// Create a FloatLegSpec from a JSON object.
     #[wasm_bindgen(js_name = fromJson)]
     pub fn from_json(json: &str) -> Result<JsFloatLegSpec, JsValue> {
-        let inner: finstack_valuations::instruments::FloatLegSpec =
-            serde_json::from_str(json).map_err(|e| JsValue::from_str(&format!("Invalid JSON: {}", e)))?;
+        let inner: finstack_valuations::instruments::FloatLegSpec = serde_json::from_str(json)
+            .map_err(|e| JsValue::from_str(&format!("Invalid JSON: {}", e)))?;
         Ok(JsFloatLegSpec { inner })
     }
 

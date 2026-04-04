@@ -175,25 +175,25 @@ pub fn calibrate_hull_white(
     let df_pairs: Vec<(f64, f64)> = serde_wasm_bindgen::from_value(discount_factors)
         .map_err(|e| js_error(format!("Invalid discount factors: {}", e)))?;
 
-    let quotes: Vec<SwaptionQuote> = serde_wasm_bindgen::from_value::<Vec<SwaptionQuoteInput>>(quotes_js)
-        .map_err(|e| js_error(format!("Invalid quotes: {}", e)))?
-        .into_iter()
-        .map(|q| {
-            SwaptionQuote::try_new(q.expiry, q.tenor, q.volatility, q.is_normal_vol)
-                .map_err(core_to_js)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let quotes: Vec<SwaptionQuote> =
+        serde_wasm_bindgen::from_value::<Vec<SwaptionQuoteInput>>(quotes_js)
+            .map_err(|e| js_error(format!("Invalid quotes: {}", e)))?
+            .into_iter()
+            .map(|q| {
+                SwaptionQuote::try_new(q.expiry, q.tenor, q.volatility, q.is_normal_vol)
+                    .map_err(core_to_js)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
     let df_fn = build_df_interpolator(&df_pairs);
 
-    let (params, report) =
-        calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
-            &df_fn,
-            &quotes,
-            frequency.inner,
-            None,
-        )
-        .map_err(core_to_js)?;
+    let (params, report) = calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
+        &df_fn,
+        &quotes,
+        frequency.inner,
+        None,
+    )
+    .map_err(core_to_js)?;
 
     let result = serde_json::json!({
         "params": { "kappa": params.kappa, "sigma": params.sigma },

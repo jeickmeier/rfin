@@ -411,13 +411,8 @@ pub fn compute_cva(
     }
     let hc = hazard_curve.inner();
     let dc = discount_curve.inner();
-    let result = margin_xva::cva::compute_cva(
-        &exposure_profile.inner,
-        &hc,
-        &dc,
-        recovery_rate,
-    )
-    .map_err(core_to_js)?;
+    let result = margin_xva::cva::compute_cva(&exposure_profile.inner, &hc, &dc, recovery_rate)
+        .map_err(core_to_js)?;
     Ok(JsXvaResult::from_inner(result))
 }
 
@@ -434,13 +429,8 @@ pub fn compute_dva(
     }
     let hc = own_hazard_curve.inner();
     let dc = discount_curve.inner();
-    margin_xva::cva::compute_dva(
-        &exposure_profile.inner,
-        &hc,
-        &dc,
-        own_recovery_rate,
-    )
-    .map_err(core_to_js)
+    margin_xva::cva::compute_dva(&exposure_profile.inner, &hc, &dc, own_recovery_rate)
+        .map_err(core_to_js)
 }
 
 /// Compute funding valuation adjustment from the exposure profile.

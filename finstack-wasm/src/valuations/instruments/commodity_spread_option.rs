@@ -3,8 +3,8 @@
 use crate::core::dates::date::JsDate;
 use crate::core::error::js_error;
 use crate::utils::json::{from_js_value, to_js_value};
-use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::common::parameters::JsOptionType;
+use crate::valuations::common::{curve_id_from_str, instrument_id_from_str};
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::currency::Currency;
 use finstack_valuations::instruments::commodity::commodity_spread_option::CommoditySpreadOption;
@@ -54,10 +54,7 @@ impl JsCommoditySpreadOptionBuilder {
     }
 
     #[wasm_bindgen(js_name = currency)]
-    pub fn currency(
-        mut self,
-        currency: String,
-    ) -> Result<JsCommoditySpreadOptionBuilder, JsValue> {
+    pub fn currency(mut self, currency: String) -> Result<JsCommoditySpreadOptionBuilder, JsValue> {
         let ccy: Currency = currency
             .parse()
             .map_err(|e: strum::ParseError| js_error(e.to_string()))?;
@@ -66,10 +63,7 @@ impl JsCommoditySpreadOptionBuilder {
     }
 
     #[wasm_bindgen(js_name = optionType)]
-    pub fn option_type(
-        mut self,
-        option_type: &JsOptionType,
-    ) -> JsCommoditySpreadOptionBuilder {
+    pub fn option_type(mut self, option_type: &JsOptionType) -> JsCommoditySpreadOptionBuilder {
         self.option_type = Some(option_type.inner());
         self
     }

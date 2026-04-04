@@ -264,8 +264,7 @@ impl JsCompositeCalendar {
     pub fn is_holiday(&self, date: &JsDate) -> bool {
         let d = date.inner();
         let refs: Vec<&dyn HolidayCalendar> = self.calendars.to_vec();
-        let composite =
-            finstack_core::dates::CompositeCalendar::with_mode(&refs, self.mode);
+        let composite = finstack_core::dates::CompositeCalendar::with_mode(&refs, self.mode);
         composite.is_holiday(d)
     }
 
@@ -274,8 +273,7 @@ impl JsCompositeCalendar {
     pub fn is_business_day(&self, date: &JsDate) -> bool {
         let d = date.inner();
         let refs: Vec<&dyn HolidayCalendar> = self.calendars.to_vec();
-        let composite =
-            finstack_core::dates::CompositeCalendar::with_mode(&refs, self.mode);
+        let composite = finstack_core::dates::CompositeCalendar::with_mode(&refs, self.mode);
         composite.is_business_day(d)
     }
 

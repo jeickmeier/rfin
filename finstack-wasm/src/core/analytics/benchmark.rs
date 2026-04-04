@@ -11,12 +11,7 @@ use wasm_bindgen::prelude::*;
 /// @param {number} annFactor - Periods per year
 /// @returns {number} Tracking error
 #[wasm_bindgen(js_name = trackingError)]
-pub fn tracking_error(
-    returns: &[f64],
-    benchmark: &[f64],
-    annualize: bool,
-    ann_factor: f64,
-) -> f64 {
+pub fn tracking_error(returns: &[f64], benchmark: &[f64], annualize: bool, ann_factor: f64) -> f64 {
     finstack_analytics::benchmark::tracking_error(returns, benchmark, annualize, ann_factor)
 }
 
@@ -74,11 +69,7 @@ pub fn calc_beta(portfolio: &[f64], benchmark: &[f64]) -> Result<JsValue, JsValu
 /// @param {number} annFactor - Periods per year
 /// @returns {{ alpha: number, beta: number, rSquared: number }}
 #[wasm_bindgen(js_name = greeks)]
-pub fn greeks_js(
-    returns: &[f64],
-    benchmark: &[f64],
-    ann_factor: f64,
-) -> Result<JsValue, JsValue> {
+pub fn greeks_js(returns: &[f64], benchmark: &[f64], ann_factor: f64) -> Result<JsValue, JsValue> {
     let g = finstack_analytics::benchmark::greeks(returns, benchmark, ann_factor);
     let obj = js_sys::Object::new();
     js_sys::Reflect::set(&obj, &"alpha".into(), &g.alpha.into())
@@ -204,8 +195,9 @@ pub fn multi_factor_greeks(
         .collect();
     let factor_refs: Vec<&[f64]> = factor_vecs.iter().map(|v| v.as_slice()).collect();
 
-    let result = finstack_analytics::benchmark::multi_factor_greeks(returns, &factor_refs, ann_factor)
-        .map_err(core_to_js)?;
+    let result =
+        finstack_analytics::benchmark::multi_factor_greeks(returns, &factor_refs, ann_factor)
+            .map_err(core_to_js)?;
 
     let obj = js_sys::Object::new();
     js_sys::Reflect::set(&obj, &"alpha".into(), &result.alpha.into())

@@ -58,7 +58,6 @@ pub use rate_conversions::{
 
 // FX settlement
 pub use fx_settlement::{
-    add_joint_business_days as addJointBusinessDays,
-    adjust_joint_calendar as adjustJointCalendar, can_resolve_calendar as canResolveCalendar,
-    roll_spot_date as rollSpotDate,
+    add_joint_business_days as addJointBusinessDays, adjust_joint_calendar as adjustJointCalendar,
+    can_resolve_calendar as canResolveCalendar, roll_spot_date as rollSpotDate,
 };

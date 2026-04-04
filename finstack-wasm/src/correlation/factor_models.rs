@@ -304,12 +304,13 @@ impl JsMultiFactorModel {
         volatilities: Vec<f64>,
         correlations: Vec<f64>,
     ) -> Result<JsMultiFactorModel, JsValue> {
-        let inner = MultiFactorModel::new(num_factors, volatilities, correlations).map_err(|e| {
-            js_error_with_kind(
-                ErrorKind::Validation,
-                format!("Invalid correlation matrix: {e}"),
-            )
-        })?;
+        let inner =
+            MultiFactorModel::new(num_factors, volatilities, correlations).map_err(|e| {
+                js_error_with_kind(
+                    ErrorKind::Validation,
+                    format!("Invalid correlation matrix: {e}"),
+                )
+            })?;
         Ok(JsMultiFactorModel { inner })
     }
 

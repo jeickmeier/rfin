@@ -16,6 +16,7 @@ from .merton import MertonAssetDynamics, MertonBarrierType, MertonModel
 from .endogenous_hazard import EndogenousHazardSpec
 from .dynamic_recovery import DynamicRecoverySpec
 from .toggle_exercise import ToggleExerciseModel
+from .tree_config import TreeModelChoice, TreePricerConfig, TreePricer
 
 class CallScheduleItem(TypedDict):
     date: datetime.date
@@ -127,6 +128,21 @@ class BondBuilder:
     def float_margin_bp(self, margin_bp: float) -> BondBuilder: ...
     def float_gearing(self, gearing: float) -> BondBuilder: ...
     def float_reset_lag_days(self, lag_days: int) -> BondBuilder: ...
+    def tree_steps(self, steps: int) -> BondBuilder:
+        """Set number of tree time steps for OAS pricing (default: 100)."""
+        ...
+    def tree_volatility(self, vol: float) -> BondBuilder:
+        """Set short rate volatility for tree pricing (annualized)."""
+        ...
+    def mean_reversion(self, kappa: float | None = ...) -> BondBuilder:
+        """Set mean reversion speed for Hull-White extension."""
+        ...
+    def call_friction_cents(self, cents: float | None = ...) -> BondBuilder:
+        """Set call exercise friction in cents per 100 of par."""
+        ...
+    def tree_model(self, model: TreeModelChoice | None = ...) -> BondBuilder:
+        """Set the short-rate model choice for tree pricing."""
+        ...
     def build(self) -> "Bond": ...
 
 class Bond:
@@ -187,6 +203,56 @@ class Bond:
         discount_rate: float,
         as_of: datetime.date,
     ) -> MertonMcResult: ...
+    def calculate_oas(
+        self,
+        market: MarketContext,
+        as_of: datetime.date,
+        clean_price_pct: float,
+        config: TreePricerConfig | None = None,
+    ) -> float:
+        """Calculate OAS using a tree pricer.
+
+        Parameters
+        ----------
+        market
+            Market data including discount and optionally hazard curves.
+        as_of
+            Valuation date.
+        clean_price_pct
+            Market clean price as percentage of par (e.g., 98.5).
+        config
+            Tree pricer configuration. If ``None``, uses bond pricing
+            overrides or default config.
+
+        Returns
+        -------
+        float
+            OAS in basis points.
+        """
+        ...
+    def price_from_oas(
+        self,
+        market: MarketContext,
+        as_of: datetime.date,
+        oas_decimal: float,
+    ) -> float:
+        """Price the bond at a given OAS using the short-rate tree.
+
+        Parameters
+        ----------
+        market
+            Market data.
+        as_of
+            Valuation date.
+        oas_decimal
+            OAS in decimal form (e.g., 0.015 = 150 bp).
+
+        Returns
+        -------
+        float
+            Dirty price in currency units.
+        """
+        ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
 
@@ -207,4 +273,7 @@ __all__ = [
     "EndogenousHazardSpec",
     "DynamicRecoverySpec",
     "ToggleExerciseModel",
+    "TreeModelChoice",
+    "TreePricerConfig",
+    "TreePricer",
 ]

@@ -93,9 +93,7 @@ impl JsLeaseSpec {
     /// Validate the lease specification.
     #[wasm_bindgen]
     pub fn validate(&self) -> Result<(), JsValue> {
-        self.inner
-            .validate()
-            .map_err(|e| js_error(e.to_string()))
+        self.inner.validate().map_err(|e| js_error(e.to_string()))
     }
 
     /// Convert to string representation.
@@ -146,7 +144,10 @@ impl JsRentStepSpec {
     /// Convert to string representation.
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
-        format!("RentStepSpec(start={}, rent={:.2})", self.inner.start, self.inner.rent)
+        format!(
+            "RentStepSpec(start={}, rent={:.2})",
+            self.inner.start, self.inner.rent
+        )
     }
 }
 
@@ -257,9 +258,7 @@ impl JsRenewalSpec {
     /// Validate the renewal specification.
     #[wasm_bindgen]
     pub fn validate(&self) -> Result<(), JsValue> {
-        self.inner
-            .validate()
-            .map_err(|e| js_error(e.to_string()))
+        self.inner.validate().map_err(|e| js_error(e.to_string()))
     }
 
     /// Convert to string representation.
@@ -413,9 +412,7 @@ impl JsLeaseSpecV2 {
     /// Validate the lease specification.
     #[wasm_bindgen]
     pub fn validate(&self) -> Result<(), JsValue> {
-        self.inner
-            .validate()
-            .map_err(|e| js_error(e.to_string()))
+        self.inner.validate().map_err(|e| js_error(e.to_string()))
     }
 
     /// Convert to string representation.

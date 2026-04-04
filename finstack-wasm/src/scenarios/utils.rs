@@ -67,7 +67,10 @@ pub fn calculate_interpolation_weights(target: f64, knots: Vec<f64>) -> JsValue 
 /// Object with `weights` (array of [index, weight] pairs),
 /// `isExtrapolation` (boolean), and `extrapolationDistance` (number or null)
 #[wasm_bindgen(js_name = calculateInterpolationWeightsWithInfo)]
-pub fn calculate_interpolation_weights_with_info(target: f64, knots: Vec<f64>) -> Result<JsValue, JsValue> {
+pub fn calculate_interpolation_weights_with_info(
+    target: f64,
+    knots: Vec<f64>,
+) -> Result<JsValue, JsValue> {
     let result =
         finstack_scenarios::utils::calculate_interpolation_weights_with_info(target, &knots);
 

@@ -87,7 +87,12 @@ impl JsStructured2D {
     /// Get all values as a flat Float64Array (row-major).
     #[wasm_bindgen(js_name = flatValues)]
     pub fn flat_values(&self) -> js_sys::Float64Array {
-        let flat: Vec<f64> = self.inner.values.iter().flat_map(|r| r.iter().copied()).collect();
+        let flat: Vec<f64> = self
+            .inner
+            .values
+            .iter()
+            .flat_map(|r| r.iter().copied())
+            .collect();
         js_sys::Float64Array::from(flat.as_slice())
     }
 

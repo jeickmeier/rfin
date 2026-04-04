@@ -515,12 +515,18 @@ impl JsLevenbergMarquardtSolver {
         let bounds_vec: Option<Vec<(f64, f64)>> = match (bounds_low, bounds_high) {
             (Some(lo), Some(hi)) => {
                 if lo.len() != hi.len() || lo.len() != initial.len() {
-                    return Err(js_error("Bounds arrays must match initial parameter length"));
+                    return Err(js_error(
+                        "Bounds arrays must match initial parameter length",
+                    ));
                 }
                 Some(lo.into_iter().zip(hi).collect())
             }
             (None, None) => None,
-            _ => return Err(js_error("Both boundsLow and boundsHigh must be provided, or neither")),
+            _ => {
+                return Err(js_error(
+                    "Both boundsLow and boundsHigh must be provided, or neither",
+                ))
+            }
         };
 
         let obj_wrapper = |params: &[f64]| -> f64 {
@@ -548,7 +554,10 @@ impl JsLevenbergMarquardtSolver {
     pub fn to_string(&self) -> String {
         format!(
             "LevenbergMarquardtSolver(tolerance={}, maxIterations={}, lambdaInit={}, fdStep={})",
-            self.inner.tolerance, self.inner.max_iterations, self.inner.lambda_init, self.inner.fd_step
+            self.inner.tolerance,
+            self.inner.max_iterations,
+            self.inner.lambda_init,
+            self.inner.fd_step
         )
     }
 }
