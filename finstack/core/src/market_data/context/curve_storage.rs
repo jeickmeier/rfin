@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use crate::market_data::bumps::{BumpSpec, BumpType, Bumpable};
 use crate::market_data::term_structures::{
-    BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
-    VolatilityIndexCurve,
+    BaseCorrelationCurve, BasisSpreadCurve, DiscountCurve, ForwardCurve, HazardCurve,
+    InflationCurve, ParametricCurve, PriceCurve, VolatilityIndexCurve,
 };
 use crate::types::CurveId;
 use crate::Result;
@@ -28,7 +28,9 @@ macro_rules! for_each_context_curve {
                 type_name: "BaseCorrelation"
             },
             Price => { accessor: price, is_accessor: is_price, ty: PriceCurve, type_name: "Price" },
-            VolIndex => { accessor: vol_index, is_accessor: is_vol_index, ty: VolatilityIndexCurve, type_name: "VolIndex" }
+            VolIndex => { accessor: vol_index, is_accessor: is_vol_index, ty: VolatilityIndexCurve, type_name: "VolIndex" },
+            BasisSpread => { accessor: basis_spread, is_accessor: is_basis_spread, ty: BasisSpreadCurve, type_name: "BasisSpread" },
+            Parametric => { accessor: parametric, is_accessor: is_parametric, ty: ParametricCurve, type_name: "Parametric" }
         }
     };
 }
@@ -67,6 +69,8 @@ impl_simple_rebuildable_with_id!(
     InflationCurve,
     VolatilityIndexCurve,
     PriceCurve,
+    BasisSpreadCurve,
+    ParametricCurve,
 );
 
 impl RebuildableWithId for BaseCorrelationCurve {
@@ -162,6 +166,8 @@ impl CurveStorage {
             Self::BaseCorrelation(curve) => Ok(Self::BaseCorrelation(Arc::clone(curve))),
             Self::Price(curve) => Ok(Self::Price(Arc::new(curve.roll_forward(days)?))),
             Self::VolIndex(curve) => Ok(Self::VolIndex(Arc::new(curve.roll_forward(days)?))),
+            Self::BasisSpread(curve) => Ok(Self::BasisSpread(Arc::new(curve.roll_forward(days)?))),
+            Self::Parametric(curve) => Ok(Self::Parametric(Arc::clone(curve))),
         }
     }
 
@@ -313,6 +319,14 @@ impl CurveStorage {
                 *self = Self::Price(Arc::new(curve));
                 Ok(())
             }
+            Self::BasisSpread(_) => Err(crate::error::InputError::UnsupportedBump {
+                reason: "BasisSpreadCurve does not support bumping".to_string(),
+            }
+            .into()),
+            Self::Parametric(_) => Err(crate::error::InputError::UnsupportedBump {
+                reason: "ParametricCurve does not support bumping".to_string(),
+            }
+            .into()),
         }
     }
 }

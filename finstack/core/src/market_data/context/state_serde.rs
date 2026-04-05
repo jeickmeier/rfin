@@ -18,8 +18,8 @@ use crate::market_data::{
     scalars::{InflationIndex, MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
     term_structures::{
-        BaseCorrelationCurve, DiscountCurve, ForwardCurve, HazardCurve, InflationCurve, PriceCurve,
-        VolatilityIndexCurve,
+        BaseCorrelationCurve, BasisSpreadCurve, DiscountCurve, ForwardCurve, HazardCurve,
+        InflationCurve, ParametricCurve, PriceCurve, VolatilityIndexCurve,
     },
 };
 use crate::money::fx::{
@@ -73,6 +73,8 @@ impl CurveStorage {
             Self::BaseCorrelation(curve) => CurveState::BaseCorrelation((**curve).clone()),
             Self::Price(curve) => CurveState::Price((**curve).clone()),
             Self::VolIndex(curve) => CurveState::VolIndex((**curve).clone()),
+            Self::BasisSpread(curve) => CurveState::BasisSpread((**curve).clone()),
+            Self::Parametric(curve) => CurveState::Parametric((**curve).clone()),
         }
     }
 
@@ -88,6 +90,8 @@ impl CurveStorage {
             CurveState::BaseCorrelation(curve) => Self::BaseCorrelation(Arc::new(curve)),
             CurveState::Price(curve) => Self::Price(Arc::new(curve)),
             CurveState::VolIndex(curve) => Self::VolIndex(Arc::new(curve)),
+            CurveState::BasisSpread(curve) => Self::BasisSpread(Arc::new(curve)),
+            CurveState::Parametric(curve) => Self::Parametric(Arc::new(curve)),
         }
     }
 }

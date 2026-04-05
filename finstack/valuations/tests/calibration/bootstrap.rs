@@ -121,6 +121,8 @@ fn run_discount_plan(base_date: Date, quotes: Vec<MarketQuote>) -> DiscountCurve
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
+                toy_adjustment: None,
+                hull_white_curve_id: None,
             }),
         }],
     };
@@ -290,6 +292,8 @@ fn discount_curve_global_solve_smoke_v2() {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
+                toy_adjustment: None,
+                hull_white_curve_id: None,
             }),
         }],
     };

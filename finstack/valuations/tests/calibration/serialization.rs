@@ -78,6 +78,8 @@ fn envelope_v2_roundtrips() {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
+                toy_adjustment: None,
+                hull_white_curve_id: None,
             }),
         }],
     };
@@ -108,6 +110,8 @@ fn step_params_v2_roundtrip_for_all_variants() {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: Default::default(),
+        toy_adjustment: None,
+        hull_white_curve_id: None,
     });
     let _ = roundtrip_json(&discount);
 

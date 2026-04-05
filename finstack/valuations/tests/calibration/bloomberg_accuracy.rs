@@ -373,6 +373,8 @@ fn test_bloomberg_usd_ois_calibration_accuracy() {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: finstack_valuations::calibration::RatesStepConventions {
+            toy_adjustment: None,
+            hull_white_curve_id: None,
             curve_day_count: Some(DayCount::Act365F),
         },
     };
@@ -506,6 +508,8 @@ fn test_interpolation_method_comparison() {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: Default::default(),
+        toy_adjustment: None,
+        hull_white_curve_id: None,
     };
     let (mc_ctx, mc_report) = execute_step(
         &StepParams::Discount(mc_params),
@@ -529,6 +533,8 @@ fn test_interpolation_method_comparison() {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: Default::default(),
+        toy_adjustment: None,
+        hull_white_curve_id: None,
     };
     let (ll_ctx, ll_report) = execute_step(
         &StepParams::Discount(ll_params),

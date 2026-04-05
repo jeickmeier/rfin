@@ -46,6 +46,12 @@ fn market_reference_date(market: &MarketContext) -> Option<Date> {
         finstack_core::market_data::context::CurveState::Price(curve) => Some(curve.base_date()),
         finstack_core::market_data::context::CurveState::VolIndex(curve) => Some(curve.base_date()),
         finstack_core::market_data::context::CurveState::BaseCorrelation(_) => None,
+        finstack_core::market_data::context::CurveState::BasisSpread(curve) => {
+            Some(curve.base_date())
+        }
+        finstack_core::market_data::context::CurveState::Parametric(curve) => {
+            Some(curve.base_date_value())
+        }
     })
 }
 

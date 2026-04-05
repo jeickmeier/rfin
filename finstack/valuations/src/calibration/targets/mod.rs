@@ -23,6 +23,8 @@ pub mod forward;
 pub mod hazard;
 /// Inflation curve bootstrapping from inflation swap quotes.
 pub mod inflation;
+/// Nelson-Siegel / Nelson-Siegel-Svensson parametric curve calibration.
+pub mod parametric;
 /// Student-t copula degrees of freedom calibration.
 pub mod student_t;
 /// SVI volatility surface calibration.
@@ -33,3 +35,5 @@ pub mod swaption;
 pub mod util;
 /// Option volatility surface calibration.
 pub mod vol;
+/// Cross-currency basis curve bootstrapping.
+pub mod xccy_basis;

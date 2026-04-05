@@ -750,3 +750,85 @@ pub struct RatesStepConventions {
     #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
     pub curve_day_count: Option<finstack_core::dates::DayCount>,
 }
+
+// =============================================================================
+// Turn-of-Year (TOY) adjustments
+// =============================================================================
+
+/// Turn-of-year adjustment for discount curve calibration.
+///
+/// Models the funding basis jumps that occur around year-end due to
+/// regulatory reporting (Basel III leverage ratio snapshot dates),
+/// accounting window-dressing, and balance-sheet management.
+///
+/// The adjustment adds a step function to the instantaneous forward
+/// rate curve over the specified windows.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToyAdjustment {
+    /// One or more year-end windows where the jump is applied.
+    pub windows: Vec<ToyWindow>,
+}
+
+/// A single turn-of-year window defining the jump period and magnitude.
+///
+/// The jump is applied as an additive spread to the instantaneous
+/// forward rate over the window `[start_date, end_date]`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToyWindow {
+    /// Start date of the window (e.g. mid-December).
+    pub start_date: finstack_core::dates::Date,
+    /// End date of the window (e.g. early January).
+    pub end_date: finstack_core::dates::Date,
+    /// Jump magnitude in rate terms (e.g. 0.0050 for 50bp).
+    ///
+    /// Positive values increase the forward rate (reduce the discount factor)
+    /// over the window.
+    pub jump_bp: f64,
+}
+
+impl ToyAdjustment {
+    /// Apply turn-of-year adjustments to a discount factor.
+    ///
+    /// For each window that overlaps `[0, t]`, the discount factor is
+    /// adjusted by `exp(-jump * overlap_years)` where `overlap_years` is
+    /// the fraction of the window that falls within `[0, t]`.
+    ///
+    /// # Arguments
+    /// * `df` - Unadjusted discount factor at time `t`
+    /// * `base_date` - Anchor date for time calculations
+    /// * `t` - Time in years from base_date
+    /// * `dc` - Day count for converting dates to year fractions
+    pub fn adjust_df(
+        &self,
+        df: f64,
+        base_date: finstack_core::dates::Date,
+        t: f64,
+        dc: finstack_core::dates::DayCount,
+    ) -> f64 {
+        let mut adj = df;
+        for w in &self.windows {
+            let t_start = dc
+                .year_fraction(
+                    base_date,
+                    w.start_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            let t_end = dc
+                .year_fraction(
+                    base_date,
+                    w.end_date,
+                    finstack_core::dates::DayCountCtx::default(),
+                )
+                .unwrap_or(0.0);
+            // Overlap of the window with [0, t]
+            let overlap_start = t_start.max(0.0);
+            let overlap_end = t_end.min(t);
+            if overlap_end > overlap_start {
+                let overlap = overlap_end - overlap_start;
+                adj *= (-w.jump_bp * overlap).exp();
+            }
+        }
+        adj
+    }
+}

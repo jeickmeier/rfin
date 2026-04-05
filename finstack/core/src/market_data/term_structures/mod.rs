@@ -108,6 +108,8 @@
 
 /// Base correlation curves for CDS tranche pricing.
 mod base_correlation;
+/// Basis spread curves for cross-currency frameworks.
+mod basis_spread_curve;
 /// Internal shared helpers for 1D curves (not exported publicly).
 pub(crate) mod common;
 /// Credit index aggregates for CDS tranche pricing and credit derivatives.
@@ -126,6 +128,8 @@ pub mod forward_variance;
 mod hazard_curve;
 /// Real/Breakeven inflation curves.
 mod inflation;
+/// Nelson-Siegel and Nelson-Siegel-Svensson parametric yield curves.
+mod parametric_curve;
 /// Forward price curves (commodities, indices).
 mod price_curve;
 /// Volatility index forward curves (VIX, VXN, VSTOXX).
@@ -136,6 +140,7 @@ pub use base_correlation::{
     ArbitrageCheckResult, ArbitrageViolation, BaseCorrelationCurve, BaseCorrelationCurveBuilder,
     SmoothingMethod,
 };
+pub use basis_spread_curve::{BasisSpreadCurve, BasisSpreadCurveBuilder};
 pub use credit_index::{CreditIndexData, CreditIndexDataBuilder};
 pub use discount_curve::{DiscountCurve, DiscountCurveBuilder, DEFAULT_MIN_FORWARD_TENOR};
 pub use flat::FlatCurve;
@@ -143,5 +148,6 @@ pub use forward_curve::{ForwardCurve, ForwardCurveBuilder};
 pub use forward_variance::ForwardVarianceCurve;
 pub use hazard_curve::{HazardCurve, HazardCurveBuilder, ParInterp, Seniority};
 pub use inflation::{InflationCurve, InflationCurveBuilder};
+pub use parametric_curve::{NelsonSiegelModel, NsVariant, ParametricCurve, ParametricCurveBuilder};
 pub use price_curve::{PriceCurve, PriceCurveBuilder};
 pub use vol_index_curve::{VolatilityIndexCurve, VolatilityIndexCurveBuilder};

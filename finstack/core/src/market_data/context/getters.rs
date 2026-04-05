@@ -20,8 +20,8 @@ use crate::market_data::{
     scalars::{MarketScalar, ScalarTimeSeries},
     surfaces::{FxDeltaVolSurface, VolSurface},
     term_structures::{
-        BaseCorrelationCurve, CreditIndexData, DiscountCurve, ForwardCurve, HazardCurve,
-        InflationCurve, PriceCurve, VolatilityIndexCurve,
+        BaseCorrelationCurve, BasisSpreadCurve, CreditIndexData, DiscountCurve, ForwardCurve,
+        HazardCurve, InflationCurve, ParametricCurve, PriceCurve, VolatilityIndexCurve,
     },
 };
 
@@ -191,6 +191,34 @@ impl MarketContext {
     pub fn get_price_curve(&self, id: impl AsRef<str>) -> Result<Arc<PriceCurve>> {
         let id_str = id.as_ref();
         self.get_curve_with_type_check(id_str, "Price", |storage| storage.price().map(Arc::clone))
+    }
+
+    /// Get a basis spread curve by identifier.
+    ///
+    /// Basis spread curves store cross-currency or multi-curve spread data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a different curve type.
+    pub fn get_basis_spread(&self, id: impl AsRef<str>) -> Result<Arc<BasisSpreadCurve>> {
+        let id_str = id.as_ref();
+        self.get_curve_with_type_check(id_str, "BasisSpread", |storage| {
+            storage.basis_spread().map(Arc::clone)
+        })
+    }
+
+    /// Get a parametric curve by identifier.
+    ///
+    /// Parametric curves use Nelson-Siegel or Nelson-Siegel-Svensson models.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the identifier is missing or refers to a different curve type.
+    pub fn get_parametric(&self, id: impl AsRef<str>) -> Result<Arc<ParametricCurve>> {
+        let id_str = id.as_ref();
+        self.get_curve_with_type_check(id_str, "Parametric", |storage| {
+            storage.parametric().map(Arc::clone)
+        })
     }
 
     /// Clone a volatility surface by identifier.

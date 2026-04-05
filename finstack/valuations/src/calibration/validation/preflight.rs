@@ -58,6 +58,8 @@ pub fn preflight_step(
         StepParams::StudentT(p) => validate_student_t_step(p, quotes, context),
         StepParams::HullWhite(_) => Ok(()), // HW1F calibration validates quotes at execution time
         StepParams::SviSurface(p) => validate_svi_surface_step(p, context),
+        StepParams::XccyBasis(p) => validate_xccy_basis_step(p, context),
+        StepParams::Parametric(_) => Ok(()), // Parametric curves validate at execution time
     }
 }
 
@@ -159,6 +161,21 @@ fn validate_svi_surface_step(
     }
     if let Some(discount_curve_id) = &p.discount_curve_id {
         let _ = context.get_discount(discount_curve_id)?;
+    }
+    Ok(())
+}
+
+/// Validate cross-currency basis curve calibration step.
+fn validate_xccy_basis_step(
+    p: &crate::calibration::api::schema::XccyBasisParams,
+    context: &MarketContext,
+) -> Result<()> {
+    let _ = context.get_discount(&p.domestic_discount_id)?;
+    if !p.fx_spot.is_finite() || p.fx_spot <= 0.0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "XCCY basis step fx_spot must be finite and positive; got {}",
+            p.fx_spot
+        )));
     }
     Ok(())
 }
@@ -559,6 +576,8 @@ mod tests {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
+                toy_adjustment: None,
+                hull_white_curve_id: None,
             }),
         }
     }

@@ -64,6 +64,8 @@ fn bench_discount_and_forward_steps(c: &mut Criterion) {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: Default::default(),
+        toy_adjustment: None,
+        hull_white_curve_id: None,
     });
 
     // Forward curve inputs
@@ -205,6 +207,8 @@ fn bench_residual_normalization(c: &mut Criterion) {
             pricing_discount_id: None,
             pricing_forward_id: None,
             conventions: Default::default(),
+            toy_adjustment: None,
+            hull_white_curve_id: None,
         });
         b.iter(|| {
             let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();
@@ -242,6 +246,8 @@ fn bench_residual_normalization(c: &mut Criterion) {
             pricing_discount_id: None,
             pricing_forward_id: None,
             conventions: Default::default(),
+            toy_adjustment: None,
+            hull_white_curve_id: None,
         });
         b.iter(|| {
             let mut quote_sets: HashMap<String, Vec<MarketQuote>> = HashMap::default();

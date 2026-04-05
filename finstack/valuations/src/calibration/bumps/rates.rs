@@ -207,6 +207,8 @@ pub fn bump_discount_curve_synthetic(
         conventions: RatesStepConventions {
             curve_day_count: Some(DayCount::Act365F),
         },
+        toy_adjustment: None,
+        hull_white_curve_id: None,
     };
 
     bump_discount_curve(&quotes, &params, context, bump)

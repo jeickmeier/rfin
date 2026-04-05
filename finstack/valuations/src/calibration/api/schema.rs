@@ -10,7 +10,9 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::BusinessDayConvention;
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::market_data::context::MarketContextState;
-use finstack_core::market_data::term_structures::{ParInterp, Seniority};
+use finstack_core::market_data::term_structures::{
+    NelsonSiegelModel, NsVariant, ParInterp, Seniority,
+};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::types::{CurveId, IndexId};
 use finstack_core::HashMap;
@@ -139,6 +141,12 @@ pub enum StepParams {
 
     /// SVI volatility surface calibration.
     SviSurface(SviSurfaceParams),
+
+    /// Cross-currency basis curve calibration.
+    XccyBasis(XccyBasisParams),
+
+    /// Parametric (Nelson-Siegel / NSS) curve calibration.
+    Parametric(ParametricCurveParams),
 }
 
 // =============================================================================
@@ -174,6 +182,22 @@ pub struct DiscountCurveParams {
     /// Step-level conventions for pricing and curve time axis.
     #[serde(default)]
     pub conventions: RatesStepConventions,
+
+    /// Optional turn-of-year adjustment applied to the constructed discount curve.
+    ///
+    /// When present, year-end funding jumps are modeled as additive forward rate
+    /// step functions over the specified windows. The adjustment is applied as a
+    /// post-calibration modification to the discount factors.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub toy_adjustment: Option<crate::calibration::config::ToyAdjustment>,
+
+    /// Optional Hull-White curve ID for computing futures convexity adjustments.
+    ///
+    /// When present, the calibrator will look up pre-calibrated HW1F parameters
+    /// (κ, σ) from the market context to compute convexity adjustments for any
+    /// futures quotes that do not already have an explicit `convexity_adjustment`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hull_white_curve_id: Option<CurveId>,
 }
 
 /// Parameters for forward curve calibration step.
@@ -660,4 +684,67 @@ fn default_unit_notional() -> f64 {
 
 fn default_sabr_beta() -> f64 {
     0.5
+}
+
+// =============================================================================
+// XCCY Basis Curve
+// =============================================================================
+
+/// Parameters for cross-currency basis curve calibration step.
+///
+/// Derives a foreign-currency discount curve from a domestic OIS curve,
+/// FX spot rate, and cross-currency basis swap or FX forward quotes.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct XccyBasisParams {
+    /// Identifier for the foreign discount curve being built.
+    pub curve_id: CurveId,
+    /// Foreign currency being calibrated.
+    pub currency: Currency,
+    /// Base date for the curve.
+    pub base_date: Date,
+    /// FX spot rate (domestic per foreign).
+    pub fx_spot: f64,
+    /// Identifier for the pre-calibrated domestic discount curve.
+    pub domestic_discount_id: CurveId,
+    /// Calibration method to use.
+    #[serde(default)]
+    pub method: CalibrationMethod,
+    /// Interpolation style for the foreign curve.
+    #[serde(default = "default_interp_linear")]
+    pub interpolation: InterpStyle,
+    /// Extrapolation policy for the foreign curve.
+    #[serde(default = "default_extrap_flat")]
+    pub extrapolation: ExtrapolationPolicy,
+    /// Step-level conventions for pricing and curve time axis.
+    #[serde(default)]
+    pub conventions: RatesStepConventions,
+    /// Optional ID for the byproduct basis spread curve.
+    #[serde(default)]
+    pub basis_spread_curve_id: Option<CurveId>,
+}
+
+// =============================================================================
+// Parametric (NS / NSS) Curve
+// =============================================================================
+
+/// Parameters for parametric curve calibration step.
+///
+/// Fits a Nelson-Siegel or Nelson-Siegel-Svensson yield curve model to
+/// rate instrument quotes using global (Levenberg-Marquardt) optimization.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ParametricCurveParams {
+    /// Identifier for the parametric curve being built.
+    pub curve_id: CurveId,
+    /// Base date for the curve.
+    pub base_date: Date,
+    /// Nelson-Siegel variant (NS or NSS).
+    pub model: NsVariant,
+    /// Optional separate discount curve ID for multi-curve instrument pricing.
+    #[serde(default)]
+    pub discount_curve_id: Option<CurveId>,
+    /// Optional initial parameter guesses.
+    #[serde(default)]
+    pub initial_params: Option<NelsonSiegelModel>,
 }

@@ -9,10 +9,12 @@ use crate::calibration::targets::discount::DiscountCurveTarget;
 use crate::calibration::targets::forward::ForwardCurveTarget;
 use crate::calibration::targets::hazard::HazardCurveTarget;
 use crate::calibration::targets::inflation::InflationCurveTarget;
+use crate::calibration::targets::parametric::ParametricCurveTarget;
 use crate::calibration::targets::student_t::StudentTTarget;
 use crate::calibration::targets::svi::SviSurfaceTarget;
 use crate::calibration::targets::swaption::SwaptionVolTarget;
 use crate::calibration::targets::vol::VolSurfaceTarget;
+use crate::calibration::targets::xccy_basis::XccyBasisTarget;
 use crate::calibration::validation::ValidationMode;
 use crate::calibration::{CalibrationReport, CurveValidator, SurfaceValidator};
 use crate::market::quotes::market_quote::MarketQuote;
@@ -84,6 +86,8 @@ pub(crate) fn output_key(step: &CalibrationStep) -> OutputKey {
         }
         StepParams::HullWhite(p) => OutputKey::Scalar(format!("{}_HW1F", p.curve_id.as_str())),
         StepParams::SviSurface(p) => OutputKey::Surface(CurveId::from(p.surface_id.as_str())),
+        StepParams::XccyBasis(p) => OutputKey::Curve(p.curve_id.clone()),
+        StepParams::Parametric(p) => OutputKey::Curve(p.curve_id.clone()),
     }
 }
 
@@ -354,6 +358,40 @@ pub(crate) fn execute_params(
             let (surface, report) = SviSurfaceTarget::solve(p, quotes, context, global_config)?;
             Ok(StepOutcome {
                 output: StepOutput::Surface(surface.into()),
+                credit_index_update: None,
+                report,
+            })
+        }
+        StepParams::XccyBasis(p) => {
+            let (ctx, report) = XccyBasisTarget::solve(p, quotes, context, global_config)?;
+            let curve = ctx.get_discount(&p.curve_id)?;
+            let output = StepOutput::Curve(curve.clone().into());
+            let report = attach_validation_result(
+                report,
+                curve.validate(&global_config.validation),
+                global_config,
+            );
+            // Also insert basis spread curve if present
+            let final_output = output;
+            if let Some(ref spread_id) = p.basis_spread_curve_id {
+                if let Ok(spread) = ctx.get_basis_spread(spread_id) {
+                    // The primary output is the discount curve; the spread is
+                    // a side-effect written directly to context by the target.
+                    let _ = spread;
+                }
+            }
+            Ok(StepOutcome {
+                output: final_output,
+                credit_index_update: None,
+                report,
+            })
+        }
+        StepParams::Parametric(p) => {
+            let (ctx, report) = ParametricCurveTarget::solve(p, quotes, context, global_config)?;
+            let curve = ctx.get_parametric(&p.curve_id)?;
+            let output = StepOutput::Curve(curve.clone().into());
+            Ok(StepOutcome {
+                output,
                 credit_index_update: None,
                 report,
             })
