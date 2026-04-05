@@ -297,6 +297,10 @@ impl PyModelKey {
     const ROUGH_HESTON_FOURIER: Self = Self::new(ModelKey::RoughHestonFourier);
     #[classattr]
     const MONTE_CARLO_CHEYETTE_ROUGH_VOL: Self = Self::new(ModelKey::MonteCarloCheyetteRoughVol);
+    #[classattr]
+    const PDE_CRANK_NICOLSON_1D: Self = Self::new(ModelKey::PdeCrankNicolson1D);
+    #[classattr]
+    const PDE_ADI_2D: Self = Self::new(ModelKey::PdeAdi2D);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]

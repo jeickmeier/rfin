@@ -10,6 +10,7 @@
 //!   Asian, Barrier, Lookback, Quanto, Heston)
 //! - [`volatility`]: Volatility models (SABR) and Black-Scholes helper functions
 //! - [`trees`]: Tree-based methods (Binomial, Trinomial, Multi-factor, Short-rate)
+//! - [`pde`]: Finite difference PDE methods (1D Crank-Nicolson, 2D Craig-Sneyd ADI, Heston, American penalty)
 //! - [`correlation`]: Shared correlation infrastructure (copulas, recovery models, factor models)
 
 #![allow(dead_code, unused_imports)]
@@ -17,6 +18,7 @@
 pub mod closed_form;
 pub use finstack_correlation as correlation;
 pub mod credit;
+pub mod pde;
 pub mod trees;
 pub mod volatility;
 
@@ -39,6 +41,11 @@ pub use correlation::{
     CorrelatedRecovery, FactorModel, FactorSpec, GaussianCopula, MultiFactorCopula,
     RandomFactorLoadingCopula, RecoveryModel, RecoverySpec, SingleFactorModel, StudentTCopula,
     TwoFactorModel,
+};
+#[allow(unused_imports)]
+pub use pde::{
+    BlackScholesPde, BoundaryCondition, CraigSneydStepper, Grid1D, Grid2D, HestonPde, PdeProblem1D,
+    PdeProblem2D, PdeSolution, PdeSolution2D, Solver1D, Solver2D,
 };
 #[allow(unused_imports)]
 pub use trees::{

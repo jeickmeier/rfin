@@ -1,0 +1,280 @@
+//! Feynman-Kac bridge for the Heston stochastic volatility model.
+//!
+//! Converts Heston model parameters into a [`PdeProblem2D`] for pricing via
+//! ADI finite differences. Works in log-spot (`x = ln S`) and variance
+//! (`y = v`) coordinates:
+//!
+//! ```text
+//! du/dt = 0.5 v d²u/dx² + 0.5 σ_v² v d²u/dy² + ρ σ_v v d²u/(dx dy)
+//!       + (r - q - 0.5 v) du/dx + κ(θ - v) du/dy - r u
+//! ```
+//!
+//! # Boundary Conditions
+//!
+//! - **x-lower** (deep OTM): Dirichlet(0) for calls, Linear for puts
+//! - **x-upper** (deep ITM): Linear for calls, Dirichlet(0) for puts
+//! - **v-lower** (v → 0): reduces to 1D PDE `du/dt = (r-q)·du/dx + κθ·du/dv - r·u`;
+//!   handled via Linear extrapolation
+//! - **v-upper** (v → ∞): Linear extrapolation (option value becomes insensitive)
+//!
+//! # References
+//!
+//! - Heston, S. L. (1993). "A Closed-Form Solution for Options with Stochastic
+//!   Volatility." *Review of Financial Studies*, 6(2), 327-343.
+//! - In 't Hout, K. J. & Foulon, S. (2010). "ADI finite difference schemes for
+//!   option pricing in the Heston model with correlation." *Int. J. of Numerical
+//!   Analysis and Modeling*, 7(2).
+
+use super::boundary::BoundaryCondition;
+use super::problem2d::PdeProblem2D;
+
+/// Heston PDE in log-spot / variance coordinates.
+///
+/// # Fields
+///
+/// All parameters follow the conventions in [`finstack_valuations::HestonParams`].
+pub struct HestonPde {
+    /// Risk-free interest rate (continuous, decimal).
+    pub r: f64,
+    /// Continuous dividend yield (decimal).
+    pub q: f64,
+    /// Mean reversion speed of variance.
+    pub kappa: f64,
+    /// Long-run variance level (θ).
+    pub theta_v: f64,
+    /// Volatility of variance (σ_v).
+    pub sigma_v: f64,
+    /// Correlation between spot and variance (-1 < ρ < 1).
+    pub rho: f64,
+    /// Strike price.
+    pub strike: f64,
+    /// True for call, false for put.
+    pub is_call: bool,
+}
+
+impl PdeProblem2D for HestonPde {
+    fn diffusion_xx(&self, _x: f64, y: f64, _t: f64) -> f64 {
+        // 0.5 * v
+        0.5 * y.max(0.0)
+    }
+
+    fn diffusion_yy(&self, _x: f64, y: f64, _t: f64) -> f64 {
+        // 0.5 * σ_v² * v
+        0.5 * self.sigma_v * self.sigma_v * y.max(0.0)
+    }
+
+    fn mixed_diffusion(&self, _x: f64, y: f64, _t: f64) -> f64 {
+        // ρ * σ_v * v
+        self.rho * self.sigma_v * y.max(0.0)
+    }
+
+    fn convection_x(&self, _x: f64, y: f64, _t: f64) -> f64 {
+        // r - q - 0.5 * v
+        self.r - self.q - 0.5 * y.max(0.0)
+    }
+
+    fn convection_y(&self, _x: f64, y: f64, _t: f64) -> f64 {
+        // κ(θ - v)
+        self.kappa * (self.theta_v - y)
+    }
+
+    fn reaction(&self, _x: f64, _y: f64, _t: f64) -> f64 {
+        -self.r
+    }
+
+    fn terminal_condition(&self, x: f64, _y: f64) -> f64 {
+        let s = x.exp();
+        if self.is_call {
+            (s - self.strike).max(0.0)
+        } else {
+            (self.strike - s).max(0.0)
+        }
+    }
+
+    fn boundary_x_lower(&self, _y: f64, _t: f64) -> BoundaryCondition {
+        if self.is_call {
+            BoundaryCondition::Dirichlet(0.0) // Deep OTM call
+        } else {
+            BoundaryCondition::Linear // Deep ITM put
+        }
+    }
+
+    fn boundary_x_upper(&self, _y: f64, _t: f64) -> BoundaryCondition {
+        if self.is_call {
+            BoundaryCondition::Linear // Deep ITM call
+        } else {
+            BoundaryCondition::Dirichlet(0.0) // Deep OTM put
+        }
+    }
+
+    fn boundary_y_lower(&self, _x: f64, _t: f64) -> BoundaryCondition {
+        // At v = 0 the PDE degenerates. Linear extrapolation is robust.
+        BoundaryCondition::Linear
+    }
+
+    fn boundary_y_upper(&self, _x: f64, _t: f64) -> BoundaryCondition {
+        // At very high variance, option value is insensitive → linear extrapolation.
+        BoundaryCondition::Linear
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic, clippy::too_many_arguments)]
+mod tests {
+    use super::super::grid::Grid1D;
+    use super::super::grid2d::Grid2D;
+    use super::super::solver2d::Solver2D;
+    use super::*;
+
+    /// Heston Fourier reference price for validation.
+    ///
+    /// Uses the existing analytical implementation for comparison.
+    fn heston_call_reference(
+        spot: f64,
+        strike: f64,
+        maturity: f64,
+        r: f64,
+        q: f64,
+        kappa: f64,
+        theta: f64,
+        sigma_v: f64,
+        rho: f64,
+        v0: f64,
+    ) -> f64 {
+        use crate::instruments::common::models::closed_form::heston::{
+            heston_call_price_fourier, HestonParams,
+        };
+        let params =
+            HestonParams::new(r, q, kappa, theta, sigma_v, rho, v0).expect("valid heston params");
+        heston_call_price_fourier(spot, strike, maturity, &params)
+    }
+
+    #[test]
+    fn heston_pde_vs_fourier_atm() {
+        let spot: f64 = 100.0;
+        let strike = 100.0;
+        let maturity = 1.0;
+        let r = 0.05;
+        let q = 0.02;
+        let kappa = 2.0;
+        let theta_v = 0.04; // 20% vol long-run
+        let sigma_v = 0.3;
+        let rho = -0.7;
+        let v0 = 0.04;
+
+        let exact = heston_call_reference(
+            spot, strike, maturity, r, q, kappa, theta_v, sigma_v, rho, v0,
+        );
+
+        let pde = HestonPde {
+            r,
+            q,
+            kappa,
+            theta_v,
+            sigma_v,
+            rho,
+            strike,
+            is_call: true,
+        };
+
+        // Grid: log-spot concentrated near ln(strike), variance from 0 to 1.0
+        let x_min = (spot * 0.05).ln();
+        let x_max = (spot * 10.0).ln();
+        let v_min = 0.001;
+        let v_max = 1.5;
+
+        let gx =
+            Grid1D::sinh_concentrated(x_min, x_max, 201, spot.ln(), 0.1).expect("valid x-grid");
+        let gy = Grid1D::sinh_concentrated(v_min, v_max, 81, theta_v, 0.15).expect("valid v-grid");
+        let grid = Grid2D::new(gx, gy);
+
+        let solver = Solver2D::builder()
+            .grid(grid)
+            .craig_sneyd_rannacher(4, 400)
+            .build()
+            .expect("valid solver");
+
+        let solution = solver.solve(&pde, maturity);
+        let computed = solution.interpolate(spot.ln(), v0);
+
+        let rel_error = (computed - exact).abs() / exact;
+        assert!(
+            rel_error < 0.02,
+            "Heston PDE vs Fourier: computed={computed:.6}, exact={exact:.6}, rel_err={rel_error:.4e}"
+        );
+    }
+
+    #[test]
+    fn heston_pde_put_call_parity() {
+        let spot: f64 = 100.0;
+        let strike = 105.0;
+        let maturity = 0.5;
+        let r = 0.03;
+        let q = 0.01;
+        let kappa = 1.5;
+        let theta_v = 0.04;
+        let sigma_v = 0.4;
+        let rho = -0.5;
+        let v0 = 0.06;
+
+        let x_min = (spot * 0.1).ln();
+        let x_max = (spot * 5.0).ln();
+        let v_min = 0.001;
+        let v_max = 1.0;
+
+        let gx =
+            Grid1D::sinh_concentrated(x_min, x_max, 121, spot.ln(), 0.1).expect("valid x-grid");
+        let gy = Grid1D::sinh_concentrated(v_min, v_max, 51, theta_v, 0.2).expect("valid v-grid");
+
+        // Solve call
+        let pde_call = HestonPde {
+            r,
+            q,
+            kappa,
+            theta_v,
+            sigma_v,
+            rho,
+            strike,
+            is_call: true,
+        };
+        let grid_call = Grid2D::new(gx.clone(), gy.clone());
+        let solver_call = Solver2D::builder()
+            .grid(grid_call)
+            .craig_sneyd(200)
+            .build()
+            .expect("valid");
+        let sol_call = solver_call.solve(&pde_call, maturity);
+        let call_price = sol_call.interpolate(spot.ln(), v0);
+
+        // Solve put
+        let pde_put = HestonPde {
+            r,
+            q,
+            kappa,
+            theta_v,
+            sigma_v,
+            rho,
+            strike,
+            is_call: false,
+        };
+        let grid_put = Grid2D::new(gx, gy);
+        let solver_put = Solver2D::builder()
+            .grid(grid_put)
+            .craig_sneyd(200)
+            .build()
+            .expect("valid");
+        let sol_put = solver_put.solve(&pde_put, maturity);
+        let put_price = sol_put.interpolate(spot.ln(), v0);
+
+        // Put-call parity: C - P = S*exp(-qT) - K*exp(-rT)
+        let forward_diff = spot * (-q * maturity).exp() - strike * (-r * maturity).exp();
+        let parity_error = (call_price - put_price - forward_diff).abs();
+        let scale = call_price.max(put_price).max(1.0);
+        let rel_parity = parity_error / scale;
+
+        assert!(
+            rel_parity < 0.02,
+            "Put-call parity: C={call_price:.4}, P={put_price:.4}, diff={forward_diff:.4}, error={parity_error:.6e}"
+        );
+    }
+}

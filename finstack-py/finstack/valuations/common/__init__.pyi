@@ -178,6 +178,10 @@ class ModelKey:
     ROUGH_HESTON_FOURIER: ModelKey
     MONTE_CARLO_CHEYETTE_ROUGH_VOL: ModelKey
 
+    # PDE / Finite Difference
+    PDE_CRANK_NICOLSON_1D: ModelKey
+    PDE_ADI_2D: ModelKey
+
     @classmethod
     def from_name(cls, name: str) -> ModelKey:
         """Convert a snake-case label into a pricing model key.

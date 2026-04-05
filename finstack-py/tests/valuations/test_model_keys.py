@@ -71,6 +71,14 @@ class TestModelKeyConstruction:
         """Test HESTON_FOURIER model key."""
         assert ModelKey.HESTON_FOURIER.name == "heston_fourier"
 
+    def test_pde_crank_nicolson_1d(self) -> None:
+        """Test PDE_CRANK_NICOLSON_1D model key."""
+        assert ModelKey.PDE_CRANK_NICOLSON_1D.name == "pde_crank_nicolson_1d"
+
+    def test_pde_adi_2d(self) -> None:
+        """Test PDE_ADI_2D model key."""
+        assert ModelKey.PDE_ADI_2D.name == "pde_adi_2d"
+
 
 class TestModelKeyFromName:
     """Test parsing ModelKey from string names."""
@@ -175,6 +183,31 @@ class TestModelKeyFromName:
         """Test parsing 'heston_analytical' alias."""
         key = ModelKey.from_name("heston_analytical")
         assert key == ModelKey.HESTON_FOURIER
+
+    def test_from_name_pde_crank_nicolson_1d(self) -> None:
+        """Test parsing 'pde_crank_nicolson_1d' string."""
+        key = ModelKey.from_name("pde_crank_nicolson_1d")
+        assert key == ModelKey.PDE_CRANK_NICOLSON_1D
+
+    def test_from_name_pde_cn_alias(self) -> None:
+        """Test parsing 'pde_cn' alias."""
+        key = ModelKey.from_name("pde_cn")
+        assert key == ModelKey.PDE_CRANK_NICOLSON_1D
+
+    def test_from_name_finite_difference_alias(self) -> None:
+        """Test parsing 'finite_difference' alias."""
+        key = ModelKey.from_name("finite_difference")
+        assert key == ModelKey.PDE_CRANK_NICOLSON_1D
+
+    def test_from_name_pde_adi_2d(self) -> None:
+        """Test parsing 'pde_adi_2d' string."""
+        key = ModelKey.from_name("pde_adi_2d")
+        assert key == ModelKey.PDE_ADI_2D
+
+    def test_from_name_craig_sneyd_alias(self) -> None:
+        """Test parsing 'craig_sneyd' alias."""
+        key = ModelKey.from_name("craig_sneyd")
+        assert key == ModelKey.PDE_ADI_2D
 
     def test_from_name_invalid(self) -> None:
         """Test that invalid model name raises ValueError."""

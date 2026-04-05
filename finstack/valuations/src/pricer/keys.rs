@@ -489,6 +489,18 @@ pub enum ModelKey {
     /// Used for: swaptions and exotic rate derivatives requiring
     /// rough vol dynamics in a short-rate framework.
     MonteCarloCheyetteRoughVol = 43,
+    /// 1D Crank-Nicolson finite difference PDE solver.
+    ///
+    /// Used for: European/American equity options, barrier options,
+    /// FX options. Supports Rannacher smoothing and penalty method
+    /// for early exercise.
+    PdeCrankNicolson1D = 50,
+    /// 2D ADI (Craig-Sneyd) finite difference PDE solver.
+    ///
+    /// Used for: Heston stochastic volatility, local-stochastic vol,
+    /// and other 2D pricing problems. Splits the 2D PDE into
+    /// directional tridiagonal sweeps with explicit cross-derivative.
+    PdeAdi2D = 51,
 }
 
 impl ModelKey {
@@ -538,6 +550,8 @@ impl std::fmt::Display for ModelKey {
             ModelKey::MonteCarloRoughHeston => "monte_carlo_rough_heston",
             ModelKey::RoughHestonFourier => "rough_heston_fourier",
             ModelKey::MonteCarloCheyetteRoughVol => "monte_carlo_cheyette_rough_vol",
+            ModelKey::PdeCrankNicolson1D => "pde_crank_nicolson_1d",
+            ModelKey::PdeAdi2D => "pde_adi_2d",
         };
         write!(f, "{}", label)
     }
@@ -598,6 +612,12 @@ impl std::str::FromStr for ModelKey {
             }
             "monte_carlo_cheyette_rough_vol" | "mc_cheyette_rough" | "cheyette_rough_vol" => {
                 Ok(ModelKey::MonteCarloCheyetteRoughVol)
+            }
+            "pde_crank_nicolson_1d" | "pde_cn" | "crank_nicolson" | "finite_difference" | "fd" => {
+                Ok(ModelKey::PdeCrankNicolson1D)
+            }
+            "pde_adi_2d" | "adi" | "adi_2d" | "craig_sneyd" | "heston_pde" => {
+                Ok(ModelKey::PdeAdi2D)
             }
             other => Err(format!("Unknown model key: {}", other)),
         }
