@@ -50,7 +50,7 @@ fn market_reference_date(market: &MarketContext) -> Option<Date> {
             Some(curve.base_date())
         }
         finstack_core::market_data::context::CurveState::Parametric(curve) => {
-            Some(curve.base_date_value())
+            Some(curve.base_date())
         }
     })
 }

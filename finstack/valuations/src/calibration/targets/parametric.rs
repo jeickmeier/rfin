@@ -39,12 +39,41 @@ pub struct ParametricCurveTargetParams {
 /// from rate instrument quotes.
 pub struct ParametricCurveTarget {
     params: ParametricCurveTargetParams,
+    /// Pre-computed sample times for building the discount curve proxy.
+    /// Computed once from quote pillars in [`Self::solve`] to avoid
+    /// re-sorting/deduplicating on every LM iteration.
+    sample_times: Vec<f64>,
 }
 
 impl ParametricCurveTarget {
-    /// Create a new parametric curve target.
-    pub fn new(params: ParametricCurveTargetParams) -> Self {
-        Self { params }
+    /// Create a new parametric curve target with pre-computed sample times.
+    pub fn new(params: ParametricCurveTargetParams, sample_times: Vec<f64>) -> Self {
+        Self {
+            params,
+            sample_times,
+        }
+    }
+
+    /// Build the sample time grid from a set of prepared quotes.
+    fn build_sample_times(quotes: &[CalibrationQuote]) -> Vec<f64> {
+        let mut times = vec![0.0];
+        for q in quotes {
+            let t = q.pillar_time();
+            if t > 0.0 {
+                times.push(t);
+            }
+        }
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+        let max_t = times.last().copied().unwrap_or(30.0);
+        let mut t = 0.5;
+        while t < max_t {
+            times.push(t);
+            t += 0.5;
+        }
+        times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+        times
     }
 
     /// Execute the full calibration for a parametric curve step.
@@ -107,13 +136,16 @@ impl ParametricCurveTarget {
             })
         });
 
-        let target = Self::new(ParametricCurveTargetParams {
-            base_date: schema_params.base_date,
-            curve_id: schema_params.curve_id.clone(),
-            variant: schema_params.model,
-            initial_params: initial_params.clone(),
-            base_context: context.clone(),
-        });
+        let target = Self::new(
+            ParametricCurveTargetParams {
+                base_date: schema_params.base_date,
+                curve_id: schema_params.curve_id.clone(),
+                variant: schema_params.model,
+                initial_params: initial_params.clone(),
+                base_context: context.clone(),
+            },
+            Self::build_sample_times(&prepared_quotes),
+        );
 
         let config = global_config.clone();
         let success_tolerance = Some(config.discount_curve.validation_tolerance);
@@ -194,31 +226,11 @@ impl GlobalSolveTarget for ParametricCurveTarget {
         quotes: &[Self::Quote],
         residuals: &mut [f64],
     ) -> Result<()> {
-        // Build a sampled DiscountCurve from the parametric curve to price instruments.
-        let sample_times: Vec<f64> = {
-            let mut times = vec![0.0];
-            for q in quotes {
-                let t = q.pillar_time();
-                if t > 0.0 {
-                    times.push(t);
-                }
-            }
-            times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
-            // Add intermediate points for curve shape
-            let max_t = times.last().copied().unwrap_or(30.0);
-            let mut extended = times;
-            let mut t = 0.5;
-            while t < max_t {
-                extended.push(t);
-                t += 0.5;
-            }
-            extended.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-            extended.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
-            extended
-        };
-
-        let knots: Vec<(f64, f64)> = sample_times.iter().map(|&t| (t, curve.df(t))).collect();
+        let knots: Vec<(f64, f64)> = self
+            .sample_times
+            .iter()
+            .map(|&t| (t, curve.df(t)))
+            .collect();
         let disc_curve = finstack_core::market_data::term_structures::DiscountCurve::builder(
             self.params.curve_id.clone(),
         )

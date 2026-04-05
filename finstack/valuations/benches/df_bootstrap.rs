@@ -62,8 +62,6 @@ fn bench_df_bootstrap(c: &mut Criterion) {
         pricing_discount_id: None,
         pricing_forward_id: None,
         conventions: Default::default(),
-        toy_adjustment: None,
-        hull_white_curve_id: None,
     };
     let step = StepParams::Discount(params);
     let market_quotes: Vec<MarketQuote> = quotes.iter().cloned().map(MarketQuote::Rates).collect();

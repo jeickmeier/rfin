@@ -127,6 +127,10 @@ impl PyMarketContext {
                 Py::new(py, PyVolatilityIndexCurve::new_arc(curve.clone()))
                     .map(|obj| obj.into_any())
             }
+            // BasisSpread and Parametric curves are not yet exposed to Python
+            _ => Err(pyo3::exceptions::PyNotImplementedError::new_err(
+                "this curve type is not yet available in the Python bindings",
+            )),
         }
     }
 

@@ -39,8 +39,6 @@ fn missing_quote_set_fails_fast() {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
-                toy_adjustment: None,
-                hull_white_curve_id: None,
             }),
         }],
     };
@@ -89,8 +87,6 @@ fn plan_and_envelope_serde_roundtrip() {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
-                toy_adjustment: None,
-                hull_white_curve_id: None,
             }),
         }],
     };

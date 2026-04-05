@@ -114,8 +114,6 @@ fn discount_curve_deposit_repricing() {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
-                toy_adjustment: None,
-                hull_white_curve_id: None,
             }),
         }],
     };
@@ -229,8 +227,6 @@ fn discount_curve_swap_repricing() {
                 pricing_discount_id: None,
                 pricing_forward_id: None,
                 conventions: Default::default(),
-                toy_adjustment: None,
-                hull_white_curve_id: None,
             }),
         }],
     };
@@ -352,8 +348,6 @@ fn forward_curve_fra_repricing() {
                     pricing_discount_id: None,
                     pricing_forward_id: None,
                     conventions: Default::default(),
-                    toy_adjustment: None,
-                    hull_white_curve_id: None,
                 }),
             },
             CalibrationStep {
@@ -504,8 +498,6 @@ fn hazard_curve_cds_repricing() {
                     pricing_discount_id: None,
                     pricing_forward_id: None,
                     conventions: Default::default(),
-                    toy_adjustment: None,
-                    hull_white_curve_id: None,
                 }),
             },
             CalibrationStep {
@@ -616,8 +608,6 @@ fn hazard_curve_step_report_matches_market_built_cds_repricing() {
                     pricing_discount_id: None,
                     pricing_forward_id: None,
                     conventions: Default::default(),
-                    toy_adjustment: None,
-                    hull_white_curve_id: None,
                 }),
             },
             CalibrationStep {
@@ -765,8 +755,6 @@ fn hazard_curve_standard_upfront_cds_repricing() {
                     pricing_discount_id: None,
                     pricing_forward_id: None,
                     conventions: Default::default(),
-                    toy_adjustment: None,
-                    hull_white_curve_id: None,
                 }),
             },
             CalibrationStep {
@@ -888,8 +876,6 @@ fn inflation_curve_swap_repricing() {
                     pricing_discount_id: None,
                     pricing_forward_id: None,
                     conventions: Default::default(),
-                    toy_adjustment: None,
-                    hull_white_curve_id: None,
                 }),
             },
             CalibrationStep {

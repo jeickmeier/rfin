@@ -196,14 +196,11 @@ impl BootstrapTarget for XccyBasisTarget {
 
     fn initial_guess(&self, quote: &Self::Quote, previous_knots: &[(f64, f64)]) -> Result<f64> {
         let t = self.quote_time(quote)?;
-        // Use the domestic DF as initial guess for the foreign DF
-        if let Some(&(_, prev_df)) = previous_knots.last() {
+        if let Some(&(prev_t, prev_df)) = previous_knots.last() {
             // Geometric extrapolation from last known knot
-            if let Some(&(prev_t, _)) = previous_knots.last() {
-                if prev_t > 0.0 && t > prev_t {
-                    let rate = -prev_df.ln() / prev_t;
-                    return Ok((-rate * t).exp());
-                }
+            if prev_t > 0.0 && t > prev_t {
+                let rate = -prev_df.ln() / prev_t;
+                return Ok((-rate * t).exp());
             }
             Ok(prev_df)
         } else {

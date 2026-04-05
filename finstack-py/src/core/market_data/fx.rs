@@ -684,15 +684,17 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::panic)]
     fn fx_matrix_invalid_rate_maps_to_parameter_error() {
         init_python();
         let fx = PyFxMatrix::ctor(None);
         let eur = PyCurrency::new(Currency::EUR);
         let usd = PyCurrency::new(Currency::USD);
 
-        let err = fx
-            .set_quote(&eur, &usd, 0.0)
-            .expect_err("zero FX rate must fail");
+        let err = match fx.set_quote(&eur, &usd, 0.0) {
+            Err(e) => e,
+            Ok(_) => panic!("zero FX rate must fail"),
+        };
 
         Python::attach(|py| {
             let type_name = err

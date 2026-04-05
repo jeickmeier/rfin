@@ -303,10 +303,13 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::panic)]
     fn swaption_quote_invalid_inputs_map_to_validation_error() {
         init_python();
-        let err =
-            PySwaptionQuote::ctor(0.0, 5.0, 0.01, true).expect_err("non-positive expiry must fail");
+        let err = match PySwaptionQuote::ctor(0.0, 5.0, 0.01, true) {
+            Err(e) => e,
+            Ok(_) => panic!("non-positive expiry must fail"),
+        };
 
         Python::attach(|py| {
             let type_name = err

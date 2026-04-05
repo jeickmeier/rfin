@@ -167,8 +167,6 @@ fn discount_envelope(
                     pricing_discount_id: None,
                     pricing_forward_id: None,
                     conventions: Default::default(),
-                    toy_adjustment: None,
-                    hull_white_curve_id: None,
                 }),
             }],
         },
@@ -212,8 +210,6 @@ fn hazard_envelope(
                         pricing_discount_id: None,
                         pricing_forward_id: None,
                         conventions: Default::default(),
-                        toy_adjustment: None,
-                        hull_white_curve_id: None,
                     }),
                 },
                 CalibrationStep {

@@ -374,41 +374,33 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
 
 /// Compute the Hull-White 1-factor futures convexity adjustment.
 ///
-/// Returns the adjustment (in rate terms) to convert a futures rate to a forward rate.
-/// The formula is:
+/// Returns the adjustment (in rate terms) to convert a futures rate to a forward rate:
+/// `forward = futures_rate - convexity_adjustment`.
+///
+/// The formula (Hull, 6th ed., Chapter 6):
 ///
 /// $$
-/// \text{CA} = \tfrac{1}{2} \sigma^2 \, B(t_s, t_e) \bigl[B(t_s, t_e) - B(t_s, t_s)\bigr]
+/// \text{CA} = \tfrac{1}{2} \, \sigma^2 \, B(0, T_1) \, B(T_1, T_2)
 /// $$
 ///
 /// where:
-/// - $t_s$ = futures settlement time (years from today)
-/// - $t_e$ = futures end time (maturity, years from today)
+/// - $T_1$ = futures settlement time (years from today)
+/// - $T_2$ = futures end time (maturity, years from today)
 /// - $\sigma$ = HW1F short-rate volatility
 /// - $\kappa$ = HW1F mean-reversion speed
-/// - $B(t_1, t_2)$ = HW1F duration function $(1 - e^{-\kappa (t_2 - t_1)}) / \kappa$
-///
-/// The forward rate is then: `forward = futures_rate - convexity_adjustment`.
+/// - $B(t_1, t_2) = (1 - e^{-\kappa(t_2 - t_1)}) / \kappa$
 ///
 /// # Arguments
 /// * `kappa` - Mean-reversion speed
 /// * `sigma` - Short-rate volatility
-/// * `t_settle` - Settlement time in years
-/// * `t_end` - End/maturity time in years
+/// * `t_settle` - Settlement time in years ($T_1$)
+/// * `t_end` - End/maturity time in years ($T_2$)
 ///
 /// # Returns
 /// The convexity adjustment in the same rate units as sigma.
 pub fn hw1f_convexity_adjustment(kappa: f64, sigma: f64, t_settle: f64, t_end: f64) -> f64 {
-    let b_se = hw_b(kappa, t_settle, t_end);
-    // B(t_settle, t_settle) = 0 by definition, so the second term simplifies:
-    // CA = 0.5 * sigma^2 * B(0, t_settle) * B(t_settle, t_end)
-    // Actually the standard Hull-White convexity adjustment for futures is:
-    // CA = 0.5 * sigma^2 * B(t_settle, t_end) * [B(0, t_end) - B(0, t_settle)]
-    // which reduces to the marginal effect of mean reversion.
-    //
-    // More precisely (Hull 6th ed, Chapter 6):
-    // forward = futures - 0.5 * sigma^2 * B(0, T1) * B(T1, T2)
     let b_0s = hw_b(kappa, 0.0, t_settle);
+    let b_se = hw_b(kappa, t_settle, t_end);
     0.5 * sigma * sigma * b_0s * b_se
 }
 

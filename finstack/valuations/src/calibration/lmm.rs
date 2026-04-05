@@ -622,10 +622,12 @@ mod tests {
         // ρ_{ij} ≈ (Σ_k λ_{i,k} λ_{j,k}) / (σ_i σ_j)
         for i in 0..n {
             for j in 0..n {
-                let mut dot = 0.0;
-                for k in 0..3 {
-                    dot += loadings[i][k] * loadings[j][k];
-                }
+                let dot: f64 = loadings[i]
+                    .iter()
+                    .zip(loadings[j].iter())
+                    .take(3)
+                    .map(|(a, b)| a * b)
+                    .sum();
                 let reconstructed_corr = dot / (inst_vols[i] * inst_vols[j]);
                 let mid_i = 0.5 * (tenors[i] + tenors[i + 1]);
                 let mid_j = 0.5 * (tenors[j] + tenors[j + 1]);

@@ -182,22 +182,6 @@ pub struct DiscountCurveParams {
     /// Step-level conventions for pricing and curve time axis.
     #[serde(default)]
     pub conventions: RatesStepConventions,
-
-    /// Optional turn-of-year adjustment applied to the constructed discount curve.
-    ///
-    /// When present, year-end funding jumps are modeled as additive forward rate
-    /// step functions over the specified windows. The adjustment is applied as a
-    /// post-calibration modification to the discount factors.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub toy_adjustment: Option<crate::calibration::config::ToyAdjustment>,
-
-    /// Optional Hull-White curve ID for computing futures convexity adjustments.
-    ///
-    /// When present, the calibrator will look up pre-calibrated HW1F parameters
-    /// (κ, σ) from the market context to compute convexity adjustments for any
-    /// futures quotes that do not already have an explicit `convexity_adjustment`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub hull_white_curve_id: Option<CurveId>,
 }
 
 /// Parameters for forward curve calibration step.

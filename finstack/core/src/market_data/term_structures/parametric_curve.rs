@@ -41,7 +41,6 @@
 
 use crate::{
     dates::{Date, DayCount},
-    error::InputError,
     market_data::traits::{Discounting, TermStructure},
     types::CurveId,
 };
@@ -246,12 +245,16 @@ impl NelsonSiegelModel {
         match self {
             Self::Ns { tau, .. } => {
                 if *tau <= 0.0 {
-                    return Err(InputError::Invalid.into());
+                    return Err(crate::Error::Validation(format!(
+                        "NS tau must be positive, got {tau}"
+                    )));
                 }
             }
             Self::Nss { tau1, tau2, .. } => {
                 if *tau1 <= 0.0 || *tau2 <= 0.0 {
-                    return Err(InputError::Invalid.into());
+                    return Err(crate::Error::Validation(format!(
+                        "NSS tau values must be positive, got tau1={tau1}, tau2={tau2}"
+                    )));
                 }
                 if (*tau1 - *tau2).abs() < 1e-10 {
                     return Err(crate::Error::Validation(
@@ -282,16 +285,49 @@ impl NelsonSiegelModel {
 ///
 /// Immutable after construction; safe to share via `Arc<ParametricCurve>`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(try_from = "RawParametricCurve", into = "RawParametricCurve")]
 pub struct ParametricCurve {
-    /// Curve identifier.
     id: CurveId,
+    base_date: Date,
+    day_count: DayCount,
+    model: NelsonSiegelModel,
+}
+
+/// Raw serializable state of ParametricCurve.
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawParametricCurve {
+    /// Curve identifier.
+    id: String,
     /// Base date.
     base_date: Date,
     /// Day count convention.
     day_count: DayCount,
     /// Nelson-Siegel model parameters.
     model: NelsonSiegelModel,
+}
+
+impl From<ParametricCurve> for RawParametricCurve {
+    fn from(curve: ParametricCurve) -> Self {
+        RawParametricCurve {
+            id: curve.id.to_string(),
+            base_date: curve.base_date,
+            day_count: curve.day_count,
+            model: curve.model,
+        }
+    }
+}
+
+impl TryFrom<RawParametricCurve> for ParametricCurve {
+    type Error = crate::Error;
+
+    fn try_from(raw: RawParametricCurve) -> crate::Result<Self> {
+        ParametricCurve::builder(raw.id)
+            .base_date(raw.base_date)
+            .day_count(raw.day_count)
+            .model(raw.model)
+            .build()
+    }
 }
 
 impl ParametricCurve {
@@ -335,7 +371,7 @@ impl ParametricCurve {
     /// Base date of the curve.
     #[must_use]
     #[inline]
-    pub fn base_date_value(&self) -> Date {
+    pub fn base_date(&self) -> Date {
         self.base_date
     }
 

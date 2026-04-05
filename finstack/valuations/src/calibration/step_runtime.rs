@@ -39,6 +39,7 @@ pub(crate) enum OutputKey {
 /// Normalized output payload for a step.
 pub(crate) enum StepOutput {
     Curve(CurveStorage),
+    Curves(Vec<CurveStorage>),
     Surface(Arc<VolSurface>),
     Scalar { key: String, value: MarketScalar },
     Scalars(Vec<(String, MarketScalar)>),
@@ -100,6 +101,13 @@ pub(crate) fn apply_output(
     match output {
         StepOutput::Curve(curve) => {
             *context = std::mem::take(context).insert(curve);
+        }
+        StepOutput::Curves(curves) => {
+            let mut updated = std::mem::take(context);
+            for curve in curves {
+                updated = updated.insert(curve);
+            }
+            *context = updated;
         }
         StepOutput::Surface(surface) => {
             *context = std::mem::take(context).insert_surface(surface);
@@ -365,23 +373,20 @@ pub(crate) fn execute_params(
         StepParams::XccyBasis(p) => {
             let (ctx, report) = XccyBasisTarget::solve(p, quotes, context, global_config)?;
             let curve = ctx.get_discount(&p.curve_id)?;
-            let output = StepOutput::Curve(curve.clone().into());
             let report = attach_validation_result(
                 report,
                 curve.validate(&global_config.validation),
                 global_config,
             );
-            // Also insert basis spread curve if present
-            let final_output = output;
-            if let Some(ref spread_id) = p.basis_spread_curve_id {
-                if let Ok(spread) = ctx.get_basis_spread(spread_id) {
-                    // The primary output is the discount curve; the spread is
-                    // a side-effect written directly to context by the target.
-                    let _ = spread;
+            let output = match &p.basis_spread_curve_id {
+                Some(spread_id) if ctx.get_basis_spread(spread_id).is_ok() => {
+                    let spread = ctx.get_basis_spread(spread_id)?;
+                    StepOutput::Curves(vec![curve.clone().into(), (*spread).clone().into()])
                 }
-            }
+                _ => StepOutput::Curve(curve.clone().into()),
+            };
             Ok(StepOutcome {
-                output: final_output,
+                output,
                 credit_index_update: None,
                 report,
             })
