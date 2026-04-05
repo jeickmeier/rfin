@@ -464,6 +464,11 @@ pub enum ModelKey {
     /// swaption portfolio, capturing all convexity orders beyond Hagan's
     /// first-order approximation).
     StaticReplication = 32,
+    /// LMM/BGM Monte Carlo with predictor-corrector discretization.
+    ///
+    /// Used for: Bermudan swaptions, exotic rate derivatives requiring
+    /// multi-factor forward rate dynamics.
+    LmmMonteCarlo = 33,
 }
 
 impl ModelKey {
@@ -477,6 +482,7 @@ impl ModelKey {
                 | Self::HestonFourier
                 | Self::MertonMc
                 | Self::MonteCarloSchwartzSmith
+                | Self::LmmMonteCarlo
         )
     }
 }
@@ -503,6 +509,7 @@ impl std::fmt::Display for ModelKey {
             ModelKey::MertonMc => "merton_mc",
             ModelKey::MonteCarloSchwartzSmith => "monte_carlo_schwartz_smith",
             ModelKey::StaticReplication => "static_replication",
+            ModelKey::LmmMonteCarlo => "lmm_monte_carlo",
         };
         write!(f, "{}", label)
     }
@@ -551,6 +558,7 @@ impl std::str::FromStr for ModelKey {
                 Ok(ModelKey::MonteCarloSchwartzSmith)
             }
             "static_replication" | "static_rep" | "replication" => Ok(ModelKey::StaticReplication),
+            "lmm_monte_carlo" | "lmm_mc" | "lmm" | "bgm" | "bgm_mc" => Ok(ModelKey::LmmMonteCarlo),
             other => Err(format!("Unknown model key: {}", other)),
         }
     }

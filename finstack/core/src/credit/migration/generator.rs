@@ -20,14 +20,11 @@
 //! - Higham, N. J. (2008). *Functions of Matrices: Theory and Computation*. SIAM.
 //!   Chapter 11 (Matrix Logarithm).
 
-use nalgebra::{DMatrix, linalg::Schur};
+use nalgebra::{linalg::Schur, DMatrix};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    error::MigrationError,
-    matrix::TransitionMatrix,
-    projection::pade_expm,
-    scale::RatingScale,
+    error::MigrationError, matrix::TransitionMatrix, projection::pade_expm, scale::RatingScale,
 };
 
 /// Continuous-time generator (intensity) matrix for a CTMC.
@@ -39,7 +36,7 @@ use super::{
 /// # Validation
 ///
 /// - Off-diagonal entries ≥ 0
-/// - Diagonal entries ≤ 0  
+/// - Diagonal entries ≤ 0
 /// - Each row sums to 0 (tolerance: 1e-8)
 /// - If a default state is set, its row must be zero (absorbing)
 ///
@@ -374,5 +371,3 @@ pub(crate) fn inf_norm_diff(a: &DMatrix<f64>, b: &DMatrix<f64>) -> f64 {
         .map(|row| row.iter().map(|x| x.abs()).sum::<f64>())
         .fold(0.0_f64, f64::max)
 }
-
-

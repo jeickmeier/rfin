@@ -76,6 +76,9 @@
 pub mod api;
 /// Hull-White one-factor model calibration to European swaptions.
 pub mod hull_white;
+/// LMM/BGM co-terminal swaption calibration.
+#[cfg(feature = "mc")]
+pub mod lmm;
 /// Prepared quotes for calibration.
 pub(crate) mod prepared;
 /// Solver utilities and implementations used by calibration.

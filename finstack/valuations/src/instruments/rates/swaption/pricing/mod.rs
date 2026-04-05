@@ -18,6 +18,8 @@
 //! ```
 
 #[cfg(feature = "mc")]
+pub mod lmm_bermudan;
+#[cfg(feature = "mc")]
 pub mod monte_carlo_lsmc;
 #[cfg(feature = "mc")]
 pub mod monte_carlo_payoff;

@@ -32,6 +32,9 @@ pub mod jump_euler;
 #[cfg(feature = "mc")]
 pub mod schwartz_smith;
 
+#[cfg(feature = "mc")]
+pub mod lmm_predictor_corrector;
+
 pub use exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 pub use exact_gbm_dividends::ExactGbmWithDividends;
 

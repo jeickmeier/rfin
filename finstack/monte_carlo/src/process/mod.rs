@@ -35,6 +35,9 @@ pub mod jump_diffusion;
 #[cfg(feature = "mc")]
 pub mod bates;
 
+#[cfg(feature = "mc")]
+pub mod lmm;
+
 pub use brownian::*;
 pub use correlation::*;
 pub use gbm::*;

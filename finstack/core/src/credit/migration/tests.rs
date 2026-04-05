@@ -4,6 +4,7 @@
 //! matrix exponentiation, Gillespie simulation, and the 7×7 reference matrix.
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod scale_tests {
     use crate::credit::migration::{MigrationError, RatingScale};
 
@@ -69,15 +70,14 @@ mod scale_tests {
 
     #[test]
     fn unknown_default_error() {
-        let err = RatingScale::custom_with_default(
-            vec!["A".to_string(), "B".to_string()],
-            "DEFAULT",
-        );
+        let err =
+            RatingScale::custom_with_default(vec!["A".to_string(), "B".to_string()], "DEFAULT");
         assert!(matches!(err, Err(MigrationError::UnknownState { .. })));
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod matrix_tests {
     use crate::credit::migration::{MigrationError, RatingScale, TransitionMatrix};
 
@@ -112,7 +112,10 @@ mod matrix_tests {
         let scale = two_state_scale();
         // Default state (D, index 1) row is [0.1, 0.9] — not absorbing.
         let err = TransitionMatrix::new(scale, &[0.9, 0.1, 0.1, 0.9], 1.0);
-        assert!(matches!(err, Err(MigrationError::NonAbsorbingDefault { .. })));
+        assert!(matches!(
+            err,
+            Err(MigrationError::NonAbsorbingDefault { .. })
+        ));
     }
 
     #[test]
@@ -143,7 +146,10 @@ mod matrix_tests {
         let scale_b = RatingScale::custom(vec!["B".to_string(), "D".to_string()]).unwrap();
         let p1 = TransitionMatrix::new(scale_a, &[0.9, 0.1, 0.0, 1.0], 1.0).unwrap();
         let p2 = TransitionMatrix::new(scale_b, &[0.9, 0.1, 0.0, 1.0], 1.0).unwrap();
-        assert!(matches!(p1.compose(&p2), Err(MigrationError::ScaleMismatch)));
+        assert!(matches!(
+            p1.compose(&p2),
+            Err(MigrationError::ScaleMismatch)
+        ));
     }
 
     #[test]
@@ -165,8 +171,11 @@ mod matrix_tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod generator_tests {
-    use crate::credit::migration::{GeneratorMatrix, MigrationError, RatingScale, TransitionMatrix};
+    use crate::credit::migration::{
+        GeneratorMatrix, MigrationError, RatingScale, TransitionMatrix,
+    };
 
     fn two_state_scale() -> RatingScale {
         RatingScale::custom(vec!["IG".to_string(), "D".to_string()]).unwrap()
@@ -183,8 +192,15 @@ mod generator_tests {
         let q_00 = gen.intensity("IG", "IG").unwrap();
         let q_01 = gen.intensity("IG", "D").unwrap();
         let expected = 0.9_f64.ln();
-        assert!((q_00 - expected).abs() < 1e-8, "q_00 = {q_00}, expected {expected}");
-        assert!((q_01 + expected).abs() < 1e-8, "q_01 = {q_01}, expected {}", -expected);
+        assert!(
+            (q_00 - expected).abs() < 1e-8,
+            "q_00 = {q_00}, expected {expected}"
+        );
+        assert!(
+            (q_01 + expected).abs() < 1e-8,
+            "q_01 = {q_01}, expected {}",
+            -expected
+        );
         assert!(gen.intensity("D", "IG").unwrap().abs() < 1e-10);
     }
 
@@ -225,8 +241,9 @@ mod generator_tests {
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod projection_tests {
-    use crate::credit::migration::{GeneratorMatrix, RatingScale, projection};
+    use crate::credit::migration::{projection, GeneratorMatrix, RatingScale};
 
     fn two_state_gen() -> (RatingScale, GeneratorMatrix) {
         let scale = RatingScale::custom(vec!["IG".to_string(), "D".to_string()]).unwrap();
@@ -255,7 +272,10 @@ mod projection_tests {
             for j in 0..2 {
                 let diff =
                     (composed.probability_by_index(i, j) - p3.probability_by_index(i, j)).abs();
-                assert!(diff < 1e-8, "semi-group property failed at ({i},{j}): diff={diff}");
+                assert!(
+                    diff < 1e-8,
+                    "semi-group property failed at ({i},{j}): diff={diff}"
+                );
             }
         }
     }
@@ -288,19 +308,21 @@ mod projection_tests {
         let p2 = projection::project_pade(&gen, 3.0).unwrap();
         for i in 0..2 {
             for j in 0..2 {
-                assert!((p1.probability_by_index(i, j) - p2.probability_by_index(i, j)).abs()
-                    < 1e-12);
+                assert!(
+                    (p1.probability_by_index(i, j) - p2.probability_by_index(i, j)).abs() < 1e-12
+                );
             }
         }
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod simulation_tests {
     use rand::SeedableRng;
     use rand_pcg::Pcg64;
 
-    use crate::credit::migration::{GeneratorMatrix, RatingScale, simulation::MigrationSimulator};
+    use crate::credit::migration::{simulation::MigrationSimulator, GeneratorMatrix, RatingScale};
 
     fn two_state_gen() -> GeneratorMatrix {
         let scale = RatingScale::custom(vec!["IG".to_string(), "D".to_string()]).unwrap();
@@ -356,13 +378,17 @@ mod simulation_tests {
         let paths = sim.simulate(0, 1000, &mut rng);
         let defaults: usize = paths.iter().filter(|p| p.defaulted()).count();
         // With lambda=0.1, P(default within 20y) = 1 - exp(-2) ≈ 0.865
-        assert!(defaults > 700, "expected >700/1000 defaults, got {defaults}");
+        assert!(
+            defaults > 700,
+            "expected >700/1000 defaults, got {defaults}"
+        );
     }
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod reference_matrix_tests {
-    use crate::credit::migration::{GeneratorMatrix, RatingScale, TransitionMatrix, projection};
+    use crate::credit::migration::{projection, GeneratorMatrix, RatingScale, TransitionMatrix};
 
     /// 7×7 annual transition matrix from the design spec.
     fn reference_matrix() -> (RatingScale, TransitionMatrix) {
@@ -399,7 +425,10 @@ mod reference_matrix_tests {
             .expect("generator extraction of reference matrix should succeed");
         // All diagonal entries should be ≤ 0 and off-diagonal ≥ 0.
         for i in 0..7 {
-            assert!(gen.as_matrix()[(i, i)] <= 0.0, "diagonal ({i},{i}) must be ≤ 0");
+            assert!(
+                gen.as_matrix()[(i, i)] <= 0.0,
+                "diagonal ({i},{i}) must be ≤ 0"
+            );
             for j in 0..7 {
                 if j != i {
                     assert!(
@@ -437,7 +466,10 @@ mod reference_matrix_tests {
         // Cumulative default PD for BBB (index 3) over 5y should be material.
         let pd_bbb = p5.probability_by_index(3, 6);
         assert!(pd_bbb > 0.01, "5y BBB PD = {pd_bbb:.4} is too low");
-        assert!(pd_bbb < 0.20, "5y BBB PD = {pd_bbb:.4} is surprisingly high");
+        assert!(
+            pd_bbb < 0.20,
+            "5y BBB PD = {pd_bbb:.4} is surprisingly high"
+        );
     }
 
     #[test]

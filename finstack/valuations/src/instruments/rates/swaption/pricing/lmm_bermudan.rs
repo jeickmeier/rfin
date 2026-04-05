@@ -1,0 +1,546 @@
+//! Bermudan swaption pricing via LSMC with LMM/BGM dynamics.
+//!
+//! Uses the calibrated LMM process with predictor-corrector discretization and
+//! Longstaff-Schwartz backward induction for optimal exercise decisions.
+//!
+//! The payoff is evaluated entirely from forward rates in the path state,
+//! making it naturally multi-curve-consistent (no short-rate reconstruction
+//! needed). The simulation is conducted under the terminal measure with
+//! `P(t, T_N)` as numeraire.
+//!
+//! # References
+//!
+//! - Longstaff, F. A. & Schwartz, E. S. (2001). "Valuing American Options
+//!   by Simulation: A Simple Least-Squares Approach." *Review of Financial
+//!   Studies*, 14(1), 113-147.
+//! - Andersen, L. & Piterbarg, V. (2010). *Interest Rate Modeling*, Vol. 2,
+//!   Ch. 15-16, Atlantic Financial Press.
+//! - Glasserman, P. (2003). *Monte Carlo Methods in Financial Engineering*,
+//!   Ch. 8, Springer.
+
+// Public API not yet wired to pricer registry
+#![allow(dead_code)]
+
+use finstack_core::currency::Currency;
+use finstack_core::Result;
+use finstack_monte_carlo::discretization::lmm_predictor_corrector::LmmPredictorCorrector;
+use finstack_monte_carlo::online_stats::OnlineStats;
+use finstack_monte_carlo::pricer::lsq::solve_least_squares;
+use finstack_monte_carlo::process::lmm::{LmmParams, LmmProcess};
+use finstack_monte_carlo::results::MoneyEstimate;
+use finstack_monte_carlo::rng::philox::PhiloxRng;
+use finstack_monte_carlo::time_grid::TimeGrid;
+use finstack_monte_carlo::traits::{Discretization, RandomStream};
+
+/// Configuration for the LMM Bermudan swaption pricer.
+#[derive(Debug, Clone)]
+pub struct LmmBermudanConfig {
+    /// Number of Monte Carlo paths.
+    pub num_paths: usize,
+    /// Random seed for reproducibility.
+    pub seed: u64,
+    /// Polynomial degree for LSMC regression basis.
+    pub basis_degree: usize,
+    /// Use antithetic variates.
+    pub antithetic: bool,
+    /// Minimum simulation steps between exercise dates.
+    pub min_steps_between_exercises: usize,
+}
+
+impl Default for LmmBermudanConfig {
+    fn default() -> Self {
+        Self {
+            num_paths: 50_000,
+            seed: 42,
+            basis_degree: 3,
+            antithetic: true,
+            min_steps_between_exercises: 4,
+        }
+    }
+}
+
+/// Price a Bermudan swaption using LMM dynamics and LSMC.
+///
+/// # Arguments
+///
+/// * `params` — Calibrated LMM parameters.
+/// * `exercise_times` — Times (year fractions) at which the holder may exercise.
+/// * `strike` — Fixed rate K of the underlying swap.
+/// * `payer` — `true` for payer swaption, `false` for receiver.
+/// * `notional` — Swap notional.
+/// * `discount_factor_terminal` — `P(0, T_N)` for the terminal tenor.
+/// * `currency` — Currency used for the result.
+/// * `config` — Monte Carlo configuration.
+///
+/// # Returns
+///
+/// A [`MoneyEstimate`] with the Bermudan swaption price and standard error.
+///
+/// # Errors
+///
+/// Returns an error if no valid exercise dates are given or if the LMM
+/// parameters are inconsistent.
+#[allow(clippy::too_many_arguments)]
+pub fn price_bermudan_lmm(
+    params: &LmmParams,
+    exercise_times: &[f64],
+    strike: f64,
+    payer: bool,
+    notional: f64,
+    discount_factor_terminal: f64,
+    currency: Currency,
+    config: &LmmBermudanConfig,
+) -> Result<MoneyEstimate> {
+    if exercise_times.is_empty() {
+        return Err(finstack_core::Error::Validation(
+            "No exercise dates provided".to_string(),
+        ));
+    }
+
+    let n = params.num_forwards;
+    let process = LmmProcess::new(params.clone());
+    let disc = LmmPredictorCorrector::new();
+
+    // Build time grid aligned to exercise dates and forward fixing dates
+    let maturity = *params
+        .tenors
+        .last()
+        .ok_or_else(|| finstack_core::Error::Validation("empty tenors".to_string()))?;
+
+    let (time_grid, exercise_step_indices) =
+        build_exercise_aligned_grid(exercise_times, maturity, config.min_steps_between_exercises)?;
+
+    let num_steps = time_grid.num_steps();
+    let work_size = disc.work_size(&process);
+
+    let raw_paths = if config.antithetic {
+        config.num_paths / 2
+    } else {
+        config.num_paths
+    };
+
+    // --- Phase 1: Simulate forward rate paths ---
+    //
+    // paths[path_idx][step] = Vec<f64> of N forward rates at that step
+    let mut all_paths: Vec<Vec<Vec<f64>>> = Vec::with_capacity(config.num_paths);
+    let base_rng = PhiloxRng::new(config.seed);
+
+    for path_id in 0..raw_paths {
+        let mut rng = base_rng.split(path_id as u64);
+        let mut x = params.initial_forwards.clone();
+        let mut work = vec![0.0; work_size];
+        let mut z = vec![0.0; params.num_factors];
+
+        let mut path_states = Vec::with_capacity(num_steps + 1);
+        path_states.push(x.clone());
+
+        for step in 0..num_steps {
+            let t = time_grid.time(step);
+            let dt = time_grid.dt(step);
+            rng.fill_std_normals(&mut z);
+            disc.step(&process, t, dt, &mut x, &z, &mut work);
+            path_states.push(x.clone());
+        }
+        all_paths.push(path_states);
+
+        if config.antithetic {
+            // Antithetic path: replay with negated shocks
+            let mut rng2 = base_rng.split(path_id as u64);
+            let mut x2 = params.initial_forwards.clone();
+            let mut work2 = vec![0.0; work_size];
+            let mut z2 = vec![0.0; params.num_factors];
+
+            let mut path_states2 = Vec::with_capacity(num_steps + 1);
+            path_states2.push(x2.clone());
+
+            for step in 0..num_steps {
+                let t = time_grid.time(step);
+                let dt = time_grid.dt(step);
+                rng2.fill_std_normals(&mut z2);
+                for zz in z2.iter_mut() {
+                    *zz = -*zz; // negate
+                }
+                disc.step(&process, t, dt, &mut x2, &z2, &mut work2);
+                path_states2.push(x2.clone());
+            }
+            all_paths.push(path_states2);
+        }
+    }
+
+    let total_paths = all_paths.len();
+
+    // --- Phase 2: LSMC backward induction ---
+    //
+    // cashflow[path_idx] = discounted payoff at the optimal exercise time
+    let mut cashflow = vec![0.0_f64; total_paths];
+
+    // Iterate backward through exercise dates
+    for ex_idx in (0..exercise_step_indices.len()).rev() {
+        let step = exercise_step_indices[ex_idx];
+
+        // Compute exercise value at each path
+        let mut exercise_values = Vec::with_capacity(total_paths);
+        let mut basis_inputs = Vec::with_capacity(total_paths);
+
+        for path in &all_paths {
+            let forwards = &path[step];
+            let (swap_rate, annuity) =
+                compute_swap_rate_and_annuity(forwards, &params.accrual_factors, 0, n);
+            let intrinsic = if payer {
+                (swap_rate - strike) * annuity * notional
+            } else {
+                (strike - swap_rate) * annuity * notional
+            };
+            exercise_values.push(intrinsic);
+
+            // Basis: swap rate, annuity, swap_rate^2
+            basis_inputs.push((swap_rate, annuity));
+        }
+
+        if ex_idx == exercise_step_indices.len() - 1 {
+            // Last exercise date: exercise if intrinsic > 0
+            for (i, &ev) in exercise_values.iter().enumerate() {
+                if ev > 0.0 {
+                    cashflow[i] = ev;
+                }
+            }
+        } else {
+            // Interior exercise date: regression for continuation value
+
+            // Discount cashflows from next step to this step
+            let _t_now = time_grid.time(step);
+            let _t_next = if ex_idx + 1 < exercise_step_indices.len() {
+                time_grid.time(exercise_step_indices[ex_idx + 1])
+            } else {
+                maturity
+            };
+
+            // Collect ITM paths for regression
+            let mut itm_indices = Vec::new();
+            let mut itm_basis = Vec::new();
+            let mut itm_continuation = Vec::new();
+
+            for (i, &ev) in exercise_values.iter().enumerate() {
+                if ev > 0.0 {
+                    itm_indices.push(i);
+                    let (sr, ann) = basis_inputs[i];
+                    // Polynomial basis: [1, S, A, S^2, S*A, A^2, ...]
+                    let mut b = Vec::with_capacity(config.basis_degree + 3);
+                    b.push(1.0);
+                    b.push(sr);
+                    b.push(ann);
+                    if config.basis_degree >= 2 {
+                        b.push(sr * sr);
+                        b.push(sr * ann);
+                    }
+                    if config.basis_degree >= 3 {
+                        b.push(sr * sr * sr);
+                    }
+                    itm_basis.push(b);
+                    itm_continuation.push(cashflow[i]);
+                }
+            }
+
+            if itm_indices.len() > config.basis_degree + 3 {
+                // Solve least-squares regression
+                let num_basis = itm_basis.first().map_or(0, |b| b.len());
+                let mut a_matrix = vec![0.0; itm_indices.len() * num_basis];
+                for (row, basis) in itm_basis.iter().enumerate() {
+                    for (col, &val) in basis.iter().enumerate() {
+                        a_matrix[row * num_basis + col] = val;
+                    }
+                }
+
+                if let Ok(coeffs) =
+                    solve_least_squares(&a_matrix, &itm_continuation, itm_indices.len(), num_basis)
+                {
+                    // For ITM paths, decide exercise vs continuation
+                    for (local_idx, &global_idx) in itm_indices.iter().enumerate() {
+                        let mut cont_value = 0.0;
+                        for (c, &coeff) in coeffs.iter().enumerate() {
+                            cont_value += coeff * itm_basis[local_idx][c];
+                        }
+                        let ev = exercise_values[global_idx];
+                        if ev > cont_value {
+                            cashflow[global_idx] = ev;
+                        }
+                        // else keep existing cashflow (continuation)
+                    }
+                }
+            } else {
+                // Too few ITM paths for regression: exercise if positive
+                for &idx in &itm_indices {
+                    if exercise_values[idx] > cashflow[idx] {
+                        cashflow[idx] = exercise_values[idx];
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Phase 3: Average discounted cashflows ---
+    let mut stats = OnlineStats::new();
+    for &cf in &cashflow {
+        stats.update(cf * discount_factor_terminal);
+    }
+
+    let mean = stats.mean();
+    let stderr = if total_paths > 1 {
+        stats.std_dev() / (total_paths as f64).sqrt()
+    } else {
+        0.0
+    };
+    let ci_lo = mean - 1.96 * stderr;
+    let ci_hi = mean + 1.96 * stderr;
+
+    Ok(MoneyEstimate {
+        mean: finstack_core::money::Money::new(mean, currency),
+        stderr,
+        ci_95: (
+            finstack_core::money::Money::new(ci_lo, currency),
+            finstack_core::money::Money::new(ci_hi, currency),
+        ),
+        num_paths: total_paths,
+        std_dev: Some(stats.std_dev()),
+        median: None,
+        percentile_25: None,
+        percentile_75: None,
+        min: None,
+        max: None,
+    })
+}
+
+/// Build a time grid with steps aligned to exercise dates.
+fn build_exercise_aligned_grid(
+    exercise_times: &[f64],
+    maturity: f64,
+    min_steps_between: usize,
+) -> Result<(TimeGrid, Vec<usize>)> {
+    let min_steps = min_steps_between.max(1);
+
+    // Collect all critical times (exercise dates + maturity)
+    let mut critical_times: Vec<f64> = exercise_times
+        .iter()
+        .copied()
+        .filter(|&t| t > 0.0 && t < maturity)
+        .collect();
+    critical_times.push(maturity);
+    critical_times.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    critical_times.dedup_by(|a, b| (*a - *b).abs() < 1e-10);
+
+    // Build uniform sub-grids between critical times
+    let mut times = vec![0.0_f64];
+    let mut prev = 0.0;
+    for &ct in &critical_times {
+        let gap = ct - prev;
+        if gap < 1e-12 {
+            continue;
+        }
+        let n_sub = min_steps.max((gap * 12.0).ceil() as usize); // ~monthly steps
+        let dt = gap / n_sub as f64;
+        for k in 1..=n_sub {
+            times.push(prev + k as f64 * dt);
+        }
+        prev = ct;
+    }
+
+    // Snap exercise times to grid steps
+    let mut exercise_indices = Vec::with_capacity(exercise_times.len());
+    for &ex_t in exercise_times {
+        if ex_t <= 0.0 || ex_t >= maturity {
+            continue;
+        }
+        // Find nearest grid point
+        let mut best_idx = 0;
+        let mut best_dist = f64::MAX;
+        for (idx, &t) in times.iter().enumerate() {
+            let d = (t - ex_t).abs();
+            if d < best_dist {
+                best_dist = d;
+                best_idx = idx;
+            }
+        }
+        exercise_indices.push(best_idx);
+    }
+
+    let grid = TimeGrid::from_times(times)
+        .map_err(|e| finstack_core::Error::Validation(format!("failed to build time grid: {e}")))?;
+
+    Ok((grid, exercise_indices))
+}
+
+/// Compute forward swap rate and annuity from forward rates.
+///
+/// For the swap covering periods `[start_idx, end_idx)`:
+/// - Swap rate `S = (1 - P(T_start, T_end)) / A`
+/// - Annuity `A = Σ τ_j P(T_start, T_{j+1})`
+fn compute_swap_rate_and_annuity(
+    forwards: &[f64],
+    accrual_factors: &[f64],
+    start_idx: usize,
+    end_idx: usize,
+) -> (f64, f64) {
+    // Discount factors from T_start: P(T_start, T_j) = Π_{k=start}^{j-1} 1/(1+τ_k F_k)
+    let count = end_idx - start_idx;
+    let mut df = vec![1.0; count + 1];
+    for k in 1..=count {
+        let abs_k = start_idx + k - 1;
+        df[k] = df[k - 1] / (1.0 + accrual_factors[abs_k] * forwards[abs_k]);
+    }
+
+    // Annuity
+    let mut annuity = 0.0;
+    for j in 0..count {
+        annuity += accrual_factors[start_idx + j] * df[j + 1];
+    }
+
+    // Swap rate: S = (1 - P(T_start, T_end)) / A
+    let swap_rate = if annuity.abs() > 1e-15 {
+        (1.0 - df[count]) / annuity
+    } else {
+        0.0
+    };
+
+    (swap_rate, annuity)
+}
+
+#[cfg(test)]
+#[allow(clippy::expect_used, clippy::panic)]
+mod tests {
+    use super::*;
+
+    fn test_lmm_params() -> LmmParams {
+        LmmParams::try_new(
+            4,
+            2,
+            vec![0.0, 1.0, 2.0, 3.0, 4.0],
+            vec![1.0, 1.0, 1.0, 1.0],
+            vec![0.005; 4],
+            vec![],
+            vec![vec![
+                [0.12, 0.04, 0.0],
+                [0.11, 0.05, 0.0],
+                [0.10, 0.06, 0.0],
+                [0.09, 0.07, 0.0],
+            ]],
+            vec![0.03, 0.032, 0.034, 0.036],
+        )
+        .expect("valid params")
+    }
+
+    #[test]
+    fn test_swap_rate_computation() {
+        let forwards = vec![0.03, 0.035, 0.04];
+        let taus = vec![1.0, 1.0, 1.0];
+        let (sr, ann) = compute_swap_rate_and_annuity(&forwards, &taus, 0, 3);
+
+        // Annuity = τ_0 df_1 + τ_1 df_2 + τ_2 df_3
+        let df1 = 1.0 / 1.03;
+        let df2 = df1 / 1.035;
+        let df3 = df2 / 1.04;
+        let expected_ann = df1 + df2 + df3;
+        assert!((ann - expected_ann).abs() < 1e-10);
+
+        let expected_sr = (1.0 - df3) / expected_ann;
+        assert!((sr - expected_sr).abs() < 1e-10);
+    }
+
+    #[test]
+    fn test_exercise_aligned_grid() {
+        let exercise_times = vec![1.0, 2.0, 3.0];
+        let (grid, indices) = build_exercise_aligned_grid(&exercise_times, 4.0, 4).expect("ok");
+        assert!(grid.num_steps() >= 4);
+        assert_eq!(indices.len(), 3);
+        // Each index should point to a time close to the exercise time
+        for (i, &idx) in indices.iter().enumerate() {
+            let t = grid.time(idx);
+            assert!(
+                (t - exercise_times[i]).abs() < 0.15,
+                "grid time {t} far from exercise time {}",
+                exercise_times[i]
+            );
+        }
+    }
+
+    #[test]
+    fn test_bermudan_price_positive() {
+        let params = test_lmm_params();
+        let exercise_times = vec![1.0, 2.0, 3.0];
+        let strike = 0.025; // ITM payer swaption (forwards ~3-3.6%)
+        let df_terminal = (-0.03 * 4.0_f64).exp();
+        let config = LmmBermudanConfig {
+            num_paths: 5_000,
+            seed: 123,
+            basis_degree: 2,
+            antithetic: true,
+            min_steps_between_exercises: 4,
+        };
+
+        let result = price_bermudan_lmm(
+            &params,
+            &exercise_times,
+            strike,
+            true, // payer
+            1_000_000.0,
+            df_terminal,
+            Currency::USD,
+            &config,
+        );
+
+        assert!(result.is_ok(), "pricing failed: {result:?}");
+        let estimate = result.expect("ok");
+        assert!(
+            estimate.mean.amount() > 0.0,
+            "ITM payer swaption should have positive value: {}",
+            estimate.mean.amount()
+        );
+    }
+
+    #[test]
+    fn test_bermudan_geq_european() {
+        // Bermudan (3 exercise dates) should be >= European (1 exercise date)
+        let params = test_lmm_params();
+        let strike = 0.030;
+        let df_terminal = (-0.03 * 4.0_f64).exp();
+        let config = LmmBermudanConfig {
+            num_paths: 10_000,
+            seed: 42,
+            basis_degree: 2,
+            antithetic: true,
+            min_steps_between_exercises: 4,
+        };
+
+        let european = price_bermudan_lmm(
+            &params,
+            &[1.0], // single exercise = European
+            strike,
+            true,
+            1_000_000.0,
+            df_terminal,
+            Currency::USD,
+            &config,
+        )
+        .expect("european ok");
+
+        let bermudan = price_bermudan_lmm(
+            &params,
+            &[1.0, 2.0, 3.0], // three exercise dates
+            strike,
+            true,
+            1_000_000.0,
+            df_terminal,
+            Currency::USD,
+            &config,
+        )
+        .expect("bermudan ok");
+
+        // Allow for MC noise: Bermudan should be approximately >= European
+        let euro_val = european.mean.amount();
+        let berm_val = bermudan.mean.amount();
+        let tolerance = 3.0 * (european.stderr + bermudan.stderr);
+        assert!(
+            berm_val >= euro_val - tolerance,
+            "Bermudan ({berm_val:.2}) should be >= European ({euro_val:.2}) within MC noise"
+        );
+    }
+}

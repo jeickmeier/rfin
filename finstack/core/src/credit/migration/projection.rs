@@ -27,7 +27,7 @@ use nalgebra::DMatrix;
 use super::{
     error::MigrationError,
     generator::GeneratorMatrix,
-    matrix::{TransitionMatrix, validate_transition_matrix},
+    matrix::{validate_transition_matrix, TransitionMatrix},
 };
 
 /// Compute P(t) = exp(Q · t) using the default algorithm.

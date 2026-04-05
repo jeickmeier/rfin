@@ -26,7 +26,9 @@
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use super::{error::MigrationError, generator::GeneratorMatrix, matrix::TransitionMatrix, scale::RatingScale};
+use super::{
+    error::MigrationError, generator::GeneratorMatrix, matrix::TransitionMatrix, scale::RatingScale,
+};
 
 // ---------------------------------------------------------------------------
 // RatingPath

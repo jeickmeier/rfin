@@ -55,11 +55,7 @@ impl TransitionMatrix {
     /// - [`MigrationError::RowSumViolation`] if any row does not sum to 1.
     /// - [`MigrationError::NonAbsorbingDefault`] if the default state is not absorbing.
     /// - [`MigrationError::InvalidHorizon`] if `horizon <= 0`.
-    pub fn new(
-        scale: RatingScale,
-        data: &[f64],
-        horizon: f64,
-    ) -> Result<Self, MigrationError> {
+    pub fn new(scale: RatingScale, data: &[f64], horizon: f64) -> Result<Self, MigrationError> {
         if horizon <= 0.0 {
             return Err(MigrationError::InvalidHorizon(horizon));
         }
