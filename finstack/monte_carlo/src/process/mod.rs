@@ -38,6 +38,15 @@ pub mod bates;
 #[cfg(feature = "mc")]
 pub mod lmm;
 
+#[cfg(feature = "mc")]
+pub mod rough_bergomi;
+
+#[cfg(feature = "mc")]
+pub mod rough_heston;
+
+#[cfg(feature = "mc")]
+pub mod cheyette_rough;
+
 pub use brownian::*;
 pub use correlation::*;
 pub use gbm::*;

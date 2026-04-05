@@ -80,6 +80,9 @@ dmypy.json
 # mdBook
 /book/book/
 
+# Documentation site output
+/site/
+
 # Temp files
 concatenated_code.txt
 repo.md

@@ -35,6 +35,15 @@ pub mod schwartz_smith;
 #[cfg(feature = "mc")]
 pub mod lmm_predictor_corrector;
 
+#[cfg(feature = "mc")]
+pub mod rough_bergomi;
+
+#[cfg(feature = "mc")]
+pub mod rough_heston;
+
+#[cfg(feature = "mc")]
+pub mod cheyette_rough;
+
 pub use exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 pub use exact_gbm_dividends::ExactGbmWithDividends;
 
@@ -58,3 +67,12 @@ pub use jump_euler::JumpEuler;
 
 #[cfg(feature = "mc")]
 pub use schwartz_smith::ExactSchwartzSmith;
+
+#[cfg(feature = "mc")]
+pub use rough_bergomi::RoughBergomiEuler;
+
+#[cfg(feature = "mc")]
+pub use rough_heston::RoughHestonHybrid;
+
+#[cfg(feature = "mc")]
+pub use cheyette_rough::CheyetteRoughEuler;

@@ -34,6 +34,7 @@ pub mod heston;
 mod implied;
 pub mod local_vol;
 mod pricing;
+pub mod rough_heston;
 pub mod sabr;
 pub mod svi;
 

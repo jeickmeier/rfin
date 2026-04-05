@@ -98,6 +98,7 @@ pub const ZERO_TOLERANCE: f64 = 1e-10;
 
 pub mod compounding;
 pub mod distributions;
+pub mod fractional;
 pub mod integration;
 pub mod interp;
 pub mod linalg;

@@ -108,6 +108,13 @@ dev = [
     "types-python-dateutil>=2.9.0.20251115",
     "pytest-cov>=7.0.0",
 ]
+docs = [
+    "mkdocs-material>=9",
+    "mkdocstrings[python]>=0.28",
+    "mkdocs-gen-files>=0.5",
+    "mkdocs-literate-nav>=0.6",
+    "mkdocs-section-index>=0.3",
+]
 
 #######################
 # Ruff Configuration

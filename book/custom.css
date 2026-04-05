@@ -1,0 +1,11 @@
+/* Finstack mdBook custom styles */
+
+/* Parallel code block styling */
+.rust-python-tabs {
+    margin-bottom: 1em;
+}
+
+/* Slightly tighter code blocks for side-by-side readability */
+pre code {
+    font-size: 0.9em;
+}

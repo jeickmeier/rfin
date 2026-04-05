@@ -469,6 +469,26 @@ pub enum ModelKey {
     /// Used for: Bermudan swaptions, exotic rate derivatives requiring
     /// multi-factor forward rate dynamics.
     LmmMonteCarlo = 33,
+    /// Monte Carlo with rough Bergomi (rBergomi) stochastic volatility.
+    ///
+    /// Used for: European/exotic equity options requiring rough volatility
+    /// dynamics with fractional Brownian motion.
+    MonteCarloRoughBergomi = 40,
+    /// Monte Carlo with rough Heston stochastic volatility.
+    ///
+    /// Used for: European/exotic equity options requiring rough Heston
+    /// dynamics with Volterra-driven variance.
+    MonteCarloRoughHeston = 41,
+    /// Rough Heston semi-analytical via fractional Riccati Fourier transform.
+    ///
+    /// Used for: European equity options with rough Heston dynamics,
+    /// using Lewis (2000) single-integral Fourier inversion.
+    RoughHestonFourier = 42,
+    /// Monte Carlo with Cheyette + rough volatility (hybrid rates model).
+    ///
+    /// Used for: swaptions and exotic rate derivatives requiring
+    /// rough vol dynamics in a short-rate framework.
+    MonteCarloCheyetteRoughVol = 43,
 }
 
 impl ModelKey {
@@ -483,6 +503,10 @@ impl ModelKey {
                 | Self::MertonMc
                 | Self::MonteCarloSchwartzSmith
                 | Self::LmmMonteCarlo
+                | Self::MonteCarloRoughBergomi
+                | Self::MonteCarloRoughHeston
+                | Self::RoughHestonFourier
+                | Self::MonteCarloCheyetteRoughVol
         )
     }
 }
@@ -510,6 +534,10 @@ impl std::fmt::Display for ModelKey {
             ModelKey::MonteCarloSchwartzSmith => "monte_carlo_schwartz_smith",
             ModelKey::StaticReplication => "static_replication",
             ModelKey::LmmMonteCarlo => "lmm_monte_carlo",
+            ModelKey::MonteCarloRoughBergomi => "monte_carlo_rough_bergomi",
+            ModelKey::MonteCarloRoughHeston => "monte_carlo_rough_heston",
+            ModelKey::RoughHestonFourier => "rough_heston_fourier",
+            ModelKey::MonteCarloCheyetteRoughVol => "monte_carlo_cheyette_rough_vol",
         };
         write!(f, "{}", label)
     }
@@ -559,6 +587,18 @@ impl std::str::FromStr for ModelKey {
             }
             "static_replication" | "static_rep" | "replication" => Ok(ModelKey::StaticReplication),
             "lmm_monte_carlo" | "lmm_mc" | "lmm" | "bgm" | "bgm_mc" => Ok(ModelKey::LmmMonteCarlo),
+            "monte_carlo_rough_bergomi" | "mc_rbergomi" | "rbergomi" | "rough_bergomi" => {
+                Ok(ModelKey::MonteCarloRoughBergomi)
+            }
+            "monte_carlo_rough_heston" | "mc_rough_heston" | "rough_heston_mc" => {
+                Ok(ModelKey::MonteCarloRoughHeston)
+            }
+            "rough_heston_fourier" | "rough_heston_analytical" | "rough_heston_semi_analytical" => {
+                Ok(ModelKey::RoughHestonFourier)
+            }
+            "monte_carlo_cheyette_rough_vol" | "mc_cheyette_rough" | "cheyette_rough_vol" => {
+                Ok(ModelKey::MonteCarloCheyetteRoughVol)
+            }
             other => Err(format!("Unknown model key: {}", other)),
         }
     }

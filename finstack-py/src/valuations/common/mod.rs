@@ -281,6 +281,22 @@ impl PyModelKey {
     const FX_BARRIER_BS_CONTINUOUS: Self = Self::new(ModelKey::FxBarrierBSContinuous);
     #[classattr]
     const HESTON_FOURIER: Self = Self::new(ModelKey::HestonFourier);
+    #[classattr]
+    const MERTON_MC: Self = Self::new(ModelKey::MertonMc);
+    #[classattr]
+    const MONTE_CARLO_SCHWARTZ_SMITH: Self = Self::new(ModelKey::MonteCarloSchwartzSmith);
+    #[classattr]
+    const STATIC_REPLICATION: Self = Self::new(ModelKey::StaticReplication);
+    #[classattr]
+    const LMM_MONTE_CARLO: Self = Self::new(ModelKey::LmmMonteCarlo);
+    #[classattr]
+    const MONTE_CARLO_ROUGH_BERGOMI: Self = Self::new(ModelKey::MonteCarloRoughBergomi);
+    #[classattr]
+    const MONTE_CARLO_ROUGH_HESTON: Self = Self::new(ModelKey::MonteCarloRoughHeston);
+    #[classattr]
+    const ROUGH_HESTON_FOURIER: Self = Self::new(ModelKey::RoughHestonFourier);
+    #[classattr]
+    const MONTE_CARLO_CHEYETTE_ROUGH_VOL: Self = Self::new(ModelKey::MonteCarloCheyetteRoughVol);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]

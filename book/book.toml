@@ -1,0 +1,19 @@
+[book]
+title = "Finstack Guide"
+authors = ["Finstack Contributors"]
+language = "en"
+src = "src"
+
+[build]
+build-dir = "book"
+
+# Jupyter notebook preprocessor — renders .ipynb files as markdown chapters.
+# Requires: cargo install mdbook-jupyter
+# Uncomment when ready to integrate notebooks:
+# [preprocessor.jupyter]
+# embed_images = true
+
+[output.html]
+default-theme = "light"
+preferred-dark-theme = "ayu"
+additional-css = ["custom.css"]

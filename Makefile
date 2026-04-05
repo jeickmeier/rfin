@@ -57,7 +57,10 @@ help: ## Display this help message
 	@printf "  \033[36mclean\033[0m               Remove build artifacts and virtualenvs\n\n"
 	@printf "Documentation:\n"
 	@printf "  \033[36mdoc\033[0m                 Generate Rust documentation\n"
-	@printf "  \033[36mbook-serve\033[0m          Serve mdBook with live reload\n\n"
+	@printf "  \033[36mbook-serve\033[0m          Serve mdBook with live reload\n"
+	@printf "  \033[36mpython-docs\033[0m         Build Python API docs (mkdocs)\n"
+	@printf "  \033[36mpython-docs-serve\033[0m   Serve Python API docs with live reload\n"
+	@printf "  \033[36mdocs-all\033[0m            Build complete documentation site\n\n"
 	@printf "Development & Tooling:\n"
 	@printf "  \033[36mgenerate-bindings\033[0m   Export TypeScript types from Rust\n"
 	@printf "  \033[36mexamples-python-scripts\033[0m   Run Python example scripts\n"
@@ -237,6 +240,18 @@ generate-bindings: ## Export TypeScript types from Rust
 .PHONY: doc
 doc: ## Generate and open rustdoc
 	CARGO_INCREMENTAL=1 cargo doc --workspace --exclude finstack-py --exclude finstack-wasm --no-deps --all-features --open
+
+.PHONY: python-docs
+python-docs: ## Build Python API docs (mkdocs)
+	$(call py_run,mkdocs build -f mkdocs.yml -d site/api/python)
+
+.PHONY: python-docs-serve
+python-docs-serve: ## Serve Python API docs with live reload
+	$(call py_run,mkdocs serve -f mkdocs.yml)
+
+.PHONY: docs-all
+docs-all: doc book-build python-docs ## Build complete documentation site
+	bash scripts/build-docs.sh
 
 .PHONY: book-build
 book-build: install-mdbook
@@ -456,6 +471,7 @@ install-nextest:
 	@command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 install-mdbook:
 	@command -v mdbook >/dev/null 2>&1 || cargo install mdbook
+	@command -v mdbook-jupyter >/dev/null 2>&1 || cargo install mdbook-jupyter
 install-bloat:
 	@command -v cargo-bloat >/dev/null 2>&1 || cargo install cargo-bloat --locked
 

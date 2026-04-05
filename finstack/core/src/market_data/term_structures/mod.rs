@@ -120,6 +120,8 @@ mod discount_curve_builder;
 mod flat;
 /// Forward‐rate curves.
 mod forward_curve;
+/// Forward variance curves for rough volatility models.
+pub mod forward_variance;
 /// Credit hazard curves.
 mod hazard_curve;
 /// Real/Breakeven inflation curves.
@@ -138,6 +140,7 @@ pub use credit_index::{CreditIndexData, CreditIndexDataBuilder};
 pub use discount_curve::{DiscountCurve, DiscountCurveBuilder, DEFAULT_MIN_FORWARD_TENOR};
 pub use flat::FlatCurve;
 pub use forward_curve::{ForwardCurve, ForwardCurveBuilder};
+pub use forward_variance::ForwardVarianceCurve;
 pub use hazard_curve::{HazardCurve, HazardCurveBuilder, ParInterp, Seniority};
 pub use inflation::{InflationCurve, InflationCurveBuilder};
 pub use price_curve::{PriceCurve, PriceCurveBuilder};

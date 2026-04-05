@@ -71,5 +71,8 @@ pub mod sobol_pca;
 #[cfg(feature = "mc")]
 pub mod poisson;
 
+#[cfg(feature = "mc")]
+pub mod fbm;
+
 pub use brownian_bridge::BrownianBridge;
 pub use philox::PhiloxRng;

@@ -362,9 +362,7 @@ impl PyCdsIndexBuilder {
             credit_curve_id.as_str(),
         );
 
-        Ok(PyCdsIndex::new(
-            index.map_err(|e| PyValueError::new_err(e.to_string()))?,
-        ))
+        Ok(PyCdsIndex::new(index.map_err(core_to_py)?))
     }
 
     fn __repr__(&self) -> String {

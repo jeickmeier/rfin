@@ -179,6 +179,13 @@ impl PyCDSOptionBuilder {
         slf
     }
 
+    /// Set strike spread in basis points (e.g., 150.0 for 150bp).
+    #[pyo3(text_signature = "($self, strike_spread_bp)")]
+    fn strike_spread_bp(mut slf: PyRefMut<'_, Self>, strike_spread_bp: f64) -> PyRefMut<'_, Self> {
+        slf.strike = Some(strike_spread_bp / 10_000.0);
+        slf
+    }
+
     #[pyo3(text_signature = "($self, expiry)")]
     fn expiry<'py>(
         mut slf: PyRefMut<'py, Self>,
@@ -252,6 +259,16 @@ impl PyCDSOptionBuilder {
         slf
     }
 
+    /// Set forward spread adjustment in basis points (e.g., 25.0 for 25bp).
+    #[pyo3(text_signature = "($self, forward_adjust_bp)")]
+    fn forward_adjust_bp(
+        mut slf: PyRefMut<'_, Self>,
+        forward_adjust_bp: f64,
+    ) -> PyRefMut<'_, Self> {
+        slf.forward_adjust = forward_adjust_bp / 10_000.0;
+        slf
+    }
+
     #[pyo3(text_signature = "($self)")]
     fn build(slf: PyRefMut<'_, Self>) -> PyResult<PyCDSOption> {
         slf.ensure_ready()?;
@@ -297,12 +314,10 @@ impl PyCDSOptionBuilder {
 
         let mut option_params =
             CDSOptionParams::new(strike, expiry, cds_maturity, notional, slf.option_type)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+                .map_err(core_to_py)?;
         if slf.underlying_is_index {
             let factor = slf.index_factor.unwrap_or(1.0);
-            option_params = option_params
-                .as_index(factor)
-                .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            option_params = option_params.as_index(factor).map_err(core_to_py)?;
         }
         if slf.forward_adjust != 0.0 {
             let adjust = Decimal::try_from(slf.forward_adjust)
@@ -318,7 +333,7 @@ impl PyCDSOptionBuilder {
             discount.as_str(),
             vol_surface.as_str(),
         )
-        .map_err(|e| PyValueError::new_err(e.to_string()))?;
+        .map_err(core_to_py)?;
         Ok(PyCDSOption::new(option))
     }
 

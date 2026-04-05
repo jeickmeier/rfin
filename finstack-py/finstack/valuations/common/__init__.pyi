@@ -160,6 +160,24 @@ class ModelKey:
     QUANTO_BS: ModelKey
     FX_BARRIER_BS_CONTINUOUS: ModelKey
 
+    # Credit / structural
+    MERTON_MC: ModelKey
+
+    # Commodity
+    MONTE_CARLO_SCHWARTZ_SMITH: ModelKey
+
+    # Replication
+    STATIC_REPLICATION: ModelKey
+
+    # LIBOR market model
+    LMM_MONTE_CARLO: ModelKey
+
+    # Rough volatility
+    MONTE_CARLO_ROUGH_BERGOMI: ModelKey
+    MONTE_CARLO_ROUGH_HESTON: ModelKey
+    ROUGH_HESTON_FOURIER: ModelKey
+    MONTE_CARLO_CHEYETTE_ROUGH_VOL: ModelKey
+
     @classmethod
     def from_name(cls, name: str) -> ModelKey:
         """Convert a snake-case label into a pricing model key.

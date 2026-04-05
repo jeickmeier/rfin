@@ -110,6 +110,8 @@ pub mod traits;
 // --- Pricing infrastructure ---
 pub mod barriers;
 pub mod engine;
+#[cfg(feature = "mc")]
+pub mod engine_fractional;
 pub mod greeks;
 pub mod payoff;
 pub mod pricer;
@@ -166,6 +168,8 @@ pub mod prelude {
 
     // --- Discretization schemes ---
     #[cfg(feature = "mc")]
+    pub use super::discretization::cheyette_rough::CheyetteRoughEuler;
+    #[cfg(feature = "mc")]
     pub use super::discretization::euler::{EulerMaruyama, LogEuler};
     pub use super::discretization::exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
     #[cfg(feature = "mc")]
@@ -179,13 +183,24 @@ pub mod prelude {
     #[cfg(feature = "mc")]
     pub use super::discretization::qe_heston::QeHeston;
     #[cfg(feature = "mc")]
+    pub use super::discretization::rough_bergomi::RoughBergomiEuler;
+    #[cfg(feature = "mc")]
+    pub use super::discretization::rough_heston::RoughHestonHybrid;
+    #[cfg(feature = "mc")]
     pub use super::discretization::schwartz_smith::ExactSchwartzSmith;
 
     // --- Engine and configuration ---
     pub use super::engine::{
         McEngine, McEngineBuilder, McEngineConfig, PathCaptureConfig, PathCaptureMode,
     };
+    #[cfg(feature = "mc")]
+    pub use super::engine_fractional::simulate_path_fractional;
 
+    // --- Fractional noise ---
+    #[cfg(feature = "mc")]
+    pub use super::rng::fbm::{
+        create_fbm_generator, FbmGeneratorType, FractionalNoiseConfig, FractionalNoiseGenerator,
+    };
     // --- Pricing results ---
     pub use super::results::{MoneyEstimate, MonteCarloResult};
     pub use super::traits::Payoff;
