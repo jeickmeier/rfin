@@ -226,6 +226,12 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
         .parse()
         .map_err(|_| finstack_core::Error::from(finstack_core::InputError::Invalid))?;
 
+    if num_i64 < 0 {
+        return Err(finstack_core::Error::Validation(format!(
+            "Theta period must be non-negative, got '{period}'"
+        )));
+    }
+
     match unit {
         "D" => Ok(ThetaPeriod::Days(num_i64)),
         "W" => Ok(ThetaPeriod::Days(num_i64 * 7)),

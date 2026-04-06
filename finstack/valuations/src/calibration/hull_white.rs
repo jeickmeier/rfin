@@ -363,6 +363,24 @@ pub fn calibrate_hull_white_to_swaptions_with_frequency_and_initial_guess(
     .with_metadata("initial_sigma", format!("{sigma_init:.6}"))
     .with_metadata("swap_frequency", format!("{frequency:?}"));
 
+    // Warn if calibrated kappa is economically nonsensical.
+    // κ < 0.001 implies a mean reversion half-life > 693 years, which is
+    // effectively zero mean reversion and can produce numerically unstable
+    // tree/bond-price calculations.
+    let report = if kappa < 0.001 {
+        report.with_metadata(
+            "warning_small_kappa",
+            format!(
+                "Calibrated kappa ({kappa:.6}) is very small (< 0.001). \
+                 Mean reversion half-life = {:.0} years. \
+                 Consider constraining kappa or reviewing swaption market data.",
+                (2.0_f64.ln()) / kappa
+            ),
+        )
+    } else {
+        report
+    };
+
     let params = HullWhiteParams::new(kappa, sigma)?;
 
     Ok((params, report))

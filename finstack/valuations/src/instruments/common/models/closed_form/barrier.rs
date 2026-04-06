@@ -318,6 +318,18 @@ fn barrier_helper(
 
     let mu = (rate - div_yield - 0.5 * vol * vol) / (vol * vol);
 
+    // Guard against overflow in (H/S)^(2μ) terms. The exponent 2μ·ln(H/S) can
+    // exceed the f64 overflow threshold (~709) for extreme parameters (very low
+    // vol, very long tenor, large barrier/spot ratio). In that regime, fall back
+    // to the deterministic (zero-vol) limit which is the correct mathematical
+    // limit as σ → 0⁺.
+    let log_barrier_spot = (barrier / spot).ln();
+    let max_exponent = (2.0 * (mu + 1.0).abs() * log_barrier_spot.abs())
+        .max(2.0 * mu.abs() * log_barrier_spot.abs());
+    if !max_exponent.is_finite() || max_exponent > 700.0 {
+        return barrier_helper_zero_vol(spot, strike, barrier, time, rate, div_yield, eta, phi);
+    }
+
     // d1/d2 intentionally inline: Merton barrier x,x1,y,y1 terms — not d1/d2
     let x = (spot / strike).ln() / (vol * time.sqrt()) + (1.0 + mu) * vol * time.sqrt();
     let x1 = (spot / barrier).ln() / (vol * time.sqrt()) + (1.0 + mu) * vol * time.sqrt();

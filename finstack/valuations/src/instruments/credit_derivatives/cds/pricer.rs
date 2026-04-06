@@ -318,6 +318,20 @@ impl CDSPricerConfig {
         }
     }
 
+    /// Create an ISDA configuration tuned for distressed credits (spreads > 1000bp).
+    ///
+    /// Doubles the minimum integration points compared to standard configuration
+    /// to reduce integration error for hazard curves with rapid changes at short
+    /// tenors. Uses the ISDA Standard Model for consistency.
+    #[must_use]
+    pub fn isda_distressed() -> Self {
+        Self {
+            steps_per_year: isda::STANDARD_INTEGRATION_POINTS * 2,
+            min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS * 2,
+            ..Self::isda_standard()
+        }
+    }
+
     /// Create a simplified configuration for faster but less accurate pricing.
     ///
     /// Uses midpoint integration without adaptive steps. Suitable for
@@ -365,6 +379,22 @@ impl CDSPricerConfig {
             self.min_steps_per_year.max(adaptive)
         } else {
             self.steps_per_year
+        }
+    }
+
+    /// Calculate effective integration steps based on tenor and spread level.
+    ///
+    /// Like [`effective_steps`](Self::effective_steps), but doubles the points
+    /// when the CDS par spread indicates a distressed credit (> 1000bp = 0.10
+    /// decimal). Distressed hazard curves exhibit rapid changes at short tenors
+    /// that require finer integration grids.
+    #[must_use]
+    pub fn effective_steps_for_spread(&self, tenor_years: f64, spread_decimal: f64) -> usize {
+        let base = self.effective_steps(tenor_years);
+        if spread_decimal > 0.10 {
+            base * 2
+        } else {
+            base
         }
     }
 

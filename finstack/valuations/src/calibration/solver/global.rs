@@ -245,8 +245,12 @@ impl GlobalFitOptimizer {
         let validation_tolerance =
             success_tolerance.unwrap_or(config.discount_curve.validation_tolerance);
 
-        // Success is determined by weighted L2 norm of residuals.
-        let calibration_success = weighted_l2_norm <= validation_tolerance;
+        // Success requires BOTH the weighted L2 norm AND the max individual residual
+        // to be within tolerance. The L2 norm alone can mask outlier instruments when
+        // many quotes fit well but one fits poorly.
+        let max_residual_tolerance = validation_tolerance * (n_residuals as f64).sqrt();
+        let calibration_success =
+            weighted_l2_norm <= validation_tolerance && max_abs_residual <= max_residual_tolerance;
 
         let mut report = CalibrationReport::for_type_with_tolerance(
             "global_fit",
@@ -254,13 +258,29 @@ impl GlobalFitOptimizer {
             stats.iterations,
             validation_tolerance,
         );
-        // Override success based on weighted L2 criterion (not max residual).
+        // Override success based on weighted L2 + max-residual criteria.
         report.success = calibration_success;
         report.objective_value = weighted_l2_norm;
+        if !calibration_success {
+            if weighted_l2_norm > validation_tolerance && max_abs_residual > max_residual_tolerance
+            {
+                report.convergence_reason = format!(
+                    "global fit calibration failed: weighted L2 norm ({:.2e}) exceeds tolerance ({:.2e}) \
+                     and max residual ({:.2e}) exceeds per-quote tolerance ({:.2e})",
+                    weighted_l2_norm, validation_tolerance, max_abs_residual, max_residual_tolerance,
+                );
+            } else if max_abs_residual > max_residual_tolerance {
+                report.convergence_reason = format!(
+                    "global fit calibration failed: max residual ({:.2e}) exceeds per-quote tolerance ({:.2e}), \
+                     weighted L2 norm ({:.2e}) passed",
+                    max_abs_residual, max_residual_tolerance, weighted_l2_norm,
+                );
+            }
+        }
 
         report = report
             .with_metadata("method", "global_fit_lm_weighted_lsq")
-            .with_metadata("tolerance_definition", "weighted_l2_norm")
+            .with_metadata("tolerance_definition", "weighted_l2_norm_and_max_residual")
             .with_metadata(
                 "validation_tolerance",
                 format!("{:.2e}", validation_tolerance),
