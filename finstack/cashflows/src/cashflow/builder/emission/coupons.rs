@@ -247,6 +247,12 @@ fn sample_overnight_rates(
 ) -> (Vec<(f64, u32)>, u32) {
     let fwd_dc = fwd.day_count();
     let fwd_base = fwd.base_date();
+    // Day-count basis for converting calendar days to year fractions when
+    // computing the overnight forward tenor.
+    let fwd_dc_basis: f64 = match fwd_dc {
+        finstack_core::dates::DayCount::Act365F | finstack_core::dates::DayCount::Act365L => 365.0,
+        _ => 360.0,
+    };
 
     let mut daily_rates: Vec<(f64, u32)> = Vec::new();
     let mut pre_first_fixing_days: u32 = 0;
@@ -273,7 +279,12 @@ fn sample_overnight_rates(
                     )
                     .unwrap_or(0.0)
             };
-            let rate = fwd.rate(t);
+            // Use the average forward rate over the overnight tenor [t, t+1/basis]
+            // rather than the instantaneous forward at t. For piecewise-constant
+            // curves the two are identical, but for interpolated curves (linear,
+            // cubic) `rate_period` gives the correct overnight forward average.
+            let overnight_dt = (days as f64) / fwd_dc_basis;
+            let rate = fwd.rate_period(t, t + overnight_dt);
             // Assign any pre-period non-business days to this first fixing.
             let total = days + pre_first_fixing_days;
             pre_first_fixing_days = 0;

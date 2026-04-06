@@ -633,8 +633,14 @@ pub fn compute_overnight_rate(
             let lb = lookback_days as usize;
             if lb >= daily_rates.len() {
                 if let Some(&(rate, _)) = daily_rates.first() {
-                    let total_accrual: u32 = daily_rates.iter().map(|&(_, d)| d).sum();
-                    compute_compounded_rate(&[(rate, total_accrual)], total_days, day_count_basis)
+                    // When lookback exceeds the number of fixings, replace
+                    // every fixing's rate with the first fixing's rate but
+                    // preserve the original per-fixing day weights so that
+                    // compounding is applied per-fixing rather than collapsed
+                    // into a single factor.
+                    let fallback: Vec<(f64, u32)> =
+                        daily_rates.iter().map(|&(_, d)| (rate, d)).collect();
+                    compute_compounded_rate(&fallback, total_days, day_count_basis)
                 } else {
                     0.0
                 }
@@ -680,9 +686,11 @@ pub fn compute_overnight_rate(
             // compounding factor uses the rate AND the day-weight from the shifted
             // observation date. This differs from Lookback which only shifts rates.
             //
-            // The annualization denominator must use the sum of shifted weights
-            // (not the original total_days) to correctly annualize the compounded
-            // product over the actual observation period.
+            // Per ISDA 2021 §7.1(g), the annualization denominator must use the
+            // original accrual period day count (`total_days`), not the observation
+            // window day count. The compounding product is formed over shifted
+            // observations, but the resulting rate is defined for the contractual
+            // accrual period.
             let shift = shift_days as usize;
             if shift >= daily_rates.len() {
                 if let Some(&(rate, _)) = daily_rates.first() {
@@ -699,10 +707,9 @@ pub fn compute_overnight_rate(
                         daily_rates[source]
                     })
                     .collect();
-                // Use the sum of shifted weights as the annualization denominator
-                // to correctly reflect the observation period duration.
-                let shifted_total: u32 = shifted.iter().map(|&(_, d)| d).sum();
-                compute_compounded_rate(&shifted, shifted_total, day_count_basis)
+                // Annualize over the original accrual period (total_days), not
+                // the observation window, per ISDA 2021 §7.1(g).
+                compute_compounded_rate(&shifted, total_days, day_count_basis)
             }
         }
     }

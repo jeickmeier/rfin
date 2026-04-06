@@ -397,6 +397,17 @@ fn time_discount_survival(
 /// - Principal claims (Amortization, Notional, PrePayment) have recovery value in default
 /// - Interest/fee claims are typically subordinate and assumed to have zero recovery
 ///
+/// # Recovery and Explicit Recovery Flows
+///
+/// The `recovery_rate` term `R * (1 - SP)` is applied only to **surviving**
+/// principal flows. Explicit `Recovery` and `AccruedOnDefault` cashflows in the
+/// schedule are discounted at their scheduled dates without survival adjustment
+/// because they represent realized post-default cash. `DefaultedNotional` flows
+/// are zeroed since they represent the removed principal. This avoids
+/// double-counting because `DefaultedNotional` removes the defaulted portion
+/// from the surviving pool before the `R * (1 - SP)` credit adjustment is
+/// applied to remaining principal.
+///
 /// # Errors
 ///
 /// Returns an error if:
@@ -483,6 +494,16 @@ pub(crate) fn pv_by_period_credit_adjusted_detailed(
                 return Money::new(0.0, cf.amount.currency());
             }
 
+            // Recovery and AccruedOnDefault are realized post-default cash flows
+            // from the already-defaulted portion of the notional. They are
+            // discounted at their scheduled dates without survival adjustment
+            // because default has already occurred for this portion.
+            //
+            // This does NOT double-count recovery with the `recovery_rate` term
+            // on principal flows: `DefaultedNotional` removes the defaulted
+            // portion from surviving principal, so the `R * (1 - SP)` credit
+            // adjustment only applies to the still-outstanding principal, while
+            // explicit `Recovery` flows cover the already-defaulted portion.
             if matches!(cf.kind, CFKind::Recovery | CFKind::AccruedOnDefault) {
                 return Money::new(cf.amount.amount() * df, cf.amount.currency());
             }
