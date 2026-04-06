@@ -6,6 +6,7 @@
 use crate::dates::{Date, DateExt, FiscalConfig, PeriodId, PeriodKind};
 
 use super::returns::comp_total;
+use crate::math::summation::NeumaierAccumulator;
 
 /// Period-level aggregate statistics.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -196,9 +197,9 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     // Single pass: compute all stats without intermediate allocations.
     let mut best = f64::NEG_INFINITY;
     let mut worst = f64::INFINITY;
-    let mut total_sum = 0.0_f64;
-    let mut win_sum = 0.0_f64;
-    let mut loss_sum = 0.0_f64;
+    let mut total_acc = NeumaierAccumulator::new();
+    let mut win_acc = NeumaierAccumulator::new();
+    let mut loss_acc = NeumaierAccumulator::new();
     let mut win_count = 0usize;
     let mut loss_count = 0usize;
     // Consecutive streak tracking — computed inline to avoid a second pass.
@@ -214,9 +215,9 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
         if r < worst {
             worst = r;
         }
-        total_sum += r;
+        total_acc.add(r);
         if r > 0.0 {
-            win_sum += r;
+            win_acc.add(r);
             win_count += 1;
             cur_win_streak += 1;
             if cur_win_streak > consecutive_wins {
@@ -224,7 +225,7 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
             }
             cur_loss_streak = 0;
         } else if r < 0.0 {
-            loss_sum += r;
+            loss_acc.add(r);
             loss_count += 1;
             cur_loss_streak += 1;
             if cur_loss_streak > consecutive_losses {
@@ -238,6 +239,9 @@ pub fn period_stats(grouped: &[(PeriodId, f64)]) -> PeriodStats {
     }
 
     let total = grouped.len();
+    let total_sum = total_acc.total();
+    let win_sum = win_acc.total();
+    let loss_sum = loss_acc.total();
     let win_rate = win_count as f64 / total as f64;
     let avg_return = total_sum / total as f64;
     let avg_win = if win_count == 0 {

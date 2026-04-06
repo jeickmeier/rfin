@@ -664,6 +664,12 @@ pub fn rolling_greeks(
 /// compounded return over periods where the benchmark return is non-negative.
 /// A value > 1.0 means the portfolio amplifies benchmark gains.
 ///
+/// **Convention:** Zero-return benchmark days (`r_bench = 0.0`) are classified
+/// as "up" periods (using `>=`). Some vendors (e.g., Morningstar) use strict
+/// `> 0.0` which would exclude flat days. This choice can produce small
+/// differences in capture ratios on daily series with frequent zero-return
+/// observations.
+///
 /// # Arguments
 ///
 /// * `returns`   - Portfolio return series.
@@ -1408,7 +1414,14 @@ mod tests {
 #[must_use]
 pub fn treynor(ann_return: f64, risk_free_rate: f64, beta: f64) -> f64 {
     if beta.abs() < 1e-10 {
-        return 0.0;
+        let excess = ann_return - risk_free_rate;
+        return if excess > 0.0 {
+            f64::INFINITY
+        } else if excess < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     (ann_return - risk_free_rate) / beta
 }
@@ -1526,7 +1539,9 @@ mod benchmark_ratio_tests {
 
     #[test]
     fn treynor_zero_beta() {
-        assert_eq!(treynor(0.10, 0.02, 0.0), 0.0);
+        assert_eq!(treynor(0.10, 0.02, 0.0), f64::INFINITY);
+        assert_eq!(treynor(0.01, 0.02, 0.0), f64::NEG_INFINITY);
+        assert_eq!(treynor(0.02, 0.02, 0.0), 0.0);
     }
 
     #[test]

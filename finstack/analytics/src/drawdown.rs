@@ -332,6 +332,8 @@ pub fn cdar(drawdown: &[f64], confidence: f64) -> f64 {
     }
     let mut abs_dd: Vec<f64> = drawdown.iter().map(|&d| d.abs()).collect();
     let threshold = quantile(&mut abs_dd, confidence);
+    // Note: `abs_dd` is partially reordered by `quantile` (nth_element partition),
+    // not sorted. The filter below is order-independent so this is correct.
     let tail: Vec<f64> = abs_dd
         .iter()
         .filter(|&&d| d >= threshold)
@@ -598,7 +600,8 @@ pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
 /// # Returns
 ///
 /// The Calmar ratio (positive when CAGR and max drawdown have the same sign).
-/// Returns `0.0` if `max_dd` is zero (no drawdown observed).
+/// Returns `f64::INFINITY` if `max_dd` is zero and `cagr_val` is positive,
+/// `f64::NEG_INFINITY` if negative, or `0.0` if both are zero.
 ///
 /// # Examples
 ///
@@ -607,6 +610,7 @@ pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
 ///
 /// // 15% CAGR with 30% max drawdown → Calmar ≈ 0.5
 /// assert!((calmar(0.15, -0.30) - 0.5).abs() < 1e-12);
+/// assert_eq!(calmar(0.15, 0.0), f64::INFINITY);
 /// ```
 ///
 /// # References
@@ -615,7 +619,13 @@ pub fn average_drawdown(drawdowns: &[f64]) -> f64 {
 #[must_use]
 pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
     if max_dd == 0.0 {
-        return 0.0;
+        return if cagr_val > 0.0 {
+            f64::INFINITY
+        } else if cagr_val < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     cagr_val / max_dd.abs()
 }
@@ -643,7 +653,9 @@ pub fn calmar_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The recovery factor. Returns `0.0` if `max_dd` is zero.
+/// The recovery factor. Returns `f64::INFINITY` if `max_dd` is zero and
+/// `total_return` is positive, `f64::NEG_INFINITY` if negative, or `0.0`
+/// if both are zero.
 ///
 /// # Examples
 ///
@@ -652,11 +664,18 @@ pub fn calmar_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 ///
 /// // 50% total return with 25% max drawdown → 2.0.
 /// assert!((recovery_factor(0.50, -0.25) - 2.0).abs() < 1e-12);
+/// assert_eq!(recovery_factor(0.50, 0.0), f64::INFINITY);
 /// ```
 #[must_use]
 pub fn recovery_factor(total_return: f64, max_dd: f64) -> f64 {
     if max_dd == 0.0 {
-        return 0.0;
+        return if total_return > 0.0 {
+            f64::INFINITY
+        } else if total_return < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     total_return / max_dd.abs()
 }
@@ -714,7 +733,7 @@ pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
 /// use finstack_analytics::drawdown::martin_ratio;
 ///
 /// assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
-/// assert_eq!(martin_ratio(0.10, 0.0), 0.0);
+/// assert_eq!(martin_ratio(0.10, 0.0), f64::INFINITY);
 /// ```
 ///
 /// # References
@@ -723,7 +742,13 @@ pub fn recovery_factor_from_returns(returns: &[f64]) -> f64 {
 #[must_use]
 pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
     if ulcer == 0.0 {
-        return 0.0;
+        return if cagr_val > 0.0 {
+            f64::INFINITY
+        } else if cagr_val < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     cagr_val / ulcer
 }
@@ -741,7 +766,7 @@ pub fn martin_ratio(cagr_val: f64, ulcer: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The Martin ratio. Returns `0.0` for empty slices or zero Ulcer Index, and
+/// The Martin ratio. Returns `0.0` for empty slices, `±∞` for zero Ulcer Index with nonzero CAGR, and
 /// propagates `NaN` when `ann_factor` is invalid through
 /// [`crate::risk_metrics::cagr_from_periods`].
 ///
@@ -786,7 +811,8 @@ pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The Sterling ratio. Returns `0.0` if `avg_dd` is zero.
+/// The Sterling ratio. Returns `±∞` if `avg_dd` is zero and the excess
+/// return is nonzero, or `0.0` if both are zero.
 ///
 /// # Examples
 ///
@@ -803,7 +829,14 @@ pub fn martin_ratio_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
 #[must_use]
 pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
     if avg_dd == 0.0 {
-        return 0.0;
+        let excess = cagr_val - risk_free_rate;
+        return if excess > 0.0 {
+            f64::INFINITY
+        } else if excess < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     (cagr_val - risk_free_rate) / avg_dd.abs()
 }
@@ -822,8 +855,8 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The Sterling ratio. Returns `0.0` if no drawdowns are detected or if the
-/// average drawdown is zero. Propagates `NaN` when `ann_factor` is invalid
+/// The Sterling ratio. Returns `0.0` if no drawdowns are detected, `±∞`
+/// if the average drawdown is zero with nonzero excess return. Propagates `NaN` when `ann_factor` is invalid
 /// through [`crate::risk_metrics::cagr_from_periods`].
 ///
 /// # Examples
@@ -871,7 +904,8 @@ pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_r
 ///
 /// # Returns
 ///
-/// The Burke ratio. Returns `0.0` if `dd_episodes` is empty or all zero.
+/// The Burke ratio. Returns `0.0` if `dd_episodes` is empty, or `±∞`
+/// if the RMS of episodes is zero with nonzero excess return.
 ///
 /// # Examples
 ///
@@ -895,7 +929,14 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
     let ss: f64 = dd_episodes.iter().map(|&d| d * d).sum();
     let rms = (ss / n).sqrt();
     if rms == 0.0 {
-        return 0.0;
+        let excess = cagr_val - risk_free_rate;
+        return if excess > 0.0 {
+            f64::INFINITY
+        } else if excess < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     (cagr_val - risk_free_rate) / rms
 }
@@ -914,7 +955,8 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 ///
 /// # Returns
 ///
-/// The pain ratio. Returns `0.0` if the pain index is zero.
+/// The pain ratio. Returns `±∞` if the pain index is zero and the
+/// excess return is nonzero, or `0.0` if both are zero.
 ///
 /// # Examples
 ///
@@ -926,7 +968,14 @@ pub fn burke_ratio(cagr_val: f64, dd_episodes: &[f64], risk_free_rate: f64) -> f
 #[must_use]
 pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
     if pain == 0.0 {
-        return 0.0;
+        let excess = cagr_val - risk_free_rate;
+        return if excess > 0.0 {
+            f64::INFINITY
+        } else if excess < 0.0 {
+            f64::NEG_INFINITY
+        } else {
+            0.0
+        };
     }
     (cagr_val - risk_free_rate) / pain
 }
@@ -944,7 +993,8 @@ pub fn pain_ratio(cagr_val: f64, pain: f64, risk_free_rate: f64) -> f64 {
 ///
 /// # Returns
 ///
-/// The Pain ratio. Returns `0.0` if the Pain Index is zero. Propagates `NaN`
+/// The Pain ratio. Returns `±∞` if the Pain Index is zero with nonzero
+/// excess return. Propagates `NaN`
 /// when `ann_factor` is invalid through [`crate::risk_metrics::cagr_from_periods`].
 ///
 /// # Examples
@@ -1007,7 +1057,9 @@ mod drawdown_ratio_tests {
 
     #[test]
     fn calmar_zero_dd() {
-        assert_eq!(calmar(0.15, 0.0), 0.0);
+        assert_eq!(calmar(0.15, 0.0), f64::INFINITY);
+        assert_eq!(calmar(-0.05, 0.0), f64::NEG_INFINITY);
+        assert_eq!(calmar(0.0, 0.0), 0.0);
     }
 
     #[test]
@@ -1018,13 +1070,17 @@ mod drawdown_ratio_tests {
 
     #[test]
     fn recovery_factor_zero_dd() {
-        assert_eq!(recovery_factor(0.50, 0.0), 0.0);
+        assert_eq!(recovery_factor(0.50, 0.0), f64::INFINITY);
+        assert_eq!(recovery_factor(-0.10, 0.0), f64::NEG_INFINITY);
+        assert_eq!(recovery_factor(0.0, 0.0), 0.0);
     }
 
     #[test]
     fn martin_ratio_hand_calc() {
         assert!((martin_ratio(0.10, 0.05) - 2.0).abs() < 1e-12);
-        assert_eq!(martin_ratio(0.10, 0.0), 0.0);
+        assert_eq!(martin_ratio(0.10, 0.0), f64::INFINITY);
+        assert_eq!(martin_ratio(-0.05, 0.0), f64::NEG_INFINITY);
+        assert_eq!(martin_ratio(0.0, 0.0), 0.0);
     }
 
     #[test]
@@ -1035,7 +1091,9 @@ mod drawdown_ratio_tests {
 
     #[test]
     fn sterling_ratio_zero_dd() {
-        assert_eq!(sterling_ratio(0.12, 0.0, 0.02), 0.0);
+        assert_eq!(sterling_ratio(0.12, 0.0, 0.02), f64::INFINITY);
+        assert_eq!(sterling_ratio(0.01, 0.0, 0.02), f64::NEG_INFINITY);
+        assert_eq!(sterling_ratio(0.02, 0.0, 0.02), 0.0);
     }
 
     #[test]
@@ -1058,7 +1116,9 @@ mod drawdown_ratio_tests {
 
     #[test]
     fn pain_ratio_zero_pain() {
-        assert_eq!(pain_ratio(0.10, 0.0, 0.0), 0.0);
+        assert_eq!(pain_ratio(0.10, 0.0, 0.0), f64::INFINITY);
+        assert_eq!(pain_ratio(-0.02, 0.0, 0.0), f64::NEG_INFINITY);
+        assert_eq!(pain_ratio(0.0, 0.0, 0.0), 0.0);
     }
 
     #[test]
