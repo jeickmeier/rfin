@@ -1,11 +1,14 @@
 ---
 name: senior-code-review
 description: >
-  Senior hedge fund code review expertise focused on performance, simplicity, and
-  rejecting over-engineering. Use when the user asks to "review code", "check this
-  implementation", "is this over-engineered", "simplify this code", "review for
-  performance", "audit this module", "check code quality", or needs guidance on
-  writing production code that is lean, fast, and maintainable for a hedge fund.
+  Senior hedge fund code review and deep audit expertise focused on performance,
+  simplicity, and rejecting over-engineering. Two modes: Code Review for targeted
+  file/PR reviews, and Deep Audit for thorough module-level production readiness
+  assessment with phased analysis and graded output. Use when the user asks to
+  "review code", "check this implementation", "is this over-engineered", "simplify
+  this code", "review for performance", "audit this module", "deep audit", "check
+  code quality", or needs guidance on writing production code that is lean, fast,
+  and maintainable for a hedge fund.
 version: 0.1.0
 ---
 
@@ -83,9 +86,15 @@ Ask: *"Has anyone actually profiled this, or are we optimizing by superstition?"
 - **Reproducibility**: Seeded RNGs, deterministic ordering, pinned dependencies.
 - **No secrets in code**: No hardcoded keys, passwords, or connection strings. Ever.
 
-## Output Format
+## Modes
 
-Structure every review as:
+This skill operates in two modes based on scope: **Code Review** for targeted reviews of specific files or changes, and **Deep Audit** for thorough module-level production readiness assessment.
+
+---
+
+### Code Review Mode
+
+Use for reviewing specific files, PRs, or implementations. Apply all review dimensions above, then output:
 
 ```
 ## Verdict
@@ -109,6 +118,97 @@ Minor style, readability, and maintenance items.
 ## What's Good
 Acknowledge what works well. Don't just list problems.
 ```
+
+---
+
+### Deep Audit Mode
+
+Use for thorough module-level or directory-level audits. This is not a quick review — cover every file in the target. When no target is specified, audit the entire working directory.
+
+Before starting, read all reference files:
+- `references/over-engineering-patterns.md`
+- `references/performance-checklist.md`
+- `references/simplicity-principles.md`
+
+Execute these phases in order:
+
+#### Phase 1: Architecture Assessment
+
+Map the module structure. For each file, note its responsibility. Identify:
+- Files that do too many things (>1 clear responsibility)
+- Files that do too little (wrappers, pass-throughs)
+- Circular or tangled dependencies
+- Over-layered designs (too many levels of abstraction between input and output)
+
+#### Phase 2: Over-Engineering Sweep
+
+Systematically check every abstraction against the over-engineering catalog:
+- Every interface/trait: does it have 2+ implementations?
+- Every generic parameter: is it instantiated with 2+ types?
+- Every factory/builder: does the creation logic justify the pattern?
+- Every config value: has it ever been changed?
+- Every layer of indirection: does it add logic or just delegate?
+
+#### Phase 3: Correctness Deep Dive
+
+- Trace all error paths. Where do errors originate? Where are they handled? Where are they swallowed?
+- Check all external boundaries: network calls, file I/O, database queries. What happens on failure?
+- Check all numeric operations for overflow, underflow, precision loss, division by zero.
+- Check concurrency: shared mutable state, race conditions, deadlock potential.
+- Check input validation: what happens with empty, null, negative, huge inputs?
+
+#### Phase 4: Performance Assessment
+
+- Identify hot paths (called frequently or processing large data).
+- Check allocation patterns in hot paths.
+- Check algorithmic complexity. Flag any O(n²) or worse on potentially large n.
+- Check I/O patterns: batching, connection pooling, buffering.
+- Check data structures: are they appropriate for the access patterns?
+
+#### Phase 5: Production Readiness
+
+- Logging: can you diagnose a failure from logs alone?
+- Monitoring: are there metrics or health checks?
+- Configuration: are secrets externalized? Are environments properly separated?
+- Error recovery: does the system recover from transient failures?
+- Dependencies: are versions pinned? Are there known vulnerabilities?
+- Documentation: can a new engineer operate this in production?
+
+#### Deep Audit Output Format
+
+```
+## Module Overview
+Brief description of what this module does and how it's structured.
+
+## Architecture Assessment
+[Findings from Phase 1]
+Grade: A/B/C/D/F
+
+## Over-Engineering Score
+Number of unnecessary abstractions found, with specifics.
+Grade: A/B/C/D/F
+
+## Correctness
+[Findings from Phase 3]
+Grade: A/B/C/D/F
+
+## Performance
+[Findings from Phase 4]
+Grade: A/B/C/D/F
+
+## Production Readiness
+[Findings from Phase 5]
+Grade: A/B/C/D/F
+
+## Overall Verdict
+PRODUCTION READY / NEEDS WORK / NOT READY
+One paragraph summary with the top 3 actions to take.
+
+## Recommended Changes (Priority Order)
+Numbered list from most to least critical.
+```
+
+---
 
 ## Reference Material
 
