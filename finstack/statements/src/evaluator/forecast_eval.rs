@@ -146,10 +146,25 @@ pub(crate) fn evaluate_forecast(
 
 /// Determine the base value for forecasting.
 ///
-/// Logic:
-/// 1. If there's a value in the last actual period, use it
-/// 2. If there's a historical value (from context), use the most recent
-/// 3. Otherwise error
+/// The base value anchors every forecast method (growth, trend, seasonal, etc.)
+/// to the most recent observed data point. The resolution order is:
+///
+/// 1. **Last actual period** — if the node has an explicit value or a
+///    previously-evaluated result in the most recent `is_actual` period, that
+///    value is used. This is the normal path when actuals are up-to-date.
+/// 2. **Most recent historical value** — falls back to the chronologically
+///    latest value found anywhere in `EvaluationContext::historical_results`.
+///    Covers cases where the last actual period has no value for this
+///    particular node (e.g., the node was added after earlier periods).
+/// 3. **Error** — if no historical data exists at all, evaluation fails with a
+///    descriptive message so the analyst can provide at least one actual.
+///
+/// # Assumption
+///
+/// The resolved base value is assumed to be correct and representative.
+/// Callers should ensure that the actuals feeding the model are clean and
+/// reviewed before running forecasts—this function does **not** attempt to
+/// detect outliers, stale data, or unit mismatches.
 fn determine_base_value(
     node_spec: &NodeSpec,
     _current_period_id: &PeriodId,

@@ -12,6 +12,27 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 /// Configuration for Monte Carlo evaluation of a statement model.
+///
+/// # Choosing the number of paths
+///
+/// The required path count depends on the quantities of interest:
+///
+/// | Use case | Recommended `n_paths` |
+/// |---|---|
+/// | Mean / median estimates | 1 000 – 2 000 |
+/// | 5th / 95th percentiles | 5 000 – 10 000 |
+/// | 1st / 99th percentiles or CVaR | 10 000 – 50 000 |
+/// | Breach-probability estimates | 10 000+ |
+///
+/// Standard-error of a percentile estimate scales as
+/// $O\bigl(1/\sqrt{n}\bigr)$, so tails require proportionally more
+/// paths to converge. When in doubt, run two simulations with
+/// different seeds and compare results; if the metric of interest
+/// moves by more than the desired precision, increase `n_paths`.
+///
+/// The default constructor ([`MonteCarloConfig::new`]) does **not** impose a
+/// minimum—callers choose the path count explicitly so the trade-off between
+/// accuracy and runtime is visible.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonteCarloConfig {
     /// Number of Monte Carlo paths to simulate.

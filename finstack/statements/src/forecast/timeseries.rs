@@ -1,4 +1,33 @@
 //! Time-series forecasting methods with trend detection and seasonal decomposition.
+//!
+//! # Quarterly credit-model usage
+//!
+//! When building quarterly financial-statement models (the most common cadence
+//! for credit analysis), keep the following in mind:
+//!
+//! * **`season_length`** — set to `4` for quarterly seasonality. The
+//!   decomposition needs at least 2 full seasonal cycles (8 quarters) of
+//!   historical data; 12–16 quarters is better for stable estimates.
+//!
+//! * **`actuals_until` interaction** — the evaluator only invokes forecasts for
+//!   periods *after* the model's last `is_actual` period. If you update
+//!   `actuals_until` to include a new quarter, that quarter's value is taken
+//!   from the explicit node values and the seasonal forecast simply starts one
+//!   period later. This means the historical window used by the decomposition
+//!   grows automatically as you roll forward.
+//!
+//! * **Additive vs. multiplicative** — use `additive` when seasonal swings are
+//!   roughly constant in absolute terms (e.g., a retailer's Q4 EBITDA uplift
+//!   is always ~$5 M). Use `multiplicative` when the swing scales with the
+//!   level (e.g., Q4 revenue is always ~20 % above trend). Multiplicative mode
+//!   divides by the trend component, so it will error if any trend value is
+//!   near zero. For most credit metrics that are expected to stay positive,
+//!   multiplicative is the safer default.
+//!
+//! * **`season_start`** — set to the zero-based position within the seasonal
+//!   cycle that your first historical observation corresponds to. For example,
+//!   if the fiscal year starts in April and your first data point is Q2 (July),
+//!   use `season_start = 1`.
 
 use crate::error::{Error, Result};
 use crate::types::SeasonalMode;

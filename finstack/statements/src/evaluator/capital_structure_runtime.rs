@@ -77,7 +77,7 @@ impl Evaluator {
 
         let fx_ctx = build_fx_context(model, market_ctx, period);
         let mut cs_cashflows = build_cs_cashflows_from_contractual(&contractual_flows, period_id);
-        recompute_cs_totals(&mut cs_cashflows, period_id, fx_ctx.as_ref());
+        recompute_cs_totals(&mut cs_cashflows, period_id, fx_ctx.as_ref())?;
 
         let mut context = EvaluationContext::new_with_history(
             period_id,
@@ -111,7 +111,7 @@ impl Evaluator {
                 )?;
 
                 merge_updated_flows(&mut cs_cashflows, &updated_flows, period_id);
-                recompute_cs_totals(&mut cs_cashflows, period_id, fx_ctx.as_ref());
+                recompute_cs_totals(&mut cs_cashflows, period_id, fx_ctx.as_ref())?;
                 context.capital_structure_cashflows = Some(cs_cashflows);
             }
         }
@@ -286,7 +286,7 @@ fn recompute_cs_totals(
     cashflows: &mut crate::capital_structure::CapitalStructureCashflows,
     period_id: PeriodId,
     fx_ctx: Option<&CsTotalsContext<'_>>,
-) {
+) -> crate::error::Result<()> {
     use crate::capital_structure::integration::convert_to_reporting;
     use finstack_core::currency::Currency;
 
@@ -325,7 +325,7 @@ fn recompute_cs_totals(
             cashflows.reporting_currency = Some(currency);
             cashflows.totals.insert(period_id, breakdown.clone());
         }
-        return;
+        return Ok(());
     }
 
     if let Some(ctx) = fx_ctx {
@@ -352,10 +352,11 @@ fn recompute_cs_totals(
                         ctx.fx_policy,
                     ) {
                         Ok(Some(m)) => converted_fields.push(m),
-                        _ => {
+                        Ok(None) => {
                             all_converted = false;
                             break;
                         }
+                        Err(e) => return Err(e),
                     }
                 }
                 if !all_converted {
@@ -374,6 +375,8 @@ fn recompute_cs_totals(
             }
         }
     }
+
+    Ok(())
 }
 
 fn merge_updated_flows(
