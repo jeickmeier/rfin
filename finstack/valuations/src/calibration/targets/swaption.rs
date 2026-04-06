@@ -87,17 +87,18 @@ impl SwaptionVolTarget {
         let dc = if let Some(dc) = params.fixed_day_count {
             dc
         } else {
-            let idx_from_quotes = quotes.iter().find_map(|q| match q {
-                MarketQuote::Vol(VolQuote::SwaptionVol { convention, .. }) => {
-                    // Resolve index from convention
-                    let registry = ConventionRegistry::try_global().ok()?;
-                    let swaption_conv = registry.require_swaption(convention).ok()?;
-                    Some(crate::market::conventions::ids::IndexId::new(
-                        &swaption_conv.float_leg_index,
-                    ))
-                }
-                _ => None,
-            });
+            let mut idx_from_quotes = None;
+            for quote in quotes {
+                let MarketQuote::Vol(VolQuote::SwaptionVol { convention, .. }) = quote else {
+                    continue;
+                };
+                let registry = ConventionRegistry::try_global()?;
+                let swaption_conv = registry.require_swaption(convention)?;
+                idx_from_quotes = Some(crate::market::conventions::ids::IndexId::new(
+                    &swaption_conv.float_leg_index,
+                ));
+                break;
+            }
             let idx_key = params
                 .swap_index
                 .as_ref()

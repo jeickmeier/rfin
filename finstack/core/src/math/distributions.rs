@@ -443,11 +443,13 @@ pub fn sample_beta(
     let x = sample_gamma_unchecked(rng, alpha);
     let y = sample_gamma_unchecked(rng, beta);
 
-    // Guard against division by zero (extremely rare, but defensive)
-    if x + y == 0.0 {
+    // Guard against division by zero or near-zero denominator.
+    // Both gamma samples can underflow to 0 for very small shape parameters.
+    let sum = x + y;
+    if !sum.is_finite() || sum <= 0.0 {
         return Ok(0.5); // Fallback to mean for degenerate case
     }
-    Ok(x / (x + y))
+    Ok(x / sum)
 }
 
 // ============================================================================

@@ -221,8 +221,9 @@ impl CliquetOptionMcPricer {
             .map(|d| {
                 inst.day_count
                     .year_fraction(as_of, *d, DayCountCtx::default())
-                    .unwrap_or(0.0)
             })
+            .collect::<finstack_core::Result<Vec<_>>>()?
+            .into_iter()
             .filter(|&t| t > 0.0)
             .collect();
         check_points.sort_by(|a, b| a.total_cmp(b));

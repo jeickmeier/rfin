@@ -130,12 +130,8 @@ impl AutocallableMcPricer {
         let observation_times: Vec<f64> = inst
             .observation_dates
             .iter()
-            .map(|&date| {
-                disc_dc
-                    .year_fraction(as_of, date, DayCountCtx::default())
-                    .unwrap_or(0.0)
-            })
-            .collect();
+            .map(|&date| disc_dc.year_fraction(as_of, date, DayCountCtx::default()))
+            .collect::<finstack_core::Result<Vec<_>>>()?;
 
         let mc_final_payoff = Self::convert_final_payoff_type(inst.final_payoff_type);
 

@@ -21,10 +21,12 @@ fn find_duplicates(items: &[String]) -> Vec<String> {
 ### Review output
 
 ## Summary
+
 - Function to find duplicate strings in a slice
 - **High** performance risk: O(n³) complexity
 
 ## Performance concerns
+
 - Nested loops create O(n²) comparisons
 - `duplicates.contains()` adds another O(n) factor, making total O(n³)
 - String cloning in hot path adds allocation overhead
@@ -33,12 +35,15 @@ fn find_duplicates(items: &[String]) -> Vec<String> {
 ## Findings
 
 ### Blockers
+
 - **O(n³) complexity**: For 10K items, this is ~10¹² operations. Fix by using HashSet for both seen tracking and duplicate detection. Expected: O(n) with hash operations.
 
 ### Majors
+
 - **Unnecessary string cloning**: Cloning on every duplicate found. Consider returning indices or references if caller doesn't need owned strings.
 
 ## Action items
+
 - [ ] Replace with HashSet-based O(n) implementation
 - [ ] Add benchmark comparing before/after at various sizes
 - [ ] Consider returning `Vec<&str>` if ownership not needed
@@ -87,10 +92,12 @@ fn compute_portfolio_values(
 ### Review output
 
 ## Summary
+
 - Portfolio valuation function called frequently
 - **Major** performance risk: allocation per position
 
 ## Performance concerns
+
 - `format!()` allocates a new String for every position
 - With 10K positions at 60Hz, that's 600K allocations/second
 - Key computation is repeated; should be cached or restructured
@@ -98,16 +105,20 @@ fn compute_portfolio_values(
 ## Findings
 
 ### Majors
+
 - **String allocation in hot loop**: `format!()` creates heap allocation per iteration. If called frequently with same positions, consider pre-computing keys or restructuring the price lookup.
 
 ### Minors
+
 - **HashMap key type**: If this is a hot path, consider using a numeric ID instead of string keys, or use `FxHashMap` with a composite key struct.
 
 ## Benchmarking recommendations
+
 - Measure with realistic position counts (100, 1K, 10K)
 - Profile allocation rate with DHAT or similar
 
 ## Action items
+
 - [ ] Pre-compute keys in Position struct or use numeric IDs
 - [ ] If keys must be computed, use a reusable buffer
 - [ ] Consider FxHashMap if string keys are necessary
@@ -178,10 +189,12 @@ fn sum_notionals(instruments: &[Instrument]) -> f64 {
 ### Review output
 
 ## Summary
+
 - Simple aggregation over instrument collection
 - **Major** performance risk: cache-hostile memory layout
 
 ## Performance concerns
+
 - Each `Instrument` is large; iterating loads entire struct into cache
 - `market_data` is behind a Box, causing pointer chase per instrument
 - Only accessing `notional` but loading hundreds of bytes per item
@@ -190,10 +203,12 @@ fn sum_notionals(instruments: &[Instrument]) -> f64 {
 ## Findings
 
 ### Majors
+
 - **Pointer chasing**: `Box<MarketData>` requires dereferencing a pointer for each instrument, destroying spatial locality. For hot-path aggregations, consider storing frequently-accessed fields directly or using SoA layout.
 - **Cold data in hot path**: Large struct with many unused fields loaded into cache. Consider separating hot fields (notional, id) from cold fields (name, pricing_params).
 
 ## Action items
+
 - [ ] Store `notional` directly in `Instrument` if accessed frequently
 - [ ] Consider SoA layout for hot-path aggregations
 - [ ] Profile with `perf stat` to measure cache misses
@@ -257,10 +272,12 @@ fn price_single(inst: &Instrument, market_data: &MarketData) -> PricingResult {
 ### Review output
 
 ## Summary
+
 - Prices collection of instruments sequentially
 - **Major** performance opportunity: embarrassingly parallel workload
 
 ## Performance concerns
+
 - Each pricing is independent (~1ms each)
 - 1000 instruments = 1 second sequential, could be ~125ms on 8 cores
 - No shared mutable state prevents parallelization
@@ -268,16 +285,20 @@ fn price_single(inst: &Instrument, market_data: &MarketData) -> PricingResult {
 ## Findings
 
 ### Majors
+
 - **Missing parallelization**: Independent pricing operations with significant per-item cost. This is an ideal candidate for `rayon::par_iter()`.
 
 ### Minors
+
 - Ensure `MarketData` is `Sync` (read-only access is safe to share).
 
 ## Benchmarking recommendations
+
 - Measure single-instrument pricing time to confirm parallelization is worthwhile (>1μs)
 - Test with realistic instrument counts
 
 ## Action items
+
 - [ ] Add rayon dependency if not present
 - [ ] Replace `iter()` with `par_iter()`
 - [ ] Verify `MarketData` is thread-safe for concurrent reads
@@ -337,10 +358,12 @@ pub unsafe fn simd_sum(values: &[f64]) -> f64 {
 ### Review output
 
 ## Summary
+
 - Manual SIMD implementation for summing f64 values
 - **Nit**: Over-engineered; likely no real-world benefit
 
 ## Performance concerns
+
 - Manual SIMD adds significant complexity and maintenance burden
 - Requires `unsafe` with no safety documentation
 - Platform-specific (x86_64 only)
@@ -350,11 +373,13 @@ pub unsafe fn simd_sum(values: &[f64]) -> f64 {
 ## Findings
 
 ### Minors
+
 - **Premature optimization**: Without benchmarks showing the standard approach is insufficient, this complexity isn't justified. The Rust compiler with `-C target-cpu=native` often generates equivalent SIMD code for simple loops.
 - **Missing safety documentation**: `unsafe` function without documenting invariants.
 - **Platform-specific without fallback**: No implementation for non-x86_64.
 
 ## Action items
+
 - [ ] Benchmark against `values.iter().sum()` to verify benefit
 - [ ] If SIMD is truly needed, consider using `packed_simd` or `std::simd` (nightly)
 - [ ] Add fallback for other architectures

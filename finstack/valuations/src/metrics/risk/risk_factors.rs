@@ -228,15 +228,15 @@ where
         .as_any()
         .downcast_ref::<crate::instruments::equity::Equity>()
     {
-        let price_id = eq.price_id.as_deref().unwrap_or(eq.ticker.as_str());
-        if market.get_price(price_id).is_ok() {
-            push_factor(
-                factors,
-                seen,
-                RiskFactorType::EquitySpot {
-                    ticker: price_id.to_string(),
-                },
-            );
+        for price_id in eq.price_id_candidates() {
+            if market.get_price(&price_id).is_ok() {
+                push_factor(
+                    factors,
+                    seen,
+                    RiskFactorType::EquitySpot { ticker: price_id },
+                );
+                break;
+            }
         }
     }
 

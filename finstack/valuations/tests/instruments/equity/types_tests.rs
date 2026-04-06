@@ -50,9 +50,9 @@ fn test_equity_new_with_different_currencies() {
     let equity_gbp = Equity::new("BP", "BP", Currency::GBP);
     assert_eq!(equity_gbp.discount_curve_id.as_str(), "GBP");
 
-    // Other currencies default to USD
+    // Other currencies preserve their own currency code
     let equity_jpy = Equity::new("SONY", "SONY", Currency::JPY);
-    assert_eq!(equity_jpy.discount_curve_id.as_str(), "USD");
+    assert_eq!(equity_jpy.discount_curve_id.as_str(), "JPY");
 }
 
 #[test]

@@ -305,6 +305,7 @@ pub use common_impl::traits::{
 pub use public_traits::Instrument;
 
 /// Internal extension traits and plumbing hooks.
+#[doc(hidden)]
 pub mod internal {
     pub use super::common_impl::traits::Instrument as InstrumentExt;
 }

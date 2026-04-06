@@ -290,38 +290,33 @@ pub(crate) fn execute_params(
             let dc = DayCount::Act365F;
 
             // Extract swaption quotes from MarketQuote::Vol(VolQuote::SwaptionVol { .. })
-            let hw_quotes: Vec<SwaptionQuote> = quotes
-                .iter()
-                .filter_map(|q| {
-                    if let MarketQuote::Vol(VolQuote::SwaptionVol {
-                        expiry,
-                        maturity,
-                        vol,
-                        quote_type,
-                        ..
-                    }) = q
-                    {
-                        let t_exp = dc
-                            .year_fraction(p.base_date, *expiry, DayCountCtx::default())
-                            .ok()?;
-                        let t_ten = dc
-                            .year_fraction(*expiry, *maturity, DayCountCtx::default())
-                            .ok()?;
-                        if t_exp <= 0.0 || t_ten <= 0.0 {
-                            return None;
-                        }
-                        let is_normal = quote_type.eq_ignore_ascii_case("normal");
-                        Some(SwaptionQuote {
-                            expiry: t_exp,
-                            tenor: t_ten,
-                            volatility: *vol,
-                            is_normal_vol: is_normal,
-                        })
-                    } else {
-                        None
-                    }
-                })
-                .collect();
+            let mut hw_quotes = Vec::new();
+            for quote in quotes {
+                let MarketQuote::Vol(VolQuote::SwaptionVol {
+                    expiry,
+                    maturity,
+                    vol,
+                    quote_type,
+                    ..
+                }) = quote
+                else {
+                    continue;
+                };
+
+                let t_exp = dc.year_fraction(p.base_date, *expiry, DayCountCtx::default())?;
+                let t_ten = dc.year_fraction(*expiry, *maturity, DayCountCtx::default())?;
+                if t_exp <= 0.0 || t_ten <= 0.0 {
+                    continue;
+                }
+
+                let is_normal = quote_type.eq_ignore_ascii_case("normal");
+                hw_quotes.push(SwaptionQuote {
+                    expiry: t_exp,
+                    tenor: t_ten,
+                    volatility: *vol,
+                    is_normal_vol: is_normal,
+                });
+            }
 
             let initial_guess = match (p.initial_kappa, p.initial_sigma) {
                 (Some(kappa), Some(sigma)) => Some(HullWhiteParams::new(kappa, sigma)?),

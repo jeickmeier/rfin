@@ -59,6 +59,16 @@ pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<Dy
                     fx_spot
                 )));
             }
+            if !basis_spread_bp.is_finite() {
+                let kind = if basis_spread_bp.is_nan() {
+                    finstack_core::NonFiniteKind::NaN
+                } else if basis_spread_bp.is_sign_positive() {
+                    finstack_core::NonFiniteKind::PosInfinity
+                } else {
+                    finstack_core::NonFiniteKind::NegInfinity
+                };
+                return Err(finstack_core::InputError::NonFiniteValue { kind }.into());
+            }
 
             let spot = roll_spot_date(
                 ctx.as_of(),
@@ -109,7 +119,8 @@ pub fn build_xccy_instrument(quote: &XccyQuote, ctx: &BuildCtx) -> Result<Box<Dy
                 day_count: conv.day_count,
                 bdc: conv.business_day_convention,
                 stub: finstack_core::dates::StubKind::ShortFront,
-                spread_bp: Decimal::from_f64_retain(*basis_spread_bp).unwrap_or_default(),
+                spread_bp: Decimal::try_from(*basis_spread_bp)
+                    .map_err(|_| finstack_core::InputError::ConversionOverflow)?,
                 payment_lag_days: quote_index.default_payment_lag_days,
                 calendar_id: Some(conv.quote_calendar_id.clone()),
                 reset_lag_days: Some(quote_index.default_reset_lag_days),

@@ -321,8 +321,15 @@ where
 
     // Define NPV function: Σ C_t / (1+r)^t using Neumaier compensated summation
     let npv = |rate: f64| -> f64 {
-        let mut acc = NeumaierAccumulator::new();
         let df_base = 1.0 + rate;
+        // Guard: (1+r) must be positive for real-valued power function.
+        // For non-integer exponents, negative base produces NaN; for zero base,
+        // we get division by zero. Return non-finite to signal the solver to
+        // reject this candidate rate.
+        if df_base <= 0.0 {
+            return f64::INFINITY;
+        }
+        let mut acc = NeumaierAccumulator::new();
         for &(t, amount) in &data {
             acc.add(amount / df_base.powf(t));
         }
@@ -331,8 +338,11 @@ where
 
     // Define derivative d(NPV)/dr: Σ -t * C_t / (1+r)^(t+1) using Neumaier
     let npv_derivative = |rate: f64| -> f64 {
-        let mut acc = NeumaierAccumulator::new();
         let df_base = 1.0 + rate;
+        if df_base <= 0.0 {
+            return f64::INFINITY;
+        }
+        let mut acc = NeumaierAccumulator::new();
         for &(t, amount) in &data {
             acc.add(-t * amount / df_base.powf(t + 1.0));
         }

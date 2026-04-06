@@ -210,6 +210,7 @@ def calculate_price(
 Reference the canonical entry in `docs/REFERENCES.md`:
 
 **Rust:**
+
 ```rust
 /// # References
 ///
@@ -218,6 +219,7 @@ Reference the canonical entry in `docs/REFERENCES.md`:
 ```
 
 **Python:**
+
 ```python
 """
 Sources
@@ -271,11 +273,13 @@ Use these anchor keys from `docs/REFERENCES.md`:
 ### Argument documentation quality
 
 **Good:**
+
 ```
 * `settlement` - Settlement date; cashflows before this date are excluded
 ```
 
 **Bad:**
+
 ```
 * `settlement` - The settlement date
 ```
@@ -283,6 +287,7 @@ Use these anchor keys from `docs/REFERENCES.md`:
 ### Example quality
 
 **Good:**
+
 ```rust
 /// ```rust
 /// use finstack_valuations::pricer::PricerRegistry;
@@ -297,6 +302,7 @@ Use these anchor keys from `docs/REFERENCES.md`:
 ```
 
 **Bad:**
+
 ```rust
 /// ```rust
 /// let x = my_function();

@@ -191,14 +191,13 @@ pub fn collect_inputs_extended(
         inst.discrete_dividends
             .iter()
             .filter(|(ex_date, _)| *ex_date > as_of && *ex_date <= inst.expiry)
-            .filter_map(|(ex_date, amount)| {
-                let t_div = year_fraction(DayCount::Act365F, as_of, *ex_date).ok()?;
-                if t_div > 0.0 {
-                    Some((t_div, *amount))
-                } else {
-                    None
-                }
+            .map(|(ex_date, amount)| {
+                let t_div = year_fraction(DayCount::Act365F, as_of, *ex_date)?;
+                Ok((t_div, *amount))
             })
+            .collect::<finstack_core::Result<Vec<_>>>()?
+            .into_iter()
+            .filter(|(t_div, _)| *t_div > 0.0)
             .collect()
     } else {
         Vec::new()

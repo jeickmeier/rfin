@@ -73,12 +73,7 @@ impl Equity {
 
     /// Create a new equity instrument with default 1 share
     pub fn new(id: impl Into<String>, ticker: impl Into<String>, currency: Currency) -> Self {
-        let discount_curve_id = match currency {
-            Currency::USD => CurveId::from("USD"),
-            Currency::EUR => CurveId::from("EUR"),
-            Currency::GBP => CurveId::from("GBP"),
-            _ => CurveId::from("USD"), // Default fallback
-        };
+        let discount_curve_id = CurveId::from(currency.to_string());
 
         Self {
             id: InstrumentId::new(id.into()),
@@ -125,7 +120,7 @@ impl Equity {
         self
     }
 
-    fn price_id_candidates(&self) -> Vec<String> {
+    pub(crate) fn price_id_candidates(&self) -> Vec<String> {
         let mut ids: Vec<String> = Vec::new();
         let mut push = |candidate: Option<&str>| {
             if let Some(value) = candidate {
@@ -150,7 +145,7 @@ impl Equity {
         ids
     }
 
-    fn dividend_yield_id_candidates(&self) -> Vec<String> {
+    pub(crate) fn dividend_yield_id_candidates(&self) -> Vec<String> {
         let mut ids: Vec<String> = Vec::new();
         let mut push = |candidate: Option<&str>| {
             if let Some(value) = candidate {
@@ -349,8 +344,9 @@ impl crate::instruments::common_impl::traits::Instrument for Equity {
 
     fn market_dependencies(&self) -> finstack_core::Result<MarketDependencies> {
         let mut deps = MarketDependencies::from_curve_dependencies(self)?;
-        let spot_key = self.price_id.as_deref().unwrap_or(self.ticker.as_str());
-        deps.add_spot_id(spot_key);
+        for spot_id in self.price_id_candidates() {
+            deps.add_spot_id(spot_id);
+        }
         Ok(deps)
     }
 

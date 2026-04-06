@@ -5,12 +5,14 @@
 When verifying implementations, reference these standards:
 
 ### Industry documentation
+
 - **ISDA Definitions**: 2006 ISDA Definitions for swaps, 2021 Definitions for fallbacks
 - **ISDA SIMM**: Standard Initial Margin Model methodology
 - **FpML**: Financial products Markup Language schemas
 - **OpenGamma**: Open source analytics (Strata) as reference implementation
 
 ### Academic references
+
 - **Hull**: "Options, Futures, and Other Derivatives" - vanilla derivatives
 - **Brigo-Mercurio**: "Interest Rate Models" - curve construction, exotic rates
 - **Glasserman**: "Monte Carlo Methods in Financial Engineering" - simulation
@@ -48,6 +50,7 @@ fraction = days / 360
 ```
 
 ### Implementation checklist
+
 - [ ] Handle month-end dates correctly
 - [ ] Leap year handling for ACT/ACT
 - [ ] February edge cases (28th/29th)
@@ -95,6 +98,7 @@ Standard instrument ordering for yield curve:
 | Natural cubic spline | C² continuous | May not preserve positivity | Academic |
 
 ### Validation checks
+
 - [ ] Discount factor at t=0 equals 1.0
 - [ ] Discount factors monotonically decreasing
 - [ ] No negative forward rates (unless intentional)
@@ -130,6 +134,7 @@ Central:  δ²P/δx² ≈ (P(x+h) - 2P(x) + P(x-h)) / h²
 ```
 
 ### Numerical stability considerations
+
 - Use central differences for better accuracy
 - Bump size trade-off: too small → numerical noise, too large → truncation error
 - Typical optimal bump: 1-10 bp for rates, 0.1-1% for vol
@@ -191,6 +196,7 @@ where:
 ## ISDA SIMM overview
 
 ### Risk classes
+
 1. Interest Rate (IR)
 2. Credit (Qualifying and Non-Qualifying)
 3. Equity
@@ -291,22 +297,26 @@ rate = interpolate(curve, date)
 ## Testing requirements for quant code
 
 ### Unit tests
+
 - Known analytical solutions (Black-Scholes, simple bonds)
 - Boundary conditions (at expiry, zero vol, zero rate)
 - Symmetry properties (put-call parity, cap-floor parity)
 - Monotonicity (longer maturity → higher option value for vanillas)
 
 ### Integration tests
+
 - Reprice market instruments to input quotes (< 0.01 bp error)
 - Cross-validate against independent implementation
 - Regression tests with golden values
 
 ### Property-based tests
+
 - No-arbitrage conditions
 - Greeks consistency (delta, gamma, theta relationship)
 - Curve construction round-trips
 
 ### Stress tests
+
 - Extreme rates (negative, very high)
 - Near-zero time to expiry
 - Deep in/out of the money

@@ -188,7 +188,7 @@ impl MarketDependencies {
             InstrumentJson::CDSOption(i) => Self::from_curve_dependencies(i),
 
             // Equity
-            InstrumentJson::Equity(i) => Self::from_curve_dependencies(i),
+            InstrumentJson::Equity(i) => i.market_dependencies(),
             InstrumentJson::EquityOption(i) => Self::from_curves_and_equity(i),
             InstrumentJson::AsianOption(i) => Self::from_curves_and_equity(i),
             InstrumentJson::BarrierOption(i) => Self::from_curves_and_equity(i),

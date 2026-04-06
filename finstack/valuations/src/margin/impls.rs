@@ -407,12 +407,16 @@ impl Marginable for FIIndexTotalReturnSwap {
             .underlying
             .duration_id
             .as_ref()
-            .and_then(|id| {
-                market.get_price(id.as_str()).ok().and_then(|s| match s {
-                    finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Some(*v),
-                    finstack_core::market_data::scalars::MarketScalar::Price(_) => None,
-                })
+            .map(|id| match market.get_price(id.as_str())? {
+                finstack_core::market_data::scalars::MarketScalar::Unitless(v) => Ok(*v),
+                finstack_core::market_data::scalars::MarketScalar::Price(_) => {
+                    Err(finstack_core::Error::Validation(format!(
+                        "duration_id '{}' must resolve to a unitless scalar",
+                        id
+                    )))
+                }
             })
+            .transpose()?
             .unwrap_or(DEFAULT_BOND_INDEX_DURATION);
 
         let dv01 = self.notional.amount().abs() * duration * ONE_BP;

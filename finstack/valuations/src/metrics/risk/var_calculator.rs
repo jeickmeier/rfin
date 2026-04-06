@@ -619,7 +619,7 @@ fn calculate_var_taylor_approximation(
 
     for scenario in history.iter() {
         let pnl_local =
-            taylor_pnl_for_scenario(&sensitivities, base_market, scenario, &mut spot_cache);
+            taylor_pnl_for_scenario(&sensitivities, base_market, scenario, &mut spot_cache)?;
         pnls.push(convert_money_to_reporting(
             Money::new(pnl_local, sensitivities.currency),
             reporting_currency,
@@ -681,12 +681,24 @@ fn compute_taylor_sensitivities(
     let dv01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedDv01.as_str());
     let cs01 = collect_bucketed_series(&context.computed_series, MetricId::BucketedCs01.as_str());
 
-    // Historical Taylor VaR uses an explicit caller-side missing-value policy:
-    // unsupported or failed metrics stay absent in best-effort mode and are
-    // only coerced to zero here when assembling the sensitivity vector.
-    let parallel_dv01 = computed.get(&MetricId::Dv01).copied().unwrap_or(0.0);
-    let parallel_cs01 = computed.get(&MetricId::Cs01).copied().unwrap_or(0.0);
-    let ir_convexity = computed.get(&MetricId::IrConvexity).copied().unwrap_or(0.0);
+    let parallel_dv01 = required_metric(
+        &computed,
+        &MetricId::Dv01,
+        registry.is_applicable(&MetricId::Dv01, instrument_type),
+        instrument.id(),
+    )?;
+    let parallel_cs01 = required_metric(
+        &computed,
+        &MetricId::Cs01,
+        registry.is_applicable(&MetricId::Cs01, instrument_type),
+        instrument.id(),
+    )?;
+    let ir_convexity = required_metric(
+        &computed,
+        &MetricId::IrConvexity,
+        registry.is_applicable(&MetricId::IrConvexity, instrument_type),
+        instrument.id(),
+    )?;
 
     let has_delta = registry.is_applicable(&MetricId::Delta, instrument_type);
     let has_gamma = registry.is_applicable(&MetricId::Gamma, instrument_type);
@@ -695,26 +707,23 @@ fn compute_taylor_sensitivities(
     let has_vega = registry.is_applicable(&MetricId::Vega, instrument_type);
 
     let delta = if has_delta {
-        computed.get(&MetricId::Delta).copied().unwrap_or(0.0)
+        required_metric(&computed, &MetricId::Delta, true, instrument.id())?
     } else if has_index_delta {
-        computed.get(&MetricId::IndexDelta).copied().unwrap_or(0.0)
+        required_metric(&computed, &MetricId::IndexDelta, true, instrument.id())?
     } else if has_equity_shares {
-        computed
-            .get(&MetricId::EquityShares)
-            .copied()
-            .unwrap_or(0.0)
+        required_metric(&computed, &MetricId::EquityShares, true, instrument.id())?
     } else {
         0.0
     };
 
     let gamma = if has_gamma {
-        computed.get(&MetricId::Gamma).copied().unwrap_or(0.0)
+        required_metric(&computed, &MetricId::Gamma, true, instrument.id())?
     } else {
         0.0
     };
 
     let vega_rel = if has_vega {
-        computed.get(&MetricId::Vega).copied().unwrap_or(0.0)
+        required_metric(&computed, &MetricId::Vega, true, instrument.id())?
     } else {
         0.0
     };
@@ -737,7 +746,7 @@ fn taylor_pnl_for_scenario(
     base_market: &MarketContext,
     scenario: &crate::metrics::risk::MarketScenario,
     spot_cache: &mut HashMap<String, f64>,
-) -> f64 {
+) -> Result<f64> {
     let mut pnl = 0.0;
     let mut total_rate_shift_bp = 0.0;
     let mut rate_shift_count = 0u32;
@@ -778,12 +787,16 @@ fn taylor_pnl_for_scenario(
                 {
                     let spot = *spot_cache
                         .entry(ticker.clone())
-                        .or_insert_with(|| spot_from_market(base_market, ticker).unwrap_or(0.0));
-                    if spot > 0.0 {
-                        let d_spot = spot * shift.shift;
-                        pnl += sensitivities.equity_delta * d_spot
-                            + 0.5 * sensitivities.equity_gamma * d_spot * d_spot;
+                        .or_insert_with(|| spot_from_market(base_market, ticker).unwrap_or(-1.0));
+                    if spot <= 0.0 {
+                        return Err(finstack_core::Error::Validation(format!(
+                            "Historical VaR missing positive finite spot for equity factor '{}'",
+                            ticker
+                        )));
                     }
+                    let d_spot = spot * shift.shift;
+                    pnl += sensitivities.equity_delta * d_spot
+                        + 0.5 * sensitivities.equity_gamma * d_spot * d_spot;
                 }
             }
             crate::metrics::risk::RiskFactorType::ImpliedVol {
@@ -807,7 +820,26 @@ fn taylor_pnl_for_scenario(
         pnl += 0.5 * sensitivities.ir_convexity * avg_shift_bp * avg_shift_bp;
     }
 
-    pnl
+    Ok(pnl)
+}
+
+fn required_metric(
+    computed: &HashMap<MetricId, f64>,
+    metric_id: &MetricId,
+    required: bool,
+    instrument_id: &str,
+) -> Result<f64> {
+    if !required {
+        return Ok(0.0);
+    }
+
+    computed.get(metric_id).copied().ok_or_else(|| {
+        finstack_core::Error::Validation(format!(
+            "Historical VaR missing required metric '{}' for instrument '{}'",
+            metric_id.as_str(),
+            instrument_id,
+        ))
+    })
 }
 
 fn collect_bucketed_series(
@@ -901,7 +933,7 @@ fn calculate_portfolio_var_taylor(
     for scenario in history.iter() {
         let mut acc = NeumaierAccumulator::new();
         for sens in &sensitivities {
-            let pnl_local = taylor_pnl_for_scenario(sens, base_market, scenario, &mut spot_cache);
+            let pnl_local = taylor_pnl_for_scenario(sens, base_market, scenario, &mut spot_cache)?;
             let term = convert_money_to_reporting(
                 Money::new(pnl_local, sens.currency),
                 reporting_currency,
@@ -1266,7 +1298,8 @@ mod tests {
             &base_market,
             &scenario,
             &mut HashMap::default(),
-        );
+        )
+        .expect("vol-only Taylor scenario should price");
 
         assert!(
             (pnl - 250.0).abs() < 1e-12,

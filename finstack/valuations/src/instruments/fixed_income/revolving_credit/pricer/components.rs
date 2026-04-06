@@ -42,7 +42,7 @@ impl DiscountFactors {
                 factors.push(1.0);
             } else {
                 // Future date - discount relative to as_of
-                factors.push(curve.df_between_dates(as_of, date).unwrap_or(1.0));
+                factors.push(curve.df_between_dates(as_of, date)?);
             }
         }
 
@@ -73,7 +73,7 @@ impl DiscountFactors {
         let mut factors = Vec::with_capacity(time_points.len());
         for &t_rel in time_points {
             let t_abs = start_time + t_rel;
-            factors.push(curve.df_between_times(t_as_of, t_abs).unwrap_or(1.0));
+            factors.push(curve.df_between_times(t_as_of, t_abs)?);
         }
 
         Ok(Self { factors })
@@ -81,9 +81,9 @@ impl DiscountFactors {
 
     /// Get discount factor at a specific index.
     ///
-    /// Returns 1.0 if index is out of bounds (conservative default).
+    /// Panics when `index` is out of bounds, which indicates a pricing-grid bug.
     pub fn get(&self, index: usize) -> f64 {
-        self.factors.get(index).copied().unwrap_or(1.0)
+        self.factors[index]
     }
 
     /// Get all discount factors.
@@ -155,9 +155,9 @@ impl SurvivalWeights {
 
     /// Get survival weight at a specific index.
     ///
-    /// Returns 1.0 if index is out of bounds (no credit risk default).
+    /// Panics when `index` is out of bounds, which indicates a pricing-grid bug.
     pub fn get(&self, index: usize) -> f64 {
-        self.weights.get(index).copied().unwrap_or(1.0)
+        self.weights[index]
     }
 
     /// Get all survival weights.

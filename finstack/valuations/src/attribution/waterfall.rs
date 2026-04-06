@@ -258,11 +258,10 @@ fn attribute_pnl_waterfall_impl(
                     ctx.as_of_t1,
                     factor_pnl.currency(),
                 )
-                .ok()
-                .map(|value| Money::new(value, factor_pnl.currency()));
+                .map(|value| Money::new(value, factor_pnl.currency()))?;
                 attribution.carry_detail = Some(CarryDetail {
                     total: factor_pnl,
-                    coupon_income,
+                    coupon_income: Some(coupon_income),
                     pull_to_par: None,
                     roll_down: None,
                     funding_cost: None,
