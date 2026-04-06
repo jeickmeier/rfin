@@ -193,7 +193,12 @@ impl DefaultLpOptimizer {
                     let m_i = match metric {
                         // Native PV is only comparable across positions after FX
                         // normalization into the portfolio base currency.
-                        PerPositionMetric::PvNative => feat.pv_base,
+                        PerPositionMetric::PvNative => {
+                            tracing::info!(
+                                "PvNative substituted with PvBase for cross-currency comparability"
+                            );
+                            feat.pv_base
+                        }
                         _ => Self::per_position_metric_value(metric, feat, missing_policy)?,
                     };
                     coeffs.push(m_i);

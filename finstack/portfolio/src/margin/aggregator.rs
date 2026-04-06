@@ -285,7 +285,10 @@ impl PortfolioMarginAggregator {
         Ok((result, degraded_positions))
     }
 
-    /// Get MTM for a position in its native currency.
+    /// Get MTM for a position in its native currency, scaled by position quantity.
+    ///
+    /// The underlying `mtm_for_vm` returns unit-notional MTM; this method
+    /// applies [`Position::scale_value`] so VM reflects the actual holding.
     fn get_position_mtm(
         &self,
         position: &Position,
@@ -293,9 +296,10 @@ impl PortfolioMarginAggregator {
         as_of: Date,
     ) -> Result<Money> {
         if let Some(marginable) = position.instrument.as_marginable() {
-            marginable
+            let unit_mtm = marginable
                 .mtm_for_vm(market, as_of)
-                .map_err(|e| Error::valuation(position.position_id.clone(), e.to_string()))
+                .map_err(|e| Error::valuation(position.position_id.clone(), e.to_string()))?;
+            Ok(position.scale_value(unit_mtm))
         } else {
             // Default: return zero
             Ok(Money::new(0.0, self.base_currency))

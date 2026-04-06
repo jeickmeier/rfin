@@ -128,7 +128,7 @@ pub use margin::{
     NettingSet, NettingSetManager, NettingSetMargin, PortfolioMarginAggregator,
     PortfolioMarginResult,
 };
-pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics};
+pub use metrics::{aggregate_metrics, AggregatedMetric, PortfolioMetrics, SkippedMetric};
 pub use optimization::{
     optimize_max_yield_with_ccc_limit, MaxYieldWithCccLimitResult, PortfolioOptimizationProblem,
     PortfolioOptimizationResult,

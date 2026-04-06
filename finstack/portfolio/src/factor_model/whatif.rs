@@ -5,6 +5,7 @@ use crate::{Portfolio, Position, PositionId};
 use finstack_core::dates::Date;
 use finstack_core::factor_model::FactorId;
 use finstack_core::market_data::context::MarketContext;
+use finstack_core::math::summation::NeumaierAccumulator;
 use finstack_valuations::factor_model::mapping_to_market_bumps;
 use finstack_valuations::factor_model::sensitivity::SensitivityMatrix;
 
@@ -179,7 +180,7 @@ impl<'a> WhatIfEngine<'a> {
 
         let stressed_market = self.market.bump(bumps)?;
         let mut position_pnl = Vec::with_capacity(self.portfolio.positions.len());
-        let mut total_pnl = 0.0;
+        let mut total_pnl_acc = NeumaierAccumulator::new();
 
         for position in &self.portfolio.positions {
             let base_value = position.instrument.value_raw(self.market, self.as_of)?;
@@ -188,7 +189,7 @@ impl<'a> WhatIfEngine<'a> {
                 .value_raw(&stressed_market, self.as_of)?;
             let pnl = (stressed_value - base_value) * position.quantity;
             position_pnl.push((position.position_id.clone(), pnl));
-            total_pnl += pnl;
+            total_pnl_acc.add(pnl);
         }
 
         let stressed_decomposition =
@@ -196,7 +197,7 @@ impl<'a> WhatIfEngine<'a> {
                 .analyze(self.portfolio, &stressed_market, self.as_of)?;
 
         Ok(StressResult {
-            total_pnl,
+            total_pnl: total_pnl_acc.total(),
             position_pnl,
             stressed_decomposition,
         })

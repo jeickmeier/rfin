@@ -23,6 +23,17 @@ pub(crate) fn cholesky(data: &[f64], n: usize) -> finstack_core::Result<Vec<f64>
         ));
     }
 
+    // Verify symmetry so callers need not pre-validate.
+    for i in 0..n {
+        for j in (i + 1)..n {
+            if (data[i * n + j] - data[j * n + i]).abs() > MATRIX_TOLERANCE {
+                return Err(finstack_core::Error::Validation(format!(
+                    "Covariance matrix must be symmetric at ({i}, {j})"
+                )));
+            }
+        }
+    }
+
     let mut lower = vec![0.0; n * n];
 
     for i in 0..n {
@@ -101,6 +112,13 @@ impl SplitMix64 {
 /// `position_factor_contributions` are left empty because a stable, scenario-based
 /// per-position allocation is deferred for a later cluster.
 ///
+/// # VaR Decomposition
+///
+/// VaR is decomposed using ES-prorated Euler allocation (Tasche 2008): component
+/// ES values are computed first, then scaled by `VaR / ES`.  This is an
+/// approximation — factor contributions may not sum exactly to total VaR under
+/// distributional asymmetry.  ES decomposition is exact by construction.
+///
 /// # References
 ///
 /// - `docs/REFERENCES.md#glasserman-2004-monte-carlo`
@@ -151,6 +169,14 @@ impl SimulationDecomposer {
                 return Err(finstack_core::Error::Validation(format!(
                     "SimulationDecomposer requires at least two tail scenarios for confidence {confidence}; increase n_scenarios"
                 )));
+            }
+            if tail_count < 30 {
+                tracing::warn!(
+                    tail_count,
+                    n_scenarios = self.n_scenarios,
+                    confidence,
+                    "Tail sample size is small; ES/VaR decomposition may lack statistical reliability"
+                );
             }
         }
 

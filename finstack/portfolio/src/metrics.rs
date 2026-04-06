@@ -53,6 +53,14 @@ pub struct PortfolioMetrics {
 
     /// Raw metrics by position (all metrics), with explicit native currency context.
     pub by_position: IndexMap<PositionId, PositionMetrics>,
+
+    /// Positions whose non-finite metric values were excluded from aggregation.
+    ///
+    /// Each entry records the position and metric that was skipped, allowing
+    /// callers to detect incomplete aggregation (analogous to
+    /// [`crate::valuation::PortfolioValuation::degraded_positions`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_metrics: Vec<SkippedMetric>,
 }
 
 /// Position-level metrics with explicit native currency context.
@@ -110,11 +118,24 @@ impl PortfolioMetrics {
     }
 }
 
+/// A metric value that was excluded from portfolio aggregation because it was
+/// non-finite (NaN or ±Inf).
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SkippedMetric {
+    /// Position that produced the non-finite value.
+    pub position_id: PositionId,
+    /// Metric identifier that was skipped.
+    pub metric_id: String,
+    /// The non-finite value that was encountered.
+    pub value: f64,
+}
+
 impl Default for PortfolioMetrics {
     fn default() -> Self {
         Self {
             aggregated: IndexMap::new(),
             by_position: IndexMap::new(),
+            skipped_metrics: Vec::new(),
         }
     }
 }
@@ -248,7 +269,8 @@ pub fn aggregate_metrics(
 /// Compute the FX conversion factor from a position's native currency to base currency.
 ///
 /// Attempts to derive the rate from the position's valuation (value_base / value_native)
-/// when both are non-zero. Falls back to the FX matrix for positions with zero PV.
+/// when the native PV is large enough for a reliable ratio. Falls back to the FX matrix
+/// for positions with near-zero PV to avoid amplifying numerical noise.
 fn fx_rate_for_position(
     position_value: &crate::valuation::PositionValue,
     base_ccy: Currency,
@@ -261,8 +283,11 @@ fn fx_rate_for_position(
         return Ok(1.0);
     }
 
+    // Use a conservative threshold to avoid distorted implied FX rates when
+    // native PV is near zero (e.g., expired instruments).  Positions with
+    // |native_amount| < 1e-6 fall through to the FX matrix lookup.
     let native_amount = position_value.value_native.amount();
-    if native_amount.abs() > 1e-12 {
+    if native_amount.abs() > 1e-6 {
         let base_amount = position_value.value_base.amount();
         return Ok(base_amount / native_amount);
     }
@@ -392,6 +417,7 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
 
     let mut metric_values: HashMap<Arc<str>, Vec<f64>> = HashMap::new();
     let mut entity_values: HashMap<Arc<str>, HashMap<EntityId, Vec<f64>>> = HashMap::new();
+    let mut skipped_metrics: Vec<SkippedMetric> = Vec::new();
 
     for data in collected {
         let fx_rate = data.fx_rate;
@@ -406,6 +432,11 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
                         value,
                         "Skipping non-finite metric value"
                     );
+                    skipped_metrics.push(SkippedMetric {
+                        position_id: data.position_id.clone(),
+                        metric_id: metric_id.clone(),
+                        value: *value,
+                    });
                     continue;
                 }
 
@@ -469,6 +500,7 @@ fn aggregate_collected_metrics(collected: Vec<PositionMetricData>) -> PortfolioM
     PortfolioMetrics {
         aggregated,
         by_position,
+        skipped_metrics,
     }
 }
 

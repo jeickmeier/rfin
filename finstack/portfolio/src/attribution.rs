@@ -39,14 +39,23 @@ use serde::{Deserialize, Serialize};
 /// The decomposition is:
 ///
 /// ```text
-/// total_pnl = sum(factor_pnl) + fx_translation_pnl + residual
+/// total_pnl = sum(factor_pnl_at_T1_FX) + fx_translation_pnl + residual
 /// ```
 ///
-/// Where `factor_pnl` includes carry, rates, credit, vol, etc. (each already
-/// converted to base currency), and `fx_translation_pnl` captures:
+/// Where each factor bucket (carry, rates, credit, vol, etc.) is converted to
+/// base currency using the T₁ FX rate. This means the implicit FX translation
+/// of the P&L *flow* (i.e., `PnL_native × (FX_T1 - FX_T0)`) is absorbed into
+/// each factor bucket rather than isolated in `fx_translation_pnl`.
 ///
-/// - Translation of P&L flow: `PnL_native × (FX_T1 - FX_T0)`
-/// - Revaluation of opening principal: `Val_T0_native × (FX_T1 - FX_T0)`
+/// `fx_translation_pnl` captures **only** the revaluation of the opening
+/// principal:
+///
+/// ```text
+/// fx_translation_pnl = Val_T0_native × (FX_T1 - FX_T0)
+/// ```
+///
+/// This convention is consistent with systems that convert factor P&L at
+/// closing rates and report principal revaluation separately.
 ///
 /// # Note on by_position Attribution
 ///
@@ -92,11 +101,19 @@ pub struct PortfolioAttribution {
     /// not the translation effect from converting instrument P&L to base currency.
     pub fx_pnl: Money,
 
-    /// FX translation P&L from converting instrument-currency values to base currency.
+    /// FX translation P&L from revaluing opening principal to base currency.
     ///
-    /// For cross-currency positions, this includes:
-    /// - Translation of P&L flow: effect of FX rate change on the reported P&L
-    /// - Revaluation of opening principal: effect of FX change on T₀ position value
+    /// For cross-currency positions, this captures the effect of FX rate changes
+    /// on the T₀ position value:
+    ///
+    /// ```text
+    /// fx_translation_pnl = Val_T0_native × (FX_T1 - FX_T0)
+    /// ```
+    ///
+    /// Note: The implicit FX translation of each factor's P&L flow
+    /// (converting native-currency factor P&L at T₁ FX rather than T₀ FX) is
+    /// absorbed into the respective factor buckets (carry, rates, etc.) and is
+    /// **not** included here.
     ///
     /// This is separate from `fx_pnl` which captures FX exposure within instruments.
     pub fx_translation_pnl: Money,
