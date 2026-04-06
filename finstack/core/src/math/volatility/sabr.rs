@@ -183,6 +183,14 @@ impl SabrParams {
             return f64::NAN;
         }
 
+        // When vol-of-vol is negligible, the SABR model degenerates to CEV.
+        // The Hagan expansion divides by ν, so bypass it and return the
+        // pure CEV backbone volatility directly.
+        if nu < 1e-10 {
+            let f_safe = f.max(1e-10);
+            return alpha / f_safe.powf(1.0 - beta);
+        }
+
         let fk = f * k;
         let one_minus_beta = 1.0 - beta;
         let log_fk = (f / k).ln();
@@ -248,6 +256,13 @@ impl SabrParams {
 
         if t <= 0.0 {
             return f64::NAN;
+        }
+
+        // When vol-of-vol is negligible, the SABR model degenerates to CEV.
+        // Return the pure CEV backbone normal volatility directly.
+        if nu < 1e-10 {
+            let f_abs = f.abs().max(1e-10);
+            return alpha * f_abs.powf(beta);
         }
 
         // ATM case
@@ -325,6 +340,18 @@ impl SabrParams {
             let d2c_dk2 = (c_hi - 2.0 * c_mid + c_lo) / (dk * dk);
 
             if d2c_dk2 < -1e-10 {
+                #[cfg(feature = "tracing")]
+                tracing::warn!(
+                    alpha = self.alpha,
+                    beta = self.beta,
+                    rho = self.rho,
+                    nu = self.nu,
+                    forward = forward,
+                    strike = k,
+                    expiry = expiry,
+                    density = d2c_dk2,
+                    "SABR: negative implied density (butterfly arbitrage) detected",
+                );
                 warnings.push(DensityWarning {
                     strike: k,
                     density: d2c_dk2,

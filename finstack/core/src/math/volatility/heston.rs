@@ -320,21 +320,66 @@ impl HestonParams {
             )));
         }
 
-        Ok(Self {
+        let params = Self {
             v0,
             kappa,
             theta,
             sigma,
             rho,
-        })
+        };
+
+        #[cfg(feature = "tracing")]
+        if !params.satisfies_feller_condition() {
+            tracing::warn!(
+                v0 = v0,
+                kappa = kappa,
+                theta = theta,
+                sigma = sigma,
+                rho = rho,
+                feller_lhs = 2.0 * kappa * theta,
+                feller_rhs = sigma * sigma,
+                "Heston Feller condition violated (2*kappa*theta <= sigma^2). \
+                 Variance process can reach zero. This is acceptable for Fourier pricing \
+                 but may cause issues in Monte Carlo simulation.",
+            );
+        }
+
+        Ok(params)
     }
 
     /// Check whether the Feller condition (2κθ > σ²) is satisfied.
     ///
     /// When satisfied, the variance process is strictly positive almost surely.
+    /// When violated, variance can reach zero, which causes numerical issues
+    /// in Monte Carlo simulation (though Fourier pricing remains valid).
     #[must_use]
     pub fn satisfies_feller_condition(&self) -> bool {
         2.0 * self.kappa * self.theta > self.sigma * self.sigma
+    }
+
+    /// Return these parameters unchanged if the Feller condition holds,
+    /// otherwise return an error.
+    ///
+    /// Use this when the parameters will be used downstream in Monte Carlo
+    /// simulation where variance must stay strictly positive. Fourier-based
+    /// pricing does not require the Feller condition.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `2κθ ≤ σ²`.
+    pub fn require_feller(self) -> crate::Result<Self> {
+        if self.satisfies_feller_condition() {
+            Ok(self)
+        } else {
+            Err(crate::Error::Validation(format!(
+                "Heston Feller condition violated: 2*kappa*theta ({:.6}) <= sigma^2 ({:.6}). \
+                 Variance process can reach zero, causing numerical issues in Monte Carlo. \
+                 Use satisfies_feller_condition() to check, or omit require_feller() for \
+                 Fourier-only pricing.",
+                2.0 * self.kappa * self.theta,
+                self.sigma * self.sigma,
+            )))
+        }
     }
 
     /// Price a European option using Fourier integration.

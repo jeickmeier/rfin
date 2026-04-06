@@ -280,6 +280,14 @@ impl ForwardCurve {
     #[must_use]
     pub fn rate_period(&self, t1: f64, t2: f64) -> f64 {
         if t2 < t1 {
+            #[cfg(feature = "tracing")]
+            tracing::warn!(
+                curve_id = %self.id,
+                t1 = t1,
+                t2 = t2,
+                "ForwardCurve::rate_period called with t2 < t1; returning NaN. \
+                 This is likely a caller bug — time arguments should satisfy t1 <= t2.",
+            );
             return f64::NAN;
         }
         // Market-standard interpretation: average forward over the interval.

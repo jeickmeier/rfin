@@ -255,6 +255,94 @@ impl LocalVolSurface {
         })
     }
 
+    /// Extract local volatility with Gaussian smoothing of the implied vol surface.
+    ///
+    /// Applies 1-D Gaussian kernel smoothing along the strike axis at each expiry
+    /// before computing call prices and applying the Dupire formula. This
+    /// regularises the second derivative ∂²C/∂K² and reduces spurious noise that
+    /// is common with market-calibrated implied volatility grids.
+    ///
+    /// The `sigma_strikes` parameter controls the Gaussian kernel width in
+    /// strike-space units (e.g. 2.0 means σ = 2.0 in the same units as the
+    /// strike grid). A value of 0.0 disables smoothing and is equivalent to
+    /// [`from_implied_vol`](Self::from_implied_vol).
+    ///
+    /// # Arguments
+    ///
+    /// * `surface` — implied volatility surface
+    /// * `forward` — forward price
+    /// * `rate` — risk-free rate for discounting
+    /// * `sigma_strikes` — Gaussian kernel width in strike-space units (≥ 0)
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the surface has fewer than 2 expiries or 3 strikes,
+    /// or if `sigma_strikes` is negative.
+    pub fn from_implied_vol_smoothed(
+        surface: &VolSurface,
+        forward: f64,
+        rate: f64,
+        sigma_strikes: f64,
+    ) -> crate::Result<Self> {
+        if sigma_strikes < 0.0 {
+            return Err(crate::Error::Validation(
+                "sigma_strikes must be non-negative".to_string(),
+            ));
+        }
+        if sigma_strikes < 1e-14 {
+            return Self::from_implied_vol(surface, forward, rate);
+        }
+
+        let expiries = surface.expiries().to_vec();
+        let strikes = surface.strikes().to_vec();
+        let n_exp = expiries.len();
+        let n_str = strikes.len();
+
+        if n_exp < 2 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+        if n_str < 3 {
+            return Err(crate::error::InputError::TooFewPoints.into());
+        }
+
+        // Read raw IVs and smooth along strike axis.
+        let mut smoothed_vols = vec![0.0; n_exp * n_str];
+        for (ei, &t) in expiries.iter().enumerate() {
+            // Raw IVs for this expiry.
+            let raw: Vec<f64> = strikes
+                .iter()
+                .map(|&k| {
+                    surface
+                        .value_checked(t, k)
+                        .unwrap_or_else(|_| surface.value_clamped(t, k))
+                })
+                .collect();
+
+            // Apply Gaussian kernel smoothing.
+            for (si, &k_center) in strikes.iter().enumerate() {
+                let mut weight_sum = 0.0;
+                let mut value_sum = 0.0;
+                for (sj, &k_j) in strikes.iter().enumerate() {
+                    let d = (k_j - k_center) / sigma_strikes;
+                    let w = (-0.5 * d * d).exp();
+                    weight_sum += w;
+                    value_sum += w * raw[sj];
+                }
+                smoothed_vols[ei * n_str + si] = value_sum / weight_sum;
+            }
+        }
+
+        // Build a smoothed VolSurface and delegate to the standard extractor.
+        let mut builder = VolSurface::builder(surface.id().as_str());
+        builder = builder.expiries(&expiries).strikes(&strikes);
+        for ei in 0..n_exp {
+            builder = builder.row(&smoothed_vols[ei * n_str..(ei + 1) * n_str]);
+        }
+        let smoothed_surface = builder.build()?;
+
+        Self::from_implied_vol(&smoothed_surface, forward, rate)
+    }
+
     /// Evaluate the local volatility at a given (expiry, strike) point.
     ///
     /// Uses bilinear interpolation on the local vol grid. For coordinates outside

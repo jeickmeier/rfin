@@ -36,8 +36,8 @@ use crate::{
 };
 
 use super::{
-    fx_atm_dns_strike, fx_put_call_25d_strikes, interp_linear_clamp, recover_fx_wing_vols,
-    FxDeltaVolSurfaceBuilder, VolSurface,
+    fx_atm_dns_strike, fx_put_call_25d_strikes, fx_put_call_delta_strikes, interp_linear_clamp,
+    recover_fx_wing_vols, FxDeltaVolSurfaceBuilder, VolSurface,
 };
 
 // ---------------------------------------------------------------------------
@@ -188,6 +188,11 @@ impl FxDeltaVolSurface {
 
     /// Convert a forward delta to a strike using Garman-Kohlhagen.
     ///
+    /// Uses **forward delta** (premium-unadjusted) convention, which is standard
+    /// for most G10 pairs. The `r_f` parameter is accepted for API compatibility
+    /// but is not used — forward delta depends only on the forward price, not
+    /// individual interest rates.
+    ///
     /// ```text
     /// K = F * exp(-N_inv(delta) * sigma * sqrt(T) + 0.5 * sigma^2 * T)
     /// ```
@@ -201,6 +206,9 @@ impl FxDeltaVolSurface {
     }
 
     /// Convert a strike to forward delta using Garman-Kohlhagen.
+    ///
+    /// Uses **forward delta** (premium-unadjusted) convention. The `r_f`
+    /// parameter is accepted for API compatibility but is not used.
     ///
     /// Returns the call delta: `N(d1)` where
     /// `d1 = [ln(F/K) + 0.5 * sigma^2 * T] / (sigma * sqrt(T))`.
@@ -218,9 +226,12 @@ impl FxDeltaVolSurface {
     ///
     /// Steps:
     /// 1. Interpolate delta-space quotes to the requested `expiry` (linear).
-    /// 2. Recover 25D put/call wing vols from ATM, RR, BF.
+    /// 2. Recover 25D (and optionally 10D) put/call wing vols from ATM, RR, BF.
     /// 3. Convert those deltas to strikes using Garman-Kohlhagen.
     /// 4. Interpolate linearly in strike space (flat extrapolation at wings).
+    ///
+    /// When 10-delta quotes are available, interpolation uses all 5 strikes
+    /// (10D put, 25D put, ATM, 25D call, 10D call) for better wing accuracy.
     ///
     /// # Errors
     ///
@@ -230,8 +241,8 @@ impl FxDeltaVolSurface {
         expiry: f64,
         strike: f64,
         forward: f64,
-        r_d: f64,
-        r_f: f64,
+        _r_d: f64,
+        _r_f: f64,
     ) -> crate::Result<f64> {
         if expiry <= 0.0 || !expiry.is_finite() {
             return Err(InputError::NonPositiveValue.into());
@@ -243,19 +254,35 @@ impl FxDeltaVolSurface {
         let bf = interp_linear_clamp(&self.expiries, &self.bf_25d, expiry);
 
         // Step 2: Recover wing vols.
-        let (sigma_put, sigma_call) = recover_fx_wing_vols(atm, rr, bf);
+        let (sigma_put_25, sigma_call_25) = recover_fx_wing_vols(atm, rr, bf);
 
         // Step 3: Convert to strikes.
-        let _ = r_d; // r_d not needed for forward delta convention
         let k_atm = fx_atm_dns_strike(forward, atm, expiry);
-        let (k_put, k_call) = fx_put_call_25d_strikes(forward, sigma_put, sigma_call, expiry);
+        let (k_put_25, k_call_25) =
+            fx_put_call_25d_strikes(forward, sigma_put_25, sigma_call_25, expiry);
 
-        // Step 4: Interpolate linearly in strike space.
-        let _ = r_f; // already baked into forward
-        let known_strikes = [k_put, k_atm, k_call];
-        let known_vols = [sigma_put, atm, sigma_call];
+        // Step 4: Build strike/vol arrays. Use 5-point smile when 10D quotes are available.
+        if let (Some(rr_10d), Some(bf_10d)) = (&self.rr_10d, &self.bf_10d) {
+            let rr10 = interp_linear_clamp(&self.expiries, rr_10d, expiry);
+            let bf10 = interp_linear_clamp(&self.expiries, bf_10d, expiry);
+            let (sigma_put_10, sigma_call_10) = recover_fx_wing_vols(atm, rr10, bf10);
+            let (k_put_10, k_call_10) =
+                fx_put_call_delta_strikes(forward, sigma_put_10, sigma_call_10, expiry, 0.10);
 
-        Ok(interp_linear_clamp(&known_strikes, &known_vols, strike))
+            let known_strikes = [k_put_10, k_put_25, k_atm, k_call_25, k_call_10];
+            let known_vols = [
+                sigma_put_10,
+                sigma_put_25,
+                atm,
+                sigma_call_25,
+                sigma_call_10,
+            ];
+            Ok(interp_linear_clamp(&known_strikes, &known_vols, strike))
+        } else {
+            let known_strikes = [k_put_25, k_atm, k_call_25];
+            let known_vols = [sigma_put_25, atm, sigma_call_25];
+            Ok(interp_linear_clamp(&known_strikes, &known_vols, strike))
+        }
     }
 
     // -----------------------------------------------------------------------
