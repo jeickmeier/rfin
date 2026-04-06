@@ -44,6 +44,11 @@ pub struct DrawdownEpisode {
 /// # Arguments
 ///
 /// * `returns` - Slice of period simple returns (e.g., `0.01` = +1 %).
+///   Returns below `−1.0` drive wealth negative, which is mathematically
+///   valid for leveraged positions but physically meaningless for long-only
+///   portfolios. Callers should validate inputs if negative wealth is
+///   not expected. `NaN` values propagate silently through all downstream
+///   drawdown metrics.
 ///
 /// # Returns
 ///
@@ -182,17 +187,18 @@ fn make_episode(
     }
 }
 
-/// Average of the top-N worst drawdowns.
+/// Average of the top-N worst drawdown episodes.
 ///
 /// Identifies the `n` largest drawdown episodes directly from the drawdown
 /// path and returns the arithmetic mean of their episode minima.
 ///
+/// This is the **episode-based** average used in the Sterling ratio
+/// (Kestner, 1996). For the simple arithmetic mean of the full drawdown
+/// path, use [`average_drawdown`] instead.
+///
 /// # Arguments
 ///
 /// * `drawdown` - Pre-computed drawdown series (values ≤ 0).
-/// * `dates`    - Date vector aligned with `drawdown`. Accepted for API
-///   consistency with [`drawdown_details`], but not consulted by this
-///   calculation.
 /// * `n`        - Number of worst episodes to average.
 ///
 /// # Returns
@@ -204,20 +210,15 @@ fn make_episode(
 ///
 /// ```rust
 /// use finstack_analytics::drawdown::{avg_drawdown, to_drawdown_series};
-/// use finstack_core::dates::{Date, Month};
 ///
 /// let returns = [0.05, -0.15, 0.10, -0.08, 0.03];
 /// let dd = to_drawdown_series(&returns);
-/// let dates: Vec<Date> = (1..=5)
-///     .map(|d| Date::from_calendar_date(2025, Month::January, d).unwrap())
-///     .collect();
-/// let avg = avg_drawdown(&dd, &dates, 3);
+/// let avg = avg_drawdown(&dd, 3);
 /// assert!(avg < 0.0);
 /// ```
 #[must_use]
-pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
-    let _ = dates;
-    let episode_depths = worst_episode_drawdowns(drawdown, n);
+pub fn avg_drawdown(drawdown: &[f64], n: usize) -> f64 {
+    let episode_depths = worst_episode_depths(drawdown, n);
     if episode_depths.is_empty() {
         return 0.0;
     }
@@ -225,7 +226,10 @@ pub fn avg_drawdown(drawdown: &[f64], dates: &[Date], n: usize) -> f64 {
     sum / episode_depths.len() as f64
 }
 
-fn worst_episode_drawdowns(drawdown: &[f64], n: usize) -> Vec<f64> {
+/// Extract the worst `n` episode depths from a drawdown series, sorted
+/// ascending (most severe first). Shared by [`avg_drawdown`] and
+/// [`drawdown_details`]-derived callers.
+fn worst_episode_depths(drawdown: &[f64], n: usize) -> Vec<f64> {
     if drawdown.is_empty() {
         return vec![];
     }
@@ -309,8 +313,11 @@ pub fn max_drawdown_duration(drawdown: &[f64], dates: &[Date]) -> i64 {
 ///
 /// # Returns
 ///
-/// The CDaR as a non-negative scalar (expressed as an absolute drawdown
-/// depth). Returns `0.0` for an empty slice.
+/// The CDaR as a **non-negative** scalar (expressed as an absolute drawdown
+/// depth). Note that this differs from the non-positive convention used by
+/// [`max_drawdown`] and [`average_drawdown`]; callers combining CDaR with
+/// those metrics should account for the sign difference.
+/// Returns `0.0` for an empty slice.
 ///
 /// # Examples
 ///
@@ -401,24 +408,15 @@ mod tests {
 
     #[test]
     fn avg_drawdown_empty() {
-        assert_eq!(avg_drawdown(&[], &[], 5), 0.0);
+        assert_eq!(avg_drawdown(&[], 5), 0.0);
     }
 
     #[test]
-    fn avg_drawdown_ignores_dates() {
+    fn avg_drawdown_deterministic() {
         let drawdown = [0.0, -0.10, -0.20, 0.0, -0.15, 0.0];
-        let jan_dates = make_dates(drawdown.len());
-        let feb_dates = (0..drawdown.len())
-            .map(|i| {
-                Date::from_calendar_date(2026, Month::January, 1).expect("valid date")
-                    + Duration::days(i as i64)
-            })
-            .collect::<Vec<_>>();
-
-        assert_eq!(
-            avg_drawdown(&drawdown, &jan_dates, 2),
-            avg_drawdown(&drawdown, &feb_dates, 2)
-        );
+        // Two episodes: depths −0.20 and −0.15; average of worst 2 = (−0.20 + −0.15)/2
+        let avg = avg_drawdown(&drawdown, 2);
+        assert!((avg - (-0.175)).abs() < 1e-12);
     }
 
     #[test]
@@ -635,9 +633,15 @@ pub fn calmar(cagr_val: f64, max_dd: f64) -> f64 {
 /// Annualizes the returns with [`crate::risk_metrics::cagr_from_periods`],
 /// derives the worst drawdown from [`to_drawdown_series`], then delegates to
 /// [`calmar`].
+///
+/// Returns `f64::NAN` when `cagr_from_periods` cannot compute an annualized
+/// return (e.g., fewer than 2 observations or invalid `ann_factor`).
 #[must_use]
 pub fn calmar_from_returns(returns: &[f64], ann_factor: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
+    if cagr_val.is_nan() {
+        return f64::NAN;
+    }
     calmar(cagr_val, max_drawdown_from_returns(returns))
 }
 
@@ -871,7 +875,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 /// let direct = sterling_ratio_from_returns(&returns, ann_factor, risk_free_rate);
 /// let expected = sterling_ratio(
 ///     cagr_from_periods(&returns, ann_factor),
-///     avg_drawdown(&to_drawdown_series(&returns), &[], usize::MAX),
+///     avg_drawdown(&to_drawdown_series(&returns), usize::MAX),
 ///     risk_free_rate,
 /// );
 /// assert!((direct - expected).abs() < 1e-12);
@@ -884,7 +888,7 @@ pub fn sterling_ratio(cagr_val: f64, avg_dd: f64, risk_free_rate: f64) -> f64 {
 pub fn sterling_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate: f64) -> f64 {
     let cagr_val = crate::risk_metrics::cagr_from_periods(returns, ann_factor);
     let drawdowns = to_drawdown_series(returns);
-    let avg_dd = avg_drawdown(&drawdowns, &[], usize::MAX);
+    let avg_dd = avg_drawdown(&drawdowns, usize::MAX);
     sterling_ratio(cagr_val, avg_dd, risk_free_rate)
 }
 
@@ -1025,7 +1029,6 @@ pub fn pain_ratio_from_returns(returns: &[f64], ann_factor: f64, risk_free_rate:
 #[cfg(test)]
 mod drawdown_ratio_tests {
     use super::*;
-    use crate::dates::Month;
 
     #[test]
     fn ulcer_index_flat() {
@@ -1130,13 +1133,7 @@ mod drawdown_ratio_tests {
         let max_dd = dd.iter().copied().fold(0.0_f64, f64::min);
         let ulcer = ulcer_index(&dd);
         let pain = pain_index(&dd);
-        let synthetic_dates = (0..returns.len())
-            .map(|i| {
-                Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
-                    + crate::dates::Duration::days(i as i64)
-            })
-            .collect::<Vec<_>>();
-        let avg_episode_dd = avg_drawdown(&dd, &synthetic_dates, usize::MAX);
+        let avg_episode_dd = avg_drawdown(&dd, usize::MAX);
 
         assert!(
             (recovery_factor_from_returns(&returns)
@@ -1164,14 +1161,8 @@ mod drawdown_ratio_tests {
     fn sterling_ratio_helper_uses_episode_average_not_path_average() {
         let returns = [0.10, -0.20, 0.15, -0.10, 0.05, -0.08, 0.12];
         let ann = 252.0;
-        let synthetic_dates = (0..returns.len())
-            .map(|i| {
-                Date::from_calendar_date(2025, Month::January, 1).expect("valid date")
-                    + crate::dates::Duration::days(i as i64)
-            })
-            .collect::<Vec<_>>();
         let dd = to_drawdown_series(&returns);
-        let avg_episode_dd = avg_drawdown(&dd, &synthetic_dates, usize::MAX);
+        let avg_episode_dd = avg_drawdown(&dd, usize::MAX);
         let cagr_val = crate::risk_metrics::cagr_from_periods(&returns, ann);
 
         let expected = sterling_ratio(cagr_val, avg_episode_dd, 0.01);

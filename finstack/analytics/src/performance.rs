@@ -806,8 +806,7 @@ impl Performance {
         (0..self.ticker_names.len())
             .map(|i| {
                 let dd = self.active_drawdown_values(i);
-                let dates = self.active_dates();
-                let avg = super::drawdown::avg_drawdown(dd, dates, n);
+                let avg = super::drawdown::avg_drawdown(dd, n);
                 sterling_ratio(cagrs[i], avg, risk_free_rate)
             })
             .collect()
