@@ -288,6 +288,11 @@ fn execute_parallel(
         }
 
         let batch = builder.take_batch();
+        tracing::debug!(
+            batch_size = batch.len(),
+            step_ids = ?batch.iter().map(|b| b.step.id.as_str()).collect::<Vec<_>>(),
+            "executing parallel calibration batch"
+        );
         let results = execute_batch(&batch, context, &plan.settings)?;
         apply_batch_results(batch, results, context, state);
     }
@@ -309,12 +314,20 @@ fn execute_sequential(
 
         preflight_step(step, quotes, context, &plan.settings)?;
 
+        tracing::debug!(step_id = %step.id, quotes = quotes.len(), "executing calibration step");
         let outcome = step_runtime::execute(step, quotes, context, &plan.settings)?;
         let StepOutcome {
             output,
             report,
             credit_index_update,
         } = outcome;
+        tracing::debug!(
+            step_id = %step.id,
+            success = %report.success,
+            iterations = %report.iterations,
+            max_residual = %report.max_residual,
+            "calibration step complete"
+        );
         step_runtime::apply_output(context, output, credit_index_update);
         state.record_result(&step.id, report);
     }
