@@ -204,7 +204,7 @@ def test_bond_pricing_treasury() -> None:
     )
 
     registry = standard_registry()
-    result = registry.get_price(bond, "discounting", market, date.fromisoformat(inputs["as_of"]))
+    result = registry.price(bond, "discounting", market, date.fromisoformat(inputs["as_of"]))
 
     assert result.value.amount == pytest.approx(expected["pv"], abs=expected["tolerance"])
     assert result.value.currency.code == expected["currency"]
@@ -257,7 +257,7 @@ def test_irs_valuation() -> None:
     )
 
     registry = standard_registry()
-    result = registry.get_price(irs, "discounting", market, as_of)
+    result = registry.price(irs, "discounting", market, as_of)
 
     assert result.value.amount == pytest.approx(expected["pv"], abs=expected["tolerance"])
     assert result.value.currency.code == expected["currency"]

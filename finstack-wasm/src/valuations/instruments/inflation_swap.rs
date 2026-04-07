@@ -8,7 +8,7 @@ use crate::valuations::common::{curve_id_from_str, f64_to_decimal, instrument_id
 use crate::valuations::instruments::InstrumentWrapper;
 use finstack_core::dates::DayCount;
 use finstack_valuations::instruments::rates::inflation_swap::InflationSwap;
-use finstack_valuations::instruments::rates::inflation_swap::PayReceive;
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::pricer::InstrumentType;
 use js_sys::Array;
 use wasm_bindgen::prelude::*;

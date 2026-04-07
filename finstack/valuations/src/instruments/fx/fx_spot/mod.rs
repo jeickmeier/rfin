@@ -50,7 +50,7 @@ mod types;
 pub use pricer::FxSpotPricer;
 pub use types::FxSpot;
 
-// Re-export metric calculators for backward compatibility with tests.
+// Re-export metric calculators for test access.
 #[doc(hidden)]
 pub use metrics::base_amount::BaseAmountCalculator;
 #[doc(hidden)]

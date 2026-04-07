@@ -225,7 +225,7 @@ impl BaseRateSpec {
 /// - Usage: annual fee on drawn amount (can be tiered by utilization)
 /// - Facility: annual fee on total commitment
 ///
-/// For backwards compatibility, flat fees can be represented as single-tier vectors.
+/// Flat fees can be represented as single-tier vectors.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RevolvingCreditFees {
     /// One-time upfront fee paid by borrower to lender at commitment.

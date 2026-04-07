@@ -228,7 +228,7 @@ Add a new `CFKind` variant when you need a **new semantic classification** of ca
 Checklist:
 
 - Add the variant with clear doc comments that are **view‑agnostic**.
-- Do **not** change or remove existing variants or their serde names (backwards compatibility).
+- Do **not** change or remove existing variants or their serde names (serialization stability).
 - Add unit tests to `primitives.rs` that:
   - Construct a `CashFlow` with the new kind.
   - Call `validate()` to ensure invariants hold.

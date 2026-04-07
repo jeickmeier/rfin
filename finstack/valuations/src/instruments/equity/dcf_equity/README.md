@@ -145,7 +145,7 @@ Equity = EV - Total Debt + Cash - Preferred Equity
 - Equity value = Enterprise Value − Bridge Amount; then DLOC/DLOM discounts applied.
 - Deterministic single-scenario valuation (compose multiple instances for scenario weighting).
 
-## Backward Compatibility
+## Optional Fields
 
 All new fields are optional with serde defaults:
 - `mid_year_convention` defaults to `false`.

@@ -97,7 +97,7 @@ def example_quanto_call_positive_correlation():
     market = create_market_data(val_date)
     registry = standard_registry()
     try:
-        result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+        result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
     except KeyError:
         # Quanto MC pricer not yet registered; instrument construction validated.
         return option, None
@@ -133,7 +133,7 @@ def example_quanto_put_negative_correlation():
     market = create_market_data(val_date)
     registry = standard_registry()
     try:
-        result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+        result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
     except KeyError:
         return option, None
 
@@ -168,7 +168,7 @@ def example_quanto_call_zero_correlation():
     market = create_market_data(val_date)
     registry = standard_registry()
     try:
-        result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+        result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
     except KeyError:
         return option, None
 

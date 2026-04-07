@@ -323,7 +323,7 @@ pub struct StructuredCredit {
 
     /// Credit model configuration (prepayment/default/recovery + optional stochastic specs).
     ///
-    /// Serialized keys are flattened for backward-compatible JSON.
+    /// Serialized keys are flattened for flat JSON layout.
     #[builder(default)]
     #[serde(default, flatten)]
     pub credit_model: CreditModelConfig,

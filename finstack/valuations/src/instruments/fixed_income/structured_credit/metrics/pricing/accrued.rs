@@ -31,8 +31,8 @@ impl MetricCalculator for AccruedCalculator {
         }
 
         // Fallback: derive from aggregated cashflows (interest + principal combined).
-        // This overstates accrued for amortizing structures but maintains backward
-        // compatibility when detailed tranche flows are not available.
+        // This overstates accrued for amortizing structures but serves as a
+        // fallback when detailed tranche flows are not available.
         let flows = context.cashflows.as_ref().ok_or_else(|| {
             finstack_core::Error::from(finstack_core::InputError::NotFound {
                 id: "context.cashflows".to_string(),

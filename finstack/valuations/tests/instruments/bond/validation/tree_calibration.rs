@@ -292,9 +292,9 @@ fn test_putable_bond_tree_pricing_reasonable() {
 }
 
 // =============================================================================
-// Test 5: Hull-White Mean Reversion Backward Compatibility
+// Test 5: Hull-White Mean Reversion Default Behavior
 // =============================================================================
-// With mean_reversion = None, tree should produce same results as before.
+// With mean_reversion = None, tree should produce results equivalent to Ho-Lee.
 
 #[test]
 fn test_mean_reversion_none_matches_ho_lee() {

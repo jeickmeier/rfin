@@ -71,7 +71,7 @@ def example_up_and_out_call():
     # Price the option
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -100,7 +100,7 @@ def example_down_and_in_put():
     # Price the option
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -129,7 +129,7 @@ def example_down_and_out_put():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -158,7 +158,7 @@ def example_up_and_in_call():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 

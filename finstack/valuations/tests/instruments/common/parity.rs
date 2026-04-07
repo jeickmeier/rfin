@@ -160,7 +160,7 @@ impl ParityConfig {
     }
 
     // =========================================================================
-    // Legacy Named Constructors (for backward compatibility)
+    // Convenience Named Constructors
     // =========================================================================
 
     /// Tight tolerance for high-precision tests (0.001% = 0.1 basis points).

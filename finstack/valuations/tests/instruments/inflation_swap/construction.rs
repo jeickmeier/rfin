@@ -5,9 +5,8 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount};
 use finstack_core::market_data::scalars::InflationLag;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwap, InflationSwapBuilder, PayReceive,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, InflationSwapBuilder};
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::Attributes;
 use rust_decimal::Decimal;
 use time::Month;

@@ -1,6 +1,6 @@
 use finstack_core::dates::{Date, DayCount, Tenor};
 use finstack_core::money::Money;
-use finstack_valuations::instruments::rates::inflation_swap::PayReceive;
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::rates::InflationSwap;
 use finstack_valuations::market::conventions::ids::{
     CdsConventionKey, CdsDocClause, IndexId, InflationSwapConventionId,

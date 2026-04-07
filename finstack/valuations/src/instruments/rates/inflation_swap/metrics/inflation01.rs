@@ -46,7 +46,8 @@
 //! - **Zero-coupon (this)**: Uses analytical approximation for speed
 //! - **YoY swaps**: Uses finite differences for accuracy with periodic cashflows
 
-use crate::instruments::rates::inflation_swap::{InflationSwap, PayReceive};
+use crate::instruments::common_impl::parameters::legs::PayReceive;
+use crate::instruments::rates::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::dates::DayCount;
 use finstack_core::market_data::scalars::InflationLag;

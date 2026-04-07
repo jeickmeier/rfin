@@ -53,8 +53,8 @@ class TestBulkBondPricingParity:
         registry = standard_registry()
         as_of = date(2024, 1, 1)
 
-        results1 = [registry.get_price(b, "discounting", market, as_of) for b in bond_portfolio]
-        results2 = [registry.get_price(b, "discounting", market, as_of) for b in bond_portfolio]
+        results1 = [registry.price(b, "discounting", market, as_of) for b in bond_portfolio]
+        results2 = [registry.price(b, "discounting", market, as_of) for b in bond_portfolio]
 
         for i, (r1, r2) in enumerate(zip(results1, results2, strict=True)):
             assert abs(r1.value.amount - r2.value.amount) < TOLERANCE_DETERMINISTIC, (
@@ -68,10 +68,10 @@ class TestBulkBondPricingParity:
         as_of = date(2024, 1, 1)
 
         # Price in original order
-        forward = [registry.get_price(b, "discounting", market, as_of) for b in bond_portfolio]
+        forward = [registry.price(b, "discounting", market, as_of) for b in bond_portfolio]
 
         # Price in reverse order
-        backward = [registry.get_price(b, "discounting", market, as_of) for b in reversed(bond_portfolio)]
+        backward = [registry.price(b, "discounting", market, as_of) for b in reversed(bond_portfolio)]
         backward.reverse()
 
         for i, (f, b) in enumerate(zip(forward, backward, strict=True)):
@@ -88,8 +88,8 @@ class TestBulkBondPricingParity:
         market_low = create_flat_market_context(discount_rate=0.03)
         market_high = create_flat_market_context(discount_rate=0.07)
 
-        results_low = [registry.get_price(b, "discounting", market_low, as_of) for b in bond_portfolio]
-        results_high = [registry.get_price(b, "discounting", market_high, as_of) for b in bond_portfolio]
+        results_low = [registry.price(b, "discounting", market_low, as_of) for b in bond_portfolio]
+        results_high = [registry.price(b, "discounting", market_high, as_of) for b in bond_portfolio]
 
         # Higher rates should produce lower NPVs for positive coupon bonds
         for i, (low, high) in enumerate(zip(results_low, results_high, strict=True)):
@@ -104,7 +104,7 @@ class TestBulkBondPricingParity:
 
         all_results = []
         for _ in range(5):
-            results = [registry.get_price(b, "discounting", market, as_of).value.amount for b in bond_portfolio]
+            results = [registry.price(b, "discounting", market, as_of).value.amount for b in bond_portfolio]
             all_results.append(results)
 
         # Compare all runs to the first
@@ -148,8 +148,8 @@ class TestBulkSwapPricingParity:
         registry = standard_registry()
         as_of = date(2024, 1, 1)
 
-        results1 = [registry.get_price(s, "discounting", market, as_of) for s in swap_portfolio]
-        results2 = [registry.get_price(s, "discounting", market, as_of) for s in swap_portfolio]
+        results1 = [registry.price(s, "discounting", market, as_of) for s in swap_portfolio]
+        results2 = [registry.price(s, "discounting", market, as_of) for s in swap_portfolio]
 
         for i, (r1, r2) in enumerate(zip(results1, results2, strict=True)):
             assert abs(r1.value.amount - r2.value.amount) < TOLERANCE_DETERMINISTIC, (
@@ -166,8 +166,8 @@ class TestBulkSwapPricingParity:
         # Bumped forward curve (higher floating rates)
         market_bumped = create_flat_market_context(discount_rate=0.05, forward_rate=0.06)
 
-        results_base = [registry.get_price(s, "discounting", market_base, as_of) for s in swap_portfolio]
-        results_bumped = [registry.get_price(s, "discounting", market_bumped, as_of) for s in swap_portfolio]
+        results_base = [registry.price(s, "discounting", market_base, as_of) for s in swap_portfolio]
+        results_bumped = [registry.price(s, "discounting", market_bumped, as_of) for s in swap_portfolio]
 
         # For a payer swap (pay fixed, receive floating), higher forward rates increase NPV
         # The effect depends on the fixed rate relative to the forward rate
@@ -224,8 +224,8 @@ class TestBulkDepositPricingParity:
         registry = standard_registry()
         as_of = date(2024, 1, 1)
 
-        results1 = [registry.get_price(d, "discounting", market, as_of) for d in deposit_portfolio]
-        results2 = [registry.get_price(d, "discounting", market, as_of) for d in deposit_portfolio]
+        results1 = [registry.price(d, "discounting", market, as_of) for d in deposit_portfolio]
+        results2 = [registry.price(d, "discounting", market, as_of) for d in deposit_portfolio]
 
         for i, (r1, r2) in enumerate(zip(results1, results2, strict=True)):
             assert abs(r1.value.amount - r2.value.amount) < TOLERANCE_DETERMINISTIC, (
@@ -296,7 +296,7 @@ class TestMixedPortfolioParity:
         for _ in range(3):
             results = {}
             for inst in mixed_portfolio:
-                result = registry.get_price(inst, "discounting", market, as_of)
+                result = registry.price(inst, "discounting", market, as_of)
                 results[inst.instrument_id] = result.value.amount
             all_results.append(results)
 
@@ -314,7 +314,7 @@ class TestMixedPortfolioParity:
 
         # Price each instrument
         results_original = {
-            inst.instrument_id: registry.get_price(inst, "discounting", market, as_of).value.amount
+            inst.instrument_id: registry.price(inst, "discounting", market, as_of).value.amount
             for inst in mixed_portfolio
         }
 
@@ -326,7 +326,7 @@ class TestMixedPortfolioParity:
         random.shuffle(shuffled)
 
         results_shuffled = {
-            inst.instrument_id: registry.get_price(inst, "discounting", market, as_of).value.amount for inst in shuffled
+            inst.instrument_id: registry.price(inst, "discounting", market, as_of).value.amount for inst in shuffled
         }
 
         # Results should match by instrument ID

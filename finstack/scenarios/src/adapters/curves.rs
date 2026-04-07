@@ -31,7 +31,7 @@ struct BumpTargetResult {
 /// Resolve tenor strings to curve knot positions and bump magnitudes.
 ///
 /// Uses calendar-aware parsing by default, with a simple-parsing fallback for
-/// backwards compatibility (test cases often use bare integers like `"5Y"` that
+/// test convenience (test cases often use bare integers like `"5Y"` that
 /// match knots exactly under simple parsing but land slightly off under
 /// calendar-aware parsing). The simple fallback should be revisited once all
 /// callers supply a production calendar.

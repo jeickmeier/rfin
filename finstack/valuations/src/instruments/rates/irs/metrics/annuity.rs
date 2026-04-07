@@ -96,7 +96,7 @@ impl MetricCalculator for AnnuityCalculator {
             }
 
             // Use shared helper - handles epsilon validation and relative DF calculation
-            let df = crate::instruments::rates::irs::pricer::relative_df(
+            let df = crate::instruments::rates::irs::pricer::robust_relative_df(
                 &disc,
                 as_of,
                 period.payment_date,

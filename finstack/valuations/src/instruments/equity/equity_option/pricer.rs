@@ -145,7 +145,7 @@ pub fn collect_inputs(
     as_of: Date,
 ) -> Result<(f64, f64, f64, f64, f64)> {
     let inputs = collect_inputs_extended(inst, curves, as_of)?;
-    // For backwards compatibility, return t_vol as the primary time
+    // Return t_vol as the primary time for the simplified interface
     Ok((inputs.spot, inputs.r, inputs.q, inputs.sigma, inputs.t_vol))
 }
 

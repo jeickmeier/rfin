@@ -133,14 +133,6 @@ pub mod numerical {
     /// the addition is numerically meaningful).
     pub const DIVISION_EPSILON: f64 = 1e-15;
 
-    /// Default relative tolerance for numerical comparisons.
-    ///
-    /// Used for relative error checks: `|a - b| / max(|a|, |b|) < RELATIVE_TOLERANCE`.
-    ///
-    /// Value: 1e-9 (provides ~9 significant digits of precision).
-    #[allow(dead_code)]
-    pub const RELATIVE_TOLERANCE: f64 = 1e-9;
-
     /// Minimum threshold for discount factor values to avoid numerical instability.
     ///
     /// Set to 1e-10 to protect against division by near-zero discount factors
@@ -162,19 +154,13 @@ pub mod numerical {
 /// ISDA 2014 standard constants used by the engine
 pub mod isda {
     /// Standard recovery rate for senior unsecured (40%)
-    #[allow(dead_code)]
     pub const STANDARD_RECOVERY_SENIOR: f64 = 0.40;
 
     /// Standard recovery rate for subordinated (20%)
-    #[allow(dead_code)]
     pub const STANDARD_RECOVERY_SUB: f64 = 0.20;
 
     /// Standard integration points per year for protection leg
     pub const STANDARD_INTEGRATION_POINTS: usize = 40;
-
-    /// Standard coupon payment day
-    #[allow(dead_code)]
-    pub const STANDARD_COUPON_DAY: u8 = 20;
 }
 
 /// Business days per year constants by market region

@@ -502,7 +502,7 @@ fn test_bucketed_dv01_per_curve() {
         )
         .unwrap();
 
-    // Verify backward-compatible primary discount curve series exists under standard key
+    // Verify primary discount curve series exists under the standard aggregate key
     assert!(
         result.measures.contains_key("bucketed_dv01"),
         "Standard BucketedDv01 scalar should be present for BC"

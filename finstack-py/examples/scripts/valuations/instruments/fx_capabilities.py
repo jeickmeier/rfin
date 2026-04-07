@@ -94,7 +94,7 @@ def main() -> None:
         .notional(Money(1_000_000, EUR))
         .build()
     )
-    registry.get_price(spot, "discounting", market, as_of=as_of)
+    registry.price(spot, "discounting", market, as_of=as_of)
 
     # FX swap exchanging notionals
     near = as_of + timedelta(days=2)
@@ -156,7 +156,7 @@ def main() -> None:
         .option_type("put")
         .build()
     )
-    registry.get_price(fx_put, "discounting", market, as_of=as_of)
+    registry.price(fx_put, "discounting", market, as_of=as_of)
 
 
 if __name__ == "__main__":

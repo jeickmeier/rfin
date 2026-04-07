@@ -118,7 +118,7 @@ def example_participation_autocallable():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
     return autocallable, result
 
@@ -160,7 +160,7 @@ def example_capital_protection_autocallable():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
     return autocallable, result
 
@@ -198,7 +198,7 @@ def example_knock_in_autocallable():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(autocallable, "monte_carlo_gbm", market, as_of=val_date)
 
     return autocallable, result
 

@@ -230,7 +230,7 @@ impl TryFrom<RawDiscountCurve> for DiscountCurve {
 }
 
 fn default_day_count() -> DayCount {
-    // Legacy deserialization fallback for older payloads that omitted the field.
+    // Default for omitted field.
     DayCount::Act365F
 }
 

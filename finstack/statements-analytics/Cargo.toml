@@ -14,15 +14,12 @@ finstack-valuations = { path = "../valuations" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
-thiserror = { workspace = true }
-rust_decimal = { workspace = true }
 time = { workspace = true }
 tracing = { version = "0.1", default-features = false }
 polars = { version = "0.53", optional = true, default-features = false }
 
 [dev-dependencies]
 time = { workspace = true, features = ["macros"] }
-rust_decimal_macros = { workspace = true }
 
 [features]
 default = []

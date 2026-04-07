@@ -166,7 +166,6 @@ where
 ///     }
 /// }
 /// ```
-#[allow(dead_code)]
 pub trait HasExpiry {
     /// Returns the expiry date for this instrument.
     ///
@@ -180,7 +179,6 @@ pub trait HasExpiry {
     /// let expiry_date: Date = instrument.expiry();
     /// # let _ = expiry_date;
     /// ```
-    #[allow(dead_code)]
     fn expiry(&self) -> Date;
 }
 
@@ -209,7 +207,6 @@ pub trait HasExpiry {
 ///     }
 /// }
 /// ```
-#[allow(dead_code)]
 pub trait HasDayCount {
     /// Returns the day count convention for this instrument.
     ///
@@ -225,7 +222,6 @@ pub trait HasDayCount {
     /// let day_count: DayCount = instrument.day_count();
     /// # let _ = day_count;
     /// ```
-    #[allow(dead_code)]
     fn day_count(&self) -> DayCount;
 }
 

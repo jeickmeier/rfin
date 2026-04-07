@@ -1049,7 +1049,7 @@ impl CDSPricer {
         Ok(accrual_pv)
     }
 
-    /// Calculate accrual-on-default for a period using configured method (legacy time-based)
+    /// Calculate accrual-on-default for a period using configured method (time-based)
     ///
     /// Note: This method assumes times are computed using consistent day-count conventions.
     /// Prefer using `calculate_accrual_on_default_dates` for new code.
@@ -3258,7 +3258,7 @@ mod tests {
     }
 
     #[test]
-    fn test_doc_clause_backward_compatible_construction() {
+    fn test_doc_clause_default_when_omitted() {
         // Existing construction without doc_clause should still work
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");
         let cds = create_test_cds("CDS-COMPAT", as_of, as_of.add_months(60), 100.0, 0.40);
@@ -3310,7 +3310,7 @@ mod tests {
             "Baseline CDS JSON should not contain doc_clause"
         );
 
-        // Deserialize and verify backward compat
+        // Deserialize and verify omitted fields use defaults
         let deser: CreditDefaultSwap = serde_json::from_str(&json)
             .expect("Should deserialize old JSON without doc_clause field");
         assert_eq!(deser.doc_clause, None);

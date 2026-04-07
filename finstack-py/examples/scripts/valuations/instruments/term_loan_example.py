@@ -108,7 +108,7 @@ def example_fixed_rate_term_loan(registry, market, as_of: date) -> None:
     print(f"  Maturity: {term_loan.maturity}")
 
     # Price the term loan
-    result = registry.get_price(term_loan, "discounting", market, as_of=as_of)
+    result = registry.price(term_loan, "discounting", market, as_of=as_of)
     print(f"  PV: {result.value}")
 
 
@@ -158,7 +158,7 @@ def example_high_yield_term_loan(registry, market, as_of: date) -> None:
     print(f"  Notional: {term_loan.notional_limit}")
     print(f"  Maturity: {term_loan.maturity}")
 
-    result = registry.get_price(term_loan, "discounting", market, as_of=as_of)
+    result = registry.price(term_loan, "discounting", market, as_of=as_of)
     print(f"  PV: {result.value}")
 
 
@@ -209,7 +209,7 @@ def example_term_loan_with_pik(registry, market, as_of: date) -> None:
     print(f"  Maturity: {term_loan.maturity}")
     print("  Coupon Type: PIK (payment-in-kind)")
 
-    result = registry.get_price(term_loan, "discounting", market, as_of=as_of)
+    result = registry.price(term_loan, "discounting", market, as_of=as_of)
     print(f"  PV: {result.value}")
 
 
@@ -264,8 +264,8 @@ def example_term_loan_serialization(registry, market, as_of: date) -> None:
     print(f"  Roundtrip ID: {roundtrip.instrument_id}")
 
     # Verify both price the same
-    pv_original = registry.get_price(original, "discounting", market, as_of=as_of).value
-    pv_roundtrip = registry.get_price(roundtrip, "discounting", market, as_of=as_of).value
+    pv_original = registry.price(original, "discounting", market, as_of=as_of).value
+    pv_roundtrip = registry.price(roundtrip, "discounting", market, as_of=as_of).value
 
     print(f"  Original PV:  {pv_original}")
     print(f"  Roundtrip PV: {pv_roundtrip}")

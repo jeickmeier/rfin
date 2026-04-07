@@ -1524,7 +1524,7 @@ pub trait OptionGreeksProvider {
     ) -> finstack_core::Result<OptionGreeks>;
 }
 
-// Legacy single-greek helpers remain crate-private while instrument implementations
+// Single-greek helpers remain crate-private while instrument implementations
 // converge on `OptionGreeksProvider`.
 
 /// Provide **cash delta** in the metric convention for this instrument.

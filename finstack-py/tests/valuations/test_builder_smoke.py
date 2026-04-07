@@ -131,7 +131,7 @@ def test_inflation_builders_smoke() -> None:
 
 
 def test_builder_aliases_remain_available() -> None:
-    """Legacy builder aliases should remain available for compatibility."""
+    """Builder shorthand methods should work alongside canonical names."""
     deposit = (
         Deposit
         .builder("DEP-ALIAS")

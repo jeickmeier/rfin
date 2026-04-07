@@ -123,8 +123,8 @@ class TestPricingDeterminism:
         registry = standard_registry()
 
         # Price twice
-        result1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
-        result2 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
+        result1 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result2 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
 
         # Results should be identical
         assert abs(result1.value.amount - result2.value.amount) < 1e-10
@@ -143,8 +143,8 @@ class TestPricingDeterminism:
 
         # Price twice
         try:
-            result1 = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
-            result2 = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
+            result1 = registry.price(bond, "discounting", market, date(2024, 1, 1))
+            result2 = registry.price(bond, "discounting", market, date(2024, 1, 1))
 
             # Results should be identical
             assert abs(result1.value.amount - result2.value.amount) < 1e-10
@@ -152,7 +152,7 @@ class TestPricingDeterminism:
         except Exception:  # noqa: BLE001
             # If pricing fails, it should fail consistently
             with pytest.raises(Exception, match=r".*"):
-                registry.get_price(bond, "discounting", market, date(2024, 1, 1))
+                registry.price(bond, "discounting", market, date(2024, 1, 1))
 
     @given(deposit_strategy(), discount_curve_strategy())
     @settings(max_examples=50, deadline=None)
@@ -165,7 +165,7 @@ class TestPricingDeterminism:
         # Price 5 times
         results = []
         for _ in range(5):
-            result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
+            result = registry.price(deposit, "discounting", market, date(2024, 1, 1))
             results.append(result.value.amount)
 
         # All results should be identical
@@ -186,13 +186,13 @@ class TestPricingDeterminism:
         # Price in original order
         results_forward = []
         for dep in deposits:
-            result = registry.get_price(dep, "discounting", market, date(2024, 1, 1))
+            result = registry.price(dep, "discounting", market, date(2024, 1, 1))
             results_forward.append(result.value.amount)
 
         # Price in reverse order
         results_backward = []
         for dep in reversed(deposits):
-            result = registry.get_price(dep, "discounting", market, date(2024, 1, 1))
+            result = registry.price(dep, "discounting", market, date(2024, 1, 1))
             results_backward.insert(0, result.value.amount)
 
         # Results should be identical regardless of order
@@ -212,9 +212,9 @@ class TestMarketContextImmutability:
         registry = standard_registry()
 
         # Use same market context multiple times
-        result1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
-        result2 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
-        result3 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
+        result1 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result2 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result3 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
 
         # All results should be identical
         assert abs(result1.value.amount - result2.value.amount) < 1e-10
@@ -263,7 +263,7 @@ class TestPricingReproducibility:
         # Collect results from multiple iterations
         results = []
         for _ in range(num_iterations):
-            result = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
+            result = registry.price(deposit, "discounting", market, date(2024, 1, 1))
             results.append(result.value.amount)
 
         # All results should be identical
@@ -283,7 +283,7 @@ class TestPricingReproducibility:
         try:
             results = []
             for _ in range(3):
-                result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
+                result = registry.price(bond, "discounting", market, date(2024, 1, 1))
                 results.append(result.value.amount)
 
             # Check all results are identical

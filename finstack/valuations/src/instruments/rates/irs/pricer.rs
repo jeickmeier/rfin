@@ -23,14 +23,10 @@
 
 // Using generic pricer implementation to eliminate boilerplate
 
-// Re-export shared swap leg pricing utilities for internal use and backward compatibility
+// Re-export shared swap leg pricing utilities for internal use
 use crate::cashflow::builder::periods::{build_periods, BuildPeriodsParams};
-use crate::instruments::common_impl::pricing::swap_legs::{
-    robust_relative_df, FloatingLegParams, LegPeriod,
-};
-
-// Re-export for backward compatibility with IRS metrics modules
-pub(crate) use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df as relative_df;
+pub(crate) use crate::instruments::common_impl::pricing::swap_legs::robust_relative_df;
+use crate::instruments::common_impl::pricing::swap_legs::{FloatingLegParams, LegPeriod};
 
 use crate::instruments::rates::irs::{InterestRateSwap, PayReceive};
 use finstack_core::dates::Date;

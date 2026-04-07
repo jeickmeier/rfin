@@ -257,7 +257,7 @@ pub use types::constants::{
 /// Use this when building waterfall engines with coverage test diversion.
 pub use types::waterfall::CoverageTrigger as WaterfallCoverageTrigger;
 
-/// Re-exports for backward compatibility with WASM bindings.
+/// Re-exports for WASM bindings.
 #[doc(hidden)]
 pub mod waterfall {
     pub use super::types::waterfall::{CoverageTestRules, CoverageTrigger};

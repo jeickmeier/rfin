@@ -137,16 +137,6 @@ class PricerRegistry:
         """
         ...
 
-    def get_price(
-        self,
-        instrument: Any,
-        model: Any,
-        market: MarketContext,
-        as_of: dt.date,
-    ) -> ValuationResult:
-        """Backward-compatible alias for :meth:`price`."""
-        ...
-
     def price_batch(
         self,
         instruments: list[Any],
@@ -207,9 +197,7 @@ class PricerRegistry:
             - MetricId instances: MetricId.from_name("dv01")
             - Strings: "dv01", "cs01", "ytm", "z_spread"
             - Mixed list of both
-            The documented call shape is ``price_with_metrics(..., as_of, metrics=[...])``.
-            The legacy positional order ``price_with_metrics(..., metrics, as_of)``
-            remains supported for backward compatibility.
+            Call shape: ``price_with_metrics(..., as_of, metrics=[...])``.
 
         Returns
         -------
@@ -278,10 +266,8 @@ class PricerRegistry:
         as_of : dt.date
             Valuation date for the pricing run.
         metrics : list[Any] | None, optional
-            Metric identifiers to compute for each instrument. The documented call
-            shape is ``price_batch_with_metrics(..., as_of, metrics=[...])``.
-            The legacy positional order ``price_batch_with_metrics(..., metrics, as_of)``
-            remains supported for backward compatibility.
+            Metric identifiers to compute for each instrument.
+            Call shape: ``price_batch_with_metrics(..., as_of, metrics=[...])``.
 
         Returns
         -------

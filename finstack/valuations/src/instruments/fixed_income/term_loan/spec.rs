@@ -617,7 +617,7 @@ pub struct LoanCall {
     /// Redemption price as percentage of par (e.g., 102.0 = 102% of par).
     /// For make-whole calls, this is the minimum (floor) price.
     pub price_pct_of_par: f64,
-    /// Type of call provision. Defaults to `Hard` for backward compatibility.
+    /// Type of call provision. Defaults to `Hard` when unspecified.
     #[serde(default)]
     pub call_type: LoanCallType,
 }

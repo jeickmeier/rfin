@@ -296,7 +296,7 @@ fn test_metric_parse_strict() {
 
 #[test]
 fn test_from_str_still_permissive() {
-    // Scenario: Verify FromStr remains permissive for backwards compatibility
+    // Scenario: Verify FromStr remains permissive for custom metric IDs
 
     use std::str::FromStr;
 

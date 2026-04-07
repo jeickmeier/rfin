@@ -6,9 +6,8 @@ use crate::valuations::common::PyInstrumentType;
 use finstack_core::dates::DayCount;
 use finstack_core::dates::Tenor;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwap, PayReceive, YoYInflationSwap,
-};
+use finstack_valuations::instruments::rates::inflation_swap::{InflationSwap, YoYInflationSwap};
+use finstack_valuations::instruments::PayReceive;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyModule, PyType};

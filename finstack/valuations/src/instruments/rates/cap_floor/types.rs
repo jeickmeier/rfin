@@ -1072,7 +1072,7 @@ mod tests {
         assert_eq!(
             instrument_with_unknown_index.resolved_payment_lag_days(),
             0,
-            "Unknown index should fall back to zero lag for backward compatibility"
+            "Unknown index should default to zero payment lag"
         );
 
         let instrument_with_convention = InterestRateOption::new_cap(

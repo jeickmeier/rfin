@@ -156,7 +156,7 @@ impl CashflowSpec {
     ///
     /// # Input validation note
     ///
-    /// This convenience constructor keeps legacy behavior: after the debug-only
+    /// This convenience constructor keeps existing behavior: after the debug-only
     /// finite-value assertion above, any failed `f64 -> Decimal` conversion falls
     /// back to `0`. External callers that need hard validation should prefer the
     /// typed constructors or builder APIs that accept `Decimal` directly.
@@ -567,7 +567,7 @@ impl CashflowSpec {
     ///
     /// # Input validation note
     ///
-    /// This helper intentionally preserves the legacy behavior of coercing any
+    /// This helper intentionally preserves the behavior of coercing any
     /// failed `f64 -> Decimal` conversion to `0` after debug assertions. Use a
     /// typed `StepUpCouponSpec` directly when invalid external data must fail
     /// fast instead of being normalized.

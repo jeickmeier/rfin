@@ -297,7 +297,7 @@ class TestPricingRoundtrips:
 
         # Price
         registry = standard_registry()
-        result = registry.get_price(bond, "discounting", market, as_of=dt.date(2024, 1, 2))
+        result = registry.price(bond, "discounting", market, as_of=dt.date(2024, 1, 2))
 
         # Verify result is accessible
         assert result.value is not None

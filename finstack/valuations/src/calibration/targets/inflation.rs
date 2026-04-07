@@ -9,7 +9,8 @@ use crate::calibration::CalibrationReport;
 use crate::market::quotes::inflation::InflationQuote;
 use crate::market::quotes::market_quote::{ExtractQuotes, MarketQuote};
 
-use crate::instruments::rates::inflation_swap::{InflationSwap, PayReceive, YoYInflationSwap};
+use crate::instruments::common_impl::parameters::legs::PayReceive;
+use crate::instruments::rates::inflation_swap::{InflationSwap, YoYInflationSwap};
 use crate::market::build::prepared::PreparedQuote;
 use crate::market::conventions::registry::ConventionRegistry;
 use finstack_core::dates::DateExt;

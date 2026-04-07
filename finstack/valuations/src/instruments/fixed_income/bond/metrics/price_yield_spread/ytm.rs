@@ -90,8 +90,8 @@ impl MetricCalculator for YtmCalculator {
             // Fallback: use model PV as dirty price. This preserves the semantic
             // that YTM is the IRR of the full projected cashflows.
             // Note: base_value is PV at as_of, but for bonds with settlement_days,
-            // we should ideally forward value to quote_date. For simplicity and
-            // backward compatibility, we use base_value directly here.
+            // we should ideally forward-value to quote_date. For simplicity,
+            // we use base_value directly here.
             context.base_value
         };
 

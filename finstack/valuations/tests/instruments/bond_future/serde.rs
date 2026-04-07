@@ -5,7 +5,7 @@
 //! - `DeliverableBond`
 //! - `BondFutureSpecs`
 //!
-//! Ensures `deny_unknown_fields` is enforced and backward compatibility.
+//! Ensures `deny_unknown_fields` is enforced and deserialization defaults.
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;
@@ -505,7 +505,7 @@ fn test_bond_future_specs_unknown_field_allowed() {
 }
 
 // ============================================================================
-// Backward Compatibility Tests
+// Deserialization Default Tests
 // ============================================================================
 
 #[test]

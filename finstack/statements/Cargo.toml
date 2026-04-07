@@ -25,7 +25,6 @@ rust_decimal = { workspace = true }
 time = { workspace = true, features = ["macros"] }
 criterion = { workspace = true }
 proptest = "1"
-rust_decimal_macros = { workspace = true }
 
 [features]
 default = []

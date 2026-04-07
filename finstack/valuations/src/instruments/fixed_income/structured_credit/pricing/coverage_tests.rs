@@ -243,7 +243,7 @@ impl CoverageTest {
             .unwrap_or(tranche.current_balance);
 
         // Use actual day-count accrual when period_start is available (m3 fix);
-        // fall back to periods-per-year approximation for backward compatibility.
+        // fall back to periods-per-year approximation as default behavior.
         let accrual_factor = if let Some(period_start) = context.period_start {
             tranche
                 .day_count

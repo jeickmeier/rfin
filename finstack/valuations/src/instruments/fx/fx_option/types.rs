@@ -324,7 +324,7 @@ impl FxOption {
     /// ```
     ///
     /// This is **not** the same as the Delta-Neutral Straddle (DNS) strike used
-    /// in professional FX markets. For precise ATM DNS, use [`atm_dns_strike`](Self::atm_dns_strike).
+    /// in professional FX markets. For precise ATM DNS, use [`atm_dns_strike_for_convention`](Self::atm_dns_strike_for_convention).
     ///
     /// # Arguments
     ///
@@ -366,8 +366,7 @@ impl FxOption {
     /// * `forward` - Forward FX rate (use [`atm_forward_strike`](Self::atm_forward_strike))
     /// * `vol` - ATM volatility (decimal, e.g., 0.10 for 10%)
     /// * `time_to_expiry` - Time to expiry in years
-    /// * `use_forward_delta` - Legacy boolean wrapper. `false` maps to spot delta DNS and
-    ///   `true` maps to forward delta DNS.
+    /// * `convention` - ATM delta convention determining the DNS formula variant
     ///
     /// # Example
     ///
@@ -377,10 +376,14 @@ impl FxOption {
     /// let t = 0.5; // 6 months
     ///
     /// // Spot delta DNS (Bloomberg default)
-    /// let k_dns_spot = FxOption::atm_dns_strike(forward, vol, t, false);
+    /// let k_dns_spot = FxOption::atm_dns_strike_for_convention(
+    ///     forward, vol, t, FxAtmDeltaConvention::Spot,
+    /// );
     ///
-    /// // Legacy forward-delta DNS helper
-    /// let k_dns_fwd = FxOption::atm_dns_strike(forward, vol, t, true);
+    /// // Forward delta DNS (interbank standard)
+    /// let k_dns_fwd = FxOption::atm_dns_strike_for_convention(
+    ///     forward, vol, t, FxAtmDeltaConvention::Forward,
+    /// );
     /// ```
     ///
     /// # References
@@ -403,32 +406,6 @@ impl FxOption {
         }
     }
 
-    /// Legacy DNS helper maintained for backward compatibility.
-    ///
-    /// `use_forward_delta = false` maps to [`FxAtmDeltaConvention::Spot`].
-    /// `use_forward_delta = true` maps to [`FxAtmDeltaConvention::Forward`].
-    pub fn atm_dns_strike(
-        forward: f64,
-        vol: f64,
-        time_to_expiry: f64,
-        use_forward_delta: bool,
-    ) -> f64 {
-        if use_forward_delta {
-            Self::atm_dns_strike_for_convention(
-                forward,
-                vol,
-                time_to_expiry,
-                FxAtmDeltaConvention::Forward,
-            )
-        } else {
-            Self::atm_dns_strike_for_convention(
-                forward,
-                vol,
-                time_to_expiry,
-                FxAtmDeltaConvention::Spot,
-            )
-        }
-    }
 }
 
 impl crate::instruments::common_impl::traits::Instrument for FxOption {

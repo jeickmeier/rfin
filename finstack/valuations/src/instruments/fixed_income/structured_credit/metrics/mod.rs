@@ -19,7 +19,7 @@ pub use pool::*;
 pub use pricing::*;
 pub use risk::*;
 
-// Re-export standalone tranche metric functions for backward compatibility
+// Re-export standalone tranche metric functions for direct access
 pub use pricing::calculate_tranche_wal;
 pub use risk::{calculate_tranche_cs01, calculate_tranche_duration, calculate_tranche_z_spread};
 

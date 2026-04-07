@@ -71,7 +71,7 @@ pub struct PacContext {
     pub actual_psa: f64,
 }
 
-/// Execute waterfall for a single period (backward-compatible entry point).
+/// Execute waterfall for a single period (convenience entry point).
 pub fn execute_waterfall(
     waterfall: &mut CmoWaterfall,
     available_principal: f64,

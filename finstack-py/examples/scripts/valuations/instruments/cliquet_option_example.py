@@ -78,7 +78,7 @@ def example_quarterly_cliquet():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
     return cliquet, result
 
@@ -111,7 +111,7 @@ def example_annual_cliquet():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
     return cliquet, result
 
@@ -147,7 +147,7 @@ def example_monthly_cliquet():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(cliquet, "monte_carlo_gbm", market, as_of=val_date)
 
     return cliquet, result
 

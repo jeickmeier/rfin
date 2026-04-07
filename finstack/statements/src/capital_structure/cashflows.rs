@@ -82,12 +82,12 @@ pub struct CapitalStructureCashflows {
 /// better visibility into non-cash interest accrual. The `interest_expense` field
 /// is deprecated in favor of `interest_expense_cash` and `interest_expense_pik`.
 ///
-/// Use `interest_expense_total()` to get the combined value for backward compatibility.
+/// Use `interest_expense_total()` to get the combined value.
 ///
 /// # Breaking Change (v3.0)
 ///
 /// As of v3.0, all monetary fields use the Money type for currency safety.
-/// Use the accessor methods to get f64 values for backward compatibility.
+/// Use the accessor methods to get f64 values.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashflowBreakdown {
     /// Cash interest payments (coupons, floating resets)
@@ -124,8 +124,7 @@ impl CashflowBreakdown {
 
     /// Get total interest expense (cash + PIK).
     ///
-    /// This method provides backward compatibility for code that used the
-    /// deprecated `interest_expense` field.
+    /// This method replaces the deprecated `interest_expense` field.
     ///
     /// # Errors
     ///

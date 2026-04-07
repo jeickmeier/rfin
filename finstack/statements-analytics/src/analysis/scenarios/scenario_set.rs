@@ -71,7 +71,7 @@ pub struct ScenarioDefinition {
     ///
     /// This is a **hint only** in the first implementation and is not
     /// enforced at runtime. It enables future multi-model workflows while
-    /// remaining backwards compatible with the current single-model design.
+    /// remaining compatible with the current single-model design.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub model_id: Option<String>,
 

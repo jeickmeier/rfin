@@ -134,8 +134,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
     where
         D: serde::Deserializer<'de>,
     {
-        /// Helper struct that matches the JSON structure, accepting either
-        /// the new `side` field or the legacy `receive_fixed` boolean.
+        /// Helper struct that mirrors the JSON structure for deserialization.
         #[derive(serde::Deserialize)]
         #[serde(deny_unknown_fields)]
         struct FraHelper {
@@ -156,13 +155,8 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             observed_fixing: Option<f64>,
             discount_curve_id: CurveId,
             forward_curve_id: CurveId,
-            /// New-style direction field (preferred).
             #[serde(default)]
             side: Option<PayReceive>,
-            /// Legacy boolean direction field (backward compat).
-            /// `true` = receive fixed (ReceiveFixed), `false` = pay fixed (PayFixed).
-            #[serde(default)]
-            receive_fixed: Option<bool>,
             #[serde(default)]
             pricing_overrides: crate::instruments::PricingOverrides,
             attributes: Attributes,
@@ -170,13 +164,7 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
 
         let helper = FraHelper::deserialize(deserializer)?;
 
-        // Resolve side: prefer `side` if present, else convert `receive_fixed`.
-        let side = match (helper.side, helper.receive_fixed) {
-            (Some(s), _) => s,
-            (None, Some(true)) => PayReceive::ReceiveFixed,
-            (None, Some(false)) => PayReceive::PayFixed,
-            (None, None) => PayReceive::PayFixed,
-        };
+        let side = helper.side.unwrap_or(PayReceive::PayFixed);
 
         Ok(ForwardRateAgreement {
             id: helper.id,

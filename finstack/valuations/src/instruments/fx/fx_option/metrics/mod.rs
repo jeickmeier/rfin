@@ -36,7 +36,7 @@ pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
         &[InstrumentType::FxOption],
     );
 
-    // Backwards-compatible aliases (kept for stability).
+    // Convenience aliases.
     registry.register_metric(
         MetricId::custom("rho_domestic"),
         Arc::new(crate::metrics::OptionRhoCalculator::<

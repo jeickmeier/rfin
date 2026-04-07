@@ -83,7 +83,7 @@ def main() -> None:
     )
 
     # Price with Monte Carlo (kept small and fast by the engine defaults).
-    registry.get_price(barrier_call, "monte_carlo_gbm", market, as_of=val_date)
+    registry.price(barrier_call, "monte_carlo_gbm", market, as_of=val_date)
 
 
 if __name__ == "__main__":

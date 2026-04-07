@@ -110,7 +110,7 @@ pub struct LookbackOption {
     /// When `true`, `value()` dispatches to `npv_mc()` for discrete-monitoring-corrected
     /// pricing using Monte Carlo simulation.
     ///
-    /// **Defaults to `false`** for backwards compatibility (analytical continuous pricing).
+    /// **Defaults to `false`** (analytical continuous pricing).
     /// Set to `true` for production pricing of discretely-monitored lookbacks.
     #[builder(default)]
     #[serde(default)]

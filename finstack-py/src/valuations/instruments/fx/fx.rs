@@ -8,7 +8,7 @@ use crate::errors::core_to_py;
 use crate::valuations::common::intern_calendar_id_opt;
 use crate::valuations::common::PyInstrumentType;
 use finstack_core::types::{CurveId, InstrumentId};
-use finstack_valuations::instruments::fx::fx_option::FxOption;
+use finstack_valuations::instruments::fx::fx_option::{FxAtmDeltaConvention, FxOption};
 use finstack_valuations::instruments::fx::fx_spot::FxSpot;
 use finstack_valuations::instruments::fx::fx_swap::FxSwap;
 use finstack_valuations::instruments::{ExerciseStyle, OptionType, SettlementType};
@@ -957,7 +957,12 @@ impl PyFxOption {
     ///     DNS strike
     #[staticmethod]
     fn atm_dns_strike(forward: f64, vol: f64, time_to_expiry: f64, use_forward_delta: bool) -> f64 {
-        FxOption::atm_dns_strike(forward, vol, time_to_expiry, use_forward_delta)
+        let convention = if use_forward_delta {
+            FxAtmDeltaConvention::Forward
+        } else {
+            FxAtmDeltaConvention::Spot
+        };
+        FxOption::atm_dns_strike_for_convention(forward, vol, time_to_expiry, convention)
     }
 
     fn __repr__(&self) -> PyResult<String> {

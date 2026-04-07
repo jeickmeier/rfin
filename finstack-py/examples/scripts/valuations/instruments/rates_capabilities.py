@@ -112,7 +112,7 @@ def main() -> None:
         .quote_rate(0.0450)
         .build()
     )
-    registry.get_price(deposit, "discounting", market, as_of=as_of)
+    registry.price(deposit, "discounting", market, as_of=as_of)
 
     # FRA: receive fixed vs pay floating (SOFR 3M)
     fra = (
@@ -212,7 +212,7 @@ def main() -> None:
         .day_count(DayCount.ACT_360)
         .build()
     )
-    registry.get_price(floor, "discounting", market, as_of=as_of)
+    registry.price(floor, "discounting", market, as_of=as_of)
 
     # Interest-rate future (SOFR) with simple contract specs
     future = (

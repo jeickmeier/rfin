@@ -23,9 +23,9 @@ pub enum PayReceive {
 
 #[allow(non_upper_case_globals)]
 impl PayReceive {
-    /// Backward-compatible alias for `Pay`.
+    /// Alias for `Pay` used in fixed-rate instrument contexts.
     pub const PayFixed: Self = Self::Pay;
-    /// Backward-compatible alias for `Receive`.
+    /// Alias for `Receive` used in fixed-rate instrument contexts.
     pub const ReceiveFixed: Self = Self::Receive;
 
     /// Check if this is the payer side

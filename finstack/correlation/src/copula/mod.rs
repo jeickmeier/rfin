@@ -1,7 +1,7 @@
 //! Copula models for portfolio default correlation.
 //!
 //! Provides a trait-based copula abstraction enabling pluggable correlation
-//! models while maintaining backward compatibility with one-factor Gaussian.
+//! models with the one-factor Gaussian copula as the default.
 //!
 //! # Supported Models
 //!

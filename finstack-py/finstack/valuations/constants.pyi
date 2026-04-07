@@ -39,9 +39,6 @@ class numerical:
     DIVISION_EPSILON: float
     """Small epsilon to prevent division by zero (1e-15)."""
 
-    RELATIVE_TOLERANCE: float
-    """Default relative tolerance for numerical comparisons (1e-9)."""
-
     DF_EPSILON: float
     """Minimum threshold for discount factor values (1e-10)."""
 
@@ -56,9 +53,6 @@ class isda:
 
     STANDARD_INTEGRATION_POINTS: int
     """Standard integration points per year for protection leg (40)."""
-
-    STANDARD_COUPON_DAY: int
-    """Standard coupon payment day (20)."""
 
 class credit:
     """Credit-derivatives specific constants."""

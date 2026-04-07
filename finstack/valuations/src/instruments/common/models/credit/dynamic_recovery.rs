@@ -6,7 +6,7 @@
 //!
 //! # Supported models
 //!
-//! - **Constant**: `R(t) = R_0` (backward compatible, ignores notional).
+//! - **Constant**: `R(t) = R_0` (ignores notional).
 //! - **InverseLinear**: `R(t) = R_0 * (N_0 / N(t))` -- direct proportional dilution.
 //! - **InversePower**: `R(t) = R_0 * (N_0 / N(t))^alpha`, `alpha in (0, 1]` -- softened decline.
 //! - **FlooredInverse**: `R(t) = max(floor, R_0 * (N_0 / N(t)))`.
@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 /// Recovery model specification.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RecoveryModel {
-    /// Constant recovery (existing behavior, backward compatible).
+    /// Constant recovery (ignores notional changes).
     Constant,
     /// `R(t) = R_0 * (N_0 / N(t))` -- direct proportional dilution.
     InverseLinear,
@@ -82,7 +82,7 @@ impl DynamicRecoverySpec {
 
     /// Create a constant recovery spec (ignores notional changes).
     ///
-    /// This is backward-compatible with fixed-recovery pricing.
+    /// This produces identical results to fixed-recovery pricing.
     ///
     /// # Errors
     ///

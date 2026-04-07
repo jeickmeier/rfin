@@ -104,8 +104,8 @@ pub struct CommoditySwap {
     pub attributes: Attributes,
 }
 
-/// Custom deserializer for CommoditySwap that accepts either `side`
-/// (PayReceive enum) or the legacy `pay_fixed` (bool) field.
+/// Custom deserializer for CommoditySwap that reads the `side` field
+/// (PayReceive enum), defaulting to `PayFixed` when omitted.
 impl<'de> serde::Deserialize<'de> for CommoditySwap {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
@@ -119,13 +119,8 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             quantity: f64,
             fixed_price: Decimal,
             floating_index_id: CurveId,
-            /// New-style direction field (preferred).
             #[serde(default)]
             side: Option<PayReceive>,
-            /// Legacy boolean direction field (backward compat).
-            /// `true` = pay fixed (PayFixed), `false` = receive fixed (ReceiveFixed).
-            #[serde(default)]
-            pay_fixed: Option<bool>,
             start_date: Date,
             maturity: Date,
             frequency: Tenor,
@@ -143,16 +138,7 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
 
         let helper = Helper::deserialize(deserializer)?;
 
-        let side = match (helper.side, helper.pay_fixed) {
-            (Some(s), _) => s,
-            (None, Some(true)) => PayReceive::PayFixed,
-            (None, Some(false)) => PayReceive::ReceiveFixed,
-            (None, None) => {
-                return Err(serde::de::Error::custom(
-                    "CommoditySwap requires either `side` or `pay_fixed` field",
-                ));
-            }
-        };
+        let side = helper.side.unwrap_or(PayReceive::PayFixed);
 
         Ok(CommoditySwap {
             id: helper.id,

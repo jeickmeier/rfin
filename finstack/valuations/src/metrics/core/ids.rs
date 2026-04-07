@@ -94,7 +94,7 @@ impl MetricId {
     /// use finstack_valuations::metrics::MetricId;
     /// use std::str::FromStr;
     ///
-    /// // FromStr allows custom metrics (backwards compatible)
+    /// // FromStr allows custom metrics
     /// let custom = MetricId::from_str("my_custom_metric").unwrap();
     /// assert!(custom.is_custom());
     ///

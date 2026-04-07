@@ -526,7 +526,7 @@ pub struct StudentTParams {
     /// Discount curve identifier used to price the tranche.
     ///
     /// When omitted, calibration falls back to the only discount curve present
-    /// in the market context for backward compatibility.
+    /// in the market context as a convenience default.
     #[serde(default)]
     pub discount_curve_id: Option<CurveId>,
     /// Starting guess for degrees of freedom (typically 4-10).

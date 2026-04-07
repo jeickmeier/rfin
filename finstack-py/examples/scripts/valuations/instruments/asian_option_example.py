@@ -77,7 +77,7 @@ def example_arithmetic_asian_call():
     # Price the option
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 
@@ -115,7 +115,7 @@ def example_geometric_asian_put():
     # Price the option
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(option, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(option, "monte_carlo_gbm", market, as_of=val_date)
 
     return option, result
 

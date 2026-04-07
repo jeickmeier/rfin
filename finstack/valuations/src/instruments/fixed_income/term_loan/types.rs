@@ -330,7 +330,7 @@ impl TermLoan {
     /// Resolve settlement date from `as_of` using business-day conventions when available.
     ///
     /// If `calendar_id` is set, settlement days are treated as business days on that calendar.
-    /// Otherwise, a weekends-only weekday roll is used for backward compatibility.
+    /// Otherwise, a weekends-only weekday roll is used as default behavior.
     pub fn settlement_date(&self, as_of: Date) -> finstack_core::Result<Date> {
         if self.settlement_days == 0 {
             return Ok(as_of);

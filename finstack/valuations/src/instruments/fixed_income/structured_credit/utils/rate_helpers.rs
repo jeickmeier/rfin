@@ -29,7 +29,7 @@ use crate::instruments::fixed_income::structured_credit::types::TrancheCoupon;
 /// - Holiday adjustments (modified following) would be applied downstream
 #[inline]
 pub fn tenor_to_period_end(start: Date, tenor_years: f64, day_count: DayCount) -> Date {
-    // Backward-compatible, infallible-ish helper.
+    // Infallible helper that silently falls back to `start` on failure.
     //
     // For precision-first code paths, use `try_tenor_to_period_end` and propagate errors.
     use finstack_core::dates::{BusinessDayConvention, Tenor};
@@ -59,7 +59,7 @@ pub fn try_tenor_to_period_end(
 /// For floating rate tranches, this properly calculates the period end date
 /// using calendar-aware month addition based on the index tenor.
 pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketContext) -> f64 {
-    // Backward-compatible wrapper that never panics. For correctness-first valuation, prefer
+    // Infallible wrapper that never panics. For correctness-first valuation, prefer
     // `try_tranche_all_in_rate` and propagate errors.
     match coupon {
         TrancheCoupon::Fixed { rate } => *rate,

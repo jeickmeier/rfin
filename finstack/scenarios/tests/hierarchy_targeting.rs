@@ -3,7 +3,7 @@
 use finstack_core::money::Money;
 use finstack_scenarios::{OperationSpec, ScenarioSpec};
 
-/// Existing direct-targeted JSON must still deserialize (backwards compatibility).
+/// Existing direct-targeted JSON must still deserialize correctly.
 #[test]
 fn existing_direct_target_json_round_trips() {
     let json = r#"{

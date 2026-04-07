@@ -40,8 +40,8 @@ pub enum StrictMode {
     /// Missing metrics, non-applicable metrics, and calculation failures
     /// will be logged as warnings and left unset so downstream callers can
     /// apply an explicit fallback policy when needed.
-    /// Use this mode only when you need backward compatibility or
-    /// explicitly want to handle partial results.
+    /// Use this mode when you explicitly want to handle partial results
+    /// and tolerate missing or failing metrics.
     BestEffort,
 }
 
@@ -210,8 +210,8 @@ impl MetricRegistry {
     ///
     /// **This method defaults to strict mode** (breaking change from v0.7.0).
     /// Any missing metric, non-applicable metric, or calculation failure will
-    /// immediately return an error. For backward-compatible behavior, handle
-    /// errors explicitly or use `Instrument::price_with_metrics`.
+    /// immediately return an error. For lenient behavior, handle errors
+    /// explicitly or use `Instrument::price_with_metrics`.
     ///
     /// # Arguments
     /// * `metric_ids` - Vector of metric IDs to compute

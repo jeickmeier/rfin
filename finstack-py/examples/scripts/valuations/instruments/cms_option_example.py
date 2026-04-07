@@ -77,7 +77,7 @@ def example_cms_cap():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(cms_cap, "black76", market, as_of=val_date)
+    result = registry.price(cms_cap, "black76", market, as_of=val_date)
 
     return cms_cap, result
 
@@ -118,7 +118,7 @@ def example_cms_floor():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(cms_floor, "black76", market, as_of=val_date)
+    result = registry.price(cms_floor, "black76", market, as_of=val_date)
 
     return cms_floor, result
 
@@ -167,8 +167,8 @@ def example_cms_spread_option():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result_long = registry.get_price(cms_long, "black76", market, as_of=val_date)
-    result_short = registry.get_price(cms_short, "black76", market, as_of=val_date)
+    result_long = registry.price(cms_long, "black76", market, as_of=val_date)
+    result_short = registry.price(cms_short, "black76", market, as_of=val_date)
 
     return (cms_long, cms_short), (result_long, result_short)
 

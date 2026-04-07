@@ -26,10 +26,5 @@
 
 mod cashflows;
 
-/// Backward-compatible nested repo margin type exports.
-pub mod spec {
-    pub use finstack_margin::{RepoMarginSpec, RepoMarginType};
-}
-
 pub use cashflows::*;
 pub use finstack_margin::{RepoMarginSpec, RepoMarginType};

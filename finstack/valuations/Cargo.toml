@@ -21,7 +21,6 @@ serde = { workspace = true }
 serde_json = { workspace = true, features = ["raw_value"] }
 time = { workspace = true }
 rust_decimal = { workspace = true }
-nalgebra = { version = "0.34", optional = true }
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 thiserror = { workspace = true }
 num-complex = "0.4"
@@ -32,7 +31,6 @@ ts-rs = { version = "12", optional = true, features = ["serde-compat", "no-serde
 time = { workspace = true, features = ["macros"] }
 proptest = "1.9"
 criterion = { workspace = true }
-csv = "1.3"
 rust_decimal_macros = { workspace = true }
 finstack-statements = { path = "../statements" }
 finstack-statements-analytics = { path = "../statements-analytics" }
@@ -42,7 +40,7 @@ finstack-statements-analytics = { path = "../statements-analytics" }
 [features]
 default = ["parallel"]
 parallel = ["dep:rayon"]
-mc = ["dep:nalgebra", "finstack-monte-carlo/advanced", "finstack-margin/mc"]
+mc = ["finstack-monte-carlo/advanced", "finstack-margin/mc"]
 slow = []  # Enable slow-running tests (200k+ MC paths, jump-diffusion, etc.)
 ts_export = ["dep:ts-rs"]
 test-utils = []  # Opt-in for external test suites and benchmarks

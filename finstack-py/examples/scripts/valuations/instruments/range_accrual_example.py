@@ -85,7 +85,7 @@ def example_narrow_range_accrual():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 
@@ -114,7 +114,7 @@ def example_wide_range_accrual():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 
@@ -151,7 +151,7 @@ def example_asymmetric_range_accrual():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 
@@ -180,7 +180,7 @@ def example_high_coupon_tight_range():
     val_date = date(2025, 1, 1)
     market = create_market_data(val_date)
     registry = standard_registry()
-    result = registry.get_price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
+    result = registry.price(range_accrual, "monte_carlo_gbm", market, as_of=val_date)
 
     return range_accrual, result
 

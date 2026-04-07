@@ -4,7 +4,7 @@
 //! [`crate::instruments::common::models::correlation::copula`].
 //!
 //! Provides a trait-based copula abstraction enabling pluggable correlation
-//! models while maintaining backward compatibility with one-factor Gaussian.
+//! models with one-factor Gaussian as the default.
 //!
 //! # Supported Models
 //!

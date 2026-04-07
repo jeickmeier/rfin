@@ -555,7 +555,7 @@ This runs wasm-pack with release optimizations and applies wasm-opt post-process
 This project follows [Semantic Versioning](https://semver.org/):
 
 - **MAJOR version** (0.x → 1.0, 1.x → 2.0): Breaking changes to public API
-- **MINOR version** (0.1.x → 0.2.0): New features, backward-compatible
+- **MINOR version** (0.1.x → 0.2.0): New features, non-breaking
 - **PATCH version** (0.1.1 → 0.1.2): Bug fixes, no API changes
 
 See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes and migration guides.

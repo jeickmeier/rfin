@@ -41,7 +41,7 @@ class TestCrossLanguageBondPricing:
         registry = standard_registry()
 
         try:
-            result = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
+            result = registry.price(bond, "discounting", market, date(2024, 1, 1))
             assert result.value.amount > 0, f"Bond NPV should be positive, got {result.value.amount}"
             assert result.value.currency.code == "USD"
         except (finstack.FinstackError, ValueError, KeyError):
@@ -58,8 +58,8 @@ class TestCrossLanguageBondPricing:
         registry = standard_registry()
 
         try:
-            r1 = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
-            r2 = registry.get_price(bond, "discounting", market, date(2024, 1, 1))
+            r1 = registry.price(bond, "discounting", market, date(2024, 1, 1))
+            r2 = registry.price(bond, "discounting", market, date(2024, 1, 1))
 
             assert abs(r1.value.amount - r2.value.amount) < TOLERANCE_DETERMINISTIC
             assert r1.value.currency.code == r2.value.currency.code
@@ -87,8 +87,8 @@ class TestCrossLanguageBondPricing:
         market2 = create_flat_market_context(discount_rate=rate2)
 
         registry = standard_registry()
-        npv1 = registry.get_price(bond, "discounting", market1, date(2024, 1, 1)).value.amount
-        npv2 = registry.get_price(bond, "discounting", market2, date(2024, 1, 1)).value.amount
+        npv1 = registry.price(bond, "discounting", market1, date(2024, 1, 1)).value.amount
+        npv2 = registry.price(bond, "discounting", market2, date(2024, 1, 1)).value.amount
 
         if rate1 < rate2:
             assert npv1 > npv2, f"Lower rate ({rate1}) should give higher NPV: {npv1} vs {npv2}"
@@ -118,8 +118,8 @@ class TestCrossLanguageBondPricing:
         market = create_flat_market_context(discount_rate=0.05)
         registry = standard_registry()
 
-        npv1 = registry.get_price(bond1, "discounting", market, date(2024, 1, 1)).value.amount
-        npv2 = registry.get_price(bond2, "discounting", market, date(2024, 1, 1)).value.amount
+        npv1 = registry.price(bond1, "discounting", market, date(2024, 1, 1)).value.amount
+        npv2 = registry.price(bond2, "discounting", market, date(2024, 1, 1)).value.amount
 
         # NPV should scale with notional
         expected_ratio = multiplier
@@ -152,7 +152,7 @@ class TestCrossLanguageSwapPricing:
         market = create_flat_market_context(discount_rate=market_rate, forward_rate=market_rate)
 
         registry = standard_registry()
-        result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
+        result = registry.price(swap, "discounting", market, date(2024, 1, 1))
 
         # Near-ATM swap should have small absolute value relative to notional
         relative_value = abs(result.value.amount) / 10_000_000.0
@@ -183,8 +183,8 @@ class TestCrossLanguageSwapPricing:
         registry = standard_registry()
 
         try:
-            r1 = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
-            r2 = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
+            r1 = registry.price(swap, "discounting", market, date(2024, 1, 1))
+            r2 = registry.price(swap, "discounting", market, date(2024, 1, 1))
 
             assert abs(r1.value.amount - r2.value.amount) < TOLERANCE_DETERMINISTIC
         except (finstack.FinstackError, ValueError, KeyError):
@@ -209,7 +209,7 @@ class TestCrossLanguageSwapPricing:
 
         market = create_flat_market_context(discount_rate=0.05, forward_rate=forward_rate)
         registry = standard_registry()
-        result = registry.get_price(swap, "discounting", market, date(2024, 1, 1))
+        result = registry.price(swap, "discounting", market, date(2024, 1, 1))
 
         # For a payer swap (pay fixed, receive floating):
         # If fixed > forward, NPV should be negative (paying more than receiving)
@@ -238,8 +238,8 @@ class TestCrossLanguageDepositPricing:
         registry = standard_registry()
 
         try:
-            r1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
-            r2 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
+            r1 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+            r2 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
 
             assert abs(r1.value.amount - r2.value.amount) < TOLERANCE_DETERMINISTIC
         except (finstack.FinstackError, ValueError, KeyError):
@@ -275,8 +275,8 @@ class TestCrossLanguageDepositPricing:
         registry = standard_registry()
 
         # Price twice and verify consistency
-        result1 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
-        result2 = registry.get_price(deposit, "discounting", market, date(2024, 1, 1))
+        result1 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
+        result2 = registry.price(deposit, "discounting", market, date(2024, 1, 1))
 
         assert abs(result1.value.amount - result2.value.amount) < TOLERANCE_DETERMINISTIC, (
             f"Deposit pricing inconsistent: {result1.value.amount} vs {result2.value.amount}"
@@ -304,8 +304,8 @@ class TestCrossLanguageCurveBumping:
         market_bumped = create_flat_market_context(discount_rate=0.05 + bump_bp / 10000)
 
         registry = standard_registry()
-        npv_base = registry.get_price(bond, "discounting", market_base, date(2024, 1, 1)).value.amount
-        npv_bumped = registry.get_price(bond, "discounting", market_bumped, date(2024, 1, 1)).value.amount
+        npv_base = registry.price(bond, "discounting", market_base, date(2024, 1, 1)).value.amount
+        npv_bumped = registry.price(bond, "discounting", market_bumped, date(2024, 1, 1)).value.amount
 
         # Higher rates = lower NPV for bonds
         assert npv_bumped < npv_base, f"Bumped rate should give lower NPV: base={npv_base}, bumped={npv_bumped}"
@@ -329,9 +329,9 @@ class TestCrossLanguageCurveBumping:
         market_bumped_down = create_flat_market_context(discount_rate=base_rate)  # Back to original
 
         registry = standard_registry()
-        npv_base = registry.get_price(bond, "discounting", market_base, date(2024, 1, 1)).value.amount
-        npv_bumped = registry.get_price(bond, "discounting", market_bumped_up, date(2024, 1, 1)).value.amount
-        npv_restored = registry.get_price(bond, "discounting", market_bumped_down, date(2024, 1, 1)).value.amount
+        npv_base = registry.price(bond, "discounting", market_base, date(2024, 1, 1)).value.amount
+        npv_bumped = registry.price(bond, "discounting", market_bumped_up, date(2024, 1, 1)).value.amount
+        npv_restored = registry.price(bond, "discounting", market_bumped_down, date(2024, 1, 1)).value.amount
 
         # Restored should match base
         assert abs(npv_base - npv_restored) < TOLERANCE_DETERMINISTIC, (

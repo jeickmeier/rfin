@@ -1,7 +1,7 @@
 """Interpolation and extrapolation methods.
 
 This is the canonical location for interpolation types. They are also
-re-exported from finstack.core.market_data.interp for backward compatibility.
+re-exported from finstack.core.market_data.interp.
 """
 
 from __future__ import annotations

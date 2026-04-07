@@ -340,7 +340,7 @@ def main() -> None:
     }
 
     for instrument in deals.values():
-        registry.get_price(instrument, "discounting", market, as_of=as_of)
+        registry.price(instrument, "discounting", market, as_of=as_of)
 
 
 if __name__ == "__main__":

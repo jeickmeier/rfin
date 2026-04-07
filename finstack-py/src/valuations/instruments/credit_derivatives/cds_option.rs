@@ -383,15 +383,6 @@ impl PyCDSOption {
         self.inner.strike.to_f64().unwrap_or(0.0)
     }
 
-    /// Strike spread in basis points (backward-compatible alias).
-    ///
-    /// Returns:
-    ///     float: Strike spread in basis points.
-    #[getter]
-    fn strike_spread_bp(&self) -> f64 {
-        self.inner.strike.to_f64().unwrap_or(0.0) * 10000.0
-    }
-
     /// Option expiry date.
     ///
     /// Returns:

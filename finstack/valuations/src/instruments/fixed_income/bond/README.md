@@ -21,7 +21,7 @@ bond/
 ├── cashflow_spec.rs         # CashflowSpec enum (Fixed/Floating/Amortizing)
 ├── cashflows.rs             # Cashflow generation utilities
 ├── pricing/
-│   ├── mod.rs               # Module declarations and backward-compatible re-exports
+│   ├── mod.rs               # Module declarations and convenience re-exports
 │   ├── engine/              # Core pricing math (one per model)
 │   │   ├── mod.rs
 │   │   ├── discount.rs      # BondEngine: PV = Σ CF_i × DF_i

@@ -139,7 +139,7 @@ impl TrancheCoupon {
         date: Date,
         context: &finstack_core::market_data::context::MarketContext,
     ) -> f64 {
-        // Backward-compatible wrapper that preserves historical behavior:
+        // Best-effort wrapper that preserves historical behavior:
         // - Missing market data falls back to spread-only
         // - Projection failures fall back to spread-only
         //

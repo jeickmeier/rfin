@@ -44,10 +44,6 @@ pub(crate) fn register<'py>(
         constants::numerical::RATE_COMPARISON_TOLERANCE,
     )?;
     numerical.add("DIVISION_EPSILON", constants::numerical::DIVISION_EPSILON)?;
-    numerical.add(
-        "RELATIVE_TOLERANCE",
-        constants::numerical::RELATIVE_TOLERANCE,
-    )?;
     numerical.add("DF_EPSILON", constants::numerical::DF_EPSILON)?;
 
     let numerical_exports: Vec<&str> = vec![
@@ -56,7 +52,6 @@ pub(crate) fn register<'py>(
         "SOLVER_TOLERANCE",
         "RATE_COMPARISON_TOLERANCE",
         "DIVISION_EPSILON",
-        "RELATIVE_TOLERANCE",
         "DF_EPSILON",
     ];
     numerical.setattr("__all__", PyList::new(py, &numerical_exports)?)?;
@@ -80,13 +75,11 @@ pub(crate) fn register<'py>(
         "STANDARD_INTEGRATION_POINTS",
         constants::isda::STANDARD_INTEGRATION_POINTS,
     )?;
-    isda.add("STANDARD_COUPON_DAY", constants::isda::STANDARD_COUPON_DAY)?;
 
     let isda_exports: Vec<&str> = vec![
         "STANDARD_RECOVERY_SENIOR",
         "STANDARD_RECOVERY_SUB",
         "STANDARD_INTEGRATION_POINTS",
-        "STANDARD_COUPON_DAY",
     ];
     isda.setattr("__all__", PyList::new(py, &isda_exports)?)?;
     module.add_submodule(&isda)?;

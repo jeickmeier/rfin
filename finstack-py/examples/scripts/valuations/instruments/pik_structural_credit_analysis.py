@@ -8,8 +8,8 @@ ranging from investment-grade to deeply stressed.
 Barriers are calibrated from historical annual PDs via
 ``MertonModel.from_target_pd``.  The pricer registry is used for both:
 
-- **Merton MC** pricing (``registry.get_price(bond, "merton_mc", market)``)
-- **Hazard-rate** pricing (``registry.get_price(bond, "hazard_rate", market)``)
+- **Merton MC** pricing (``registry.price(bond, "merton_mc", market)``)
+- **Hazard-rate** pricing (``registry.price(bond, "hazard_rate", market)``)
 
 Usage:
     python pik_structural_credit_analysis.py

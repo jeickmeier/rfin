@@ -16,7 +16,7 @@ use crate::types::FinancialModelSpec;
 /// to access per-period values or export to Polars.
 ///
 /// Results now support dual storage:
-/// - `nodes`: f64 values for backward compatibility
+/// - `nodes`: f64 values for scalar results
 /// - `monetary_nodes`: Money values for currency-aware monetary nodes
 /// - `node_value_types`: Track which nodes are monetary vs scalar
 ///
@@ -44,7 +44,7 @@ use crate::types::FinancialModelSpec;
 /// ```
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct StatementResult {
-    /// Map of node_id → (period_id → value) [f64 for backward compatibility]
+    /// Map of node_id → (period_id → value) [f64 for scalar results]
     pub nodes: IndexMap<String, IndexMap<PeriodId, f64>>,
 
     /// Map of node_id → (period_id → Money) for monetary nodes
