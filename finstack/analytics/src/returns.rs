@@ -45,7 +45,7 @@ pub fn clean_returns(r: &mut Vec<f64>) {
 /// The leading zero mirrors the Python "prepend a zero before first valid"
 /// convention, keeping output length equal to input length.
 ///
-/// Division by zero or NaN prices produce `NaN` for that element.
+/// Non-positive or non-finite prices produce `NaN` for that element.
 ///
 /// # Arguments
 ///
@@ -73,10 +73,17 @@ pub fn simple_returns(prices: &[f64]) -> Vec<f64> {
     let mut out = Vec::with_capacity(prices.len());
     out.push(0.0);
     for w in prices.windows(2) {
-        if w[0] == 0.0 || w[0].is_nan() {
+        let p0 = w[0];
+        let p1 = w[1];
+        if p0 <= 0.0 || !p0.is_finite() || !p1.is_finite() {
             out.push(f64::NAN);
         } else {
-            out.push(w[1] / w[0] - 1.0);
+            let ratio = p1 / p0;
+            if !ratio.is_finite() || ratio <= 0.0 {
+                out.push(f64::NAN);
+            } else {
+                out.push(ratio - 1.0);
+            }
         }
     }
     out

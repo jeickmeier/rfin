@@ -37,7 +37,9 @@ fn clean_returns(returns_vec: Vec<f64>) -> Vec<f64> {
 /// -------
 /// list[float]
 ///     Simple returns with the same length as ``prices``. The first element
-///     is always ``0.0``.
+///     is always ``0.0``. Any step whose start or end price is non-finite,
+///     whose starting price is non-positive, or whose gross return is
+///     non-positive is emitted as ``NaN`` instead of a synthetic return.
 #[pyfunction]
 fn simple_returns(prices: Vec<f64>) -> Vec<f64> {
     returns::simple_returns(&prices)

@@ -7,6 +7,7 @@ comparing against pre-computed golden values.
 from __future__ import annotations
 
 from datetime import date, timedelta
+import math
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -18,7 +19,6 @@ if TYPE_CHECKING:
 
 def _build_price_df(n: int = 100) -> pl.DataFrame:
     """Generate a deterministic price DataFrame with two tickers and a benchmark."""
-    import math
 
     base_date = date(2024, 1, 2)
     dates = [base_date + timedelta(days=i) for i in range(n)]
@@ -77,6 +77,26 @@ class TestPerformanceConstruction:
         }).with_columns(pl.col("date").cast(pl.Date))
         with pytest.raises(ValueError, match="null values"):
             Performance(df, freq="daily")
+
+    def test_negative_simple_return_prices_rejected(self) -> None:
+        from finstack.analytics import Performance
+
+        df = pl.DataFrame({
+            "date": [date(2024, 1, 1), date(2024, 1, 2)],
+            "A": [-100.0, -90.0],
+        }).with_columns(pl.col("date").cast(pl.Date))
+        with pytest.raises(ValueError):
+            Performance(df, freq="daily", log_returns=False)
+
+    def test_non_finite_simple_return_prices_rejected(self) -> None:
+        from finstack.analytics import Performance
+
+        df = pl.DataFrame({
+            "date": [date(2024, 1, 1), date(2024, 1, 2)],
+            "A": [float("inf"), 101.0],
+        }).with_columns(pl.col("date").cast(pl.Date))
+        with pytest.raises(ValueError):
+            Performance(df, freq="daily", log_returns=False)
 
 
 class TestAccessors:
@@ -182,6 +202,19 @@ class TestScalarMetrics:
         assert isinstance(result, pl.DataFrame)
         assert result.shape[0] == 3
         assert {"probability", "std_err", "ci_lower", "ci_upper"}.issubset(result.columns)
+
+    def test_estimate_ruin_invalid_threshold_produces_nan(self, price_df: pl.DataFrame) -> None:
+        perf = _make_perf(price_df)
+        result = perf.estimate_ruin(
+            definition="drawdown_breach",
+            threshold=-0.1,
+            horizon_periods=63,
+            n_paths=512,
+            block_size=5,
+            seed=42,
+        )
+        assert isinstance(result, pl.DataFrame)
+        assert all(math.isnan(value) for value in result["probability"].to_list())
 
     def test_skewness(self, price_df: pl.DataFrame) -> None:
         perf = _make_perf(price_df)
@@ -362,6 +395,52 @@ class TestBenchmarkRelative:
         assert isinstance(result, pl.DataFrame)
         for val in result["batting_average"].to_list():
             assert 0.0 <= val <= 1.0
+
+
+class TestStandaloneBindings:
+    """Test standalone analytics helpers exposed directly to Python."""
+
+    def test_simple_returns_marks_invalid_price_steps_as_nan(self) -> None:
+        from finstack.analytics import simple_returns
+
+        result = simple_returns([100.0, 101.0, -50.0, 102.0, float("inf")])
+        assert result[0] == pytest.approx(0.0)
+        assert result[1] == pytest.approx(0.01)
+        assert math.isnan(result[2])
+        assert math.isnan(result[3])
+        assert math.isnan(result[4])
+
+    def test_parametric_var_rejects_invalid_ann_factor(self) -> None:
+        from finstack.analytics import parametric_var
+
+        returns = [-0.03, -0.01, 0.01, 0.02]
+        assert math.isnan(parametric_var(returns, 0.95, 0.0))
+        assert math.isnan(parametric_var(returns, 0.95, -12.0))
+        assert math.isnan(parametric_var(returns, 0.95, float("inf")))
+
+    def test_cornish_fisher_var_rejects_invalid_ann_factor(self) -> None:
+        from finstack.analytics import cornish_fisher_var
+
+        returns = [-0.03, -0.01, 0.01, 0.02]
+        assert math.isnan(cornish_fisher_var(returns, 0.95, 0.0))
+        assert math.isnan(cornish_fisher_var(returns, 0.95, -12.0))
+        assert math.isnan(cornish_fisher_var(returns, 0.95, float("inf")))
+
+    def test_up_capture_uses_geometric_subset_returns(self) -> None:
+        from finstack.analytics import up_capture
+
+        returns = [0.04, -0.10, 0.06]
+        benchmark = [0.02, -0.05, 0.03]
+        expected = ((1.04 * 1.06) ** 0.5 - 1.0) / ((1.02 * 1.03) ** 0.5 - 1.0)
+        assert up_capture(returns, benchmark) == pytest.approx(expected, rel=1e-12)
+
+    def test_down_capture_uses_geometric_subset_returns(self) -> None:
+        from finstack.analytics import down_capture
+
+        returns = [0.03, -0.10, -0.20]
+        benchmark = [0.01, -0.05, -0.10]
+        expected = ((0.90 * 0.80) ** 0.5 - 1.0) / ((0.95 * 0.90) ** 0.5 - 1.0)
+        assert down_capture(returns, benchmark) == pytest.approx(expected, rel=1e-12)
 
 
 class TestSeriesOutputs:

@@ -38,15 +38,15 @@ def greeks(
     ...
 
 def up_capture(returns: list[float], benchmark_returns: list[float]) -> float:
-    """Up-market capture ratio."""
+    """Up-market capture ratio using geometric mean returns over benchmark-up periods."""
     ...
 
 def down_capture(returns: list[float], benchmark_returns: list[float]) -> float:
-    """Down-market capture ratio."""
+    """Down-market capture ratio using geometric mean returns over benchmark-down periods."""
     ...
 
 def capture_ratio(returns: list[float], benchmark_returns: list[float]) -> float:
-    """Capture ratio: up capture / down capture."""
+    """Capture ratio: geometric up capture divided by geometric down capture."""
     ...
 
 def batting_average(returns: list[float], benchmark_returns: list[float]) -> float:

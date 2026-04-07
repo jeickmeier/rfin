@@ -106,3 +106,32 @@ fn standalone_multi_factor_greeks_errors_on_hidden_multicollinearity() {
         "factor sets with hidden linear dependence should be rejected explicitly"
     );
 }
+
+#[test]
+fn standalone_multi_factor_greeks_handles_full_rank_scaled_factors() {
+    let factor_a = [1.0e8, 2.0e8, 3.0e8, 4.0e8, 5.0e8, 6.0e8];
+    let factor_b = [1.0e-4, -2.0e-4, 3.0e-4, -4.0e-4, 5.0e-4, -6.0e-4];
+    let returns: Vec<f64> = factor_a
+        .iter()
+        .zip(factor_b.iter())
+        .map(|(a, b)| 2.0 * a - 3.0 * b)
+        .collect();
+
+    let result = multi_factor_greeks(&returns, &[&factor_a, &factor_b], 252.0);
+    assert!(
+        result.is_ok(),
+        "full-rank factor matrices should not be rejected solely because columns live on different scales"
+    );
+
+    let result = result.expect("scaled factors should solve successfully");
+    assert!(
+        (result.betas[0] - 2.0).abs() < 1e-10,
+        "expected factor_a beta near 2.0, got {}",
+        result.betas[0]
+    );
+    assert!(
+        (result.betas[1] + 3.0).abs() < 5e-5,
+        "expected factor_b beta near -3.0, got {}",
+        result.betas[1]
+    );
+}

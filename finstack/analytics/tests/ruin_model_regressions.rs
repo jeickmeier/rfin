@@ -144,3 +144,76 @@ fn performance_ruin_api_matches_standalone_estimator() {
     assert_eq!(perf_result.len(), 2);
     assert!((perf_result[1].probability - standalone.probability).abs() < 1e-12);
 }
+
+#[test]
+fn ruin_model_rejects_returns_below_negative_one() {
+    let returns = [0.01, -1.10, 0.02];
+    let model = RuinModel {
+        horizon_periods: 12,
+        n_paths: 256,
+        block_size: 2,
+        seed: 5,
+        confidence_level: 0.95,
+    };
+
+    let estimate = estimate_ruin(
+        &returns,
+        RuinDefinition::TerminalFloor {
+            floor_fraction: 0.8,
+        },
+        &model,
+    );
+
+    assert!(
+        estimate.probability.is_nan(),
+        "returns below -100% should be rejected instead of clipped into zero wealth"
+    );
+}
+
+#[test]
+fn ruin_model_rejects_invalid_floor_fraction() {
+    let returns = [0.01, -0.02, 0.03];
+    let model = RuinModel {
+        horizon_periods: 12,
+        n_paths: 256,
+        block_size: 1,
+        seed: 7,
+        confidence_level: 0.95,
+    };
+
+    let estimate = estimate_ruin(
+        &returns,
+        RuinDefinition::WealthFloor {
+            floor_fraction: 1.10,
+        },
+        &model,
+    );
+
+    assert!(
+        estimate.probability.is_nan(),
+        "wealth-floor definitions above 100% should be rejected explicitly"
+    );
+}
+
+#[test]
+fn ruin_model_rejects_invalid_drawdown_threshold() {
+    let returns = [0.01, -0.02, 0.03];
+    let model = RuinModel {
+        horizon_periods: 12,
+        n_paths: 256,
+        block_size: 1,
+        seed: 11,
+        confidence_level: 0.95,
+    };
+
+    let estimate = estimate_ruin(
+        &returns,
+        RuinDefinition::DrawdownBreach { max_drawdown: -0.1 },
+        &model,
+    );
+
+    assert!(
+        estimate.probability.is_nan(),
+        "negative drawdown barriers should be rejected explicitly"
+    );
+}

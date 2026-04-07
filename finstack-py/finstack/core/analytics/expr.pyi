@@ -105,7 +105,7 @@ def estimate_ruin(
     seed: int = 42,
     confidence_level: float = 0.95,
 ) -> pl.Expr:
-    """Estimate ruin probability from empirical returns under an explicit ruin definition."""
+    """Estimate ruin; invalid thresholds or returns below -100% yield ``nan``."""
     ...
 
 def recovery_factor(expr: IntoExpr) -> pl.Expr:
@@ -137,7 +137,7 @@ def modified_sharpe(
 # ── Tier 2: Series transforms ──
 
 def simple_returns(expr: IntoExpr) -> pl.Expr:
-    """Simple (percentage-change) returns from a price series."""
+    """Simple returns; invalid non-positive or non-finite price steps yield ``nan``."""
     ...
 
 def cumulative_returns(expr: IntoExpr) -> pl.Expr:
@@ -173,15 +173,15 @@ def beta(portfolio: IntoExpr, benchmark: IntoExpr) -> pl.Expr:
     ...
 
 def up_capture(portfolio: IntoExpr, benchmark: IntoExpr) -> pl.Expr:
-    """Up-market capture ratio."""
+    """Up-market capture ratio using geometric mean returns over benchmark-up periods."""
     ...
 
 def down_capture(portfolio: IntoExpr, benchmark: IntoExpr) -> pl.Expr:
-    """Down-market capture ratio."""
+    """Down-market capture ratio using geometric mean returns over benchmark-down periods."""
     ...
 
 def capture_ratio(portfolio: IntoExpr, benchmark: IntoExpr) -> pl.Expr:
-    """Capture ratio: up capture / down capture."""
+    """Capture ratio: geometric up capture divided by geometric down capture."""
     ...
 
 def batting_average(portfolio: IntoExpr, benchmark: IntoExpr) -> pl.Expr:

@@ -9,6 +9,7 @@ authors.workspace = true
 
 [dependencies]
 finstack-core = { path = "../core" }
+nalgebra = "0.34"
 rand = { version = "0.9", default-features = false, features = ["small_rng", "std"] }
 serde = { workspace = true }
 

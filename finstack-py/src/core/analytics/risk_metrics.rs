@@ -183,12 +183,14 @@ fn expected_shortfall(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64
 /// confidence : float
 ///     Confidence level.
 /// ann_factor : float, optional
-///     If provided, annualize.
+///     If provided, annualize using a finite, strictly positive periods-per-year
+///     factor.
 ///
 /// Returns
 /// -------
 /// float
-///     Parametric VaR.
+///     Parametric VaR. Returns ``NaN`` when ``ann_factor`` is zero, negative,
+///     or non-finite.
 #[pyfunction]
 #[pyo3(signature = (returns, confidence=0.95, ann_factor=None))]
 fn parametric_var(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {
@@ -204,12 +206,14 @@ fn parametric_var(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -
 /// confidence : float
 ///     Confidence level.
 /// ann_factor : float, optional
-///     If provided, annualize.
+///     If provided, annualize using a finite, strictly positive periods-per-year
+///     factor.
 ///
 /// Returns
 /// -------
 /// float
-///     Cornish-Fisher VaR.
+///     Cornish-Fisher VaR. Returns ``NaN`` when ``ann_factor`` is zero,
+///     negative, or non-finite.
 #[pyfunction]
 #[pyo3(signature = (returns, confidence=0.95, ann_factor=None))]
 fn cornish_fisher_var(returns: Vec<f64>, confidence: f64, ann_factor: Option<f64>) -> f64 {

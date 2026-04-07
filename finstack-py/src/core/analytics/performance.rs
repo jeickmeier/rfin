@@ -253,6 +253,9 @@ fn scalars_i64_to_df(tickers: &[String], values: &[i64], metric_name: &str) -> P
 /// prices : polars.DataFrame | pandas.DataFrame
 ///     For polars: first column is Date, remaining are price series.
 ///     For pandas: index is dates, columns are price series.
+///     In simple-return mode (``log_returns=False``), every price observation
+///     must remain finite and strictly positive. Invalid price domains are
+///     rejected instead of being converted into synthetic returns.
 /// benchmark_ticker : str, optional
 ///     Name of the benchmark column. Defaults to the first price column.
 /// freq : str
@@ -495,6 +498,12 @@ impl PyPerformance {
     }
 
     /// Estimate ruin probability for each ticker under an explicit ruin definition.
+    ///
+    /// ``threshold`` must be finite and lie in ``[0, 1]``. For
+    /// ``"wealth_floor"`` and ``"terminal_floor"``, it is interpreted as a
+    /// floor fraction of starting wealth; for ``"drawdown_breach"``, it is the
+    /// maximum allowed drawdown fraction. Invalid ruin settings propagate
+    /// ``NaN`` estimates from the Rust core.
     #[pyo3(signature = (
         definition = "drawdown_breach",
         threshold = 0.2,
@@ -622,6 +631,9 @@ impl PyPerformance {
     }
 
     /// Up-market capture ratio for each ticker vs benchmark.
+    ///
+    /// Uses geometric mean returns over the subset of periods where the
+    /// benchmark return is non-negative.
     fn up_capture(&self) -> PyResult<PyDataFrame> {
         let vals = self.inner.up_capture();
         let df = scalars_to_df(self.tickers(), &vals, "up_capture")?;
@@ -629,6 +641,9 @@ impl PyPerformance {
     }
 
     /// Down-market capture ratio for each ticker vs benchmark.
+    ///
+    /// Uses geometric mean returns over the subset of periods where the
+    /// benchmark return is negative.
     fn down_capture(&self) -> PyResult<PyDataFrame> {
         let vals = self.inner.down_capture();
         let df = scalars_to_df(self.tickers(), &vals, "down_capture")?;
@@ -636,6 +651,8 @@ impl PyPerformance {
     }
 
     /// Capture ratio (up/down) for each ticker vs benchmark.
+    ///
+    /// This is the ratio of geometric up-capture to geometric down-capture.
     fn capture_ratio(&self) -> PyResult<PyDataFrame> {
         let vals = self.inner.capture_ratio();
         let df = scalars_to_df(self.tickers(), &vals, "capture_ratio")?;
@@ -963,7 +980,8 @@ impl PyPerformance {
     /// -------
     /// dict
     ///     Keys: ``alpha``, ``betas``, ``r_squared``, ``adjusted_r_squared``,
-    ///     ``residual_vol``.
+    ///     ``residual_vol``. Uses a numerically stable least-squares solve in
+    ///     Rust and still rejects invalid or rank-deficient factor sets.
     #[pyo3(signature = (ticker, factor_returns))]
     fn multi_factor_greeks(
         &self,

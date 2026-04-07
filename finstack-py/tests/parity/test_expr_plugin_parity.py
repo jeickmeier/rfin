@@ -258,6 +258,15 @@ class TestTier2SeriesParity:
         assert rebased["r"][0] == pytest.approx(100.0, rel=1e-12)
         assert rebased.shape[0] == price_df.shape[0]
 
+    def test_simple_returns_invalid_price_steps_become_nan(self) -> None:
+        prices = pl.DataFrame({"px": [100.0, 101.0, -50.0, 102.0, float("inf")]})
+        actual = prices.select(expr.simple_returns("px").alias("ret"))["ret"].to_list()
+        assert actual[0] == pytest.approx(0.0)
+        assert actual[1] == pytest.approx(0.01)
+        assert math.isnan(actual[2])
+        assert math.isnan(actual[3])
+        assert math.isnan(actual[4])
+
 
 # ── Tier 3: Two-input benchmark parity ──
 
@@ -316,6 +325,21 @@ class TestTier3BenchmarkParity:
         expected = _perf_scalar(perf.m_squared(), "m_squared")
         actual = _expr_scalar(returns_df, expr.m_squared("A", "bench", freq="daily"))
         assert actual == pytest.approx(expected, rel=1e-10)
+
+    def test_estimate_ruin_invalid_threshold_yields_nan(self) -> None:
+        returns_df = pl.DataFrame({"A": [0.01, -0.02, 0.03]})
+        actual = returns_df.select(
+            expr.estimate_ruin(
+                "A",
+                definition="drawdown_breach",
+                threshold=-0.1,
+                horizon_periods=12,
+                n_paths=256,
+                block_size=1,
+                seed=11,
+            ).alias("ruin")
+        ).item()
+        assert math.isnan(actual)
 
 
 # ── Tier 4: Rolling metrics parity ──

@@ -8,6 +8,10 @@ fn has_strict_confidence(confidence: f64) -> bool {
     confidence.is_finite() && confidence > 0.0 && confidence < 1.0
 }
 
+fn valid_horizon(ann_factor: Option<f64>) -> bool {
+    ann_factor.is_none_or(|af| af.is_finite() && af > 0.0)
+}
+
 /// Historical Value-at-Risk at the given confidence level.
 ///
 /// Computes the `(1 - confidence)` quantile of the empirical return
@@ -465,6 +469,9 @@ pub fn parametric_var(returns: &[f64], confidence: f64, ann_factor: Option<f64>)
     if !has_strict_confidence(confidence) {
         return f64::NAN;
     }
+    if !valid_horizon(ann_factor) {
+        return f64::NAN;
+    }
     let m = mean(returns);
     let vol = variance(returns).sqrt();
     let z = crate::math::special_functions::standard_normal_inv_cdf(1.0 - confidence);
@@ -528,6 +535,9 @@ pub fn cornish_fisher_var(returns: &[f64], confidence: f64, ann_factor: Option<f
         return 0.0;
     }
     if !has_strict_confidence(confidence) {
+        return f64::NAN;
+    }
+    if !valid_horizon(ann_factor) {
         return f64::NAN;
     }
     let (m, vol, s, k) = moments4(returns);

@@ -316,3 +316,79 @@ fn performance_new_rejects_returns_below_negative_one() {
         "price paths implying returns below -100% should be rejected"
     );
 }
+
+#[test]
+fn performance_new_rejects_negative_price_domain_in_simple_return_mode() {
+    let dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 2)];
+    let prices = vec![vec![-100.0, -90.0]];
+
+    let result = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    );
+
+    assert!(
+        result.is_err(),
+        "negative price domains should be rejected rather than converted into synthetic returns"
+    );
+}
+
+#[test]
+fn performance_new_rejects_non_finite_price_domain_in_simple_return_mode() {
+    let dates = vec![d(2024, Month::January, 1), d(2024, Month::January, 2)];
+    let prices = vec![vec![f64::INFINITY, 101.0]];
+
+    let result = Performance::new(
+        dates,
+        prices,
+        vec!["PORT".to_string()],
+        None,
+        PeriodKind::Daily,
+        false,
+    );
+
+    assert!(
+        result.is_err(),
+        "non-finite prices should be rejected even when the derived return would look finite"
+    );
+}
+
+#[test]
+fn parametric_var_rejects_non_positive_or_non_finite_horizon() {
+    let returns = [-0.03, -0.01, 0.01, 0.02];
+
+    assert!(
+        finstack_analytics::parametric_var(&returns, 0.95, Some(0.0)).is_nan(),
+        "zero annualization horizon should be rejected"
+    );
+    assert!(
+        finstack_analytics::parametric_var(&returns, 0.95, Some(-12.0)).is_nan(),
+        "negative annualization horizon should be rejected"
+    );
+    assert!(
+        finstack_analytics::parametric_var(&returns, 0.95, Some(f64::INFINITY)).is_nan(),
+        "non-finite annualization horizon should be rejected"
+    );
+}
+
+#[test]
+fn cornish_fisher_var_rejects_non_positive_or_non_finite_horizon() {
+    let returns = [-0.03, -0.01, 0.01, 0.02];
+
+    assert!(
+        finstack_analytics::cornish_fisher_var(&returns, 0.95, Some(0.0)).is_nan(),
+        "zero annualization horizon should be rejected"
+    );
+    assert!(
+        finstack_analytics::cornish_fisher_var(&returns, 0.95, Some(-12.0)).is_nan(),
+        "negative annualization horizon should be rejected"
+    );
+    assert!(
+        finstack_analytics::cornish_fisher_var(&returns, 0.95, Some(f64::INFINITY)).is_nan(),
+        "non-finite annualization horizon should be rejected"
+    );
+}

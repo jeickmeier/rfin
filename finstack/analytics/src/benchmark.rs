@@ -660,9 +660,10 @@ pub fn rolling_greeks(
 
 /// Up-market capture ratio: portfolio performance during benchmark up-periods.
 ///
-/// Computes the ratio of the portfolio's compounded return to the benchmark's
-/// compounded return over periods where the benchmark return is non-negative.
-/// A value > 1.0 means the portfolio amplifies benchmark gains.
+/// Computes the ratio of the portfolio's geometric mean return to the benchmark's
+/// geometric mean return over periods where the benchmark return is non-negative.
+/// A value > 1.0 means the portfolio amplifies benchmark gains on a per-period
+/// geometric basis within the benchmark-up subset.
 ///
 /// **Convention:** Zero-return benchmark days (`r_bench = 0.0`) are classified
 /// as "up" periods (using `>=`). Some vendors (e.g., Morningstar) use strict
@@ -693,36 +694,15 @@ pub fn rolling_greeks(
 /// ```
 #[must_use]
 pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
-    let n = returns.len().min(benchmark.len());
-    if n == 0 {
-        return 0.0;
-    }
-    let mut port_prod = 1.0_f64;
-    let mut bench_prod = 1.0_f64;
-    let mut has_up = false;
-    for i in 0..n {
-        if benchmark[i] >= 0.0 {
-            port_prod *= 1.0 + returns[i];
-            bench_prod *= 1.0 + benchmark[i];
-            has_up = true;
-        }
-    }
-    if !has_up {
-        return 0.0;
-    }
-    let bench_ret = bench_prod - 1.0;
-    if bench_ret.abs() < 1e-18 {
-        return 0.0;
-    }
-    (port_prod - 1.0) / bench_ret
+    geometric_capture(returns, benchmark, |bench_return| bench_return >= 0.0)
 }
 
 /// Down-market capture ratio: portfolio performance during benchmark down-periods.
 ///
-/// Computes the ratio of the portfolio's compounded return to the benchmark's
-/// compounded return over periods where the benchmark return is negative.
+/// Computes the ratio of the portfolio's geometric mean return to the benchmark's
+/// geometric mean return over periods where the benchmark return is negative.
 /// A value < 1.0 means the portfolio loses less than the benchmark during
-/// downturns (desirable).
+/// downturns on a per-period geometric basis (desirable).
 ///
 /// # Arguments
 ///
@@ -747,28 +727,7 @@ pub fn up_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 /// ```
 #[must_use]
 pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
-    let n = returns.len().min(benchmark.len());
-    if n == 0 {
-        return 0.0;
-    }
-    let mut port_prod = 1.0_f64;
-    let mut bench_prod = 1.0_f64;
-    let mut has_down = false;
-    for i in 0..n {
-        if benchmark[i] < 0.0 {
-            port_prod *= 1.0 + returns[i];
-            bench_prod *= 1.0 + benchmark[i];
-            has_down = true;
-        }
-    }
-    if !has_down {
-        return 0.0;
-    }
-    let bench_ret = bench_prod - 1.0;
-    if bench_ret.abs() < 1e-18 {
-        return 0.0;
-    }
-    (port_prod - 1.0) / bench_ret
+    geometric_capture(returns, benchmark, |bench_return| bench_return < 0.0)
 }
 
 /// Capture ratio = up capture / down capture.
@@ -798,10 +757,17 @@ pub fn down_capture(returns: &[f64], benchmark: &[f64]) -> f64 {
 #[must_use]
 pub fn capture_ratio(returns: &[f64], benchmark: &[f64]) -> f64 {
     let dc = down_capture(returns, benchmark);
+    if dc.is_nan() {
+        return f64::NAN;
+    }
     if dc == 0.0 {
         return 0.0;
     }
-    up_capture(returns, benchmark) / dc
+    let uc = up_capture(returns, benchmark);
+    if uc.is_nan() {
+        return f64::NAN;
+    }
+    uc / dc
 }
 
 /// Batting average: fraction of periods where portfolio outperforms benchmark.
@@ -863,62 +829,100 @@ pub struct MultiFactorResult {
     pub residual_vol: f64,
 }
 
-fn dot(lhs: &[f64], rhs: &[f64]) -> f64 {
-    lhs.iter().zip(rhs.iter()).map(|(l, r)| l * r).sum()
-}
-
 fn qr_least_squares(columns: &[Vec<f64>], y: &[f64]) -> crate::Result<Vec<f64>> {
+    use nalgebra::{DMatrix, DVector};
+
     let p = columns.len();
     let n = y.len();
-    let max_col_norm = columns
+    if p == 0 || n == 0 || columns.iter().any(|column| column.len() != n) {
+        return Err(crate::error::InputError::Invalid.into());
+    }
+
+    // Normalize columns before the SVD so factor scale alone does not trigger
+    // false "singular" classifications in otherwise full-rank regressions.
+    let mut scales = Vec::with_capacity(p);
+    for column in columns {
+        let norm = neumaier_sum(column.iter().map(|value| value * value)).sqrt();
+        if !norm.is_finite() || norm <= 0.0 {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        scales.push(norm);
+    }
+
+    let mut design = Vec::with_capacity(n * p);
+    for row in 0..n {
+        for (col_idx, column) in columns.iter().enumerate() {
+            design.push(column[row] / scales[col_idx]);
+        }
+    }
+
+    let x_matrix = DMatrix::from_row_slice(n, p, &design);
+    let y_vector = DVector::from_column_slice(y);
+    let svd = x_matrix.svd(true, true);
+    let max_singular = svd.singular_values.iter().copied().fold(0.0_f64, f64::max);
+    if !max_singular.is_finite() || max_singular <= 0.0 {
+        return Err(crate::error::InputError::Invalid.into());
+    }
+
+    let tolerance = 1.0e-10 * max_singular.max(1.0);
+    let rank = svd
+        .singular_values
         .iter()
-        .map(|column| dot(column, column).sqrt())
-        .fold(0.0_f64, f64::max);
-    let tolerance = 1.0e-10 * max_col_norm.max(1.0);
+        .filter(|&&value| value > tolerance)
+        .count();
+    if rank < p {
+        return Err(crate::error::InputError::Invalid.into());
+    }
 
-    let mut q_columns = vec![vec![0.0_f64; n]; p];
-    let mut r = vec![0.0_f64; p * p];
+    let beta_scaled = svd
+        .solve(&y_vector, tolerance)
+        .map_err(|_| crate::error::InputError::Invalid)?;
 
-    for j in 0..p {
-        let mut v = columns[j].clone();
-        for i in 0..j {
-            let projection = dot(&q_columns[i], &v);
-            r[i * p + j] = projection;
-            for (value, basis) in v.iter_mut().zip(q_columns[i].iter()) {
-                *value -= projection * basis;
+    Ok(beta_scaled
+        .iter()
+        .zip(scales.iter())
+        .map(|(beta, scale)| beta / scale)
+        .collect())
+}
+
+fn geometric_capture<F>(returns: &[f64], benchmark: &[f64], include: F) -> f64
+where
+    F: Fn(f64) -> bool,
+{
+    let n = returns.len().min(benchmark.len());
+    if n == 0 {
+        return 0.0;
+    }
+
+    let mut port_logs = Vec::new();
+    let mut bench_logs = Vec::new();
+    for i in 0..n {
+        if include(benchmark[i]) {
+            let port_growth = 1.0 + returns[i];
+            let bench_growth = 1.0 + benchmark[i];
+            if !port_growth.is_finite()
+                || !bench_growth.is_finite()
+                || port_growth <= 0.0
+                || bench_growth <= 0.0
+            {
+                return f64::NAN;
             }
-        }
-
-        let norm = dot(&v, &v).sqrt();
-        if !norm.is_finite() || norm <= tolerance {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-
-        r[j * p + j] = norm;
-        for (target, value) in q_columns[j].iter_mut().zip(v.iter()) {
-            *target = *value / norm;
+            port_logs.push(port_growth.ln());
+            bench_logs.push(bench_growth.ln());
         }
     }
 
-    let mut q_transpose_y = vec![0.0_f64; p];
-    for j in 0..p {
-        q_transpose_y[j] = dot(&q_columns[j], y);
+    if port_logs.is_empty() {
+        return 0.0;
     }
 
-    let mut beta = vec![0.0_f64; p];
-    for i in (0..p).rev() {
-        let mut sum = q_transpose_y[i];
-        for j in (i + 1)..p {
-            sum -= r[i * p + j] * beta[j];
-        }
-        let diag = r[i * p + i];
-        if !diag.is_finite() || diag.abs() <= tolerance {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        beta[i] = sum / diag;
+    let count = port_logs.len() as f64;
+    let port_geom = (neumaier_sum(port_logs) / count).exp() - 1.0;
+    let bench_geom = (neumaier_sum(bench_logs) / count).exp() - 1.0;
+    if bench_geom.abs() < 1e-18 {
+        return 0.0;
     }
-
-    Ok(beta)
+    port_geom / bench_geom
 }
 
 /// Multi-factor OLS regression of portfolio returns on factor returns.
@@ -1264,13 +1268,23 @@ mod tests {
     fn up_capture_multiple_periods() {
         // r = [0.04, −0.01, 0.06], b = [0.02, −0.03, 0.03]
         // Up periods: indices 0, 2 (b[0]=0.02≥0, b[2]=0.03≥0)
-        // port_prod = (1.04)(1.06) = 1.1024
-        // bench_prod = (1.02)(1.03) = 1.0506
-        // up_capture = (1.1024−1)/(1.0506−1) = 0.1024/0.0506
+        // port geometric return = sqrt((1.04)(1.06)) − 1
+        // bench geometric return = sqrt((1.02)(1.03)) − 1
         let r = [0.04, -0.01, 0.06];
         let b = [0.02, -0.03, 0.03];
         let uc = up_capture(&r, &b);
-        let expected = (1.04 * 1.06 - 1.0) / (1.02 * 1.03 - 1.0);
+        let expected = ((1.04_f64 * 1.06_f64).sqrt() - 1.0) / ((1.02_f64 * 1.03_f64).sqrt() - 1.0);
+        assert!((uc - expected).abs() < 1e-12);
+    }
+
+    #[test]
+    fn up_capture_uses_geometric_subset_returns() {
+        let r = [1.0, 0.0, -0.4];
+        let b = [0.5, 0.5, -0.1];
+        let uc = up_capture(&r, &b);
+        let expected_port = (2.0_f64 * 1.0_f64).sqrt() - 1.0;
+        let expected_bench = (1.5_f64 * 1.5_f64).sqrt() - 1.0;
+        let expected = expected_port / expected_bench;
         assert!((uc - expected).abs() < 1e-12);
     }
 
@@ -1284,6 +1298,17 @@ mod tests {
         let expected = (0.99 - 1.0) / (0.97 - 1.0);
         assert!((dc - expected).abs() < 1e-12);
         assert!(dc < 1.0);
+    }
+
+    #[test]
+    fn down_capture_uses_geometric_subset_returns() {
+        let r = [-0.25, 0.0, 0.1];
+        let b = [-0.5, -0.5, 0.1];
+        let dc = down_capture(&r, &b);
+        let expected_port = (0.75_f64 * 1.0_f64).sqrt() - 1.0;
+        let expected_bench = (0.5_f64 * 0.5_f64).sqrt() - 1.0;
+        let expected = expected_port / expected_bench;
+        assert!((dc - expected).abs() < 1e-12);
     }
 
     #[test]

@@ -52,7 +52,7 @@ def parametric_var(
     confidence: float = 0.95,
     ann_factor: float | None = None,
 ) -> float:
-    """Parametric (Gaussian) VaR."""
+    """Parametric VaR; invalid zero, negative, or non-finite ``ann_factor`` values yield ``nan``."""
     ...
 
 def cornish_fisher_var(
@@ -60,7 +60,7 @@ def cornish_fisher_var(
     confidence: float = 0.95,
     ann_factor: float | None = None,
 ) -> float:
-    """Cornish-Fisher adjusted VaR."""
+    """Cornish-Fisher VaR; invalid zero, negative, or non-finite ``ann_factor`` values yield ``nan``."""
     ...
 
 def skewness(returns: list[float]) -> float:

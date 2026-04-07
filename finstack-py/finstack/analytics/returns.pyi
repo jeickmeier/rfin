@@ -7,7 +7,7 @@ def clean_returns(returns: list[float]) -> list[float]:
     ...
 
 def simple_returns(prices: list[float]) -> list[float]:
-    """Simple (percentage-change) returns from a price series."""
+    """Simple returns from prices; invalid non-positive or non-finite steps yield ``nan``."""
     ...
 
 def comp_sum(returns: list[float]) -> list[float]:

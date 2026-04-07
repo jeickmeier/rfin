@@ -152,7 +152,8 @@ fn greeks(
 /// Returns
 /// -------
 /// float
-///     Up capture ratio.
+///     Up capture ratio computed from geometric mean returns over the periods
+///     where the benchmark return is non-negative.
 #[pyfunction]
 fn up_capture(returns: Vec<f64>, benchmark_returns: Vec<f64>) -> f64 {
     benchmark::up_capture(&returns, &benchmark_returns)
@@ -170,7 +171,8 @@ fn up_capture(returns: Vec<f64>, benchmark_returns: Vec<f64>) -> f64 {
 /// Returns
 /// -------
 /// float
-///     Down capture ratio.
+///     Down capture ratio computed from geometric mean returns over the
+///     periods where the benchmark return is negative.
 #[pyfunction]
 fn down_capture(returns: Vec<f64>, benchmark_returns: Vec<f64>) -> f64 {
     benchmark::down_capture(&returns, &benchmark_returns)
@@ -188,7 +190,7 @@ fn down_capture(returns: Vec<f64>, benchmark_returns: Vec<f64>) -> f64 {
 /// Returns
 /// -------
 /// float
-///     Capture ratio.
+///     Ratio of geometric up-capture to geometric down-capture.
 #[pyfunction]
 fn capture_ratio(returns: Vec<f64>, benchmark_returns: Vec<f64>) -> f64 {
     benchmark::capture_ratio(&returns, &benchmark_returns)

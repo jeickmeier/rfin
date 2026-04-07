@@ -535,6 +535,18 @@ impl RuinEstimate {
     }
 }
 
+fn valid_ruin_definition(definition: RuinDefinition) -> bool {
+    match definition {
+        RuinDefinition::WealthFloor { floor_fraction }
+        | RuinDefinition::TerminalFloor { floor_fraction } => {
+            floor_fraction.is_finite() && (0.0..=1.0).contains(&floor_fraction)
+        }
+        RuinDefinition::DrawdownBreach { max_drawdown } => {
+            max_drawdown.is_finite() && (0.0..=1.0).contains(&max_drawdown)
+        }
+    }
+}
+
 /// Estimate ruin probability from an empirical return distribution via bootstrap simulation.
 ///
 /// The estimator simulates wealth paths by circular block-bootstrap resampling
@@ -613,7 +625,10 @@ pub fn estimate_ruin(
     if returns.is_empty() || model.horizon_periods == 0 || model.n_paths == 0 {
         return RuinEstimate::from_probability(0.0, model.n_paths, model.confidence_level);
     }
-    if model.block_size == 0 || returns.iter().any(|r| !r.is_finite()) {
+    if model.block_size == 0
+        || returns.iter().any(|r| !r.is_finite() || *r < -1.0)
+        || !valid_ruin_definition(definition)
+    {
         return RuinEstimate::from_probability(f64::NAN, model.n_paths, model.confidence_level);
     }
 
@@ -633,8 +648,7 @@ pub fn estimate_ruin(
 
             for offset in 0..block_len {
                 let r = returns[(start + offset) % returns.len()];
-                let growth = 1.0 + r;
-                wealth *= growth.max(0.0);
+                wealth *= 1.0 + r;
                 peak = peak.max(wealth);
                 steps_done += 1;
 
