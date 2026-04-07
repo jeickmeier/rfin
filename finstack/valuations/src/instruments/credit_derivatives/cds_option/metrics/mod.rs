@@ -21,7 +21,7 @@ mod vega;
 use crate::metrics::MetricRegistry;
 
 /// Register all CDS Option metrics with the registry
-pub fn register_cds_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_cds_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;

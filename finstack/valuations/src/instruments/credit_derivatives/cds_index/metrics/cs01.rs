@@ -8,7 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// CS01 calculator for CDS Index
-pub struct Cs01Calculator;
+pub(crate) struct Cs01Calculator;
 
 impl MetricCalculator for Cs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

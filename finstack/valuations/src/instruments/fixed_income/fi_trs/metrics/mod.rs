@@ -10,9 +10,9 @@ mod annuity;
 mod duration_dv01;
 mod par_spread;
 
-pub use annuity::FinancingAnnuityCalculator;
-pub use duration_dv01::DurationDv01Calculator;
-pub use par_spread::ParSpreadCalculator;
+pub(crate) use annuity::FinancingAnnuityCalculator;
+pub(crate) use duration_dv01::DurationDv01Calculator;
+pub(crate) use par_spread::ParSpreadCalculator;
 
 use crate::metrics::MetricRegistry;
 use crate::pricer::InstrumentType;
@@ -21,7 +21,7 @@ use crate::pricer::InstrumentType;
 ///
 /// # Arguments
 /// * `registry` — Metric registry to add FI TRS metrics to
-pub fn register_fi_trs_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_fi_trs_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 

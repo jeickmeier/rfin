@@ -7,7 +7,7 @@ use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register pricers for additional fixed-income instruments (convertibles, MBS,
 /// revolving credit, term loans) not included in the minimal rates set.
-pub fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
+pub(crate) fn register_fixed_income_pricers(registry: &mut PricerRegistry) {
     // FI Index TRS
     registry.register(
         InstrumentType::FIIndexTotalReturnSwap,

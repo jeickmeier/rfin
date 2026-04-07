@@ -46,13 +46,13 @@ use crate::math::NeumaierAccumulator;
 /// Set to 1e-8 to match QuantLib's `CashFlows::irr()` standard.
 /// Previous value (1e-6) was Excel-grade; 1e-8 provides professional-grade
 /// precision suitable for long-duration cashflows where tolerance matters.
-pub const DEFAULT_TOLERANCE: f64 = 1e-8;
+pub(crate) const DEFAULT_TOLERANCE: f64 = 1e-8;
 
 /// Default maximum iterations for IRR/XIRR solver.
-pub const DEFAULT_MAX_ITERATIONS: usize = 100;
+pub(crate) const DEFAULT_MAX_ITERATIONS: usize = 100;
 
 /// Default initial guess for IRR/XIRR.
-pub const DEFAULT_GUESS: f64 = 0.1;
+pub(crate) const DEFAULT_GUESS: f64 = 0.1;
 
 /// Minimum valid rate threshold.
 ///
@@ -63,7 +63,7 @@ pub const DEFAULT_GUESS: f64 = 0.1;
 /// - Often indicate solver convergence to an invalid root
 ///
 /// The solver rejects any root at or below this threshold.
-pub const MIN_VALID_RATE: f64 = -0.999;
+pub(crate) const MIN_VALID_RATE: f64 = -0.999;
 
 /// Trait for calculating the Internal Rate of Return (IRR).
 ///

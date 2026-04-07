@@ -29,7 +29,7 @@ use finstack_core::Result;
 const PRICE_BUMP_PCT: f64 = 0.01;
 
 /// Constituent delta calculator for baskets.
-pub struct ConstituentDeltaCalculator;
+pub(crate) struct ConstituentDeltaCalculator;
 
 impl MetricCalculator for ConstituentDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

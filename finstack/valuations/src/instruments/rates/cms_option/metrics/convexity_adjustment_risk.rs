@@ -13,7 +13,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Convexity adjustment risk calculator for CMS options.
-pub struct ConvexityAdjustmentRiskCalculator;
+pub(crate) struct ConvexityAdjustmentRiskCalculator;
 
 impl MetricCalculator for ConvexityAdjustmentRiskCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

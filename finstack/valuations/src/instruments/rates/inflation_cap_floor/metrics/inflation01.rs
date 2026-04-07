@@ -28,7 +28,7 @@ const INFLATION_BUMP_DECIMAL: f64 = 0.0001;
 /// Inflation01 calculator for inflation cap/floor options.
 ///
 /// Computes the present value sensitivity to a 1bp parallel shift in inflation expectations.
-pub struct Inflation01Calculator;
+pub(crate) struct Inflation01Calculator;
 
 impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -4,7 +4,7 @@ use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Index ratio calculator for ILB
-pub struct IndexRatioCalculator;
+pub(crate) struct IndexRatioCalculator;
 
 impl MetricCalculator for IndexRatioCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -39,7 +39,7 @@ use finstack_core::money::Money;
 /// // Convexity is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct ConvexityCalculator;
+pub(crate) struct ConvexityCalculator;
 
 impl MetricCalculator for ConvexityCalculator {
     fn dependencies(&self) -> &[MetricId] {

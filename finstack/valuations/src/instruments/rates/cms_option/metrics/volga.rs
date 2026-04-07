@@ -11,7 +11,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Volga calculator for CMS options.
-pub struct VolgaCalculator;
+pub(crate) struct VolgaCalculator;
 
 impl MetricCalculator for VolgaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

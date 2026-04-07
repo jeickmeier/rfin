@@ -28,7 +28,7 @@ use crate::instruments::fixed_income::structured_credit::types::TrancheCoupon;
 /// - End-of-month dates should roll to end-of-month
 /// - Holiday adjustments (modified following) would be applied downstream
 #[inline]
-pub fn tenor_to_period_end(start: Date, tenor_years: f64, day_count: DayCount) -> Date {
+pub(crate) fn tenor_to_period_end(start: Date, tenor_years: f64, day_count: DayCount) -> Date {
     // Infallible helper that silently falls back to `start` on failure.
     //
     // For precision-first code paths, use `try_tenor_to_period_end` and propagate errors.
@@ -44,7 +44,7 @@ pub fn tenor_to_period_end(start: Date, tenor_years: f64, day_count: DayCount) -
 /// Prefer this in pricing/valuation code so date arithmetic failures are surfaced as structured
 /// errors instead of panics or silent fallbacks.
 #[inline]
-pub fn try_tenor_to_period_end(
+pub(crate) fn try_tenor_to_period_end(
     start: Date,
     tenor_years: f64,
     day_count: DayCount,
@@ -58,7 +58,11 @@ pub fn try_tenor_to_period_end(
 ///
 /// For floating rate tranches, this properly calculates the period end date
 /// using calendar-aware month addition based on the index tenor.
-pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketContext) -> f64 {
+pub(crate) fn tranche_all_in_rate(
+    coupon: &TrancheCoupon,
+    date: Date,
+    market: &MarketContext,
+) -> f64 {
     // Infallible wrapper that never panics. For correctness-first valuation, prefer
     // `try_tranche_all_in_rate` and propagate errors.
     match coupon {
@@ -102,7 +106,7 @@ pub fn tranche_all_in_rate(coupon: &TrancheCoupon, date: Date, market: &MarketCo
 /// Fallible variant of [`tranche_all_in_rate`].
 ///
 /// This returns an error if required market data is missing or the rate projection fails.
-pub fn try_tranche_all_in_rate(
+pub(crate) fn try_tranche_all_in_rate(
     coupon: &TrancheCoupon,
     date: Date,
     market: &MarketContext,
@@ -152,7 +156,7 @@ pub fn try_tranche_all_in_rate(
 ///
 /// Uses the forward curve's own day count convention for year fraction calculations
 /// to ensure consistency with how the curve was calibrated.
-pub fn asset_all_in_rate(
+pub(crate) fn asset_all_in_rate(
     index_id: Option<&str>,
     spread_bps: Option<f64>,
     fallback_rate: f64,
@@ -180,7 +184,7 @@ pub fn asset_all_in_rate(
 ///
 /// This returns an error if the forward curve is missing or if date/year-fraction computation
 /// fails. Use this in valuation code paths where silent fallbacks are unacceptable.
-pub fn try_asset_all_in_rate(
+pub(crate) fn try_asset_all_in_rate(
     index_id: Option<&str>,
     spread_bps: Option<f64>,
     date: Date,

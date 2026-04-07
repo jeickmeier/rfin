@@ -17,7 +17,7 @@ use finstack_core::Result;
 const PREPAYMENT_BUMP_CPR: f64 = 0.0001;
 
 /// Prepayment01 calculator for StructuredCredit.
-pub struct Prepayment01Calculator;
+pub(crate) struct Prepayment01Calculator;
 
 impl MetricCalculator for Prepayment01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

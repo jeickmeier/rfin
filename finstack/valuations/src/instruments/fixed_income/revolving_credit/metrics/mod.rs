@@ -3,14 +3,14 @@
 //! Provides both standard metrics (PV, DV01, Theta, BucketedDV01, CS01) and
 //! facility-specific metrics (utilization rate, available capacity, weighted average cost, IRR).
 
-pub mod available_capacity;
-pub mod irr;
-pub mod utilization_rate;
-pub mod weighted_average_cost;
+pub(crate) mod available_capacity;
+pub(crate) mod irr;
+pub(crate) mod utilization_rate;
+pub(crate) mod weighted_average_cost;
 
-pub use available_capacity::AvailableCapacityCalculator;
-pub use utilization_rate::UtilizationRateCalculator;
-pub use weighted_average_cost::ApproxWeightedAverageCostCalculator;
+pub(crate) use available_capacity::AvailableCapacityCalculator;
+pub(crate) use utilization_rate::UtilizationRateCalculator;
+pub(crate) use weighted_average_cost::ApproxWeightedAverageCostCalculator;
 
 use crate::metrics::MetricRegistry;
 
@@ -18,7 +18,7 @@ use crate::metrics::MetricRegistry;
 ///
 /// Registers both standard metrics (PV, DV01, Theta, BucketedDV01, CS01) and
 /// facility-specific metrics (utilization rate, available capacity, weighted average cost).
-pub fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_revolving_credit_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

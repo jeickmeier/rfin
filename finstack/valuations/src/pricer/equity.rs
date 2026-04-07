@@ -7,7 +7,7 @@
 use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register pricers for equity instruments.
-pub fn register_equity_pricers(registry: &mut PricerRegistry) {
+pub(crate) fn register_equity_pricers(registry: &mut PricerRegistry) {
     // Equity
     registry.register(
         InstrumentType::Equity,

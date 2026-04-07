@@ -14,7 +14,7 @@ use finstack_core::types::CurveId;
 use finstack_core::Result;
 
 /// Computes carry decomposition and stores all components in `context.computed`.
-pub struct CarryDecompositionCalculator;
+pub(crate) struct CarryDecompositionCalculator;
 
 impl Default for CarryDecompositionCalculator {
     fn default() -> Self {

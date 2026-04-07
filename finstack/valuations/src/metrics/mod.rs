@@ -263,7 +263,7 @@ macro_rules! define_metric_calculator {
         $(, deps = [$($dep:expr),* $(,)?])?
     ) => {
         $(#[$meta])*
-        pub struct $name;
+        pub(crate) struct $name;
 
         impl $crate::metrics::MetricCalculator for $name {
             fn calculate(

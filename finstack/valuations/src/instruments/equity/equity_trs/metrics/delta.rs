@@ -10,7 +10,7 @@ use finstack_core::{Error, Result};
 ///
 /// Delta measures the sensitivity of the TRS value to changes in the underlying equity level.
 /// For equity TRS, delta ≈ notional × contract_size / spot.
-pub struct EquityDeltaCalculator;
+pub(crate) struct EquityDeltaCalculator;
 
 impl MetricCalculator for EquityDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

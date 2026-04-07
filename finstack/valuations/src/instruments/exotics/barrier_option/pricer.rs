@@ -442,11 +442,11 @@ const BG_BETA: f64 = 0.5826;
 /// `BarrierOption::value()` dispatches to this analytical pricer only when
 /// `use_gobet_miri = false`. When `use_gobet_miri = true`, `value()` routes
 /// to the MC pricer (`npv_mc()`) for discrete-monitoring-corrected prices.
-pub struct BarrierOptionAnalyticalPricer;
+pub(crate) struct BarrierOptionAnalyticalPricer;
 
 impl BarrierOptionAnalyticalPricer {
     /// Create a new analytical barrier option pricer
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }

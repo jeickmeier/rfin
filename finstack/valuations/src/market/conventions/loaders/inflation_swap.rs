@@ -35,8 +35,8 @@ impl InflationSwapConventionRecord {
 }
 
 /// Load the Inflation Swap conventions from the embedded JSON registry.
-pub fn load_registry() -> Result<HashMap<InflationSwapConventionId, InflationSwapConventions>, Error>
-{
+pub(crate) fn load_registry(
+) -> Result<HashMap<InflationSwapConventionId, InflationSwapConventions>, Error> {
     let json = include_str!("../../../../data/conventions/inflation_swap_conventions.json");
     super::json::parse_and_rekey(
         json,

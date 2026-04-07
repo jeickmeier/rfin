@@ -15,7 +15,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Rho calculator for CMS options.
-pub struct RhoCalculator;
+pub(crate) struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

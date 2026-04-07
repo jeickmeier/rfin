@@ -15,7 +15,7 @@ use rust_decimal::prelude::ToPrimitive;
 /// - Quote rate is missing from the deposit
 /// - Required metrics are missing
 /// - Denominator (1 + rate × year_fraction) is zero or negative
-pub struct DfEndFromQuoteCalculator;
+pub(crate) struct DfEndFromQuoteCalculator;
 
 impl MetricCalculator for DfEndFromQuoteCalculator {
     fn dependencies(&self) -> &[MetricId] {

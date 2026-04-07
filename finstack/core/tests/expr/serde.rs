@@ -282,7 +282,7 @@ fn test_compiled_expr_serde() {
     assert_eq!(compiled.plan.is_some(), deserialized.plan.is_some());
 
     // Cache should be None after deserialization (it's skipped)
-    assert!(deserialized.cache.is_none());
+    assert!(!deserialized.has_cache());
 }
 
 #[test]

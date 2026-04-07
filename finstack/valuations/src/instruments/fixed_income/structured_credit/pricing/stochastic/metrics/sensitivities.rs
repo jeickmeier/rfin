@@ -12,7 +12,7 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 
 /// Sensitivity configuration.
 #[derive(Debug, Clone)]
-pub struct SensitivityConfig {
+pub(crate) struct SensitivityConfig {
     /// Bump size for correlation sensitivities (default: 0.01 = 1%)
     pub correlation_bump: f64,
     /// Bump size for volatility sensitivities (default: 0.01 = 1%)
@@ -33,7 +33,7 @@ impl Default for SensitivityConfig {
 
 impl SensitivityConfig {
     /// Create a new sensitivity configuration.
-    pub fn new(notional: f64) -> Self {
+    pub(crate) fn new(notional: f64) -> Self {
         Self {
             notional,
             ..Default::default()
@@ -41,13 +41,13 @@ impl SensitivityConfig {
     }
 
     /// Set correlation bump size.
-    pub fn with_correlation_bump(mut self, bump: f64) -> Self {
+    pub(crate) fn with_correlation_bump(mut self, bump: f64) -> Self {
         self.correlation_bump = bump.clamp(0.0001, 0.10);
         self
     }
 
     /// Set volatility bump size.
-    pub fn with_volatility_bump(mut self, bump: f64) -> Self {
+    pub(crate) fn with_volatility_bump(mut self, bump: f64) -> Self {
         self.volatility_bump = bump.clamp(0.0001, 0.10);
         self
     }
@@ -55,7 +55,7 @@ impl SensitivityConfig {
 
 /// Correlation and volatility sensitivities.
 #[derive(Debug, Clone)]
-pub struct CorrelationSensitivities {
+pub(crate) struct CorrelationSensitivities {
     // === Correlation sensitivities (per 1% bump) ===
     /// Sensitivity of expected loss to 1% asset correlation bump
     pub correlation_01_el: f64,
@@ -94,7 +94,7 @@ pub struct CorrelationSensitivities {
 
 impl CorrelationSensitivities {
     /// Create sensitivities with all values set to zero.
-    pub fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self {
             correlation_01_el: 0.0,
             correlation_01_ul: 0.0,
@@ -113,7 +113,7 @@ impl CorrelationSensitivities {
     ///
     /// This performs multiple tree builds with bumped parameters
     /// to compute finite-difference sensitivities.
-    pub fn compute(
+    pub(crate) fn compute(
         config: &ScenarioTreeConfig,
         sens_config: &SensitivityConfig,
     ) -> Result<Self, String> {
@@ -182,7 +182,7 @@ impl CorrelationSensitivities {
     ///
     /// Uses analytical approximation based on single-factor Gaussian copula:
     /// d(EL)/d(ρ) ≈ EL × (1 + k × √ρ) where k depends on portfolio granularity
-    pub fn estimate_correlation_01(el: f64, ul: f64, current_corr: f64) -> f64 {
+    pub(crate) fn estimate_correlation_01(el: f64, ul: f64, current_corr: f64) -> f64 {
         // Simplified analytical estimate
         // For senior tranches: positive correlation sensitivity
         // For equity tranches: negative correlation sensitivity

@@ -11,7 +11,7 @@ use finstack_core::dates::DayCountCtx;
 /// the breakeven number will be meaningless. For a correct breakeven, the discount
 /// curve should be a nominal curve, or the caller should use
 /// [`InflationLinkedBond::breakeven_inflation`] directly with an explicit nominal yield.
-pub struct BreakevenInflationCalculator;
+pub(crate) struct BreakevenInflationCalculator;
 
 impl MetricCalculator for BreakevenInflationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

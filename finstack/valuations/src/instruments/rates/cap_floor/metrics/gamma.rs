@@ -10,7 +10,7 @@ use finstack_core::Result;
 /// - `Lognormal`: Black-76 gamma = n(d₁) / (F·σ·√T)
 /// - `ShiftedLognormal`: Black-76 gamma on shifted rates
 /// - `Normal`: Bachelier gamma = n(d) / (σ·√T)
-pub struct GammaCalculator;
+pub(crate) struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

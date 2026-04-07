@@ -8,7 +8,7 @@ use crate::pricer::InstrumentType;
 use std::sync::Arc;
 
 /// Register commodity swaption metrics with the registry.
-pub fn register_commodity_swaption_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_commodity_swaption_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
 
     crate::register_metrics! {

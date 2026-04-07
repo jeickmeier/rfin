@@ -22,7 +22,7 @@ use finstack_core::Result;
 ///
 /// Uses central finite difference for O(h²) accuracy:
 /// FX01 = (PV(S + 0.0001) - PV(S - 0.0001)) / 2
-pub struct FX01;
+pub(crate) struct FX01;
 
 /// Standard 1bp absolute bump for FX01 calculation.
 const FX01_BUMP: f64 = 0.0001;

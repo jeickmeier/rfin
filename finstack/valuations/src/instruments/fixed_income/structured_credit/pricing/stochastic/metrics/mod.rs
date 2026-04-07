@@ -59,5 +59,5 @@
 mod calculator;
 mod sensitivities;
 
-pub use calculator::{StochasticMetrics, StochasticMetricsCalculator};
-pub use sensitivities::{CorrelationSensitivities, SensitivityConfig};
+pub(crate) use calculator::{StochasticMetrics, StochasticMetricsCalculator};
+pub(crate) use sensitivities::{CorrelationSensitivities, SensitivityConfig};

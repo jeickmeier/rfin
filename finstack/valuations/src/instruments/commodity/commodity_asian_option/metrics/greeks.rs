@@ -23,7 +23,7 @@ use finstack_core::Result;
 /// ```
 /// where `bump_size` is 1% of the average forward price, and the PriceCurve
 /// is bumped by ±1% parallel.
-pub struct AsianDeltaCalculator;
+pub(super) struct AsianDeltaCalculator;
 
 impl MetricCalculator for AsianDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -80,7 +80,7 @@ impl MetricCalculator for AsianDeltaCalculator {
 /// ```
 /// where `vol_bump` is 1 absolute vol point (0.01), giving sensitivity per
 /// 1 vol point move in implied volatility.
-pub struct AsianVegaCalculator;
+pub(super) struct AsianVegaCalculator;
 
 impl MetricCalculator for AsianVegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -1,7 +1,7 @@
 use finstack_core::Result;
 
 /// Result type for building time grid and initial guesses.
-pub type TimeGridAndGuesses<Q> = (Vec<f64>, Vec<f64>, Vec<Q>);
+pub(crate) type TimeGridAndGuesses<Q> = (Vec<f64>, Vec<f64>, Vec<Q>);
 
 /// Trait defining the specific physics for a bootstrapping process.
 ///
@@ -9,7 +9,7 @@ pub type TimeGridAndGuesses<Q> = (Vec<f64>, Vec<f64>, Vec<Q>);
 /// to solve for individual knots sequentially. This includes mapping quotes
 /// to times, building curves from partial knots, and calculating pricing
 /// residuals.
-pub trait BootstrapTarget {
+pub(crate) trait BootstrapTarget {
     /// Type of input quote (e.g., [`RateQuote`](crate::market::quotes::rates::RateQuote)).
     type Quote;
 
@@ -78,7 +78,7 @@ pub trait BootstrapTarget {
 /// Implementations of this trait provide the logic needed for simultaneous
 /// fitting of multiple knots. This is used for multi-curve calibration
 /// or sparse data scenarios where sequential bootstrapping is insufficient.
-pub trait GlobalSolveTarget {
+pub(crate) trait GlobalSolveTarget {
     /// Type of input quote.
     type Quote;
 

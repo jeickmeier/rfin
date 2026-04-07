@@ -18,7 +18,7 @@ use crate::calibration::constants::OrderedF64;
 /// Calibrates volatility surfaces from option quotes using the SABR model.
 /// Groups quotes by expiry, calibrates SABR parameters per expiry, and builds
 /// a volatility surface grid.
-pub struct VolSurfaceTarget;
+pub(crate) struct VolSurfaceTarget;
 
 impl VolSurfaceTarget {
     /// Calibrates an option volatility surface from market quotes.
@@ -41,7 +41,7 @@ impl VolSurfaceTarget {
     ///
     /// Returns an error if insufficient quotes are provided or calibration fails.
     /// Returns an error if insufficient quotes are provided or calibration fails.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &VolSurfaceParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

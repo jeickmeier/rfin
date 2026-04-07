@@ -29,7 +29,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::{Error, Result};
 
 /// Jump-to-default calculator for CDS Index.
-pub struct JumpToDefaultCalculator;
+pub(crate) struct JumpToDefaultCalculator;
 
 fn infer_constituent_count(index_name: &str) -> Option<f64> {
     let name = index_name.to_ascii_lowercase();

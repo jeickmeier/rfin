@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Delta calculator for equity index futures.
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

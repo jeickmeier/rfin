@@ -44,36 +44,38 @@
 //! - [`crate::metrics`] for the metrics framework
 
 /// Accrued interest calculator
-pub mod accrued;
+pub(crate) mod accrued;
 /// Convexity calculator
-pub mod convexity;
+pub(crate) mod convexity;
 /// CS01 calculators with z-spread fallback for bonds without credit curves
-pub mod cs01;
+pub(crate) mod cs01;
 /// Macaulay duration calculator
-pub mod duration_macaulay;
+pub(crate) mod duration_macaulay;
 /// Modified duration calculator
-pub mod duration_modified;
+pub(crate) mod duration_modified;
 /// Effective duration and convexity for bonds with embedded options
-pub mod effective;
+pub(crate) mod effective;
 /// Price, yield, and spread metrics
-pub mod price_yield_spread;
+pub(crate) mod price_yield_spread;
 /// Weighted Average Life calculator
-pub mod wal;
+pub(crate) mod wal;
 /// Yield-basis DV01 calculator
-pub mod yield_dv01;
+pub(crate) mod yield_dv01;
 
-pub use accrued::AccruedInterestCalculator;
-pub use convexity::ConvexityCalculator;
-pub use cs01::{BondBucketedCs01Calculator, BondCs01Calculator};
-pub use duration_macaulay::MacaulayDurationCalculator;
-pub use duration_modified::ModifiedDurationCalculator;
+pub(crate) use accrued::AccruedInterestCalculator;
+pub(crate) use convexity::ConvexityCalculator;
+pub(crate) use cs01::{BondBucketedCs01Calculator, BondCs01Calculator};
+pub(crate) use duration_macaulay::MacaulayDurationCalculator;
+pub(crate) use duration_modified::ModifiedDurationCalculator;
 pub use price_yield_spread::{
-    AssetSwapMarketCalculator, AssetSwapParCalculator, CleanPriceCalculator, DirtyPriceCalculator,
-    DiscountMarginCalculator, EmbeddedOptionValueCalculator, ISpreadCalculator, OasCalculator,
-    YtmCalculator, YtwCalculator, ZSpreadCalculator,
+    AssetSwapMarketCalculator, AssetSwapParCalculator, DiscountMarginCalculator, ZSpreadCalculator,
 };
-pub use wal::BondWalCalculator;
-pub use yield_dv01::YieldDv01Calculator;
+pub(crate) use price_yield_spread::{
+    CleanPriceCalculator, DirtyPriceCalculator, EmbeddedOptionValueCalculator, ISpreadCalculator,
+    OasCalculator, YtmCalculator, YtwCalculator,
+};
+pub(crate) use wal::BondWalCalculator;
+pub(crate) use yield_dv01::YieldDv01Calculator;
 
 /// Registers all bond metrics to a registry.
 ///

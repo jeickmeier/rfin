@@ -19,7 +19,7 @@ const DIVIDEND_BUMP_BP: f64 = 0.0001;
 /// Measures the sensitivity of TRS value to changes in dividend yield.
 /// For equity TRS, dividend yield affects the forward price of the underlying equity,
 /// which impacts the total return leg value.
-pub struct Dividend01Calculator;
+pub(crate) struct Dividend01Calculator;
 
 impl MetricCalculator for Dividend01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

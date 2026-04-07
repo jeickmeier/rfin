@@ -10,7 +10,7 @@ use crate::instruments::fixed_income::structured_credit::pricing::stochastic::tr
 
 /// Stochastic risk metrics for structured credit.
 #[derive(Debug, Clone)]
-pub struct StochasticMetrics {
+pub(crate) struct StochasticMetrics {
     // === Loss metrics ===
     /// Expected loss (probability-weighted average)
     pub expected_loss: f64,
@@ -70,7 +70,7 @@ pub struct StochasticMetrics {
 
 impl StochasticMetrics {
     /// Create metrics with all values set to zero.
-    pub fn zero() -> Self {
+    pub(crate) fn zero() -> Self {
         Self {
             expected_loss: 0.0,
             unexpected_loss: 0.0,
@@ -93,7 +93,7 @@ impl StochasticMetrics {
     }
 
     /// Get loss ratio (EL / (EL + Expected Terminal Balance)).
-    pub fn loss_ratio(&self) -> f64 {
+    pub(crate) fn loss_ratio(&self) -> f64 {
         let total = self.expected_loss + self.expected_terminal_balance;
         if total > 1e-10 {
             self.expected_loss / total
@@ -103,7 +103,7 @@ impl StochasticMetrics {
     }
 
     /// Get coefficient of variation of loss (UL / EL).
-    pub fn loss_cv(&self) -> f64 {
+    pub(crate) fn loss_cv(&self) -> f64 {
         if self.expected_loss > 1e-10 {
             self.unexpected_loss / self.expected_loss
         } else {
@@ -112,7 +112,7 @@ impl StochasticMetrics {
     }
 
     /// Get loss severity (EL / Expected Defaults).
-    pub fn loss_severity(&self) -> f64 {
+    pub(crate) fn loss_severity(&self) -> f64 {
         if self.expected_defaults > 1e-10 {
             (self.expected_defaults - self.expected_recoveries) / self.expected_defaults
         } else {
@@ -122,20 +122,20 @@ impl StochasticMetrics {
 }
 
 /// Calculator for stochastic risk metrics.
-pub struct StochasticMetricsCalculator {
+pub(crate) struct StochasticMetricsCalculator {
     notional: f64,
 }
 
 impl StochasticMetricsCalculator {
     /// Create a new metrics calculator.
-    pub fn new(notional: f64) -> Self {
+    pub(crate) fn new(notional: f64) -> Self {
         Self {
             notional: notional.max(1.0),
         }
     }
 
     /// Compute metrics from a scenario tree.
-    pub fn compute_from_tree(&self, tree: &ScenarioTree) -> StochasticMetrics {
+    pub(crate) fn compute_from_tree(&self, tree: &ScenarioTree) -> StochasticMetrics {
         let n = tree.num_terminal_nodes();
         if n == 0 {
             return StochasticMetrics::zero();
@@ -221,7 +221,7 @@ impl StochasticMetricsCalculator {
     }
 
     /// Compute metrics from configuration (builds tree internally).
-    pub fn compute_from_config(
+    pub(crate) fn compute_from_config(
         &self,
         config: &ScenarioTreeConfig,
     ) -> Result<StochasticMetrics, String> {

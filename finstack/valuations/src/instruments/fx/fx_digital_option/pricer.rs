@@ -16,9 +16,9 @@ use finstack_core::Result;
 
 /// FX digital option calculator.
 #[derive(Debug, Clone)]
-pub struct FxDigitalOptionCalculator {
+pub(crate) struct FxDigitalOptionCalculator {
     /// Days per year for theta scaling.
-    pub theta_days_per_year: f64,
+    pub(crate) theta_days_per_year: f64,
 }
 
 impl Default for FxDigitalOptionCalculator {
@@ -46,7 +46,7 @@ pub(crate) fn compute_greeks(
 }
 
 impl FxDigitalOptionCalculator {
-    pub fn npv(
+    pub(crate) fn npv(
         &self,
         inst: &FxDigitalOption,
         curves: &MarketContext,
@@ -88,7 +88,7 @@ impl FxDigitalOptionCalculator {
         Ok(Money::new(price, inst.quote_currency))
     }
 
-    pub fn compute_greeks(
+    pub(crate) fn compute_greeks(
         &self,
         inst: &FxDigitalOption,
         curves: &MarketContext,
@@ -115,7 +115,7 @@ impl FxDigitalOptionCalculator {
         ))
     }
 
-    pub fn collect_inputs(
+    pub(crate) fn collect_inputs(
         &self,
         inst: &FxDigitalOption,
         curves: &MarketContext,
@@ -185,12 +185,12 @@ impl FxDigitalOptionCalculator {
 
 /// Greeks for an FX digital option.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct FxDigitalOptionGreeks {
-    pub delta: f64,
-    pub gamma: f64,
-    pub vega: f64,
-    pub theta: f64,
-    pub rho_domestic: f64,
+pub(crate) struct FxDigitalOptionGreeks {
+    pub(crate) delta: f64,
+    pub(crate) gamma: f64,
+    pub(crate) vega: f64,
+    pub(crate) theta: f64,
+    pub(crate) rho_domestic: f64,
 }
 
 #[allow(clippy::too_many_arguments)]

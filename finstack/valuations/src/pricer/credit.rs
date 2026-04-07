@@ -5,7 +5,7 @@
 use super::{InstrumentType, ModelKey, PricerRegistry};
 
 /// Register pricers for credit instruments.
-pub fn register_credit_pricers(registry: &mut PricerRegistry) {
+pub(crate) fn register_credit_pricers(registry: &mut PricerRegistry) {
     // CDS
     registry.register(
         InstrumentType::CDS,

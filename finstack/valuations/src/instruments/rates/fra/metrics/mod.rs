@@ -13,13 +13,13 @@
 mod par_rate;
 
 use crate::metrics::MetricRegistry;
-pub use par_rate::FraParRateCalculator;
+pub(crate) use par_rate::FraParRateCalculator;
 
 /// Registers all FRA metrics to a registry.
 ///
 /// Each metric is registered with the "FRA" instrument type to ensure
 /// proper applicability filtering.
-pub fn register_fra_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_fra_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     // Standard metrics using macro
     crate::register_metrics! {

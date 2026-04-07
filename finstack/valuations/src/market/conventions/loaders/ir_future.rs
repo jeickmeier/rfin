@@ -61,7 +61,7 @@ impl IrFutureConventionsRecord {
 }
 
 /// Load the IR futures conventions from the embedded JSON registry.
-pub fn load_registry() -> Result<HashMap<IrFutureContractId, IrFutureConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<IrFutureContractId, IrFutureConventions>, Error> {
     let json = include_str!("../../../../data/conventions/ir_future_conventions.json");
     super::json::parse_and_rekey(
         json,

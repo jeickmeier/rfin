@@ -4,7 +4,7 @@ use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Real yield calculator for ILB
-pub struct RealYieldCalculator;
+pub(crate) struct RealYieldCalculator;
 
 impl MetricCalculator for RealYieldCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

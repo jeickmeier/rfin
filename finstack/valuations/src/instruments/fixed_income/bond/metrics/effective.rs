@@ -27,7 +27,7 @@ const DEFAULT_SHOCK_BPS: f64 = 25.0;
 /// Effective duration and convexity result.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // public API result struct
-pub struct EffectiveDurationResult {
+pub(crate) struct EffectiveDurationResult {
     pub duration: f64,
     pub convexity: f64,
     pub base_price: f64,
@@ -41,7 +41,7 @@ pub struct EffectiveDurationResult {
 /// For bonds without embedded options, this produces results very close to
 /// modified duration. For callable/putable bonds, the tree pricer captures
 /// the change in exercise behavior as rates shift.
-pub fn effective_duration(
+pub(crate) fn effective_duration(
     bond: &Bond,
     market: &MarketContext,
     as_of: Date,
@@ -51,7 +51,7 @@ pub fn effective_duration(
 }
 
 /// Calculate effective convexity for a bond using parallel curve bumps.
-pub fn effective_convexity(
+pub(crate) fn effective_convexity(
     bond: &Bond,
     market: &MarketContext,
     as_of: Date,
@@ -61,7 +61,7 @@ pub fn effective_convexity(
 }
 
 /// Calculate both effective duration and convexity in one pass (three pricings).
-pub fn effective_duration_convexity(
+pub(crate) fn effective_duration_convexity(
     bond: &Bond,
     market: &MarketContext,
     as_of: Date,

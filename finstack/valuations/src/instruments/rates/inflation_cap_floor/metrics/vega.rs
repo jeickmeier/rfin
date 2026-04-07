@@ -19,7 +19,7 @@ use finstack_core::Result;
 /// Vega calculator for inflation cap/floor options.
 ///
 /// Uses central differences for improved accuracy on curved vol surfaces.
-pub struct VegaCalculator;
+pub(crate) struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

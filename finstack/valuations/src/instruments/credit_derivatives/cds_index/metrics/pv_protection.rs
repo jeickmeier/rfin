@@ -8,7 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Protection leg PV calculator for CDS Index
-pub struct ProtectionLegPvCalculator;
+pub(crate) struct ProtectionLegPvCalculator;
 
 impl MetricCalculator for ProtectionLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

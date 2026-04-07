@@ -18,7 +18,7 @@ use finstack_core::{
 };
 
 /// Registry-facing pricer for FX variance swaps.
-pub struct SimpleFxVarianceSwapDiscountingPricer;
+pub(crate) struct SimpleFxVarianceSwapDiscountingPricer;
 
 pub(crate) fn compute_pv(
     inst: &FxVarianceSwap,

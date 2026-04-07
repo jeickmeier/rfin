@@ -14,7 +14,7 @@ use finstack_core::dates::DayCountCtx;
 use finstack_core::Result;
 
 /// Expected Loss calculator for single-name CDS.
-pub struct ExpectedLossCalculator;
+pub(crate) struct ExpectedLossCalculator;
 
 impl MetricCalculator for ExpectedLossCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

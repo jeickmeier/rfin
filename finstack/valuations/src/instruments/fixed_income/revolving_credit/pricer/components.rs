@@ -17,7 +17,7 @@ use std::sync::Arc;
 /// Handles relative discounting from a valuation date and provides
 /// consistent discount factor computation across pricing engines.
 #[derive(Debug, Clone)]
-pub struct DiscountFactors {
+pub(crate) struct DiscountFactors {
     /// Precomputed discount factors aligned with dates
     factors: Vec<f64>,
 }
@@ -33,7 +33,7 @@ impl DiscountFactors {
     /// * `curve` - Discount curve for factor computation
     /// * `dates` - Dates at which to compute factors
     /// * `as_of` - Valuation date for relative discounting
-    pub fn from_curve(curve: &dyn Discounting, dates: &[Date], as_of: Date) -> Result<Self> {
+    pub(crate) fn from_curve(curve: &dyn Discounting, dates: &[Date], as_of: Date) -> Result<Self> {
         // Compute discount factors relative to as_of
         let mut factors = Vec::with_capacity(dates.len());
         for &date in dates {
@@ -58,7 +58,7 @@ impl DiscountFactors {
     /// * `start_time` - Start time offset from curve base date
     /// * `day_count` - Day count convention
     /// * `as_of` - Valuation date
-    pub fn from_time_grid(
+    pub(crate) fn from_time_grid(
         curve: &dyn Discounting,
         time_points: &[f64],
         start_time: f64,
@@ -82,22 +82,22 @@ impl DiscountFactors {
     /// Get discount factor at a specific index.
     ///
     /// Panics when `index` is out of bounds, which indicates a pricing-grid bug.
-    pub fn get(&self, index: usize) -> f64 {
+    pub(crate) fn get(&self, index: usize) -> f64 {
         self.factors[index]
     }
 
     /// Get all discount factors.
-    pub fn factors(&self) -> &[f64] {
+    pub(crate) fn factors(&self) -> &[f64] {
         &self.factors
     }
 
     /// Get the number of discount factors.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.factors.len()
     }
 
     /// Check if empty.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.factors.is_empty()
     }
 }
@@ -107,7 +107,7 @@ impl DiscountFactors {
 /// Provides consistent survival probability computation from hazard curves
 /// across pricing engines.
 #[derive(Debug, Clone)]
-pub struct SurvivalWeights {
+pub(crate) struct SurvivalWeights {
     /// Survival probabilities aligned with dates/time points
     weights: Vec<f64>,
     /// Recovery rate for credit spread to hazard conversion
@@ -123,7 +123,7 @@ impl SurvivalWeights {
     /// * `dates` - Dates at which to compute survival probabilities
     /// * `base_date` - Base date of the hazard curve
     /// * `day_count` - Day count convention to use
-    pub fn from_hazard_curve(
+    pub(crate) fn from_hazard_curve(
         hazard: &dyn Survival,
         dates: &[Date],
         base_date: Date,
@@ -146,7 +146,7 @@ impl SurvivalWeights {
     /// Create constant survival weights (no credit risk).
     ///
     /// Returns a vector of 1.0 values for the specified length.
-    pub fn no_credit_risk(len: usize) -> Self {
+    pub(crate) fn no_credit_risk(len: usize) -> Self {
         Self {
             weights: vec![1.0; len],
             recovery_rate: 0.0,
@@ -156,17 +156,17 @@ impl SurvivalWeights {
     /// Get survival weight at a specific index.
     ///
     /// Panics when `index` is out of bounds, which indicates a pricing-grid bug.
-    pub fn get(&self, index: usize) -> f64 {
+    pub(crate) fn get(&self, index: usize) -> f64 {
         self.weights[index]
     }
 
     /// Get all survival weights.
-    pub fn weights(&self) -> &[f64] {
+    pub(crate) fn weights(&self) -> &[f64] {
         &self.weights
     }
 
     /// Get recovery rate.
-    pub fn recovery_rate(&self) -> f64 {
+    pub(crate) fn recovery_rate(&self) -> f64 {
         self.recovery_rate
     }
 }
@@ -175,7 +175,7 @@ impl SurvivalWeights {
 ///
 /// Provides a unified interface for fixed and floating rate projection
 /// used by both deterministic and stochastic pricing engines.
-pub trait RateProjector: Send + Sync {
+pub(crate) trait RateProjector: Send + Sync {
     /// Project the interest rate for a specific period.
     ///
     /// # Arguments
@@ -193,19 +193,19 @@ pub trait RateProjector: Send + Sync {
 ///
 /// Always returns the same fixed rate regardless of period.
 #[derive(Debug, Clone)]
-pub struct FixedRateProjector {
+pub(crate) struct FixedRateProjector {
     /// Annual fixed rate
     rate: f64,
 }
 
 impl FixedRateProjector {
     /// Create a new fixed rate projector.
-    pub fn new(rate: f64) -> Self {
+    pub(crate) fn new(rate: f64) -> Self {
         Self { rate }
     }
 
     /// Create a new fixed rate projector using a typed rate.
-    pub fn new_rate(rate: Rate) -> Self {
+    pub(crate) fn new_rate(rate: Rate) -> Self {
         Self {
             rate: rate.as_decimal(),
         }
@@ -226,7 +226,7 @@ impl RateProjector for FixedRateProjector {
 ///
 /// Projects rates from a forward curve with margin and optional floor.
 #[derive(Clone)]
-pub struct FloatingRateProjector {
+pub(crate) struct FloatingRateProjector {
     /// Forward curve for rate projection
     forward_curve: Arc<dyn Forward + Send + Sync>,
     /// Margin over the index rate (in basis points)
@@ -237,7 +237,7 @@ pub struct FloatingRateProjector {
 
 impl FloatingRateProjector {
     /// Create a new floating rate projector.
-    pub fn new(
+    pub(crate) fn new(
         forward_curve: Arc<dyn Forward + Send + Sync>,
         margin_bp: f64,
         floor_bp: Option<f64>,
@@ -250,7 +250,7 @@ impl FloatingRateProjector {
     }
 
     /// Create a new floating rate projector using typed basis points.
-    pub fn new_bps(
+    pub(crate) fn new_bps(
         forward_curve: Arc<dyn Forward + Send + Sync>,
         margin_bp: Bps,
         floor_bp: Option<Bps>,
@@ -295,14 +295,14 @@ impl RateProjector for FloatingRateProjector {
 /// Used for floating rate facilities in Monte Carlo where rates are
 /// pre-computed and locked for each period.
 #[derive(Debug, Clone)]
-pub struct TermLockedRateProjector {
+pub(crate) struct TermLockedRateProjector {
     /// Pre-computed all-in rates by step
     rates_by_step: Vec<f64>,
 }
 
 impl TermLockedRateProjector {
     /// Create a new term-locked rate projector.
-    pub fn new(rates_by_step: Vec<f64>) -> Self {
+    pub(crate) fn new(rates_by_step: Vec<f64>) -> Self {
         Self { rates_by_step }
     }
 }
@@ -321,7 +321,7 @@ impl RateProjector for TermLockedRateProjector {
 ///
 /// Centralizes fee computation logic with support for tiered fee structures.
 #[derive(Debug, Clone)]
-pub struct FeeCalculator {
+pub(crate) struct FeeCalculator {
     /// Commitment fee in basis points (or tiered structure)
     commitment_fee_bp: f64,
     /// Usage fee in basis points (or tiered structure)
@@ -332,7 +332,7 @@ pub struct FeeCalculator {
 
 impl FeeCalculator {
     /// Create a simple fee calculator with flat fees.
-    pub fn flat(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
+    pub(crate) fn flat(commitment_fee_bp: f64, usage_fee_bp: f64, facility_fee_bp: f64) -> Self {
         Self {
             commitment_fee_bp,
             usage_fee_bp,
@@ -343,7 +343,7 @@ impl FeeCalculator {
     /// Calculate all fees for a period.
     ///
     /// Returns (commitment_fee, usage_fee, facility_fee) tuple.
-    pub fn calculate_fees(
+    pub(crate) fn calculate_fees(
         &self,
         drawn_amount: f64,
         commitment_amount: f64,
@@ -370,7 +370,7 @@ impl FeeCalculator {
 /// valuation date, consistent with "PV of remaining cashflows" semantics.
 /// When `commitment_date <= as_of` the fee has already been paid and is excluded
 /// from the mark-to-market valuation.
-pub fn compute_upfront_fee_pv(
+pub(crate) fn compute_upfront_fee_pv(
     upfront_fee_opt: Option<Money>,
     commitment_date: Date,
     as_of: Date,

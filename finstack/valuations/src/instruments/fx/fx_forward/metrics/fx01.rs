@@ -33,7 +33,7 @@ use finstack_core::money::fx::FxQuery;
 /// sensitivity calculation, the contract rate is treated as the *current*
 /// market forward rate (before bump), ensuring the sensitivity correctly
 /// reflects FX exposure.
-pub struct Fx01Calculator;
+pub(crate) struct Fx01Calculator;
 
 impl MetricCalculator for Fx01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

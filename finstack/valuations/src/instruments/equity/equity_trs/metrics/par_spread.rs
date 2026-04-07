@@ -16,7 +16,7 @@ use finstack_core::{Error, Result};
 ///
 /// where `PV(financing_float)` is the financing leg PV excluding the spread
 /// component.
-pub struct ParSpreadCalculator;
+pub(crate) struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
     fn dependencies(&self) -> &[MetricId] {

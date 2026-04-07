@@ -21,7 +21,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
-pub struct ImpliedVolCalculator;
+pub(crate) struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

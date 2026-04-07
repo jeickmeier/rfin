@@ -8,7 +8,7 @@ use finstack_core::Result;
 
 use crate::instruments::fixed_income::convertible::types::ConvertibleBond;
 
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
@@ -16,7 +16,7 @@ impl MetricCalculator for DeltaCalculator {
     }
 }
 
-pub struct GammaCalculator;
+pub(crate) struct GammaCalculator;
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
@@ -24,7 +24,7 @@ impl MetricCalculator for GammaCalculator {
     }
 }
 
-pub struct VegaCalculator;
+pub(crate) struct VegaCalculator;
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;
@@ -32,7 +32,7 @@ impl MetricCalculator for VegaCalculator {
     }
 }
 
-pub struct RhoCalculator;
+pub(crate) struct RhoCalculator;
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
         let bond = context.instrument_as::<ConvertibleBond>()?;

@@ -44,7 +44,7 @@ use finstack_core::types::{Percentage, Rate};
 /// Full stochastic prepayment model with refinancing incentive,
 /// seasoning, burnout, and optional seasonality.
 #[derive(Debug, Clone)]
-pub struct RichardRollPrepay {
+pub(crate) struct RichardRollPrepay {
     /// Base CPR at full seasoning (post-ramp)
     base_cpr: f64,
     /// Refinancing sensitivity parameter (gamma)
@@ -73,7 +73,12 @@ impl RichardRollPrepay {
     /// * `refi_sensitivity` - Sensitivity to refinancing incentive (gamma)
     /// * `pool_coupon` - Pool weighted average coupon
     /// * `burnout_rate` - Burnout decay rate
-    pub fn new(base_cpr: f64, refi_sensitivity: f64, pool_coupon: f64, burnout_rate: f64) -> Self {
+    pub(crate) fn new(
+        base_cpr: f64,
+        refi_sensitivity: f64,
+        pool_coupon: f64,
+        burnout_rate: f64,
+    ) -> Self {
         Self {
             base_cpr: base_cpr.clamp(0.0, 1.0),
             refi_sensitivity: refi_sensitivity.clamp(0.0, 10.0),
@@ -88,7 +93,7 @@ impl RichardRollPrepay {
     }
 
     /// Create a Richard-Roll prepayment model using typed rates.
-    pub fn new_typed(
+    pub(crate) fn new_typed(
         base_cpr: Percentage,
         refi_sensitivity: f64,
         pool_coupon: Rate,
@@ -109,7 +114,7 @@ impl RichardRollPrepay {
 
     /// Create with full customization.
     #[allow(clippy::too_many_arguments)]
-    pub fn with_all_params(
+    pub(crate) fn with_all_params(
         base_cpr: f64,
         refi_sensitivity: f64,
         refi_slope: f64,
@@ -135,7 +140,7 @@ impl RichardRollPrepay {
 
     /// Create with full customization using typed rates.
     #[allow(clippy::too_many_arguments)]
-    pub fn with_all_params_typed(
+    pub(crate) fn with_all_params_typed(
         base_cpr: Percentage,
         refi_sensitivity: f64,
         refi_slope: f64,
@@ -165,12 +170,12 @@ impl RichardRollPrepay {
     /// - Base CPR: 6%
     /// - Refi sensitivity: 2.0
     /// - Burnout rate: 0.10
-    pub fn agency_standard(pool_coupon: f64) -> Self {
+    pub(crate) fn agency_standard(pool_coupon: f64) -> Self {
         Self::new(0.06, 2.0, pool_coupon, 0.10)
     }
 
     /// RMBS agency standard calibration using a typed pool coupon.
-    pub fn agency_standard_rate(pool_coupon: Rate) -> Self {
+    pub(crate) fn agency_standard_rate(pool_coupon: Rate) -> Self {
         Self {
             base_cpr: 0.06,
             refi_sensitivity: 2.0,
@@ -185,12 +190,12 @@ impl RichardRollPrepay {
     }
 
     /// RMBS non-agency calibration (higher voluntary prepay).
-    pub fn non_agency_standard(pool_coupon: f64) -> Self {
+    pub(crate) fn non_agency_standard(pool_coupon: f64) -> Self {
         Self::new(0.08, 2.5, pool_coupon, 0.15)
     }
 
     /// RMBS non-agency calibration using a typed pool coupon.
-    pub fn non_agency_standard_rate(pool_coupon: Rate) -> Self {
+    pub(crate) fn non_agency_standard_rate(pool_coupon: Rate) -> Self {
         Self {
             base_cpr: 0.08,
             refi_sensitivity: 2.5,
@@ -205,17 +210,17 @@ impl RichardRollPrepay {
     }
 
     /// Get the base CPR.
-    pub fn base_cpr(&self) -> f64 {
+    pub(crate) fn base_cpr(&self) -> f64 {
         self.base_cpr
     }
 
     /// Get the refinancing sensitivity.
-    pub fn refi_sensitivity(&self) -> f64 {
+    pub(crate) fn refi_sensitivity(&self) -> f64 {
         self.refi_sensitivity
     }
 
     /// Get the burnout rate.
-    pub fn burnout_rate(&self) -> f64 {
+    pub(crate) fn burnout_rate(&self) -> f64 {
         self.burnout_rate
     }
 

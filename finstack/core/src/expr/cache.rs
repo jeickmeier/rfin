@@ -11,37 +11,32 @@ use std::num::NonZeroUsize;
 use std::sync::Arc;
 
 /// Default capacity for expression cache (number of entries).
-pub const DEFAULT_CACHE_CAPACITY: usize = 1024;
+pub(crate) const DEFAULT_CACHE_CAPACITY: usize = 1024;
 
 /// Cached result for an expression evaluation.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub enum CachedResult {
+pub(crate) enum CachedResult {
     /// Scalar result backed by Arc slice to avoid clones on conversion.
     Scalar(Arc<[f64]>),
 }
 
 impl CachedResult {
     /// Borrow the cached scalar payload as a slice.
-    pub fn as_scalar_slice(&self) -> &[f64] {
+    pub(crate) fn as_scalar_slice(&self) -> &[f64] {
         match self {
             CachedResult::Scalar(shared) => shared.as_ref(),
         }
     }
 
-    /// Get as scalar vector.
-    pub fn as_scalar(&self) -> crate::Result<Vec<f64>> {
-        Ok(self.as_scalar_slice().to_vec())
-    }
-
     /// Length of the cached payload.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         match self {
             CachedResult::Scalar(shared) => shared.len(),
         }
     }
 
     /// Estimate memory usage in bytes.
-    pub fn memory_size(&self) -> usize {
+    pub(crate) fn memory_size(&self) -> usize {
         match self {
             CachedResult::Scalar(shared) => shared.len() * std::mem::size_of::<f64>(),
         }
@@ -69,7 +64,7 @@ struct CacheEntry {
 
 /// LRU cache for expression results with memory budget management.
 #[derive(Debug)]
-pub struct ExpressionCache {
+pub(crate) struct ExpressionCache {
     /// The actual cache storage using lru crate.
     cache: LruCache<u64, CacheEntry>,
     /// Maximum memory budget in bytes.
@@ -82,22 +77,22 @@ pub struct ExpressionCache {
 
 /// Cache performance statistics.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
-pub struct CacheStats {
+pub(crate) struct CacheStats {
     /// Total cache hits.
-    pub hits: usize,
+    pub(crate) hits: usize,
     /// Total cache misses.
-    pub misses: usize,
+    pub(crate) misses: usize,
     /// Total evictions due to memory pressure.
-    pub evictions: usize,
+    pub(crate) evictions: usize,
     /// Current number of entries.
-    pub entries: usize,
+    pub(crate) entries: usize,
     /// Current memory usage in bytes.
-    pub memory_usage: usize,
+    pub(crate) memory_usage: usize,
 }
 
 impl ExpressionCache {
     /// Create a new expression cache with the given memory budget.
-    pub fn with_budget(max_memory_mb: usize) -> Self {
+    pub(crate) fn with_budget(max_memory_mb: usize) -> Self {
         Self::with_budget_and_capacity(max_memory_mb, DEFAULT_CACHE_CAPACITY)
     }
 
@@ -114,7 +109,7 @@ impl ExpressionCache {
     }
 
     /// Create cache optimized for the given execution plan.
-    pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
+    pub(crate) fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
         // Use the estimated entries from the plan as the initial capacity (at least 64)
         let estimated_entries = plan.cache_strategy.cache_nodes.len().max(64);
         // SAFETY: max(64) guarantees non-zero, but use MIN as defensive fallback
@@ -128,7 +123,7 @@ impl ExpressionCache {
     }
 
     /// Get a cached result if available and matching the requested length.
-    pub fn get(&mut self, node_id: u64, len: usize) -> Option<CachedResult> {
+    pub(crate) fn get(&mut self, node_id: u64, len: usize) -> Option<CachedResult> {
         if self
             .cache
             .peek(&node_id)
@@ -166,7 +161,7 @@ impl ExpressionCache {
     }
 
     /// Store a result in the cache.
-    pub fn put(&mut self, node_id: u64, result: CachedResult) -> bool {
+    pub(crate) fn put(&mut self, node_id: u64, result: CachedResult) -> bool {
         let size = result.memory_size();
         let len = result.len();
 
@@ -228,85 +223,38 @@ impl ExpressionCache {
             false
         }
     }
-
-    /// Clear all cached entries.
-    pub fn clear(&mut self) {
-        self.cache.clear();
-        self.current_memory = 0;
-        self.stats = CacheStats::default();
-    }
-
-    /// Get current cache statistics.
-    pub fn stats(&self) -> CacheStats {
-        self.stats.clone()
-    }
-
-    /// Check if a node result is cached.
-    pub fn contains(&self, node_id: u64) -> bool {
-        self.cache.contains(&node_id)
-    }
-
-    /// Calculate cache hit ratio.
-    pub fn hit_ratio(&self) -> f64 {
-        let total = self.stats.hits + self.stats.misses;
-        if total == 0 {
-            0.0
-        } else {
-            self.stats.hits as f64 / total as f64
-        }
-    }
 }
 
 /// Global cache manager with thread-safe access.
 #[derive(Debug, Clone)]
-pub struct CacheManager {
+pub(crate) struct CacheManager {
     /// The underlying cache, protected by Mutex for thread safety.
     cache: Arc<Mutex<ExpressionCache>>,
 }
 
 impl CacheManager {
     /// Create a new cache manager.
-    pub fn new(budget_mb: usize) -> Self {
+    pub(crate) fn new(budget_mb: usize) -> Self {
         Self {
             cache: Arc::new(Mutex::new(ExpressionCache::with_budget(budget_mb))),
         }
     }
 
     /// Create cache manager optimized for an execution plan.
-    pub fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
+    pub(crate) fn for_plan(plan: &ExecutionPlan, budget_mb: usize) -> Self {
         Self {
             cache: Arc::new(Mutex::new(ExpressionCache::for_plan(plan, budget_mb))),
         }
     }
 
     /// Get a cached result.
-    pub fn get(&self, node_id: u64, len: usize) -> Option<CachedResult> {
+    pub(crate) fn get(&self, node_id: u64, len: usize) -> Option<CachedResult> {
         self.cache.lock().get(node_id, len)
     }
 
     /// Store a result in the cache.
-    pub fn put(&self, node_id: u64, result: CachedResult) -> bool {
+    pub(crate) fn put(&self, node_id: u64, result: CachedResult) -> bool {
         self.cache.lock().put(node_id, result)
-    }
-
-    /// Check if a result is cached.
-    pub fn contains(&self, node_id: u64) -> bool {
-        self.cache.lock().contains(node_id)
-    }
-
-    /// Get cache statistics.
-    pub fn stats(&self) -> CacheStats {
-        self.cache.lock().stats()
-    }
-
-    /// Get cache hit ratio.
-    pub fn hit_ratio(&self) -> f64 {
-        self.cache.lock().hit_ratio()
-    }
-
-    /// Clear the cache.
-    pub fn clear(&self) {
-        self.cache.lock().clear();
     }
 }
 
@@ -327,10 +275,10 @@ mod tests {
         let retrieved = cache
             .get(1, data.len())
             .expect("Value should exist after put");
-        assert_eq!(retrieved.as_scalar().expect("Value should be scalar"), data);
+        assert_eq!(retrieved.as_scalar_slice(), data.as_slice());
 
         // Check stats
-        let stats = cache.stats();
+        let stats = &cache.stats;
         assert_eq!(stats.hits, 1);
         assert_eq!(stats.misses, 0);
         assert_eq!(stats.entries, 1);
@@ -361,10 +309,10 @@ mod tests {
         assert!(cache.put(1, result1));
         assert!(cache.put(2, result2)); // Should evict entry 1
 
-        assert!(!cache.contains(1)); // Entry 1 should be evicted
-        assert!(cache.contains(2)); // Entry 2 should remain
+        assert!(!cache.cache.contains(&1)); // Entry 1 should be evicted
+        assert!(cache.cache.contains(&2)); // Entry 2 should remain
 
-        let stats = cache.stats();
+        let stats = &cache.stats;
         assert_eq!(stats.evictions, 1);
     }
 }

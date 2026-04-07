@@ -611,7 +611,7 @@ impl ScalarsSnapshot {
 /// # Returns
 ///
 /// Optional FX matrix (None if not present).
-pub fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
+pub(crate) fn extract_fx(market: &MarketContext) -> Option<Arc<FxMatrix>> {
     market.fx().cloned()
 }
 
@@ -641,7 +641,7 @@ fn copy_scalars(from: &MarketContext, mut to: MarketContext) -> MarketContext {
 /// # Returns
 ///
 /// New market context with replaced FX matrix.
-pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketContext {
+pub(crate) fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketContext {
     match fx {
         Some(fx) => market.clone().insert_fx(fx),
         None => market.clone().clear_fx(),
@@ -658,7 +658,10 @@ pub fn restore_fx(market: &MarketContext, fx: Option<Arc<FxMatrix>>) -> MarketCo
 /// # Returns
 ///
 /// New market context with replaced volatility surfaces.
-pub fn restore_volatility(market: &MarketContext, snapshot: &VolatilitySnapshot) -> MarketContext {
+pub(crate) fn restore_volatility(
+    market: &MarketContext,
+    snapshot: &VolatilitySnapshot,
+) -> MarketContext {
     let mut new_market = market.clone();
     new_market.replace_surfaces_mut(snapshot.surfaces.clone());
     new_market

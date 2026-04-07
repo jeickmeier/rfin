@@ -55,7 +55,7 @@ use syn::{parse_macro_input, Data, DeriveInput, Expr, Fields};
 ///     .maturity(maturity)
 ///     .build()?;
 /// ```
-pub fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
+pub(crate) fn derive_financial_builder_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let struct_name = input.ident.clone();
 

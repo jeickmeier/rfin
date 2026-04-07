@@ -37,7 +37,7 @@ use finstack_core::money::Money;
 /// // Macaulay duration is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct MacaulayDurationCalculator;
+pub(crate) struct MacaulayDurationCalculator;
 
 impl MetricCalculator for MacaulayDurationCalculator {
     fn dependencies(&self) -> &[MetricId] {

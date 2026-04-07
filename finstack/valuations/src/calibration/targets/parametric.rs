@@ -20,24 +20,24 @@ use finstack_core::Result;
 
 /// Parameters for constructing a [`ParametricCurveTarget`].
 #[derive(Clone)]
-pub struct ParametricCurveTargetParams {
+pub(crate) struct ParametricCurveTargetParams {
     /// Base date for the calibration.
-    pub base_date: Date,
+    pub(crate) base_date: Date,
     /// Curve identifier.
-    pub curve_id: CurveId,
+    pub(crate) curve_id: CurveId,
     /// NS or NSS variant.
-    pub variant: NsVariant,
+    pub(crate) variant: NsVariant,
     /// Optional initial parameter guesses.
-    pub initial_params: Option<NelsonSiegelModel>,
+    pub(crate) initial_params: Option<NelsonSiegelModel>,
     /// Base market context.
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
 }
 
 /// Calibration target for parametric (NS/NSS) curves.
 ///
 /// Uses global optimization to fit 4 (NS) or 6 (NSS) parameters
 /// from rate instrument quotes.
-pub struct ParametricCurveTarget {
+pub(crate) struct ParametricCurveTarget {
     params: ParametricCurveTargetParams,
     /// Pre-computed sample times for building the discount curve proxy.
     /// Computed once from quote pillars in [`Self::solve`] to avoid
@@ -47,7 +47,7 @@ pub struct ParametricCurveTarget {
 
 impl ParametricCurveTarget {
     /// Create a new parametric curve target with pre-computed sample times.
-    pub fn new(params: ParametricCurveTargetParams, sample_times: Vec<f64>) -> Self {
+    pub(crate) fn new(params: ParametricCurveTargetParams, sample_times: Vec<f64>) -> Self {
         Self {
             params,
             sample_times,
@@ -77,7 +77,7 @@ impl ParametricCurveTarget {
     }
 
     /// Execute the full calibration for a parametric curve step.
-    pub fn solve(
+    pub(crate) fn solve(
         schema_params: &ParametricCurveParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

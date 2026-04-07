@@ -37,7 +37,7 @@ use finstack_core::Result;
 use rust_decimal::prelude::ToPrimitive;
 
 /// Jump-to-default calculator for single-name CDS (includes accrued premium).
-pub struct JumpToDefaultCalculator;
+pub(crate) struct JumpToDefaultCalculator;
 
 impl MetricCalculator for JumpToDefaultCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -67,7 +67,7 @@ impl MetricCalculator for JumpToDefaultCalculator {
 ///
 /// This simplified version only considers the protection leg payout.
 /// Use `JumpToDefaultCalculator` for a more complete P&L impact.
-pub struct JumpToDefaultLgdOnlyCalculator;
+pub(crate) struct JumpToDefaultLgdOnlyCalculator;
 
 impl MetricCalculator for JumpToDefaultLgdOnlyCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

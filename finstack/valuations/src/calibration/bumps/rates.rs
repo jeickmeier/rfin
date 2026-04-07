@@ -109,7 +109,11 @@ fn resolve_pillar(pillar: &Pillar, base_date: Date) -> Option<Date> {
 }
 
 /// Find the quote closest to the target maturity.
-pub fn find_closest_quote(quotes: &[RateQuote], target_years: f64, as_of: Date) -> Option<usize> {
+pub(crate) fn find_closest_quote(
+    quotes: &[RateQuote],
+    target_years: f64,
+    as_of: Date,
+) -> Option<usize> {
     let dc = DayCount::Act365F; // Simple day count for proximity check
     quotes
         .iter()

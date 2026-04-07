@@ -11,7 +11,7 @@ use finstack_core::Result;
 /// FX Delta calculator for FX Spot.
 ///
 /// Returns the analytical delta (Base Notional).
-pub struct FxDeltaCalculator;
+pub(crate) struct FxDeltaCalculator;
 
 impl MetricCalculator for FxDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -5,18 +5,18 @@ use serde_json::Value;
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RegistryFile<R> {
-    pub schema: Option<String>,
-    pub version: Option<u32>,
-    pub entries: Vec<RegistryEntry<R>>,
+pub(super) struct RegistryFile<R> {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) entries: Vec<RegistryEntry<R>>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RegistryEntry<R> {
-    pub ids: Vec<String>,
-    pub record: R,
+pub(super) struct RegistryEntry<R> {
+    pub(super) ids: Vec<String>,
+    pub(super) record: R,
 }
 
 // -----------------------------------------------------------------------------//
@@ -26,39 +26,39 @@ pub struct RegistryEntry<R> {
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ScheduleImFile {
-    pub schema: Option<String>,
-    pub version: Option<u32>,
-    pub entries: Vec<RegistryEntry<ScheduleImRecord>>,
+pub(super) struct ScheduleImFile {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) entries: Vec<RegistryEntry<ScheduleImRecord>>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ScheduleImRecord {
-    pub bucket_boundaries_years: ScheduleBucketBoundaries,
-    pub default_rate: f64,
-    pub default_asset_class: String,
-    pub default_maturity_years: f64,
-    pub mpor_days: u32,
-    pub rates: Vec<ScheduleImRate>,
+pub(super) struct ScheduleImRecord {
+    pub(super) bucket_boundaries_years: ScheduleBucketBoundaries,
+    pub(super) default_rate: f64,
+    pub(super) default_asset_class: String,
+    pub(super) default_maturity_years: f64,
+    pub(super) mpor_days: u32,
+    pub(super) rates: Vec<ScheduleImRate>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ScheduleBucketBoundaries {
-    pub short_to_medium: f64,
-    pub medium_to_long: f64,
+pub(super) struct ScheduleBucketBoundaries {
+    pub(super) short_to_medium: f64,
+    pub(super) medium_to_long: f64,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ScheduleImRate {
-    pub asset_class: String,
-    pub bucket: String,
-    pub rate: f64,
+pub(super) struct ScheduleImRate {
+    pub(super) asset_class: String,
+    pub(super) bucket: String,
+    pub(super) rate: f64,
 }
 
 // -----------------------------------------------------------------------------//
@@ -68,54 +68,54 @@ pub struct ScheduleImRate {
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CollateralSchedulesFile {
-    pub schema: Option<String>,
-    pub version: Option<u32>,
-    pub asset_class_defaults: Vec<AssetClassDefault>,
-    pub entries: Vec<RegistryEntry<CollateralScheduleRecord>>,
+pub(super) struct CollateralSchedulesFile {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) asset_class_defaults: Vec<AssetClassDefault>,
+    pub(super) entries: Vec<RegistryEntry<CollateralScheduleRecord>>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct AssetClassDefault {
-    pub asset_class: String,
-    pub standard_haircut: f64,
-    pub fx_addon: f64,
+pub(super) struct AssetClassDefault {
+    pub(super) asset_class: String,
+    pub(super) standard_haircut: f64,
+    pub(super) fx_addon: f64,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CollateralScheduleRecord {
-    pub eligible: Vec<CollateralEligibilityRecord>,
-    pub default_haircut: Option<f64>,
-    pub rehypothecation_allowed: bool,
+pub(super) struct CollateralScheduleRecord {
+    pub(super) eligible: Vec<CollateralEligibilityRecord>,
+    pub(super) default_haircut: Option<f64>,
+    pub(super) rehypothecation_allowed: bool,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CollateralEligibilityRecord {
-    pub asset_class: String,
+pub(super) struct CollateralEligibilityRecord {
+    pub(super) asset_class: String,
     #[serde(default)]
-    pub min_rating: Option<String>,
+    pub(super) min_rating: Option<String>,
     #[serde(default)]
-    pub maturity_constraints: Option<MaturityConstraintsRecord>,
-    pub haircut: f64,
-    pub fx_haircut_addon: f64,
+    pub(super) maturity_constraints: Option<MaturityConstraintsRecord>,
+    pub(super) haircut: f64,
+    pub(super) fx_haircut_addon: f64,
     #[serde(default)]
-    pub concentration_limit: Option<f64>,
+    pub(super) concentration_limit: Option<f64>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MaturityConstraintsRecord {
+pub(super) struct MaturityConstraintsRecord {
     #[serde(default)]
-    pub min_remaining_years: Option<f64>,
+    pub(super) min_remaining_years: Option<f64>,
     #[serde(default)]
-    pub max_remaining_years: Option<f64>,
+    pub(super) max_remaining_years: Option<f64>,
 }
 
 // -----------------------------------------------------------------------------//
@@ -125,79 +125,79 @@ pub struct MaturityConstraintsRecord {
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DefaultsFile {
-    pub schema: Option<String>,
-    pub version: Option<u32>,
-    pub defaults: DefaultsRecord,
+pub(super) struct DefaultsFile {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) defaults: DefaultsRecord,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct DefaultsRecord {
-    pub vm: VmDefaultsRecord,
-    pub im: ImDefaultsRecord,
-    pub timing: TimingDefaultsRecord,
-    pub cleared_settlement: ClearedSettlementRecord,
+pub(super) struct DefaultsRecord {
+    pub(super) vm: VmDefaultsRecord,
+    pub(super) im: ImDefaultsRecord,
+    pub(super) timing: TimingDefaultsRecord,
+    pub(super) cleared_settlement: ClearedSettlementRecord,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct VmDefaultsRecord {
-    pub threshold: f64,
-    pub mta: f64,
-    pub rounding: f64,
-    pub independent_amount: f64,
-    pub frequency: String,
-    pub settlement_lag: u32,
+pub(super) struct VmDefaultsRecord {
+    pub(super) threshold: f64,
+    pub(super) mta: f64,
+    pub(super) rounding: f64,
+    pub(super) independent_amount: f64,
+    pub(super) frequency: String,
+    pub(super) settlement_lag: u32,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ImDefaultsRecord {
-    pub simm: ImMethodDefaultsRecord,
-    pub schedule: ImMethodDefaultsRecord,
-    pub cleared: ImMethodDefaultsRecord,
-    pub repo_haircut: ImMethodDefaultsRecord,
+pub(super) struct ImDefaultsRecord {
+    pub(super) simm: ImMethodDefaultsRecord,
+    pub(super) schedule: ImMethodDefaultsRecord,
+    pub(super) cleared: ImMethodDefaultsRecord,
+    pub(super) repo_haircut: ImMethodDefaultsRecord,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct ImMethodDefaultsRecord {
-    pub mpor_days: u32,
-    pub threshold: f64,
-    pub mta: f64,
-    pub segregated: bool,
+pub(super) struct ImMethodDefaultsRecord {
+    pub(super) mpor_days: u32,
+    pub(super) threshold: f64,
+    pub(super) mta: f64,
+    pub(super) segregated: bool,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct TimingDefaultsRecord {
-    pub standard: MarginCallTimingRecord,
-    pub regulatory_vm: MarginCallTimingRecord,
-    pub ccp: MarginCallTimingRecord,
+pub(super) struct TimingDefaultsRecord {
+    pub(super) standard: MarginCallTimingRecord,
+    pub(super) regulatory_vm: MarginCallTimingRecord,
+    pub(super) ccp: MarginCallTimingRecord,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-pub struct MarginCallTimingRecord {
-    pub notification_deadline_hours: u8,
-    pub response_deadline_hours: u8,
-    pub dispute_resolution_days: u8,
-    pub delivery_grace_days: u8,
+pub(super) struct MarginCallTimingRecord {
+    pub(super) notification_deadline_hours: u8,
+    pub(super) response_deadline_hours: u8,
+    pub(super) dispute_resolution_days: u8,
+    pub(super) delivery_grace_days: u8,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct ClearedSettlementRecord {
-    pub rounding: f64,
-    pub settlement_lag: u32,
+pub(super) struct ClearedSettlementRecord {
+    pub(super) rounding: f64,
+    pub(super) settlement_lag: u32,
 }
 
 // -----------------------------------------------------------------------------//
@@ -207,20 +207,20 @@ pub struct ClearedSettlementRecord {
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CcpFile {
-    pub schema: Option<String>,
-    pub version: Option<u32>,
-    pub entries: Vec<RegistryEntry<CcpRecord>>,
+pub(super) struct CcpFile {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) entries: Vec<RegistryEntry<CcpRecord>>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CcpRecord {
-    pub mpor_days: u32,
-    pub conservative_rate: f64,
+pub(super) struct CcpRecord {
+    pub(super) mpor_days: u32,
+    pub(super) conservative_rate: f64,
     #[serde(default)]
-    pub is_default: bool,
+    pub(super) is_default: bool,
 }
 
 // -----------------------------------------------------------------------------//
@@ -230,51 +230,51 @@ pub struct CcpRecord {
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SimmFile {
-    pub schema: Option<String>,
-    pub version: Option<u32>,
-    pub entries: Vec<RegistryEntry<SimmRecord>>,
+pub(super) struct SimmFile {
+    pub(super) schema: Option<String>,
+    pub(super) version: Option<u32>,
+    pub(super) entries: Vec<RegistryEntry<SimmRecord>>,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct SimmRecord {
-    pub mpor_days: u32,
-    pub ir_delta_weights: Value,
-    pub cq_delta_weights: Value,
-    pub cnq_delta_weight: f64,
-    pub equity_delta_weight: f64,
-    pub fx_delta_weight: f64,
-    pub risk_class_correlations: Vec<RiskClassCorrelationRecord>,
-    pub commodity_bucket_weights: Value,
+pub(super) struct SimmRecord {
+    pub(super) mpor_days: u32,
+    pub(super) ir_delta_weights: Value,
+    pub(super) cq_delta_weights: Value,
+    pub(super) cnq_delta_weight: f64,
+    pub(super) equity_delta_weight: f64,
+    pub(super) fx_delta_weight: f64,
+    pub(super) risk_class_correlations: Vec<RiskClassCorrelationRecord>,
+    pub(super) commodity_bucket_weights: Value,
     #[serde(default)]
-    pub ir_tenor_correlations: Value,
+    pub(super) ir_tenor_correlations: Value,
     #[serde(default)]
-    pub ir_inter_currency_correlation: Option<f64>,
+    pub(super) ir_inter_currency_correlation: Option<f64>,
     #[serde(default)]
-    pub ir_vega_weight: Option<f64>,
+    pub(super) ir_vega_weight: Option<f64>,
     #[serde(default)]
-    pub cq_vega_weight: Option<f64>,
+    pub(super) cq_vega_weight: Option<f64>,
     #[serde(default)]
-    pub cnq_vega_weight: Option<f64>,
+    pub(super) cnq_vega_weight: Option<f64>,
     #[serde(default)]
-    pub equity_vega_weight: Option<f64>,
+    pub(super) equity_vega_weight: Option<f64>,
     #[serde(default)]
-    pub fx_vega_weight: Option<f64>,
+    pub(super) fx_vega_weight: Option<f64>,
     #[serde(default)]
-    pub commodity_vega_weight: Option<f64>,
+    pub(super) commodity_vega_weight: Option<f64>,
     #[serde(default)]
-    pub curvature_scale_factor: Option<f64>,
+    pub(super) curvature_scale_factor: Option<f64>,
     #[serde(default)]
-    pub concentration_thresholds: Value,
+    pub(super) concentration_thresholds: Value,
 }
 
 #[allow(dead_code)] // Fields accessed via serde Deserialize
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RiskClassCorrelationRecord {
-    pub a: String,
-    pub b: String,
-    pub rho: f64,
+pub(super) struct RiskClassCorrelationRecord {
+    pub(super) a: String,
+    pub(super) b: String,
+    pub(super) rho: f64,
 }

@@ -101,7 +101,7 @@ impl MetricCalculator for SpreadVegaCalculator {
 }
 
 /// Register commodity spread option metrics with the registry.
-pub fn register_commodity_spread_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_commodity_spread_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Delta,
         Arc::new(SpreadDeltaLeg1Calculator),

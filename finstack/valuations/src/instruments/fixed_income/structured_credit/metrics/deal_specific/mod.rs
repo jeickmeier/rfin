@@ -1,9 +1,9 @@
 //! Deal-type specific metrics for structured credit.
 
-pub mod abs;
-pub mod clo_wal;
-pub mod cmbs;
-pub mod rmbs;
+pub(crate) mod abs;
+pub(crate) mod clo_wal;
+pub(crate) mod cmbs;
+pub(crate) mod rmbs;
 
 // Re-export ABS metrics
 pub use abs::{

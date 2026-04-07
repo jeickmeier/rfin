@@ -10,7 +10,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// Horizon resolution order:
 /// 1) Try `MarketContext::price("{ticker}-FWD_T")` as a unitless scalar (years)
 /// 2) Fallback to 0.0 (spot)
-pub struct ForwardPricePerShareCalculator;
+pub(crate) struct ForwardPricePerShareCalculator;
 
 impl MetricCalculator for ForwardPricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

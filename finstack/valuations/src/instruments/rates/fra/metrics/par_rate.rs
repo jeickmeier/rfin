@@ -16,7 +16,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 const MIN_PERIOD_LENGTH: f64 = 1e-12;
 
 /// Par rate for FRAs (fixed rate that zeroes PV).
-pub struct FraParRateCalculator;
+pub(crate) struct FraParRateCalculator;
 
 impl MetricCalculator for FraParRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

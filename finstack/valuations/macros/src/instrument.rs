@@ -16,7 +16,7 @@ use syn::{parse_macro_input, Data, DeriveInput, GenericArgument, PathArguments, 
 ///     // ... fields required by the generated Instrument impl (id, attributes, etc.) ...
 /// }
 /// ```
-pub fn derive_instrument_impl(input: TokenStream) -> TokenStream {
+pub(crate) fn derive_instrument_impl(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let ident = input.ident.clone();
     let market_deps_impl = market_dependencies_impl(&input);

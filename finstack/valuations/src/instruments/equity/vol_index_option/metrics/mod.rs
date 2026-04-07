@@ -12,7 +12,7 @@
 use crate::metrics::MetricRegistry;
 
 /// Register all VolatilityIndexOption metrics with the registry.
-pub fn register_vol_index_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_vol_index_option_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

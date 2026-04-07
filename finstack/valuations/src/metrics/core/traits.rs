@@ -58,7 +58,8 @@ pub trait MetricCalculator: Send + Sync {
 /// Allows callers to customize how per-bucket metrics are keyed.
 /// Given a base metric ID (e.g., `MetricId::BucketedDv01`), a bucket label
 /// (e.g., "1y"), and the instrument, return the final `MetricId` to store.
-pub type BucketKeyResolverFn = dyn Fn(&MetricId, &str, &dyn Instrument) -> MetricId + Send + Sync;
+pub(crate) type BucketKeyResolverFn =
+    dyn Fn(&MetricId, &str, &dyn Instrument) -> MetricId + Send + Sync;
 
 /// Generic 2D structured metric container.
 ///
@@ -302,11 +303,6 @@ impl MetricContext {
     ) {
         self.pricing_model = pricing_model;
         self.pricer_registry = pricer_registry;
-    }
-
-    /// Set a custom bucket key resolver.
-    pub fn set_bucket_key_resolver(&mut self, resolver: Arc<BucketKeyResolverFn>) {
-        self.bucket_key_resolver = Some(resolver);
     }
 
     /// Set instrument-owned pricing inputs used by downstream calculators.

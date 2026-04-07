@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Jump-to-default calculator for CDS Tranche
-pub struct JumpToDefaultCalculator;
+pub(crate) struct JumpToDefaultCalculator;
 
 impl MetricCalculator for JumpToDefaultCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

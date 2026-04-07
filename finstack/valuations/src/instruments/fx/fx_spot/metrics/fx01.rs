@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// FX01 calculator for FX Spot.
-pub struct Fx01Calculator;
+pub(crate) struct Fx01Calculator;
 
 impl MetricCalculator for Fx01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

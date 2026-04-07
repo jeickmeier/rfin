@@ -14,10 +14,10 @@ use finstack_core::market_data::context::MarketContext;
 /// This pricer uses the hazard-rate pricing engine with fractional recovery of par
 /// for bonds with credit risk. Falls back to risk-free pricing if no hazard curve
 /// is available in the market context.
-pub struct SimpleBondHazardPricer;
+pub(crate) struct SimpleBondHazardPricer;
 
 impl SimpleBondHazardPricer {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }

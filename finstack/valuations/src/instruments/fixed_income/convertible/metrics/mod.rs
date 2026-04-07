@@ -28,7 +28,7 @@ mod parity;
 use crate::metrics::MetricRegistry;
 
 /// Register convertible bond metrics into the registry.
-pub fn register_convertible_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_convertible_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::sensitivities::cross_factor::{
         CreditBumperFactory, CrossFactorCalculator, CrossFactorPair, RatesBumperFactory,
         SpotBumperFactory, VolBumperFactory,

@@ -12,24 +12,24 @@ use finstack_core::Result;
 /// CMO tranche OAS result.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // public API result struct
-pub struct CmoOasResult {
+pub(crate) struct CmoOasResult {
     /// Option-adjusted spread (decimal)
-    pub oas: f64,
+    pub(crate) oas: f64,
     /// Model price at OAS
-    pub model_price: f64,
+    pub(crate) model_price: f64,
     /// Market price (target)
-    pub market_price: f64,
+    pub(crate) market_price: f64,
     /// Iterations to converge
-    pub iterations: u32,
+    pub(crate) iterations: u32,
     /// Whether converged
-    pub converged: bool,
+    pub(crate) converged: bool,
 }
 
 /// Calculate OAS for a CMO tranche.
 ///
 /// Uses the same Brent's method approach as MBS OAS but with
 /// waterfall-generated tranche cashflows.
-pub fn calculate_tranche_oas(
+pub(crate) fn calculate_tranche_oas(
     cmo: &AgencyCmo,
     market_price_pct: f64,
     market: &MarketContext,

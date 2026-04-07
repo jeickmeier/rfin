@@ -21,12 +21,12 @@
 //! - [`global`] for the global optimization framework.
 //! - [`traits`] for the target interfaces.
 
-pub mod bootstrap;
+pub(crate) mod bootstrap;
 mod config;
-pub mod global;
+pub(crate) mod global;
 pub(crate) mod helpers;
 /// Solver traits for bootstrap and global optimization.
-pub mod traits;
+pub(crate) mod traits;
 
 pub use config::SolverConfig;
 pub(crate) use helpers::bracket_solve_1d_with_diagnostics;

@@ -27,7 +27,7 @@ where
 }
 
 /// Delta metric calculator (cash delta).
-pub struct OptionDeltaCalculator<I> {
+pub(crate) struct OptionDeltaCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -57,7 +57,7 @@ where
 }
 
 /// Gamma metric calculator.
-pub struct OptionGammaCalculator<I> {
+pub(crate) struct OptionGammaCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -87,7 +87,7 @@ where
 }
 
 /// Vega metric calculator (per 1% vol point).
-pub struct OptionVegaCalculator<I> {
+pub(crate) struct OptionVegaCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -117,7 +117,7 @@ where
 }
 
 /// Theta metric calculator (instrument theta convention; typically per day).
-pub struct OptionThetaCalculator<I> {
+pub(crate) struct OptionThetaCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -147,7 +147,7 @@ where
 }
 
 /// Rho metric calculator (domestic rate sensitivity per 1bp).
-pub struct OptionRhoCalculator<I> {
+pub(crate) struct OptionRhoCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -179,7 +179,7 @@ where
 /// Foreign/dividend rho metric calculator (per 1bp).
 ///
 /// Only instruments that support `MetricId::ForeignRho` should register this calculator.
-pub struct OptionForeignRhoCalculator<I> {
+pub(crate) struct OptionForeignRhoCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -214,7 +214,7 @@ where
 /// \[
 /// \text{vanna} \approx \frac{\Delta(\sigma+\Delta\sigma)-\Delta(\sigma-\Delta\sigma)}{2\Delta\sigma}
 /// \]
-pub struct OptionVannaCalculator<I> {
+pub(crate) struct OptionVannaCalculator<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -246,7 +246,7 @@ where
 /// Volga metric calculator (∂²V/∂σ²) computed via PV bumps.
 ///
 /// Uses a central second difference on PV under an absolute parallel vol bump.
-pub struct OptionVolgaCalculator<I> {
+pub(crate) struct OptionVolgaCalculator<I> {
     _phantom: PhantomData<I>,
 }
 

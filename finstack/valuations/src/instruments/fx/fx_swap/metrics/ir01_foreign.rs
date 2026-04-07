@@ -12,7 +12,7 @@ use finstack_core::Result;
 ///
 /// Uses central finite difference:
 /// IR01 = (PV(for_rates + 1bp) - PV(for_rates - 1bp)) / 2
-pub struct ForeignIR01;
+pub(crate) struct ForeignIR01;
 
 /// Standard 1bp bump for IR01 calculation.
 const IR01_BUMP: f64 = 0.0001;

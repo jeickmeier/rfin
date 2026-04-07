@@ -9,7 +9,7 @@ use finstack_core::Error as CoreError;
 /// If `purchase_price` is provided, returns `NOI_1 / purchase_price`.
 /// Otherwise, returns `NOI_1 / base_value` (an implied cap rate).
 #[derive(Debug, Default)]
-pub struct GoingInCapRate;
+pub(super) struct GoingInCapRate;
 
 impl MetricCalculator for GoingInCapRate {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -49,7 +49,7 @@ impl MetricCalculator for GoingInCapRate {
 /// Returns the configured `terminal_cap_rate` (if present). If the instrument does not have
 /// a terminal cap rate configured, this metric errors.
 #[derive(Debug, Default)]
-pub struct ExitCapRate;
+pub(super) struct ExitCapRate;
 
 impl MetricCalculator for ExitCapRate {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

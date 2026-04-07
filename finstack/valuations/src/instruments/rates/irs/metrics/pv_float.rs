@@ -41,7 +41,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// Projects forward rates and discounts floating coupon payments. Automatically
 /// detects OIS swaps (overnight compounding) and uses the appropriate pricing method.
 /// For seasoned swaps with past resets, uses historical fixings if available.
-pub struct FloatLegPvCalculator;
+pub(crate) struct FloatLegPvCalculator;
 
 impl MetricCalculator for FloatLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

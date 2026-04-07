@@ -18,7 +18,7 @@ use finstack_core::Result;
 ///
 /// Note: this differs from `finstack_core::market_data::diff::STANDARD_TENORS`
 /// which provides swap curve sampling tenors.
-pub const KEY_RATE_TENORS: &[(&str, f64)] = &[
+pub(crate) const KEY_RATE_TENORS: &[(&str, f64)] = &[
     ("2Y", 2.0),
     ("5Y", 5.0),
     ("10Y", 10.0),
@@ -28,7 +28,7 @@ pub const KEY_RATE_TENORS: &[(&str, f64)] = &[
 
 /// Key-rate DV01 result.
 #[derive(Debug, Clone)]
-pub struct KeyRateDv01Result {
+pub(crate) struct KeyRateDv01Result {
     /// DV01 by tenor (map from tenor label to DV01 value)
     pub dv01_by_tenor: HashMap<String, f64>,
     /// Total DV01 (sum of key rates)
@@ -72,7 +72,7 @@ pub struct KeyRateDv01Result {
 ///     println!("{}: ${:.2}", tenor, dv01);
 /// }
 /// ```
-pub fn key_rate_dv01(
+pub(crate) fn key_rate_dv01(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
     as_of: Date,
@@ -88,7 +88,7 @@ pub fn key_rate_dv01(
 /// * `market` - Market context with discount curves
 /// * `as_of` - Valuation date
 /// * `tenors` - Slice of (label, years) pairs
-pub fn key_rate_dv01_with_tenors(
+pub(crate) fn key_rate_dv01_with_tenors(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
     as_of: Date,

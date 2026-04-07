@@ -24,38 +24,38 @@ use std::cell::RefCell;
 /// This struct consolidates all inputs required to execute a discount curve
 /// calibration, including base dates, currency, and multi-curve convention IDs.
 #[derive(Clone)]
-pub struct DiscountCurveTargetParams {
+pub(crate) struct DiscountCurveTargetParams {
     /// Base date for the curve (usually the calibration valuation date).
-    pub base_date: Date,
+    pub(crate) base_date: Date,
     /// Currency of the curve and its associated instruments.
-    pub currency: Currency,
+    pub(crate) currency: Currency,
     /// Identifier for the curve being built.
-    pub curve_id: CurveId,
+    pub(crate) curve_id: CurveId,
     /// Effective ID for pricing (usually same as curve_id).
-    pub discount_curve_id: CurveId,
+    pub(crate) discount_curve_id: CurveId,
     /// Effective ID for pricing forward rates.
     #[allow(dead_code)]
-    pub forward_curve_id: CurveId,
+    pub(crate) forward_curve_id: CurveId,
     /// Interpolation style for solving.
-    pub solve_interp: InterpStyle,
+    pub(crate) solve_interp: InterpStyle,
     /// Extrapolation policy.
-    pub extrapolation: ExtrapolationPolicy,
+    pub(crate) extrapolation: ExtrapolationPolicy,
     /// Calibration configuration.
-    pub config: CalibrationConfig,
+    pub(crate) config: CalibrationConfig,
     /// Day count convention for mapping dates to year fractions on the curve.
-    pub curve_day_count: DayCount,
+    pub(crate) curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.
-    pub spot_knot: Option<(f64, f64)>,
+    pub(crate) spot_knot: Option<(f64, f64)>,
     /// Settlement date (T+lag).
-    pub settlement_date: Date,
+    pub(crate) settlement_date: Date,
     /// Residual normalization notional (used to scale PV residuals to per-unit notional).
     ///
     /// Calibration tolerances are interpreted in **per-notional** residual units, so
     /// a realistic notional can be used for instrument construction without making
     /// solver tolerances unrealistically tight in absolute currency terms.
-    pub residual_notional: f64,
+    pub(crate) residual_notional: f64,
     /// Context needed for pricing against OTHER curves (if any).
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
 }
 
 /// Target for discount curve calibration (Bootstrap and Global).
@@ -74,35 +74,35 @@ pub struct DiscountCurveTargetParams {
 /// let params = DiscountCurveParams { /* ... */ };
 /// let curve = calibrate_discount_curve(&params, &quotes)?;
 /// ```
-pub struct DiscountCurveTarget {
+pub(crate) struct DiscountCurveTarget {
     /// Base date for the curve.
-    pub base_date: Date,
+    pub(crate) base_date: Date,
     /// Currency of the curve.
-    pub currency: Currency,
+    pub(crate) currency: Currency,
     /// Identifier for the curve being built.
-    pub curve_id: CurveId,
+    pub(crate) curve_id: CurveId,
     /// Effective ID for pricing (usually same as curve_id).
-    pub discount_curve_id: CurveId,
+    pub(crate) discount_curve_id: CurveId,
     /// Effective ID for pricing forward rates.
     #[allow(dead_code)]
-    pub forward_curve_id: CurveId,
+    pub(crate) forward_curve_id: CurveId,
     /// Interpolation style for solving.
-    pub solve_interp: InterpStyle,
+    pub(crate) solve_interp: InterpStyle,
     /// Extrapolation policy.
-    pub extrapolation: ExtrapolationPolicy,
+    pub(crate) extrapolation: ExtrapolationPolicy,
     /// Calibration configuration.
-    pub config: CalibrationConfig,
+    pub(crate) config: CalibrationConfig,
     /// Day count convention for the curve.
-    pub curve_day_count: DayCount,
+    pub(crate) curve_day_count: DayCount,
     /// Optional spot knot (t_spot, 1.0) if enabled.
-    pub spot_knot: Option<(f64, f64)>,
+    pub(crate) spot_knot: Option<(f64, f64)>,
     /// Settlement date.
     #[allow(dead_code)]
-    pub settlement_date: Date,
+    pub(crate) settlement_date: Date,
     /// Residual normalization notional.
-    pub residual_notional: f64,
+    pub(crate) residual_notional: f64,
     /// Context needed for pricing against OTHER curves (if any).
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
     /// Optional seed curve used to initialize global solves.
@@ -111,7 +111,7 @@ pub struct DiscountCurveTarget {
 
 impl DiscountCurveTarget {
     /// Create a new [`DiscountCurveTarget`] from parameters.
-    pub fn new(params: DiscountCurveTargetParams) -> Self {
+    pub(crate) fn new(params: DiscountCurveTargetParams) -> Self {
         let reuse_context = if params.config.use_parallel {
             None
         } else {
@@ -339,7 +339,7 @@ Global solve requires strictly increasing times.",
     }
 
     /// Execute the full calibration for a discount curve step.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &DiscountCurveParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

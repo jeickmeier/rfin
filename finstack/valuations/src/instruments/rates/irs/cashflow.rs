@@ -450,7 +450,7 @@ pub(crate) fn fixed_leg_schedule(irs: &InterestRateSwap) -> Result<CashFlowSched
 ///
 /// A `CashFlowSchedule` containing all floating leg cashflows with `CFKind::FloatReset`
 /// classifications.
-pub fn float_leg_schedule_with_curves(
+pub(crate) fn float_leg_schedule_with_curves(
     irs: &InterestRateSwap,
     curves: Option<&MarketContext>,
 ) -> Result<CashFlowSchedule> {

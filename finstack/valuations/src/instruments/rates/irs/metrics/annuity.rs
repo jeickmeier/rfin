@@ -55,7 +55,7 @@ use finstack_core::math::kahan_sum;
 /// Computes the present value of $1 paid per unit coupon on each fixed
 /// payment date, discounted to the valuation date. This is a fundamental
 /// quantity used in par rate and risk calculations.
-pub struct AnnuityCalculator;
+pub(crate) struct AnnuityCalculator;
 
 impl MetricCalculator for AnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

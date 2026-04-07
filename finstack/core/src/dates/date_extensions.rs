@@ -408,7 +408,7 @@ impl OffsetDateTimeExt for OffsetDateTime {
 /// constructing with start/end swapped and iterating forward, or add a simple
 /// `.rev()` on a collected Vec if needed.
 #[derive(Clone, Debug)]
-pub struct BusinessDayIter<'a, C: crate::dates::HolidayCalendar + ?Sized> {
+pub(crate) struct BusinessDayIter<'a, C: crate::dates::HolidayCalendar + ?Sized> {
     current: Date,
     end: Date,
     cal: &'a C,
@@ -416,7 +416,7 @@ pub struct BusinessDayIter<'a, C: crate::dates::HolidayCalendar + ?Sized> {
 
 impl<'a, C: crate::dates::HolidayCalendar + ?Sized> BusinessDayIter<'a, C> {
     /// Create a forward iterator over business days in [start, end).
-    pub fn new(start: Date, end: Date, cal: &'a C) -> Self {
+    pub(crate) fn new(start: Date, end: Date, cal: &'a C) -> Self {
         Self {
             current: start,
             end,

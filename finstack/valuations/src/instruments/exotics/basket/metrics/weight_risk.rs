@@ -19,7 +19,7 @@ use finstack_core::Result;
 const WEIGHT_BUMP: f64 = 0.0001;
 
 /// Weight risk calculator for baskets.
-pub struct WeightRiskCalculator;
+pub(crate) struct WeightRiskCalculator;
 
 impl MetricCalculator for WeightRiskCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

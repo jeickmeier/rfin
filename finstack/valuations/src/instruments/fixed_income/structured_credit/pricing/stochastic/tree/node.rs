@@ -9,11 +9,11 @@ use std::fmt;
 
 /// Unique identifier for a scenario node.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub struct ScenarioNodeId(pub usize);
+pub(crate) struct ScenarioNodeId(pub usize);
 
 impl ScenarioNodeId {
     /// Get the underlying index.
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         self.0
     }
 }
@@ -29,7 +29,7 @@ impl fmt::Display for ScenarioNodeId {
 /// Contains all state information needed for structured credit valuation
 /// at this point in time and scenario.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ScenarioNode {
+pub(crate) struct ScenarioNode {
     /// Unique node identifier
     pub id: ScenarioNodeId,
 
@@ -104,7 +104,7 @@ pub struct ScenarioNode {
 
 impl ScenarioNode {
     /// Create a new root node.
-    pub fn root(initial_balance: f64, initial_seasoning: u32) -> Self {
+    pub(crate) fn root(initial_balance: f64, initial_seasoning: u32) -> Self {
         Self {
             id: ScenarioNodeId(0),
             period: 0,
@@ -132,7 +132,7 @@ impl ScenarioNode {
     }
 
     /// Create a child node with the given transition.
-    pub fn child(
+    pub(crate) fn child(
         &self,
         id: ScenarioNodeId,
         transition_prob: f64,
@@ -173,7 +173,7 @@ impl ScenarioNode {
     }
 
     /// Update pool state for prepayments and defaults.
-    pub fn apply_cashflows(&mut self, scheduled_principal: f64, interest_rate: f64) {
+    pub(crate) fn apply_cashflows(&mut self, scheduled_principal: f64, interest_rate: f64) {
         let dt = 1.0 / 12.0;
         let balance = self.pool_balance;
 
@@ -208,17 +208,17 @@ impl ScenarioNode {
     }
 
     /// Check if this is a terminal (leaf) node.
-    pub fn is_terminal(&self) -> bool {
+    pub(crate) fn is_terminal(&self) -> bool {
         self.children.is_empty()
     }
 
     /// Check if this is the root node.
-    pub fn is_root(&self) -> bool {
+    pub(crate) fn is_root(&self) -> bool {
         self.parent.is_none()
     }
 
     /// Get total cash flow at this node (principal + interest + prepay + recovery - defaults).
-    pub fn total_cashflow(&self) -> f64 {
+    pub(crate) fn total_cashflow(&self) -> f64 {
         self.principal_payment
             + self.interest_payment
             + self.prepayment_amount
@@ -226,14 +226,14 @@ impl ScenarioNode {
     }
 
     /// Get loss amount at this node.
-    pub fn loss(&self) -> f64 {
+    pub(crate) fn loss(&self) -> f64 {
         self.default_amount * (1.0 - self.recovery_rate)
     }
 }
 
 /// A path through the scenario tree from root to a terminal node.
 #[derive(Debug, Clone)]
-pub struct ScenarioPath {
+pub(crate) struct ScenarioPath {
     /// Node IDs along the path (root to terminal)
     pub nodes: Vec<ScenarioNodeId>,
 
@@ -252,7 +252,7 @@ pub struct ScenarioPath {
 
 impl ScenarioPath {
     /// Create a path from a vector of node IDs.
-    pub fn from_nodes(nodes: Vec<ScenarioNodeId>, probability: f64) -> Self {
+    pub(crate) fn from_nodes(nodes: Vec<ScenarioNodeId>, probability: f64) -> Self {
         Self {
             nodes,
             probability,
@@ -264,12 +264,12 @@ impl ScenarioPath {
     }
 
     /// Get the length of the path (number of periods).
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.nodes.len()
     }
 
     /// Check if the path is empty.
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.nodes.is_empty()
     }
 }

@@ -28,15 +28,15 @@ use std::cell::RefCell;
 ///
 /// # See Also
 /// - [`crate::instruments::cds`] for details on the underlying instruments.
-pub struct HazardCurveTarget {
+pub(crate) struct HazardCurveTarget {
     /// Parameters defining the hazard curve structure and IDs.
-    pub params: HazardCurveParams,
+    pub(crate) params: HazardCurveParams,
     /// CDS market conventions resolved from (currency, doc_clause).
     pub(crate) cds_conventions: &'static CdsConventionResolved,
     /// Market context providing discount curves for PV calculations.
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
     /// Global calibration settings (used for solver controls and weights).
-    pub config: CalibrationConfig,
+    pub(crate) config: CalibrationConfig,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
 }
@@ -83,7 +83,7 @@ impl HazardCurveTarget {
     /// - USD/CAD: ISDA North American
     /// - EUR/GBP/CHF: ISDA European
     /// - JPY/HKD/SGD/AUD/NZD: ISDA Asian
-    pub fn new(
+    pub(crate) fn new(
         params: HazardCurveParams,
         base_context: MarketContext,
         config: CalibrationConfig,
@@ -111,7 +111,7 @@ impl HazardCurveTarget {
     }
 
     /// Execute the full calibration for a hazard curve step.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &HazardCurveParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

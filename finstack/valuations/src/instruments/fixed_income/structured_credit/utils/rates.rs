@@ -216,7 +216,7 @@ pub fn psa_to_cpr(psa_speed: f64, month: u32) -> f64 {
 /// assert_eq!(frequency_periods_per_year(Tenor::semi_annual()), 2.0);
 /// ```
 #[inline]
-pub fn frequency_periods_per_year(freq: finstack_core::dates::Tenor) -> f64 {
+pub(crate) fn frequency_periods_per_year(freq: finstack_core::dates::Tenor) -> f64 {
     use finstack_core::dates::TenorUnit;
     match freq.unit {
         TenorUnit::Months => {

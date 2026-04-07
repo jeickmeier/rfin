@@ -32,7 +32,7 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 /// // Dirty price is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct DirtyPriceCalculator;
+pub(crate) struct DirtyPriceCalculator;
 
 impl MetricCalculator for DirtyPriceCalculator {
     fn dependencies(&self) -> &[MetricId] {
@@ -78,7 +78,7 @@ impl MetricCalculator for DirtyPriceCalculator {
 /// // Clean price is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct CleanPriceCalculator;
+pub(crate) struct CleanPriceCalculator;
 
 impl MetricCalculator for CleanPriceCalculator {
     fn dependencies(&self) -> &[MetricId] {

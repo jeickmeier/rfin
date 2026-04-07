@@ -4,7 +4,7 @@ use crate::instruments::equity::Equity;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Computes the price per share for an `Equity`.
-pub struct PricePerShareCalculator;
+pub(crate) struct PricePerShareCalculator;
 
 impl MetricCalculator for PricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

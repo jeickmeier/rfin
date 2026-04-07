@@ -9,7 +9,7 @@ use crate::results::ValuationResult;
 use finstack_core::{dates::Date, market_data::context::MarketContext, money::Money};
 
 /// Pricer for Discounted Cash Flow instruments.
-pub struct DcfPricer;
+pub(crate) struct DcfPricer;
 
 pub(crate) fn compute_pv(
     dcf: &DiscountedCashFlow,

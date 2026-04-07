@@ -416,11 +416,11 @@ fn collect_fx_barrier_inputs(
 }
 
 /// FX Barrier option analytical pricer (continuous monitoring).
-pub struct FxBarrierOptionAnalyticalPricer;
+pub(crate) struct FxBarrierOptionAnalyticalPricer;
 
 impl FxBarrierOptionAnalyticalPricer {
     /// Create a new analytical FX barrier option pricer
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }
@@ -587,20 +587,20 @@ use crate::instruments::fx::fx_barrier_option::vanna_volga::{
 /// Applies the Vanna-Volga method to adjust the analytical BS barrier price for
 /// smile effects, using three market pillar volatilities (25Δ put, ATM, 25Δ call).
 #[allow(dead_code)]
-pub struct FxBarrierOptionVannaVolgaPricer {
+pub(crate) struct FxBarrierOptionVannaVolgaPricer {
     /// Market quotes for the three-point smile
-    pub quotes: VannaVolgaQuotes,
+    pub(crate) quotes: VannaVolgaQuotes,
 }
 
 #[allow(dead_code)]
 impl FxBarrierOptionVannaVolgaPricer {
     /// Create a new Vanna-Volga pricer with the given market quotes.
-    pub fn new(quotes: VannaVolgaQuotes) -> Self {
+    pub(crate) fn new(quotes: VannaVolgaQuotes) -> Self {
         Self { quotes }
     }
 
     /// Price an FX barrier option with Vanna-Volga smile adjustment.
-    pub fn price_with_vv(
+    pub(crate) fn price_with_vv(
         &self,
         fx_barrier: &FxBarrierOption,
         market: &MarketContext,

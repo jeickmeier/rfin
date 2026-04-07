@@ -7,7 +7,7 @@ use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::Result;
 
 /// Forward PV01 calculator (per 1bp parallel forward curve bump)
-pub struct ForwardPv01Calculator;
+pub(crate) struct ForwardPv01Calculator;
 
 impl MetricCalculator for ForwardPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

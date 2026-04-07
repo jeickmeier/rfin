@@ -6,7 +6,7 @@
 use crate::metrics::MetricRegistry;
 
 /// Register IR Future Option metrics with the registry.
-pub fn register_ir_future_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_ir_future_option_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

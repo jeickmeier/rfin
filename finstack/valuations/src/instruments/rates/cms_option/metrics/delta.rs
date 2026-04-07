@@ -12,7 +12,7 @@ use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
 /// Delta calculator for CMS options.
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -9,20 +9,20 @@ use finstack_core::market_data::context::MarketContext;
 // ========================= NEW SIMPLIFIED PRICER =========================
 
 /// New simplified Cap/Floor pricer supporting multiple models.
-pub struct SimpleCapFloorBlackPricer {
+pub(crate) struct SimpleCapFloorBlackPricer {
     model: ModelKey,
 }
 
 impl SimpleCapFloorBlackPricer {
     /// Create a new cap/floor Black pricer with default model
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             model: ModelKey::Black76,
         }
     }
 
     /// Create a cap/floor pricer with specified model key
-    pub fn with_model(model: ModelKey) -> Self {
+    pub(crate) fn with_model(model: ModelKey) -> Self {
         Self { model }
     }
 }

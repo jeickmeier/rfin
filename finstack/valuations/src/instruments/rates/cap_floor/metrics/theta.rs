@@ -9,7 +9,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Theta calculator (bump-and-reprice with customizable period)
-pub struct ThetaCalculator;
+pub(crate) struct ThetaCalculator;
 
 impl MetricCalculator for ThetaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

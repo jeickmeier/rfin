@@ -1,8 +1,8 @@
 //! Pool characteristic metrics for structured credit.
 
-pub mod characteristics;
-pub mod warf;
-pub mod was;
+pub(crate) mod characteristics;
+pub(crate) mod warf;
+pub(crate) mod was;
 
 pub use characteristics::{CdrCalculator, CprCalculator, WamCalculator};
 pub use warf::CloWarfCalculator;

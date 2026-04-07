@@ -15,7 +15,7 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 /// # Dependencies
 ///
 /// Requires `DurationMac` and `Ytm` metrics for straight bonds.
-pub struct ModifiedDurationCalculator;
+pub(crate) struct ModifiedDurationCalculator;
 
 impl MetricCalculator for ModifiedDurationCalculator {
     fn dependencies(&self) -> &[MetricId] {

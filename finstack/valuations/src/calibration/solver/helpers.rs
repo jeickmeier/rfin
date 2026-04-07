@@ -13,7 +13,7 @@ use finstack_core::Result;
 /// Tracks the effectiveness of the initial scan grid and identifies the
 /// best points observed if formal convergence fails.
 #[derive(Debug, Clone)]
-pub struct BracketDiagnostics {
+pub(crate) struct BracketDiagnostics {
     /// Whether a sign-change bracket was found.
     pub bracket_found: bool,
     /// Best candidate point (minimum |f|) observed during the scan.

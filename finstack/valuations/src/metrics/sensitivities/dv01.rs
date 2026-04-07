@@ -52,7 +52,7 @@ use std::marker::PhantomData;
 
 /// DV01 calculation mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Dv01ComputationMode {
+pub(crate) enum Dv01ComputationMode {
     /// Single scalar from parallel bump of all curves together.
     ParallelCombined,
     /// Per-curve parallel bumps (stored as series).
@@ -63,15 +63,15 @@ pub enum Dv01ComputationMode {
 
 /// Configuration for DV01 calculations.
 #[derive(Clone)]
-pub struct Dv01CalculatorConfig {
+pub(crate) struct Dv01CalculatorConfig {
     /// Computation mode (parallel vs bucketed, triangular vs par-rate).
-    pub mode: Dv01ComputationMode,
+    pub(crate) mode: Dv01ComputationMode,
     /// Bucket times for key-rate DV01 (in years).
-    pub buckets: Vec<f64>,
+    pub(crate) buckets: Vec<f64>,
     /// MetricId under which to store per-curve or per-bucket series.
     /// Defaults to `BucketedDv01`. Set to e.g. `Pv01` when using
     /// `ParallelPerCurve` mode for PV01 so keys read `pv01::USD-OIS`.
-    pub series_id: MetricId,
+    pub(crate) series_id: MetricId,
 }
 
 impl std::fmt::Debug for Dv01CalculatorConfig {
@@ -96,7 +96,7 @@ impl Default for Dv01CalculatorConfig {
 
 impl Dv01CalculatorConfig {
     /// Create config for parallel DV01 (all curves together).
-    pub fn parallel_combined() -> Self {
+    pub(crate) fn parallel_combined() -> Self {
         Self {
             mode: Dv01ComputationMode::ParallelCombined,
             buckets: vec![],
@@ -105,7 +105,7 @@ impl Dv01CalculatorConfig {
     }
 
     /// Create config for parallel DV01 per curve.
-    pub fn parallel_per_curve() -> Self {
+    pub(crate) fn parallel_per_curve() -> Self {
         Self {
             mode: Dv01ComputationMode::ParallelPerCurve,
             buckets: vec![],
@@ -117,7 +117,7 @@ impl Dv01CalculatorConfig {
     ///
     /// This is the default and recommended method for most use cases.
     /// Uses triangular weights on the bucket grid, ensuring sum ≈ parallel within ~0.1%.
-    pub fn triangular_key_rate() -> Self {
+    pub(crate) fn triangular_key_rate() -> Self {
         Self {
             mode: Dv01ComputationMode::KeyRateTriangular,
             ..Self::default()
@@ -125,7 +125,7 @@ impl Dv01CalculatorConfig {
     }
 
     /// Override the metric ID used for storing per-curve or per-bucket series.
-    pub fn with_series_id(mut self, id: MetricId) -> Self {
+    pub(crate) fn with_series_id(mut self, id: MetricId) -> Self {
         self.series_id = id;
         self
     }
@@ -144,14 +144,14 @@ impl Dv01CalculatorConfig {
 ///
 /// 2. **Par-Rate Bumping** (`KeyRateParRate`): Bumps par rates of calibration
 ///    instruments and re-bootstraps, ensuring exact sum = parallel.
-pub struct UnifiedDv01Calculator<I> {
+pub(crate) struct UnifiedDv01Calculator<I> {
     config: Dv01CalculatorConfig,
     _phantom: PhantomData<I>,
 }
 
 impl<I> UnifiedDv01Calculator<I> {
     /// Create a new calculator with the given configuration.
-    pub fn new(config: Dv01CalculatorConfig) -> Self {
+    pub(crate) fn new(config: Dv01CalculatorConfig) -> Self {
         Self {
             config,
             _phantom: PhantomData,

@@ -37,17 +37,17 @@
 //! let path_pvs = enhanced_result.path_results; // Full distribution for analysis
 //! ```
 
-pub mod components;
+mod components;
 #[cfg(feature = "mc")]
 pub mod monte_carlo_discretization;
 #[cfg(feature = "mc")]
 pub mod monte_carlo_process;
 #[cfg(feature = "mc")]
 pub mod path_generator;
-pub mod unified;
+pub(crate) mod unified;
 
 // Re-export key types and functions
-pub use unified::RevolvingCreditPricer;
+pub(crate) use unified::RevolvingCreditPricer;
 
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]

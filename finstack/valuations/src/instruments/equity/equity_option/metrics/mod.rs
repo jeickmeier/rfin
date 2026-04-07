@@ -13,7 +13,7 @@ mod speed;
 use crate::metrics::MetricRegistry;
 
 /// Register equity option metrics with the registry.
-pub fn register_equity_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_equity_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::sensitivities::cross_factor::{
         CrossFactorCalculator, CrossFactorPair, SpotBumperFactory, VolBumperFactory,
     };

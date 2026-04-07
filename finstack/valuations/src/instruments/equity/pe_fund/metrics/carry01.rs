@@ -23,7 +23,7 @@ use finstack_core::Result;
 const CARRY_BUMP: f64 = 0.0001;
 
 /// Carry01 calculator for PrivateMarketsFund.
-pub struct Carry01Calculator;
+pub(crate) struct Carry01Calculator;
 
 impl MetricCalculator for Carry01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

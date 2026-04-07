@@ -33,7 +33,7 @@ use finstack_core::Result;
 /// Returns the lower tail dependence coefficient λ_L of the copula model
 /// being used for tranche pricing. This is a diagnostic metric that
 /// indicates whether the model captures joint extreme defaults.
-pub struct TailDependenceCalculator;
+pub(crate) struct TailDependenceCalculator;
 
 impl MetricCalculator for TailDependenceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

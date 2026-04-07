@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Correlation01 calculator for CDS Tranche
-pub struct Correlation01Calculator;
+pub(crate) struct Correlation01Calculator;
 
 impl MetricCalculator for Correlation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

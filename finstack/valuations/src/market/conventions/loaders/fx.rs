@@ -43,7 +43,7 @@ impl FxConventionRecord {
     }
 }
 
-pub fn load_registry() -> Result<HashMap<FxConventionId, FxConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<FxConventionId, FxConventions>, Error> {
     let json = include_str!("../../../../data/conventions/fx_conventions.json");
     super::json::parse_and_rekey(
         json,

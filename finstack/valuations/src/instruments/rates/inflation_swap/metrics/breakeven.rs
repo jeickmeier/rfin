@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Computes the fixed rate that makes the swap's present value zero.
 /// Formula: K_BE = (E[I(T_mat)]/I(T_start))^(1/τ) - 1
-pub struct BreakevenCalculator;
+pub(crate) struct BreakevenCalculator;
 
 impl MetricCalculator for BreakevenCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

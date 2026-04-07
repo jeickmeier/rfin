@@ -9,7 +9,7 @@ use finstack_core::Result;
 use crate::instruments::fixed_income::convertible::types::ConvertibleBond;
 
 /// Calculator for convertible bond parity.
-pub struct ParityCalculator;
+pub(crate) struct ParityCalculator;
 
 impl MetricCalculator for ParityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

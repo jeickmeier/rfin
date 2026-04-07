@@ -23,25 +23,26 @@ use finstack_core::Result;
 
 /// Tranche cashflow for a single period.
 #[derive(Debug, Clone)]
-pub struct TrancheCashflow {
+#[allow(dead_code)]
+pub(crate) struct TrancheCashflow {
     /// Payment date
-    pub payment_date: Date,
+    pub(crate) payment_date: Date,
     /// Principal payment
-    pub principal: f64,
+    pub(crate) principal: f64,
     /// Scheduled principal payment
-    pub scheduled_principal: f64,
+    pub(crate) scheduled_principal: f64,
     /// Prepayment principal payment
-    pub prepayment_principal: f64,
+    pub(crate) prepayment_principal: f64,
     /// Interest payment
-    pub interest: f64,
+    pub(crate) interest: f64,
     /// Total payment
-    pub total: f64,
+    pub(crate) total: f64,
     /// Ending balance after this period
-    pub ending_balance: f64,
+    pub(crate) ending_balance: f64,
 }
 
 /// Resolve the collateral pool used as the canonical source for tranche projection.
-pub fn resolve_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
+pub(crate) fn resolve_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
     if let Some(ref pool) = cmo.collateral {
         Ok(pool.as_ref().clone())
     } else {
@@ -53,7 +54,7 @@ pub fn resolve_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
 ///
 /// Projects collateral cashflows and runs them through the waterfall
 /// to determine the reference tranche's cashflows.
-pub fn generate_tranche_cashflows(
+pub(crate) fn generate_tranche_cashflows(
     cmo: &AgencyCmo,
     as_of: Date,
     max_periods: Option<u32>,
@@ -131,7 +132,7 @@ pub fn generate_tranche_cashflows(
 
 /// Build the canonical reference-tranche schedule used by pricing and providers.
 ///
-pub fn build_reference_tranche_schedule(
+pub(crate) fn build_reference_tranche_schedule(
     cmo: &AgencyCmo,
     as_of: Date,
     max_periods: Option<u32>,
@@ -231,7 +232,7 @@ fn create_assumed_collateral(cmo: &AgencyCmo) -> Result<AgencyMbsPassthrough> {
 /// Price a CMO reference tranche.
 ///
 /// Generates tranche cashflows and discounts them to present value.
-pub fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result<Money> {
     let schedule = build_reference_tranche_schedule(cmo, as_of, None)?;
     let currency = cmo
         .reference_tranche()
@@ -257,7 +258,7 @@ pub fn price_cmo(cmo: &AgencyCmo, market: &MarketContext, as_of: Date) -> Result
 
 /// Agency CMO discounting pricer.
 #[derive(Debug, Clone, Default)]
-pub struct AgencyCmoDiscountingPricer;
+pub(crate) struct AgencyCmoDiscountingPricer;
 
 impl Pricer for AgencyCmoDiscountingPricer {
     fn key(&self) -> PricerKey {

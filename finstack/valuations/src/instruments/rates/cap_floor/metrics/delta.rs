@@ -10,7 +10,7 @@ use finstack_core::Result;
 /// - `Lognormal`: Black-76 delta = N(d₁)
 /// - `ShiftedLognormal`: Black-76 delta on shifted rates
 /// - `Normal`: Bachelier delta = N(d)
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

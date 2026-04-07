@@ -24,13 +24,13 @@ const CS01_BUMP_BP: f64 = 1.0;
 ///
 /// Delegates to the generic par-spread CS01 machinery which bumps par spreads,
 /// re-bootstraps the hazard curve, and uses central differencing.
-pub type Cs01Calculator = crate::metrics::GenericParallelCs01<CDSOption>;
+pub(crate) type Cs01Calculator = crate::metrics::GenericParallelCs01<CDSOption>;
 
 /// CS01 Hazard (direct hazard-rate sensitivity) calculator for CDS Option instruments.
 ///
 /// Computes sensitivity by bumping the hazard curve by 1bp (central difference)
 /// and repricing. This bumps hazard rates directly, not par spreads.
-pub struct Cs01HazardCalculator;
+pub(crate) struct Cs01HazardCalculator;
 
 impl MetricCalculator for Cs01HazardCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

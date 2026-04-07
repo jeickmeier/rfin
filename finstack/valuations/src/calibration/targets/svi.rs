@@ -17,7 +17,7 @@ use finstack_core::Result;
 use std::collections::BTreeMap;
 
 /// Target for SVI surface calibration from option volatility quotes.
-pub struct SviSurfaceTarget;
+pub(crate) struct SviSurfaceTarget;
 
 impl SviSurfaceTarget {
     fn validate_positive_input(label: &str, value: f64) -> Result<()> {
@@ -46,7 +46,7 @@ impl SviSurfaceTarget {
     ///
     /// Groups quotes by expiry, calibrates SVI parameters per expiry slice,
     /// interpolates parameters for target expiries, and evaluates onto a grid.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &SviSurfaceParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

@@ -17,7 +17,7 @@ use finstack_core::Result;
 const DEFAULT_BUMP_CDR: f64 = 0.0001;
 
 /// Default01 calculator for StructuredCredit.
-pub struct Default01Calculator;
+pub(crate) struct Default01Calculator;
 
 impl MetricCalculator for Default01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

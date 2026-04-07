@@ -36,4 +36,4 @@ pub(crate) mod period_pv;
 
 // Re-export pricer helper used by instrument pricer modules.
 #[doc(hidden)]
-pub use pricing::GenericInstrumentPricer;
+pub(crate) use pricing::GenericInstrumentPricer;

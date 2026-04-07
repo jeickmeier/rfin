@@ -24,7 +24,7 @@ fn downcast_dcf(context: &MetricContext) -> Result<&DiscountedCashFlow> {
 ///
 /// Computes EV from PV components directly (before equity bridge / discounts).
 /// Uses market-curve discounting when available, otherwise falls back to WACC.
-pub struct EnterpriseValueCalculator;
+struct EnterpriseValueCalculator;
 
 impl MetricCalculator for EnterpriseValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -61,7 +61,7 @@ impl MetricCalculator for EnterpriseValueCalculator {
 /// Calculator for Equity Value metric.
 ///
 /// Consistent with the `value()` method: applies equity bridge and valuation discounts.
-pub struct EquityValueCalculator;
+struct EquityValueCalculator;
 
 impl MetricCalculator for EquityValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -75,7 +75,7 @@ impl MetricCalculator for EquityValueCalculator {
 ///
 /// Uses market-curve discounting when available (same convention as EV metric),
 /// otherwise falls back to WACC discounting.
-pub struct TerminalValuePVCalculator;
+struct TerminalValuePVCalculator;
 
 impl MetricCalculator for TerminalValuePVCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -98,7 +98,7 @@ impl MetricCalculator for TerminalValuePVCalculator {
 ///
 /// Returns equity value / diluted shares using the treasury stock method.
 /// Returns `NaN` if `shares_outstanding` is not set.
-pub struct EquityPricePerShareCalculator;
+struct EquityPricePerShareCalculator;
 
 impl MetricCalculator for EquityPricePerShareCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -114,7 +114,7 @@ impl MetricCalculator for EquityPricePerShareCalculator {
 ///
 /// Returns diluted shares via treasury stock method.
 /// Returns `NaN` if `shares_outstanding` is not set.
-pub struct EquitySharesCalculator;
+struct EquitySharesCalculator;
 
 impl MetricCalculator for EquitySharesCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -135,7 +135,7 @@ impl MetricCalculator for EquitySharesCalculator {
 /// - Terminal value PV (`MetricId::TerminalValuePV`)
 /// - Equity price per share (`MetricId::EquityPricePerShare`)
 /// - Diluted shares (`MetricId::EquityShares`)
-pub fn register_dcf_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_dcf_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

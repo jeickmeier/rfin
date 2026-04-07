@@ -33,14 +33,14 @@ use super::parameters::CDSOptionParams;
 use crate::impl_instrument_base;
 
 /// Minimum valid recovery rate (exclusive lower bound).
-pub const MIN_RECOVERY_RATE: f64 = 0.0;
+pub(crate) const MIN_RECOVERY_RATE: f64 = 0.0;
 /// Maximum valid recovery rate (exclusive upper bound).
-pub const MAX_RECOVERY_RATE: f64 = 1.0;
+pub(crate) const MAX_RECOVERY_RATE: f64 = 1.0;
 /// Minimum valid implied volatility (exclusive lower bound).
-pub const MIN_IMPLIED_VOL: f64 = 0.0;
+pub(crate) const MIN_IMPLIED_VOL: f64 = 0.0;
 /// Maximum valid implied volatility (inclusive upper bound).
 /// 500% lognormal vol is extremely high but theoretically valid.
-pub const MAX_IMPLIED_VOL: f64 = 5.0;
+pub(crate) const MAX_IMPLIED_VOL: f64 = 5.0;
 
 /// Credit option instrument (option on CDS spread)
 ///
@@ -473,15 +473,15 @@ impl CDSOption {
 /// This struct consolidates the computed market inputs needed by all Greek methods,
 /// eliminating code duplication while maintaining clear ownership of the computation.
 #[derive(Debug, Clone, Copy)]
-pub struct CDSOptionPricingInputs {
+pub(crate) struct CDSOptionPricingInputs {
     /// Time to expiry in years
-    pub t: f64,
+    pub(crate) t: f64,
     /// Forward CDS spread in basis points
-    pub fwd_bp: f64,
+    pub(crate) fwd_bp: f64,
     /// Implied volatility (lognormal, decimal)
-    pub sigma: f64,
+    pub(crate) sigma: f64,
     /// Risky annuity (RPV01) in years
-    pub risky_annuity: f64,
+    pub(crate) risky_annuity: f64,
 }
 
 impl crate::instruments::common_impl::traits::Instrument for CDSOption {

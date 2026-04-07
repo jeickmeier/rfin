@@ -25,7 +25,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// selects only `CFKind::Amortization` and positive `CFKind::Notional` flows.
 /// This correctly excludes coupons, PIK accruals, and the initial negative
 /// notional draw, giving an accurate principal-only WAL.
-pub struct BondWalCalculator;
+pub(crate) struct BondWalCalculator;
 
 impl MetricCalculator for BondWalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

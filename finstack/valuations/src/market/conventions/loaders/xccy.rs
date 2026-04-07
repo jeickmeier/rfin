@@ -59,7 +59,7 @@ impl XccyConventionRecord {
 }
 
 /// Load XCCY conventions from the embedded JSON registry.
-pub fn load_registry() -> Result<HashMap<XccyConventionId, XccyConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<XccyConventionId, XccyConventions>, Error> {
     let json = include_str!("../../../../data/conventions/xccy_conventions.json");
     super::json::parse_and_rekey(
         json,

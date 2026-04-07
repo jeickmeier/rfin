@@ -9,7 +9,7 @@ use crate::instruments::equity::equity_option::EquityOption;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
-pub struct ImpliedVolCalculator;
+pub(crate) struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

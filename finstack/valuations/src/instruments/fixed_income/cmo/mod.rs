@@ -61,5 +61,5 @@ pub mod tranches;
 mod types;
 pub mod waterfall;
 
-pub use pricer::{AgencyCmoDiscountingPricer, TrancheCashflow};
+pub(crate) use pricer::AgencyCmoDiscountingPricer;
 pub use types::{AgencyCmo, CmoTranche, CmoTrancheType, CmoWaterfall, PacCollar};

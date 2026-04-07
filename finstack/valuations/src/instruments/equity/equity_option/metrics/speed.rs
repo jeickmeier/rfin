@@ -13,7 +13,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Speed calculator for equity options.
-pub struct SpeedCalculator;
+pub(crate) struct SpeedCalculator;
 
 impl MetricCalculator for SpeedCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

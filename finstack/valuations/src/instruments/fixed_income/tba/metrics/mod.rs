@@ -6,7 +6,7 @@
 use crate::metrics::MetricRegistry;
 
 /// Register TBA metrics with the registry.
-pub fn register_tba_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_tba_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

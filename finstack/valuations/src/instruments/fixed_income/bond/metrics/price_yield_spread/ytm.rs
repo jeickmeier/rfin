@@ -55,7 +55,7 @@ use rust_decimal::prelude::ToPrimitive;
 /// // YTM is computed automatically when requesting bond metrics
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct YtmCalculator;
+pub(crate) struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -19,7 +19,7 @@ use finstack_core::Result;
 /// # Errors
 ///
 /// Returns an error if vol_surface_id is not provided.
-pub struct VannaCalculator;
+pub(crate) struct VannaCalculator;
 
 impl MetricCalculator for VannaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

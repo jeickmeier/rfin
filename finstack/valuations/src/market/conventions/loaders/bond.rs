@@ -25,7 +25,7 @@ impl BondConventionRecord {
     }
 }
 
-pub fn load_registry() -> Result<HashMap<BondConventionId, BondConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<BondConventionId, BondConventions>, Error> {
     let json = include_str!("../../../../data/conventions/bond_conventions.json");
     super::json::parse_and_rekey(
         json,

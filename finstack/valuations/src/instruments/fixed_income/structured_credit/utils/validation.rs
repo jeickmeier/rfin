@@ -102,7 +102,7 @@ pub enum ValidationError {
 // ============================================================================
 
 /// Trait for validating waterfall specifications.
-pub trait WaterfallValidator {
+pub(crate) trait WaterfallValidator {
     /// Validate the waterfall specification.
     ///
     /// Returns Ok(()) if valid, or Err with validation errors.
@@ -117,18 +117,18 @@ pub trait WaterfallValidator {
 ///
 /// This is a simplified representation that includes just the fields needed
 /// for validation (tiers, diversion rules, coverage tests).
-pub struct WaterfallSpec {
+pub(crate) struct WaterfallSpec {
     /// Tiers.
-    pub tiers: Vec<WaterfallTier>,
+    pub(crate) tiers: Vec<WaterfallTier>,
     /// Diversion rules.
-    pub diversion_rules: Vec<DiversionRule>,
+    pub(crate) diversion_rules: Vec<DiversionRule>,
     /// Coverage test IDs.
-    pub coverage_test_ids: Vec<String>,
+    pub(crate) coverage_test_ids: Vec<String>,
 }
 
 impl WaterfallSpec {
     /// Create a new waterfall spec.
-    pub fn new(
+    pub(crate) fn new(
         tiers: Vec<WaterfallTier>,
         diversion_rules: Vec<DiversionRule>,
         coverage_test_ids: Vec<String>,

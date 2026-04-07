@@ -47,20 +47,20 @@
 //! - [`prepared::PreparedQuote`](prepared::PreparedQuote) for prepared quote envelopes
 
 /// Builders for bond instruments.
-pub mod bond;
+pub(crate) mod bond;
 /// Builders for credit instruments (CDS).
-pub mod cds;
+pub(crate) mod cds;
 /// Builders for CDS Tranche instruments.
-pub mod cds_tranche;
+pub(crate) mod cds_tranche;
 /// Context for building instruments.
-pub mod context;
+pub(crate) mod context;
 /// Builders for FX instruments.
-pub mod fx;
+pub(crate) mod fx;
 /// Shared helper functions for builders.
 pub(crate) mod helpers;
 /// Envelope for prepared quotes.
 pub(crate) mod prepared;
 /// Builders for rates instruments.
-pub mod rates;
+pub(crate) mod rates;
 /// Builders for cross-currency swap instruments.
-pub mod xccy;
+pub(crate) mod xccy;

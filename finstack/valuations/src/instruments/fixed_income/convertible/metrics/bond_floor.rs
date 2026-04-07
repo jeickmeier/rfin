@@ -18,7 +18,7 @@ use crate::instruments::fixed_income::convertible::ConvertibleBond;
 use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
-pub struct BondFloorCalculator;
+pub(crate) struct BondFloorCalculator;
 
 impl MetricCalculator for BondFloorCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

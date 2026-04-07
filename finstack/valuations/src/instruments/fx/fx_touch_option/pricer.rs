@@ -15,7 +15,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 
 #[derive(Debug, Clone, Default)]
-pub struct FxTouchOptionCalculator;
+pub(crate) struct FxTouchOptionCalculator;
 
 pub(crate) fn compute_pv(
     inst: &FxTouchOption,
@@ -26,7 +26,12 @@ pub(crate) fn compute_pv(
 }
 
 impl FxTouchOptionCalculator {
-    pub fn npv(&self, inst: &FxTouchOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub(crate) fn npv(
+        &self,
+        inst: &FxTouchOption,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
 
         if t <= 0.0 {
@@ -61,7 +66,7 @@ impl FxTouchOptionCalculator {
         Ok(Money::new(price, inst.quote_currency))
     }
 
-    pub fn collect_inputs(
+    pub(crate) fn collect_inputs(
         &self,
         inst: &FxTouchOption,
         curves: &MarketContext,

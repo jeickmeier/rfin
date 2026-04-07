@@ -18,11 +18,11 @@ use std::collections::BTreeMap;
 /// perturbed starting points and keeps the result with the lowest weighted
 /// residual norm.
 #[derive(Debug, Clone)]
-pub struct MultiStartConfig {
+pub(crate) struct MultiStartConfig {
     /// Number of random restarts (in addition to the initial point).
-    pub num_restarts: usize,
+    pub(crate) num_restarts: usize,
     /// Scale factor for perturbation of the initial guess (as fraction of initial values).
-    pub perturbation_scale: f64,
+    pub(crate) perturbation_scale: f64,
 }
 
 impl Default for MultiStartConfig {
@@ -67,7 +67,7 @@ fn fill_penalty(resid: &mut [f64], n_residuals: usize, params: &[f64]) {
 ///
 /// When [`MultiStartConfig`] is provided, the optimizer runs additional LM solves
 /// from deterministically-perturbed starting points and returns the best result.
-pub struct GlobalFitOptimizer;
+pub(crate) struct GlobalFitOptimizer;
 
 impl GlobalFitOptimizer {
     /// Execute a simultaneous weighted least-squares fit.
@@ -88,7 +88,7 @@ impl GlobalFitOptimizer {
     /// # Tolerance Semantics
     /// Success is determined by comparing the **weighted L2 norm of the residual vector**
     /// (i.e., `sqrt(sum((r_i * sqrt(w_i))^2))`) against the `success_tolerance`.
-    pub fn optimize<T>(
+    pub(crate) fn optimize<T>(
         target: &T,
         quotes: &[T::Quote],
         config: &CalibrationConfig,
@@ -105,7 +105,7 @@ impl GlobalFitOptimizer {
     /// When `multi_start` is `Some`, the optimizer runs `num_restarts` additional solves
     /// from deterministically-perturbed starting points. The best result (lowest weighted
     /// residual norm) is returned.
-    pub fn optimize_with_multi_start<T>(
+    pub(crate) fn optimize_with_multi_start<T>(
         target: &T,
         quotes: &[T::Quote],
         config: &CalibrationConfig,

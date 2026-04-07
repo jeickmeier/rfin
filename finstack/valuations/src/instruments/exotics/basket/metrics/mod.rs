@@ -23,9 +23,9 @@ use std::sync::Arc;
 
 pub use asset_exposure::AssetExposureCalculator;
 pub use constituent_count::ConstituentCountCalculator;
-pub use constituent_delta::ConstituentDeltaCalculator;
+pub(crate) use constituent_delta::ConstituentDeltaCalculator;
 pub use expense_ratio::ExpenseRatioCalculator;
-pub use weight_risk::WeightRiskCalculator;
+pub(crate) use weight_risk::WeightRiskCalculator;
 
 /// Register all Basket metrics with the registry
 pub fn register_basket_metrics(registry: &mut MetricRegistry) {

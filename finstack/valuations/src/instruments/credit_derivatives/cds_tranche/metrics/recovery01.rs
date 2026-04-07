@@ -23,7 +23,7 @@ use finstack_core::Result;
 const RECOVERY_BUMP: f64 = 0.01;
 
 /// Recovery01 calculator for CDS Tranche.
-pub struct Recovery01Calculator;
+pub(crate) struct Recovery01Calculator;
 
 impl MetricCalculator for Recovery01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

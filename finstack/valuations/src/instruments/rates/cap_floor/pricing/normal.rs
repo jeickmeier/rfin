@@ -11,29 +11,29 @@ use finstack_core::money::Money;
 
 /// Inputs for normal (Bachelier) caplet/floorlet pricing.
 #[derive(Debug, Clone, Copy)]
-pub struct CapletFloorletInputs {
+pub(crate) struct CapletFloorletInputs {
     /// True for caplet, false for floorlet
-    pub is_cap: bool,
+    pub(crate) is_cap: bool,
     /// Notional amount
-    pub notional: f64,
+    pub(crate) notional: f64,
     /// Strike rate (as decimal)
-    pub strike: f64,
+    pub(crate) strike: f64,
     /// Forward rate (as decimal)
-    pub forward: f64,
+    pub(crate) forward: f64,
     /// Discount factor to payment date
-    pub discount_factor: f64,
+    pub(crate) discount_factor: f64,
     /// Normal volatility (absolute rate units, annualized)
-    pub volatility: f64,
+    pub(crate) volatility: f64,
     /// Time to fixing date in years
-    pub time_to_fixing: f64,
+    pub(crate) time_to_fixing: f64,
     /// Accrual year fraction for the period
-    pub accrual_year_fraction: f64,
+    pub(crate) accrual_year_fraction: f64,
     /// Currency for the cashflow
-    pub currency: Currency,
+    pub(crate) currency: Currency,
 }
 
 /// Price a caplet/floorlet using Bachelier's normal model.
-pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Result<Money> {
+pub(crate) fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Result<Money> {
     let is_cap = inputs.is_cap;
     let notional = inputs.notional;
     let strike = inputs.strike;
@@ -118,7 +118,7 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
 /// # References
 ///
 /// - Brigo, D., & Mercurio, F. (2006). *Interest Rate Models*, Ch. 1.
-pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+pub(crate) fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 {
         if is_cap {
             return if forward > strike { 1.0 } else { 0.0 };
@@ -140,7 +140,7 @@ pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) ->
 /// Gamma is always non-negative for long options.
 ///
 /// Gamma = n(d) / (σ√T)
-pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+pub(crate) fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 {
         return 0.0;
     }
@@ -155,7 +155,7 @@ pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
 /// Vega is always non-negative for long options.
 ///
 /// Vega = √T · n(d) / 100
-pub fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+pub(crate) fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 {
         return 0.0;
     }

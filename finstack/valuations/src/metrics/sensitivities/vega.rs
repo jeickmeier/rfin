@@ -12,7 +12,7 @@ use finstack_core::math::{neumaier_sum, NeumaierAccumulator};
 use std::marker::PhantomData;
 
 /// Standard expiry buckets in years for equity options.
-pub fn standard_equity_expiry_buckets() -> Vec<f64> {
+pub(crate) fn standard_equity_expiry_buckets() -> Vec<f64> {
     vec![
         1.0 / 12.0, // 1m
         3.0 / 12.0, // 3m
@@ -25,7 +25,7 @@ pub fn standard_equity_expiry_buckets() -> Vec<f64> {
 }
 
 /// Standard strike buckets (relative to spot) for equity options.
-pub fn standard_strike_ratios() -> Vec<f64> {
+pub(crate) fn standard_strike_ratios() -> Vec<f64> {
     vec![0.5, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5]
 }
 
@@ -54,7 +54,7 @@ pub fn standard_strike_ratios() -> Vec<f64> {
 /// let strikes = vec![0.9, 1.0, 1.1];
 /// let calculator = KeyRateVega::<EquityOption>::new(expiries, strikes);
 /// ```
-pub struct KeyRateVega<I> {
+pub(crate) struct KeyRateVega<I> {
     expiries: Vec<f64>,
     strikes: Vec<f64>,
     _phantom: PhantomData<I>,
@@ -79,7 +79,7 @@ impl<I> KeyRateVega<I> {
     /// let strikes = vec![0.9, 1.0, 1.1];
     /// let calculator = KeyRateVega::<EquityOption>::new(expiries, strikes);
     /// ```
-    pub fn new(expiries: Vec<f64>, strikes: Vec<f64>) -> Self {
+    pub(crate) fn new(expiries: Vec<f64>, strikes: Vec<f64>) -> Self {
         Self {
             expiries,
             strikes,
@@ -101,7 +101,7 @@ impl<I> KeyRateVega<I> {
     ///
     /// let calculator = KeyRateVega::<EquityOption>::standard();
     /// ```
-    pub fn standard() -> Self {
+    pub(crate) fn standard() -> Self {
         Self::new(standard_equity_expiry_buckets(), standard_strike_ratios())
     }
 }

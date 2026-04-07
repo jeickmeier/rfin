@@ -1,30 +1,30 @@
 //! Price, yield, and spread metrics for bonds.
 
 /// Asset swap spread calculators (par, market, forward)
-pub mod asw;
+pub(crate) mod asw;
 /// Discount margin calculator
-pub mod dm;
+pub(crate) mod dm;
 /// Embedded option value calculator
-pub mod embedded_option_value;
+pub(crate) mod embedded_option_value;
 /// I-spread (interpolated spread) calculator
-pub mod i_spread;
+pub(crate) mod i_spread;
 /// Option-adjusted spread (OAS) calculator
-pub mod oas;
+pub(crate) mod oas;
 /// Price calculators (clean and dirty)
-pub mod prices;
+pub(crate) mod prices;
 /// Yield-to-maturity (YTM) calculator
-pub mod ytm;
+pub(crate) mod ytm;
 /// Yield-to-worst (YTW) calculator
-pub mod ytw;
+pub(crate) mod ytw;
 /// Z-spread (zero-volatility spread) calculator
-pub mod z_spread;
+pub(crate) mod z_spread;
 
 pub use asw::{AssetSwapMarketCalculator, AssetSwapParCalculator};
 pub use dm::DiscountMarginCalculator;
-pub use embedded_option_value::EmbeddedOptionValueCalculator;
-pub use i_spread::ISpreadCalculator;
-pub use oas::OasCalculator;
-pub use prices::{CleanPriceCalculator, DirtyPriceCalculator};
-pub use ytm::YtmCalculator;
-pub use ytw::YtwCalculator;
+pub(crate) use embedded_option_value::EmbeddedOptionValueCalculator;
+pub(crate) use i_spread::ISpreadCalculator;
+pub(crate) use oas::OasCalculator;
+pub(crate) use prices::{CleanPriceCalculator, DirtyPriceCalculator};
+pub(crate) use ytm::YtmCalculator;
+pub(crate) use ytw::YtwCalculator;
 pub use z_spread::ZSpreadCalculator;

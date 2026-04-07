@@ -264,7 +264,7 @@ impl RuleDef {
     }
 }
 
-pub fn generate() -> io::Result<()> {
+pub(crate) fn generate() -> io::Result<()> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let calendar_dir = Path::new(&manifest_dir).join("data").join("calendars");
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");

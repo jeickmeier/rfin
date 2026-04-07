@@ -12,16 +12,16 @@
 //!
 //! Note: Quote amount (PV in quote currency) is available in `ValuationResult.value`.
 
-pub mod base_amount;
-pub mod fx01;
-pub mod fx_delta;
-pub mod inverse_rate;
-pub mod spot_rate;
+pub(crate) mod base_amount;
+pub(crate) mod fx01;
+pub(crate) mod fx_delta;
+pub(crate) mod inverse_rate;
+pub(crate) mod spot_rate;
 
 use crate::metrics::MetricRegistry;
 
 /// Register all FX Spot metrics with the registry
-pub fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_fx_spot_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;

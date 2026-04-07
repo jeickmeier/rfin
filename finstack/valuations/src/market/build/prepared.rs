@@ -47,26 +47,26 @@ use std::sync::Arc;
 /// # }
 /// ```
 #[derive(Clone)]
-pub struct PreparedQuote<Q> {
+pub(crate) struct PreparedQuote<Q> {
     /// The original market quote.
     ///
     /// Stored as `Arc` to allow sharing across multiple solver iterations without cloning.
-    pub quote: Arc<Q>,
+    pub(crate) quote: Arc<Q>,
     /// The constructed instrument, fully configured for pricing.
     ///
     /// The instrument is ready to be priced and includes all necessary curve references,
     /// dates, and market conventions resolved from the quote.
-    pub instrument: Arc<DynInstrument>,
+    pub(crate) instrument: Arc<DynInstrument>,
     /// The maturity date of the pillar (used for sorting / time axis).
     ///
     /// This is the resolved maturity date from the quote's pillar (either from a tenor
     /// calculation or a direct date specification).
-    pub pillar_date: Date,
+    pub(crate) pillar_date: Date,
     /// The time-to-maturity of the pillar (in years), precomputed for the solver.
     ///
     /// This value is calculated once during construction and reused by calibration solvers
     /// for sorting, grouping, and time-axis calculations.
-    pub pillar_time: f64,
+    pub(crate) pillar_time: f64,
 }
 
 impl<Q: fmt::Debug> fmt::Debug for PreparedQuote<Q> {
@@ -111,7 +111,7 @@ impl<Q> PreparedQuote<Q> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(
+    pub(crate) fn new(
         quote: Arc<Q>,
         instrument: Arc<DynInstrument>,
         pillar_date: Date,
@@ -128,9 +128,9 @@ impl<Q> PreparedQuote<Q> {
 
 /// Policy for resolving swap pillars.
 #[derive(Debug, Clone)]
-pub struct PillarPolicy {
+pub(crate) struct PillarPolicy {
     /// When true, swap pillars use payment-delay-adjusted end dates (matches discount target).
-    pub swap_use_payment_delay: bool,
+    pub(crate) swap_use_payment_delay: bool,
 }
 
 impl Default for PillarPolicy {
@@ -142,7 +142,7 @@ impl Default for PillarPolicy {
 }
 
 /// Prepare a rate quote into an instrument + pillar time.
-pub fn prepare_rate_quote(
+pub(crate) fn prepare_rate_quote(
     quote: RateQuote,
     build_ctx: &BuildCtx,
     curve_day_count: DayCount,
@@ -200,7 +200,7 @@ pub fn prepare_rate_quote(
 }
 
 /// Prepare a CDS quote into an instrument + pillar time.
-pub fn prepare_cds_quote(
+pub(crate) fn prepare_cds_quote(
     quote: CdsQuote,
     build_ctx: &BuildCtx,
     day_count: DayCount,

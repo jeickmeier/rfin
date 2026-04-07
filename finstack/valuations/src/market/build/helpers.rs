@@ -7,14 +7,14 @@ use finstack_core::Error;
 use finstack_core::Result;
 
 /// Resolve a holiday calendar by ID from the global registry.
-pub fn resolve_calendar(id: &str) -> Result<&'static dyn HolidayCalendar> {
+pub(crate) fn resolve_calendar(id: &str) -> Result<&'static dyn HolidayCalendar> {
     CalendarRegistry::global()
         .resolve_str(id)
         .ok_or_else(|| Error::calendar_not_found_with_suggestions(id, &[]))
 }
 
 /// Resolve the spot date given settlement lag and market conventions.
-pub fn resolve_spot_date(
+pub(crate) fn resolve_spot_date(
     as_of: Date,
     calendar_id: &str,
     settlement_days: i32,

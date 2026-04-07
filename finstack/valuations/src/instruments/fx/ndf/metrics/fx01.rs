@@ -8,7 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::money::fx::FxQuery;
 
 /// FX01 calculator for NDFs.
-pub struct Fx01Calculator;
+pub(crate) struct Fx01Calculator;
 
 impl MetricCalculator for Fx01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

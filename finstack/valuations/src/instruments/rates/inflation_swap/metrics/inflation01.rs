@@ -73,7 +73,7 @@ use finstack_core::market_data::scalars::InflationLag;
 ///
 /// - **PayFixed**: Positive Inflation01 (benefits from higher inflation)
 /// - **ReceiveFixed**: Negative Inflation01 (loses from higher inflation)
-pub struct Inflation01Calculator;
+pub(crate) struct Inflation01Calculator;
 
 impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

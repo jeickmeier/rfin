@@ -26,7 +26,7 @@ use finstack_core::math::summation::NeumaierAccumulator;
 /// Delegates to [`GenericParallelCs01`] when the bond references a credit
 /// curve; otherwise computes CS01 by bumping the z-spread by 1 bp.
 /// The result is keyed by credit curve ID or instrument ID.
-pub struct BondCs01Calculator;
+pub(crate) struct BondCs01Calculator;
 
 impl MetricCalculator for BondCs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -89,7 +89,7 @@ impl MetricCalculator for BondCs01Calculator {
 ///
 /// Delegates to [`GenericBucketedCs01`] when the bond references a credit
 /// curve; otherwise returns the parallel z-spread CS01 keyed by instrument ID.
-pub struct BondBucketedCs01Calculator;
+pub(crate) struct BondBucketedCs01Calculator;
 
 impl MetricCalculator for BondBucketedCs01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -16,11 +16,11 @@ use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 
 /// Minimum valid strike as a decimal rate (exclusive lower bound).
-pub const MIN_STRIKE: f64 = 0.0;
+pub(crate) const MIN_STRIKE: f64 = 0.0;
 
 /// Maximum valid strike as a decimal rate (inclusive upper bound).
 /// 1.0 decimal = 10000bp = 100% spread, which is extremely rare.
-pub const MAX_STRIKE: f64 = 1.0;
+pub(crate) const MAX_STRIKE: f64 = 1.0;
 
 /// Credit option specific parameters.
 ///

@@ -13,7 +13,7 @@
 use crate::metrics::MetricRegistry;
 
 /// Register IR Future metrics with the registry
-pub fn register_ir_future_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_ir_future_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     // Standard metrics using macro
     crate::register_metrics! {

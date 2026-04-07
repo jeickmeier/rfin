@@ -35,7 +35,7 @@ use finstack_core::types::Percentage;
 /// Shocks a base CPR specification by a systematic factor.
 /// Used for simple stochastic prepayment correlation.
 #[derive(Debug, Clone)]
-pub struct FactorCorrelatedPrepay {
+pub(crate) struct FactorCorrelatedPrepay {
     /// Base deterministic prepayment specification
     base_spec: PrepaymentModelSpec,
     /// Factor loading (sensitivity to systematic factor)
@@ -51,7 +51,11 @@ impl FactorCorrelatedPrepay {
     /// * `base_spec` - Base deterministic prepayment model (PSA, CPR curve, etc.)
     /// * `factor_loading` - Sensitivity to systematic factor (typical: 0.3-0.5)
     /// * `cpr_volatility` - CPR volatility (typical: 0.15-0.30)
-    pub fn new(base_spec: PrepaymentModelSpec, factor_loading: f64, cpr_volatility: f64) -> Self {
+    pub(crate) fn new(
+        base_spec: PrepaymentModelSpec,
+        factor_loading: f64,
+        cpr_volatility: f64,
+    ) -> Self {
         Self {
             base_spec,
             factor_loading: factor_loading.clamp(-1.0, 1.0),
@@ -60,7 +64,7 @@ impl FactorCorrelatedPrepay {
     }
 
     /// Create a factor-correlated prepayment model with typed volatility.
-    pub fn new_typed(
+    pub(crate) fn new_typed(
         base_spec: PrepaymentModelSpec,
         factor_loading: f64,
         cpr_volatility: Percentage,
@@ -77,7 +81,7 @@ impl FactorCorrelatedPrepay {
     /// Uses 100% PSA as base with:
     /// - Factor loading: 0.4
     /// - CPR volatility: 0.20
-    pub fn rmbs_standard(base_spec: PrepaymentModelSpec) -> Self {
+    pub(crate) fn rmbs_standard(base_spec: PrepaymentModelSpec) -> Self {
         Self::new(base_spec, 0.4, 0.20)
     }
 
@@ -86,17 +90,17 @@ impl FactorCorrelatedPrepay {
     /// Uses lower factor loading (loans less rate-sensitive):
     /// - Factor loading: 0.25
     /// - CPR volatility: 0.15
-    pub fn clo_standard(base_spec: PrepaymentModelSpec) -> Self {
+    pub(crate) fn clo_standard(base_spec: PrepaymentModelSpec) -> Self {
         Self::new(base_spec, 0.25, 0.15)
     }
 
     /// Get the base prepayment specification.
-    pub fn base_spec(&self) -> &PrepaymentModelSpec {
+    pub(crate) fn base_spec(&self) -> &PrepaymentModelSpec {
         &self.base_spec
     }
 
     /// Get the CPR volatility.
-    pub fn cpr_volatility(&self) -> f64 {
+    pub(crate) fn cpr_volatility(&self) -> f64 {
         self.cpr_volatility
     }
 

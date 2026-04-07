@@ -25,7 +25,7 @@ use finstack_core::Result;
 const DIVIDEND_BUMP_BP: f64 = 0.0001;
 
 /// Dividend risk calculator for equity options.
-pub struct DividendRiskCalculator;
+pub(crate) struct DividendRiskCalculator;
 
 impl MetricCalculator for DividendRiskCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

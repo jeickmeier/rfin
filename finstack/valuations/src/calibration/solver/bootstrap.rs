@@ -273,7 +273,7 @@ fn record_iteration(
 /// 2. **Bracket**: If no bracket is found, fall back to initial guess or best point.
 /// 3. **Solve**: Use Brent's method (bracketing) for robustness followed by optional
 ///    Newton-Raphson polishing for high-precision convergence in f-space.
-pub struct SequentialBootstrapper;
+pub(crate) struct SequentialBootstrapper;
 
 impl SequentialBootstrapper {
     /// Execute the sequential bootstrapping algorithm.
@@ -292,7 +292,7 @@ impl SequentialBootstrapper {
     ///
     /// # Returns
     /// A pair containing the calibrated term structure and a diagnostic report.
-    pub fn bootstrap<T>(
+    pub(crate) fn bootstrap<T>(
         target: &T,
         quotes: &[T::Quote],
         initial_knots: Vec<(f64, f64)>,

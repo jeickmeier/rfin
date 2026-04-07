@@ -18,7 +18,7 @@ const MAX_NODE_CAPACITY: usize = 50_000_000;
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(tag = "type", deny_unknown_fields)]
 #[non_exhaustive]
-pub enum BranchingSpec {
+pub(crate) enum BranchingSpec {
     /// Fixed branching factor at each node.
     ///
     /// Each non-terminal node has exactly `branches` children.
@@ -60,14 +60,14 @@ impl Default for BranchingSpec {
 impl BranchingSpec {
     /// Create fixed branching specification.
     #[allow(clippy::expect_used)] // Builder with valid inputs should not fail
-    pub fn fixed(branches: usize) -> Self {
+    pub(crate) fn fixed(branches: usize) -> Self {
         BranchingSpec::Fixed {
             branches: branches.max(2),
         }
     }
 
     /// Create adaptive branching specification.
-    pub fn adaptive(min: usize, max: usize, variance_threshold: f64) -> Self {
+    pub(crate) fn adaptive(min: usize, max: usize, variance_threshold: f64) -> Self {
         BranchingSpec::Adaptive {
             min: min.max(2),
             max: max.max(min),
@@ -76,7 +76,7 @@ impl BranchingSpec {
     }
 
     /// Create stratified branching specification.
-    pub fn stratified(num_paths: usize) -> Self {
+    pub(crate) fn stratified(num_paths: usize) -> Self {
         BranchingSpec::Stratified {
             num_paths: num_paths.max(100),
             method: "antithetic".to_string(),
@@ -87,7 +87,7 @@ impl BranchingSpec {
     ///
     /// For fixed branching, always returns the fixed number.
     /// For adaptive/stratified, returns the base or calculated number.
-    pub fn branches_at_node(&self, _variance: f64) -> usize {
+    pub(crate) fn branches_at_node(&self, _variance: f64) -> usize {
         match self {
             BranchingSpec::Fixed { branches } => *branches,
             BranchingSpec::Adaptive {
@@ -110,7 +110,7 @@ impl BranchingSpec {
     }
 
     /// Estimate total number of terminal nodes.
-    pub fn estimate_terminal_nodes(&self, num_periods: usize) -> usize {
+    pub(crate) fn estimate_terminal_nodes(&self, num_periods: usize) -> usize {
         match self {
             BranchingSpec::Fixed { branches } => {
                 saturating_pow(*branches, num_periods).min(MAX_NODE_CAPACITY)
@@ -125,7 +125,7 @@ impl BranchingSpec {
 
 /// Configuration for scenario tree generation.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ScenarioTreeConfig {
+pub(crate) struct ScenarioTreeConfig {
     /// Number of time periods (typically monthly)
     pub num_periods: usize,
 
@@ -165,7 +165,7 @@ pub struct ScenarioTreeConfig {
 
 impl ScenarioTreeConfig {
     /// Create a new scenario tree configuration.
-    pub fn new(num_periods: usize, horizon_years: f64, branching: BranchingSpec) -> Self {
+    pub(crate) fn new(num_periods: usize, horizon_years: f64, branching: BranchingSpec) -> Self {
         Self {
             num_periods: num_periods.max(1),
             horizon_years: horizon_years.max(0.1),
@@ -183,7 +183,7 @@ impl ScenarioTreeConfig {
     }
 
     /// Create RMBS-standard configuration.
-    pub fn rmbs_standard(horizon_years: f64, pool_coupon: f64) -> Self {
+    pub(crate) fn rmbs_standard(horizon_years: f64, pool_coupon: f64) -> Self {
         let num_periods = (horizon_years * 12.0).ceil() as usize;
         Self {
             num_periods,
@@ -202,7 +202,7 @@ impl ScenarioTreeConfig {
     }
 
     /// Create CLO-standard configuration.
-    pub fn clo_standard(horizon_years: f64) -> Self {
+    pub(crate) fn clo_standard(horizon_years: f64) -> Self {
         let num_periods = (horizon_years * 12.0).ceil() as usize;
         Self {
             num_periods,
@@ -221,60 +221,60 @@ impl ScenarioTreeConfig {
     }
 
     /// Set the random seed.
-    pub fn with_seed(mut self, seed: u64) -> Self {
+    pub(crate) fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self
     }
 
     /// Set the initial pool balance.
-    pub fn with_initial_balance(mut self, balance: f64) -> Self {
+    pub(crate) fn with_initial_balance(mut self, balance: f64) -> Self {
         self.initial_balance = balance;
         self
     }
 
     /// Set the initial seasoning.
-    pub fn with_initial_seasoning(mut self, months: u32) -> Self {
+    pub(crate) fn with_initial_seasoning(mut self, months: u32) -> Self {
         self.initial_seasoning = months;
         self
     }
 
     /// Set the pool coupon.
-    pub fn with_pool_coupon(mut self, coupon: f64) -> Self {
+    pub(crate) fn with_pool_coupon(mut self, coupon: f64) -> Self {
         self.pool_coupon = coupon;
         self
     }
 
     /// Set the factor specification.
-    pub fn with_factor_spec(mut self, spec: FactorSpec) -> Self {
+    pub(crate) fn with_factor_spec(mut self, spec: FactorSpec) -> Self {
         self.factor_spec = spec;
         self
     }
 
     /// Set the prepayment specification.
-    pub fn with_prepay_spec(mut self, spec: StochasticPrepaySpec) -> Self {
+    pub(crate) fn with_prepay_spec(mut self, spec: StochasticPrepaySpec) -> Self {
         self.prepay_spec = spec;
         self
     }
 
     /// Set the default specification.
-    pub fn with_default_spec(mut self, spec: StochasticDefaultSpec) -> Self {
+    pub(crate) fn with_default_spec(mut self, spec: StochasticDefaultSpec) -> Self {
         self.default_spec = spec;
         self
     }
 
     /// Set the correlation structure.
-    pub fn with_correlation(mut self, corr: CorrelationStructure) -> Self {
+    pub(crate) fn with_correlation(mut self, corr: CorrelationStructure) -> Self {
         self.correlation = corr;
         self
     }
 
     /// Get the time step size in years.
-    pub fn dt(&self) -> f64 {
+    pub(crate) fn dt(&self) -> f64 {
         self.horizon_years / self.num_periods as f64
     }
 
     /// Estimate total number of nodes in the tree.
-    pub fn estimate_total_nodes(&self) -> usize {
+    pub(crate) fn estimate_total_nodes(&self) -> usize {
         let levels = self.num_periods.saturating_add(1);
         levels
             .saturating_mul(levels)

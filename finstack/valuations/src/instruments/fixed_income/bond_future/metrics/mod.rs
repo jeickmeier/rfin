@@ -92,7 +92,7 @@ use crate::pricer::InstrumentType;
 /// let mut registry = MetricRegistry::new();
 /// register_bond_future_metrics(&mut registry);
 /// ```
-pub fn register_bond_future_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_bond_future_metrics(registry: &mut MetricRegistry) {
     crate::register_metrics! {
         registry: registry,
         instrument: InstrumentType::BondFuture,

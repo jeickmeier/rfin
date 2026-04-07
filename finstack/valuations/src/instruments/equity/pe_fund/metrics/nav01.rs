@@ -24,7 +24,7 @@ use finstack_core::Result;
 const NAV_BUMP_PCT: f64 = 0.01;
 
 /// NAV01 calculator for PrivateMarketsFund.
-pub struct Nav01Calculator;
+pub(crate) struct Nav01Calculator;
 
 impl MetricCalculator for Nav01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

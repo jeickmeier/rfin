@@ -151,7 +151,7 @@ impl TrsReturnModel for EquityReturnModel<'_> {
 /// - The dividend yield ID is set but lookup fails (prevents silent configuration errors)
 /// - The initial level is non-positive or non-finite
 /// - The discount curve is not found
-pub fn pv_total_return_leg(
+pub(crate) fn pv_total_return_leg(
     trs: &EquityTotalReturnSwap,
     context: &MarketContext,
     as_of: Date,

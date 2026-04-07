@@ -27,7 +27,7 @@ use crate::metrics::{bump_discount_curve_parallel, MetricCalculator, MetricConte
 use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
-pub struct OasCalculator;
+pub(crate) struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

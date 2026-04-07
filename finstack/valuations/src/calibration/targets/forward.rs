@@ -20,25 +20,25 @@ use std::cell::RefCell;
 
 /// Parameters for constructing a `ForwardCurveTarget`.
 #[derive(Clone)]
-pub struct ForwardCurveTargetParams {
+pub(crate) struct ForwardCurveTargetParams {
     /// Base date for the curve (valuation date).
-    pub base_date: Date,
+    pub(crate) base_date: Date,
     /// Currency of the forward curve (e.g. USD).
-    pub currency: Currency,
+    pub(crate) currency: Currency,
     /// Unique identifier for the forward curve being calibrated.
-    pub fwd_curve_id: CurveId,
+    pub(crate) fwd_curve_id: CurveId,
     /// Identifier for the discount curve used for PV calculation.
-    pub discount_curve_id: CurveId,
+    pub(crate) discount_curve_id: CurveId,
     /// Tenor associated with the forward rates (e.g. 3M, 6M).
-    pub tenor_years: f64,
+    pub(crate) tenor_years: f64,
     /// Numerical interpolation style used during the solving process.
-    pub solve_interp: InterpStyle,
+    pub(crate) solve_interp: InterpStyle,
     /// Global calibration settings (tolerances, rate bounds).
-    pub config: CalibrationConfig,
+    pub(crate) config: CalibrationConfig,
     /// Convention for converting dates to time axis (year fractions).
-    pub time_day_count: DayCount,
+    pub(crate) time_day_count: DayCount,
     /// Context providing supporting market data (e.g. discount curves).
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
 }
 
 /// Target for forward curve calibration (Bootstrap).
@@ -46,32 +46,32 @@ pub struct ForwardCurveTargetParams {
 /// This adapter bridges the [`SequentialBootstrapper`] with the forward rate
 /// curve pricing logic. It handles knot anchor insertion at t=0 and provides
 /// rate-bound aware scanning for numerical stability.
-pub struct ForwardCurveTarget {
+pub(crate) struct ForwardCurveTarget {
     /// Base date for the curve.
-    pub base_date: Date,
+    pub(crate) base_date: Date,
     /// Currency of the curve.
-    pub currency: Currency,
+    pub(crate) currency: Currency,
     /// Identifier for the forward curve being built.
-    pub fwd_curve_id: CurveId,
+    pub(crate) fwd_curve_id: CurveId,
     /// Identifier for the discount curve to use.
-    pub discount_curve_id: CurveId,
+    pub(crate) discount_curve_id: CurveId,
     /// Tenor in years for the forward curve.
-    pub tenor_years: f64,
+    pub(crate) tenor_years: f64,
     /// Interpolation style for solving.
-    pub solve_interp: InterpStyle,
+    pub(crate) solve_interp: InterpStyle,
     /// Calibration configuration.
-    pub config: CalibrationConfig,
+    pub(crate) config: CalibrationConfig,
     /// Day count convention for time calculations.
-    pub time_day_count: DayCount,
+    pub(crate) time_day_count: DayCount,
     /// Baseline market context.
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
 }
 
 impl ForwardCurveTarget {
     /// Create a new `ForwardCurveTarget` from parameters.
-    pub fn new(params: ForwardCurveTargetParams) -> Self {
+    pub(crate) fn new(params: ForwardCurveTargetParams) -> Self {
         let reuse_context = if params.config.use_parallel {
             None
         } else {
@@ -107,7 +107,7 @@ impl ForwardCurveTarget {
     }
 
     /// Execute the full calibration for a forward curve step.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &ForwardCurveParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

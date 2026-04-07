@@ -14,7 +14,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Color calculator for equity options.
-pub struct ColorCalculator;
+pub(crate) struct ColorCalculator;
 
 impl MetricCalculator for ColorCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

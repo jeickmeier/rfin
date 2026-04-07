@@ -1,12 +1,12 @@
 //! Risk and sensitivity metrics for structured credit.
 
-pub mod default01;
-pub mod duration;
-pub mod prepayment01;
-pub mod recovery01;
-pub mod severity01;
-pub mod spreads;
-pub mod ytm;
+pub(crate) mod default01;
+pub(crate) mod duration;
+pub(crate) mod prepayment01;
+pub(crate) mod recovery01;
+pub(crate) mod severity01;
+pub(crate) mod spreads;
+pub(crate) mod ytm;
 
 pub use duration::{
     calculate_tranche_duration, MacaulayDurationCalculator, ModifiedDurationCalculator,

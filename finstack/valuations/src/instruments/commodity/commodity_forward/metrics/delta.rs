@@ -21,7 +21,7 @@ use finstack_core::Result;
 /// accounting for position direction (long = positive delta, short = negative delta).
 ///
 /// Uses `df_between_dates(as_of, settlement)` for base-date-safe discounting.
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

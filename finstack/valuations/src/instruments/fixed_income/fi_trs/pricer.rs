@@ -153,7 +153,7 @@ impl TrsReturnModel for FiIndexReturnModel<'_> {
 /// - The TRS has already matured (`end <= as_of`)
 /// - The yield_id is configured but missing from the market context
 /// - The discount curve is not found
-pub fn pv_total_return_leg(
+pub(crate) fn pv_total_return_leg(
     trs: &FIIndexTotalReturnSwap,
     context: &MarketContext,
     as_of: Date,

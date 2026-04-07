@@ -22,7 +22,7 @@ use finstack_core::Result;
 const SEVERITY_BUMP: f64 = 0.01;
 
 /// Severity01 calculator for StructuredCredit.
-pub struct Severity01Calculator;
+pub(crate) struct Severity01Calculator;
 
 impl MetricCalculator for Severity01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

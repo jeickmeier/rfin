@@ -8,7 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Upfront calculator for CDS Tranche
-pub struct UpfrontCalculator;
+pub(crate) struct UpfrontCalculator;
 
 impl MetricCalculator for UpfrontCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

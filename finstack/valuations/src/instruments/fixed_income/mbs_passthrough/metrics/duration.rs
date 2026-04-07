@@ -15,7 +15,7 @@ use finstack_core::Result;
 /// Duration and convexity result.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // public API result struct
-pub struct DurationResult {
+pub(crate) struct DurationResult {
     /// Effective duration (years)
     pub duration: f64,
     /// Effective convexity (years^2)
@@ -51,7 +51,7 @@ pub struct DurationResult {
 /// # Returns
 ///
 /// Effective duration in years
-pub fn effective_duration(
+pub(crate) fn effective_duration(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
     as_of: Date,
@@ -83,7 +83,7 @@ pub fn effective_duration(
 /// # Returns
 ///
 /// Effective convexity in years²
-pub fn effective_convexity(
+pub(crate) fn effective_convexity(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
     as_of: Date,
@@ -97,7 +97,7 @@ pub fn effective_convexity(
 ///
 /// This is more efficient than calculating them separately as it
 /// only requires three price calculations.
-pub fn duration_convexity(
+pub(crate) fn duration_convexity(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
     as_of: Date,

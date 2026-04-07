@@ -14,13 +14,13 @@ use std::cmp::Ordering;
 ///
 /// Prices structured credit instruments using scenario tree or Monte Carlo
 /// simulation, computing NPV and risk metrics.
-pub struct StochasticPricer {
+pub(crate) struct StochasticPricer {
     config: StochasticPricerConfig,
 }
 
 impl StochasticPricer {
     /// Create a new stochastic pricer.
-    pub fn new(config: StochasticPricerConfig) -> Self {
+    pub(crate) fn new(config: StochasticPricerConfig) -> Self {
         Self { config }
     }
 
@@ -34,7 +34,7 @@ impl StochasticPricer {
     ///
     /// # Errors
     /// Returns error if pricing fails.
-    pub fn price(
+    pub(crate) fn price(
         &self,
         notional: f64,
         currency: Currency,
@@ -295,7 +295,7 @@ impl StochasticPricer {
     }
 
     /// Price individual tranches.
-    pub fn price_tranches(
+    pub(crate) fn price_tranches(
         &self,
         tranches: &[(String, String, f64, f64)], // (id, seniority, attachment, detachment)
         notional: f64,
@@ -336,7 +336,7 @@ impl StochasticPricer {
 
     /// Get the pricing configuration.
     #[allow(dead_code)] // public API accessor
-    pub fn config(&self) -> &StochasticPricerConfig {
+    pub(crate) fn config(&self) -> &StochasticPricerConfig {
         &self.config
     }
 }

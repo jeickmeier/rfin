@@ -8,22 +8,22 @@
 //! - **Effective Convexity**: Convexity accounting for prepayment sensitivity
 //! - **Key-Rate DV01**: Bucketed interest rate sensitivities
 
-pub mod duration;
-pub mod key_rate;
+pub(crate) mod duration;
+pub(crate) mod key_rate;
 #[allow(dead_code)] // Public API items used by external bindings
-pub mod mc_oas;
-pub mod oas;
+pub(crate) mod mc_oas;
+pub(crate) mod oas;
 
-pub use duration::{effective_convexity, effective_duration};
+pub(crate) use duration::{effective_convexity, effective_duration};
 #[allow(unused_imports)] // Public API re-exports for external consumers
-pub use mc_oas::{calculate_mc_oas, McOasConfig, McOasResult};
-pub use oas::calculate_oas;
+pub(crate) use mc_oas::{calculate_mc_oas, McOasConfig, McOasResult};
+pub(crate) use oas::calculate_oas;
 
 use crate::instruments::fixed_income::mbs_passthrough::AgencyMbsPassthrough;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 
 /// Calculator for effective duration (mapped to DurationMod).
-pub struct EffectiveDurationCalculator;
+pub(crate) struct EffectiveDurationCalculator;
 
 impl MetricCalculator for EffectiveDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -33,7 +33,7 @@ impl MetricCalculator for EffectiveDurationCalculator {
 }
 
 /// Calculator for effective convexity (mapped to Convexity).
-pub struct EffectiveConvexityCalculator;
+pub(crate) struct EffectiveConvexityCalculator;
 
 impl MetricCalculator for EffectiveConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -43,7 +43,7 @@ impl MetricCalculator for EffectiveConvexityCalculator {
 }
 
 /// Calculator for option-adjusted spread (OAS).
-pub struct OasCalculator;
+pub(crate) struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -63,7 +63,7 @@ impl MetricCalculator for OasCalculator {
 }
 
 /// Register agency MBS passthrough metrics with the registry.
-pub fn register_mbs_passthrough_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_mbs_passthrough_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

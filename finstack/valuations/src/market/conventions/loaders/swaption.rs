@@ -37,7 +37,7 @@ impl SwaptionConventionRecord {
 }
 
 /// Load the Swaption conventions from the embedded JSON registry.
-pub fn load_registry() -> Result<HashMap<SwaptionConventionId, SwaptionConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<SwaptionConventionId, SwaptionConventions>, Error> {
     let json = include_str!("../../../../data/conventions/swaption_conventions.json");
     super::json::parse_and_rekey(
         json,

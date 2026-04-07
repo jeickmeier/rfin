@@ -14,28 +14,28 @@ use std::collections::{HashMap, VecDeque};
 /// the default event. This queue holds pending recoveries until they can be
 /// released based on the configured recovery lag.
 #[derive(Debug, Default)]
-pub struct RecoveryQueue {
+pub(crate) struct RecoveryQueue {
     /// Queue of pending recoveries: (origination_date, recovery_amount)
     pending: VecDeque<(Date, Money)>,
 }
 
 impl RecoveryQueue {
     /// Create a new empty recovery queue.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             pending: VecDeque::new(),
         }
     }
 
     /// Add a new recovery to the queue.
-    pub fn add_recovery(&mut self, origination_date: Date, amount: Money) {
+    pub(crate) fn add_recovery(&mut self, origination_date: Date, amount: Money) {
         if amount.amount() > 0.0 {
             self.pending.push_back((origination_date, amount));
         }
     }
 
     /// Total pending (unreleased) recovery amount.
-    pub fn pending_amount(&self, base_currency: Currency) -> Money {
+    pub(crate) fn pending_amount(&self, base_currency: Currency) -> Money {
         self.pending
             .iter()
             .fold(Money::new(0.0, base_currency), |acc, (_, amt)| {
@@ -46,7 +46,7 @@ impl RecoveryQueue {
     /// Release all recoveries that have matured based on the lag period.
     ///
     /// Returns the total amount of recoveries released this period.
-    pub fn release_matured(
+    pub(crate) fn release_matured(
         &mut self,
         current_date: Date,
         recovery_lag_months: u32,
@@ -71,15 +71,15 @@ impl RecoveryQueue {
 
 /// Cashflows generated in a single payment period.
 #[allow(dead_code)] // WIP: used by stochastic simulation path
-pub struct PeriodFlows {
+pub(crate) struct PeriodFlows {
     /// Interest collected from pool assets.
-    pub interest_collections: Money,
+    pub(crate) interest_collections: Money,
     /// Principal from prepayments.
-    pub prepayments: Money,
+    pub(crate) prepayments: Money,
     /// Principal lost to defaults (gross).
-    pub defaults: Money,
+    pub(crate) defaults: Money,
     /// Recoveries received this period.
-    pub recoveries: Money,
+    pub(crate) recoveries: Money,
 }
 
 impl PeriodFlows {
@@ -89,7 +89,7 @@ impl PeriodFlows {
 
 /// Update tranche balance after payment.
 #[allow(dead_code)] // WIP: used by stochastic simulation path
-pub fn update_tranche_balance(
+pub(crate) fn update_tranche_balance(
     tranche_balances: &mut HashMap<String, Money>,
     tranche_id: &str,
     payment: Money,

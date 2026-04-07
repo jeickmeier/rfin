@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Vega calculator for credit options on CDS spreads.
-pub struct VegaCalculator;
+pub(crate) struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

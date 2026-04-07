@@ -4,7 +4,7 @@
 //! logic is now in the instrument struct itself. This module provides
 //! Black model helpers and registry integration.
 
-pub mod black;
-pub mod normal;
+pub(crate) mod black;
+pub(crate) mod normal;
 /// Cap/floor pricer implementation
 pub(crate) mod pricer;

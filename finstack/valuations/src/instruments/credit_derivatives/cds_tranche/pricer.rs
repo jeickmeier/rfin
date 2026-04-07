@@ -2534,20 +2534,20 @@ impl JumpToDefaultResult {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Tranche using Gaussian Copula model
-pub struct SimpleCDSTrancheHazardPricer {
+pub(crate) struct SimpleCDSTrancheHazardPricer {
     model_key: crate::pricer::ModelKey,
 }
 
 impl SimpleCDSTrancheHazardPricer {
     /// Create new CDS tranche pricer with default hazard rate model
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             model_key: crate::pricer::ModelKey::HazardRate,
         }
     }
 
     /// Create CDS tranche pricer with specified model key
-    pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
+    pub(crate) fn with_model(model_key: crate::pricer::ModelKey) -> Self {
         Self { model_key }
     }
 }

@@ -167,7 +167,7 @@ use super::{adjust, next_cds_date, BusinessDayConvention, HolidayCalendar};
 ///
 /// - [`ScheduleBuilder::frequency`] to use with schedule builder
 /// - [`crate::dates::DayCountCtx`] for conventions that also require frequency metadata
-pub use crate::dates::Tenor;
+use crate::dates::Tenor;
 
 /// Stub period handling when start/end dates don't align with payment frequency.
 ///

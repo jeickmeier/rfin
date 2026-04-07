@@ -32,7 +32,7 @@ pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
 
 /// Register FX barrier option metrics when MC feature is not available.
 #[cfg(not(feature = "mc"))]
-pub fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_fx_barrier_option_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

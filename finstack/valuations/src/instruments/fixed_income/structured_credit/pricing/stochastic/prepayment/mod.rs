@@ -22,7 +22,7 @@ mod richard_roll;
 mod spec;
 mod traits;
 
-pub use factor_correlated::FactorCorrelatedPrepay;
-pub use richard_roll::RichardRollPrepay;
+pub(crate) use factor_correlated::FactorCorrelatedPrepay;
+pub(crate) use richard_roll::RichardRollPrepay;
 pub use spec::StochasticPrepaySpec;
-pub use traits::StochasticPrepayment;
+pub(crate) use traits::StochasticPrepayment;

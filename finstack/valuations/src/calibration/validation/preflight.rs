@@ -41,7 +41,7 @@ use finstack_core::Result;
 /// preflight_step(&step, &quotes, &context, &config)?;
 /// // Safe to proceed with execution
 /// ```
-pub fn preflight_step(
+pub(crate) fn preflight_step(
     step: &CalibrationStep,
     quotes: &[MarketQuote],
     context: &MarketContext,

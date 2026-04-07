@@ -4,7 +4,7 @@ use crate::instruments::fixed_income::inflation_linked_bond::InflationLinkedBond
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Real duration calculator for ILB
-pub struct RealDurationCalculator;
+pub(crate) struct RealDurationCalculator;
 
 impl MetricCalculator for RealDurationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

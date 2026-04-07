@@ -2,7 +2,7 @@
 
 pub const INDEXED_SPOT_INLINE: usize = 128;
 
-pub const INDEXED_SPOT_TABLE: [&str; INDEXED_SPOT_INLINE] = [
+pub(crate) const INDEXED_SPOT_TABLE: [&str; INDEXED_SPOT_INLINE] = [
     "spot_0", "spot_1", "spot_2", "spot_3", "spot_4", "spot_5", "spot_6", "spot_7", "spot_8",
     "spot_9", "spot_10", "spot_11", "spot_12", "spot_13", "spot_14", "spot_15", "spot_16",
     "spot_17", "spot_18", "spot_19", "spot_20", "spot_21", "spot_22", "spot_23", "spot_24",

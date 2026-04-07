@@ -20,7 +20,7 @@ use rust_decimal::prelude::ToPrimitive;
 ///
 /// Returns the weighted average as a rate (decimal).
 #[derive(Debug, Default, Clone, Copy)]
-pub struct ApproxWeightedAverageCostCalculator;
+pub(crate) struct ApproxWeightedAverageCostCalculator;
 
 impl MetricCalculator for ApproxWeightedAverageCostCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

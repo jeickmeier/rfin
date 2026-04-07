@@ -12,7 +12,7 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 /// Uses the MBS cashflow engine for carry inputs.
 ///
 /// Uses 0.5% SMM (5 CPR) as default prepayment assumption.
-pub struct ImpliedFinancingRateCalculator;
+pub(crate) struct ImpliedFinancingRateCalculator;
 
 impl MetricCalculator for ImpliedFinancingRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -28,7 +28,7 @@ impl MetricCalculator for ImpliedFinancingRateCalculator {
 /// Positive means rolling is cheaper than repo financing.
 ///
 /// Uses 0.5% SMM and 5% repo rate as defaults.
-pub struct RollSpecialnessCalculator;
+pub(crate) struct RollSpecialnessCalculator;
 
 impl MetricCalculator for RollSpecialnessCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -38,7 +38,7 @@ impl MetricCalculator for RollSpecialnessCalculator {
 }
 
 /// Register dollar roll metrics with the registry.
-pub fn register_dollar_roll_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_dollar_roll_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

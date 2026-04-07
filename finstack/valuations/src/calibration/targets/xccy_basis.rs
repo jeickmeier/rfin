@@ -22,37 +22,37 @@ use std::sync::Arc;
 
 /// Parameters for constructing an [`XccyBasisTarget`].
 #[derive(Clone)]
-pub struct XccyBasisTargetParams {
+pub(crate) struct XccyBasisTargetParams {
     /// Base date for the calibration.
-    pub base_date: Date,
+    pub(crate) base_date: Date,
     /// ID for the foreign discount curve being built.
-    pub curve_id: CurveId,
+    pub(crate) curve_id: CurveId,
     /// Pre-calibrated domestic discount curve.
-    pub domestic_discount: Arc<DiscountCurve>,
+    pub(crate) domestic_discount: Arc<DiscountCurve>,
     /// Interpolation style for the foreign curve.
-    pub solve_interp: InterpStyle,
+    pub(crate) solve_interp: InterpStyle,
     /// Extrapolation policy for the foreign curve.
-    pub extrapolation: ExtrapolationPolicy,
+    pub(crate) extrapolation: ExtrapolationPolicy,
     /// Base market context for pricing XCCY instruments.
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
 }
 
 /// Bootstrap target for cross-currency basis curve calibration.
 ///
 /// Solves for the foreign discount curve knots that reprice FX forwards
 /// or XCCY basis swaps given a known domestic discount curve and FX spot.
-pub struct XccyBasisTarget {
+pub(crate) struct XccyBasisTarget {
     params: XccyBasisTargetParams,
 }
 
 impl XccyBasisTarget {
     /// Create a new cross-currency basis target.
-    pub fn new(params: XccyBasisTargetParams) -> Self {
+    pub(crate) fn new(params: XccyBasisTargetParams) -> Self {
         Self { params }
     }
 
     /// Execute the full calibration for a cross-currency basis step.
-    pub fn solve(
+    pub(crate) fn solve(
         schema_params: &XccyBasisParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

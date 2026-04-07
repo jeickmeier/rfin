@@ -28,7 +28,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// // OAS is computed automatically when requesting bond metrics for callable/putable bonds
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct OasCalculator;
+pub(crate) struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

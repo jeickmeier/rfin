@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Spread DV01 calculator for CDS Tranche
-pub struct SpreadDv01Calculator;
+pub(crate) struct SpreadDv01Calculator;
 
 impl MetricCalculator for SpreadDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

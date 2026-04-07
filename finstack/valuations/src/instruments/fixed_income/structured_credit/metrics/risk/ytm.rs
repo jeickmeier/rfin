@@ -8,7 +8,7 @@ use finstack_core::Result;
 use serde::Deserialize;
 
 /// Extension key for structured-credit YTM settings.
-pub const STRUCTURED_CREDIT_YTM_CONFIG_KEY_V1: &str = "valuations.structured_credit.ytm.v1";
+pub(crate) const STRUCTURED_CREDIT_YTM_CONFIG_KEY_V1: &str = "valuations.structured_credit.ytm.v1";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "snake_case")]

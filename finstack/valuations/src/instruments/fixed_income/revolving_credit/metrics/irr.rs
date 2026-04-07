@@ -74,7 +74,7 @@ use finstack_core::dates::{Date, DayCount};
 /// let irr = calculate_path_irr(&cashflows, base, DayCount::Act365F);
 /// ```
 #[allow(dead_code)] // public API for external bindings
-pub fn calculate_path_irr(
+pub(crate) fn calculate_path_irr(
     cashflows: &[(f64, f64)],
     base_date: Date,
     day_count: DayCount,

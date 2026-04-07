@@ -16,7 +16,7 @@ use finstack_core::Result;
 const INFLATION_BUMP_BP: f64 = 0.0001;
 
 /// Calculates inflation convexity for inflation-linked bonds.
-pub struct InflationConvexityCalculator;
+pub(crate) struct InflationConvexityCalculator;
 
 impl MetricCalculator for InflationConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

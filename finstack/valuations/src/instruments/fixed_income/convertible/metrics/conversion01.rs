@@ -23,7 +23,7 @@ use finstack_core::Result;
 const CONVERSION_BUMP_PCT: f64 = 0.01;
 
 /// Conversion01 calculator for ConvertibleBond.
-pub struct Conversion01Calculator;
+pub(crate) struct Conversion01Calculator;
 
 impl MetricCalculator for Conversion01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

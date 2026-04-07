@@ -298,7 +298,7 @@ fn sifma_base_date(month: Month, year: i32, class: SifmaSettlementClass) -> Date
 /// beyond simple business-day adjustment. For 2026-2027, the published dates
 /// are used via [`sifma_settlement_date_for_class`].
 #[must_use]
-pub fn sifma_settlement_date_with_calendar(
+pub(crate) fn sifma_settlement_date_with_calendar(
     month: Month,
     year: i32,
     class: SifmaSettlementClass,

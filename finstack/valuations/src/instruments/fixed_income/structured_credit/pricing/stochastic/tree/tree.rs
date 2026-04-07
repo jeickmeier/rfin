@@ -34,7 +34,7 @@ use finstack_core::HashMap;
 /// # let _ = expected_balance;
 /// ```
 #[derive(Debug, Clone)]
-pub struct ScenarioTree {
+pub(crate) struct ScenarioTree {
     /// All nodes in the tree (index 0 = root)
     nodes: Vec<ScenarioNode>,
 
@@ -50,7 +50,7 @@ impl ScenarioTree {
     ///
     /// # Errors
     /// Currently infallible but may fail if configuration is invalid.
-    pub fn build(config: &ScenarioTreeConfig) -> Result<Self, String> {
+    pub(crate) fn build(config: &ScenarioTreeConfig) -> Result<Self, String> {
         let mut tree = Self {
             nodes: Vec::with_capacity(config.estimate_total_nodes()),
             config: config.clone(),
@@ -323,37 +323,37 @@ impl ScenarioTree {
     // === Public accessors ===
 
     /// Get the root node.
-    pub fn root(&self) -> &ScenarioNode {
+    pub(crate) fn root(&self) -> &ScenarioNode {
         &self.nodes[0]
     }
 
     /// Get a node by ID.
-    pub fn node(&self, id: ScenarioNodeId) -> Option<&ScenarioNode> {
+    pub(crate) fn node(&self, id: ScenarioNodeId) -> Option<&ScenarioNode> {
         self.nodes.get(id.0)
     }
 
     /// Get all nodes.
-    pub fn nodes(&self) -> &[ScenarioNode] {
+    pub(crate) fn nodes(&self) -> &[ScenarioNode] {
         &self.nodes
     }
 
     /// Get the number of nodes.
-    pub fn num_nodes(&self) -> usize {
+    pub(crate) fn num_nodes(&self) -> usize {
         self.nodes.len()
     }
 
     /// Get terminal nodes.
-    pub fn terminal_nodes(&self) -> impl Iterator<Item = &ScenarioNode> {
+    pub(crate) fn terminal_nodes(&self) -> impl Iterator<Item = &ScenarioNode> {
         self.terminal_indices.iter().map(move |&i| &self.nodes[i])
     }
 
     /// Get the number of terminal nodes.
-    pub fn num_terminal_nodes(&self) -> usize {
+    pub(crate) fn num_terminal_nodes(&self) -> usize {
         self.terminal_indices.len()
     }
 
     /// Get all paths from root to terminal nodes.
-    pub fn paths(&self) -> Vec<ScenarioPath> {
+    pub(crate) fn paths(&self) -> Vec<ScenarioPath> {
         let mut paths = Vec::with_capacity(self.terminal_indices.len());
 
         for &terminal_idx in &self.terminal_indices {
@@ -393,7 +393,7 @@ impl ScenarioTree {
     // === Statistical methods ===
 
     /// Compute expected value of a function over terminal nodes.
-    pub fn expected_value<F>(&self, f: F) -> f64
+    pub(crate) fn expected_value<F>(&self, f: F) -> f64
     where
         F: Fn(&ScenarioNode) -> f64,
     {
@@ -414,7 +414,7 @@ impl ScenarioTree {
     }
 
     /// Compute variance of a function over terminal nodes.
-    pub fn variance<F>(&self, f: F) -> f64
+    pub(crate) fn variance<F>(&self, f: F) -> f64
     where
         F: Fn(&ScenarioNode) -> f64,
     {
@@ -423,7 +423,7 @@ impl ScenarioTree {
     }
 
     /// Compute percentile of a function over terminal nodes.
-    pub fn percentile<F>(&self, f: F, p: f64) -> f64
+    pub(crate) fn percentile<F>(&self, f: F, p: f64) -> f64
     where
         F: Fn(&ScenarioNode) -> f64,
     {
@@ -457,27 +457,27 @@ impl ScenarioTree {
     }
 
     /// Compute expected loss.
-    pub fn expected_loss(&self) -> f64 {
+    pub(crate) fn expected_loss(&self) -> f64 {
         self.expected_value(|n| n.cumulative_losses)
     }
 
     /// Compute expected prepayments.
-    pub fn expected_prepayments(&self) -> f64 {
+    pub(crate) fn expected_prepayments(&self) -> f64 {
         self.expected_value(|n| n.cumulative_prepayments)
     }
 
     /// Compute expected defaults.
-    pub fn expected_defaults(&self) -> f64 {
+    pub(crate) fn expected_defaults(&self) -> f64 {
         self.expected_value(|n| n.cumulative_defaults)
     }
 
     /// Compute unexpected loss (loss standard deviation).
-    pub fn unexpected_loss(&self) -> f64 {
+    pub(crate) fn unexpected_loss(&self) -> f64 {
         self.variance(|n| n.cumulative_losses).sqrt()
     }
 
     /// Compute expected shortfall (CVaR) at a given confidence level.
-    pub fn expected_shortfall(&self, confidence: f64) -> f64 {
+    pub(crate) fn expected_shortfall(&self, confidence: f64) -> f64 {
         let mut values: Vec<(f64, f64)> = self
             .terminal_indices
             .iter()

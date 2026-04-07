@@ -17,7 +17,7 @@ use finstack_core::{Error, Result};
 /// where `PV(financing_float)` is the financing leg PV excluding the spread
 /// component. This is a market-level quote (analogous to a swap rate) computed
 /// from the total-return-receiver's perspective regardless of trade side.
-pub struct ParSpreadCalculator;
+pub(crate) struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
     fn dependencies(&self) -> &[MetricId] {

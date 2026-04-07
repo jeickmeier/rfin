@@ -15,7 +15,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// between the two currencies. It is computed as the difference between:
 /// - Near leg value at model spot (receive base, convert to quote)
 /// - Far leg value at model forward (pay base, convert to quote)
-pub struct CarryPv;
+pub(crate) struct CarryPv;
 
 impl MetricCalculator for CarryPv {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

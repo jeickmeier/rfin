@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Premium leg PV calculator for CDS Index
-pub struct PremiumLegPvCalculator;
+pub(crate) struct PremiumLegPvCalculator;
 
 impl MetricCalculator for PremiumLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

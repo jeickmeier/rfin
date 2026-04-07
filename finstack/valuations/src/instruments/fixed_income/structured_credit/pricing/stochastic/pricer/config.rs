@@ -56,7 +56,7 @@ impl PricingMode {
 
 /// Configuration for stochastic pricer.
 #[derive(Clone)]
-pub struct StochasticPricerConfig {
+pub(crate) struct StochasticPricerConfig {
     /// Valuation date
     pub valuation_date: Date,
 
@@ -84,7 +84,7 @@ pub struct StochasticPricerConfig {
 
 impl StochasticPricerConfig {
     /// Create a new pricer configuration.
-    pub fn new(
+    pub(crate) fn new(
         valuation_date: Date,
         discount_curve: Arc<DiscountCurve>,
         tree_config: ScenarioTreeConfig,
@@ -102,7 +102,7 @@ impl StochasticPricerConfig {
     }
 
     /// Create RMBS-standard configuration.
-    pub fn rmbs_standard(
+    pub(crate) fn rmbs_standard(
         valuation_date: Date,
         discount_curve: Arc<DiscountCurve>,
         pool_coupon: f64,
@@ -122,7 +122,7 @@ impl StochasticPricerConfig {
     }
 
     /// Create CLO-standard configuration.
-    pub fn clo_standard(
+    pub(crate) fn clo_standard(
         valuation_date: Date,
         discount_curve: Arc<DiscountCurve>,
         horizon_years: f64,
@@ -141,43 +141,43 @@ impl StochasticPricerConfig {
     }
 
     /// Set pricing mode.
-    pub fn with_pricing_mode(mut self, mode: PricingMode) -> Self {
+    pub(crate) fn with_pricing_mode(mut self, mode: PricingMode) -> Self {
         self.pricing_mode = mode;
         self
     }
 
     /// Set whether to compute risk metrics.
-    pub fn with_risk_metrics(mut self, compute: bool) -> Self {
+    pub(crate) fn with_risk_metrics(mut self, compute: bool) -> Self {
         self.compute_risk_metrics = compute;
         self
     }
 
     /// Set ES confidence level.
-    pub fn with_es_confidence(mut self, confidence: f64) -> Self {
+    pub(crate) fn with_es_confidence(mut self, confidence: f64) -> Self {
         self.es_confidence = confidence.clamp(0.80, 0.9999);
         self
     }
 
     /// Set whether to generate cashflows.
-    pub fn with_cashflows(mut self, generate: bool) -> Self {
+    pub(crate) fn with_cashflows(mut self, generate: bool) -> Self {
         self.generate_cashflows = generate;
         self
     }
 
     /// Set random seed.
-    pub fn with_seed(mut self, seed: u64) -> Self {
+    pub(crate) fn with_seed(mut self, seed: u64) -> Self {
         self.seed = seed;
         self.tree_config = self.tree_config.with_seed(seed);
         self
     }
 
     /// Check if using tree pricing mode.
-    pub fn is_tree_mode(&self) -> bool {
+    pub(crate) fn is_tree_mode(&self) -> bool {
         matches!(self.pricing_mode, PricingMode::Tree)
     }
 
     /// Check if using Monte Carlo pricing mode.
-    pub fn is_monte_carlo_mode(&self) -> bool {
+    pub(crate) fn is_monte_carlo_mode(&self) -> bool {
         matches!(self.pricing_mode, PricingMode::MonteCarlo { .. })
     }
 }

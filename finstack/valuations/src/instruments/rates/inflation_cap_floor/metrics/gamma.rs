@@ -31,7 +31,7 @@ const GAMMA_BUMP_DECIMAL: f64 = 0.0001;
 ///
 /// Computes the second derivative of PV with respect to the forward inflation rate.
 /// Uses central finite differences for accurate second derivative estimation.
-pub struct GammaCalculator;
+pub(crate) struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

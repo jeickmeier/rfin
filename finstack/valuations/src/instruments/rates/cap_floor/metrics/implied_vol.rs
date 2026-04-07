@@ -28,7 +28,7 @@ use finstack_core::Result;
 /// Only `Caplet` and `Floorlet` (single-period) instruments are supported.
 /// Calling this metric on a multi-period `Cap` or `Floor` will return an error.
 /// For multi-period instruments, use cap stripping to extract per-caplet vols.
-pub struct ImpliedVolCalculator;
+pub(crate) struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

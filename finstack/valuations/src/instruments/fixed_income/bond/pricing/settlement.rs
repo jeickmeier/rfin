@@ -23,7 +23,7 @@ use super::super::CashflowSpec;
 /// If the bond has `settlement_days` set, computes the date by adding that
 /// many business days (using the bond's calendar if available). Otherwise,
 /// returns `as_of` unchanged.
-pub fn settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
+pub(crate) fn settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
     let Some(sd_u32) = bond.settlement_days() else {
         return Ok(as_of);
     };
@@ -68,13 +68,13 @@ pub fn settlement_date(bond: &Bond, as_of: Date) -> Result<Date> {
 /// Use this struct when computing YTM, Z-spread, DM, OAS, and other quote-derived
 /// metrics to ensure consistent handling of settlement conventions.
 #[derive(Debug, Clone, Copy)]
-pub struct QuoteDateContext {
+pub(crate) struct QuoteDateContext {
     /// The date at which the market quote is interpreted.
     /// Equals `settlement_date(bond, as_of)` when `settlement_days` is set,
     /// otherwise equals `as_of`.
-    pub quote_date: Date,
+    pub(crate) quote_date: Date,
     /// Accrued interest (in currency) computed at `quote_date`.
-    pub accrued_at_quote_date: f64,
+    pub(crate) accrued_at_quote_date: f64,
 }
 
 impl QuoteDateContext {
@@ -89,7 +89,7 @@ impl QuoteDateContext {
     /// # Returns
     ///
     /// A `QuoteDateContext` with the quote date and accrued interest.
-    pub fn new(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<Self> {
+    pub(crate) fn new(bond: &Bond, curves: &MarketContext, as_of: Date) -> Result<Self> {
         let quote_date = settlement_date(bond, as_of)?;
 
         // Compute accrued interest at the quote date
@@ -117,7 +117,7 @@ impl QuoteDateContext {
     ///
     /// Dirty price in currency = (clean_pct × notional / 100) + accrued
     #[inline]
-    pub fn dirty_from_clean_pct(&self, clean_price_pct: f64, notional: f64) -> f64 {
+    pub(crate) fn dirty_from_clean_pct(&self, clean_price_pct: f64, notional: f64) -> f64 {
         clean_price_pct * notional / 100.0 + self.accrued_at_quote_date
     }
 }

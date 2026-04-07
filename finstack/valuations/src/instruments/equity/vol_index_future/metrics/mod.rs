@@ -13,7 +13,7 @@ mod delta_vol;
 use crate::metrics::{MetricId, MetricRegistry};
 
 /// Register all VolatilityIndexFuture metrics with the registry.
-pub fn register_vol_index_future_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_vol_index_future_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
 

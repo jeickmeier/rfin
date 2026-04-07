@@ -14,7 +14,7 @@ use finstack_core::Result;
 /// OAS calculation result.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // public API result struct
-pub struct OasResult {
+pub(crate) struct OasResult {
     /// Option-adjusted spread in decimal (e.g., 0.01 for 100 bps)
     pub oas: f64,
     /// Model price at the calculated OAS
@@ -63,7 +63,7 @@ pub struct OasResult {
 /// let result = calculate_oas(&mbs, 98.5, &market, as_of).expect("OAS calculation");
 /// println!("OAS: {:.0} bps", result.oas * 10_000.0);
 /// ```
-pub fn calculate_oas(
+pub(crate) fn calculate_oas(
     mbs: &AgencyMbsPassthrough,
     market_price_pct: f64,
     market: &MarketContext,
@@ -135,7 +135,7 @@ pub fn calculate_oas(
 /// Unlike OAS, static spread does not account for the prepayment option.
 /// It's faster to compute but less accurate for MBS.
 #[allow(dead_code)] // public API for external bindings
-pub fn calculate_static_spread(
+pub(crate) fn calculate_static_spread(
     mbs: &AgencyMbsPassthrough,
     market_price_pct: f64,
     market: &MarketContext,

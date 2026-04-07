@@ -54,7 +54,7 @@ fn sensitivity_central_diff(pv_up: f64, pv_down: f64, bump_bp: f64) -> f64 {
 /// Returns an error if hazard curve re-calibration fails. This ensures that CS01
 /// is computed under a consistent definition (par spread bump + rebootstrap) rather
 /// than silently falling back to a different methodology.
-pub fn compute_parallel_cs01_with_context_raw<RevalFn>(
+pub(crate) fn compute_parallel_cs01_with_context_raw<RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
     discount_id: Option<&CurveId>,
@@ -153,7 +153,7 @@ where
 ///
 /// Returns an error if hazard curve re-calibration fails. This ensures that CS01
 /// is computed under a consistent definition rather than silently falling back.
-pub fn compute_key_rate_cs01_series_with_context_raw<I, RevalFn>(
+pub(crate) fn compute_key_rate_cs01_series_with_context_raw<I, RevalFn>(
     context: &mut MetricContext,
     hazard_id: &CurveId,
     discount_id: Option<&CurveId>,
@@ -271,14 +271,14 @@ fn resolve_cs01_curves<I: Instrument + CurveDependencies>(
 
 /// Generic BucketedCs01 calculator that works for any instrument implementing
 /// the required traits.
-pub struct GenericBucketedCs01<I> {
+pub(crate) struct GenericBucketedCs01<I> {
     _phantom: PhantomData<I>,
 }
 
 /// Generic parallel CS01 calculator that returns a scalar (not bucketed).
 ///
 /// Computes CS01 by applying a parallel bump to the entire hazard curve.
-pub struct GenericParallelCs01<I> {
+pub(crate) struct GenericParallelCs01<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -410,7 +410,7 @@ where
 ///
 /// Unlike `GenericParallelCs01` which bumps par spreads and re-bootstraps,
 /// this directly shifts hazard rates. Registered as `MetricId::Cs01Hazard`.
-pub struct GenericParallelCs01Hazard<I> {
+pub(crate) struct GenericParallelCs01Hazard<I> {
     _phantom: PhantomData<I>,
 }
 
@@ -464,7 +464,7 @@ where
 /// Unlike `GenericBucketedCs01` which bumps par spreads and re-bootstraps,
 /// this directly shifts hazard rates at each tenor. Registered as
 /// `MetricId::BucketedCs01Hazard`.
-pub struct GenericBucketedCs01Hazard<I> {
+pub(crate) struct GenericBucketedCs01Hazard<I> {
     _phantom: PhantomData<I>,
 }
 

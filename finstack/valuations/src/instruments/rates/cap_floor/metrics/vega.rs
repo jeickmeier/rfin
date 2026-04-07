@@ -12,7 +12,7 @@ use finstack_core::Result;
 /// - `Normal`: Bachelier vega = n(d)·√T / 100
 ///
 /// For Normal vol, the 1% bump is in absolute rate terms (e.g., 1bp normal vol).
-pub struct VegaCalculator;
+pub(crate) struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

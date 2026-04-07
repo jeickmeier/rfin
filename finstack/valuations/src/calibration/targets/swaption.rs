@@ -24,7 +24,7 @@ use crate::market::conventions::ids::SwaptionConventionId;
 /// Calibrates volatility surfaces from swaption quotes using the SABR model.
 /// Groups quotes by expiry and tenor, calibrates SABR parameters per group,
 /// and builds a volatility surface grid.
-pub struct SwaptionVolTarget;
+pub(crate) struct SwaptionVolTarget;
 
 impl SwaptionVolTarget {
     /// Convert a quoted swaption vol to internal model units (decimal).
@@ -76,7 +76,7 @@ impl SwaptionVolTarget {
     ///
     /// Returns an error if insufficient quotes are provided or calibration fails.
     /// Returns an error if insufficient quotes are provided or calibration fails.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &SwaptionVolParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

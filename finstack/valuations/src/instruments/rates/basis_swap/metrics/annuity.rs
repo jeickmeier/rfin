@@ -8,19 +8,19 @@ use finstack_core::{Error, Result};
 /// which is used in DV01 calculations and par spread computations.
 ///
 /// See unit tests and `examples/` for usage.
-pub struct AnnuityCalculator {
+pub(crate) struct AnnuityCalculator {
     /// Whether this calculator is for the primary leg (true) or reference leg (false).
-    pub is_primary: bool,
+    pub(crate) is_primary: bool,
 }
 
 impl AnnuityCalculator {
     /// Creates a calculator for the primary leg.
-    pub const fn primary() -> Self {
+    pub(crate) const fn primary() -> Self {
         Self { is_primary: true }
     }
 
     /// Creates a calculator for the reference leg.
-    pub const fn reference() -> Self {
+    pub(crate) const fn reference() -> Self {
         Self { is_primary: false }
     }
 }

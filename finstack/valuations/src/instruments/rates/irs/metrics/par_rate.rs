@@ -75,7 +75,7 @@ fn discount_ratio_allowed(irs: &InterestRateSwap, as_of: Date) -> bool {
 }
 
 /// Par rate calculator for interest rate swaps.
-pub struct ParRateCalculator;
+pub(crate) struct ParRateCalculator;
 
 impl MetricCalculator for ParRateCalculator {
     fn dependencies(&self) -> &[MetricId] {

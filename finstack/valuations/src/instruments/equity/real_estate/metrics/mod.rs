@@ -10,7 +10,7 @@ mod sensitivities;
 use crate::metrics::MetricRegistry;
 
 /// Register real estate asset metrics with the registry.
-pub fn register_real_estate_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_real_estate_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
@@ -66,7 +66,7 @@ pub fn register_real_estate_metrics(registry: &mut MetricRegistry) {
 }
 
 /// Register levered real estate equity metrics with the registry.
-pub fn register_levered_real_estate_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_levered_real_estate_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     use std::sync::Arc;
 

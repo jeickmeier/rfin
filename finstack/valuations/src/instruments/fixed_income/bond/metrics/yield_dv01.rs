@@ -15,7 +15,7 @@ use finstack_core::money::Money;
 ///
 /// For optioned bonds, `DurationMod` already falls back to effective duration, so
 /// this metric remains aligned with the instrument's yield-style duration measure.
-pub struct YieldDv01Calculator;
+pub(crate) struct YieldDv01Calculator;
 
 impl MetricCalculator for YieldDv01Calculator {
     fn dependencies(&self) -> &[MetricId] {

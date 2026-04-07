@@ -14,10 +14,10 @@ use indexmap::IndexMap;
 ///
 /// This pricer calculates OAS using tree-based pricing for callable/putable bonds.
 /// Requires a quoted clean price in the bond's `pricing_overrides`.
-pub struct SimpleBondOasPricer;
+pub(crate) struct SimpleBondOasPricer;
 
 impl SimpleBondOasPricer {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }

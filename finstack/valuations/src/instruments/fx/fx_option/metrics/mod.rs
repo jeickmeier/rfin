@@ -11,7 +11,7 @@ mod implied_vol;
 use crate::metrics::MetricRegistry;
 
 /// Register FX option metrics with the registry.
-pub fn register_fx_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_fx_option_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::sensitivities::cross_factor::{
         CrossFactorCalculator, CrossFactorPair, FxBumperFactory, RatesBumperFactory,
         VolBumperFactory,

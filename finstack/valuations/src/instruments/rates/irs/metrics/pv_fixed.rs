@@ -27,7 +27,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Discounts all future fixed coupon payments using the discount curve
 /// specified in the swap's fixed leg specification.
-pub struct FixedLegPvCalculator;
+pub(crate) struct FixedLegPvCalculator;
 
 impl MetricCalculator for FixedLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

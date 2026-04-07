@@ -16,7 +16,7 @@ use finstack_core::Result;
 ///
 /// Uses `df_between_dates(as_of, payment_date)` for base-date-safe discounting,
 /// consistent with the NPV calculation in `CommoditySwap::floating_leg_pv()`.
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

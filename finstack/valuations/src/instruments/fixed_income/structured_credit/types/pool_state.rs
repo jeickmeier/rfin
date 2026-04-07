@@ -5,40 +5,40 @@ use finstack_core::dates::{Date, DayCount};
 /// and enable vectorization during pricing.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // WIP: SoA layout for vectorized pricing
-pub struct PoolState {
+pub(crate) struct PoolState {
     /// Asset identifiers
-    pub ids: Vec<String>,
+    pub(crate) ids: Vec<String>,
     /// Current outstanding balances
-    pub balances: Vec<f64>,
+    pub(crate) balances: Vec<f64>,
     /// Interest rates (decimal)
-    pub rates: Vec<f64>,
+    pub(crate) rates: Vec<f64>,
     /// Spread over index (basis points)
-    pub spread_bps: Vec<Option<f64>>,
+    pub(crate) spread_bps: Vec<Option<f64>>,
     /// Index identifiers for floating rate assets
-    pub index_ids: Vec<Option<String>>,
+    pub(crate) index_ids: Vec<Option<String>>,
     /// Maturity dates
-    pub maturities: Vec<Date>,
+    pub(crate) maturities: Vec<Date>,
     /// Day count conventions
-    pub day_counts: Vec<Option<DayCount>>,
+    pub(crate) day_counts: Vec<Option<DayCount>>,
     /// Default status
-    pub is_defaulted: Vec<bool>,
+    pub(crate) is_defaulted: Vec<bool>,
     /// Recovery amounts for defaulted assets
-    pub recovery_amounts: Vec<Option<f64>>,
+    pub(crate) recovery_amounts: Vec<Option<f64>>,
     /// SMM overrides
-    pub smm_overrides: Vec<Option<f64>>,
+    pub(crate) smm_overrides: Vec<Option<f64>>,
     /// MDR overrides
-    pub mdr_overrides: Vec<Option<f64>>,
+    pub(crate) mdr_overrides: Vec<Option<f64>>,
     /// Integer indices for curve lookups (optimization)
-    pub curve_indices: Vec<Option<usize>>,
+    pub(crate) curve_indices: Vec<Option<usize>>,
     /// Unique curve identifiers (referenced by curve_indices)
-    pub unique_curves: Vec<String>,
+    pub(crate) unique_curves: Vec<String>,
     /// Whether each asset amortizes through level payments (mortgages, auto, etc.)
-    pub is_amortizing: Vec<bool>,
+    pub(crate) is_amortizing: Vec<bool>,
 }
 
 impl PoolState {
     /// Create a new PoolState from a Pool (AoS to SoA conversion).
-    pub fn from_pool(pool: &Pool) -> Self {
+    pub(crate) fn from_pool(pool: &Pool) -> Self {
         let n = pool.assets.len();
         let mut ids = Vec::with_capacity(n);
         let mut balances = Vec::with_capacity(n);
@@ -105,13 +105,13 @@ impl PoolState {
     }
 
     /// Get the number of assets in the pool.
-    pub fn len(&self) -> usize {
+    pub(crate) fn len(&self) -> usize {
         self.balances.len()
     }
 
     /// Check if the pool is empty.
     #[allow(dead_code)] // public API accessor
-    pub fn is_empty(&self) -> bool {
+    pub(crate) fn is_empty(&self) -> bool {
         self.balances.is_empty()
     }
 }

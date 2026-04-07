@@ -10,7 +10,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Par spread calculator for CDS
-pub struct ParSpreadCalculator;
+pub(crate) struct ParSpreadCalculator;
 
 impl MetricCalculator for ParSpreadCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

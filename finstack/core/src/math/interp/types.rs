@@ -151,7 +151,7 @@ impl Interp {
     }
 
     /// Get the extrapolation policy of this Interp
-    pub fn extrapolation(&self) -> ExtrapolationPolicy {
+    pub(crate) fn extrapolation(&self) -> ExtrapolationPolicy {
         match self {
             Interp::Linear(i) => i.extrapolation(),
             Interp::LogLinear(i) => i.extrapolation(),

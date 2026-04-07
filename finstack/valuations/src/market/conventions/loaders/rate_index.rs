@@ -152,7 +152,7 @@ impl RateIndexConventionsRecord {
 }
 
 /// Load the rate index conventions from the embedded JSON registry.
-pub fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<IndexId, RateIndexConventions>, Error> {
     let json = include_str!("../../../../data/conventions/rate_index_conventions.json");
     super::json::parse_and_rekey(
         json,

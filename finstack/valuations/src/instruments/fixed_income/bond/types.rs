@@ -14,7 +14,7 @@ use time::macros::date;
 use crate::impl_instrument_base;
 use crate::instruments::common_impl::validation;
 // Re-export for compatibility in tests and external users referencing bond::AmortizationSpec
-pub use super::cashflow_spec::CashflowSpec;
+pub(crate) use super::cashflow_spec::CashflowSpec;
 pub use crate::cashflow::builder::AmortizationSpec;
 
 /// Bond settlement and ex-coupon conventions.

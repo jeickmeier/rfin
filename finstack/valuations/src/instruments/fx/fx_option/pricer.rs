@@ -19,9 +19,9 @@ const STRIKE_ZERO_TOL: f64 = 1e-12;
 
 /// Configuration for the FX option pricing engine.
 #[derive(Debug, Clone)]
-pub struct FxOptionPricerConfig {
-    pub theta_days_per_year: f64,
-    pub iv_initial_guess: f64,
+pub(crate) struct FxOptionPricerConfig {
+    pub(crate) theta_days_per_year: f64,
+    pub(crate) iv_initial_guess: f64,
 }
 
 impl Default for FxOptionPricerConfig {
@@ -35,8 +35,8 @@ impl Default for FxOptionPricerConfig {
 
 /// Shared Garman-Kohlhagen calculator used by the FX option pricer entrypoints.
 #[derive(Debug, Clone, Default)]
-pub struct FxOptionCalculator {
-    pub config: FxOptionPricerConfig,
+pub(crate) struct FxOptionCalculator {
+    pub(crate) config: FxOptionPricerConfig,
 }
 
 pub(crate) fn compute_pv(inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
@@ -62,7 +62,12 @@ pub(crate) fn implied_vol(
 }
 
 impl FxOptionCalculator {
-    pub fn npv(&self, inst: &FxOption, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub(crate) fn npv(
+        &self,
+        inst: &FxOption,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         self.validate_exercise_style(inst)?;
         self.validate_currency(inst)?;
         let (spot, r_d, r_f, sigma, t) = self.collect_inputs(inst, curves, as_of)?;
@@ -109,7 +114,7 @@ impl FxOptionCalculator {
         ))
     }
 
-    pub fn collect_inputs(
+    pub(crate) fn collect_inputs(
         &self,
         inst: &FxOption,
         curves: &MarketContext,
@@ -166,7 +171,7 @@ impl FxOptionCalculator {
         Ok((spot, 0.0, 0.0, 0.0, 0.0))
     }
 
-    pub fn collect_inputs_no_vol(
+    pub(crate) fn collect_inputs_no_vol(
         &self,
         inst: &FxOption,
         curves: &MarketContext,
@@ -206,7 +211,7 @@ impl FxOptionCalculator {
         Ok((spot, r_d, r_f, t_vol))
     }
 
-    pub fn implied_vol(
+    pub(crate) fn implied_vol(
         &self,
         inst: &FxOption,
         curves: &MarketContext,
@@ -242,7 +247,7 @@ impl FxOptionCalculator {
         )
     }
 
-    pub fn compute_greeks(
+    pub(crate) fn compute_greeks(
         &self,
         inst: &FxOption,
         curves: &MarketContext,
@@ -367,15 +372,15 @@ impl FxOptionCalculator {
 
 #[derive(Debug, Clone, Copy, Default)]
 #[allow(dead_code)]
-pub struct FxOptionGreeks {
-    pub delta: f64,
-    pub delta_forward: f64,
-    pub delta_premium_adjusted: f64,
-    pub gamma: f64,
-    pub vega: f64,
-    pub theta: f64,
-    pub rho_domestic: f64,
-    pub rho_foreign: f64,
+pub(crate) struct FxOptionGreeks {
+    pub(crate) delta: f64,
+    pub(crate) delta_forward: f64,
+    pub(crate) delta_premium_adjusted: f64,
+    pub(crate) gamma: f64,
+    pub(crate) vega: f64,
+    pub(crate) theta: f64,
+    pub(crate) rho_domestic: f64,
+    pub(crate) rho_foreign: f64,
 }
 
 #[inline]

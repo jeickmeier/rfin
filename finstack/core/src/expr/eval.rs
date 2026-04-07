@@ -115,7 +115,7 @@ pub struct CompiledExpr {
     pub plan: Option<ExecutionPlan>,
     /// Cache manager for intermediate results.
     #[serde(skip)]
-    pub cache: Option<CacheManager>,
+    pub(crate) cache: Option<CacheManager>,
     /// Small scratch arena to reuse temporary buffers within hot paths.
     #[serde(skip, default = "default_scratch")]
     pub(super) scratch: Mutex<ScratchArena>,
@@ -186,6 +186,11 @@ impl CompiledExpr {
             self.cache = Some(CacheManager::new(budget_mb));
         }
         self
+    }
+
+    /// Return whether this compiled expression currently has an attached cache.
+    pub fn has_cache(&self) -> bool {
+        self.cache.is_some()
     }
 
     /// Unified evaluation entrypoint returning values with execution metadata.

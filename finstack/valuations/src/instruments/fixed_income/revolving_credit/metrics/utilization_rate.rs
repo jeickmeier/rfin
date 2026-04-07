@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculator for facility utilization rate (drawn / committed).
 #[derive(Debug, Default, Clone, Copy)]
-pub struct UtilizationRateCalculator;
+pub(crate) struct UtilizationRateCalculator;
 
 impl MetricCalculator for UtilizationRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

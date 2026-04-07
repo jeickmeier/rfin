@@ -30,7 +30,7 @@ use finstack_core::Result;
 ///
 /// Returns an error if `duration_id` is configured but missing from market data.
 /// When `duration_id` is `None`, defaults to 5.0 years (broad market assumption).
-pub struct DurationDv01Calculator;
+pub(crate) struct DurationDv01Calculator;
 
 impl MetricCalculator for DurationDv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

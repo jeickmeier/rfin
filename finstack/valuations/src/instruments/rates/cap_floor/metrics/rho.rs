@@ -14,7 +14,7 @@ use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
 /// Rho calculator (per 1bp)
-pub struct RhoCalculator;
+pub(crate) struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

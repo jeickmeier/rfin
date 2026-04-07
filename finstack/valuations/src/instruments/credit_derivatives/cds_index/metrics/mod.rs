@@ -26,7 +26,7 @@ mod risky_pv01;
 use crate::metrics::MetricRegistry;
 
 /// Register all CDS Index metrics with the registry
-pub fn register_cds_index_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_cds_index_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::{MetricCalculator, MetricId};
     use crate::pricer::InstrumentType;
     use std::sync::Arc;

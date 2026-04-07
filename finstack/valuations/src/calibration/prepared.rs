@@ -12,13 +12,13 @@ use finstack_core::money::Money;
 
 /// A prepared CDS tranche quote ready for use in calibration.
 #[derive(Debug, Clone)]
-pub struct CDSTrancheCalibrationQuote {
+pub(crate) struct CDSTrancheCalibrationQuote {
     /// Prepared quote with constructed instrument and pillar timing.
-    pub prepared: PreparedQuote<CDSTrancheQuote>,
+    pub(crate) prepared: PreparedQuote<CDSTrancheQuote>,
     /// Optional upfront cashflow from the market quote.
-    pub upfront: Option<Money>,
+    pub(crate) upfront: Option<Money>,
     /// Detachment point in percentage terms (e.g. 3.0 for 3%).
-    pub detachment_pct: f64,
+    pub(crate) detachment_pct: f64,
 }
 
 /// A prepared quote ready for use in calibration.
@@ -26,7 +26,7 @@ pub struct CDSTrancheCalibrationQuote {
 /// This wraps a Quote (data), a prepared Instrument (constructed via builder),
 /// and the pre-calculated pillar time.
 #[derive(Debug, Clone)]
-pub enum CalibrationQuote {
+pub(crate) enum CalibrationQuote {
     /// Rates quote (Deposit, FRA, Swap, Future)
     Rates(PreparedQuote<RateQuote>),
     /// Credit quote (CDS Par Spread, Upfront).
@@ -40,7 +40,7 @@ pub enum CalibrationQuote {
 
 impl CalibrationQuote {
     /// Get reference to the underlying instrument.
-    pub fn get_instrument(&self) -> &DynInstrument {
+    pub(crate) fn get_instrument(&self) -> &DynInstrument {
         match self {
             CalibrationQuote::Rates(q) => q.instrument.as_ref(),
             CalibrationQuote::Cds(q) => q.instrument.as_ref(),
@@ -50,7 +50,7 @@ impl CalibrationQuote {
     }
 
     /// Get the pillar time (year fraction from as_of)
-    pub fn pillar_time(&self) -> f64 {
+    pub(crate) fn pillar_time(&self) -> f64 {
         match self {
             CalibrationQuote::Rates(q) => q.pillar_time,
             CalibrationQuote::Cds(q) => q.pillar_time,

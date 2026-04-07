@@ -18,7 +18,7 @@ const MIN_EFFECTIVE_FIXING_TIME: f64 = 1e-6;
 /// `reset_date` when provided (matching the pricer), falling back to
 /// `accrual_start`. This ensures Greeks are computed on the same dates as
 /// pricing, which matters for indices with non-zero reset lags (e.g., SOFR 2-day lookback).
-pub fn aggregate_over_caplets<FN>(
+pub(crate) fn aggregate_over_caplets<FN>(
     option: &InterestRateOption,
     context: &MetricContext,
     mut f: FN,

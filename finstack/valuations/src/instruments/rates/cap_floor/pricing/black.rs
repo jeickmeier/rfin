@@ -36,25 +36,25 @@ use finstack_core::money::Money;
 /// Inputs for Black caplet/floorlet pricing
 /// Inputs for pricing a single caplet or floorlet using Black (1976) model.
 #[derive(Debug, Clone, Copy)]
-pub struct CapletFloorletInputs {
+pub(crate) struct CapletFloorletInputs {
     /// True for caplet, false for floorlet
-    pub is_cap: bool,
+    pub(crate) is_cap: bool,
     /// Notional amount
-    pub notional: f64,
+    pub(crate) notional: f64,
     /// Strike rate (as decimal)
-    pub strike: f64,
+    pub(crate) strike: f64,
     /// Forward rate (as decimal)
-    pub forward: f64,
+    pub(crate) forward: f64,
     /// Discount factor to payment date
-    pub discount_factor: f64,
+    pub(crate) discount_factor: f64,
     /// Black volatility (annualized)
-    pub volatility: f64,
+    pub(crate) volatility: f64,
     /// Time to fixing date in years
-    pub time_to_fixing: f64,
+    pub(crate) time_to_fixing: f64,
     /// Accrual year fraction for the period
-    pub accrual_year_fraction: f64,
+    pub(crate) accrual_year_fraction: f64,
     /// Currency for the cashflow
-    pub currency: Currency,
+    pub(crate) currency: Currency,
 }
 
 /// Compute intrinsic value of a caplet/floorlet.
@@ -85,7 +85,7 @@ fn intrinsic_value(inputs: &CapletFloorletInputs) -> f64 {
 /// # Returns
 ///
 /// `Ok(Money)` with the caplet/floorlet PV, or `Err` if inputs are invalid.
-pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Result<Money> {
+pub(crate) fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Result<Money> {
     let is_cap = inputs.is_cap;
     let notional = inputs.notional;
     let strike = inputs.strike;
@@ -174,7 +174,7 @@ pub fn price_caplet_floorlet(inputs: CapletFloorletInputs) -> finstack_core::Res
 /// At expiry or with zero volatility, returns the intrinsic delta:
 /// - Caplet: 1 if ITM (F > K), 0 if OTM
 /// - Floorlet: -1 if ITM (F < K), 0 if OTM
-pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+pub(crate) fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 {
         if is_cap {
             return if forward > strike { 1.0 } else { 0.0 };
@@ -194,7 +194,7 @@ pub fn delta(is_cap: bool, strike: f64, forward: f64, sigma: f64, t_fix: f64) ->
 ///
 /// Returns the second derivative of option price with respect to forward rate.
 /// Gamma is always non-negative for long options.
-pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+pub(crate) fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || sigma <= 0.0 || forward <= 0.0 {
         return 0.0;
     }
@@ -207,7 +207,7 @@ pub fn gamma(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
 ///
 /// Returns the sensitivity of option price to a 1% (absolute) change in volatility.
 /// Vega is always non-negative for long options.
-pub fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
+pub(crate) fn vega_per_pct(strike: f64, forward: f64, sigma: f64, t_fix: f64) -> f64 {
     if t_fix <= 0.0 || forward <= 0.0 {
         return 0.0;
     }

@@ -7,20 +7,20 @@ use crate::results::ValuationResult;
 use finstack_core::market_data::context::MarketContext;
 
 /// Simplified inflation cap/floor pricer supporting Black-76 and Normal models.
-pub struct SimpleInflationCapFloorPricer {
+pub(crate) struct SimpleInflationCapFloorPricer {
     model: ModelKey,
 }
 
 impl SimpleInflationCapFloorPricer {
     /// Create a new pricer with default Black-76 model.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             model: ModelKey::Black76,
         }
     }
 
     /// Create a pricer with specified model key.
-    pub fn with_model(model: ModelKey) -> Self {
+    pub(crate) fn with_model(model: ModelKey) -> Self {
         Self { model }
     }
 }

@@ -34,7 +34,7 @@ use finstack_core::math::{standard_normal_inv_cdf, student_t_inv_cdf};
 /// Allows applying seasoning-dependent multipliers to base CDR,
 /// following industry-standard curves like SDA for mortgages.
 #[derive(Debug, Clone, Default)]
-pub enum SeasoningCurve {
+pub(crate) enum SeasoningCurve {
     /// No seasoning adjustment (constant CDR).
     #[default]
     Flat,
@@ -65,19 +65,19 @@ pub enum SeasoningCurve {
 
 impl SeasoningCurve {
     /// Create a flat (no seasoning) curve.
-    pub fn flat() -> Self {
+    pub(crate) fn flat() -> Self {
         SeasoningCurve::Flat
     }
 
     /// Create an SDA curve with the specified speed multiplier.
-    pub fn sda(speed_multiplier: f64) -> Self {
+    pub(crate) fn sda(speed_multiplier: f64) -> Self {
         SeasoningCurve::Sda { speed_multiplier }
     }
 
     /// Get the seasoning multiplier for a given month.
     ///
     /// Returns the multiplier to apply to the base CDR at this seasoning.
-    pub fn multiplier(&self, seasoning_months: u32) -> f64 {
+    pub(crate) fn multiplier(&self, seasoning_months: u32) -> f64 {
         match self {
             SeasoningCurve::Flat => 1.0,
 
@@ -128,7 +128,7 @@ impl SeasoningCurve {
 /// Dispatches threshold computation based on copula type:
 /// - Gaussian/RFL/Multi-factor: Φ⁻¹(PD)
 /// - Student-t: t_ν⁻¹(PD)
-pub struct CopulaBasedDefault {
+pub(crate) struct CopulaBasedDefault {
     /// Base annual CDR
     base_cdr: f64,
     /// Copula specification (kept for Clone and threshold dispatch)
@@ -171,7 +171,7 @@ impl CopulaBasedDefault {
     /// * `base_cdr` - Base annual CDR (unconditional)
     /// * `copula_spec` - Copula model specification
     /// * `correlation` - Asset correlation
-    pub fn new(base_cdr: f64, copula_spec: CopulaSpec, correlation: f64) -> Self {
+    pub(crate) fn new(base_cdr: f64, copula_spec: CopulaSpec, correlation: f64) -> Self {
         let copula = Self::build_copula(&copula_spec);
 
         Self {
@@ -202,7 +202,7 @@ impl CopulaBasedDefault {
     }
 
     /// Create with Gaussian copula and specified correlation.
-    pub fn gaussian(base_cdr: f64, correlation: f64) -> Self {
+    pub(crate) fn gaussian(base_cdr: f64, correlation: f64) -> Self {
         Self::new(base_cdr, CopulaSpec::Gaussian, correlation)
     }
 
@@ -212,7 +212,7 @@ impl CopulaBasedDefault {
     /// - Base CDR: 2%
     /// - Correlation: 5% (low for diversified pools)
     /// - SDA seasoning curve (100%)
-    pub fn rmbs_standard() -> Self {
+    pub(crate) fn rmbs_standard() -> Self {
         Self::gaussian(RMBS_STANDARD.base_cdr, RMBS_STANDARD.default_correlation)
             .with_seasoning_curve(SeasoningCurve::sda(1.0))
     }
@@ -223,7 +223,7 @@ impl CopulaBasedDefault {
     /// - Base CDR: 3%
     /// - Correlation: 20% (higher for corporate loans)
     /// - No seasoning curve (flat CDR)
-    pub fn clo_standard() -> Self {
+    pub(crate) fn clo_standard() -> Self {
         Self::gaussian(CLO_STANDARD.base_cdr, CLO_STANDARD.default_correlation)
     }
 
@@ -231,30 +231,30 @@ impl CopulaBasedDefault {
     ///
     /// This allows time-varying default rates based on loan seasoning,
     /// following industry-standard curves like SDA.
-    pub fn with_seasoning_curve(mut self, curve: SeasoningCurve) -> Self {
+    pub(crate) fn with_seasoning_curve(mut self, curve: SeasoningCurve) -> Self {
         self.seasoning_curve = curve;
         self
     }
 
     /// Get the base CDR.
-    pub fn base_cdr(&self) -> f64 {
+    pub(crate) fn base_cdr(&self) -> f64 {
         self.base_cdr
     }
 
     /// Get the copula specification.
-    pub fn copula_spec(&self) -> &CopulaSpec {
+    pub(crate) fn copula_spec(&self) -> &CopulaSpec {
         &self.copula_spec
     }
 
     /// Get the seasoning curve.
-    pub fn seasoning_curve(&self) -> &SeasoningCurve {
+    pub(crate) fn seasoning_curve(&self) -> &SeasoningCurve {
         &self.seasoning_curve
     }
 
     /// Get the seasoning-adjusted CDR at a given month.
     ///
     /// Applies the seasoning curve multiplier to the base CDR.
-    pub fn seasoned_cdr(&self, seasoning_months: u32) -> f64 {
+    pub(crate) fn seasoned_cdr(&self, seasoning_months: u32) -> f64 {
         let multiplier = self.seasoning_curve.multiplier(seasoning_months);
         (self.base_cdr * multiplier).clamp(0.0, 1.0)
     }

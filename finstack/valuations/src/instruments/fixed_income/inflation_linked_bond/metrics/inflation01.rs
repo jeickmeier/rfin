@@ -32,7 +32,7 @@ use finstack_core::Result;
 const INFLATION_BUMP_BP: f64 = 0.0001;
 
 /// Inflation01 calculator for inflation-linked bonds.
-pub struct Inflation01Calculator;
+pub(crate) struct Inflation01Calculator;
 
 impl MetricCalculator for Inflation01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

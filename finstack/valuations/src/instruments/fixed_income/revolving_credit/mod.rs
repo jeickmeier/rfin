@@ -105,7 +105,7 @@ pub use cashflow_engine::{PathAwareCashflowSchedule, ThreeFactorPathData};
 #[cfg(feature = "mc")]
 pub use pricer::unified::EnhancedMonteCarloResult;
 pub use pricer::unified::PathResult;
-pub use pricer::RevolvingCreditPricer;
+pub use pricer::unified::RevolvingCreditPricer;
 pub use types::{
     BaseRateSpec, DrawRepayEvent, DrawRepaySpec, RevolvingCredit, RevolvingCreditFees,
     UtilizationProcess,

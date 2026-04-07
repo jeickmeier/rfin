@@ -9,7 +9,7 @@ const CCP_PATH: &str = include_str!("../../data/margin/ccp_methodologies.v1.json
 const SIMM_PATH: &str = include_str!("../../data/margin/simm.v1.json");
 
 /// Load all embedded margin registry JSON blobs into a single root object.
-pub fn load_embedded_root() -> Result<Value> {
+pub(crate) fn load_embedded_root() -> Result<Value> {
     Ok(serde_json::json!({
         "schedule_im": parse_json(SCHEDULE_IM_PATH)?,
         "collateral_schedules": parse_json(COLLATERAL_SCHEDULES_PATH)?,

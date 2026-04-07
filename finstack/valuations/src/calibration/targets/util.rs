@@ -4,7 +4,7 @@ use finstack_core::dates::DayCount;
 use finstack_core::Result;
 
 /// Resolve the day count convention for a discount or forward curve from market conventions.
-pub fn curve_day_count_from_quotes(quotes: &[RateQuote]) -> Result<DayCount> {
+pub(crate) fn curve_day_count_from_quotes(quotes: &[RateQuote]) -> Result<DayCount> {
     let registry = ConventionRegistry::try_global()?;
     let mut curve_dc: Option<DayCount> = None;
 

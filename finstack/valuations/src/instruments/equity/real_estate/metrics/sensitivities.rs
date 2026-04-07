@@ -11,9 +11,9 @@ use finstack_core::Error as CoreError;
 const DEFAULT_BUMP_ABS: f64 = 1e-4; // 1bp in fractional terms
 
 #[derive(Debug, Clone, Copy)]
-pub struct CapRateSensitivity {
+pub(super) struct CapRateSensitivity {
     /// Absolute bump size (e.g., 1bp = 1e-4).
-    pub bump_abs: f64,
+    pub(super) bump_abs: f64,
 }
 
 impl Default for CapRateSensitivity {
@@ -155,9 +155,9 @@ impl MetricCalculator for CapRateSensitivity {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct DiscountRateSensitivity {
+pub(super) struct DiscountRateSensitivity {
     /// Absolute bump size (e.g., 1bp = 1e-4).
-    pub bump_abs: f64,
+    pub(super) bump_abs: f64,
 }
 
 impl Default for DiscountRateSensitivity {

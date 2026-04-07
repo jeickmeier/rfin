@@ -36,7 +36,7 @@ use rust_decimal::prelude::ToPrimitive;
 /// Returns the par spread in **basis points** (e.g., 5.0 for 5bp).
 ///
 /// See unit tests and `examples/` for usage.
-pub struct ParSpreadCalculator;
+pub(crate) struct ParSpreadCalculator;
 
 /// Calculator for the **incremental** par spread from the current spread position.
 ///
@@ -72,7 +72,7 @@ pub struct ParSpreadCalculator;
 /// # Output Units
 ///
 /// Returns the incremental spread in **basis points** (e.g., 3.0 for 3bp).
-pub struct IncrementalParSpreadCalculator;
+pub(crate) struct IncrementalParSpreadCalculator;
 
 /// Minimum threshold for annuity to prevent division-by-zero.
 ///

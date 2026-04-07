@@ -5,7 +5,7 @@
 use crate::metrics::MetricRegistry;
 
 /// Register XCCY swap metrics with the registry.
-pub fn register_xccy_swap_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_xccy_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::sensitivities::cross_factor::{
         CrossFactorCalculator, CrossFactorPair, FxBumperFactory, RatesBumperFactory,
     };

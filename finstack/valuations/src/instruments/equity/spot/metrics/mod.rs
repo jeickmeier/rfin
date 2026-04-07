@@ -19,7 +19,7 @@ mod shares;
 use crate::metrics::MetricRegistry;
 
 /// Register all Equity metrics with the registry
-pub fn register_equity_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_equity_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

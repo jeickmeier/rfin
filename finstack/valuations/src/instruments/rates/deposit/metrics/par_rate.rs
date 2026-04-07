@@ -19,7 +19,7 @@ const MIN_YEAR_FRACTION: f64 = 1e-6;
 /// - Any required metric is missing
 /// - Year fraction is too small (< 1e-6) for meaningful calculation
 /// - Division would produce extreme values
-pub struct DepositParRateCalculator;
+pub(crate) struct DepositParRateCalculator;
 
 impl MetricCalculator for DepositParRateCalculator {
     fn dependencies(&self) -> &[MetricId] {

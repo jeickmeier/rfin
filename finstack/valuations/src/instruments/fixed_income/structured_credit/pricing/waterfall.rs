@@ -380,23 +380,23 @@ pub fn execute_waterfall_with_workspace(
 ///
 /// Groups parameters that remain constant during allocation, reducing
 /// parameter count in allocation functions.
-pub struct AllocationContext<'a> {
+pub(crate) struct AllocationContext<'a> {
     /// Base currency for allocations
-    pub base_currency: Currency,
+    pub(crate) base_currency: Currency,
     /// Tranche structure for looking up tranche data
-    pub tranches: &'a TrancheStructure,
+    pub(crate) tranches: &'a TrancheStructure,
     /// O(1) lookup from tranche ID to index
-    pub tranche_index: HashMap<&'a str, usize>,
+    pub(crate) tranche_index: HashMap<&'a str, usize>,
     /// Current pool balance
-    pub pool_balance: Money,
+    pub(crate) pool_balance: Money,
     /// Payment date
-    pub payment_date: Date,
+    pub(crate) payment_date: Date,
     /// Market context for rate lookups
-    pub market: &'a MarketContext,
+    pub(crate) market: &'a MarketContext,
     /// Current tranche balances (overrides tranche.current_balance when present)
-    pub tranche_balances: Option<&'a HashMap<String, Money>>,
+    pub(crate) tranche_balances: Option<&'a HashMap<String, Money>>,
     /// Current reserve account balance (passed dynamically each period)
-    pub reserve_balance: Money,
+    pub(crate) reserve_balance: Money,
 }
 
 impl<'a> AllocationContext<'a> {
@@ -406,7 +406,7 @@ impl<'a> AllocationContext<'a> {
     /// interest accrual and principal calculations instead of the static balances
     /// stored on the `Tranche` definitions.
     #[allow(dead_code)] // public API constructor
-    pub fn new(
+    pub(crate) fn new(
         base_currency: Currency,
         tranches: &'a TrancheStructure,
         pool_balance: Money,
@@ -437,18 +437,18 @@ impl<'a> AllocationContext<'a> {
 /// Mutable output for allocation tracking.
 ///
 /// Groups mutable state that is updated during allocation.
-pub struct AllocationOutput {
+pub(crate) struct AllocationOutput {
     /// Accumulated distributions by recipient
-    pub distributions: HashMap<RecipientType, Money>,
+    pub(crate) distributions: HashMap<RecipientType, Money>,
     /// Payment records for audit trail
-    pub payment_records: Vec<PaymentRecord>,
+    pub(crate) payment_records: Vec<PaymentRecord>,
     /// Optional explanation trace
-    pub trace: Option<ExplanationTrace>,
+    pub(crate) trace: Option<ExplanationTrace>,
 }
 
 impl AllocationOutput {
     /// Create new allocation state with pre-allocated capacity.
-    pub fn with_capacity(estimated_recipients: usize, explain: &ExplainOpts) -> Self {
+    pub(crate) fn with_capacity(estimated_recipients: usize, explain: &ExplainOpts) -> Self {
         let mut distributions = HashMap::default();
         distributions.reserve(estimated_recipients);
         Self {

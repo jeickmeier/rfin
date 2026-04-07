@@ -11,10 +11,10 @@ mod delta;
 mod dividend_risk;
 mod par_spread;
 
-pub use annuity::FinancingAnnuityCalculator;
-pub use delta::EquityDeltaCalculator;
-pub use dividend_risk::Dividend01Calculator;
-pub use par_spread::ParSpreadCalculator;
+pub(crate) use annuity::FinancingAnnuityCalculator;
+pub(crate) use delta::EquityDeltaCalculator;
+pub(crate) use dividend_risk::Dividend01Calculator;
+pub(crate) use par_spread::ParSpreadCalculator;
 
 use crate::metrics::MetricRegistry;
 use crate::pricer::InstrumentType;
@@ -23,7 +23,7 @@ use crate::pricer::InstrumentType;
 ///
 /// # Arguments
 /// * `registry` — Metric registry to add equity TRS metrics to
-pub fn register_equity_trs_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_equity_trs_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use std::sync::Arc;
 

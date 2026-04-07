@@ -92,7 +92,7 @@ impl Default for ConvertibleTreeType {
 }
 
 /// Convertible bond valuator implementing the TZ logic
-pub struct ConvertibleBondValuator {
+pub(crate) struct ConvertibleBondValuator {
     /// Conversion ratio (shares per bond) - used for standard conversion policies.
     conversion_ratio: f64,
     /// Face value of the bond
@@ -139,7 +139,7 @@ impl ConvertibleBondValuator {
     ///
     /// Unlike the flat-rate approach, this extracts per-step discount factors from the
     /// risk-free and credit curves, capturing the full shape of the yield curve.
-    pub fn new(
+    pub(crate) fn new(
         bond: &ConvertibleBond,
         cashflow_schedule: &CashFlowSchedule,
         time_to_maturity: f64,
@@ -1260,11 +1260,11 @@ pub fn calculate_accrued_interest(bond: &ConvertibleBond, as_of: Date) -> Result
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for Convertible Bond using Tsiveriotis-Zhang tree-based pricing.
-pub struct ConvertibleTreePricer;
+pub(crate) struct ConvertibleTreePricer;
 
 impl ConvertibleTreePricer {
     /// Create a new convertible bond tree pricer.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }

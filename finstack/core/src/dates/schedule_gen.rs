@@ -111,7 +111,7 @@ pub(super) struct BuilderInternal {
 }
 
 impl BuilderInternal {
-    pub fn generate(self) -> crate::Result<Vec<Date>> {
+    pub(super) fn generate(self) -> crate::Result<Vec<Date>> {
         match self.stub {
             StubKind::ShortFront => self.gen_short_front(),
             StubKind::LongFront => self.gen_long_front(),

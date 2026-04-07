@@ -410,23 +410,23 @@ impl<'a> BermudanSwaptionTreeValuator<'a> {
 /// Result of Bermudan swaption pricing with additional analytics.
 #[derive(Debug, Clone)]
 #[allow(dead_code)] // public API result struct
-pub struct BermudanSwaptionPriceResult {
+pub(crate) struct BermudanSwaptionPriceResult {
     /// Present value
-    pub pv: f64,
+    pub(crate) pv: f64,
     /// Exercise boundary (time, critical_rate)
-    pub exercise_boundary: Vec<(f64, Option<f64>)>,
+    pub(crate) exercise_boundary: Vec<(f64, Option<f64>)>,
     /// Exercise probabilities (time, probability)
-    pub exercise_probabilities: Vec<(f64, f64)>,
+    pub(crate) exercise_probabilities: Vec<(f64, f64)>,
     /// European swaption value (first exercise only, for comparison)
-    pub european_value: Option<f64>,
+    pub(crate) european_value: Option<f64>,
     /// Bermudan premium (Bermudan - European)
-    pub bermudan_premium: Option<f64>,
+    pub(crate) bermudan_premium: Option<f64>,
 }
 
 #[allow(dead_code)] // public API constructor
 impl BermudanSwaptionPriceResult {
     /// Create a new price result.
-    pub fn new(
+    pub(crate) fn new(
         pv: f64,
         exercise_boundary: Vec<(f64, Option<f64>)>,
         exercise_probabilities: Vec<(f64, f64)>,

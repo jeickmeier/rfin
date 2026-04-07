@@ -52,7 +52,7 @@ fn build_unlevered_cashflow_map(
 /// - unlevered net cash flows `NOI - CapEx`
 /// - terminal sale proceeds from exit cap rate (positive)
 #[derive(Debug, Default)]
-pub struct UnleveredIrr;
+pub(super) struct UnleveredIrr;
 
 impl MetricCalculator for UnleveredIrr {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -75,7 +75,7 @@ impl MetricCalculator for UnleveredIrr {
 
 /// Unlevered multiple (MOIC-like): total inflows / total outflows (absolute).
 #[derive(Debug, Default)]
-pub struct UnleveredMultiple;
+pub(super) struct UnleveredMultiple;
 
 impl MetricCalculator for UnleveredMultiple {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -109,7 +109,7 @@ impl MetricCalculator for UnleveredMultiple {
 /// Unlevered first-period cash-on-cash: first `NOI - CapEx` cash flow divided by
 /// purchase price (+ acquisition cost).
 #[derive(Debug, Default)]
-pub struct UnleveredCashOnCashFirst;
+pub(super) struct UnleveredCashOnCashFirst;
 
 impl MetricCalculator for UnleveredCashOnCashFirst {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

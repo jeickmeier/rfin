@@ -12,12 +12,12 @@ mod real_yield;
 // mod theta; // removed - using GenericThetaAny
 // risk_bucketed_dv01 and dv01 - now using generic implementations
 
-pub use breakeven_inflation::BreakevenInflationCalculator;
-pub use index_ratio::IndexRatioCalculator;
-pub use inflation01::Inflation01Calculator;
-pub use inflation_convexity::InflationConvexityCalculator;
-pub use real_duration::RealDurationCalculator;
-pub use real_yield::RealYieldCalculator;
+pub(crate) use breakeven_inflation::BreakevenInflationCalculator;
+pub(crate) use index_ratio::IndexRatioCalculator;
+pub(crate) use inflation01::Inflation01Calculator;
+pub(crate) use inflation_convexity::InflationConvexityCalculator;
+pub(crate) use real_duration::RealDurationCalculator;
+pub(crate) use real_yield::RealYieldCalculator;
 // pub use theta::ThetaCalculator; // removed - using GenericThetaAny
 // BucketedDv01Calculator now using generic implementation
 
@@ -26,7 +26,7 @@ use crate::metrics::MetricRegistry;
 use std::sync::Arc;
 
 /// Register all ILB metrics with the registry
-pub fn register_ilb_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_ilb_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     // Custom metric: Inflation01 (inflation curve sensitivity per 1bp)
     registry.register_metric(

@@ -17,14 +17,14 @@ use std::marker::PhantomData;
 /// - Mode: Parallel Combined (single scalar result)
 /// - Curves: All rate curves (Discount + Forward)
 /// - Bump: 1bp (0.0001) default
-pub struct GenericRho<I> {
+pub(crate) struct GenericRho<I> {
     inner: UnifiedDv01Calculator<I>,
     _phantom: PhantomData<I>,
 }
 
 impl<I> GenericRho<I> {
     /// Create a new Generic Rho calculator.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             inner: UnifiedDv01Calculator::new(Dv01CalculatorConfig::parallel_combined()),
             _phantom: PhantomData,

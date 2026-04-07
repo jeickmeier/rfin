@@ -6,40 +6,40 @@ use finstack_core::HashMap;
 /// A registry JSON file containing entries with alias IDs.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RegistryFile<R> {
+pub(crate) struct RegistryFile<R> {
     /// Optional schema identifier.
     #[serde(default)]
     #[allow(dead_code)]
-    pub schema: Option<String>,
+    pub(crate) schema: Option<String>,
     /// Optional namespace identifier.
     #[serde(default)]
     #[allow(dead_code)]
-    pub namespace: Option<String>,
+    pub(crate) namespace: Option<String>,
     /// Version number.
     #[serde(default)]
     #[allow(dead_code)]
-    pub version: Option<u32>,
+    pub(crate) version: Option<u32>,
     /// Registry entries.
-    pub entries: Vec<RegistryEntry<R>>,
+    pub(crate) entries: Vec<RegistryEntry<R>>,
 }
 
 /// One registry record plus its set of alias IDs.
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct RegistryEntry<R> {
+pub(crate) struct RegistryEntry<R> {
     /// List of alias IDs.
-    pub ids: Vec<String>,
+    pub(crate) ids: Vec<String>,
     /// The record content.
-    pub record: R,
+    pub(crate) record: R,
 }
 
 /// Normalize a registry ID by trimming whitespace.
-pub fn normalize_registry_id(id: &str) -> String {
+pub(crate) fn normalize_registry_id(id: &str) -> String {
     id.trim().to_string()
 }
 
 /// Build a lookup map from a registry file while mapping records to a derived value.
-pub fn build_lookup_map_mapped<R, K, V: Clone>(
+pub(crate) fn build_lookup_map_mapped<R, K, V: Clone>(
     file: RegistryFile<R>,
     normalize_id: impl Fn(&str) -> K,
     map_record: impl Fn(&R) -> V,
@@ -75,7 +75,7 @@ where
 ///
 /// Returns [`Error::Validation`] if JSON parsing fails, if any record conversion fails,
 /// or if duplicate IDs are found after normalization.
-pub fn parse_and_rekey<R, Id, V>(
+pub(crate) fn parse_and_rekey<R, Id, V>(
     json: &str,
     registry_name: &str,
     make_id: impl Fn(String) -> Id,

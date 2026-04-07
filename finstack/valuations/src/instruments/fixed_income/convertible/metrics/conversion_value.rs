@@ -14,7 +14,7 @@ use finstack_core::Result;
 /// For standard policies: `conversion_ratio * spot`.
 /// For `MandatoryVariable` (PERCS/DECS/ACES): variable delivery ratio based
 /// on spot relative to upper/lower conversion prices.
-pub struct ConversionValueCalculator;
+pub(crate) struct ConversionValueCalculator;
 
 impl MetricCalculator for ConversionValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

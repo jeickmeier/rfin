@@ -395,10 +395,11 @@ use indexmap::IndexMap;
 use std::sync::Arc;
 
 /// Type alias for custom evaluator functions.
-pub type CustomEvaluator = Arc<dyn Fn(&MetricContext) -> finstack_core::Result<bool> + Send + Sync>;
+pub(crate) type CustomEvaluator =
+    Arc<dyn Fn(&MetricContext) -> finstack_core::Result<bool> + Send + Sync>;
 
 /// Type alias for custom metric calculators.
-pub type CustomMetricCalculator =
+pub(crate) type CustomMetricCalculator =
     Arc<dyn Fn(&MetricContext) -> finstack_core::Result<f64> + Send + Sync>;
 
 /// Covenant evaluation specification.

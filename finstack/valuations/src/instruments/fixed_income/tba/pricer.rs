@@ -22,7 +22,7 @@ use finstack_core::Result;
 ///
 /// Uses standard assumptions for generic pool characteristics based on
 /// the TBA's agency, coupon, and term.
-pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPassthrough> {
+pub(crate) fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPassthrough> {
     let settlement_date = tba.get_settlement_date()?;
     let term_months = tba.term.months();
 
@@ -65,7 +65,7 @@ pub fn create_assumed_pool(tba: &AgencyTba, _as_of: Date) -> Result<AgencyMbsPas
 }
 
 /// Resolve the assumed pool used as the canonical projected-collateral source.
-pub fn resolve_assumed_pool(tba: &AgencyTba, as_of: Date) -> Result<AgencyMbsPassthrough> {
+pub(crate) fn resolve_assumed_pool(tba: &AgencyTba, as_of: Date) -> Result<AgencyMbsPassthrough> {
     if let Some(ref pool) = tba.assumed_pool {
         Ok(pool.as_ref().clone())
     } else {
@@ -83,7 +83,7 @@ pub fn resolve_assumed_pool(tba: &AgencyTba, as_of: Date) -> Result<AgencyMbsPas
 /// * `tba` - TBA forward instrument
 /// * `market` - Market context with discount curves
 /// * `as_of` - Valuation date
-pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result<Money> {
     let settlement_date = tba.get_settlement_date()?;
     let assumed_pool = resolve_assumed_pool(tba, as_of)?;
 
@@ -129,13 +129,13 @@ pub fn price_tba(tba: &AgencyTba, market: &MarketContext, as_of: Date) -> Result
 /// * `fail_rate` - Financing rate for fails (typically Fed Funds - 300bp, floored at 0)
 /// * `fail_days` - Number of days the settlement has failed
 #[allow(dead_code)] // Utility available for downstream callers
-pub fn estimate_fail_cost(position_value: f64, fail_rate: f64, fail_days: u32) -> f64 {
+pub(crate) fn estimate_fail_cost(position_value: f64, fail_rate: f64, fail_days: u32) -> f64 {
     position_value * fail_rate.max(0.0) * (fail_days as f64) / 360.0
 }
 
 /// Agency TBA discounting pricer.
 #[derive(Debug, Clone, Default)]
-pub struct AgencyTbaDiscountingPricer;
+pub(crate) struct AgencyTbaDiscountingPricer;
 
 impl Pricer for AgencyTbaDiscountingPricer {
     fn key(&self) -> PricerKey {

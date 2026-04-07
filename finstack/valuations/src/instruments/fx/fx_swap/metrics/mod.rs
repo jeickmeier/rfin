@@ -20,7 +20,7 @@ mod ir01_foreign;
 use crate::metrics::MetricRegistry;
 
 /// Register all FX Swap metrics with the registry
-pub fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_fx_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
     use std::sync::Arc;

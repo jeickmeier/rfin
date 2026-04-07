@@ -6,11 +6,11 @@
 //! - pool: Collateral pool characteristics (WAM, CPR, CDR, WARF, WAS)
 //! - deal_specific: Deal-type specific metrics (ABS, CLO, CMBS, RMBS)
 
-pub mod deal_specific;
+pub(crate) mod deal_specific;
 // pub mod dv01; // removed - using GenericParallelDv01
-pub mod pool;
+pub(crate) mod pool;
 pub(crate) mod pricing;
-pub mod risk;
+pub(crate) mod risk;
 
 // Re-export all calculators for convenience
 pub use deal_specific::*;

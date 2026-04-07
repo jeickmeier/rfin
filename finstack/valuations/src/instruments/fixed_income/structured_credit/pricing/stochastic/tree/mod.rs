@@ -33,6 +33,6 @@ mod node;
 #[allow(clippy::module_inception)]
 mod tree;
 
-pub use config::{BranchingSpec, ScenarioTreeConfig};
-pub use node::{ScenarioNode, ScenarioNodeId, ScenarioPath};
-pub use tree::ScenarioTree;
+pub(crate) use config::{BranchingSpec, ScenarioTreeConfig};
+pub(crate) use node::{ScenarioNode, ScenarioNodeId, ScenarioPath};
+pub(crate) use tree::ScenarioTree;

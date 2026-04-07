@@ -276,7 +276,7 @@ pub fn adjust<C: HolidayCalendar + ?Sized>(
 }
 
 /// Adjust `date` according to `conv` utilising `cal` for holiday lookup with a custom search limit.
-pub fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
+pub(crate) fn adjust_with_limit<C: HolidayCalendar + ?Sized>(
     date: Date,
     conv: BusinessDayConvention,
     cal: &C,

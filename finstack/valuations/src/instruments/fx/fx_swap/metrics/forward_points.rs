@@ -14,7 +14,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// Forward points represent the interest rate differential between the two
 /// currencies expressed in FX terms. When domestic rates exceed foreign rates,
 /// forward points are positive (forward at premium).
-pub struct ForwardPoints;
+pub(crate) struct ForwardPoints;
 
 impl MetricCalculator for ForwardPoints {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

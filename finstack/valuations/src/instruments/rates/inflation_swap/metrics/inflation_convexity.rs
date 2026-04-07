@@ -38,7 +38,7 @@ const INFLATION_BUMP_PCT: f64 = 0.01;
 ///
 /// Note: Returns non-zero convexity even for par swaps (where base PV = 0),
 /// since convexity measures the curvature of the PV function, not its level.
-pub struct InflationConvexityCalculator;
+pub(crate) struct InflationConvexityCalculator;
 
 impl MetricCalculator for InflationConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

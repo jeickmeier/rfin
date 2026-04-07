@@ -4,7 +4,7 @@ use crate::instruments::rates::inflation_swap::InflationSwap;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Calculates PV of inflation leg for inflation swaps.
-pub struct InflationLegPvCalculator;
+pub(crate) struct InflationLegPvCalculator;
 
 impl MetricCalculator for InflationLegPvCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

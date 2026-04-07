@@ -9,7 +9,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Accrued interest calculator for convertible bonds.
-pub struct AccruedInterestCalculator;
+pub(crate) struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -19,7 +19,7 @@ impl MetricCalculator for AccruedInterestCalculator {
 }
 
 /// Clean price calculator: `dirty_price - accrued_interest`.
-pub struct CleanPriceCalculator;
+pub(crate) struct CleanPriceCalculator;
 
 impl MetricCalculator for CleanPriceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -13,7 +13,7 @@ mod hazard;
 mod merton_mc;
 mod oas;
 
-pub use hazard::SimpleBondHazardPricer;
+pub(crate) use hazard::SimpleBondHazardPricer;
 #[cfg(feature = "mc")]
 pub use merton_mc::SimpleBondMertonMcPricer;
-pub use oas::SimpleBondOasPricer;
+pub(crate) use oas::SimpleBondOasPricer;

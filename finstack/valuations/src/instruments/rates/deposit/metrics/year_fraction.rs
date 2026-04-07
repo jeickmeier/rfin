@@ -14,7 +14,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// that could cause confusing downstream errors.
 ///
 /// See unit tests and `examples/` for usage.
-pub struct YearFractionCalculator;
+pub(crate) struct YearFractionCalculator;
 
 impl MetricCalculator for YearFractionCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

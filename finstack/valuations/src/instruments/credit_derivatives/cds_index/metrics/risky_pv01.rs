@@ -8,7 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Risky PV01 calculator for CDS Index
-pub struct RiskyPv01Calculator;
+pub(crate) struct RiskyPv01Calculator;
 
 impl MetricCalculator for RiskyPv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

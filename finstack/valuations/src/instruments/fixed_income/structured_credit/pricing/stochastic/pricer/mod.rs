@@ -60,6 +60,7 @@ mod config;
 mod engine;
 mod result;
 
-pub use config::{PricingMode, StochasticPricerConfig};
-pub use engine::StochasticPricer;
+pub use config::PricingMode;
+pub(crate) use config::StochasticPricerConfig;
+pub(crate) use engine::StochasticPricer;
 pub use result::{StochasticPricingResult, TranchePricingResult};

@@ -25,7 +25,7 @@
 ///     ". Did you mean one of: foo, bar?"
 /// );
 /// ```
-pub fn format_suggestions(suggestions: &[String]) -> String {
+pub(crate) fn format_suggestions(suggestions: &[String]) -> String {
     if suggestions.is_empty() {
         String::new()
     } else if suggestions.len() == 1 {
@@ -65,7 +65,7 @@ pub fn format_suggestions(suggestions: &[String]) -> String {
 /// let suggestions = fuzzy_suggestions("USD_OS", available.iter().copied());
 /// assert!(suggestions.contains(&"USD_OIS".to_string()));
 /// ```
-pub fn fuzzy_suggestions<'a>(
+pub(crate) fn fuzzy_suggestions<'a>(
     requested: &str,
     available: impl Iterator<Item = &'a str>,
 ) -> Vec<String> {
@@ -122,7 +122,7 @@ pub fn fuzzy_suggestions<'a>(
 ///   Problem." *Journal of the ACM*, 21(1), 168-173.
 /// - Levenshtein, V. I. (1966). "Binary codes capable of correcting deletions,
 ///   insertions, and reversals." *Soviet Physics Doklady*, 10(8), 707-710.
-pub fn edit_distance(a_chars: &[char], b: &str) -> usize {
+pub(crate) fn edit_distance(a_chars: &[char], b: &str) -> usize {
     let b_chars: Vec<char> = b.chars().collect();
     let b_len = b_chars.len();
     let a_len = a_chars.len();

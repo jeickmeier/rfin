@@ -28,7 +28,7 @@ use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 use finstack_core::Result;
 
 /// Parallel IR convexity (second-order rate sensitivity).
-pub struct IrConvexityCalculator;
+pub(crate) struct IrConvexityCalculator;
 
 impl MetricCalculator for IrConvexityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -110,7 +110,7 @@ impl MetricCalculator for IrConvexityCalculator {
 ///
 /// Returns 0.0 when the swap is single-curve (discount == forward) since the
 /// mixed derivative is not meaningful in that case.
-pub struct CrossGammaCalculator;
+pub(crate) struct CrossGammaCalculator;
 
 impl MetricCalculator for CrossGammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

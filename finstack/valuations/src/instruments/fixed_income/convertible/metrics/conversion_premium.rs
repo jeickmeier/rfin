@@ -8,7 +8,7 @@ use finstack_core::Result;
 use crate::instruments::fixed_income::convertible::types::ConvertibleBond;
 
 /// Calculator for conversion premium.
-pub struct ConversionPremiumCalculator;
+pub(crate) struct ConversionPremiumCalculator;
 
 impl MetricCalculator for ConversionPremiumCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -12,7 +12,7 @@ use crate::{error::InputError, Error};
 /// If `x` is after the last knot, calls `on_right`.
 /// Otherwise returns `None`.
 #[inline]
-pub fn check_extrapolation<F1, F2>(
+pub(crate) fn check_extrapolation<F1, F2>(
     x: f64,
     knots: &[f64],
     extrapolation: ExtrapolationPolicy,
@@ -66,7 +66,7 @@ pub fn validate_knots(knots: &[f64]) -> crate::Result<()> {
 ///
 /// Knots closer than `gap < MIN_RELATIVE_KNOT_GAP * max(|k[i]|, 1.0)` are
 /// rejected to prevent numerical instability in slope/derivative calculations.
-pub const MIN_RELATIVE_KNOT_GAP: f64 = 1e-10;
+pub(crate) const MIN_RELATIVE_KNOT_GAP: f64 = 1e-10;
 
 /// Validate that consecutive knots have sufficient spacing for stable interpolation.
 ///
@@ -76,7 +76,7 @@ pub const MIN_RELATIVE_KNOT_GAP: f64 = 1e-10;
 /// tight spacing for small-magnitude knots. The `max(|k[i]|, 1.0)` floor
 /// ensures the threshold never shrinks below `min_relative_gap` for knots near
 /// zero.
-pub fn validate_knot_spacing(knots: &[f64], min_relative_gap: f64) -> crate::Result<()> {
+pub(crate) fn validate_knot_spacing(knots: &[f64], min_relative_gap: f64) -> crate::Result<()> {
     for w in knots.windows(2) {
         let gap = w[1] - w[0];
         let scale = w[0].abs().max(1.0);
@@ -95,7 +95,7 @@ pub fn validate_knot_spacing(knots: &[f64], min_relative_gap: f64) -> crate::Res
 /// time via [`validate_knots`]. We only check that the input `x` is finite, avoiding
 /// an O(n) scan on every interpolation call.
 #[inline(always)]
-pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
+pub(crate) fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
     // Only validate input x - knots are guaranteed finite by construction
     if !x.is_finite() {
         return Err(InputError::Invalid.into());
@@ -115,7 +115,7 @@ pub fn locate_segment(xs: &[f64], x: f64) -> Result<usize, Error> {
 /// Skips finite/bounds checks. Returns the segment index directly.
 /// Caller MUST ensure: x is finite, xs has >= 2 elements, xs[0] <= x <= xs[last].
 #[inline(always)]
-pub fn locate_segment_unchecked(xs: &[f64], x: f64) -> usize {
+pub(crate) fn locate_segment_unchecked(xs: &[f64], x: f64) -> usize {
     let idx = xs.partition_point(|k| *k < x);
     if idx == 0 {
         0
@@ -125,7 +125,7 @@ pub fn locate_segment_unchecked(xs: &[f64], x: f64) -> usize {
 }
 
 /// Validate that all values are strictly positive.
-pub fn validate_positive_series(values: &[f64]) -> crate::Result<()> {
+pub(crate) fn validate_positive_series(values: &[f64]) -> crate::Result<()> {
     if values.iter().any(|&v| !v.is_finite() || v <= 0.0) {
         return Err(InputError::NonPositiveValue.into());
     }
@@ -133,7 +133,7 @@ pub fn validate_positive_series(values: &[f64]) -> crate::Result<()> {
 }
 
 /// Validate that all values are finite (no NaN/Inf).
-pub fn validate_finite_series(values: &[f64]) -> crate::Result<()> {
+pub(crate) fn validate_finite_series(values: &[f64]) -> crate::Result<()> {
     if values.iter().any(|&v| !v.is_finite()) {
         return Err(InputError::Invalid.into());
     }
@@ -141,7 +141,7 @@ pub fn validate_finite_series(values: &[f64]) -> crate::Result<()> {
 }
 
 /// Validate sequence is non-increasing (monotone) in addition to positivity.
-pub fn validate_monotone_nonincreasing(values: &[f64]) -> crate::Result<()> {
+pub(crate) fn validate_monotone_nonincreasing(values: &[f64]) -> crate::Result<()> {
     validate_positive_series(values)?;
     if values.windows(2).any(|w| w[1] > w[0]) {
         return Err(InputError::Invalid.into());
@@ -157,7 +157,7 @@ pub fn validate_monotone_nonincreasing(values: &[f64]) -> crate::Result<()> {
 ///
 /// The tolerance is computed as `base_tol * max(|prev|, 1.0)` to handle both
 /// small and large value ranges.
-pub fn find_monotone_violation(values: &[f64], base_tol: f64) -> Option<(usize, f64, f64)> {
+pub(crate) fn find_monotone_violation(values: &[f64], base_tol: f64) -> Option<(usize, f64, f64)> {
     values.windows(2).enumerate().find_map(|(i, w)| {
         let (prev, curr) = (w[0], w[1]);
         let tol = base_tol * prev.abs().max(1.0);

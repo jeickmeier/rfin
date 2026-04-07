@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Returns the amount as a float (in the instrument's currency units).
 #[derive(Debug, Default, Clone, Copy)]
-pub struct AvailableCapacityCalculator;
+pub(crate) struct AvailableCapacityCalculator;
 
 impl MetricCalculator for AvailableCapacityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

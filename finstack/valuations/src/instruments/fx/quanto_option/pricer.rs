@@ -95,11 +95,11 @@ fn payoff_scale(inst: &QuantoOption) -> finstack_core::Result<f64> {
 }
 
 /// Quanto option analytical pricer.
-pub struct QuantoOptionAnalyticalPricer;
+pub(crate) struct QuantoOptionAnalyticalPricer;
 
 impl QuantoOptionAnalyticalPricer {
     /// Create a new analytical quanto option pricer
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }

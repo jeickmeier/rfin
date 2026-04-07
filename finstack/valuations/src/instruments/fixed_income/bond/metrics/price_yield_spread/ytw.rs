@@ -53,7 +53,7 @@ use finstack_core::money::Money;
 /// // YTW is computed automatically when requesting bond metrics for callable/putable bonds
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
-pub struct YtwCalculator;
+pub(crate) struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -182,7 +182,7 @@ fn normalize_pct(value: f64) -> f64 {
 // =============================================================================
 
 /// Bootstrapper that calibrates a [`BaseCorrelationCurve`] from tranche quotes.
-pub struct BaseCorrelationTarget {
+pub(crate) struct BaseCorrelationTarget {
     /// Calibration inputs (curve IDs, schedule conventions, detachment points).
     pub params: BaseCorrelationParams,
     /// Baseline market context used when pricing trial curves.
@@ -191,7 +191,7 @@ pub struct BaseCorrelationTarget {
 
 impl BaseCorrelationTarget {
     /// Create a new base correlation bootstrapper.
-    pub fn new(params: BaseCorrelationParams, base_context: MarketContext) -> Self {
+    pub(crate) fn new(params: BaseCorrelationParams, base_context: MarketContext) -> Self {
         Self {
             params,
             base_context,
@@ -341,7 +341,7 @@ impl BaseCorrelationTarget {
     }
 
     /// Prepare quotes and run the sequential bootstrap for base correlation.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &BaseCorrelationParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

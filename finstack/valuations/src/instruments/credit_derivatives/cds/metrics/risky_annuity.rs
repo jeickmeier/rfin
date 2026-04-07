@@ -8,7 +8,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Risky annuity calculator for CDS
-pub struct RiskyAnnuityCalculator;
+pub(crate) struct RiskyAnnuityCalculator;
 
 impl MetricCalculator for RiskyAnnuityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -40,7 +40,7 @@ use finstack_core::Result;
 
 /// Configuration for Monte Carlo OAS calculation.
 #[derive(Debug, Clone)]
-pub struct McOasConfig {
+pub(crate) struct McOasConfig {
     /// Number of simulation paths (default: 512).
     pub num_paths: usize,
     /// Number of monthly time steps per path (default: WAM).
@@ -75,7 +75,7 @@ impl Default for McOasConfig {
 
 /// Result of a Monte Carlo OAS calculation.
 #[derive(Debug, Clone)]
-pub struct McOasResult {
+pub(crate) struct McOasResult {
     /// Option-adjusted spread in decimal (e.g., 0.01 for 100 bps).
     pub oas: f64,
     /// Average model price across all paths at the calculated OAS.
@@ -286,7 +286,7 @@ fn price_on_path(
 /// let result = calculate_mc_oas(&mbs, 98.5, &market, as_of, &config)?;
 /// println!("MC OAS: {:.0} bps", result.oas * 10_000.0);
 /// ```
-pub fn calculate_mc_oas(
+pub(crate) fn calculate_mc_oas(
     mbs: &AgencyMbsPassthrough,
     market_price_pct: f64,
     market: &MarketContext,

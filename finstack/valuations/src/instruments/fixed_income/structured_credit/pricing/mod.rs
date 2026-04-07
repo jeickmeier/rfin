@@ -7,11 +7,11 @@
 //! - Diversion rule processing
 //! - Stochastic pricing
 
-pub mod coverage_tests;
-pub mod deterministic;
-pub mod diversion;
-pub mod stochastic;
-pub mod waterfall;
+pub(crate) mod coverage_tests;
+pub(crate) mod deterministic;
+pub(crate) mod diversion;
+pub(crate) mod stochastic;
+pub(crate) mod waterfall;
 
 // Re-export deterministic functions
 pub use deterministic::{generate_cashflows, generate_tranche_cashflows, run_simulation};

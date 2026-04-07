@@ -86,7 +86,7 @@ use crate::{
 /// 3-month lag per the Canadian model (ISDA standard). This means the CPI index
 /// ratio for a given settlement date is based on CPI values published 3 months
 /// prior, with linear interpolation between monthly values.
-pub const DEFAULT_INDEXATION_LAG_MONTHS: u32 = 3;
+pub(crate) const DEFAULT_INDEXATION_LAG_MONTHS: u32 = 3;
 
 /// Inflation curve representing CPI/RPI index levels over time.
 ///

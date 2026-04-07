@@ -15,7 +15,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Charm calculator for equity options.
-pub struct CharmCalculator;
+pub(crate) struct CharmCalculator;
 
 impl MetricCalculator for CharmCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

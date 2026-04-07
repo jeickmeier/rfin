@@ -23,7 +23,7 @@ const RHO_BUMP_BP: f64 = 1.0;
 ///
 /// Computes rho by bumping the discount curve by 1bp and repricing.
 /// Reports the dollar value change per 1bp change in rates.
-pub struct RhoCalculator;
+pub(crate) struct RhoCalculator;
 
 impl MetricCalculator for RhoCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

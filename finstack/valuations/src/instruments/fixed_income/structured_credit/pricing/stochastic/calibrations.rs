@@ -22,27 +22,27 @@
 ///
 /// Suitable for agency and prime non-agency RMBS pools.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct RmbsCalibration {
+pub(crate) struct RmbsCalibration {
     /// Base annual conditional default rate (CDR)
-    pub base_cdr: f64,
+    pub(crate) base_cdr: f64,
     /// Default correlation (asset correlation)
-    pub default_correlation: f64,
+    pub(crate) default_correlation: f64,
     /// Base annual conditional prepayment rate (CPR)
-    pub base_cpr: f64,
+    pub(crate) base_cpr: f64,
     /// Prepayment factor loading (sensitivity to systematic factor)
-    pub prepay_factor_loading: f64,
+    pub(crate) prepay_factor_loading: f64,
     /// CPR volatility
-    pub cpr_volatility: f64,
+    pub(crate) cpr_volatility: f64,
     /// Default factor sensitivity (for intensity models)
-    pub default_factor_sensitivity: f64,
+    pub(crate) default_factor_sensitivity: f64,
     /// Default model mean reversion speed
-    pub default_mean_reversion: f64,
+    pub(crate) default_mean_reversion: f64,
     /// Default model volatility
-    pub default_volatility: f64,
+    pub(crate) default_volatility: f64,
     /// Refinancing sensitivity (for Richard-Roll model)
-    pub refi_sensitivity: f64,
+    pub(crate) refi_sensitivity: f64,
     /// Burnout rate (for Richard-Roll model)
-    pub burnout_rate: f64,
+    pub(crate) burnout_rate: f64,
 }
 
 /// Standard RMBS calibration (prime/agency).
@@ -52,7 +52,7 @@ pub struct RmbsCalibration {
 /// - Low correlation (5%) due to pool diversification
 /// - Moderate prepayment (6% CPR base)
 /// - Standard PSA-style seasoning
-pub const RMBS_STANDARD: RmbsCalibration = RmbsCalibration {
+pub(crate) const RMBS_STANDARD: RmbsCalibration = RmbsCalibration {
     base_cdr: 0.02,
     default_correlation: 0.05,
     base_cpr: 0.06,
@@ -69,23 +69,23 @@ pub const RMBS_STANDARD: RmbsCalibration = RmbsCalibration {
 ///
 /// Suitable for broadly syndicated loan CLOs.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CloCalibration {
+pub(crate) struct CloCalibration {
     /// Base annual conditional default rate (CDR)
-    pub base_cdr: f64,
+    pub(crate) base_cdr: f64,
     /// Default correlation (asset correlation)
-    pub default_correlation: f64,
+    pub(crate) default_correlation: f64,
     /// Base annual conditional prepayment rate (CPR)
-    pub base_cpr: f64,
+    pub(crate) base_cpr: f64,
     /// Prepayment factor loading
-    pub prepay_factor_loading: f64,
+    pub(crate) prepay_factor_loading: f64,
     /// CPR volatility
-    pub cpr_volatility: f64,
+    pub(crate) cpr_volatility: f64,
     /// Default factor sensitivity
-    pub default_factor_sensitivity: f64,
+    pub(crate) default_factor_sensitivity: f64,
     /// Default model mean reversion speed
-    pub default_mean_reversion: f64,
+    pub(crate) default_mean_reversion: f64,
     /// Default model volatility
-    pub default_volatility: f64,
+    pub(crate) default_volatility: f64,
 }
 
 /// Standard CLO calibration (broadly syndicated loans).
@@ -94,7 +94,7 @@ pub struct CloCalibration {
 /// - Higher default rates (3% annual CDR)
 /// - Higher correlation (20-25%) for corporate exposures
 /// - Higher prepayment (15% CPR) due to refinancing
-pub const CLO_STANDARD: CloCalibration = CloCalibration {
+pub(crate) const CLO_STANDARD: CloCalibration = CloCalibration {
     base_cdr: 0.03,
     default_correlation: 0.20,
     base_cpr: 0.15,
@@ -109,17 +109,17 @@ pub const CLO_STANDARD: CloCalibration = CloCalibration {
 ///
 /// Suitable for conduit CMBS transactions.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CmbsCalibration {
+pub(crate) struct CmbsCalibration {
     /// Base annual conditional default rate (CDR)
-    pub base_cdr: f64,
+    pub(crate) base_cdr: f64,
     /// Default correlation (asset correlation)
-    pub default_correlation: f64,
+    pub(crate) default_correlation: f64,
     /// Base annual conditional prepayment rate (CPR)
-    pub base_cpr: f64,
+    pub(crate) base_cpr: f64,
     /// Prepayment factor loading
-    pub prepay_factor_loading: f64,
+    pub(crate) prepay_factor_loading: f64,
     /// CPR volatility
-    pub cpr_volatility: f64,
+    pub(crate) cpr_volatility: f64,
 }
 
 /// Standard CMBS calibration (conduit).
@@ -128,7 +128,7 @@ pub struct CmbsCalibration {
 /// - Moderate default rates (2.5% annual CDR)
 /// - Moderate correlation (15%)
 /// - Low prepayment due to lockouts/defeasance (3% CPR)
-pub const CMBS_STANDARD: CmbsCalibration = CmbsCalibration {
+pub(crate) const CMBS_STANDARD: CmbsCalibration = CmbsCalibration {
     base_cdr: 0.025,
     default_correlation: 0.15,
     base_cpr: 0.03,

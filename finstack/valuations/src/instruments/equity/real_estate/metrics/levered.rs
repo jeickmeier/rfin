@@ -8,7 +8,7 @@ use finstack_core::Error as CoreError;
 
 /// Levered equity IRR (XIRR-style) from the levered equity cashflow schedule.
 #[derive(Debug, Default)]
-pub struct LeveredIrr;
+pub(super) struct LeveredIrr;
 
 impl MetricCalculator for LeveredIrr {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -27,7 +27,7 @@ impl MetricCalculator for LeveredIrr {
 
 /// Equity multiple (MOIC-like): total inflows / total outflows (absolute).
 #[derive(Debug, Default)]
-pub struct EquityMultiple;
+pub(super) struct EquityMultiple;
 
 impl MetricCalculator for EquityMultiple {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -63,7 +63,7 @@ impl MetricCalculator for EquityMultiple {
 /// Uses present values (not face/outstanding) to keep the metric consistent with
 /// the library's valuation approach.
 #[derive(Debug, Default)]
-pub struct LoanToValue;
+pub(super) struct LoanToValue;
 
 impl MetricCalculator for LoanToValue {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -95,7 +95,7 @@ impl MetricCalculator for LoanToValue {
 /// This is a simplified DSCR proxy computed on NOI dates. It is intended for screening and
 /// covenant-like reporting, not legal covenant calculation.
 #[derive(Debug, Default)]
-pub struct DscrMin;
+pub(super) struct DscrMin;
 
 impl MetricCalculator for DscrMin {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -160,7 +160,7 @@ impl MetricCalculator for DscrMin {
 /// Minimum interest-only DSCR over the NOI dates in the asset schedule:
 /// NOI / (cash interest + fees), excluding scheduled principal/amortization.
 #[derive(Debug, Default)]
-pub struct DscrMinInterestOnly;
+pub(super) struct DscrMinInterestOnly;
 
 impl MetricCalculator for DscrMinInterestOnly {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -228,7 +228,7 @@ impl MetricCalculator for DscrMinInterestOnly {
 
 /// Loan-to-value at origination: initial debt drawn / purchase price.
 #[derive(Debug, Default)]
-pub struct LoanToValueAtOrigination;
+pub(super) struct LoanToValueAtOrigination;
 
 impl MetricCalculator for LoanToValueAtOrigination {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -279,7 +279,7 @@ impl MetricCalculator for LoanToValueAtOrigination {
 
 /// Debt payoff at exit (absolute amount).
 #[derive(Debug, Default)]
-pub struct DebtPayoffAtExit;
+pub(super) struct DebtPayoffAtExit;
 
 impl MetricCalculator for DebtPayoffAtExit {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

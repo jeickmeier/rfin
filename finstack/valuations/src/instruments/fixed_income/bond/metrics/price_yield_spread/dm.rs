@@ -67,7 +67,7 @@ use std::cell::RefCell;
 /// };
 /// ```
 #[derive(Debug, Clone)]
-pub struct DiscountMarginSolverConfig {
+pub(crate) struct DiscountMarginSolverConfig {
     /// Convergence tolerance for the DM root finder (on the DM axis, decimal).
     ///
     /// Default: `1e-10` (~0.01 bp precision). This is consistent with other
@@ -144,11 +144,6 @@ impl DiscountMarginCalculator {
     /// Create a DM calculator with default production-grade solver settings.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Create a DM calculator with a custom solver configuration.
-    pub fn with_config(config: DiscountMarginSolverConfig) -> Self {
-        Self { config }
     }
 
     fn pv_given_dm(

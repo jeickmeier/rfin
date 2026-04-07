@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Gamma calculator for credit options on CDS spreads.
-pub struct GammaCalculator;
+pub(crate) struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

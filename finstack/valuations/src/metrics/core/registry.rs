@@ -27,7 +27,7 @@ use std::sync::Arc;
 /// let mode = StrictMode::BestEffort;
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StrictMode {
+pub(crate) enum StrictMode {
     /// Strict mode: return error on first failure.
     ///
     /// Any missing metric, non-applicable metric, or calculation failure

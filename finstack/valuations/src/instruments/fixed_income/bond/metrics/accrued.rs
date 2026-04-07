@@ -29,7 +29,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// - [`Bond::accrual_config`] for accrual configuration
 /// - [`crate::cashflow::accrual`] for the accrual engine
-pub struct AccruedInterestCalculator;
+pub(crate) struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

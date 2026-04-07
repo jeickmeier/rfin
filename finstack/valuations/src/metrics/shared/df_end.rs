@@ -4,7 +4,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Uses `Instrument::market_dependencies()` to find the primary discount curve
 /// and `Instrument::expiry()` to determine the end date.
-pub struct GenericDfEndCalculator;
+pub(crate) struct GenericDfEndCalculator;
 
 impl MetricCalculator for GenericDfEndCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

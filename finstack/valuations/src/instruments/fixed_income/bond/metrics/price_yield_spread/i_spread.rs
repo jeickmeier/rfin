@@ -7,7 +7,7 @@ use finstack_core::dates::{Date, DayCount, StubKind, Tenor};
 /// Controls the proxy swap fixed leg used to derive the par rate that is
 /// subtracted from the bond's YTM.
 #[derive(Debug, Clone)]
-pub struct ISpreadConfig {
+pub(crate) struct ISpreadConfig {
     /// Day-count convention for the proxy fixed leg used in the par rate.
     pub fixed_leg_day_count: DayCount,
     /// Payment frequency for the proxy fixed leg.
@@ -55,7 +55,7 @@ impl Default for ISpreadConfig {
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct ISpreadCalculator {
+pub(crate) struct ISpreadCalculator {
     config: ISpreadConfig,
 }
 
@@ -63,12 +63,12 @@ pub struct ISpreadCalculator {
 impl ISpreadCalculator {
     /// Create an I-Spread calculator with default (annual Act/Act) fixed-leg
     /// conventions.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Create an I-Spread calculator with explicit fixed-leg conventions.
-    pub fn with_config(config: ISpreadConfig) -> Self {
+    pub(crate) fn with_config(config: ISpreadConfig) -> Self {
         Self { config }
     }
 }

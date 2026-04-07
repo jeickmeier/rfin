@@ -27,7 +27,7 @@ use finstack_core::Result;
 const HURDLE_BUMP: f64 = 0.0001;
 
 /// Hurdle01 calculator for PrivateMarketsFund.
-pub struct Hurdle01Calculator;
+pub(crate) struct Hurdle01Calculator;
 
 impl MetricCalculator for Hurdle01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

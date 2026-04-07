@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "ts_export")]
 use ts_rs::TS;
 
-pub fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
+pub(crate) fn default_rate_bounds_policy_for_serde() -> RateBoundsPolicy {
     // plan-driven default: choose currency-aware bounds unless explicitly overridden.
     RateBoundsPolicy::AutoCurrency
 }

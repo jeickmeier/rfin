@@ -11,7 +11,7 @@ use crate::metrics::MetricRegistry;
 use std::sync::Arc;
 
 /// Register CMS swap metrics with the registry.
-pub fn register_cms_swap_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_cms_swap_metrics(registry: &mut MetricRegistry) {
     use crate::metrics::MetricId;
     use crate::pricer::InstrumentType;
 

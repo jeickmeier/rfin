@@ -75,7 +75,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 /// };
 /// ```
 #[derive(Debug, Clone)]
-pub struct ZSpreadSolverConfig {
+pub(crate) struct ZSpreadSolverConfig {
     /// Convergence tolerance for the Z-spread solver (on the spread axis, decimal).
     ///
     /// Default: `1e-10` (~0.01 bp precision), which typically achieves price
@@ -159,11 +159,6 @@ impl ZSpreadCalculator {
     /// settings.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Create a Z-spread calculator with a custom solver configuration.
-    pub fn with_config(config: ZSpreadSolverConfig) -> Self {
-        Self { config }
     }
 
     /// Compute a maturity-aware initial bracket in decimal units.

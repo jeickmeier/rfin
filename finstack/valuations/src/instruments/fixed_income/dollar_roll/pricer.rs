@@ -24,7 +24,11 @@ use finstack_core::Result;
 ///
 /// Positive value means the roll is profitable (you receive more
 /// from the front sale than you pay for the back purchase).
-pub fn price_dollar_roll(roll: &DollarRoll, market: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn price_dollar_roll(
+    roll: &DollarRoll,
+    market: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let front_leg = roll.front_leg()?;
     let back_leg = roll.back_leg()?;
 

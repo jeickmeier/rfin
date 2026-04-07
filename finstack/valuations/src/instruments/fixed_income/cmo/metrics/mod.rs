@@ -3,15 +3,15 @@
 //! CMO-specific metrics including tranche-level OAS, duration,
 //! and scenario analysis.
 
-pub mod oas;
+pub(crate) mod oas;
 
-pub use oas::calculate_tranche_oas;
+pub(crate) use oas::calculate_tranche_oas;
 
 use crate::instruments::fixed_income::cmo::AgencyCmo;
 use crate::metrics::{MetricCalculator, MetricContext, MetricRegistry};
 
 /// Calculator for tranche option-adjusted spread (OAS).
-pub struct OasCalculator;
+pub(crate) struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {
@@ -32,7 +32,7 @@ impl MetricCalculator for OasCalculator {
 }
 
 /// Register agency CMO metrics with the registry.
-pub fn register_cmo_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_cmo_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

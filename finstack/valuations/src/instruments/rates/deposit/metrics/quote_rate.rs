@@ -8,7 +8,7 @@ use rust_decimal::prelude::ToPrimitive;
 ///
 /// # Errors
 /// Returns an error if the deposit does not have a quoted rate set.
-pub struct QuoteRateCalculator;
+pub(crate) struct QuoteRateCalculator;
 
 impl MetricCalculator for QuoteRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -14,7 +14,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
 /// Calculates CS-Gamma for credit default swaps.
-pub struct CsGammaCalculator;
+pub(crate) struct CsGammaCalculator;
 
 impl MetricCalculator for CsGammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

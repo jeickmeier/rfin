@@ -263,7 +263,7 @@ fn parse_theta_period(period: &str) -> Result<ThetaPeriod> {
 ///
 /// # Returns
 /// The rolled forward date, capped at expiry if applicable
-pub fn calculate_theta_date(
+pub(crate) fn calculate_theta_date(
     base_date: Date,
     period_str: &str,
     expiry_date: Option<Date>,
@@ -335,7 +335,7 @@ pub(crate) fn collect_cashflows_in_period(
 ///
 /// The calculator is registered under [`MetricId::ThetaCarry`] and stores all three
 /// components as side-effects in [`MetricContext::computed`].
-pub struct GenericThetaDecomposed;
+pub(crate) struct GenericThetaDecomposed;
 
 impl Default for GenericThetaDecomposed {
     fn default() -> Self {
@@ -439,7 +439,7 @@ impl crate::metrics::MetricCalculator for ThetaComponentLookup {
 ///
 /// This calculator works with `dyn Instrument` directly, using the trait's `value()` method,
 /// and is registered as the default theta calculator for all instruments.
-pub struct GenericThetaAny;
+pub(crate) struct GenericThetaAny;
 
 impl Default for GenericThetaAny {
     fn default() -> Self {

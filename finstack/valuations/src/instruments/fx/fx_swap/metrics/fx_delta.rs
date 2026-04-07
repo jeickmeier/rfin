@@ -22,7 +22,7 @@ use finstack_core::Result;
 ///
 /// Computes the PV change for a 1% relative move in spot rate using
 /// central finite difference for O(h²) accuracy.
-pub struct FxDeltaCalculator;
+pub(crate) struct FxDeltaCalculator;
 
 impl MetricCalculator for FxDeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

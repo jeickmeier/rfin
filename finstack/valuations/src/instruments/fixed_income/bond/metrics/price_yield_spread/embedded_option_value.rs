@@ -91,7 +91,7 @@ use finstack_core::dates::DayCountCtx;
 /// // Use via MetricRegistry for proper context management
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct EmbeddedOptionValueCalculator {
+pub(crate) struct EmbeddedOptionValueCalculator {
     /// Number of tree steps (default: 100)
     tree_steps: usize,
     /// Short rate volatility (default: 1% = 100 bps normal vol for Ho-Lee)
@@ -103,7 +103,7 @@ impl EmbeddedOptionValueCalculator {
     /// Create a calculator with default settings.
     ///
     /// Uses 100 tree steps and 1% (100 bps) normal volatility.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             tree_steps: 100,
             volatility: 0.01,
@@ -125,7 +125,7 @@ impl EmbeddedOptionValueCalculator {
     /// // High precision with calibrated volatility
     /// let calc = EmbeddedOptionValueCalculator::with_config(200, 0.012);
     /// ```
-    pub fn with_config(tree_steps: usize, volatility: f64) -> Self {
+    pub(crate) fn with_config(tree_steps: usize, volatility: f64) -> Self {
         Self {
             tree_steps,
             volatility,

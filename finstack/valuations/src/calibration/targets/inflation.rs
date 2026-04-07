@@ -37,13 +37,13 @@ use std::sync::Arc;
 /// # Supported Methods
 /// - **Bootstrap**: Sequential solving, one knot at a time (default).
 /// - **GlobalSolve**: Simultaneous Levenberg-Marquardt fit of all CPI knots.
-pub struct InflationCurveTarget {
+pub(crate) struct InflationCurveTarget {
     /// Parameters for the inflation curve (ID, interpolation, etc).
-    pub params: InflationCurveParams,
+    pub(crate) params: InflationCurveParams,
     /// Baseline market context containing discount curves.
-    pub base_context: MarketContext,
+    pub(crate) base_context: MarketContext,
     /// Global calibration settings (used for solver controls and weights).
-    pub config: CalibrationConfig,
+    pub(crate) config: CalibrationConfig,
     /// Optional reusable context for sequential solvers to reduce memory pressure.
     reuse_context: Option<RefCell<MarketContext>>,
 }
@@ -60,7 +60,7 @@ impl InflationCurveTarget {
     /// # Returns
     ///
     /// A new `InflationCurveTarget` instance ready for calibration.
-    pub fn new(
+    pub(crate) fn new(
         params: InflationCurveParams,
         base_context: MarketContext,
         config: CalibrationConfig,
@@ -79,7 +79,10 @@ impl InflationCurveTarget {
     }
 
     /// Pre-build per-quote instruments so solver residual evaluation is allocation-free.
-    pub fn prepare_quotes(&self, quotes: Vec<InflationQuote>) -> Result<Vec<CalibrationQuote>> {
+    pub(crate) fn prepare_quotes(
+        &self,
+        quotes: Vec<InflationQuote>,
+    ) -> Result<Vec<CalibrationQuote>> {
         quotes.into_iter().map(|q| self.prepare_single(q)).collect()
     }
 
@@ -280,7 +283,7 @@ impl InflationCurveTarget {
     }
 
     /// Execute the full calibration for an inflation curve step.
-    pub fn solve(
+    pub(crate) fn solve(
         params: &InflationCurveParams,
         quotes: &[MarketQuote],
         context: &MarketContext,

@@ -6,13 +6,12 @@
 //! - Validation framework for waterfall specifications
 //! - Rate projection helpers for floating rate assets
 
-pub mod rate_helpers;
-pub mod rates;
-pub mod simulation;
-pub mod validation;
+pub(crate) mod rate_helpers;
+pub(crate) mod rates;
+pub(crate) mod simulation;
+pub(crate) mod validation;
 
 // Re-export commonly used functions
-pub use rates::{
-    cdr_to_mdr, cpr_to_smm, frequency_periods_per_year, mdr_to_cdr, psa_to_cpr, smm_to_cpr,
-};
+pub(crate) use rates::frequency_periods_per_year;
+pub use rates::{cdr_to_mdr, cpr_to_smm, mdr_to_cdr, psa_to_cpr, smm_to_cpr};
 pub use validation::{get_validation_errors, is_valid_waterfall_spec, ValidationError};

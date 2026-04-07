@@ -25,7 +25,7 @@ impl OptionConventionRecord {
 }
 
 /// Load the Option conventions from the embedded JSON registry.
-pub fn load_registry() -> Result<HashMap<OptionConventionId, OptionConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<OptionConventionId, OptionConventions>, Error> {
     let json = include_str!("../../../../data/conventions/option_conventions.json");
     super::json::parse_and_rekey(
         json,

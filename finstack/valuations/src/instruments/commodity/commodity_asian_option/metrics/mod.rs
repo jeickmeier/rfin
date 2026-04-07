@@ -13,7 +13,7 @@ use crate::pricer::InstrumentType;
 use std::sync::Arc;
 
 /// Register commodity Asian option metrics with the registry.
-pub fn register_commodity_asian_option_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_commodity_asian_option_metrics(registry: &mut MetricRegistry) {
     registry.register_metric(
         MetricId::Delta,
         Arc::new(greeks::AsianDeltaCalculator),

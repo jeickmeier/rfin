@@ -4,7 +4,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 ///
 /// Uses `Instrument::market_dependencies()` to find the primary discount curve
 /// and `Instrument::effective_start_date()` to determine the start date.
-pub struct GenericDfStartCalculator;
+pub(crate) struct GenericDfStartCalculator;
 
 impl MetricCalculator for GenericDfStartCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

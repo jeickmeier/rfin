@@ -53,7 +53,7 @@ fn parse_doc_clause(clause_str: &str) -> Option<CdsDocClause> {
 /// allowing the embedded registry to define catch-all conventions that apply to any currency
 /// not explicitly overridden. Explicit currency IDs (e.g., `USD:IsdaNa`) take precedence
 /// over expanded `ANY` entries.
-pub fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Error> {
+pub(crate) fn load_registry() -> Result<HashMap<CdsConventionKey, CdsConventions>, Error> {
     let json = include_str!("../../../../data/conventions/cds_conventions.json");
     let file: RegistryFile<CdsConventionsRecord> = serde_json::from_str(json).map_err(|e| {
         Error::Validation(format!(

@@ -51,7 +51,7 @@ pub struct MbsCashflow {
 }
 
 /// Derive the SIFMA Good Delivery settlement date for a given accrual period.
-pub fn sifma_settlement_for_period(period_end: Date) -> Result<Date> {
+pub(crate) fn sifma_settlement_for_period(period_end: Date) -> Result<Date> {
     finstack_core::dates::sifma_settlement_date(period_end.month(), period_end.year()).ok_or_else(
         || {
             finstack_core::Error::Validation(format!(
@@ -64,7 +64,7 @@ pub fn sifma_settlement_for_period(period_end: Date) -> Result<Date> {
 }
 
 /// Generate projected cashflows for an agency MBS.
-pub fn generate_cashflows(
+pub(crate) fn generate_cashflows(
     mbs: &AgencyMbsPassthrough,
     as_of: Date,
     max_periods: Option<u32>,
@@ -167,7 +167,7 @@ pub fn generate_cashflows(
 }
 
 /// Build the canonical projected collateral schedule for an agency MBS.
-pub fn build_projected_schedule(
+pub(crate) fn build_projected_schedule(
     mbs: &AgencyMbsPassthrough,
     as_of: Date,
     max_periods: Option<u32>,
@@ -265,7 +265,11 @@ fn discount_schedule(
 ///
 /// Uses the discount curve's own day count convention for computing
 /// year fractions, ensuring consistency with the curve's interpolation.
-pub fn price_mbs(mbs: &AgencyMbsPassthrough, market: &MarketContext, as_of: Date) -> Result<Money> {
+pub(crate) fn price_mbs(
+    mbs: &AgencyMbsPassthrough,
+    market: &MarketContext,
+    as_of: Date,
+) -> Result<Money> {
     let schedule = build_projected_schedule(mbs, as_of, Some(mbs.wam + 12))?;
 
     if schedule.flows.is_empty() {
@@ -281,7 +285,7 @@ pub fn price_mbs(mbs: &AgencyMbsPassthrough, market: &MarketContext, as_of: Date
 /// Price an agency MBS with a spread adjustment.
 ///
 /// Adds a spread (in decimal) to the discount rate when computing present value.
-pub fn price_with_spread(
+pub(crate) fn price_with_spread(
     mbs: &AgencyMbsPassthrough,
     market: &MarketContext,
     as_of: Date,

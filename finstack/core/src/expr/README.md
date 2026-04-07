@@ -305,7 +305,7 @@ If you need to tune caching behaviour beyond the defaults:
 
 - Use `CompiledExpr::with_planning(ast, meta)` to get an `ExecutionPlan` with a `CacheStrategy`.
 - Attach a cache sized for your workload with `.with_cache(budget_mb)` or per‑call via `EvalOpts.cache_budget_mb`.
-- Inspect cache statistics via `CacheManager::stats()` / `hit_ratio()` to size budgets in benchmarks.
+- Inspect cache behavior through expression benchmarks or by instrumenting the internal cache state when tuning budgets.
 
 ---
 
