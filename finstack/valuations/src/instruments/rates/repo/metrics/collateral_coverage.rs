@@ -6,7 +6,7 @@ use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 use finstack_core::Result;
 
 /// Calculate collateral coverage ratio (market value / required value).
-pub struct CollateralCoverageCalculator;
+pub(crate) struct CollateralCoverageCalculator;
 
 impl MetricCalculator for CollateralCoverageCalculator {
     fn dependencies(&self) -> &[MetricId] {

@@ -3,7 +3,6 @@
 //! Measures performance of critical scenario operations:
 //! - Scenario composition and priority-based merging
 //! - Market data shocks (FX, equity, curves, vol surfaces, base correlation)
-#![allow(deprecated)]
 //! - Statement forecast adjustments
 //! - Complex multi-operation scenarios
 //! - Serde serialization/deserialization

@@ -9,7 +9,7 @@ use finstack_core::Result;
 use rust_decimal::Decimal;
 
 /// Calculate funding risk (repo rate sensitivity).
-pub struct FundingRiskCalculator;
+pub(crate) struct FundingRiskCalculator;
 
 impl MetricCalculator for FundingRiskCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -14,20 +14,90 @@
 //! - Correlations: 1% (0.01)
 
 /// Standard bump sizes for finite difference calculations.
-pub mod bump_sizes {
+pub(crate) mod bump_sizes {
     /// Spot/underlying price bump: 1% (0.01)
-    pub const SPOT: f64 = 0.01;
+    pub(crate) const SPOT: f64 = 0.01;
     /// Volatility bump: **absolute** 1 vol point (0.01).
     ///
     /// This represents an **absolute** change in implied volatility, e.g. 20% → 21%.
     /// (Not a 1% relative scaling of the surface.)
-    pub const VOLATILITY: f64 = 0.01;
+    pub(crate) const VOLATILITY: f64 = 0.01;
     /// Correlation bump: 1% (0.01)
     ///
     /// Used by correlation sensitivity calculators (e.g., quanto options).
     /// Only exercised when the `mc` feature is active.
     #[cfg_attr(not(feature = "mc"), allow(dead_code))]
-    pub const CORRELATION: f64 = 0.01;
+    pub(crate) const CORRELATION: f64 = 0.01;
+}
+
+/// Minimum width tolerated when normalizing a finite difference.
+const MIN_FINITE_DIFF_WIDTH: f64 = 1e-12;
+
+/// Extract the numeric value from a scalar quote.
+#[inline]
+pub(crate) fn scalar_numeric_value(
+    scalar: &finstack_core::market_data::scalars::MarketScalar,
+) -> f64 {
+    match scalar {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(value) => *value,
+        finstack_core::market_data::scalars::MarketScalar::Price(money) => money.amount(),
+    }
+}
+
+/// Rebuild a scalar quote using the same variant and currency as `template`.
+#[inline]
+pub(crate) fn scalar_with_numeric_value(
+    template: &finstack_core::market_data::scalars::MarketScalar,
+    value: f64,
+) -> finstack_core::market_data::scalars::MarketScalar {
+    match template {
+        finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
+            finstack_core::market_data::scalars::MarketScalar::Unitless(value)
+        }
+        finstack_core::market_data::scalars::MarketScalar::Price(money) => {
+            finstack_core::market_data::scalars::MarketScalar::Price(
+                finstack_core::money::Money::new(value, money.currency()),
+            )
+        }
+    }
+}
+
+/// Clone a market context and replace a scalar quote with a new numeric value.
+pub(crate) fn replace_scalar_value(
+    context: &finstack_core::market_data::context::MarketContext,
+    scalar_id: &str,
+    template: &finstack_core::market_data::scalars::MarketScalar,
+    value: f64,
+) -> finstack_core::market_data::context::MarketContext {
+    context
+        .clone()
+        .insert_price(scalar_id, scalar_with_numeric_value(template, value))
+}
+
+/// Compute a central difference normalized by the full bump width.
+#[inline]
+pub(crate) fn central_diff_by_width(pv_up: f64, pv_down: f64, width: f64) -> f64 {
+    if !width.is_finite() || width.abs() <= MIN_FINITE_DIFF_WIDTH {
+        return 0.0;
+    }
+    (pv_up - pv_down) / width
+}
+
+/// Compute a central difference normalized by a symmetric half-bump.
+#[inline]
+pub(crate) fn central_diff_by_half_bump(pv_up: f64, pv_down: f64, half_bump: f64) -> f64 {
+    central_diff_by_width(pv_up, pv_down, 2.0 * half_bump)
+}
+
+/// Compute a scaled central difference using the actual bump width.
+#[inline]
+pub(crate) fn scaled_central_diff_by_width(
+    pv_up: f64,
+    pv_down: f64,
+    width: f64,
+    scale: f64,
+) -> f64 {
+    central_diff_by_width(pv_up, pv_down, width) * scale
 }
 
 /// Helper to bump a scalar price in MarketContext.
@@ -66,7 +136,7 @@ pub mod bump_sizes {
 /// // Bump the price up by 1%
 /// let bumped = bump_scalar_price(&context, "AAPL", 0.01)?;
 /// ```
-pub fn bump_scalar_price(
+pub(crate) fn bump_scalar_price(
     context: &finstack_core::market_data::context::MarketContext,
     price_id: &str,
     bump_pct: f64,
@@ -125,7 +195,7 @@ pub fn bump_scalar_price(
 /// // Bump the curve by 1bp (1.0 in bp units)
 /// let bumped = bump_discount_curve_parallel(&context, &curve_id, 1.0)?;
 /// ```
-pub fn bump_discount_curve_parallel(
+pub(crate) fn bump_discount_curve_parallel(
     context: &finstack_core::market_data::context::MarketContext,
     curve_id: &finstack_core::types::CurveId,
     bump_bp: f64,
@@ -157,7 +227,7 @@ pub fn bump_discount_curve_parallel(
 /// # Errors
 ///
 /// Returns an error if the curve ID is not found or the bump operation fails.
-pub fn bump_forward_curve_parallel(
+pub(crate) fn bump_forward_curve_parallel(
     context: &finstack_core::market_data::context::MarketContext,
     curve_id: &finstack_core::types::CurveId,
     bump_bp: f64,
@@ -188,7 +258,7 @@ pub fn bump_forward_curve_parallel(
 /// - Vega calculations near zero vol may exhibit non-linearity due to this floor
 ///
 /// Prefer this helper for market-standard vega/volga/vanna definitions (derivatives w.r.t. σ).
-pub fn bump_surface_vol_absolute(
+pub(crate) fn bump_surface_vol_absolute(
     context: &finstack_core::market_data::context::MarketContext,
     vol_surface_id: &str,
     bump_abs: f64,
@@ -218,7 +288,7 @@ pub fn bump_surface_vol_absolute(
 /// variables with absolute bump sizes `h` (first variable) and `k` (second).
 ///
 /// Returns `[f(+h,+k) - f(+h,-k) - f(-h,+k) + f(-h,-k)] / (4 h k)`.
-pub fn central_mixed<EEpp, EEpm, EEmp, Eemm, E1, E2, E3, E4>(
+pub(crate) fn central_mixed<EEpp, EEpm, EEmp, Eemm, E1, E2, E3, E4>(
     eval_pp: EEpp,
     eval_pm: EEpm,
     eval_mp: EEmp,
@@ -254,6 +324,10 @@ where
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
+    use finstack_core::currency::Currency;
+    use finstack_core::market_data::context::MarketContext;
+    use finstack_core::market_data::scalars::MarketScalar;
+    use finstack_core::money::Money;
 
     #[test]
     fn central_mixed_rejects_nonpositive_or_invalid_hk() {
@@ -303,5 +377,50 @@ mod tests {
             (result - 1.0).abs() < 1e-10,
             "cross derivative of x*y should be 1.0, got {result}"
         );
+    }
+
+    #[test]
+    fn scalar_helpers_preserve_variant_and_currency() {
+        let price_scalar = MarketScalar::Price(Money::new(99.0, Currency::USD));
+        let rebuilt = scalar_with_numeric_value(&price_scalar, 101.0);
+        match rebuilt {
+            MarketScalar::Price(money) => {
+                assert_eq!(money.currency(), Currency::USD);
+                assert_eq!(money.amount(), 101.0);
+            }
+            MarketScalar::Unitless(_) => panic!("expected price scalar"),
+        }
+
+        let unitless = MarketScalar::Unitless(0.02);
+        let rebuilt = scalar_with_numeric_value(&unitless, 0.03);
+        assert_eq!(scalar_numeric_value(&rebuilt), 0.03);
+    }
+
+    #[test]
+    fn replace_scalar_value_updates_only_requested_quote() {
+        let market = MarketContext::new()
+            .insert_price("A", MarketScalar::Unitless(1.0))
+            .insert_price("B", MarketScalar::Price(Money::new(2.0, Currency::USD)));
+        let current = market.get_price("B").expect("quote should exist");
+        let bumped = replace_scalar_value(&market, "B", current, 3.5);
+
+        assert_eq!(
+            scalar_numeric_value(bumped.get_price("A").expect("quote should exist")),
+            1.0
+        );
+        assert_eq!(
+            scalar_numeric_value(bumped.get_price("B").expect("quote should exist")),
+            3.5
+        );
+    }
+
+    #[test]
+    fn central_difference_helpers_guard_small_width() {
+        assert_eq!(central_diff_by_width(2.0, 1.0, 0.0), 0.0);
+        assert_eq!(central_diff_by_half_bump(2.0, 1.0, 0.0), 0.0);
+        assert_eq!(scaled_central_diff_by_width(2.0, 1.0, 0.0, 1e-4), 0.0);
+
+        assert_eq!(central_diff_by_half_bump(3.0, 1.0, 0.5), 2.0);
+        assert_eq!(scaled_central_diff_by_width(3.0, 1.0, 4.0, 0.5), 0.25);
     }
 }

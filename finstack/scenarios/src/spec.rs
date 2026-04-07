@@ -840,7 +840,6 @@ pub struct RateBindingSpec {
     pub day_count: Option<String>,
 }
 
-
 /// Compounding convention for rate conversions.
 ///
 /// Used when extracting rates from curves to convert between

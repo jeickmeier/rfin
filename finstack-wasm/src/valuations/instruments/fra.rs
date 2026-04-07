@@ -99,13 +99,6 @@ impl JsForwardRateAgreementBuilder {
         self
     }
 
-    /// Deprecated alias for receiveFixed(). Use receiveFixed() instead.
-    #[wasm_bindgen(js_name = payFixed)]
-    pub fn pay_fixed(mut self, pay_fixed: bool) -> JsForwardRateAgreementBuilder {
-        self.receive_fixed = Some(pay_fixed);
-        self
-    }
-
     #[wasm_bindgen(js_name = build)]
     pub fn build(self) -> Result<JsForwardRateAgreement, JsValue> {
         let notional = self.notional.ok_or_else(|| {

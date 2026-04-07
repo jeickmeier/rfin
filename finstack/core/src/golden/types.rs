@@ -396,7 +396,6 @@ impl ExpectedValue {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -16,15 +16,17 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::repo::Repo;
-use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::market_data::scalars::MarketScalar;
+use crate::metrics::{
+    central_diff_by_half_bump, replace_scalar_value, scalar_numeric_value, MetricCalculator,
+    MetricContext,
+};
 use finstack_core::Result;
 
 /// Standard collateral price bump: 1% (0.01)
 const COLLATERAL_PRICE_BUMP_PCT: f64 = 0.01;
 
 /// CollateralPrice01 calculator for Repo.
-pub struct CollateralPrice01Calculator;
+pub(crate) struct CollateralPrice01Calculator;
 
 impl MetricCalculator for CollateralPrice01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -34,35 +36,26 @@ impl MetricCalculator for CollateralPrice01Calculator {
         // Get current collateral price
         let market_value_id = &repo.collateral.market_value_id;
         let current_scalar = context.curves.get_price(market_value_id)?;
-        let current_price = match current_scalar {
-            MarketScalar::Price(money) => money.amount(),
-            MarketScalar::Unitless(v) => *v,
-        };
+        let current_price = scalar_numeric_value(current_scalar);
 
         // Bump collateral price up by 1%
         let bumped_price_up = current_price * (1.0 + COLLATERAL_PRICE_BUMP_PCT);
-        let mut ctx_up = context.curves.as_ref().clone();
-        let new_scalar_up = match current_scalar {
-            MarketScalar::Price(m) => MarketScalar::Price(finstack_core::money::Money::new(
-                bumped_price_up,
-                m.currency(),
-            )),
-            MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_up),
-        };
-        ctx_up = ctx_up.insert_price(market_value_id.as_str(), new_scalar_up);
+        let ctx_up = replace_scalar_value(
+            &context.curves,
+            market_value_id.as_str(),
+            current_scalar,
+            bumped_price_up,
+        );
         let pv_up = repo.value(&ctx_up, as_of)?.amount();
 
         // Bump collateral price down by 1%
         let bumped_price_down = current_price * (1.0 - COLLATERAL_PRICE_BUMP_PCT);
-        let mut ctx_down = context.curves.as_ref().clone();
-        let new_scalar_down = match current_scalar {
-            MarketScalar::Price(m) => MarketScalar::Price(finstack_core::money::Money::new(
-                bumped_price_down,
-                m.currency(),
-            )),
-            MarketScalar::Unitless(_) => MarketScalar::Unitless(bumped_price_down),
-        };
-        ctx_down = ctx_down.insert_price(market_value_id.as_str(), new_scalar_down);
+        let ctx_down = replace_scalar_value(
+            &context.curves,
+            market_value_id.as_str(),
+            current_scalar,
+            bumped_price_down,
+        );
         let pv_down = repo.value(&ctx_down, as_of)?.amount();
 
         // CollateralPrice01 = (PV_up - PV_down) / (2 * bump_size)
@@ -70,7 +63,7 @@ impl MetricCalculator for CollateralPrice01Calculator {
         // bump_size = current_price * 0.01, so dividing by (2 * bump_size) normalizes
         // to "per unit price move" and then multiplying by 0.01 gives "per 1% move"
         let collateral_price01 = if current_price.abs() > 1e-10 {
-            (pv_up - pv_down) / (2.0 * COLLATERAL_PRICE_BUMP_PCT)
+            central_diff_by_half_bump(pv_up, pv_down, COLLATERAL_PRICE_BUMP_PCT)
         } else {
             0.0
         };

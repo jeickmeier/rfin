@@ -64,4 +64,3 @@ pub(crate) mod pricer;
 mod types;
 
 pub use types::{InflationSwap, InflationSwapBuilder, YoYInflationSwap, YoYInflationSwapBuilder};
-

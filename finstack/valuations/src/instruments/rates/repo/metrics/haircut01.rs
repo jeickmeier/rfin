@@ -34,14 +34,14 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::rates::repo::Repo;
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::metrics::{central_diff_by_half_bump, MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Standard haircut bump: 1bp (0.0001 = 0.01%)
 const HAIRCUT_BUMP: f64 = 0.0001;
 
 /// Haircut01 calculator for Repo.
-pub struct Haircut01Calculator;
+pub(crate) struct Haircut01Calculator;
 
 impl MetricCalculator for Haircut01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
@@ -58,9 +58,6 @@ impl MetricCalculator for Haircut01Calculator {
         repo_down.haircut = (repo.haircut - HAIRCUT_BUMP).max(0.0);
         let pv_down = repo_down.value(context.curves.as_ref(), as_of)?.amount();
 
-        // Haircut01 = (PV_up - PV_down) / (2 * bump_size)
-        let haircut01 = (pv_up - pv_down) / (2.0 * HAIRCUT_BUMP);
-
-        Ok(haircut01)
+        Ok(central_diff_by_half_bump(pv_up, pv_down, HAIRCUT_BUMP))
     }
 }

@@ -286,4 +286,3 @@ fn scenario_validate_accepts_mixed_valid_operations() {
         .validate()
         .expect("mixed valid scenario should pass validation");
 }
-

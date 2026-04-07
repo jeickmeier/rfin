@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate variance notional.
-pub struct VarianceNotionalCalculator;
+pub(crate) struct VarianceNotionalCalculator;
 
 impl MetricCalculator for VarianceNotionalCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

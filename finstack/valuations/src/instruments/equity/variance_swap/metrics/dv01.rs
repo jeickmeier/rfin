@@ -6,7 +6,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::market_data::bumps::{BumpSpec, MarketBump};
 
 /// Variance swap DV01 expressed as PV change per 1bp parallel discount-curve bump.
-pub struct Dv01Calculator;
+pub(crate) struct Dv01Calculator;
 
 impl MetricCalculator for Dv01Calculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

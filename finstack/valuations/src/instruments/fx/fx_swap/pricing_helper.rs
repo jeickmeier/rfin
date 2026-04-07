@@ -19,29 +19,29 @@ const DF_NEAR_ZERO_THRESHOLD: f64 = 1e-12;
 /// This struct captures all the intermediate values needed for PV calculation
 /// and risk metrics, ensuring consistent computation across the codebase.
 #[derive(Debug, Clone)]
-pub struct FxSwapPricingContext {
+pub(crate) struct FxSwapPricingContext {
     /// Domestic discount factor from as_of to near_date
-    pub df_dom_near: f64,
+    pub(crate) df_dom_near: f64,
     /// Domestic discount factor from as_of to far_date
-    pub df_dom_far: f64,
+    pub(crate) df_dom_far: f64,
     /// Foreign discount factor from as_of to near_date
-    pub df_for_near: f64,
+    pub(crate) df_for_near: f64,
     /// Foreign discount factor from as_of to far_date
-    pub df_for_far: f64,
+    pub(crate) df_for_far: f64,
     /// Model spot rate from FX matrix (quote per base)
-    pub model_spot: f64,
+    pub(crate) model_spot: f64,
     /// Model forward rate via CIP (quote per base)
-    pub model_forward: f64,
+    pub(crate) model_forward: f64,
     /// Contract near rate (explicit or model spot)
-    pub contract_near_rate: f64,
+    pub(crate) contract_near_rate: f64,
     /// Contract far rate (explicit or model forward)
-    pub contract_far_rate: f64,
+    pub(crate) contract_far_rate: f64,
     /// Whether near leg should be included (near_date >= as_of)
-    pub include_near: bool,
+    pub(crate) include_near: bool,
     /// Whether far leg should be included (far_date >= as_of)
-    pub include_far: bool,
+    pub(crate) include_far: bool,
     /// Base notional amount
-    pub base_notional: f64,
+    pub(crate) base_notional: f64,
 }
 
 impl FxSwapPricingContext {
@@ -58,7 +58,7 @@ impl FxSwapPricingContext {
     /// - FX matrix is missing and no contract near_rate is provided
     /// - Discount factors are near-zero (degenerate market data)
     /// - Contract rates are non-positive when explicitly provided
-    pub fn build(swap: &FxSwap, curves: &MarketContext, as_of: Date) -> Result<Self> {
+    pub(crate) fn build(swap: &FxSwap, curves: &MarketContext, as_of: Date) -> Result<Self> {
         // Validate explicit contract rates if provided
         if let Some(rate) = swap.near_rate {
             if rate <= 0.0 {
@@ -158,7 +158,7 @@ impl FxSwapPricingContext {
     ///
     /// # Errors
     /// Returns error if near-date discount factors are near-zero.
-    pub fn calculate_cip_forward(
+    pub(crate) fn calculate_cip_forward(
         spot: f64,
         df_dom_near: f64,
         df_dom_far: f64,
@@ -190,7 +190,7 @@ impl FxSwapPricingContext {
     ///
     /// Useful for IR01 calculations where we need to recompute the forward
     /// after bumping one of the curves.
-    pub fn calculate_cip_forward_with_bumped_dfs(
+    pub(crate) fn calculate_cip_forward_with_bumped_dfs(
         &self,
         spot: f64,
         df_dom_near_bumped: f64,
@@ -210,7 +210,7 @@ impl FxSwapPricingContext {
     /// Calculate PV of the foreign leg in base currency.
     ///
     /// Foreign leg: receive base currency at near, pay base currency at far.
-    pub fn pv_foreign_leg_base(&self) -> f64 {
+    pub(crate) fn pv_foreign_leg_base(&self) -> f64 {
         let mut pv = 0.0;
         if self.include_near {
             pv += self.base_notional * self.df_for_near;
@@ -222,7 +222,7 @@ impl FxSwapPricingContext {
     }
 
     /// Calculate PV of the foreign leg in base currency with custom DFs.
-    pub fn pv_foreign_leg_base_with_dfs(&self, df_for_near: f64, df_for_far: f64) -> f64 {
+    pub(crate) fn pv_foreign_leg_base_with_dfs(&self, df_for_near: f64, df_for_far: f64) -> f64 {
         let mut pv = 0.0;
         if self.include_near {
             pv += self.base_notional * df_for_near;
@@ -236,7 +236,7 @@ impl FxSwapPricingContext {
     /// Calculate PV of the domestic leg in quote currency using contract rates.
     ///
     /// Domestic leg: pay quote currency at near, receive quote currency at far.
-    pub fn pv_domestic_leg(&self) -> f64 {
+    pub(crate) fn pv_domestic_leg(&self) -> f64 {
         let mut pv = 0.0;
         if self.include_near {
             pv -= self.base_notional * self.contract_near_rate * self.df_dom_near;
@@ -248,7 +248,7 @@ impl FxSwapPricingContext {
     }
 
     /// Calculate PV of the domestic leg with custom DFs and rates.
-    pub fn pv_domestic_leg_with_params(
+    pub(crate) fn pv_domestic_leg_with_params(
         &self,
         near_rate: f64,
         far_rate: f64,
@@ -268,7 +268,7 @@ impl FxSwapPricingContext {
     /// Calculate total PV in quote (domestic) currency.
     ///
     /// Converts foreign leg to quote currency at model spot and adds domestic leg.
-    pub fn total_pv(&self) -> f64 {
+    pub(crate) fn total_pv(&self) -> f64 {
         let pv_foreign_dom = self.pv_foreign_leg_base() * self.model_spot;
         let pv_dom_leg = self.pv_domestic_leg();
         pv_foreign_dom + pv_dom_leg
@@ -277,7 +277,7 @@ impl FxSwapPricingContext {
     /// Calculate total PV with a specific spot rate for conversion.
     ///
     /// Used for FX sensitivity calculations where we bump the spot rate.
-    pub fn total_pv_with_spot(&self, spot: f64, near_rate: f64, far_rate: f64) -> f64 {
+    pub(crate) fn total_pv_with_spot(&self, spot: f64, near_rate: f64, far_rate: f64) -> f64 {
         let pv_foreign_dom = self.pv_foreign_leg_base() * spot;
         let pv_dom_leg = self.pv_domestic_leg_with_params(
             near_rate,
@@ -289,7 +289,7 @@ impl FxSwapPricingContext {
     }
 
     /// Calculate forward points (far_rate - near_rate).
-    pub fn forward_points(&self) -> f64 {
+    pub(crate) fn forward_points(&self) -> f64 {
         self.contract_far_rate - self.contract_near_rate
     }
 }

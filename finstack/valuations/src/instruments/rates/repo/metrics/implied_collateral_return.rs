@@ -14,7 +14,7 @@ use finstack_core::Result;
 /// Calculate implied collateral return (mark-to-market gain/loss on collateral).
 ///
 /// Uses business-day adjusted maturity for consistency with PV calculations.
-pub struct ImpliedCollateralReturnCalculator;
+pub(crate) struct ImpliedCollateralReturnCalculator;
 
 impl MetricCalculator for ImpliedCollateralReturnCalculator {
     fn dependencies(&self) -> &[MetricId] {

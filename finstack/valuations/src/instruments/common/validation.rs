@@ -14,11 +14,11 @@ use finstack_core::dates::Date;
 use finstack_core::money::Money;
 
 // Re-export generic validation helpers from core.
-pub use finstack_core::validation::{require, require_or, require_with};
+pub(crate) use finstack_core::validation::{require, require_or, require_with};
 
 /// Validate `end > start` for a date range.
 #[inline]
-pub fn validate_date_range_strict(
+pub(crate) fn validate_date_range_strict(
     start: Date,
     end: Date,
     context: &str,
@@ -33,7 +33,7 @@ pub fn validate_date_range_strict(
 
 /// Validate `end > start` using a custom error message.
 #[inline]
-pub fn validate_date_range_strict_with(
+pub(crate) fn validate_date_range_strict_with(
     start: Date,
     end: Date,
     message: impl FnOnce(Date, Date) -> String,
@@ -43,7 +43,7 @@ pub fn validate_date_range_strict_with(
 
 /// Validate `end >= start` for a date range.
 #[inline]
-pub fn validate_date_range_non_strict(
+pub(crate) fn validate_date_range_non_strict(
     start: Date,
     end: Date,
     context: &str,
@@ -58,7 +58,7 @@ pub fn validate_date_range_non_strict(
 
 /// Validate `end >= start` using a custom error message.
 #[inline]
-pub fn validate_date_range_non_strict_with(
+pub(crate) fn validate_date_range_non_strict_with(
     start: Date,
     end: Date,
     message: impl FnOnce(Date, Date) -> String,
@@ -68,7 +68,7 @@ pub fn validate_date_range_non_strict_with(
 
 /// Validate that a money amount is finite.
 #[inline]
-pub fn validate_money_finite(money: Money, context: &str) -> finstack_core::Result<()> {
+pub(crate) fn validate_money_finite(money: Money, context: &str) -> finstack_core::Result<()> {
     require_with(money.amount().is_finite(), || {
         format!("Invalid {}: amount must be finite.", context)
     })
@@ -76,7 +76,11 @@ pub fn validate_money_finite(money: Money, context: &str) -> finstack_core::Resu
 
 /// Validate that a money amount is greater than a threshold.
 #[inline]
-pub fn validate_money_gt(money: Money, min: f64, context: &str) -> finstack_core::Result<()> {
+pub(crate) fn validate_money_gt(
+    money: Money,
+    min: f64,
+    context: &str,
+) -> finstack_core::Result<()> {
     require_with(money.amount() > min, || {
         format!("Invalid {}: amount must be > {}", context, min)
     })
@@ -84,7 +88,7 @@ pub fn validate_money_gt(money: Money, min: f64, context: &str) -> finstack_core
 
 /// Validate that a money amount is greater than a threshold using a custom message.
 #[inline]
-pub fn validate_money_gt_with(
+pub(crate) fn validate_money_gt_with(
     money: Money,
     min: f64,
     message: impl FnOnce(f64) -> String,
@@ -94,7 +98,7 @@ pub fn validate_money_gt_with(
 
 /// Validate that a money amount has the expected currency.
 #[inline]
-pub fn validate_money_currency(
+pub(crate) fn validate_money_currency(
     money: Money,
     expected: Currency,
     context: &str,
@@ -111,7 +115,7 @@ pub fn validate_money_currency(
 
 /// Validate that a floating-point value is finite.
 #[inline]
-pub fn validate_f64_finite(value: f64, context: &str) -> finstack_core::Result<()> {
+pub(crate) fn validate_f64_finite(value: f64, context: &str) -> finstack_core::Result<()> {
     require_with(value.is_finite(), || {
         format!("Invalid {}: must be finite.", context)
     })
@@ -119,7 +123,7 @@ pub fn validate_f64_finite(value: f64, context: &str) -> finstack_core::Result<(
 
 /// Validate that a floating-point value is positive (> 0).
 #[inline]
-pub fn validate_f64_positive(value: f64, context: &str) -> finstack_core::Result<()> {
+pub(crate) fn validate_f64_positive(value: f64, context: &str) -> finstack_core::Result<()> {
     require_with(value > 0.0, || {
         format!("Invalid {}: must be positive, got {}", context, value)
     })
@@ -127,7 +131,7 @@ pub fn validate_f64_positive(value: f64, context: &str) -> finstack_core::Result
 
 /// Validate that a floating-point value is non-negative (>= 0).
 #[inline]
-pub fn validate_f64_non_negative(value: f64, context: &str) -> finstack_core::Result<()> {
+pub(crate) fn validate_f64_non_negative(value: f64, context: &str) -> finstack_core::Result<()> {
     require_with(value >= 0.0, || {
         format!("Invalid {}: must be non-negative, got {}", context, value)
     })
@@ -135,7 +139,7 @@ pub fn validate_f64_non_negative(value: f64, context: &str) -> finstack_core::Re
 
 /// Validate that `|value| <= max_abs` (useful for rate magnitude guards).
 #[inline]
-pub fn validate_f64_abs_le(
+pub(crate) fn validate_f64_abs_le(
     value: f64,
     max_abs: f64,
     context: &str,
@@ -152,7 +156,7 @@ pub fn validate_f64_abs_le(
 
 /// Require that both options are either set or unset.
 #[inline]
-pub fn require_both_or_none<T, U>(
+pub(crate) fn require_both_or_none<T, U>(
     a: &Option<T>,
     b: &Option<U>,
     message: impl Into<String>,
@@ -162,7 +166,7 @@ pub fn require_both_or_none<T, U>(
 
 /// Require that if `a` is set, then `b` must also be set.
 #[inline]
-pub fn require_if_some<T, U>(
+pub(crate) fn require_if_some<T, U>(
     a: &Option<T>,
     b: &Option<U>,
     message: impl Into<String>,
@@ -175,7 +179,7 @@ pub fn require_if_some<T, U>(
 /// # Errors
 /// Returns an error if recovery rate is outside the valid range.
 #[inline]
-pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
+pub(crate) fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
     require_with((0.0..=1.0).contains(&recovery_rate), || {
         format!(
             "Recovery rate must be between 0.0 and 1.0, got {}",
@@ -186,7 +190,7 @@ pub fn validate_recovery_rate(recovery_rate: f64) -> finstack_core::Result<()> {
 
 /// Validate that dates are strictly increasing.
 #[inline]
-pub fn validate_sorted_strict(values: &[Date], context: &str) -> finstack_core::Result<()> {
+pub(crate) fn validate_sorted_strict(values: &[Date], context: &str) -> finstack_core::Result<()> {
     for i in 1..values.len() {
         if values[i - 1] >= values[i] {
             return Err(finstack_core::Error::Validation(format!(

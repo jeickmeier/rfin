@@ -28,7 +28,7 @@ use crate::instruments::common_impl::models::{
 };
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::fixed_income::convertible::{
-    ConversionEvent, ConversionPolicy, ConvertibleBond,
+    market_inputs::resolve_dividend_yield, ConversionEvent, ConversionPolicy, ConvertibleBond,
 };
 use crate::metrics::bump_discount_curve_parallel;
 
@@ -836,15 +836,7 @@ fn extract_equity_state(
         resolve_volatility_with_id(ctx, &vol_candidates, time_to_maturity, spot)?;
 
     // Resolve dividend yield
-    let mut dividend_candidates: Vec<String> = Vec::new();
-    if let Some(id) = bond.attributes.get_meta("div_yield_id") {
-        dividend_candidates.push(id.to_string());
-    }
-    dividend_candidates.push(format!("{}-DIVYIELD", underlying_id));
-    if let Some(stripped) = underlying_id.strip_suffix("-SPOT") {
-        dividend_candidates.push(format!("{}-DIVYIELD", stripped));
-    }
-    let dividend_yield = resolve_unitless_scalar(ctx, &dividend_candidates)?.unwrap_or(0.0);
+    let dividend_yield = resolve_dividend_yield(ctx, bond)?;
 
     let resolved_ids = ResolvedIds {
         spot_id: underlying_id.into(),
@@ -860,24 +852,6 @@ fn extract_equity_state(
         time_to_maturity,
         resolved_ids,
     })
-}
-
-fn resolve_unitless_scalar(ctx: &MarketContext, candidate_ids: &[String]) -> Result<Option<f64>> {
-    for id in candidate_ids {
-        match ctx.get_price(id) {
-            Ok(finstack_core::market_data::scalars::MarketScalar::Unitless(value)) => {
-                return Ok(Some(*value));
-            }
-            Ok(_) => {}
-            Err(err) => {
-                if matches!(err, Error::Input(InputError::NotFound { .. })) {
-                    continue;
-                }
-                return Err(err);
-            }
-        }
-    }
-    Ok(None)
 }
 
 /// Resolve volatility and return both the value and the resolved ID.

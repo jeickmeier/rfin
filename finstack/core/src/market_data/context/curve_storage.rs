@@ -246,27 +246,13 @@ impl CurveStorage {
                         .copied()
                         .zip(original.cpi_levels().iter().copied())
                         .collect();
-                    let triangular_weight = |t: f64| -> f64 {
-                        if t <= prev_bucket || t >= next_bucket {
-                            0.0
-                        } else if t <= target_bucket {
-                            let width = target_bucket - prev_bucket;
-                            if width <= f64::EPSILON {
-                                0.0
-                            } else {
-                                ((t - prev_bucket) / width).clamp(0.0, 1.0)
-                            }
-                        } else {
-                            let width = next_bucket - target_bucket;
-                            if width <= f64::EPSILON {
-                                0.0
-                            } else {
-                                ((next_bucket - t) / width).clamp(0.0, 1.0)
-                            }
-                        }
-                    };
                     for (tenor, level) in &mut points {
-                        let weight = triangular_weight(*tenor);
+                        let weight = crate::market_data::term_structures::common::triangular_weight(
+                            *tenor,
+                            prev_bucket,
+                            target_bucket,
+                            next_bucket,
+                        );
                         if weight > 0.0 {
                             *level *= 1.0 + delta * weight;
                         }

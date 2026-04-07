@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate the current realized variance to date.
-pub struct RealizedVarianceCalculator;
+pub(crate) struct RealizedVarianceCalculator;
 
 impl MetricCalculator for RealizedVarianceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

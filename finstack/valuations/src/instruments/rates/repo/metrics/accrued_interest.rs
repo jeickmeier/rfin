@@ -18,7 +18,7 @@ use finstack_core::Result;
 ///
 /// Uses business-day adjusted start and maturity dates for consistency
 /// with PV calculations.
-pub struct AccruedInterestCalculator;
+pub(crate) struct AccruedInterestCalculator;
 
 impl MetricCalculator for AccruedInterestCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

@@ -227,8 +227,6 @@ impl JsCDSOption {
         self.inner.strike.to_f64().unwrap_or(0.0)
     }
 
-
-
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {
         JsDate::from_core(self.inner.expiry)

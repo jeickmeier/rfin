@@ -1,5 +1,4 @@
 //! Tests for FX shocks and rate bindings.
-#![allow(deprecated)]
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::{build_periods, Date};

@@ -5,9 +5,10 @@
 
 use crate::instruments::common_impl::traits::Instrument;
 use crate::instruments::equity::equity_trs::EquityTotalReturnSwap;
-use crate::metrics::{MetricCalculator, MetricContext};
-use finstack_core::market_data::scalars::MarketScalar;
-use finstack_core::money::Money;
+use crate::metrics::{
+    replace_scalar_value, scalar_numeric_value, scaled_central_diff_by_width, MetricCalculator,
+    MetricContext,
+};
 use finstack_core::Result;
 
 /// Standard dividend yield bump: 1bp (0.0001)
@@ -38,40 +39,36 @@ impl MetricCalculator for Dividend01Calculator {
         };
 
         // Extract numeric baseline for robust bump-width handling (clamped at 0 on the downside).
-        let q0 = match current_scalar {
-            MarketScalar::Unitless(v) => *v,
-            MarketScalar::Price(m) => m.amount(),
-        };
+        let q0 = scalar_numeric_value(current_scalar);
         let q_up_val = q0 + DIVIDEND_BUMP_BP;
         let q_down_val = (q0 - DIVIDEND_BUMP_BP).max(0.0);
         let actual_width = q_up_val - q_down_val;
 
         // Bump dividend yield up
-        let mut curves_up = context.curves.as_ref().clone();
-        let new_value_up = match current_scalar {
-            MarketScalar::Unitless(_) => MarketScalar::Unitless(q_up_val),
-            MarketScalar::Price(m) => MarketScalar::Price(Money::new(q_up_val, m.currency())),
-        };
-        curves_up = curves_up.insert_price(div_yield_id.as_str(), new_value_up);
+        let curves_up = replace_scalar_value(
+            &context.curves,
+            div_yield_id.as_str(),
+            current_scalar,
+            q_up_val,
+        );
         let pv_up = trs.value(&curves_up, as_of)?.amount();
 
         // Bump dividend yield down
-        let mut curves_down = context.curves.as_ref().clone();
-        let new_value_down = match current_scalar {
-            MarketScalar::Unitless(_) => MarketScalar::Unitless(q_down_val),
-            MarketScalar::Price(m) => MarketScalar::Price(Money::new(q_down_val, m.currency())),
-        };
-        curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
+        let curves_down = replace_scalar_value(
+            &context.curves,
+            div_yield_id.as_str(),
+            current_scalar,
+            q_down_val,
+        );
         let pv_down = trs.value(&curves_down, as_of)?.amount();
 
         // MetricId contract: Dividend01 is $/bp (dPV for a 1bp absolute q move).
         // Use actual bump width since the downside bump is clamped at 0.
-        let dividend01 = if actual_width > 0.0 {
-            (pv_up - pv_down) / actual_width * DIVIDEND_BUMP_BP
-        } else {
-            0.0
-        };
-
-        Ok(dividend01)
+        Ok(scaled_central_diff_by_width(
+            pv_up,
+            pv_down,
+            actual_width,
+            DIVIDEND_BUMP_BP,
+        ))
     }
 }

@@ -40,7 +40,9 @@ impl JsBasketBuilder {
             .json_str
             .as_deref()
             .ok_or_else(|| JsValue::from_str("BasketBuilder: jsonString is required"))?;
-        JsBasket::from_json(json_str)
+        serde_json::from_str(json_str)
+            .map(JsBasket::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
@@ -65,21 +67,6 @@ impl InstrumentWrapper for JsBasket {
 
 #[wasm_bindgen(js_class = Basket)]
 impl JsBasket {
-    /// Parse a basket instrument from a JSON string.
-    ///
-    /// @param json_str - JSON payload matching the basket schema
-    /// @returns A new `Basket`
-    /// @throws {Error} If JSON cannot be parsed or is invalid
-    #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(json_str: &str) -> Result<JsBasket, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "Basket.fromJson is deprecated; use BasketBuilder instead.",
-        ));
-        serde_json::from_str(json_str)
-            .map(JsBasket::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()
@@ -167,27 +154,14 @@ impl JsStructuredCreditBuilder {
             .json_str
             .as_deref()
             .ok_or_else(|| JsValue::from_str("StructuredCreditBuilder: jsonString is required"))?;
-        JsStructuredCredit::from_json(json_str)
+        serde_json::from_str(json_str)
+            .map(JsStructuredCredit::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
 #[wasm_bindgen(js_class = StructuredCredit)]
 impl JsStructuredCredit {
-    /// Parse a structured credit deal from a JSON string.
-    ///
-    /// @param json_str - JSON payload matching the structured credit schema
-    /// @returns A new `StructuredCredit`
-    /// @throws {Error} If JSON cannot be parsed or is invalid
-    #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(json_str: &str) -> Result<JsStructuredCredit, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "StructuredCredit.fromJson is deprecated; use StructuredCreditBuilder instead.",
-        ));
-        serde_json::from_str(json_str)
-            .map(JsStructuredCredit::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()

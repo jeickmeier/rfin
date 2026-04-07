@@ -127,15 +127,19 @@ impl MetricCalculator for ParRateCalculator {
                     ));
                 }
 
-                let p0 =
-                    crate::instruments::rates::irs::pricer::robust_relative_df(&disc, as_of, fixed.start)?;
+                let p0 = crate::instruments::rates::irs::pricer::robust_relative_df(
+                    &disc,
+                    as_of,
+                    fixed.start,
+                )?;
                 let last_date = dates.last().copied().ok_or_else(|| {
                     finstack_core::Error::Validation(
                         "Par rate calculation failed: swap schedule has no dates.".into(),
                     )
                 })?;
-                let pn =
-                    crate::instruments::rates::irs::pricer::robust_relative_df(&disc, as_of, last_date)?;
+                let pn = crate::instruments::rates::irs::pricer::robust_relative_df(
+                    &disc, as_of, last_date,
+                )?;
                 let num = p0 - pn;
 
                 let annuity = context

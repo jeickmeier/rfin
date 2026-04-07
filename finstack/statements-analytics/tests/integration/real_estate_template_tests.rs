@@ -619,7 +619,9 @@ fn parity_rent_roll_simple_and_rich_match_for_simple_leases() {
     // The simple total_rent and rich rent_effective_node should match
     for q in 1u8..=4 {
         let period = PeriodId::quarter(2025, q);
-        let simple_val = r_simple.get("total_rent", &period).expect("simple total_rent");
+        let simple_val = r_simple
+            .get("total_rent", &period)
+            .expect("simple total_rent");
         let rich_val = r_rich
             .get(&nodes.rent_effective_node, &period)
             .expect("rich rent_effective");

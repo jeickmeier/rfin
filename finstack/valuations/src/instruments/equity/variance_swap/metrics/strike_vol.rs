@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate strike in volatility terms.
-pub struct StrikeVolCalculator;
+pub(crate) struct StrikeVolCalculator;
 
 impl MetricCalculator for StrikeVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

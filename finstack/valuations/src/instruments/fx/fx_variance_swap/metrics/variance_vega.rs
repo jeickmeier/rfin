@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate variance vega (sensitivity to 1 point change in variance).
-pub struct VarianceVegaCalculator;
+pub(crate) struct VarianceVegaCalculator;
 
 impl MetricCalculator for VarianceVegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

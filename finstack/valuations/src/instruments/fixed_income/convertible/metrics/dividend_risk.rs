@@ -8,8 +8,13 @@
 //! Higher dividend yield reduces the forward price, making conversion less attractive.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::fixed_income::convertible::ConvertibleBond;
-use crate::metrics::{MetricCalculator, MetricContext};
+use crate::instruments::fixed_income::convertible::{
+    market_inputs::resolve_dividend_yield_market_value_id, ConvertibleBond,
+};
+use crate::metrics::{
+    replace_scalar_value, scalar_numeric_value, scaled_central_diff_by_width, MetricCalculator,
+    MetricContext,
+};
 use finstack_core::Result;
 
 /// Standard dividend yield bump: 1bp (0.0001)
@@ -23,86 +28,44 @@ impl MetricCalculator for DividendRiskCalculator {
         let convertible: &ConvertibleBond = context.instrument_as()?;
         let as_of = context.as_of;
 
-        // Resolve dividend yield ID using same logic as pricer
-        let underlying_id = convertible.underlying_equity_id.as_ref().ok_or_else(|| {
-            finstack_core::Error::from(finstack_core::InputError::NotFound {
-                id: "underlying_equity_id".to_string(),
-            })
-        })?;
-
-        let mut dividend_candidates: Vec<String> = Vec::new();
-        if let Some(id) = convertible.attributes.get_meta("div_yield_id") {
-            dividend_candidates.push(id.to_string());
-        }
-        dividend_candidates.push(format!("{}-DIVYIELD", underlying_id));
-        if let Some(stripped) = underlying_id.strip_suffix("-SPOT") {
-            dividend_candidates.push(format!("{}-DIVYIELD", stripped));
-        }
-
-        // Find the first available dividend yield ID
-        let div_yield_id = dividend_candidates
-            .iter()
-            .find(|id| context.curves.get_price(id.as_str()).is_ok())
-            .cloned();
-
-        let div_yield_id = match div_yield_id {
-            Some(id) => id,
-            None => return Ok(0.0), // No dividend yield available, risk is zero
-        };
+        let div_yield_id =
+            match resolve_dividend_yield_market_value_id(&context.curves, convertible)? {
+                Some(id) => id,
+                None => return Ok(0.0), // No dividend yield available, risk is zero
+            };
 
         // Get current dividend yield
         let current_scalar = context.curves.get_price(&div_yield_id)?;
 
         // Extract numeric baseline for robust bump-width handling (clamped at 0 on the downside).
-        let q0 = match current_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(v) => *v,
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => m.amount(),
-        };
+        let q0 = scalar_numeric_value(current_scalar);
         let q_up_val = q0 + DIVIDEND_BUMP_BP;
         let q_down_val = (q0 - DIVIDEND_BUMP_BP).max(0.0);
         let actual_width = q_up_val - q_down_val;
 
-        // Bump up
-        let mut curves_up = context.curves.as_ref().clone();
-        let new_value_up = match current_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(q_up_val)
-            }
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
-                finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(q_up_val, m.currency()),
-                )
-            }
-        };
-        curves_up = curves_up.insert_price(div_yield_id.as_str(), new_value_up);
+        let curves_up = replace_scalar_value(
+            &context.curves,
+            div_yield_id.as_str(),
+            current_scalar,
+            q_up_val,
+        );
         let pv_up = convertible.value(&curves_up, as_of)?.amount();
 
-        // Bump down
-        let mut curves_down = context.curves.as_ref().clone();
-        let new_value_down = match current_scalar {
-            finstack_core::market_data::scalars::MarketScalar::Unitless(_) => {
-                finstack_core::market_data::scalars::MarketScalar::Unitless(q_down_val)
-            }
-            finstack_core::market_data::scalars::MarketScalar::Price(m) => {
-                finstack_core::market_data::scalars::MarketScalar::Price(
-                    finstack_core::money::Money::new(q_down_val, m.currency()),
-                )
-            }
-        };
-        curves_down = curves_down.insert_price(div_yield_id.as_str(), new_value_down);
+        let curves_down = replace_scalar_value(
+            &context.curves,
+            div_yield_id.as_str(),
+            current_scalar,
+            q_down_val,
+        );
         let pv_down = convertible.value(&curves_down, as_of)?.amount();
 
         // MetricId contract: Dividend01 is $/bp (dPV for a 1bp absolute q move).
         // Use the *actual* bump width since the downside bump is clamped at 0.
-        //
-        // - derivative per unit q: (PV_up - PV_down) / actual_width
-        // - per 1bp: multiply by 1bp (DIVIDEND_BUMP_BP)
-        let dividend01 = if actual_width > 0.0 {
-            (pv_up - pv_down) / actual_width * DIVIDEND_BUMP_BP
-        } else {
-            0.0
-        };
-
-        Ok(dividend01)
+        Ok(scaled_central_diff_by_width(
+            pv_up,
+            pv_down,
+            actual_width,
+            DIVIDEND_BUMP_BP,
+        ))
     }
 }

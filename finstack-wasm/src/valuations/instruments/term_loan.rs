@@ -33,7 +33,9 @@ impl JsTermLoanBuilder {
             .json_str
             .as_deref()
             .ok_or_else(|| JsValue::from_str("TermLoanBuilder: jsonString is required"))?;
-        JsTermLoan::from_json(json_str)
+        serde_json::from_str(json_str)
+            .map(JsTermLoan::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
@@ -60,30 +62,6 @@ impl InstrumentWrapper for JsTermLoan {
 
 #[wasm_bindgen(js_class = TermLoan)]
 impl JsTermLoan {
-    /// Create a term loan from a JSON string specification.
-    ///
-    /// The JSON should match the TermLoanSpec schema from finstack-valuations.
-    /// This is the recommended way to create complex term loans with DDTL features,
-    /// covenants, and custom amortization schedules.
-    ///
-    /// # Arguments
-    /// * `json_str` - JSON string matching the TermLoanSpec schema
-    ///
-    /// # Returns
-    /// A new TermLoan instance
-    ///
-    /// # Errors
-    /// Returns an error if JSON cannot be parsed or is invalid
-    #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(json_str: &str) -> Result<JsTermLoan, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "TermLoan.fromJson is deprecated; use TermLoanBuilder instead.",
-        ));
-        serde_json::from_str(json_str)
-            .map(JsTermLoan::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     /// Serialize the term loan to a JavaScript object.
     ///
     /// # Returns

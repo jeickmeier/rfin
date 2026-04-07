@@ -320,7 +320,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_load_array_format() {
         let json = r#"[

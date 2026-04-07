@@ -29,14 +29,17 @@ impl JsFxBarrierOptionBuilder {
             .json_str
             .as_deref()
             .ok_or_else(|| JsValue::from_str("FxBarrierOptionBuilder: jsonString is required"))?;
-        JsFxBarrierOption::from_json(json_str)
+        use crate::core::error::js_error;
+        serde_json::from_str(json_str)
+            .map(JsFxBarrierOption::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
 /// FX barrier option (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
-/// Use `fromJson()` to construct it and `toJsonString()` to inspect the canonical representation.
+/// Use the builder to construct it and `toJsonString()` to inspect the canonical representation.
 #[wasm_bindgen(js_name = FxBarrierOption)]
 #[derive(Clone, Debug)]
 pub struct JsFxBarrierOption {
@@ -55,22 +58,6 @@ impl InstrumentWrapper for JsFxBarrierOption {
 
 #[wasm_bindgen(js_class = FxBarrierOption)]
 impl JsFxBarrierOption {
-    /// Parse an FX barrier option from a JSON string.
-    ///
-    /// @param json_str - JSON payload matching the FX barrier option schema
-    /// @returns A new `FxBarrierOption`
-    /// @throws {Error} If the JSON cannot be parsed or is invalid
-    #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(json_str: &str) -> Result<JsFxBarrierOption, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "FxBarrierOption.fromJson is deprecated; use FxBarrierOptionBuilder instead.",
-        ));
-        use crate::core::error::js_error;
-        serde_json::from_str(json_str)
-            .map(JsFxBarrierOption::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()

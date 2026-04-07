@@ -36,15 +36,15 @@ fn decimal_to_f64(value: Decimal, field: &str) -> Result<f64> {
 /// to the instrument's pricing math for the Black-on-spreads formula.
 /// Configuration for CDS option pricing
 #[derive(Debug, Clone)]
-pub struct CDSOptionPricerConfig {
+pub(crate) struct CDSOptionPricerConfig {
     /// Whether to use ISDA standard RPV01 schedule
-    pub use_isda_schedule_rpv01: bool,
+    pub(crate) use_isda_schedule_rpv01: bool,
     /// Basis points per unit for spread conversion
-    pub bp_per_unit: f64,
+    pub(crate) bp_per_unit: f64,
     /// Days per year for theta calculation
-    pub theta_days_per_year: f64,
+    pub(crate) theta_days_per_year: f64,
     /// Initial guess for implied volatility solver
-    pub iv_initial_guess: f64,
+    pub(crate) iv_initial_guess: f64,
 }
 
 impl Default for CDSOptionPricerConfig {
@@ -60,13 +60,13 @@ impl Default for CDSOptionPricerConfig {
 
 /// CDS option pricer implementing Black76 model on CDS spreads.
 #[derive(Default)]
-pub struct CDSOptionPricer {
+pub(crate) struct CDSOptionPricer {
     config: CDSOptionPricerConfig,
 }
 
 impl CDSOptionPricer {
     /// Price the CDS option and return its present value as of the discount curve base date.
-    pub fn npv(
+    pub(crate) fn npv(
         &self,
         option: &CDSOption,
         curves: &MarketContext,
@@ -114,7 +114,7 @@ impl CDSOptionPricer {
     }
 
     /// Convenience method: compute the forward spread in bp at the underlying CDS maturity.
-    pub fn forward_spread_bp(
+    pub(crate) fn forward_spread_bp(
         &self,
         option: &CDSOption,
         curves: &MarketContext,
@@ -129,7 +129,7 @@ impl CDSOptionPricer {
     /// Convenience method: compute the risky annuity (PV of 1bp spread) from option expiry to underlying maturity.
     ///
     /// Returns the Present Value (at `as_of`) of the annuity.
-    pub fn risky_annuity(
+    pub(crate) fn risky_annuity(
         &self,
         option: &CDSOption,
         curves: &MarketContext,
@@ -187,7 +187,7 @@ impl CDSOptionPricer {
     /// When the forward spread is below `credit::MIN_FORWARD_SPREAD`, the Black formula's
     /// log(forward/strike) becomes numerically unstable. In this case, the option value
     /// is returned as zero (the forward is effectively at or below zero).
-    pub fn credit_option_price(
+    pub(crate) fn credit_option_price(
         &self,
         option: &CDSOption,
         forward_spread_bp: f64,
@@ -265,7 +265,7 @@ impl CDSOptionPricer {
     /// For a per-bp delta, use [`delta_per_bp`] or divide by `bp_per_unit` (10,000).
     ///
     /// Note: Requires `risky_annuity` (PV of annuity) to scale the result properly.
-    pub fn delta(
+    pub(crate) fn delta(
         &self,
         option: &CDSOption,
         forward_spread_bp: f64,
@@ -317,7 +317,7 @@ impl CDSOptionPricer {
     ///
     /// Returns 0.0 when time-to-expiry or volatility are too small for stable
     /// numerical calculation (denominator approaches zero).
-    pub fn gamma(
+    pub(crate) fn gamma(
         &self,
         option: &CDSOption,
         forward_spread_bp: f64,
@@ -346,7 +346,7 @@ impl CDSOptionPricer {
     /// Vega per 1% vol change.
     ///
     /// Returns 0.0 when time-to-expiry is too small for stable calculation.
-    pub fn vega(
+    pub(crate) fn vega(
         &self,
         option: &CDSOption,
         forward_spread_bp: f64,
@@ -381,7 +381,7 @@ impl CDSOptionPricer {
     /// This is the market-standard unit for credit option delta on trading desks.
     /// Equals `delta(...)  / bp_per_unit`.
     #[allow(dead_code)]
-    pub fn delta_per_bp(
+    pub(crate) fn delta_per_bp(
         &self,
         option: &CDSOption,
         forward_spread_bp: f64,
@@ -399,7 +399,7 @@ impl CDSOptionPricer {
     ///
     /// Equals `gamma(...)  / bp_per_unit²`.
     #[allow(dead_code)]
-    pub fn gamma_per_bp(
+    pub(crate) fn gamma_per_bp(
         &self,
         option: &CDSOption,
         forward_spread_bp: f64,
@@ -430,7 +430,7 @@ impl CDSOptionPricer {
     /// # Returns
     ///
     /// The dollar value change per day (typically negative for long positions).
-    pub fn theta_finite_diff(
+    pub(crate) fn theta_finite_diff(
         &self,
         option: &CDSOption,
         curves: &MarketContext,
@@ -508,7 +508,7 @@ impl CDSOptionPricer {
     /// # Errors
     ///
     /// Returns an error if `target_price` is negative (options have non-negative value).
-    pub fn implied_vol(
+    pub(crate) fn implied_vol(
         &self,
         option: &CDSOption,
         curves: &MarketContext,
@@ -581,18 +581,18 @@ impl CDSOptionPricer {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Option using Black76 model
-pub struct SimpleCDSOptionBlackPricer {
+pub(crate) struct SimpleCDSOptionBlackPricer {
     model_key: crate::pricer::ModelKey,
 }
 
 impl SimpleCDSOptionBlackPricer {
     /// Create a new CDS option pricer with default Black76 model
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::with_model(crate::pricer::ModelKey::Black76)
     }
 
     /// Create a CDS option pricer with specified model key
-    pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
+    pub(crate) fn with_model(model_key: crate::pricer::ModelKey) -> Self {
         Self { model_key }
     }
 }

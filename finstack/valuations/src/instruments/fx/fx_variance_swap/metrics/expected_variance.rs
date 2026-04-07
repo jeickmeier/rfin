@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate the expected variance (blend of realized and forward).
-pub struct ExpectedVarianceCalculator;
+pub(crate) struct ExpectedVarianceCalculator;
 
 impl MetricCalculator for ExpectedVarianceCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

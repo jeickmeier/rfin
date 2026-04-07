@@ -220,7 +220,8 @@ pub use sensitivities::cross_factor::{CrossFactorCalculator, CrossFactorPair};
 // without creating public breakage surface.
 pub(crate) use core::finite_difference::{
     bump_discount_curve_parallel, bump_forward_curve_parallel, bump_scalar_price, bump_sizes,
-    bump_surface_vol_absolute,
+    bump_surface_vol_absolute, central_diff_by_half_bump, replace_scalar_value,
+    scalar_numeric_value, scaled_central_diff_by_width,
 };
 pub(crate) use sensitivities::carry_decomposition::{
     CarryComponentLookup, CarryDecompositionCalculator,

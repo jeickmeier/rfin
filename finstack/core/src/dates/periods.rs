@@ -103,6 +103,195 @@ impl PeriodKind {
     pub fn annualization_factor(self) -> f64 {
         self.periods_per_year() as f64
     }
+
+    #[inline]
+    fn designator(self) -> Option<char> {
+        match self {
+            PeriodKind::Daily => Some('D'),
+            PeriodKind::Quarterly => Some('Q'),
+            PeriodKind::Monthly => Some('M'),
+            PeriodKind::Weekly => Some('W'),
+            PeriodKind::SemiAnnual => Some('H'),
+            PeriodKind::Annual => None,
+        }
+    }
+
+    #[inline]
+    fn build_id(self, year: i32, index: u16) -> PeriodId {
+        PeriodId {
+            year,
+            index,
+            kind: self,
+        }
+    }
+
+    #[inline]
+    fn relative_max_index(self) -> u16 {
+        match self {
+            PeriodKind::Daily => 366,
+            PeriodKind::Quarterly => 4,
+            PeriodKind::Monthly => 12,
+            PeriodKind::Weekly => 53,
+            PeriodKind::SemiAnnual => 2,
+            PeriodKind::Annual => 1,
+        }
+    }
+
+    fn parse_index_with_limit(self, raw: &str, max_index: u16) -> crate::Result<u16> {
+        let index = raw.parse().map_err(|_| crate::error::InputError::Invalid)?;
+        if !(1..=max_index).contains(&index) {
+            return Err(crate::error::InputError::Invalid.into());
+        }
+        Ok(index)
+    }
+
+    fn parse_absolute_index(self, year: i32, raw: &str) -> crate::Result<u16> {
+        match self {
+            PeriodKind::Weekly => self.parse_index_with_limit(raw, iso_weeks_in_year(year) as u16),
+            PeriodKind::Annual => Ok(1),
+            _ => self.parse_index_with_limit(raw, self.relative_max_index()),
+        }
+    }
+
+    fn parse_relative_id(self, year: i32, rhs: &str) -> crate::Result<PeriodId> {
+        let index = match self.designator() {
+            Some(designator) => self.parse_index_with_limit(
+                rhs.trim_start_matches(designator),
+                self.relative_max_index(),
+            )?,
+            None => 1,
+        };
+        Ok(self.build_id(year, index))
+    }
+
+    fn gregorian_bounds(self, year: i32, index: u16) -> crate::Result<(Date, Date)> {
+        match self {
+            PeriodKind::Daily => daily_bounds(year, index),
+            PeriodKind::Quarterly => quarter_bounds(year, index as u8),
+            PeriodKind::Monthly => month_bounds(year, index as u8),
+            PeriodKind::Weekly => week_bounds(year, index as u8),
+            PeriodKind::SemiAnnual => half_bounds(year, index as u8),
+            PeriodKind::Annual => annual_bounds(year),
+        }
+    }
+
+    fn fiscal_bounds(
+        self,
+        fiscal_year: i32,
+        index: u16,
+        config: FiscalConfig,
+    ) -> crate::Result<(Date, Date)> {
+        match self {
+            PeriodKind::Daily => daily_bounds(fiscal_year, index),
+            PeriodKind::Quarterly => fiscal_quarter_bounds(fiscal_year, index as u8, config),
+            PeriodKind::Monthly => fiscal_month_bounds(fiscal_year, index as u8, config),
+            PeriodKind::Weekly => fiscal_week_bounds(fiscal_year, index as u8, config),
+            PeriodKind::SemiAnnual => fiscal_half_bounds(fiscal_year, index as u8, config),
+            PeriodKind::Annual => fiscal_annual_bounds(fiscal_year, config),
+        }
+    }
+
+    fn step_forward(self, mut year: i32, mut index: u16) -> (i32, u16) {
+        match self {
+            PeriodKind::Daily => {
+                let max = days_in_year(year);
+                if index >= max {
+                    year += 1;
+                    index = 1;
+                } else {
+                    index += 1;
+                }
+            }
+            PeriodKind::Quarterly => {
+                if index == 4 {
+                    year += 1;
+                    index = 1;
+                } else {
+                    index += 1;
+                }
+            }
+            PeriodKind::Monthly => {
+                if index == 12 {
+                    year += 1;
+                    index = 1;
+                } else {
+                    index += 1;
+                }
+            }
+            PeriodKind::Weekly => {
+                let max = iso_weeks_in_year(year) as u16;
+                if index >= max {
+                    year += 1;
+                    index = 1;
+                } else {
+                    index += 1;
+                }
+            }
+            PeriodKind::SemiAnnual => {
+                if index == 2 {
+                    year += 1;
+                    index = 1;
+                } else {
+                    index += 1;
+                }
+            }
+            PeriodKind::Annual => {
+                year += 1;
+                index = 1;
+            }
+        }
+        (year, index)
+    }
+
+    fn step_backward(self, mut year: i32, mut index: u16) -> (i32, u16) {
+        match self {
+            PeriodKind::Daily => {
+                if index == 1 {
+                    year -= 1;
+                    index = days_in_year(year);
+                } else {
+                    index -= 1;
+                }
+            }
+            PeriodKind::Quarterly => {
+                if index == 1 {
+                    year -= 1;
+                    index = 4;
+                } else {
+                    index -= 1;
+                }
+            }
+            PeriodKind::Monthly => {
+                if index == 1 {
+                    year -= 1;
+                    index = 12;
+                } else {
+                    index -= 1;
+                }
+            }
+            PeriodKind::Weekly => {
+                if index == 1 {
+                    year -= 1;
+                    index = iso_weeks_in_year(year) as u16;
+                } else {
+                    index -= 1;
+                }
+            }
+            PeriodKind::SemiAnnual => {
+                if index == 1 {
+                    year -= 1;
+                    index = 2;
+                } else {
+                    index -= 1;
+                }
+            }
+            PeriodKind::Annual => {
+                year -= 1;
+                index = 1;
+            }
+        }
+        (year, index)
+    }
 }
 
 /// Identifier for a period like 2025Q1 or 2025M03.
@@ -444,14 +633,7 @@ struct Gregorian;
 
 impl PeriodCalendar for Gregorian {
     fn bounds(&self, year: i32, kind: PeriodKind, index: u16) -> crate::Result<(Date, Date)> {
-        match kind {
-            PeriodKind::Daily => daily_bounds(year, index),
-            PeriodKind::Quarterly => quarter_bounds(year, index as u8),
-            PeriodKind::Monthly => month_bounds(year, index as u8),
-            PeriodKind::Weekly => week_bounds(year, index as u8),
-            PeriodKind::SemiAnnual => half_bounds(year, index as u8),
-            PeriodKind::Annual => annual_bounds(year),
-        }
+        kind.gregorian_bounds(year, index)
     }
 }
 
@@ -462,14 +644,7 @@ struct FiscalCalendar {
 
 impl PeriodCalendar for FiscalCalendar {
     fn bounds(&self, year: i32, kind: PeriodKind, index: u16) -> crate::Result<(Date, Date)> {
-        match kind {
-            PeriodKind::Daily => daily_bounds(year, index),
-            PeriodKind::Quarterly => fiscal_quarter_bounds(year, index as u8, self.config),
-            PeriodKind::Monthly => fiscal_month_bounds(year, index as u8, self.config),
-            PeriodKind::Weekly => fiscal_week_bounds(year, index as u8, self.config),
-            PeriodKind::SemiAnnual => fiscal_half_bounds(year, index as u8, self.config),
-            PeriodKind::Annual => fiscal_annual_bounds(year, self.config),
-        }
+        kind.fiscal_bounds(year, index, self.config)
     }
 }
 
@@ -710,83 +885,7 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
         parse_id(rhs)?
     } else {
         // relative form like "..D100" / "..Q4" / "..M12" / "..W52" / "..H2" / "..A"
-        match start.kind {
-            PeriodKind::Daily => {
-                let idx: u16 = rhs
-                    .trim_start_matches('D')
-                    .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?;
-                if !(1..=366).contains(&idx) {
-                    return Err(crate::error::InputError::Invalid.into());
-                }
-                PeriodId {
-                    year: start.year,
-                    index: idx,
-                    kind: PeriodKind::Daily,
-                }
-            }
-            PeriodKind::Quarterly => {
-                let idx: u16 = rhs
-                    .trim_start_matches('Q')
-                    .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?;
-                if !(1..=4).contains(&idx) {
-                    return Err(crate::error::InputError::Invalid.into());
-                }
-                PeriodId {
-                    year: start.year,
-                    index: idx,
-                    kind: PeriodKind::Quarterly,
-                }
-            }
-            PeriodKind::Monthly => {
-                let idx: u16 = rhs
-                    .trim_start_matches('M')
-                    .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?;
-                if !(1..=12).contains(&idx) {
-                    return Err(crate::error::InputError::Invalid.into());
-                }
-                PeriodId {
-                    year: start.year,
-                    index: idx,
-                    kind: PeriodKind::Monthly,
-                }
-            }
-            PeriodKind::Weekly => {
-                let idx: u16 = rhs
-                    .trim_start_matches('W')
-                    .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?;
-                if !(1..=53).contains(&idx) {
-                    return Err(crate::error::InputError::Invalid.into());
-                }
-                PeriodId {
-                    year: start.year,
-                    index: idx,
-                    kind: PeriodKind::Weekly,
-                }
-            }
-            PeriodKind::SemiAnnual => {
-                let idx: u16 = rhs
-                    .trim_start_matches('H')
-                    .parse()
-                    .map_err(|_| crate::error::InputError::Invalid)?;
-                if !(1..=2).contains(&idx) {
-                    return Err(crate::error::InputError::Invalid.into());
-                }
-                PeriodId {
-                    year: start.year,
-                    index: idx,
-                    kind: PeriodKind::SemiAnnual,
-                }
-            }
-            PeriodKind::Annual => PeriodId {
-                year: start.year,
-                index: 1,
-                kind: PeriodKind::Annual,
-            },
-        }
+        start.kind.parse_relative_id(start.year, rhs)?
     };
     // Validate period kind consistency and non-inverted ranges
     if start.kind != end.kind {
@@ -798,75 +897,33 @@ fn parse_range(s: &str) -> crate::Result<(PeriodId, PeriodId)> {
     Ok((start, end))
 }
 
+fn parse_designated_id(s: &str, split_index: usize, kind: PeriodKind) -> crate::Result<PeriodId> {
+    let year: i32 = s[..split_index]
+        .parse()
+        .map_err(|_| crate::error::InputError::Invalid)?;
+    let index = kind.parse_absolute_index(year, &s[split_index + 1..])?;
+    Ok(kind.build_id(year, index))
+}
+
 fn parse_id(s: &str) -> crate::Result<PeriodId> {
     let s = s.trim();
     // Normalize to uppercase to accept lowercase inputs.
     let s = s.to_ascii_uppercase();
     let s = s.as_str();
     if let Some(i) = s.find('D') {
-        // daily (must check before other single-char prefixes)
-        let year: i32 = s[..i]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        let d: u16 = s[i + 1..]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        if !(1..=366).contains(&d) {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        return Ok(PeriodId::day(year, d));
+        return parse_designated_id(s, i, PeriodKind::Daily);
     }
     if let Some(i) = s.find('Q') {
-        // quarterly
-        let year: i32 = s[..i]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        let q: u8 = s[i + 1..]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        if !(1..=4).contains(&q) {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        return Ok(PeriodId::quarter(year, q));
+        return parse_designated_id(s, i, PeriodKind::Quarterly);
     }
     if let Some(i) = s.find('M') {
-        // monthly
-        let year: i32 = s[..i]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        let m: u8 = s[i + 1..]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        if !(1..=12).contains(&m) {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        return Ok(PeriodId::month(year, m));
+        return parse_designated_id(s, i, PeriodKind::Monthly);
     }
     if let Some(i) = s.find('W') {
-        // weekly
-        let year: i32 = s[..i]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        let w: u8 = s[i + 1..]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        if !(1..=iso_weeks_in_year(year)).contains(&w) {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        return Ok(PeriodId::week(year, w));
+        return parse_designated_id(s, i, PeriodKind::Weekly);
     }
     if let Some(i) = s.find('H') {
-        // half-year
-        let year: i32 = s[..i]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        let h: u8 = s[i + 1..]
-            .parse()
-            .map_err(|_| crate::error::InputError::Invalid)?;
-        if !(1..=2).contains(&h) {
-            return Err(crate::error::InputError::Invalid.into());
-        }
-        return Ok(PeriodId::half(year, h));
+        return parse_designated_id(s, i, PeriodKind::SemiAnnual);
     }
     if s.chars().all(|c| c.is_ascii_digit()) {
         // annual
@@ -894,105 +951,13 @@ fn days_in_year(year: i32) -> u16 {
 }
 
 fn step(mut id: PeriodId) -> crate::Result<PeriodId> {
-    match id.kind {
-        PeriodKind::Daily => {
-            let max = days_in_year(id.year);
-            if id.index >= max {
-                id.year += 1;
-                id.index = 1;
-            } else {
-                id.index += 1;
-            }
-        }
-        PeriodKind::Quarterly => {
-            if id.index == 4 {
-                id.year += 1;
-                id.index = 1;
-            } else {
-                id.index += 1;
-            }
-        }
-        PeriodKind::Monthly => {
-            if id.index == 12 {
-                id.year += 1;
-                id.index = 1;
-            } else {
-                id.index += 1;
-            }
-        }
-        PeriodKind::Weekly => {
-            let max = iso_weeks_in_year(id.year) as u16;
-            if id.index >= max {
-                id.year += 1;
-                id.index = 1;
-            } else {
-                id.index += 1;
-            }
-        }
-        PeriodKind::SemiAnnual => {
-            if id.index == 2 {
-                id.year += 1;
-                id.index = 1;
-            } else {
-                id.index += 1;
-            }
-        }
-        PeriodKind::Annual => {
-            id.year += 1;
-            id.index = 1;
-        }
-    }
+    (id.year, id.index) = id.kind.step_forward(id.year, id.index);
     Ok(id)
 }
 
 /// Step backward by one period (inverse of step).
 fn step_backward(mut id: PeriodId) -> crate::Result<PeriodId> {
-    match id.kind {
-        PeriodKind::Daily => {
-            if id.index == 1 {
-                id.year -= 1;
-                id.index = days_in_year(id.year);
-            } else {
-                id.index -= 1;
-            }
-        }
-        PeriodKind::Quarterly => {
-            if id.index == 1 {
-                id.year -= 1;
-                id.index = 4;
-            } else {
-                id.index -= 1;
-            }
-        }
-        PeriodKind::Monthly => {
-            if id.index == 1 {
-                id.year -= 1;
-                id.index = 12;
-            } else {
-                id.index -= 1;
-            }
-        }
-        PeriodKind::Weekly => {
-            if id.index == 1 {
-                id.year -= 1;
-                id.index = iso_weeks_in_year(id.year) as u16;
-            } else {
-                id.index -= 1;
-            }
-        }
-        PeriodKind::SemiAnnual => {
-            if id.index == 1 {
-                id.year -= 1;
-                id.index = 2;
-            } else {
-                id.index -= 1;
-            }
-        }
-        PeriodKind::Annual => {
-            id.year -= 1;
-            id.index = 1;
-        }
-    }
+    (id.year, id.index) = id.kind.step_backward(id.year, id.index);
     Ok(id)
 }
 

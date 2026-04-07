@@ -1,7 +1,6 @@
 //! FX dependency completeness tests.
 //!
 //! Ensures FX instruments declare FX pair dependencies and that pricing
-#![allow(deprecated)]
 //! succeeds when the FX matrix is provided.
 
 use finstack_core::currency::Currency;

@@ -19,9 +19,9 @@ use finstack_valuations::calibration::api::schema::{
 };
 use finstack_valuations::calibration::{CalibrationConfig, CalibrationMethod};
 use finstack_valuations::instruments::internal::InstrumentExt as Instrument;
-use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::instruments::rates::InflationSwap;
 use finstack_valuations::instruments::ForwardRateAgreement;
+use finstack_valuations::instruments::PayReceive;
 use finstack_valuations::market::build_cds_instrument;
 use finstack_valuations::market::build_rate_instrument;
 use finstack_valuations::market::conventions::ids::{

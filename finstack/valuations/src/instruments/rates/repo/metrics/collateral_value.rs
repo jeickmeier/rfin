@@ -7,7 +7,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate the market value of collateral.
-pub struct CollateralValueCalculator;
+pub(crate) struct CollateralValueCalculator;
 
 impl MetricCalculator for CollateralValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

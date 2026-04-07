@@ -307,7 +307,6 @@ impl PyRateBindingSpec {
             self.inner.node_id, self.inner.curve_id, self.inner.tenor
         )
     }
-
 }
 
 /// Individual operation within a scenario.

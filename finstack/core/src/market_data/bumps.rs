@@ -237,6 +237,39 @@ impl BumpSpec {
             _ => None,
         }
     }
+
+    fn resolve_standard_values_or_error(
+        &self,
+        context: &str,
+        supported: &str,
+    ) -> crate::Result<(f64, bool)> {
+        self.resolve_standard_values().ok_or_else(|| {
+            crate::error::InputError::UnsupportedBump {
+                reason: format!(
+                    "{context} {supported}, got {:?}/{:?}",
+                    self.mode, self.units
+                ),
+            }
+            .into()
+        })
+    }
+
+    fn standard_bump_id(&self, id: &CurveId) -> CurveId {
+        match self.units {
+            BumpUnits::RateBp => id_bump_bp(id.as_str(), self.value),
+            BumpUnits::Percent => id_bump_pct(id.as_str(), self.value),
+            _ => CurveId::new(format!("{}_bump_{:.4}", id, self.value)),
+        }
+    }
+
+    fn hazard_shift_id(&self, id: &CurveId) -> CurveId {
+        match self.units {
+            BumpUnits::RateBp => id_spread_bp(id.as_str(), self.value),
+            BumpUnits::Percent => id_bump_pct(id.as_str(), self.value),
+            BumpUnits::Fraction => CurveId::new(format!("{}_shift_{:.4}", id, self.value)),
+            BumpUnits::Factor => CurveId::new(format!("{}_shift_factor_{:.4}", id, self.value)),
+        }
+    }
 }
 
 /// Unified bump description spanning curves, surfaces, FX, and scalar prices.
@@ -337,14 +370,10 @@ pub trait Bumpable: Sized {
 
 impl Bumpable for DiscountCurve {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        let (val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-            crate::error::InputError::UnsupportedBump {
-                reason: format!(
-                    "DiscountCurve only supports Additive/{{RateBp,Percent,Fraction}} bumps, got {:?}/{:?}",
-                    spec.mode, spec.units
-                ),
-            }
-        })?;
+        let (val, is_multiplicative) = spec.resolve_standard_values_or_error(
+            "DiscountCurve",
+            "only supports Additive/{RateBp,Percent,Fraction} bumps",
+        )?;
 
         if is_multiplicative {
             return Err(crate::error::InputError::UnsupportedBump {
@@ -379,22 +408,12 @@ impl Bumpable for ForwardCurve {
 
         match spec.bump_type {
             BumpType::Parallel => {
-                // Simple pattern matching without boxed closures
-                // Simple pattern matching without boxed closures
-                let (bump_amount, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-                    InputError::UnsupportedBump {
-                        reason: format!(
-                            "ForwardCurve parallel bump requires Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                            spec.mode, spec.units
-                        ),
-                    }
-                })?;
+                let (bump_amount, is_multiplicative) = spec.resolve_standard_values_or_error(
+                    "ForwardCurve parallel bump requires",
+                    "Additive/{RateBp,Percent,Fraction} or Multiplicative/Factor",
+                )?;
 
-                let bumped_id = match spec.units {
-                    BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-                    BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-                    _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
-                };
+                let bumped_id = spec.standard_bump_id(self.id());
 
                 let bumped_rates: Vec<(f64, f64)> = self
                     .knots()
@@ -451,13 +470,7 @@ impl Bumpable for HazardCurve {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
         use crate::error::InputError;
 
-        // HazardCurve currently only supports parallel bumps
-        if !matches!(spec.bump_type, BumpType::Parallel) {
-            return Err(InputError::UnsupportedBump {
-                reason: "HazardCurve only supports Parallel bumps, not key-rate bumps".to_string(),
-            }
-            .into());
-        }
+        spec.validate_parallel("HazardCurve")?;
 
         // Recovery must be within [0, 1) for par spread ⇢ hazard conversions
         let recovery = self.recovery_rate();
@@ -473,14 +486,10 @@ impl Bumpable for HazardCurve {
 
         // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
         // Interpret RateBp/Percent as **par spread** shocks; convert to hazard using 1/(1 - recovery).
-        let (spread, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-            InputError::UnsupportedBump {
-                reason: format!(
-                    "HazardCurve only supports Additive/{{RateBp,Percent,Fraction}} bumps, got {:?}/{:?}",
-                    spec.mode, spec.units
-                ),
-            }
-        })?;
+        let (spread, is_multiplicative) = spec.resolve_standard_values_or_error(
+            "HazardCurve",
+            "only supports Additive/{RateBp,Percent,Fraction} bumps",
+        )?;
 
         if is_multiplicative {
             return Err(InputError::UnsupportedBump {
@@ -491,14 +500,7 @@ impl Bumpable for HazardCurve {
 
         let shift = spread / (1.0 - recovery);
 
-        let bumped_id = match spec.units {
-            BumpUnits::RateBp => id_spread_bp(self.id().as_str(), spec.value),
-            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-            BumpUnits::Fraction => CurveId::new(format!("{}_shift_{:.4}", self.id(), spec.value)),
-            BumpUnits::Factor => {
-                CurveId::new(format!("{}_shift_factor_{:.4}", self.id(), spec.value))
-            }
-        };
+        let bumped_id = spec.hazard_shift_id(self.id());
 
         #[cfg(feature = "tracing")]
         for (t, lambda) in self.knot_points() {
@@ -532,36 +534,14 @@ impl Bumpable for HazardCurve {
 
 impl Bumpable for InflationCurve {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        use crate::error::InputError;
+        spec.validate_parallel("InflationCurve")?;
 
-        // InflationCurve currently only supports parallel bumps
-        if !matches!(spec.bump_type, BumpType::Parallel) {
-            return Err(InputError::UnsupportedBump {
-                reason: "InflationCurve only supports Parallel bumps, not key-rate bumps"
-                    .to_string(),
-            }
-            .into());
-        }
+        let factor = spec.resolve_standard_values_or_error(
+            "InflationCurve",
+            "only supports Additive/{Percent,Fraction} or Multiplicative/Factor",
+        )?;
 
-        let factor = {
-            let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-                InputError::UnsupportedBump {
-                     reason: format!(
-                        "InflationCurve only supports Additive/{{Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                        spec.mode, spec.units
-                    ),
-                }
-            })?;
-            (raw_val, is_multiplicative)
-        };
-
-        let bumped_id = match spec.units {
-            // RateBp: 1 bp = 0.0001 (standard basis point convention).
-            // Bumps are applied as absolute shifts to the inflation rate at each knot.
-            BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-            _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
-        };
+        let bumped_id = spec.standard_bump_id(self.id());
 
         let bumped_points: Vec<(f64, f64)> = self
             .knots()
@@ -596,26 +576,13 @@ impl Bumpable for InflationCurve {
 
 impl Bumpable for BaseCorrelationCurve {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        use crate::error::InputError;
-
-        // BaseCorrelationCurve currently only supports parallel bumps
-        if !matches!(spec.bump_type, BumpType::Parallel) {
-            return Err(InputError::UnsupportedBump {
-                reason: "BaseCorrelationCurve only supports Parallel bumps, not key-rate bumps"
-                    .to_string(),
-            }
-            .into());
-        }
+        spec.validate_parallel("BaseCorrelationCurve")?;
 
         let (add, mul) = {
-            let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-                InputError::UnsupportedBump {
-                     reason: format!(
-                        "BaseCorrelationCurve only supports Additive/{{Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                         spec.mode, spec.units
-                    ),
-                }
-            })?;
+            let (raw_val, is_multiplicative) = spec.resolve_standard_values_or_error(
+                "BaseCorrelationCurve",
+                "only supports Additive/{Percent,Fraction} or Multiplicative/Factor",
+            )?;
 
             if is_multiplicative {
                 (0.0, raw_val)
@@ -624,11 +591,7 @@ impl Bumpable for BaseCorrelationCurve {
             }
         };
 
-        let bumped_id = match spec.units {
-            BumpUnits::RateBp => id_bump_bp(self.id().as_str(), spec.value),
-            BumpUnits::Percent => id_bump_pct(self.id().as_str(), spec.value),
-            _ => CurveId::new(format!("{}_bump_{:.4}", self.id(), spec.value)),
-        };
+        let bumped_id = spec.standard_bump_id(self.id());
 
         let bumped_points: Vec<(f64, f64)> = self
             .detachment_points()
@@ -714,16 +677,10 @@ impl Bumpable for VolatilityIndexCurve {
 
 impl Bumpable for MarketScalar {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        use crate::error::InputError;
-
-        let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-            InputError::UnsupportedBump {
-                reason: format!(
-                    "MarketScalar only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                    spec.mode, spec.units
-                ),
-            }
-        })?;
+        let (raw_val, is_multiplicative) = spec.resolve_standard_values_or_error(
+            "MarketScalar",
+            "only supports Additive/{RateBp,Percent,Fraction} or Multiplicative/Factor",
+        )?;
 
         match self {
             MarketScalar::Unitless(v) => {
@@ -750,25 +707,12 @@ impl Bumpable for MarketScalar {
 
 impl Bumpable for ScalarTimeSeries {
     fn apply_bump(&self, spec: BumpSpec) -> crate::Result<Self> {
-        use crate::error::InputError;
+        spec.validate_parallel("ScalarTimeSeries")?;
 
-        // Only parallel bumps are supported for now
-        if !matches!(spec.bump_type, BumpType::Parallel) {
-            return Err(InputError::UnsupportedBump {
-                reason: "ScalarTimeSeries only supports Parallel bumps, not key-rate bumps"
-                    .to_string(),
-            }
-            .into());
-        }
-
-        let (raw_val, is_multiplicative) = spec.resolve_standard_values().ok_or_else(|| {
-            InputError::UnsupportedBump {
-                reason: format!(
-                    "ScalarTimeSeries only supports Additive/{{RateBp,Percent,Fraction}} or Multiplicative/Factor, got {:?}/{:?}",
-                    spec.mode, spec.units
-                ),
-            }
-        })?;
+        let (raw_val, is_multiplicative) = spec.resolve_standard_values_or_error(
+            "ScalarTimeSeries",
+            "only supports Additive/{RateBp,Percent,Fraction} or Multiplicative/Factor",
+        )?;
 
         let bumped_obs: Vec<(crate::dates::Date, f64)> = if is_multiplicative {
             self.observations()

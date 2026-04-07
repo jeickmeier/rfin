@@ -1,5 +1,4 @@
 //! Integration tests for NDF pricing.
-#![allow(deprecated)]
 
 use finstack_core::currency::Currency;
 use finstack_core::dates::Date;

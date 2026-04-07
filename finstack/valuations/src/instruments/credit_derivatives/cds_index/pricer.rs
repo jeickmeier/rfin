@@ -36,17 +36,17 @@ use time::Duration;
 /// Configuration for CDS Index pricing. Wraps the underlying CDS config and adds
 /// index-specific policy controls.
 #[derive(Debug, Clone)]
-pub struct CDSIndexPricerConfig {
+pub(crate) struct CDSIndexPricerConfig {
     /// Underlying CDS pricer config to ensure parity on legs/AoD/schedules.
-    pub cds_config: CDSPricerConfig,
+    pub(crate) cds_config: CDSPricerConfig,
     /// How to compute the par spread denominator in constituents aggregation.
-    pub par_spread_method: ParSpreadMethod,
+    pub(crate) par_spread_method: ParSpreadMethod,
     /// Tolerance for weight sum validation.
-    pub weight_sum_tol: f64,
+    pub(crate) weight_sum_tol: f64,
     /// If true and ∑w deviates within a looser bound, renormalize for pricing.
-    pub normalize_weights: bool,
+    pub(crate) normalize_weights: bool,
     /// If true, scale index notional by `index.index_factor`.
-    pub use_index_factor: bool,
+    pub(crate) use_index_factor: bool,
 }
 
 impl Default for CDSIndexPricerConfig {
@@ -63,7 +63,7 @@ impl Default for CDSIndexPricerConfig {
 
 /// CDS Index pricing engine. Aggregates single-name CDS pricing according to
 /// the index's configured pricing mode.
-pub struct CDSIndexPricer {
+pub(crate) struct CDSIndexPricer {
     config: CDSIndexPricerConfig,
 }
 
@@ -100,7 +100,7 @@ impl Default for CDSIndexPricer {
 
 impl CDSIndexPricer {
     /// Create a new CDS Index pricer
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             config: CDSIndexPricerConfig::default(),
         }
@@ -108,17 +108,22 @@ impl CDSIndexPricer {
 
     /// Create a pricer with custom configuration
     #[allow(dead_code)] // public API for external bindings
-    pub fn with_config(config: CDSIndexPricerConfig) -> Self {
+    pub(crate) fn with_config(config: CDSIndexPricerConfig) -> Self {
         Self { config }
     }
 
     /// Compute instrument NPV from the perspective of `PayReceive`
-    pub fn npv(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<Money> {
+    pub(crate) fn npv(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<Money> {
         Ok(self.npv_detailed(index, curves, as_of)?.total)
     }
 
     /// Compute instrument NPV with optional per-constituent breakdown.
-    pub fn npv_detailed(
+    pub(crate) fn npv_detailed(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -139,7 +144,7 @@ impl CDSIndexPricer {
     }
 
     /// Present value of the protection leg (aggregated by pricing mode)
-    pub fn pv_protection_leg(
+    pub(crate) fn pv_protection_leg(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -149,7 +154,7 @@ impl CDSIndexPricer {
     }
 
     /// Present value of the protection leg with optional per-constituent breakdown.
-    pub fn pv_protection_leg_detailed(
+    pub(crate) fn pv_protection_leg_detailed(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -169,7 +174,7 @@ impl CDSIndexPricer {
     }
 
     /// Present value of the premium leg (aggregated by pricing mode)
-    pub fn pv_premium_leg(
+    pub(crate) fn pv_premium_leg(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -179,7 +184,7 @@ impl CDSIndexPricer {
     }
 
     /// Present value of the premium leg with optional per-constituent breakdown.
-    pub fn pv_premium_leg_detailed(
+    pub(crate) fn pv_premium_leg_detailed(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -199,14 +204,19 @@ impl CDSIndexPricer {
     }
 
     /// Par spread in basis points that sets NPV to zero.
-    pub fn par_spread(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
+    pub(crate) fn par_spread(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<f64> {
         Ok(self
             .par_spread_detailed(index, curves, as_of)?
             .total_spread_bp)
     }
 
     /// Par spread in basis points with optional per-constituent breakdown.
-    pub fn par_spread_detailed(
+    pub(crate) fn par_spread_detailed(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -316,12 +326,17 @@ impl CDSIndexPricer {
     }
 
     /// Risky PV01 (absolute currency units) aggregated by pricing mode.
-    pub fn risky_pv01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
+    pub(crate) fn risky_pv01(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<f64> {
         Ok(self.risky_pv01_detailed(index, curves, as_of)?.total)
     }
 
     /// Build the projected premium/default schedule for the index.
-    pub fn build_projected_schedule(
+    pub(crate) fn build_projected_schedule(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -358,7 +373,7 @@ impl CDSIndexPricer {
     }
 
     /// Risky PV01 with optional per-constituent breakdown.
-    pub fn risky_pv01_detailed(
+    pub(crate) fn risky_pv01_detailed(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -370,12 +385,17 @@ impl CDSIndexPricer {
     }
 
     /// CS01 (approximate) aggregated by pricing mode.
-    pub fn cs01(&self, index: &CDSIndex, curves: &MarketContext, as_of: Date) -> Result<f64> {
+    pub(crate) fn cs01(
+        &self,
+        index: &CDSIndex,
+        curves: &MarketContext,
+        as_of: Date,
+    ) -> Result<f64> {
         Ok(self.cs01_detailed(index, curves, as_of)?.total)
     }
 
     /// CS01 (approximate) with optional per-constituent breakdown.
-    pub fn cs01_detailed(
+    pub(crate) fn cs01_detailed(
         &self,
         index: &CDSIndex,
         curves: &MarketContext,
@@ -843,20 +863,20 @@ impl CDSIndexPricer {
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for CDS Index using the engine
-pub struct SimpleCdsIndexHazardPricer {
+pub(crate) struct SimpleCdsIndexHazardPricer {
     model_key: crate::pricer::ModelKey,
 }
 
 impl SimpleCdsIndexHazardPricer {
     /// Create a new CDS index pricer with default hazard rate model
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             model_key: crate::pricer::ModelKey::HazardRate,
         }
     }
 
     /// Create a CDS index pricer with specified model key
-    pub fn with_model(model_key: crate::pricer::ModelKey) -> Self {
+    pub(crate) fn with_model(model_key: crate::pricer::ModelKey) -> Self {
         Self { model_key }
     }
 }

@@ -14,7 +14,7 @@ use finstack_core::Result;
 /// Calculate time to maturity in years.
 ///
 /// Uses business-day adjusted maturity for consistency with PV calculations.
-pub struct TimeToMaturityCalculator;
+pub(crate) struct TimeToMaturityCalculator;
 
 impl MetricCalculator for TimeToMaturityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

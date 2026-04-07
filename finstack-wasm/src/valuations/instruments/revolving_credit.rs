@@ -30,14 +30,17 @@ impl JsRevolvingCreditBuilder {
             .json_str
             .as_deref()
             .ok_or_else(|| JsValue::from_str("RevolvingCreditBuilder: jsonString is required"))?;
-        JsRevolvingCredit::from_json(json_str)
+        use crate::core::error::js_error;
+        serde_json::from_str(json_str)
+            .map(JsRevolvingCredit::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
 /// Revolving credit facility (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
-/// Use `fromJson()` to construct it and `toJsonString()` to inspect the canonical representation.
+/// Use the builder to construct it and `toJsonString()` to inspect the canonical representation.
 #[wasm_bindgen(js_name = RevolvingCredit)]
 #[derive(Clone, Debug)]
 pub struct JsRevolvingCredit {
@@ -56,22 +59,6 @@ impl InstrumentWrapper for JsRevolvingCredit {
 
 #[wasm_bindgen(js_class = RevolvingCredit)]
 impl JsRevolvingCredit {
-    /// Parse a revolving credit facility from a JSON string.
-    ///
-    /// @param json_str - JSON payload matching the revolving credit schema
-    /// @returns A new `RevolvingCredit`
-    /// @throws {Error} If the JSON cannot be parsed or is invalid
-    #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(json_str: &str) -> Result<JsRevolvingCredit, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "RevolvingCredit.fromJson is deprecated; use RevolvingCreditBuilder instead.",
-        ));
-        use crate::core::error::js_error;
-        serde_json::from_str(json_str)
-            .map(JsRevolvingCredit::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()

@@ -402,8 +402,6 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-
-
     fn build(slf: PyRef<'_, Self>) -> PyResult<PyEquityIndexFuture> {
         let inner = slf.validate_and_build()?;
         Ok(PyEquityIndexFuture::new(inner))

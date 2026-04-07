@@ -405,7 +405,6 @@ impl FxOption {
             | FxAtmDeltaConvention::PremiumAdjustedForward => forward * (-0.5_f64 * variance).exp(),
         }
     }
-
 }
 
 impl crate::instruments::common_impl::traits::Instrument for FxOption {

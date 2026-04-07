@@ -119,7 +119,7 @@ use time::Duration;
 /// | `IsdaExact` | ★★★★☆ | ★★★★☆ | Standard market quotes |
 /// | `IsdaStandardModel` | ★★★★★ | ★★★★★ | ISDA compliance, production |
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum IntegrationMethod {
+pub(crate) enum IntegrationMethod {
     /// Simple midpoint rule with fixed steps (non-ISDA).
     ///
     /// Fast but lower accuracy. Suitable for approximate valuations,
@@ -195,7 +195,7 @@ impl IntegrationMethod {
     /// assert_eq!(method, IntegrationMethod::AdaptiveSimpson);
     /// ```
     #[must_use]
-    pub fn recommended(tenor_years: f64, is_distressed: bool) -> Self {
+    pub(crate) fn recommended(tenor_years: f64, is_distressed: bool) -> Self {
         if is_distressed {
             // Distressed credits need stable integration regardless of tenor
             Self::GaussianQuadrature
@@ -218,48 +218,48 @@ impl IntegrationMethod {
 /// methodology. Use factory methods like [`isda_standard()`](Self::isda_standard) for
 /// pre-configured setups.
 #[derive(Debug, Clone)]
-pub struct CDSPricerConfig {
+pub(crate) struct CDSPricerConfig {
     /// Number of integration steps per year for protection leg (used with Midpoint method).
     /// For adaptive integration, use `min_steps_per_year` and `adaptive_steps` instead.
-    pub steps_per_year: usize,
+    pub(crate) steps_per_year: usize,
     /// Minimum integration steps per year (floor for adaptive step calculation).
-    pub min_steps_per_year: usize,
+    pub(crate) min_steps_per_year: usize,
     /// If true, adapt integration steps based on tenor: `max(min_steps_per_year, tenor * 12)`.
     /// Provides higher accuracy for longer tenors and distressed credits.
-    pub adaptive_steps: bool,
+    pub(crate) adaptive_steps: bool,
     /// Include accrual on default in premium leg calculation
-    pub include_accrual: bool,
+    pub(crate) include_accrual: bool,
     /// Tolerance for iterative calculations
-    pub tolerance: f64,
+    pub(crate) tolerance: f64,
     /// Integration method for protection leg calculation
-    pub integration_method: IntegrationMethod,
+    pub(crate) integration_method: IntegrationMethod,
     /// Use ISDA standard coupon dates (20th of Mar/Jun/Sep/Dec)
-    pub use_isda_coupon_dates: bool,
+    pub(crate) use_isda_coupon_dates: bool,
     /// Par spread denominator methodology:
     /// - `false` (default): Use Risky Annuity only (ISDA Standard Model)
     /// - `true`: Include accrual-on-default in denominator (Bloomberg CDSW style)
     ///
     /// The difference is typically < 1bp for investment grade but can reach 2-5 bps
     /// for distressed credits (hazard rate > 3%).
-    pub par_spread_uses_full_premium: bool,
+    pub(crate) par_spread_uses_full_premium: bool,
     /// If true, apply the current restructuring-clause approximation to the protection leg.
     ///
     /// Default is `false` because the approximation is not clause-consistent enough for
     /// production pricing. When enabled, protection PV ordering follows
     /// `Xr14 <= Mr14 <= Mm14 <= Cr14` heuristically.
-    pub enable_restructuring_approximation: bool,
+    pub(crate) enable_restructuring_approximation: bool,
     /// Gauss–Legendre order for GaussianQuadrature method.
     /// Supported values: 2, 4, 8, 16. Invalid values default to 8.
-    pub gl_order: usize,
+    pub(crate) gl_order: usize,
     /// Maximum recursion depth for AdaptiveSimpson integration
-    pub adaptive_max_depth: usize,
+    pub(crate) adaptive_max_depth: usize,
     /// Business days per year for settlement delay calculations (region-specific).
     /// Default: 252 (US), alternatives: 250 (UK), 255 (Japan)
-    pub business_days_per_year: f64,
+    pub(crate) business_days_per_year: f64,
     /// Max iterations for bootstrapping solver
-    pub bootstrap_max_iterations: usize,
+    pub(crate) bootstrap_max_iterations: usize,
     /// Tolerance for bootstrapping solver
-    pub bootstrap_tolerance: f64,
+    pub(crate) bootstrap_tolerance: f64,
 }
 
 /// Supported Gauss-Legendre orders for numerical integration.
@@ -281,7 +281,7 @@ impl CDSPricerConfig {
     /// - Accrual-on-default included
     /// - Risky annuity for par spread denominator
     #[must_use]
-    pub fn isda_standard() -> Self {
+    pub(crate) fn isda_standard() -> Self {
         Self {
             steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
             min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS,
@@ -302,7 +302,7 @@ impl CDSPricerConfig {
 
     /// Create an ISDA configuration for European markets (UK conventions).
     #[must_use]
-    pub fn isda_europe() -> Self {
+    pub(crate) fn isda_europe() -> Self {
         Self {
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_UK,
             ..Self::isda_standard()
@@ -311,7 +311,7 @@ impl CDSPricerConfig {
 
     /// Create an ISDA configuration for Asian markets (Japan conventions).
     #[must_use]
-    pub fn isda_asia() -> Self {
+    pub(crate) fn isda_asia() -> Self {
         Self {
             business_days_per_year: time_constants::BUSINESS_DAYS_PER_YEAR_JP,
             ..Self::isda_standard()
@@ -324,7 +324,7 @@ impl CDSPricerConfig {
     /// to reduce integration error for hazard curves with rapid changes at short
     /// tenors. Uses the ISDA Standard Model for consistency.
     #[must_use]
-    pub fn isda_distressed() -> Self {
+    pub(crate) fn isda_distressed() -> Self {
         Self {
             steps_per_year: isda::STANDARD_INTEGRATION_POINTS * 2,
             min_steps_per_year: isda::STANDARD_INTEGRATION_POINTS * 2,
@@ -337,7 +337,7 @@ impl CDSPricerConfig {
     /// Uses midpoint integration without adaptive steps. Suitable for
     /// approximate valuations or high-volume batch processing.
     #[must_use]
-    pub fn simplified() -> Self {
+    pub(crate) fn simplified() -> Self {
         Self {
             steps_per_year: 365,
             min_steps_per_year: 52,
@@ -360,7 +360,7 @@ impl CDSPricerConfig {
     ///
     /// Returns the configured `gl_order` if supported, otherwise defaults to 8.
     #[must_use]
-    pub fn validated_gl_order(&self) -> usize {
+    pub(crate) fn validated_gl_order(&self) -> usize {
         if SUPPORTED_GL_ORDERS.contains(&self.gl_order) {
             self.gl_order
         } else {
@@ -373,7 +373,7 @@ impl CDSPricerConfig {
     /// When `adaptive_steps` is enabled, returns `max(min_steps_per_year, tenor_years * 12)`.
     /// This ensures higher accuracy for longer tenors and distressed credits.
     #[must_use]
-    pub fn effective_steps(&self, tenor_years: f64) -> usize {
+    pub(crate) fn effective_steps(&self, tenor_years: f64) -> usize {
         if self.adaptive_steps {
             let adaptive = (tenor_years * 12.0).ceil() as usize;
             self.min_steps_per_year.max(adaptive)
@@ -389,7 +389,11 @@ impl CDSPricerConfig {
     /// decimal). Distressed hazard curves exhibit rapid changes at short tenors
     /// that require finer integration grids.
     #[must_use]
-    pub fn effective_steps_for_spread(&self, tenor_years: f64, spread_decimal: f64) -> usize {
+    pub(crate) fn effective_steps_for_spread(
+        &self,
+        tenor_years: f64,
+        spread_decimal: f64,
+    ) -> usize {
         let base = self.effective_steps(tenor_years);
         if spread_decimal > 0.10 {
             base * 2
@@ -422,7 +426,7 @@ impl CDSPricerConfig {
     /// let config = CDSPricerConfig::isda_standard();
     /// assert!(config.validate().is_ok());
     /// ```
-    pub fn validate(&self) -> Result<()> {
+    pub(crate) fn validate(&self) -> Result<()> {
         if self.tolerance <= 0.0 {
             return Err(Error::Validation(
                 "CDSPricerConfig: tolerance must be positive".into(),
@@ -492,7 +496,7 @@ impl CDSPricerConfig {
 /// - `Some(0)`: No restructuring benefit (Xr14 or Custom).
 /// - `Some(n)`: Maturity cap of `n` months from the restructuring event.
 #[must_use]
-pub fn max_deliverable_maturity(clause: CdsDocClause) -> Option<u32> {
+pub(crate) fn max_deliverable_maturity(clause: CdsDocClause) -> Option<u32> {
     match clause {
         CdsDocClause::Cr14 => None,      // Full restructuring, uncapped
         CdsDocClause::Mr14 => Some(30),  // Modified Restructuring: 30 months
@@ -510,7 +514,7 @@ pub fn max_deliverable_maturity(clause: CdsDocClause) -> Option<u32> {
 
 /// CDS pricing engine. Stateless wrapper carrying configuration.
 #[derive(Debug)]
-pub struct CDSPricer {
+pub(crate) struct CDSPricer {
     config: CDSPricerConfig,
 }
 
@@ -543,7 +547,7 @@ impl Default for CDSPricer {
 impl CDSPricer {
     /// Create new pricer with default ISDA-compliant config.
     #[must_use]
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             config: CDSPricerConfig::default(),
         }
@@ -554,7 +558,7 @@ impl CDSPricer {
     /// Note: This method does not validate the configuration. For fail-fast
     /// validation, use [`try_with_config`](Self::try_with_config) instead.
     #[must_use]
-    pub fn with_config(config: CDSPricerConfig) -> Self {
+    pub(crate) fn with_config(config: CDSPricerConfig) -> Self {
         Self { config }
     }
 
@@ -568,14 +572,14 @@ impl CDSPricer {
     ///
     /// Returns a validation error if the configuration is invalid.
     /// See [`CDSPricerConfig::validate`] for details.
-    pub fn try_with_config(config: CDSPricerConfig) -> Result<Self> {
+    pub(crate) fn try_with_config(config: CDSPricerConfig) -> Result<Self> {
         config.validate()?;
         Ok(Self { config })
     }
 
     /// Get the configuration for this pricer.
     #[must_use]
-    pub fn config(&self) -> &CDSPricerConfig {
+    pub(crate) fn config(&self) -> &CDSPricerConfig {
         &self.config
     }
 
@@ -591,7 +595,7 @@ impl CDSPricer {
     /// where R is the recovery rate, DF is the discount factor, S is the
     /// survival probability, and delay is the settlement delay in years.
     /// Calculate PV of protection leg (Money)
-    pub fn pv_protection_leg(
+    pub(crate) fn pv_protection_leg(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -614,7 +618,7 @@ impl CDSPricer {
     /// This method assumes the CDS has been validated at construction time.
     /// Recovery rate is expected to be in [0, 1]. Invalid recovery rates will
     /// produce incorrect results without error.
-    pub fn pv_protection_leg_raw(
+    pub(crate) fn pv_protection_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -776,7 +780,7 @@ impl CDSPricer {
 
     /// Calculate PV of premium leg with optional accrual-on-default
     /// Calculate PV of premium leg (Money)
-    pub fn pv_premium_leg(
+    pub(crate) fn pv_premium_leg(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -793,7 +797,7 @@ impl CDSPricer {
     /// - Discounting: relative DF from `as_of` using discount curve's day-count
     /// - Survival: conditional survival given no default before `as_of` using hazard curve's day-count
     /// - Accrual: instrument's premium leg day-count convention (Act/360 for NA, etc.)
-    pub fn pv_premium_leg_raw(
+    pub(crate) fn pv_premium_leg_raw(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -1761,7 +1765,11 @@ impl CDSPricer {
     /// When `use_isda_coupon_dates` is enabled, generates IMM dates (20th of
     /// Mar/Jun/Sep/Dec) with business day adjustment per the CDS calendar.
     #[must_use = "schedule generation is pure computation"]
-    pub fn generate_schedule(&self, cds: &CreditDefaultSwap, _as_of: Date) -> Result<Vec<Date>> {
+    pub(crate) fn generate_schedule(
+        &self,
+        cds: &CreditDefaultSwap,
+        _as_of: Date,
+    ) -> Result<Vec<Date>> {
         if self.config.use_isda_coupon_dates {
             self.generate_isda_schedule(cds)
         } else {
@@ -1787,7 +1795,7 @@ impl CDSPricer {
     /// Payment dates are adjusted using the CDS calendar and business day
     /// convention (Modified Following per ISDA 2014 standard). If no calendar
     /// is specified, dates are returned unadjusted.
-    pub fn generate_isda_schedule(&self, cds: &CreditDefaultSwap) -> Result<Vec<Date>> {
+    pub(crate) fn generate_isda_schedule(&self, cds: &CreditDefaultSwap) -> Result<Vec<Date>> {
         let mut schedule = vec![cds.premium.start];
         let mut current = cds.premium.start;
 
@@ -1905,7 +1913,7 @@ impl CDSPricer {
     ///
     /// Par spread in basis points (bps).
     #[must_use = "par spread calculation is pure computation"]
-    pub fn par_spread(
+    pub(crate) fn par_spread(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -1983,7 +1991,7 @@ impl CDSPricer {
     ///
     /// Uses proper time-axis conventions for discounting and survival.
     #[must_use = "premium leg calculation is pure computation"]
-    pub fn premium_leg_pv_per_bp(
+    pub(crate) fn premium_leg_pv_per_bp(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -2042,7 +2050,7 @@ impl CDSPricer {
     ///
     /// Uses proper time-axis conventions for discounting and survival.
     #[must_use = "risky annuity calculation is pure computation"]
-    pub fn risky_annuity(
+    pub(crate) fn risky_annuity(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -2079,7 +2087,7 @@ impl CDSPricer {
     ///
     /// Computed as `Risky Annuity × Notional / 10000`.
     #[must_use = "risky PV01 calculation is pure computation"]
-    pub fn risky_pv01(
+    pub(crate) fn risky_pv01(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -2094,7 +2102,7 @@ impl CDSPricer {
     ///
     /// - **Protection buyer** (PayFixed): NPV = Protection PV − Premium PV
     /// - **Protection seller** (ReceiveFixed): NPV = Premium PV − Protection PV
-    pub fn npv(
+    pub(crate) fn npv(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -2124,7 +2132,7 @@ impl CDSPricer {
     ///    - Positive = increases NPV, negative = decreases NPV (for both sides)
     ///
     /// Both can be set simultaneously without double-counting.
-    pub fn npv_with_upfront(
+    pub(crate) fn npv_with_upfront(
         &self,
         cds: &CreditDefaultSwap,
         disc: &DiscountCurve,
@@ -2155,7 +2163,7 @@ impl CDSPricer {
     }
 
     /// Resolve curves from MarketContext and compute NPV with upfront.
-    pub fn npv_market(
+    pub(crate) fn npv_market(
         &self,
         cds: &CreditDefaultSwap,
         curves: &MarketContext,
@@ -2375,11 +2383,11 @@ fn restructuring_adjustment_factor(clause: CdsDocClause, cds: &CreditDefaultSwap
 /// Controls how synthetic CDS instruments are constructed during hazard curve
 /// bootstrapping to match market quote conventions.
 #[derive(Debug, Clone)]
-pub struct BootstrapConvention {
+pub(crate) struct BootstrapConvention {
     /// CDS convention (determines day count, frequency, etc.)
-    pub convention: crate::instruments::credit_derivatives::cds::CDSConvention,
+    pub(crate) convention: crate::instruments::credit_derivatives::cds::CDSConvention,
     /// Whether to use IMM dates for maturity (20th of Mar/Jun/Sep/Dec)
-    pub use_imm_dates: bool,
+    pub(crate) use_imm_dates: bool,
 }
 
 impl Default for BootstrapConvention {
@@ -2423,7 +2431,7 @@ impl BootstrapConvention {
 }
 
 /// Bootstrap hazard rates from CDS spreads to a simple hazard curve
-pub struct CDSBootstrapper {
+pub(crate) struct CDSBootstrapper {
     config: CDSPricerConfig,
     convention: BootstrapConvention,
 }
@@ -2436,7 +2444,7 @@ impl Default for CDSBootstrapper {
 
 impl CDSBootstrapper {
     /// Create new bootstrapper with default config
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             config: CDSPricerConfig::default(),
             convention: BootstrapConvention::default(),
@@ -2444,7 +2452,7 @@ impl CDSBootstrapper {
     }
 
     /// Create bootstrapper with custom convention
-    pub fn with_convention(convention: BootstrapConvention) -> Self {
+    pub(crate) fn with_convention(convention: BootstrapConvention) -> Self {
         Self {
             config: CDSPricerConfig::default(),
             convention,
@@ -2452,7 +2460,7 @@ impl CDSBootstrapper {
     }
 
     /// Create bootstrapper with custom pricer config and convention
-    pub fn with_config(config: CDSPricerConfig, convention: BootstrapConvention) -> Self {
+    pub(crate) fn with_config(config: CDSPricerConfig, convention: BootstrapConvention) -> Self {
         Self { config, convention }
     }
 
@@ -2474,7 +2482,7 @@ impl CDSBootstrapper {
     /// standard CDS IMM dates (20th of Mar/Jun/Sep/Dec). For example:
     /// - A 5Y CDS quoted on 2024-01-15 would have maturity 2029-03-20
     /// - Premium start is the most recent IMM date (2023-12-20)
-    pub fn bootstrap_hazard_curve(
+    pub(crate) fn bootstrap_hazard_curve(
         &self,
         cds_spreads: &[(f64, f64)],
         recovery_rate: f64,

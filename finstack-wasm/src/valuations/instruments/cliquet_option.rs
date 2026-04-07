@@ -29,14 +29,17 @@ impl JsCliquetOptionBuilder {
             .json_str
             .as_deref()
             .ok_or_else(|| JsValue::from_str("CliquetOptionBuilder: jsonString is required"))?;
-        JsCliquetOption::from_json(json_str)
+        use crate::core::error::js_error;
+        serde_json::from_str(json_str)
+            .map(JsCliquetOption::from_inner)
+            .map_err(|e| js_error(e.to_string()))
     }
 }
 
 /// Cliquet option (JSON-serializable).
 ///
 /// This instrument is configured via a JSON payload (matching the Rust model schema).
-/// Use `fromJson()` to construct it and `toJsonString()` to inspect the canonical representation.
+/// Use the builder to construct it and `toJsonString()` to inspect the canonical representation.
 #[wasm_bindgen(js_name = CliquetOption)]
 #[derive(Clone, Debug)]
 pub struct JsCliquetOption {
@@ -55,22 +58,6 @@ impl InstrumentWrapper for JsCliquetOption {
 
 #[wasm_bindgen(js_class = CliquetOption)]
 impl JsCliquetOption {
-    /// Parse a cliquet option from a JSON string.
-    ///
-    /// @param json_str - JSON payload matching the cliquet option schema
-    /// @returns A new `CliquetOption`
-    /// @throws {Error} If the JSON cannot be parsed or is invalid
-    #[wasm_bindgen(js_name = fromJson)]
-    pub fn from_json(json_str: &str) -> Result<JsCliquetOption, JsValue> {
-        web_sys::console::warn_1(&JsValue::from_str(
-            "CliquetOption.fromJson is deprecated; use CliquetOptionBuilder instead.",
-        ));
-        use crate::core::error::js_error;
-        serde_json::from_str(json_str)
-            .map(JsCliquetOption::from_inner)
-            .map_err(|e| js_error(e.to_string()))
-    }
-
     #[wasm_bindgen(getter, js_name = instrumentId)]
     pub fn instrument_id(&self) -> String {
         self.inner.id.as_str().to_string()

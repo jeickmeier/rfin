@@ -1,4 +1,3 @@
-
 use finstack_core::math::{
     adaptive_simpson, erf, gauss_legendre_integrate, gauss_legendre_integrate_adaptive,
     gauss_legendre_integrate_composite, norm_cdf, simpson_rule, trapezoidal_rule,

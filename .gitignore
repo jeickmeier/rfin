@@ -108,3 +108,5 @@ finstack-py/examples/outputs/
 
 # Database files
 *.db
+
+target-codex/

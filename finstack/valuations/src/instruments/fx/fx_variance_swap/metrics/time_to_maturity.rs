@@ -5,7 +5,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 use finstack_core::Result;
 
 /// Calculate time to maturity in years.
-pub struct TimeToMaturityCalculator;
+pub(crate) struct TimeToMaturityCalculator;
 
 impl MetricCalculator for TimeToMaturityCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

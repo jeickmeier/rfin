@@ -46,6 +46,7 @@
 //! - `ConversionSpec` for conversion terms
 //! - `AntiDilutionPolicy` for adjustment policies
 
+mod market_inputs;
 pub(crate) mod metrics;
 pub(crate) mod pricer;
 mod types;
