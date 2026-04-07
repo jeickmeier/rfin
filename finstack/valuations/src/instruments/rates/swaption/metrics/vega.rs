@@ -37,7 +37,7 @@ use finstack_core::Result;
 const EXPIRY_THRESHOLD: f64 = 1.0 / 252.0;
 
 /// Vega calculator for swaptions
-pub struct VegaCalculator;
+pub(crate) struct VegaCalculator;
 
 impl MetricCalculator for VegaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

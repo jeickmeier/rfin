@@ -235,7 +235,7 @@ fn discount_curve_bootstrap_is_order_independent() {
 }
 
 #[test]
-fn discount_curve_global_solve_smoke_v2() {
+fn discount_curve_global_solve_smoke() {
     let base_date = Date::from_calendar_date(2025, Month::January, 15).unwrap();
     let currency = Currency::USD;
 

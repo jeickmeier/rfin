@@ -73,15 +73,15 @@ mod ytm;
 mod ytn;
 mod ytw;
 
-pub use all_in_rate::AllInRateCalculator;
-pub use discount_margin::DiscountMarginCalculator;
-pub use embedded_option_value::EmbeddedOptionValueCalculator;
-pub use oas::OasCalculator;
-pub use oid_eir::OidEirAmortizationCalculator;
-pub use ytc::YtcCalculator;
-pub use ytm::YtmCalculator;
-pub use ytn::{Yt2yCalculator, Yt3yCalculator, Yt4yCalculator};
-pub use ytw::YtwCalculator;
+pub(crate) use all_in_rate::AllInRateCalculator;
+pub(crate) use discount_margin::DiscountMarginCalculator;
+pub(crate) use embedded_option_value::EmbeddedOptionValueCalculator;
+pub(crate) use oas::OasCalculator;
+pub(crate) use oid_eir::OidEirAmortizationCalculator;
+pub(crate) use ytc::YtcCalculator;
+pub(crate) use ytm::YtmCalculator;
+pub(crate) use ytn::{Yt2yCalculator, Yt3yCalculator, Yt4yCalculator};
+pub(crate) use ytw::YtwCalculator;
 
 use crate::metrics::MetricRegistry;
 
@@ -105,7 +105,7 @@ use crate::metrics::MetricRegistry;
 /// let mut registry = MetricRegistry::new();
 /// register_term_loan_metrics(&mut registry);
 /// ```
-pub fn register_term_loan_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_term_loan_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,

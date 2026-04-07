@@ -16,7 +16,7 @@ use super::irr_helpers::{
 ///
 /// For loans with call schedules, solves for IRR to the first valid call date.
 /// Redemption amount equals pre-exercise outstanding principal times the call price.
-pub struct YtcCalculator;
+pub(crate) struct YtcCalculator;
 
 impl MetricCalculator for YtcCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -5,6 +5,11 @@
       "source": "smithery.ai",
       "sourceType": "well-known",
       "computedHash": "710091b6d7bd42c393435a141aa02b420363f467775c885f330343fd40030fcf"
+    },
+    "refactor": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "87789a786b96f99ba0680e89345a975106e10e7db1071c7cdc2e76d507c449d6"
     }
   }
 }

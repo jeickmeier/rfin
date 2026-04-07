@@ -1,7 +1,6 @@
 """Portfolio bindings (Rust).
 
 This package is a thin re-export of the Rust extension module.
-No runtime monkeypatching or compatibility shims are applied.
 """
 
 from __future__ import annotations

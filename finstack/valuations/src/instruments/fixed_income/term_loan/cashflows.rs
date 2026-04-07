@@ -637,26 +637,26 @@ fn cumulative_drawn_at(ddtl: &super::spec::DdtlSpec, draw_stop: Option<Date>, da
 
 /// Period-level EIR amortization outputs for reporting.
 #[derive(Debug, Clone)]
-pub struct OidEirPeriod {
+pub(crate) struct OidEirPeriod {
     /// Period end date.
-    pub date: Date,
+    pub(crate) date: Date,
     /// OID amortization for the period.
-    pub oid_amortization: Money,
+    pub(crate) oid_amortization: Money,
     /// Closing balance for the period.
-    pub closing_balance: Money,
+    pub(crate) closing_balance: Money,
 }
 
 /// EIR amortization schedule output.
 #[derive(Debug, Clone)]
-pub struct OidEirSchedule {
+pub(crate) struct OidEirSchedule {
     /// Effective interest rate.
-    pub effective_rate: f64,
+    pub(crate) effective_rate: f64,
     /// Period-by-period amortization details.
-    pub periods: Vec<OidEirPeriod>,
+    pub(crate) periods: Vec<OidEirPeriod>,
 }
 
 /// Build an effective interest rate (EIR) amortization schedule from cashflows.
-pub fn build_oid_eir_schedule(
+pub(crate) fn build_oid_eir_schedule(
     loan: &TermLoan,
     market: &MarketContext,
     as_of: Date,

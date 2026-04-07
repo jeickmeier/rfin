@@ -31,12 +31,12 @@ use finstack_core::Result;
 
 /// Configuration for tree-based term loan pricing (callable PV, OAS).
 #[derive(Debug, Clone)]
-pub struct TermLoanTreePricerConfig {
-    pub tree_steps: usize,
-    pub volatility: f64,
-    pub tolerance: f64,
-    pub max_iterations: usize,
-    pub initial_bracket_size_bp: Option<f64>,
+pub(crate) struct TermLoanTreePricerConfig {
+    pub(crate) tree_steps: usize,
+    pub(crate) volatility: f64,
+    pub(crate) tolerance: f64,
+    pub(crate) max_iterations: usize,
+    pub(crate) initial_bracket_size_bp: Option<f64>,
 }
 
 impl Default for TermLoanTreePricerConfig {
@@ -55,7 +55,7 @@ impl Default for TermLoanTreePricerConfig {
 ///
 /// Implements `TreeValuator` by mapping dated loan cashflows and call schedules into
 /// step-indexed vectors and applying borrower call exercise with friction costs.
-pub struct TermLoanValuator {
+struct TermLoanValuator {
     loan: TermLoan,
     /// Coupon + fee cashflows by step (paid regardless of call decision).
     coupon_fee_vec: Vec<f64>,
@@ -76,7 +76,7 @@ pub struct TermLoanValuator {
 }
 
 impl TermLoanValuator {
-    pub fn new(
+    fn new(
         loan: TermLoan,
         market: &MarketContext,
         as_of: Date,
@@ -424,11 +424,6 @@ impl TermLoanTreePricer {
         Self {
             config: TermLoanTreePricerConfig::default(),
         }
-    }
-
-    /// Create a tree pricer with a custom configuration.
-    pub fn with_config(config: TermLoanTreePricerConfig) -> Self {
-        Self { config }
     }
 
     /// Price a callable term loan using tree-based backward induction.

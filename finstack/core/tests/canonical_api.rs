@@ -1,7 +1,7 @@
 //! Tests for canonical API behavior.
 //!
-//! These tests verify the behavior of the canonical APIs after deprecated APIs
-//! have been removed. The tests ensure consistent results and proper error handling.
+//! These tests verify consistent results and proper error handling
+//! for core financial computation APIs.
 //!
 //! # Test Structure
 //!

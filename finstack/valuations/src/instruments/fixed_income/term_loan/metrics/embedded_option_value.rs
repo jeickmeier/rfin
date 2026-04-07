@@ -13,7 +13,7 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext};
 
 /// Embedded option value calculator for term loans (callability only).
-pub struct EmbeddedOptionValueCalculator;
+pub(crate) struct EmbeddedOptionValueCalculator;
 
 impl MetricCalculator for EmbeddedOptionValueCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

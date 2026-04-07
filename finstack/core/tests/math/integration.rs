@@ -1,4 +1,3 @@
-#![allow(deprecated)] // Allow deprecated order_N() calls for testing
 
 use finstack_core::math::{
     adaptive_simpson, erf, gauss_legendre_integrate, gauss_legendre_integrate_adaptive,

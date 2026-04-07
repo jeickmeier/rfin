@@ -16,7 +16,7 @@ use super::irr_helpers::{
 /// Yield-to-worst calculator for callable term loans.
 ///
 /// Solves for the worst (minimum) yield across all call dates and maturity.
-pub struct YtwCalculator;
+pub(crate) struct YtwCalculator;
 
 impl MetricCalculator for YtwCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

@@ -1,9 +1,9 @@
 //! Term loan metrics tests module.
 
-pub mod callability;
-pub mod discount_margin;
-pub mod dv01;
-pub mod theta;
-pub mod ytc;
-pub mod ytm;
-pub mod ytw;
+mod callability;
+mod discount_margin;
+mod dv01;
+mod theta;
+mod ytc;
+mod ytm;
+mod ytw;

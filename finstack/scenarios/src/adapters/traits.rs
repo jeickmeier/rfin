@@ -7,7 +7,7 @@ use finstack_statements::NodeId;
 /// Represents the outcome of a scenario operation that can be collected and applied later.
 /// This allows the engine to separate the "decision" phase from the "mutation" phase.
 #[derive(Debug)]
-pub enum ScenarioEffect {
+pub(crate) enum ScenarioEffect {
     /// A market data bump to be applied to the context.
     MarketBump(MarketBump),
     /// A warning message to be recorded.
@@ -79,7 +79,7 @@ pub enum ScenarioEffect {
 }
 
 /// Trait for adapters that can convert an OperationSpec into effects.
-pub trait ScenarioAdapter {
+pub(crate) trait ScenarioAdapter {
     /// Try to handle an operation. Returns `Ok(None)` if this adapter doesn't handle the op type.
     fn try_generate_effects(
         &self,

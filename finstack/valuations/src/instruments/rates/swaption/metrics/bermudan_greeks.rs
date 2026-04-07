@@ -36,23 +36,23 @@ use finstack_core::Result;
 
 /// Default bump size for parallel rate shift (1 basis point).
 #[allow(dead_code)] // May be used by external bindings or tests
-pub const DEFAULT_RATE_BUMP_BP: f64 = 1.0;
+pub(crate) const DEFAULT_RATE_BUMP_BP: f64 = 1.0;
 
 /// Default bump size for volatility (1% relative).
 #[allow(dead_code)] // May be used by external bindings or tests
-pub const DEFAULT_VOL_BUMP_PCT: f64 = 0.01;
+pub(crate) const DEFAULT_VOL_BUMP_PCT: f64 = 0.01;
 
 /// Default Hull-White mean reversion.
 #[allow(dead_code)] // May be used by external bindings or tests
-pub const DEFAULT_KAPPA: f64 = 0.03;
+pub(crate) const DEFAULT_KAPPA: f64 = 0.03;
 
 /// Default Hull-White volatility.
 #[allow(dead_code)] // May be used by external bindings or tests
-pub const DEFAULT_SIGMA: f64 = 0.01;
+pub(crate) const DEFAULT_SIGMA: f64 = 0.01;
 
 /// Default tree steps for Greeks.
 #[allow(dead_code)] // May be used by external bindings or tests
-pub const DEFAULT_TREE_STEPS: usize = 50;
+pub(crate) const DEFAULT_TREE_STEPS: usize = 50;
 
 /// Validates Hull–White parameters used by Bermudan Greek calculators.
 ///
@@ -81,15 +81,15 @@ fn validate_hw_greek_params(kappa: f64, sigma: f64) -> Result<()> {
 ///
 /// Computes sensitivity to parallel rate shifts via bump-and-revalue.
 #[derive(Debug, Clone)]
-pub struct BermudanDeltaCalculator {
+pub(crate) struct BermudanDeltaCalculator {
     /// Rate bump size in basis points
-    pub bump_bp: f64,
+    pub(crate) bump_bp: f64,
     /// Hull-White mean reversion
-    pub kappa: f64,
+    pub(crate) kappa: f64,
     /// Hull-White volatility
-    pub sigma: f64,
+    pub(crate) sigma: f64,
     /// Tree steps
-    pub tree_steps: usize,
+    pub(crate) tree_steps: usize,
 }
 
 impl Default for BermudanDeltaCalculator {
@@ -105,18 +105,18 @@ impl Default for BermudanDeltaCalculator {
 
 impl BermudanDeltaCalculator {
     /// Create a new delta calculator.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Set bump size.
-    pub fn with_bump(mut self, bump_bp: f64) -> Self {
+    pub(crate) fn with_bump(mut self, bump_bp: f64) -> Self {
         self.bump_bp = bump_bp;
         self
     }
 
     /// Set bump size using typed basis points.
-    pub fn with_bump_bps(mut self, bump_bp: Bps) -> Self {
+    pub(crate) fn with_bump_bps(mut self, bump_bp: Bps) -> Self {
         self.bump_bp = bump_bp.as_bps() as f64;
         self
     }
@@ -124,14 +124,14 @@ impl BermudanDeltaCalculator {
     /// Set Hull-White parameters.
     ///
     /// Invalid values are rejected when computing metrics (runtime validation).
-    pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
+    pub(crate) fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
         self.kappa = kappa;
         self.sigma = sigma;
         self
     }
 
     /// Set Hull-White parameters using typed values.
-    pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
+    pub(crate) fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
         self.kappa = kappa.as_decimal();
         self.sigma = sigma.as_decimal();
         self
@@ -221,15 +221,15 @@ impl MetricCalculator for BermudanDeltaCalculator {
 ///
 /// Computes sensitivity to Hull-White volatility changes.
 #[derive(Debug, Clone)]
-pub struct BermudanVegaCalculator {
+pub(crate) struct BermudanVegaCalculator {
     /// Volatility bump (percentage)
-    pub bump_pct: f64,
+    pub(crate) bump_pct: f64,
     /// Hull-White mean reversion
-    pub kappa: f64,
+    pub(crate) kappa: f64,
     /// Hull-White volatility (base)
-    pub sigma: f64,
+    pub(crate) sigma: f64,
     /// Tree steps
-    pub tree_steps: usize,
+    pub(crate) tree_steps: usize,
 }
 
 impl Default for BermudanVegaCalculator {
@@ -245,12 +245,12 @@ impl Default for BermudanVegaCalculator {
 
 impl BermudanVegaCalculator {
     /// Create a new vega calculator.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Set volatility bump using a typed percentage.
-    pub fn with_bump_pct(mut self, bump_pct: Percentage) -> Self {
+    pub(crate) fn with_bump_pct(mut self, bump_pct: Percentage) -> Self {
         self.bump_pct = bump_pct.as_decimal();
         self
     }
@@ -258,14 +258,14 @@ impl BermudanVegaCalculator {
     /// Set Hull-White parameters.
     ///
     /// Invalid values are rejected when computing metrics (runtime validation).
-    pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
+    pub(crate) fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
         self.kappa = kappa;
         self.sigma = sigma;
         self
     }
 
     /// Set Hull-White parameters using typed values.
-    pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
+    pub(crate) fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
         self.kappa = kappa.as_decimal();
         self.sigma = sigma.as_decimal();
         self
@@ -344,15 +344,15 @@ impl MetricCalculator for BermudanVegaCalculator {
 ///
 /// Computes second-order rate sensitivity via bump-and-revalue.
 #[derive(Debug, Clone)]
-pub struct BermudanGammaCalculator {
+pub(crate) struct BermudanGammaCalculator {
     /// Rate bump size in basis points
-    pub bump_bp: f64,
+    pub(crate) bump_bp: f64,
     /// Hull-White mean reversion
-    pub kappa: f64,
+    pub(crate) kappa: f64,
     /// Hull-White volatility
-    pub sigma: f64,
+    pub(crate) sigma: f64,
     /// Tree steps
-    pub tree_steps: usize,
+    pub(crate) tree_steps: usize,
 }
 
 impl Default for BermudanGammaCalculator {
@@ -368,12 +368,12 @@ impl Default for BermudanGammaCalculator {
 
 impl BermudanGammaCalculator {
     /// Create a new gamma calculator.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self::default()
     }
 
     /// Set bump size using typed basis points.
-    pub fn with_bump_bps(mut self, bump_bp: Bps) -> Self {
+    pub(crate) fn with_bump_bps(mut self, bump_bp: Bps) -> Self {
         self.bump_bp = bump_bp.as_bps() as f64;
         self
     }
@@ -381,14 +381,14 @@ impl BermudanGammaCalculator {
     /// Set Hull-White parameters.
     ///
     /// Invalid values are rejected when computing metrics (runtime validation).
-    pub fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
+    pub(crate) fn with_hw_params(mut self, kappa: f64, sigma: f64) -> Self {
         self.kappa = kappa;
         self.sigma = sigma;
         self
     }
 
     /// Set Hull-White parameters using typed values.
-    pub fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
+    pub(crate) fn with_hw_params_rate(mut self, kappa: Rate, sigma: Percentage) -> Self {
         self.kappa = kappa.as_decimal();
         self.sigma = sigma.as_decimal();
         self
@@ -475,15 +475,15 @@ impl MetricCalculator for BermudanGammaCalculator {
 ///
 /// Shows the risk-neutral probability of exercise at each exercise date.
 #[derive(Debug, Clone)]
-pub struct ExerciseProbabilityProfile {
+pub(crate) struct ExerciseProbabilityProfile {
     /// Exercise dates (year fractions)
-    pub exercise_times: Vec<f64>,
+    pub(crate) exercise_times: Vec<f64>,
     /// Conditional probabilities P(exercise at t | not exercised before t)
-    pub conditional_probs: Vec<f64>,
+    pub(crate) conditional_probs: Vec<f64>,
     /// Cumulative probabilities P(exercised by t)
-    pub cumulative_probs: Vec<f64>,
+    pub(crate) cumulative_probs: Vec<f64>,
     /// Expected exercise time
-    pub expected_exercise_time: f64,
+    pub(crate) expected_exercise_time: f64,
 }
 
 impl ExerciseProbabilityProfile {
@@ -499,7 +499,7 @@ impl ExerciseProbabilityProfile {
     ///
     /// # Returns
     /// An `ExerciseProbabilityProfile` with actual computed probabilities
-    pub fn from_valuator(
+    pub(crate) fn from_valuator(
         valuator: &BermudanSwaptionTreeValuator,
         exercise_times: Vec<f64>,
     ) -> Self {
@@ -555,18 +555,18 @@ impl ExerciseProbabilityProfile {
 
 /// Calculator for exercise probability metrics.
 #[derive(Debug, Clone, Default)]
-pub struct ExerciseProbabilityCalculator {
+pub(crate) struct ExerciseProbabilityCalculator {
     /// Hull-White mean reversion
-    pub kappa: f64,
+    pub(crate) kappa: f64,
     /// Hull-White volatility
-    pub sigma: f64,
+    pub(crate) sigma: f64,
     /// Tree steps
-    pub tree_steps: usize,
+    pub(crate) tree_steps: usize,
 }
 
 impl ExerciseProbabilityCalculator {
     /// Create a new calculator with default (uncalibrated) parameters.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             kappa: DEFAULT_KAPPA,
             sigma: DEFAULT_SIGMA,
@@ -577,7 +577,7 @@ impl ExerciseProbabilityCalculator {
     /// Create a new calculator with calibrated Hull-White parameters.
     ///
     /// Invalid values are rejected when computing metrics (runtime validation).
-    pub fn new_with_hw(kappa: f64, sigma: f64) -> Self {
+    pub(crate) fn new_with_hw(kappa: f64, sigma: f64) -> Self {
         Self {
             kappa,
             sigma,

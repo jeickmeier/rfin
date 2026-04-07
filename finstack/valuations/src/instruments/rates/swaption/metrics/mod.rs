@@ -6,25 +6,25 @@
 
 #![allow(dead_code)] // WIP: public API not yet wired into main pricing paths
 
-pub mod bermudan_greeks;
+pub(crate) mod bermudan_greeks;
 mod delta;
 mod gamma;
 mod implied_vol;
 mod vega;
 
-pub use bermudan_greeks::{
+pub(crate) use bermudan_greeks::{
     BermudanDeltaCalculator, BermudanGammaCalculator, BermudanVegaCalculator,
     ExerciseProbabilityCalculator,
 };
-pub use delta::DeltaCalculator;
-pub use gamma::GammaCalculator;
-pub use implied_vol::ImpliedVolCalculator;
-pub use vega::VegaCalculator;
+pub(crate) use delta::DeltaCalculator;
+pub(crate) use gamma::GammaCalculator;
+pub(crate) use implied_vol::ImpliedVolCalculator;
+pub(crate) use vega::VegaCalculator;
 
 use crate::metrics::MetricRegistry;
 
 /// Register swaption metrics with the registry
-pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_swaption_metrics(registry: &mut MetricRegistry) {
     use crate::pricer::InstrumentType;
     crate::register_metrics! {
         registry: registry,
@@ -74,8 +74,8 @@ pub fn register_swaption_metrics(registry: &mut MetricRegistry) {
 /// let mut registry = MetricRegistry::new();
 /// register_bermudan_swaption_metrics(&mut registry, calibrated_params);
 /// ```
-#[allow(dead_code)] // May be used by external bindings or tests
-pub fn register_bermudan_swaption_metrics(
+#[allow(dead_code)]
+pub(crate) fn register_bermudan_swaption_metrics(
     registry: &mut MetricRegistry,
     hw_params: crate::instruments::rates::swaption::HullWhiteParams,
 ) {
@@ -110,16 +110,16 @@ pub fn register_bermudan_swaption_metrics(
 
 /// Swaption metrics configuration constants.
 /// Centralizes scaling parameters to avoid magic numbers in calculators.
-pub mod config {
+pub(crate) mod config {
 
     /// Basis points per unit (1.0 = 1 bp; 10000.0 = 100%).
-    pub const BP_PER_UNIT: f64 = 10000.0;
+    pub(crate) const BP_PER_UNIT: f64 = 10000.0;
     /// Vega scale for 1% volatility change.
-    pub const VOL_PCT_SCALE: f64 = 100.0;
+    pub(crate) const VOL_PCT_SCALE: f64 = 100.0;
     /// Trading days per year for theta scaling (daily).
-    pub const THETA_DAYS_PER_YEAR: f64 = 365.0;
+    pub(crate) const THETA_DAYS_PER_YEAR: f64 = 365.0;
     /// Discount curve parallel bump size in basis points for rho.
-    pub const DISC_BUMP_BP: f64 = 1.0;
+    pub(crate) const DISC_BUMP_BP: f64 = 1.0;
     /// Multiplier to convert 1bp PV change to per 1% rate move.
-    pub const RHO_PCT_PER_BP: f64 = 100.0;
+    pub(crate) const RHO_PCT_PER_BP: f64 = 100.0;
 }

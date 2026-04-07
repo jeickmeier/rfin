@@ -21,7 +21,7 @@ use finstack_core::dates::DayCountCtx;
 /// Cash flows are read directly from the generated `CashFlowSchedule` to ensure
 /// perfect consistency with the cashflow generator. No fee or rate logic is
 /// duplicated.
-pub struct AllInRateCalculator;
+pub(crate) struct AllInRateCalculator;
 
 impl MetricCalculator for AllInRateCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

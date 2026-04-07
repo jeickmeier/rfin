@@ -22,7 +22,7 @@ use finstack_core::Result;
 const EXPIRY_THRESHOLD: f64 = 1.0 / 252.0;
 
 /// Gamma calculator for swaptions
-pub struct GammaCalculator;
+pub(crate) struct GammaCalculator;
 
 impl MetricCalculator for GammaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

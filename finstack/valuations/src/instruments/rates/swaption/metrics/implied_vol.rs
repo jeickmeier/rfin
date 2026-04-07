@@ -14,7 +14,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 use finstack_core::Result;
 
 /// Implied Volatility calculator for swaptions
-pub struct ImpliedVolCalculator;
+pub(crate) struct ImpliedVolCalculator;
 
 impl MetricCalculator for ImpliedVolCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {

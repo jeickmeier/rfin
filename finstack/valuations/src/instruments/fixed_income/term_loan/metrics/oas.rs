@@ -17,7 +17,7 @@ use crate::metrics::{MetricCalculator, MetricContext};
 /// # Dependencies
 ///
 /// Requires `quoted_clean_price` to be set in `loan.pricing_overrides` (as percent of par).
-pub struct OasCalculator;
+pub(crate) struct OasCalculator;
 
 impl MetricCalculator for OasCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

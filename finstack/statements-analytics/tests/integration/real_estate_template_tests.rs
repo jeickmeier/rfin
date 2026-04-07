@@ -127,7 +127,7 @@ fn real_estate_rent_roll_template_builds_lease_series_and_total_rent() {
 }
 
 #[test]
-fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
+fn real_estate_rent_roll_handles_steps_free_rent_and_renewal_downtime() {
     let nodes = RentRollOutputNodes {
         rent_pgi_node: "rent_pgi".into(),
         free_rent_node: "free_rent".into(),
@@ -173,7 +173,7 @@ fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
         },
     ];
 
-    let model = ModelBuilder::new("re_rent_roll_v2")
+    let model = ModelBuilder::new("re_rent_roll")
         .periods("2025Q1..Q4", None)
         .expect("periods should parse")
         .add_rent_roll(&leases, &nodes)
@@ -246,7 +246,7 @@ fn real_estate_rent_roll_rejects_non_finite_growth_output() {
 }
 
 #[test]
-fn real_estate_rent_roll_v2_rejects_non_finite_growth_output() {
+fn real_estate_rich_rent_roll_rejects_non_finite_growth_output() {
     let nodes = RentRollOutputNodes {
         rent_pgi_node: "rent_pgi".into(),
         free_rent_node: "free_rent".into(),
@@ -268,7 +268,7 @@ fn real_estate_rent_roll_v2_rejects_non_finite_growth_output() {
         renewal: None,
     }];
 
-    let result = ModelBuilder::new("re_rent_roll_v2_overflow")
+    let result = ModelBuilder::new("re_rent_roll_overflow")
         .periods("2025Q1..Q4", None)
         .expect("periods should parse")
         .add_rent_roll(&leases, &nodes);
@@ -557,15 +557,15 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
 // --- Parity: SimpleLeaseSpec vs LeaseSpec produce same simple effective rent ---
 
 #[test]
-fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
+fn parity_rent_roll_simple_and_rich_match_for_simple_leases() {
     use finstack_statements_analytics::templates::real_estate::{
         LeaseSpec, RentRollOutputNodes, SimpleLeaseSpec,
     };
 
     let start = PeriodId::quarter(2025, 1);
 
-    // v1: simple lease spec
-    let v1_lease = SimpleLeaseSpec {
+    // Simple lease spec
+    let simple_lease = SimpleLeaseSpec {
         node_id: "lease1".into(),
         start,
         end: None,
@@ -575,8 +575,8 @@ fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
         occupancy: 1.0,
     };
 
-    // v2: rich lease spec with the same economic parameters
-    let v2_lease = LeaseSpec {
+    // Rich lease spec with the same economic parameters
+    let rich_lease = LeaseSpec {
         node_id: "lease1".into(),
         start,
         end: None,
@@ -597,35 +597,35 @@ fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
             .expect("valid periods")
     };
 
-    // Build v1 model
-    let model_v1 =
-        real_estate::add_rent_roll_rental_revenue(make_base(), &[v1_lease], "total_rent")
-            .expect("v1 rent roll")
+    // Build simple model
+    let model_simple =
+        real_estate::add_rent_roll_rental_revenue(make_base(), &[simple_lease], "total_rent")
+            .expect("simple rent roll")
             .build()
             .expect("valid model");
 
-    // Build v2 model
+    // Build rich model
     let nodes = RentRollOutputNodes::default();
-    let model_v2 = make_base()
-        .add_rent_roll(&[v2_lease], &nodes)
-        .expect("v2 rent roll")
+    let model_rich = make_base()
+        .add_rent_roll(&[rich_lease], &nodes)
+        .expect("rich rent roll")
         .build()
         .expect("valid model");
 
     let mut eval = Evaluator::new();
-    let r_v1 = eval.evaluate(&model_v1).expect("v1 eval");
-    let r_v2 = eval.evaluate(&model_v2).expect("v2 eval");
+    let r_simple = eval.evaluate(&model_simple).expect("simple eval");
+    let r_rich = eval.evaluate(&model_rich).expect("rich eval");
 
-    // The v1 total_rent and v2 rent_effective_node should match for simple leases
+    // The simple total_rent and rich rent_effective_node should match
     for q in 1u8..=4 {
         let period = PeriodId::quarter(2025, q);
-        let v1_val = r_v1.get("total_rent", &period).expect("v1 total_rent");
-        let v2_val = r_v2
+        let simple_val = r_simple.get("total_rent", &period).expect("simple total_rent");
+        let rich_val = r_rich
             .get(&nodes.rent_effective_node, &period)
-            .expect("v2 rent_effective");
+            .expect("rich rent_effective");
         assert!(
-            (v1_val - v2_val).abs() < 1e-9,
-            "Q{q}: v1 total_rent ({v1_val}) must match v2 rent_effective ({v2_val})"
+            (simple_val - rich_val).abs() < 1e-9,
+            "Q{q}: simple total_rent ({simple_val}) must match rich rent_effective ({rich_val})"
         );
     }
 }

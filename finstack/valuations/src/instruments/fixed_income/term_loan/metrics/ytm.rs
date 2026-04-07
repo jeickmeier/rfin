@@ -15,7 +15,7 @@ use super::irr_helpers::target_price_from_quote_or_model;
 ///
 /// Solves for the IRR using signed canonical schedule flows (coupons, amortization, redemptions only)
 /// plus an initial price leg at as_of.
-pub struct YtmCalculator;
+pub(crate) struct YtmCalculator;
 
 impl MetricCalculator for YtmCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

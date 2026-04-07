@@ -4,7 +4,7 @@ use crate::instruments::TermLoan;
 use crate::metrics::{MetricCalculator, MetricContext, MetricId};
 
 /// Computes EIR amortization series and returns total amortization.
-pub struct OidEirAmortizationCalculator;
+pub(crate) struct OidEirAmortizationCalculator;
 
 impl MetricCalculator for OidEirAmortizationCalculator {
     fn calculate(&self, context: &mut MetricContext) -> finstack_core::Result<f64> {

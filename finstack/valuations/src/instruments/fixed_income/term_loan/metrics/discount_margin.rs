@@ -26,7 +26,7 @@ use finstack_core::math::solver::{BrentSolver, Solver};
 ///
 /// Returns an error if called on a fixed-rate loan (DM is only defined for
 /// floating-rate instruments).
-pub struct DiscountMarginCalculator;
+pub(crate) struct DiscountMarginCalculator;
 
 impl DiscountMarginCalculator {
     /// Compute PV of term loan with adjusted spread (base_spread + dm_bp).

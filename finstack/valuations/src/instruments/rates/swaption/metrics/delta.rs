@@ -22,7 +22,7 @@ use finstack_core::Result;
 const EXPIRY_THRESHOLD: f64 = 1.0 / 252.0;
 
 /// Delta calculator for swaptions
-pub struct DeltaCalculator;
+pub(crate) struct DeltaCalculator;
 
 impl MetricCalculator for DeltaCalculator {
     fn calculate(&self, context: &mut MetricContext) -> Result<f64> {
