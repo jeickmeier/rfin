@@ -56,7 +56,7 @@
           "discount_curve_id": "USD-OIS",
           "first_payment_date": "2025-04-01",
           "id": "CLO-EXAMPLE",
-          "legal_maturity": "2034-01-01",
+          "maturity": "2034-01-01",
           "market_conditions": {
             "custom_factors": {},
             "hpa": null,
@@ -65,7 +65,7 @@
             "seasonal_factor": 1.0,
             "unemployment": null
           },
-          "payment_frequency": {
+          "frequency": {
             "Months": 3
           },
           "pool": {
@@ -156,13 +156,13 @@
                 "ic_trigger": null,
                 "id": "CLONOTES-A",
                 "is_revolving": false,
-                "legal_maturity": "2034-01-01",
+                "maturity": "2034-01-01",
                 "oc_trigger": null,
                 "original_balance": {
                   "amount": "100000000",
                   "currency": "USD"
                 },
-                "payment_frequency": {
+                "frequency": {
                   "Months": 3
                 },
                 "payment_priority": 1,
@@ -281,7 +281,7 @@
           "discount_curve_id": "USD-OIS",
           "first_payment_date": "2025-04-01",
           "id": "CLO-EXAMPLE",
-          "legal_maturity": "2034-01-01",
+          "maturity": "2034-01-01",
           "market_conditions": {
             "custom_factors": {},
             "hpa": null,
@@ -290,7 +290,7 @@
             "seasonal_factor": 1.0,
             "unemployment": null
           },
-          "payment_frequency": {
+          "frequency": {
             "Months": 3
           },
           "pool": {
@@ -381,13 +381,13 @@
                 "ic_trigger": null,
                 "id": "CLONOTES-A",
                 "is_revolving": false,
-                "legal_maturity": "2034-01-01",
+                "maturity": "2034-01-01",
                 "oc_trigger": null,
                 "original_balance": {
                   "amount": "100000000",
                   "currency": "USD"
                 },
-                "payment_frequency": {
+                "frequency": {
                   "Months": 3
                 },
                 "payment_priority": 1,

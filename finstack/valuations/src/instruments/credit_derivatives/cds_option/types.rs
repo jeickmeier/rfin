@@ -56,7 +56,6 @@ pub struct CDSOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Strike spread as a decimal rate (e.g., 0.01 = 100bp)
-    #[serde(alias = "strike_spread_bp")]
     pub strike: Decimal,
     /// Option type (Call = right to buy protection, Put = right to sell protection)
     pub option_type: OptionType,
@@ -102,7 +101,6 @@ pub struct CDSOption {
     /// Optional index factor scaling for index underlying
     pub index_factor: Option<f64>,
     /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
-    #[serde(alias = "forward_spread_adjust_bp")]
     #[serde(default)]
     pub forward_spread_adjust: Decimal,
 }

@@ -9,7 +9,7 @@ use crate::errors::{core_to_py, PyContext};
 use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyType};
 
-use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::{
+use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::{
     TreeModelChoice, TreePricer as RustTreePricer, TreePricerConfig as RustTreePricerConfig,
 };
 

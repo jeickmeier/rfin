@@ -47,9 +47,8 @@ use pyo3::types::{PyAny, PyAnyMethods, PyModule};
 ///     Valuation date for context.
 /// instruments : list, optional
 ///     Optional vector of instruments for price/spread shocks and carry calculations.
-/// rate_bindings : dict[str, RateBindingSpec] | list[RateBindingSpec] | dict[str, str], optional
-///     Optional mapping from statement node IDs to rate binding specifications. Legacy dict[str, str]
-///     is supported for backwards compatibility (assumes 1Y continuous rates).
+/// rate_bindings : dict[str, RateBindingSpec] | list[RateBindingSpec], optional
+///     Optional mapping from statement node IDs to rate binding specifications.
 /// calendar : Calendar, optional
 ///     Optional holiday calendar for calendar-aware tenor calculations.
 ///
@@ -124,14 +123,8 @@ impl PyExecutionContext {
             return Ok(Some(out));
         }
 
-        // Legacy: dict[str, str] mapping node_id -> curve_id
-        if let Ok(map) = obj.extract::<HashMap<String, String>>() {
-            let legacy: IndexMap<String, String> = map.into_iter().collect();
-            return Ok(Some(RateBindingSpec::map_from_legacy(legacy)));
-        }
-
         Err(PyTypeError::new_err(
-            "rate_bindings must be a dict[str, RateBindingSpec], list[RateBindingSpec], dict[str, str], or None",
+            "rate_bindings must be a dict[str, RateBindingSpec], list[RateBindingSpec], or None",
         ))
     }
 }
@@ -152,8 +145,8 @@ impl PyExecutionContext {
     ///     Valuation date.
     /// instruments : list, optional
     ///     Optional instruments.
-    /// rate_bindings : dict[str, RateBindingSpec] | list[RateBindingSpec] | dict[str, str], optional
-    ///     Optional rate bindings (legacy dict[str, str] uses default tenor/compounding).
+    /// rate_bindings : dict[str, RateBindingSpec] | list[RateBindingSpec], optional
+    ///     Optional rate bindings.
     ///
     /// Returns
     /// -------
@@ -286,7 +279,7 @@ impl PyExecutionContext {
     ///
     /// Parameters
     /// ----------
-    /// value : dict[str, RateBindingSpec] | list[RateBindingSpec] | dict[str, str] | None
+    /// value : dict[str, RateBindingSpec] | list[RateBindingSpec] | None
     ///     New rate bindings.
     fn set_rate_bindings(
         &mut self,

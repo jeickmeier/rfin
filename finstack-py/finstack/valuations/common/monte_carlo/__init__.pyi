@@ -19,7 +19,7 @@ from .params import ProcessParams
 from .paths import CashflowType, PathPoint, SimulatedPath, PathDataset, PathDatasetIterator
 from .result import MonteCarloResult
 from .time_grid import TimeGrid
-from .estimate import Estimate, ConvergenceDiagnostics
+from .estimate import Estimate
 from .processes import (
     GbmParams,
     HestonParams,
@@ -73,7 +73,6 @@ __all__ = [
     # New building blocks
     "TimeGrid",
     "Estimate",
-    "ConvergenceDiagnostics",
     # Process parameters
     "GbmParams",
     "HestonParams",

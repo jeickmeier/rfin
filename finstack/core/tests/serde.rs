@@ -3,7 +3,7 @@
 //! This test suite verifies:
 //! - Wire format stability (golden tests)
 //! - Roundtrip serialization correctness
-//! - Backward compatibility
+//! - Wire format stability
 //!
 //! # Test Organization
 //!

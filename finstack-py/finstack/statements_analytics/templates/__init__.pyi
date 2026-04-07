@@ -1,9 +1,6 @@
 """Canonical path for financial statement templates.
 
-Alias for ``finstack.statements.templates`` — both paths resolve to the same
-underlying Rust module.
-
-See ``finstack.statements.templates`` for the full API surface.
+Re-exports from the underlying Rust module.
 """
 
 from __future__ import annotations

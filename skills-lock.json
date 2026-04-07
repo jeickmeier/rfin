@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "dead-code-removal": {
+      "source": "smithery.ai",
+      "sourceType": "well-known",
+      "computedHash": "710091b6d7bd42c393435a141aa02b420363f467775c885f330343fd40030fcf"
+    }
+  }
+}

@@ -26,13 +26,13 @@
           "ddtl": null,
           "discount_curve_id": "USD-OIS",
           "id": "TERM-LOAN-USD-5Y",
-          "issue": "2024-01-01",
+          "issue_date": "2024-01-01",
           "maturity": "2029-01-01",
           "notional_limit": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "pay_freq": {
+          "frequency": {
             "Months": 3
           },
           "pricing_overrides": {
@@ -85,13 +85,13 @@
           "ddtl": null,
           "discount_curve_id": "USD-OIS",
           "id": "TERM-LOAN-USD-5Y",
-          "issue": "2024-01-01",
+          "issue_date": "2024-01-01",
           "maturity": "2029-01-01",
           "notional_limit": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "pay_freq": {
+          "frequency": {
             "Months": 3
           },
           "pricing_overrides": {

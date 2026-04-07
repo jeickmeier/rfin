@@ -240,10 +240,8 @@ pub enum AssetType {
 #[non_exhaustive]
 pub enum PaymentMode {
     /// Normal pro-rata payments to all tranches
-    #[serde(alias = "pro_rata")]
     ProRata,
     /// Sequential payment (turbo) due to trigger breach
-    #[serde(alias = "sequential")]
     Sequential {
         /// Triggered by.
         triggered_by: String,
@@ -251,7 +249,6 @@ pub enum PaymentMode {
         trigger_date: Date,
     },
     /// Hybrid mode with custom rules
-    #[serde(alias = "hybrid")]
     Hybrid {
         /// Description.
         description: String,

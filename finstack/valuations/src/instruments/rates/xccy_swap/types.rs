@@ -130,13 +130,10 @@ pub struct XccySwapLeg {
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Stub period handling rule.
-    #[serde(
-        default = "crate::serde_defaults::stub_short_front",
-        alias = "stub_kind"
-    )]
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Spread in basis points (e.g. `Decimal::from(5)` = 5bp).
-    #[serde(default, alias = "spread")]
+    #[serde(default)]
     pub spread_bp: Decimal,
     /// Payment lag in business days after period end (default: 0).
     #[serde(default)]

@@ -77,10 +77,8 @@ pub struct CommoditySwap {
     /// Start date of the swap.
     pub start_date: Date,
     /// End date of the swap.
-    #[serde(alias = "end_date")]
     pub maturity: Date,
     /// Payment frequency as a Tenor.
-    #[serde(alias = "payment_frequency")]
     pub frequency: Tenor,
     /// Optional calendar ID for date adjustments.
     #[builder(optional)]
@@ -129,9 +127,7 @@ impl<'de> serde::Deserialize<'de> for CommoditySwap {
             #[serde(default)]
             pay_fixed: Option<bool>,
             start_date: Date,
-            #[serde(alias = "end_date")]
             maturity: Date,
-            #[serde(alias = "payment_frequency")]
             frequency: Tenor,
             #[serde(default)]
             calendar_id: Option<CalendarId>,

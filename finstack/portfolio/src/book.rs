@@ -96,7 +96,7 @@ impl PartialEq<str> for BookId {
 /// - Flat position list is default; books are optional
 /// - Parent-child relationships tracked via `parent_id` field
 /// - Positions reference books via optional `book_id` field
-/// - Backward compatible: positions without `book_id` are not in any book
+/// - Positions without `book_id` are not in any book
 /// - Book hierarchies are expected to be acyclic trees or forests; aggregation
 ///   helpers reject cycles and excessively deep nesting instead of recursing
 ///   indefinitely

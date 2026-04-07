@@ -335,7 +335,7 @@
     "VolSurfaceParams": {
       "type": "object",
       "description": "Parameters for equity/FX volatility surface calibration",
-      "required": ["surface_id", "base_date", "underlying_id", "model"],
+      "required": ["surface_id", "base_date", "underlying_ticker", "model"],
       "properties": {
         "surface_id": {
           "type": "string",
@@ -345,7 +345,7 @@
           "type": "string",
           "format": "date"
         },
-        "underlying_id": {
+        "underlying_ticker": {
           "type": "string",
           "description": "Identifier for the underlying instrument"
         },
@@ -406,7 +406,7 @@
           "type": "string",
           "description": "Discount curve identifier for pricing"
         },
-        "forward_id": {
+        "forward_curve_id": {
           "type": ["string", "null"],
           "description": "Optional forward curve identifier"
         },
@@ -515,7 +515,7 @@
           "default": 1.0,
           "description": "Notional for synthetic tranche pricing"
         },
-        "payment_frequency": {
+        "frequency": {
           "type": ["string", "null"],
           "description": "Payment frequency (e.g., 3M)"
         },
@@ -523,7 +523,7 @@
           "type": ["string", "null"],
           "description": "Day count convention"
         },
-        "business_day_convention": {
+        "bdc": {
           "type": ["string", "null"],
           "description": "Business day convention"
         },

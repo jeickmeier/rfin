@@ -58,7 +58,6 @@ pub struct InterestRateFuture {
     /// multiples of the standard contract.
     pub notional: Money,
     /// Future expiry/delivery date
-    #[serde(alias = "expiry_date")]
     pub expiry: Date,
     /// Underlying rate fixing date.
     ///
@@ -89,10 +88,8 @@ pub struct InterestRateFuture {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
-    #[serde(alias = "forward_id")]
     pub forward_curve_id: CurveId,
     /// Optional volatility surface identifier for convexity adjustment
-    #[serde(alias = "volatility_id")]
     pub vol_surface_id: Option<CurveId>,
     /// Attributes
     #[serde(default)]

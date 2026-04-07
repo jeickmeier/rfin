@@ -36,8 +36,8 @@ fn test_results_meta_serialization() {
 }
 
 #[test]
-fn test_results_meta_backward_compatibility() {
-    // Old JSON without new fields should deserialize successfully
+fn test_results_meta_deserializes_without_optional_fields() {
+    // JSON without optional fields should deserialize successfully
     let old_json = r#"{
         "numeric_mode": "F64",
         "rounding": {

@@ -9,14 +9,14 @@
         "amount": "10000000",
         "currency": "USD"
       },
-      "issue": "2024-01-01",
+      "issue_date": "2024-01-01",
       "maturity": "2029-01-01",
       "rate": {
         "Fixed": {
           "rate_bp": 600
         }
       },
-      "pay_freq": {"count": 3, "unit": "months"},
+      "frequency": {"count": 3, "unit": "months"},
       "day_count": "Act360",
       "bdc": "modified_following",
       "calendar_id": null,

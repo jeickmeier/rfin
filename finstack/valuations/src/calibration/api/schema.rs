@@ -335,7 +335,6 @@ pub struct VolSurfaceParams {
     /// Base date for the surface.
     pub base_date: Date,
     /// Identifier for the underlying instrument.
-    #[serde(alias = "underlying_id")]
     pub underlying_ticker: String,
     /// Model type.
     ///
@@ -483,13 +482,13 @@ pub struct BaseCorrelationParams {
     #[serde(default = "default_unit_notional")]
     pub notional: f64,
     /// Payment frequency for synthetic tranches (e.g., quarterly).
-    #[serde(default, alias = "payment_frequency")]
+    #[serde(default)]
     pub frequency: Option<Tenor>,
     /// Day count convention for synthetic tranche premium accrual.
     #[serde(default)]
     pub day_count: Option<DayCount>,
     /// Business day convention for synthetic tranche schedule adjustments.
-    #[serde(default, alias = "business_day_convention")]
+    #[serde(default)]
     pub bdc: Option<BusinessDayConvention>,
     /// Optional calendar identifier for schedule generation and date adjustments.
     #[serde(default)]

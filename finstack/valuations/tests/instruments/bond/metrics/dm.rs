@@ -200,7 +200,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
     for (target_dm, base_bond) in scenarios {
         // Price the FRN at the target DM to obtain a dirty price in currency.
         let dirty_target =
-            finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_dm(
+            finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::price_from_dm(
                 &base_bond, &market, as_of, target_dm,
             )
             .expect("pricing with target DM should succeed");
@@ -236,7 +236,7 @@ fn test_dm_solver_convergence_across_spread_regimes() {
 
         // Re-price using the solved DM and verify price residual is tiny.
         let dirty_repriced =
-            finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::price_from_dm(
+            finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::price_from_dm(
                 &bond, &market, as_of, dm,
             )
             .expect("repricing with solved DM should succeed");

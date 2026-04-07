@@ -302,7 +302,6 @@ pub struct Ndf {
     /// Fixing date (rate observation date, typically T-2 before maturity).
     pub fixing_date: Date,
     /// Maturity/settlement date.
-    #[serde(alias = "maturity")]
     pub maturity: Date,
     /// Notional amount in base currency.
     pub notional: Money,

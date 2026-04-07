@@ -98,11 +98,6 @@ impl GbmParams {
     pub fn new(r: f64, q: f64, sigma: f64) -> Self {
         Self { r, q, sigma }
     }
-
-    /// Compatibility constructor retained for existing callers.
-    pub fn from_market(r: f64, q: f64, sigma: f64) -> Self {
-        Self::new(r, q, sigma)
-    }
 }
 
 /// Single-factor GBM process (1D).

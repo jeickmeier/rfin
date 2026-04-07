@@ -88,7 +88,6 @@ pub struct CommoditySwaption {
     /// Underlying swap end date.
     pub swap_end: Date,
     /// Underlying swap payment frequency.
-    #[serde(alias = "payment_frequency")]
     pub swap_frequency: Tenor,
     /// Fixed price (strike) of the underlying swap.
     pub fixed_price: f64,

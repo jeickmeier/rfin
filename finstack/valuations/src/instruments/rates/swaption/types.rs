@@ -506,7 +506,6 @@ pub struct Swaption {
     /// Notional amount of underlying swap
     pub notional: Money,
     /// Strike (fixed rate on underlying swap)
-    #[serde(alias = "strike_rate")]
     pub strike: Decimal,
     /// Option expiry date
     pub expiry: Date,
@@ -521,7 +520,7 @@ pub struct Swaption {
     /// Day count convention
     pub day_count: DayCount,
     /// Exercise style (European, Bermudan, American). Defaults to European.
-    #[serde(default, alias = "exercise")]
+    #[serde(default)]
     #[builder(default)]
     pub exercise_style: SwaptionExercise,
     /// Settlement method (physical or cash)
@@ -539,7 +538,6 @@ pub struct Swaption {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating rate projections
-    #[serde(alias = "forward_id")]
     pub forward_curve_id: CurveId,
     /// Volatility surface ID for option pricing
     pub vol_surface_id: CurveId,
@@ -1371,7 +1369,6 @@ pub struct BermudanSwaption {
     /// Notional amount of underlying swap
     pub notional: Money,
     /// Strike (fixed rate on underlying swap)
-    #[serde(alias = "strike_rate")]
     pub strike: Decimal,
     /// Underlying swap start date (first accrual start)
     pub swap_start: Date,
@@ -1388,7 +1385,6 @@ pub struct BermudanSwaption {
     /// Discount curve ID for present value calculations
     pub discount_curve_id: CurveId,
     /// Forward curve ID for floating rate projections
-    #[serde(alias = "forward_id")]
     pub forward_curve_id: CurveId,
     /// Volatility surface ID for calibration
     pub vol_surface_id: CurveId,

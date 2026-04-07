@@ -55,7 +55,7 @@
 use crate::instruments::common_impl::models::{
     short_rate_keys, ShortRateTree, ShortRateTreeConfig, StateVariables, TreeModel,
 };
-use crate::instruments::fixed_income::bond::pricing::tree_engine::{
+use crate::instruments::fixed_income::bond::pricing::engine::tree::{
     bond_tree_config, BondValuator,
 };
 use crate::instruments::Bond;

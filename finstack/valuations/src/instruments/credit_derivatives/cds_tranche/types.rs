@@ -66,16 +66,12 @@ pub struct CDSTranche {
     /// Running coupon in basis points (e.g., 100 = 1.00%)
     pub running_coupon_bp: f64,
     /// Payment frequency (typically quarterly)
-    #[serde(alias = "payment_frequency")]
     pub frequency: Tenor,
     /// Day count (typically Act/360)
     pub day_count: DayCount,
     /// Business day convention
     #[builder(default = BusinessDayConvention::ModifiedFollowing)]
-    #[serde(
-        default = "crate::serde_defaults::bdc_modified_following",
-        alias = "business_day_convention"
-    )]
+    #[serde(default = "crate::serde_defaults::bdc_modified_following")]
     pub bdc: BusinessDayConvention,
     /// Optional holiday calendar id
     pub calendar_id: Option<String>,

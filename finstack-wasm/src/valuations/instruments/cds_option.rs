@@ -227,11 +227,7 @@ impl JsCDSOption {
         self.inner.strike.to_f64().unwrap_or(0.0)
     }
 
-    /// Strike spread in basis points (backward-compatible alias).
-    #[wasm_bindgen(getter, js_name = strikeSpreadBp)]
-    pub fn strike_spread_bp(&self) -> f64 {
-        self.inner.strike.to_f64().unwrap_or(0.0) * 10000.0
-    }
+
 
     #[wasm_bindgen(getter)]
     pub fn expiry(&self) -> JsDate {

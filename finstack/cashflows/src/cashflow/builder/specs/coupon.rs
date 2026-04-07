@@ -193,7 +193,7 @@ impl FloatingRateFallback {
     /// Returns `true` when the variant is the default (`Error`).
     ///
     /// Used by serde `skip_serializing_if` to omit the field from JSON
-    /// when it carries the default value, preserving backward compatibility.
+    /// when it carries the default value.
     pub fn is_default(&self) -> bool {
         matches!(self, Self::Error)
     }

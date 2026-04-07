@@ -114,12 +114,10 @@ pub struct InflationCapFloor {
     /// Notional amount in quote currency.
     pub notional: Money,
     /// Strike (annualized, decimal).
-    #[serde(alias = "strike_rate")]
     pub strike: Decimal,
     /// Start date of the first inflation period.
     pub start_date: Date,
     /// End date of the final inflation period.
-    #[serde(alias = "end_date")]
     pub maturity: Date,
     /// Payment frequency (ignored for caplet/floorlet).
     pub frequency: Tenor,
@@ -127,10 +125,7 @@ pub struct InflationCapFloor {
     pub day_count: DayCount,
     /// Schedule stub convention.
     #[builder(default = StubKind::ShortFront)]
-    #[serde(
-        default = "crate::serde_defaults::stub_short_front",
-        alias = "stub_kind"
-    )]
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Business day convention for schedule and payments.
     #[builder(default = BusinessDayConvention::ModifiedFollowing)]

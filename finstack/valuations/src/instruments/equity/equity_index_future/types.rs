@@ -227,12 +227,10 @@ pub struct EquityIndexFuture {
     /// Unique instrument identifier.
     pub id: InstrumentId,
     /// Index ticker symbol (e.g., "SPX", "NDX", "SX5E").
-    #[serde(alias = "index_ticker")]
     pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Notional exposure in settlement currency.
     pub notional: Money,
     /// Future expiry/settlement date.
-    #[serde(alias = "expiry_date")]
     pub expiry: Date,
     /// Last trading date (typically one day before expiry).
     pub last_trading_date: Date,
@@ -256,11 +254,7 @@ pub struct EquityIndexFuture {
     pub spot_id: PriceId,
     /// Optional dividend yield identifier for fair value calculation.
     #[builder(optional)]
-    #[serde(
-        default,
-        skip_serializing_if = "Option::is_none",
-        alias = "dividend_yield_id"
-    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub div_yield_id: Option<CurveId>,
     /// Optional discrete cash dividend schedule `(ex_date, amount)` for index carry.
     ///

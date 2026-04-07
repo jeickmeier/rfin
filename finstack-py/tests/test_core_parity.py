@@ -64,10 +64,10 @@ def test_statements_templates_stub_advertises_validate_helpers() -> None:
 
     stub_text = stub_path.read_text()
 
-    assert "class LeaseSpec:" in stub_text
+    assert "class SimpleLeaseSpec:" in stub_text
     assert "def validate(self) -> None: ..." in stub_text
     assert "class RenewalSpec:" in stub_text
-    assert "class LeaseSpecV2:" in stub_text
+    assert "class LeaseSpec:" in stub_text
 
 
 def test_statements_builder_stub_does_not_claim_fluent_returns_for_in_place_methods() -> None:

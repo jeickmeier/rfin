@@ -12,16 +12,16 @@
         "currency": "USD"
       },
       "index_factor": 1.0,
-      "side": "pay_fixed",
+      "side": "pay",
       "convention": "IsdaNa",
       "premium": {
         "start": "2024-03-20",
         "end": "2029-12-20",
-        "freq": {"count": 3, "unit": "months"},
+        "frequency": {"count": 3, "unit": "months"},
         "stub": "ShortFront",
         "bdc": "following",
         "calendar_id": null,
-        "dc": "Act360",
+        "day_count": "Act360",
         "spread_bp": 60.0,
         "discount_curve_id": "USD-OIS"
       },

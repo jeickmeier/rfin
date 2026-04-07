@@ -139,7 +139,7 @@ status = "exists"   # Wave 2: finstack/statements_analytics/ Python package crea
 
 [crates.statements_analytics.modules]
 # analysis submodules (from finstack/statements-analytics/src/analysis/mod.rs)
-analysis                    = { python = "finstack.statements_analytics.analysis",                    status = "exists", note = "Wave 2: aliases finstack.statements.analysis" }
+analysis                    = { python = "finstack.statements_analytics.analysis",                    status = "exists" }
 analysis_valuation          = { python = "finstack.statements_analytics.analysis.valuation",          status = "missing" }
 analysis_credit             = { python = "finstack.statements_analytics.analysis.credit",             status = "missing" }
 analysis_scenarios          = { python = "finstack.statements_analytics.analysis.scenarios",          status = "missing" }
@@ -147,7 +147,7 @@ analysis_backtesting        = { python = "finstack.statements_analytics.analysis
 analysis_goal_seek          = { python = "finstack.statements_analytics.analysis.goal_seek",          status = "missing" }
 analysis_introspection      = { python = "finstack.statements_analytics.analysis.introspection",      status = "missing" }
 analysis_reports            = { python = "finstack.statements_analytics.analysis.reports",            status = "missing" }
-# Backward-compat re-exports inside the Rust crate (pub use valuation::corporate etc.)
+# Flattened re-exports inside the Rust crate (pub use valuation::corporate etc.)
 analysis_covenants          = { python = "finstack.statements_analytics.analysis.covenants",          status = "missing", note = "Also re-exported from umbrella as finstack.covenants bridge" }
 analysis_credit_context     = { python = "finstack.statements_analytics.analysis.credit_context",     status = "missing" }
 
@@ -157,7 +157,7 @@ extensions_corkscrew        = { python = "finstack.statements_analytics.extensio
 extensions_scorecards       = { python = "finstack.statements_analytics.extensions.scorecards",       status = "missing" }
 
 # templates submodules (from finstack/statements-analytics/src/templates/mod.rs)
-templates                   = { python = "finstack.statements_analytics.templates",                   status = "exists", note = "Wave 2: aliases finstack.statements.templates" }
+templates                   = { python = "finstack.statements_analytics.templates",                   status = "exists" }
 templates_roll_forward      = { python = "finstack.statements_analytics.templates.roll_forward",      status = "missing" }
 templates_real_estate       = { python = "finstack.statements_analytics.templates.real_estate",       status = "missing" }
 templates_vintage           = { python = "finstack.statements_analytics.templates.vintage",           status = "missing" }
@@ -217,15 +217,13 @@ utils     = { python = "finstack.scenarios.utils",     status = "missing" }
 # Compatibility aliases
 #
 # Maps old Python import paths → canonical Python paths.
-# These paths must remain importable as shims after structural moves.
+# Removed shim aliases (finstack.core.analytics, finstack.statements.analysis,
+# finstack.statements.templates) now raise ImportError; only extension aliases
+# remain.
 # ---------------------------------------------------------------------------
 [aliases]
-"finstack.core.analytics"                               = "finstack.analytics"
-"finstack.core.analytics.Performance"                   = "finstack.analytics.performance.Performance"
-"finstack.statements.analysis"                          = "finstack.statements_analytics.analysis"
 "finstack.statements.extensions.CorkscrewExtension"     = "finstack.statements_analytics.extensions.corkscrew.CorkscrewExtension"
 "finstack.statements.extensions.CreditScorecardExtension" = "finstack.statements_analytics.extensions.scorecards.CreditScorecardExtension"
-"finstack.statements.templates"                         = "finstack.statements_analytics.templates"
 
 # ---------------------------------------------------------------------------
 # Explicit exclusions

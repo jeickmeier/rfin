@@ -45,7 +45,6 @@ pub struct DealDates {
     /// Legal final maturity date
     pub maturity: Date,
     /// Payment frequency
-    #[serde(alias = "payment_frequency")]
     pub frequency: Tenor,
 }
 

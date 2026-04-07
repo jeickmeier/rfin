@@ -13,7 +13,7 @@ use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::{
+use finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::{
     compute_quotes, BondQuoteInput,
 };
 use finstack_valuations::instruments::fixed_income::bond::Bond;

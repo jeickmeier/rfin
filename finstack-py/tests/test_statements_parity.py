@@ -74,10 +74,10 @@ class TestRealEstateTemplateValidationParity:
     """Lease template validation should come from Rust-backed validation methods."""
 
     def test_lease_spec_validate(self) -> None:
-        """LeaseSpec should expose Rust-backed validation."""
-        from finstack.statements import LeaseSpec
+        """SimpleLeaseSpec should expose Rust-backed validation."""
+        from finstack.statements import SimpleLeaseSpec
 
-        lease = LeaseSpec(
+        lease = SimpleLeaseSpec(
             "lease_1",
             PeriodId.quarter(2025, 1),
             1000.0,
@@ -86,10 +86,10 @@ class TestRealEstateTemplateValidationParity:
         lease.validate()
 
     def test_lease_spec_validate_rejects_invalid_occupancy(self) -> None:
-        """LeaseSpec.validate should reject occupancy outside [0, 1]."""
-        from finstack.statements import LeaseSpec
+        """SimpleLeaseSpec.validate should reject occupancy outside [0, 1]."""
+        from finstack.statements import SimpleLeaseSpec
 
-        lease = LeaseSpec(
+        lease = SimpleLeaseSpec(
             "lease_1",
             PeriodId.quarter(2025, 1),
             1000.0,
@@ -111,10 +111,10 @@ class TestRealEstateTemplateValidationParity:
             renewal.validate()
 
     def test_lease_spec_v2_validate_rejects_invalid_occupancy(self) -> None:
-        """LeaseSpecV2.validate should reject occupancy outside [0, 1]."""
-        from finstack.statements import LeaseSpecV2
+        """LeaseSpec.validate should reject occupancy outside [0, 1]."""
+        from finstack.statements import LeaseSpec
 
-        lease = LeaseSpecV2(
+        lease = LeaseSpec(
             node_id="lease_2",
             start=PeriodId.quarter(2025, 1),
             base_rent=1500.0,
@@ -1145,7 +1145,7 @@ class TestDcfCorporateValuation:
 
 
 def test_goal_seek_function_import() -> None:
-    """goal_seek should be importable from finstack.statements.analysis."""
+    """goal_seek should be importable from finstack.statements_analytics.analysis."""
     from finstack.statements_analytics.analysis import goal_seek
 
     assert goal_seek is not None

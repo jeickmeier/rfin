@@ -654,7 +654,7 @@ npm install finstack-wasm
 3. **Ergonomic APIs**: Builder patterns, fluent interfaces, sensible defaults
 4. **Documentation**: Every public API documented with examples
 5. **Testing**: Unit, property, golden, and parity tests across all modules
-6. **Stability**: Strict serde names, schema versioning, backward-compatible APIs
+6. **Stability**: Strict serde names, schema versioning, stable APIs
 7. **Extensibility**: Custom instruments, metrics, models, and consequences via traits
 
 ---

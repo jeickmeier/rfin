@@ -75,14 +75,14 @@ pub trait RealEstateExtension {
     /// This is the canonical rent roll entry point. Creates per-lease nodes and aggregated totals.
     fn add_rent_roll(
         self,
-        leases: &[real_estate::LeaseSpecV2],
+        leases: &[real_estate::LeaseSpec],
         nodes: &real_estate::RentRollOutputNodes,
     ) -> Result<ModelBuilder<Ready>>;
 
     /// Add a full property operating statement template (rent roll -> EGI -> NOI -> NCF).
     fn add_property_operating_statement(
         self,
-        leases: &[real_estate::LeaseSpecV2],
+        leases: &[real_estate::LeaseSpec],
         other_income_nodes: &[&str],
         opex_nodes: &[&str],
         capex_nodes: &[&str],
@@ -121,7 +121,7 @@ impl RealEstateExtension for ModelBuilder<Ready> {
 
     fn add_rent_roll(
         self,
-        leases: &[real_estate::LeaseSpecV2],
+        leases: &[real_estate::LeaseSpec],
         nodes: &real_estate::RentRollOutputNodes,
     ) -> Result<ModelBuilder<Ready>> {
         real_estate::add_rent_roll(self, leases, nodes)
@@ -129,7 +129,7 @@ impl RealEstateExtension for ModelBuilder<Ready> {
 
     fn add_property_operating_statement(
         self,
-        leases: &[real_estate::LeaseSpecV2],
+        leases: &[real_estate::LeaseSpec],
         other_income_nodes: &[&str],
         opex_nodes: &[&str],
         capex_nodes: &[&str],

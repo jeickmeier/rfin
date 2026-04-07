@@ -438,7 +438,7 @@ fn test_bond_future_deny_unknown_fields() {
             "amount": 1000000.0,
             "currency": "USD"
         },
-        "expiry_date": "2025-03-20",
+        "expiry": "2025-03-20",
         "delivery_start": "2025-03-21",
         "delivery_end": "2025-03-31",
         "quoted_price": 125.50,
@@ -518,7 +518,7 @@ fn test_bond_future_minimal_json() {
             "amount": 1000000.0,
             "currency": "USD"
         },
-        "expiry_date": "2025-03-20",
+        "expiry": "2025-03-20",
         "delivery_start": "2025-03-21",
         "delivery_end": "2025-03-31",
         "quoted_price": 125.50,

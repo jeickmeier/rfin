@@ -26,7 +26,7 @@
           "side": "Receive",
           "start_date": "2024-01-01",
           "strike_variance": 0.04,
-          "underlying_id": "SPX"
+          "underlying_ticker": "SPX"
         },
         "type": "variance_swap"
       },
@@ -58,7 +58,7 @@
           "side": "Receive",
           "start_date": "2024-01-01",
           "strike_variance": 0.04,
-          "underlying_id": "SPX"
+          "underlying_ticker": "SPX"
         },
         "type": "variance_swap"
       },
@@ -89,7 +89,7 @@
           "side": "Receive",
           "start_date": "2024-01-01",
           "strike_variance": 0.04,
-          "underlying_id": "SPX"
+          "underlying_ticker": "SPX"
         },
         "type": "variance_swap"
       },

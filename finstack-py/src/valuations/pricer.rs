@@ -69,23 +69,16 @@ fn parse_metrics_request(
 ) -> PyResult<(finstack_core::dates::Date, Vec<MetricId>)> {
     let metrics = metrics.ok_or_else(|| {
         PyValueError::new_err(
-            "metrics are required; call price_with_metrics(..., as_of, metrics=[...]) \
-or use the legacy positional order price_with_metrics(..., metrics, as_of)",
+            "metrics are required; call price_with_metrics(..., as_of, metrics=[...])",
         )
     })?;
 
-    if let Ok(as_of_date) = resolve_as_of_date(&as_of) {
-        return Ok((as_of_date, extract_metric_ids(metrics)?));
-    }
-
-    let metric_ids = extract_metric_ids(as_of)?;
-    let as_of_date = resolve_as_of_date(&metrics).map_err(|_| {
+    let as_of_date = resolve_as_of_date(&as_of).map_err(|_| {
         PyValueError::new_err(
-            "expected (instrument, model, market, as_of, metrics=...) or \
-(instrument, model, market, metrics, as_of)",
+            "as_of must be a date; call price_with_metrics(instrument, model, market, as_of, metrics=[...])",
         )
     })?;
-    Ok((as_of_date, metric_ids))
+    Ok((as_of_date, extract_metric_ids(metrics)?))
 }
 
 fn resolve_model_key(model: Option<Bound<'_, PyAny>>) -> PyResult<ModelKey> {
@@ -607,13 +600,6 @@ fn standard_registry_py() -> PyResult<PyPricerRegistry> {
     Ok(PyPricerRegistry::from_arc(shared_standard_registry()))
 }
 
-/// Return the shared standard pricer registry.
-///
-/// This is an explicit singleton-style alias for :func:`standard_registry`.
-#[pyfunction(name = "get_standard_registry")]
-fn get_standard_registry_py() -> PyResult<PyPricerRegistry> {
-    standard_registry_py()
-}
 
 pub(crate) fn register<'py>(
     py: Python<'py>,
@@ -626,12 +612,11 @@ pub(crate) fn register<'py>(
     )?;
     module.add_class::<PyPricerRegistry>()?;
     module.add_function(pyo3::wrap_pyfunction!(standard_registry_py, &module)?)?;
-    module.add_function(pyo3::wrap_pyfunction!(get_standard_registry_py, &module)?)?;
+
     module.add_function(pyo3::wrap_pyfunction!(price_portfolio, &module)?)?;
     let exports = [
         "PricerRegistry",
         "standard_registry",
-        "get_standard_registry",
         "price_portfolio",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;

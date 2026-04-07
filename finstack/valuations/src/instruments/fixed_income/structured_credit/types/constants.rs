@@ -7,11 +7,11 @@
 // TIME CONSTANTS
 // ============================================================================
 
-/// Average days per year for structured credit day count calculations.
+/// Average days per year for structured credit day count calculations (ACT/365.25).
 ///
-/// Re-exported from `finstack_core::dates::AVERAGE_DAYS_PER_YEAR` (ACT/365.25).
+/// Re-exported from `finstack_core::dates::AVERAGE_DAYS_PER_YEAR`.
 /// Uses 365.25 to account for leap years over multi-year amortisation horizons.
-pub use finstack_core::dates::AVERAGE_DAYS_PER_YEAR as DAYS_PER_YEAR;
+pub use finstack_core::dates::AVERAGE_DAYS_PER_YEAR;
 
 /// Default months in a year
 pub const MONTHS_PER_YEAR: i32 = 12;

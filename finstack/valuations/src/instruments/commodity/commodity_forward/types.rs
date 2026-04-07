@@ -105,10 +105,7 @@ pub struct CommodityForward {
     /// Settlement type (physical or cash).
     ///
     /// Defaults to cash settlement when omitted in serialized payloads.
-    #[serde(
-        default = "crate::serde_defaults::settlement_cash",
-        alias = "settlement_type"
-    )]
+    #[serde(default = "crate::serde_defaults::settlement_cash")]
     #[builder(default = SettlementType::Cash)]
     pub settlement: SettlementType,
     /// Position direction (long or short).

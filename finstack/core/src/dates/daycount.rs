@@ -258,7 +258,6 @@ pub enum DayCount {
     /// let yf = DayCount::Act360.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
     /// assert_eq!(yf, 90.0 / 360.0);
     /// ```
-    #[serde(alias = "act360")]
     Act360,
 
     /// Actual/365 Fixed day count convention.
@@ -290,7 +289,6 @@ pub enum DayCount {
     /// let yf = DayCount::Act365F.year_fraction(start, end, DayCountCtx::default()).expect("Year fraction calculation should succeed");
     /// assert!((yf - 1.0).abs() < 1e-9); // 365 days / 365 = 1.0
     /// ```
-    #[serde(alias = "act_365f", alias = "act365f", alias = "act_365_fixed")]
     Act365F,
 
     /// Actual/365 Leap day count convention (Actual/365L or AFB).
@@ -323,7 +321,6 @@ pub enum DayCount {
     /// // 29 days / 366 (leap year denominator)
     /// assert_eq!(yf, 29.0 / 366.0);
     /// ```
-    #[serde(alias = "act365l", alias = "act_365l")]
     Act365L,
 
     /// 30/360 US (Bond Basis) day count convention.
@@ -366,7 +363,6 @@ pub enum DayCount {
     /// // Treats Jan 31 as day 30, Feb 28 as day 28: 28 days / 360
     /// assert_eq!(yf, 28.0 / 360.0);
     /// ```
-    #[serde(alias = "thirty360")]
     Thirty360,
 
     /// 30E/360 (Eurobond Basis) day count convention.
@@ -409,7 +405,6 @@ pub enum DayCount {
     /// // Treats both 31st as day 30: 60 days / 360
     /// assert_eq!(yf, 60.0 / 360.0);
     /// ```
-    #[serde(alias = "thirty_e360")]
     ThirtyE360,
 
     /// Actual/Actual (ISDA) day count convention.
@@ -455,7 +450,6 @@ pub enum DayCount {
     /// # References
     ///
     /// - ISDA (2006). "2006 ISDA Definitions." Section 4.16(b).
-    #[serde(alias = "act_act")]
     ActAct,
 
     /// Actual/Actual (ICMA) day count convention.
@@ -512,7 +506,6 @@ pub enum DayCount {
     ///
     /// - ICMA (2010). "ICMA Rule Book." Rule 251.
     /// - ISMA (1999). "Recommendations for Accrued Interest Calculations."
-    #[serde(alias = "act_act_isma")]
     ActActIsma,
 
     /// Business/252 day count convention.
@@ -554,7 +547,6 @@ pub enum DayCount {
     /// // 5 business days / 252
     /// assert!((yf * 252.0 - 5.0).abs() < 0.1);
     /// ```
-    #[serde(alias = "bus252")]
     Bus252,
 }
 

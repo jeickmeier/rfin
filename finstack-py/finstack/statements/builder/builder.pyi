@@ -8,10 +8,10 @@ from ..types.value import AmountOrScalar
 from ..types.waterfall import WaterfallSpec
 from ..templates import (
     LeaseSpec,
-    LeaseSpecV2,
     ManagementFeeSpec,
     PropertyTemplateNodes,
     RentRollOutputNodes,
+    SimpleLeaseSpec,
 )
 from ...core.dates.periods import Period, PeriodId
 from .mixed_builder import MixedNodeBuilder
@@ -487,7 +487,7 @@ class ModelBuilder:
 
     def add_rent_roll_rental_revenue(
         self,
-        leases: List[LeaseSpec],
+        leases: List[SimpleLeaseSpec],
         total_rent_node: str,
     ) -> None:
         """Add a rent-roll rental revenue projection (v1, simple leases).
@@ -500,12 +500,12 @@ class ModelBuilder:
         """
         ...
 
-    def add_rent_roll_rental_revenue_v2(
+    def add_rent_roll(
         self,
-        leases: List[LeaseSpecV2],
+        leases: List[LeaseSpec],
         nodes: RentRollOutputNodes,
     ) -> None:
-        """Add a rent-roll rental revenue projection (v2, enhanced leases).
+        """Add a rent-roll rental revenue projection (enhanced leases).
 
         Creates per-lease detail nodes (``{id}.pgi``, ``{id}.free_rent``,
         ``{id}.vacancy_loss``, ``{id}.effective_rent``) and aggregated
@@ -519,7 +519,7 @@ class ModelBuilder:
 
     def add_property_operating_statement(
         self,
-        leases: List[LeaseSpecV2],
+        leases: List[LeaseSpec],
         other_income_nodes: List[str],
         opex_nodes: List[str],
         capex_nodes: List[str],

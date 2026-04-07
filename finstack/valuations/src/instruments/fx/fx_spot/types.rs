@@ -94,10 +94,8 @@ pub struct FxSpot {
     /// Unique identifier for the FX pair
     pub id: InstrumentId,
     /// Base currency (the currency being priced)
-    #[serde(alias = "base")]
     pub base_currency: Currency,
     /// Quote currency (the currency used for pricing)
-    #[serde(alias = "quote")]
     pub quote_currency: Currency,
     /// Optional settlement date (T+2 typically for spot)
     #[builder(optional)]
@@ -141,9 +139,7 @@ pub struct FxSpot {
 #[serde(deny_unknown_fields)]
 struct FxSpotUnchecked {
     id: InstrumentId,
-    #[serde(alias = "base")]
     base_currency: Currency,
-    #[serde(alias = "quote")]
     quote_currency: Currency,
     settlement: Option<Date>,
     settlement_lag_days: Option<i32>,

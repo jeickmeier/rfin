@@ -45,9 +45,9 @@ pub use forecast::{
 };
 pub use registry::{JsMetricDefinition, JsMetricRegistry, JsRegistry, JsUnitType};
 pub use templates::{
-    JsFreeRentWindowSpec, JsLeaseGrowthConvention, JsLeaseSpec, JsLeaseSpecV2, JsManagementFeeBase,
+    JsFreeRentWindowSpec, JsLeaseGrowthConvention, JsLeaseSpec, JsManagementFeeBase,
     JsManagementFeeSpec, JsPropertyTemplateNodes, JsRenewalSpec, JsRentRollOutputNodes,
-    JsRentStepSpec,
+    JsRentStepSpec, JsSimpleLeaseSpec,
 };
 pub use types::{
     JsAmountOrScalar, JsCapitalStructureSpec, JsDebtInstrumentSpec, JsFinancialModelSpec,

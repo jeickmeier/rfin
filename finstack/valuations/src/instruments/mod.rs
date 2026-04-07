@@ -327,7 +327,7 @@ pub use common_impl::parameters::trs_common::{TrsScheduleSpec, TrsSide};
 pub mod pricing_overrides;
 pub use pricing_overrides::{
     BumpConfig, InstrumentPricingOverrides, MarketQuoteOverrides, MetricPricingOverrides,
-    ModelConfig, PricingOverrides, ScenarioConfig, ScenarioPricingOverrides,
+    ModelConfig, PricingOverrides, ScenarioPricingOverrides,
 };
 
 // === JSON Import/Export ===

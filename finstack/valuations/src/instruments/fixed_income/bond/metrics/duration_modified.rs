@@ -57,10 +57,11 @@ impl MetricCalculator for ModifiedDurationCalculator {
                 })
             })?;
 
-        let m = crate::instruments::fixed_income::bond::pricing::quote_engine::periods_per_year(
-            bond.cashflow_spec.frequency(),
-        )?
-        .max(1.0);
+        let m =
+            crate::instruments::fixed_income::bond::pricing::quote_conversions::periods_per_year(
+                bond.cashflow_spec.frequency(),
+            )?
+            .max(1.0);
         let denom = 1.0 + ytm / m;
         if denom.abs() < 1e-12 {
             return Err(finstack_core::Error::Validation(

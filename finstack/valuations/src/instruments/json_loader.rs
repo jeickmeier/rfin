@@ -769,7 +769,7 @@ mod tests {
                 "spec": {
                     "id": "BOND-FROM-STR",
                     "notional": { "amount": "1000000", "currency": "USD" },
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2034-01-01",
                     "cashflow_spec": {
                         "Fixed": {
@@ -865,7 +865,7 @@ mod tests {
                 "spec": {
                     "id": "BOND-001",
                     "notional": { "amount": "1000000", "currency": "USD" },
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2034-01-01",
                     "cashflow_spec": {
                         "Fixed": {
@@ -917,7 +917,7 @@ mod tests {
                 "spec": {
                     "id": "BOND-001",
                     "notional": { "amount": "1000000", "currency": "USD" },
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2034-01-01",
                     "cashflow_spec": {
                         "Fixed": {

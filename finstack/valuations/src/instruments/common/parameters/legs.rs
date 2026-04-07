@@ -14,15 +14,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS, short variance)
-    #[serde(rename = "pay", alias = "Pay", alias = "pay_fixed", alias = "PayFixed")]
+    #[serde(rename = "pay")]
     Pay,
     /// Receive the primary leg (fixed rate in IRS, protection premium in CDS, long variance)
-    #[serde(
-        rename = "receive",
-        alias = "Receive",
-        alias = "receive_fixed",
-        alias = "ReceiveFixed"
-    )]
+    #[serde(rename = "receive")]
     Receive,
 }
 
@@ -124,10 +119,8 @@ pub struct FixedLegSpec {
     /// Fixed rate (e.g., 0.05 for 5%)
     pub rate: Decimal,
     /// Payment frequency
-    #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Day count convention for accrual
-    #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Business day convention for payment dates
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
@@ -150,7 +143,7 @@ pub struct FixedLegSpec {
     /// Bloomberg OIS swaps typically use 2 business days payment lag.
     /// The actual payment date is adjusted from the period end date by
     /// this many business days using the leg's calendar.
-    #[serde(default, alias = "payment_delay_days")]
+    #[serde(default)]
     pub payment_lag_days: i32,
     /// End-of-month roll convention (default: false).
     ///
@@ -177,10 +170,8 @@ pub struct FloatLegSpec {
     /// Spread in basis points added to the forward rate
     pub spread_bp: Decimal,
     /// Payment frequency
-    #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Day count convention for accrual
-    #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Business day convention for payment dates
     #[serde(default = "crate::serde_defaults::bdc_modified_following")]
@@ -223,7 +214,7 @@ pub struct FloatLegSpec {
     /// Bloomberg OIS swaps typically use 2 business days payment lag.
     /// The actual payment date is adjusted from the period end date by
     /// this many business days using the leg's calendar.
-    #[serde(default, alias = "payment_delay_days")]
+    #[serde(default)]
     pub payment_lag_days: i32,
     /// End-of-month roll convention (default: false).
     ///
@@ -269,10 +260,7 @@ pub struct BasisSwapLeg {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calendar_id: Option<String>,
     /// Stub period handling rule
-    #[serde(
-        default = "crate::serde_defaults::stub_short_front",
-        alias = "stub_kind"
-    )]
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Spread added to the floating rate, in **basis points**.
     ///
@@ -313,7 +301,6 @@ pub struct PremiumLegSpec {
     /// End date of protection
     pub end: Date,
     /// Payment frequency
-    #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Stub convention
     #[serde(default = "crate::serde_defaults::stub_short_front")]
@@ -324,7 +311,6 @@ pub struct PremiumLegSpec {
     /// Holiday calendar identifier
     pub calendar_id: Option<String>,
     /// Day count convention
-    #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Fixed spread in basis points (e.g., 100 = 100bp = 1%)
     pub spread_bp: Decimal,

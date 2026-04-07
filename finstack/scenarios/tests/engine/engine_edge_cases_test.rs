@@ -7,7 +7,7 @@ use finstack_core::market_data::scalars::MarketScalar;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
 use finstack_scenarios::{
-    ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
+    Compounding, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
 };
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
@@ -293,9 +293,15 @@ fn test_rate_binding_missing_curve() {
     let node = NodeSpec::new("InterestRate", NodeType::Value).with_values(values);
     model.add_node(node);
 
-    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
-        "InterestRate".to_string() => "NONEXISTENT_CURVE".to_string(),
-    }));
+    let rate_bindings = Some(indexmap! {
+        "InterestRate".into() => RateBindingSpec {
+            node_id: "InterestRate".into(),
+            curve_id: "NONEXISTENT_CURVE".to_string(),
+            tenor: "1Y".to_string(),
+            compounding: Compounding::Continuous,
+            day_count: None,
+        },
+    });
 
     let scenario = ScenarioSpec {
         id: "test".into(),
@@ -334,9 +340,15 @@ fn test_rate_binding_missing_node() {
     let mut market = MarketContext::new().insert(curve);
     let mut model = FinancialModelSpec::new("test", vec![]);
 
-    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
-        "NONEXISTENT_NODE".to_string() => "USD_SOFR".to_string(),
-    }));
+    let rate_bindings = Some(indexmap! {
+        "NONEXISTENT_NODE".into() => RateBindingSpec {
+            node_id: "NONEXISTENT_NODE".into(),
+            curve_id: "USD_SOFR".to_string(),
+            tenor: "1Y".to_string(),
+            compounding: Compounding::Continuous,
+            day_count: None,
+        },
+    });
 
     let scenario = ScenarioSpec {
         id: "test".into(),

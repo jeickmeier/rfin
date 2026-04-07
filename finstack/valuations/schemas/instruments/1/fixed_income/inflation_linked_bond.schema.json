@@ -15,16 +15,16 @@
           "base_index": 100.0,
           "bdc": "following",
           "calendar_id": null,
-          "dc": "Act365F",
+          "day_count": "Act365F",
           "deflation_protection": "MaturityOnly",
           "discount_curve_id": "USD-TIPS",
-          "freq": {
+          "frequency": {
             "Months": 6
           },
           "id": "TIPS-10Y",
           "indexation_method": "TIPS",
           "inflation_index_id": "US-CPI",
-          "issue": "2024-01-15",
+          "issue_date": "2024-01-15",
           "lag": {
             "months": 3
           },
@@ -55,16 +55,16 @@
           "base_index": 100.0,
           "bdc": "following",
           "calendar_id": null,
-          "dc": "Act365F",
+          "day_count": "Act365F",
           "deflation_protection": "MaturityOnly",
           "discount_curve_id": "USD-TIPS",
-          "freq": {
+          "frequency": {
             "Months": 6
           },
           "id": "TIPS-10Y",
           "indexation_method": "TIPS",
           "inflation_index_id": "US-CPI",
-          "issue": "2024-01-15",
+          "issue_date": "2024-01-15",
           "lag": {
             "months": 3
           },

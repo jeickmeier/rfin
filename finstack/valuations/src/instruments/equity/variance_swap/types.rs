@@ -68,7 +68,6 @@ pub struct VarianceSwap {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Underlying identifier (equity/index)
-    #[serde(alias = "underlying_id")]
     pub underlying_ticker: crate::instruments::equity::spot::Ticker,
     /// Variance notional (in variance units)
     pub notional: Money,

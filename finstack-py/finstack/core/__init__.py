@@ -20,12 +20,12 @@ _pkg_dir = _Path(__file__).parent
 
 _HAS_PYTHON_PACKAGE: set[str] = set()
 
-# analytics has a Python shim that emits DeprecationWarning; exclude it from
-# the eager-import loop so importing finstack.core doesn't fire the warning.
-_DEPRECATED_SUBMODULES = frozenset({"analytics"})
+# analytics has a Python __init__ that raises ImportError (removed shim);
+# exclude it from the eager-import loop so importing finstack.core succeeds.
+_REMOVED_SUBMODULES = frozenset({"analytics"})
 
 for _name in dir(_rust_core):
-    if _name.startswith("_") or _name in _DEPRECATED_SUBMODULES:
+    if _name.startswith("_") or _name in _REMOVED_SUBMODULES:
         continue
     _attr = getattr(_rust_core, _name)
     if isinstance(_attr, _types.ModuleType) and (_pkg_dir / _name / "__init__.py").exists():

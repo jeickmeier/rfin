@@ -43,10 +43,8 @@ pub struct FxBarrierOption {
     /// Notional amount in foreign currency
     pub notional: Money,
     /// Base currency (the currency being priced, formerly foreign_currency)
-    #[serde(alias = "foreign_currency")]
     pub base_currency: Currency,
     /// Quote currency (the pricing/settlement currency, formerly domestic_currency)
-    #[serde(alias = "domestic_currency")]
     pub quote_currency: Currency,
     /// Day count convention (defaults to ACT/365F, consistent with FxOption)
     #[serde(default = "crate::serde_defaults::day_count_act365f")]
@@ -69,7 +67,6 @@ pub struct FxBarrierOption {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fx_spot_id: Option<PriceId>,
     /// FX volatility surface ID
-    #[serde(alias = "fx_vol_id")]
     pub vol_surface_id: CurveId,
     /// Pricing overrides (manual price, yield, spread)
     pub pricing_overrides: PricingOverrides,

@@ -4,8 +4,6 @@ use finstack_scenarios::{
     Compounding, CurveKind, HierarchyTarget, InstrumentType, OperationSpec, RateBindingSpec,
     ScenarioSpec, TenorMatchMode, TimeRollMode, VolSurfaceKind,
 };
-use indexmap::IndexMap;
-
 #[test]
 fn scenario_validate_rejects_empty_id() {
     let scenario = ScenarioSpec {
@@ -247,7 +245,13 @@ fn scenario_validate_accepts_mixed_valid_operations() {
                 pct: 10.0,
             },
             OperationSpec::RateBinding {
-                binding: RateBindingSpec::from_legacy("InterestRate", "USD_SOFR"),
+                binding: RateBindingSpec {
+                    node_id: "InterestRate".into(),
+                    curve_id: "USD_SOFR".to_string(),
+                    tenor: "1Y".to_string(),
+                    compounding: Compounding::Continuous,
+                    day_count: None,
+                },
             },
             OperationSpec::InstrumentSpreadBpByType {
                 instrument_types: vec![InstrumentType::Bond, InstrumentType::Loan],
@@ -283,22 +287,3 @@ fn scenario_validate_accepts_mixed_valid_operations() {
         .expect("mixed valid scenario should pass validation");
 }
 
-#[test]
-fn rate_binding_legacy_helpers_preserve_defaults_and_order() {
-    let binding = RateBindingSpec::from_legacy("InterestRate", "USD_SOFR");
-    assert_eq!(binding.node_id.as_str(), "InterestRate");
-    assert_eq!(binding.curve_id, "USD_SOFR");
-    assert_eq!(binding.tenor, "1Y");
-    assert!(binding.day_count.is_none());
-
-    let legacy = IndexMap::from([
-        ("InterestRate".to_string(), "USD_SOFR".to_string()),
-        ("Spread".to_string(), "USD_CREDIT".to_string()),
-    ]);
-    let bindings = RateBindingSpec::map_from_legacy(legacy);
-    let keys: Vec<_> = bindings.keys().map(|key| key.as_str()).collect();
-
-    assert_eq!(keys, vec!["InterestRate", "Spread"]);
-    assert_eq!(bindings["InterestRate"].curve_id, "USD_SOFR");
-    assert_eq!(bindings["Spread"].curve_id, "USD_CREDIT");
-}

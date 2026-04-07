@@ -286,7 +286,6 @@ pub struct AgencyMbsPassthrough {
     /// Issue date of the pool.
     pub issue_date: Date,
     /// Legal maturity date.
-    #[serde(alias = "maturity")]
     pub maturity: Date,
     /// Optional custom payment delay (overrides agency default).
     #[builder(optional)]

@@ -24,12 +24,3 @@ pub(crate) mod pricer;
 pub mod quote_conversions;
 pub(crate) mod settlement;
 pub mod ytm_solver;
-
-// Backward-compatible re-exports so existing `use ...::discount_engine::BondEngine`
-// paths continue to work.
-pub use engine::discount as discount_engine;
-pub use engine::hazard as hazard_engine;
-#[cfg(feature = "mc")]
-pub use engine::merton_mc as merton_mc_engine;
-pub use engine::tree as tree_engine;
-pub use quote_conversions as quote_engine;

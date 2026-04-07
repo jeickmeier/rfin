@@ -20,7 +20,6 @@ pub struct CmsOption {
     /// Unique instrument identifier
     pub id: InstrumentId,
     /// Strike (fixed rate for CMS option)
-    #[serde(alias = "strike_rate")]
     pub strike: Decimal,
     /// Tenor of the CMS swap in years (e.g., 10.0 for 10Y)
     pub cms_tenor: f64,

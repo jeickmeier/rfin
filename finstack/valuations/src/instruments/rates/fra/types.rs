@@ -53,8 +53,7 @@ const MAX_REASONABLE_RATE: f64 = 0.50;
 /// # Side field
 ///
 /// Use `side` to indicate the fixed leg direction. If omitted in JSON,
-/// deserialization defaults to `PayFixed`. For backward compatibility,
-/// `receive_fixed` (bool) is also accepted during deserialization.
+/// deserialization defaults to `PayFixed`.
 #[derive(Debug, Clone, finstack_valuations_macros::FinancialBuilder, serde::Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ForwardRateAgreement {
@@ -69,7 +68,6 @@ pub struct ForwardRateAgreement {
     /// Interest period start date
     pub start_date: Date,
     /// Interest period end date
-    #[serde(alias = "end_date")]
     pub maturity: Date,
     /// Fixed rate (decimal, e.g., 0.05 for 5%)
     pub fixed_rate: Decimal,
@@ -92,7 +90,6 @@ pub struct ForwardRateAgreement {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
-    #[serde(alias = "forward_id")]
     pub forward_curve_id: CurveId,
     /// Direction of the FRA: PayFixed means paying the fixed rate (receiving floating),
     /// ReceiveFixed means receiving the fixed rate (paying floating).
@@ -130,8 +127,8 @@ pub struct ConventionFraParams<'a> {
     pub attributes: Attributes,
 }
 
-/// Custom deserializer for ForwardRateAgreement that accepts either `side`
-/// (PayReceive enum) or the legacy `receive_fixed` (bool) field.
+/// Custom deserializer for ForwardRateAgreement that accepts `side`
+/// (PayReceive enum), defaulting to `PayFixed` when omitted.
 impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
     fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
     where
@@ -147,7 +144,6 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             #[serde(default)]
             fixing_date: Option<Date>,
             start_date: Date,
-            #[serde(alias = "end_date")]
             maturity: Date,
             fixed_rate: Decimal,
             day_count: DayCount,
@@ -159,7 +155,6 @@ impl<'de> serde::Deserialize<'de> for ForwardRateAgreement {
             #[serde(default)]
             observed_fixing: Option<f64>,
             discount_curve_id: CurveId,
-            #[serde(alias = "forward_id")]
             forward_curve_id: CurveId,
             /// New-style direction field (preferred).
             #[serde(default)]

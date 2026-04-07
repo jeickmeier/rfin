@@ -1,7 +1,5 @@
 //! Python bindings for Monte Carlo estimation types.
 
-#[allow(deprecated)]
-use finstack_monte_carlo::estimate::ConvergenceDiagnostics;
 use finstack_monte_carlo::estimate::Estimate;
 use pyo3::prelude::*;
 
@@ -136,69 +134,6 @@ impl PyEstimate {
 
 impl PyEstimate {
     pub fn from_inner(inner: Estimate) -> Self {
-        Self { inner }
-    }
-}
-
-/// Compatibility wrapper for Monte Carlo convergence diagnostics.
-///
-/// The underlying Rust engine currently leaves these fields unset, so Python
-/// callers should treat this type as a placeholder and rely on `Estimate`
-/// statistics for live convergence information.
-#[allow(deprecated)]
-#[pyclass(
-    module = "finstack.valuations.common.monte_carlo",
-    name = "ConvergenceDiagnostics",
-    frozen,
-    skip_from_py_object
-)]
-#[derive(Clone)]
-pub struct PyConvergenceDiagnostics {
-    pub(crate) inner: ConvergenceDiagnostics,
-}
-
-#[allow(deprecated)]
-#[pymethods]
-impl PyConvergenceDiagnostics {
-    /// Create empty compatibility diagnostics.
-    #[new]
-    fn new() -> Self {
-        Self {
-            inner: ConvergenceDiagnostics::new(),
-        }
-    }
-
-    /// Stderr decay rate (should be ~-0.5 for standard MC).
-    #[getter]
-    fn stderr_decay_rate(&self) -> Option<f64> {
-        self.inner.stderr_decay_rate
-    }
-
-    /// Effective sample size (for weighted samples).
-    #[getter]
-    fn effective_sample_size(&self) -> Option<usize> {
-        self.inner.effective_sample_size
-    }
-
-    /// Variance reduction factor (vs. baseline).
-    #[getter]
-    fn variance_reduction_factor(&self) -> Option<f64> {
-        self.inner.variance_reduction_factor
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "ConvergenceDiagnostics(stderr_decay={:?}, ess={:?}, vr_factor={:?})",
-            self.inner.stderr_decay_rate,
-            self.inner.effective_sample_size,
-            self.inner.variance_reduction_factor
-        )
-    }
-}
-
-#[allow(deprecated)]
-impl PyConvergenceDiagnostics {
-    pub fn from_inner(inner: ConvergenceDiagnostics) -> Self {
         Self { inner }
     }
 }

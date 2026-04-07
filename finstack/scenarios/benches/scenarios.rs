@@ -22,8 +22,8 @@ use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_scenarios::{
-    CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
-    TenorMatchMode, VolSurfaceKind,
+    Compounding, CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine,
+    ScenarioSpec, TenorMatchMode, VolSurfaceKind,
 };
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
@@ -848,9 +848,15 @@ fn bench_rate_bindings(c: &mut Criterion) {
 
     let base_date = date!(2025 - 01 - 01);
 
-    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
-        "InterestRate".to_string() => "USD_SOFR".to_string(),
-    }));
+    let rate_bindings = Some(indexmap! {
+        "InterestRate".into() => RateBindingSpec {
+            node_id: "InterestRate".into(),
+            curve_id: "USD_SOFR".to_string(),
+            tenor: "1Y".to_string(),
+            compounding: Compounding::Continuous,
+            day_count: None,
+        },
+    });
 
     let scenario = ScenarioSpec {
         id: "rate_bindings".into(),

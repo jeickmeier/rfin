@@ -12,7 +12,7 @@
             "tags": []
           },
           "bdc": "Following",
-          "dc": "Act365F",
+          "day_count": "Act365F",
           "discount_curve_id": "USD-OIS",
           "fixed_rate": 0.025,
           "frequency": "12M",
@@ -26,8 +26,8 @@
             "amount": "1000000",
             "currency": "USD"
           },
-          "side": "PayFixed",
-          "start": "2024-01-15"
+          "side": "pay",
+          "start_date": "2024-01-15"
         },
         "type": "yo_y_inflation_swap"
       },

@@ -5,7 +5,7 @@ from typing import Optional
 
 from ..core.dates.periods import PeriodId
 
-class LeaseSpec:
+class SimpleLeaseSpec:
     """Lease specification for simple rent-roll modelling (v1)."""
     def __init__(
         self,
@@ -94,7 +94,7 @@ class ManagementFeeSpec:
     def rate(self) -> float: ...
     def __repr__(self) -> str: ...
 
-class LeaseSpecV2:
+class LeaseSpec:
     """Enhanced lease specification with rent steps, free-rent windows, and renewal."""
     def __init__(
         self,
@@ -150,14 +150,14 @@ class PropertyTemplateNodes:
     def __repr__(self) -> str: ...
 
 __all__ = [
-    "LeaseSpec",
+    "SimpleLeaseSpec",
     "RentStepSpec",
     "FreeRentWindowSpec",
     "RenewalSpec",
     "LeaseGrowthConvention",
     "ManagementFeeBase",
     "ManagementFeeSpec",
-    "LeaseSpecV2",
+    "LeaseSpec",
     "RentRollOutputNodes",
     "PropertyTemplateNodes",
 ]

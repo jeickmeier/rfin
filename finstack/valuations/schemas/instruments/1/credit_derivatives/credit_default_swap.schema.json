@@ -20,10 +20,10 @@
           "premium": {
             "bdc": "following",
             "calendar_id": "nyse",
-            "dc": "Act360",
+            "day_count": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-03-20",
-            "freq": {
+            "frequency": {
               "Months": 3
             },
             "spread_bp": 100.0,
@@ -48,7 +48,7 @@
             "recovery_rate": 0.4,
             "settlement_delay": 3
           },
-          "side": "pay_fixed"
+          "side": "pay"
         },
         "type": "credit_default_swap"
       },
@@ -73,10 +73,10 @@
           "premium": {
             "bdc": "following",
             "calendar_id": "nyse",
-            "dc": "Act360",
+            "day_count": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-03-20",
-            "freq": {
+            "frequency": {
               "Months": 3
             },
             "spread_bp": 100.0,
@@ -101,7 +101,7 @@
             "recovery_rate": 0.4,
             "settlement_delay": 3
           },
-          "side": "pay_fixed"
+          "side": "pay"
         },
         "type": "credit_default_swap"
       },

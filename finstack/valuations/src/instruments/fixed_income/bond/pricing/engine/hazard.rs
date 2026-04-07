@@ -147,7 +147,7 @@ impl HazardBondEngine {
     ///
     /// ```ignore
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::hazard_engine::HazardBondEngine;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::hazard::HazardBondEngine;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
@@ -319,7 +319,7 @@ mod tests {
     use crate::cashflow::builder::CouponType;
     use crate::instruments::common_impl::traits::Attributes;
     use crate::instruments::common_impl::traits::Instrument;
-    use crate::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
+    use crate::instruments::fixed_income::bond::pricing::engine::discount::BondEngine;
     use crate::instruments::fixed_income::bond::CashflowSpec;
     use crate::metrics::sensitivities::config::STANDARD_BUCKETS_YEARS;
     use crate::metrics::{standard_registry, MetricContext, MetricId};
@@ -529,7 +529,7 @@ mod tests {
     #[cfg(feature = "slow")]
     #[test]
     fn quote_engine_works_for_bond_with_hazard_curve() {
-        use crate::instruments::fixed_income::bond::pricing::quote_engine::{
+        use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
             compute_quotes, BondQuoteInput,
         };
         let issue = Date::from_calendar_date(2025, Month::January, 1).expect("Valid test date");

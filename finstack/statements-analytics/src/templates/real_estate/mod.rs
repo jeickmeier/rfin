@@ -114,7 +114,7 @@ pub fn add_ncf_buildup(
 /// `base_rent` is per quarter). `growth_rate` is also per model period.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LeaseSpec {
+pub struct SimpleLeaseSpec {
     /// Node id to store this lease's rent revenue series.
     pub node_id: String,
     /// First period (inclusive) when the lease is active.
@@ -139,7 +139,7 @@ fn default_occupancy() -> f64 {
     1.0
 }
 
-impl LeaseSpec {
+impl SimpleLeaseSpec {
     /// Validate lease inputs that are independent of the model period grid.
     ///
     /// # Errors
@@ -149,22 +149,22 @@ impl LeaseSpec {
     pub fn validate(&self) -> Result<()> {
         if self.node_id.trim().is_empty() {
             return Err(Error::build(
-                "LeaseSpec: node_id cannot be empty".to_string(),
+                "SimpleLeaseSpec: node_id cannot be empty".to_string(),
             ));
         }
         if !self.base_rent.is_finite() {
             return Err(Error::build(
-                "LeaseSpec: base_rent must be finite".to_string(),
+                "SimpleLeaseSpec: base_rent must be finite".to_string(),
             ));
         }
         if !self.growth_rate.is_finite() {
             return Err(Error::build(
-                "LeaseSpec: growth_rate must be finite".to_string(),
+                "SimpleLeaseSpec: growth_rate must be finite".to_string(),
             ));
         }
         if !(0.0..=1.0).contains(&self.occupancy) {
             return Err(Error::build(
-                "LeaseSpec: occupancy must be in [0, 1]".to_string(),
+                "SimpleLeaseSpec: occupancy must be in [0, 1]".to_string(),
             ));
         }
         Ok(())
@@ -173,7 +173,7 @@ impl LeaseSpec {
 
 /// Add a minimal rent roll by generating lease rent series and summing into a total rent node.
 ///
-/// - Creates one **value** node per lease (`LeaseSpec::node_id`) with an explicit per-period series.
+/// - Creates one **value** node per lease (`SimpleLeaseSpec::node_id`) with an explicit per-period series.
 /// - Creates a **calculated** node `total_rent_node = sum(lease_nodes)`.
 ///
 /// This intentionally stays simple (no reimbursements, % rent, downtime, TI/LC). It’s meant to
@@ -195,7 +195,7 @@ impl LeaseSpec {
 /// inputs, or if generated nodes cannot be added to the builder.
 pub fn add_rent_roll_rental_revenue(
     mut builder: ModelBuilder<Ready>,
-    leases: &[LeaseSpec],
+    leases: &[SimpleLeaseSpec],
     total_rent_node: &str,
 ) -> Result<ModelBuilder<Ready>> {
     if leases.is_empty() {
@@ -370,7 +370,7 @@ pub enum LeaseGrowthConvention {
 /// effective-rent outputs include the weighting implicitly.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct LeaseSpecV2 {
+pub struct LeaseSpec {
     /// Base id used to derive node ids:
     /// `{node_id}.pgi`, `{node_id}.free_rent`, `{node_id}.vacancy_loss`, `{node_id}.effective_rent`.
     pub node_id: String,
@@ -405,7 +405,7 @@ pub struct LeaseSpecV2 {
     pub renewal: Option<RenewalSpec>,
 }
 
-impl LeaseSpecV2 {
+impl LeaseSpec {
     /// Validate lease inputs that are independent of the model period grid.
     ///
     /// # Errors
@@ -415,28 +415,28 @@ impl LeaseSpecV2 {
     pub fn validate(&self) -> Result<()> {
         if self.node_id.trim().is_empty() {
             return Err(Error::build(
-                "LeaseSpecV2: node_id cannot be empty".to_string(),
+                "LeaseSpec: node_id cannot be empty".to_string(),
             ));
         }
         if !self.base_rent.is_finite() {
             return Err(Error::build(
-                "LeaseSpecV2: base_rent must be finite".to_string(),
+                "LeaseSpec: base_rent must be finite".to_string(),
             ));
         }
         if !self.growth_rate.is_finite() {
             return Err(Error::build(
-                "LeaseSpecV2: growth_rate must be finite".to_string(),
+                "LeaseSpec: growth_rate must be finite".to_string(),
             ));
         }
         if !(0.0..=1.0).contains(&self.occupancy) {
             return Err(Error::build(
-                "LeaseSpecV2: occupancy must be in [0, 1]".to_string(),
+                "LeaseSpec: occupancy must be in [0, 1]".to_string(),
             ));
         }
         for step in &self.rent_steps {
             if !step.rent.is_finite() {
                 return Err(Error::build(
-                    "LeaseSpecV2: rent_steps rents must be finite".to_string(),
+                    "LeaseSpec: rent_steps rents must be finite".to_string(),
                 ));
             }
         }
@@ -525,21 +525,19 @@ fn apply_free_window(is_free: &mut [bool], start_idx: usize, len: u32) -> Result
 /// - Property cashflow and fixed-income style discounting context: `docs/REFERENCES.md#hull-options-futures`
 pub fn add_rent_roll(
     builder: ModelBuilder<Ready>,
-    leases: &[LeaseSpecV2],
+    leases: &[LeaseSpec],
     nodes: &RentRollOutputNodes,
 ) -> Result<ModelBuilder<Ready>> {
-    add_rent_roll_rental_revenue_v2_impl(builder, leases, nodes)
+    add_rent_roll_impl(builder, leases, nodes)
 }
 
-fn add_rent_roll_rental_revenue_v2_impl(
+fn add_rent_roll_impl(
     mut builder: ModelBuilder<Ready>,
-    leases: &[LeaseSpecV2],
+    leases: &[LeaseSpec],
     nodes: &RentRollOutputNodes,
 ) -> Result<ModelBuilder<Ready>> {
     if leases.is_empty() {
-        return Err(Error::build(
-            "add_rent_roll_rental_revenue_v2: expected at least one lease",
-        ));
+        return Err(Error::build("add_rent_roll: expected at least one lease"));
     }
 
     // Periods-per-year for annual escalator calculation.
@@ -551,24 +549,16 @@ fn add_rent_roll_rental_revenue_v2_impl(
 
     for lease in leases {
         if lease.node_id.trim().is_empty() {
-            return Err(Error::build(
-                "add_rent_roll_rental_revenue_v2: lease node_id cannot be empty",
-            ));
+            return Err(Error::build("add_rent_roll: lease node_id cannot be empty"));
         }
         if !lease.base_rent.is_finite() {
-            return Err(Error::build(
-                "add_rent_roll_rental_revenue_v2: base_rent must be finite",
-            ));
+            return Err(Error::build("add_rent_roll: base_rent must be finite"));
         }
         if !lease.growth_rate.is_finite() {
-            return Err(Error::build(
-                "add_rent_roll_rental_revenue_v2: growth_rate must be finite",
-            ));
+            return Err(Error::build("add_rent_roll: growth_rate must be finite"));
         }
         if !(0.0..=1.0).contains(&lease.occupancy) {
-            return Err(Error::build(
-                "add_rent_roll_rental_revenue_v2: occupancy must be in [0, 1]",
-            ));
+            return Err(Error::build("add_rent_roll: occupancy must be in [0, 1]"));
         }
 
         let start_idx = find_period_idx(builder.periods_slice(), lease.start)?;
@@ -578,9 +568,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
             builder.periods_slice().len().saturating_sub(1)
         };
         if end_idx < start_idx {
-            return Err(Error::build(
-                "add_rent_roll_rental_revenue_v2: end must be >= start",
-            ));
+            return Err(Error::build("add_rent_roll: end must be >= start"));
         }
 
         // Build free-rent mask across all model periods.
@@ -598,12 +586,12 @@ fn add_rent_roll_rental_revenue_v2_impl(
             if let (Some(end_pid), Some(r)) = (lease.end, lease.renewal.as_ref()) {
                 if !r.probability.is_finite() || !(0.0..=1.0).contains(&r.probability) {
                     return Err(Error::build(
-                        "add_rent_roll_rental_revenue_v2: renewal.probability must be in [0, 1]",
+                        "add_rent_roll: renewal.probability must be in [0, 1]",
                     ));
                 }
                 if !r.rent_factor.is_finite() || r.rent_factor <= 0.0 {
                     return Err(Error::build(
-                        "add_rent_roll_rental_revenue_v2: renewal.rent_factor must be positive",
+                        "add_rent_roll: renewal.rent_factor must be positive",
                     ));
                 }
                 let _ = end_pid; // already validated via end_idx
@@ -625,7 +613,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
         for s in &lease.rent_steps {
             if !s.rent.is_finite() {
                 return Err(Error::build(
-                    "add_rent_roll_rental_revenue_v2: rent_steps rent must be finite",
+                    "add_rent_roll: rent_steps rent must be finite",
                 ));
             }
             let idx = find_period_idx(builder.periods_slice(), s.start)?;
@@ -656,7 +644,7 @@ fn add_rent_roll_rental_revenue_v2_impl(
             let contractual = base_rent * (1.0 + lease.growth_rate).powi(n);
             if !contractual.is_finite() {
                 return Err(Error::build(
-                    "add_rent_roll_rental_revenue_v2: rent growth overflow (base_rent * (1+g)^n is not finite)",
+                    "add_rent_roll: rent growth overflow (base_rent * (1+g)^n is not finite)",
                 ));
             }
             Ok(contractual)
@@ -936,7 +924,7 @@ impl Default for PropertyTemplateNodes {
 /// - Property cashflow and discounting context: `docs/REFERENCES.md#hull-options-futures`
 pub fn add_property_operating_statement(
     mut builder: ModelBuilder<Ready>,
-    leases: &[LeaseSpecV2],
+    leases: &[LeaseSpec],
     other_income_nodes: &[&str],
     opex_nodes: &[&str],
     capex_nodes: &[&str],

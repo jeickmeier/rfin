@@ -424,7 +424,7 @@ impl PathState {
         }
     }
 
-    /// Backward-compatible access to all state variables as a HashMap.
+    /// Collect all state variables into a HashMap.
     /// Merges fixed-slot values with dynamic values. This allocates --
     /// prefer `get`/`get_key` or [`Self::collect_vars`] on hot paths.
     pub fn vars(&self) -> StateVariables {

@@ -19,7 +19,7 @@
 //!
 //! ```rust,no_run
 //! use finstack_valuations::instruments::fixed_income::bond::Bond;
-//! use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
+//! use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricer;
 //! use finstack_core::market_data::context::MarketContext;
 //! use finstack_core::dates::Date;
 //!
@@ -178,7 +178,7 @@ pub enum TreeModelChoice {
 /// # Examples
 ///
 /// ```rust
-/// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricerConfig;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricerConfig;
 ///
 /// // Default configuration using Ho-Lee with 100 bps normal vol
 /// let default = TreePricerConfig::default();
@@ -292,7 +292,7 @@ impl Default for TreePricerConfig {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::bond_tree_config;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::bond_tree_config;
 ///
 /// let bond = Bond::example().unwrap();
 /// let config = bond_tree_config(&bond);
@@ -361,7 +361,7 @@ impl TreePricerConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricerConfig;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricerConfig;
     ///
     /// // Use 100 bps normal vol calibrated from swaption market
     /// let config = TreePricerConfig::production_ho_lee(0.01);
@@ -411,7 +411,7 @@ impl TreePricerConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricerConfig;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricerConfig;
     ///
     /// // Use 20% lognormal vol (equivalent to ~100 bps at 5% rates)
     /// let config = TreePricerConfig::production_bdt(0.20);
@@ -460,7 +460,7 @@ impl TreePricerConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricerConfig;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricerConfig;
     ///
     /// // High precision for regulatory reporting
     /// let config = TreePricerConfig::high_precision(0.012);
@@ -503,7 +503,7 @@ impl TreePricerConfig {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricerConfig;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricerConfig;
     ///
     /// // Fast screening of 10,000 bond universe
     /// let config = TreePricerConfig::fast(0.012);
@@ -604,7 +604,7 @@ impl TreePricerConfig {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::BondValuator;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::BondValuator;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
@@ -713,7 +713,7 @@ impl BondValuator {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::BondValuator;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::BondValuator;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
@@ -1150,7 +1150,7 @@ const _: () = {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricer;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///
@@ -1177,7 +1177,7 @@ impl TreePricer {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricer;
     ///
     /// let pricer = TreePricer::new();
     /// ```
@@ -1200,7 +1200,7 @@ impl TreePricer {
     /// # Examples
     ///
     /// ```rust
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::{TreePricer, TreePricerConfig};
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::{TreePricer, TreePricerConfig};
     ///
     /// let config = TreePricerConfig::high_precision(0.015);
     /// let pricer = TreePricer::with_config(config);
@@ -1246,7 +1246,7 @@ impl TreePricer {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricer;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
@@ -1554,7 +1554,7 @@ impl Default for TreePricer {
 ///
 /// ```rust,no_run
 /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-/// use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::calculate_oas;
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::calculate_oas;
 /// use finstack_core::market_data::context::MarketContext;
 /// use finstack_core::dates::Date;
 ///

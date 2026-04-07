@@ -91,7 +91,7 @@ impl Pricer for SimpleBondMertonMcPricer {
         // ---- Calibration pass (opt-in) ---------------------------------
         let mut calibration_measures: IndexMap<crate::metrics::MetricId, f64> = IndexMap::new();
         let mut effective_config = if let Some(ref cal_spec) = mc_override.0.calibration {
-            use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::calibration::calibrate_parameter_to_market;
+            use crate::instruments::fixed_income::bond::pricing::engine::merton_mc::calibration::calibrate_parameter_to_market;
             let cal_output = calibrate_parameter_to_market(
                 bond,
                 market,
@@ -243,7 +243,7 @@ impl Pricer for SimpleBondMertonMcPricer {
         };
 
         let mut effective_config = if let Some(ref cal_spec) = mc_override.0.calibration {
-            use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::calibration::calibrate_parameter_to_market;
+            use crate::instruments::fixed_income::bond::pricing::engine::merton_mc::calibration::calibrate_parameter_to_market;
             let cal_output = calibrate_parameter_to_market(
                 bond,
                 market,

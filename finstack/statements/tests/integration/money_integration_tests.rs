@@ -345,12 +345,11 @@ fn test_results_metadata_timing() {
 }
 
 // ============================================================================
-// Backward Compatibility Tests
+// Builder Method Tests
 // ============================================================================
 
 #[test]
-fn test_backward_compat_regular_value_still_works() {
-    // The old value() method should still work
+fn test_value_method_with_amount_or_scalar() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q1", None)
         .unwrap()
@@ -374,7 +373,7 @@ fn test_backward_compat_regular_value_still_works() {
 }
 
 #[test]
-fn test_backward_compat_compute_still_works() {
+fn test_compute_method_with_formula() {
     let model = ModelBuilder::new("test")
         .periods("2025Q1..Q1", None)
         .unwrap()

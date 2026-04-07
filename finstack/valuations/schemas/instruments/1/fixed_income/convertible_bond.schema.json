@@ -33,7 +33,7 @@
           },
           "floating_coupon": null,
           "id": "CB-TECH-5Y",
-          "issue": "2024-01-15",
+          "issue_date": "2024-01-15",
           "maturity": "2029-01-15",
           "notional": {
             "amount": "1000000",
@@ -77,7 +77,7 @@
           },
           "floating_coupon": null,
           "id": "CB-TECH-5Y",
-          "issue": "2024-01-15",
+          "issue_date": "2024-01-15",
           "maturity": "2029-01-15",
           "notional": {
             "amount": "1000000",

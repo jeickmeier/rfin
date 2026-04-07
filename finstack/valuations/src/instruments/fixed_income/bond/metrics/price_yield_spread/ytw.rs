@@ -106,7 +106,7 @@ impl MetricCalculator for YtwCalculator {
         // Delegate candidate scanning and YTM solving to shared helper.
         // Use quote_date as the time origin to match market convention.
         let (best_ytm, _best_flows) =
-            crate::instruments::fixed_income::bond::pricing::quote_engine::solve_ytw_from_flows(
+            crate::instruments::fixed_income::bond::pricing::quote_conversions::solve_ytw_from_flows(
                 bond,
                 flows,
                 quote_ctx.quote_date,

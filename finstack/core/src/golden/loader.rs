@@ -4,7 +4,7 @@
 //! various sources: files, strings, and directories.
 
 use crate::error::Error;
-use crate::golden::types::{GoldenSuite, LegacyGoldenFile, SuiteMeta};
+use crate::golden::types::{GoldenSuite, SuiteMeta};
 use serde::de::DeserializeOwned;
 use std::fs;
 use std::path::Path;
@@ -17,7 +17,6 @@ use std::path::Path;
 ///
 /// This function supports multiple JSON formats:
 /// - Canonical format: `{ "meta": {...}, "cases": [...] }`
-/// - Legacy format: `{ "description": "...", "test_cases": [...] }`
 /// - Array format: `[...]` (cases only, no metadata)
 /// - Single object format: `{...}` (single case, no metadata)
 ///
@@ -67,11 +66,6 @@ where
     // Try canonical format first
     if let Ok(suite) = serde_json::from_str::<GoldenSuite<T>>(json) {
         return Ok(suite);
-    }
-
-    // Try legacy format (GoldenFile with test_cases)
-    if let Ok(legacy) = serde_json::from_str::<LegacyGoldenFile<T>>(json) {
-        return Ok(legacy.into_suite());
     }
 
     // Try array format (just cases, no metadata)
@@ -326,25 +320,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_load_legacy_format() {
-        let json = r#"{
-            "description": "Legacy test",
-            "reference_source": "QuantLib",
-            "status": "certified",
-            "test_cases": [
-                { "id": "case1", "value": 1.0 }
-            ]
-        }"#;
-
-        let result = load_suite_from_str::<SimpleCase>(json);
-        assert!(result.is_ok(), "Should parse legacy format");
-        if let Ok(suite) = result {
-            assert_eq!(suite.meta.description, "Legacy test");
-            assert_eq!(suite.meta.reference_source.name, "QuantLib");
-            assert_eq!(suite.cases.len(), 1);
-        }
-    }
 
     #[test]
     fn test_load_array_format() {

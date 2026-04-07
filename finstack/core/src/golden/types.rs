@@ -396,53 +396,6 @@ impl ExpectedValue {
     }
 }
 
-// =============================================================================
-// Legacy compatibility types
-// =============================================================================
-
-/// Legacy golden file format for backward compatibility.
-///
-/// This matches the existing `GoldenFile<T>` structure used in valuations.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LegacyGoldenFile<T> {
-    /// Description of the test suite.
-    #[serde(default)]
-    pub description: String,
-
-    /// Reference source for expected values.
-    #[serde(default)]
-    pub reference_source: String,
-
-    /// Status of the fixture.
-    #[serde(default)]
-    pub status: String,
-
-    /// Test cases.
-    pub test_cases: Vec<T>,
-}
-
-impl<T> LegacyGoldenFile<T> {
-    /// Convert to the canonical GoldenSuite format.
-    pub fn into_suite(self) -> GoldenSuite<T> {
-        GoldenSuite {
-            meta: SuiteMeta {
-                suite_id: String::new(),
-                description: self.description,
-                reference_source: ReferenceSource {
-                    name: self.reference_source,
-                    ..Default::default()
-                },
-                status: if self.status.is_empty() {
-                    "unknown".to_string()
-                } else {
-                    self.status
-                },
-                ..Default::default()
-            },
-            cases: self.test_cases,
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests {

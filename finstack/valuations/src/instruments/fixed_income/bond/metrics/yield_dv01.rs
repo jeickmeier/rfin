@@ -41,12 +41,13 @@ impl MetricCalculator for YieldDv01Calculator {
             .ok_or_else(|| crate::metrics::context_not_found("cashflows"))?;
 
         let quote_ctx = QuoteDateContext::new(bond, &context.curves, context.as_of)?;
-        let price = crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
-            bond,
-            flows,
-            quote_ctx.quote_date,
-            ytm,
-        )?;
+        let price =
+            crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_ytm(
+                bond,
+                flows,
+                quote_ctx.quote_date,
+                ytm,
+            )?;
 
         Ok(-(price * duration_mod * 0.0001))
     }

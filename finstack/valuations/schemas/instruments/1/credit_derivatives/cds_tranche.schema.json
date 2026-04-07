@@ -12,7 +12,7 @@
             "meta": {},
             "tags": []
           },
-          "business_day_convention": "following",
+          "bdc": "following",
           "calendar_id": null,
           "credit_index_id": "CDX.NA.IG.42",
           "day_count": "Act360",
@@ -26,7 +26,7 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "payment_frequency": {
+          "frequency": {
             "Months": 3
           },
           "running_coupon_bp": 100.0,
@@ -48,7 +48,7 @@
             "meta": {},
             "tags": []
           },
-          "business_day_convention": "following",
+          "bdc": "following",
           "calendar_id": null,
           "credit_index_id": "CDX.NA.IG.42",
           "day_count": "Act360",
@@ -62,7 +62,7 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "payment_frequency": {
+          "frequency": {
             "Months": 3
           },
           "running_coupon_bp": 100.0,

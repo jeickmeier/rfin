@@ -17,7 +17,7 @@
           "index_factor": 1.0,
           "index_name": "CDX.NA.IG",
           "series": 42,
-          "side": "pay_fixed",
+          "side": "pay",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
@@ -25,10 +25,10 @@
           "premium": {
             "bdc": "following",
             "calendar_id": "nyse",
-            "dc": "Act360",
+            "day_count": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-12-20",
-            "freq": {
+            "frequency": {
               "Months": 3
             },
             "spread_bp": 100.0,
@@ -82,10 +82,10 @@
           "premium": {
             "bdc": "following",
             "calendar_id": "nyse",
-            "dc": "Act360",
+            "day_count": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-12-20",
-            "freq": {
+            "frequency": {
               "Months": 3
             },
             "spread_bp": 100.0,
@@ -112,7 +112,7 @@
             "settlement_delay": 3
           },
           "series": 42,
-          "side": "pay_fixed",
+          "side": "pay",
           "version": 1
         },
         "type": "cds_index"

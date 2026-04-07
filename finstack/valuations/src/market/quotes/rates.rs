@@ -114,7 +114,6 @@ pub enum RateQuote {
         /// an invalid quote shape during calibration.
         #[serde(default)]
         #[cfg_attr(feature = "ts_export", ts(type = "string | null"))]
-        #[serde(alias = "volatility_id")]
         vol_surface_id: Option<CurveId>,
     },
     /// Interest Rate Swap (par rate).

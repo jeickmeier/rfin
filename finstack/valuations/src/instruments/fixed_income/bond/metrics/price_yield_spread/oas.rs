@@ -50,7 +50,7 @@ impl MetricCalculator for OasCalculator {
 
         // Use Tree pricer to solve for OAS
         let oas_calculator =
-            crate::instruments::fixed_income::bond::pricing::tree_engine::TreePricer::new();
+            crate::instruments::fixed_income::bond::pricing::engine::tree::TreePricer::new();
         // Tree pricer returns OAS in **basis points**; convert to decimal
         // so all bond spread-style metrics use a consistent convention
         // (0.01 = 100bp) at the public API surface.

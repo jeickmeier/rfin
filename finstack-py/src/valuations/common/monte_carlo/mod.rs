@@ -21,7 +21,6 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 
 /// Register the Monte Carlo submodule with all classes at the mc level.
-#[allow(deprecated)]
 pub(crate) fn register(
     py: Python<'_>,
     parent: &Bound<'_, PyModule>,
@@ -49,10 +48,8 @@ pub(crate) fn register(
     // Time grid
     mc_module.add_class::<time_grid::PyTimeGrid>()?;
 
-    // Estimate & convergence diagnostics
+    // Estimate
     mc_module.add_class::<estimate::PyEstimate>()?;
-    mc_module.add_class::<estimate::PyConvergenceDiagnostics>()?;
-
     // Stochastic process parameters
     mc_module.add_class::<processes::PyGbmParams>()?;
     mc_module.add_class::<processes::PyHestonParams>()?;
@@ -114,7 +111,6 @@ pub(crate) fn register(
         // New building blocks
         "TimeGrid",
         "Estimate",
-        "ConvergenceDiagnostics",
         // Process parameters
         "GbmParams",
         "HestonParams",

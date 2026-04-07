@@ -5,7 +5,7 @@ use finstack_core::currency::Currency;
 use finstack_core::dates::{Date, DayCount, Tenor, TenorUnit};
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::{
+use finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::{
     df_from_yield, fixed_leg_annuity, par_rate_and_annuity_from_discount, periods_per_year,
     price_from_ytm_compounded_params, YieldCompounding,
 };

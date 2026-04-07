@@ -15,7 +15,7 @@
         "doc_clause": "IsdaNa",
         "day_count": "Act360",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "nyse"
@@ -35,7 +35,7 @@
         "doc_clause": "IsdaEu",
         "day_count": "Act360",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 1,
         "calendar_id": "target2"
@@ -51,7 +51,7 @@
         "doc_clause": "IsdaAs",
         "day_count": "Act365F",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "jpto"
@@ -65,7 +65,7 @@
         "doc_clause": "IsdaAs",
         "day_count": "Act365F",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "auce"
@@ -79,7 +79,7 @@
         "doc_clause": "IsdaAs",
         "day_count": "Act365F",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "nzau"
@@ -93,7 +93,7 @@
         "doc_clause": "IsdaAs",
         "day_count": "Act365F",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "hkhk"
@@ -107,7 +107,7 @@
         "doc_clause": "IsdaAs",
         "day_count": "Act365F",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "sgsi"
@@ -125,7 +125,7 @@
         "doc_clause": "Custom",
         "day_count": "Act360",
         "payment_frequency": "3M",
-        "business_day_convention": "modified_following",
+        "bdc": "modified_following",
         "stub_convention": "ShortFront",
         "settlement_days": 3,
         "calendar_id": "nyse"

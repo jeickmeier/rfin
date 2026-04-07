@@ -47,9 +47,7 @@ class RateBindingSpec:
 
     A rate binding tells the scenario engine how to pull a rate off a curve
     and feed it into a statement forecast node. All computation happens in
-    Rust; this class only carries data. Legacy ``dict[str, str]`` bindings
-    are automatically upgraded to 1Y continuous bindings with the curve's
-    day-count convention.
+    Rust; this class only carries data.
     """
 
     def __init__(
@@ -86,19 +84,6 @@ class RateBindingSpec:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> RateBindingSpec:
         """Create a binding spec from a JSON-style mapping."""
-
-    @classmethod
-    def from_legacy(cls, node_id: str, curve_id: str) -> RateBindingSpec:
-        """Build from a legacy ``(node_id, curve_id)`` mapping using 1Y continuous compounding."""
-
-    @classmethod
-    def map_from_legacy(cls, legacy: Dict[str, str]) -> Dict[str, RateBindingSpec]:
-        """Convert a legacy ``{node_id: curve_id}`` dict to detailed binding specs.
-
-        Each entry is converted with 1Y tenor, continuous compounding,
-        and no day-count override.
-        """
-        ...
 
     def __eq__(self, other: object) -> bool: ...
     def __ne__(self, other: object) -> bool: ...

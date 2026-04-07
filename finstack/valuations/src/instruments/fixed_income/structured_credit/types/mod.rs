@@ -295,11 +295,9 @@ pub struct StructuredCredit {
     /// End of reinvestment period (if applicable).
     pub reinvestment_end_date: Option<Date>,
     /// Legal final maturity date.
-    #[serde(alias = "legal_maturity")]
     pub maturity: Date,
 
     /// Payment frequency for the structure.
-    #[serde(alias = "payment_frequency")]
     pub frequency: Tenor,
 
     /// Optional payment calendar identifier for schedule adjustments.

@@ -1111,7 +1111,7 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_factor_new_or_identity_preserves_legacy_fallback() {
+    fn test_multi_factor_new_or_identity_fallback() {
         let corr = vec![1.0, 0.5, 0.3, 1.0];
         let vols = vec![0.2, 0.3];
         let model = MultiFactorModel::new_or_identity(2, vols, corr);

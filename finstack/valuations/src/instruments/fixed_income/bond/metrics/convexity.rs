@@ -79,7 +79,7 @@ impl MetricCalculator for ConvexityCalculator {
         })?;
 
         let comp =
-            crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street;
+            crate::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding::Street;
         let freq = bond.cashflow_spec.frequency();
 
         // Compute quote-date context (settlement date) for yield-based convexity
@@ -87,9 +87,10 @@ impl MetricCalculator for ConvexityCalculator {
         let quote_date = quote_ctx.quote_date;
 
         // Calculate price from flows using quote_date to ensure consistency with YTM
-        let price = crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_ytm(
-            bond, flows, quote_date, ytm,
-        )?;
+        let price =
+            crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_ytm(
+                bond, flows, quote_date, ytm,
+            )?;
         if price.abs() < ZERO_TOLERANCE {
             return Ok(0.0);
         }
@@ -120,10 +121,10 @@ impl MetricCalculator for ConvexityCalculator {
 fn df_second_derivative(
     ytm: f64,
     t: f64,
-    comp: crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding,
+    comp: crate::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding,
     freq: finstack_core::dates::Tenor,
 ) -> finstack_core::Result<f64> {
-    use crate::instruments::fixed_income::bond::pricing::quote_engine::{
+    use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
         df_from_yield, periods_per_year, YieldCompounding,
     };
 

@@ -16,7 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::market_data::term_structures::{DiscountCurve, ForwardCurve};
 use finstack_core::math::interp::InterpStyle;
 use finstack_core::money::Money;
-use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricer;
+use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricer;
 use finstack_valuations::instruments::fixed_income::bond::{Bond, CallPut, CallPutSchedule};
 use finstack_valuations::instruments::Instrument;
 use finstack_valuations::instruments::PricingOverrides;
@@ -317,7 +317,7 @@ fn bench_tree_oas_solver(c: &mut Criterion) {
 /// in `BondValuator`. Higher step counts magnify the difference since backward induction
 /// visits more nodes.
 fn bench_tree_step_scaling(c: &mut Criterion) {
-    use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreePricerConfig;
+    use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreePricerConfig;
 
     let mut group = c.benchmark_group("tree_step_scaling");
     let market = create_market();

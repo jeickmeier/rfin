@@ -120,7 +120,7 @@ impl MetricCalculator for YtmCalculator {
                 notional,
                 coupon_rate: coupon,
                 compounding:
-                    crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
+                    crate::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding::Street,
                 frequency: freq,
             },
         )?;

@@ -305,7 +305,7 @@ pub use spec::{
     AttributionResultEnvelope, AttributionSpec, ATTRIBUTION_SCHEMA_V1,
 };
 pub use taylor::{
-    attribute_pnl_taylor, attribute_pnl_taylor_compat, TaylorAttributionConfig,
+    attribute_pnl_taylor, attribute_pnl_taylor_standard, TaylorAttributionConfig,
     TaylorAttributionResult, TaylorFactorResult,
 };
 pub use waterfall::{attribute_pnl_waterfall, default_waterfall_order};

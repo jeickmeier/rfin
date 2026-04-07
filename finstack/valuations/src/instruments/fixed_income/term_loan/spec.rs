@@ -513,7 +513,6 @@ pub struct TermLoanSpec {
     /// Interest rate specification (fixed or floating)
     pub rate: RateSpec,
     /// Payment frequency for interest and principal
-    #[serde(alias = "pay_freq")]
     pub frequency: Tenor,
     /// Day count convention for interest accrual
     pub day_count: DayCount,

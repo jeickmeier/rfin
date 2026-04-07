@@ -48,9 +48,9 @@ pub mod goal_seek;
 pub mod introspection;
 pub mod reports;
 
-// ---- Backward-compatible module re-exports ----
-// These preserve `analysis::corporate::*`, `analysis::covenants::*`, etc.
-// so that existing downstream consumers continue to compile.
+// ---- Flattened module re-exports ----
+// These expose `analysis::corporate::*`, `analysis::covenants::*`, etc.
+// as the canonical public paths.
 
 pub use valuation::corporate;
 pub use valuation::orchestrator;

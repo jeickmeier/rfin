@@ -125,14 +125,14 @@ from .dsl import StmtExpr, parse_formula, compile_formula, parse_and_compile
 from . import templates
 from . import capital_structure
 from .templates import (
-    LeaseSpec,
+    SimpleLeaseSpec,
     RentStepSpec,
     FreeRentWindowSpec,
     RenewalSpec,
     LeaseGrowthConvention,
     ManagementFeeBase,
     ManagementFeeSpec,
-    LeaseSpecV2,
+    LeaseSpec,
     RentRollOutputNodes,
     PropertyTemplateNodes,
 )
@@ -251,14 +251,14 @@ __all__ = [
     "compile_formula",
     "parse_and_compile",
     # Templates (Real Estate)
-    "LeaseSpec",
+    "SimpleLeaseSpec",
     "RentStepSpec",
     "FreeRentWindowSpec",
     "RenewalSpec",
     "LeaseGrowthConvention",
     "ManagementFeeBase",
     "ManagementFeeSpec",
-    "LeaseSpecV2",
+    "LeaseSpec",
     "RentRollOutputNodes",
     "PropertyTemplateNodes",
     # Capital Structure

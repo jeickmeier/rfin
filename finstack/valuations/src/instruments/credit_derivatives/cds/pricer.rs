@@ -3297,7 +3297,7 @@ mod tests {
     }
 
     #[test]
-    fn test_doc_clause_serde_backward_compat_deserialization() {
+    fn test_doc_clause_serde_deserializes_without_field() {
         // Simulate old serialized data by serializing a CDS, stripping the
         // doc_clause field from JSON, and verifying it still deserializes.
         let as_of = Date::from_calendar_date(2025, time::Month::January, 1).expect("valid date");

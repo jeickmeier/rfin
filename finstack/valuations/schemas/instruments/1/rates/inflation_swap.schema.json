@@ -11,7 +11,7 @@
             "meta": {},
             "tags": []
           },
-          "dc": "Act365F",
+          "day_count": "Act365F",
           "discount_curve_id": "USD-OIS",
           "fixed_rate": 0.02,
           "id": "INFLSWAP-USD-5Y",
@@ -22,8 +22,8 @@
             "amount": "1000000",
             "currency": "USD"
           },
-          "side": "PayFixed",
-          "start": "2024-01-15"
+          "side": "pay",
+          "start_date": "2024-01-15"
         },
         "type": "inflation_swap"
       },
@@ -39,7 +39,7 @@
             "meta": {},
             "tags": []
           },
-          "dc": "Act365F",
+          "day_count": "Act365F",
           "discount_curve_id": "USD-OIS",
           "fixed_rate": 0.02,
           "id": "INFLSWAP-USD-5Y",
@@ -50,8 +50,8 @@
             "amount": "1000000",
             "currency": "USD"
           },
-          "side": "PayFixed",
-          "start": "2024-01-15"
+          "side": "pay",
+          "start_date": "2024-01-15"
         },
         "type": "inflation_swap"
       },

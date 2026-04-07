@@ -10,12 +10,12 @@ use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
 
 use finstack_statements_analytics::templates::real_estate::{
-    FreeRentWindowSpec, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase,
-    ManagementFeeSpec, PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
+    FreeRentWindowSpec, LeaseGrowthConvention, LeaseSpec, ManagementFeeBase, ManagementFeeSpec,
+    PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec, SimpleLeaseSpec,
 };
 
 // ---------------------------------------------------------------------------
-// LeaseSpec (v1)
+// SimpleLeaseSpec (v1)
 // ---------------------------------------------------------------------------
 
 /// Lease specification for simple rent-roll modelling (v1).
@@ -30,17 +30,17 @@ use finstack_statements_analytics::templates::real_estate::{
 ///     occupancy: Occupancy rate (0 to 1).
 #[pyclass(
     module = "finstack.statements.templates",
-    name = "LeaseSpec",
+    name = "SimpleLeaseSpec",
     frozen,
     from_py_object
 )]
 #[derive(Clone)]
-pub struct PyLeaseSpec {
-    pub(crate) inner: LeaseSpec,
+pub struct PySimpleLeaseSpec {
+    pub(crate) inner: SimpleLeaseSpec,
 }
 
 #[pymethods]
-impl PyLeaseSpec {
+impl PySimpleLeaseSpec {
     #[new]
     #[pyo3(signature = (node_id, start, base_rent, growth_rate=0.0, end=None, free_rent_periods=0, occupancy=1.0))]
     fn new(
@@ -53,7 +53,7 @@ impl PyLeaseSpec {
         occupancy: f64,
     ) -> PyResult<Self> {
         Ok(Self {
-            inner: LeaseSpec {
+            inner: SimpleLeaseSpec {
                 node_id,
                 start: start.inner,
                 end: end.map(|e| e.inner),
@@ -92,7 +92,7 @@ impl PyLeaseSpec {
 
     fn __repr__(&self) -> String {
         format!(
-            "LeaseSpec(node_id='{}', start={:?}, base_rent={:.2})",
+            "SimpleLeaseSpec(node_id='{}', start={:?}, base_rent={:.2})",
             self.inner.node_id, self.inner.start, self.inner.base_rent
         )
     }
@@ -415,11 +415,11 @@ impl PyManagementFeeSpec {
 }
 
 // ---------------------------------------------------------------------------
-// LeaseSpecV2
+// LeaseSpec
 // ---------------------------------------------------------------------------
 
 /// Enhanced lease specification with discrete rent steps, free-rent windows,
-/// and renewal assumptions (v2).
+/// and renewal assumptions.
 ///
 /// Args:
 ///     node_id: Node identifier for this lease in the model.
@@ -435,17 +435,17 @@ impl PyManagementFeeSpec {
 ///     renewal: Optional :class:`RenewalSpec`.
 #[pyclass(
     module = "finstack.statements.templates",
-    name = "LeaseSpecV2",
+    name = "LeaseSpec",
     frozen,
     from_py_object
 )]
 #[derive(Clone)]
-pub struct PyLeaseSpecV2 {
-    pub(crate) inner: LeaseSpecV2,
+pub struct PyLeaseSpec {
+    pub(crate) inner: LeaseSpec,
 }
 
 #[pymethods]
-impl PyLeaseSpecV2 {
+impl PyLeaseSpec {
     #[new]
     #[pyo3(signature = (
         node_id, start, base_rent,
@@ -473,7 +473,7 @@ impl PyLeaseSpecV2 {
         renewal: Option<PyRenewalSpec>,
     ) -> PyResult<Self> {
         Ok(Self {
-            inner: LeaseSpecV2 {
+            inner: LeaseSpec {
                 node_id,
                 start: start.inner,
                 end: end.map(|e| e.inner),
@@ -524,7 +524,7 @@ impl PyLeaseSpecV2 {
 
     fn __repr__(&self) -> String {
         format!(
-            "LeaseSpecV2(node_id='{}', start={:?}, base_rent={:.2})",
+            "LeaseSpec(node_id='{}', start={:?}, base_rent={:.2})",
             self.inner.node_id, self.inner.start, self.inner.base_rent
         )
     }
@@ -680,26 +680,26 @@ pub(crate) fn register<'py>(
         "Real-estate financial statement templates: lease specs, rent rolls, NOI/NCF buildups, and property operating statements.",
     )?;
 
-    module.add_class::<PyLeaseSpec>()?;
+    module.add_class::<PySimpleLeaseSpec>()?;
     module.add_class::<PyRentStepSpec>()?;
     module.add_class::<PyFreeRentWindowSpec>()?;
     module.add_class::<PyRenewalSpec>()?;
     module.add_class::<PyLeaseGrowthConvention>()?;
     module.add_class::<PyManagementFeeBase>()?;
     module.add_class::<PyManagementFeeSpec>()?;
-    module.add_class::<PyLeaseSpecV2>()?;
+    module.add_class::<PyLeaseSpec>()?;
     module.add_class::<PyRentRollOutputNodes>()?;
     module.add_class::<PyPropertyTemplateNodes>()?;
 
     let exports = vec![
-        "LeaseSpec",
+        "SimpleLeaseSpec",
         "RentStepSpec",
         "FreeRentWindowSpec",
         "RenewalSpec",
         "LeaseGrowthConvention",
         "ManagementFeeBase",
         "ManagementFeeSpec",
-        "LeaseSpecV2",
+        "LeaseSpec",
         "RentRollOutputNodes",
         "PropertyTemplateNodes",
     ];

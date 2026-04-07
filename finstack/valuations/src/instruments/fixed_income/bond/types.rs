@@ -52,7 +52,6 @@ pub struct Bond {
     /// Principal amount of the bond.
     pub notional: Money,
     /// Issue date of the bond.
-    #[serde(alias = "issue")]
     pub issue_date: Date,
     /// Maturity date of the bond.
     pub maturity: Date,
@@ -105,7 +104,6 @@ impl<'de> serde::Deserialize<'de> for Bond {
         struct BondHelper {
             id: InstrumentId,
             notional: Money,
-            #[serde(alias = "issue")]
             issue_date: Option<Date>,
             maturity: Date,
             cashflow_spec: CashflowSpec,
@@ -1117,7 +1115,7 @@ impl Bond {
             short_rate_keys, state_keys, ShortRateTree, ShortRateTreeConfig, StateVariables,
             TreeModel,
         };
-        use crate::instruments::fixed_income::bond::pricing::tree_engine::{
+        use crate::instruments::fixed_income::bond::pricing::engine::tree::{
             bond_tree_config, BondValuator,
         };
 
@@ -1350,7 +1348,7 @@ impl crate::instruments::common_impl::traits::Instrument for Bond {
         // Standard cashflow discounting for straight bonds using bond cashflows
         // sized under the bond's own day-count and discount factors provided by
         // the assigned discount curve.
-        crate::instruments::fixed_income::bond::pricing::discount_engine::BondEngine::price(
+        crate::instruments::fixed_income::bond::pricing::engine::discount::BondEngine::price(
             self, curves, as_of,
         )
     }
@@ -1462,14 +1460,14 @@ impl Bond {
     /// as-is (the config schedule takes precedence).
     pub fn price_merton_mc(
         &self,
-        config: &crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
+        config: &crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig,
         discount_rate: f64,
         as_of: time::Date,
     ) -> finstack_core::Result<
-        crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcResult,
+        crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcResult,
     > {
         use crate::cashflow::builder::specs::CouponType;
-        use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::{
+        use crate::instruments::fixed_income::bond::pricing::engine::merton_mc::{
             MertonMcConfig, MertonMcEngine, PikMode, PikSchedule,
         };
         use rust_decimal::prelude::ToPrimitive;
@@ -2507,7 +2505,7 @@ mod tests {
     #[test]
     fn bond_price_merton_mc_api() {
         use crate::instruments::common::models::credit::MertonModel;
-        use crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig;
+        use crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig;
 
         // Use Corporate convention (30/360) to avoid ActActIsma frequency requirement
         let bond = Bond::with_convention(

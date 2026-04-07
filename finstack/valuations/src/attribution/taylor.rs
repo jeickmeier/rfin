@@ -282,7 +282,7 @@ pub fn attribute_pnl_taylor(
 ///
 /// This maps Taylor results into the standard `PnlAttribution` struct so that
 /// Taylor output can be used interchangeably with parallel/waterfall results.
-pub fn attribute_pnl_taylor_compat(
+pub fn attribute_pnl_taylor_standard(
     instrument: &Arc<dyn Instrument>,
     market_t0: &MarketContext,
     market_t1: &MarketContext,
@@ -714,7 +714,7 @@ mod tests {
         let market_t1 = MarketContext::new();
         let config = TaylorAttributionConfig::default();
 
-        let attribution = attribute_pnl_taylor_compat(
+        let attribution = attribute_pnl_taylor_standard(
             &instrument,
             &market_t0,
             &market_t1,

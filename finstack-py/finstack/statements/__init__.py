@@ -1,9 +1,8 @@
 """Statements bindings (Rust).
 
-This package re-exports the Rust extension module.  Two submodules —
-``analysis`` and ``templates`` — are deprecated; use
-``finstack.statements_analytics.*`` instead.  A :class:`DeprecationWarning`
-is emitted on first import of either deprecated path.
+This package re-exports the Rust extension module.  The ``analysis`` and
+``templates`` submodules have been removed; use
+``finstack.statements_analytics.*`` instead.
 """
 
 from __future__ import annotations
@@ -17,12 +16,12 @@ from finstack import finstack as _finstack
 
 _rust_statements = _finstack.statements
 
-# Submodules that have a Python shim with DeprecationWarning — exclude from
-# the Rust-registration loop so the Python import machinery finds the shim.
-_DEPRECATED_SUBMODULES = frozenset({"analysis", "templates"})
+# Submodules that have a Python file raising ImportError — exclude from the
+# Rust-registration loop so the Python import machinery finds the Python file.
+_REMOVED_SUBMODULES = frozenset({"analysis", "templates"})
 
 for _name in dir(_rust_statements):
-    if _name.startswith("_") or _name in _DEPRECATED_SUBMODULES:
+    if _name.startswith("_") or _name in _REMOVED_SUBMODULES:
         continue
     _attr = getattr(_rust_statements, _name)
     globals()[_name] = _attr

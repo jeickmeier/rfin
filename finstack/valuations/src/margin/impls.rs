@@ -16,7 +16,7 @@ use finstack_core::market_data::context::MarketContext;
 use finstack_core::money::Money;
 use finstack_core::Result;
 use finstack_margin::constants::{
-    self, DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
+    self, CALENDAR_DAYS_PER_YEAR, DEFAULT_BOND_INDEX_DURATION, DURATION_APPROXIMATION_FACTOR,
     INVESTMENT_GRADE_SPREAD_THRESHOLD_BP, ONE_BP, STANDARD_CDS_MATURITY_YEARS,
 };
 use finstack_margin::{
@@ -132,7 +132,7 @@ impl Marginable for InterestRateSwap {
         let mut sens = SimmSensitivities::new(currency);
 
         let days_to_maturity = (self.float.end - as_of).whole_days().max(0) as f64;
-        let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
+        let years_to_maturity = days_to_maturity / CALENDAR_DAYS_PER_YEAR;
 
         if years_to_maturity <= 0.0 {
             return Ok(sens);
@@ -221,7 +221,7 @@ impl Marginable for CreditDefaultSwap {
         let mut sens = SimmSensitivities::new(currency);
 
         let days_to_maturity = (self.premium.end - as_of).whole_days().max(0) as f64;
-        let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
+        let years_to_maturity = days_to_maturity / CALENDAR_DAYS_PER_YEAR;
         let years_to_maturity = if years_to_maturity <= 0.0 {
             STANDARD_CDS_MATURITY_YEARS
         } else {
@@ -300,7 +300,7 @@ impl Marginable for CDSIndex {
         let mut sens = SimmSensitivities::new(currency);
 
         let days_to_maturity = (self.premium.end - as_of).whole_days().max(0) as f64;
-        let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
+        let years_to_maturity = days_to_maturity / CALENDAR_DAYS_PER_YEAR;
         let years_to_maturity = if years_to_maturity <= 0.0 {
             STANDARD_CDS_MATURITY_YEARS
         } else {
@@ -474,7 +474,7 @@ impl Marginable for Repo {
         // Repos have limited rate sensitivity - mainly to the repo rate
         // Short-term IR sensitivity
         let days_to_maturity = (self.maturity - as_of).whole_days().max(1) as f64;
-        let years_to_maturity = days_to_maturity / DAYS_PER_YEAR;
+        let years_to_maturity = days_to_maturity / CALENDAR_DAYS_PER_YEAR;
 
         // DV01 approximation for short-term lending
         let dv01 = self.cash_amount.amount() * years_to_maturity * ONE_BP;

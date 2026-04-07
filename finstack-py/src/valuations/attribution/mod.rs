@@ -16,7 +16,7 @@ use finstack_core::types::CurveId;
 use finstack_core::HashMap;
 use finstack_valuations::attribution::{
     attribute_pnl_metrics_based, attribute_pnl_parallel, attribute_pnl_taylor,
-    attribute_pnl_taylor_compat, attribute_pnl_waterfall, compute_pnl, compute_pnl_with_fx,
+    attribute_pnl_taylor_standard, attribute_pnl_waterfall, compute_pnl, compute_pnl_with_fx,
     convert_currency, default_attribution_metrics, default_waterfall_order,
     extract_model_params as rust_extract_model_params, measure_conversion_shift,
     measure_default_shift, measure_prepayment_shift, measure_recovery_shift, reprice_instrument,
@@ -1557,7 +1557,7 @@ pub fn attribute_pnl(
             )
             .map_err(core_to_py)
         }
-        AttributionMethod::Taylor(config_inner) => attribute_pnl_taylor_compat(
+        AttributionMethod::Taylor(config_inner) => attribute_pnl_taylor_standard(
             &instrument_arc,
             &market_t0.inner,
             &market_t1.inner,

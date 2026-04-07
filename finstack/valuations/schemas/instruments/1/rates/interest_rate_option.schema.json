@@ -14,9 +14,9 @@
           "bdc": "Following",
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "end_date": "2029-01-03",
+          "maturity": "2029-01-03",
           "exercise_style": "European",
-          "forward_id": "USD-SOFR-3M",
+          "forward_curve_id": "USD-SOFR-3M",
           "frequency": "3M",
           "id": "USD-CAP-5Y-5PCT",
           "notional": {
@@ -27,7 +27,7 @@
           "settlement": "Cash",
           "start_date": "2024-01-03",
           "strike": 0.05,
-          "stub_kind": "None",
+          "stub": "None",
           "vol_surface_id": "USD-SWAPTION-VOL"
         },
         "type": "interest_rate_option"

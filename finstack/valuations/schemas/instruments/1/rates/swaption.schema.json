@@ -21,7 +21,7 @@
           "float_freq": {
             "Months": 3
           },
-          "forward_id": "USD-SOFR-3M",
+          "forward_curve_id": "USD-SOFR-3M",
           "id": "SWPN-1Yx5Y-USD",
           "notional": {
             "amount": "10000000",
@@ -72,7 +72,7 @@
           "float_freq": {
             "Months": 3
           },
-          "forward_id": "USD-SOFR-3M",
+          "forward_curve_id": "USD-SOFR-3M",
           "id": "SWPN-1Yx5Y-USD",
           "notional": {
             "amount": "10000000",

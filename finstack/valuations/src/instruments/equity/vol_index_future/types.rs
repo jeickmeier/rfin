@@ -86,7 +86,6 @@ pub struct VolatilityIndexFuture {
     /// the number of contracts.
     pub notional: Money,
     /// Future expiry date (typically 30 days before VIX settlement).
-    #[serde(alias = "expiry_date")]
     pub expiry: Date,
     /// Settlement date (SOQ calculation date).
     pub settlement_date: Date,

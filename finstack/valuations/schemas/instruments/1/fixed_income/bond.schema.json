@@ -81,7 +81,7 @@
           "discount_curve_id": "USD-TREASURY",
           "ex_coupon_days": null,
           "id": "US912828XG33",
-          "issue": "2024-01-15",
+          "issue_date": "2024-01-15",
           "maturity": "2034-01-15",
           "notional": {
             "amount": "1000000",

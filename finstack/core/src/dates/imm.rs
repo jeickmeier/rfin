@@ -656,7 +656,7 @@ mod tests {
     }
 
     #[test]
-    fn sifma_backward_compat_default_is_class_b() {
+    fn sifma_default_is_class_b() {
         let old = sifma_settlement_date(Month::January, 2026);
         let new = sifma_settlement_date_for_class(Month::January, 2026, SifmaSettlementClass::B);
         assert_eq!(old, new);

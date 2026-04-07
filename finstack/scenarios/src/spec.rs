@@ -713,7 +713,7 @@ pub enum CurveKind {
     /// Discount factor curve.
     Discount,
     /// Forward rate curve.
-    #[serde(rename = "forward", alias = "forecast")]
+    #[serde(rename = "forward")]
     Forward,
     /// Credit Par CDS curve (bumping spreads)
     #[serde(rename = "par_cds")]
@@ -840,77 +840,6 @@ pub struct RateBindingSpec {
     pub day_count: Option<String>,
 }
 
-impl RateBindingSpec {
-    /// Build a binding from the legacy `(node_id, curve_id)` map.
-    ///
-    /// Uses a 1Y tenor with continuous compounding and no day-count override.
-    ///
-    /// # Arguments
-    ///
-    /// - `node_id`: Statement node that should receive the extracted rate.
-    /// - `curve_id`: Curve identifier to query during scenario application.
-    ///
-    /// # Returns
-    ///
-    /// A [`RateBindingSpec`] using the legacy defaults:
-    /// - tenor = `1Y`
-    /// - compounding = [`Compounding::Continuous`]
-    /// - day count override = `None`
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use finstack_scenarios::{Compounding, RateBindingSpec};
-    ///
-    /// let binding = RateBindingSpec::from_legacy("InterestRate", "USD_SOFR");
-    /// assert_eq!(binding.tenor, "1Y");
-    /// assert_eq!(binding.compounding, Compounding::Continuous);
-    /// assert!(binding.day_count.is_none());
-    /// ```
-    pub fn from_legacy(node_id: impl Into<NodeId>, curve_id: impl Into<String>) -> Self {
-        Self {
-            node_id: node_id.into(),
-            curve_id: curve_id.into(),
-            tenor: "1Y".to_string(),
-            compounding: Compounding::Continuous,
-            day_count: None,
-        }
-    }
-
-    /// Convert a legacy `(node_id, curve_id)` map into detailed binding specs.
-    ///
-    /// # Arguments
-    ///
-    /// - `legacy`: Mapping from statement node identifiers to curve identifiers.
-    ///
-    /// # Returns
-    ///
-    /// An [`IndexMap`] containing one [`RateBindingSpec`] per legacy entry, in
-    /// insertion order.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use indexmap::IndexMap;
-    /// use finstack_scenarios::RateBindingSpec;
-    ///
-    /// let mut legacy = IndexMap::new();
-    /// legacy.insert("InterestRate".to_string(), "USD_SOFR".to_string());
-    ///
-    /// let bindings = RateBindingSpec::map_from_legacy(legacy);
-    /// assert_eq!(bindings["InterestRate"].curve_id, "USD_SOFR");
-    /// ```
-    pub fn map_from_legacy(legacy: IndexMap<String, String>) -> IndexMap<NodeId, RateBindingSpec> {
-        legacy
-            .into_iter()
-            .map(|(node_id, curve_id)| {
-                let node_id = NodeId::from(node_id);
-                let spec = RateBindingSpec::from_legacy(node_id.clone(), curve_id);
-                (node_id, spec)
-            })
-            .collect()
-    }
-}
 
 /// Compounding convention for rate conversions.
 ///

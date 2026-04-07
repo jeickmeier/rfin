@@ -362,12 +362,12 @@ pub struct PyBondBuilder {
     float_margin_bp: f64,
     float_gearing: f64,
     float_reset_lag_days: i32,
-    merton_mc_config: Option<finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig>,
+    merton_mc_config: Option<finstack_valuations::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig>,
     tree_steps: Option<usize>,
     tree_volatility: Option<f64>,
     mean_reversion: Option<f64>,
     call_friction_cents: Option<f64>,
-    tree_model: Option<finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::TreeModelChoice>,
+    tree_model: Option<finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::TreeModelChoice>,
 }
 
 impl PyBondBuilder {
@@ -1185,7 +1185,7 @@ impl PyBond {
         clean_price_pct: f64,
         config: Option<&tree_config::PyTreePricerConfig>,
     ) -> PyResult<f64> {
-        use finstack_valuations::instruments::fixed_income::bond::pricing::tree_engine::{
+        use finstack_valuations::instruments::fixed_income::bond::pricing::engine::tree::{
             bond_tree_config, TreePricer as RustTreePricer,
         };
         let date = py_to_date(as_of).context("as_of")?;

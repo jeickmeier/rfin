@@ -32,7 +32,7 @@ pub enum AssetClass {
     /// Equity prices and dividends.
     Equity,
     /// Foreign exchange rates.
-    #[serde(rename = "fx", alias = "f_x")]
+    #[serde(rename = "fx")]
     FX,
     /// Implied and realized volatility.
     Volatility,
@@ -139,13 +139,6 @@ mod tests {
         assert_eq!(json["asset_classes"], serde_json::json!(["equity", "fx"]));
         assert_eq!(json["tags"], serde_json::json!(["systemic"]));
         assert_eq!(json["components"], serde_json::json!(["equity"]));
-    }
-
-    #[test]
-    fn test_asset_class_fx_accepts_legacy_alias() {
-        let parsed: AssetClass = serde_json::from_str("\"f_x\"").expect("deserialize legacy alias");
-
-        assert_eq!(parsed, AssetClass::FX);
     }
 
     #[test]

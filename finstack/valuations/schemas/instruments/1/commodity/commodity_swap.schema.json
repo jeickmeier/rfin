@@ -18,14 +18,14 @@
           "commodity_type": "Energy",
           "currency": "USD",
           "discount_curve_id": "USD-OIS",
-          "end_date": "2025-12-31",
+          "maturity": "2025-12-31",
           "fixed_price": 3.50,
           "floating_index_id": "NG-SPOT-AVG",
           "id": "NG-SWAP-2025",
           "index_lag_days": null,
           "notional_quantity": 10000.0,
-          "side": "pay_fixed",
-          "payment_frequency": {
+          "side": "pay",
+          "frequency": {
             "count": 1,
             "unit": "months"
           },
@@ -50,13 +50,13 @@
           "commodity_type": "Energy",
           "currency": "USD",
           "discount_curve_id": "USD-OIS",
-          "end_date": "2025-12-31",
+          "maturity": "2025-12-31",
           "fixed_price": 3.50,
           "floating_index_id": "NG-SPOT-AVG",
           "id": "NG-SWAP-2025",
           "notional_quantity": 10000.0,
-          "side": "pay_fixed",
-          "payment_frequency": {
+          "side": "pay",
+          "frequency": {
             "count": 1,
             "unit": "months"
           },

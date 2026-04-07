@@ -1393,7 +1393,7 @@ mod tests {
     }
 
     #[test]
-    fn backward_compat_xva_result_without_new_fields() {
+    fn xva_result_returns_none_for_optional_fields() {
         // Existing compute_cva should still work and return None for new fields
         let hazard = flat_hazard_curve(0.02);
         let discount = flat_discount_curve(0.03);
@@ -1419,7 +1419,7 @@ mod tests {
     }
 
     #[test]
-    fn backward_compat_xva_result_serde_roundtrip() {
+    fn xva_result_serde_roundtrip_with_optional_fields() {
         // Ensure XvaResult can be serialized/deserialized with new Optional fields
         let hazard = flat_hazard_curve(0.02);
         let discount = flat_discount_curve(0.03);

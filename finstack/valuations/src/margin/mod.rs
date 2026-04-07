@@ -24,4 +24,3 @@ pub use finstack_margin::{
 };
 
 mod impls;
-pub mod traits;

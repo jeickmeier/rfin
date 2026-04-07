@@ -15,10 +15,10 @@
             "bdc": "modified_following",
             "calendar_id": null,
             "compounding_simple": true,
-            "dc": "Thirty360",
+            "day_count": "Thirty360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-01-01",
-            "freq": {
+            "frequency": {
               "Months": 6
             },
             "par_method": null,
@@ -29,11 +29,11 @@
           "float": {
             "bdc": "modified_following",
             "calendar_id": null,
-            "dc": "Act360",
+            "day_count": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-01-01",
             "forward_curve_id": "USD-SOFR-3M",
-            "freq": {
+            "frequency": {
               "Months": 3
             },
             "reset_lag_days": 2,
@@ -46,7 +46,7 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "side": "pay_fixed"
+          "side": "pay"
         },
         "type": "interest_rate_swap"
       },
@@ -66,10 +66,10 @@
             "bdc": "modified_following",
             "calendar_id": null,
             "compounding_simple": true,
-            "dc": "Thirty360",
+            "day_count": "Thirty360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-01-01",
-            "freq": {
+            "frequency": {
               "Months": 6
             },
             "par_method": null,
@@ -80,11 +80,11 @@
           "float": {
             "bdc": "modified_following",
             "calendar_id": null,
-            "dc": "Act360",
+            "day_count": "Act360",
             "discount_curve_id": "USD-OIS",
             "end": "2029-01-01",
             "forward_curve_id": "USD-SOFR-3M",
-            "freq": {
+            "frequency": {
               "Months": 3
             },
             "reset_lag_days": 2,
@@ -97,7 +97,7 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "side": "pay_fixed"
+          "side": "pay"
         },
         "type": "interest_rate_swap"
       },

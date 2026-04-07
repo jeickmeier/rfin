@@ -402,11 +402,7 @@ impl PyEquityIndexFutureBuilder {
         slf
     }
 
-    /// Backward-compatible alias for `div_yield_id`.
-    fn dividend_yield_id<'py>(mut slf: PyRefMut<'py, Self>, id: &str) -> PyRefMut<'py, Self> {
-        slf.div_yield_id = Some(CurveId::new(id));
-        slf
-    }
+
 
     fn build(slf: PyRef<'_, Self>) -> PyResult<PyEquityIndexFuture> {
         let inner = slf.validate_and_build()?;

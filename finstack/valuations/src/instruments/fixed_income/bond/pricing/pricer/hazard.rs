@@ -1,7 +1,7 @@
 //! Hazard-rate bond pricer for the pricing registry.
 
 use crate::instruments::common_impl::traits::Instrument;
-use crate::instruments::fixed_income::bond::pricing::hazard_engine::HazardBondEngine;
+use crate::instruments::fixed_income::bond::pricing::engine::hazard::HazardBondEngine;
 use crate::instruments::fixed_income::bond::types::Bond;
 use crate::pricer::{
     InstrumentType, ModelKey, Pricer, PricerKey, PricingError, PricingErrorContext,

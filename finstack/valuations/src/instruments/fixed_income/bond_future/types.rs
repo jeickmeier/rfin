@@ -418,7 +418,6 @@ pub struct BondFuture {
     pub notional: Money,
 
     /// Future expiry date (last trading day)
-    #[serde(alias = "expiry_date")]
     pub expiry: Date,
 
     /// First delivery date

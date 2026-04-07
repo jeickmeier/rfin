@@ -98,26 +98,4 @@ class Estimate:
         """Range (max - min) if available."""
         ...
 
-class ConvergenceDiagnostics:
-    """Convergence diagnostics for Monte Carlo simulation."""
-
-    def __init__(self) -> None:
-        """Create empty diagnostics."""
-        ...
-
-    @property
-    def stderr_decay_rate(self) -> float | None:
-        """Stderr decay rate (should be ~-0.5 for standard MC)."""
-        ...
-
-    @property
-    def effective_sample_size(self) -> int | None:
-        """Effective sample size (for weighted samples)."""
-        ...
-
-    @property
-    def variance_reduction_factor(self) -> float | None:
-        """Variance reduction factor (vs. baseline)."""
-        ...
-
-__all__ = ["Estimate", "ConvergenceDiagnostics"]
+__all__ = ["Estimate"]

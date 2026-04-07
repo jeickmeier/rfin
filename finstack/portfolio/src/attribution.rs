@@ -277,7 +277,7 @@ fn attribute_single_position(
         }
 
         AttributionMethod::Taylor(ref taylor_config) => {
-            let attr = finstack_valuations::attribution::attribute_pnl_taylor_compat(
+            let attr = finstack_valuations::attribution::attribute_pnl_taylor_standard(
                 &position.instrument,
                 market_t0,
                 market_t1,

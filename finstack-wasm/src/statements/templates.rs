@@ -7,8 +7,8 @@
 use crate::core::error::js_error;
 use finstack_core::dates::PeriodId;
 use finstack_statements_analytics::templates::real_estate::{
-    FreeRentWindowSpec, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase,
-    ManagementFeeSpec, PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
+    FreeRentWindowSpec, LeaseGrowthConvention, LeaseSpec, ManagementFeeBase, ManagementFeeSpec,
+    PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec, SimpleLeaseSpec,
 };
 use std::str::FromStr;
 use wasm_bindgen::prelude::*;
@@ -18,13 +18,13 @@ fn parse_pid(s: &str) -> Result<PeriodId, JsValue> {
 }
 
 /// Lease specification for simple rent-roll modelling (v1).
-#[wasm_bindgen(js_name = LeaseSpec)]
-pub struct JsLeaseSpec {
-    pub(crate) inner: LeaseSpec,
+#[wasm_bindgen(js_name = SimpleLeaseSpec)]
+pub struct JsSimpleLeaseSpec {
+    pub(crate) inner: SimpleLeaseSpec,
 }
 
-#[wasm_bindgen(js_class = LeaseSpec)]
-impl JsLeaseSpec {
+#[wasm_bindgen(js_class = SimpleLeaseSpec)]
+impl JsSimpleLeaseSpec {
     /// Create a new lease specification.
     ///
     /// # Arguments
@@ -44,11 +44,11 @@ impl JsLeaseSpec {
         end: Option<String>,
         free_rent_periods: Option<u32>,
         occupancy: Option<f64>,
-    ) -> Result<JsLeaseSpec, JsValue> {
+    ) -> Result<JsSimpleLeaseSpec, JsValue> {
         let start_pid = parse_pid(start)?;
         let end_pid = end.as_deref().map(parse_pid).transpose()?;
-        Ok(JsLeaseSpec {
-            inner: LeaseSpec {
+        Ok(JsSimpleLeaseSpec {
+            inner: SimpleLeaseSpec {
                 node_id,
                 start: start_pid,
                 end: end_pid,
@@ -100,7 +100,7 @@ impl JsLeaseSpec {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!(
-            "LeaseSpec(nodeId='{}', start={}, baseRent={:.2})",
+            "SimpleLeaseSpec(nodeId='{}', start={}, baseRent={:.2})",
             self.inner.node_id, self.inner.start, self.inner.base_rent
         )
     }
@@ -352,31 +352,31 @@ impl JsManagementFeeSpec {
     }
 }
 
-/// Enhanced lease specification with rent steps, free-rent windows, and renewals (v2).
-#[wasm_bindgen(js_name = LeaseSpecV2)]
-pub struct JsLeaseSpecV2 {
-    pub(crate) inner: LeaseSpecV2,
+/// Enhanced lease specification with rent steps, free-rent windows, and renewals.
+#[wasm_bindgen(js_name = LeaseSpec)]
+pub struct JsLeaseSpec {
+    pub(crate) inner: LeaseSpec,
 }
 
-#[wasm_bindgen(js_class = LeaseSpecV2)]
-impl JsLeaseSpecV2 {
+#[wasm_bindgen(js_class = LeaseSpec)]
+impl JsLeaseSpec {
     /// Create from JSON representation.
     ///
     /// Accepts a JS object with fields: `nodeId`, `start`, `baseRent`,
     /// `growthRate`, `growthConvention`, `end`, `rentSteps`, `freeRentPeriods`,
     /// `freeRentWindows`, `occupancy`, `renewal`.
     #[wasm_bindgen(js_name = fromJSON)]
-    pub fn from_json(value: JsValue) -> Result<JsLeaseSpecV2, JsValue> {
+    pub fn from_json(value: JsValue) -> Result<JsLeaseSpec, JsValue> {
         serde_wasm_bindgen::from_value(value)
-            .map(|inner| JsLeaseSpecV2 { inner })
-            .map_err(|e| js_error(format!("Failed to deserialize LeaseSpecV2: {e}")))
+            .map(|inner| JsLeaseSpec { inner })
+            .map_err(|e| js_error(format!("Failed to deserialize LeaseSpec: {e}")))
     }
 
     /// Convert to JSON representation.
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {
         serde_wasm_bindgen::to_value(&self.inner)
-            .map_err(|e| js_error(format!("Failed to serialize LeaseSpecV2: {e}")))
+            .map_err(|e| js_error(format!("Failed to serialize LeaseSpec: {e}")))
     }
 
     /// Node identifier.
@@ -419,7 +419,7 @@ impl JsLeaseSpecV2 {
     #[wasm_bindgen(js_name = toString)]
     pub fn to_string_js(&self) -> String {
         format!(
-            "LeaseSpecV2(nodeId='{}', start={}, baseRent={:.2})",
+            "LeaseSpec(nodeId='{}', start={}, baseRent={:.2})",
             self.inner.node_id, self.inner.start, self.inner.base_rent
         )
     }

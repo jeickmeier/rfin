@@ -10,13 +10,13 @@
       },
       "fixing_date": "2024-04-01",
       "start_date": "2024-04-03",
-      "end_date": "2024-07-03",
+      "maturity": "2024-07-03",
       "fixed_rate": 0.045,
       "day_count": "Act360",
       "reset_lag": 2,
       "discount_curve_id": "USD-OIS",
       "forward_curve_id": "USD-SOFR-3M",
-      "side": "receive_fixed",
+      "side": "receive",
       "attributes": {
         "tags": [],
         "meta": {}

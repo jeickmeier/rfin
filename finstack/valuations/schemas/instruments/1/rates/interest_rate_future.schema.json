@@ -20,9 +20,9 @@
           },
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "expiry_date": "2025-03-17",
+          "expiry": "2025-03-17",
           "fixing_date": "2025-03-17",
-          "forward_id": "USD-SOFR-3M",
+          "forward_curve_id": "USD-SOFR-3M",
           "id": "IRF-ED-3M-MAR25",
           "notional": {
             "amount": "1000000",
@@ -56,8 +56,8 @@
           },
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "expiry_date": "2025-03-17",
-          "forward_id": "USD-SOFR-3M",
+          "expiry": "2025-03-17",
+          "forward_curve_id": "USD-SOFR-3M",
           "id": "IRF-ED-3M-MAR25",
           "notional": {
             "amount": "1000000",

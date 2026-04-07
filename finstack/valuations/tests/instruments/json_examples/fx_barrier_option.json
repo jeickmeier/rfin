@@ -19,8 +19,8 @@
         "amount": "1000000",
         "currency": "USD"
       },
-      "domestic_currency": "USD",
-      "foreign_currency": "EUR",
+      "quote_currency": "USD",
+      "base_currency": "EUR",
       "day_count": "Act365F",
       "use_gobet_miri": false,
       "domestic_discount_curve_id": "USD-OIS",

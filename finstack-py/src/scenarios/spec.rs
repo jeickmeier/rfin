@@ -308,52 +308,6 @@ impl PyRateBindingSpec {
         )
     }
 
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, node_id, curve_id)")]
-    /// Build a binding from a legacy `(node_id, curve_id)` mapping.
-    ///
-    /// Parameters
-    /// ----------
-    /// node_id : str
-    ///     Statement node ID to receive the rate.
-    /// curve_id : str
-    ///     Curve ID to extract rate from.
-    ///
-    /// Returns
-    /// -------
-    /// RateBindingSpec
-    ///     Binding with 1Y tenor, continuous compounding, and no day-count override.
-    fn from_legacy(_cls: &Bound<'_, PyType>, node_id: String, curve_id: String) -> Self {
-        Self::from_inner(RateBindingSpec::from_legacy(node_id, curve_id))
-    }
-
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, legacy)")]
-    /// Convert a legacy ``dict[str, str]`` mapping to detailed binding specs.
-    ///
-    /// Each entry ``{node_id: curve_id}`` is converted to a
-    /// :class:`RateBindingSpec` with 1Y tenor, continuous compounding,
-    /// and no day-count override.
-    ///
-    /// Parameters
-    /// ----------
-    /// legacy : dict[str, str]
-    ///     Mapping of node IDs to curve IDs.
-    ///
-    /// Returns
-    /// -------
-    /// dict[str, RateBindingSpec]
-    ///     Detailed binding specs keyed by node ID.
-    fn map_from_legacy(
-        _cls: &Bound<'_, PyType>,
-        legacy: std::collections::HashMap<String, String>,
-    ) -> std::collections::HashMap<String, PyRateBindingSpec> {
-        let index_map: IndexMap<String, String> = legacy.into_iter().collect();
-        RateBindingSpec::map_from_legacy(index_map)
-            .into_iter()
-            .map(|(k, v)| (k.as_str().to_string(), PyRateBindingSpec::from_inner(v)))
-            .collect()
-    }
 }
 
 /// Individual operation within a scenario.

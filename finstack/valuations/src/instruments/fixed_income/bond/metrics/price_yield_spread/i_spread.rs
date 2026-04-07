@@ -125,7 +125,7 @@ impl MetricCalculator for ISpreadCalculator {
         }
 
         let (par_swap_rate, annuity) =
-            crate::instruments::fixed_income::bond::pricing::quote_engine::par_rate_and_annuity_from_discount(
+            crate::instruments::fixed_income::bond::pricing::quote_conversions::par_rate_and_annuity_from_discount(
                 disc.as_ref(),
                 fixed_leg_day_count,
                 &dates,

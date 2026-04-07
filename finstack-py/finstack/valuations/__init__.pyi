@@ -49,7 +49,6 @@ from .instruments import (
 )
 from .pricer import (
     PricerRegistry,
-    get_standard_registry,
     price_portfolio,
     standard_registry,
 )
@@ -245,7 +244,6 @@ __all__ = [
     # Pricer
     "PricerRegistry",
     "price_portfolio",
-    "get_standard_registry",
     "standard_registry",
     # Results
     "ValuationResult",

@@ -1,7 +1,7 @@
 //! Builders for bond instruments from market quotes.
 
 use crate::cashflow::traits::CashflowProvider;
-use crate::instruments::fixed_income::bond::pricing::quote_engine::{
+use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
     df_from_yield, YieldCompounding,
 };
 use crate::instruments::fixed_income::bond::pricing::settlement::QuoteDateContext;
@@ -112,7 +112,7 @@ pub fn build_bond_instrument(
             )?;
             let quote_ctx = QuoteDateContext::new(&bond, market, ctx.as_of())?;
             let dirty_price_ccy =
-                crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_z_spread(
+                crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_z_spread(
                     &bond,
                     market,
                     quote_ctx.quote_date,
@@ -154,7 +154,7 @@ pub fn build_bond_instrument(
             )?;
             let quote_ctx = QuoteDateContext::new(&bond, market, ctx.as_of())?;
             let dirty_price_ccy =
-                crate::instruments::fixed_income::bond::pricing::quote_engine::price_from_oas(
+                crate::instruments::fixed_income::bond::pricing::quote_conversions::price_from_oas(
                     &bond,
                     market,
                     quote_ctx.quote_date,

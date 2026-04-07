@@ -208,7 +208,6 @@ pub struct TermLoan {
     pub notional_limit: Money,
 
     /// Issue (effective) date
-    #[serde(alias = "issue")]
     pub issue_date: Date,
 
     /// Maturity date
@@ -218,7 +217,6 @@ pub struct TermLoan {
     pub rate: RateSpec,
 
     /// Payment frequency for coupons/fees
-    #[serde(alias = "pay_freq")]
     pub frequency: Tenor,
 
     /// Day count convention

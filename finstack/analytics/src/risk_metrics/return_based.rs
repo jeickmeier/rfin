@@ -886,7 +886,7 @@ mod tests {
     }
 
     #[test]
-    fn cagr_with_act_365_fixed_matches_legacy_behavior() {
+    fn cagr_with_act_365_fixed() {
         let r = [0.10];
         let c = cagr_with_convention(
             &r,

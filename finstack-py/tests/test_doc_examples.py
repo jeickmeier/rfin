@@ -258,8 +258,7 @@ def create_simple_pricer_registry() -> "finstack.valuations.pricer.PricerRegistr
     """Create a simple PricerRegistry for testing."""
     import finstack
 
-    # Use the explicit shared-registry helper
-    return finstack.valuations.pricer.get_standard_registry()
+    return finstack.valuations.pricer.standard_registry()
 
 
 # Collect all examples
@@ -326,7 +325,6 @@ def make_test_function(example_id: str, code: str, context: str) -> Callable[[],
                 namespace["PortfolioMetrics"] = finstack.portfolio.metrics.PortfolioMetrics
                 namespace["PricerRegistry"] = finstack.valuations.pricer.PricerRegistry
                 namespace["standard_registry"] = finstack.valuations.pricer.standard_registry
-                namespace["get_standard_registry"] = finstack.valuations.pricer.get_standard_registry
                 namespace["ValuationResult"] = finstack.valuations.results.ValuationResult
                 namespace["ResultsMeta"] = finstack.valuations.results.ResultsMeta
                 namespace["CovenantReport"] = finstack.valuations.results.CovenantReport

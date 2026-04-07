@@ -29,7 +29,7 @@ use std::sync::OnceLock;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct MetricId(Cow<'static, str>);
 
-#[allow(non_upper_case_globals)] // PascalCase names maintained for backward compatibility
+#[allow(non_upper_case_globals)] // PascalCase names for metric ID constants
 impl MetricId {
     /// Creates a custom metric ID.
     ///
@@ -85,9 +85,9 @@ impl MetricId {
     /// assert!(result.is_err());
     /// ```
     ///
-    /// # Migration from FromStr
+    /// # Custom metrics via FromStr
     ///
-    /// If you need backward compatibility (accept custom metrics), use `FromStr::from_str`
+    /// To accept custom metrics, use `FromStr::from_str`
     /// or the `.parse()` method which never fails:
     ///
     /// ```

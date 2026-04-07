@@ -47,9 +47,6 @@ pub mod cheyette_rough;
 pub use exact::{ExactGbm, ExactMultiGbm, ExactMultiGbmCorrelated};
 pub use exact_gbm_dividends::ExactGbmWithDividends;
 
-// Backwards-compatible alias
-pub use exact_gbm_dividends as exact_gbm_div;
-
 #[cfg(feature = "mc")]
 pub use exact_hw1f::ExactHullWhite1F;
 

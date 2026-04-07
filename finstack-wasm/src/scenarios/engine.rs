@@ -168,16 +168,9 @@ impl JsExecutionContext {
             return Ok(Some(mapped));
         }
 
-        // Fallback to legacy node->curve map for backwards compatibility.
-        let legacy: IndexMap<String, String> = serde_wasm_bindgen::from_value(value.clone())
-            .map_err(|secondary_err| {
-                JsValue::from_str(&format!(
-                    "Failed to parse rate bindings as detailed specs or legacy map: {}",
-                    secondary_err
-                ))
-            })?;
-
-        Ok(Some(RateBindingSpec::map_from_legacy(legacy)))
+        Err(JsValue::from_str(
+            "Failed to parse rate bindings: expected IndexMap<NodeId, RateBindingSpec> or Vec<RateBindingSpec>",
+        ))
     }
 
     /// Create a new execution context.

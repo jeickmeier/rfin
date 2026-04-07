@@ -233,10 +233,8 @@ pub enum ThresholdTest {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum BoundKind {
     /// Covenant passes when the metric is less than or equal to the threshold.
-    #[serde(alias = "LessOrEqual")]
     AtMost,
     /// Covenant passes when the metric is greater than or equal to the threshold.
-    #[serde(alias = "GreaterOrEqual")]
     AtLeast,
 }
 
@@ -498,7 +496,7 @@ pub struct CovenantBreach {
     /// Stable identifier matching [`CovenantType::covenant_id`].
     #[serde(default)]
     pub covenant_id: String,
-    /// Human-readable description (from `Display`). Kept for backward compat.
+    /// Human-readable description (from `Display`).
     pub covenant_type: String,
     /// Date of the breach
     pub breach_date: Date,

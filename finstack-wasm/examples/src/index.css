@@ -146,7 +146,7 @@
   }
 }
 
-/* Legacy class compatibility - provides styling for components not yet migrated to shadcn */
+/* Base component styles */
 @layer components {
   .example-section {
     @apply rounded-lg border bg-card p-6 my-6;
@@ -237,7 +237,7 @@
     @apply px-3 py-1.5;
   }
 
-  /* Button styles for legacy components */
+  /* Button styles for example sections */
   .example-section button {
     @apply inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors;
     @apply bg-primary text-primary-foreground hover:bg-primary/90;

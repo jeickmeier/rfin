@@ -207,13 +207,10 @@ pub struct InflationLinkedBond {
     /// Real coupon rate (as decimal)
     pub real_coupon: Decimal,
     /// Coupon frequency
-    #[serde(alias = "freq")]
     pub frequency: Tenor,
     /// Day count convention
-    #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Issue date
-    #[serde(alias = "issue")]
     pub issue_date: Date,
     /// Maturity date
     pub maturity: Date,
@@ -817,7 +814,7 @@ impl InflationLinkedBond {
         _curves: &MarketContext,
         as_of: Date,
     ) -> Result<f64> {
-        use crate::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding;
+        use crate::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding;
         use crate::instruments::fixed_income::bond::pricing::ytm_solver::{
             solve_ytm, YtmPricingSpec,
         };
@@ -898,7 +895,7 @@ impl InflationLinkedBond {
     /// Computes the modified duration of the bond based on its real (unadjusted)
     /// cashflows. This measures sensitivity to changes in real yield.
     pub fn real_duration(&self, curves: &MarketContext, as_of: Date) -> Result<f64> {
-        use crate::instruments::fixed_income::bond::pricing::quote_engine::{
+        use crate::instruments::fixed_income::bond::pricing::quote_conversions::{
             price_from_ytm_compounded_params, YieldCompounding,
         };
 

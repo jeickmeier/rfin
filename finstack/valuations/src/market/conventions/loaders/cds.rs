@@ -16,7 +16,6 @@ struct CdsConventionsRecord {
     doc_clause: CdsDocClause,
     day_count: DayCount,
     payment_frequency: String,
-    #[serde(alias = "business_day_convention")]
     bdc: BusinessDayConvention,
     #[allow(dead_code)]
     stub_convention: String,

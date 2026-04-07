@@ -102,8 +102,8 @@ _rust_core = _finstack.core
 _core = _setup_hybrid_module(_rust_core, "core", _pkg_path / "core")
 globals()["core"] = _core
 
-# Ensure the deprecated finstack.core.analytics shim is NOT pre-registered so
-# that Python's import machinery hits the Python file (with DeprecationWarning).
+# Ensure the finstack.core.analytics entry is NOT pre-registered so that
+# Python's import machinery hits the Python __init__ (which raises ImportError).
 _sys.modules.pop("finstack.core.analytics", None)
 
 _rust_scenarios = _finstack.scenarios
@@ -118,9 +118,9 @@ _rust_statements = _finstack.statements
 _statements = _setup_hybrid_module(_rust_statements, "statements", _pkg_path / "statements")
 globals()["statements"] = _statements
 
-# Remove deprecated submodule entries so Python's import machinery falls through
-# to the Python shim files (finstack/statements/analysis/ and templates.py)
-# which emit DeprecationWarning on first import.
+# Remove submodule entries so Python's import machinery falls through to the
+# Python files (finstack/statements/analysis/ and templates.py) which raise
+# ImportError directing users to canonical paths.
 _sys.modules.pop("finstack.statements.analysis", None)
 _sys.modules.pop("finstack.statements.templates", None)
 
@@ -133,7 +133,6 @@ _correlation = _setup_hybrid_module(_rust_correlation, "correlation", _pkg_path 
 globals()["correlation"] = _correlation
 
 # Analytics — canonical top-level package (finstack-analytics crate).
-# finstack.core.analytics remains available as a compatibility shim via core's __init__.
 _rust_analytics = _finstack.analytics
 _analytics = _setup_hybrid_module(_rust_analytics, "analytics", _pkg_path / "analytics")
 globals()["analytics"] = _analytics

@@ -31,7 +31,6 @@ pub enum DependencyType {
     /// Volatility surface dependency.
     Vol,
     /// FX pair dependency.
-    #[serde(alias = "FX")]
     Fx,
     /// Time-series dependency.
     Series,

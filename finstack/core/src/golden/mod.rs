@@ -123,7 +123,7 @@ mod types;
 
 // Re-export types
 pub use types::{
-    CaseMeta, Expectation, ExpectedValue, GeneratedInfo, GoldenSuite, LegacyGoldenFile,
+    CaseMeta, Expectation, ExpectedValue, GeneratedInfo, GoldenSuite,
     ReferenceSource, SuiteMeta, Tolerance, ValidatedInfo,
 };
 

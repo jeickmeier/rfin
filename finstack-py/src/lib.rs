@@ -123,7 +123,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     // Register custom exception hierarchy
     errors::register_exceptions(py, &m)?;
 
-    // Root-level placeholders for backwards compatibility (minimal set)
+    // Root-level convenience re-exports
     m.add_class::<PyCurrency>()?;
     m.add_class::<PyMoney>()?;
     m.add_class::<PyDiscountCurve>()?;

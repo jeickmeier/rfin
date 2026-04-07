@@ -40,7 +40,7 @@ pub struct SchedulePeriod {
 pub struct PeriodSchedule {
     /// Generated accrual/payment periods.
     pub periods: Vec<SchedulePeriod>,
-    /// Payment dates for each period (for backward-compatible callers).
+    /// Payment dates for each period.
     pub dates: Vec<Date>,
     /// Set of payment dates that correspond to first or last periods.
     pub first_or_last: finstack_core::HashSet<Date>,

@@ -37,14 +37,6 @@ impl JsRateBindingSpec {
         }
     }
 
-    /// Build from legacy `(node_id, curve_id)` mapping (tenor defaults to 1Y continuous).
-    #[wasm_bindgen(js_name = fromLegacy)]
-    pub fn from_legacy(node_id: String, curve_id: String) -> JsRateBindingSpec {
-        JsRateBindingSpec {
-            inner: RateBindingSpec::from_legacy(node_id, curve_id),
-        }
-    }
-
     /// Convert to JSON object.
     #[wasm_bindgen(js_name = toJSON)]
     pub fn to_json(&self) -> Result<JsValue, JsValue> {

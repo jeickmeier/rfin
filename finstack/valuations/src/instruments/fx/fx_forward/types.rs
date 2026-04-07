@@ -70,7 +70,6 @@ pub struct FxForward {
     /// Quote currency (domestic currency, denominator of the pair, PV currency).
     pub quote_currency: Currency,
     /// Maturity/settlement date.
-    #[serde(alias = "maturity")]
     pub maturity: Date,
     /// Notional amount in base currency.
     pub notional: Money,

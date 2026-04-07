@@ -10,7 +10,7 @@ use finstack_core::money::Money;
 use finstack_core::Result;
 use std::cell::RefCell;
 
-use super::quote_engine::{price_from_ytm_compounded_params, YieldCompounding};
+use super::quote_conversions::{price_from_ytm_compounded_params, YieldCompounding};
 
 /// Specification for yield-to-maturity calculations
 #[derive(Debug, Clone, Copy)]
@@ -135,7 +135,7 @@ impl Default for YtmSolverConfig {
 ///     day_count: DayCount::Act365F,
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
-///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
+///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding::Street,
 ///     frequency: Tenor::semi_annual(),
 /// };
 /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
@@ -236,7 +236,7 @@ impl YtmSolver {
     ///     day_count: DayCount::Act365F,
     ///     notional: Money::new(1000.0, Currency::USD),
     ///     coupon_rate: 0.05,
-    ///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
+    ///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding::Street,
     ///     frequency: Tenor::semi_annual(),
     /// };
     /// let ytm = solver.solve(&cashflows, as_of, target_price, spec)?;
@@ -279,7 +279,8 @@ impl YtmSolver {
                     YieldCompounding::Annual => ratio.powf(1.0 / years) - 1.0,
                     YieldCompounding::Continuous => ratio.ln() / years,
                     YieldCompounding::Street | YieldCompounding::TreasuryActual => {
-                        let m = super::quote_engine::periods_per_year(spec.frequency)?.max(1.0);
+                        let m =
+                            super::quote_conversions::periods_per_year(spec.frequency)?.max(1.0);
                         m * (ratio.powf(1.0 / (m * years)) - 1.0)
                     }
                     YieldCompounding::Periodic(periods) => {
@@ -407,7 +408,7 @@ impl YtmSolver {
 ///     day_count: DayCount::Act365F,
 ///     notional: Money::new(1000.0, Currency::USD),
 ///     coupon_rate: 0.05,
-///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_engine::YieldCompounding::Street,
+///     compounding: finstack_valuations::instruments::fixed_income::bond::pricing::quote_conversions::YieldCompounding::Street,
 ///     frequency: Tenor::semi_annual(),
 /// };
 /// let ytm = solve_ytm(&cashflows, as_of, target_price, spec)?;

@@ -1,9 +1,6 @@
 """Canonical path for statements analysis tools.
 
-Alias for ``finstack.statements.analysis`` — both paths resolve to the same
-underlying Rust module.
-
-See ``finstack.statements.analysis`` for the full API surface.
+Re-exports from the underlying Rust module.
 """
 
 from __future__ import annotations

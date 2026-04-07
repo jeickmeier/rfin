@@ -176,12 +176,10 @@ pub struct InterestRateOption {
     /// Notional amount
     pub notional: Money,
     /// Strike (as decimal, e.g., 0.05 for 5%)
-    #[serde(alias = "strike_rate")]
     pub strike: Decimal,
     /// Start date of underlying period
     pub start_date: Date,
     /// End date of underlying period
-    #[serde(alias = "end_date")]
     pub maturity: Date,
     /// Payment frequency for caps/floors
     pub frequency: Tenor,
@@ -189,10 +187,7 @@ pub struct InterestRateOption {
     pub day_count: DayCount,
     /// Schedule stub convention
     #[builder(default = StubKind::ShortFront)]
-    #[serde(
-        default = "crate::serde_defaults::stub_short_front",
-        alias = "stub_kind"
-    )]
+    #[serde(default = "crate::serde_defaults::stub_short_front")]
     pub stub: StubKind,
     /// Schedule business day convention
     #[builder(default = BusinessDayConvention::ModifiedFollowing)]
@@ -211,7 +206,6 @@ pub struct InterestRateOption {
     /// Discount curve identifier
     pub discount_curve_id: CurveId,
     /// Forward curve identifier
-    #[serde(alias = "forward_id")]
     pub forward_curve_id: CurveId,
     /// Volatility surface identifier
     pub vol_surface_id: CurveId,

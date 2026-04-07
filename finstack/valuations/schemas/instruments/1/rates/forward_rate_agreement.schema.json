@@ -13,16 +13,16 @@
           },
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "end_date": "2024-07-03",
+          "maturity": "2024-07-03",
           "fixed_rate": 0.045,
           "fixing_date": "2024-04-01",
-          "forward_id": "USD-SOFR-3M",
+          "forward_curve_id": "USD-SOFR-3M",
           "id": "FRA-3X6-USD",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "side": "receive_fixed",
+          "side": "receive",
           "reset_lag": 2,
           "start_date": "2024-04-03"
         },
@@ -42,16 +42,16 @@
           },
           "day_count": "Act360",
           "discount_curve_id": "USD-OIS",
-          "end_date": "2024-07-03",
+          "maturity": "2024-07-03",
           "fixed_rate": 0.045,
           "fixing_date": "2024-04-01",
-          "forward_id": "USD-SOFR-3M",
+          "forward_curve_id": "USD-SOFR-3M",
           "id": "FRA-3X6-USD",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "side": "receive_fixed",
+          "side": "receive",
           "reset_lag": 2,
           "start_date": "2024-04-03"
         },

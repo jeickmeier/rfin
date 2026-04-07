@@ -211,7 +211,7 @@ impl BumpConfig {
 #[cfg(feature = "mc")]
 #[derive(Debug, Clone)]
 pub struct MertonMcOverride(
-    pub crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
+    pub crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig,
 );
 
 /// Model selection and tree pricing parameters.
@@ -486,9 +486,6 @@ impl ScenarioPricingOverrides {
     }
 }
 
-/// Backwards-compatible alias for legacy imports.
-pub type ScenarioConfig = ScenarioPricingOverrides;
-
 // ---------------------------------------------------------------------------
 // Main struct: PricingOverrides (composed from focused sub-structs)
 // ---------------------------------------------------------------------------
@@ -636,7 +633,7 @@ impl PricingOverrides {
     #[cfg(feature = "mc")]
     pub fn with_merton_mc(
         mut self,
-        config: crate::instruments::fixed_income::bond::pricing::merton_mc_engine::MertonMcConfig,
+        config: crate::instruments::fixed_income::bond::pricing::engine::merton_mc::MertonMcConfig,
     ) -> Self {
         self.model_config.merton_mc_config = Some(MertonMcOverride(config));
         self
@@ -900,7 +897,7 @@ mod tests {
     }
 
     #[test]
-    fn serde_flat_field_backward_compat() {
+    fn serde_deserializes_flat_fields() {
         let json = r#"{
             "quoted_clean_price": 99.5,
             "implied_volatility": 0.2,

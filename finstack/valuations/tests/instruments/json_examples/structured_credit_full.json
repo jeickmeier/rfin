@@ -171,7 +171,7 @@
               "excess_spread": 0.0,
               "cash_trap_active": false
             },
-            "payment_frequency": {"count": 3, "unit": "months"},
+            "frequency": {"count": 3, "unit": "months"},
             "day_count": "Act360",
             "deferred_interest": {
               "amount": "0",
@@ -179,7 +179,7 @@
             },
             "is_revolving": true,
             "can_reinvest": true,
-            "legal_maturity": "2034-01-01",
+            "maturity": "2034-01-01",
             "expected_maturity": "2030-01-01",
             "payment_priority": 4,
             "attributes": {
@@ -248,7 +248,7 @@
               "excess_spread": 0.0,
               "cash_trap_active": false
             },
-            "payment_frequency": {"count": 3, "unit": "months"},
+            "frequency": {"count": 3, "unit": "months"},
             "day_count": "Act360",
             "deferred_interest": {
               "amount": "0",
@@ -256,7 +256,7 @@
             },
             "is_revolving": false,
             "can_reinvest": false,
-            "legal_maturity": "2034-01-01",
+            "maturity": "2034-01-01",
             "expected_maturity": null,
             "payment_priority": 1,
             "attributes": {
@@ -275,8 +275,8 @@
       "closing_date": "2024-01-01",
       "first_payment_date": "2024-04-01",
       "reinvestment_end_date": "2026-01-01",
-      "legal_maturity": "2034-01-01",
-      "payment_frequency": {"count": 1, "unit": "months"},
+      "maturity": "2034-01-01",
+      "frequency": {"count": 1, "unit": "months"},
       "discount_curve_id": "USD-SOFR-DISC",
       "attributes": {
         "tags": [
@@ -391,12 +391,12 @@
             "amount": "10000000",
             "currency": "USD"
           },
-          "side": "pay_fixed",
+          "side": "pay",
           "fixed": {
             "discount_curve_id": "USD-OIS",
             "rate": 0.015,
-            "freq": {"count": 6, "unit": "months"},
-            "dc": "Thirty360",
+            "frequency": {"count": 6, "unit": "months"},
+            "day_count": "Thirty360",
             "bdc": "modified_following",
             "calendar_id": "USD",
             "stub": "None",
@@ -409,8 +409,8 @@
             "discount_curve_id": "USD-OIS",
             "forward_curve_id": "USD-SOFR-3M",
             "spread_bp": 0.0,
-            "freq": {"count": 3, "unit": "months"},
-            "dc": "Act360",
+            "frequency": {"count": 3, "unit": "months"},
+            "day_count": "Act360",
             "bdc": "modified_following",
             "calendar_id": "USD",
             "stub": "None",

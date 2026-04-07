@@ -165,7 +165,7 @@ fn test_dcf_with_market_context() {
         .build()
         .expect("valid model");
 
-    // Test with None market context (backward compat)
+    // Test with None market context
     let result_no_market =
         finstack_statements_analytics::analysis::corporate::evaluate_dcf_with_market(
             &model,

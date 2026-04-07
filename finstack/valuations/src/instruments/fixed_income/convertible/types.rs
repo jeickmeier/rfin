@@ -93,7 +93,6 @@ pub struct ConvertibleBond {
     /// Principal amount.
     pub notional: Money,
     /// Issue date.
-    #[serde(alias = "issue")]
     pub issue_date: Date,
     /// Maturity date.
     pub maturity: Date,

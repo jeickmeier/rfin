@@ -185,7 +185,7 @@ pub struct AttributionSpec {
 **Benefits**:
 
 - Stable wire formats for long-lived pipelines
-- Schema versioning for backward compatibility
+- Schema versioning for format evolution
 - Strict deserialization (deny unknown fields)
 - Executable specifications (call `.execute()` on `AttributionSpec`)
 

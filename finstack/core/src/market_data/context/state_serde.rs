@@ -162,7 +162,7 @@ fn default_market_context_state_version() -> u32 {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MarketContextState {
-    /// Schema version for forward/backward compatibility.
+    /// Schema version for format evolution.
     ///
     /// - **1**: initial stable snapshot format.
     /// - **2**: adds optional market data hierarchy snapshots.

@@ -40,7 +40,6 @@ pub struct RevolvingCredit {
     pub commitment_date: Date,
 
     /// Date when the facility expires.
-    #[serde(alias = "maturity")]
     pub maturity: Date,
 
     /// Base rate specification (fixed or floating).
@@ -50,7 +49,6 @@ pub struct RevolvingCredit {
     pub day_count: DayCount,
 
     /// Payment frequency for interest and fees.
-    #[serde(alias = "payment_frequency")]
     pub frequency: Tenor,
 
     /// Fee structure for the facility.
@@ -66,7 +64,7 @@ pub struct RevolvingCredit {
     ///
     /// When provided, survival probabilities from the hazard curve are applied
     /// to discount cashflows, adjusting for default risk.
-    #[serde(default, alias = "hazard_curve_id")]
+    #[serde(default)]
     pub credit_curve_id: Option<CurveId>,
 
     /// Recovery rate on default (used when credit_curve_id is present).
@@ -89,7 +87,7 @@ pub struct RevolvingCredit {
     ///
     /// Defaults to `ShortFront` for maximum flexibility with unaligned dates.
     #[builder(default = StubKind::ShortFront)]
-    #[serde(default = "default_stub_kind", alias = "stub_rule")]
+    #[serde(default = "default_stub_kind")]
     pub stub: StubKind,
 
     /// Attributes for scenario selection and tagging.

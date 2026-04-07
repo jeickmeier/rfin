@@ -39,7 +39,7 @@
                     "discount_curve_id": "USD-OIS",
                     "ex_coupon_days": null,
                     "id": "CORP-BOND-001",
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2034-01-01",
                     "notional": {
                       "amount": "1000",
@@ -129,7 +129,7 @@
                     "discount_curve_id": "USD-OIS",
                     "ex_coupon_days": null,
                     "id": "CORP-BOND-001",
-                    "issue": "2024-01-01",
+                    "issue_date": "2024-01-01",
                     "maturity": "2034-01-01",
                     "notional": {
                       "amount": "1000",

@@ -8,7 +8,7 @@
         "amount": "100000",
         "currency": "USD"
       },
-      "start": "2024-01-01",
+      "start_date": "2024-01-01",
       "maturity": "2024-07-01",
       "day_count": "Act360",
       "quote_rate": 0.045,

@@ -14,7 +14,7 @@
       "maturity": "2025-01-01",
       "observation_freq": {"count": 1, "unit": "days"},
       "realized_var_method": "Parkinson",
-      "side": "Receive",
+      "side": "receive",
       "discount_curve_id": "USD-OIS",
       "day_count": "Act365F",
       "attributes": {

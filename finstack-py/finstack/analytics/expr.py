@@ -1,8 +1,8 @@
 """Polars expression plugins for finstack analytics (canonical path).
 
-Provides the same functions as ``finstack.core.analytics.expr`` but is
-importable without triggering the deprecation warning for the
-``finstack.core.analytics`` compatibility shim.
+Re-exports from the implementation at ``finstack/core/analytics/expr.py``.
+Uses direct file loading to avoid triggering the ``finstack.core.analytics``
+package ``__init__`` which raises :class:`ImportError`.
 """
 
 from __future__ import annotations
@@ -11,8 +11,6 @@ import importlib.util as _util
 from pathlib import Path as _Path
 import sys as _sys
 
-# Load the implementation file directly so we bypass the deprecated
-# finstack.core.analytics package __init__ (which fires DeprecationWarning).
 _impl_path = _Path(__file__).parent.parent / "core" / "analytics" / "expr.py"
 _spec = _util.spec_from_file_location(__name__, _impl_path)
 if _spec is None or _spec.loader is None:

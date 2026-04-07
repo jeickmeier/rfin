@@ -39,7 +39,6 @@ pub const MAX_STRIKE: f64 = 1.0;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CDSOptionParams {
     /// Strike spread as a decimal rate (e.g., 0.01 = 100bp)
-    #[serde(alias = "strike_spread_bp")]
     pub strike: Decimal,
     /// Option expiry date (must be before cds_maturity)
     pub expiry: Date,
@@ -55,7 +54,6 @@ pub struct CDSOptionParams {
     /// Optional index factor scaling for index underlyings (e.g., 0.8). Must be in (0, 1].
     pub index_factor: Option<f64>,
     /// Forward spread adjustment as a decimal rate (e.g., 0.0025 = 25bp)
-    #[serde(alias = "forward_spread_adjust_bp")]
     #[serde(default)]
     pub forward_spread_adjust: Decimal,
     /// Day count convention for time calculations (defaults to Act/360 per ISDA)

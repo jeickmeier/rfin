@@ -59,8 +59,6 @@ class PricerRegistry:
     Notes
     -----
     - Use :func:`standard_registry` for most use cases
-    - ``standard_registry()`` and ``get_standard_registry()`` both return wrappers
-      over the shared Rust standard registry singleton
     - The registry is thread-safe and can be cloned for parallel pricing
     - Pricing models are specified by string (e.g., "discounting", "credit")
     - MarketContext must contain all required curves/surfaces for the instrument
@@ -500,10 +498,3 @@ def standard_registry() -> PricerRegistry:
     """
     ...
 
-def get_standard_registry() -> PricerRegistry:
-    """Explicit singleton-style alias for :func:`standard_registry`.
-
-    This alias exists for service code that prefers a getter name to emphasize
-    that the returned wrapper uses the shared standard registry singleton.
-    """
-    ...

@@ -3,8 +3,8 @@ use finstack_statements::builder::ModelBuilder;
 use finstack_statements::evaluator::Evaluator;
 use finstack_statements::types::AmountOrScalar;
 use finstack_statements_analytics::templates::real_estate::{
-    self, LeaseGrowthConvention, LeaseSpec, LeaseSpecV2, ManagementFeeBase, ManagementFeeSpec,
-    PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec,
+    self, LeaseGrowthConvention, LeaseSpec, ManagementFeeBase, ManagementFeeSpec,
+    PropertyTemplateNodes, RenewalSpec, RentRollOutputNodes, RentStepSpec, SimpleLeaseSpec,
 };
 use finstack_statements_analytics::templates::RealEstateExtension;
 
@@ -82,7 +82,7 @@ fn real_estate_noi_and_ncf_templates_compute_expected_values() {
 #[test]
 fn real_estate_rent_roll_template_builds_lease_series_and_total_rent() {
     let leases = vec![
-        LeaseSpec {
+        SimpleLeaseSpec {
             node_id: "lease_a_rent".into(),
             start: PeriodId::quarter(2025, 1),
             end: Some(PeriodId::quarter(2025, 4)),
@@ -91,7 +91,7 @@ fn real_estate_rent_roll_template_builds_lease_series_and_total_rent() {
             free_rent_periods: 0,
             occupancy: 1.0,
         },
-        LeaseSpec {
+        SimpleLeaseSpec {
             node_id: "lease_b_rent".into(),
             start: PeriodId::quarter(2025, 3),
             end: Some(PeriodId::quarter(2025, 4)),
@@ -136,7 +136,7 @@ fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
     };
 
     let leases = vec![
-        LeaseSpecV2 {
+        LeaseSpec {
             node_id: "lease_a".into(),
             start: PeriodId::quarter(2025, 1),
             end: Some(PeriodId::quarter(2025, 2)),
@@ -158,7 +158,7 @@ fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
                 free_rent_periods: 1, // free at renewal start (Q4)
             }),
         },
-        LeaseSpecV2 {
+        LeaseSpec {
             node_id: "lease_b".into(),
             start: PeriodId::quarter(2025, 1),
             end: Some(PeriodId::quarter(2025, 4)),
@@ -223,7 +223,7 @@ fn real_estate_rent_roll_v2_handles_steps_free_rent_and_renewal_downtime() {
 
 #[test]
 fn real_estate_rent_roll_rejects_non_finite_growth_output() {
-    let leases = vec![LeaseSpec {
+    let leases = vec![SimpleLeaseSpec {
         node_id: "lease_overflow_rent".into(),
         start: PeriodId::quarter(2025, 1),
         end: Some(PeriodId::quarter(2025, 4)),
@@ -254,7 +254,7 @@ fn real_estate_rent_roll_v2_rejects_non_finite_growth_output() {
         rent_effective_node: "rent_effective".into(),
     };
 
-    let leases = vec![LeaseSpecV2 {
+    let leases = vec![LeaseSpec {
         node_id: "lease_overflow".into(),
         start: PeriodId::quarter(2025, 1),
         end: Some(PeriodId::quarter(2025, 4)),
@@ -283,7 +283,7 @@ fn real_estate_rent_roll_v2_rejects_non_finite_growth_output() {
 #[test]
 fn real_estate_full_property_template_computes_egi_noi_ncf() {
     let leases = vec![
-        LeaseSpecV2 {
+        LeaseSpec {
             node_id: "lease_a".into(),
             start: PeriodId::quarter(2025, 1),
             end: Some(PeriodId::quarter(2025, 2)),
@@ -296,7 +296,7 @@ fn real_estate_full_property_template_computes_egi_noi_ncf() {
             occupancy: 1.0,
             renewal: None,
         },
-        LeaseSpecV2 {
+        LeaseSpec {
             node_id: "lease_b".into(),
             start: PeriodId::quarter(2025, 1),
             end: Some(PeriodId::quarter(2025, 2)),
@@ -392,7 +392,7 @@ fn real_estate_annual_escalator_bumps_on_lease_anniversary() {
 
     let nodes = RentRollOutputNodes::default();
 
-    let leases = vec![LeaseSpecV2 {
+    let leases = vec![LeaseSpec {
         node_id: "lease_ann".into(),
         start: PeriodId::quarter(2025, 1),
         end: Some(PeriodId::quarter(2026, 4)),
@@ -453,7 +453,7 @@ fn real_estate_annual_escalator_resets_at_rent_step() {
 
     let nodes = RentRollOutputNodes::default();
 
-    let leases = vec![LeaseSpecV2 {
+    let leases = vec![LeaseSpec {
         node_id: "lease_step".into(),
         start: PeriodId::quarter(2025, 1),
         end: Some(PeriodId::quarter(2026, 4)),
@@ -516,7 +516,7 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
 
     let nodes = RentRollOutputNodes::default();
 
-    let leases = vec![LeaseSpecV2 {
+    let leases = vec![LeaseSpec {
         node_id: "lease_pp".into(),
         start: PeriodId::quarter(2025, 1),
         end: Some(PeriodId::quarter(2025, 4)),
@@ -554,18 +554,18 @@ fn real_estate_per_period_growth_convention_is_default_and_unchanged() {
     }
 }
 
-// --- Parity: v1 (LeaseSpec) vs v2 (LeaseSpecV2) produce same simple effective rent ---
+// --- Parity: SimpleLeaseSpec vs LeaseSpec produce same simple effective rent ---
 
 #[test]
 fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
     use finstack_statements_analytics::templates::real_estate::{
-        LeaseSpec, LeaseSpecV2, RentRollOutputNodes,
+        LeaseSpec, RentRollOutputNodes, SimpleLeaseSpec,
     };
 
     let start = PeriodId::quarter(2025, 1);
 
     // v1: simple lease spec
-    let v1_lease = LeaseSpec {
+    let v1_lease = SimpleLeaseSpec {
         node_id: "lease1".into(),
         start,
         end: None,
@@ -576,7 +576,7 @@ fn parity_rent_roll_v1_and_v2_match_for_simple_leases() {
     };
 
     // v2: rich lease spec with the same economic parameters
-    let v2_lease = LeaseSpecV2 {
+    let v2_lease = LeaseSpec {
         node_id: "lease1".into(),
         start,
         end: None,

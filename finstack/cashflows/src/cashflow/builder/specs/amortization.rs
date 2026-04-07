@@ -31,7 +31,6 @@ pub enum AmortizationSpec {
     /// This is a sinking-fund style amortization where the payment amount is constant
     /// across periods: `initial_notional * pct`. It does **not** compound (i.e., it is
     /// NOT percentage-of-remaining / declining-balance / mortgage-style).
-    #[serde(alias = "PercentPerPeriod")]
     PercentOfOriginalPerPeriod {
         /// Fraction of original notional paid per period (e.g., 0.05 = 5%).
         pct: f64,

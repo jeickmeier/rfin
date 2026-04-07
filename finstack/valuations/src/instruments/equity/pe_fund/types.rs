@@ -28,7 +28,6 @@ pub struct PrivateMarketsFund {
     /// Functional currency of the fund.
     pub currency: Currency,
     /// Waterfall specification defining LP/GP allocation tiers.
-    #[serde(alias = "spec")]
     pub waterfall_spec: WaterfallSpec,
     /// Time-ordered list of fund events (contributions, proceeds, distributions).
     pub events: Vec<FundEvent>,

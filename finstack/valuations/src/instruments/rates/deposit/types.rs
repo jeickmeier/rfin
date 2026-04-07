@@ -59,7 +59,6 @@ pub struct Deposit {
     /// Principal amount of the deposit.
     pub notional: Money,
     /// Start date of the deposit period.
-    #[serde(alias = "start")]
     pub start_date: Date,
     /// Maturity date of the deposit period.
     pub maturity: Date,

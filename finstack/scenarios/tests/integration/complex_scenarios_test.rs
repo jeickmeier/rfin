@@ -10,8 +10,8 @@ use finstack_core::money::fx::FxMatrix;
 use finstack_core::money::fx::SimpleFxProvider;
 use finstack_core::money::Money;
 use finstack_scenarios::{
-    CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine, ScenarioSpec,
-    TimeRollMode,
+    Compounding, CurveKind, ExecutionContext, OperationSpec, RateBindingSpec, ScenarioEngine,
+    ScenarioSpec, TimeRollMode,
 };
 use finstack_statements::{AmountOrScalar, FinancialModelSpec, NodeSpec, NodeType};
 use indexmap::{indexmap, IndexMap};
@@ -129,9 +129,15 @@ fn test_statements_rate_bindings_curve() {
     model.add_node(NodeSpec::new("Revenue", NodeType::Value).with_values(revenue_values));
     model.add_node(NodeSpec::new("InterestRate", NodeType::Value).with_values(rate_values));
 
-    let rate_bindings = Some(RateBindingSpec::map_from_legacy(indexmap! {
-        "InterestRate".to_string() => "USD_SOFR".to_string(),
-    }));
+    let rate_bindings = Some(indexmap! {
+        "InterestRate".into() => RateBindingSpec {
+            node_id: "InterestRate".into(),
+            curve_id: "USD_SOFR".to_string(),
+            tenor: "1Y".to_string(),
+            compounding: Compounding::Continuous,
+            day_count: None,
+        },
+    });
 
     let scenario = ScenarioSpec {
         id: "stmt_curve".into(),

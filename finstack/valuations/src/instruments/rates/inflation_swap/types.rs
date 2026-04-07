@@ -44,7 +44,6 @@ pub struct InflationSwap {
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of indexation
-    #[serde(alias = "start")]
     pub start_date: Date,
     /// Maturity date
     pub maturity: Date,
@@ -55,7 +54,6 @@ pub struct InflationSwap {
     /// Discount curve identifier (quote currency)
     pub discount_curve_id: CurveId,
     /// Day count for accrual calculation (fixed leg compounding)
-    #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Trade side
     pub side: PayReceive,
@@ -558,7 +556,6 @@ pub struct YoYInflationSwap {
     /// Notional in quote currency
     pub notional: Money,
     /// Start date of the first accrual period
-    #[serde(alias = "start")]
     pub start_date: Date,
     /// Maturity date
     pub maturity: Date,
@@ -571,7 +568,6 @@ pub struct YoYInflationSwap {
     /// Discount curve identifier (quote currency)
     pub discount_curve_id: CurveId,
     /// Day count for fixed leg accrual calculation
-    #[serde(alias = "dc")]
     pub day_count: DayCount,
     /// Trade side
     pub side: PayReceive,

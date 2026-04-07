@@ -974,13 +974,13 @@ impl PyModelBuilder {
     ///
     /// Parameters
     /// ----------
-    /// leases : list[LeaseSpec]
+    /// leases : list[SimpleLeaseSpec]
     ///     Lease specifications.
     /// total_rent_node : str
     ///     Target node for aggregated rental revenue.
     fn add_rent_roll_rental_revenue(
         &mut self,
-        leases: Vec<crate::statements::templates::PyLeaseSpec>,
+        leases: Vec<crate::statements::templates::PySimpleLeaseSpec>,
         total_rent_node: String,
     ) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
@@ -991,17 +991,17 @@ impl PyModelBuilder {
         Ok(())
     }
 
-    /// Add a rent-roll rental revenue projection (v2, enhanced leases).
+    /// Add a rent-roll rental revenue projection (enhanced leases).
     ///
     /// Parameters
     /// ----------
-    /// leases : list[LeaseSpecV2]
+    /// leases : list[LeaseSpec]
     ///     Enhanced lease specifications with steps, windows, and renewal.
     /// nodes : RentRollOutputNodes
     ///     Output node names for the rent decomposition.
-    fn add_rent_roll_rental_revenue_v2(
+    fn add_rent_roll(
         &mut self,
-        leases: Vec<crate::statements::templates::PyLeaseSpecV2>,
+        leases: Vec<crate::statements::templates::PyLeaseSpec>,
         nodes: crate::statements::templates::PyRentRollOutputNodes,
     ) -> PyResult<()> {
         let builder = self.take_ready_builder()?;
@@ -1019,7 +1019,7 @@ impl PyModelBuilder {
     ///
     /// Parameters
     /// ----------
-    /// leases : list[LeaseSpecV2]
+    /// leases : list[LeaseSpec]
     ///     Enhanced lease specifications.
     /// other_income_nodes : list[str]
     ///     Other income node IDs.
@@ -1034,7 +1034,7 @@ impl PyModelBuilder {
     #[pyo3(signature = (leases, other_income_nodes, opex_nodes, capex_nodes, nodes, management_fee=None))]
     fn add_property_operating_statement(
         &mut self,
-        leases: Vec<crate::statements::templates::PyLeaseSpecV2>,
+        leases: Vec<crate::statements::templates::PyLeaseSpec>,
         other_income_nodes: Vec<String>,
         opex_nodes: Vec<String>,
         capex_nodes: Vec<String>,

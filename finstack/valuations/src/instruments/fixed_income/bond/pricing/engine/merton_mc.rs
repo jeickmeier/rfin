@@ -125,7 +125,7 @@ pub enum PikMode {
 /// # Examples
 ///
 /// ```
-/// use finstack_valuations::instruments::fixed_income::bond::pricing::merton_mc_engine::{PikMode, PikSchedule};
+/// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::merton_mc::{PikMode, PikSchedule};
 ///
 /// // All coupons PIK
 /// let uniform = PikSchedule::Uniform(PikMode::Pik);

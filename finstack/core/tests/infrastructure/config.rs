@@ -24,7 +24,7 @@ fn config_extensions_roundtrip() {
 }
 
 #[test]
-fn config_extensions_backward_compat() {
+fn config_extensions_serde_roundtrip() {
     let json = r#"{
         "rounding": {
             "mode": "Bankers",

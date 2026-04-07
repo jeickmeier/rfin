@@ -31,7 +31,7 @@
         }
       },
       "day_count": "Act360",
-      "payment_frequency": {"count": 3, "unit": "months"},
+      "frequency": {"count": 3, "unit": "months"},
       "fees": {
         "upfront_fee": null,
         "commitment_fee_tiers": [

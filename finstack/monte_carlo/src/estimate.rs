@@ -149,68 +149,6 @@ impl std::fmt::Display for Estimate {
     }
 }
 
-/// Compatibility type for bindings that still expose Monte Carlo diagnostics.
-///
-/// The engine does not currently populate this structure, but it remains part of
-/// the public API while downstream bindings and stubs still import it.
-///
-/// All fields are currently placeholders and remain `None` unless a downstream
-/// caller fills them manually. Prefer the statistics on [`Estimate`] and any
-/// simulation-result summaries for actual convergence analysis.
-#[deprecated(
-    since = "0.5.0",
-    note = "Not populated by the engine. Use Estimate statistics instead."
-)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ConvergenceDiagnostics {
-    /// Stderr decay rate (should be ~-0.5 for MC)
-    pub stderr_decay_rate: Option<f64>,
-    /// Effective sample size (for weighted samples)
-    pub effective_sample_size: Option<usize>,
-    /// Variance reduction factor (vs. baseline)
-    pub variance_reduction_factor: Option<f64>,
-}
-
-#[allow(deprecated)]
-impl ConvergenceDiagnostics {
-    /// Create empty compatibility diagnostics.
-    ///
-    /// The Monte Carlo engine does not populate these fields today, so new
-    /// instances start empty and typically remain empty.
-    pub fn new() -> Self {
-        Self {
-            stderr_decay_rate: None,
-            effective_sample_size: None,
-            variance_reduction_factor: None,
-        }
-    }
-
-    /// Set the observed stderr decay rate.
-    pub fn with_stderr_decay(mut self, rate: f64) -> Self {
-        self.stderr_decay_rate = Some(rate);
-        self
-    }
-
-    /// Set the effective sample size.
-    pub fn with_ess(mut self, ess: usize) -> Self {
-        self.effective_sample_size = Some(ess);
-        self
-    }
-
-    /// Set the variance-reduction factor versus a baseline run.
-    pub fn with_vr_factor(mut self, factor: f64) -> Self {
-        self.variance_reduction_factor = Some(factor);
-        self
-    }
-}
-
-#[allow(deprecated)]
-impl Default for ConvergenceDiagnostics {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 #[allow(clippy::expect_used, clippy::panic)]
 mod tests {

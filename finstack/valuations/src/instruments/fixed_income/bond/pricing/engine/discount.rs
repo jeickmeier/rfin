@@ -78,7 +78,7 @@ impl BondEngine {
     ///
     /// ```ignore
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::discount::BondEngine;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;
     ///
@@ -123,7 +123,7 @@ impl BondEngine {
     ///
     /// ```rust,no_run
     /// use finstack_valuations::instruments::fixed_income::bond::Bond;
-    /// use finstack_valuations::instruments::fixed_income::bond::pricing::discount_engine::BondEngine;
+    /// use finstack_valuations::instruments::fixed_income::bond::pricing::engine::discount::BondEngine;
     /// use finstack_core::explain::ExplainOpts;
     /// use finstack_core::market_data::context::MarketContext;
     /// use finstack_core::dates::Date;

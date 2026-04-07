@@ -14,7 +14,7 @@
           "bdc": "ModifiedFollowing",
           "day_count": "Act365F",
           "discount_curve_id": "USD-OIS",
-          "end_date": "2029-01-15",
+          "maturity": "2029-01-15",
           "frequency": "12M",
           "id": "INFL-CAP-USD-5Y",
           "inflation_index_id": "US-CPI",
@@ -26,7 +26,7 @@
           "pricing_overrides": {},
           "start_date": "2024-01-15",
           "strike": 0.03,
-          "stub_kind": "None",
+          "stub": "None",
           "vol_surface_id": "USD-CPI-VOL"
         },
         "type": "inflation_cap_floor"

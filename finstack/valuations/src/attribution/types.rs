@@ -393,7 +393,7 @@ pub struct ModelParamsAttribution {
 /// - **pull_to_par**: PV convergence toward par (time effect at flat yield)
 /// - **roll_down**: Curve shape benefit from aging along a sloped curve
 /// - **funding_cost**: Cost of financing the position
-/// - **theta**: Legacy field for total pre-funding carry
+/// - **theta**: Total pre-funding carry (before decomposition into sub-components)
 ///
 /// In metrics-based attribution, these fields are populated from pre-computed
 /// carry decomposition metrics when available. In repricing-based attribution
@@ -426,7 +426,7 @@ pub struct CarryDetail {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub funding_cost: Option<Money>,
 
-    /// Legacy theta field retained for backward compatibility.
+    /// Total pre-funding carry (before decomposition into sub-components).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub theta: Option<Money>,
 }
@@ -882,7 +882,7 @@ impl PnlAttribution {
                     lines.push(format!("  │   ├─ Pull-to-Par: {}", pull_to_par));
                 }
                 if let Some(ref theta) = detail.theta {
-                    lines.push(format!("  │   ├─ Theta (legacy): {}", theta));
+                    lines.push(format!("  │   ├─ Theta: {}", theta));
                 }
                 if let Some(ref roll_down) = detail.roll_down {
                     lines.push(format!("  │   ├─ Roll-Down: {}", roll_down));
@@ -1123,7 +1123,7 @@ mod tests {
         assert!(explanation.contains("Pull-to-Par"));
         assert!(explanation.contains("Roll-Down"));
         assert!(explanation.contains("Funding Cost"));
-        assert!(explanation.contains("Theta (legacy)"));
+        assert!(explanation.contains("Theta"));
     }
 
     #[test]
