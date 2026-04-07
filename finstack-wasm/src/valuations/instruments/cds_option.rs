@@ -69,13 +69,6 @@ impl JsCDSOptionBuilder {
         self
     }
 
-    /// Set strike spread in basis points (deprecated, use `strike` with decimal).
-    #[wasm_bindgen(js_name = strikeSpreadBp)]
-    pub fn strike_spread_bp(mut self, strike_spread_bp: f64) -> JsCDSOptionBuilder {
-        self.strike = Some(strike_spread_bp / 10000.0);
-        self
-    }
-
     #[wasm_bindgen(js_name = expiry)]
     pub fn expiry(mut self, expiry: &JsDate) -> JsCDSOptionBuilder {
         self.expiry = Some(expiry.inner());

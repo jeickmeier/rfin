@@ -31,7 +31,6 @@ from finstack.core.market_data.volatility import (
     manaster_koehler_approx as manaster_koehler_approx,
     implied_vol_initial_guess as implied_vol_initial_guess,
     convert_atm_volatility as convert_atm_volatility,
-    convert_volatility as convert_volatility,
 )
 
 __all__ = [
@@ -60,5 +59,4 @@ __all__ = [
     "manaster_koehler_approx",
     "implied_vol_initial_guess",
     "convert_atm_volatility",
-    "convert_volatility",
 ]

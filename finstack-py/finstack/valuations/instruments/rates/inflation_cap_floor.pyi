@@ -62,9 +62,6 @@ class InflationCapFloorBuilder:
     def discount_curve(self, curve_id: str) -> InflationCapFloorBuilder:
         """Set discount curve identifier."""
         ...
-    def disc_id(self, curve_id: str) -> InflationCapFloorBuilder:
-        """Deprecated: use :meth:`discount_curve` instead."""
-        ...
     def vol_surface_id(self, curve_id: str) -> InflationCapFloorBuilder:
         """Set volatility surface identifier."""
         ...

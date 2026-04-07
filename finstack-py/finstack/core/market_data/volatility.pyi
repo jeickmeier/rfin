@@ -588,41 +588,6 @@ def convert_atm_volatility(
     """
     ...
 
-def convert_volatility(
-    vol: float,
-    from_convention: VolatilityConvention,
-    to_convention: VolatilityConvention,
-    forward_rate: float,
-    time_to_expiry: float,
-    zero_threshold: float = 1e-8,
-) -> float:
-    """Convert volatility between conventions by equating option prices.
-
-    .. deprecated:: 0.2.0
-        Use :func:`convert_atm_volatility` instead, which provides explicit error handling.
-
-    Parameters
-    ----------
-    vol : float
-        Input volatility.
-    from_convention : VolatilityConvention
-        Source convention.
-    to_convention : VolatilityConvention
-        Target convention.
-    forward_rate : float
-        Forward rate for the underlying.
-    time_to_expiry : float
-        Time to expiry in years.
-    zero_threshold : float, optional
-        Threshold below which rates are considered zero (default 1e-8). **Ignored**.
-
-    Returns
-    -------
-    float
-        Converted volatility in the target convention. Returns input volatility on error.
-    """
-    ...
-
 __all__ = [
     "VolatilityConvention",
     # Legacy convenience wrappers
@@ -655,5 +620,4 @@ __all__ = [
     "implied_vol_initial_guess",
     # Conversion
     "convert_atm_volatility",
-    "convert_volatility",
 ]

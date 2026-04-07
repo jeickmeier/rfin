@@ -12,6 +12,7 @@ use finstack_core::market_data::scalars::{InflationIndex, InflationInterpolation
 use finstack_core::market_data::term_structures::{DiscountCurve, InflationCurve};
 use finstack_core::money::Money;
 use finstack_core::types::{CurveId, InstrumentId};
+use finstack_valuations::instruments::common::parameters::PayReceive;
 use finstack_valuations::instruments::fixed_income::inflation_linked_bond::{
     DeflationProtection, IndexationMethod, InflationLinkedBond,
 };
@@ -19,7 +20,7 @@ use finstack_valuations::instruments::rates::inflation_cap_floor::{
     InflationCapFloor, InflationCapFloorType,
 };
 use finstack_valuations::instruments::rates::inflation_swap::{
-    InflationSwap, InflationSwapBuilder, PayReceive,
+    InflationSwap, InflationSwapBuilder,
 };
 use finstack_valuations::instruments::Attributes;
 use finstack_valuations::instruments::Instrument;

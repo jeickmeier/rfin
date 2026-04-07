@@ -4,15 +4,15 @@
 //! DV01s, and par spread calculations for basis swap instruments.
 
 /// Annuity (discounted accrual sum) calculators for basis swap legs
-pub mod annuity;
+mod annuity;
 /// Par spread calculator for basis swaps
-pub mod par_spread;
+mod par_spread;
 /// Present value calculators for basis swap legs
-pub mod pv;
+mod pv;
 
-pub use annuity::AnnuityCalculator;
-pub use par_spread::{IncrementalParSpreadCalculator, ParSpreadCalculator};
-pub use pv::PvCalculator;
+pub(crate) use annuity::AnnuityCalculator;
+pub(crate) use par_spread::{IncrementalParSpreadCalculator, ParSpreadCalculator};
+pub(crate) use pv::PvCalculator;
 
 use crate::metrics::{MetricId, MetricRegistry};
 use crate::pricer::InstrumentType;
@@ -25,7 +25,7 @@ use std::sync::Arc;
 ///
 /// # Arguments
 /// * `registry` — The metric registry to register the calculators with
-pub fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
+pub(crate) fn register_basis_swap_metrics(registry: &mut MetricRegistry) {
     // Leg-specific metrics with primary/reference constructors
     registry
         .register_metric(

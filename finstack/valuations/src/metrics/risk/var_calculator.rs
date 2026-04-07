@@ -950,7 +950,7 @@ fn calculate_portfolio_var_taylor(
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, deprecated)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     #[allow(clippy::expect_used, dead_code, unused_imports)]
     mod test_utils {

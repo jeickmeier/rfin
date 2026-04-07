@@ -51,7 +51,7 @@ See examples below for updated API usage patterns.
   - `finstack_valuations::covenants::{Covenant, CovenantType, CovenantEngine, GenericCovenantForecast, CovenantForecastConfig}`
   - `finstack_valuations::attribution::{AttributionMethod, AttributionEnvelope, attribute_pnl_parallel, attribute_pnl_waterfall, attribute_pnl_metrics_based, JsonEnvelope}`
   - `finstack_valuations::calibration::{api::*, SolverConfig, CalibrationConfig, ValidationConfig}` and bump helpers `calibration::bumps::{bump_discount_curve_synthetic, bump_hazard_spreads, bump_inflation_rates, BumpRequest}`
-- **Deprecated module paths**: deep module imports (e.g., `instruments::common::models`, `calibration::bumps::rates`, `covenants::engine`, `attribution::types`) are no longer supported. Switch to the canonical imports above.
+Switch to the canonical imports above.
 
 ---
 

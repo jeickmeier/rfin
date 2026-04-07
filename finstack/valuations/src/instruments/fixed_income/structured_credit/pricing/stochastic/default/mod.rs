@@ -24,8 +24,8 @@ mod intensity_process;
 mod spec;
 mod traits;
 
-pub use copula_based::CopulaBasedDefault;
-pub use hazard_curve_adapter::HazardCurveDefault;
-pub use intensity_process::IntensityProcessDefault;
+pub(crate) use copula_based::CopulaBasedDefault;
+pub(crate) use hazard_curve_adapter::HazardCurveDefault;
+pub(crate) use intensity_process::IntensityProcessDefault;
 pub use spec::StochasticDefaultSpec;
-pub use traits::StochasticDefault;
+pub(crate) use traits::StochasticDefault;

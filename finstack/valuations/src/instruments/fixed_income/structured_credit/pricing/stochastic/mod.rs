@@ -17,38 +17,34 @@
 //! - [`pricer`]: Stochastic pricing engine with tree and MC modes
 //! - [`metrics`]: Risk metrics and correlation sensitivities
 
-pub mod calibrations;
-pub mod correlation;
-pub mod default;
+pub(crate) mod calibrations;
+pub(crate) mod correlation;
+pub(crate) mod default;
 pub(crate) mod metrics;
-pub mod prepayment;
+pub(crate) mod prepayment;
 pub(crate) mod pricer;
-pub mod tree;
+pub(crate) mod tree;
 
 // Re-export main types (may be used by external bindings or tests)
 #[allow(unused_imports)]
-pub use calibrations::{
+pub(crate) use calibrations::{
     CloCalibration, CmbsCalibration, RmbsCalibration, CLO_STANDARD, CMBS_STANDARD, RMBS_STANDARD,
 };
 pub use correlation::CorrelationStructure;
+pub use default::StochasticDefaultSpec;
 #[allow(unused_imports)]
-pub use default::{
-    CopulaBasedDefault, IntensityProcessDefault, StochasticDefault, StochasticDefaultSpec,
-};
+pub(crate) use default::{CopulaBasedDefault, IntensityProcessDefault, StochasticDefault};
 #[allow(unused_imports)]
-pub use metrics::{
+pub(crate) use metrics::{
     CorrelationSensitivities, SensitivityConfig, StochasticMetrics, StochasticMetricsCalculator,
 };
+pub use prepayment::StochasticPrepaySpec;
 #[allow(unused_imports)]
-pub use prepayment::{
-    FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepaySpec, StochasticPrepayment,
-};
+pub(crate) use prepayment::{FactorCorrelatedPrepay, RichardRollPrepay, StochasticPrepayment};
+pub use pricer::{PricingMode, StochasticPricingResult, TranchePricingResult};
 #[allow(unused_imports)] // May be used by external bindings
-pub use pricer::{
-    PricingMode, StochasticPricer, StochasticPricerConfig, StochasticPricingResult,
-    TranchePricingResult,
-};
+pub(crate) use pricer::{StochasticPricer, StochasticPricerConfig};
 #[allow(unused_imports)]
-pub use tree::{
+pub(crate) use tree::{
     BranchingSpec, ScenarioNode, ScenarioNodeId, ScenarioPath, ScenarioTree, ScenarioTreeConfig,
 };

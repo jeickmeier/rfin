@@ -12,15 +12,15 @@
 // TYPE DEFINITION MODULES
 // ============================================================================
 
-pub mod constants;
-pub mod enums;
-pub mod pool;
+pub(crate) mod constants;
+pub(crate) mod enums;
+pub(crate) mod pool;
 /// SoA layout for pool assets.
-pub mod pool_state;
-pub mod results;
-pub mod setup;
-pub mod tranches;
-pub mod waterfall;
+pub(crate) mod pool_state;
+pub(crate) mod results;
+pub(crate) mod setup;
+pub(crate) mod tranches;
+pub(crate) mod waterfall;
 
 // ============================================================================
 // INTERNAL MODULES
@@ -35,17 +35,19 @@ mod stochastic;
 // ============================================================================
 
 // Enums - use the new Seniority name
-pub use enums::{AssetType, DealType, PaymentMode, TrancheSeniority, TriggerConsequence};
+pub use enums::{AssetType, DealType, PaymentMode, TriggerConsequence};
 // Re-export TrancheSeniority as Seniority for cleaner naming
 pub use enums::TrancheSeniority as Seniority;
+pub(crate) use enums::TrancheSeniority;
 
 // Pool types - use Pool as the primary name
 pub use pool::AssetPool as Pool;
+pub(crate) use pool::AssetPool;
 pub use pool::{
-    calculate_pool_stats, AssetPool, ConcentrationCheckResult, ConcentrationViolation, PoolAsset,
-    PoolStats, ReinvestmentCriteria, ReinvestmentPeriod, RepLine,
+    calculate_pool_stats, ConcentrationCheckResult, ConcentrationViolation, PoolAsset, PoolStats,
+    ReinvestmentCriteria, ReinvestmentPeriod, RepLine,
 };
-pub use pool_state::PoolState;
+pub(crate) use pool_state::PoolState;
 
 // Tranche types
 pub use tranches::{
@@ -60,10 +62,11 @@ pub use setup::{CoverageTestConfig, DealConfig, DealDates, DealFees, DefaultAssu
 pub use reinvestment::ReinvestmentManager;
 
 // Waterfall types
+pub(crate) use waterfall::DiversionRecord;
 pub use waterfall::{
-    AllocationMode, CoverageTestType, DiversionRecord, ManagementFeeType, PaymentCalculation,
-    PaymentRecord, PaymentType, Recipient, RecipientType, RoundingConvention, Waterfall,
-    WaterfallBuilder, WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
+    AllocationMode, CoverageTestType, ManagementFeeType, PaymentCalculation, PaymentRecord,
+    PaymentType, Recipient, RecipientType, RoundingConvention, Waterfall, WaterfallBuilder,
+    WaterfallDistribution, WaterfallTier, WaterfallWorkspace,
 };
 
 // Result types

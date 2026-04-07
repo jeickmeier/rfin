@@ -76,18 +76,9 @@ pub struct CapitalStructureCashflows {
 /// stored as positive amounts representing debt service paid or accrued during
 /// the period.
 ///
-/// # Breaking Change (v2.0)
-///
-/// As of v2.0, interest expense is split into cash and PIK components to provide
-/// better visibility into non-cash interest accrual. The `interest_expense` field
-/// is deprecated in favor of `interest_expense_cash` and `interest_expense_pik`.
-///
-/// Use `interest_expense_total()` to get the combined value.
-///
-/// # Breaking Change (v3.0)
-///
-/// As of v3.0, all monetary fields use the Money type for currency safety.
-/// Use the accessor methods to get f64 values.
+/// Interest expense is split into cash and PIK components for visibility
+/// into non-cash interest accrual. Use `interest_expense_total()` for the
+/// combined value. All monetary fields use the Money type for currency safety.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CashflowBreakdown {
     /// Cash interest payments (coupons, floating resets)
@@ -123,8 +114,6 @@ impl CashflowBreakdown {
     }
 
     /// Get total interest expense (cash + PIK).
-    ///
-    /// This method replaces the deprecated `interest_expense` field.
     ///
     /// # Errors
     ///

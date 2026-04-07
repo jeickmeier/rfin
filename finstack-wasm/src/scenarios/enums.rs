@@ -193,7 +193,7 @@ impl JsTimeRollMode {
         }
     }
 
-    /// Approximate mode using fixed day-count conventions (legacy 30/365 semantics).
+    /// Approximate mode using fixed day-count conventions (30/365 semantics).
     #[wasm_bindgen(getter)]
     pub fn APPROXIMATE() -> JsTimeRollMode {
         JsTimeRollMode {

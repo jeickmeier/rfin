@@ -695,53 +695,6 @@ pub fn py_convert_atm_volatility(
     .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
 }
 
-/// Convert volatility between conventions by equating option prices.
-///
-/// .. deprecated:: 0.2.0
-///     Use :func:`convert_atm_volatility` instead, which provides explicit error handling.
-///
-/// Parameters
-/// ----------
-/// vol : float
-///     Input volatility.
-/// from_convention : VolatilityConvention
-///     Source convention.
-/// to_convention : VolatilityConvention
-///     Target convention.
-/// forward_rate : float
-///     Forward rate for the underlying.
-/// time_to_expiry : float
-///     Time to expiry in years.
-/// zero_threshold : float, optional
-///     Threshold below which rates are considered zero (default 1e-8). **Ignored**.
-///
-/// Returns
-/// -------
-/// float
-///     Converted volatility in the target convention. Returns input volatility on error.
-#[pyfunction(
-    name = "convert_volatility",
-    signature = (vol, from_convention, to_convention, forward_rate, time_to_expiry, _zero_threshold=1e-8),
-    text_signature = "(vol, from_convention, to_convention, forward_rate, time_to_expiry, zero_threshold=1e-8)"
-)]
-pub fn py_convert_volatility(
-    vol: f64,
-    from_convention: PyRef<PyVolatilityConvention>,
-    to_convention: PyRef<PyVolatilityConvention>,
-    forward_rate: f64,
-    time_to_expiry: f64,
-    _zero_threshold: f64,
-) -> f64 {
-    convert_atm_volatility(
-        vol,
-        from_convention.inner,
-        to_convention.inner,
-        forward_rate,
-        time_to_expiry,
-    )
-    .unwrap_or(vol)
-}
-
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -789,7 +742,6 @@ pub(crate) fn register<'py>(
 
     // Volatility convention conversion
     module.add_function(wrap_pyfunction!(py_convert_atm_volatility, &module)?)?;
-    module.add_function(wrap_pyfunction!(py_convert_volatility, &module)?)?;
 
     let exports = [
         "VolatilityConvention",
@@ -823,7 +775,6 @@ pub(crate) fn register<'py>(
         "implied_vol_initial_guess",
         // Conversion
         "convert_atm_volatility",
-        "convert_volatility",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;

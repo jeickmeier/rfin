@@ -63,7 +63,7 @@ use finstack_core::math::distributions::binomial_distribution;
 /// # }
 /// ```
 #[derive(Debug, Clone)]
-pub struct HazardCurveDefault {
+pub(crate) struct HazardCurveDefault {
     /// The underlying hazard curve
     hazard_curve: HazardCurve,
     /// Factor sensitivity (β) for systematic risk
@@ -81,7 +81,7 @@ impl HazardCurveDefault {
     ///
     /// * `hazard_curve` - The underlying calibrated hazard curve
     /// * `factor_sensitivity` - Sensitivity to systematic factor shocks (typical: 0.3-0.8)
-    pub fn new(hazard_curve: HazardCurve, factor_sensitivity: f64) -> Self {
+    pub(crate) fn new(hazard_curve: HazardCurve, factor_sensitivity: f64) -> Self {
         Self {
             hazard_curve,
             factor_sensitivity: factor_sensitivity.clamp(-2.0, 2.0),
@@ -91,13 +91,13 @@ impl HazardCurveDefault {
     }
 
     /// Create with specified volatility.
-    pub fn with_volatility(mut self, volatility: f64) -> Self {
+    pub(crate) fn with_volatility(mut self, volatility: f64) -> Self {
         self.volatility = volatility.clamp(0.0, 2.0);
         self
     }
 
     /// Create with specified correlation.
-    pub fn with_correlation(mut self, correlation: f64) -> Self {
+    pub(crate) fn with_correlation(mut self, correlation: f64) -> Self {
         self.correlation = correlation.clamp(0.0, 0.99);
         self
     }
@@ -107,7 +107,7 @@ impl HazardCurveDefault {
     /// - Factor sensitivity: 0.5
     /// - Volatility: 0.30
     /// - Correlation: 5% (low for diversified pools)
-    pub fn rmbs_standard(hazard_curve: HazardCurve) -> Self {
+    pub(crate) fn rmbs_standard(hazard_curve: HazardCurve) -> Self {
         Self::new(hazard_curve, 0.5)
             .with_volatility(0.30)
             .with_correlation(0.05)
@@ -118,24 +118,24 @@ impl HazardCurveDefault {
     /// - Factor sensitivity: 0.8
     /// - Volatility: 0.40
     /// - Correlation: 25% (higher for corporate loans)
-    pub fn clo_standard(hazard_curve: HazardCurve) -> Self {
+    pub(crate) fn clo_standard(hazard_curve: HazardCurve) -> Self {
         Self::new(hazard_curve, 0.8)
             .with_volatility(0.40)
             .with_correlation(0.25)
     }
 
     /// Get the underlying hazard curve.
-    pub fn hazard_curve(&self) -> &HazardCurve {
+    pub(crate) fn hazard_curve(&self) -> &HazardCurve {
         &self.hazard_curve
     }
 
     /// Get the factor sensitivity.
-    pub fn factor_sensitivity(&self) -> f64 {
+    pub(crate) fn factor_sensitivity(&self) -> f64 {
         self.factor_sensitivity
     }
 
     /// Get the volatility.
-    pub fn volatility(&self) -> f64 {
+    pub(crate) fn volatility(&self) -> f64 {
         self.volatility
     }
 

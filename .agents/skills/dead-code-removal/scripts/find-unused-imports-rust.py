@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Find unused imports in Rust files.
+
 Uses regex-based parsing to detect unused `use` statements.
 Handles simple, aliased, grouped, nested, and glob imports.
 """
 
-import json
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 
 def extract_use_statements(content: str) -> list[dict]:
@@ -26,9 +26,7 @@ def extract_use_statements(content: str) -> list[dict]:
             continue
 
         # Match `use` or `pub use` or `pub(crate) use` etc.
-        use_match = re.match(
-            r"^(\s*(?:pub(?:\s*\([^)]*\))?\s+)?use\s+)(.*)", stripped
-        )
+        use_match = re.match(r"^(\s*(?:pub(?:\s*\([^)]*\))?\s+)?use\s+)(.*)", stripped)
         if use_match:
             start_line = i + 1  # 1-indexed
             use_body = use_match.group(2)
@@ -43,14 +41,12 @@ def extract_use_statements(content: str) -> list[dict]:
             # Remove trailing semicolon
             full_body = full_body.strip().rstrip(";").strip()
 
-            statements.append(
-                {
-                    "line": start_line,
-                    "body": full_body,
-                    "is_pub": is_pub,
-                    "raw": stripped,
-                }
-            )
+            statements.append({
+                "line": start_line,
+                "body": full_body,
+                "is_pub": is_pub,
+                "raw": stripped,
+            })
 
         i += 1
 
@@ -75,12 +71,12 @@ def parse_imported_names(body: str) -> list[dict]:
         # Split on commas, handling nested braces
         items = split_grouped_items(items_str)
         for item in items:
-            item = item.strip()
-            if not item:
+            stripped_item = item.strip()
+            if not stripped_item:
                 continue
-            if item == "*":
+            if stripped_item == "*":
                 names.append({"name": "*", "is_glob": True})
-            elif item == "self":
+            elif stripped_item == "self":
                 # `use module::{self}` imports the module name
                 # Extract module name from path before ::
                 prefix = body[: body.index("{")].rstrip(":")
@@ -88,12 +84,12 @@ def parse_imported_names(body: str) -> list[dict]:
                 names.append({"name": mod_name, "is_glob": False})
             else:
                 # Could be: Name, path::Name, Name as Alias
-                alias_match = re.match(r".*\bas\s+(\w+)$", item)
+                alias_match = re.match(r".*\bas\s+(\w+)$", stripped_item)
                 if alias_match:
                     names.append({"name": alias_match.group(1), "is_glob": False})
                 else:
                     # Take the last segment
-                    last = item.rsplit("::", 1)[-1].strip()
+                    last = stripped_item.rsplit("::", 1)[-1].strip()
                     if last and last != "self":
                         names.append({"name": last, "is_glob": False})
         return names
@@ -208,13 +204,11 @@ def find_unused_imports(file_path: Path) -> dict:
 
                 # Check if the name is used
                 if name not in used_idents:
-                    unused.append(
-                        {
-                            "name": name,
-                            "line": stmt["line"],
-                            "statement": stmt["raw"],
-                        }
-                    )
+                    unused.append({
+                        "name": name,
+                        "line": stmt["line"],
+                        "statement": stmt["raw"],
+                    })
 
         return {
             "file": str(file_path),
@@ -222,7 +216,7 @@ def find_unused_imports(file_path: Path) -> dict:
             "total_imports": total_imports,
             "has_glob_imports": has_glob,
         }
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return {
             "file": str(file_path),
             "error": f"Error parsing file: {e}",
@@ -230,25 +224,19 @@ def find_unused_imports(file_path: Path) -> dict:
         }
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     if len(sys.argv) < 2:
-        print(
-            "Usage: find-unused-imports-rust.py <rust_file> [<rust_file>...]"
-        )
         sys.exit(1)
 
     results = []
     for file_path_str in sys.argv[1:]:
         file_path = Path(file_path_str)
         if not file_path.exists():
-            print(f"Warning: File not found: {file_path}", file=sys.stderr)
             continue
 
         result = find_unused_imports(file_path)
         results.append(result)
-
-    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":

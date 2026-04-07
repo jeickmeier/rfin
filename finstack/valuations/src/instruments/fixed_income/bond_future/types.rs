@@ -1165,7 +1165,7 @@ impl BondFutureBuilder {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, deprecated)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod tests {
     use super::*;
     use crate::cashflow::CashflowProvider;
@@ -1901,7 +1901,7 @@ impl CashflowProvider for BondFuture {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, deprecated)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod instrument_trait_tests {
     use super::*;
     use finstack_core::currency::Currency;

@@ -483,4 +483,3 @@ def standard_registry() -> PricerRegistry:
     :class:`PricerRegistry`: Registry class for custom configurations
     """
     ...
-

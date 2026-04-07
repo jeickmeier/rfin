@@ -96,7 +96,7 @@ export type CreditQuote =
          */
         running_spread_bp: number;
         /**
-         * Legacy conventions (needed for base correlation logic).
+         * Conventions required for base correlation logic.
          */
         conventions: InstrumentConventions;
       };

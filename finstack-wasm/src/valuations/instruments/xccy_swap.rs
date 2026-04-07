@@ -264,52 +264,6 @@ impl JsXccySwapLegBuilder {
 
 #[wasm_bindgen(js_class = XccySwapLeg)]
 impl JsXccySwapLeg {
-    /// Create a new XCCY swap leg (deprecated: prefer XccySwapLegBuilder).
-    #[wasm_bindgen(constructor)]
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        currency: &JsCurrency,
-        notional: &JsMoney,
-        side: &JsLegSide,
-        forward_curve_id: &str,
-        discount_curve_id: &str,
-        start: &JsDate,
-        end: &JsDate,
-        frequency: Option<String>,
-        day_count: Option<String>,
-        bdc: Option<String>,
-        stub: Option<String>,
-        spread_bp: Option<f64>,
-        payment_lag_days: Option<i32>,
-        calendar_id: Option<String>,
-    ) -> Result<JsXccySwapLeg, JsValue> {
-        let freq = parse_optional_with_default(frequency, Tenor::quarterly())?;
-        let dc = parse_optional_with_default(day_count, DayCount::ActAct)?;
-        let bdc_value = parse_optional_with_default(bdc, BusinessDayConvention::ModifiedFollowing)?;
-        let stub_value = parse_optional_with_default(stub, StubKind::ShortFront)?;
-
-        Ok(JsXccySwapLeg {
-            inner: XccySwapLeg {
-                currency: currency.inner(),
-                notional: notional.inner(),
-                side: side.inner(),
-                forward_curve_id: curve_id_from_str(forward_curve_id),
-                discount_curve_id: curve_id_from_str(discount_curve_id),
-                start: start.inner(),
-                end: end.inner(),
-                frequency: freq,
-                day_count: dc,
-                bdc: bdc_value,
-                stub: stub_value,
-                spread_bp: opt_f64_to_decimal(spread_bp, "spread_bp")?,
-                payment_lag_days: payment_lag_days.unwrap_or(0),
-                calendar_id,
-                reset_lag_days: None,
-                allow_calendar_fallback: true,
-            },
-        })
-    }
-
     /// Get the leg currency.
     #[wasm_bindgen(getter)]
     pub fn currency(&self) -> JsCurrency {

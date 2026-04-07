@@ -37,7 +37,7 @@ use finstack_core::math::distributions::binomial_distribution;
 /// Default intensity follows an exponential of an OU process,
 /// providing mean-reverting but always positive intensity.
 #[derive(Debug, Clone)]
-pub struct IntensityProcessDefault {
+pub(crate) struct IntensityProcessDefault {
     /// Base hazard rate (annual)
     base_hazard: f64,
     /// Factor sensitivity (beta)
@@ -58,7 +58,7 @@ impl IntensityProcessDefault {
     /// * `factor_sensitivity` - Sensitivity to systematic factor (β)
     /// * `mean_reversion` - Mean reversion speed (κ)
     /// * `volatility` - Intensity volatility (σ)
-    pub fn new(
+    pub(crate) fn new(
         base_hazard: f64,
         factor_sensitivity: f64,
         mean_reversion: f64,
@@ -74,7 +74,7 @@ impl IntensityProcessDefault {
     }
 
     /// Create with specified correlation.
-    pub fn with_correlation(mut self, correlation: f64) -> Self {
+    pub(crate) fn with_correlation(mut self, correlation: f64) -> Self {
         self.correlation = correlation.clamp(0.0, 0.99);
         self
     }
@@ -86,7 +86,7 @@ impl IntensityProcessDefault {
     /// - Factor sensitivity: 0.5
     /// - Mean reversion: 0.5 (2-year half-life)
     /// - Volatility: 0.30
-    pub fn rmbs_standard() -> Self {
+    pub(crate) fn rmbs_standard() -> Self {
         Self::new(
             RMBS_STANDARD.base_cdr,
             RMBS_STANDARD.default_factor_sensitivity,
@@ -100,7 +100,7 @@ impl IntensityProcessDefault {
     ///
     /// Uses shared calibration constants from `CLO_STANDARD`:
     /// Higher base hazard and factor sensitivity for corporate loans.
-    pub fn clo_standard() -> Self {
+    pub(crate) fn clo_standard() -> Self {
         Self::new(
             CLO_STANDARD.base_cdr,
             CLO_STANDARD.default_factor_sensitivity,
@@ -111,22 +111,22 @@ impl IntensityProcessDefault {
     }
 
     /// Get the base hazard rate.
-    pub fn base_hazard(&self) -> f64 {
+    pub(crate) fn base_hazard(&self) -> f64 {
         self.base_hazard
     }
 
     /// Get the factor sensitivity.
-    pub fn factor_sensitivity(&self) -> f64 {
+    pub(crate) fn factor_sensitivity(&self) -> f64 {
         self.factor_sensitivity
     }
 
     /// Get the mean reversion speed.
-    pub fn mean_reversion(&self) -> f64 {
+    pub(crate) fn mean_reversion(&self) -> f64 {
         self.mean_reversion
     }
 
     /// Get the volatility.
-    pub fn volatility(&self) -> f64 {
+    pub(crate) fn volatility(&self) -> f64 {
         self.volatility
     }
 

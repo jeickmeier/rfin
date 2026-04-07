@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Find unused imports in TSX/TS/JSX/JS files.
+
 Uses regex-based parsing to detect unused import statements.
 Handles default, named, namespace, type-only, and side-effect imports.
 """
 
-import json
+from pathlib import Path
 import re
 import sys
-from pathlib import Path
 
 
 def extract_import_statements(content: str) -> list[dict]:
@@ -39,12 +39,10 @@ def extract_import_statements(content: str) -> list[dict]:
                 i += 1
                 full_line += " " + lines[i].strip()
 
-            statements.append(
-                {
-                    "line": start_line,
-                    "raw": full_line,
-                }
-            )
+            statements.append({
+                "line": start_line,
+                "raw": full_line,
+            })
 
         i += 1
 
@@ -60,9 +58,7 @@ def _has_complete_import(text: str) -> bool:
     if re.search(r"""^import\s+['"][^'"]*['"]""", text):
         return True
     # Also complete if ends with semicolon and has quotes
-    if text.rstrip().endswith(";") and ("'" in text or '"' in text):
-        return True
-    return False
+    return bool(text.rstrip().endswith(";") and ("'" in text or '"' in text))
 
 
 def parse_imported_names(raw: str) -> list[dict]:
@@ -94,16 +90,6 @@ def parse_imported_names(raw: str) -> list[dict]:
     # Remove the `from '...'` / `from "..."` suffix
     body = re.sub(r"""\s+from\s+['"].*['"]$""", "", body)
 
-    # Now parse the import specifiers from `body`
-    # Possibilities:
-    #   defaultExport
-    #   { named1, named2 }
-    #   { named1 as alias1 }
-    #   * as namespace
-    #   defaultExport, { named1, named2 }
-    #   defaultExport, * as namespace
-    #   { type Foo, Bar }  (inline type imports)
-
     body = body.strip()
     if not body:
         return names
@@ -112,12 +98,12 @@ def parse_imported_names(raw: str) -> list[dict]:
     parts = _split_default_and_rest(body)
 
     for part in parts:
-        part = part.strip()
-        if not part:
+        stripped_part = part.strip()
+        if not stripped_part:
             continue
 
         # Namespace import: * as name
-        ns_match = re.match(r"^\*\s+as\s+(\w+)$", part)
+        ns_match = re.match(r"^\*\s+as\s+(\w+)$", stripped_part)
         if ns_match:
             names.append({
                 "name": ns_match.group(1),
@@ -128,7 +114,7 @@ def parse_imported_names(raw: str) -> list[dict]:
             continue
 
         # Named imports: { A, B as C, type D, ... }
-        named_match = re.match(r"^\{(.*)\}$", part, re.DOTALL)
+        named_match = re.match(r"^\{(.*)\}$", stripped_part, re.DOTALL)
         if named_match:
             items_str = named_match.group(1)
             items = [x.strip() for x in items_str.split(",")]
@@ -137,15 +123,13 @@ def parse_imported_names(raw: str) -> list[dict]:
                     continue
                 # Inline type: `type Foo` or `type Foo as Bar`
                 inline_type = False
-                if re.match(r"^type\s+", item):
+                stripped_item = item
+                if re.match(r"^type\s+", stripped_item):
                     inline_type = True
-                    item = re.sub(r"^type\s+", "", item)
+                    stripped_item = re.sub(r"^type\s+", "", stripped_item)
 
-                alias_match = re.match(r"(\w+)\s+as\s+(\w+)", item)
-                if alias_match:
-                    local_name = alias_match.group(2)
-                else:
-                    local_name = item.strip()
+                alias_match = re.match(r"(\w+)\s+as\s+(\w+)", stripped_item)
+                local_name = alias_match.group(2) if alias_match else stripped_item.strip()
 
                 if local_name and re.match(r"^\w+$", local_name):
                     names.append({
@@ -157,9 +141,9 @@ def parse_imported_names(raw: str) -> list[dict]:
             continue
 
         # Default import (plain identifier)
-        if re.match(r"^\w+$", part):
+        if re.match(r"^\w+$", stripped_part):
             names.append({
-                "name": part,
+                "name": stripped_part,
                 "is_type": is_type_import,
                 "is_side_effect": False,
                 "is_namespace": False,
@@ -217,9 +201,9 @@ def find_used_identifiers(content: str, import_statements: list[dict]) -> set[st
                     break
                 in_block_comment = False
                 i = end + 2
-            elif line[i: i + 2] == "//":
+            elif line[i : i + 2] == "//":
                 break
-            elif line[i: i + 2] == "/*":
+            elif line[i : i + 2] == "/*":
                 in_block_comment = True
                 i += 2
             else:
@@ -232,7 +216,7 @@ def find_used_identifiers(content: str, import_statements: list[dict]) -> set[st
 
     # Also strip string literals (rough: single and double quoted, template literals)
     # This prevents false positives from names appearing in strings
-    filtered_content = re.sub(r'`[^`]*`', '""', filtered_content)
+    filtered_content = re.sub(r"`[^`]*`", '""', filtered_content)
     filtered_content = re.sub(r'"(?:[^"\\]|\\.)*"', '""', filtered_content)
     filtered_content = re.sub(r"'(?:[^'\\]|\\.)*'", "''", filtered_content)
 
@@ -278,7 +262,7 @@ def find_unused_imports(file_path: Path) -> dict:
             "total_imports": total_imports,
             "side_effect_imports": side_effect_count,
         }
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return {
             "file": str(file_path),
             "error": f"Error parsing file: {e}",
@@ -286,25 +270,19 @@ def find_unused_imports(file_path: Path) -> dict:
         }
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     if len(sys.argv) < 2:
-        print(
-            "Usage: find-unused-imports-tsx.py <ts_file> [<ts_file>...]"
-        )
         sys.exit(1)
 
     results = []
     for file_path_str in sys.argv[1:]:
         file_path = Path(file_path_str)
         if not file_path.exists():
-            print(f"Warning: File not found: {file_path}", file=sys.stderr)
             continue
 
         result = find_unused_imports(file_path)
         results.append(result)
-
-    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":

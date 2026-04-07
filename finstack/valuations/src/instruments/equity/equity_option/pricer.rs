@@ -114,21 +114,21 @@ fn option_currency(inst: &EquityOption) -> Currency {
 /// - `t_rate`: Time using the discount curve's day count (for rate lookups)
 /// - `t_vol`: Time using ACT/365F (equity vol market standard)
 #[derive(Debug, Clone, Copy)]
-pub struct EquityOptionInputs {
+pub(crate) struct EquityOptionInputs {
     /// Spot price of the underlying
-    pub spot: f64,
+    pub(crate) spot: f64,
     /// Risk-free rate (from discount curve)
     /// Effective risk-free rate consistent with `t_vol`
-    pub r: f64,
+    pub(crate) r: f64,
     /// Dividend yield
-    pub q: f64,
+    pub(crate) q: f64,
     /// Implied volatility
-    pub sigma: f64,
+    pub(crate) sigma: f64,
     /// Time to expiry for rate calculations (curve day count)
     #[allow(dead_code)] // part of public API result struct
-    pub t_rate: f64,
+    pub(crate) t_rate: f64,
     /// Time to expiry for vol calculations (ACT/365F standard)
-    pub t_vol: f64,
+    pub(crate) t_vol: f64,
 }
 
 /// Collect standard inputs (spot, risk-free, dividend yield, vol, time to expiry).
@@ -139,7 +139,7 @@ pub struct EquityOptionInputs {
 ///
 /// This separation ensures consistent pricing when discount curves use different
 /// conventions (e.g., OIS curves with ACT/360) than the vol surface.
-pub fn collect_inputs(
+pub(crate) fn collect_inputs(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
@@ -163,7 +163,7 @@ pub fn collect_inputs(
 /// - Dividend yield `q` is set to 0.0 (dividends are already priced into S*)
 ///
 /// This is the QuantLib-standard approach for discrete dividends in Black-Scholes.
-pub fn collect_inputs_extended(
+pub(crate) fn collect_inputs_extended(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
@@ -297,7 +297,11 @@ pub fn collect_inputs_extended(
 ///
 /// - Hull, J. C. (2018). *Options, Futures, and Other Derivatives*, Chapter 15.
 /// - QuantLib: `DividendVanillaOption` with `AnalyticEuropeanEngine`
-pub fn adjust_spot_for_discrete_dividends(spot: f64, rate: f64, dividends: &[(f64, f64)]) -> f64 {
+pub(crate) fn adjust_spot_for_discrete_dividends(
+    spot: f64,
+    rate: f64,
+    dividends: &[(f64, f64)],
+) -> f64 {
     let pv_dividends: f64 = dividends
         .iter()
         .filter(|(t, _)| *t > 0.0)
@@ -308,7 +312,7 @@ pub fn adjust_spot_for_discrete_dividends(spot: f64, rate: f64, dividends: &[(f6
 
 /// Unit price under Black–Scholes (no contract size scaling).
 #[inline]
-pub fn price_bs_unit(
+pub(crate) fn price_bs_unit(
     spot: f64,
     strike: f64,
     r: f64,
@@ -340,7 +344,7 @@ pub struct EquityOptionGreeks {
 /// Uses proper day count handling:
 /// - Rate lookups use the discount curve's day count
 /// - Vol time uses ACT/365F (equity market standard)
-pub fn compute_greeks(
+pub(crate) fn compute_greeks(
     inst: &EquityOption,
     curves: &MarketContext,
     as_of: Date,
@@ -572,12 +576,12 @@ pub fn compute_greeks(
 }
 
 /// Unit greeks (per share, not scaled by contract size).
-pub type UnitGreeks = BsGreeks;
+pub(crate) type UnitGreeks = BsGreeks;
 
 /// Compute unit greeks from explicit inputs (no market lookups).
 #[allow(dead_code)] // May be used by external bindings or tests
 #[inline]
-pub fn greeks_unit(
+pub(crate) fn greeks_unit(
     spot: f64,
     strike: f64,
     r: f64,
@@ -629,7 +633,7 @@ pub fn greeks_unit(
 // ========================= REGISTRY PRICER =========================
 
 /// Registry pricer for Equity Option using Black-Scholes model
-pub struct SimpleEquityOptionBlackPricer {
+pub(crate) struct SimpleEquityOptionBlackPricer {
     model: crate::pricer::ModelKey,
 }
 
@@ -640,14 +644,14 @@ impl SimpleEquityOptionBlackPricer {
     /// lognormal option pricing.  BSM and Black-76 are mathematically
     /// equivalent (BSM is Black-76 applied to the forward
     /// `F = S × exp((r-q)T)`), so the same model key covers both.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             model: crate::pricer::ModelKey::Black76,
         }
     }
 
     /// Create pricer with specified model key
-    pub fn with_model(model: crate::pricer::ModelKey) -> Self {
+    pub(crate) fn with_model(model: crate::pricer::ModelKey) -> Self {
         Self { model }
     }
 }
@@ -711,12 +715,12 @@ use crate::instruments::common_impl::traits::Instrument;
 
 /// Equity option Heston semi-analytical pricer (Fourier inversion).
 #[cfg(feature = "mc")]
-pub struct EquityOptionHestonFourierPricer;
+pub(crate) struct EquityOptionHestonFourierPricer;
 
 #[cfg(feature = "mc")]
 impl EquityOptionHestonFourierPricer {
     /// Create a new Heston Fourier transform pricer
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self
     }
 }

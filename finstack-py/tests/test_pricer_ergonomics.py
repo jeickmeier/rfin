@@ -12,7 +12,6 @@ from tests.fixtures.strategies import (
 )
 
 
-
 def test_price_with_metrics_accepts_documented_argument_order() -> None:
     """The as_of-first call shape should work with keyword metrics."""
     registry = standard_registry()
@@ -31,7 +30,6 @@ def test_price_with_metrics_accepts_documented_argument_order() -> None:
     assert result.instrument_id == "TEST-BOND"
     assert "clean_price" in result.measures
     assert "accrued" in result.measures
-
 
 
 def test_price_batch_with_metrics_preserves_input_order() -> None:

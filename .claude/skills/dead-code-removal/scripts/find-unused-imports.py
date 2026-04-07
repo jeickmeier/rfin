@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
 """Find unused imports in Python files.
+
 Uses AST parsing to accurately detect unused imports.
 """
 
 import ast
-import json
-import sys
 from pathlib import Path
+import sys
 
 
 class ImportVisitor(ast.NodeVisitor):
     """AST visitor to collect imports and their usage."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize import tracking state."""
         self.imports = {}  # name -> line_number
         self.used_names = set()
         self.import_star = False
 
-    def visit_Import(self, node):
+    def visit_Import(self, node: ast.Import) -> None:
+        """Record direct import bindings."""
         for alias in node.names:
             name = alias.asname if alias.asname else alias.name.split(".")[0]
             self.imports[name] = node.lineno
         self.generic_visit(node)
 
-    def visit_ImportFrom(self, node):
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """Record imported names from modules and note wildcard imports."""
         if node.module:
             if node.names[0].name == "*":
                 self.import_star = True
@@ -33,12 +36,14 @@ class ImportVisitor(ast.NodeVisitor):
                     self.imports[name] = node.lineno
         self.generic_visit(node)
 
-    def visit_Name(self, node):
+    def visit_Name(self, node: ast.Name) -> None:
+        """Record loaded identifier usage."""
         if isinstance(node.ctx, ast.Load):
             self.used_names.add(node.id)
         self.generic_visit(node)
 
-    def visit_Attribute(self, node):
+    def visit_Attribute(self, node: ast.Attribute) -> None:
+        """Record attribute base names such as `os` in `os.path`."""
         # Handle cases like os.path, sys.argv
         if isinstance(node.value, ast.Name):
             self.used_names.add(node.value.id)
@@ -58,12 +63,10 @@ def find_unused_imports(file_path: Path) -> dict:
         unused = []
         for name, line_num in visitor.imports.items():
             if name not in visitor.used_names and not visitor.import_star:
-                unused.append(
-                    {
-                        "name": name,
-                        "line": line_num,
-                    }
-                )
+                unused.append({
+                    "name": name,
+                    "line": line_num,
+                })
 
         return {
             "file": str(file_path),
@@ -77,7 +80,7 @@ def find_unused_imports(file_path: Path) -> dict:
             "error": f"Syntax error: {e}",
             "unused_imports": [],
         }
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return {
             "file": str(file_path),
             "error": f"Error parsing file: {e}",
@@ -85,23 +88,19 @@ def find_unused_imports(file_path: Path) -> dict:
         }
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     if len(sys.argv) < 2:
-        print("Usage: find_unused_imports.py <python_file> [<python_file>...]")
         sys.exit(1)
 
     results = []
     for file_path_str in sys.argv[1:]:
         file_path = Path(file_path_str)
         if not file_path.exists():
-            print(f"Warning: File not found: {file_path}", file=sys.stderr)
             continue
 
         result = find_unused_imports(file_path)
         results.append(result)
-
-    print(json.dumps(results, indent=2))
 
 
 if __name__ == "__main__":

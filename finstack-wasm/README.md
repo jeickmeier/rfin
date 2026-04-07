@@ -562,12 +562,10 @@ See [CHANGELOG.md](./CHANGELOG.md) for detailed release notes and migration guid
 
 ### Deprecation Policy
 
-When we need to deprecate a feature:
-
-1. The old API will be marked with JSDoc `@deprecated` tags
-2. Deprecation will be maintained for at least one MINOR version
-3. Removal will only occur in MAJOR version bumps
-4. Migration guides will be provided in CHANGELOG.md
+During pre-alpha (0.x), the API may change without a formal deprecation cycle.
+After 1.0, deprecated APIs will be marked with JSDoc `@deprecated` tags, maintained
+for at least one MINOR version, and removed only in MAJOR version bumps with
+migration guides in CHANGELOG.md.
 
 ### MSRV (Minimum Supported Rust Version)
 

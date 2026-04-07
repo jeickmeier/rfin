@@ -443,7 +443,7 @@ impl Pricer for SimpleFxOptionBlackPricer {
 }
 
 #[cfg(test)]
-#[allow(clippy::expect_used, clippy::panic, deprecated)]
+#[allow(clippy::expect_used, clippy::panic)]
 mod delegation_tests {
     use super::*;
     use crate::instruments::common_impl::traits::Attributes;

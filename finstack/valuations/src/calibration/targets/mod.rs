@@ -14,26 +14,26 @@
 //! - [`crate::calibration::api`] for the schema that drives these targets.
 
 /// Base correlation curve bootstrapping from CDS tranche quotes.
-pub mod base_correlation;
+pub(crate) mod base_correlation;
 /// Discount curve bootstrapping from rate quotes.
-pub mod discount;
+pub(crate) mod discount;
 /// Forward curve bootstrapping from rate quotes.
-pub mod forward;
+pub(crate) mod forward;
 /// Hazard curve bootstrapping from CDS quotes.
-pub mod hazard;
+pub(crate) mod hazard;
 /// Inflation curve bootstrapping from inflation swap quotes.
-pub mod inflation;
+pub(crate) mod inflation;
 /// Nelson-Siegel / Nelson-Siegel-Svensson parametric curve calibration.
-pub mod parametric;
+pub(crate) mod parametric;
 /// Student-t copula degrees of freedom calibration.
-pub mod student_t;
+pub(crate) mod student_t;
 /// SVI volatility surface calibration.
-pub mod svi;
+pub(crate) mod svi;
 /// Swaption volatility surface calibration.
-pub mod swaption;
+pub(crate) mod swaption;
 /// Shared utility functions for calibration targets.
-pub mod util;
+pub(crate) mod util;
 /// Option volatility surface calibration.
-pub mod vol;
+pub(crate) mod vol;
 /// Cross-currency basis curve bootstrapping.
-pub mod xccy_basis;
+pub(crate) mod xccy_basis;
