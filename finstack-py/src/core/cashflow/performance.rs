@@ -35,30 +35,13 @@
 //! - `finstack.core.cashflow.xirr` for irregular cashflows
 //! - `finstack.core.cashflow.npv_static` for curve-based discounting
 
-use crate::core::common::args::DayCountArg;
+use crate::core::common::args::parse_day_count;
 use crate::core::dates::utils::py_to_date;
-use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::InternalRateOfReturn;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
-
-/// Parse a day-count convention from Python input.
-///
-/// Accepts either a `DayCount` object or a string identifier.
-fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<finstack_core::dates::DayCount> {
-    if let Ok(py_dc) = dc.extract::<PyRef<PyDayCount>>() {
-        return Ok(py_dc.inner);
-    }
-    if let Ok(DayCountArg(inner)) = dc.extract::<DayCountArg>() {
-        return Ok(inner);
-    }
-    Err(PyTypeError::new_err(
-        "day_count must be a DayCount or string identifier",
-    ))
-}
 
 /// Calculate NPV (Net Present Value) for a series of cashflows at a given discount rate.
 ///
@@ -152,7 +135,7 @@ pub fn py_npv(
 
     // Parse day count from input if provided
     let dc = match day_count {
-        Some(dc_any) => Some(parse_day_count(dc_any)?),
+        Some(dc_any) => Some(parse_day_count(&dc_any)?),
         None => None,
     };
 

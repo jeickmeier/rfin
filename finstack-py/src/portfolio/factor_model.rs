@@ -956,21 +956,22 @@ impl PyMatchingConfig {
     }
 
     fn to_json(&self) -> PyResult<String> {
-        let json = serde_json::to_value(&self.inner)
-            .map_err(|err| PyValueError::new_err(err.to_string()))?;
-        let normalized = match self.inner {
-            MatchingConfig::MappingTable(_) => serde_json::json!({ "mapping_table": json }),
-            MatchingConfig::Cascade(_) => serde_json::json!({ "cascade": json }),
-            MatchingConfig::Hierarchical(_) => serde_json::json!({ "hierarchical": json }),
-        };
-        serde_json::to_string_pretty(&normalized)
+        serde_json::to_string_pretty(&self.inner)
             .map_err(|err| PyValueError::new_err(err.to_string()))
     }
 
     #[staticmethod]
     fn from_json(json: &str) -> PyResult<Self> {
+        // Support both the canonical serde format and the legacy Python envelope format
         let value: serde_json::Value =
             serde_json::from_str(json).map_err(|err| PyValueError::new_err(err.to_string()))?;
+
+        // Try direct deserialization first (canonical serde format)
+        if let Ok(inner) = serde_json::from_value::<MatchingConfig>(value.clone()) {
+            return Ok(Self::from_inner(inner));
+        }
+
+        // Fallback: legacy Python envelope format {"mapping_table": ...}
         let inner = if let Some(inner) = value.get("mapping_table") {
             MatchingConfig::MappingTable(
                 serde_json::from_value(inner.clone())
@@ -987,7 +988,7 @@ impl PyMatchingConfig {
                     .map_err(|err| PyValueError::new_err(err.to_string()))?,
             )
         } else {
-            serde_json::from_value(value).map_err(|err| PyValueError::new_err(err.to_string()))?
+            return Err(PyValueError::new_err("Unrecognized MatchingConfig format"));
         };
         Ok(Self::from_inner(inner))
     }

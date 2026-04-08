@@ -35,12 +35,10 @@
 //! - `finstack.core.cashflow.irr_periodic` for evenly-spaced cashflows
 //! - `finstack.core.cashflow.npv` for present value calculations
 
-use crate::core::common::args::DayCountArg;
+use crate::core::common::args::parse_day_count;
 use crate::core::dates::utils::py_to_date;
-use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::InternalRateOfReturn;
-use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
@@ -136,21 +134,6 @@ pub fn py_xirr(cash_flows: Vec<(Bound<'_, PyAny>, f64)>, guess: Option<f64>) -> 
     flows.irr(guess).map_err(core_to_py)
 }
 
-/// Parse a day-count convention from Python input.
-///
-/// Accepts either a `DayCount` object or a string identifier.
-fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<finstack_core::dates::DayCount> {
-    if let Ok(py_dc) = dc.extract::<PyRef<PyDayCount>>() {
-        return Ok(py_dc.inner);
-    }
-    if let Ok(DayCountArg(inner)) = dc.extract::<DayCountArg>() {
-        return Ok(inner);
-    }
-    Err(PyTypeError::new_err(
-        "day_count must be a DayCount or string identifier",
-    ))
-}
-
 /// Calculate XIRR with an explicit day-count convention for irregular cashflows.
 ///
 /// Similar to :func:`xirr`, but allows specifying the day-count convention
@@ -203,7 +186,7 @@ pub fn py_xirr_with_daycount(
     day_count: Bound<'_, PyAny>,
     guess: Option<f64>,
 ) -> PyResult<f64> {
-    let dc = parse_day_count(day_count)?;
+    let dc = parse_day_count(&day_count)?;
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
     for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
         let field = format!("cash_flows[{idx}].date");
@@ -253,7 +236,7 @@ pub fn py_irr_periodic_with_daycount(
     day_count: Bound<'_, PyAny>,
     guess: Option<f64>,
 ) -> PyResult<f64> {
-    let dc = parse_day_count(day_count)?;
+    let dc = parse_day_count(&day_count)?;
     amounts.irr_with_daycount(dc, guess).map_err(core_to_py)
 }
 
@@ -452,7 +435,7 @@ pub fn py_xirr_detailed(
     day_count: Bound<'_, PyAny>,
     guess: Option<f64>,
 ) -> PyResult<PyIrrResult> {
-    let dc = parse_day_count(day_count)?;
+    let dc = parse_day_count(&day_count)?;
     let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
     for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
         let field = format!("cash_flows[{idx}].date");

@@ -5,6 +5,7 @@
 //! Struct types already wrapped in [`crate::portfolio::factor_model`] are
 //! re-registered here; enum and ID types get standalone frozen wrappers.
 
+use crate::core::common::labels::normalize_label;
 use crate::errors::core_to_py;
 use crate::portfolio::factor_model::{
     PyAttributeFilter, PyBumpSizeConfig, PyDependencyFilter, PyFactorCovarianceMatrix,
@@ -26,14 +27,6 @@ use std::hash::{Hash, Hasher};
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-fn normalized(value: &str) -> String {
-    value
-        .chars()
-        .filter(|ch| !matches!(ch, '_' | '-' | ' '))
-        .flat_map(char::to_lowercase)
-        .collect()
-}
 
 fn str_hash(value: &str) -> u64 {
     let mut h = DefaultHasher::new();
@@ -126,9 +119,9 @@ impl PyPricingMode {
     /// Parse from ``"DeltaBased"`` or ``"FullRepricing"``.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalized(value).as_str() {
-            "deltabased" => Ok(Self::from_inner(PricingMode::DeltaBased)),
-            "fullrepricing" => Ok(Self::from_inner(PricingMode::FullRepricing)),
+        match normalize_label(value).as_str() {
+            "deltabased" | "delta_based" => Ok(Self::from_inner(PricingMode::DeltaBased)),
+            "fullrepricing" | "full_repricing" => Ok(Self::from_inner(PricingMode::FullRepricing)),
             _ => Err(PyValueError::new_err(format!(
                 "Unsupported pricing mode '{value}'. Expected DeltaBased or FullRepricing"
             ))),
@@ -210,7 +203,7 @@ impl PyFactorType {
     /// Parse from ``"Rates"``, ``"Credit"``, ``"Custom:Weather"``, etc.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        let lower = normalized(value);
+        let lower = normalize_label(value);
         match lower.as_str() {
             "rates" => Ok(Self::from_inner(FactorType::Rates)),
             "credit" => Ok(Self::from_inner(FactorType::Credit)),
@@ -343,12 +336,14 @@ impl PyDependencyType {
     /// Parse from ``"Discount"``, ``"Forward"``, ``"Credit"``, etc.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalized(value).as_str() {
+        match normalize_label(value).as_str() {
             "discount" => Ok(Self::from_inner(DependencyType::Discount)),
             "forward" => Ok(Self::from_inner(DependencyType::Forward)),
             "credit" => Ok(Self::from_inner(DependencyType::Credit)),
             "spot" => Ok(Self::from_inner(DependencyType::Spot)),
-            "vol" | "volsurface" | "volatility" => Ok(Self::from_inner(DependencyType::Vol)),
+            "vol" | "volsurface" | "vol_surface" | "volatility" => {
+                Ok(Self::from_inner(DependencyType::Vol))
+            }
             "fx" => Ok(Self::from_inner(DependencyType::Fx)),
             "series" => Ok(Self::from_inner(DependencyType::Series)),
             "hazard" => Err(PyValueError::new_err(
@@ -463,12 +458,14 @@ impl PyCurveType {
     /// Parse from ``"Discount"``, ``"Forward"``, ``"Hazard"``, etc.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalized(value).as_str() {
+        match normalize_label(value).as_str() {
             "discount" => Ok(Self::from_inner(CurveType::Discount)),
             "forward" => Ok(Self::from_inner(CurveType::Forward)),
             "hazard" | "credit" => Ok(Self::from_inner(CurveType::Hazard)),
             "inflation" => Ok(Self::from_inner(CurveType::Inflation)),
-            "basecorrelation" => Ok(Self::from_inner(CurveType::BaseCorrelation)),
+            "basecorrelation" | "base_correlation" => {
+                Ok(Self::from_inner(CurveType::BaseCorrelation))
+            }
             _ => Err(PyValueError::new_err(format!(
                 "Unsupported curve type '{value}'"
             ))),
@@ -563,7 +560,7 @@ impl PyUnmatchedPolicy {
     /// Parse from ``"Strict"``, ``"Residual"``, or ``"Warn"``.
     #[new]
     fn new(value: &str) -> PyResult<Self> {
-        match normalized(value).as_str() {
+        match normalize_label(value).as_str() {
             "strict" => Ok(Self::from_inner(UnmatchedPolicy::Strict)),
             "residual" => Ok(Self::from_inner(UnmatchedPolicy::Residual)),
             "warn" => Ok(Self::from_inner(UnmatchedPolicy::Warn)),
@@ -654,7 +651,7 @@ impl PyRiskMeasure {
     #[new]
     #[pyo3(signature = (value, confidence=None))]
     fn new(value: &str, confidence: Option<f64>) -> PyResult<Self> {
-        match normalized(value).as_str() {
+        match normalize_label(value).as_str() {
             "variance" => Ok(Self::from_inner(RiskMeasure::Variance)),
             "volatility" => Ok(Self::from_inner(RiskMeasure::Volatility)),
             "var" => {
@@ -664,7 +661,7 @@ impl PyRiskMeasure {
                 rm.validate().map_err(core_to_py)?;
                 Ok(Self::from_inner(rm))
             }
-            "expectedshortfall" => {
+            "expectedshortfall" | "expected_shortfall" => {
                 let c = confidence.ok_or_else(|| {
                     PyValueError::new_err("ExpectedShortfall requires a confidence level")
                 })?;

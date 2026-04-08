@@ -16,9 +16,8 @@ use pyo3_polars::PyDataFrame;
 #[pyo3(name = "positions_to_polars")]
 fn py_positions_to_polars(valuation: &Bound<'_, PyAny>) -> PyResult<PyDataFrame> {
     let valuation_inner = extract_portfolio_valuation(valuation)?;
-    let df = positions_to_dataframe(&valuation_inner).map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("positions_to_polars failed: {}", e))
-    })?;
+    let df = positions_to_dataframe(&valuation_inner)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(PyDataFrame(df))
 }
 
@@ -27,9 +26,8 @@ fn py_positions_to_polars(valuation: &Bound<'_, PyAny>) -> PyResult<PyDataFrame>
 #[pyo3(name = "entities_to_polars")]
 fn py_entities_to_polars(valuation: &Bound<'_, PyAny>) -> PyResult<PyDataFrame> {
     let valuation_inner = extract_portfolio_valuation(valuation)?;
-    let df = entities_to_dataframe(&valuation_inner).map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("entities_to_polars failed: {}", e))
-    })?;
+    let df = entities_to_dataframe(&valuation_inner)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(PyDataFrame(df))
 }
 
@@ -41,9 +39,8 @@ fn py_metrics_to_polars(metrics: &Bound<'_, PyAny>) -> PyResult<PyDataFrame> {
         .extract::<PyRef<PyPortfolioMetrics>>()?
         .inner
         .clone();
-    let df = metrics_to_dataframe(&metrics_inner).map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!("metrics_to_polars failed: {}", e))
-    })?;
+    let df = metrics_to_dataframe(&metrics_inner)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(PyDataFrame(df))
 }
 
@@ -55,12 +52,8 @@ fn py_aggregated_metrics_to_polars(metrics: &Bound<'_, PyAny>) -> PyResult<PyDat
         .extract::<PyRef<PyPortfolioMetrics>>()?
         .inner
         .clone();
-    let df = aggregated_metrics_to_dataframe(&metrics_inner).map_err(|e| {
-        pyo3::exceptions::PyRuntimeError::new_err(format!(
-            "aggregated_metrics_to_polars failed: {}",
-            e
-        ))
-    })?;
+    let df = aggregated_metrics_to_dataframe(&metrics_inner)
+        .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))?;
     Ok(PyDataFrame(df))
 }
 

@@ -277,15 +277,7 @@ impl PyWaterfallSpec {
 }
 
 fn default_priority() -> Vec<PaymentPriority> {
-    vec![
-        PaymentPriority::Fees,
-        PaymentPriority::Interest,
-        PaymentPriority::Amortization,
-        PaymentPriority::MandatoryPrepayment,
-        PaymentPriority::VoluntaryPrepayment,
-        PaymentPriority::Sweep,
-        PaymentPriority::Equity,
-    ]
+    WaterfallSpec::default().priority_of_payments
 }
 
 pub(crate) fn register<'py>(_py: Python<'py>, module: &Bound<'py, PyModule>) -> PyResult<()> {

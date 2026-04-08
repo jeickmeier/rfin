@@ -460,7 +460,17 @@ impl PyRoundingMode {
     #[pyo3(text_signature = "(cls, name)")]
     /// Parse a rounding mode from a snake-case string.
     fn from_name(_cls: &Bound<'_, PyType>, name: &str) -> PyResult<Self> {
-        parse_rounding_mode(name)
+        let n = normalize_label(name);
+        match n.as_str() {
+            "bankers" | "banker" => Ok(PyRoundingMode::new(RoundingMode::Bankers)),
+            "away_from_zero" | "awayfromzero" => {
+                Ok(PyRoundingMode::new(RoundingMode::AwayFromZero))
+            }
+            "toward_zero" | "towards_zero" => Ok(PyRoundingMode::new(RoundingMode::TowardZero)),
+            "floor" => Ok(PyRoundingMode::new(RoundingMode::Floor)),
+            "ceil" | "ceiling" => Ok(PyRoundingMode::new(RoundingMode::Ceil)),
+            other => Err(unknown_rounding_mode(other)),
+        }
     }
 
     /// Snake-case name of the rounding mode.
@@ -824,45 +834,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 }
 
 pub(crate) fn extract_rounding_mode(value: &Bound<'_, PyAny>) -> PyResult<RoundingMode> {
-    if let Ok(mode) = value.extract::<PyRef<PyRoundingMode>>() {
-        return Ok(mode.inner);
-    }
-
-    if let Ok(name) = value.extract::<&str>() {
-        return parse_rounding_mode(name).map(|wrapper| wrapper.inner);
-    }
-
-    Err(PyTypeError::new_err(
-        "Expected RoundingMode or string identifier",
-    ))
-}
-
-/// Parse a snake-case rounding mode label into a `PyRoundingMode`.
-///
-/// Parameters
-/// ----------
-/// name : &str
-///     Case-insensitive snake-case identifier (e.g. "bankers", "floor").
-///
-/// Returns
-/// -------
-/// PyRoundingMode
-///     Wrapper around the core rounding mode.
-///
-/// Raises
-/// ------
-/// ValueError
-///     If the name is not a recognized rounding mode.
-fn parse_rounding_mode(name: &str) -> PyResult<PyRoundingMode> {
-    let n = normalize_label(name);
-    match n.as_str() {
-        "bankers" | "banker" => Ok(PyRoundingMode::new(RoundingMode::Bankers)),
-        "away_from_zero" | "awayfromzero" => Ok(PyRoundingMode::new(RoundingMode::AwayFromZero)),
-        "toward_zero" | "towards_zero" => Ok(PyRoundingMode::new(RoundingMode::TowardZero)),
-        "floor" => Ok(PyRoundingMode::new(RoundingMode::Floor)),
-        "ceil" | "ceiling" => Ok(PyRoundingMode::new(RoundingMode::Ceil)),
-        other => Err(unknown_rounding_mode(other)),
-    }
+    Ok(value.extract::<RoundingModeArg>()?.0)
 }
 
 /// Build a rounding context snapshot from a configuration.

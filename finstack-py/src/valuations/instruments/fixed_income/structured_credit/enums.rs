@@ -746,7 +746,8 @@ impl PyTrancheCoupon {
                 (a - b).abs() < f64::EPSILON
             }
             (TrancheCoupon::Floating(a), TrancheCoupon::Floating(b)) => {
-                format!("{a:?}") == format!("{b:?}")
+                // FloatingRateSpec doesn't derive PartialEq; compare via serde
+                serde_json::to_value(a).ok() == serde_json::to_value(b).ok()
             }
             _ => false,
         }

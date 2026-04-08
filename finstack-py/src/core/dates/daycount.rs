@@ -104,10 +104,10 @@ impl PyDayCount {
             "30e/360" | "30e_360" | "30/360e" | "eurobond_basis" => {
                 Ok(Self::new(DayCount::ThirtyE360))
             }
-            "act/act" | "act_act" | "actual/actual" | "act/act isda" | "isda" => {
+            "act/act" | "act_act" | "actual/actual" | "act/act_isda" | "isda" => {
                 Ok(Self::new(DayCount::ActAct))
             }
-            "act/act isma" | "act_act_isma" | "icma" | "act/act icma" => {
+            "act/act_isma" | "act_act_isma" | "icma" | "act/act_icma" => {
                 Ok(Self::new(DayCount::ActActIsma))
             }
             "bus/252" | "bus_252" | "business/252" => Ok(Self::new(DayCount::Bus252)),

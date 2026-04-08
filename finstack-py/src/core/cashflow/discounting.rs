@@ -28,9 +28,8 @@
 //! - `finstack.core.market_data.term_structures.DiscountCurve` for curve construction
 //! - `finstack.core.cashflow.npv` for rate-based NPV calculations
 
-use crate::core::common::args::DayCountArg;
+use crate::core::common::args::parse_day_count;
 use crate::core::dates::utils::py_to_date;
-use crate::core::dates::PyDayCount;
 use crate::core::market_data::term_structures::PyDiscountCurve;
 use crate::core::money::{extract_money, PyMoney};
 use crate::errors::{core_to_py, PyContext};
@@ -38,21 +37,6 @@ use finstack_core::cashflow::npv;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::Bound;
-
-/// Parse a day-count convention from Python input.
-///
-/// Accepts either a `DayCount` object or a string identifier.
-fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<finstack_core::dates::DayCount> {
-    if let Ok(py_dc) = dc.extract::<PyRef<PyDayCount>>() {
-        return Ok(py_dc.inner);
-    }
-    if let Ok(DayCountArg(inner)) = dc.extract::<DayCountArg>() {
-        return Ok(inner);
-    }
-    Err(pyo3::exceptions::PyTypeError::new_err(
-        "day_count must be a DayCount or string identifier",
-    ))
-}
 
 /// Parse a list of (date, amount) tuples into typed cashflows.
 fn parse_flows(
@@ -140,7 +124,7 @@ pub fn py_npv_static(
     cash_flows: Vec<(Bound<'_, PyAny>, Bound<'_, PyAny>)>,
 ) -> PyResult<PyMoney> {
     let base = py_to_date(&base_date).context("base_date")?;
-    let dc = parse_day_count(day_count)?;
+    let dc = parse_day_count(&day_count)?;
     let flows = parse_flows(cash_flows)?;
     npv(curve.inner.as_ref(), base, Some(dc), &flows)
         .map(PyMoney::new)

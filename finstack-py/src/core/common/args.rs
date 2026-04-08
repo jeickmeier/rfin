@@ -106,10 +106,13 @@ impl<'a, 'py> FromPyObject<'a, 'py> for DayCountArg {
                 "act/360" | "act_360" | "actual/360" => DayCount::Act360,
                 "act/365f" | "act_365f" | "actual/365f" => DayCount::Act365F,
                 "act/365l" | "act_365l" | "actual/365l" | "act/365afb" => DayCount::Act365L,
-                "30/360" | "30_360" | "thirty/360" | "30u/360" => DayCount::Thirty360,
-                "30e/360" | "30e_360" | "30/360e" => DayCount::ThirtyE360,
-                "act/act" | "act_act" | "actual/actual" | "act/act isda" => DayCount::ActAct,
-                "act/act isma" | "act_act_isma" | "icma" => DayCount::ActActIsma,
+                "30/360" | "30_360" | "thirty/360" | "30u/360" | "bond_basis"
+                | "30/360_bond_basis" => DayCount::Thirty360,
+                "30e/360" | "30e_360" | "30/360e" | "eurobond_basis" => DayCount::ThirtyE360,
+                "act/act" | "act_act" | "actual/actual" | "act/act_isda" | "isda" => {
+                    DayCount::ActAct
+                }
+                "act/act_isma" | "act_act_isma" | "icma" | "act/act_icma" => DayCount::ActActIsma,
                 "bus/252" | "bus_252" | "business/252" => DayCount::Bus252,
                 other => {
                     return Err(pyo3::exceptions::PyValueError::new_err(format!(
@@ -419,5 +422,20 @@ pub(crate) fn parse_extrap_style(
     }
     Err(PyTypeError::new_err(
         "extrapolation must be ExtrapolationPolicy or string",
+    ))
+}
+
+/// Parse a day-count convention from Python input.
+///
+/// Accepts either a `DayCount` object or a string identifier.
+pub fn parse_day_count(dc: &Bound<'_, PyAny>) -> PyResult<DayCount> {
+    if let Ok(py_dc) = dc.extract::<PyRef<PyDayCount>>() {
+        return Ok(py_dc.inner);
+    }
+    if let Ok(DayCountArg(inner)) = dc.extract::<DayCountArg>() {
+        return Ok(inner);
+    }
+    Err(PyTypeError::new_err(
+        "day_count must be a DayCount or string identifier",
     ))
 }

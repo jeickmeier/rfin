@@ -612,7 +612,28 @@ pub(crate) fn parse_stub_kind(label: Option<&str>) -> PyResult<finstack_core::da
 }
 
 pub(crate) fn intern_calendar_id_opt(value: Option<&str>) -> Option<&'static str> {
-    value.map(|s| Box::leak(s.to_ascii_lowercase().into_boxed_str()) as &'static str)
+    value.map(|s| intern_str(&s.to_ascii_lowercase()))
+}
+
+/// Intern a string, returning a `&'static str` that is deduplicated across calls.
+///
+/// Uses `Box::leak` for the actual static allocation but tracks previously
+/// interned strings so the same logical value is never leaked twice.
+fn intern_str(s: &str) -> &'static str {
+    use std::collections::HashSet;
+    use std::sync::{LazyLock, Mutex};
+
+    static INTERNED: LazyLock<Mutex<HashSet<&'static str>>> =
+        LazyLock::new(|| Mutex::new(HashSet::new()));
+
+    let mut set = INTERNED.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some(&existing) = set.get(s) {
+        existing
+    } else {
+        let leaked: &'static str = Box::leak(s.to_owned().into_boxed_str());
+        set.insert(leaked);
+        leaked
+    }
 }
 
 pub(crate) mod monte_carlo;

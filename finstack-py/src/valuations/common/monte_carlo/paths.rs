@@ -66,6 +66,22 @@ impl From<CashflowType> for PyCashflowType {
     }
 }
 
+impl From<PyCashflowType> for CashflowType {
+    fn from(ct: PyCashflowType) -> Self {
+        match ct {
+            PyCashflowType::Principal => CashflowType::Principal,
+            PyCashflowType::Interest => CashflowType::Interest,
+            PyCashflowType::CommitmentFee => CashflowType::CommitmentFee,
+            PyCashflowType::UsageFee => CashflowType::UsageFee,
+            PyCashflowType::FacilityFee => CashflowType::FacilityFee,
+            PyCashflowType::UpfrontFee => CashflowType::UpfrontFee,
+            PyCashflowType::Recovery => CashflowType::Recovery,
+            PyCashflowType::MarkToMarket => CashflowType::MarkToMarket,
+            PyCashflowType::Other => CashflowType::Other,
+        }
+    }
+}
+
 #[pymethods]
 impl PyCashflowType {
     fn __repr__(&self) -> &'static str {
@@ -186,18 +202,7 @@ impl PyPathPoint {
     /// Returns:
     ///     list[tuple[float, float]]: List of (time, amount) pairs matching the type
     fn get_cashflows_by_type(&self, cf_type: PyCashflowType) -> Vec<(f64, f64)> {
-        let rust_type = match cf_type {
-            PyCashflowType::Principal => CashflowType::Principal,
-            PyCashflowType::Interest => CashflowType::Interest,
-            PyCashflowType::CommitmentFee => CashflowType::CommitmentFee,
-            PyCashflowType::UsageFee => CashflowType::UsageFee,
-            PyCashflowType::FacilityFee => CashflowType::FacilityFee,
-            PyCashflowType::UpfrontFee => CashflowType::UpfrontFee,
-            PyCashflowType::Recovery => CashflowType::Recovery,
-            PyCashflowType::MarkToMarket => CashflowType::MarkToMarket,
-            PyCashflowType::Other => CashflowType::Other,
-        };
-        self.inner.get_cashflows_by_type(rust_type)
+        self.inner.get_cashflows_by_type(cf_type.into())
     }
 
     /// Get principal flows (convenience method).
@@ -220,18 +225,7 @@ impl PyPathPoint {
 
     /// Get total cashflow by type.
     fn total_cashflow_by_type(&self, cf_type: PyCashflowType) -> f64 {
-        let rust_type = match cf_type {
-            PyCashflowType::Principal => CashflowType::Principal,
-            PyCashflowType::Interest => CashflowType::Interest,
-            PyCashflowType::CommitmentFee => CashflowType::CommitmentFee,
-            PyCashflowType::UsageFee => CashflowType::UsageFee,
-            PyCashflowType::FacilityFee => CashflowType::FacilityFee,
-            PyCashflowType::UpfrontFee => CashflowType::UpfrontFee,
-            PyCashflowType::Recovery => CashflowType::Recovery,
-            PyCashflowType::MarkToMarket => CashflowType::MarkToMarket,
-            PyCashflowType::Other => CashflowType::Other,
-        };
-        self.inner.total_cashflow_by_type(rust_type)
+        self.inner.total_cashflow_by_type(cf_type.into())
     }
 
     /// Convert cashflows to a pandas DataFrame.
@@ -377,18 +371,7 @@ impl PySimulatedPath {
     /// Returns:
     ///     list[tuple[float, float]]: All (time, amount) pairs matching the type
     fn extract_cashflows_by_type(&self, cf_type: PyCashflowType) -> Vec<(f64, f64)> {
-        let rust_type = match cf_type {
-            PyCashflowType::Principal => CashflowType::Principal,
-            PyCashflowType::Interest => CashflowType::Interest,
-            PyCashflowType::CommitmentFee => CashflowType::CommitmentFee,
-            PyCashflowType::UsageFee => CashflowType::UsageFee,
-            PyCashflowType::FacilityFee => CashflowType::FacilityFee,
-            PyCashflowType::UpfrontFee => CashflowType::UpfrontFee,
-            PyCashflowType::Recovery => CashflowType::Recovery,
-            PyCashflowType::MarkToMarket => CashflowType::MarkToMarket,
-            PyCashflowType::Other => CashflowType::Other,
-        };
-        self.inner.extract_cashflows_by_type(rust_type)
+        self.inner.extract_cashflows_by_type(cf_type.into())
     }
 
     /// Get cashflows with calendar dates.

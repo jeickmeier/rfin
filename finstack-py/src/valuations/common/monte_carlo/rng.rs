@@ -7,7 +7,10 @@ use finstack_monte_carlo::rng::philox::PhiloxRng;
 use finstack_monte_carlo::traits::RandomStream;
 use pyo3::prelude::*;
 
-/// FNV-1a hash matching the one inside `PhiloxRng::deterministic_from_str`.
+/// FNV-1a hash — must stay in sync with `PhiloxRng::deterministic_from_str`.
+///
+/// `PhiloxRng` does not expose a `key()` getter, so we replicate the hash here
+/// to obtain the numeric seed that `deterministic_from_str` would produce.
 fn fnv1a(s: &str) -> u64 {
     const FNV_OFFSET: u64 = 0xcbf29ce484222325;
     const FNV_PRIME: u64 = 0x00000100000001B3;

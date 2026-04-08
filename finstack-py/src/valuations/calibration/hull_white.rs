@@ -265,13 +265,23 @@ fn py_calibrate_hull_white(
     // Wrap the Python callable into a Rust closure.
     // We hold the GIL throughout since the Levenberg-Marquardt solver
     // calls df_fn synchronously from within the calibration loop.
+    let py_error: std::cell::Cell<Option<PyErr>> = std::cell::Cell::new(None);
     let df_fn = |t: f64| -> f64 {
-        df.call1(py, (t,))
-            .and_then(|result| result.extract::<f64>(py))
-            .unwrap_or(f64::NAN)
+        match df.call1(py, (t,)).and_then(|r| r.extract::<f64>(py)) {
+            Ok(v) => v,
+            Err(e) => {
+                py_error.set(Some(e));
+                f64::NAN
+            }
+        }
     };
 
     let result = calibrate_hull_white_to_swaptions(&df_fn, &rust_quotes).map_err(core_to_py)?;
+
+    // If the Python callable raised an exception during calibration, propagate it
+    if let Some(err) = py_error.take() {
+        return Err(err);
+    }
 
     let (params, report) = result;
     Ok((
