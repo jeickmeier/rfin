@@ -95,59 +95,6 @@ impl PyRevolvingCredit {
 
 #[pymethods]
 impl PyRevolvingCredit {
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, json_str)")]
-    /// Create a revolving credit facility from a JSON string specification.
-    ///
-    /// The JSON should match the RevolvingCredit schema from finstack-valuations.
-    /// This is the recommended way to create facilities with complex features like
-    /// stochastic utilization, tiered fees, and multi-factor Monte Carlo.
-    ///
-    /// Args:
-    ///     json_str: JSON string matching the RevolvingCredit schema.
-    ///
-    /// Returns:
-    ///     RevolvingCredit: Configured revolving credit facility.
-    ///
-    /// Raises:
-    ///     ValueError: If JSON cannot be parsed or is invalid.
-    ///
-    /// Examples:
-    ///     >>> import json
-    ///     >>> spec = {
-    ///     ...     "id": "RC001",
-    ///     ...     "commitment_amount": {"amount": 100_000_000, "currency": "USD"},
-    ///     ...     "drawn_amount": {"amount": 0, "currency": "USD"},
-    ///     ...     "commitment_date": "2025-01-01",
-    ///     ...     "maturity_date": "2027-01-01",
-    ///     ...     "base_rate_spec": {"Fixed": {"rate": 0.05}},
-    ///     ...     "day_count": "Act360",
-    ///     ...     "payment_frequency": {"months": 3},
-    ///     ...     "fees": {"facility_fee_bp": 25},
-    ///     ...     "draw_repay_spec": {"Deterministic": []},
-    ///     ...     "discount_curve_id": "USD-OIS",
-    ///     ...     "attributes": {}
-    ///     ... }
-    ///     >>> rc = RevolvingCredit.from_json(json.dumps(spec))
-    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
-        serde_json::from_str(json_str)
-            .map(Self::new)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    }
-
-    /// Serialize the revolving credit facility to a JSON string.
-    ///
-    /// Returns:
-    ///     str: JSON representation of the facility.
-    ///
-    /// Examples:
-    ///     >>> json_str = rc.to_json()
-    ///     >>> # Can be saved to file or transmitted
-    fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    }
-
     /// Instrument identifier.
     ///
     /// Returns:

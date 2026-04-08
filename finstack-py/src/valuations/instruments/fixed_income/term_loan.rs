@@ -80,37 +80,6 @@ impl PyTermLoan {
 
 #[pymethods]
 impl PyTermLoan {
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, json_str)")]
-    /// Create a term loan from a JSON string specification.
-    ///
-    /// The JSON should match the TermLoan schema from finstack-valuations.
-    /// This is the recommended way to create complex term loans with DDTL features,
-    /// covenants, and custom amortization schedules.
-    ///
-    /// Args:
-    ///     json_str: JSON string matching the TermLoan schema.
-    ///
-    /// Returns:
-    ///     TermLoan: Configured term loan instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If JSON cannot be parsed or is invalid.
-    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
-        serde_json::from_str(json_str)
-            .map(Self::new)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    }
-
-    /// Serialize the term loan to a JSON string.
-    ///
-    /// Returns:
-    ///     str: JSON representation of the term loan.
-    fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    }
-
     /// Instrument identifier.
     ///
     /// Returns:

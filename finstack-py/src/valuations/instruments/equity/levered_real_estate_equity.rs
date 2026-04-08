@@ -128,19 +128,6 @@ impl PyLeveredRealEstateEquity {
         Ok(Self::new(inst))
     }
 
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, json_str)")]
-    fn from_json(_cls: &Bound<'_, PyType>, json_str: &str) -> PyResult<Self> {
-        serde_json::from_str(json_str)
-            .map(Self::new)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    }
-
-    fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&*self.inner)
-            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
-    }
-
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()

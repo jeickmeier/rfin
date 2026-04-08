@@ -1,7 +1,7 @@
 """Asian option instrument."""
 
 from __future__ import annotations
-from typing import List, Tuple
+from typing import List, Self, Tuple
 from datetime import date
 from ....core.money import Money
 from ....core.dates.daycount import DayCount
@@ -161,6 +161,29 @@ class AsianOption:
             ...     spot_id="AAPL",
             ...     vol_surface="AAPL-VOL",
             ... )
+        """
+        ...
+
+    def to_json(self) -> str:
+        """Serialize to JSON in envelope format.
+
+        Returns:
+            str: JSON string with schema version and tagged instrument spec.
+        """
+        ...
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Self":
+        """Deserialize from JSON in envelope format.
+
+        Args:
+            json_str: JSON string in envelope format.
+
+        Returns:
+            The deserialized instrument.
+
+        Raises:
+            ValueError: If JSON is malformed or contains a different instrument type.
         """
         ...
 

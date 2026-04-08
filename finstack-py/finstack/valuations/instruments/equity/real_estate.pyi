@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Any
+from typing import Any, Self
 
 from ....core.currency import Currency
 from ....core.dates.daycount import DayCount
@@ -178,4 +178,28 @@ class RealEstateAsset:
     def instrument_type(self) -> InstrumentType:
         """Instrument type key."""
         ...
+
+    def to_json(self) -> str:
+        """Serialize to JSON in envelope format.
+
+        Returns:
+            str: JSON string with schema version and tagged instrument spec.
+        """
+        ...
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Self":
+        """Deserialize from JSON in envelope format.
+
+        Args:
+            json_str: JSON string in envelope format.
+
+        Returns:
+            The deserialized instrument.
+
+        Raises:
+            ValueError: If JSON is malformed or contains a different instrument type.
+        """
+        ...
+
     def __repr__(self) -> str: ...

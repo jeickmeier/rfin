@@ -1,6 +1,7 @@
 """Inflation swap instruments (zero-coupon and year-on-year)."""
 
 from __future__ import annotations
+from typing import Self
 from datetime import date
 from ....core.currency import Currency
 from ....core.money import Money
@@ -96,6 +97,28 @@ class InflationSwap:
     def instrument_type(self) -> InstrumentType: ...
     def __repr__(self) -> str: ...
     def __str__(self) -> str: ...
+    def to_json(self) -> str:
+        """Serialize to JSON in envelope format.
+
+        Returns:
+            str: JSON string with schema version and tagged instrument spec.
+        """
+        ...
+
+    @classmethod
+    def from_json(cls, json_str: str) -> "Self":
+        """Deserialize from JSON in envelope format.
+
+        Args:
+            json_str: JSON string in envelope format.
+
+        Returns:
+            The deserialized instrument.
+
+        Raises:
+            ValueError: If JSON is malformed or contains a different instrument type.
+        """
+        ...
 
 class YoYInflationSwapBuilder:
     """Fluent builder returned by :meth:`YoYInflationSwap.builder`."""

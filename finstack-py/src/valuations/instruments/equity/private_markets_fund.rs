@@ -8,31 +8,11 @@ use crate::errors::{core_to_py, PyContext};
 use crate::valuations::cashflow::builder::PyCashFlowSchedule;
 use crate::valuations::common::PyInstrumentType;
 use finstack_valuations::instruments::equity::pe_fund::PrivateMarketsFund;
-use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAny, PyDict, PyModule, PyType};
+use pyo3::types::PyModule;
 use pyo3::Bound;
 use std::fmt;
 use std::sync::Arc;
-
-fn parse_pmf_json(value: &Bound<'_, PyAny>) -> PyResult<PrivateMarketsFund> {
-    if let Ok(json_str) = value.extract::<&str>() {
-        return serde_json::from_str(json_str)
-            .map_err(|err| PyValueError::new_err(err.to_string()));
-    }
-    if let Ok(dict) = value.cast::<PyDict>() {
-        use crate::errors::PyContext;
-        let py = dict.py();
-        let json = pyo3::types::PyModule::import(py, "json")?
-            .call_method1("dumps", (dict,))?
-            .extract::<String>()
-            .context("json dumps")?;
-        return serde_json::from_str(&json).map_err(|err| PyValueError::new_err(err.to_string()));
-    }
-    Err(PyTypeError::new_err(
-        "Expected JSON string or dict convertible to JSON",
-    ))
-}
 
 /// Private markets fund instrument wrapper parsed from JSON definitions.
 #[pyclass(
@@ -56,19 +36,6 @@ impl PyPrivateMarketsFund {
 
 #[pymethods]
 impl PyPrivateMarketsFund {
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, data)")]
-    fn from_json(_cls: &Bound<'_, PyType>, data: Bound<'_, PyAny>) -> PyResult<Self> {
-        let fund = parse_pmf_json(&data)?;
-        Ok(Self::new(fund))
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
-    }
-
     #[getter]
     fn instrument_id(&self) -> &str {
         self.inner.id.as_str()

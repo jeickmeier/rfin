@@ -29,25 +29,6 @@ use pyo3::types::{PyDict, PyModule, PyType};
 use std::fmt;
 use std::sync::Arc;
 
-fn parse_structured_credit_json(value: &Bound<'_, PyAny>) -> PyResult<StructuredCredit> {
-    if let Ok(json_str) = value.extract::<&str>() {
-        return serde_json::from_str(json_str)
-            .map_err(|err| PyValueError::new_err(err.to_string()));
-    }
-    if let Ok(dict) = value.cast::<PyDict>() {
-        use crate::errors::PyContext;
-        let py = dict.py();
-        let json = pyo3::types::PyModule::import(py, "json")?
-            .call_method1("dumps", (dict,))?
-            .extract::<String>()
-            .context("json dumps")?;
-        return serde_json::from_str(&json).map_err(|err| PyValueError::new_err(err.to_string()));
-    }
-    Err(PyTypeError::new_err(
-        "Expected JSON string or dict convertible to JSON",
-    ))
-}
-
 // ============================================================================
 // ENUM WRAPPERS
 // ============================================================================
@@ -233,24 +214,6 @@ impl PyStructuredCredit {
 
 #[pymethods]
 impl PyStructuredCredit {
-    #[classmethod]
-    #[pyo3(text_signature = "(cls, data)")]
-    /// Parse a JSON payload into a structured credit instrument.
-    ///
-    /// Args:
-    ///     data: JSON string or dict describing the structured credit deal.
-    ///
-    /// Returns:
-    ///     StructuredCredit: Parsed structured credit instrument wrapper.
-    ///
-    /// Raises:
-    ///     ValueError: If the JSON cannot be parsed.
-    ///     TypeError: If ``data`` is neither a string nor dict-like object.
-    fn from_json(_cls: &Bound<'_, PyType>, data: Bound<'_, PyAny>) -> PyResult<Self> {
-        let deal = parse_structured_credit_json(&data)?;
-        Ok(Self::new(deal))
-    }
-
     /// Instrument identifier.
     ///
     /// Returns:
@@ -324,19 +287,6 @@ impl PyStructuredCredit {
     #[getter]
     fn base_cpr_annual(&self) -> f64 {
         self.inner.default_assumptions.base_cpr_annual
-    }
-
-    #[pyo3(text_signature = "(self)")]
-    /// Serialize the structured credit definition back to JSON.
-    ///
-    /// Returns:
-    ///     str: Pretty-printed JSON representation of the instrument.
-    ///
-    /// Raises:
-    ///     ValueError: If serialization fails.
-    fn to_json(&self) -> PyResult<String> {
-        serde_json::to_string_pretty(&self.inner)
-            .map_err(|err| PyValueError::new_err(err.to_string()))
     }
 
     /// Number of tranches in the structure.
