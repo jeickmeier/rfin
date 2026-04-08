@@ -267,6 +267,63 @@ impl BasisSwap {
         })
     }
 
+    /// Create a canonical example USD 3M SOFR vs 1M SOFR basis swap (5Y, $10M notional).
+    ///
+    /// Returns a 5-year basis swap with the primary leg on 3M SOFR (receiving 5bp spread)
+    /// and the reference leg on 1M SOFR (flat).
+    pub fn example() -> Result<Self> {
+        use finstack_core::currency::Currency;
+        use finstack_core::dates::StubKind;
+        use finstack_core::types::CurveId;
+        use time::Month;
+
+        let start =
+            Date::from_calendar_date(2024, Month::January, 3).map_err(|e| {
+                finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
+            })?;
+        let end =
+            Date::from_calendar_date(2029, Month::January, 3).map_err(|e| {
+                finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
+            })?;
+
+        let primary_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::from(5),
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        let reference_leg = BasisSwapLeg {
+            forward_curve_id: CurveId::new("USD-SOFR-1M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
+            frequency: Tenor::monthly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            calendar_id: None,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::ZERO,
+            payment_lag_days: 0,
+            reset_lag_days: 0,
+        };
+
+        Self::new(
+            "BASIS-SWAP-USD-3M1M-5Y",
+            Money::new(10_000_000.0, Currency::USD),
+            primary_leg,
+            reference_leg,
+        )
+    }
+
     fn validate_leg_lags(id: &str, leg_name: &str, leg: &BasisSwapLeg) -> Result<()> {
         if leg.payment_lag_days < 0 {
             return Err(finstack_core::Error::Validation(format!(

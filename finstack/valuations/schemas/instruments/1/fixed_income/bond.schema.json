@@ -1,109 +1,73 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/bond.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/fixed_income/bond.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Fixed income bond instrument with fixed, floating, or amortizing cashflows. `issue`/`issue_date` is typically provided; when omitted, deserialization requires `pricing_overrides.quoted_clean_price`.",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "bond",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "call_put": null,
-          "cashflow_spec": {
-            "Fixed": {
-              "bdc": "following",
-              "calendar_id": null,
-              "coupon_type": "Cash",
-              "dc": "Thirty360",
-              "freq": {
-                "Months": 6
-              },
-              "rate": 0.0425,
-              "stub": "None"
-            }
-          },
-          "credit_curve_id": null,
-          "discount_curve_id": "USD-TREASURY",
-          "ex_coupon_days": null,
           "id": "US912828XG33",
-          "maturity": "2034-01-15",
           "notional": {
             "amount": "1000000",
             "currency": "USD"
           },
-          "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
-            "quoted_clean_price": 98.75,
-            "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
-            "upfront_payment": null,
-            "vol_bump_pct": null,
-            "ytm_bump_decimal": null
+          "maturity": "2034-01-15",
+          "cashflow_spec": {
+            "Fixed": {
+              "coupon_type": "Cash",
+              "rate": "0.0425",
+              "freq": {
+                "count": 6,
+                "unit": "months"
+              },
+              "dc": "ActActIsma",
+              "bdc": "following",
+              "calendar_id": "sifma",
+              "stub": "None",
+              "end_of_month": false,
+              "payment_lag_days": 0
+            }
           },
-          "settlement_days": null
-        },
-        "type": "bond"
-      },
-      "schema": "finstack.instrument/1"
+          "discount_curve_id": "USD-TREASURY",
+          "credit_curve_id": null,
+          "pricing_overrides": {
+            "quoted_clean_price": 98.75,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "call_put": null,
+          "accrual_method": "Linear",
+          "attributes": {},
+          "settlement_days": 1,
+          "ex_coupon_days": 0,
+          "ex_coupon_calendar_id": "sifma"
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Bond instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "call_put": null,
-          "cashflow_spec": {
-            "Fixed": {
-              "bdc": "following",
-              "calendar_id": null,
-              "coupon_type": "Cash",
-              "dc": "Thirty360",
-              "freq": {
-                "Months": 6
-              },
-              "rate": 0.0425,
-              "stub": "None"
-            }
-          },
-          "credit_curve_id": null,
-          "discount_curve_id": "USD-TREASURY",
-          "ex_coupon_days": null,
-          "id": "US912828XG33",
-          "issue_date": "2024-01-15",
-          "maturity": "2034-01-15",
-          "notional": {
-            "amount": "1000000",
-            "currency": "USD"
-          },
-          "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
-            "quoted_clean_price": null,
-            "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
-            "upfront_payment": null,
-            "vol_bump_pct": null,
-            "ytm_bump_decimal": null
-          },
-          "settlement_days": null
-        },
-        "type": "bond"
-      },
       "type": "object"
     },
     "schema": {

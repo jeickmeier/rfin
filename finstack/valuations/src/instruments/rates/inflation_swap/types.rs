@@ -590,6 +590,37 @@ pub struct YoYInflationSwap {
 }
 
 impl YoYInflationSwap {
+    /// Create a canonical example USD 5Y YoY inflation swap (US-CPI, annual payments).
+    ///
+    /// Returns a 5-year pay-fixed YoY inflation swap with 2.5% fixed rate,
+    /// $1M notional, annual frequency, and standard 3-month CPI lag.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use time::Month;
+
+        YoYInflationSwap::builder()
+            .id(InstrumentId::new("YOYSWAP-USD-5Y"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .start_date(
+                Date::from_calendar_date(2024, Month::January, 15).expect("Valid example date"),
+            )
+            .maturity(
+                Date::from_calendar_date(2029, Month::January, 15).expect("Valid example date"),
+            )
+            .fixed_rate(Decimal::try_from(0.025).expect("valid decimal"))
+            .frequency(Tenor::annual())
+            .inflation_index_id(CurveId::new("US-CPI"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .day_count(DayCount::Act365F)
+            .side(PayReceive::PayFixed)
+            .lag_override(InflationLag::Months(3))
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example YoYInflationSwap construction should not fail")
+    }
+
     /// Validate structural invariants of the YoY inflation swap.
     pub fn validate(&self) -> finstack_core::Result<()> {
         validation::require_or(

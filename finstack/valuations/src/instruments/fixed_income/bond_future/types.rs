@@ -509,6 +509,48 @@ pub struct BondFuture {
 }
 
 impl BondFuture {
+    /// Create a representative UST 10Y bond future example.
+    ///
+    /// Long position, 10 contracts ($1M notional), 2 deliverable bonds
+    /// with published conversion factors.
+    pub fn example() -> finstack_core::Result<Self> {
+        use finstack_core::currency::Currency;
+        use time::Month;
+
+        let expiry =
+            Date::from_calendar_date(2025, Month::September, 19).expect("valid example date");
+        let delivery_start =
+            Date::from_calendar_date(2025, Month::September, 22).expect("valid example date");
+        let delivery_end =
+            Date::from_calendar_date(2025, Month::September, 30).expect("valid example date");
+
+        let bond1_id = InstrumentId::new("US91282CJL54");
+        let bond2_id = InstrumentId::new("US91282CHT18");
+
+        Self::builder()
+            .id(InstrumentId::new("TYU5"))
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .expiry(expiry)
+            .delivery_start(delivery_start)
+            .delivery_end(delivery_end)
+            .quoted_price(112.25)
+            .position(Position::Long)
+            .contract_specs(BondFutureSpecs::ust_10y())
+            .deliverable_basket(vec![
+                DeliverableBond {
+                    bond_id: bond1_id.clone(),
+                    conversion_factor: 0.8234,
+                },
+                DeliverableBond {
+                    bond_id: bond2_id,
+                    conversion_factor: 0.7915,
+                },
+            ])
+            .ctd_bond_id(bond1_id)
+            .discount_curve_id(CurveId::new("USD-TREASURY"))
+            .build_validated()
+    }
+
     fn resolve_ctd_bond_id(&self) -> finstack_core::Result<InstrumentId> {
         if let Some(id) = &self.ctd_bond_id {
             return Ok(id.clone());

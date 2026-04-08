@@ -250,6 +250,55 @@ pub struct DiscountedCashFlow {
 }
 
 impl DiscountedCashFlow {
+    /// Create a representative tech company DCF example.
+    ///
+    /// 5-year FCF projections ($5M-$8M), 10% WACC, Gordon Growth terminal
+    /// value at 2% growth, $15M net debt, mid-year convention enabled.
+    pub fn example() -> Self {
+        use time::Month;
+
+        let valuation_date =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid example date");
+
+        let flows: Vec<(Date, f64)> = vec![
+            (
+                Date::from_calendar_date(2026, Month::January, 1).expect("valid date"),
+                5_000_000.0,
+            ),
+            (
+                Date::from_calendar_date(2027, Month::January, 1).expect("valid date"),
+                5_750_000.0,
+            ),
+            (
+                Date::from_calendar_date(2028, Month::January, 1).expect("valid date"),
+                6_500_000.0,
+            ),
+            (
+                Date::from_calendar_date(2029, Month::January, 1).expect("valid date"),
+                7_250_000.0,
+            ),
+            (
+                Date::from_calendar_date(2030, Month::January, 1).expect("valid date"),
+                8_000_000.0,
+            ),
+        ];
+
+        Self::builder()
+            .id(InstrumentId::new("DCF-TECH-CO"))
+            .currency(Currency::USD)
+            .flows(flows)
+            .wacc(0.10)
+            .terminal_value(TerminalValueSpec::GordonGrowth { growth_rate: 0.02 })
+            .net_debt(15_000_000.0)
+            .valuation_date(valuation_date)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .mid_year_convention(true)
+            .shares_outstanding_opt(Some(10_000_000.0))
+            .attributes(Attributes::default())
+            .build()
+            .expect("Example DCF construction should not fail")
+    }
+
     /// Calculate present value of explicit period cash flows using WACC.
     ///
     /// Respects [`mid_year_convention`](Self::mid_year_convention): when `true`,

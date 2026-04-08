@@ -256,9 +256,9 @@ pub struct HazardCurveParams {
     /// during calibration. If omitted, the default for the currency is used.
     ///
     /// Examples (current built-ins):
-    /// - `"IsdaNa"` (USD/CAD default)
-    /// - `"IsdaEu"` (EUR/GBP/CHF default)
-    /// - `"IsdaAs"` (JPY/AUD/NZD/HKD/SGD default)
+    /// - `"isda_na"` (USD/CAD default)
+    /// - `"isda_eu"` (EUR/GBP/CHF default)
+    /// - `"isda_as"` (JPY/AUD/NZD/HKD/SGD default)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub doc_clause: Option<String>,
 }

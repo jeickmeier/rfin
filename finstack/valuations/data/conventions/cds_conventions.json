@@ -5,14 +5,14 @@
   "entries": [
     {
       "ids": [
-        "ANY:IsdaNa",
-        "USD:IsdaNa",
-        "CAD:IsdaNa",
-        "MXN:IsdaNa",
+        "ANY:isda_na",
+        "USD:isda_na",
+        "CAD:isda_na",
+        "MXN:isda_na",
         "DEFAULT:DEFAULT"
       ],
       "record": {
-        "doc_clause": "IsdaNa",
+        "doc_clause": "isda_na",
         "day_count": "Act360",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -23,16 +23,16 @@
     },
     {
       "ids": [
-        "ANY:IsdaEu",
-        "EUR:IsdaEu",
-        "GBP:IsdaEu",
-        "CHF:IsdaEu",
-        "SEK:IsdaEu",
-        "NOK:IsdaEu",
-        "DKK:IsdaEu"
+        "ANY:isda_eu",
+        "EUR:isda_eu",
+        "GBP:isda_eu",
+        "CHF:isda_eu",
+        "SEK:isda_eu",
+        "NOK:isda_eu",
+        "DKK:isda_eu"
       ],
       "record": {
-        "doc_clause": "IsdaEu",
+        "doc_clause": "isda_eu",
         "day_count": "Act360",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -43,12 +43,12 @@
     },
     {
       "ids": [
-        "ANY:IsdaAs",
-        "JPY:IsdaAs",
-        "KRW:IsdaAs"
+        "ANY:isda_as",
+        "JPY:isda_as",
+        "KRW:isda_as"
       ],
       "record": {
-        "doc_clause": "IsdaAs",
+        "doc_clause": "isda_as",
         "day_count": "Act365F",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -59,10 +59,10 @@
     },
     {
       "ids": [
-        "AUD:IsdaAs"
+        "AUD:isda_as"
       ],
       "record": {
-        "doc_clause": "IsdaAs",
+        "doc_clause": "isda_as",
         "day_count": "Act365F",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -73,10 +73,10 @@
     },
     {
       "ids": [
-        "NZD:IsdaAs"
+        "NZD:isda_as"
       ],
       "record": {
-        "doc_clause": "IsdaAs",
+        "doc_clause": "isda_as",
         "day_count": "Act365F",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -87,10 +87,10 @@
     },
     {
       "ids": [
-        "HKD:IsdaAs"
+        "HKD:isda_as"
       ],
       "record": {
-        "doc_clause": "IsdaAs",
+        "doc_clause": "isda_as",
         "day_count": "Act365F",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -101,10 +101,10 @@
     },
     {
       "ids": [
-        "SGD:IsdaAs"
+        "SGD:isda_as"
       ],
       "record": {
-        "doc_clause": "IsdaAs",
+        "doc_clause": "isda_as",
         "day_count": "Act365F",
         "payment_frequency": "3M",
         "bdc": "modified_following",
@@ -115,14 +115,14 @@
     },
     {
       "ids": [
-        "ANY:Custom",
-        "USD:Custom",
-        "EUR:Custom",
-        "GBP:Custom",
-        "JPY:Custom"
+        "ANY:custom",
+        "USD:custom",
+        "EUR:custom",
+        "GBP:custom",
+        "JPY:custom"
       ],
       "record": {
-        "doc_clause": "Custom",
+        "doc_clause": "custom",
         "day_count": "Act360",
         "payment_frequency": "3M",
         "bdc": "modified_following",

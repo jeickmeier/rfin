@@ -11,6 +11,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 /// Touch type: one-touch (pays if barrier is hit) or no-touch (pays if not hit).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum TouchType {
     /// Pays if the spot rate touches the barrier at any time before expiry.
@@ -21,6 +22,7 @@ pub enum TouchType {
 
 /// Barrier direction for touch options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BarrierDirection {
     /// Barrier is above current spot (spot must rise to touch).
@@ -31,6 +33,7 @@ pub enum BarrierDirection {
 
 /// Payout timing for touch options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum PayoutTiming {
     /// Payout occurs immediately when barrier is hit (for one-touch).

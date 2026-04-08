@@ -1,33 +1,27 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/equity/equity_index_future.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/ir_future_option.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "Equity index futures contract (E-mini S&P 500, Nasdaq-100, etc.)",
+  "description": "Option on an exchange-traded interest rate future",
   "examples": [
     {
       "schema": "finstack.instrument/1",
       "instrument": {
-        "type": "equity_index_future",
+        "type": "ir_future_option",
         "spec": {
-          "id": "ES-2025M03",
-          "underlying_ticker": "SPX",
+          "id": "IRFO-SOFR-3M-CALL-9550",
+          "futures_price": 95.5,
+          "strike": 95.5,
+          "expiry": "2025-06-16",
+          "option_type": "call",
           "notional": {
-            "amount": "2250000",
+            "amount": "1000000",
             "currency": "USD"
           },
-          "expiry": "2025-03-21",
-          "last_trading_date": "2025-03-20",
-          "entry_price": 4500.0,
-          "quoted_price": 4550.0,
-          "position": "long",
-          "contract_specs": {
-            "multiplier": 50.0,
-            "tick_size": 0.25,
-            "tick_value": 12.5,
-            "settlement_method": "Cash settled to Special Opening Quotation"
-          },
+          "tick_size": 0.0025,
+          "tick_value": 6.25,
+          "volatility": 0.2,
           "discount_curve_id": "USD-OIS",
-          "spot_id": "SPX-SPOT",
           "pricing_overrides": {
             "quoted_clean_price": null,
             "implied_volatility": null,
@@ -57,7 +51,7 @@
   ],
   "properties": {
     "instrument": {
-      "description": "The Equity Index Future instrument definition",
+      "description": "The IR Future Option instrument definition",
       "type": "object"
     },
     "schema": {
@@ -70,6 +64,6 @@
     "schema",
     "instrument"
   ],
-  "title": "Equity Index Future",
+  "title": "IR Future Option",
   "type": "object"
 }

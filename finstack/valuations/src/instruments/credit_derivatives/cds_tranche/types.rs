@@ -14,6 +14,7 @@ use crate::impl_instrument_base;
 
 /// Buyer/seller perspective for CDS tranche premium/protection
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TrancheSide {
     /// Buy protection on the tranche (pay running, receive protection)
     BuyProtection,

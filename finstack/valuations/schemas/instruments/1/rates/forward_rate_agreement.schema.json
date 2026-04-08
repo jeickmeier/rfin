@@ -1,62 +1,58 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/forward_rate_agreement.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/forward_rate_agreement.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Forward contract on an interest rate (FRA)",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "forward_rate_agreement",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "day_count": "Act360",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2024-07-03",
-          "fixed_rate": 0.045,
-          "fixing_date": "2024-04-01",
-          "forward_curve_id": "USD-SOFR-3M",
           "id": "FRA-3X6-USD",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "side": "receive",
+          "fixing_date": "2024-04-01",
+          "start_date": "2024-04-03",
+          "maturity": "2024-07-03",
+          "fixed_rate": "0.045",
+          "day_count": "Act360",
           "reset_lag": 2,
-          "start_date": "2024-04-03"
-        },
-        "type": "forward_rate_agreement"
-      },
-      "schema": "finstack.instrument/1"
+          "discount_curve_id": "USD-OIS",
+          "forward_curve_id": "USD-SOFR-3M",
+          "side": "receive",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Forward Rate Agreement instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "day_count": "Act360",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2024-07-03",
-          "fixed_rate": 0.045,
-          "fixing_date": "2024-04-01",
-          "forward_curve_id": "USD-SOFR-3M",
-          "id": "FRA-3X6-USD",
-          "notional": {
-            "amount": "10000000",
-            "currency": "USD"
-          },
-          "side": "receive",
-          "reset_lag": 2,
-          "start_date": "2024-04-03"
-        },
-        "type": "forward_rate_agreement"
-      },
       "type": "object"
     },
     "schema": {

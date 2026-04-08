@@ -1,106 +1,69 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/quanto_option.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/fx/quanto_option.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Equity option with payout in a different currency (quanto adjustment)",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "quanto_option",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "correlation": -0.2,
-          "day_count": "Act365F",
-          "domestic_discount_curve_id": "USD-OIS",
-          "foreign_discount_curve_id": "JPY-OIS",
-          "div_yield_id": "NKY-DIV",
-          "quote_currency": "USD",
+          "id": "QUANTO-NKY-USD-CALL",
+          "underlying_ticker": "NKY",
           "equity_strike": {
             "amount": "35000",
             "currency": "JPY"
           },
+          "option_type": "call",
           "expiry": "2024-12-20",
-          "base_currency": "JPY",
-          "fx_rate_id": "USDJPY-SPOT",
-          "fx_vol_id": "USDJPY-VOL",
-          "id": "QUANTO-NKY-USD-CALL",
           "notional": {
             "amount": "1000000",
             "currency": "USD"
           },
-          "option_type": "call",
-          "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
-            "quoted_clean_price": null,
-            "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
-            "upfront_payment": null,
-            "vol_bump_pct": null,
-            "ytm_bump_decimal": null
-          },
+          "underlying_quantity": 100.0,
+          "payoff_fx_rate": 0.007142857142857143,
+          "base_currency": "JPY",
+          "quote_currency": "USD",
+          "correlation": -0.2,
+          "day_count": "Act365F",
+          "domestic_discount_curve_id": "USD-OIS",
+          "foreign_discount_curve_id": "JPY-OIS",
           "spot_id": "NKY-SPOT",
-          "underlying_ticker": "NKY",
-          "vol_surface_id": "NKY-VOL"
-        },
-        "type": "quanto_option"
-      },
-      "schema": "finstack.instrument/1"
+          "vol_surface_id": "NKY-VOL",
+          "div_yield_id": "NKY-DIV",
+          "fx_rate_id": "USDJPY-SPOT",
+          "fx_vol_id": "USDJPY-VOL",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Quanto Option instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "correlation": -0.2,
-          "day_count": "Act365F",
-          "domestic_discount_curve_id": "USD-OIS",
-          "foreign_discount_curve_id": "JPY-OIS",
-          "div_yield_id": "NKY-DIV",
-          "quote_currency": "USD",
-          "equity_strike": {
-            "amount": "35000",
-            "currency": "JPY"
-          },
-          "expiry": "2024-12-20",
-          "base_currency": "JPY",
-          "fx_rate_id": "USDJPY-SPOT",
-          "fx_vol_id": "USDJPY-VOL",
-          "id": "QUANTO-NKY-USD-CALL",
-          "notional": {
-            "amount": "1000000",
-            "currency": "USD"
-          },
-          "option_type": "call",
-          "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
-            "quoted_clean_price": null,
-            "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
-            "upfront_payment": null,
-            "vol_bump_pct": null,
-            "ytm_bump_decimal": null
-          },
-          "spot_id": "NKY-SPOT",
-          "underlying_ticker": "NKY",
-          "vol_surface_id": "NKY-VOL"
-        },
-        "type": "quanto_option"
-      },
       "type": "object"
     },
     "schema": {

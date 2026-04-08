@@ -10,6 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// Barrier type for barrier options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum BarrierType {
     /// Up-and-out: option knocked out if S >= B
     UpAndOut,

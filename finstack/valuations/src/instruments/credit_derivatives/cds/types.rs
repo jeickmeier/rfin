@@ -63,6 +63,7 @@ pub use crate::instruments::common_impl::parameters::legs::PayReceive;
 
 /// ISDA CDS conventions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum CDSConvention {
     /// Standard North American convention (quarterly, Act/360)
     IsdaNa,
@@ -77,10 +78,10 @@ pub enum CDSConvention {
 impl CDSConvention {
     fn registry_id(&self) -> &'static str {
         match self {
-            CDSConvention::IsdaNa => "ANY:IsdaNa",
-            CDSConvention::IsdaEu => "ANY:IsdaEu",
-            CDSConvention::IsdaAs => "ANY:IsdaAs",
-            CDSConvention::Custom => "ANY:Custom",
+            CDSConvention::IsdaNa => "ANY:isda_na",
+            CDSConvention::IsdaEu => "ANY:isda_eu",
+            CDSConvention::IsdaAs => "ANY:isda_as",
+            CDSConvention::Custom => "ANY:custom",
         }
     }
 
@@ -275,10 +276,10 @@ pub(crate) fn resolve_market_conventions(
         }
         let canon = t.to_ascii_lowercase().replace('-', "_");
         match canon.as_str() {
-            "isdana" | "isda_na" => "IsdaNa".to_string(),
-            "isdaeu" | "isda_eu" => "IsdaEu".to_string(),
-            "isdaas" | "isda_as" => "IsdaAs".to_string(),
-            "custom" => "Custom".to_string(),
+            "isdana" | "isda_na" => "isda_na".to_string(),
+            "isdaeu" | "isda_eu" => "isda_eu".to_string(),
+            "isdaas" | "isda_as" => "isda_as".to_string(),
+            "custom" => "custom".to_string(),
             _ => t.to_string(),
         }
     };

@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 def _build_price_df(n: int = 100) -> pl.DataFrame:
     """Generate a deterministic price DataFrame with two tickers and a benchmark."""
-
     base_date = date(2024, 1, 2)
     dates = [base_date + timedelta(days=i) for i in range(n)]
 
@@ -85,7 +84,7 @@ class TestPerformanceConstruction:
             "date": [date(2024, 1, 1), date(2024, 1, 2)],
             "A": [-100.0, -90.0],
         }).with_columns(pl.col("date").cast(pl.Date))
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid input data"):
             Performance(df, freq="daily", log_returns=False)
 
     def test_non_finite_simple_return_prices_rejected(self) -> None:
@@ -95,7 +94,7 @@ class TestPerformanceConstruction:
             "date": [date(2024, 1, 1), date(2024, 1, 2)],
             "A": [float("inf"), 101.0],
         }).with_columns(pl.col("date").cast(pl.Date))
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Invalid input data"):
             Performance(df, freq="daily", log_returns=False)
 
 

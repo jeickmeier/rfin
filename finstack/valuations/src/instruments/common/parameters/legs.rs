@@ -12,12 +12,11 @@ use serde::{Deserialize, Serialize};
 /// For credit default swaps: Pay = buy protection (pay premium), Receive = sell protection (receive premium)
 /// For variance swaps: Pay = short variance, Receive = long variance
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PayReceive {
     /// Pay the primary leg (fixed rate in IRS, protection premium in CDS, short variance)
-    #[serde(rename = "pay")]
     Pay,
     /// Receive the primary leg (fixed rate in IRS, protection premium in CDS, long variance)
-    #[serde(rename = "receive")]
     Receive,
 }
 

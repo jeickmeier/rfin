@@ -22,6 +22,7 @@ use finstack_core::dates::{Date, DateExt, Schedule, ScheduleBuilder};
 /// assert_eq!(side.sign(), -1.0);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum TrsSide {
     /// Receive total return, pay financing.
     ReceiveTotalReturn,

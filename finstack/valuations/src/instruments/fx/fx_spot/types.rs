@@ -382,6 +382,18 @@ impl FxSpot {
         Ok(())
     }
 
+    /// Create a representative EUR/USD spot example with 1M EUR notional.
+    ///
+    /// Useful for tests, demos, and documentation examples.
+    pub fn example() -> Self {
+        Self::new(InstrumentId::new("EURUSD"), Currency::EUR, Currency::USD)
+            .with_notional(Money::new(1_000_000.0, Currency::EUR))
+            .expect("valid EUR notional")
+            .with_rate(1.10)
+            .expect("valid rate")
+            .with_settlement_lag_days(2)
+    }
+
     /// Standard FX pair name (e.g., "EURUSD")
     pub fn pair_name(&self) -> String {
         format!("{}{}", self.base_currency, self.quote_currency)

@@ -47,6 +47,7 @@ use rust_decimal::Decimal;
 
 /// Inflation option type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum InflationCapFloorType {
     /// Cap (portfolio of caplets).
@@ -150,6 +151,40 @@ pub struct InflationCapFloor {
 }
 
 impl InflationCapFloor {
+    /// Create a canonical example USD 5Y inflation cap (US-CPI, 3% strike, $1M notional).
+    ///
+    /// Returns a 5-year YoY inflation cap with annual frequency, 3-month CPI lag,
+    /// and lognormal vol convention.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example() -> Self {
+        use finstack_core::currency::Currency;
+        use time::Month;
+
+        InflationCapFloor::builder()
+            .id(InstrumentId::new("INFLCAP-USD-5Y"))
+            .option_type(InflationCapFloorType::Cap)
+            .notional(Money::new(1_000_000.0, Currency::USD))
+            .strike(Decimal::try_from(0.03).expect("valid decimal"))
+            .start_date(
+                Date::from_calendar_date(2024, Month::January, 15).expect("Valid example date"),
+            )
+            .maturity(
+                Date::from_calendar_date(2029, Month::January, 15).expect("Valid example date"),
+            )
+            .frequency(Tenor::annual())
+            .day_count(DayCount::Act365F)
+            .stub(StubKind::ShortFront)
+            .bdc(BusinessDayConvention::ModifiedFollowing)
+            .inflation_index_id(CurveId::new("US-CPI"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .vol_surface_id(CurveId::new("USD-INFL-VOL"))
+            .pricing_overrides(PricingOverrides::default())
+            .lag_override(InflationLag::Months(3))
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example InflationCapFloor construction should not fail")
+    }
+
     /// Validate structural invariants.
     pub fn validate(&self) -> finstack_core::Result<()> {
         validation::require_or(

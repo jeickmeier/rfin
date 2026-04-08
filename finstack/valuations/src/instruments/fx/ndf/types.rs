@@ -46,6 +46,7 @@ use finstack_core::Result;
 /// This is less common but may be used in some markets or for consistency with
 /// other FX instruments that quote in this direction.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum NdfQuoteConvention {
     /// Rate quoted as base currency per settlement currency (e.g., 7.25 CNY per USD).
@@ -127,6 +128,7 @@ impl std::str::FromStr for NdfQuoteConvention {
 ///     .expect("Valid NDF");
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum NdfFixingSource {
     /// PBOC - People's Bank of China CNY/USD fixing.

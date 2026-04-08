@@ -5,59 +5,98 @@
   "description": "Agency CMO (Collateralized Mortgage Obligation) tranche",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "agency_cmo",
         "spec": {
-          "agency": "FNMA",
-          "attributes": {
-            "meta": {
-              "deal": "fnr-2024-1"
-            },
-            "tags": ["cmo", "agency"]
-          },
-          "collateral_wac": 0.045,
-          "collateral_wam": 360,
-          "deal_name": "FNR 2024-1",
-          "discount_curve_id": "USD-OIS",
           "id": "FNR-2024-1-A",
+          "deal_name": "FNR 2024-1",
+          "agency": "FNMA",
           "issue_date": "2024-01-01",
-          "reference_tranche_id": "A",
           "waterfall": {
-            "pro_rata_same_priority": false,
             "tranches": [
               {
-                "coupon": 0.04,
-                "current_face": {
-                  "amount": "40000000",
-                  "currency": "USD"
-                },
                 "id": "A",
+                "tranche_type": "sequential",
                 "original_face": {
                   "amount": "40000000",
                   "currency": "USD"
                 },
-                "priority": 1,
-                "tranche_type": "sequential"
+                "current_face": {
+                  "amount": "40000000",
+                  "currency": "USD"
+                },
+                "coupon": 0.04,
+                "priority": 1
               },
               {
-                "coupon": 0.045,
-                "current_face": {
-                  "amount": "30000000",
-                  "currency": "USD"
-                },
                 "id": "B",
+                "tranche_type": "sequential",
                 "original_face": {
                   "amount": "30000000",
                   "currency": "USD"
                 },
-                "priority": 2,
-                "tranche_type": "sequential"
+                "current_face": {
+                  "amount": "30000000",
+                  "currency": "USD"
+                },
+                "coupon": 0.045,
+                "priority": 2
+              },
+              {
+                "id": "Z",
+                "tranche_type": "sequential",
+                "original_face": {
+                  "amount": "30000000",
+                  "currency": "USD"
+                },
+                "current_face": {
+                  "amount": "30000000",
+                  "currency": "USD"
+                },
+                "coupon": 0.05,
+                "priority": 3
               }
-            ]
+            ],
+            "pro_rata_same_priority": false
+          },
+          "reference_tranche_id": "A",
+          "collateral_wac": 0.045,
+          "collateral_wam": 360,
+          "discount_curve_id": "USD-OIS",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {
+            "tags": [
+              "agency",
+              "cmo"
+            ],
+            "meta": {
+              "deal": "fnr-2024-1"
+            }
           }
-        },
-        "type": "agency_cmo"
-      },
-      "schema": "finstack.instrument/1"
+        }
+      }
     }
   ],
   "properties": {

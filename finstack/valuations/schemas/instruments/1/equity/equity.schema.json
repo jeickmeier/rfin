@@ -1,50 +1,53 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/equity.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/equity.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Spot equity position in a listed stock",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "equity",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "currency": "USD",
-          "discount_curve_id": "USD",
-          "div_yield_id": "AAPL-DIV",
           "id": "EQUITY-AAPL",
-          "price_id": "AAPL-SPOT",
-          "price_quote": null,
+          "ticker": "AAPL",
+          "currency": "USD",
           "shares": 100.0,
-          "ticker": "AAPL"
-        },
-        "type": "equity"
-      },
-      "schema": "finstack.instrument/1"
+          "price_quote": null,
+          "price_id": "AAPL-SPOT",
+          "div_yield_id": "AAPL-DIV",
+          "discrete_dividends": [],
+          "discount_curve_id": "USD",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Equity instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "currency": "USD",
-          "discount_curve_id": "USD",
-          "div_yield_id": "AAPL-DIV",
-          "id": "EQUITY-AAPL",
-          "price_id": "AAPL-SPOT",
-          "price_quote": null,
-          "shares": 100.0,
-          "ticker": "AAPL"
-        },
-        "type": "equity"
-      },
       "type": "object"
     },
     "schema": {

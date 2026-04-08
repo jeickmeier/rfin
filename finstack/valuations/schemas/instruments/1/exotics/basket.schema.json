@@ -1,94 +1,78 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/basket.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/exotics/basket.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Basket of assets with expense ratio",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "basket",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
+          "id": "BASKET-60-40",
           "constituents": [
             {
               "id": "EQ-AAPL",
               "reference": {
-                "asset_type": "equity",
-                "price_id": "AAPL-SPOT"
+                "price_id": "AAPL-SPOT",
+                "asset_type": "equity"
               },
-              "ticker": "AAPL",
+              "weight": 0.6,
               "units": null,
-              "weight": 0.6
+              "ticker": "AAPL"
             },
             {
               "id": "BOND-UST10",
               "reference": {
-                "asset_type": "bond",
-                "price_id": "UST10Y-PRICE"
+                "price_id": "UST10Y-PRICE",
+                "asset_type": "bond"
               },
-              "ticker": "UST10Y",
+              "weight": 0.4,
               "units": null,
-              "weight": 0.4
+              "ticker": "UST10Y"
             }
           ],
-          "currency": "USD",
-          "discount_curve_id": "USD-OIS",
           "expense_ratio": 0.0025,
-          "id": "BASKET-60-40",
+          "currency": "USD",
+          "notional": {
+            "amount": "1000000",
+            "currency": "USD"
+          },
+          "discount_curve_id": "USD-OIS",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {},
           "pricing_config": {
             "days_in_year": 365.25,
             "fx_policy": "cashflow_date"
           }
-        },
-        "type": "basket"
-      },
-      "schema": "finstack.instrument/1"
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Basket instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "constituents": [
-            {
-              "id": "EQ-AAPL",
-              "reference": {
-                "asset_type": "equity",
-                "price_id": "AAPL-SPOT"
-              },
-              "ticker": "AAPL",
-              "units": null,
-              "weight": 0.6
-            },
-            {
-              "id": "BOND-UST10",
-              "reference": {
-                "asset_type": "bond",
-                "price_id": "UST10Y-PRICE"
-              },
-              "ticker": "UST10Y",
-              "units": null,
-              "weight": 0.4
-            }
-          ],
-          "currency": "USD",
-          "discount_curve_id": "USD-OIS",
-          "expense_ratio": 0.0025,
-          "id": "BASKET-60-40",
-          "pricing_config": {
-            "days_in_year": 365.25,
-            "fx_policy": "cashflow_date"
-          }
-        },
-        "type": "basket"
-      },
       "type": "object"
     },
     "schema": {

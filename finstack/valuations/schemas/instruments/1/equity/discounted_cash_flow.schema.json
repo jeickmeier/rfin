@@ -1,0 +1,321 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/discounted_cash_flow.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Discounted Cash Flow instrument for corporate equity valuation",
+  "examples": [
+    {
+      "schema": "finstack.instrument/1",
+      "instrument": {
+        "type": "discounted_cash_flow",
+        "spec": {
+          "id": "DCF-TECH-CO",
+          "currency": "USD",
+          "flows": [
+            [
+              "2026-01-01",
+              5000000.0
+            ],
+            [
+              "2027-01-01",
+              5750000.0
+            ],
+            [
+              "2028-01-01",
+              6500000.0
+            ],
+            [
+              "2029-01-01",
+              7250000.0
+            ],
+            [
+              "2030-01-01",
+              8000000.0
+            ]
+          ],
+          "wacc": 0.1,
+          "terminal_value": {
+            "type": "gordon_growth",
+            "growth_rate": 0.02
+          },
+          "net_debt": 15000000.0,
+          "valuation_date": "2025-01-01",
+          "discount_curve_id": "USD-OIS",
+          "mid_year_convention": true,
+          "shares_outstanding": 10000000.0,
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Discounted Cash Flow instrument definition",
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "discounted_cash_flow",
+          "type": "string"
+        },
+        "spec": {
+          "type": "object",
+          "required": [
+            "id",
+            "currency",
+            "flows",
+            "wacc",
+            "terminal_value",
+            "net_debt",
+            "valuation_date",
+            "discount_curve_id"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Unique instrument identifier"
+            },
+            "currency": {
+              "type": "string",
+              "description": "ISO 4217 currency code"
+            },
+            "flows": {
+              "type": "array",
+              "description": "Explicit period free cash flows as [date, amount] pairs",
+              "items": {
+                "type": "array",
+                "items": [
+                  {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "wacc": {
+              "type": "number",
+              "description": "Weighted Average Cost of Capital (decimal)"
+            },
+            "terminal_value": {
+              "description": "Terminal value specification",
+              "oneOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "growth_rate"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "gordon_growth"
+                    },
+                    "growth_rate": {
+                      "type": "number",
+                      "description": "Perpetual growth rate (decimal)"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "terminal_metric",
+                    "multiple"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "exit_multiple"
+                    },
+                    "terminal_metric": {
+                      "type": "number",
+                      "description": "Terminal metric value (e.g., EBITDA)"
+                    },
+                    "multiple": {
+                      "type": "number",
+                      "description": "Exit multiple (e.g., 10.0x)"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "type",
+                    "high_growth_rate",
+                    "stable_growth_rate",
+                    "half_life_years"
+                  ],
+                  "properties": {
+                    "type": {
+                      "const": "h_model"
+                    },
+                    "high_growth_rate": {
+                      "type": "number",
+                      "description": "Initial high growth rate (decimal)"
+                    },
+                    "stable_growth_rate": {
+                      "type": "number",
+                      "description": "Long-run stable growth rate (decimal)"
+                    },
+                    "half_life_years": {
+                      "type": "number",
+                      "description": "Half-life of growth fade (years)"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "net_debt": {
+              "type": "number",
+              "description": "Net debt (debt - cash). Ignored when equity_bridge is set."
+            },
+            "valuation_date": {
+              "type": "string",
+              "format": "date",
+              "description": "As-of date for DCF"
+            },
+            "discount_curve_id": {
+              "type": "string",
+              "description": "Discount curve identifier"
+            },
+            "mid_year_convention": {
+              "type": "boolean",
+              "default": false,
+              "description": "Mid-year discounting (default: false)"
+            },
+            "equity_bridge": {
+              "type": "object",
+              "description": "Structured EV-to-equity bridge (overrides net_debt when present)",
+              "properties": {
+                "total_debt": {
+                  "type": "number",
+                  "default": 0.0
+                },
+                "cash": {
+                  "type": "number",
+                  "default": 0.0
+                },
+                "preferred_equity": {
+                  "type": "number",
+                  "default": 0.0
+                },
+                "minority_interest": {
+                  "type": "number",
+                  "default": 0.0
+                },
+                "non_operating_assets": {
+                  "type": "number",
+                  "default": 0.0
+                },
+                "other_adjustments": {
+                  "type": "array",
+                  "items": {
+                    "type": "array",
+                    "items": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "minItems": 2,
+                    "maxItems": 2
+                  }
+                }
+              }
+            },
+            "shares_outstanding": {
+              "type": "number",
+              "description": "Basic shares outstanding"
+            },
+            "dilution_securities": {
+              "type": "array",
+              "description": "Dilutive securities for treasury stock method",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "quantity",
+                  "exercise_price"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "number"
+                  },
+                  "exercise_price": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "valuation_discounts": {
+              "type": "object",
+              "description": "Private company valuation discounts",
+              "properties": {
+                "dlom": {
+                  "type": "number",
+                  "description": "Discount for Lack of Marketability (0.0-1.0)"
+                },
+                "dloc": {
+                  "type": "number",
+                  "description": "Discount for Lack of Control (0.0-1.0)"
+                },
+                "other_discount": {
+                  "type": "number",
+                  "description": "Additional discount (0.0-1.0)"
+                }
+              }
+            },
+            "attributes": {
+              "type": "object",
+              "description": "Attributes for tagging and scenarios"
+            }
+          }
+        }
+      }
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Discounted Cash Flow",
+  "type": "object"
+}

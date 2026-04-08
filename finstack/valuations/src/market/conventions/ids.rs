@@ -101,7 +101,7 @@ define_convention_id!(
 /// let clause = CdsDocClause::Cr14; // Cum-Restructuring 2014
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "PascalCase")]
+#[serde(rename_all = "snake_case")]
 pub enum CdsDocClause {
     /// Cum-Restructuring 2014 (CR14)
     Cr14,
@@ -172,6 +172,24 @@ pub struct CdsConventionKey {
 
 impl fmt::Display for CdsConventionKey {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{:?}", self.currency, self.doc_clause)
+        write!(f, "{}:{}", self.currency, self.doc_clause.as_str())
+    }
+}
+
+impl CdsDocClause {
+    /// Returns the canonical snake_case string representation for registry lookups.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Cr14 => "cr14",
+            Self::Mr14 => "mr14",
+            Self::Mm14 => "mm14",
+            Self::Xr14 => "xr14",
+            Self::IsdaNa => "isda_na",
+            Self::IsdaEu => "isda_eu",
+            Self::IsdaAs => "isda_as",
+            Self::IsdaAu => "isda_au",
+            Self::IsdaNz => "isda_nz",
+            Self::Custom => "custom",
+        }
     }
 }

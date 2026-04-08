@@ -1,106 +1,72 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/swaption.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/swaption.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Option on an interest rate swap",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "swaption",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "day_count": "Thirty360",
-          "discount_curve_id": "USD-OIS",
-          "exercise_style": "European",
-          "expiry": "2025-01-15",
-          "fixed_freq": {
-            "Months": 6
-          },
-          "float_freq": {
-            "Months": 3
-          },
-          "forward_curve_id": "USD-SOFR-3M",
           "id": "SWPN-1Yx5Y-USD",
+          "option_type": "call",
           "notional": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "option_type": "call",
+          "strike": "0.03",
+          "expiry": "2027-01-15",
+          "swap_start": "2027-01-17",
+          "swap_end": "2032-01-17",
+          "fixed_freq": {
+            "count": 6,
+            "unit": "months"
+          },
+          "float_freq": {
+            "count": 3,
+            "unit": "months"
+          },
+          "day_count": "Thirty360",
+          "exercise_style": "european",
+          "settlement": "cash",
+          "cash_settlement_method": "isda_par_par",
+          "vol_model": "black",
+          "discount_curve_id": "USD-OIS",
+          "forward_curve_id": "USD-OIS",
+          "vol_surface_id": "USD-SWPNVOL",
+          "calendar_id": null,
           "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
             "quoted_clean_price": null,
+            "implied_volatility": null,
             "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
             "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
             "vol_bump_pct": null,
-            "ytm_bump_decimal": null
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
           },
           "sabr_params": null,
-          "settlement": "Cash",
-          "strike": 0.03,
-          "swap_end": "2030-01-17",
-          "swap_start": "2025-01-17",
-          "vol_surface_id": "USD-SWPNVOL"
-        },
-        "type": "swaption"
-      },
-      "schema": "finstack.instrument/1"
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Swaption instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "day_count": "Thirty360",
-          "discount_curve_id": "USD-OIS",
-          "exercise_style": "European",
-          "expiry": "2025-01-15",
-          "fixed_freq": {
-            "Months": 6
-          },
-          "float_freq": {
-            "Months": 3
-          },
-          "forward_curve_id": "USD-SOFR-3M",
-          "id": "SWPN-1Yx5Y-USD",
-          "notional": {
-            "amount": "10000000",
-            "currency": "USD"
-          },
-          "option_type": "call",
-          "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
-            "quoted_clean_price": null,
-            "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
-            "upfront_payment": null,
-            "vol_bump_pct": null,
-            "ytm_bump_decimal": null
-          },
-          "sabr_params": null,
-          "settlement": "Cash",
-          "strike": 0.03,
-          "swap_end": "2030-01-17",
-          "swap_start": "2025-01-17",
-          "vol_surface_id": "USD-SWPNVOL"
-        },
-        "type": "swaption"
-      },
       "type": "object"
     },
     "schema": {

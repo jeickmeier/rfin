@@ -5,71 +5,65 @@
   "description": "FX variance swap for trading realized versus implied variance on currency pairs",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "fx_variance_swap",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "base_currency": "EUR",
-          "day_count": "Act365F",
-          "domestic_discount_curve_id": "USD-OIS",
-          "foreign_discount_curve_id": "EUR-OIS",
           "id": "FXVAR-EURUSD-1Y",
-          "maturity": "2025-01-02",
+          "base_currency": "EUR",
+          "quote_currency": "USD",
+          "spot_id": "EURUSD",
           "notional": {
             "amount": "1000000",
             "currency": "USD"
           },
+          "strike_variance": 0.04,
+          "start_date": "2024-01-02",
+          "maturity": "2025-01-02",
           "observation_freq": {
             "count": 1,
             "unit": "days"
           },
-          "quote_currency": "USD",
           "realized_var_method": "CloseToClose",
-          "side": "Receive",
-          "spot_id": "EURUSD",
-          "start_date": "2024-01-02",
-          "strike_variance": 0.04,
-          "vol_surface_id": "EURUSD-VOL"
-        },
-        "type": "fx_variance_swap"
-      },
-      "schema": "finstack.instrument/1"
+          "open_series_id": null,
+          "high_series_id": null,
+          "low_series_id": null,
+          "close_series_id": null,
+          "side": "receive",
+          "domestic_discount_curve_id": "USD-OIS",
+          "foreign_discount_curve_id": "EUR-OIS",
+          "vol_surface_id": "EURUSD-VOL",
+          "day_count": "Act365F",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The FX Variance Swap instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "base_currency": "EUR",
-          "day_count": "Act365F",
-          "domestic_discount_curve_id": "USD-OIS",
-          "foreign_discount_curve_id": "EUR-OIS",
-          "id": "FXVAR-EURUSD-1Y",
-          "maturity": "2025-01-02",
-          "notional": {
-            "amount": "1000000",
-            "currency": "USD"
-          },
-          "observation_freq": {
-            "count": 1,
-            "unit": "days"
-          },
-          "quote_currency": "USD",
-          "realized_var_method": "CloseToClose",
-          "side": "Receive",
-          "start_date": "2024-01-02",
-          "strike_variance": 0.04,
-          "vol_surface_id": "EURUSD-VOL"
-        },
-        "type": "fx_variance_swap"
-      },
       "type": "object"
     },
     "schema": {

@@ -5,78 +5,56 @@
   "description": "Commodity option with Black-76 pricing for European exercise and binomial tree for American",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "commodity_option",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "commodity_type": "Energy",
-          "currency": "USD",
-          "day_count": "Act365F",
-          "discount_curve_id": "USD-OIS",
-          "exercise_style": "European",
-          "expiry": "2025-06-15",
-          "forward_curve_id": "WTI-FORWARD",
           "id": "WTI-OPT-2025M06",
-          "multiplier": 1.0,
-          "option_type": "Call",
-          "pricing_overrides": {
-            "adaptive_bumps": false,
-            "implied_volatility": null,
-            "mc_seed_scenario": null,
-            "quoted_clean_price": null,
-            "quoted_spread_bp": null,
-            "rate_bump_bp": null,
-            "spot_bump_pct": null,
-            "theta_period": null,
-            "upfront_payment": null,
-            "vol_bump_pct": null,
-            "ytm_bump_decimal": null
-          },
-          "quantity": 1000.0,
-          "quoted_forward": null,
-          "settlement": "Cash",
-          "spot_id": null,
-          "strike": 75.0,
+          "commodity_type": "Energy",
           "ticker": "CL",
           "unit": "BBL",
-          "vol_surface_id": "WTI-VOL"
-        },
-        "type": "commodity_option"
-      },
-      "schema": "finstack.instrument/1"
+          "currency": "USD",
+          "strike": 75.0,
+          "option_type": "call",
+          "exercise_style": "european",
+          "expiry": "2025-06-15",
+          "quantity": 1000.0,
+          "multiplier": 1.0,
+          "settlement": "cash",
+          "forward_curve_id": "WTI-FORWARD",
+          "discount_curve_id": "USD-OIS",
+          "vol_surface_id": "WTI-VOL",
+          "day_count": "Act365F",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Commodity Option instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "commodity_type": "Energy",
-          "currency": "USD",
-          "day_count": "Act365F",
-          "discount_curve_id": "USD-OIS",
-          "exercise_style": "European",
-          "expiry": "2025-06-15",
-          "forward_curve_id": "WTI-FORWARD",
-          "id": "WTI-OPT-2025M06",
-          "multiplier": 1.0,
-          "option_type": "Call",
-          "pricing_overrides": {},
-          "quantity": 1000.0,
-          "settlement": "Cash",
-          "strike": 75.0,
-          "ticker": "CL",
-          "unit": "BBL",
-          "vol_surface_id": "WTI-VOL"
-        },
-        "type": "commodity_option"
-      },
       "type": "object"
     },
     "schema": {

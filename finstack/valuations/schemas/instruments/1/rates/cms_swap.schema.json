@@ -1,43 +1,60 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/rates/cms_option.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/cms_swap.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
-  "description": "Caplet/Floorlet on a constant-maturity swap (CMS) rate",
+  "description": "Constant maturity swap (CMS) with a CMS-linked floating leg and funding leg",
   "examples": [
     {
       "schema": "finstack.instrument/1",
       "instrument": {
-        "type": "cms_option",
+        "type": "cms_swap",
         "spec": {
-          "id": "CMSOPT-10Y-USD",
-          "strike": "0.025",
+          "id": "CMSSWAP-10Y-USD",
+          "notional": {
+            "amount": "10000000",
+            "currency": "USD"
+          },
+          "side": "pay",
           "cms_tenor": 10.0,
-          "fixing_dates": [
+          "cms_fixing_dates": [
             "2025-03-20",
             "2025-06-20",
             "2025-09-22",
             "2025-12-22"
           ],
-          "payment_dates": [
+          "cms_payment_dates": [
             "2025-06-20",
             "2025-09-22",
             "2025-12-22",
             "2026-03-20"
           ],
-          "accrual_fractions": [
+          "cms_accrual_fractions": [
             0.25,
             0.25,
             0.25,
             0.25
           ],
-          "option_type": "call",
-          "notional": {
-            "amount": "10000000",
-            "currency": "USD"
-          },
-          "day_count": "Act365F",
+          "cms_day_count": "Act365F",
+          "cms_spread": 0.0,
           "swap_convention": "u_s_d_standard",
           "swap_float_day_count": "Act360",
+          "funding_leg": {
+            "type": "Fixed",
+            "rate": 0.03,
+            "payment_dates": [
+              "2025-06-20",
+              "2025-09-22",
+              "2025-12-22",
+              "2026-03-20"
+            ],
+            "accrual_fractions": [
+              0.25,
+              0.25,
+              0.25,
+              0.25
+            ],
+            "day_count": "Thirty360"
+          },
           "discount_curve_id": "USD-OIS",
           "forward_curve_id": "USD-LIBOR-3M",
           "vol_surface_id": "USD-CMS10Y-VOL",
@@ -70,7 +87,7 @@
   ],
   "properties": {
     "instrument": {
-      "description": "The CMS Option instrument definition",
+      "description": "The CMS Swap instrument definition",
       "type": "object"
     },
     "schema": {
@@ -83,6 +100,6 @@
     "schema",
     "instrument"
   ],
-  "title": "CMS Option",
+  "title": "CMS Swap",
   "type": "object"
 }

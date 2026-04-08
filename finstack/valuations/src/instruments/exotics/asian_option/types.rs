@@ -10,6 +10,7 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId};
 
 /// Averaging method for Asian options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AveragingMethod {
     /// Arithmetic average: (1/n) Σ S_i
     Arithmetic,

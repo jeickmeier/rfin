@@ -1,60 +1,57 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/fx_swap.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/fx/fx_swap.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Foreign exchange swap with near and far legs",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "fx_swap",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
+          "id": "FXSWAP-EURUSD-6M",
           "base_currency": "EUR",
+          "quote_currency": "USD",
+          "near_date": "2024-01-05",
+          "far_date": "2024-07-05",
           "base_notional": {
             "amount": "1000000",
             "currency": "EUR"
           },
           "domestic_discount_curve_id": "USD-OIS",
-          "far_date": "2024-07-05",
-          "far_rate": 1.12,
           "foreign_discount_curve_id": "EUR-OIS",
-          "id": "FXSWAP-EURUSD-6M",
-          "near_date": "2024-01-05",
           "near_rate": 1.1,
-          "quote_currency": "USD"
-        },
-        "type": "fx_swap"
-      },
-      "schema": "finstack.instrument/1"
+          "far_rate": 1.12,
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The FX Swap instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "base_currency": "EUR",
-          "base_notional": {
-            "amount": "1000000",
-            "currency": "EUR"
-          },
-          "domestic_discount_curve_id": "USD-OIS",
-          "far_date": "2024-07-05",
-          "far_rate": 1.12,
-          "foreign_discount_curve_id": "EUR-OIS",
-          "id": "FXSWAP-EURUSD-6M",
-          "near_date": "2024-01-05",
-          "near_rate": 1.1,
-          "quote_currency": "USD"
-        },
-        "type": "fx_swap"
-      },
       "type": "object"
     },
     "schema": {

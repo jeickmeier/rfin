@@ -5,13 +5,11 @@
   "description": "Cross-currency floating-for-floating swap with principal exchange",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "xccy_swap",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "id": "XCCY_SWAP_001",
+          "id": "XCCY-USDEUR-5Y",
           "leg1": {
             "currency": "USD",
             "notional": {
@@ -23,14 +21,16 @@
             "discount_curve_id": "USD-OIS",
             "start": "2024-01-03",
             "end": "2029-01-03",
-            "frequency": "3M",
+            "frequency": {
+              "count": 3,
+              "unit": "months"
+            },
             "day_count": "Act360",
-            "bdc": "ModifiedFollowing",
+            "bdc": "modified_following",
             "stub": "ShortFront",
-            "spread_bp": 0.0,
+            "spread_bp": "0",
             "payment_lag_days": 0,
-            "calendar_id": "usny",
-            "allow_calendar_fallback": false
+            "allow_calendar_fallback": true
           },
           "leg2": {
             "currency": "EUR",
@@ -40,24 +40,25 @@
             },
             "side": "pay",
             "forward_curve_id": "EUR-EURIBOR-3M",
-            "discount_curve_id": "EUR-ESTR",
+            "discount_curve_id": "EUR-OIS",
             "start": "2024-01-03",
             "end": "2029-01-03",
-            "frequency": "3M",
+            "frequency": {
+              "count": 3,
+              "unit": "months"
+            },
             "day_count": "Act360",
-            "bdc": "ModifiedFollowing",
+            "bdc": "modified_following",
             "stub": "ShortFront",
-            "spread_bp": 10.0,
+            "spread_bp": "10",
             "payment_lag_days": 0,
-            "calendar_id": "euta",
-            "allow_calendar_fallback": false
+            "allow_calendar_fallback": true
           },
           "notional_exchange": "initial_and_final",
-          "reporting_currency": "USD"
-        },
-        "type": "xccy_swap"
-      },
-      "schema": "finstack.instrument/1"
+          "reporting_currency": "USD",
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {

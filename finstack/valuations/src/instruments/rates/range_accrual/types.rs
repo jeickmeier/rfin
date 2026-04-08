@@ -11,6 +11,7 @@ use finstack_core::types::{CurveId, InstrumentId, PriceId, Rate};
 
 /// Specifies how the range bounds are interpreted.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum BoundsType {
     /// Bounds are absolute price levels (e.g., 4500.0 for SPX).

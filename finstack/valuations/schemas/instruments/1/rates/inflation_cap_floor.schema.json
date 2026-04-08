@@ -5,33 +5,58 @@
   "description": "YoY inflation cap/floor option priced with Black-76 or Bachelier model",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "inflation_cap_floor",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "bdc": "ModifiedFollowing",
-          "day_count": "Act365F",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2029-01-15",
-          "frequency": "12M",
-          "id": "INFL-CAP-USD-5Y",
-          "inflation_index_id": "US-CPI",
+          "id": "INFLCAP-USD-5Y",
+          "option_type": "cap",
           "notional": {
-            "amount": "10000000",
+            "amount": "1000000",
             "currency": "USD"
           },
-          "option_type": "Cap",
-          "pricing_overrides": {},
+          "strike": "0.03",
           "start_date": "2024-01-15",
-          "strike": 0.03,
-          "stub": "None",
-          "vol_surface_id": "USD-CPI-VOL"
-        },
-        "type": "inflation_cap_floor"
-      },
-      "schema": "finstack.instrument/1"
+          "maturity": "2029-01-15",
+          "frequency": {
+            "count": 1,
+            "unit": "years"
+          },
+          "day_count": "Act365F",
+          "stub": "ShortFront",
+          "bdc": "modified_following",
+          "calendar_id": null,
+          "inflation_index_id": "US-CPI",
+          "discount_curve_id": "USD-OIS",
+          "vol_surface_id": "USD-INFL-VOL",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "lag_override": {
+            "months": 3
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {

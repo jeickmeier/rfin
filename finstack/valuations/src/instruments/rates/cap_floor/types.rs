@@ -122,6 +122,7 @@ const MIN_VOL_LOOKUP_TIME: f64 = 1e-6;
 
 /// Type of interest rate option
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum RateOptionType {
     /// Cap (series of caplets)
@@ -241,6 +242,35 @@ pub struct InterestRateOption {
 }
 
 impl InterestRateOption {
+    /// Create a canonical example USD 5Y 3% interest rate cap ($10M notional, quarterly SOFR).
+    ///
+    /// Returns a 5-year cap with quarterly payment frequency, ACT/360 day count,
+    /// lognormal vol convention, and standard schedule conventions.
+    pub fn example() -> finstack_core::Result<Self> {
+        use finstack_core::currency::Currency;
+        use time::Month;
+
+        let start = Date::from_calendar_date(2024, Month::January, 3).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example start date: {}", e))
+        })?;
+        let maturity = Date::from_calendar_date(2029, Month::January, 3).map_err(|e| {
+            finstack_core::Error::Validation(format!("Invalid example end date: {}", e))
+        })?;
+
+        Self::new_cap(
+            InstrumentId::new("IRCAP-USD-5Y-3PCT"),
+            Money::new(10_000_000.0, Currency::USD),
+            0.03,
+            start,
+            maturity,
+            Tenor::quarterly(),
+            DayCount::Act360,
+            CurveId::new("USD-OIS"),
+            CurveId::new("USD-SOFR-3M"),
+            CurveId::new("USD-CAPFLOOR-VOL"),
+        )
+    }
+
     pub(crate) fn strike_f64(&self) -> finstack_core::Result<f64> {
         self.strike
             .to_f64()

@@ -117,6 +117,33 @@ pub struct CommoditySpreadOption {
 }
 
 impl CommoditySpreadOption {
+    /// Create a representative WTI-RBOB crack spread call option example.
+    ///
+    /// $5 strike, 10,000 bbl notional, 0.85 correlation, European-style.
+    pub fn example() -> Self {
+        Self::builder()
+            .id(InstrumentId::new("WTI-RBOB-CRACK-SPREAD"))
+            .currency(Currency::USD)
+            .option_type(OptionType::Call)
+            .expiry(
+                Date::from_calendar_date(2025, time::Month::September, 15)
+                    .expect("valid example date"),
+            )
+            .strike(5.0)
+            .notional(10_000.0)
+            .leg1_forward_curve_id(CurveId::new("RBOB-FORWARD"))
+            .leg2_forward_curve_id(CurveId::new("WTI-FORWARD"))
+            .leg1_vol_surface_id(CurveId::new("RBOB-VOL"))
+            .leg2_vol_surface_id(CurveId::new("WTI-VOL"))
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .correlation(0.85)
+            .day_count(DayCount::Act365F)
+            .pricing_overrides(PricingOverrides::default())
+            .attributes(Attributes::new())
+            .build()
+            .expect("Example commodity spread option construction should not fail")
+    }
+
     /// Time to expiry in year fractions.
     pub(crate) fn time_to_expiry(&self, as_of: Date) -> Result<f64> {
         self.day_count

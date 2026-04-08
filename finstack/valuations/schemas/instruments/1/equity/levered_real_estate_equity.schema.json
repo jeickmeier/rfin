@@ -1,0 +1,115 @@
+{
+  "$id": "https://finstack.dev/schemas/instrument/1/equity/levered_real_estate_equity.schema.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "description": "Levered real estate equity combining a property asset with financing instruments",
+  "examples": [
+    {
+      "schema": "finstack.instrument/1",
+      "instrument": {
+        "type": "levered_real_estate_equity",
+        "spec": {
+          "id": "RE-LEVERED-OFFICE",
+          "currency": "USD",
+          "asset": {
+            "id": "RE-OFFICE-DCF",
+            "currency": "USD",
+            "valuation_date": "2025-01-01",
+            "valuation_method": "dcf",
+            "property_type": "office",
+            "noi_schedule": [
+              [
+                "2026-01-01",
+                100000.0
+              ],
+              [
+                "2027-01-01",
+                100000.0
+              ],
+              [
+                "2028-01-01",
+                100000.0
+              ],
+              [
+                "2029-01-01",
+                100000.0
+              ],
+              [
+                "2030-01-01",
+                100000.0
+              ]
+            ],
+            "discount_rate": 0.08,
+            "terminal_cap_rate": 0.055,
+            "day_count": "Act365F",
+            "discount_curve_id": "USD-OIS",
+            "pricing_overrides": {
+              "quoted_clean_price": null,
+              "implied_volatility": null,
+              "quoted_spread_bp": null,
+              "upfront_payment": null,
+              "rho_bump_decimal": null,
+              "vega_bump_decimal": null,
+              "ytm_bump_decimal": null,
+              "spot_bump_pct": null,
+              "vol_bump_pct": null,
+              "rate_bump_bp": null,
+              "credit_spread_bump_bp": null,
+              "adaptive_bumps": false,
+              "mc_seed_scenario": null,
+              "theta_period": null,
+              "vol_surface_extrapolation": "error",
+              "tree_steps": null,
+              "tree_volatility": null,
+              "use_gobet_miri": false,
+              "call_friction_cents": null,
+              "mean_reversion": null
+            },
+            "attributes": {}
+          },
+          "discount_curve_id": "USD-OIS",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
+    }
+  ],
+  "properties": {
+    "instrument": {
+      "description": "The Levered Real Estate Equity instrument definition",
+      "type": "object"
+    },
+    "schema": {
+      "const": "finstack.instrument/1",
+      "description": "Schema version identifier",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "instrument"
+  ],
+  "title": "Levered Real Estate Equity",
+  "type": "object"
+}

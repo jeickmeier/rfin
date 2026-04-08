@@ -32,6 +32,7 @@ use crate::instruments::common_impl::validation;
 
 /// Volatility model for pricing
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum VolatilityModel {
     /// Black (Lognormal) model (1976)
@@ -166,6 +167,7 @@ impl std::str::FromStr for VolatilityModel {
 
 /// Swaption settlement method
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum SwaptionSettlement {
     /// Physical settlement (enter into underlying swap)
@@ -307,6 +309,7 @@ impl std::str::FromStr for SwaptionSettlement {
 
 /// Swaption exercise style
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum SwaptionExercise {
     /// European exercise (only at expiry)

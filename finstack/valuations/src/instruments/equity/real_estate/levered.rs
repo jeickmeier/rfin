@@ -66,6 +66,22 @@ pub struct LeveredRealEstateEquity {
 }
 
 impl LeveredRealEstateEquity {
+    /// Create a representative levered office property example.
+    ///
+    /// Uses [`RealEstateAsset::example()`] as the underlying asset with no
+    /// embedded financing for simplicity.
+    pub fn example() -> Self {
+        let asset = RealEstateAsset::example();
+        Self::builder()
+            .id(InstrumentId::new("RE-LEVERED-OFFICE"))
+            .currency(Currency::USD)
+            .asset(asset)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Attributes::default())
+            .build()
+            .expect("Example levered real estate equity construction should not fail")
+    }
+
     pub(crate) fn resolve_exit_date(&self, as_of: Date) -> finstack_core::Result<Date> {
         levered_pricer::resolve_exit_date(self, as_of)
     }

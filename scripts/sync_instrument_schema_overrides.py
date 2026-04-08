@@ -53,7 +53,7 @@ def _sync_ir_future_schema() -> None:
     schema = _load_json(IR_FUTURE_SCHEMA)
     schema["description"] = IR_FUTURE_DESCRIPTION
 
-    example_spec = schema["properties"]["instrument"]["example"]["spec"]
+    example_spec = schema["examples"][0]["instrument"]["spec"]
     example_spec.pop("fixing_date", None)
     example_spec.pop("period_start", None)
     example_spec.pop("period_end", None)

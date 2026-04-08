@@ -725,5 +725,5 @@ fn convention_ids_and_doc_clause_aliases_roundtrip() {
         currency: Currency::USD,
         doc_clause: CdsDocClause::Cr14,
     };
-    assert_eq!(key.to_string(), "USD:Cr14");
+    assert_eq!(key.to_string(), "USD:cr14");
 }

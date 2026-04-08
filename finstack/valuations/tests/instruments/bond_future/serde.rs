@@ -442,7 +442,7 @@ fn test_bond_future_deny_unknown_fields() {
         "delivery_start": "2025-03-21",
         "delivery_end": "2025-03-31",
         "quoted_price": 125.50,
-        "position": "Long",
+        "position": "long",
         "contract_specs": {
             "contract_size": 100000.0,
             "tick_size": 0.015625,
@@ -522,7 +522,7 @@ fn test_bond_future_minimal_json() {
         "delivery_start": "2025-03-21",
         "delivery_end": "2025-03-31",
         "quoted_price": 125.50,
-        "position": "Long",
+        "position": "long",
         "contract_specs": {
             "contract_size": 100000.0,
             "tick_size": 0.015625,

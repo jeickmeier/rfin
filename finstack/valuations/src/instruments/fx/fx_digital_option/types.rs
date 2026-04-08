@@ -12,6 +12,7 @@ use finstack_core::types::{CurveId, InstrumentId};
 
 /// Payout type for digital (binary) options.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum DigitalPayoutType {
     /// Pays a fixed cash amount in the payout currency if ITM at expiry.

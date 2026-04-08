@@ -5,67 +5,64 @@
   "description": "Commodity swap for fixed-for-floating commodity price exchange contracts",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "commodity_swap",
         "spec": {
-          "attributes": {
-            "meta": {
-              "sector": "natural-gas"
-            },
-            "tags": ["energy"]
-          },
-          "bdc": "ModifiedFollowing",
-          "calendar_id": null,
-          "commodity_type": "Energy",
-          "currency": "USD",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2025-12-31",
-          "fixed_price": 3.50,
-          "floating_index_id": "NG-SPOT-AVG",
           "id": "NG-SWAP-2025",
-          "index_lag_days": null,
-          "notional_quantity": 10000.0,
+          "commodity_type": "Energy",
+          "ticker": "NG",
+          "unit": "MMBTU",
+          "currency": "USD",
+          "quantity": 10000.0,
+          "fixed_price": "3.5",
+          "floating_index_id": "NG-SPOT-AVG",
           "side": "pay",
+          "start_date": "2025-01-01",
+          "maturity": "2025-12-31",
           "frequency": {
             "count": 1,
             "unit": "months"
           },
-          "start_date": "2025-01-01",
-          "ticker": "NG",
-          "unit": "MMBTU"
-        },
-        "type": "commodity_swap"
-      },
-      "schema": "finstack.instrument/1"
+          "bdc": "modified_following",
+          "discount_curve_id": "USD-OIS",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {
+            "tags": [
+              "energy"
+            ],
+            "meta": {
+              "sector": "natural-gas"
+            }
+          }
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Commodity Swap instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "commodity_type": "Energy",
-          "currency": "USD",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2025-12-31",
-          "fixed_price": 3.50,
-          "floating_index_id": "NG-SPOT-AVG",
-          "id": "NG-SWAP-2025",
-          "notional_quantity": 10000.0,
-          "side": "pay",
-          "frequency": {
-            "count": 1,
-            "unit": "months"
-          },
-          "start_date": "2025-01-01",
-          "ticker": "NG",
-          "unit": "MMBTU"
-        },
-        "type": "commodity_swap"
-      },
       "type": "object"
     },
     "schema": {

@@ -5,58 +5,57 @@
   "description": "Volatility index futures contract (VIX, VXN, VSTOXX)",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "volatility_index_future",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "contract_specs": {
-            "index_id": "VIX",
-            "multiplier": 1000.0,
-            "tick_size": 0.05,
-            "tick_value": 50.0
-          },
-          "discount_curve_id": "USD-OIS",
-          "expiry": "2025-03-19",
           "id": "VIX-FUT-2025M03",
           "notional": {
             "amount": "100000",
             "currency": "USD"
           },
-          "position": "Long",
-          "quoted_price": 21.5,
+          "expiry": "2025-03-19",
           "settlement_date": "2025-03-19",
-          "vol_index_curve_id": "VIX"
-        },
-        "type": "volatility_index_future"
-      },
-      "schema": "finstack.instrument/1"
+          "quoted_price": 21.5,
+          "position": "long",
+          "contract_specs": {
+            "multiplier": 1000.0,
+            "tick_size": 0.05,
+            "tick_value": 50.0,
+            "index_id": "VIX"
+          },
+          "discount_curve_id": "USD-OIS",
+          "vol_index_curve_id": "VIX",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Volatility Index Future instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "discount_curve_id": "USD-OIS",
-          "expiry": "2025-03-19",
-          "id": "VIX-FUT-2025M03",
-          "notional": {
-            "amount": "100000",
-            "currency": "USD"
-          },
-          "position": "Long",
-          "quoted_price": 21.5,
-          "settlement_date": "2025-03-19",
-          "vol_index_curve_id": "VIX"
-        },
-        "type": "volatility_index_future"
-      },
       "type": "object"
     },
     "schema": {

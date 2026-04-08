@@ -5,30 +5,55 @@
   "description": "Agency TBA (To-Be-Announced) forward trade on agency MBS",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "agency_tba",
         "spec": {
+          "id": "FN30-4.0-202703",
           "agency": "FNMA",
-          "attributes": {
-            "meta": {
-              "program": "fnma"
-            },
-            "tags": ["tba", "agency"]
-          },
           "coupon": 0.04,
-          "discount_curve_id": "USD-OIS",
-          "id": "FN30-4.0-202403",
+          "term": "thirty_year",
+          "settlement_year": 2027,
+          "settlement_month": 3,
           "notional": {
             "amount": "10000000",
             "currency": "USD"
           },
-          "settlement_month": 3,
-          "settlement_year": 2024,
-          "term": "thirty_year",
-          "trade_price": 98.5
-        },
-        "type": "agency_tba"
-      },
-      "schema": "finstack.instrument/1"
+          "trade_price": 98.5,
+          "discount_curve_id": "USD-OIS",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {
+            "tags": [
+              "agency",
+              "tba"
+            ],
+            "meta": {
+              "program": "fnma"
+            }
+          }
+        }
+      }
     }
   ],
   "properties": {

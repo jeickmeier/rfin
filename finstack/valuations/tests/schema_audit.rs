@@ -1,0 +1,125 @@
+//! Schema tests: verify every instrument example() serializes to valid JSON
+//! and roundtrips through InstrumentEnvelope serde.
+
+use finstack_valuations::instruments::json_loader::{InstrumentEnvelope, InstrumentJson};
+
+macro_rules! test_roundtrip {
+    (plain: $test_name:ident, $variant:ident, $expr:expr) => {
+        #[test]
+        #[allow(clippy::expect_used)]
+        fn $test_name() {
+            let envelope = InstrumentEnvelope {
+                schema: "finstack.instrument/1".to_string(),
+                instrument: InstrumentJson::$variant($expr),
+            };
+            let json = serde_json::to_string(&envelope).expect("serialize");
+            let parsed: InstrumentEnvelope =
+                serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(parsed.schema, "finstack.instrument/1");
+            // Re-serialize and verify stability
+            let json2 = serde_json::to_string(&parsed).expect("re-serialize");
+            assert_eq!(json, json2, "roundtrip should be stable");
+        }
+    };
+    (boxed: $test_name:ident, $variant:ident, $expr:expr) => {
+        #[test]
+        #[allow(clippy::expect_used)]
+        fn $test_name() {
+            let envelope = InstrumentEnvelope {
+                schema: "finstack.instrument/1".to_string(),
+                instrument: InstrumentJson::$variant(Box::new($expr)),
+            };
+            let json = serde_json::to_string(&envelope).expect("serialize");
+            let parsed: InstrumentEnvelope =
+                serde_json::from_str(&json).expect("deserialize");
+            assert_eq!(parsed.schema, "finstack.instrument/1");
+            let json2 = serde_json::to_string(&parsed).expect("re-serialize");
+            assert_eq!(json, json2, "roundtrip should be stable");
+        }
+    };
+}
+
+mod schema_roundtrip {
+    use super::*;
+    use finstack_valuations::instruments::*;
+
+    // Fixed Income
+    test_roundtrip!(plain: bond, Bond, Bond::example().expect("bond"));
+    test_roundtrip!(plain: convertible_bond, ConvertibleBond, ConvertibleBond::example().expect("cb"));
+    test_roundtrip!(plain: inflation_linked_bond, InflationLinkedBond, InflationLinkedBond::example());
+    test_roundtrip!(plain: term_loan, TermLoan, TermLoan::example().expect("tl"));
+    test_roundtrip!(plain: revolving_credit, RevolvingCredit, RevolvingCredit::example().expect("rc"));
+    test_roundtrip!(boxed: bond_future, BondFuture, BondFuture::example().expect("bf"));
+    test_roundtrip!(plain: agency_mbs_passthrough, AgencyMbsPassthrough, AgencyMbsPassthrough::example().expect("mbs"));
+    test_roundtrip!(plain: agency_tba, AgencyTba, AgencyTba::example().expect("tba"));
+    test_roundtrip!(plain: agency_cmo, AgencyCmo, AgencyCmo::example().expect("cmo"));
+    test_roundtrip!(plain: dollar_roll, DollarRoll, DollarRoll::example().expect("dr"));
+    test_roundtrip!(plain: trs_fixed_income_index, TrsFixedIncomeIndex, FIIndexTotalReturnSwap::example().expect("fitrs"));
+    test_roundtrip!(boxed: structured_credit, StructuredCredit, StructuredCredit::example());
+
+    // Rates
+    test_roundtrip!(plain: interest_rate_swap, InterestRateSwap, InterestRateSwap::example().expect("irs"));
+    test_roundtrip!(plain: basis_swap, BasisSwap, BasisSwap::example().expect("bs"));
+    test_roundtrip!(plain: xccy_swap, XccySwap, XccySwap::example());
+    test_roundtrip!(plain: inflation_swap, InflationSwap, InflationSwap::example());
+    test_roundtrip!(plain: yoy_inflation_swap, YoYInflationSwap, YoYInflationSwap::example());
+    test_roundtrip!(plain: inflation_cap_floor, InflationCapFloor, InflationCapFloor::example());
+    test_roundtrip!(plain: forward_rate_agreement, ForwardRateAgreement, ForwardRateAgreement::example().expect("fra"));
+    test_roundtrip!(plain: swaption, Swaption, Swaption::example());
+    test_roundtrip!(plain: interest_rate_future, InterestRateFuture, InterestRateFuture::example().expect("irf"));
+    test_roundtrip!(plain: interest_rate_option, InterestRateOption, InterestRateOption::example().expect("iro"));
+    test_roundtrip!(plain: cms_option, CmsOption, CmsOption::example());
+    test_roundtrip!(plain: cms_swap, CmsSwap, CmsSwap::example());
+    test_roundtrip!(plain: ir_future_option, IrFutureOption, IrFutureOption::example().expect("irfo"));
+    test_roundtrip!(plain: deposit, Deposit, Deposit::example().expect("dep"));
+    test_roundtrip!(plain: repo, Repo, Repo::example());
+    test_roundtrip!(plain: range_accrual, RangeAccrual, RangeAccrual::example());
+
+    // Credit
+    test_roundtrip!(plain: credit_default_swap, CreditDefaultSwap, CreditDefaultSwap::example());
+    test_roundtrip!(plain: cds_index, CDSIndex, CDSIndex::example());
+    test_roundtrip!(plain: cds_tranche, CDSTranche, CDSTranche::example());
+    test_roundtrip!(plain: cds_option, CDSOption, CDSOption::example().expect("cdso"));
+
+    // Equity
+    test_roundtrip!(plain: equity, Equity, Equity::example());
+    test_roundtrip!(plain: equity_option, EquityOption, EquityOption::example().expect("eqopt"));
+    test_roundtrip!(plain: autocallable, Autocallable, Autocallable::example().expect("auto"));
+    test_roundtrip!(plain: cliquet_option, CliquetOption, CliquetOption::example().expect("cliq"));
+    test_roundtrip!(plain: variance_swap, VarianceSwap, VarianceSwap::example().expect("vs"));
+    test_roundtrip!(plain: equity_index_future, EquityIndexFuture, EquityIndexFuture::example().expect("eif"));
+    test_roundtrip!(plain: volatility_index_future, VolatilityIndexFuture, VolatilityIndexFuture::example().expect("vif"));
+    test_roundtrip!(plain: volatility_index_option, VolatilityIndexOption, VolatilityIndexOption::example().expect("vio"));
+    test_roundtrip!(plain: trs_equity, TrsEquity, EquityTotalReturnSwap::example().expect("etrs"));
+    test_roundtrip!(plain: private_markets_fund, PrivateMarketsFund, PrivateMarketsFund::example().expect("pmf"));
+    test_roundtrip!(plain: real_estate_asset, RealEstateAsset, RealEstateAsset::example());
+    test_roundtrip!(plain: discounted_cash_flow, DiscountedCashFlow, DiscountedCashFlow::example());
+    test_roundtrip!(boxed: levered_real_estate_equity, LeveredRealEstateEquity,
+        finstack_valuations::instruments::equity::real_estate::LeveredRealEstateEquity::example());
+
+    // FX
+    test_roundtrip!(plain: fx_spot, FxSpot, FxSpot::example());
+    test_roundtrip!(plain: fx_swap, FxSwap, FxSwap::example());
+    test_roundtrip!(plain: fx_forward, FxForward, FxForward::example().expect("fxf"));
+    test_roundtrip!(plain: ndf, Ndf, Ndf::example());
+    test_roundtrip!(plain: fx_option, FxOption, FxOption::example().expect("fxo"));
+    test_roundtrip!(plain: fx_digital_option, FxDigitalOption, FxDigitalOption::example().expect("fxdo"));
+    test_roundtrip!(plain: fx_touch_option, FxTouchOption, FxTouchOption::example().expect("fxto"));
+    test_roundtrip!(plain: fx_barrier_option, FxBarrierOption, FxBarrierOption::example());
+    test_roundtrip!(plain: fx_variance_swap, FxVarianceSwap, FxVarianceSwap::example());
+    test_roundtrip!(plain: quanto_option, QuantoOption, QuantoOption::example());
+
+    // Commodity
+    test_roundtrip!(plain: commodity_option, CommodityOption, CommodityOption::example());
+    test_roundtrip!(plain: commodity_asian_option, CommodityAsianOption, CommodityAsianOption::example());
+    test_roundtrip!(plain: commodity_forward, CommodityForward, CommodityForward::example());
+    test_roundtrip!(plain: commodity_swap, CommoditySwap, CommoditySwap::example());
+    test_roundtrip!(plain: commodity_swaption, CommoditySwaption, CommoditySwaption::example());
+    test_roundtrip!(plain: commodity_spread_option, CommoditySpreadOption, CommoditySpreadOption::example());
+
+    // Exotics
+    test_roundtrip!(plain: asian_option, AsianOption, AsianOption::example().expect("ao"));
+    test_roundtrip!(plain: barrier_option, BarrierOption, BarrierOption::example().expect("bo"));
+    test_roundtrip!(plain: lookback_option, LookbackOption, LookbackOption::example().expect("lo"));
+    test_roundtrip!(plain: basket, Basket, Basket::example().expect("bsk"));
+}

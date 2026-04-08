@@ -1,54 +1,57 @@
 {
-  "$id": "https://finstack.dev/schemas/instrument/1/deposit.schema.json",
+  "$id": "https://finstack.dev/schemas/instrument/1/rates/deposit.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "additionalProperties": false,
   "description": "Simple single-period deposit instrument",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "deposit",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "day_count": "Act360",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2024-07-01",
           "id": "DEP-USD-6M",
           "notional": {
             "amount": "100000",
             "currency": "USD"
           },
-          "quote_rate": 0.045,
-          "start_date": "2024-01-01"
-        },
-        "type": "deposit"
-      },
-      "schema": "finstack.instrument/1"
+          "start_date": "2024-01-01",
+          "maturity": "2024-07-01",
+          "day_count": "Act360",
+          "quote_rate": "0.045",
+          "discount_curve_id": "USD-OIS",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {},
+          "spot_lag_days": 2,
+          "bdc": "modified_following",
+          "calendar_id": null
+        }
+      }
     }
   ],
   "properties": {
     "instrument": {
       "description": "The Deposit instrument definition",
-      "example": {
-        "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "day_count": "Act360",
-          "discount_curve_id": "USD-OIS",
-          "maturity": "2024-07-01",
-          "id": "DEP-USD-6M",
-          "notional": {
-            "amount": "100000",
-            "currency": "USD"
-          },
-          "quote_rate": 0.045,
-          "start_date": "2024-01-01"
-        },
-        "type": "deposit"
-      },
       "type": "object"
     },
     "schema": {

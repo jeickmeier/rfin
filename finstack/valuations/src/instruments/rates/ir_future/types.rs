@@ -148,6 +148,7 @@ impl Default for FutureContractSpecs {
 
 /// Position side for futures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum Position {
     /// Long position (buyer of futures contract)

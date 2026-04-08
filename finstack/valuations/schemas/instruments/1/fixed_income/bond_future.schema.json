@@ -5,43 +5,67 @@
   "description": "Bond future contract with deliverable basket and conversion factors",
   "examples": [
     {
+      "schema": "finstack.instrument/1",
       "instrument": {
+        "type": "bond_future",
         "spec": {
-          "attributes": {
-            "meta": {},
-            "tags": []
-          },
-          "contract_specs": {
-            "calendar_id": "nyse",
-            "contract_size": 100000.0,
-            "settlement_days": 2,
-            "standard_coupon": 0.06,
-            "standard_maturity_years": 10.0,
-            "tick_size": 0.015625,
-            "tick_value": 15.625
-          },
-          "ctd_bond_id": "US912828XG33",
-          "deliverable_basket": [
-            {
-              "bond_id": "US912828XG33",
-              "conversion_factor": 0.8234
-            }
-          ],
-          "delivery_end": "2025-03-31",
-          "delivery_start": "2025-03-21",
-          "discount_curve_id": "USD-TREASURY",
-          "expiry": "2025-03-20",
-          "id": "TYH5",
+          "id": "TYU5",
           "notional": {
             "amount": "1000000",
             "currency": "USD"
           },
+          "expiry": "2025-09-19",
+          "delivery_start": "2025-09-22",
+          "delivery_end": "2025-09-30",
+          "quoted_price": 112.25,
           "position": "long",
-          "quoted_price": 125.5
-        },
-        "type": "bond_future"
-      },
-      "schema": "finstack.instrument/1"
+          "contract_specs": {
+            "contract_size": 100000.0,
+            "tick_size": 0.015625,
+            "tick_value": 15.625,
+            "standard_coupon": 0.06,
+            "standard_maturity_years": 10.0,
+            "settlement_days": 2,
+            "calendar_id": "nyse",
+            "repo_day_count_basis": "act360"
+          },
+          "deliverable_basket": [
+            {
+              "bond_id": "US91282CJL54",
+              "conversion_factor": 0.8234
+            },
+            {
+              "bond_id": "US91282CHT18",
+              "conversion_factor": 0.7915
+            }
+          ],
+          "ctd_bond_id": "US91282CJL54",
+          "discount_curve_id": "USD-TREASURY",
+          "pricing_overrides": {
+            "quoted_clean_price": null,
+            "implied_volatility": null,
+            "quoted_spread_bp": null,
+            "upfront_payment": null,
+            "rho_bump_decimal": null,
+            "vega_bump_decimal": null,
+            "ytm_bump_decimal": null,
+            "spot_bump_pct": null,
+            "vol_bump_pct": null,
+            "rate_bump_bp": null,
+            "credit_spread_bump_bp": null,
+            "adaptive_bumps": false,
+            "mc_seed_scenario": null,
+            "theta_period": null,
+            "vol_surface_extrapolation": "error",
+            "tree_steps": null,
+            "tree_volatility": null,
+            "use_gobet_miri": false,
+            "call_friction_cents": null,
+            "mean_reversion": null
+          },
+          "attributes": {}
+        }
+      }
     }
   ],
   "properties": {

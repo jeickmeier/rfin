@@ -195,6 +195,60 @@ impl XccySwap {
         }
     }
 
+    /// Create a canonical example USD/EUR 5Y cross-currency basis swap ($10M notional).
+    ///
+    /// Returns a 5-year XCCY swap with quarterly SOFR on the USD leg
+    /// and quarterly EURIBOR on the EUR leg, with initial and final notional exchange.
+    #[allow(clippy::expect_used)] // Example uses hardcoded valid values
+    pub fn example() -> Self {
+        use time::Month;
+
+        let start =
+            Date::from_calendar_date(2024, Month::January, 3).expect("Valid example date");
+        let end =
+            Date::from_calendar_date(2029, Month::January, 3).expect("Valid example date");
+
+        let usd_leg = XccySwapLeg {
+            currency: Currency::USD,
+            notional: Money::new(10_000_000.0, Currency::USD),
+            side: LegSide::Receive,
+            forward_curve_id: CurveId::new("USD-SOFR-3M"),
+            discount_curve_id: CurveId::new("USD-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::ZERO,
+            payment_lag_days: 0,
+            calendar_id: None,
+            reset_lag_days: None,
+            allow_calendar_fallback: true,
+        };
+
+        let eur_leg = XccySwapLeg {
+            currency: Currency::EUR,
+            notional: Money::new(9_200_000.0, Currency::EUR),
+            side: LegSide::Pay,
+            forward_curve_id: CurveId::new("EUR-EURIBOR-3M"),
+            discount_curve_id: CurveId::new("EUR-OIS"),
+            start,
+            end,
+            frequency: Tenor::quarterly(),
+            day_count: DayCount::Act360,
+            bdc: BusinessDayConvention::ModifiedFollowing,
+            stub: StubKind::ShortFront,
+            spread_bp: Decimal::from(10),
+            payment_lag_days: 0,
+            calendar_id: None,
+            reset_lag_days: None,
+            allow_calendar_fallback: true,
+        };
+
+        Self::new("XCCY-USDEUR-5Y", usd_leg, eur_leg, Currency::USD)
+    }
+
     /// Set notional exchange convention.
     pub fn with_notional_exchange(mut self, exchange: NotionalExchange) -> Self {
         self.notional_exchange = exchange;

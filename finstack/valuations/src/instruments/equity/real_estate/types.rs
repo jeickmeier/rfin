@@ -150,6 +150,40 @@ pub struct RealEstateAsset {
 }
 
 impl RealEstateAsset {
+    /// Create a representative office building DCF valuation example.
+    ///
+    /// 5-year NOI schedule at $100K/year, 8% discount rate, 5.5% terminal
+    /// cap rate, Act/365F day count convention.
+    pub fn example() -> Self {
+        use finstack_core::dates::DayCount;
+        use time::Month;
+
+        let valuation_date =
+            Date::from_calendar_date(2025, Month::January, 1).expect("valid example date");
+        let noi_schedule: Vec<(Date, f64)> = (1..=5)
+            .map(|y| {
+                let date =
+                    Date::from_calendar_date(2025 + y, Month::January, 1).expect("valid noi date");
+                (date, 100_000.0)
+            })
+            .collect();
+
+        Self::builder()
+            .id(InstrumentId::new("RE-OFFICE-DCF"))
+            .currency(Currency::USD)
+            .valuation_date(valuation_date)
+            .valuation_method(RealEstateValuationMethod::Dcf)
+            .property_type_opt(Some(RealEstatePropertyType::Office))
+            .noi_schedule(noi_schedule)
+            .discount_rate_opt(Some(0.08))
+            .terminal_cap_rate_opt(Some(0.055))
+            .day_count(DayCount::Act365F)
+            .discount_curve_id(CurveId::new("USD-OIS"))
+            .attributes(Attributes::default())
+            .build()
+            .expect("Example real estate asset construction should not fail")
+    }
+
     pub(crate) fn acquisition_cost_total(&self) -> finstack_core::Result<f64> {
         pricer::acquisition_cost_total(self)
     }

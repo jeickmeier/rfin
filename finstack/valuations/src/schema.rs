@@ -41,22 +41,29 @@ macro_rules! with_instrument_schema_registry {
             "cds_tranche" => "../schemas/instruments/1/credit_derivatives/cds_tranche.schema.json";
             "cliquet_option" => "../schemas/instruments/1/equity/cliquet_option.schema.json";
             "cms_option" => "../schemas/instruments/1/rates/cms_option.schema.json";
+            "cms_swap" => "../schemas/instruments/1/rates/cms_swap.schema.json";
+            "commodity_asian_option" => "../schemas/instruments/1/commodity/commodity_asian_option.schema.json";
             "commodity_forward" => "../schemas/instruments/1/commodity/commodity_forward.schema.json";
             "commodity_option" => "../schemas/instruments/1/commodity/commodity_option.schema.json";
+            "commodity_spread_option" => "../schemas/instruments/1/commodity/commodity_spread_option.schema.json";
             "commodity_swap" => "../schemas/instruments/1/commodity/commodity_swap.schema.json";
+            "commodity_swaption" => "../schemas/instruments/1/commodity/commodity_swaption.schema.json";
             "convertible_bond" => "../schemas/instruments/1/fixed_income/convertible_bond.schema.json";
             "credit_default_swap" => "../schemas/instruments/1/credit_derivatives/credit_default_swap.schema.json";
             "deposit" => "../schemas/instruments/1/rates/deposit.schema.json";
+            "discounted_cash_flow" => "../schemas/instruments/1/equity/discounted_cash_flow.schema.json";
             "dollar_roll" => "../schemas/instruments/1/fixed_income/dollar_roll.schema.json";
             "equity" => "../schemas/instruments/1/equity/equity.schema.json";
             "equity_index_future" => "../schemas/instruments/1/equity/equity_index_future.schema.json";
             "equity_option" => "../schemas/instruments/1/equity/equity_option.schema.json";
             "forward_rate_agreement" => "../schemas/instruments/1/rates/forward_rate_agreement.schema.json";
             "fx_barrier_option" => "../schemas/instruments/1/fx/fx_barrier_option.schema.json";
+            "fx_digital_option" => "../schemas/instruments/1/fx/fx_digital_option.schema.json";
             "fx_forward" => "../schemas/instruments/1/fx/fx_forward.schema.json";
             "fx_option" => "../schemas/instruments/1/fx/fx_option.schema.json";
             "fx_spot" => "../schemas/instruments/1/fx/fx_spot.schema.json";
             "fx_swap" => "../schemas/instruments/1/fx/fx_swap.schema.json";
+            "fx_touch_option" => "../schemas/instruments/1/fx/fx_touch_option.schema.json";
             "fx_variance_swap" => "../schemas/instruments/1/fx/fx_variance_swap.schema.json";
             "inflation_cap_floor" => "../schemas/instruments/1/rates/inflation_cap_floor.schema.json";
             "inflation_linked_bond" => "../schemas/instruments/1/fixed_income/inflation_linked_bond.schema.json";
@@ -64,6 +71,8 @@ macro_rules! with_instrument_schema_registry {
             "interest_rate_future" => "../schemas/instruments/1/rates/interest_rate_future.schema.json";
             "interest_rate_option" => "../schemas/instruments/1/rates/interest_rate_option.schema.json";
             "interest_rate_swap" => "../schemas/instruments/1/rates/interest_rate_swap.schema.json";
+            "ir_future_option" => "../schemas/instruments/1/rates/ir_future_option.schema.json";
+            "levered_real_estate_equity" => "../schemas/instruments/1/equity/levered_real_estate_equity.schema.json";
             "lookback_option" => "../schemas/instruments/1/exotics/lookback_option.schema.json";
             "ndf" => "../schemas/instruments/1/fx/ndf.schema.json";
             "private_markets_fund" => "../schemas/instruments/1/equity/private_markets_fund.schema.json";
@@ -290,21 +299,24 @@ mod tests {
         assert_eq!(schema["title"], "Bond");
         assert_eq!(
             schema["$id"],
-            "https://finstack.dev/schemas/instrument/1/bond.schema.json"
+            "https://finstack.dev/schemas/instrument/1/fixed_income/bond.schema.json"
         );
     }
 
     #[test]
-    fn test_instrument_schema_returns_fallback_for_missing_dedicated_schema() {
-        let schema = instrument_schema("cms_swap").expect("cms_swap should return fallback schema");
-        assert_eq!(
-            schema["properties"]["instrument"]["properties"]["type"]["const"],
-            "cms_swap"
-        );
-        assert!(schema["description"]
-            .as_str()
-            .expect("fallback schema should include description")
-            .contains("Dedicated schema is not yet available"));
+    fn test_all_envelope_types_have_dedicated_schemas() {
+        let types = instrument_types().expect("instrument types should parse");
+        for ty in &types {
+            let schema = instrument_schema(ty)
+                .unwrap_or_else(|e| panic!("schema for '{ty}' should load: {e}"));
+            let desc = schema["description"]
+                .as_str()
+                .unwrap_or_else(|| panic!("schema for '{ty}' should have a description"));
+            assert!(
+                !desc.contains("Dedicated schema is not yet available"),
+                "'{ty}' is using a fallback schema — add a dedicated schema file"
+            );
+        }
     }
 
     #[test]
