@@ -1,5 +1,6 @@
 pub mod calendar;
 pub mod daycount;
+pub mod fx;
 pub mod imm;
 pub mod periods;
 pub mod rate_conversions;
@@ -8,13 +9,16 @@ pub mod tenor;
 pub mod utils;
 
 #[allow(unused_imports)]
-pub use calendar::{PyBusinessDayConvention, PyCalendar};
+pub use calendar::{PyBusinessDayConvention, PyCalendar, PyCompositeCalendar};
 #[allow(unused_imports)]
 pub use daycount::{PyDayCount, PyDayCountContext, PyThirty360Convention};
 #[allow(unused_imports)]
 pub use periods::{PyFiscalConfig, PyPeriod, PyPeriodId, PyPeriodPlan};
 #[allow(unused_imports)]
-pub use schedule::{PyFrequency, PySchedule, PyScheduleBuilder, PyStubKind};
+pub use schedule::{
+    PyFrequency, PySchedule, PyScheduleBuilder, PyScheduleErrorPolicy, PyScheduleWarning,
+    PyStubKind,
+};
 #[allow(unused_imports)]
 pub use tenor::{PyTenor, PyTenorUnit};
 
@@ -62,6 +66,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let rate_exports = rate_conversions::register(py, &module)?;
     exports.extend(rate_exports.iter().copied());
     promote_exports(&module, "rate_conversions", &rate_exports)?;
+
+    let fx_exports = fx::register(py, &module)?;
+    exports.extend(fx_exports.iter().copied());
+    promote_exports(&module, "fx", &fx_exports)?;
 
     let mut uniq = HashSet::default();
     exports.retain(|item| uniq.insert(*item));

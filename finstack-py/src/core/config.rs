@@ -11,7 +11,8 @@ use crate::core::common::{labels::normalize_label, pycmp::richcmp_eq_ne};
 use crate::errors::{unknown_currency, unknown_rounding_mode, PyContext};
 use finstack_core::config::{
     results_meta, rounding_context_from, CurrencyScalePolicy, FinstackConfig, NumericMode,
-    ResultsMeta, RoundingContext, RoundingMode, RoundingPolicy, ZeroKind, NUMERIC_MODE,
+    ResultsMeta, RoundingContext, RoundingMode, RoundingPolicy, ToleranceConfig, ZeroKind,
+    NUMERIC_MODE,
 };
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyTypeError;
@@ -720,6 +721,68 @@ impl PyResultsMeta {
     }
 }
 
+/// Numerical tolerance configuration.
+///
+/// Controls epsilon values used for comparisons and convergence checks.
+///
+/// Parameters
+/// ----------
+/// rate_epsilon : float, optional
+///     Tolerance for rate comparisons (default: 1e-12).
+/// generic_epsilon : float, optional
+///     General-purpose tolerance (default: 1e-10).
+#[pyclass(
+    name = "ToleranceConfig",
+    module = "finstack.core.config",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyToleranceConfig {
+    pub(crate) inner: ToleranceConfig,
+}
+
+impl PyToleranceConfig {
+    pub(crate) fn new(inner: ToleranceConfig) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyToleranceConfig {
+    #[new]
+    #[pyo3(signature = (rate_epsilon=None, generic_epsilon=None))]
+    fn ctor(rate_epsilon: Option<f64>, generic_epsilon: Option<f64>) -> Self {
+        let mut config = ToleranceConfig::default();
+        if let Some(v) = rate_epsilon {
+            config.rate_epsilon = v;
+        }
+        if let Some(v) = generic_epsilon {
+            config.generic_epsilon = v;
+        }
+        Self::new(config)
+    }
+
+    /// Tolerance for rate comparisons.
+    #[getter]
+    fn rate_epsilon(&self) -> f64 {
+        self.inner.rate_epsilon
+    }
+
+    /// General-purpose tolerance.
+    #[getter]
+    fn generic_epsilon(&self) -> f64 {
+        self.inner.generic_epsilon
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ToleranceConfig(rate_epsilon={}, generic_epsilon={})",
+            self.inner.rate_epsilon, self.inner.generic_epsilon
+        )
+    }
+}
+
 pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> PyResult<()> {
     let module = PyModule::new(py, "config")?;
     module.setattr(
@@ -734,6 +797,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     module.add_class::<PyRoundingContext>()?;
     module.add_class::<PyNumericMode>()?;
     module.add_class::<PyResultsMeta>()?;
+    module.add_class::<PyToleranceConfig>()?;
     module.add_function(wrap_pyfunction!(py_rounding_context_from, &module)?)?;
     module.add_function(wrap_pyfunction!(py_results_meta, &module)?)?;
     module.setattr("NUMERIC_MODE", PyNumericMode::new(NUMERIC_MODE))?;
@@ -749,6 +813,7 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
             "NumericMode",
             "NUMERIC_MODE",
             "ResultsMeta",
+            "ToleranceConfig",
             "rounding_context_from",
             "results_meta",
         ],

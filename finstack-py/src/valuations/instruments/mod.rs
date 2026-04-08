@@ -13,7 +13,6 @@ pub(crate) mod equity;
 mod exotics;
 mod fixed_income;
 mod fx;
-#[allow(clippy::module_inception)]
 mod json_support;
 mod rates;
 

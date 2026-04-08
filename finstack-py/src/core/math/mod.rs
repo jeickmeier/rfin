@@ -1,6 +1,7 @@
 mod callable;
 mod compounding;
 mod distributions;
+mod fractional;
 mod integration;
 pub(crate) mod interp;
 mod linalg;
@@ -40,6 +41,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
 
     let compounding_exports = compounding::register(py, &module)?;
     exports.extend(compounding_exports.iter().copied());
+
+    let fractional_exports = fractional::register(py, &module)?;
+    exports.extend(fractional_exports.iter().copied());
 
     let dist_exports = distributions::register(py, &module)?;
     exports.extend(dist_exports.iter().copied());

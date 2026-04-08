@@ -4,20 +4,22 @@ use crate::core::common::args::{
 use crate::core::currency::PyCurrency;
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::core::dates::PyDayCount;
-use crate::core::money::{extract_money, PyMoney};
+// PyMoney/extract_money removed: NPV logic moved to cashflow module.
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::cashflow::npv;
 use finstack_core::market_data::term_structures::BaseCorrelationCurve;
+use finstack_core::market_data::term_structures::BasisSpreadCurve;
 use finstack_core::market_data::term_structures::CreditIndexData;
 use finstack_core::market_data::term_structures::DiscountCurve;
 use finstack_core::market_data::term_structures::FlatCurve;
 use finstack_core::market_data::term_structures::ForwardCurve;
+use finstack_core::market_data::term_structures::ForwardVarianceCurve;
 use finstack_core::market_data::term_structures::InflationCurve;
 use finstack_core::market_data::term_structures::PriceCurve;
 use finstack_core::market_data::term_structures::{HazardCurve, Seniority};
+use finstack_core::market_data::term_structures::{NelsonSiegelModel, NsVariant};
 use finstack_core::math::interp::{ExtrapolationPolicy, InterpStyle};
 use finstack_core::HashMap;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
 use pyo3::{Bound, PyRef};
@@ -467,56 +469,6 @@ impl PyDiscountCurve {
     fn bumped_parallel(&self, bp: f64) -> PyResult<Self> {
         let bumped = self.inner.with_parallel_bump(bp).map_err(core_to_py)?;
         Ok(Self::new_arc(Arc::new(bumped)))
-    }
-
-    #[pyo3(text_signature = "(self, cash_flows, day_count=None)")]
-    /// Calculate the Net Present Value of a series of cashflows.
-    ///
-    /// Parameters
-    /// ----------
-    /// cash_flows : list[tuple[date, Money]]
-    ///     List of dated cashflows to discount.
-    /// day_count : DayCount, optional
-    ///     Day count convention for discounting (defaults to curve's day count).
-    ///
-    /// Returns
-    /// -------
-    /// Money
-    ///     The NPV in the currency of the cashflows.
-    fn npv(
-        &self,
-        cash_flows: Bound<'_, PyAny>,
-        day_count: Option<Bound<'_, PyAny>>,
-    ) -> PyResult<PyMoney> {
-        let flows_iter = cash_flows.try_iter()?;
-        let mut flows = Vec::new();
-        for item in flows_iter {
-            let item = item?;
-            // Expect tuple (date, money_like)
-            if let Ok(tuple) = item.cast::<pyo3::types::PyTuple>() {
-                if tuple.len() == 2 {
-                    let date = py_to_date(&tuple.get_item(0).context("date")?)
-                        .context("cash_flow_date")?;
-                    let money = extract_money(&tuple.get_item(1).context("money")?)
-                        .context("cash_flow_amount")?;
-                    flows.push((date, money));
-                } else {
-                    return Err(PyValueError::new_err(
-                        "cash_flows must be list of (date, money) tuples",
-                    ));
-                }
-            } else {
-                return Err(PyTypeError::new_err(
-                    "cash_flows must be list of (date, money) tuples",
-                ));
-            }
-        }
-
-        let dc = parse_day_count(day_count)?.unwrap_or(self.inner.day_count());
-
-        let result =
-            npv(&*self.inner, self.inner.base_date(), Some(dc), &flows).map_err(core_to_py)?;
-        Ok(PyMoney::new(result))
     }
 }
 
@@ -1786,6 +1738,509 @@ impl PyFlatCurve {
     }
 }
 
+// ---------------------------------------------------------------------------
+// BasisSpreadCurve
+// ---------------------------------------------------------------------------
+
+/// Basis spread curve for cross-currency and multi-curve frameworks.
+///
+/// Stores continuously compounded spread values between two discount curves
+/// at discrete pillar points.
+///
+/// Parameters
+/// ----------
+/// id : str
+///     Curve identifier.
+/// base_date : datetime.date
+///     Anchor date corresponding to ``t = 0``.
+/// knots : list[float]
+///     Knot times in year fractions (strictly increasing).
+/// spreads : list[float]
+///     Continuously compounded spread values at each knot.
+/// day_count : DayCount or str, optional
+///     Day-count convention (defaults to Act/365F).
+/// interp : str, optional
+///     Interpolation style (defaults to ``"linear"``).
+/// extrapolation : str, optional
+///     Extrapolation policy (defaults to ``"flat_zero"``).
+///
+/// Returns
+/// -------
+/// BasisSpreadCurve
+///     Basis spread curve with interpolation.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "BasisSpreadCurve",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyBasisSpreadCurve {
+    pub(crate) inner: Arc<BasisSpreadCurve>,
+}
+
+impl PyBasisSpreadCurve {
+    pub(crate) fn new_arc(inner: Arc<BasisSpreadCurve>) -> Self {
+        Self { inner }
+    }
+}
+
+#[pymethods]
+impl PyBasisSpreadCurve {
+    /// Construct a basis spread curve from knot times and spread values.
+    #[new]
+    #[pyo3(signature = (id, base_date, knots, spreads, day_count=None, interp=None, extrapolation=None))]
+    fn ctor(
+        id: &str,
+        base_date: Bound<'_, PyAny>,
+        knots: Vec<f64>,
+        spreads: Vec<f64>,
+        day_count: Option<Bound<'_, PyAny>>,
+        interp: Option<Bound<'_, PyAny>>,
+        extrapolation: Option<Bound<'_, PyAny>>,
+    ) -> PyResult<Self> {
+        if knots.len() != spreads.len() {
+            return Err(PyValueError::new_err(
+                "knots and spreads must have the same length",
+            ));
+        }
+        if knots.is_empty() {
+            return Err(PyValueError::new_err(
+                "knots must contain at least one point",
+            ));
+        }
+        let base = py_to_date(&base_date).context("base_date")?;
+        let style = parse_interp_style(interp.as_ref(), InterpStyle::Linear)?;
+        let extra = parse_extrap_style(extrapolation.as_ref(), ExtrapolationPolicy::FlatZero)?;
+        let points: Vec<(f64, f64)> = knots.into_iter().zip(spreads).collect();
+        let mut builder = BasisSpreadCurve::builder(id)
+            .base_date(base)
+            .knots(points)
+            .interp(style)
+            .extrapolation(extra);
+        if let Some(dc) = parse_day_count(day_count)? {
+            builder = builder.day_count(dc);
+        }
+        let curve = Python::attach(|py| py.detach(|| builder.build().map_err(core_to_py)))?;
+        Ok(Self::new_arc(Arc::new(curve)))
+    }
+
+    /// Return the curve identifier.
+    #[getter]
+    fn id(&self) -> String {
+        self.inner.id().to_string()
+    }
+
+    /// Base date of the curve.
+    #[getter]
+    fn base_date(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
+        date_to_py(py, self.inner.base_date())
+    }
+
+    /// Day-count convention used for time calculations.
+    #[getter]
+    fn day_count(&self) -> PyDayCount {
+        PyDayCount::new(self.inner.day_count())
+    }
+
+    /// Interpolation style used by this curve.
+    #[getter]
+    fn interp_style(&self) -> String {
+        format!("{:?}", self.inner.interp_style())
+    }
+
+    /// Extrapolation policy used by this curve.
+    #[getter]
+    fn extrapolation(&self) -> String {
+        format!("{:?}", self.inner.extrapolation())
+    }
+
+    /// Knot times in year fractions.
+    #[getter]
+    fn knots(&self) -> Vec<f64> {
+        self.inner.knots().to_vec()
+    }
+
+    /// Spread values at each knot.
+    #[getter]
+    fn spreads(&self) -> Vec<f64> {
+        self.inner.spreads().to_vec()
+    }
+
+    /// Continuously compounded spread at time ``t`` (years from base date).
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Spread value at ``t``.
+    #[pyo3(text_signature = "(self, t)")]
+    fn spread(&self, t: f64) -> f64 {
+        self.inner.spread(t)
+    }
+
+    /// Roll the curve forward by ``days`` calendar days.
+    ///
+    /// Parameters
+    /// ----------
+    /// days : int
+    ///     Number of calendar days to roll forward.
+    ///
+    /// Returns
+    /// -------
+    /// BasisSpreadCurve
+    ///     A new curve with updated base date and shifted knots.
+    #[pyo3(text_signature = "(self, days)")]
+    fn roll_forward(&self, days: i64) -> PyResult<Self> {
+        let rolled = self.inner.roll_forward(days).map_err(core_to_py)?;
+        Ok(Self::new_arc(Arc::new(rolled)))
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "BasisSpreadCurve(id='{}', knots={})",
+            self.inner.id(),
+            self.inner.knots().len()
+        )
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Nelson-Siegel / Parametric Curve
+// ---------------------------------------------------------------------------
+
+/// Nelson-Siegel model variant selector.
+///
+/// Attributes
+/// ----------
+/// NS : NsVariant
+///     Four-parameter Nelson-Siegel model.
+/// NSS : NsVariant
+///     Six-parameter Nelson-Siegel-Svensson model.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "NsVariant",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyNsVariant {
+    pub(crate) inner: NsVariant,
+}
+
+#[pymethods]
+impl PyNsVariant {
+    /// Four-parameter Nelson-Siegel variant.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn NS() -> Self {
+        Self {
+            inner: NsVariant::Ns,
+        }
+    }
+
+    /// Six-parameter Nelson-Siegel-Svensson variant.
+    #[classattr]
+    #[allow(non_snake_case)]
+    fn NSS() -> Self {
+        Self {
+            inner: NsVariant::Nss,
+        }
+    }
+
+    fn __repr__(&self) -> String {
+        match self.inner {
+            NsVariant::Ns => "NsVariant.NS".to_string(),
+            NsVariant::Nss => "NsVariant.NSS".to_string(),
+        }
+    }
+}
+
+/// Nelson-Siegel parametric model for yield curve fitting.
+///
+/// Provides either the 4-parameter NS or 6-parameter NSS specification.
+/// Use classmethods ``ns()`` or ``nss()`` to construct.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "NelsonSiegelModel",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyNelsonSiegelModel {
+    pub(crate) inner: NelsonSiegelModel,
+}
+
+#[pymethods]
+impl PyNelsonSiegelModel {
+    /// Construct a four-parameter Nelson-Siegel model.
+    ///
+    /// Parameters
+    /// ----------
+    /// beta0 : float
+    ///     Long-term rate level.
+    /// beta1 : float
+    ///     Short-term component.
+    /// beta2 : float
+    ///     Medium-term hump.
+    /// tau : float
+    ///     Decay factor (must be > 0).
+    ///
+    /// Returns
+    /// -------
+    /// NelsonSiegelModel
+    ///     NS model instance.
+    #[staticmethod]
+    fn ns(beta0: f64, beta1: f64, beta2: f64, tau: f64) -> Self {
+        Self {
+            inner: NelsonSiegelModel::Ns {
+                beta0,
+                beta1,
+                beta2,
+                tau,
+            },
+        }
+    }
+
+    /// Construct a six-parameter Nelson-Siegel-Svensson model.
+    ///
+    /// Parameters
+    /// ----------
+    /// beta0 : float
+    ///     Long-term rate level.
+    /// beta1 : float
+    ///     Short-term component.
+    /// beta2 : float
+    ///     Medium-term hump.
+    /// beta3 : float
+    ///     Second hump.
+    /// tau1 : float
+    ///     First decay factor (must be > 0).
+    /// tau2 : float
+    ///     Second decay factor (must be > 0, distinct from tau1).
+    ///
+    /// Returns
+    /// -------
+    /// NelsonSiegelModel
+    ///     NSS model instance.
+    #[staticmethod]
+    fn nss(beta0: f64, beta1: f64, beta2: f64, beta3: f64, tau1: f64, tau2: f64) -> Self {
+        Self {
+            inner: NelsonSiegelModel::Nss {
+                beta0,
+                beta1,
+                beta2,
+                beta3,
+                tau1,
+                tau2,
+            },
+        }
+    }
+
+    /// Compute the zero rate at time ``t`` using the parametric formula.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Continuously compounded zero rate.
+    #[pyo3(text_signature = "(self, t)")]
+    fn zero_rate(&self, t: f64) -> f64 {
+        self.inner.zero_rate(t)
+    }
+
+    /// Compute the instantaneous forward rate at time ``t``.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Instantaneous forward rate.
+    #[pyo3(text_signature = "(self, t)")]
+    fn forward_rate(&self, t: f64) -> f64 {
+        self.inner.forward_rate(t)
+    }
+
+    /// Number of parameters in this model (4 for NS, 6 for NSS).
+    ///
+    /// Returns
+    /// -------
+    /// int
+    ///     Parameter count.
+    #[pyo3(text_signature = "(self)")]
+    fn num_params(&self) -> usize {
+        self.inner.num_params()
+    }
+
+    /// Convert parameters to a flat list for optimizer consumption.
+    ///
+    /// Returns
+    /// -------
+    /// list[float]
+    ///     Parameter values in canonical order.
+    #[pyo3(text_signature = "(self)")]
+    fn to_params_vec(&self) -> Vec<f64> {
+        self.inner.to_params_vec()
+    }
+
+    /// Validate parameter constraints (tau > 0, tau1 != tau2, etc.).
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If parameter constraints are violated.
+    #[pyo3(text_signature = "(self)")]
+    fn validate(&self) -> PyResult<()> {
+        self.inner.validate().map_err(core_to_py)
+    }
+
+    /// Construct from a flat parameter vector and variant selector.
+    ///
+    /// Parameters
+    /// ----------
+    /// variant : NsVariant
+    ///     Model variant (NS or NSS).
+    /// params : list[float]
+    ///     Flat parameter vector (length 4 for NS, 6 for NSS).
+    ///
+    /// Returns
+    /// -------
+    /// NelsonSiegelModel
+    ///     Reconstructed model.
+    #[staticmethod]
+    fn from_params_vec(variant: PyRef<PyNsVariant>, params: Vec<f64>) -> PyResult<Self> {
+        let model =
+            NelsonSiegelModel::from_params_vec(variant.inner, &params).map_err(core_to_py)?;
+        Ok(Self { inner: model })
+    }
+
+    fn __repr__(&self) -> String {
+        match &self.inner {
+            NelsonSiegelModel::Ns {
+                beta0,
+                beta1,
+                beta2,
+                tau,
+            } => format!(
+                "NelsonSiegelModel.ns(beta0={beta0}, beta1={beta1}, beta2={beta2}, tau={tau})"
+            ),
+            NelsonSiegelModel::Nss {
+                beta0,
+                beta1,
+                beta2,
+                beta3,
+                tau1,
+                tau2,
+            } => format!(
+                "NelsonSiegelModel.nss(beta0={beta0}, beta1={beta1}, beta2={beta2}, beta3={beta3}, tau1={tau1}, tau2={tau2})"
+            ),
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ForwardVarianceCurve
+// ---------------------------------------------------------------------------
+
+/// Forward variance curve for rough volatility models.
+///
+/// Represents the market-implied forward variance strip used as input to
+/// rBergomi and related rough volatility models.
+#[pyclass(
+    module = "finstack.core.market_data.term_structures",
+    name = "ForwardVarianceCurve",
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyForwardVarianceCurve {
+    pub(crate) inner: ForwardVarianceCurve,
+}
+
+#[pymethods]
+impl PyForwardVarianceCurve {
+    /// Create a flat forward variance curve (constant variance).
+    ///
+    /// Parameters
+    /// ----------
+    /// v0 : float
+    ///     Constant forward variance (must be positive).
+    ///
+    /// Returns
+    /// -------
+    /// ForwardVarianceCurve
+    ///     Flat forward variance curve.
+    #[staticmethod]
+    fn flat(v0: f64) -> PyResult<Self> {
+        let curve = ForwardVarianceCurve::flat(v0).map_err(core_to_py)?;
+        Ok(Self { inner: curve })
+    }
+
+    /// Create a forward variance curve from ``(time, forward_variance)`` pairs.
+    ///
+    /// Points are sorted by time internally before validation.
+    ///
+    /// Parameters
+    /// ----------
+    /// points : list[tuple[float, float]]
+    ///     ``(time, forward_variance)`` pairs. Times must be non-negative and
+    ///     strictly increasing; variances must be positive.
+    ///
+    /// Returns
+    /// -------
+    /// ForwardVarianceCurve
+    ///     Forward variance curve with piecewise linear interpolation.
+    #[staticmethod]
+    fn from_points(points: Vec<(f64, f64)>) -> PyResult<Self> {
+        let curve = ForwardVarianceCurve::from_points(&points).map_err(core_to_py)?;
+        Ok(Self { inner: curve })
+    }
+
+    /// Evaluate the forward variance at time ``t``.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Forward variance at ``t``.
+    #[pyo3(text_signature = "(self, t)")]
+    fn value(&self, t: f64) -> f64 {
+        self.inner.value(t)
+    }
+
+    /// Compute the integrated variance from 0 to ``t``.
+    ///
+    /// Parameters
+    /// ----------
+    /// t : float
+    ///     Time in years.
+    ///
+    /// Returns
+    /// -------
+    /// float
+    ///     Integrated variance over ``[0, t]``.
+    #[pyo3(text_signature = "(self, t)")]
+    fn integrated_variance(&self, t: f64) -> f64 {
+        self.inner.integrated_variance(t)
+    }
+
+    fn __repr__(&self) -> String {
+        "ForwardVarianceCurve(...)".to_string()
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -1804,6 +2259,10 @@ pub(crate) fn register<'py>(
     module.add_class::<PyVolatilityIndexCurve>()?;
     module.add_class::<PyPriceCurve>()?;
     module.add_class::<PyFlatCurve>()?;
+    module.add_class::<PyBasisSpreadCurve>()?;
+    module.add_class::<PyNsVariant>()?;
+    module.add_class::<PyNelsonSiegelModel>()?;
+    module.add_class::<PyForwardVarianceCurve>()?;
 
     let exports = [
         "DiscountCurve",
@@ -1815,6 +2274,10 @@ pub(crate) fn register<'py>(
         "VolatilityIndexCurve",
         "PriceCurve",
         "FlatCurve",
+        "BasisSpreadCurve",
+        "NsVariant",
+        "NelsonSiegelModel",
+        "ForwardVarianceCurve",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;

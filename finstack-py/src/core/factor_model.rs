@@ -12,8 +12,10 @@ use crate::portfolio::factor_model::{
     PyMarketDependency, PyMarketMapping, PyMatchingConfig,
 };
 use finstack_core::factor_model::{
-    CurveType, DependencyType, FactorId, FactorType, PricingMode, RiskMeasure, UnmatchedPolicy,
+    CascadeMatcher, CurveType, DependencyType, FactorId, FactorMatcher, FactorType,
+    HierarchicalMatcher, MappingTableMatcher, PricingMode, RiskMeasure, UnmatchedPolicy,
 };
+use finstack_core::types::Attributes;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -764,6 +766,258 @@ impl PyRiskMeasure {
 }
 
 // ===================================================================
+// Attributes
+// ===================================================================
+
+/// Instrument attributes used for factor matching.
+///
+/// A set of tags and key-value metadata used by matchers to classify
+/// instruments into risk factors.
+///
+/// Parameters
+/// ----------
+/// tags : list[str], optional
+///     Classification tags (e.g. ``["energy", "high_yield"]``).
+/// meta : dict[str, str] or list[tuple[str, str]], optional
+///     Key-value metadata (e.g. ``[("region", "NA"), ("rating", "CCC")]``).
+#[pyclass(
+    name = "Attributes",
+    module = "finstack.core.factor_model",
+    frozen,
+    skip_from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyAttributes {
+    pub(crate) inner: Attributes,
+}
+
+#[pymethods]
+impl PyAttributes {
+    #[new]
+    #[pyo3(signature = (tags=None, meta=None))]
+    fn new(tags: Option<Vec<String>>, meta: Option<Vec<(String, String)>>) -> Self {
+        let mut attrs = Attributes::new();
+        if let Some(tag_list) = tags {
+            attrs = attrs.with_tags(tag_list);
+        }
+        if let Some(meta_list) = meta {
+            for (k, v) in meta_list {
+                attrs = attrs.with_meta(k, v);
+            }
+        }
+        Self { inner: attrs }
+    }
+
+    /// Tags present on this attribute set.
+    #[getter]
+    fn tags(&self) -> Vec<String> {
+        self.inner.tags.iter().cloned().collect()
+    }
+
+    /// Metadata key-value pairs.
+    #[getter]
+    fn meta(&self) -> Vec<(String, String)> {
+        self.inner
+            .meta
+            .iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect()
+    }
+
+    /// Check whether a tag is present.
+    fn has_tag(&self, tag: &str) -> bool {
+        self.inner.has_tag(tag)
+    }
+
+    /// Look up a metadata value by key.
+    #[pyo3(name = "get_meta_value")]
+    fn get_meta_value(&self, key: &str) -> Option<String> {
+        self.inner.get_meta(key).map(|s| s.to_string())
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "Attributes(tags={:?}, meta={:?})",
+            self.inner.tags.iter().collect::<Vec<_>>(),
+            self.inner
+                .meta
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.as_str()))
+                .collect::<Vec<_>>(),
+        )
+    }
+}
+
+// ===================================================================
+// MappingTableMatcher
+// ===================================================================
+
+/// Flat lookup-table matcher where the first matching rule wins.
+///
+/// Parameters
+/// ----------
+/// rules : list[MappingRule]
+///     Ordered matching rules. The first rule whose filters match is used.
+#[pyclass(
+    name = "MappingTableMatcher",
+    module = "finstack.core.factor_model",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyMappingTableMatcher {
+    inner: MappingTableMatcher,
+}
+
+#[pymethods]
+impl PyMappingTableMatcher {
+    #[new]
+    fn new(rules: Vec<PyMappingRule>) -> Self {
+        Self {
+            inner: MappingTableMatcher::new(rules.into_iter().map(|r| r.inner.clone()).collect()),
+        }
+    }
+
+    /// Match a dependency against this table's rules.
+    ///
+    /// Parameters
+    /// ----------
+    /// dependency : MarketDependency
+    ///     The market dependency to match.
+    /// attributes : Attributes
+    ///     Instrument attributes for filtering.
+    ///
+    /// Returns
+    /// -------
+    /// str or None
+    ///     The matched factor ID, or None if no rule matches.
+    fn match_factor(
+        &self,
+        dependency: PyRef<'_, PyMarketDependency>,
+        attributes: PyRef<'_, PyAttributes>,
+    ) -> Option<String> {
+        self.inner
+            .match_factor(&dependency.inner, &attributes.inner)
+            .map(|fid| fid.as_str().to_string())
+    }
+}
+
+// ===================================================================
+// HierarchicalMatcher
+// ===================================================================
+
+/// Tree-based matcher where the deepest matching factor assignment wins.
+///
+/// Parameters
+/// ----------
+/// root : FactorNode
+///     Root of the classification tree.
+/// dependency_filter : DependencyFilter, optional
+///     Pre-filter on the dependency; if provided, dependencies that don't
+///     pass this filter are immediately rejected.
+#[pyclass(
+    name = "HierarchicalMatcher",
+    module = "finstack.core.factor_model",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyHierarchicalMatcher {
+    inner: HierarchicalMatcher,
+}
+
+#[pymethods]
+impl PyHierarchicalMatcher {
+    #[new]
+    #[pyo3(signature = (root, dependency_filter=None))]
+    fn new(root: PyFactorNode, dependency_filter: Option<PyRef<'_, PyDependencyFilter>>) -> Self {
+        let matcher = match dependency_filter {
+            Some(df) => HierarchicalMatcher::new_scoped(df.inner.clone(), root.inner),
+            None => HierarchicalMatcher::new(root.inner),
+        };
+        Self { inner: matcher }
+    }
+
+    /// Match a dependency against this tree.
+    ///
+    /// Parameters
+    /// ----------
+    /// dependency : MarketDependency
+    ///     The market dependency to match.
+    /// attributes : Attributes
+    ///     Instrument attributes for tree traversal.
+    ///
+    /// Returns
+    /// -------
+    /// str or None
+    ///     The deepest matching factor ID, or None.
+    fn match_factor(
+        &self,
+        dependency: PyRef<'_, PyMarketDependency>,
+        attributes: PyRef<'_, PyAttributes>,
+    ) -> Option<String> {
+        self.inner
+            .match_factor(&dependency.inner, &attributes.inner)
+            .map(|fid| fid.as_str().to_string())
+    }
+}
+
+// ===================================================================
+// CascadeMatcher
+// ===================================================================
+
+/// Priority-based fallback matcher that tries matchers in order.
+///
+/// Builds concrete matchers from :class:`MatchingConfig` items and
+/// returns the first successful match.
+///
+/// Parameters
+/// ----------
+/// configs : list[MatchingConfig]
+///     Ordered matcher configurations tried in priority order.
+#[pyclass(name = "CascadeMatcher", module = "finstack.core.factor_model", frozen)]
+pub struct PyCascadeMatcher {
+    inner: CascadeMatcher,
+}
+
+#[pymethods]
+impl PyCascadeMatcher {
+    #[new]
+    fn new(configs: Vec<PyMatchingConfig>) -> Self {
+        let matchers: Vec<Box<dyn FactorMatcher>> = configs
+            .iter()
+            .map(|cfg| cfg.inner.build_matcher())
+            .collect();
+        Self {
+            inner: CascadeMatcher::new(matchers),
+        }
+    }
+
+    /// Match a dependency using the cascade chain.
+    ///
+    /// Parameters
+    /// ----------
+    /// dependency : MarketDependency
+    ///     The market dependency to match.
+    /// attributes : Attributes
+    ///     Instrument attributes for filtering.
+    ///
+    /// Returns
+    /// -------
+    /// str or None
+    ///     The first matched factor ID, or None if no matcher succeeds.
+    fn match_factor(
+        &self,
+        dependency: PyRef<'_, PyMarketDependency>,
+        attributes: PyRef<'_, PyAttributes>,
+    ) -> Option<String> {
+        self.inner
+            .match_factor(&dependency.inner, &attributes.inner)
+            .map(|fid| fid.as_str().to_string())
+    }
+}
+
+// ===================================================================
 // Module registration
 // ===================================================================
 
@@ -798,6 +1052,12 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     module.add_class::<PyFactorNode>()?;
     module.add_class::<PyHierarchicalConfig>()?;
 
+    // Attributes and concrete matchers
+    module.add_class::<PyAttributes>()?;
+    module.add_class::<PyMappingTableMatcher>()?;
+    module.add_class::<PyHierarchicalMatcher>()?;
+    module.add_class::<PyCascadeMatcher>()?;
+
     let exports = PyList::new(
         py,
         [
@@ -820,6 +1080,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
             "MappingRule",
             "FactorNode",
             "HierarchicalConfig",
+            "Attributes",
+            "MappingTableMatcher",
+            "HierarchicalMatcher",
+            "CascadeMatcher",
         ],
     )?;
     module.setattr("__all__", exports)?;

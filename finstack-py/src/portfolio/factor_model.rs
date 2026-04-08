@@ -14,6 +14,7 @@ use finstack_core::factor_model::{
     RiskMeasure, UnmatchedPolicy,
 };
 use finstack_core::market_data::bumps::BumpUnits;
+use finstack_core::types::Attributes;
 use finstack_core::types::CurveId;
 use finstack_portfolio::factor_model::{
     FactorAssignmentReport, FactorConstraint, FactorContribution, FactorContributionDelta,
@@ -915,6 +916,43 @@ impl PyMatchingConfig {
             MatchingConfig::Cascade(_) => "Cascade".to_string(),
             MatchingConfig::Hierarchical(_) => "Hierarchical".to_string(),
         }
+    }
+
+    /// Build a matcher from this config and match a dependency/attributes pair.
+    ///
+    /// Parameters
+    /// ----------
+    /// dependency : MarketDependency
+    ///     The market dependency to match.
+    /// tags : list[str], optional
+    ///     Tags for attribute matching.
+    /// meta : list[tuple[str, str]], optional
+    ///     Key-value metadata for attribute matching.
+    ///
+    /// Returns
+    /// -------
+    /// str or None
+    ///     The matched factor ID string, or None if no match.
+    #[pyo3(signature = (dependency, tags=None, meta=None))]
+    fn match_factor(
+        &self,
+        dependency: PyRef<'_, PyMarketDependency>,
+        tags: Option<Vec<String>>,
+        meta: Option<Vec<(String, String)>>,
+    ) -> Option<String> {
+        let matcher = self.inner.build_matcher();
+        let mut attrs = Attributes::new();
+        if let Some(tag_list) = tags {
+            attrs = attrs.with_tags(tag_list);
+        }
+        if let Some(meta_list) = meta {
+            for (k, v) in meta_list {
+                attrs = attrs.with_meta(k, v);
+            }
+        }
+        matcher
+            .match_factor(&dependency.inner, &attrs)
+            .map(|fid| fid.as_str().to_string())
     }
 
     fn to_json(&self) -> PyResult<String> {

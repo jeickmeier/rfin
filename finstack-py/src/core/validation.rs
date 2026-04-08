@@ -29,6 +29,10 @@ fn require(condition: bool, message: String) -> PyResult<()> {
 
 /// Assert that a condition is true, raising the provided error otherwise.
 ///
+/// This delegates to ``finstack_core::validation::require_or`` which accepts
+/// a pre-built ``Error`` value, but at the Python boundary we construct a
+/// ``Validation`` error from the message string to maintain a clean API.
+///
 /// Parameters
 /// ----------
 /// condition : bool
@@ -43,7 +47,8 @@ fn require(condition: bool, message: String) -> PyResult<()> {
 #[pyfunction]
 #[pyo3(text_signature = "(condition, message)")]
 fn require_or(condition: bool, message: String) -> PyResult<()> {
-    finstack_core::validation::require(condition, message).map_err(core_to_py)
+    finstack_core::validation::require_or(condition, finstack_core::Error::Validation(message))
+        .map_err(core_to_py)
 }
 
 pub(crate) fn register<'py>(

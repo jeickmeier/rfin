@@ -1,6 +1,6 @@
 use crate::errors::core_to_py;
 use finstack_core::math::special_functions::{
-    erf as core_erf, norm_cdf_with_params as core_norm_cdf_with_params,
+    erf as core_erf, ln_gamma as core_ln_gamma, norm_cdf_with_params as core_norm_cdf_with_params,
     norm_pdf_with_params as core_norm_pdf_with_params,
     standard_normal_inv_cdf as core_std_norm_inv_cdf, try_student_t_cdf as core_try_student_t_cdf,
     try_student_t_inv_cdf as core_try_student_t_inv_cdf,
@@ -70,6 +70,21 @@ pub fn student_t_inv_cdf_py(p: f64, df: f64) -> PyResult<f64> {
     core_try_student_t_inv_cdf(p, df).map_err(core_to_py)
 }
 
+#[pyfunction(name = "ln_gamma")]
+#[pyo3(text_signature = "(x)")]
+/// Natural logarithm of the Gamma function.
+///
+/// Computes ln(Gamma(x)) for x > 0.
+///
+/// Args:
+///     x (float): Input value (must be positive).
+///
+/// Returns:
+///     float: ln(Gamma(x)). Returns infinity for x <= 0.
+pub fn ln_gamma_py(x: f64) -> f64 {
+    core_ln_gamma(x)
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -88,6 +103,7 @@ pub(crate) fn register<'py>(
     module.add_function(wrap_pyfunction!(erf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(student_t_cdf_py, &module)?)?;
     module.add_function(wrap_pyfunction!(student_t_inv_cdf_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(ln_gamma_py, &module)?)?;
 
     let exports = [
         "norm_cdf",
@@ -96,6 +112,7 @@ pub(crate) fn register<'py>(
         "erf",
         "student_t_cdf",
         "student_t_inv_cdf",
+        "ln_gamma",
     ];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;

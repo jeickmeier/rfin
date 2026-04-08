@@ -159,6 +159,37 @@ pub fn map_error(err: CoreError) -> PyErr {
         // Validation errors
         CoreError::Validation(msg) => ValidationError::new_err(msg),
 
+        // Unknown metric
+        CoreError::UnknownMetric {
+            metric_id,
+            available,
+        } => {
+            let mut msg = format!("Unknown metric: '{metric_id}'");
+            if !available.is_empty() {
+                msg.push_str(&format!(". Available: {}", available.join(", ")));
+            }
+            ComputationError::new_err(msg)
+        }
+
+        // Metric not applicable
+        CoreError::MetricNotApplicable {
+            metric_id,
+            instrument_type,
+        } => ComputationError::new_err(format!(
+            "Metric '{metric_id}' is not applicable to instrument type '{instrument_type}'"
+        )),
+
+        // Metric calculation failed
+        CoreError::MetricCalculationFailed { metric_id, cause } => {
+            ComputationError::new_err(format!("Metric '{metric_id}' calculation failed: {cause}"))
+        }
+
+        // Circular dependency
+        CoreError::CircularDependency { path } => ComputationError::new_err(format!(
+            "Circular dependency detected in metrics: {}",
+            path.join(" -> ")
+        )),
+
         // Internal errors
         CoreError::Internal(message) => InternalError::new_err(format!(
             "Internal finstack error - this is likely a bug. Please report it. Context: {message}"
@@ -222,12 +253,133 @@ fn map_input_error(err: InputError) -> PyErr {
         InputError::NonPositiveValue => ParameterError::new_err("Values must be positive"),
         InputError::NegativeValue => ParameterError::new_err("Values must be non-negative"),
         InputError::DimensionMismatch => ParameterError::new_err("Input dimensions do not match"),
+        InputError::KnotSpacingTooSmall => ParameterError::new_err(
+            "Consecutive knots are too close together for stable interpolation",
+        ),
+
+        // Date and calendar errors
+        InputError::DateOutOfRange { date, range } => DateError::new_err(format!(
+            "Date {} is outside the allowed range [{} to {}]",
+            date, range.0, range.1
+        )),
+        InputError::CalendarNotFound {
+            requested,
+            suggestions,
+        } => {
+            let mut msg = format!("Calendar not found: '{requested}'");
+            if !suggestions.is_empty() {
+                msg.push_str(&format!(". Did you mean: {}?", suggestions.join(", ")));
+            }
+            ConfigurationError::new_err(msg)
+        }
+        InputError::MissingCalendarForBus252 => {
+            ParameterError::new_err("DayCount::Bus252 requires a holiday calendar in DayCountCtx")
+        }
+        InputError::MissingFrequencyForActActIsma => ParameterError::new_err(
+            "DayCount::ActActIsma requires a coupon frequency in DayCountCtx",
+        ),
+        InputError::ActActIsmaUnsupportedFrequency { frequency } => ParameterError::new_err(
+            format!("DayCount::ActActIsma requires a Months/Years frequency, got {frequency}"),
+        ),
+        InputError::InvalidTenor { tenor, reason } => {
+            ParameterError::new_err(format!("Invalid tenor '{tenor}': {reason}"))
+        }
+        InputError::InvalidRating { value } => {
+            ParameterError::new_err(format!("Invalid credit rating: '{value}'"))
+        }
+
+        // Numeric conversion errors
+        InputError::ConversionOverflow => {
+            ParameterError::new_err("Decimal conversion overflow: value cannot be represented as f64")
+        }
+        InputError::NonFiniteValue { kind } => {
+            ParameterError::new_err(format!("Non-finite value: expected finite number, got {kind}"))
+        }
+
+        // FX / rate errors
+        InputError::InvalidFxRate { from, to, rate } => MissingFxRateError::new_err(format!(
+            "Invalid FX rate for {from}->{to}: {rate}"
+        )),
+        InputError::InvalidBusBasis { basis } => {
+            ParameterError::new_err(format!("Invalid Bus/252 basis: expected positive, got {basis}"))
+        }
+        InputError::RateConversionInvalidParams { function, reason } => {
+            ParameterError::new_err(format!("Invalid rate conversion inputs for {function}: {reason}"))
+        }
+        InputError::FxTriangulationFailed {
+            from,
+            to,
+            pivot,
+            missing_leg,
+        } => MissingFxRateError::new_err(format!(
+            "FX triangulation failed for {from}->{to} via {pivot}: {missing_leg}"
+        )),
+
+        // Volatility errors
+        InputError::VolatilityConversionFailed {
+            tolerance,
+            residual,
+        } => ConvergenceError::new_err(format!(
+            "Volatility conversion failed: solver did not converge within tolerance {tolerance} (residual: {residual:.2e})"
+        )),
+        InputError::NonPositiveForwardForLognormal {
+            forward,
+            required_shift,
+        } => ParameterError::new_err(format!(
+            "Lognormal volatility requires positive forward rate (got {forward:.6}); use ShiftedLognormal with shift >= {required_shift:.6}"
+        )),
+        InputError::NonPositiveShiftedForward {
+            forward,
+            shift,
+            shifted,
+        } => ParameterError::new_err(format!(
+            "Shifted forward must be positive: forward ({forward:.6}) + shift ({shift:.6}) = {shifted:.6}"
+        )),
+        InputError::InvalidVolatility { value } => {
+            ParameterError::new_err(format!("Invalid volatility: expected positive finite value, got {value}"))
+        }
+        InputError::InvalidTimeToExpiry { value } => {
+            ParameterError::new_err(format!("Invalid time to expiry: expected non-negative, got {value:.6}"))
+        }
+
+        // Bump errors
+        InputError::UnsupportedBump { reason } => {
+            ParameterError::new_err(format!("Unsupported bump operation: {reason}"))
+        }
+
+        // Solver convergence
+        InputError::SolverConvergenceFailed {
+            iterations,
+            residual,
+            last_x,
+            reason,
+        } => ConvergenceError::new_err(format!(
+            "Solver failed after {iterations} iterations: {reason} (residual: {residual:.6e}, last x: {last_x:.6e})"
+        )),
+
+        // Curve type mismatch
+        InputError::WrongCurveType {
+            id,
+            expected,
+            actual,
+        } => ConfigurationError::new_err(format!(
+            "Curve type mismatch for '{id}': expected '{expected}', got '{actual}'"
+        )),
+
+        // Allocation limit
+        InputError::TooLarge {
+            what,
+            requested_bytes,
+            limit_bytes,
+        } => ParameterError::new_err(format!(
+            "Allocation too large for {what}: requested {requested_bytes} bytes, limit {limit_bytes} bytes"
+        )),
 
         // Fallback for any remaining input errors
         InputError::Invalid => ParameterError::new_err("Invalid input data"),
 
         // Catch-all for non-exhaustive enum (future variants)
-        _ => ParameterError::new_err("Invalid input parameter"),
+        _ => ParameterError::new_err(format!("Invalid input parameter: {}", err)),
     }
 }
 

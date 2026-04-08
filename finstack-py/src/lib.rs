@@ -59,6 +59,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     )?;
 
     core::cashflow::register(py, &core_mod)?;
+    core::credit::register(py, &core_mod)?;
     core::currency::register(py, &core_mod)?;
     core::config::register(py, &core_mod)?;
     core::money::register(py, &core_mod)?;
@@ -79,6 +80,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         [
             "analytics",
             "cashflow",
+            "credit",
             "currency",
             "config",
             "factor_model",
@@ -102,6 +104,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
     for name in [
         "analytics",
         "cashflow",
+        "credit",
         "currency",
         "config",
         "factor_model",
@@ -218,6 +221,7 @@ fn finstack(py: Python<'_>, m: Bound<'_, PyModule>) -> PyResult<()> {
         [
             "core",
             "cashflow",
+            "credit",
             "currency",
             "config",
             "money",

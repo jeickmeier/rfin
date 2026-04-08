@@ -45,7 +45,7 @@ use pyo3::Bound;
 )]
 #[derive(Clone, Debug)]
 pub struct PyHestonParams {
-    inner: HestonParams,
+    pub(crate) inner: HestonParams,
 }
 
 #[pymethods]
@@ -182,7 +182,7 @@ impl PyHestonParams {
 )]
 #[derive(Clone, Debug)]
 pub struct PySabrParams {
-    inner: SabrParams,
+    pub(crate) inner: SabrParams,
 }
 
 #[pymethods]
@@ -315,7 +315,7 @@ impl PySabrParams {
 )]
 #[derive(Clone, Debug)]
 pub struct PySviParams {
-    inner: SviParams,
+    pub(crate) inner: SviParams,
 }
 
 #[pymethods]

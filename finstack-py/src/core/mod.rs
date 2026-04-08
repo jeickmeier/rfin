@@ -2,6 +2,7 @@ pub mod analytics;
 pub mod cashflow;
 pub mod common;
 pub mod config;
+pub(crate) mod credit;
 pub mod currency;
 pub mod dates;
 pub mod explain;

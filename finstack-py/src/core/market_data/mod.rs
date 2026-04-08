@@ -3,6 +3,7 @@ pub(crate) mod context;
 pub(crate) mod diff;
 pub(crate) mod dividends;
 pub(crate) mod fx;
+pub(crate) mod hierarchy;
 pub(crate) mod scalars;
 pub(crate) mod surfaces;
 pub(crate) mod term_structures;
@@ -20,8 +21,9 @@ pub use scalars::{PyInflationIndex, PyMarketScalar, PyScalarTimeSeries, PySeries
 pub use surfaces::{PyFxDeltaVolSurface, PyVolSurface};
 #[allow(unused_imports)]
 pub use term_structures::{
-    PyBaseCorrelationCurve, PyCreditIndexData, PyDiscountCurve, PyForwardCurve, PyHazardCurve,
-    PyInflationCurve, PyPriceCurve, PyVolatilityIndexCurve,
+    PyBaseCorrelationCurve, PyBasisSpreadCurve, PyCreditIndexData, PyDiscountCurve, PyForwardCurve,
+    PyForwardVarianceCurve, PyHazardCurve, PyInflationCurve, PyNelsonSiegelModel, PyNsVariant,
+    PyPriceCurve, PyVolatilityIndexCurve,
 };
 
 use super::common::reexport::promote_exports;
@@ -70,6 +72,10 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     let diff_exports = diff::register(py, &module)?;
     exports.extend(diff_exports.iter().copied());
     promote_exports(&module, "diff", &diff_exports)?;
+
+    let hierarchy_exports = hierarchy::register(py, &module)?;
+    exports.extend(hierarchy_exports.iter().copied());
+    promote_exports(&module, "hierarchy", &hierarchy_exports)?;
 
     let volatility_exports = volatility::register(py, &module)?;
     exports.extend(volatility_exports.iter().copied());

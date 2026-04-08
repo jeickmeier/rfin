@@ -1,7 +1,12 @@
 //! Python bindings for Monte Carlo time grids.
 
+use crate::core::dates::daycount::PyDayCount;
+use crate::core::dates::utils::py_to_date;
 use crate::errors::map_error;
-use finstack_core::math::time_grid::TimeGrid;
+use finstack_core::math::time_grid::{
+    map_date_to_step as core_map_date_to_step, map_dates_to_steps as core_map_dates_to_steps,
+    TimeGrid,
+};
 use pyo3::exceptions::PyIndexError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule};
@@ -137,6 +142,70 @@ impl PyTimeGrid {
     }
 }
 
+#[pyfunction(name = "map_date_to_step")]
+#[pyo3(text_signature = "(base_date, event_date, maturity_date, steps, day_count)")]
+/// Map a calendar date to a step index using a day-count convention.
+///
+/// Args:
+///     base_date (datetime.date): Reference start date.
+///     event_date (datetime.date): Date to map to a step index.
+///     maturity_date (datetime.date): End date of the grid.
+///     steps (int): Number of steps in the grid.
+///     day_count (DayCount): Day-count convention for year fraction computation.
+///
+/// Returns:
+///     int: Step index closest to the event date.
+fn map_date_to_step_py(
+    base_date: &Bound<'_, PyAny>,
+    event_date: &Bound<'_, PyAny>,
+    maturity_date: &Bound<'_, PyAny>,
+    steps: usize,
+    day_count: &PyDayCount,
+) -> PyResult<usize> {
+    let base = py_to_date(base_date)?;
+    let event = py_to_date(event_date)?;
+    let maturity = py_to_date(maturity_date)?;
+    Ok(core_map_date_to_step(
+        base,
+        event,
+        maturity,
+        steps,
+        day_count.inner,
+    ))
+}
+
+#[pyfunction(name = "map_dates_to_steps")]
+#[pyo3(text_signature = "(base_date, dates, maturity_date, steps, day_count)")]
+/// Map multiple calendar dates to step indices.
+///
+/// Args:
+///     base_date (datetime.date): Reference start date.
+///     dates (list[datetime.date]): Dates to map to step indices.
+///     maturity_date (datetime.date): End date of the grid.
+///     steps (int): Number of steps in the grid.
+///     day_count (DayCount): Day-count convention for year fraction computation.
+///
+/// Returns:
+///     list[int]: Step indices for each date.
+fn map_dates_to_steps_py(
+    base_date: &Bound<'_, PyAny>,
+    dates: Vec<Bound<'_, PyAny>>,
+    maturity_date: &Bound<'_, PyAny>,
+    steps: usize,
+    day_count: &PyDayCount,
+) -> PyResult<Vec<usize>> {
+    let base = py_to_date(base_date)?;
+    let maturity = py_to_date(maturity_date)?;
+    let rust_dates: Vec<_> = dates.iter().map(py_to_date).collect::<PyResult<Vec<_>>>()?;
+    Ok(core_map_dates_to_steps(
+        base,
+        &rust_dates,
+        maturity,
+        steps,
+        day_count.inner,
+    ))
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -146,12 +215,17 @@ pub(crate) fn register<'py>(
         "__doc__",
         "Time grid utilities for Monte Carlo simulation.\n\n\
          Classes:\n\
-         - TimeGrid: Discretization points for MC simulation",
+         - TimeGrid: Discretization points for MC simulation\n\
+         Functions:\n\
+         - map_date_to_step: Map a calendar date to a step index\n\
+         - map_dates_to_steps: Map multiple calendar dates to step indices",
     )?;
 
     module.add_class::<PyTimeGrid>()?;
+    module.add_function(wrap_pyfunction!(map_date_to_step_py, &module)?)?;
+    module.add_function(wrap_pyfunction!(map_dates_to_steps_py, &module)?)?;
 
-    let exports = ["TimeGrid"];
+    let exports = ["TimeGrid", "map_date_to_step", "map_dates_to_steps"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     let _ = py;

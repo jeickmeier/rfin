@@ -1,6 +1,44 @@
 //! Macro for adding JSON serialization/deserialization to Python instrument wrappers.
 //!
 //! Uses the `InstrumentEnvelope` format for consistent JSON representation.
+//! `from_json()` accepts both the versioned envelope format and bare instrument JSON
+//! for backward compatibility.
+
+/// Try to parse as an envelope first, then fall back to bare tagged instrument JSON.
+pub(super) fn parse_envelope_or_bare(
+    json_str: &str,
+) -> pyo3::PyResult<finstack_valuations::instruments::InstrumentJson> {
+    use finstack_valuations::instruments::{InstrumentEnvelope, InstrumentJson};
+
+    // Try envelope format first.
+    if let Ok(envelope) = serde_json::from_str::<InstrumentEnvelope>(json_str) {
+        return Ok(envelope.instrument);
+    }
+    // Fall back to bare tagged instrument JSON.
+    if let Ok(instrument) = serde_json::from_str::<InstrumentJson>(json_str) {
+        return Ok(instrument);
+    }
+    Err(pyo3::exceptions::PyValueError::new_err(
+        "Invalid instrument JSON: expected envelope {\"schema\":..., \"instrument\":...} or tagged {\"type\":..., \"spec\":...} format",
+    ))
+}
+
+/// Convert a Python `str` or `dict` into a JSON string for deserialization.
+pub(super) fn extract_json_string(data: &pyo3::Bound<'_, pyo3::PyAny>) -> pyo3::PyResult<String> {
+    use pyo3::prelude::*;
+
+    if let Ok(s) = data.extract::<String>() {
+        return Ok(s);
+    }
+    if let Ok(dict) = data.cast::<pyo3::types::PyDict>() {
+        let py = dict.py();
+        let json_mod = pyo3::types::PyModule::import(py, "json")?;
+        return json_mod.call_method1("dumps", (dict,))?.extract::<String>();
+    }
+    Err(pyo3::exceptions::PyTypeError::new_err(
+        "Expected JSON string or dict",
+    ))
+}
 
 /// Add `to_json()` and `from_json()` methods to a Python instrument wrapper.
 ///
@@ -9,7 +47,8 @@
 /// {"schema": "finstack.instrument/1", "instrument": {"type": "bond", "spec": {...}}}
 /// ```
 ///
-/// `from_json()` accepts the envelope format and validates the instrument type.
+/// `from_json()` accepts both the envelope format and bare tagged instrument JSON
+/// for backward compatibility.
 macro_rules! impl_instrument_json {
     ($py_type:ty, $rust_type:ty, $variant:ident) => {
         #[pyo3::pymethods]
@@ -31,26 +70,30 @@ macro_rules! impl_instrument_json {
                 })
             }
 
-            /// Deserialize an instrument from a JSON string in envelope format.
+            /// Deserialize an instrument from a JSON string or Python dict.
+            ///
+            /// Accepts the versioned envelope format, bare tagged instrument JSON,
+            /// or a Python dictionary.
             ///
             /// Args:
-            ///     json_str: JSON string in envelope format.
+            ///     data: JSON string or dict in envelope or bare tagged format.
             ///
             /// Returns:
             ///     The deserialized instrument.
             ///
             /// Raises:
             ///     ValueError: If JSON is malformed or contains a different instrument type.
+            ///     TypeError: If ``data`` is neither a string nor a dict.
             #[classmethod]
+            #[pyo3(text_signature = "(cls, data)")]
             fn from_json(
                 _cls: &pyo3::Bound<'_, pyo3::types::PyType>,
-                json_str: &str,
+                data: pyo3::Bound<'_, pyo3::PyAny>,
             ) -> pyo3::PyResult<Self> {
-                use finstack_valuations::instruments::{InstrumentEnvelope, InstrumentJson};
-                let envelope: InstrumentEnvelope = serde_json::from_str(json_str).map_err(|e| {
-                    pyo3::exceptions::PyValueError::new_err(format!("Invalid instrument JSON: {e}"))
-                })?;
-                match envelope.instrument {
+                use finstack_valuations::instruments::InstrumentJson;
+                let json_str = super::json_support::extract_json_string(&data)?;
+                let instrument = super::json_support::parse_envelope_or_bare(&json_str)?;
+                match instrument {
                     InstrumentJson::$variant(inner) => Ok(Self::new(inner)),
                     _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
                         "Expected instrument type '{}' in JSON",
@@ -81,26 +124,30 @@ macro_rules! impl_instrument_json {
                 })
             }
 
-            /// Deserialize an instrument from a JSON string in envelope format.
+            /// Deserialize an instrument from a JSON string or Python dict.
+            ///
+            /// Accepts the versioned envelope format, bare tagged instrument JSON,
+            /// or a Python dictionary.
             ///
             /// Args:
-            ///     json_str: JSON string in envelope format.
+            ///     data: JSON string or dict in envelope or bare tagged format.
             ///
             /// Returns:
             ///     The deserialized instrument.
             ///
             /// Raises:
             ///     ValueError: If JSON is malformed or contains a different instrument type.
+            ///     TypeError: If ``data`` is neither a string nor a dict.
             #[classmethod]
+            #[pyo3(text_signature = "(cls, data)")]
             fn from_json(
                 _cls: &pyo3::Bound<'_, pyo3::types::PyType>,
-                json_str: &str,
+                data: pyo3::Bound<'_, pyo3::PyAny>,
             ) -> pyo3::PyResult<Self> {
-                use finstack_valuations::instruments::{InstrumentEnvelope, InstrumentJson};
-                let envelope: InstrumentEnvelope = serde_json::from_str(json_str).map_err(|e| {
-                    pyo3::exceptions::PyValueError::new_err(format!("Invalid instrument JSON: {e}"))
-                })?;
-                match envelope.instrument {
+                use finstack_valuations::instruments::InstrumentJson;
+                let json_str = super::json_support::extract_json_string(&data)?;
+                let instrument = super::json_support::parse_envelope_or_bare(&json_str)?;
+                match instrument {
                     InstrumentJson::$variant(inner) => Ok(Self::new(*inner)),
                     _ => Err(pyo3::exceptions::PyValueError::new_err(format!(
                         "Expected instrument type '{}' in JSON",

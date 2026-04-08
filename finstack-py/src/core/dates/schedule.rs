@@ -7,7 +7,9 @@
 use super::calendar::{PyBusinessDayConvention, PyCalendar};
 use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{core_to_py, PyContext};
-use finstack_core::dates::{ScheduleBuilder, ScheduleSpec, StubKind, Tenor, TenorUnit};
+use finstack_core::dates::{
+    ScheduleBuilder, ScheduleErrorPolicy, ScheduleSpec, ScheduleWarning, StubKind, Tenor, TenorUnit,
+};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyList, PyModule, PyType};
@@ -224,6 +226,138 @@ impl fmt::Display for PyStubKind {
     }
 }
 
+/// Warning generated during schedule construction.
+///
+/// Warnings indicate non-fatal issues that occurred during schedule generation.
+/// Unlike errors, these allow the schedule to be created but signal that
+/// something unexpected happened that callers should be aware of.
+///
+/// Variants
+/// --------
+/// GRACEFUL_FALLBACK
+///     Schedule generation failed but graceful fallback returned an empty schedule.
+/// MISSING_CALENDAR_ID
+///     A calendar ID was provided but could not be resolved.
+///
+/// Attributes
+/// ----------
+/// kind : str
+///     The warning type: ``"graceful_fallback"`` or ``"missing_calendar_id"``.
+/// message : str
+///     Human-readable description of the warning.
+#[pyclass(
+    name = "ScheduleWarning",
+    module = "finstack.core.dates.schedule",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyScheduleWarning {
+    inner: ScheduleWarning,
+}
+
+#[pymethods]
+impl PyScheduleWarning {
+    #[getter]
+    /// The warning type: ``"graceful_fallback"`` or ``"missing_calendar_id"``.
+    fn kind(&self) -> &'static str {
+        match &self.inner {
+            ScheduleWarning::GracefulFallback { .. } => "graceful_fallback",
+            ScheduleWarning::MissingCalendarId { .. } => "missing_calendar_id",
+            _ => "unknown",
+        }
+    }
+
+    #[getter]
+    /// Human-readable description of the warning.
+    fn message(&self) -> String {
+        self.inner.to_string()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "ScheduleWarning(kind='{}', message='{}')",
+            self.kind(),
+            self.message()
+        )
+    }
+
+    fn __str__(&self) -> String {
+        self.message()
+    }
+}
+
+/// Explicit policy for how schedule construction should respond to errors.
+///
+/// Parameters
+/// ----------
+/// None
+///     Access constants (e.g. :attr:`ScheduleErrorPolicy.STRICT`).
+///
+/// Returns
+/// -------
+/// ScheduleErrorPolicy
+///     Policy identifier for the :class:`ScheduleBuilder`.
+#[pyclass(
+    name = "ScheduleErrorPolicy",
+    module = "finstack.core.dates.schedule",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct PyScheduleErrorPolicy {
+    pub(crate) inner: ScheduleErrorPolicy,
+}
+
+impl PyScheduleErrorPolicy {
+    fn label(&self) -> &'static str {
+        match self.inner {
+            ScheduleErrorPolicy::Strict => "strict",
+            ScheduleErrorPolicy::MissingCalendarWarning => "missing_calendar_warning",
+            ScheduleErrorPolicy::GracefulEmpty => "graceful_empty",
+        }
+    }
+}
+
+#[pymethods]
+impl PyScheduleErrorPolicy {
+    /// Strict production mode: propagate all errors.
+    #[classattr]
+    const STRICT: Self = Self {
+        inner: ScheduleErrorPolicy::Strict,
+    };
+    /// Allow missing calendar IDs and continue with a warning.
+    #[classattr]
+    const MISSING_CALENDAR_WARNING: Self = Self {
+        inner: ScheduleErrorPolicy::MissingCalendarWarning,
+    };
+    /// Return an empty schedule with a warning instead of propagating build errors.
+    #[classattr]
+    const GRACEFUL_EMPTY: Self = Self {
+        inner: ScheduleErrorPolicy::GracefulEmpty,
+    };
+
+    #[getter]
+    /// Snake-case label for the policy.
+    fn name(&self) -> &'static str {
+        self.label()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("ScheduleErrorPolicy('{}')", self.label())
+    }
+
+    fn __str__(&self) -> &'static str {
+        self.label()
+    }
+}
+
+impl fmt::Display for PyScheduleErrorPolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.label())
+    }
+}
+
 /// Fluent builder used to construct business-day aware schedules.
 ///
 /// Parameters
@@ -394,6 +528,65 @@ impl PyScheduleBuilder {
         Self::new_with_builder(self.inner.clone().cds_imm(), self.start, self.end)
     }
 
+    #[pyo3(text_signature = "(self, policy)")]
+    /// Configure how recoverable schedule-construction errors are handled.
+    ///
+    /// Parameters
+    /// ----------
+    /// policy : ScheduleErrorPolicy
+    ///     Error handling policy.
+    ///
+    /// Returns
+    /// -------
+    /// ScheduleBuilder
+    ///     Updated builder.
+    ///
+    /// See Also
+    /// --------
+    /// graceful_fallback : Convenience shortcut for ``ScheduleErrorPolicy.GRACEFUL_EMPTY``
+    fn error_policy(&self, policy: &PyScheduleErrorPolicy) -> Self {
+        Self::new_with_builder(
+            self.inner.clone().error_policy(policy.inner),
+            self.start,
+            self.end,
+        )
+    }
+
+    #[pyo3(text_signature = "(self, enabled)")]
+    /// Enable or disable graceful fallback mode.
+    ///
+    /// When enabled, :meth:`build` returns an empty schedule with a
+    /// :class:`ScheduleWarning` instead of raising an error. This is useful
+    /// for instrument pricing where you want to avoid exceptions but need
+    /// to detect degraded schedules.
+    ///
+    /// Parameters
+    /// ----------
+    /// enabled : bool
+    ///     Whether to enable graceful fallback.
+    ///
+    /// Returns
+    /// -------
+    /// ScheduleBuilder
+    ///     Updated builder.
+    ///
+    /// Notes
+    /// -----
+    /// Always check :attr:`Schedule.has_warnings` when using graceful fallback
+    /// mode. An empty schedule without warning detection can silently cause
+    /// PV = 0 and incorrect risk.
+    ///
+    /// See Also
+    /// --------
+    /// error_policy : Set an explicit error policy
+    fn graceful_fallback(&self, enabled: bool) -> Self {
+        Self::new_with_builder(
+            self.inner.clone().graceful_fallback(enabled),
+            self.start,
+            self.end,
+        )
+    }
+
     #[pyo3(text_signature = "(self)")]
     /// Build the schedule and return an immutable `Schedule` wrapper.
     ///
@@ -405,7 +598,7 @@ impl PyScheduleBuilder {
         self.inner
             .clone()
             .build()
-            .map(|schedule| PySchedule::new(schedule.dates))
+            .map(|schedule| PySchedule::from_schedule(schedule))
             .map_err(core_to_py)
     }
 
@@ -428,6 +621,15 @@ impl PyScheduleBuilder {
 /// -------
 /// Schedule
 ///     Sequence-like container of schedule anchor dates.
+///
+/// Attributes
+/// ----------
+/// dates : list[datetime.date]
+///     The generated date sequence.
+/// warnings : list[ScheduleWarning]
+///     Warnings generated during construction (empty when successful).
+/// has_warnings : bool
+///     Whether any warnings were generated.
 #[pyclass(
     name = "Schedule",
     module = "finstack.core.dates.schedule",
@@ -437,11 +639,23 @@ impl PyScheduleBuilder {
 #[derive(Clone)]
 pub struct PySchedule {
     dates: Vec<Date>,
+    warnings: Vec<ScheduleWarning>,
 }
 
 impl PySchedule {
+    #[allow(dead_code)]
     pub(crate) fn new(dates: Vec<Date>) -> Self {
-        Self { dates }
+        Self {
+            dates,
+            warnings: Vec::new(),
+        }
+    }
+
+    pub(crate) fn from_schedule(schedule: finstack_core::dates::Schedule) -> Self {
+        Self {
+            dates: schedule.dates,
+            warnings: schedule.warnings,
+        }
     }
 }
 
@@ -451,6 +665,32 @@ impl PySchedule {
     /// Dates contained in the schedule as `datetime.date` objects.
     fn dates(&self, py: Python<'_>) -> PyResult<Vec<Py<PyAny>>> {
         self.dates.iter().map(|d| date_to_py(py, *d)).collect()
+    }
+
+    #[getter]
+    /// Warnings generated during schedule construction.
+    ///
+    /// Returns
+    /// -------
+    /// list[ScheduleWarning]
+    ///     Non-empty when graceful fallback suppressed an error or when
+    ///     other non-fatal issues occurred during generation.
+    fn warnings(&self) -> Vec<PyScheduleWarning> {
+        self.warnings
+            .iter()
+            .map(|w| PyScheduleWarning { inner: w.clone() })
+            .collect()
+    }
+
+    #[getter]
+    /// Whether any warnings were generated during schedule construction.
+    ///
+    /// Returns
+    /// -------
+    /// bool
+    ///     ``True`` if warnings exist.
+    fn has_warnings(&self) -> bool {
+        !self.warnings.is_empty()
     }
 
     #[getter]
@@ -464,7 +704,15 @@ impl PySchedule {
     }
 
     fn __repr__(&self) -> String {
-        format!("Schedule({} dates)", self.dates.len())
+        if self.warnings.is_empty() {
+            format!("Schedule({} dates)", self.dates.len())
+        } else {
+            format!(
+                "Schedule({} dates, {} warnings)",
+                self.dates.len(),
+                self.warnings.len()
+            )
+        }
     }
 }
 
@@ -544,7 +792,7 @@ impl PyScheduleSpec {
     fn build(&self) -> PyResult<PySchedule> {
         self.inner
             .build()
-            .map(|schedule| PySchedule::new(schedule.dates))
+            .map(|schedule| PySchedule::from_schedule(schedule))
             .map_err(core_to_py)
     }
 
@@ -580,12 +828,16 @@ pub(crate) fn register<'py>(
     )?;
     module.add_class::<PyFrequency>()?;
     module.add_class::<PyStubKind>()?;
+    module.add_class::<PyScheduleWarning>()?;
+    module.add_class::<PyScheduleErrorPolicy>()?;
     module.add_class::<PyScheduleBuilder>()?;
     module.add_class::<PySchedule>()?;
     module.add_class::<PyScheduleSpec>()?;
     let exports = [
         "Frequency",
         "StubKind",
+        "ScheduleWarning",
+        "ScheduleErrorPolicy",
         "ScheduleBuilder",
         "Schedule",
         "ScheduleSpec",

@@ -51,6 +51,63 @@ pub fn neumaier_sum_py(values: Vec<f64>) -> PyResult<f64> {
     Ok(core_neumaier_sum(values.iter().copied()))
 }
 
+#[pyclass(name = "NeumaierAccumulator", module = "finstack.core.math.summation")]
+/// Incremental Neumaier compensated summation accumulator.
+///
+/// Useful when you want stable accumulation without collecting all values
+/// into a list first. Handles both same-sign and mixed-sign values correctly.
+///
+/// Examples
+/// --------
+/// >>> from finstack.core.math.summation import NeumaierAccumulator
+/// >>> acc = NeumaierAccumulator()
+/// >>> for v in [1e16, 1.0, -1e16]:
+/// ...     acc.add(v)
+/// >>> acc.total()
+/// 1.0
+pub struct PyNeumaierAccumulator {
+    inner: finstack_core::math::summation::NeumaierAccumulator,
+}
+
+#[pymethods]
+impl PyNeumaierAccumulator {
+    #[new]
+    /// Create a new accumulator with zero state.
+    fn new() -> Self {
+        Self {
+            inner: finstack_core::math::summation::NeumaierAccumulator::new(),
+        }
+    }
+
+    /// Add a value to the running total.
+    ///
+    /// Args:
+    ///     value (float): Value to accumulate (must be finite).
+    fn add(&mut self, value: f64) {
+        self.inner.add(value);
+    }
+
+    /// Return the compensated total (consumes internal state snapshot).
+    ///
+    /// Returns:
+    ///     float: Compensated sum of all added values.
+    fn total(&self) -> f64 {
+        self.inner.total()
+    }
+
+    /// Return the current compensated total without consuming the accumulator.
+    ///
+    /// Returns:
+    ///     float: Current compensated sum.
+    fn current(&self) -> f64 {
+        self.inner.current()
+    }
+
+    fn __repr__(&self) -> String {
+        format!("NeumaierAccumulator(total={})", self.inner.current())
+    }
+}
+
 pub(crate) fn register<'py>(
     py: Python<'py>,
     parent: &Bound<'py, PyModule>,
@@ -64,8 +121,9 @@ pub(crate) fn register<'py>(
     )?;
     module.add_function(wrap_pyfunction!(kahan_sum_py, &module)?)?;
     module.add_function(wrap_pyfunction!(neumaier_sum_py, &module)?)?;
+    module.add_class::<PyNeumaierAccumulator>()?;
 
-    let exports = ["kahan_sum", "neumaier_sum"];
+    let exports = ["kahan_sum", "neumaier_sum", "NeumaierAccumulator"];
     module.setattr("__all__", PyList::new(py, exports)?)?;
     parent.add_submodule(&module)?;
     Ok(exports.to_vec())

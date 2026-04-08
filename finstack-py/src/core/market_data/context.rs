@@ -15,7 +15,7 @@ use super::term_structures::{
 };
 use crate::errors::core_to_py;
 use finstack_core::market_data::context::{
-    ContextStats, CurveStorage, MarketContext, MarketContextState,
+    ContextMutationInfo, ContextStats, CurveStorage, MarketContext, MarketContextState,
 };
 use finstack_core::types::CurveId;
 use finstack_core::HashMap;
@@ -268,6 +268,53 @@ impl PyMarketContext {
         }
         let bumped = self.inner.bump(parsed).map_err(core_to_py)?;
         Ok(Self { inner: bumped })
+    }
+
+    #[pyo3(text_signature = "(self, bumps)")]
+    /// Apply market bumps and return the new context alongside mutation info.
+    ///
+    /// Like :meth:`apply_bumps`, but also returns a dictionary describing
+    /// any credit indices that were invalidated during the bump operation.
+    /// Use this in production workflows where silent credit-index invalidation
+    /// is a risk.
+    ///
+    /// Parameters
+    /// ----------
+    /// bumps : Sequence[MarketBump]
+    ///     Iterable of :class:`MarketBump` objects describing the shifts.
+    ///
+    /// Returns
+    /// -------
+    /// tuple[MarketContext, dict]
+    ///     A 2-tuple of ``(new_context, mutation_info)`` where ``mutation_info``
+    ///     is a dict with key ``"invalidated_credit_indices"`` containing a list
+    ///     of curve-id strings that were invalidated.
+    ///
+    /// Raises
+    /// ------
+    /// ValueError
+    ///     If a bumped entry is missing or the bump type is unsupported.
+    ///
+    /// See Also
+    /// --------
+    /// apply_bumps : Apply bumps without mutation tracking
+    fn apply_bumps_observed(
+        &self,
+        py: Python<'_>,
+        bumps: Bound<'_, PyAny>,
+    ) -> PyResult<(Self, Py<PyAny>)> {
+        let iter = PyIterator::from_object(&bumps)?;
+        let mut parsed = Vec::new();
+        for item in iter {
+            let obj = item?;
+            let bump = obj
+                .extract::<PyRef<PyMarketBump>>()
+                .map_err(|_| PyTypeError::new_err("bumps must contain MarketBump objects"))?;
+            parsed.push(bump.inner.clone());
+        }
+        let (bumped, info) = self.inner.bump_observed(parsed).map_err(core_to_py)?;
+        let dict = mutation_info_to_dict(py, &info)?;
+        Ok((Self { inner: bumped }, dict))
     }
 
     #[pyo3(text_signature = "(self, curve)")]
@@ -849,6 +896,33 @@ impl PyMarketContext {
         Ok(Self { inner: rolled })
     }
 
+    #[pyo3(text_signature = "(self, days)")]
+    /// Roll the market context forward and return mutation info.
+    ///
+    /// Like :meth:`roll_forward`, but also returns a dictionary describing
+    /// any credit indices that were invalidated during the roll operation.
+    ///
+    /// Parameters
+    /// ----------
+    /// days : int
+    ///     Number of days to shift all curve base dates forward.
+    ///
+    /// Returns
+    /// -------
+    /// tuple[MarketContext, dict]
+    ///     A 2-tuple of ``(new_context, mutation_info)`` where ``mutation_info``
+    ///     is a dict with key ``"invalidated_credit_indices"`` containing a list
+    ///     of curve-id strings that were invalidated.
+    ///
+    /// See Also
+    /// --------
+    /// roll_forward : Roll forward without mutation tracking
+    fn roll_forward_observed(&self, py: Python<'_>, days: i64) -> PyResult<(Self, Py<PyAny>)> {
+        let (rolled, info) = self.inner.roll_forward_observed(days).map_err(core_to_py)?;
+        let dict = mutation_info_to_dict(py, &info)?;
+        Ok((Self { inner: rolled }, dict))
+    }
+
     #[pyo3(text_signature = "(self, id, new_curve)")]
     fn update_base_correlation_curve(
         &mut self,
@@ -1025,6 +1099,18 @@ impl PyMarketContext {
             stats.total_curves, stats.has_fx, stats.surface_count
         )
     }
+}
+
+/// Convert a [`ContextMutationInfo`] to a Python dictionary.
+fn mutation_info_to_dict(py: Python<'_>, info: &ContextMutationInfo) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    let ids: Vec<String> = info
+        .invalidated_credit_indices
+        .iter()
+        .map(|id| id.to_string())
+        .collect();
+    dict.set_item("invalidated_credit_indices", ids)?;
+    Ok(dict.into())
 }
 
 pub(crate) fn register<'py>(

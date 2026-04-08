@@ -35,9 +35,12 @@
 //! - `finstack.core.cashflow.irr_periodic` for evenly-spaced cashflows
 //! - `finstack.core.cashflow.npv` for present value calculations
 
+use crate::core::common::args::DayCountArg;
 use crate::core::dates::utils::py_to_date;
+use crate::core::dates::PyDayCount;
 use crate::errors::{core_to_py, PyContext};
 use finstack_core::cashflow::InternalRateOfReturn;
+use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
 use pyo3::Bound;
@@ -133,11 +136,353 @@ pub fn py_xirr(cash_flows: Vec<(Bound<'_, PyAny>, f64)>, guess: Option<f64>) -> 
     flows.irr(guess).map_err(core_to_py)
 }
 
-/// Register XIRR function with the Python module.
+/// Parse a day-count convention from Python input.
+///
+/// Accepts either a `DayCount` object or a string identifier.
+fn parse_day_count(dc: Bound<'_, PyAny>) -> PyResult<finstack_core::dates::DayCount> {
+    if let Ok(py_dc) = dc.extract::<PyRef<PyDayCount>>() {
+        return Ok(py_dc.inner);
+    }
+    if let Ok(DayCountArg(inner)) = dc.extract::<DayCountArg>() {
+        return Ok(inner);
+    }
+    Err(PyTypeError::new_err(
+        "day_count must be a DayCount or string identifier",
+    ))
+}
+
+/// Calculate XIRR with an explicit day-count convention for irregular cashflows.
+///
+/// Similar to :func:`xirr`, but allows specifying the day-count convention
+/// used to compute year fractions (e.g., Act/360, Act/365F, 30/360).
+///
+/// Parameters
+/// ----------
+/// cash_flows : list[tuple[datetime.date, float]]
+///     List of (date, amount) pairs in any order (will be sorted internally).
+/// day_count : DayCount or str
+///     Day-count convention for computing year fractions. Accepts a DayCount
+///     object or string identifier (e.g., "act365f", "act360", "30/360").
+/// guess : float, optional
+///     Initial guess for the IRR (default: 0.1 = 10%).
+///
+/// Returns
+/// -------
+/// float
+///     The XIRR as an annualized decimal.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If less than 2 cashflows provided, or no sign change in cashflows.
+/// RuntimeError
+///     If the solver cannot converge.
+///
+/// Examples
+/// --------
+/// >>> from datetime import date
+/// >>> from finstack.core.cashflow import xirr_with_daycount
+///
+/// >>> cash_flows = [
+/// ...     (date(2024, 1, 1), -100000.0),
+/// ...     (date(2025, 1, 1), 110000.0)
+/// ... ]
+/// >>> irr = xirr_with_daycount(cash_flows, "act360")
+///
+/// See Also
+/// --------
+/// xirr : XIRR with default Act/365F day count
+/// irr_periodic_with_daycount : Periodic IRR (day count is ignored for periodic flows)
+#[pyfunction(name = "xirr_with_daycount")]
+#[pyo3(
+    signature = (cash_flows, day_count, guess=None),
+    text_signature = "(cash_flows, day_count, guess=None)"
+)]
+pub fn py_xirr_with_daycount(
+    cash_flows: Vec<(Bound<'_, PyAny>, f64)>,
+    day_count: Bound<'_, PyAny>,
+    guess: Option<f64>,
+) -> PyResult<f64> {
+    let dc = parse_day_count(day_count)?;
+    let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
+    for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
+        let field = format!("cash_flows[{idx}].date");
+        let rust_date = py_to_date(&date).context(&field)?;
+        flows.push((rust_date, amount));
+    }
+    flows.irr_with_daycount(dc, guess).map_err(core_to_py)
+}
+
+/// Calculate periodic IRR with an explicit day-count convention.
+///
+/// For periodic (evenly-spaced) cashflows, the day count is ignored since periods
+/// are unitless integers. This function is provided for API symmetry with
+/// :func:`xirr_with_daycount`.
+///
+/// Parameters
+/// ----------
+/// amounts : list[float]
+///     List of cashflow amounts in chronological order.
+/// day_count : DayCount or str
+///     Day-count convention (ignored for periodic cashflows but accepted for
+///     API consistency).
+/// guess : float, optional
+///     Initial guess for the IRR (default: 0.1 = 10%).
+///
+/// Returns
+/// -------
+/// float
+///     The IRR as a decimal per period.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If less than 2 cashflows provided or no sign change.
+///
+/// See Also
+/// --------
+/// irr_periodic : Periodic IRR without day-count parameter
+/// xirr_with_daycount : XIRR with explicit day-count for dated cashflows
+#[pyfunction(name = "irr_periodic_with_daycount")]
+#[pyo3(
+    signature = (amounts, day_count, guess=None),
+    text_signature = "(amounts, day_count, guess=None)"
+)]
+pub fn py_irr_periodic_with_daycount(
+    amounts: Vec<f64>,
+    day_count: Bound<'_, PyAny>,
+    guess: Option<f64>,
+) -> PyResult<f64> {
+    let dc = parse_day_count(day_count)?;
+    amounts.irr_with_daycount(dc, guess).map_err(core_to_py)
+}
+
+/// Count sign changes in a numeric sequence.
+///
+/// Returns the number of times the sign changes between consecutive non-zero
+/// values. By Descartes' rule of signs, this bounds the number of positive
+/// real roots of the NPV polynomial, indicating potential multiple IRR solutions.
+///
+/// Parameters
+/// ----------
+/// values : list[float]
+///     Numeric sequence to analyze. Zero values are skipped.
+///
+/// Returns
+/// -------
+/// int
+///     Number of sign changes in the sequence.
+///
+/// Examples
+/// --------
+/// >>> from finstack.core.cashflow import count_sign_changes
+///
+/// >>> count_sign_changes([-100, 50, 50])
+/// 1
+/// >>> count_sign_changes([-100, 200, -150])
+/// 2
+/// >>> count_sign_changes([0, 0, 100])
+/// 0
+///
+/// Notes
+/// -----
+/// When the count exceeds 1, the cashflow pattern may admit multiple IRR
+/// solutions. Use :func:`irr_detailed` or :func:`xirr_detailed` to obtain
+/// root-ambiguity metadata alongside the computed rate.
+///
+/// See Also
+/// --------
+/// irr_detailed : IRR with root-ambiguity metadata
+/// xirr_detailed : XIRR with root-ambiguity metadata
+#[pyfunction(name = "count_sign_changes")]
+#[pyo3(signature = (values,), text_signature = "(values)")]
+pub fn py_count_sign_changes(values: Vec<f64>) -> usize {
+    finstack_core::cashflow::count_sign_changes(values.into_iter())
+}
+
+/// Extended result from IRR calculation with root-ambiguity metadata.
+///
+/// Contains the computed rate along with information about whether the
+/// cashflow pattern may admit multiple IRR solutions, based on the number
+/// of sign changes in the cashflow sequence (Descartes' rule of signs).
+///
+/// Attributes
+/// ----------
+/// rate : float
+///     The computed internal rate of return.
+/// sign_changes : int
+///     Number of sign changes in the cashflow sequence.
+/// multiple_roots_possible : bool
+///     Whether multiple roots are possible (sign_changes > 1).
+#[pyclass(
+    name = "IrrResult",
+    module = "finstack.core.cashflow",
+    frozen,
+    from_py_object
+)]
+#[derive(Clone, Debug)]
+pub struct PyIrrResult {
+    inner: finstack_core::cashflow::IrrResult,
+}
+
+#[pymethods]
+impl PyIrrResult {
+    #[getter]
+    /// The computed internal rate of return.
+    fn rate(&self) -> f64 {
+        self.inner.rate
+    }
+
+    #[getter]
+    /// Number of sign changes in the cashflow sequence.
+    fn sign_changes(&self) -> usize {
+        self.inner.sign_changes
+    }
+
+    #[getter]
+    /// Whether multiple roots are possible (sign_changes > 1).
+    fn multiple_roots_possible(&self) -> bool {
+        self.inner.multiple_roots_possible
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "IrrResult(rate={:.6}, sign_changes={}, multiple_roots_possible={})",
+            self.inner.rate, self.inner.sign_changes, self.inner.multiple_roots_possible
+        )
+    }
+}
+
+/// Calculate IRR for periodic cashflows with root-ambiguity metadata.
+///
+/// Returns the IRR alongside information about the number of sign changes
+/// in the cashflow sequence, which bounds the number of possible roots
+/// by Descartes' rule of signs.
+///
+/// Parameters
+/// ----------
+/// amounts : list[float]
+///     List of cashflow amounts in chronological order.
+/// guess : float, optional
+///     Initial guess for the IRR (default: 0.1 = 10%).
+///
+/// Returns
+/// -------
+/// IrrResult
+///     Result containing the rate, sign change count, and multiple-roots flag.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If less than 2 cashflows provided or no sign change.
+///
+/// Examples
+/// --------
+/// >>> from finstack.core.cashflow import irr_detailed
+///
+/// >>> result = irr_detailed([-100, 230, -132, 5])
+/// >>> result.rate  # the computed IRR
+/// >>> result.sign_changes  # >= 3 for this pattern
+/// >>> result.multiple_roots_possible  # True
+///
+/// See Also
+/// --------
+/// irr_periodic : Simple periodic IRR (rate only)
+/// xirr_detailed : XIRR with root-ambiguity metadata for dated flows
+#[pyfunction(name = "irr_detailed")]
+#[pyo3(signature = (amounts, guess=None), text_signature = "(amounts, guess=None)")]
+pub fn py_irr_detailed(amounts: Vec<f64>, guess: Option<f64>) -> PyResult<PyIrrResult> {
+    finstack_core::cashflow::irr_detailed(&amounts, guess)
+        .map(|inner| PyIrrResult { inner })
+        .map_err(core_to_py)
+}
+
+/// Calculate XIRR for dated cashflows with root-ambiguity metadata.
+///
+/// Returns the XIRR alongside information about the number of sign changes
+/// in the cashflow sequence, which bounds the number of possible roots
+/// by Descartes' rule of signs.
+///
+/// Parameters
+/// ----------
+/// cash_flows : list[tuple[datetime.date, float]]
+///     List of (date, amount) pairs in any order (will be sorted internally).
+/// day_count : DayCount or str
+///     Day-count convention for computing year fractions.
+/// guess : float, optional
+///     Initial guess for the IRR (default: 0.1 = 10%).
+///
+/// Returns
+/// -------
+/// IrrResult
+///     Result containing the rate, sign change count, and multiple-roots flag.
+///
+/// Raises
+/// ------
+/// ValueError
+///     If less than 2 cashflows provided, no sign change, or day count error.
+///
+/// Examples
+/// --------
+/// >>> from datetime import date
+/// >>> from finstack.core.cashflow import xirr_detailed
+///
+/// >>> cash_flows = [
+/// ...     (date(2024, 1, 1), -100000.0),
+/// ...     (date(2025, 1, 1), 110000.0)
+/// ... ]
+/// >>> result = xirr_detailed(cash_flows, "act365f")
+/// >>> result.rate
+/// >>> result.sign_changes
+/// 1
+/// >>> result.multiple_roots_possible
+/// False
+///
+/// See Also
+/// --------
+/// xirr : Simple XIRR (rate only)
+/// irr_detailed : Periodic IRR with root-ambiguity metadata
+#[pyfunction(name = "xirr_detailed")]
+#[pyo3(
+    signature = (cash_flows, day_count, guess=None),
+    text_signature = "(cash_flows, day_count, guess=None)"
+)]
+pub fn py_xirr_detailed(
+    cash_flows: Vec<(Bound<'_, PyAny>, f64)>,
+    day_count: Bound<'_, PyAny>,
+    guess: Option<f64>,
+) -> PyResult<PyIrrResult> {
+    let dc = parse_day_count(day_count)?;
+    let mut flows: Vec<(finstack_core::dates::Date, f64)> = Vec::with_capacity(cash_flows.len());
+    for (idx, (date, amount)) in cash_flows.into_iter().enumerate() {
+        let field = format!("cash_flows[{idx}].date");
+        let rust_date = py_to_date(&date).context(&field)?;
+        flows.push((rust_date, amount));
+    }
+    finstack_core::cashflow::xirr_detailed(&flows, dc, guess)
+        .map(|inner| PyIrrResult { inner })
+        .map_err(core_to_py)
+}
+
+/// Register XIRR functions with the Python module.
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_function(wrap_pyfunction!(py_xirr, module)?)?;
-    Ok(vec!["xirr"])
+    module.add_function(wrap_pyfunction!(py_xirr_with_daycount, module)?)?;
+    module.add_function(wrap_pyfunction!(py_irr_periodic_with_daycount, module)?)?;
+    module.add_function(wrap_pyfunction!(py_count_sign_changes, module)?)?;
+    module.add_function(wrap_pyfunction!(py_irr_detailed, module)?)?;
+    module.add_function(wrap_pyfunction!(py_xirr_detailed, module)?)?;
+    module.add_class::<PyIrrResult>()?;
+    Ok(vec![
+        "xirr",
+        "xirr_with_daycount",
+        "irr_periodic_with_daycount",
+        "count_sign_changes",
+        "irr_detailed",
+        "xirr_detailed",
+        "IrrResult",
+    ])
 }

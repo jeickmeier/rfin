@@ -4,7 +4,7 @@ use crate::core::dates::utils::{date_to_py, py_to_date};
 use crate::errors::{calendar_not_found, core_to_py, unknown_business_day_convention, PyContext};
 use finstack_core::dates::{
     self, adjust as core_adjust, BusinessDayConvention, CalendarMetadata, CalendarRegistry,
-    HolidayCalendar,
+    CompositeCalendar, CompositeMode, HolidayCalendar,
 };
 use pyo3::basic::CompareOp;
 use pyo3::exceptions::{PyTypeError, PyValueError};
@@ -315,12 +315,128 @@ pub(crate) fn get_calendar_py(code: &str) -> PyResult<PyCalendar> {
     resolve_calendar(registry, code)
 }
 
+/// Composite holiday calendar combining multiple market calendars.
+///
+/// Allows combining multiple :class:`Calendar` instances into a single
+/// logical calendar using union or intersection semantics. Useful for
+/// multi-market instruments or cross-currency derivatives.
+///
+/// Parameters
+/// ----------
+/// calendars : list[Calendar or str]
+///     Calendars to combine (accepts Calendar instances or registry codes).
+/// mode : str, optional
+///     Combination mode: ``"union"`` (default) or ``"intersection"``.
+///     - **union**: Holiday if ANY sub-calendar is closed (use for settlement
+///       requiring ALL markets open).
+///     - **intersection**: Holiday only if ALL sub-calendars are closed (use
+///       for settlement when ANY market is open).
+///
+/// Examples
+/// --------
+/// >>> from datetime import date
+/// >>> from finstack.core.dates import CompositeCalendar, get_calendar
+///
+/// >>> # Cross-currency swap: closed when either market is closed
+/// >>> cal = CompositeCalendar(["target2", "gblo"], mode="union")
+/// >>> cal.is_holiday(date(2025, 5, 26))  # UK bank holiday
+/// True
+///
+/// >>> # Multi-listed: only closed when all markets are closed
+/// >>> cal = CompositeCalendar(["target2", "gblo"], mode="intersection")
+/// >>> cal.is_holiday(date(2025, 5, 26))
+/// False
+#[pyclass(
+    name = "CompositeCalendar",
+    module = "finstack.core.dates",
+    unsendable,
+    from_py_object
+)]
+#[derive(Clone)]
+pub struct PyCompositeCalendar {
+    calendars: Vec<&'static dyn HolidayCalendar>,
+    mode: CompositeMode,
+}
+
+#[pymethods]
+impl PyCompositeCalendar {
+    #[new]
+    #[pyo3(signature = (calendars, mode=None), text_signature = "(calendars, mode=None)")]
+    fn new(calendars: Vec<Bound<'_, PyAny>>, mode: Option<&str>) -> PyResult<Self> {
+        let composite_mode = match mode.unwrap_or("union") {
+            "union" => CompositeMode::Union,
+            "intersection" => CompositeMode::Intersection,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "Unknown composite mode: '{}'. Expected 'union' or 'intersection'.",
+                    other
+                )));
+            }
+        };
+
+        let mut resolved = Vec::with_capacity(calendars.len());
+        for (idx, cal_any) in calendars.iter().enumerate() {
+            let py_cal = extract_calendar(cal_any)
+                .map_err(|e| PyValueError::new_err(format!("calendars[{idx}]: {e}")))?;
+            resolved.push(py_cal.inner);
+        }
+
+        Ok(Self {
+            calendars: resolved,
+            mode: composite_mode,
+        })
+    }
+
+    #[pyo3(text_signature = "(self, date)")]
+    /// Return ``True`` if the provided date is a business day in the composite calendar.
+    fn is_business_day(&self, date: Bound<'_, PyAny>) -> PyResult<bool> {
+        let d = py_to_date(&date).context("date")?;
+        let refs: Vec<&dyn HolidayCalendar> = self.calendars.iter().copied().collect();
+        let composite = CompositeCalendar::with_mode(&refs, self.mode);
+        Ok(composite.is_business_day(d))
+    }
+
+    #[pyo3(text_signature = "(self, date)")]
+    /// Return ``True`` if the provided date is a holiday in the composite calendar.
+    fn is_holiday(&self, date: Bound<'_, PyAny>) -> PyResult<bool> {
+        let d = py_to_date(&date).context("date")?;
+        let refs: Vec<&dyn HolidayCalendar> = self.calendars.iter().copied().collect();
+        let composite = CompositeCalendar::with_mode(&refs, self.mode);
+        Ok(composite.is_holiday(d))
+    }
+
+    #[getter]
+    /// The composite mode: ``"union"`` or ``"intersection"``.
+    fn mode(&self) -> &'static str {
+        match self.mode {
+            CompositeMode::Union => "union",
+            CompositeMode::Intersection => "intersection",
+            _ => "unknown",
+        }
+    }
+
+    #[getter]
+    /// Number of constituent calendars.
+    fn count(&self) -> usize {
+        self.calendars.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "CompositeCalendar(count={}, mode='{}')",
+            self.calendars.len(),
+            self.mode()
+        )
+    }
+}
+
 pub(crate) fn register<'py>(
     _py: Python<'py>,
     module: &Bound<'py, PyModule>,
 ) -> PyResult<Vec<&'static str>> {
     module.add_class::<PyBusinessDayConvention>()?;
     module.add_class::<PyCalendar>()?;
+    module.add_class::<PyCompositeCalendar>()?;
     module.add_function(wrap_pyfunction!(adjust_py, module)?)?;
     module.add_function(wrap_pyfunction!(available_calendars_py, module)?)?;
     module.add_function(wrap_pyfunction!(available_calendar_codes_py, module)?)?;
@@ -328,6 +444,7 @@ pub(crate) fn register<'py>(
     let exports = [
         "BusinessDayConvention",
         "Calendar",
+        "CompositeCalendar",
         "adjust",
         "available_calendars",
         "available_calendar_codes",

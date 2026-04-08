@@ -8,7 +8,9 @@
 use crate::core::common::pycmp::richcmp_eq_ne;
 use crate::errors::core_to_py;
 use finstack_core::types::moodys_warf_factor;
-use finstack_core::types::{Bps, CurveId, IndexId, InstrumentId, PriceId, Rate, UnderlyingId};
+use finstack_core::types::{
+    Bps, CalendarId, CurveId, DealId, IndexId, InstrumentId, PoolId, PriceId, Rate, UnderlyingId,
+};
 use finstack_core::types::{
     CreditRating, NotchedRating, RatingFactorTable, RatingLabel, RatingNotch,
 };
@@ -80,17 +82,33 @@ macro_rules! declare_id_type {
                 (self.inner.to_string(),)
             }
 
+            fn is_empty(&self) -> bool {
+                self.inner.as_str().is_empty()
+            }
+
+            fn __len__(&self) -> usize {
+                self.inner.as_str().len()
+            }
+
             fn __richcmp__(
                 &self,
                 other: Bound<'_, PyAny>,
                 op: CompareOp,
                 py: Python<'_>,
             ) -> PyResult<Py<PyAny>> {
-                let rhs = match other.extract::<PyRef<$rust_wrapper>>() {
-                    Ok(id) => Some(id.inner.clone()),
-                    Err(_) => None,
-                };
-                richcmp_eq_ne(py, &self.inner, rhs, op)
+                if let Ok(rhs) = other.extract::<PyRef<$rust_wrapper>>() {
+                    let result = match op {
+                        CompareOp::Lt => self.inner < rhs.inner,
+                        CompareOp::Le => self.inner <= rhs.inner,
+                        CompareOp::Eq => self.inner == rhs.inner,
+                        CompareOp::Ne => self.inner != rhs.inner,
+                        CompareOp::Gt => self.inner > rhs.inner,
+                        CompareOp::Ge => self.inner >= rhs.inner,
+                    };
+                    let py_bool = result.into_bound_py_any(py)?;
+                    return Ok(py_bool.into());
+                }
+                Ok(py.NotImplemented())
             }
         }
     };
@@ -126,6 +144,21 @@ declare_id_type! {
     "UnderlyingId", PyUnderlyingId, UnderlyingId
 }
 
+declare_id_type! {
+    /// Type-safe identifier for holiday calendars.
+    "CalendarId", PyCalendarId, CalendarId
+}
+
+declare_id_type! {
+    /// Type-safe identifier for securitization pools.
+    "PoolId", PyPoolId, PoolId
+}
+
+declare_id_type! {
+    /// Type-safe identifier for deals.
+    "DealId", PyDealId, DealId
+}
+
 // ============================================================================
 // Rate Types
 // ============================================================================
@@ -155,6 +188,9 @@ impl PyRate {
 
 #[pymethods]
 impl PyRate {
+    #[classattr]
+    const ZERO: Self = Self { inner: Rate::ZERO };
+
     #[new]
     #[pyo3(text_signature = "(decimal)")]
     /// Create a rate from a decimal value (0.05 = 5%).
@@ -210,6 +246,26 @@ impl PyRate {
     /// Get the rate as basis points (rounded to nearest integer).
     fn as_bps(&self) -> i32 {
         self.inner.as_bps()
+    }
+
+    /// Return ``True`` if the rate is exactly zero.
+    fn is_zero(&self) -> bool {
+        self.inner.is_zero()
+    }
+
+    /// Return ``True`` if the rate is strictly positive.
+    fn is_positive(&self) -> bool {
+        self.inner.is_positive()
+    }
+
+    /// Return ``True`` if the rate is strictly negative.
+    fn is_negative(&self) -> bool {
+        self.inner.is_negative()
+    }
+
+    /// Return the absolute value of the rate.
+    fn __abs__(&self) -> Self {
+        Self::new(self.inner.abs())
     }
 
     fn __repr__(&self) -> String {
@@ -335,6 +391,9 @@ impl PyBps {
 
 #[pymethods]
 impl PyBps {
+    #[classattr]
+    const ZERO: Self = Self { inner: Bps::ZERO };
+
     #[new]
     #[pyo3(text_signature = "(bps)")]
     fn ctor(bps: i32) -> Self {
@@ -363,6 +422,26 @@ impl PyBps {
     /// Convert to Rate.
     fn as_rate(&self) -> PyRate {
         PyRate::new(self.inner.as_rate())
+    }
+
+    /// Return ``True`` if the basis points value is zero.
+    fn is_zero(&self) -> bool {
+        self.inner.is_zero()
+    }
+
+    /// Return ``True`` if the basis points value is positive.
+    fn is_positive(&self) -> bool {
+        self.inner.is_positive()
+    }
+
+    /// Return ``True`` if the basis points value is negative.
+    fn is_negative(&self) -> bool {
+        self.inner.is_negative()
+    }
+
+    /// Return the absolute value.
+    fn __abs__(&self) -> Self {
+        Self::new(self.inner.abs())
     }
 
     fn __repr__(&self) -> String {
@@ -457,6 +536,11 @@ impl PyPercentage {
 
 #[pymethods]
 impl PyPercentage {
+    #[classattr]
+    const ZERO: Self = Self {
+        inner: finstack_core::types::Percentage::ZERO,
+    };
+
     #[new]
     #[pyo3(text_signature = "(percent)")]
     fn ctor(percent: f64) -> PyResult<Self> {
@@ -487,6 +571,26 @@ impl PyPercentage {
     /// Convert to basis points.
     fn as_bps(&self) -> i32 {
         self.inner.as_bps()
+    }
+
+    /// Return ``True`` if the percentage is zero.
+    fn is_zero(&self) -> bool {
+        self.inner.is_zero()
+    }
+
+    /// Return ``True`` if the percentage is positive.
+    fn is_positive(&self) -> bool {
+        self.inner.is_positive()
+    }
+
+    /// Return ``True`` if the percentage is negative.
+    fn is_negative(&self) -> bool {
+        self.inner.is_negative()
+    }
+
+    /// Return the absolute value.
+    fn __abs__(&self) -> Self {
+        Self::new(self.inner.abs())
     }
 
     fn __repr__(&self) -> String {
@@ -618,6 +722,11 @@ impl PyRatingNotch {
         self.inner as isize
     }
 
+    /// Deconstruct into ``(symbol,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (&'static str,) {
+        (self.inner.symbol(),)
+    }
+
     fn __richcmp__(
         &self,
         other: Bound<'_, PyAny>,
@@ -710,6 +819,16 @@ impl PyCreditRating {
         self.inner.is_default()
     }
 
+    /// Return ``True`` if the rating supports notch modifiers (+/-).
+    fn supports_notches(&self) -> bool {
+        self.inner.supports_notches()
+    }
+
+    /// Deconstruct into ``(name,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (String,) {
+        (self.inner.to_string(),)
+    }
+
     fn __repr__(&self) -> String {
         format!("CreditRating('{}')", self.inner)
     }
@@ -728,11 +847,19 @@ impl PyCreditRating {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = other
-            .extract::<PyRef<PyCreditRating>>()
-            .ok()
-            .map(|v| v.inner);
-        richcmp_eq_ne(py, &self.inner, rhs, op)
+        if let Ok(rhs) = other.extract::<PyRef<PyCreditRating>>() {
+            let result = match op {
+                CompareOp::Lt => self.inner < rhs.inner,
+                CompareOp::Le => self.inner <= rhs.inner,
+                CompareOp::Eq => self.inner == rhs.inner,
+                CompareOp::Ne => self.inner != rhs.inner,
+                CompareOp::Gt => self.inner > rhs.inner,
+                CompareOp::Ge => self.inner >= rhs.inner,
+            };
+            let py_bool = result.into_bound_py_any(py)?;
+            return Ok(py_bool.into());
+        }
+        Ok(py.NotImplemented())
     }
 }
 
@@ -809,6 +936,18 @@ impl PyNotchedRating {
         self.inner.to_moodys_string()
     }
 
+    /// Return the generic (S&P-style) string representation.
+    #[pyo3(text_signature = "(self)")]
+    fn generic(&self) -> String {
+        // Display impl uses the generic (S&P/Fitch) format.
+        self.inner.to_string()
+    }
+
+    /// Deconstruct into ``(str,)`` tuple (used by pickle).
+    fn __getnewargs__(&self) -> (String,) {
+        (self.inner.to_string(),)
+    }
+
     fn __repr__(&self) -> String {
         format!("NotchedRating('{}')", self.inner)
     }
@@ -830,11 +969,19 @@ impl PyNotchedRating {
         op: CompareOp,
         py: Python<'_>,
     ) -> PyResult<Py<PyAny>> {
-        let rhs = other
-            .extract::<PyRef<PyNotchedRating>>()
-            .ok()
-            .map(|v| v.inner);
-        richcmp_eq_ne(py, &self.inner, rhs, op)
+        if let Ok(rhs) = other.extract::<PyRef<PyNotchedRating>>() {
+            let result = match op {
+                CompareOp::Lt => self.inner < rhs.inner,
+                CompareOp::Le => self.inner <= rhs.inner,
+                CompareOp::Eq => self.inner == rhs.inner,
+                CompareOp::Ne => self.inner != rhs.inner,
+                CompareOp::Gt => self.inner > rhs.inner,
+                CompareOp::Ge => self.inner >= rhs.inner,
+            };
+            let py_bool = result.into_bound_py_any(py)?;
+            return Ok(py_bool.into());
+        }
+        Ok(py.NotImplemented())
     }
 }
 
@@ -911,6 +1058,7 @@ impl PyRatingLabel {
 #[pyclass(
     name = "RatingFactorTable",
     module = "finstack.core.types",
+    frozen,
     from_py_object
 )]
 #[derive(Clone, Debug)]
@@ -936,6 +1084,13 @@ impl PyRatingFactorTable {
     fn get_factor(&self, rating: Bound<'_, PyAny>) -> PyResult<f64> {
         let rating = extract_notched_rating(&rating)?;
         self.inner.get_factor(rating).map_err(core_to_py)
+    }
+
+    /// Get the factor for a rating, falling back to the default factor.
+    #[pyo3(text_signature = "(self, rating)")]
+    fn get_factor_or_default(&self, rating: Bound<'_, PyAny>) -> PyResult<f64> {
+        let rating = extract_notched_rating(&rating)?;
+        Ok(self.inner.get_factor_or_default(rating))
     }
 
     #[getter]
@@ -1004,6 +1159,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
     module.add_class::<PyIndexId>()?;
     module.add_class::<PyPriceId>()?;
     module.add_class::<PyUnderlyingId>()?;
+    module.add_class::<PyCalendarId>()?;
+    module.add_class::<PyPoolId>()?;
+    module.add_class::<PyDealId>()?;
 
     // Register rate types
     module.add_class::<PyRate>()?;
@@ -1022,6 +1180,9 @@ pub(crate) fn register<'py>(py: Python<'py>, parent: &Bound<'py, PyModule>) -> P
         "IndexId",
         "PriceId",
         "UnderlyingId",
+        "CalendarId",
+        "PoolId",
+        "DealId",
         "Rate",
         "Bps",
         "Percentage",

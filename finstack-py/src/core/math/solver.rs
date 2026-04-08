@@ -195,6 +195,31 @@ impl PyNewtonSolver {
         self.inner.fd_step = value;
     }
 
+    #[getter]
+    /// Minimum absolute derivative threshold.
+    ///
+    /// Newton steps are rejected when the estimated derivative falls below
+    /// this absolute guard, preventing division-by-near-zero divergence.
+    ///
+    /// Returns:
+    ///     float: Absolute minimum derivative threshold.
+    pub fn min_derivative(&self) -> f64 {
+        self.inner.min_derivative
+    }
+
+    #[getter]
+    /// Relative minimum derivative threshold.
+    ///
+    /// The derivative must satisfy ``|f'(x)| >= min_derivative_rel * |f(x)|``
+    /// in addition to the absolute guard. This prevents steps that are
+    /// unreasonably large relative to the function value.
+    ///
+    /// Returns:
+    ///     float: Relative minimum derivative threshold.
+    pub fn min_derivative_rel(&self) -> f64 {
+        self.inner.min_derivative_rel
+    }
+
     #[pyo3(text_signature = "($self, func, initial_guess)")]
     /// Solve `func(x) = 0` starting from `initial_guess`.
     ///
@@ -376,6 +401,18 @@ impl PyBrentSolver {
     ///     value (float | None): Half-width to apply; ``None`` reverts to adaptive selection.
     pub fn set_initial_bracket_size(&mut self, value: Option<f64>) {
         self.inner.initial_bracket_size = value;
+    }
+
+    #[getter]
+    /// Hard bounds ``(min, max)`` for the bracket search.
+    ///
+    /// These limit the domain explored during bracket discovery.
+    /// Default is ``(-1e6, 1e6)``.
+    ///
+    /// Returns:
+    ///     tuple[float, float]: ``(bracket_min, bracket_max)`` bounds.
+    pub fn bracket_bounds(&self) -> (f64, f64) {
+        (self.inner.bracket_min, self.inner.bracket_max)
     }
 
     #[pyo3(text_signature = "($self, hint)")]

@@ -137,6 +137,8 @@ impl PyCFKind {
             CFKind::MarginInterest => "margin_interest",
             CFKind::CollateralSubstitutionIn => "collateral_substitution_in",
             CFKind::CollateralSubstitutionOut => "collateral_substitution_out",
+            CFKind::InflationCoupon => "inflation_coupon",
+            CFKind::AccruedOnDefault => "accrued_on_default",
             _ => "unknown",
         }
     }
@@ -166,6 +168,8 @@ impl PyCFKind {
             "margin_interest" => Some(CFKind::MarginInterest),
             "collateral_substitution_in" => Some(CFKind::CollateralSubstitutionIn),
             "collateral_substitution_out" => Some(CFKind::CollateralSubstitutionOut),
+            "inflation_coupon" => Some(CFKind::InflationCoupon),
+            "accrued_on_default" => Some(CFKind::AccruedOnDefault),
             _ => None,
         }
     }
@@ -217,6 +221,10 @@ impl PyCFKind {
     const COLLATERAL_SUBSTITUTION_IN: Self = Self::new(CFKind::CollateralSubstitutionIn);
     #[classattr]
     const COLLATERAL_SUBSTITUTION_OUT: Self = Self::new(CFKind::CollateralSubstitutionOut);
+    #[classattr]
+    const INFLATION_COUPON: Self = Self::new(CFKind::InflationCoupon);
+    #[classattr]
+    const ACCRUED_ON_DEFAULT: Self = Self::new(CFKind::AccruedOnDefault);
 
     #[classmethod]
     #[pyo3(text_signature = "(cls, name)")]
@@ -244,6 +252,12 @@ impl PyCFKind {
     #[getter]
     pub fn name(&self) -> &'static str {
         self.label()
+    }
+
+    /// Return ``True`` for interest-like flow types (fixed, float, inflation coupon, stub).
+    #[pyo3(text_signature = "(self)")]
+    pub fn is_interest_like(&self) -> bool {
+        self.inner.is_interest_like()
     }
 
     fn __repr__(&self) -> String {
@@ -359,7 +373,7 @@ impl PyCashFlow {
 #[pymethods]
 impl PyCashFlow {
     #[new]
-    #[pyo3(signature = (date, amount, kind, accrual_factor=0.0, reset_date=None))]
+    #[pyo3(signature = (date, amount, kind, accrual_factor=0.0, reset_date=None, rate=None))]
     /// Create a new cashflow.
     ///
     /// Parameters
@@ -397,6 +411,7 @@ impl PyCashFlow {
         kind: &Bound<'_, PyAny>,
         accrual_factor: f64,
         reset_date: Option<&Bound<'_, PyAny>>,
+        rate: Option<f64>,
     ) -> PyResult<Self> {
         let date = py_to_date(date).context("date")?;
         let amount = extract_money(amount).context("amount")?;
@@ -412,7 +427,7 @@ impl PyCashFlow {
                 kind,
                 accrual_factor,
                 reset_date,
-                rate: None,
+                rate,
             },
         })
     }
@@ -474,6 +489,17 @@ impl PyCashFlow {
             Some(value) => Ok(Some(date_to_py(py, value)?)),
             None => Ok(None),
         }
+    }
+
+    #[getter]
+    /// Effective rate on the cash-flow (e.g. coupon rate).
+    ///
+    /// Returns
+    /// -------
+    /// float or None
+    ///     Rate when available.
+    pub fn rate(&self) -> Option<f64> {
+        self.inner.rate
     }
 
     #[getter]

@@ -70,6 +70,37 @@ impl PyMoney {
     }
 
     #[classmethod]
+    #[pyo3(text_signature = "(cls, amount, currency)")]
+    /// Create a money amount, validating that the amount is finite.
+    ///
+    /// Parameters
+    /// ----------
+    /// amount : float
+    ///     Numeric value. Must be finite (not NaN or infinity).
+    /// currency : Currency or str
+    ///     ISO code or :class:`Currency` instance.
+    ///
+    /// Returns
+    /// -------
+    /// Money
+    ///     Money instance.
+    ///
+    /// Raises
+    /// ------
+    /// ParameterError
+    ///     If the amount is non-finite.
+    fn try_new(
+        _cls: &Bound<'_, PyType>,
+        amount: f64,
+        currency: Bound<'_, PyAny>,
+    ) -> PyResult<Self> {
+        let ccy = extract_currency(&currency).context("currency")?;
+        Money::try_new(amount, ccy)
+            .map(Self::new)
+            .map_err(core_to_py)
+    }
+
+    #[classmethod]
     #[pyo3(text_signature = "(cls, amount, currency, config)")]
     /// Construct a money value using a configuration for ingest rounding.
     ///
@@ -428,26 +459,37 @@ impl PyMoney {
     }
 
     /// Scale this amount by a floating-point factor.
-    fn __mul__(&self, factor: f64) -> Self {
-        Self::new(self.inner * factor)
+    ///
+    /// Raises
+    /// ------
+    /// ParameterError
+    ///     If the result is non-finite.
+    fn __mul__(&self, factor: f64) -> PyResult<Self> {
+        self.inner
+            .checked_mul_f64(factor)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Support scalar * money multiplication.
-    fn __rmul__(&self, factor: f64) -> Self {
-        Self::new(self.inner * factor)
+    fn __rmul__(&self, factor: f64) -> PyResult<Self> {
+        self.inner
+            .checked_mul_f64(factor)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Divide by a scalar, raising on zero divisors.
     ///
     /// Raises
     /// ------
-    /// ValueError
-    ///     If ``divisor`` is zero.
+    /// ParameterError
+    ///     If ``divisor`` is zero or the result is non-finite.
     fn __truediv__(&self, divisor: f64) -> PyResult<Self> {
-        if divisor == 0.0 {
-            return Err(PyValueError::new_err("Cannot divide by zero"));
-        }
-        Ok(Self::new(self.inner / divisor))
+        self.inner
+            .checked_div_f64(divisor)
+            .map(Self::new)
+            .map_err(core_to_py)
     }
 
     /// Prevent scalar / money operations which have no meaning.
